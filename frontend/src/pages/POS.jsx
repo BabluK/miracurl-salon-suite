@@ -79,7 +79,6 @@ export default function POS() {
   const [cart, setCart] = useState([]);
   const [customerId, setCustomerId] = useState("");
   const [staffId, setStaffId] = useState("");
-  const [discount, setDiscount] = useState(0);
   const [taxPct] = useState(18);
   const [payment, setPayment] = useState("cash");
   const [lastInvoice, setLastInvoice] = useState(null);
@@ -87,7 +86,9 @@ export default function POS() {
   const [orderNotes, setOrderNotes] = useState("");
 
   const loadCustomers = useCallback(() => {
-    api.get("/customers").then(r => setCustomers(r.data));
+    api.get("/customers")
+      .then(r => setCustomers(r.data))
+      .catch(e => toast.error(`Couldn't load guests: ${e?.message || "network error"}`));
   }, []);
 
   useEffect(() => {
@@ -133,13 +134,13 @@ export default function POS() {
   const lineDiscount = useMemo(() =>
     cart.reduce((s, c) => s + (c.qty * c.price) * ((c.disc_pct || 0) / 100), 0),
   [cart]);
-  const totalDiscount = lineDiscount + Number(discount || 0);
+  const totalDiscount = lineDiscount;
   const taxable = Math.max(0, subtotal - totalDiscount);
   const tax = taxable * taxPct / 100;
   const total = taxable + tax;
 
   function clearAll() {
-    setCart([]); setDiscount(0); setOrderNotes(""); setStaffId("");
+    setCart([]); setOrderNotes(""); setStaffId("");
     setCustomerId(""); setPayment("cash");
   }
 
