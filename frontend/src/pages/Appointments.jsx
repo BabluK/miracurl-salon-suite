@@ -117,53 +117,53 @@ export default function Appointments() {
   }, [weekData]);
 
   return (
-    <div className="space-y-6">
+    <div className="bg-slate-50 -mx-6 -my-6 px-6 py-6 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="font-playfair text-3xl">Appointments</h1>
-          <p className="text-ink-secondary text-sm mt-1">Schedule, track and complete bookings.</p>
+          <p className="text-slate-500 text-sm mt-1">Schedule, track and complete bookings.</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {/* View toggle */}
-          <div className="flex gap-1 bg-bg-base rounded-lg p-1 border border-white/5">
-            <button data-testid="appt-view-list" onClick={() => setView("list")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "list" ? "bg-gold text-bg-base font-semibold" : "text-ink-secondary hover:text-white"}`}>
+          <div className="flex gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100">
+            <button data-testid="appt-view-list" onClick={() => setView("list")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "list" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}>
               <ListIcon className="w-3.5 h-3.5" /> List
             </button>
-            <button data-testid="appt-view-week" onClick={() => setView("week")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "week" ? "bg-gold text-bg-base font-semibold" : "text-ink-secondary hover:text-white"}`}>
+            <button data-testid="appt-view-week" onClick={() => setView("week")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "week" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}>
               <LayoutGrid className="w-3.5 h-3.5" /> Week
             </button>
           </div>
           {view === "list" ? (
             <div className="relative">
-              <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none" />
-              <input type="date" data-testid="appt-date-filter" className="input-luxe pl-10" value={date} onChange={e => setDate(e.target.value)} />
+              <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input type="date" data-testid="appt-date-filter" className="input-light pl-10" value={date} onChange={e => setDate(e.target.value)} />
             </div>
           ) : (
             <div className="flex items-center gap-1">
-              <button data-testid="appt-week-prev" onClick={() => shiftWeek(-7)} className="p-2 rounded-md hover:bg-white/5 border border-white/10"><ChevronLeft className="w-4 h-4" /></button>
-              <span className="text-sm text-ink-secondary px-3 font-mono">{weekRange}</span>
-              <button data-testid="appt-week-next" onClick={() => shiftWeek(7)} className="p-2 rounded-md hover:bg-white/5 border border-white/10"><ChevronRight className="w-4 h-4" /></button>
+              <button data-testid="appt-week-prev" onClick={() => shiftWeek(-7)} className="p-2 rounded-md hover:bg-slate-50 border border-slate-200"><ChevronLeft className="w-4 h-4" /></button>
+              <span className="text-sm text-slate-500 px-3 font-mono">{weekRange}</span>
+              <button data-testid="appt-week-next" onClick={() => shiftWeek(7)} className="p-2 rounded-md hover:bg-slate-50 border border-slate-200"><ChevronRight className="w-4 h-4" /></button>
             </div>
           )}
-          <button data-testid="add-appointment-btn" onClick={startNew} className="btn-gold flex items-center gap-2"><Plus className="w-4 h-4" /> New Booking</button>
+          <button data-testid="add-appointment-btn" onClick={startNew} className="btn-blue flex items-center gap-2"><Plus className="w-4 h-4" /> New Booking</button>
         </div>
       </div>
 
       {view === "list" && (
-        <div className="card-luxe p-0 overflow-hidden">
-          <table className="luxe-table">
+        <div className="card-light p-0 overflow-hidden">
+          <table className="luxe-table-light">
             <thead><tr><th>Time</th><th>Customer</th><th>Services</th><th>Stylist</th><th>Total</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {list.map(a => (
                 <tr key={a.id} data-testid={`appt-row-${a.id}`}>
                   <td>
-                    <div className="font-mono text-gold">{new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                    <div className="text-[10px] text-ink-muted">{a.duration_min} min</div>
+                    <div className="font-mono text-sky-600">{new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div className="text-[10px] text-slate-400">{a.duration_min} min</div>
                   </td>
                   <td className="font-medium">{a.customer_name}</td>
-                  <td className="text-sm text-ink-secondary">{a.service_names.join(", ")}</td>
+                  <td className="text-sm text-slate-500">{a.service_names.join(", ")}</td>
                   <td className="text-sm">{a.staff_name}</td>
-                  <td className="text-gold font-medium">₹{a.total}</td>
+                  <td className="text-sky-600 font-medium">₹{a.total}</td>
                   <td>
                     <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded border ${STATUS_COLOR[a.status]}`}>{a.status.replace('_', ' ')}</span>
                   </td>
@@ -176,14 +176,14 @@ export default function Appointments() {
                         </>
                       )}
                       {a.status === "completed" && (
-                        <button data-testid={`send-review-${a.id}`} onClick={() => sendReviewLink(a)} className="p-1.5 text-gold hover:bg-gold/10 rounded" title="Send review link via WhatsApp"><MessageSquare className="w-4 h-4" /></button>
+                        <button data-testid={`send-review-${a.id}`} onClick={() => sendReviewLink(a)} className="p-1.5 text-sky-600 hover:bg-sky-50 rounded" title="Send review link via WhatsApp"><MessageSquare className="w-4 h-4" /></button>
                       )}
-                      <button onClick={() => remove(a.id)} data-testid={`delete-appt-${a.id}`} className="p-1.5 text-ink-muted hover:text-red-400 hover:bg-red-500/5 rounded text-xs">×</button>
+                      <button onClick={() => remove(a.id)} data-testid={`delete-appt-${a.id}`} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded text-xs">×</button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {list.length === 0 && <tr><td colSpan="7" className="text-center text-ink-secondary py-12"><Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />No appointments on {date}</td></tr>}
+              {list.length === 0 && <tr><td colSpan="7" className="text-center text-slate-500 py-12"><Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />No appointments on {date}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -195,29 +195,29 @@ export default function Appointments() {
             const d = new Date(day.date + "T00:00:00");
             const isToday = day.date === new Date().toISOString().slice(0, 10);
             return (
-              <div key={day.date} data-testid={`week-col-${day.date}`} className={`card-luxe p-0 overflow-hidden min-h-[280px] ${isToday ? "border-gold/40 ring-1 ring-gold/20" : ""}`}>
-                <div className={`px-3 py-2 border-b border-white/5 ${isToday ? "bg-gold/10" : "bg-bg-base/40"}`}>
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-ink-secondary">{d.toLocaleDateString(undefined, { weekday: "short" })}</div>
-                  <div className={`font-playfair text-2xl ${isToday ? "text-gold" : ""}`}>{d.getDate()}</div>
-                  <div className="text-[10px] text-ink-muted">{day.items.length} bookings</div>
+              <div key={day.date} data-testid={`week-col-${day.date}`} className={`card-light p-0 overflow-hidden min-h-[280px] ${isToday ? "border-sky-400 ring-1 ring-sky-200" : ""}`}>
+                <div className={`px-3 py-2 border-b border-slate-100 ${isToday ? "bg-sky-50" : "bg-slate-50/40"}`}>
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">{d.toLocaleDateString(undefined, { weekday: "short" })}</div>
+                  <div className={`font-playfair text-2xl ${isToday ? "text-sky-600" : ""}`}>{d.getDate()}</div>
+                  <div className="text-[10px] text-slate-400">{day.items.length} bookings</div>
                 </div>
                 <div className="p-2 space-y-2">
                   {day.items.length === 0 ? (
-                    <div className="text-[10px] text-ink-muted text-center py-4">—</div>
+                    <div className="text-[10px] text-slate-400 text-center py-4">—</div>
                   ) : day.items.map(a => (
                     <button
                       key={a.id}
                       data-testid={`week-appt-${a.id}`}
                       onClick={() => { setDate(day.date); setView("list"); }}
-                      className="w-full text-left bg-bg-base/50 hover:bg-bg-base border border-white/5 hover:border-gold/30 rounded-md p-2 transition-all"
+                      className="w-full text-left bg-slate-50/50 hover:bg-slate-50 border border-slate-100 hover:border-sky-300 rounded-md p-2 transition-all"
                     >
                       <div className="flex items-center gap-1.5">
                         <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[a.status]}`} />
-                        <span className="text-[10px] font-mono text-gold">{new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[10px] font-mono text-sky-600">{new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <div className="text-xs font-medium mt-1 line-clamp-1">{a.customer_name}</div>
-                      <div className="text-[10px] text-ink-secondary line-clamp-1">{a.service_names.join(", ")}</div>
-                      <div className="text-[10px] text-ink-muted mt-1">with {a.staff_name}</div>
+                      <div className="text-[10px] text-slate-500 line-clamp-1">{a.service_names.join(", ")}</div>
+                      <div className="text-[10px] text-slate-400 mt-1">with {a.staff_name}</div>
                     </button>
                   ))}
                 </div>
@@ -229,51 +229,51 @@ export default function Appointments() {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          <div className="card-luxe w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="card-light w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-playfair text-2xl">New Appointment</h3>
-              <button onClick={() => setOpen(false)} className="text-ink-muted hover:text-white"><X className="w-5 h-5" /></button>
+              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={save} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label-luxe block mb-1">Customer *</label>
-                  <select data-testid="appt-customer-select" required className="input-luxe" value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}>
+                  <label className="label-light block mb-1">Customer *</label>
+                  <select data-testid="appt-customer-select" required className="input-light" value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}>
                     <option value="">-- select --</option>
                     {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="label-luxe block mb-1">Staff *</label>
-                  <select data-testid="appt-staff-select" required className="input-luxe" value={form.staff_id} onChange={e => setForm({ ...form, staff_id: e.target.value })}>
+                  <label className="label-light block mb-1">Staff *</label>
+                  <select data-testid="appt-staff-select" required className="input-light" value={form.staff_id} onChange={e => setForm({ ...form, staff_id: e.target.value })}>
                     <option value="">-- select --</option>
                     {staff.map(s => <option key={s.id} value={s.id}>{s.name} • {s.role}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label className="label-luxe block mb-1">Date & Time *</label>
-                <input type="datetime-local" data-testid="appt-datetime-input" required className="input-luxe" value={form.scheduled_at} onChange={e => setForm({ ...form, scheduled_at: e.target.value })} />
+                <label className="label-light block mb-1">Date & Time *</label>
+                <input type="datetime-local" data-testid="appt-datetime-input" required className="input-light" value={form.scheduled_at} onChange={e => setForm({ ...form, scheduled_at: e.target.value })} />
               </div>
               <div>
-                <label className="label-luxe block mb-1">Services * ({form.service_ids.length} selected)</label>
-                <div className="max-h-48 overflow-y-auto border border-white/10 rounded-md p-2 space-y-1">
+                <label className="label-light block mb-1">Services * ({form.service_ids.length} selected)</label>
+                <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-md p-2 space-y-1">
                   {services.map(s => (
-                    <label key={s.id} className="flex items-center justify-between px-3 py-2 rounded hover:bg-white/5 cursor-pointer text-sm">
+                    <label key={s.id} className="flex items-center justify-between px-3 py-2 rounded hover:bg-slate-50 cursor-pointer text-sm">
                       <div className="flex items-center gap-2">
                         <input type="checkbox" checked={form.service_ids.includes(s.id)} onChange={() => toggleService(s.id)} />
                         <span>{s.name}</span>
-                        <span className="text-[10px] text-ink-muted">{s.category}</span>
+                        <span className="text-[10px] text-slate-400">{s.category}</span>
                       </div>
-                      <span className="text-gold">₹{s.price} · {s.duration_min}m</span>
+                      <span className="text-sky-600">₹{s.price} · {s.duration_min}m</span>
                     </label>
                   ))}
                 </div>
               </div>
-              <div><label className="label-luxe block mb-1">Notes</label><textarea rows="2" className="input-luxe" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
+              <div><label className="label-light block mb-1">Notes</label><textarea rows="2" className="input-light" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setOpen(false)} className="btn-ghost flex-1">Cancel</button>
-                <button data-testid="save-appt-btn" type="submit" className="btn-gold flex-1">Book Appointment</button>
+                <button type="button" onClick={() => setOpen(false)} className="btn-slate flex-1">Cancel</button>
+                <button data-testid="save-appt-btn" type="submit" className="btn-blue flex-1">Book Appointment</button>
               </div>
             </form>
           </div>

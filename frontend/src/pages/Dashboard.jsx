@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare } from "lucide-react";
+import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { toast } from "sonner";
+import ReviewBlastModal from "./ReviewBlastModal";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
 const CHART_TOOLTIP_STYLE = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' };
@@ -41,6 +42,7 @@ function Stat({ icon: Icon, label, value, hint, testid, color = "sky" }) {
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [blastOpen, setBlastOpen] = useState(false);
   const { tenant } = useAuth();
 
   useEffect(() => {
@@ -144,7 +146,14 @@ export default function Dashboard() {
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Pending Review Requests</div>
           </div>
           <div className="text-4xl font-semibold text-slate-800 mt-2">{data.pending_reviews || 0}</div>
-          <p className="text-xs text-slate-500 mt-2">Completed visits that haven&apos;t received a review yet. Send a WhatsApp link from Appointments.</p>
+          <p className="text-xs text-slate-500 mt-2">Completed visits that haven&apos;t received a review yet.</p>
+          <button
+            data-testid="open-review-blast-btn"
+            onClick={() => setBlastOpen(true)}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 text-white text-sm font-semibold hover:from-sky-600 hover:to-blue-600 shadow-sm transition"
+          >
+            <Send className="w-3.5 h-3.5" /> Send review-request blast
+          </button>
         </div>
       </div>
 
@@ -252,6 +261,8 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {blastOpen && <ReviewBlastModal onClose={() => setBlastOpen(false)} />}
     </div>
   );
 }

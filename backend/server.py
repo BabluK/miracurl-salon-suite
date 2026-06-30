@@ -934,6 +934,43 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
         "invoices": invs[:200],
     }
 
+
+@api.get("/reviews/blast-targets")
+async def reviews_blast_targets(user=Depends(get_current_user)):
+    """Completed appointments that haven't received a review yet, with customer phone + share URL.
+    Used by the Dashboard 'Send review-request blast' button. Limited to past 14 days so we don't
+    spam old customers."""
+    since = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+    completed = await db.appointments.find(
+        {"status": "completed", "scheduled_at": {"$gte": since}}, {"_id": 0},
+    ).sort("scheduled_at", -1).to_list(200)
+    reviewed_ids = {
+        r["appointment_id"]
+        async for r in db.reviews.find({"appointment_id": {"$exists": True}}, {"_id": 0, "appointment_id": 1})
+    }
+    cust_ids = list({a["customer_id"] for a in completed})
+    cust_map = {
+        c["id"]: c for c in
+        await db.customers.find({"id": {"$in": cust_ids}}, {"_id": 0, "id": 1, "phone": 1, "name": 1}).to_list(500)
+    }
+    targets = []
+    for a in completed:
+        if a["id"] in reviewed_ids:
+            continue
+        cust = cust_map.get(a["customer_id"])
+        if not cust or not cust.get("phone"):
+            continue
+        targets.append({
+            "appointment_id": a["id"],
+            "customer_id": cust["id"],
+            "customer_name": cust["name"],
+            "phone": cust["phone"],
+            "service_names": a.get("service_names", []),
+            "staff_name": a.get("staff_name"),
+            "scheduled_at": a["scheduled_at"],
+        })
+    return {"count": len(targets), "targets": targets}
+
 # ---------------- Public (no auth) - Customer-facing booking ----------------
 import re
 

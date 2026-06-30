@@ -7,7 +7,7 @@ function StarRow({ rating }) {
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map(n => (
-        <Star key={n} className={`w-3.5 h-3.5 ${n <= rating ? "fill-gold text-gold" : "text-white/15"}`} />
+        <Star key={n} className={`w-3.5 h-3.5 ${n <= rating ? "fill-amber-400 text-sky-600" : "text-white/15"}`} />
       ))}
     </div>
   );
@@ -48,34 +48,34 @@ export default function Reviews() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="bg-slate-50 -mx-6 -my-6 px-6 py-6 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div>
         <h1 className="font-playfair text-3xl">Customer Reviews</h1>
-        <p className="text-ink-secondary text-sm mt-1">Moderate what shows up on your public booking page.</p>
+        <p className="text-slate-500 text-sm mt-1">Moderate what shows up on your public booking page.</p>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="card-luxe">
-          <div className="label-luxe">Average Rating</div>
+        <div className="card-light">
+          <div className="label-light">Average Rating</div>
           <div className="flex items-end gap-3 mt-3">
-            <span className="font-playfair text-5xl gold-text" data-testid="avg-rating-value">{avg.toFixed(1)}</span>
+            <span className="font-playfair text-5xl text-sky-600" data-testid="avg-rating-value">{avg.toFixed(1)}</span>
             <StarRow rating={Math.round(avg)} />
           </div>
-          <div className="text-xs text-ink-secondary mt-2">{list.length} review{list.length !== 1 ? "s" : ""} collected</div>
+          <div className="text-xs text-slate-500 mt-2">{list.length} review{list.length !== 1 ? "s" : ""} collected</div>
         </div>
-        <div className="card-luxe lg:col-span-2">
-          <div className="label-luxe mb-3">Rating Distribution</div>
+        <div className="card-light lg:col-span-2">
+          <div className="label-light mb-3">Rating Distribution</div>
           {dist.map(({ r, count }) => {
             const pct = list.length ? Math.round((count / list.length) * 100) : 0;
             return (
               <div key={r} className="flex items-center gap-3 mb-2">
                 <span className="text-xs w-3">{r}</span>
-                <Star className="w-3 h-3 fill-gold text-gold" />
-                <div className="flex-1 h-2 bg-white/5 rounded overflow-hidden">
-                  <div className="h-full bg-gold" style={{ width: `${pct}%` }} />
+                <Star className="w-3 h-3 fill-amber-400 text-sky-600" />
+                <div className="flex-1 h-2 bg-slate-50 rounded overflow-hidden">
+                  <div className="h-full bg-sky-500" style={{ width: `${pct}%` }} />
                 </div>
-                <span className="text-xs text-ink-secondary w-12 text-right">{count} ({pct}%)</span>
+                <span className="text-xs text-slate-500 w-12 text-right">{count} ({pct}%)</span>
               </div>
             );
           })}
@@ -83,7 +83,7 @@ export default function Reviews() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 bg-bg-base rounded-lg p-1 border border-white/5 inline-flex">
+      <div className="flex gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100 inline-flex">
         {[
           { k: "all", l: "All" },
           { k: "5", l: "★ 5" },
@@ -94,7 +94,7 @@ export default function Reviews() {
             key={t.k}
             data-testid={`reviews-filter-${t.k}`}
             onClick={() => setFilter(t.k)}
-            className={`px-4 py-1.5 text-xs rounded-md transition ${filter === t.k ? "bg-gold text-bg-base font-semibold" : "text-ink-secondary hover:text-white"}`}
+            className={`px-4 py-1.5 text-xs rounded-md transition ${filter === t.k ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}
           >{t.l}</button>
         ))}
       </div>
@@ -102,39 +102,39 @@ export default function Reviews() {
       {/* List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filtered.length === 0 ? (
-          <div className="card-luxe md:col-span-2 text-center py-12">
-            <MessageSquare className="w-10 h-10 text-ink-muted mx-auto opacity-50 mb-2" />
-            <p className="text-ink-secondary">No reviews here yet.</p>
+          <div className="card-light md:col-span-2 text-center py-12">
+            <MessageSquare className="w-10 h-10 text-slate-400 mx-auto opacity-50 mb-2" />
+            <p className="text-slate-500">No reviews here yet.</p>
           </div>
         ) : filtered.map(r => (
           <div
             key={r.id}
             data-testid={`review-card-${r.id}`}
-            className={`card-luxe ${r.rating <= 3 ? "border-amber-500/30" : ""}`}
+            className={`card-light ${r.rating <= 3 ? "border-amber-500/30" : ""}`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-blush flex items-center justify-center text-bg-base font-semibold">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center text-white font-semibold">
                   {r.customer_name.charAt(0)}
                 </div>
                 <div>
                   <div className="font-medium">{r.customer_name}</div>
-                  {r.staff_name && <div className="text-[10px] text-ink-secondary">with {r.staff_name}</div>}
+                  {r.staff_name && <div className="text-[10px] text-slate-500">with {r.staff_name}</div>}
                 </div>
               </div>
               <StarRow rating={r.rating} />
             </div>
-            {r.comment && <p className="text-sm text-ink-secondary mt-3 italic">&ldquo;{r.comment}&rdquo;</p>}
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
-              <div className="flex items-center gap-2 text-[10px] text-ink-muted">
+            {r.comment && <p className="text-sm text-slate-500 mt-3 italic">&ldquo;{r.comment}&rdquo;</p>}
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+              <div className="flex items-center gap-2 text-[10px] text-slate-400">
                 <span>{new Date(r.created_at).toLocaleDateString()}</span>
-                {r.reward_code && <span className="px-2 py-0.5 rounded bg-gold/10 text-gold font-mono">{r.reward_code}</span>}
+                {r.reward_code && <span className="px-2 py-0.5 rounded bg-sky-50 text-sky-600 font-mono">{r.reward_code}</span>}
               </div>
               <div className="flex items-center gap-1">
                 <button
                   data-testid={`toggle-review-${r.id}`}
                   onClick={() => toggle(r)}
-                  className={`text-[10px] px-2 py-1 rounded flex items-center gap-1 ${r.public ? "bg-emerald-500/10 text-emerald-400" : "bg-white/5 text-ink-muted"}`}
+                  className={`text-[10px] px-2 py-1 rounded flex items-center gap-1 ${r.public ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-50 text-slate-400"}`}
                   title={r.public ? "Hide from public booking page" : "Show on public booking page"}
                 >
                   {r.public ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
@@ -143,7 +143,7 @@ export default function Reviews() {
                 <button
                   data-testid={`delete-review-${r.id}`}
                   onClick={() => remove(r.id)}
-                  className="p-1.5 text-ink-muted hover:text-red-400 hover:bg-red-500/5 rounded"
+                  className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"
                 ><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             </div>
