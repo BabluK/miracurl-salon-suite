@@ -1275,6 +1275,129 @@ async def delete_tenant(tid: str, user=Depends(require_super_admin)):
     await db.tenants.update_one({"id": tid}, {"$set": {"status": "cancelled"}})
     return {"ok": True}
 
+
+# ---------------- Super-Admin: Bulk customer import ----------------
+VCARD_FN_RE = re.compile(r"^FN(?:;[^:]*)?:(.+)$", re.MULTILINE)
+VCARD_N_RE = re.compile(r"^N(?:;[^:]*)?:(.+)$", re.MULTILINE)
+VCARD_TEL_RE = re.compile(r"^TEL(?:;[^:]*)?:(.+)$", re.MULTILINE)
+PHONE_DIGITS_RE = re.compile(r"\d{7,15}")
+
+
+def _normalize_phone(raw: str) -> Optional[str]:
+    """Strip non-digits; keep last 10–15 digits. Return None if unusable."""
+    digits = "".join(c for c in (raw or "") if c.isdigit())
+    if len(digits) < 7:
+        return None
+    # Strip India country code prefix (91) when phone is 12 digits starting with 91
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    return digits[-15:]
+
+
+def _parse_vcard(text: str) -> list:
+    """Return list of {name, phone} from a vCard (.vcf) blob."""
+    rows = []
+    blocks = re.split(r"BEGIN:VCARD", text, flags=re.IGNORECASE)
+    for block in blocks:
+        if "END:VCARD" not in block.upper():
+            continue
+        fn = VCARD_FN_RE.search(block)
+        n = VCARD_N_RE.search(block)
+        name = (fn.group(1) if fn else (n.group(1).replace(";", " ").strip() if n else "")).strip()
+        for tel in VCARD_TEL_RE.findall(block):
+            phone = _normalize_phone(tel)
+            if phone:
+                rows.append({"name": name or "Imported Customer", "phone": phone})
+    return rows
+
+
+def _parse_plain_text(text: str) -> list:
+    """Parse pasted lines: 'Name, +91 98765 43210' OR 'Name\\t+91 98765 43210' OR 'Name +91...' OR just digits."""
+    rows = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Find the longest digit run that looks like a phone
+        m = PHONE_DIGITS_RE.search(line.replace(" ", "").replace("-", ""))
+        if not m:
+            continue
+        phone = _normalize_phone(m.group(0))
+        if not phone:
+            continue
+        # Name = everything except the phone token(s)
+        name_part = re.sub(r"[+\d][\d\s\-()]{6,}", "", line).strip(" ,;-\t")
+        rows.append({"name": name_part or "Imported Customer", "phone": phone})
+    return rows
+
+
+def parse_customer_import(text: str, fmt: str) -> list:
+    """fmt: 'vcard' | 'text' | 'auto'. Returns list of {name, phone}."""
+    if not text or not text.strip():
+        return []
+    fmt = (fmt or "auto").lower()
+    if fmt == "vcard" or (fmt == "auto" and "BEGIN:VCARD" in text.upper()):
+        return _parse_vcard(text)
+    return _parse_plain_text(text)
+
+
+class CustomerImportIn(BaseModel):
+    text: str = Field(..., min_length=1, max_length=2_000_000)
+    format: str = Field("auto", pattern="^(auto|vcard|text)$")
+
+
+class CustomerImportRowOut(BaseModel):
+    name: str
+    phone: str
+    status: str  # 'added' | 'skipped' | 'invalid'
+    reason: Optional[str] = None
+    referral_code: Optional[str] = None
+
+
+@api.post("/super-admin/tenants/{tid}/customers/import")
+async def super_admin_import_customers(tid: str, body: CustomerImportIn, user=Depends(require_super_admin)):
+    tenant = await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+
+    parsed = parse_customer_import(body.text, body.format)
+    if not parsed:
+        raise HTTPException(400, "No valid contacts found. Make sure each line has a phone number.")
+
+    # Scope all DB operations to this tenant
+    _current_tenant_id.set(tenant["id"])
+    try:
+        rows: list = []
+        added = 0
+        skipped = 0
+        seen_in_batch: set = set()  # dedupe within the same upload
+        for r in parsed:
+            phone = r["phone"]
+            name = (r.get("name") or "Imported Customer").strip()[:80]
+            if phone in seen_in_batch:
+                rows.append({"name": name, "phone": phone, "status": "skipped", "reason": "duplicate in upload"})
+                skipped += 1
+                continue
+            seen_in_batch.add(phone)
+            existing = await db.customers.find_one({"phone": phone}, {"_id": 0, "id": 1, "referral_code": 1})
+            if existing:
+                rows.append({"name": name, "phone": phone, "status": "skipped", "reason": "already in salon",
+                             "referral_code": existing.get("referral_code")})
+                skipped += 1
+                continue
+            cust = Customer(name=name, phone=phone, notes="Imported from contacts").model_dump()
+            await db.customers.insert_one(cust)
+            rows.append({"name": name, "phone": phone, "status": "added", "referral_code": cust["referral_code"]})
+            added += 1
+        return {
+            "tenant": {"id": tenant["id"], "slug": tenant["slug"], "name": tenant["name"]},
+            "summary": {"total_parsed": len(parsed), "added": added, "skipped": skipped},
+            "rows": rows,
+        }
+    finally:
+        _current_tenant_id.set(None)
+
+
 @api.get("/super-admin/overview")
 async def super_admin_overview(user=Depends(require_super_admin)):
     tenants = await db.tenants.find({}, {"_id": 0}).to_list(500)

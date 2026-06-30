@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, Users, Calendar, Receipt, Scissors, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2 } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import ImportCustomersModal from "./ImportCustomersModal";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -23,6 +24,7 @@ export default function SuperAdmin() {
   const [overview, setOverview] = useState(null);
   const [tenants, setTenants] = useState([]);
   const [open, setOpen] = useState(false);
+  const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     slug: "", name: "", owner_email: "", owner_name: "", owner_password: "",
@@ -154,6 +156,7 @@ export default function SuperAdmin() {
                   </td>
                   <td>
                     <div className="flex items-center gap-1 justify-end">
+                      <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-gold hover:bg-gold/10 rounded"><Upload className="w-3.5 h-3.5" /></button>
                       {t.status === "active" || t.status === "trial" ? (
                         <button data-testid={`suspend-tenant-${t.id}`} onClick={() => setStatus(t, "suspended")} title="Suspend" className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"><Pause className="w-3.5 h-3.5" /></button>
                       ) : t.status === "suspended" ? (
@@ -227,6 +230,14 @@ export default function SuperAdmin() {
             </form>
           </div>
         </div>
+      )}
+
+      {importFor && (
+        <ImportCustomersModal
+          tenant={importFor}
+          onClose={() => setImportFor(null)}
+          onDone={load}
+        />
       )}
     </div>
   );

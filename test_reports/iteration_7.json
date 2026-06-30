@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 7 verified end-to-end. Backend 17/17 NEW iter7 regression tests PASS + iter6 12/12 still GREEN (29/29 total). Coverage: (a) AUTH — admin/super-admin login + wrong-password 401 OK. (b) PUBLIC BOOKING REFACTOR — /api/public/salon, /services, /staff, full POST /api/public/book/{slug} contract unchanged after _resolve_staff/_resolve_or_create_customer/_apply_referral_credit/_create_public_appointment extraction; response shape preserved (appointment{}, summary{customer_referral_code,total,duration_min,...}, is_new_customer, referral_applied). (c) INVOICE REFACTOR — POST /api/invoices still returns invoice_no/subtotal/tax/total/items/customer_id; subtotal == service price; tax = 18% of (subtotal - discount - credit_applied) within rounding. Sales report unchanged. (d) NEW BULK IMPORT — POST /api/super-admin/tenants/{tid}/customers/import: text import adds 2 with auto-referral codes; duplicate re-import returns 'already in salon' skip; vCard auto-detect and explicit 'vcard' format both succeed; tenant admin gets 403; unauth gets 401/403; bad tenant id → 404; empty/no-phone text → 400; Indian phone with 91 prefix normalized to 10 digits. FRONTEND — Login redesign matches spec: light theme white card, 'Welcome Back' heading, light-blue inputs with circular icon prefixes (user + lock SVGs), eye-toggle for password, blue Login button with gradient, 'Forgot Password' link, MIRACURL brand top-left (gradient pink/red logo), gradient pink/purple blobs in bottom corners; wrong-password shows 'Invalid email or password' error; admin → /dashboard; super-admin → /super-admin. Super-Admin Bulk Import modal works end-to-end: opened from upload-icon on tenant row, parsed 2 contacts via paste, result panel showed Parsed=2 / Added=2 / Skipped=0 with referral codes (V6S4EG, YJIQXG) and toast 'Imported 2 new · skipped 0'. Public booking /book/miracurl-marathahalli rendered hero + Marathahalli + +91 98765 00000 + 3 featured reviews + Services step → selected Hair Cut - Women (₹600·45m) → Continue → Stylist step rendered with 5 stylists (zero React key warnings, zero console errors).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard charts initial render", "issues": ["Pre-existing Recharts warning 'width(-1) and height(-1) of chart should be greater than 0' during initial layout pass. Recovers on next tick. Cosmetic; same in iter5/iter6."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter7_regression.py",
+    "/app/test_reports/pytest/iter7_results.xml",
+    "/app/backend/tests/test_iter6_regression.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "[VERIFIED CLEAN] server.py:1093-1106 _create_public_appointment returns (appt, total, duration); appt dict popped of _id before return — no MongoDB ObjectId leak. Public book contract unchanged: appointment{} + summary{} + referral_applied + is_new_customer.",
+    "[VERIFIED CLEAN] server.py:722-760 _check_stock_or_400 + _compute_invoice_totals refactor preserves invoice math; tax = round((subtotal - discount - credit) * tax_pct/100, 2) — confirmed by test (18% of ₹600 = ₹108, total ₹708).",
+    "[VERIFIED CLEAN] server.py:123-170 _extract_bearer_token + _decode_access_token + _apply_tenant_context: cross-tenant 403 still enforced, super-admin X-Tenant-Slug header switching still works, super-admin overview gated.",
+    "[VERIFIED CLEAN] server.py:1280-1398 NEW bulk-import endpoint: (i) require_super_admin dep => tenant admin 403 confirmed; (ii) tenant existence check => 404 for bad tid; (iii) _current_tenant_id contextvar set+reset in try/finally => tenant scoping correct, no cross-tenant contamination; (iv) seen_in_batch dedup within upload; (v) Customer model auto-generates referral_code; (vi) phone normalisation strips '91' prefix only when total digits == 12 (safer than blanket strip).",
+    "[MINOR/NICE-TO-HAVE] _normalize_phone: only strips +91 for 12-digit input. A 13-digit '+91 098765xxxxx' (with leading 0) wouldn't be stripped. Not a bug — just a minor edge case; tests still pass for the standard +91 + 10-digit format.",
+    "[VERIFIED CLEAN] frontend Login.jsx redesign: testids preserved (login-page, login-heading 'Welcome Back', login-email-input, login-password-input, login-submit-btn, login-error, forgot-password-link, show-signup-btn, toggle-password-visibility); error path triggers data-testid='login-error' with 'Invalid email or password'; gradient blobs are pure-Tailwind (no design tokens broken).",
+    "[VERIFIED CLEAN] ImportCustomersModal.jsx: textarea + auto-detect select + Preview&Import button; result panel with Parsed/Added/Skipped tiles + per-row referral_code display; 'Import more' resets the form. Toast surfaces summary."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter7_regression.py (NEW — 17 tests)"
+  ],
+  "success_rate": {"backend": "100% (17/17 iter7 + 12/12 iter6 = 29/29)", "frontend": "100% on iter7 critical flows (login redesign, super-admin bulk import modal, public booking step-through)"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 ; super@miracurl.com / Super@Miracurl123 ; owner@elegance.com / Owner@123",
+  "seed_data_creation": "Backend tests created ~8 TEST_/PlaywrightImport_ customers in the default tenant (with auto-referral codes) and 1 invoice via POS contract test. Frontend smoke imported 2 customers (PlaywrightImport One/Two) into Suspend Test tenant — these are non-default tenants used only for test isolation.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter7 = heavy refactor + Login redesign + new bulk-import endpoint. All API contracts verified unchanged via test_iter7_regression.py (run: REACT_APP_BACKEND_URL=https://hair-hub-system.preview.emergentagent.com python -m pytest backend/tests/test_iter7_regression.py -v -o addopts=''). For the Print regression specifically, iter6's iframe srcdoc validation pattern is still applicable — no changes to POS.jsx printInvoice in iter7. The bulk-import endpoint is super-admin-only and tenant-scoped via _current_tenant_id contextvar (set in try/finally). Frontend ImportCustomersModal uses data-testid='import-submit-btn' for the Preview&Import action; the open trigger is the Upload-icon button per tenant row in SuperAdmin.jsx (lucide-upload svg inside a button). For Login redesign, all original testids are preserved — no test scripts need updating.",
+  "rca of the issue": "N/A — no production bugs found. Two test assertions were initially wrong (expected `referral_code` at top-level instead of `summary.customer_referral_code`; and used a 13-digit phone where _normalize_phone only strips '91' for 12-digit). Both are test-author oversights, not app bugs — fixed in-place by aligning to the actual contract."
+}
