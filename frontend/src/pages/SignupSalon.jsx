@@ -67,6 +67,7 @@ export default function SignupSalon() {
   async function submit() {
     setErr(""); setBusy(true);
     try {
+      const ref = (localStorage.getItem("miracurl_ref") || "").trim().toLowerCase() || undefined;
       const { data } = await axios.post(`${BACKEND_URL}/api/public/signup-salon`, {
         salon_name: form.salon_name.trim(),
         slug: form.slug.trim() || undefined,
@@ -75,10 +76,12 @@ export default function SignupSalon() {
         password: form.password,
         location: form.location.trim() || undefined,
         phone: form.phone.trim() || undefined,
+        ref,
       });
       setAccessToken(data.access_token);
       setTenantSlug(data.tenant.slug);
       localStorage.setItem("miracurl_tenant", data.tenant.slug);
+      localStorage.removeItem("miracurl_ref");  // consumed
       toast.success(`Welcome ✦ Your ${data.trial_days}-day trial starts now`);
       // Hard reload to /dashboard so AuthContext re-bootstraps cleanly
       window.location.assign("/dashboard");

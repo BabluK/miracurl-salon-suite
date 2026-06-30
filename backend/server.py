@@ -79,6 +79,7 @@ class _DB:
     password_reset_tokens = _raw_db.password_reset_tokens
     subscriptions = _raw_db.subscriptions
     subscription_payments = _raw_db.subscription_payments
+    affiliate_referrals = _raw_db.affiliate_referrals
     # tenant-scoped collections
     customers = TenantCollection(_raw_db.customers)
     services = TenantCollection(_raw_db.services)
@@ -230,6 +231,9 @@ class Tenant(BaseModel):
     gst_number: Optional[str] = None
     gst_legal_name: Optional[str] = None
     tax_pct: float = 0.0
+    # Affiliate / Refer-a-salon program (iter 20)
+    affiliate_credits: float = 0.0  # ₹ credit pool — applied against next renewal
+    referred_by_tenant_id: Optional[str] = None
     trial_ends_at: str = Field(default_factory=lambda: (datetime.now(timezone.utc) + timedelta(days=14)).isoformat())
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -517,6 +521,10 @@ class SalonSignupIn(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     location: Optional[str] = None
     phone: Optional[str] = None
+    ref: Optional[str] = None  # affiliate referrer slug (Refer-a-salon program)
+
+
+AFFILIATE_REWARD_INR = 1000.0  # ₹ credited to the referrer for each verified signup
 
 
 @api.post("/public/signup-salon")
@@ -540,6 +548,17 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
             raise HTTPException(400, "Couldn't generate a unique slug — try a different salon name")
 
     trial_end = (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).date().isoformat()
+
+    # Resolve referrer (Refer-a-salon program) — silently ignore invalid/self-ref to keep signup smooth
+    referrer = None
+    if body.ref:
+        ref_slug = body.ref.strip().lower()
+        if ref_slug and ref_slug != candidate:
+            referrer = await db.tenants.find_one(
+                {"slug": ref_slug, "status": {"$in": ["trial", "active"]}},
+                {"_id": 0, "id": 1, "slug": 1, "owner_email": 1, "name": 1},
+            )
+
     tenant = Tenant(
         slug=candidate,
         name=body.salon_name.strip(),
@@ -548,6 +567,7 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
         phone=body.phone,
         plan="trial",
         status="trial",
+        referred_by_tenant_id=referrer["id"] if referrer else None,
     ).model_dump()
     tenant["trial_end_date"] = trial_end
     await db.tenants.insert_one(tenant)
@@ -562,6 +582,23 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(owner)
+
+    # Credit the referrer ₹1,000 to their affiliate balance (applied against next renewal)
+    if referrer:
+        await db.tenants.update_one(
+            {"id": referrer["id"]},
+            {"$inc": {"affiliate_credits": AFFILIATE_REWARD_INR}},
+        )
+        await db.affiliate_referrals.insert_one({
+            "id": str(uuid.uuid4()),
+            "referrer_tenant_id": referrer["id"],
+            "referrer_slug": referrer["slug"],
+            "referred_tenant_id": tenant["id"],
+            "referred_slug": tenant["slug"],
+            "referred_salon_name": tenant["name"],
+            "credit_amount": AFFILIATE_REWARD_INR,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
 
     access = make_access(owner["id"], email)
     refresh = make_refresh(owner["id"])
@@ -1476,6 +1513,22 @@ async def update_tax_settings(body: TaxSettingsIn, user=Depends(require_tenant_a
     }
     await db.tenants.update_one({"id": t["id"]}, {"$set": update})
     return {"ok": True, **update}
+
+
+@api.get("/settings/affiliate")
+async def get_affiliate_summary(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Returns the salon's referral link, earned credits, and list of referred salons."""
+    cursor = db.affiliate_referrals.find(
+        {"referrer_tenant_id": t["id"]}, {"_id": 0}
+    ).sort("created_at", -1)
+    referrals = await cursor.to_list(200)
+    return {
+        "slug": t["slug"],
+        "credits": float(t.get("affiliate_credits") or 0),
+        "reward_per_signup": AFFILIATE_REWARD_INR,
+        "referrals": referrals,
+        "count": len(referrals),
+    }
 
 
 @api.get("/super-admin/tenants")

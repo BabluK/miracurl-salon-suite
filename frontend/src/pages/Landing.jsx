@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { Calendar, Receipt, Star, Users, BarChart3, Shield, ArrowRight, Check, Sparkles, Zap, MessageSquare, Scissors } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Calendar, Receipt, Star, Users, BarChart3, Shield, ArrowRight, Check, Sparkles, Zap, MessageSquare, Scissors, Gift } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 
 const FEATURES = [
@@ -36,6 +37,20 @@ const PLANS = [
 ];
 
 export default function Landing() {
+  // Capture affiliate referral slug from `?ref=<slug>` and persist for the signup wizard
+  const [refSlug, setRefSlug] = useState(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = (params.get("ref") || "").trim().toLowerCase();
+    if (ref) {
+      localStorage.setItem("miracurl_ref", ref);
+      setRefSlug(ref);
+    } else {
+      const stored = localStorage.getItem("miracurl_ref");
+      if (stored) setRefSlug(stored);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-white text-slate-800" data-testid="landing-page">
       {/* Decorative blobs */}
@@ -85,6 +100,11 @@ export default function Landing() {
           <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-500" /> Multi-stylist invoices</span>
           <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-500" /> WhatsApp share built-in</span>
         </div>
+        {refSlug && (
+          <div className="mt-8 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-sm" data-testid="landing-ref-banner">
+            <Gift className="w-4 h-4" /> Referred by <b className="mx-1">{refSlug}</b> — they'll earn ₹1,000 when you sign up.
+          </div>
+        )}
       </section>
 
       {/* Social proof / numbers */}
