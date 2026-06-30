@@ -2,7 +2,7 @@ import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard, Calendar, Users, UserCog, Scissors, Package,
-  ShoppingCart, BarChart3, LogOut, Bell, ChevronDown, Star
+  ShoppingCart, BarChart3, LogOut, Bell, ChevronDown, Star, Settings as SettingsIcon
 } from "lucide-react";
 import { useState } from "react";
 import BrandMark from "./BrandMark";
@@ -17,6 +17,7 @@ const NAV = [
   { to: "/pos", label: "POS / Billing", icon: ShoppingCart, testid: "nav-pos" },
   { to: "/reviews", label: "Reviews", icon: Star, testid: "nav-reviews" },
   { to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, testid: "nav-settings" },
 ];
 
 export default function AppLayout() {

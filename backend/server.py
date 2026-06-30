@@ -225,6 +225,11 @@ class Tenant(BaseModel):
     plan: str = "starter"          # starter | pro | enterprise
     status: str = "trial"          # trial | active | suspended | cancelled
     razorpay_subscription_id: Optional[str] = None
+    # Tax / GST (off by default — owner must opt-in by filling GST details)
+    tax_enabled: bool = False
+    gst_number: Optional[str] = None
+    gst_legal_name: Optional[str] = None
+    tax_pct: float = 0.0
     trial_ends_at: str = Field(default_factory=lambda: (datetime.now(timezone.utc) + timedelta(days=14)).isoformat())
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -842,8 +847,14 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         raise HTTPException(400, "Invalid customer")
     staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
 
+    # Tax is ONLY applied when the tenant has opted-in by configuring GST settings.
+    # Owners without GST registration must not be forced to charge tax on receipts.
+    tid = _current_tenant_id.get()
+    tenant_doc = await db.tenants.find_one({"id": tid}, {"_id": 0}) if tid else None
+    effective_tax_pct = float(tenant_doc.get("tax_pct") or 0) if (tenant_doc and tenant_doc.get("tax_enabled")) else 0.0
+
     needed = await _check_stock_or_400(body.items)
-    totals = _compute_invoice_totals(body.items, cust, body.discount, body.tax_pct)
+    totals = _compute_invoice_totals(body.items, cust, body.discount, effective_tax_pct)
 
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),
@@ -1418,6 +1429,54 @@ SEED_CUSTOMERS = [
 async def get_current_tenant(t=Depends(current_tenant)):
     """The tenant the current authenticated user belongs to (or has switched into)."""
     return t
+
+
+class TaxSettingsIn(BaseModel):
+    tax_enabled: bool = False
+    gst_number: Optional[str] = Field(None, max_length=20)
+    gst_legal_name: Optional[str] = Field(None, max_length=120)
+    tax_pct: float = Field(0.0, ge=0, le=100)
+
+    @field_validator("gst_number")
+    @classmethod
+    def _gstin(cls, v):
+        if v is None or v == "":
+            return None
+        import re as _re
+        v = v.strip().upper()
+        # GSTIN: 2-digit state code + 10-char PAN + entity code + Z + checksum
+        if not _re.fullmatch(r"[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]", v):
+            raise ValueError("Invalid GSTIN format (15 chars, e.g. 29ABCDE1234F1Z5)")
+        return v
+
+
+@api.get("/settings/tax")
+async def get_tax_settings(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return {
+        "tax_enabled": bool(t.get("tax_enabled", False)),
+        "gst_number": t.get("gst_number") or "",
+        "gst_legal_name": t.get("gst_legal_name") or "",
+        "tax_pct": float(t.get("tax_pct") or 0.0),
+    }
+
+
+@api.put("/settings/tax")
+async def update_tax_settings(body: TaxSettingsIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    # If owner wants to charge tax, they MUST provide GSTIN + rate > 0
+    if body.tax_enabled:
+        if not body.gst_number:
+            raise HTTPException(400, "GST number is required to enable tax on invoices.")
+        if body.tax_pct <= 0:
+            raise HTTPException(400, "Tax % must be greater than 0 when tax is enabled.")
+    update = {
+        "tax_enabled": bool(body.tax_enabled),
+        "gst_number": body.gst_number,
+        "gst_legal_name": (body.gst_legal_name or "").strip() or None,
+        "tax_pct": float(body.tax_pct or 0),
+    }
+    await db.tenants.update_one({"id": t["id"]}, {"$set": update})
+    return {"ok": True, **update}
+
 
 @api.get("/super-admin/tenants")
 async def list_tenants(user=Depends(require_super_admin)):

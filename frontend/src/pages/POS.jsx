@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { Search, X, Plus, UserPlus, IndianRupee, Receipt, Printer, Star, Share2, Calendar, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +33,7 @@ function buildReceiptHtml(inv) {
       : "";
     return `<tr><td>${escapeHtml(it.name)} × ${Number(it.qty)}${staffLine}</td><td style="text-align:right">₹${sub}</td></tr>`;
   }).join("");
+  const showTax = Number(inv.tax) > 0;
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(inv.invoice_no)}</title>
 <style>
   body{font-family:Arial,sans-serif;color:#000;padding:24px;max-width:420px;margin:auto}
@@ -53,7 +54,7 @@ ${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${escapeHtml(inv.staff_
 <table>${itemsHtml}</table>
 <div class="row"><span>Subtotal</span><span>₹${inv.subtotal.toFixed(2)}</span></div>
 <div class="row"><span>Discount</span><span>−₹${inv.discount.toFixed(2)}</span></div>
-<div class="row"><span>Tax</span><span>₹${inv.tax.toFixed(2)}</span></div>
+${showTax ? `<div class="row"><span>Tax</span><span>₹${inv.tax.toFixed(2)}</span></div>` : ""}
 <div class="row total"><span>Total</span><span>₹${inv.total.toFixed(2)}</span></div>
 <div class="foot">Thank you for visiting Miracurl ✦</div>
 </body></html>`;
@@ -82,12 +83,16 @@ export default function POS() {
   const [q, setQ] = useState("");
   const [cart, setCart] = useState([]);
   const [customerId, setCustomerId] = useState("");
+  const [guestQuery, setGuestQuery] = useState("");
+  const [guestOpen, setGuestOpen] = useState(false);
   const [staffId, setStaffId] = useState("");
-  const [taxPct] = useState(18);
+  const [taxPct, setTaxPct] = useState(0);
+  const [taxEnabled, setTaxEnabled] = useState(false);
   const [payment, setPayment] = useState("cash");
   const [lastInvoice, setLastInvoice] = useState(null);
   const [addGuestOpen, setAddGuestOpen] = useState(false);
   const [orderNotes, setOrderNotes] = useState("");
+  const guestBoxRef = useRef(null);
 
   const loadCustomers = useCallback(() => {
     api.get("/customers")
@@ -103,8 +108,22 @@ export default function POS() {
     });
     api.get("/products").then(r => setProducts(r.data));
     api.get("/staff").then(r => setStaff(r.data));
+    api.get("/settings/tax")
+      .then(r => { setTaxEnabled(!!r.data.tax_enabled); setTaxPct(Number(r.data.tax_pct || 0)); })
+      .catch(() => { setTaxEnabled(false); setTaxPct(0); });
     loadCustomers();
   }, [loadCustomers]);
+
+  // Close guest dropdown when clicking outside
+  useEffect(() => {
+    function onDoc(e) {
+      if (guestBoxRef.current && !guestBoxRef.current.contains(e.target)) {
+        setGuestOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   const catalog = mode === "services" ? services : products;
   const categories = useMemo(() => [...new Set(catalog.map(i => i.category || "Other"))], [catalog]);
@@ -120,6 +139,28 @@ export default function POS() {
   ), [catalog, category, q]);
 
   const customer = useMemo(() => customers.find(c => c.id === customerId), [customers, customerId]);
+
+  // Guest typeahead — only filter when user has typed at least 1 character.
+  const guestMatches = useMemo(() => {
+    const q = guestQuery.trim().toLowerCase();
+    if (!q) return [];
+    return customers.filter(c => {
+      const name = (c.name || "").toLowerCase();
+      const phone = String(c.phone || "").toLowerCase();
+      return name.includes(q) || phone.includes(q);
+    }).slice(0, 8);
+  }, [customers, guestQuery]);
+
+  function selectGuest(c) {
+    setCustomerId(c.id);
+    setGuestQuery(`${c.name} · ${c.phone}`);
+    setGuestOpen(false);
+  }
+  function clearGuest() {
+    setCustomerId("");
+    setGuestQuery("");
+    setGuestOpen(false);
+  }
 
   function addToCart(it) {
     const type = mode === "services" ? "service" : "product";
@@ -155,7 +196,7 @@ export default function POS() {
 
   function clearAll() {
     setCart([]); setOrderNotes(""); setStaffId("");
-    setCustomerId(""); setPayment("cash");
+    setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("cash");
   }
 
   async function checkout(complete = true) {
@@ -196,7 +237,7 @@ export default function POS() {
       "",
       `Subtotal: ₹${inv.subtotal.toFixed(0)}`,
       `Discount: −₹${inv.discount.toFixed(0)}`,
-      `Tax: ₹${inv.tax.toFixed(0)}`,
+      Number(inv.tax) > 0 ? `Tax: ₹${inv.tax.toFixed(0)}` : "",
       `*Total: ₹${inv.total.toFixed(0)}*`,
       `Paid via ${inv.payment_mode.toUpperCase()}`,
       "",
@@ -295,19 +336,59 @@ export default function POS() {
 
             <div className="flex flex-wrap items-center gap-3">
               <label className="text-sm text-slate-600 font-medium">Guest :</label>
-              <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <select
-                  data-testid="pos-customer-select"
-                  className="text-slate-800 w-full pl-10 pr-3 py-2 rounded-lg bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  value={customerId}
-                  onChange={e => setCustomerId(e.target.value)}
-                >
-                  <option value="">Search By Name Or No.</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} · {c.phone}</option>
-                  ))}
-                </select>
+              <div className="relative flex-1 max-w-md" ref={guestBoxRef}>
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  data-testid="pos-guest-search"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="Search by name or phone…"
+                  value={guestQuery}
+                  onChange={e => {
+                    setGuestQuery(e.target.value);
+                    if (customerId) setCustomerId("");
+                    setGuestOpen(e.target.value.trim().length > 0);
+                  }}
+                  onFocus={() => { if (guestQuery.trim()) setGuestOpen(true); }}
+                  className="text-slate-800 w-full pl-10 pr-9 py-2 rounded-lg bg-white border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                />
+                {(guestQuery || customerId) && (
+                  <button
+                    type="button"
+                    data-testid="pos-guest-clear"
+                    onClick={clearGuest}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    aria-label="Clear guest"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+                {guestOpen && guestQuery.trim() && (
+                  <div
+                    data-testid="pos-guest-dropdown"
+                    className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-72 overflow-y-auto"
+                  >
+                    {guestMatches.length === 0 ? (
+                      <div className="px-3 py-3 text-sm text-slate-500">
+                        No guests match &quot;{guestQuery}&quot;. <button onClick={() => { setGuestOpen(false); setAddGuestOpen(true); }} className="text-sky-600 font-medium hover:underline" data-testid="pos-guest-add-from-search">Add new guest</button>
+                      </div>
+                    ) : (
+                      guestMatches.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          data-testid={`pos-guest-option-${c.id}`}
+                          onClick={() => selectGuest(c)}
+                          className="w-full text-left px-3 py-2 hover:bg-sky-50 border-b last:border-b-0 border-slate-100"
+                        >
+                          <div className="text-sm text-slate-800">{c.name}</div>
+                          <div className="text-xs text-slate-500">{c.phone}{c.email ? ` · ${c.email}` : ""}</div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 data-testid="pos-add-guest-btn"
@@ -327,6 +408,12 @@ export default function POS() {
               </select>
             </div>
 
+            {customerId && customer && (
+              <div className="mt-2 inline-flex items-center gap-2 text-xs px-2 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700" data-testid="pos-guest-chip">
+                <UserPlus className="w-3 h-3" /> {customer.name} · {customer.phone}
+              </div>
+            )}
+
             {!customerId && cart.length > 0 && (
               <p className="text-red-500 text-xs mt-2" data-testid="pos-guest-warning">Please select guest</p>
             )}
@@ -344,7 +431,7 @@ export default function POS() {
                     <th className="text-right px-3 py-3 font-medium">Price</th>
                     <th className="text-right px-3 py-3 font-medium">Sub Total</th>
                     <th className="text-right px-3 py-3 font-medium">Disc%</th>
-                    <th className="text-right px-3 py-3 font-medium">Tax</th>
+                    {taxEnabled && <th className="text-right px-3 py-3 font-medium">Tax</th>}
                     <th className="text-right px-3 py-3 font-medium">Total</th>
                     <th className="px-3 py-3"></th>
                   </tr>
@@ -387,7 +474,7 @@ export default function POS() {
                             className="w-14 text-right py-1 px-2 rounded bg-slate-50 border border-slate-200 text-xs"
                           />
                         </td>
-                        <td className="px-3 py-3 text-right text-slate-500">₹{lineTax.toFixed(0)}</td>
+                        {taxEnabled && <td className="px-3 py-3 text-right text-slate-500">₹{lineTax.toFixed(0)}</td>}
                         <td className="px-3 py-3 text-right font-semibold text-slate-800">₹{(lineTaxable + lineTax).toFixed(0)}</td>
                         <td className="px-3 py-3 text-right">
                           <button onClick={() => removeLine(i)} className="text-slate-300 hover:text-red-500" data-testid={`cart-line-remove-${i}`}>
@@ -398,14 +485,16 @@ export default function POS() {
                     );
                   })}
                   {cart.length === 0 && (
-                    <tr><td colSpan="9" className="text-center text-slate-400 py-10 text-sm">Tap a service or product on the left to add it</td></tr>
+                    <tr><td colSpan={taxEnabled ? 9 : 8} className="text-center text-slate-400 py-10 text-sm">Tap a service or product on the left to add it</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
             <div className="border-t border-slate-200 px-4 py-3 flex items-center justify-end gap-6 text-sm text-slate-600">
               <span>Discount: <span className="font-semibold text-slate-800">₹{totalDiscount.toFixed(0)}</span></span>
-              <span>Tax ({taxPct}%): <span className="font-semibold text-slate-800">₹{tax.toFixed(0)}</span></span>
+              {taxEnabled && (
+                <span>Tax ({taxPct}%): <span className="font-semibold text-slate-800">₹{tax.toFixed(0)}</span></span>
+              )}
               <span className="text-base">
                 Grand Total: <span className="font-bold text-slate-900 text-lg ml-1">₹{total.toFixed(0)}</span>
               </span>
@@ -481,6 +570,8 @@ export default function POS() {
           onCreated={(newCust) => {
             setCustomers(prev => [newCust, ...prev]);
             setCustomerId(newCust.id);
+            setGuestQuery(`${newCust.name} · ${newCust.phone}`);
+            setGuestOpen(false);
             setAddGuestOpen(false);
             toast.success(`Added ${newCust.name}`);
           }}
@@ -588,7 +679,7 @@ function InvoiceReceiptModal({ invoice, onClose, onPrint, onShare }) {
         <div className="border-t border-slate-100 pt-3 mt-3 space-y-1 text-sm">
           <Row label="Subtotal" value={`₹${invoice.subtotal.toFixed(2)}`} />
           <Row label="Discount" value={`−₹${invoice.discount.toFixed(2)}`} />
-          <Row label="Tax" value={`₹${invoice.tax.toFixed(2)}`} />
+          {Number(invoice.tax) > 0 && <Row label="Tax" value={`₹${invoice.tax.toFixed(2)}`} />}
           <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-200"><span>Total</span><span className="text-sky-600">₹{invoice.total.toFixed(2)}</span></div>
         </div>
         <div className="flex items-center gap-2 mt-5">

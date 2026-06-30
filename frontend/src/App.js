@@ -17,6 +17,8 @@ import BookPublic from "@/pages/BookPublic";
 import ReviewPublic from "@/pages/ReviewPublic";
 import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
+import Landing from "@/pages/Landing";
+import Settings from "@/pages/Settings";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -30,6 +32,15 @@ function Protected({ children }) {
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
   return children;
+}
+
+function RootRoute() {
+  // Public marketing landing for guests; logged-in users go to their workspace.
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Landing />;
+  if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
+  return <Navigate to="/dashboard" replace />;
 }
 
 function SuperAdminProtected({ children }) {
@@ -63,8 +74,8 @@ export default function App() {
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup-salon" element={<PublicOnly><SignupSalon /></PublicOnly>} />
             <Route path="/super-admin" element={<SuperAdminProtected><SuperAdmin /></SuperAdminProtected>} />
-            <Route path="/" element={<Protected><AppLayout /></Protected>}>
-              <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<RootRoute />} />
+            <Route element={<Protected><AppLayout /></Protected>}>
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="appointments" element={<Appointments />} />
               <Route path="customers" element={<Customers />} />
@@ -74,8 +85,9 @@ export default function App() {
               <Route path="pos" element={<POS />} />
               <Route path="reviews" element={<Reviews />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

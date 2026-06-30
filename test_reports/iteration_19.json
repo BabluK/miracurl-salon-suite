@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 19 (tax-settings + POS guest typeahead + Landing root) fully verified via executed curl/pytest and Playwright on the public preview URL. Backend: 9/9 pytest cases pass — GET /api/settings/tax returns the default shape {tax_enabled:false, tax_pct:0, gst_number:'', gst_legal_name:''}; PUT with tax_enabled:true and no GSTIN returns 400 ('GST number is required to enable tax on invoices.'); PUT with gst_number='BADGSTIN' returns 422 (Pydantic validator); PUT with the valid GSTIN 29ABCDE1234F1Z5 + legal_name='Miracurl Salon' + tax_pct=18 returns 200 and the next GET reflects the saved values; invoice POST with tax disabled returns tax=0 even when payload sends tax_pct=18 (server enforcement OK); invoice POST with tax enabled returns tax>0 and total==subtotal-discount+tax. Regression: super-admin login + /api/super-admin/tenants list = 200, public /api/public/salon/miracurl-marathahalli = 200. Frontend (Playwright): / as guest renders Landing (BrandMark 'MIRACURL · SALON SUITE' + heading 'The salon software that pays for itself.'), 'Start your free trial' navigates to /signup-salon; after admin login, hitting / redirects to /dashboard; sidebar shows nav-settings; /settings opens with the tax toggle; toggling ON + Save with empty GSTIN surfaces 'Enter your GSTIN to enable tax' toast (field remains editable); saving with 29ABCDE1234F1Z5 + 'Miracurl Salon' + 18% succeeds and survives reload; /pos shows pos-guest-search and the dropdown is hidden when the input is empty, appears with 8 matching guests after typing 'A', selecting one creates pos-guest-chip, pos-guest-clear empties the input and removes the chip; with tax enabled the cart thead is 'Name|Staff|Qty|Price|Sub Total|Disc%|Tax|Total' and footer shows 'Tax (18%): ₹108' after adding a service; after disabling tax via /settings and reloading /pos, the Tax column header and 'Tax (...)' footer line are removed (thead becomes 'Name|Staff|Qty|Price|Sub Total|Disc%|Total'); super-admin login routes to /super-admin and /book/miracurl-marathahalli still renders the public booking stepper. Tax was reset to disabled (tax_enabled:false, tax_pct:0) at the end of testing — verified by the TestCleanup test class.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": { "ui_bugs": [], "integration_issues": [], "design_issues": [] },
+  "test_report_links": [
+    "/app/backend/tests/test_iter19_tax_settings.py",
+    "/app/test_reports/pytest/iter19_results.xml"
+  ],
+  "action_items": [
+    "None — all 20 assertions (9 backend + 11 frontend) PASS. Implementation is correct and demo state is clean (tax disabled)."
+  ],
+  "critical_code_review_comments": [
+    "server.py PUT /api/settings/tax (~L1463): correctly validates tax_enabled==true requires gst_number (400) and tax_pct>0 (400); Pydantic field_validator on gst_number checks the 15-char GSTIN regex (returns 422 on bad format) — both branches verified working.",
+    "server.py create_invoice (~L851-857): computes effective_tax_pct = tenant.tax_pct if tenant.tax_enabled else 0.0 and ignores client-sent tax_pct — confirmed by sending tax_pct=18 in the payload while tax is disabled and getting tax=0 in the response. Server-side enforcement is solid.",
+    "Settings.jsx: settings-tax-toggle, settings-gstin, settings-gst-legal-name, settings-tax-pct, settings-save-btn all carry data-testid attributes. Toast 'Enter your GSTIN to enable tax' is shown on 400 — clean UX.",
+    "POS.jsx guest typeahead: dropdown is only mounted when the query string is non-empty — verified empty-click does not render pos-guest-dropdown and typing 'A' renders 8 matching pos-guest-option-<id> nodes. pos-guest-clear empties input and removes pos-guest-chip in one click.",
+    "POS.jsx tax column: header and footer are conditionally rendered on tax_enabled flag fetched from /api/settings/tax — verified gone after disable+reload.",
+    "App.js RootRoute: returns Landing for unauthenticated guests and <Navigate to=/dashboard /> for authenticated users — confirmed both paths.",
+    "Minor (not blocking): The POS guest dropdown shows TEST_-prefixed leftover customers (TEST_Iter11_OK_abf6a, TEST_Blast_a497ea, etc.). These were created by previous iterations' tests and never cleaned up. Suggest running a one-off cleanup query `db.customers.deleteMany({name: /^TEST_/})` per tenant — not blocking for iter19.",
+    "Minor: Two console 401s observed on first load of '/' as guest — likely AuthContext bootstrap calling /api/auth/me without a token, then catching the 401. Cosmetic but worth silencing with a 'skip if no token' guard in the auth bootstrap."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter19_tax_settings.py (new — 9 pytest cases)"
+  ],
+  "success_rate": { "backend": "100% (9/9)", "frontend": "100% (11/11)" },
+  "test_credentials": "admin@miracurl.com / Miracurl@123 (salon admin, miracurl-marathahalli) and super@miracurl.com / Super@Miracurl123 (super-admin) — used as documented in /app/memory/test_credentials.md.",
+  "seed_data_creation": "Two invoices were created during invoice-tax assertions (one with tax=0, one with tax=18%) for the Miracurl Marathahalli tenant. Not deleted (kept as historical invoices — harmless for the demo). No new customers/services/tenants created. Tax setting was put back to {tax_enabled:false, tax_pct:0} at the end via the TestCleanup test class and also via the frontend toggle.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter19 ships TaxSettingsIn + GET/PUT /api/settings/tax + server-side enforcement in create_invoice (tax_pct override when tenant.tax_enabled=false), a new Settings.jsx page, a typeahead guest picker in POS.jsx (data-testids: pos-guest-search, pos-guest-dropdown, pos-guest-option-<id>, pos-guest-clear, pos-guest-chip), and a Landing root route in App.js. To re-test: run `pytest /app/backend/tests/test_iter19_tax_settings.py -v` (≈3s, all 9 pass) and the Playwright flow login→/settings→/pos verifying conditional rendering. The TestCleanup test always resets tax to disabled, so the demo never lingers in tax-enabled state. Stale TEST_-prefixed customers from prior iterations are visible in POS guest search — not a bug from iter19 but worth a future cleanup.",
+  "rca of the issue": "No defects found. All 3 review themes (tax opt-in with server enforcement, POS guest typeahead with empty-input suppression, Landing on root) implemented correctly and verified end-to-end."
+}
