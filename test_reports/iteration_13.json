@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 13 full backend + frontend verification of new SaaS subscription billing system. 13/13 new billing pytests pass (plans catalog, half_year+annual create, auto-supersede, cancel + 400-on-already-cancelled, list with tenant+plan_label join, revenue KPIs + 30d trend, tenant billing history, 403 for tenant-admin, 400 on unknown plan, tenant doc reflects plan/status/end_date/current_subscription_id). 30/30 regression tests pass (iter7=17 + iter10=3 + iter11=10). Frontend: super-admin → Billing & Subscriptions tab renders billing-panel with 4 KPI cards (rev-today/month/all-time/active-count), 30-day Recharts LineChart, subscription table with status pills + payment-ref column, New Subscription modal opens, plan toggle (half_year ₹10,000 / annual ₹20,000) updates summary card, submit creates row + KPIs reactively update (₹50k → ₹60k → ₹70k across the test runs), cancel button (cancel-sub-{id}) triggers window.confirm + API call and row flips to grey CANCELLED. Emergent badge is fully hidden (iframe[src*='emergent'] not present in DOM on super-admin).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter13_billing.py",
+    "/app/test_reports/pytest/iter13_billing.xml",
+    "/app/test_reports/pytest/iter13_regression.xml",
+    "/app/test_reports/iter13_billing_panel.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Subscription billing endpoints are correctly placed BEFORE GET /super-admin/tenants/{tid} so the /tenants/{tid}/billing route is not shadowed by the generic tenant lookup — verified by passing tests.",
+    "Auto-supersede uses update_many on status='active' — correctly enforces single-active-sub invariant per tenant.",
+    "Cancel on already-cancelled returns 400 (good). Cancel also flips tenant.status to 'cancelled' which mirrors soft-delete flow.",
+    "Revenue 30d trend is computed in Python from db.subscription_payments.find({}).to_list(2000) — at scale (>2000 payments) this will silently truncate. Recommend a $gte: today-30d Mongo filter or aggregation pipeline once volume grows, but fine for current MVP.",
+    "PLAN_CATALOG is a module-level dict — fine for now, but ideally would live in a Mongo collection so super-admins could add plans without code changes (future iter).",
+    "Pre-existing hydration warning '<span> cannot be a child of <option>' originates from Emergent dev-tracker injecting tracking spans into <option> elements of the tenant select. Already noted in iter12; not iter13-introduced. Non-blocking."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter13_billing.py"],
+  "success_rate": {"backend": "100% (13/13 new + 30/30 regression)", "frontend": "100% (all iter13 billing flows verified)"},
+  "test_credentials": "super@miracurl.com / Super@Miracurl123  +  admin@miracurl.com / Miracurl@123 — both worked.",
+  "seed_data_creation": "Created several TEST_-prefixed subscriptions on miracurl-marathahalli (TEST_PAYTM_HALF_001, TEST_PAYTM_ANN_001 [cancelled by supersede], TEST_PAYTM_RESTORE_001 [from pytest restore step], TEST_UI_PAYTM_999 [cancelled by UI], TEST_UI_POSTCANCEL_RESTORE [currently active]). The tenant ends in an active state ready for further iterations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 13 SaaS billing is fully working backend + frontend. Run pytest with REACT_APP_BACKEND_URL exported and addopts cleared because pytest.ini enables xdist by default and the iter13 file uses pytest.<attr> module-level state which loadscope still supports BUT clearer to run with -o 'addopts='. Active sub for miracurl-marathahalli is TEST_UI_POSTCANCEL_RESTORE; today's revenue baseline is ~₹70k from iter13 testing — future iterations should account for or clean up these TEST_ subs if revenue math matters.",
+  "rca of the issue": "N/A — no blocking issues found."
+}

@@ -2,9 +2,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
+import BillingPanel from "./BillingPanel";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -25,6 +26,7 @@ export default function SuperAdmin() {
   const [tenants, setTenants] = useState([]);
   const [open, setOpen] = useState(false);
   const [importFor, setImportFor] = useState(null); // tenant being imported into
+  const [tab, setTab] = useState("tenants"); // tenants | billing
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     slug: "", name: "", owner_email: "", owner_name: "", owner_password: "",
@@ -99,7 +101,25 @@ export default function SuperAdmin() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-10 space-y-6">
+      <main className="max-w-7xl mx-auto px-6 py-10 space-y-6 pb-24">
+        {/* Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-200">
+          <button
+            data-testid="super-tab-tenants"
+            onClick={() => setTab("tenants")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${tab === "tenants" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          >Tenants</button>
+          <button
+            data-testid="super-tab-billing"
+            onClick={() => setTab("billing")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "billing" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><Receipt className="w-4 h-4" /> Billing & Subscriptions</button>
+        </div>
+
+        {tab === "billing" ? (
+          <BillingPanel tenants={tenants} />
+        ) : (
+          <>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-playfair text-3xl">Tenants</h1>
@@ -171,6 +191,8 @@ export default function SuperAdmin() {
             </tbody>
           </table>
         </div>
+          </>
+        )}
       </main>
 
       {open && (

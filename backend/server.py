@@ -76,6 +76,8 @@ class _DB:
     users = _raw_db.users
     login_attempts = _raw_db.login_attempts
     password_reset_tokens = _raw_db.password_reset_tokens
+    subscriptions = _raw_db.subscriptions
+    subscription_payments = _raw_db.subscription_payments
     # tenant-scoped collections
     customers = TenantCollection(_raw_db.customers)
     services = TenantCollection(_raw_db.services)
@@ -1288,6 +1290,218 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     }
     await db.users.insert_one(owner)
     return {"tenant": t, "owner_email": body.owner_email}
+
+
+# ============== SaaS Subscription Billing (tenant → super-admin) ==============
+# Plans: 6-month at ₹10,000 OR 1-year at ₹20,000. Payments recorded manually
+# (e.g., from a Paytm UPI transfer) by the super-admin. Each payment generates a
+# bill record; daily / monthly revenue can be aggregated by GET /revenue.
+PLAN_CATALOG = {
+    "half_year": {"label": "6-Month Plan", "price": 10000.0, "duration_days": 183},
+    "annual":    {"label": "Annual Plan",  "price": 20000.0, "duration_days": 365},
+}
+
+
+class Subscription(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str
+    plan: str  # 'half_year' | 'annual'
+    price: float
+    start_date: str  # ISO date
+    end_date: str    # ISO date
+    status: str = "active"  # active | cancelled | expired
+    payment_method: Optional[str] = "paytm"
+    payment_ref: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    cancelled_at: Optional[str] = None
+    cancelled_reason: Optional[str] = None
+
+
+class SubscriptionPayment(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    subscription_id: str
+    tenant_id: str
+    amount: float
+    paid_at: str  # ISO date
+    method: str = "paytm"
+    txn_ref: Optional[str] = None
+    recorded_by: Optional[str] = None  # super-admin user id
+    notes: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class SubscriptionIn(BaseModel):
+    tenant_id: str
+    plan: str
+    start_date: Optional[str] = None  # default = today
+    payment_method: str = "paytm"
+    payment_ref: Optional[str] = None
+    amount_paid: Optional[float] = None  # default = plan price
+    paid_at: Optional[str] = None  # default = today
+    notes: Optional[str] = None
+
+
+class SubscriptionCancelIn(BaseModel):
+    reason: Optional[str] = None
+
+
+def _plan_or_400(plan: str) -> dict:
+    p = PLAN_CATALOG.get(plan)
+    if not p:
+        raise HTTPException(400, f"Unknown plan '{plan}'. Valid: {list(PLAN_CATALOG)}")
+    return p
+
+
+@api.get("/super-admin/plans")
+async def list_plans(user=Depends(require_super_admin)):
+    return [{"key": k, **v} for k, v in PLAN_CATALOG.items()]
+
+
+@api.get("/super-admin/subscriptions")
+async def list_subscriptions(user=Depends(require_super_admin)):
+    """List all subscriptions across tenants, latest first, joined with tenant name."""
+    subs = await db.subscriptions.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    tids = list({s["tenant_id"] for s in subs})
+    tmap = {
+        t["id"]: t for t in
+        await db.tenants.find({"id": {"$in": tids}}, {"_id": 0, "id": 1, "slug": 1, "name": 1}).to_list(500)
+    }
+    out = []
+    for s in subs:
+        s["tenant"] = tmap.get(s["tenant_id"], {"name": "(deleted tenant)", "slug": "—"})
+        s["plan_label"] = PLAN_CATALOG.get(s["plan"], {}).get("label", s["plan"])
+        out.append(s)
+    return out
+
+
+@api.post("/super-admin/subscriptions")
+async def create_subscription(body: SubscriptionIn, user=Depends(require_super_admin)):
+    """Create a subscription for a tenant + record the corresponding payment in one shot."""
+    tenant = await db.tenants.find_one({"id": body.tenant_id}, {"_id": 0})
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+
+    plan_info = _plan_or_400(body.plan)
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    start = body.start_date or today_iso
+    try:
+        start_dt = datetime.fromisoformat(start)
+    except Exception as e:
+        raise HTTPException(400, "Invalid start_date — use YYYY-MM-DD") from e
+    end_dt = start_dt + timedelta(days=plan_info["duration_days"])
+
+    # Auto-cancel any existing active subscription for the same tenant
+    await db.subscriptions.update_many(
+        {"tenant_id": body.tenant_id, "status": "active"},
+        {"$set": {"status": "cancelled", "cancelled_at": datetime.now(timezone.utc).isoformat(),
+                  "cancelled_reason": "superseded by new subscription"}},
+    )
+
+    sub = Subscription(
+        tenant_id=body.tenant_id,
+        plan=body.plan,
+        price=plan_info["price"],
+        start_date=start_dt.date().isoformat(),
+        end_date=end_dt.date().isoformat(),
+        status="active",
+        payment_method=body.payment_method or "paytm",
+        payment_ref=body.payment_ref,
+        notes=body.notes,
+    ).model_dump()
+    await db.subscriptions.insert_one(sub)
+
+    pay = SubscriptionPayment(
+        subscription_id=sub["id"],
+        tenant_id=body.tenant_id,
+        amount=body.amount_paid if body.amount_paid is not None else plan_info["price"],
+        paid_at=body.paid_at or today_iso,
+        method=body.payment_method or "paytm",
+        txn_ref=body.payment_ref,
+        recorded_by=user["id"],
+        notes=body.notes,
+    ).model_dump()
+    await db.subscription_payments.insert_one(pay)
+
+    # Reflect on tenant for quick-access UI
+    await db.tenants.update_one(
+        {"id": body.tenant_id},
+        {"$set": {"plan": body.plan, "status": "active",
+                  "subscription_end_date": sub["end_date"],
+                  "current_subscription_id": sub["id"]}},
+    )
+
+    sub.pop("_id", None)
+    pay.pop("_id", None)
+    return {"subscription": sub, "payment": pay}
+
+
+@api.post("/super-admin/subscriptions/{sid}/cancel")
+async def cancel_subscription(sid: str, body: SubscriptionCancelIn, user=Depends(require_super_admin)):
+    sub = await db.subscriptions.find_one({"id": sid}, {"_id": 0})
+    if not sub:
+        raise HTTPException(404, "Subscription not found")
+    if sub["status"] != "active":
+        raise HTTPException(400, f"Subscription is already {sub['status']}")
+    await db.subscriptions.update_one(
+        {"id": sid},
+        {"$set": {"status": "cancelled",
+                  "cancelled_at": datetime.now(timezone.utc).isoformat(),
+                  "cancelled_reason": body.reason}},
+    )
+    # Mark the tenant as cancelled too (matches the existing soft-delete flow)
+    await db.tenants.update_one(
+        {"id": sub["tenant_id"]},
+        {"$set": {"status": "cancelled"}},
+    )
+    return {"ok": True}
+
+
+@api.get("/super-admin/subscriptions/revenue")
+async def subscription_revenue(user=Depends(require_super_admin)):
+    """Returns SaaS revenue stats: today, this month, last 30 days trend, plan distribution."""
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
+    pays = await db.subscription_payments.find({}, {"_id": 0}).to_list(2000)
+    today_total = sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(today_iso))
+    month_total = sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(month_prefix))
+    all_time = sum(p["amount"] for p in pays)
+    # 30-day trend
+    by_day: dict = {}
+    for offset in range(29, -1, -1):
+        d = (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat()
+        by_day[d] = 0.0
+    for p in pays:
+        d = (p.get("paid_at") or "")[:10]
+        if d in by_day:
+            by_day[d] += p["amount"]
+    trend = [{"date": d, "amount": round(v, 2)} for d, v in by_day.items()]
+    # Plan distribution
+    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0, "plan": 1}).to_list(500)
+    plan_counts: dict = {}
+    for s in subs:
+        plan_counts[s["plan"]] = plan_counts.get(s["plan"], 0) + 1
+    plan_dist = [{"plan": k, "label": PLAN_CATALOG.get(k, {}).get("label", k), "count": v}
+                 for k, v in plan_counts.items()]
+    return {
+        "today": round(today_total, 2),
+        "this_month": round(month_total, 2),
+        "all_time": round(all_time, 2),
+        "active_subscriptions": len(subs),
+        "trend_30d": trend,
+        "plan_distribution": plan_dist,
+    }
+
+
+@api.get("/super-admin/tenants/{tid}/billing")
+async def tenant_billing_history(tid: str, user=Depends(require_super_admin)):
+    """Subscription history + payment log for a single tenant."""
+    subs = await db.subscriptions.find({"tenant_id": tid}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    pays = await db.subscription_payments.find({"tenant_id": tid}, {"_id": 0}).sort("paid_at", -1).to_list(200)
+    for s in subs:
+        s["plan_label"] = PLAN_CATALOG.get(s["plan"], {}).get("label", s["plan"])
+    return {"subscriptions": subs, "payments": pays}
+
 
 @api.get("/super-admin/tenants/{tid}")
 async def get_tenant(tid: str, user=Depends(require_super_admin)):

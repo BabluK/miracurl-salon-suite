@@ -202,4 +202,17 @@ table.luxe-table-light { width: 100%; border-collapse: collapse; }
 @media (prefers-reduced-motion: reduce) {
   .brand-pill, .brand-scissors, .brand-curl, .brand-mark { animation: none !important; }
 }
+
+/* ============ Hide 'Made with Emergent' platform badge ============ */
+/* Targets all known selectors used by the Emergent badge iframe / floating div. */
+iframe[src*="emergent"],
+[data-emergent-badge],
+#emergent-badge,
+.emergent-badge,
+a[href*="emergent"][class*="badge"],
+a[aria-label*="Made with Emergent" i] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
 .luxe-table tbody tr:hover { background: #1A1A1A; }
