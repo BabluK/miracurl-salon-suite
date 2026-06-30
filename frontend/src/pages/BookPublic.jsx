@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone, MapPin, Star } from "lucide-react";
+import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import {
   FeaturedReviews,
@@ -182,7 +182,7 @@ export default function BookPublic() {
           <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-white/60">
             <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-gold" /> {salon.location}</span>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-gold" /> {salon.hours}</span>
-            <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-gold" /> {salon.phone}</span>
+            <span className="flex items-center gap-1"><PhoneIcon className="w-3 h-3 text-gold" /> {salon.phone}</span>
           </div>
         </div>
       </header>
@@ -233,6 +233,45 @@ export default function BookPublic() {
       </main>
 
       <footer className="border-t border-white/5 mt-10 py-8 text-center text-xs text-ink-muted">
+        <div className="flex items-center justify-center gap-4 mb-4">
+          {salon?.instagram_url && (
+            <a
+              href={salon.instagram_url}
+              target="_blank"
+              rel="noreferrer"
+              data-testid="book-instagram-link"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-500 text-white shadow-lg hover:scale-105 transition"
+              aria-label="Instagram"
+              title="Follow us on Instagram"
+            >
+              <Instagram className="w-5 h-5" />
+            </a>
+          )}
+          {salon?.whatsapp_number && (
+            <a
+              href={`https://wa.me/${salon.whatsapp_number}?text=${encodeURIComponent(`Hi ${salon.name || "Miracurl"}, I'd like to know about your services.`)}`}
+              target="_blank"
+              rel="noreferrer"
+              data-testid="book-whatsapp-link"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg hover:scale-105 transition"
+              aria-label="Chat on WhatsApp"
+              title="Chat on WhatsApp"
+            >
+              <MessageCircle className="w-5 h-5" />
+            </a>
+          )}
+          {salon?.phone && (
+            <a
+              href={`tel:${salon.phone.replace(/\s/g, "")}`}
+              data-testid="book-phone-link"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-sky-500 text-white shadow-lg hover:scale-105 transition"
+              aria-label="Call salon"
+              title={salon.phone}
+            >
+              <PhoneIcon className="w-5 h-5" />
+            </a>
+          )}
+        </div>
         {salon?.google_review_url && (
           <a href={salon.google_review_url} target="_blank" rel="noreferrer" data-testid="book-google-review-link" className="inline-flex items-center gap-2 text-gold hover:text-gold-hover mb-3">
             <Star className="w-3 h-3 fill-gold text-gold" /> Review us on Google

@@ -1240,6 +1240,8 @@ async def public_salon(slug: str):
         "hero_image": t.get("hero_image") or "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600",
         "referral_reward": REFERRAL_REWARD_REFERRER,
         "google_review_url": t.get("google_review_url") or "",
+        "instagram_url": t.get("instagram_url") or "",
+        "whatsapp_number": t.get("whatsapp_number") or "",
     }
 
 # Legacy /public/salon — falls back to default tenant for backward compatibility
@@ -1538,16 +1540,30 @@ class BrandingIn(BaseModel):
     phone: Optional[str] = Field(None, max_length=40)
     location: Optional[str] = Field(None, max_length=200)
     hero_image: Optional[str] = Field(None, max_length=600)
+    instagram_url: Optional[str] = Field(None, max_length=200)
+    whatsapp_number: Optional[str] = Field(None, max_length=20)
 
-    @field_validator("google_review_url")
+    @field_validator("google_review_url", "instagram_url")
     @classmethod
-    def _google_url(cls, v):
+    def _https_url(cls, v):
         if v is None or v == "":
             return ""
         v = v.strip()
         if not v.startswith("https://"):
             raise ValueError("Must start with https://")
         return v
+
+    @field_validator("whatsapp_number")
+    @classmethod
+    def _wa_number(cls, v):
+        if v is None or v == "":
+            return ""
+        import re as _re
+        # Keep only digits; require 10-15 digits (E.164 style without leading +)
+        digits = _re.sub(r"\D", "", v)
+        if not (10 <= len(digits) <= 15):
+            raise ValueError("WhatsApp number must have 10–15 digits, including country code")
+        return digits
 
 
 @api.get("/settings/branding")
@@ -1560,6 +1576,8 @@ async def get_branding(user=Depends(require_tenant_admin), t=Depends(current_ten
         "phone": t.get("phone") or "",
         "location": t.get("location") or "",
         "hero_image": t.get("hero_image") or "",
+        "instagram_url": t.get("instagram_url") or "",
+        "whatsapp_number": t.get("whatsapp_number") or "",
     }
 
 

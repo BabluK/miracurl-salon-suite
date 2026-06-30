@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Calendar, Receipt, Star, Users, BarChart3, Shield, ArrowRight, Check, Sparkles, Zap, MessageSquare, Scissors, Gift } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
+import ChatButton from "@/components/ChatButton";
 
 const FEATURES = [
   { icon: Calendar, title: "Online Booking 24/7", desc: "Customers self-book in 5 taps. Shareable WhatsApp link.", color: "sky" },
@@ -222,6 +223,7 @@ export default function Landing() {
           <a href="#pricing" className="hover:text-slate-700">Pricing</a>
         </div>
       </footer>
+      <ChatButton message="Hi Miracurl ✦ I'd like to know more about getting my salon on the platform." />
     </div>
   );
 }

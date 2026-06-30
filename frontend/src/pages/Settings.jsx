@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Receipt, Save, ShieldCheck, Info, Gift, Copy, Share2, Wallet, Star, Store } from "lucide-react";
+import { Receipt, Save, ShieldCheck, Info, Gift, Copy, Share2, Wallet, Star, Store, Instagram, MessageCircle } from "lucide-react";
 
 export default function Settings() {
   const [taxEnabled, setTaxEnabled] = useState(false);
@@ -11,7 +11,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [affiliate, setAffiliate] = useState(null);
-  const [branding, setBranding] = useState({ google_review_url: "", hours: "", phone: "", location: "", hero_image: "" });
+  const [branding, setBranding] = useState({ google_review_url: "", hours: "", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "" });
   const [savingBrand, setSavingBrand] = useState(false);
 
   useEffect(() => {
@@ -32,6 +32,8 @@ export default function Settings() {
           phone: brandRes.data.phone || "",
           location: brandRes.data.location || "",
           hero_image: brandRes.data.hero_image || "",
+          instagram_url: brandRes.data.instagram_url || "",
+          whatsapp_number: brandRes.data.whatsapp_number || "",
         });
       })
       .catch(e => toast.error(e.response?.data?.detail || "Couldn't load settings"))
@@ -134,6 +136,32 @@ export default function Settings() {
                 placeholder="Marathahalli, Bangalore"
                 className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
               />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                <Instagram className="w-3.5 h-3.5 text-fuchsia-500" /> Instagram URL
+              </label>
+              <input
+                data-testid="settings-instagram-url"
+                value={branding.instagram_url}
+                onChange={e => setBranding(b => ({ ...b, instagram_url: e.target.value }))}
+                placeholder="https://www.instagram.com/your_handle/"
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Shown as an icon on your public booking page.</p>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-500" /> WhatsApp number
+              </label>
+              <input
+                data-testid="settings-whatsapp-number"
+                value={branding.whatsapp_number}
+                onChange={e => setBranding(b => ({ ...b, whatsapp_number: e.target.value }))}
+                placeholder="+91 98765 43210"
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Include country code. Powers the &quot;Chat on WhatsApp&quot; button.</p>
             </div>
             <div className="md:col-span-2">
               <label className="text-xs text-slate-500 font-medium">Hero image URL</label>

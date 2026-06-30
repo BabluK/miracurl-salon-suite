@@ -4,6 +4,7 @@ import axios from "axios";
 import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import BrandMark from "@/components/BrandMark";
+import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setAccessToken, setTenantSlug } from "@/lib/api";
 
@@ -101,6 +102,7 @@ export default function SignupSalon() {
   return (
     <div className="min-h-screen relative overflow-hidden bg-white" data-testid="signup-salon-page">
       <Toaster theme="light" position="top-center" toastOptions={TOASTER_OPTIONS} />
+      <ChatButton message="Hi Miracurl ✦ I'm signing up my salon and need a little help." label="Need help?" />
 
       {/* Decorative blobs */}
       <div className="pointer-events-none absolute -right-32 -top-32 w-[520px] h-[520px] rounded-full opacity-80"
