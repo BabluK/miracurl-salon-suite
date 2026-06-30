@@ -778,6 +778,7 @@ async def public_salon():
         "hours": "Mon–Sun · 10:00 AM – 9:00 PM",
         "hero_image": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600",
         "referral_reward": REFERRAL_REWARD_REFERRER,
+        "google_review_url": os.environ.get("GOOGLE_REVIEW_URL", ""),
     }
 
 @api.get("/public/services")

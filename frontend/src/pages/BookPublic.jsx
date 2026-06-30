@@ -519,7 +519,18 @@ export default function BookPublic() {
       </main>
 
       <footer className="border-t border-white/5 mt-10 py-8 text-center text-xs text-ink-muted">
-        © Miracurl · Crafted with care in Marathahalli
+        {salon?.google_review_url && (
+          <a
+            href={salon.google_review_url}
+            target="_blank"
+            rel="noreferrer"
+            data-testid="book-google-review-link"
+            className="inline-flex items-center gap-2 text-gold hover:text-gold-hover mb-3"
+          >
+            <Star className="w-3 h-3 fill-gold text-gold" /> Review us on Google
+          </a>
+        )}
+        <div>© Miracurl · Crafted with care in Marathahalli</div>
       </footer>
     </div>
   );
