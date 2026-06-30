@@ -4,6 +4,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 import os
+import re
 import uuid
 import logging
 import secrets
@@ -491,6 +492,86 @@ async def register(body: RegisterIn, request: Request, response: Response):
     user.pop("password_hash", None)
     user.pop("_id", None)
     return {"user": user, "access_token": access}
+
+
+# ============== Public Salon Self-Signup (7-day trial) ==============
+TRIAL_DAYS = 7
+_SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$")
+
+
+def slugify(name: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return s[:40] or "salon"
+
+
+class SalonSignupIn(BaseModel):
+    salon_name: str = Field(..., min_length=3, max_length=80)
+    slug: Optional[str] = None  # auto-generated if blank
+    owner_name: str = Field(..., min_length=2, max_length=80)
+    owner_email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+    location: Optional[str] = None
+    phone: Optional[str] = None
+
+
+@api.post("/public/signup-salon")
+async def public_signup_salon(body: SalonSignupIn, request: Request, response: Response):
+    public_rate_limit(request, key_suffix="signup", limit=4, window_sec=900)
+
+    email = body.owner_email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(400, "An account with this email already exists")
+
+    # Resolve a unique slug
+    base_slug = body.slug.strip().lower() if body.slug else slugify(body.salon_name)
+    if not _SLUG_RE.match(base_slug):
+        raise HTTPException(400, "Slug must be lowercase letters, digits or hyphens (3–40 chars)")
+    candidate = base_slug
+    suffix = 1
+    while await db.tenants.find_one({"slug": candidate}, {"_id": 0, "id": 1}):
+        suffix += 1
+        candidate = f"{base_slug}-{suffix}"
+        if suffix > 50:
+            raise HTTPException(400, "Couldn't generate a unique slug — try a different salon name")
+
+    trial_end = (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).date().isoformat()
+    tenant = Tenant(
+        slug=candidate,
+        name=body.salon_name.strip(),
+        owner_email=email,
+        location=body.location,
+        phone=body.phone,
+        plan="trial",
+        status="trial",
+    ).model_dump()
+    tenant["trial_end_date"] = trial_end
+    await db.tenants.insert_one(tenant)
+
+    owner = {
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "name": body.owner_name.strip(),
+        "role": "admin",
+        "tenant_id": tenant["id"],
+        "password_hash": hash_pw(body.password),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(owner)
+
+    access = make_access(owner["id"], email)
+    refresh = make_refresh(owner["id"])
+    set_auth_cookies(response, access, refresh)
+    owner.pop("password_hash", None)
+    tenant.pop("_id", None)
+    owner.pop("_id", None)
+    return {
+        "user": owner,
+        "tenant": tenant,
+        "access_token": access,
+        "trial_end_date": trial_end,
+        "trial_days": TRIAL_DAYS,
+    }
+
 
 @api.post("/auth/login")
 async def login(body: LoginIn, request: Request, response: Response):
@@ -1058,7 +1139,6 @@ async def reviews_blast_targets(user=Depends(get_current_user)):
     return {"count": len(targets), "targets": targets}
 
 # ---------------- Public (no auth) - Customer-facing booking ----------------
-import re
 
 REFERRAL_REWARD_REFERRER = 100.0  # ₹ credit to referrer
 REFERRAL_REWARD_REFERRED = 100.0  # ₹ credit to new customer
