@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
-import { Search, ShoppingCart, X, Plus, Minus, IndianRupee, Wallet, CreditCard, Smartphone, Banknote, Receipt } from "lucide-react";
+import { Search, ShoppingCart, X, Plus, Minus, IndianRupee, Wallet, CreditCard, Smartphone, Banknote, Receipt, Printer, Share2, Gift } from "lucide-react";
 import { toast } from "sonner";
 
 export default function POS() {
@@ -58,6 +58,65 @@ export default function POS() {
       toast.success(`Invoice ${data.invoice_no} created`);
       setLastInvoice(data); setCart([]); setDiscount(0);
     } catch (err) { toast.error(err.response?.data?.detail || "Checkout failed"); }
+  }
+
+  function printInvoice(inv) {
+    const itemsHtml = inv.items.map(it => `<tr><td>${it.name} × ${it.qty}</td><td style="text-align:right">₹${(it.qty * it.price).toFixed(2)}</td></tr>`).join("");
+    const html = `
+<!doctype html><html><head><title>${inv.invoice_no}</title>
+<style>
+  body { font-family: 'Helvetica', Arial, sans-serif; color:#000; padding:24px; max-width:420px; margin:auto; }
+  h1 { font-family: 'Georgia', serif; text-align:center; margin:0; color:#a08300; }
+  .sub { text-align:center; font-size:11px; color:#666; margin-bottom:16px; }
+  .row { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; }
+  table { width:100%; border-top:1px dashed #999; border-bottom:1px dashed #999; margin-top:12px; }
+  table td { padding:4px 0; font-size:12px; }
+  .total { font-family:'Georgia',serif; font-size:18px; font-weight:bold; border-top:2px solid #000; padding-top:6px; margin-top:6px; }
+  .foot { text-align:center; font-size:10px; color:#888; margin-top:20px; }
+</style></head><body>
+<h1>Miracurl ✦</h1>
+<div class="sub">Unisex Family Salon · Marathahalli<br/>${new Date(inv.created_at).toLocaleString()}</div>
+<div class="row"><b>Invoice #</b><span>${inv.invoice_no}</span></div>
+<div class="row"><b>Customer</b><span>${inv.customer_name}</span></div>
+${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${inv.staff_name}</span></div>` : ""}
+<div class="row"><b>Payment</b><span>${inv.payment_mode.toUpperCase()}</span></div>
+<table>${itemsHtml}</table>
+<div class="row"><span>Subtotal</span><span>₹${inv.subtotal.toFixed(2)}</span></div>
+<div class="row"><span>Discount</span><span>−₹${inv.discount.toFixed(2)}</span></div>
+<div class="row"><span>Tax</span><span>₹${inv.tax.toFixed(2)}</span></div>
+<div class="row total"><span>Total</span><span>₹${inv.total.toFixed(2)}</span></div>
+<div class="foot">Thank you for visiting Miracurl ✦</div>
+<script>window.onload = () => { window.print(); setTimeout(()=>window.close(), 250); };</script>
+</body></html>`;
+    const w = window.open("", "miracurl-invoice", "width=480,height=720");
+    if (!w) { toast.error("Pop-up blocked — allow pop-ups to print"); return; }
+    w.document.write(html); w.document.close();
+  }
+
+  function shareInvoiceWhatsApp(inv) {
+    const cust = customers.find(c => c.id === inv.customer_id);
+    const phone = cust?.phone?.replace(/\D/g, "") || "";
+    const itemLines = inv.items.map(it => `• ${it.name} × ${it.qty} — ₹${(it.qty * it.price).toFixed(0)}`).join("%0A");
+    const msg = [
+      `*Miracurl ✦* Receipt`,
+      `Invoice ${inv.invoice_no}`,
+      `Customer: ${inv.customer_name}`,
+      inv.staff_name ? `Stylist: ${inv.staff_name}` : "",
+      "",
+      itemLines.replace(/%0A/g, "\n"),
+      "",
+      `Subtotal: ₹${inv.subtotal.toFixed(0)}`,
+      `Discount: −₹${inv.discount.toFixed(0)}`,
+      `Tax: ₹${inv.tax.toFixed(0)}`,
+      `*Total: ₹${inv.total.toFixed(0)}*`,
+      `Paid via ${inv.payment_mode.toUpperCase()}`,
+      "",
+      "Thank you for visiting Miracurl ✦",
+    ].filter(Boolean).join("\n");
+    const url = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -165,28 +224,43 @@ export default function POS() {
       {lastInvoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setLastInvoice(null)}>
           <div className="card-luxe w-full max-w-md mx-4" onClick={e => e.stopPropagation()} data-testid="invoice-receipt">
-            <div className="text-center pb-4 border-b border-white/10">
-              <h3 className="font-playfair text-2xl gold-text">Miracurl</h3>
-              <p className="text-xs text-ink-secondary">Unisex Family Salon, Marathahalli</p>
+            <div id="printable-invoice">
+              <div className="text-center pb-4 border-b border-white/10">
+                <h3 className="font-playfair text-2xl gold-text">Miracurl</h3>
+                <p className="text-xs text-ink-secondary">Unisex Family Salon, Marathahalli</p>
+                <p className="text-[10px] text-ink-muted mt-1">{new Date(lastInvoice.created_at).toLocaleString()}</p>
+              </div>
+              <div className="py-4 space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-ink-muted">Invoice #</span><span className="font-mono">{lastInvoice.invoice_no}</span></div>
+                <div className="flex justify-between"><span className="text-ink-muted">Customer</span><span>{lastInvoice.customer_name}</span></div>
+                {lastInvoice.staff_name && <div className="flex justify-between"><span className="text-ink-muted">Stylist</span><span>{lastInvoice.staff_name}</span></div>}
+                <div className="flex justify-between"><span className="text-ink-muted">Payment</span><span className="uppercase text-gold">{lastInvoice.payment_mode}</span></div>
+              </div>
+              <div className="border-t border-white/10 pt-3 space-y-1 text-sm">
+                {lastInvoice.items.map((it, idx) => (
+                  <div key={`${it.type}:${it.ref_id}:${idx}`} className="flex justify-between"><span>{it.name} × {it.qty}</span><span>₹{(it.qty * it.price).toFixed(2)}</span></div>
+                ))}
+              </div>
+              <div className="border-t border-white/10 pt-3 mt-3 space-y-1 text-sm">
+                <div className="flex justify-between"><span>Subtotal</span><span>₹{lastInvoice.subtotal.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Discount</span><span>−₹{lastInvoice.discount.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>Tax</span><span>₹{lastInvoice.tax.toFixed(2)}</span></div>
+                <div className="flex justify-between font-playfair text-lg pt-2 border-t border-white/10"><span>Total</span><span className="text-gold">₹{lastInvoice.total.toFixed(2)}</span></div>
+              </div>
             </div>
-            <div className="py-4 space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-ink-muted">Invoice #</span><span className="font-mono">{lastInvoice.invoice_no}</span></div>
-              <div className="flex justify-between"><span className="text-ink-muted">Customer</span><span>{lastInvoice.customer_name}</span></div>
-              {lastInvoice.staff_name && <div className="flex justify-between"><span className="text-ink-muted">Stylist</span><span>{lastInvoice.staff_name}</span></div>}
-              <div className="flex justify-between"><span className="text-ink-muted">Payment</span><span className="uppercase text-gold">{lastInvoice.payment_mode}</span></div>
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                data-testid="invoice-print-btn"
+                onClick={() => printInvoice(lastInvoice)}
+                className="btn-ghost flex-1 flex items-center justify-center gap-2 text-xs"
+              ><Printer className="w-3.5 h-3.5" /> Print</button>
+              <button
+                data-testid="invoice-whatsapp-btn"
+                onClick={() => shareInvoiceWhatsApp(lastInvoice)}
+                className="btn-ghost flex-1 flex items-center justify-center gap-2 text-xs"
+              ><Share2 className="w-3.5 h-3.5" /> WhatsApp</button>
+              <button data-testid="invoice-close-btn" onClick={() => setLastInvoice(null)} className="btn-gold flex-1 text-xs">Close</button>
             </div>
-            <div className="border-t border-white/10 pt-3 space-y-1 text-sm">
-              {lastInvoice.items.map((it, idx) => (
-                <div key={`${it.type}:${it.ref_id}:${idx}`} className="flex justify-between"><span>{it.name} × {it.qty}</span><span>₹{(it.qty * it.price).toFixed(2)}</span></div>
-              ))}
-            </div>
-            <div className="border-t border-white/10 pt-3 mt-3 space-y-1 text-sm">
-              <div className="flex justify-between"><span>Subtotal</span><span>₹{lastInvoice.subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Discount</span><span>−₹{lastInvoice.discount.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Tax</span><span>₹{lastInvoice.tax.toFixed(2)}</span></div>
-              <div className="flex justify-between font-playfair text-lg pt-2 border-t border-white/10"><span>Total</span><span className="text-gold">₹{lastInvoice.total.toFixed(2)}</span></div>
-            </div>
-            <button onClick={() => setLastInvoice(null)} className="btn-gold w-full mt-4">Close</button>
           </div>
         </div>
       )}

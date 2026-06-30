@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone, User, Mail, Sparkles, MapPin } from "lucide-react";
+import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone, User, Mail, Sparkles, MapPin, Gift, Share2, Copy } from "lucide-react";
 import { toast, Toaster } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -50,7 +50,8 @@ export default function BookPublic() {
   const [staffId, setStaffId] = useState(""); // "" = any
   const [date, setDate] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [time, setTime] = useState("");
-  const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "", referral_code: "" });
+  const [referralCheck, setReferralCheck] = useState(null); // {valid, referrer_name} | {error}
   const [confirmation, setConfirmation] = useState(null);
 
   useEffect(() => {
@@ -83,24 +84,40 @@ export default function BookPublic() {
   }
   function back() { setStep(Math.max(0, step - 1)); }
 
+  async function checkReferral() {
+    const code = form.referral_code.trim().toUpperCase();
+    if (!code) { setReferralCheck(null); return; }
+    try {
+      const { data } = await PUBLIC.get(`/referral/${encodeURIComponent(code)}`);
+      setReferralCheck({ valid: true, ...data });
+    } catch (e) {
+      setReferralCheck({ valid: false, error: e.response?.data?.detail || "Invalid code" });
+    }
+  }
+
   async function submit() {
     setBusy(true);
     try {
-      const scheduled = `${date}T${time}:00`;
+      const scheduled = `${date}T${time}:00+05:30`;
       const { data } = await PUBLIC.post("/book", {
         customer_name: form.name.trim(),
         customer_phone: form.phone.trim(),
         customer_email: form.email.trim() || null,
         service_ids: picked,
         staff_id: staffId || null,
-        scheduled_at: new Date(scheduled).toISOString(),
+        scheduled_at: scheduled,
         notes: form.notes || null,
+        referral_code: form.referral_code.trim().toUpperCase() || null,
       });
       setConfirmation(data);
       setStep(5);
       toast.success("Booking confirmed!");
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Booking failed");
+      const detail = e.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail
+        : Array.isArray(detail) ? detail.map(x => x.msg || JSON.stringify(x)).join(" · ")
+        : "Booking failed";
+      toast.error(msg);
     } finally { setBusy(false); }
   }
 
@@ -295,6 +312,28 @@ export default function BookPublic() {
                 <label className="label-luxe block mb-1">Notes (optional)</label>
                 <textarea data-testid="book-notes-input" rows="3" className="input-luxe" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Anything we should know?" />
               </div>
+              <div className="pt-2 border-t border-white/5">
+                <label className="label-luxe block mb-1 flex items-center gap-2"><Gift className="w-3 h-3 text-gold" /> Referral code (optional)</label>
+                <div className="flex gap-2">
+                  <input
+                    data-testid="book-referral-input"
+                    className="input-luxe uppercase tracking-widest"
+                    value={form.referral_code}
+                    onChange={e => { setForm({ ...form, referral_code: e.target.value.toUpperCase() }); setReferralCheck(null); }}
+                    onBlur={checkReferral}
+                    placeholder="MIRACURL01"
+                  />
+                  <button type="button" data-testid="book-referral-check-btn" onClick={checkReferral} className="btn-ghost text-xs px-3">Check</button>
+                </div>
+                {referralCheck?.valid && (
+                  <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1" data-testid="book-referral-valid">
+                    <Check className="w-3 h-3" /> Referred by {referralCheck.referrer_name} · You&apos;ll get ₹{referralCheck.reward_referred} off your first bill
+                  </div>
+                )}
+                {referralCheck?.valid === false && (
+                  <div className="mt-2 text-xs text-red-400" data-testid="book-referral-invalid">{referralCheck.error}</div>
+                )}
+              </div>
             </div>
           </section>
         )}
@@ -346,12 +385,23 @@ export default function BookPublic() {
 
         {/* STEP 5 — Success */}
         {step === 5 && confirmation && (
-          <section className="max-w-xl mx-auto text-center animate-fade-up py-10" data-testid="book-success">
+          <section className="max-w-2xl mx-auto text-center animate-fade-up py-10" data-testid="book-success">
             <div className="w-20 h-20 mx-auto rounded-full bg-gold flex items-center justify-center shadow-gold-glow mb-6">
               <Check className="w-10 h-10 text-bg-base" />
             </div>
             <h2 className="font-playfair text-4xl">You&apos;re booked ✦</h2>
             <p className="text-ink-secondary mt-3">A confirmation has been recorded. See you soon at Miracurl.</p>
+
+            {confirmation.referral_applied && (
+              <div className="card-luxe mt-6 bg-gold/5 border-gold/30" data-testid="book-referral-applied">
+                <div className="flex items-center gap-2 justify-center text-gold">
+                  <Gift className="w-5 h-5" />
+                  <span className="font-playfair text-lg">₹{confirmation.referral_applied.credit_added} credit added!</span>
+                </div>
+                <p className="text-xs text-ink-secondary mt-1">Thanks for using {confirmation.referral_applied.referrer_name}&apos;s referral code. Your credit auto-applies on your next bill.</p>
+              </div>
+            )}
+
             <div className="card-luxe mt-8 text-left">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div><div className="label-luxe">Name</div><div className="mt-1">{confirmation.summary.customer_name}</div></div>
@@ -361,7 +411,49 @@ export default function BookPublic() {
                 <div><div className="label-luxe">Total</div><div className="mt-1 text-gold font-playfair text-xl flex items-center"><IndianRupee className="w-4 h-4" />{confirmation.summary.total}</div></div>
               </div>
             </div>
-            <button onClick={() => { setStep(0); setPicked([]); setTime(""); setForm({ name: "", phone: "", email: "", notes: "" }); setConfirmation(null); }} className="btn-ghost mt-8" data-testid="book-another-btn">
+
+            {/* Refer-a-friend card */}
+            <div className="card-luxe mt-6 bg-gradient-to-br from-gold/10 via-bg-surface to-blush/5 border-gold/30 text-left">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
+                  <Gift className="w-5 h-5 text-bg-base" />
+                </div>
+                <div>
+                  <h3 className="font-playfair text-xl">Share & earn ₹100</h3>
+                  <p className="text-xs text-ink-secondary">Refer a friend — both of you get ₹100 off your next visit.</p>
+                </div>
+              </div>
+              <div className="bg-bg-base/60 border border-white/10 rounded-md p-3 flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="label-luxe">Your Referral Code</div>
+                  <div className="font-playfair text-2xl text-gold tracking-widest mt-1" data-testid="user-referral-code">{confirmation.summary.customer_referral_code}</div>
+                </div>
+                <button
+                  data-testid="copy-referral-code-btn"
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(confirmation.summary.customer_referral_code); toast.success("Code copied!"); }
+                    catch { toast.error("Copy not available. Long-press to copy."); }
+                  }}
+                  className="btn-ghost text-xs px-3 py-2 flex items-center gap-1"
+                ><Copy className="w-3 h-3" /> Copy</button>
+                <a
+                  data-testid="share-whatsapp-btn"
+                  href={`https://wa.me/?text=${encodeURIComponent(`I just booked at Miracurl ✦ — try them out! Use my referral code ${confirmation.summary.customer_referral_code} and get ₹100 off. Book here: ${window.location.origin}/book`)}`}
+                  target="_blank" rel="noreferrer"
+                  className="btn-gold text-xs px-3 py-2 flex items-center gap-1"
+                ><Share2 className="w-3 h-3" /> WhatsApp</a>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setStep(0); setPicked([]); setTime(""); setReferralCheck(null);
+                setForm({ name: "", phone: "", email: "", notes: "", referral_code: "" });
+                setConfirmation(null);
+              }}
+              className="btn-ghost mt-8"
+              data-testid="book-another-btn"
+            >
               Book another visit
             </button>
           </section>

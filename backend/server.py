@@ -15,7 +15,7 @@ from typing import List, Optional
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 
 # ---------------- DB ----------------
 mongo_url = os.environ['MONGO_URL']
@@ -76,6 +76,24 @@ async def get_current_user(request: Request) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(401, "Invalid token")
 
+async def require_admin(user=Depends(get_current_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(403, "Admin role required")
+    return user
+
+# ---- In-memory rate limit for public booking ----
+_RATE_BUCKET: dict = {}
+def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, window_sec: int = 600):
+    """Allow `limit` requests per IP per `window_sec` seconds."""
+    ip = request.client.host if request.client else "anon"
+    key = f"{ip}:{key_suffix}"
+    now = datetime.now(timezone.utc).timestamp()
+    bucket = [t for t in _RATE_BUCKET.get(key, []) if now - t < window_sec]
+    if len(bucket) >= limit:
+        raise HTTPException(429, "Too many requests. Please wait a few minutes and try again.")
+    bucket.append(now)
+    _RATE_BUCKET[key] = bucket
+
 # ---------------- Models ----------------
 class RegisterIn(BaseModel):
     email: EmailStr
@@ -105,6 +123,9 @@ class Customer(BaseModel):
     total_spent: float = 0.0
     visits: int = 0
     notes: Optional[str] = None
+    referral_code: str = Field(default_factory=lambda: secrets.token_urlsafe(4).upper().replace("_", "X").replace("-", "Y")[:6])
+    referred_by: Optional[str] = None
+    referral_credit: float = 0.0
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class CustomerIn(BaseModel):
@@ -377,7 +398,7 @@ async def update_customer(cid: str, body: CustomerIn, user=Depends(get_current_u
     return await db.customers.find_one({"id": cid}, {"_id": 0})
 
 @api.delete("/customers/{cid}")
-async def delete_customer(cid: str, user=Depends(get_current_user)):
+async def delete_customer(cid: str, user=Depends(require_admin)):
     await db.customers.delete_one({"id": cid})
     return {"ok": True}
 
@@ -398,7 +419,7 @@ async def update_service(sid: str, body: ServiceIn, user=Depends(get_current_use
     return await db.services.find_one({"id": sid}, {"_id": 0})
 
 @api.delete("/services/{sid}")
-async def delete_service(sid: str, user=Depends(get_current_user)):
+async def delete_service(sid: str, user=Depends(require_admin)):
     await db.services.delete_one({"id": sid})
     return {"ok": True}
 
@@ -419,7 +440,7 @@ async def update_staff(sid: str, body: StaffIn, user=Depends(get_current_user)):
     return await db.staff.find_one({"id": sid}, {"_id": 0})
 
 @api.delete("/staff/{sid}")
-async def delete_staff(sid: str, user=Depends(get_current_user)):
+async def delete_staff(sid: str, user=Depends(require_admin)):
     await db.staff.delete_one({"id": sid})
     return {"ok": True}
 
@@ -440,7 +461,7 @@ async def update_product(pid: str, body: ProductIn, user=Depends(get_current_use
     return await db.products.find_one({"id": pid}, {"_id": 0})
 
 @api.delete("/products/{pid}")
-async def delete_product(pid: str, user=Depends(get_current_user)):
+async def delete_product(pid: str, user=Depends(require_admin)):
     await db.products.delete_one({"id": pid})
     return {"ok": True}
 
@@ -497,29 +518,47 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     if not cust:
         raise HTTPException(400, "Invalid customer")
     staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
-    subtotal = sum(it.qty * it.price for it in body.items)
-    discount = body.discount or 0
-    taxable = max(0, subtotal - discount)
+
+    # Stock availability check (aggregated by product ref_id to handle duplicates)
+    needed = {}
+    for it in body.items:
+        if it.type == "product":
+            needed[it.ref_id] = needed.get(it.ref_id, 0) + it.qty
+    for pid, qty in needed.items():
+        prod = await db.products.find_one({"id": pid}, {"_id": 0, "name": 1, "stock": 1})
+        if not prod:
+            raise HTTPException(400, f"Product not found: {pid}")
+        if prod["stock"] < qty:
+            raise HTTPException(400, f"Insufficient stock for '{prod['name']}' — {prod['stock']} left, {qty} requested")
+
+    # Apply referral credit (capped at total) BEFORE tax
+    raw_subtotal = sum(it.qty * it.price for it in body.items)
+    referral_credit_available = float(cust.get("referral_credit") or 0)
+    referral_credit_used = min(referral_credit_available, raw_subtotal)
+    discount = (body.discount or 0) + referral_credit_used
+    taxable = max(0, raw_subtotal - discount)
     tax = taxable * (body.tax_pct or 0) / 100
     total = taxable + tax
+
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),
         customer_id=cust["id"], customer_name=cust["name"],
         staff_id=staff["id"] if staff else None,
         staff_name=staff["name"] if staff else None,
-        items=body.items, subtotal=subtotal, discount=discount,
+        items=body.items, subtotal=raw_subtotal, discount=discount,
         tax=tax, total=total, payment_mode=body.payment_mode,
     ).model_dump()
     await db.invoices.insert_one(inv)
-    # update customer stats
-    await db.customers.update_one(
-        {"id": cust["id"]},
-        {"$inc": {"total_spent": total, "visits": 1, "loyalty_points": int(total // 100)}},
-    )
-    # decrement product stock
-    for it in body.items:
-        if it.type == "product":
-            await db.products.update_one({"id": it.ref_id}, {"$inc": {"stock": -it.qty}})
+
+    # Update customer stats and consume referral credit
+    cust_inc = {"total_spent": total, "visits": 1, "loyalty_points": int(total // 100)}
+    if referral_credit_used > 0:
+        cust_inc["referral_credit"] = -referral_credit_used
+    await db.customers.update_one({"id": cust["id"]}, {"$inc": cust_inc})
+
+    # Decrement product stock
+    for pid, qty in needed.items():
+        await db.products.update_one({"id": pid}, {"$inc": {"stock": -qty}})
     return _clean(inv)
 
 # ---------------- Reports / Dashboard ----------------
@@ -579,14 +618,45 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
     }
 
 # ---------------- Public (no auth) - Customer-facing booking ----------------
+import re
+
+REFERRAL_REWARD_REFERRER = 100.0  # ₹ credit to referrer
+REFERRAL_REWARD_REFERRED = 100.0  # ₹ credit to new customer
+
 class PublicBookingIn(BaseModel):
-    customer_name: str
+    customer_name: str = Field(..., min_length=2, max_length=80)
     customer_phone: str
-    customer_email: Optional[str] = None
-    service_ids: List[str]
+    customer_email: Optional[EmailStr] = None
+    service_ids: List[str] = Field(..., min_length=1)
     staff_id: Optional[str] = None
     scheduled_at: str
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500)
+    referral_code: Optional[str] = None
+
+    @field_validator("customer_phone")
+    @classmethod
+    def _phone(cls, v):
+        cleaned = "".join(c for c in v if c.isdigit())
+        if not re.fullmatch(r"\d{7,15}", cleaned):
+            raise ValueError("Enter a valid phone number (7-15 digits)")
+        return cleaned
+
+    @field_validator("scheduled_at")
+    @classmethod
+    def _when(cls, v):
+        try:
+            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except Exception:
+            raise ValueError("Invalid scheduled_at, must be ISO 8601")
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if dt < datetime.now(timezone.utc) - timedelta(minutes=5):
+            raise ValueError("Pick a future time")
+        # Business hours guard (local 10:00 – 21:00 — approximate; UTC-store assumed IST)
+        ist = dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
+        if ist.hour < 10 or ist.hour >= 21:
+            raise ValueError("Pick a slot between 10:00 AM and 9:00 PM")
+        return dt.isoformat()
 
 @api.get("/public/salon")
 async def public_salon():
@@ -597,44 +667,93 @@ async def public_salon():
         "phone": "+91 98765 00000",
         "hours": "Mon–Sun · 10:00 AM – 9:00 PM",
         "hero_image": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600",
+        "referral_reward": REFERRAL_REWARD_REFERRER,
     }
 
 @api.get("/public/services")
 async def public_services():
-    docs = await db.services.find({"active": True}, {"_id": 0}).sort("category", 1).to_list(500)
-    return docs
+    return await db.services.find({"active": True}, {"_id": 0}).sort("category", 1).to_list(500)
 
 @api.get("/public/staff")
 async def public_staff():
-    docs = await db.staff.find({"active": 1}, {"_id": 0, "email": 0, "phone": 0, "commission_pct": 0}).to_list(500)
-    if not docs:
-        docs = await db.staff.find({"active": True}, {"_id": 0, "email": 0, "phone": 0, "commission_pct": 0}).to_list(500)
-    return docs
+    return await db.staff.find({"active": True}, {"_id": 0, "email": 0, "phone": 0, "commission_pct": 0}).to_list(500)
+
+@api.get("/public/referral/{code}")
+async def public_referral(code: str):
+    code = code.strip().upper()
+    referrer = await db.customers.find_one({"referral_code": code}, {"_id": 0, "name": 1, "referral_code": 1})
+    if not referrer:
+        raise HTTPException(404, "Invalid referral code")
+    return {
+        "valid": True,
+        "referrer_name": referrer["name"],
+        "reward_referred": REFERRAL_REWARD_REFERRED,
+        "reward_referrer": REFERRAL_REWARD_REFERRER,
+    }
 
 @api.post("/public/book")
-async def public_book(body: PublicBookingIn):
-    if not body.service_ids:
-        raise HTTPException(400, "Pick at least one service")
-    services = await db.services.find({"id": {"$in": body.service_ids}}, {"_id": 0}).to_list(50)
+async def public_book(body: PublicBookingIn, request: Request):
+    public_rate_limit(request, key_suffix="book", limit=8, window_sec=600)
+
+    services = await db.services.find({"id": {"$in": body.service_ids}, "active": True}, {"_id": 0}).to_list(50)
     if not services:
         raise HTTPException(400, "Invalid services")
+
     staff = None
     if body.staff_id:
-        staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0})
+        staff = await db.staff.find_one({"id": body.staff_id, "active": True}, {"_id": 0})
     if not staff:
-        staff = await db.staff.find_one({"active": True}, {"_id": 0}) or await db.staff.find_one({}, {"_id": 0})
+        staff = await db.staff.find_one({"active": True}, {"_id": 0})
     if not staff:
         raise HTTPException(400, "No stylist available")
 
-    # find or create customer by phone
+    # ----- find or create customer by phone -----
     cust = await db.customers.find_one({"phone": body.customer_phone}, {"_id": 0})
-    if not cust:
+    is_new_customer = cust is None
+    if is_new_customer:
         cust_doc = Customer(
             name=body.customer_name, phone=body.customer_phone, email=body.customer_email
         ).model_dump()
         await db.customers.insert_one(cust_doc)
         cust = cust_doc
+    else:
+        # Update name/email if user provided new info
+        updates = {}
+        if body.customer_name and body.customer_name.strip() and body.customer_name.strip() != cust.get("name"):
+            updates["name"] = body.customer_name.strip()
+        if body.customer_email and body.customer_email != cust.get("email"):
+            updates["email"] = body.customer_email
+        if updates:
+            await db.customers.update_one({"id": cust["id"]}, {"$set": updates})
+            cust.update(updates)
+        # Ensure existing customer has a referral_code (back-fill)
+        if not cust.get("referral_code"):
+            new_code = secrets.token_urlsafe(4).upper().replace("_", "X").replace("-", "Y")[:6]
+            await db.customers.update_one({"id": cust["id"]}, {"$set": {"referral_code": new_code}})
+            cust["referral_code"] = new_code
     cust.pop("_id", None)
+
+    # ----- referral processing (only for brand-new customers) -----
+    referral_applied = None
+    if is_new_customer and body.referral_code:
+        code = body.referral_code.strip().upper()
+        if code != cust.get("referral_code"):  # can't refer yourself
+            referrer = await db.customers.find_one({"referral_code": code}, {"_id": 0})
+            if referrer:
+                await db.customers.update_one(
+                    {"id": referrer["id"]},
+                    {"$inc": {"referral_credit": REFERRAL_REWARD_REFERRER}},
+                )
+                await db.customers.update_one(
+                    {"id": cust["id"]},
+                    {"$set": {"referred_by": referrer["id"]},
+                     "$inc": {"referral_credit": REFERRAL_REWARD_REFERRED}},
+                )
+                cust["referral_credit"] = (cust.get("referral_credit") or 0) + REFERRAL_REWARD_REFERRED
+                referral_applied = {
+                    "referrer_name": referrer["name"],
+                    "credit_added": REFERRAL_REWARD_REFERRED,
+                }
 
     total = sum(s["price"] for s in services)
     duration = sum(s["duration_min"] for s in services) or 30
@@ -652,12 +771,16 @@ async def public_book(body: PublicBookingIn):
         "appointment": appt,
         "summary": {
             "customer_name": cust["name"],
+            "customer_referral_code": cust.get("referral_code"),
+            "referral_credit": cust.get("referral_credit", 0),
             "staff_name": staff["name"],
             "service_names": [s["name"] for s in services],
             "total": total,
             "duration_min": duration,
             "scheduled_at": body.scheduled_at,
         },
+        "referral_applied": referral_applied,
+        "is_new_customer": is_new_customer,
     }
 
 # ---------------- Health ----------------
