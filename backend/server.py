@@ -120,40 +120,54 @@ def set_auth_cookies(resp: Response, access: str, refresh: str):
     resp.set_cookie("access_token", access, httponly=True, secure=False, samesite="lax", max_age=28800, path="/")
     resp.set_cookie("refresh_token", refresh, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
 
-async def get_current_user(request: Request) -> dict:
+def _extract_bearer_token(request: Request) -> Optional[str]:
     token = request.cookies.get("access_token")
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:]
-    if not token:
-        raise HTTPException(401, "Not authenticated")
+    if token:
+        return token
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[7:]
+    return None
+
+
+def _decode_access_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, jwt_secret(), algorithms=[JWT_ALG])
-        if payload.get("type") != "access":
-            raise HTTPException(401, "Invalid token type")
-        user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
-        if not user:
-            raise HTTPException(401, "User not found")
-        # ----- set tenant context for this request -----
-        # Header / path / query overrides the user's home tenant (super-admin can switch).
-        slug = request.headers.get("X-Tenant-Slug") or request.query_params.get("tenant")
-        if slug:
-            t = await db.tenants.find_one({"slug": slug}, {"_id": 0})
-            if not t:
-                raise HTTPException(404, f"Tenant '{slug}' not found")
-            if user.get("role") != "super_admin" and user.get("tenant_id") != t["id"]:
-                raise HTTPException(403, "Cross-tenant access denied")
-            _current_tenant_id.set(t["id"])
-        else:
-            if user.get("role") != "super_admin" and user.get("tenant_id"):
-                _current_tenant_id.set(user["tenant_id"])
-            # super_admin without header → context stays None (global access)
-        return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(401, "Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(401, "Invalid token")
+    if payload.get("type") != "access":
+        raise HTTPException(401, "Invalid token type")
+    return payload
+
+
+async def _apply_tenant_context(request: Request, user: dict) -> None:
+    """Set tenant context from explicit header/query, falling back to user.tenant_id."""
+    slug = request.headers.get("X-Tenant-Slug") or request.query_params.get("tenant")
+    if slug:
+        t = await db.tenants.find_one({"slug": slug}, {"_id": 0})
+        if not t:
+            raise HTTPException(404, f"Tenant '{slug}' not found")
+        if user.get("role") != "super_admin" and user.get("tenant_id") != t["id"]:
+            raise HTTPException(403, "Cross-tenant access denied")
+        _current_tenant_id.set(t["id"])
+        return
+    if user.get("role") != "super_admin" and user.get("tenant_id"):
+        _current_tenant_id.set(user["tenant_id"])
+    # super_admin without header → context stays None (global access)
+
+
+async def get_current_user(request: Request) -> dict:
+    token = _extract_bearer_token(request)
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+    payload = _decode_access_token(token)
+    user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(401, "User not found")
+    await _apply_tenant_context(request, user)
+    return user
 
 async def require_admin(user=Depends(get_current_user)):
     if user.get("role") not in ("admin", "super_admin"):
@@ -705,16 +719,10 @@ async def _gen_invoice_no():
 async def list_invoices(user=Depends(get_current_user)):
     return await db.invoices.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
 
-@api.post("/invoices")
-async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
-    cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
-    if not cust:
-        raise HTTPException(400, "Invalid customer")
-    staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
-
-    # Stock availability check (aggregated by product ref_id to handle duplicates)
+async def _check_stock_or_400(items) -> dict:
+    """Aggregate product quantities, verify stock; return {product_id: qty_needed}."""
     needed = {}
-    for it in body.items:
+    for it in items:
         if it.type == "product":
             needed[it.ref_id] = needed.get(it.ref_id, 0) + it.qty
     for pid, qty in needed.items():
@@ -723,33 +731,51 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
             raise HTTPException(400, f"Product not found: {pid}")
         if prod["stock"] < qty:
             raise HTTPException(400, f"Insufficient stock for '{prod['name']}' — {prod['stock']} left, {qty} requested")
+    return needed
 
-    # Apply referral credit (capped at total) BEFORE tax
-    raw_subtotal = sum(it.qty * it.price for it in body.items)
+
+def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: float) -> dict:
+    raw_subtotal = sum(it.qty * it.price for it in items)
     referral_credit_available = float(cust.get("referral_credit") or 0)
     referral_credit_used = min(referral_credit_available, raw_subtotal)
-    discount = (body.discount or 0) + referral_credit_used
+    discount = (discount_in or 0) + referral_credit_used
     taxable = max(0, raw_subtotal - discount)
-    tax = taxable * (body.tax_pct or 0) / 100
-    total = taxable + tax
+    tax = taxable * (tax_pct or 0) / 100
+    return {
+        "subtotal": raw_subtotal,
+        "discount": discount,
+        "tax": tax,
+        "total": taxable + tax,
+        "referral_credit_used": referral_credit_used,
+    }
+
+
+@api.post("/invoices")
+async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
+    cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
+    if not cust:
+        raise HTTPException(400, "Invalid customer")
+    staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
+
+    needed = await _check_stock_or_400(body.items)
+    totals = _compute_invoice_totals(body.items, cust, body.discount, body.tax_pct)
 
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),
         customer_id=cust["id"], customer_name=cust["name"],
         staff_id=staff["id"] if staff else None,
         staff_name=staff["name"] if staff else None,
-        items=body.items, subtotal=raw_subtotal, discount=discount,
-        tax=tax, total=total, payment_mode=body.payment_mode,
+        items=body.items, subtotal=totals["subtotal"], discount=totals["discount"],
+        tax=totals["tax"], total=totals["total"], payment_mode=body.payment_mode,
     ).model_dump()
     await db.invoices.insert_one(inv)
 
     # Update customer stats and consume referral credit
-    cust_inc = {"total_spent": total, "visits": 1, "loyalty_points": int(total // 100)}
-    if referral_credit_used > 0:
-        cust_inc["referral_credit"] = -referral_credit_used
+    cust_inc = {"total_spent": totals["total"], "visits": 1, "loyalty_points": int(totals["total"] // 100)}
+    if totals["referral_credit_used"] > 0:
+        cust_inc["referral_credit"] = -totals["referral_credit_used"]
     await db.customers.update_one({"id": cust["id"]}, {"$inc": cust_inc})
 
-    # Decrement product stock
     for pid, qty in needed.items():
         await db.products.update_one({"id": pid}, {"$inc": {"stock": -qty}})
     return _clean(inv)
@@ -1005,71 +1031,66 @@ async def public_referral(slug: str, code: str):
 async def public_referral_default(code: str):
     return await public_referral(DEFAULT_TENANT_SLUG, code)
 
-@api.post("/public/book/{slug}")
-async def public_book(slug: str, body: PublicBookingIn, request: Request):
-    await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"book:{slug}", limit=8, window_sec=600)
-
-    services = await db.services.find({"id": {"$in": body.service_ids}, "active": True}, {"_id": 0}).to_list(50)
-    if not services:
-        raise HTTPException(400, "Invalid services")
-
-    staff = None
-    if body.staff_id:
-        staff = await db.staff.find_one({"id": body.staff_id, "active": True}, {"_id": 0})
-    if not staff:
-        staff = await db.staff.find_one({"active": True}, {"_id": 0})
-    if not staff:
+async def _resolve_staff(staff_id: Optional[str]) -> dict:
+    if staff_id:
+        s = await db.staff.find_one({"id": staff_id, "active": True}, {"_id": 0})
+        if s:
+            return s
+    s = await db.staff.find_one({"active": True}, {"_id": 0})
+    if not s:
         raise HTTPException(400, "No stylist available")
+    return s
 
-    # ----- find or create customer by phone -----
+
+async def _resolve_or_create_customer(body: PublicBookingIn) -> tuple[dict, bool]:
+    """Return (customer_doc, is_new). Back-fills referral_code if missing."""
     cust = await db.customers.find_one({"phone": body.customer_phone}, {"_id": 0})
-    is_new_customer = cust is None
-    if is_new_customer:
+    if cust is None:
         cust_doc = Customer(
             name=body.customer_name, phone=body.customer_phone, email=body.customer_email
         ).model_dump()
         await db.customers.insert_one(cust_doc)
-        cust = cust_doc
-    else:
-        # Update name/email if user provided new info
-        updates = {}
-        if body.customer_name and body.customer_name.strip() and body.customer_name.strip() != cust.get("name"):
-            updates["name"] = body.customer_name.strip()
-        if body.customer_email and body.customer_email != cust.get("email"):
-            updates["email"] = body.customer_email
-        if updates:
-            await db.customers.update_one({"id": cust["id"]}, {"$set": updates})
-            cust.update(updates)
-        # Ensure existing customer has a referral_code (back-fill)
-        if not cust.get("referral_code"):
-            new_code = secrets.token_urlsafe(4).upper().replace("_", "X").replace("-", "Y")[:6]
-            await db.customers.update_one({"id": cust["id"]}, {"$set": {"referral_code": new_code}})
-            cust["referral_code"] = new_code
+        return cust_doc, True
+    updates = {}
+    name = (body.customer_name or "").strip()
+    if name and name != cust.get("name"):
+        updates["name"] = name
+    if body.customer_email and body.customer_email != cust.get("email"):
+        updates["email"] = body.customer_email
+    if updates:
+        await db.customers.update_one({"id": cust["id"]}, {"$set": updates})
+        cust.update(updates)
+    if not cust.get("referral_code"):
+        new_code = secrets.token_urlsafe(4).upper().replace("_", "X").replace("-", "Y")[:6]
+        await db.customers.update_one({"id": cust["id"]}, {"$set": {"referral_code": new_code}})
+        cust["referral_code"] = new_code
     cust.pop("_id", None)
+    return cust, False
 
-    # ----- referral processing (only for brand-new customers) -----
-    referral_applied = None
-    if is_new_customer and body.referral_code:
-        code = body.referral_code.strip().upper()
-        if code != cust.get("referral_code"):  # can't refer yourself
-            referrer = await db.customers.find_one({"referral_code": code}, {"_id": 0})
-            if referrer:
-                await db.customers.update_one(
-                    {"id": referrer["id"]},
-                    {"$inc": {"referral_credit": REFERRAL_REWARD_REFERRER}},
-                )
-                await db.customers.update_one(
-                    {"id": cust["id"]},
-                    {"$set": {"referred_by": referrer["id"]},
-                     "$inc": {"referral_credit": REFERRAL_REWARD_REFERRED}},
-                )
-                cust["referral_credit"] = (cust.get("referral_credit") or 0) + REFERRAL_REWARD_REFERRED
-                referral_applied = {
-                    "referrer_name": referrer["name"],
-                    "credit_added": REFERRAL_REWARD_REFERRED,
-                }
 
+async def _apply_referral_credit(cust: dict, code: Optional[str]) -> Optional[dict]:
+    """Apply referral reward to both referrer and the new customer. Returns summary or None."""
+    if not code:
+        return None
+    code = code.strip().upper()
+    if code == cust.get("referral_code"):
+        return None  # self-referral guard
+    referrer = await db.customers.find_one({"referral_code": code}, {"_id": 0})
+    if not referrer:
+        return None
+    await db.customers.update_one(
+        {"id": referrer["id"]},
+        {"$inc": {"referral_credit": REFERRAL_REWARD_REFERRER}},
+    )
+    await db.customers.update_one(
+        {"id": cust["id"]},
+        {"$set": {"referred_by": referrer["id"]}, "$inc": {"referral_credit": REFERRAL_REWARD_REFERRED}},
+    )
+    cust["referral_credit"] = (cust.get("referral_credit") or 0) + REFERRAL_REWARD_REFERRED
+    return {"referrer_name": referrer["name"], "credit_added": REFERRAL_REWARD_REFERRED}
+
+
+async def _create_public_appointment(cust: dict, staff: dict, services: list, body: PublicBookingIn) -> tuple[dict, float, int]:
     total = sum(s["price"] for s in services)
     duration = sum(s["duration_min"] for s in services) or 30
     appt = Appointment(
@@ -1082,6 +1103,23 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
     ).model_dump()
     await db.appointments.insert_one(appt)
     appt.pop("_id", None)
+    return appt, total, duration
+
+
+@api.post("/public/book/{slug}")
+async def public_book(slug: str, body: PublicBookingIn, request: Request):
+    await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"book:{slug}", limit=8, window_sec=600)
+
+    services = await db.services.find({"id": {"$in": body.service_ids}, "active": True}, {"_id": 0}).to_list(50)
+    if not services:
+        raise HTTPException(400, "Invalid services")
+
+    staff = await _resolve_staff(body.staff_id)
+    cust, is_new_customer = await _resolve_or_create_customer(body)
+    referral_applied = await _apply_referral_credit(cust, body.referral_code) if is_new_customer else None
+    appt, total, duration = await _create_public_appointment(cust, staff, services, body)
+
     return {
         "appointment": appt,
         "summary": {

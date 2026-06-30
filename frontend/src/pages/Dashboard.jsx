@@ -5,6 +5,15 @@ import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle,
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 
+// Stable module-level constants so Recharts doesn't get new object refs on every render.
+const CHART_TOOLTIP_STYLE = { background: '#121212', border: '1px solid #ffffff20', borderRadius: 8 };
+const CHART_TOOLTIP_LABEL_STYLE = { color: '#D4AF37' };
+const CHART_TOOLTIP_STYLE_BARE = { background: '#121212', border: '1px solid #ffffff20' };
+const LINE_DOT = { fill: '#D4AF37', r: 4 };
+const LINE_ACTIVE_DOT = { r: 6, fill: '#F0C847' };
+const BAR_RADIUS = [0, 4, 4, 0];
+const STAR_COUNT = [1, 2, 3, 4, 5];
+
 function Stat({ icon: Icon, label, value, hint, testid, accent }) {
   return (
     <div className="card-luxe group hover:border-gold/30 transition-all" data-testid={testid}>
@@ -108,7 +117,7 @@ export default function Dashboard() {
               <span className="font-playfair text-5xl gold-text" data-testid="dash-avg-rating">{(data.avg_rating || 0).toFixed(1)}</span>
               <div className="pb-2">
                 <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map(n => (
+                  {STAR_COUNT.map(n => (
                     <Star key={n} className={`w-4 h-4 ${n <= Math.round(data.avg_rating || 0) ? "fill-gold text-gold" : "text-white/15"}`} />
                   ))}
                 </div>
@@ -142,8 +151,8 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
                 <XAxis dataKey="date" stroke="#71717A" fontSize={11} tickFormatter={d => d.slice(5)} />
                 <YAxis stroke="#71717A" fontSize={11} />
-                <Tooltip contentStyle={{ background: '#121212', border: '1px solid #ffffff20', borderRadius: 8 }} labelStyle={{ color: '#D4AF37' }} />
-                <Line type="monotone" dataKey="revenue" stroke="#D4AF37" strokeWidth={2.5} dot={{ fill: '#D4AF37', r: 4 }} activeDot={{ r: 6, fill: '#F0C847' }} />
+                <Tooltip contentStyle={CHART_TOOLTIP_STYLE} labelStyle={CHART_TOOLTIP_LABEL_STYLE} />
+                <Line type="monotone" dataKey="revenue" stroke="#D4AF37" strokeWidth={2.5} dot={LINE_DOT} activeDot={LINE_ACTIVE_DOT} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -160,8 +169,8 @@ export default function Dashboard() {
                 <BarChart data={data.top_services} layout="vertical">
                   <XAxis type="number" stroke="#71717A" fontSize={11} />
                   <YAxis type="category" dataKey="name" stroke="#71717A" fontSize={11} width={90} />
-                  <Tooltip contentStyle={{ background: '#121212', border: '1px solid #ffffff20' }} />
-                  <Bar dataKey="count" fill="#D4AF37" radius={[0, 4, 4, 0]} />
+                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE_BARE} />
+                  <Bar dataKey="count" fill="#D4AF37" radius={BAR_RADIUS} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
