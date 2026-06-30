@@ -1545,8 +1545,8 @@ class BrandingIn(BaseModel):
         if v is None or v == "":
             return ""
         v = v.strip()
-        if not (v.startswith("https://") or v.startswith("http://")):
-            raise ValueError("Must start with https:// or http://")
+        if not v.startswith("https://"):
+            raise ValueError("Must start with https://")
         return v
 
 
@@ -1573,13 +1573,13 @@ async def update_branding(body: BrandingIn, user=Depends(require_tenant_admin), 
 
 
 @api.get("/dashboard/reminders")
-async def upcoming_reminders(user=Depends(get_current_user)):
+async def upcoming_reminders(user=Depends(require_tenant_admin)):
     """Appointments in the next 24 hours that the salon admin can WhatsApp a reminder for."""
     now = datetime.now(timezone.utc)
     horizon = now + timedelta(hours=26)  # small buffer so 'tomorrow same time' still appears
     cursor = db.appointments.find(
         {
-            "status": {"$in": ["booked", "confirmed"]},
+            "status": {"$in": ["scheduled", "booked", "confirmed"]},
             "scheduled_at": {
                 "$gte": now.isoformat(),
                 "$lte": horizon.isoformat(),
@@ -1611,7 +1611,7 @@ async def upcoming_reminders(user=Depends(get_current_user)):
 
 
 @api.post("/dashboard/reminders/{aid}/mark-sent")
-async def mark_reminder_sent(aid: str, user=Depends(get_current_user)):
+async def mark_reminder_sent(aid: str, user=Depends(require_tenant_admin)):
     """Owner clicked the WhatsApp button — flag the appointment so it stops showing in the list."""
     res = await db.appointments.update_one(
         {"id": aid},
