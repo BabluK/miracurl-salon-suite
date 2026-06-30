@@ -1,0 +1,38 @@
+{
+  "summary": "Iter 18 frontend wizard validated end-to-end. All 6 review requirements pass: (1) /signup-salon renders with BrandMark, headline 'Bring your salon online ✦', 4-step stepper, signup-salon-name + signup-slug fields, 4 pricing cards (Trial cost, Free trial, 6-month plan, Annual plan), and signup-have-account link in top-right. (2) Auto-slug works: 'Glow Salon Indiranagar' → 'glow-salon-indiranagar', and after manual slug edit subsequent name changes do NOT overwrite the user's slug. (3) All 3 step validations fire correctly with the exact copy specified ('Salon name must be at least 3 characters', 'Enter a valid email', 'Password must be at least 8 characters') and block step advancement. (4) Happy-path signup: Iter18 QA Salon · iter18-{ts}@demo.com · HSR Layout · 9999111122 → POST /api/public/signup-salon returned 200 with access_token, tenant.name='Iter18 QA Salon', status='trial', trial_end_date='2026-07-07' (exactly +7d from 2026-06-30); window.location to /dashboard succeeded; dashboard header shows 'Iter18 QA Salon · HSR Layout' with new tenant context; GET /api/tenants/current via fetch confirms identical payload. (5) /login shows 'Start your salon's free trial →' as data-testid=link-signup-salon (href=/signup-salon) and clicking navigates correctly; the data-testid=show-signup-btn ('Create a staff account') is preserved as a secondary option and toggles signup-into-existing-tenant mode in-place without leaving /login. (6) Password show/hide toggle (signup-toggle-password) flips input type password↔text. Post-test cleanup: hard-deleted created tenant a0cad829-6837-4507-8cf7-e8951845530b via DELETE /api/super-admin/tenants/{id}?hard=true → 200. Tenants list is clean.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/frontend/src/pages/SignupSalon.jsx",
+    "/app/frontend/src/pages/Login.jsx"
+  ],
+  "action_items": [
+    "None — Iter 18 wizard implementation is fully functional. No bugs found, no UI/UX issues observed."
+  ],
+  "critical_code_review_comments": [
+    "SignupSalon.jsx: Slug auto-fill logic uses useEffect with form.slug_touched flag — clean and idempotent. The slugify() helper correctly strips invalid chars, collapses repeats to single hyphens, trims leading/trailing hyphens, and caps at 40 chars (matches the server-side _SLUG_RE constraint from iter17).",
+    "SignupSalon.jsx submit(): On success it calls setAccessToken(data.access_token) + setTenantSlug(data.tenant.slug) + localStorage.setItem('miracurl_tenant', slug), then window.location.assign('/dashboard') so AuthContext rebootstraps cleanly. This is the correct pragmatic choice — confirmed working in test (dashboard renders new tenant context immediately on the next page load).",
+    "SignupSalon.jsx error UX: 422 Pydantic validation errors (array of {msg}) are flattened to a ' · ' joined string in catch — good handling of FastAPI's nested error shape.",
+    "Login.jsx mode='login' block: link-signup-salon is the primary CTA (rose, bold, font-semibold), show-signup-btn is correctly de-emphasised as secondary (smaller, sky, in a separate text block below) — matches the spec.",
+    "Minor (not blocking): SignupSalon `Field` component duplicates the `Field` definition already in Login.jsx — consider promoting to a shared component in /components/ui if a third page reuses it.",
+    "Minor: signup-toggle-password (eye icon) sits inside the trailing div but the slug input also has no trailing — the icon for slug is identical to other inputs, OK. No a11y label on the toggle button — minor a11y miss (add aria-label='Show password' / 'Hide password')."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A — backend unchanged in iter18; verified working via /api/public/signup-salon POST returning 200 + valid payload, and /api/tenants/current confirming the new tenant",
+    "frontend": "100% — all 6 review items pass: wizard render, auto-slug + manual-override, all 3 step validations, happy-path signup→dashboard, login-page CTA wiring, post-cleanup"
+  },
+  "test_credentials": "Super-Admin super@miracurl.com / Super@Miracurl123 (used for tenant cleanup). Created+deleted ephemeral tenant Iter18 QA Salon with email iter18-1782834168@demo.com.",
+  "seed_data_creation": "Created 1 ephemeral tenant during happy-path test (Iter18 QA Salon, slug iter18-qa-1782834168). Hard-deleted via DELETE /api/super-admin/tenants/{id}?hard=true after test — verified 200. Tenants list is clean (back to baseline 2 tenants: miracurl-marathahalli + elegance-koramangala).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 18 is the signup-salon wizard UI on top of the iter17 endpoint. Backend untouched. Tests via Playwright at REACT_APP_BACKEND_URL/signup-salon. The wizard does NOT use AuthContext.login() — it sets the JWT via setAccessToken from /lib/api and does window.location.assign('/dashboard'), so AuthContext re-bootstraps on the next page load and the new tenant context appears immediately on /dashboard. In-memory rate-limit from iter17 (limit=4 per 900s per IP) still applies — if you see 429 during repeated full-flow runs, `sudo supervisorctl restart backend`. To cleanup test tenants: super-admin login → list tenants → DELETE /api/super-admin/tenants/{id}?hard=true (verified working in this iter).",
+  "rca of the issue": "No issues found."
+}

@@ -16,6 +16,7 @@ import Reviews from "@/pages/Reviews";
 import BookPublic from "@/pages/BookPublic";
 import ReviewPublic from "@/pages/ReviewPublic";
 import SuperAdmin from "@/pages/SuperAdmin";
+import SignupSalon from "@/pages/SignupSalon";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="/book" element={<BookPublic />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
+            <Route path="/signup-salon" element={<PublicOnly><SignupSalon /></PublicOnly>} />
             <Route path="/super-admin" element={<SuperAdminProtected><SuperAdmin /></SuperAdminProtected>} />
             <Route path="/" element={<Protected><AppLayout /></Protected>}>
               <Route index element={<Navigate to="/dashboard" replace />} />
