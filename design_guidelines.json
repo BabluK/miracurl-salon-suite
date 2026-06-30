@@ -1,0 +1,131 @@
+{
+  "project": "Miracurl Salon Management System",
+  "theme_archetype": {
+    "theme": "Dark",
+    "archetype": "5 (Luxury)",
+    "description": "Premium, elegant dark theme featuring deep obsidian backgrounds with soft gold and blush accents, utilizing glassmorphism and bento grids to deliver a high-end salon aesthetic."
+  },
+  "brand": {
+    "name": "Miracurl",
+    "tagline": "Unisex Family Salon"
+  },
+  "typography": {
+    "font_families": {
+      "heading": "Playfair Display",
+      "body": "Outfit",
+      "mono": "JetBrains Mono"
+    },
+    "rules": {
+      "h1": "font-playfair text-4xl sm:text-5xl lg:text-6xl tracking-tight font-medium",
+      "h2": "font-playfair text-2xl sm:text-3xl lg:text-4xl tracking-tight font-medium",
+      "h3": "font-outfit text-xl sm:text-2xl font-semibold",
+      "h4": "font-outfit text-lg sm:text-xl font-medium",
+      "body": "font-outfit text-base leading-relaxed text-white/80",
+      "labels": "font-outfit text-xs uppercase tracking-[0.2em] text-white/60 font-semibold"
+    }
+  },
+  "color_palette": {
+    "background": {
+      "base": "#0A0A0A",
+      "surface": "#121212",
+      "surface_hover": "#1A1A1A",
+      "glass": "rgba(255, 255, 255, 0.03)"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A1A1AA",
+      "muted": "#71717A",
+      "inverse": "#0A0A0A"
+    },
+    "brand": {
+      "primary": "#D4AF37",
+      "primary_hover": "#F0C847",
+      "blush": "#E8C5C8",
+      "blush_muted": "#8A6D70"
+    },
+    "status": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6"
+    },
+    "border": "rgba(255, 255, 255, 0.08)"
+  },
+  "layout_strategy": {
+    "spacing": "Generous spacing. Use p-6, p-8 for cards. Use gap-6 or gap-8 for bento grids.",
+    "global_structure": "Sidebar on the left (fixed, w-64). Top navigation bar (h-16 or h-20, sticky glassmorphism). Main content area takes remaining space. Use max-h-screen for POS to prevent window scrolling, keep scrolling inside specific panels.",
+    "pos_dashboard": "Mode B: 'Control Room' Grid. Dense but elegant. 3-column layout where Left 2 columns are services bento grid, Right 1 column is the active checkout/cart (sticky).",
+    "borders": "Expose the skeleton selectively. 1px borders with border-white/10 to define areas without heaviness."
+  },
+  "component_rules": {
+    "buttons": {
+      "primary": "bg-[#D4AF37] text-[#0A0A0A] hover:bg-[#F0C847] transition-all duration-300 font-semibold rounded-md px-6 py-2.5",
+      "secondary": "bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-all duration-300 rounded-md px-6 py-2.5",
+      "ghost": "text-white/70 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-all rounded-md px-4 py-2"
+    },
+    "cards": {
+      "default": "bg-[#121212] border border-white/10 rounded-xl p-6 shadow-lg",
+      "glass": "bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+    },
+    "inputs": {
+      "default": "bg-[#0A0A0A] border border-white/10 rounded-md px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-all placeholder:text-white/30"
+    },
+    "sidebar": {
+      "active_item": "bg-gradient-to-r from-[#D4AF37]/10 to-transparent border-l-2 border-[#D4AF37] text-[#D4AF37]",
+      "inactive_item": "text-white/60 hover:text-white hover:bg-white/5 border-l-2 border-transparent transition-all"
+    }
+  },
+  "motion_and_interactions": {
+    "hover": "Subtle lifts (-translate-y-0.5) and glow (shadow-[0_0_15px_rgba(212,175,55,0.15)]) on interactive cards.",
+    "page_transitions": "Fade in with a slight upward translation (framer-motion: initial={opacity: 0, y: 10} animate={opacity: 1, y: 0})."
+  },
+  "media": {
+    "icons_library": "@phosphor-icons/react (Duotone weight for luxury feel)",
+    "image_urls": {
+      "logo_abstract": {
+        "url": "https://images.unsplash.com/photo-1667840606455-d406da4c86a4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzV8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdvbGQlMjBjaXJjbGUlMjBsb2dvfGVufDB8fHx8MTc4Mjc5NzAwM3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract Gold Circle (Use as Miracurl brand mark placeholder)"
+      },
+      "hero_carousel": [
+        {
+          "url": "https://images.unsplash.com/photo-1759142235060-3191ee596c81?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBtb2Rlcm4lMjBzYWxvbiUyMGludGVyaW9yfGVufDB8fHx8MTc4Mjc5Njk4Nnww&ixlib=rb-4.1.0&q=85",
+          "description": "Luxury modern salon interior entrance"
+        },
+        {
+          "url": "https://images.unsplash.com/photo-1759134198561-e2041049419c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjBtb2Rlcm4lMjBzYWxvbiUyMGludGVyaW9yfGVufDB8fHx8MTc4Mjc5Njk4Nnww&ixlib=rb-4.1.0&q=85",
+          "description": "Modern salon interior cutting hair"
+        }
+      ],
+      "services_products": [
+        {
+          "url": "https://images.unsplash.com/photo-1583209814683-c023dd293cc6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBjb3NtZXRpY3MlMjBwcm9kdWN0fGVufDB8fHx8MTc4Mjc5NzAwM3ww&ixlib=rb-4.1.0&q=85",
+          "description": "Luxury blush pink cosmetics (for Inventory/Products)"
+        },
+        {
+          "url": "https://images.unsplash.com/photo-1634449571010-02389ed0f9b0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHx3b21hbiUyMGdldHRpbmclMjBoYWlyJTIwc3R5bGVkJTIwc2Fsb258ZW58MHx8fHwxNzgyNzk2OTg2fDA&ixlib=rb-4.1.0&q=85",
+          "description": "Woman getting haircut (Services)"
+        },
+        {
+          "url": "https://images.unsplash.com/photo-1773863745081-582b4a9ec628?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxtYW4lMjBnZXR0aW5nJTIwaGFpcmN1dCUyMG1vZGVybiUyMHNhbG9ufGVufDB8fHx8MTc4Mjc5Njk4Nnww&ixlib=rb-4.1.0&q=85",
+          "description": "Men's grooming service"
+        }
+      ],
+      "avatars": [
+        {
+          "url": "https://images.unsplash.com/photo-1532074205216-d0e1f4b87368?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwxfHxiZWF1dGlmdWwlMjB3b21hbiUyMHBvcnRyYWl0JTIwcHJvZmlsZSUyMGF2YXRhcnxlbnwwfHx8fDE3ODI3OTcwMDN8MA&ixlib=rb-4.1.0&q=85",
+          "description": "Staff/Client profile avatar 1"
+        }
+      ]
+    }
+  },
+  "instructions_to_main_agent": [
+    "1. Setup Tailwind config extending these colors, fonts, and box-shadows. Install @phosphor-icons/react, lucide-react.",
+    "2. Setup React Router for the main app layout containing the Sidebar and Top Navigation.",
+    "3. Implement the Auth screen (Login/Signup/Forgot Password) utilizing a split layout: dark elegant form on one side, and the luxury salon hero interior image on the other.",
+    "4. Construct the Dashboard Layout: A dark sidebar (bg-[#0A0A0A]) with gold-accented active states, and a top navigation bar (glassmorphism bg-[#121212]/80 backdrop-blur).",
+    "5. For the POS/Billing screen, build a 3-column bento grid layout. Left 2 columns display service/product cards. Right column is the active invoice/cart pane, pinned and sticky. Apply 1px border-white/10 to everything.",
+    "6. Build the CRM/Customer Database, Reports, and Inventory screens utilizing Shadcn tables, heavily customized to remove the default Vercel white look. Switch tables to dark mode with pure #0A0A0A backgrounds and hover:bg-[#1A1A1A].",
+    "7. Include `data-testid` attributes on all interactive elements (buttons, inputs, tabs, modal triggers).",
+    "8. Ensure the hero and image sections DO NOT use full opaque black overlays. Keep them bg-black/40 maximum to let the luxury images shine through."
+  ]
+}
