@@ -3,7 +3,7 @@ import api from "@/lib/api";
 import { IndianRupee, FileText } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
-const COLORS = ["#D4AF37", "#E8C5C8", "#8A6D70", "#F0C847", "#A1A1AA"];
+const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
 
 export default function Reports() {
   const today = new Date().toISOString().slice(0, 10);
