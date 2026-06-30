@@ -26,9 +26,13 @@ function escapeHtml(s) {
 }
 
 function buildReceiptHtml(inv) {
-  const itemsHtml = inv.items.map(it =>
-    `<tr><td>${escapeHtml(it.name)} × ${Number(it.qty)}</td><td style="text-align:right">₹${(it.qty * it.price).toFixed(2)}</td></tr>`
-  ).join("");
+  const itemsHtml = inv.items.map(it => {
+    const sub = (it.qty * it.price).toFixed(2);
+    const staffLine = it.staff_name
+      ? `<div style="font-size:10px;color:#666">by ${escapeHtml(it.staff_name)}</div>`
+      : "";
+    return `<tr><td>${escapeHtml(it.name)} × ${Number(it.qty)}${staffLine}</td><td style="text-align:right">₹${sub}</td></tr>`;
+  }).join("");
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(inv.invoice_no)}</title>
 <style>
   body{font-family:Arial,sans-serif;color:#000;padding:24px;max-width:420px;margin:auto}
@@ -124,10 +128,20 @@ export default function POS() {
       const next = [...cart]; next[existsIdx] = { ...next[existsIdx], qty: next[existsIdx].qty + 1 };
       setCart(next);
     } else {
-      setCart([...cart, { type, ref_id: it.id, name: it.name, qty: 1, price: it.price, disc_pct: 0 }]);
+      // Pre-fill staff if a default stylist is selected at the invoice level
+      const defaultStaff = staff.find(s => s.id === staffId);
+      setCart([...cart, {
+        type, ref_id: it.id, name: it.name, qty: 1, price: it.price, disc_pct: 0,
+        staff_id: defaultStaff?.id || "",
+        staff_name: defaultStaff?.name || "",
+      }]);
     }
   }
   function updateLine(i, patch) { setCart(cart.map((c, idx) => idx === i ? { ...c, ...patch } : c)); }
+  function setLineStaff(i, sid) {
+    const s = staff.find(x => x.id === sid);
+    updateLine(i, { staff_id: sid, staff_name: s?.name || "" });
+  }
   function removeLine(i) { setCart(cart.filter((_, idx) => idx !== i)); }
 
   const subtotal = useMemo(() => cart.reduce((s, c) => s + c.qty * c.price, 0), [cart]);
@@ -151,7 +165,10 @@ export default function POS() {
       const { data } = await api.post("/invoices", {
         customer_id: customerId,
         staff_id: staffId || null,
-        items: cart.map(({ type, ref_id, name, qty, price }) => ({ type, ref_id, name, qty, price })),
+        items: cart.map(({ type, ref_id, name, qty, price, staff_id, staff_name }) => ({
+          type, ref_id, name, qty, price,
+          staff_id: staff_id || null, staff_name: staff_name || null,
+        })),
         discount: totalDiscount,
         tax_pct: taxPct,
         payment_mode: payment,
@@ -165,7 +182,10 @@ export default function POS() {
   function shareInvoiceWhatsApp(inv) {
     const cust = customers.find(c => c.id === inv.customer_id);
     const phone = cust?.phone?.replace(/\D/g, "") || "";
-    const itemLines = inv.items.map(it => `• ${it.name} × ${it.qty} — ₹${(it.qty * it.price).toFixed(0)}`).join("\n");
+    const itemLines = inv.items.map(it => {
+      const staffPart = it.staff_name ? ` (by ${it.staff_name})` : "";
+      return `• ${it.name} × ${it.qty}${staffPart} — ₹${(it.qty * it.price).toFixed(0)}`;
+    }).join("\n");
     const msg = [
       `*Miracurl ✦* Receipt`,
       `Invoice ${inv.invoice_no}`,
@@ -279,7 +299,7 @@ export default function POS() {
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <select
                   data-testid="pos-customer-select"
-                  className="w-full pl-10 pr-3 py-2 rounded-lg bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  className="text-slate-800 w-full pl-10 pr-3 py-2 rounded-lg bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
                   value={customerId}
                   onChange={e => setCustomerId(e.target.value)}
                 >
@@ -302,7 +322,7 @@ export default function POS() {
                 onChange={e => setStaffId(e.target.value)}
                 className="ml-auto py-2 px-3 rounded-lg bg-white border border-slate-200 text-sm"
               >
-                <option value="">-- Stylist --</option>
+                <option value="">— Default Stylist —</option>
                 {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
@@ -319,6 +339,7 @@ export default function POS() {
                 <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
                   <tr>
                     <th className="text-left px-4 py-3 font-medium">Name</th>
+                    <th className="text-left px-3 py-3 font-medium">Staff</th>
                     <th className="text-left px-3 py-3 font-medium">Qty</th>
                     <th className="text-right px-3 py-3 font-medium">Price</th>
                     <th className="text-right px-3 py-3 font-medium">Sub Total</th>
@@ -337,6 +358,17 @@ export default function POS() {
                     return (
                       <tr key={`${c.type}:${c.ref_id}`} className="border-t border-slate-100" data-testid={`cart-line-${i}`}>
                         <td className="px-4 py-3 text-slate-800">{c.name}</td>
+                        <td className="px-3 py-3">
+                          <select
+                            data-testid={`cart-line-staff-${i}`}
+                            value={c.staff_id || ""}
+                            onChange={e => setLineStaff(i, e.target.value)}
+                            className="text-slate-800 text-xs py-1 px-2 rounded bg-slate-50 border border-slate-200 min-w-[110px]"
+                          >
+                            <option value="">— Stylist —</option>
+                            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        </td>
                         <td className="px-3 py-3">
                           <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-md">
                             <button onClick={() => updateLine(i, { qty: Math.max(1, c.qty - 1) })} className="px-2 py-1 text-slate-500 hover:text-slate-800">−</button>
@@ -366,7 +398,7 @@ export default function POS() {
                     );
                   })}
                   {cart.length === 0 && (
-                    <tr><td colSpan="8" className="text-center text-slate-400 py-10 text-sm">Tap a service or product on the left to add it</td></tr>
+                    <tr><td colSpan="9" className="text-center text-slate-400 py-10 text-sm">Tap a service or product on the left to add it</td></tr>
                   )}
                 </tbody>
               </table>
@@ -544,7 +576,13 @@ function InvoiceReceiptModal({ invoice, onClose, onPrint, onShare }) {
         </div>
         <div className="border-t border-slate-100 pt-3 space-y-1 text-sm">
           {invoice.items.map((it, idx) => (
-            <Row key={`${it.type}:${it.ref_id}:${idx}`} label={`${it.name} × ${it.qty}`} value={`₹${(it.qty * it.price).toFixed(2)}`} />
+            <div key={`${it.type}:${it.ref_id}:${idx}`} className="flex justify-between">
+              <div>
+                <div className="text-slate-800">{it.name} × {it.qty}</div>
+                {it.staff_name && <div className="text-[10px] text-slate-500">by {it.staff_name}</div>}
+              </div>
+              <span className="text-slate-800">₹{(it.qty * it.price).toFixed(2)}</span>
+            </div>
           ))}
         </div>
         <div className="border-t border-slate-100 pt-3 mt-3 space-y-1 text-sm">

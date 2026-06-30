@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 15 verified end-to-end. Backend regression 30/30 (iter7+10+11) + 13/13 (iter13 billing) + 3/3 (new iter15 invoice-staff). Frontend POS bug-fix A (guest dropdown text color rgb(30,41,59)) and bug-fix B (per-line Staff column + cart-line-staff-{i} dropdown) confirmed. Default-stylist pre-fill behaviour proven: both new lines auto-fill with the top-bar default; overriding line 0 leaves line 1 untouched. POST /api/invoices captured with per-line staff_id/staff_name and the response echoes them. Receipt modal renders 'by <staff name>' under each item (verified in screenshot). InvoiceItem optional staff fields accept None and full strings without 422.",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "GET /api/invoices/{id}", "issue": "No single-invoice GET endpoint exists; only GET /api/invoices list. Not a regression; test adjusted to verify persistence via list."}
+  ]},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter15_invoice_staff.py",
+    "/app/test_reports/pytest/iter15_regression.xml",
+    "/app/test_reports/pytest/iter15_invoice_staff.xml",
+    "/app/test_reports/iter15_cart_with_line_staff.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "POS.jsx line 401: empty-state row colspan correctly updated from 8 to 9 to match the new Staff column.",
+    "InvoiceItem (server.py 409-417) staff_id/staff_name are Optional[str] with None defaults — fully backward compatible; old clients without these fields still POST 201.",
+    "POS.jsx setLineStaff (line 141-144) correctly looks up staff.name from id and writes both into the cart-row state; receipt HTML, in-app modal, and WhatsApp share message all share the same per-line staff_name read path.",
+    "addToCart (line 135-136) copies default stylist from top-bar select into each new cart row — verified in browser: both new rows show the default in cart-line-staff-{i}.",
+    "Pre-existing dev-only React hydration warning (auto-instrumented <span> inside <option>) is the same warning flagged in iter14 — not introduced by iter15."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter15_invoice_staff.py (new)"],
+  "success_rate": {"backend": "100% (46/46: iter7+10+11+13+15)", "frontend": "100% on all iter15 acceptance criteria"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 (tenant), super@miracurl.com / Super@Miracurl123 (super-admin)",
+  "seed_data_creation": "Created 3 test invoices via /api/invoices POST during pytest run (TEST_ITER15 customer reused; small ₹500 invoices). One invoice INV-202606-0030 created via UI smoke test (Bablu Kumar, Hair Cut - Women by Rahul Verma + Hair Cut - Men by Priya Sharma).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter15 fully green. Test file /app/backend/tests/test_iter15_invoice_staff.py is reusable regression for per-line staff fields. The pytest suite must be run with REACT_APP_BACKEND_URL exported (the test files use os.environ[...] not get-with-default). The xdist parallel runner can intermittently fail TestRevenue.test_revenue_kpis_after_create in iter13 due to cancellation in a parallel worker — run that suite with -o addopts='' to disable xdist if a clean pass is required (confirmed 13/13 green sequentially). The auto-instrumented <span> inside <option> hydration warning is dev-mode only and unrelated to iter14/iter15.",
+  "rca_of_the_issue": "N/A — review tests verified the fixes. The previously reported bugs are fully addressed: (1) select element now has text-slate-800 → computed color rgb(30,41,59); (2) cart table has a dedicated Staff <th>, per-row <select data-testid=cart-line-staff-{i}>, default-stylist pre-fill via addToCart, and per-line staff captured in invoice POST + receipt + WhatsApp + print iframe."
+}

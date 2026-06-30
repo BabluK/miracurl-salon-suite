@@ -219,7 +219,7 @@ export default function SuperAdmin() {
                 </div>
                 <div>
                   <label className="label-light block mb-1">Plan</label>
-                  <select className="input-light" value={form.plan} onChange={e => setForm({ ...form, plan: e.target.value })}>
+                  <select className="text-slate-800 input-light" value={form.plan} onChange={e => setForm({ ...form, plan: e.target.value })}>
                     <option value="starter">Starter</option>
                     <option value="pro">Pro</option>
                     <option value="enterprise">Enterprise</option>

@@ -412,6 +412,8 @@ class InvoiceItem(BaseModel):
     name: str
     qty: int = 1
     price: float
+    staff_id: Optional[str] = None
+    staff_name: Optional[str] = None
 
 class Invoice(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
