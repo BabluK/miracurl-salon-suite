@@ -215,4 +215,24 @@ a[aria-label*="Made with Emergent" i] {
   visibility: hidden !important;
   pointer-events: none !important;
 }
+
+/* ============ Browser autofill override ============
+   Chrome / Edge / Safari override the input text colour when they auto-fill
+   (yellow background, sometimes white text on white background — invisible).
+   These rules force our dark text on the existing pale background to win. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #0f172a !important;
+  -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+  caret-color: #0f172a;
+  transition: background-color 999999s 0s ease-in-out;
+}
+/* For our explicitly light input class */
+.input-light:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+}
 .luxe-table tbody tr:hover { background: #1A1A1A; }

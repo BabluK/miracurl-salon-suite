@@ -217,7 +217,7 @@ function NewSubscriptionModal({ tenants, plans, onClose, onCreated }) {
 
         <div>
           <label className="text-xs text-slate-500 font-medium">Salon *</label>
-          <select data-testid="new-sub-tenant" value={tenantId} onChange={e => setTenantId(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200">
+          <select data-testid="new-sub-tenant" value={tenantId} onChange={e => setTenantId(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200">
             <option value="">— Choose salon —</option>
             {tenants.map(t => <option key={t.id} value={t.id}>{t.name} ({t.slug})</option>)}
           </select>
@@ -249,11 +249,11 @@ function NewSubscriptionModal({ tenants, plans, onClose, onCreated }) {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-xs text-slate-500 font-medium">Start Date *</label>
-            <input data-testid="new-sub-start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" />
+            <input data-testid="new-sub-start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" />
           </div>
           <div>
             <label className="text-xs text-slate-500 font-medium">Paid On *</label>
-            <input data-testid="new-sub-paid-at" type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" />
+            <input data-testid="new-sub-paid-at" type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" />
           </div>
         </div>
 
@@ -265,7 +265,7 @@ function NewSubscriptionModal({ tenants, plans, onClose, onCreated }) {
             onChange={e => setPaymentRef(e.target.value)}
             required
             placeholder="e.g. PAYTM-7XHK29-2026 or UPI ref ID"
-            className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+            className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
           />
           <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
             <AlertTriangle className="w-3 h-3 text-amber-400" />

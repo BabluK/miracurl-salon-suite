@@ -193,7 +193,7 @@ export default function POS() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             data-testid="pos-search"
-            className="w-full pl-10 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            className="w-full pl-10 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
             placeholder="Search Service"
             value={q}
             onChange={e => setQ(e.target.value)}
@@ -390,7 +390,7 @@ export default function POS() {
                 maxLength={500}
                 value={orderNotes}
                 onChange={e => setOrderNotes(e.target.value)}
-                className="mt-2 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+                className="mt-2 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
                 placeholder="Anything we should remember for this guest…"
               />
             </div>
@@ -503,15 +503,15 @@ function AddGuestModal({ onClose, onCreated }) {
         <p className="text-xs text-slate-500">Add a new walk-in customer. Their personal referral code is generated automatically.</p>
         <div>
           <label className="text-xs text-slate-500 font-medium">Name *</label>
-          <input data-testid="add-guest-name" value={name} onChange={e => setName(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Full name" />
+          <input data-testid="add-guest-name" value={name} onChange={e => setName(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Full name" />
         </div>
         <div>
           <label className="text-xs text-slate-500 font-medium">Phone *</label>
-          <input data-testid="add-guest-phone" value={phone} onChange={e => setPhone(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="98765 43210" />
+          <input data-testid="add-guest-phone" value={phone} onChange={e => setPhone(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="98765 43210" />
         </div>
         <div>
           <label className="text-xs text-slate-500 font-medium">Email (optional)</label>
-          <input data-testid="add-guest-email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="you@example.com" />
+          <input data-testid="add-guest-email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="you@example.com" />
         </div>
         <div className="flex gap-2 pt-2">
           <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">Cancel</button>
