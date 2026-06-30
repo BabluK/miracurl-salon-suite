@@ -1,0 +1,43 @@
+{
+  "summary": "Tested NEW public customer-facing booking feature (no auth) + admin Dashboard Public Booking Link widget. Backend: 25/25 pytest pass (added 7 new tests under TestPublicBooking class) — public/salon, public/services, public/staff (sensitive fields stripped), public/book end-to-end with auto-create customer & appointment, validation of empty services, specific staff selection, and confirmation that protected endpoints (/customers, /services, /staff, /appointments, /invoices) still return 401 without auth. Frontend: full 5-step booking flow works end-to-end at /book without login (no redirect). All four validation toasts fire correctly (pick a service, pick a time slot, name required, valid phone). After Confirm, success page renders with appointment summary (data-testid='book-success'). Logged in as admin and verified the newly created appointment is visible on /appointments (date = tomorrow) and the auto-created customer (phone 8882799404, name 'TEST Frontend User') appears in /customers. Dashboard widget shows full /book URL, Copy Link button and Open button (target=_blank, href=/book).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/public/staff", "issue": "Code first queries with active:1 then falls back to active:True if empty — works but the active:1 branch is dead code because Mongo doesn't coerce True/1 and seed data is stored as boolean True. Cosmetic only."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "BookPublic hero", "issues": ["The hero image (Unsplash photo) prominently displays the name 'CHAPS & CO' overlaid in the photo, which is a competitor/brand name unrelated to Miracurl. Recommend using a less brand-heavy hero image."]},
+      {"screen": "Dashboard Public Booking Link widget", "issues": ["Copy Link button shows 'Couldn't copy. Long-press to copy.' toast in some browsers/sandbox contexts (navigator.clipboard not available). The Open button works fine. Consider falling back to selecting the input text on click."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(LOW) Replace public booking hero image — currently shows another brand's name ('CHAPS & CO').",
+    "(LOW) Improve Copy Link fallback — select the input text when navigator.clipboard.writeText is unavailable, instead of showing a 'long-press to copy' toast on desktop."
+  ],
+  "critical_code_review_comments": [
+    "/api/public/book auto-creates a customer based on phone match alone — if a customer with that phone already exists but enters a different name/email at booking time, the existing record is reused and the new name is silently ignored. Consider at least updating the customer's name/email if they differ, or surfacing a 'we found your existing profile' note.",
+    "/api/public/book has NO rate limiting or captcha — a public endpoint that writes to the appointments collection is open to abuse (bot spamming bookings). Add per-IP rate limit and/or simple captcha before production.",
+    "/api/public/book accepts any 'scheduled_at' including past dates — backend does not validate the slot is in the future or within business hours (10:00–20:30). Frontend constrains it but a direct curl can book yesterday.",
+    "PublicBookingIn.customer_phone is not regex-validated server-side. Frontend enforces /^\\d{7,15}$/ but backend will accept anything. Add a Pydantic validator.",
+    "BookPublic.jsx builds scheduled_at as new Date(`${date}T${time}:00`).toISOString() — this is local-time interpretation, then converted to UTC. The appointment listing on admin side uses scheduled_at regex prefix-match on date which is in UTC; for a booking made late at night IST, the UTC date will shift and the appointment won't appear under the user-intended date. Consider sending the local date+time without TZ conversion or normalize on backend."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestPublicBooking class with 7 tests)"
+  ],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "100% of public booking + widget flows"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 (verified from /app/memory/test_credentials.md)",
+  "seed_data_creation": "No new seed required. Tests created one TEST_ customer + appointment via public/book and cleaned them up. Frontend playwright test left one booking ('TEST Frontend User', phone 8882799404) on tomorrow's date for admin verification — can be removed manually.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Public booking endpoints live at /api/public/{salon,services,staff,book} and require NO auth. Public booking page is at /book (outside protected layout). Time slots are buttons with testid 'book-time-HH:MM'. Phone regex is /^\\d{7,15}$/. The dashboard widget (data-testid 'booking-link-widget') has 'booking-link-url', 'copy-booking-link-btn', and 'open-booking-link-btn' children. Backend test file: /app/backend/tests/backend_test.py — run: pytest /app/backend/tests/backend_test.py -v.",
+  "rca_of_the_issue": "No blocking issues. The feature works end-to-end. Two minor design/UX nits (brand on hero image, clipboard fallback) and several code-quality recommendations around rate-limiting, server-side validation, and customer-merge behaviour on /api/public/book."
+}

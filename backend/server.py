@@ -578,6 +578,88 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
         "invoices": invs[:200],
     }
 
+# ---------------- Public (no auth) - Customer-facing booking ----------------
+class PublicBookingIn(BaseModel):
+    customer_name: str
+    customer_phone: str
+    customer_email: Optional[str] = None
+    service_ids: List[str]
+    staff_id: Optional[str] = None
+    scheduled_at: str
+    notes: Optional[str] = None
+
+@api.get("/public/salon")
+async def public_salon():
+    return {
+        "name": "Miracurl Unisex Family Salon",
+        "tagline": "Where elegance meets every strand",
+        "location": "Marathahalli, Bangalore",
+        "phone": "+91 98765 00000",
+        "hours": "Mon–Sun · 10:00 AM – 9:00 PM",
+        "hero_image": "https://images.unsplash.com/photo-1759142235060-3191ee596c81?w=1600",
+    }
+
+@api.get("/public/services")
+async def public_services():
+    docs = await db.services.find({"active": True}, {"_id": 0}).sort("category", 1).to_list(500)
+    return docs
+
+@api.get("/public/staff")
+async def public_staff():
+    docs = await db.staff.find({"active": 1}, {"_id": 0, "email": 0, "phone": 0, "commission_pct": 0}).to_list(500)
+    if not docs:
+        docs = await db.staff.find({"active": True}, {"_id": 0, "email": 0, "phone": 0, "commission_pct": 0}).to_list(500)
+    return docs
+
+@api.post("/public/book")
+async def public_book(body: PublicBookingIn):
+    if not body.service_ids:
+        raise HTTPException(400, "Pick at least one service")
+    services = await db.services.find({"id": {"$in": body.service_ids}}, {"_id": 0}).to_list(50)
+    if not services:
+        raise HTTPException(400, "Invalid services")
+    staff = None
+    if body.staff_id:
+        staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0})
+    if not staff:
+        staff = await db.staff.find_one({"active": True}, {"_id": 0}) or await db.staff.find_one({}, {"_id": 0})
+    if not staff:
+        raise HTTPException(400, "No stylist available")
+
+    # find or create customer by phone
+    cust = await db.customers.find_one({"phone": body.customer_phone}, {"_id": 0})
+    if not cust:
+        cust_doc = Customer(
+            name=body.customer_name, phone=body.customer_phone, email=body.customer_email
+        ).model_dump()
+        await db.customers.insert_one(cust_doc)
+        cust = cust_doc
+    cust.pop("_id", None)
+
+    total = sum(s["price"] for s in services)
+    duration = sum(s["duration_min"] for s in services) or 30
+    appt = Appointment(
+        customer_id=cust["id"], customer_name=cust["name"],
+        staff_id=staff["id"], staff_name=staff["name"],
+        service_ids=[s["id"] for s in services],
+        service_names=[s["name"] for s in services],
+        scheduled_at=body.scheduled_at, duration_min=duration,
+        notes=body.notes, total=total,
+    ).model_dump()
+    await db.appointments.insert_one(appt)
+    appt.pop("_id", None)
+    return {
+        "appointment": appt,
+        "summary": {
+            "customer_name": cust["name"],
+            "staff_name": staff["name"],
+            "service_names": [s["name"] for s in services],
+            "total": total,
+            "duration_min": duration,
+            "scheduled_at": body.scheduled_at,
+        },
+    }
+
 # ---------------- Health ----------------
 @api.get("/")
 async def root():

@@ -12,6 +12,7 @@ import Services from "@/pages/Services";
 import Inventory from "@/pages/Inventory";
 import POS from "@/pages/POS";
 import Reports from "@/pages/Reports";
+import BookPublic from "@/pages/BookPublic";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -40,6 +41,7 @@ export default function App() {
         <BrowserRouter>
           <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } }} />
           <Routes>
+            <Route path="/book" element={<BookPublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/" element={<Protected><AppLayout /></Protected>}>
               <Route index element={<Navigate to="/dashboard" replace />} />

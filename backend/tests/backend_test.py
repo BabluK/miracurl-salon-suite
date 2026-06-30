@@ -232,6 +232,107 @@ class TestReports:
         assert "total_invoices" in d and "total_revenue" in d
 
 
+# ---------------- Public Booking (NO AUTH) ----------------
+class TestPublicBooking:
+    """Public customer-facing booking endpoints — must work WITHOUT auth."""
+
+    def test_public_salon_no_auth(self):
+        r = requests.get(f"{API}/public/salon")
+        assert r.status_code == 200
+        d = r.json()
+        assert "name" in d and "tagline" in d and "hero_image" in d
+
+    def test_public_services_no_auth(self):
+        r = requests.get(f"{API}/public/services")
+        assert r.status_code == 200
+        data = r.json()
+        assert isinstance(data, list) and len(data) >= 1
+        # only active services
+        for s in data:
+            assert s.get("active", True) is True
+            assert "id" in s and "price" in s
+
+    def test_public_staff_no_auth(self):
+        r = requests.get(f"{API}/public/staff")
+        assert r.status_code == 200
+        data = r.json()
+        assert isinstance(data, list) and len(data) >= 1
+        # sensitive fields should be excluded
+        for s in data:
+            assert "phone" not in s
+            assert "email" not in s
+            assert "commission_pct" not in s
+
+    def test_public_book_creates_appointment_and_customer(self):
+        svcs = requests.get(f"{API}/public/services").json()
+        svc = svcs[0]
+        ts = int(datetime.now().timestamp())
+        phone = f"99888{ts % 100000:05d}"  # unique 10-digit phone
+        scheduled = (datetime.now(timezone.utc) + timedelta(days=1)).replace(microsecond=0).isoformat()
+        payload = {
+            "customer_name": "TEST_PublicBook",
+            "customer_phone": phone,
+            "customer_email": "public@test.com",
+            "service_ids": [svc["id"]],
+            "scheduled_at": scheduled,
+        }
+        r = requests.post(f"{API}/public/book", json=payload)
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert "appointment" in data and "summary" in data
+        assert data["summary"]["total"] == svc["price"]
+        assert data["summary"]["customer_name"] == "TEST_PublicBook"
+        appt_id = data["appointment"]["id"]
+
+        # Login as admin and verify appointment + customer visible
+        s = requests.Session()
+        s.headers.update({"Content-Type": "application/json"})
+        lr = s.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASS})
+        assert lr.status_code == 200
+        s.headers.update({"Authorization": f"Bearer {lr.json()['access_token']}"})
+
+        ar = s.get(f"{API}/appointments")
+        assert ar.status_code == 200
+        assert any(a["id"] == appt_id for a in ar.json()), "Public booking not visible to admin"
+
+        cr = s.get(f"{API}/customers", params={"q": phone})
+        assert cr.status_code == 200
+        found = [c for c in cr.json() if c["phone"] == phone]
+        assert len(found) == 1, "Customer not auto-created by public/book"
+
+        # cleanup
+        s.delete(f"{API}/appointments/{appt_id}")
+        s.delete(f"{API}/customers/{found[0]['id']}")
+
+    def test_public_book_validates_empty_services(self):
+        r = requests.post(f"{API}/public/book", json={
+            "customer_name": "TEST_x", "customer_phone": "9998887777",
+            "service_ids": [], "scheduled_at": datetime.now(timezone.utc).isoformat(),
+        })
+        assert r.status_code == 400
+
+    def test_public_book_with_specific_staff(self):
+        staff_list = requests.get(f"{API}/public/staff").json()
+        svcs = requests.get(f"{API}/public/services").json()
+        target_staff = staff_list[0]
+        ts = int(datetime.now().timestamp())
+        phone = f"97777{ts % 100000:05d}"
+        scheduled = (datetime.now(timezone.utc) + timedelta(days=2)).replace(microsecond=0).isoformat()
+        r = requests.post(f"{API}/public/book", json={
+            "customer_name": "TEST_StaffPick", "customer_phone": phone,
+            "service_ids": [svcs[0]["id"]], "staff_id": target_staff["id"],
+            "scheduled_at": scheduled,
+        })
+        assert r.status_code == 200, r.text
+        assert r.json()["summary"]["staff_name"] == target_staff["name"]
+
+    def test_protected_endpoints_still_require_auth(self):
+        # Protected endpoints must still reject unauthenticated requests
+        for ep in ["/customers", "/services", "/staff", "/appointments", "/invoices"]:
+            r = requests.get(f"{API}{ep}")
+            assert r.status_code == 401, f"{ep} should be 401 but got {r.status_code}"
+
+
 # ---------------- Auth security ----------------
 class TestAuthSecurity:
     def test_bcrypt_format_via_register_then_login(self, session):

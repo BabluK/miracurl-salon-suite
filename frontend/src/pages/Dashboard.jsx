@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
-import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle } from "lucide-react";
+import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
+import { toast } from "sonner";
 
 function Stat({ icon: Icon, label, value, hint, testid, accent }) {
   return (
@@ -28,19 +29,44 @@ export default function Dashboard() {
   if (!data) return <div className="text-ink-secondary">Loading dashboard...</div>;
 
   const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  const bookingUrl = `${window.location.origin}/book`;
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(bookingUrl); toast.success("Booking link copied!"); }
+    catch { toast.error("Couldn't copy. Long-press to copy."); }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Hero strip */}
+      {/* Hero strip with public booking CTA */}
       <div className="card-luxe relative overflow-hidden">
         <div className="absolute inset-0 opacity-30">
           <img src="https://images.unsplash.com/photo-1759134198561-e2041049419c?w=1600" className="w-full h-full object-cover" alt="" />
           <div className="absolute inset-0 bg-gradient-to-r from-bg-surface via-bg-surface/80 to-transparent" />
         </div>
-        <div className="relative z-10">
-          <div className="label-luxe text-gold">Today&apos;s Snapshot</div>
-          <h1 className="font-playfair text-4xl mt-2">Good day at Miracurl ✦</h1>
-          <p className="text-ink-secondary mt-2 max-w-lg">A polished glance at appointments, revenue and inventory — everything you need at a glance.</p>
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div>
+            <div className="label-luxe text-gold">Today&apos;s Snapshot</div>
+            <h1 className="font-playfair text-4xl mt-2">Good day at Miracurl ✦</h1>
+            <p className="text-ink-secondary mt-2 max-w-lg">A polished glance at appointments, revenue and inventory — everything you need at a glance.</p>
+          </div>
+          <div className="bg-bg-base/60 backdrop-blur-xl border border-gold/30 rounded-lg p-4 max-w-md" data-testid="booking-link-widget">
+            <div className="flex items-center gap-2 mb-2">
+              <LinkIcon className="w-4 h-4 text-gold" />
+              <span className="label-luxe text-gold">Public Booking Link</span>
+            </div>
+            <p className="text-xs text-ink-secondary mb-3">Share this link on Instagram, WhatsApp & Google profile — customers can self-book 24/7.</p>
+            <div className="flex items-center gap-2 bg-bg-base/80 border border-white/10 rounded-md px-3 py-2 mb-3">
+              <span className="text-xs text-white/70 font-mono truncate flex-1" data-testid="booking-link-url">{bookingUrl}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button data-testid="copy-booking-link-btn" onClick={copyLink} className="btn-ghost flex items-center gap-2 text-xs py-1.5 px-3 flex-1 justify-center">
+                <Copy className="w-3 h-3" /> Copy Link
+              </button>
+              <a data-testid="open-booking-link-btn" href={bookingUrl} target="_blank" rel="noreferrer" className="btn-gold flex items-center gap-2 text-xs py-1.5 px-3">
+                <ExternalLink className="w-3 h-3" /> Open
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 
