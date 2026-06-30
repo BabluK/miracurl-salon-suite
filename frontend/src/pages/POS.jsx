@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
-import { Search, ShoppingCart, X, Plus, Minus, IndianRupee, Wallet, CreditCard, Smartphone, Banknote, Receipt, Printer, Share2, Gift } from "lucide-react";
+import { Search, ShoppingCart, X, Plus, Minus, IndianRupee, Wallet, CreditCard, Smartphone, Banknote, Receipt, Printer, Share2, Gift, Star } from "lucide-react";
 import { toast } from "sonner";
 
 export default function POS() {
@@ -117,6 +117,24 @@ ${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${inv.staff_name}</span
       ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
       : `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function sendReviewLink(inv) {
+    // Find the most recent completed appointment for this customer
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data } = await api.get(`/appointments?date=${today}`);
+      const appt = data.find(a => a.customer_id === inv.customer_id && a.status === "completed")
+                 || data.find(a => a.customer_id === inv.customer_id);
+      const link = appt ? `${window.location.origin}/review/${appt.id}` : `${window.location.origin}/book`;
+      const cust = customers.find(c => c.id === inv.customer_id);
+      const phone = cust?.phone?.replace(/\D/g, "") || "";
+      const msg = `Hi ${inv.customer_name.split(" ")[0]} ✦ Thank you for visiting Miracurl today!%0A%0AWe'd love your feedback — it takes 10 seconds:%0A${link}%0A%0AGive us 4★ or 5★ and we'll add ₹50 credit to your account ✦`;
+      const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Couldn't prepare review link");
+    }
   }
 
   return (
@@ -259,6 +277,11 @@ ${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${inv.staff_name}</span
                 onClick={() => shareInvoiceWhatsApp(lastInvoice)}
                 className="btn-ghost flex-1 flex items-center justify-center gap-2 text-xs"
               ><Share2 className="w-3.5 h-3.5" /> WhatsApp</button>
+              <button
+                data-testid="invoice-review-btn"
+                onClick={() => sendReviewLink(lastInvoice)}
+                className="btn-ghost flex-1 flex items-center justify-center gap-2 text-xs"
+              ><Star className="w-3.5 h-3.5" /> Review Link</button>
               <button data-testid="invoice-close-btn" onClick={() => setLastInvoice(null)} className="btn-gold flex-1 text-xs">Close</button>
             </div>
           </div>

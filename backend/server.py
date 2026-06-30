@@ -259,6 +259,28 @@ class InvoiceIn(BaseModel):
     tax_pct: float = 18.0
     payment_mode: str = "cash"
 
+class Review(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    appointment_id: str
+    customer_id: str
+    customer_name: str
+    staff_id: Optional[str] = None
+    staff_name: Optional[str] = None
+    rating: int  # 1-5
+    comment: Optional[str] = None
+    public: bool = True  # show on public booking page
+    reward_code: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class ReviewIn(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = Field(None, max_length=600)
+
+class ReviewModerateIn(BaseModel):
+    public: bool
+
+REVIEW_REWARD_CREDIT = 50.0  # ₹ credit for 4★+ reviews
+
 # ---------------- Auth Endpoints ----------------
 @api.post("/auth/register")
 async def register(body: RegisterIn, response: Response):
@@ -561,6 +583,86 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         await db.products.update_one({"id": pid}, {"$inc": {"stock": -qty}})
     return _clean(inv)
 
+# ---------------- Reviews ----------------
+@api.get("/reviews")
+async def list_reviews(user=Depends(get_current_user)):
+    return await db.reviews.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+@api.put("/reviews/{rid}/moderate")
+async def moderate_review(rid: str, body: ReviewModerateIn, user=Depends(require_admin)):
+    await db.reviews.update_one({"id": rid}, {"$set": {"public": body.public}})
+    return await db.reviews.find_one({"id": rid}, {"_id": 0})
+
+@api.delete("/reviews/{rid}")
+async def delete_review(rid: str, user=Depends(require_admin)):
+    await db.reviews.delete_one({"id": rid})
+    return {"ok": True}
+
+@api.get("/public/review-info/{token}")
+async def public_review_info(token: str):
+    """Token = appointment_id. Returns appointment summary so the customer can confirm."""
+    appt = await db.appointments.find_one({"id": token}, {"_id": 0})
+    if not appt:
+        raise HTTPException(404, "Invalid review link")
+    if appt.get("status") not in ("completed", "scheduled"):
+        # Allow rating even if appointment isn't marked complete (some salons forget to mark)
+        pass
+    existing = await db.reviews.find_one({"appointment_id": token}, {"_id": 0})
+    return {
+        "customer_name": appt["customer_name"],
+        "staff_name": appt.get("staff_name"),
+        "service_names": appt.get("service_names", []),
+        "scheduled_at": appt["scheduled_at"],
+        "already_submitted": existing is not None,
+        "existing_rating": existing.get("rating") if existing else None,
+    }
+
+@api.post("/public/review/{token}")
+async def public_review(token: str, body: ReviewIn, request: Request):
+    public_rate_limit(request, key_suffix="review", limit=10, window_sec=600)
+    appt = await db.appointments.find_one({"id": token}, {"_id": 0})
+    if not appt:
+        raise HTTPException(404, "Invalid review link")
+    if await db.reviews.find_one({"appointment_id": token}):
+        raise HTTPException(400, "Review already submitted for this visit")
+
+    reward_code = None
+    if body.rating >= 4:
+        reward_code = f"THANKS-{secrets.token_urlsafe(3).upper().replace('_', 'X').replace('-', 'Y')[:5]}"
+        await db.customers.update_one(
+            {"id": appt["customer_id"]},
+            {"$inc": {"referral_credit": REVIEW_REWARD_CREDIT}},
+        )
+
+    review = Review(
+        appointment_id=token,
+        customer_id=appt["customer_id"],
+        customer_name=appt["customer_name"],
+        staff_id=appt.get("staff_id"),
+        staff_name=appt.get("staff_name"),
+        rating=body.rating,
+        comment=(body.comment or "").strip() or None,
+        public=body.rating >= 4,  # auto-public for 4★+, admin can change
+        reward_code=reward_code,
+    ).model_dump()
+    await db.reviews.insert_one(review)
+    return {
+        "ok": True,
+        "review": _clean(review),
+        "reward": {
+            "code": reward_code,
+            "credit": REVIEW_REWARD_CREDIT if reward_code else 0,
+        } if reward_code else None,
+    }
+
+@api.get("/public/reviews/featured")
+async def public_featured_reviews(limit: int = 6):
+    docs = await db.reviews.find(
+        {"public": True, "rating": {"$gte": 4}},
+        {"_id": 0, "customer_id": 0, "appointment_id": 0, "staff_id": 0, "reward_code": 0}
+    ).sort("created_at", -1).to_list(limit)
+    return docs
+
 # ---------------- Reports / Dashboard ----------------
 @api.get("/reports/dashboard")
 async def dashboard(user=Depends(get_current_user)):
@@ -579,6 +681,11 @@ async def dashboard(user=Depends(get_current_user)):
         {"$sort": {"count": -1}}, {"$limit": 5},
     ]
     top_services = await db.appointments.aggregate(pipeline).to_list(5)
+    # review stats
+    all_reviews = await db.reviews.find({}, {"_id": 0, "rating": 1}).to_list(2000)
+    review_count = len(all_reviews)
+    avg_rating = round(sum(r["rating"] for r in all_reviews) / review_count, 2) if review_count else 0
+    pending_reviews = await db.appointments.count_documents({"status": "completed"}) - review_count
     # revenue trend last 7 days
     trend = []
     for offset in range(6, -1, -1):
@@ -599,6 +706,9 @@ async def dashboard(user=Depends(get_current_user)):
         "top_services": [{"name": t["_id"], "count": t["count"]} for t in top_services],
         "revenue_trend": trend,
         "upcoming_appointments": appts_today[:5],
+        "avg_rating": avg_rating,
+        "review_count": review_count,
+        "pending_reviews": max(0, pending_reviews),
     }
 
 @api.get("/reports/sales")

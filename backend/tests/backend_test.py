@@ -612,3 +612,217 @@ class TestAuthSecurity:
         # httpOnly cookie present
         cookies_hdr = r.headers.get("set-cookie", "")
         assert "HttpOnly" in cookies_hdr or "httponly" in cookies_hdr.lower()
+
+
+
+# ---------------- Iteration 4: Reviews ----------------
+def _create_appointment_for_review(admin_s):
+    """Create a fresh customer + appointment via authenticated admin API (no rate limit)."""
+    svcs = admin_s.get(f"{API}/services").json()
+    staff_list = admin_s.get(f"{API}/staff").json()
+    phone = _unique_phone("85")
+    cust_r = admin_s.post(f"{API}/customers", json={
+        "name": "TEST_ReviewCust", "phone": phone, "email": "rev@test.com",
+    })
+    assert cust_r.status_code == 200, cust_r.text
+    customer_id = cust_r.json()["id"]
+    appt_r = admin_s.post(f"{API}/appointments", json={
+        "customer_id": customer_id,
+        "staff_id": staff_list[0]["id"],
+        "service_ids": [svcs[0]["id"]],
+        "scheduled_at": _future_iso(3, 12),
+    })
+    assert appt_r.status_code == 200, appt_r.text
+    return appt_r.json()["id"], customer_id, phone
+
+
+class TestIter4ReviewHappyPath:
+    """5★ review → reward + credit increment"""
+
+    def test_5_star_creates_reward_and_credit(self, admin_session_iter3):
+        appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+        # baseline credit
+        cust_before = admin_session_iter3.get(f"{API}/customers/{customer_id}").json()
+        credit_before = cust_before.get("referral_credit", 0)
+
+        r = requests.post(f"{API}/public/review/{appt_id}", json={
+            "rating": 5,
+            "comment": "Amazing experience! Will be back.",
+        })
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["ok"] is True
+        assert data["reward"] is not None
+        assert data["reward"]["code"].startswith("THANKS-")
+        assert data["reward"]["credit"] == 50.0
+        assert data["review"]["rating"] == 5
+        assert data["review"]["public"] is True
+
+        # verify credit incremented
+        cust_after = admin_session_iter3.get(f"{API}/customers/{customer_id}").json()
+        assert cust_after.get("referral_credit", 0) == credit_before + 50.0
+
+        # duplicate submission rejected
+        r2 = requests.post(f"{API}/public/review/{appt_id}", json={"rating": 5, "comment": "again"})
+        assert r2.status_code == 400
+        assert "already" in r2.text.lower()
+
+        # cleanup
+        admin_session_iter3.delete(f"{API}/customers/{customer_id}")
+
+
+class TestIter4Review3Star:
+    """3★ review → public=false, NO reward, credit unchanged"""
+
+    def test_3_star_no_reward(self, admin_session_iter3):
+        appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+        cust_before = admin_session_iter3.get(f"{API}/customers/{customer_id}").json()
+        credit_before = cust_before.get("referral_credit", 0)
+
+        r = requests.post(f"{API}/public/review/{appt_id}", json={"rating": 3})
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["reward"] is None
+        assert data["review"]["rating"] == 3
+        assert data["review"]["public"] is False
+
+        cust_after = admin_session_iter3.get(f"{API}/customers/{customer_id}").json()
+        assert cust_after.get("referral_credit", 0) == credit_before
+
+        admin_session_iter3.delete(f"{API}/customers/{customer_id}")
+
+
+class TestIter4ReviewValidation:
+    """Rating out-of-range → 422"""
+
+    def test_rating_zero_rejected(self, admin_session_iter3):
+        appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+        r = requests.post(f"{API}/public/review/{appt_id}", json={"rating": 0})
+        assert r.status_code == 422, r.text
+        admin_session_iter3.delete(f"{API}/customers/{customer_id}")
+
+    def test_rating_six_rejected(self, admin_session_iter3):
+        appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+        r = requests.post(f"{API}/public/review/{appt_id}", json={"rating": 6})
+        assert r.status_code == 422, r.text
+        admin_session_iter3.delete(f"{API}/customers/{customer_id}")
+
+
+class TestIter4ReviewInfo:
+    """GET /public/review-info/{token}"""
+
+    def test_review_info_returns_summary(self, admin_session_iter3):
+        appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+        r = requests.get(f"{API}/public/review-info/{appt_id}")
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert "customer_name" in data
+        assert "service_names" in data and isinstance(data["service_names"], list)
+        assert data["already_submitted"] is False
+        assert data["existing_rating"] is None
+
+        # submit a 4★ review and verify already_submitted flips
+        requests.post(f"{API}/public/review/{appt_id}", json={"rating": 4})
+        r2 = requests.get(f"{API}/public/review-info/{appt_id}")
+        d2 = r2.json()
+        assert d2["already_submitted"] is True
+        assert d2["existing_rating"] == 4
+
+        admin_session_iter3.delete(f"{API}/customers/{customer_id}")
+
+    def test_review_info_invalid_token_404(self):
+        r = requests.get(f"{API}/public/review-info/not-a-real-id")
+        assert r.status_code == 404
+        assert "invalid" in r.text.lower()
+
+
+class TestIter4FeaturedReviews:
+    """GET /public/reviews/featured returns only public=true && rating>=4"""
+
+    def test_featured_only_returns_high_public(self, admin_session_iter3):
+        # seed a 5★ + a 3★
+        a1, c1, _ = _create_appointment_for_review(admin_session_iter3)
+        a2, c2, _ = _create_appointment_for_review(admin_session_iter3)
+        requests.post(f"{API}/public/review/{a1}", json={"rating": 5, "comment": "TEST_FEAT_5"})
+        requests.post(f"{API}/public/review/{a2}", json={"rating": 3, "comment": "TEST_FEAT_3"})
+
+        r = requests.get(f"{API}/public/reviews/featured")
+        assert r.status_code == 200
+        rows = r.json()
+        assert isinstance(rows, list)
+        for row in rows:
+            assert row["rating"] >= 4
+            assert row.get("public", True) is True
+            # PII fields stripped
+            assert "customer_id" not in row
+            assert "appointment_id" not in row
+            assert "reward_code" not in row
+
+        # cleanup
+        admin_session_iter3.delete(f"{API}/customers/{c1}")
+        admin_session_iter3.delete(f"{API}/customers/{c2}")
+
+
+class TestIter4ReviewModeration:
+    """Admin moderate + delete"""
+
+    def test_list_reviews_requires_auth(self):
+        r = requests.get(f"{API}/reviews")
+        assert r.status_code in (401, 403)
+
+    def test_moderate_toggles_public(self, admin_session_iter3):
+        appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+        sr = requests.post(f"{API}/public/review/{appt_id}", json={"rating": 5, "comment": "TEST_MOD"})
+        assert sr.status_code == 200
+        rid = sr.json()["review"]["id"]
+
+        # toggle public=False
+        m = admin_session_iter3.put(f"{API}/reviews/{rid}/moderate", json={"public": False})
+        assert m.status_code == 200, m.text
+        assert m.json()["public"] is False
+
+        # delete
+        d = admin_session_iter3.delete(f"{API}/reviews/{rid}")
+        assert d.status_code == 200
+        # verify gone
+        all_reviews = admin_session_iter3.get(f"{API}/reviews").json()
+        assert not any(r["id"] == rid for r in all_reviews)
+
+        admin_session_iter3.delete(f"{API}/customers/{customer_id}")
+
+    def test_moderate_requires_admin(self):
+        # register a staff user
+        email = f"staff_rev_{int(datetime.now().timestamp())}@test.com"
+        r = requests.post(f"{API}/auth/register", json={"email": email, "password": "Pass@1234", "name": "StaffRev"})
+        assert r.status_code == 200
+        token = r.json()["access_token"]
+        # try to moderate (use any id, expect 403 before lookup)
+        rr = requests.put(f"{API}/reviews/fake-id/moderate",
+                          json={"public": False},
+                          headers={"Authorization": f"Bearer {token}"})
+        assert rr.status_code == 403, rr.text
+
+
+class TestIter4DashboardReviewFields:
+    def test_dashboard_includes_review_stats(self, admin_session_iter3):
+        r = admin_session_iter3.get(f"{API}/reports/dashboard")
+        assert r.status_code == 200
+        data = r.json()
+        assert "avg_rating" in data
+        assert "review_count" in data
+        assert "pending_reviews" in data
+        assert isinstance(data["review_count"], int)
+        assert data["pending_reviews"] >= 0
+
+
+class TestIter4ReviewRateLimit:
+    """RUN LAST — 10 req/10min per IP on /public/review/{token}"""
+
+    def test_review_endpoint_rate_limit(self, admin_session_iter3):
+        # rate-limit is enforced BEFORE duplicate check & 404, so hit any token 11+ times
+        # use a known-bad token to avoid mutating real data
+        statuses = []
+        for i in range(25):
+            r = requests.post(f"{API}/public/review/nonexistent-rl-token", json={"rating": 5})
+            statuses.append(r.status_code)
+        assert 429 in statuses, f"Expected 429 in burst, got {statuses}"

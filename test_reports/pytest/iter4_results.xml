@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="8" skipped="0" tests="12" time="3.134" timestamp="2026-06-30T06:54:13.208908+00:00" hostname="agent-env-d1dfed1a-214d-43b3-ad1c-27a56ad52812"><testcase classname="tests.backend_test.TestIter4ReviewModeration" name="test_list_reviews_requires_auth" time="0.487" /><testcase classname="tests.backend_test.TestIter4ReviewValidation" name="test_rating_zero_rejected" time="0.829"><failure message="KeyError: 'customer'">backend/tests/backend_test.py:695: in test_rating_zero_rejected
+    appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/backend_test.py:631: in _create_appointment_for_review
+    customer_id = r.json()["customer"]["id"]
+                  ^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'customer'</failure></testcase><testcase classname="tests.backend_test.TestIter4ReviewModeration" name="test_moderate_toggles_public" time="0.581"><failure message="KeyError: 'customer'">backend/tests/backend_test.py:770: in test_moderate_toggles_public
+    appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/backend_test.py:631: in _create_appointment_for_review
+    customer_id = r.json()["customer"]["id"]
+                  ^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'customer'</failure></testcase><testcase classname="tests.backend_test.TestIter4ReviewValidation" name="test_rating_six_rejected" time="0.243"><failure message="KeyError: 'customer'">backend/tests/backend_test.py:701: in test_rating_six_rejected
+    appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/backend_test.py:631: in _create_appointment_for_review
+    customer_id = r.json()["customer"]["id"]
+                  ^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'customer'</failure></testcase><testcase classname="tests.backend_test.TestIter4ReviewModeration" name="test_moderate_requires_admin" time="0.483" /><testcase classname="tests.backend_test.TestIter4ReviewInfo" name="test_review_info_returns_summary" time="0.487"><failure message="KeyError: 'customer'">backend/tests/backend_test.py:711: in test_review_info_returns_summary
+    appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/backend_test.py:631: in _create_appointment_for_review
+    customer_id = r.json()["customer"]["id"]
+                  ^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'customer'</failure></testcase><testcase classname="tests.backend_test.TestIter4ReviewHappyPath" name="test_5_star_creates_reward_and_credit" time="0.212"><failure message="KeyError: 'customer'">backend/tests/backend_test.py:639: in test_5_star_creates_reward_and_credit
+    appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/backend_test.py:631: in _create_appointment_for_review
+    customer_id = r.json()["customer"]["id"]
+                  ^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'customer'</failure></testcase><testcase classname="tests.backend_test.TestIter4ReviewInfo" name="test_review_info_invalid_token_404" time="0.149" /><testcase classname="tests.backend_test.TestIter4FeaturedReviews" name="test_featured_only_returns_high_public" time="0.234"><failure message="KeyError: 'customer'">backend/tests/backend_test.py:740: in test_featured_only_returns_high_public
+    a1, c1, _ = _create_appointment_for_review(admin_session_iter3)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/backend_test.py:631: in _create_appointment_for_review
+    customer_id = r.json()["customer"]["id"]
+                  ^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'customer'</failure></testcase><testcase classname="tests.backend_test.TestIter4Review3Star" name="test_3_star_no_reward" time="0.198"><failure message="KeyError: 'customer'">backend/tests/backend_test.py:674: in test_3_star_no_reward
+    appt_id, customer_id, _ = _create_appointment_for_review(admin_session_iter3)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/backend_test.py:631: in _create_appointment_for_review
+    customer_id = r.json()["customer"]["id"]
+                  ^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'customer'</failure></testcase><testcase classname="tests.backend_test.TestIter4DashboardReviewFields" name="test_dashboard_includes_review_stats" time="0.103" /><testcase classname="tests.backend_test.TestIter4ReviewRateLimit" name="test_review_endpoint_rate_limit" time="0.240"><failure message="KeyError: 'customer'">backend/tests/backend_test.py:822: in test_review_endpoint_rate_limit
+    a, c, _ = _create_appointment_for_review(admin_session_iter3)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/backend_test.py:631: in _create_appointment_for_review
+    customer_id = r.json()["customer"]["id"]
+                  ^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'customer'</failure></testcase></testsuite></testsuites>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
-import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink } from "lucide-react";
+import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 
@@ -93,6 +93,35 @@ export default function Dashboard() {
         <Stat icon={Calendar} label="Today Bookings" value={data.today_bookings} hint="appointments scheduled" testid="kpi-bookings-today" />
         <Stat icon={TrendingUp} label="This Month" value={inr(data.month_revenue)} hint="month-to-date revenue" testid="kpi-revenue-month" />
         <Stat icon={Users} label="Total Customers" value={data.total_customers} hint={`${data.active_staff} active staff`} testid="kpi-customers" />
+      </div>
+
+      {/* Rating + pending widget */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="card-luxe relative overflow-hidden" data-testid="rating-widget">
+          <div className="absolute -top-4 -right-4 w-32 h-32 rounded-full bg-gold/5 blur-2xl" />
+          <div className="relative">
+            <div className="label-luxe">Customer Rating</div>
+            <div className="flex items-end gap-4 mt-3">
+              <span className="font-playfair text-5xl gold-text" data-testid="dash-avg-rating">{(data.avg_rating || 0).toFixed(1)}</span>
+              <div className="pb-2">
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <Star key={n} className={`w-4 h-4 ${n <= Math.round(data.avg_rating || 0) ? "fill-gold text-gold" : "text-white/15"}`} />
+                  ))}
+                </div>
+                <div className="text-xs text-ink-secondary mt-1">{data.review_count || 0} reviews</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="card-luxe" data-testid="pending-reviews-widget">
+          <div className="flex items-center gap-3 mb-2">
+            <MessageSquare className="w-5 h-5 text-gold" />
+            <div className="label-luxe">Pending Review Requests</div>
+          </div>
+          <div className="font-playfair text-4xl mt-2">{data.pending_reviews || 0}</div>
+          <p className="text-xs text-ink-secondary mt-2">Completed visits that haven&apos;t received a review yet. Send them a link via WhatsApp from the Appointments page.</p>
+        </div>
       </div>
 
       {/* Charts */}

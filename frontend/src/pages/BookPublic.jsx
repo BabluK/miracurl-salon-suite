@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone, User, Mail, Sparkles, MapPin, Gift, Share2, Copy } from "lucide-react";
+import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone, User, Mail, Sparkles, MapPin, Gift, Share2, Copy, Star } from "lucide-react";
 import { toast, Toaster } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -53,11 +53,13 @@ export default function BookPublic() {
   const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "", referral_code: "" });
   const [referralCheck, setReferralCheck] = useState(null); // {valid, referrer_name} | {error}
   const [confirmation, setConfirmation] = useState(null);
+  const [featured, setFeatured] = useState([]);
 
   useEffect(() => {
     PUBLIC.get("/salon").then(r => setSalon(r.data));
     PUBLIC.get("/services").then(r => setServices(r.data));
     PUBLIC.get("/staff").then(r => setStaff(r.data));
+    PUBLIC.get("/reviews/featured").then(r => setFeatured(r.data)).catch(() => setFeatured([]));
   }, []);
 
   const byCategory = useMemo(() => services.reduce((acc, s) => {
@@ -151,6 +153,34 @@ export default function BookPublic() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+        {/* Featured reviews strip — social proof */}
+        {step === 0 && featured.length > 0 && (
+          <section className="mb-10" data-testid="featured-reviews">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map(n => <Star key={n} className="w-4 h-4 fill-gold text-gold" />)}
+              </div>
+              <span className="text-sm text-ink-secondary">Loved by our guests</span>
+              <div className="h-px bg-white/10 flex-1" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {featured.slice(0, 3).map((r, idx) => (
+                <div key={idx} className="card-luxe text-sm">
+                  <div className="flex items-center gap-0.5 mb-2">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <Star key={n} className={`w-3.5 h-3.5 ${n <= r.rating ? "fill-gold text-gold" : "text-white/15"}`} />
+                    ))}
+                  </div>
+                  {r.comment && <p className="italic text-ink-secondary line-clamp-3">&ldquo;{r.comment}&rdquo;</p>}
+                  <div className="mt-3 pt-3 border-t border-white/5 text-xs text-ink-muted">
+                    — {r.customer_name}{r.staff_name && <> · with {r.staff_name}</>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {step < 5 && <Stepper step={step} />}
 
         {/* STEP 0 — Services */}

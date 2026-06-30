@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration_4 (Reviews) tested end-to-end. Backend pytest: 12/12 NEW Iter4 review tests pass (happy 5★ path with reward+credit increment, 3★ no-reward+public=false, rating 0/6 → 422, /public/review-info success + 404, featured-reviews filter & PII stripping, list/moderate/delete auth+admin enforcement, dashboard avg_rating/review_count/pending_reviews, /public/review rate-limit 429). Frontend Playwright: ALL 6 review flows verified — public /review/{token} 5-star happy path (heading 'Hey TEST_FE_ReviewA ✦', stars + comment, submit-disabled-at-0, success card with filled stars + ₹50 reward coupon THANKS-XXXX + Copy + WhatsApp share), already-submitted view ('you've already shared 5★ for this visit', form removed), /book featured-reviews section (3 cards with star row + comment + customer name), admin dashboard rating-widget (4.5 · 20 reviews) + pending-reviews-widget (0), admin /reviews page (avg-rating-value=4.5, distribution bars, 4 filter tabs all/5/4/1-3, 20 toggle + 20 delete buttons), Appointments page send-review button shown only on completed appts (1 button for the 1 completed appt; scheduled appts show none). Pre-existing TestInvoices flake (pytest-xdist race) still present but unrelated to Iter4.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/invoices POST (TestInvoices.test_create_invoice)", "issue": "Pre-existing pytest-xdist parallel-worker race ('Invalid customer'); flagged in iteration_3 — not an Iter4 regression."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Appointments date filter", "issues": ["Uses browser-native <input type='date'> (07/02/2026) instead of shadcn calendar component. Acceptable but inconsistent with design system if shadcn is the standard."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iter4_full.xml"
+  ],
+  "action_items": [
+    "(LOW) Consider replacing native date input on Appointments page with shadcn Calendar/Popover for design consistency.",
+    "(LOW) Pre-existing TestInvoices flake under pytest-xdist still untouched (iter3 carry-over)."
+  ],
+  "critical_code_review_comments": [
+    "REVIEW reward code uses secrets.token_urlsafe(3).upper().replace('_','X').replace('-','Y')[:5] — guarantees 5-char alphanumeric output and is safe (5^char ~36-base entropy). OK.",
+    "POST /public/review/{token} rate-limit (10/10min) is evaluated BEFORE 404/duplicate check — correct (prevents enumeration). But because it shares the same in-memory _RATE_BUCKET as /public/book (different key_suffix), bucket grows unbounded; consider a TTL sweep to avoid memory creep in long-running processes.",
+    "/api/reviews list endpoint is auth-gated via Depends(get_current_user) but NOT admin-only — any staff can read all customer comments. Consider role-gating if PII (customer_name) is sensitive.",
+    "Featured-reviews endpoint correctly strips customer_id, appointment_id, staff_id, reward_code; however customer_name is still returned in plaintext. Acceptable for testimonials but flag for privacy review.",
+    "DELETE /api/reviews/{id} returns nothing on a missing id (delete_one is idempotent) — would be cleaner to 404 if not found, otherwise admin UI can never tell if a stale id existed.",
+    "pending_reviews calculation = completed_appts - review_count is per-appointment fair, but if some completed appts already have reviews while others don't, the math still works only because there's a unique-per-appointment constraint enforced by the duplicate-check. OK."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestIter4ReviewHappyPath, TestIter4Review3Star, TestIter4ReviewValidation, TestIter4ReviewInfo, TestIter4FeaturedReviews, TestIter4ReviewModeration, TestIter4DashboardReviewFields, TestIter4ReviewRateLimit — 12 new tests + _create_appointment_for_review helper that uses authenticated admin API to bypass public rate limit)"
+  ],
+  "success_rate": {"backend": "100% (12/12) on iteration_4 review tests; full suite 47/48 (98%) — single failure is pre-existing TestInvoices xdist flake", "frontend": "100% (6/6 critical review flows)"},
+  "test_credentials": "Admin: admin@miracurl.com / Miracurl@123 (verified working).",
+  "seed_data_creation": "Created via admin API: TEST_FE_ReviewA (customer, completed appt a50309d8-0088-42e7-bc40-893dcda4e3c7, 5★ review with comment 'Excellent service – will return!'), TEST_FE_ReviewB (3da923eb appt — submission hit rate limit so still un-reviewed, can be reused for future already-submitted tests). Plus many TEST_ReviewCust rows from pytest runs (auto-cleaned by class teardown except for the 5★ reviews used in featured-list verification). Several THANKS-XXXX coupons accumulated on TEST_FE_ReviewA's customer record.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration_4 review system is fully working end-to-end. Backend endpoints: /api/public/review-info/{token}, POST /api/public/review/{token} (rate-limited 10/10min, rejects rating outside 1-5 with 422, 4★+ auto-issues THANKS-XXXXX coupon + ₹50 increment on customer.referral_credit, public=true for ≥4 / false for ≤3, duplicate-submit 400, invalid token 404), GET /api/public/reviews/featured (public+rating≥4, PII stripped), /api/reviews (auth), PUT /api/reviews/{id}/moderate (admin), DELETE /api/reviews/{id} (admin). Dashboard now includes avg_rating, review_count, pending_reviews. Frontend testids confirmed working: review-star-{1..5}, review-comment-input, review-submit-btn, review-success, review-reward, featured-reviews, rating-widget, pending-reviews-widget, nav-reviews, avg-rating-value, reviews-filter-all/5/4/1-3, toggle-review-{id}, delete-review-{id}, send-review-{id} (completed appts only), invoice-review-btn (POS receipt modal — not deep-tested as it requires creating a fresh invoice; spot-check confirmed POS page loads without errors). Test run: pytest /app/backend/tests/backend_test.py -k Iter4 -v.",
+  "rca of the issue": "No bugs to RCA. Initial test helper bug (KeyError 'customer' from public/book response shape) fixed by switching to authenticated /api/appointments admin path which (a) returns the appointment directly and (b) bypasses the per-IP /public/book 8/10min rate limit — that limit was masking review-test setup when running concurrently with iter3 booking tests. Initial rate-limit test failure was because only 8 appts could be created (book limit), then only 8 reviews submitted — needed to flip the test to hit the review endpoint directly with a dummy token to exercise the 10/10min limit without dependency on appt creation. Both fixed and now stable across multiple runs."
+}

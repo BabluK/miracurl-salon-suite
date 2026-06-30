@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, X, Calendar as CalendarIcon, Check, XCircle, Clock, List as ListIcon, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, X, Calendar as CalendarIcon, Check, XCircle, Clock, List as ListIcon, LayoutGrid, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_COLOR = {
@@ -93,6 +93,15 @@ export default function Appointments() {
     setForm(f => ({ ...f, service_ids: f.service_ids.includes(sid) ? f.service_ids.filter(x => x !== sid) : [...f.service_ids, sid] }));
   }
 
+  function sendReviewLink(a) {
+    const cust = customers.find(c => c.id === a.customer_id);
+    const phone = cust?.phone?.replace(/\D/g, "") || "";
+    const link = `${window.location.origin}/review/${a.id}`;
+    const msg = `Hi ${a.customer_name.split(" ")[0]} ✦ Thank you for visiting Miracurl today!%0A%0AWe'd love your feedback — it takes 10 seconds:%0A${link}%0A%0AGive us 4★ or 5★ and we'll add ₹50 credit to your account ✦`;
+    const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   function shiftWeek(deltaDays) {
     const d = new Date(date + "T00:00:00");
     d.setDate(d.getDate() + deltaDays);
@@ -162,9 +171,12 @@ export default function Appointments() {
                     <div className="flex items-center gap-1 justify-end">
                       {a.status === "scheduled" && (
                         <>
-                          <button data-testid={`complete-appt-${a.id}`} onClick={() => setStatus(a.id, "completed")} className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded"><Check className="w-4 h-4" /></button>
-                          <button data-testid={`cancel-appt-${a.id}`} onClick={() => setStatus(a.id, "cancelled")} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded"><XCircle className="w-4 h-4" /></button>
+                          <button data-testid={`complete-appt-${a.id}`} onClick={() => setStatus(a.id, "completed")} className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded" title="Mark completed"><Check className="w-4 h-4" /></button>
+                          <button data-testid={`cancel-appt-${a.id}`} onClick={() => setStatus(a.id, "cancelled")} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded" title="Cancel"><XCircle className="w-4 h-4" /></button>
                         </>
+                      )}
+                      {a.status === "completed" && (
+                        <button data-testid={`send-review-${a.id}`} onClick={() => sendReviewLink(a)} className="p-1.5 text-gold hover:bg-gold/10 rounded" title="Send review link via WhatsApp"><MessageSquare className="w-4 h-4" /></button>
                       )}
                       <button onClick={() => remove(a.id)} data-testid={`delete-appt-${a.id}`} className="p-1.5 text-ink-muted hover:text-red-400 hover:bg-red-500/5 rounded text-xs">×</button>
                     </div>

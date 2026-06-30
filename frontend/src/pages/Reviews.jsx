@@ -1,0 +1,155 @@
+import { useEffect, useState, useCallback, useMemo } from "react";
+import api from "@/lib/api";
+import { Star, Eye, EyeOff, Trash2, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
+
+function StarRow({ rating }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(n => (
+        <Star key={n} className={`w-3.5 h-3.5 ${n <= rating ? "fill-gold text-gold" : "text-white/15"}`} />
+      ))}
+    </div>
+  );
+}
+
+export default function Reviews() {
+  const [list, setList] = useState([]);
+  const [filter, setFilter] = useState("all"); // all | 5 | 4 | 1-3
+
+  const load = useCallback(async () => {
+    const { data } = await api.get("/reviews");
+    setList(data);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    if (filter === "all") return list;
+    if (filter === "5") return list.filter(r => r.rating === 5);
+    if (filter === "4") return list.filter(r => r.rating === 4);
+    if (filter === "1-3") return list.filter(r => r.rating <= 3);
+    return list;
+  }, [list, filter]);
+
+  const avg = list.length ? (list.reduce((s, r) => s + r.rating, 0) / list.length) : 0;
+  const dist = [5, 4, 3, 2, 1].map(r => ({ r, count: list.filter(x => x.rating === r).length }));
+
+  async function toggle(rev) {
+    try {
+      await api.put(`/reviews/${rev.id}/moderate`, { public: !rev.public });
+      toast.success(rev.public ? "Hidden from public" : "Published to public booking page");
+      load();
+    } catch { toast.error("Update failed"); }
+  }
+  async function remove(id) {
+    if (!window.confirm("Delete this review?")) return;
+    try { await api.delete(`/reviews/${id}`); toast.success("Deleted"); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-playfair text-3xl">Customer Reviews</h1>
+        <p className="text-ink-secondary text-sm mt-1">Moderate what shows up on your public booking page.</p>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="card-luxe">
+          <div className="label-luxe">Average Rating</div>
+          <div className="flex items-end gap-3 mt-3">
+            <span className="font-playfair text-5xl gold-text" data-testid="avg-rating-value">{avg.toFixed(1)}</span>
+            <StarRow rating={Math.round(avg)} />
+          </div>
+          <div className="text-xs text-ink-secondary mt-2">{list.length} review{list.length !== 1 ? "s" : ""} collected</div>
+        </div>
+        <div className="card-luxe lg:col-span-2">
+          <div className="label-luxe mb-3">Rating Distribution</div>
+          {dist.map(({ r, count }) => {
+            const pct = list.length ? Math.round((count / list.length) * 100) : 0;
+            return (
+              <div key={r} className="flex items-center gap-3 mb-2">
+                <span className="text-xs w-3">{r}</span>
+                <Star className="w-3 h-3 fill-gold text-gold" />
+                <div className="flex-1 h-2 bg-white/5 rounded overflow-hidden">
+                  <div className="h-full bg-gold" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-xs text-ink-secondary w-12 text-right">{count} ({pct}%)</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-1 bg-bg-base rounded-lg p-1 border border-white/5 inline-flex">
+        {[
+          { k: "all", l: "All" },
+          { k: "5", l: "★ 5" },
+          { k: "4", l: "★ 4" },
+          { k: "1-3", l: "Needs Attention (≤3)" },
+        ].map(t => (
+          <button
+            key={t.k}
+            data-testid={`reviews-filter-${t.k}`}
+            onClick={() => setFilter(t.k)}
+            className={`px-4 py-1.5 text-xs rounded-md transition ${filter === t.k ? "bg-gold text-bg-base font-semibold" : "text-ink-secondary hover:text-white"}`}
+          >{t.l}</button>
+        ))}
+      </div>
+
+      {/* List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filtered.length === 0 ? (
+          <div className="card-luxe md:col-span-2 text-center py-12">
+            <MessageSquare className="w-10 h-10 text-ink-muted mx-auto opacity-50 mb-2" />
+            <p className="text-ink-secondary">No reviews here yet.</p>
+          </div>
+        ) : filtered.map(r => (
+          <div
+            key={r.id}
+            data-testid={`review-card-${r.id}`}
+            className={`card-luxe ${r.rating <= 3 ? "border-amber-500/30" : ""}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-blush flex items-center justify-center text-bg-base font-semibold">
+                  {r.customer_name.charAt(0)}
+                </div>
+                <div>
+                  <div className="font-medium">{r.customer_name}</div>
+                  {r.staff_name && <div className="text-[10px] text-ink-secondary">with {r.staff_name}</div>}
+                </div>
+              </div>
+              <StarRow rating={r.rating} />
+            </div>
+            {r.comment && <p className="text-sm text-ink-secondary mt-3 italic">&ldquo;{r.comment}&rdquo;</p>}
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
+              <div className="flex items-center gap-2 text-[10px] text-ink-muted">
+                <span>{new Date(r.created_at).toLocaleDateString()}</span>
+                {r.reward_code && <span className="px-2 py-0.5 rounded bg-gold/10 text-gold font-mono">{r.reward_code}</span>}
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  data-testid={`toggle-review-${r.id}`}
+                  onClick={() => toggle(r)}
+                  className={`text-[10px] px-2 py-1 rounded flex items-center gap-1 ${r.public ? "bg-emerald-500/10 text-emerald-400" : "bg-white/5 text-ink-muted"}`}
+                  title={r.public ? "Hide from public booking page" : "Show on public booking page"}
+                >
+                  {r.public ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  {r.public ? "Public" : "Hidden"}
+                </button>
+                <button
+                  data-testid={`delete-review-${r.id}`}
+                  onClick={() => remove(r.id)}
+                  className="p-1.5 text-ink-muted hover:text-red-400 hover:bg-red-500/5 rounded"
+                ><Trash2 className="w-3.5 h-3.5" /></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
