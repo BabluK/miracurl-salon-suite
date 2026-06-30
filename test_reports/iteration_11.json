@@ -1,0 +1,30 @@
+{
+  "summary": "Iter 11 (code-quality-only pass) PASS. All 30 backend tests green: 10 new iter11 contract tests + 17 iter7 regression + 3 iter10 review-blast. Verified: (1) GET /api/reports/dashboard JSON shape UNCHANGED after _dashboard_top_services / _dashboard_review_stats / _dashboard_revenue_trend helper extraction — all 14 expected keys present (today_revenue, today_bookings, today_invoices, month_revenue, total_customers, active_staff, low_stock_count, low_stock_items, top_services [{name,count}], revenue_trend [7 rows oldest-first ending today UTC], upcoming_appointments [<=5], avg_rating, review_count, pending_reviews). No MongoDB _id leaks. Real-data sanity check returned today_revenue=18994.4, total_customers=135, active_staff=4, top_services=[Hair Cut - Women: 105, Hair Cut - Men: 3]. (2) _decode_access_token `raise … from e` rewrite preserves error messages: invalid token -> 401 'Invalid token', missing token -> 401 'Not authenticated'. (3) sales_report accumulator-loop refactor (post `inv` shadow fix) keeps contract: total_invoices, total_revenue, by_payment_mode[{mode,amount}], invoices. by_payment_mode sums match total_revenue. Works both with and without date params. (4) PublicBookingIn._when `except Exception as e: raise ... from e` rewrite preserves 422 error text: malformed ISO -> 'Invalid scheduled_at, must be ISO 8601'; past datetime -> 'Pick a future time'; valid future IST 15:00 -> 200/201. Frontend smoke skipped per spec.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter11_dashboard_contract.py",
+    "/app/backend/tests/test_iter7_regression.py",
+    "/app/backend/tests/test_iter10_review_blast.py",
+    "/app/test_reports/pytest/iter11_full.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "[VERIFIED CLEAN] _decode_access_token (server.py:133-142) — both ExpiredSignatureError and InvalidTokenError chains use `raise … from e`; payload guarded by 'access' type check before return. No undefined-variable risk; lint was a false positive.",
+    "[VERIFIED CLEAN] sales_report (server.py:927-942) — `invs` iterator + scalar accumulators (`by_mode` dict, `total_revenue` float) — the outer-loop variable `inv` is no longer shadowed by a generator-expression inside `sum(...)`. Math (sum(by_mode.amount)) matches total_revenue within ±1.0.",
+    "[VERIFIED CLEAN] PublicBookingIn._when (server.py:1005-1020) — `except Exception as e: raise ValueError(...) from e` correctly attributes the cause; subsequent past-time & business-hours checks unchanged.",
+    "[VERIFIED CLEAN] dashboard() (server.py:903-924) — 6 local variables (today, month_prefix, invoices_today, invoices_month, appts_today, low_stock, review_stats — plus dict-unpacked via **). Three async helpers + one async helper call extracted cleanly. No code path changed; only structure. Response shape verified key-by-key.",
+    "[NICE-TO-HAVE — non-blocking] In _dashboard_review_stats (server.py:884-889) `pending_reviews = appointments(status=completed).count - len(all_reviews)` over-counts when a single appointment has multiple reviews (or under-counts when a review exists without an appointment). Not a regression — pre-existed before iter11. Leaving as nice-to-have."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter11_dashboard_contract.py (new — 10 pytest tests covering iter11 refactor contract)"
+  ],
+  "success_rate": {"backend": "100% (30/30: 10 iter11 + 17 iter7 + 3 iter10)", "frontend": "not tested per iter11 spec"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 ; super@miracurl.com / Super@Miracurl123",
+  "seed_data_creation": "Iter11 tests created at most 1 TEST_Iter11_OK_* appointment (when business-hours future-booking succeeded) and 1 TEST_Blast_* (iter10 sub-test). Both prefixed TEST_ — safe to leave or sweep later.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter11 was a code-quality-only pass (3 lint fixes + 1 dashboard helper extraction). No contract changes. New file test_iter11_dashboard_contract.py locks the dashboard JSON shape so future refactors can't silently break it. Existing iter7/iter10 suites continue to fully pass. Pytest config (/app/backend/pytest.ini) runs with `-n 2 --dist loadscope` — do NOT pass `-p no:xdist` (collides with addopts); use `-n 0` for serial.",
+  "rca of the issue": "N/A — no bugs in iter11."
+}

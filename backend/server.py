@@ -133,10 +133,10 @@ def _extract_bearer_token(request: Request) -> Optional[str]:
 def _decode_access_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, jwt_secret(), algorithms=[JWT_ALG])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(401, "Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(401, "Invalid token")
+    except jwt.ExpiredSignatureError as e:
+        raise HTTPException(401, "Token expired") from e
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(401, "Invalid token") from e
     if payload.get("type") != "access":
         raise HTTPException(401, "Invalid token type")
     return payload
@@ -871,6 +871,34 @@ async def public_featured_reviews_default(limit: int = 6):
     return await public_featured_reviews(DEFAULT_TENANT_SLUG, limit)
 
 # ---------------- Reports / Dashboard ----------------
+async def _dashboard_top_services(limit: int = 5) -> list:
+    pipeline = [
+        {"$unwind": "$service_names"},
+        {"$group": {"_id": "$service_names", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}, {"$limit": limit},
+    ]
+    rows = await db.appointments.aggregate(pipeline).to_list(limit)
+    return [{"name": t["_id"], "count": t["count"]} for t in rows]
+
+
+async def _dashboard_review_stats() -> dict:
+    all_reviews = await db.reviews.find({}, {"_id": 0, "rating": 1}).to_list(2000)
+    count = len(all_reviews)
+    avg = round(sum(r["rating"] for r in all_reviews) / count, 2) if count else 0
+    pending = await db.appointments.count_documents({"status": "completed"}) - count
+    return {"avg_rating": avg, "review_count": count, "pending_reviews": max(0, pending)}
+
+
+async def _dashboard_revenue_trend(days: int = 7) -> list:
+    trend = []
+    for offset in range(days - 1, -1, -1):
+        d = (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat()
+        rows = await db.invoices.find(
+            {"created_at": {"$regex": f"^{d}"}}, {"_id": 0, "total": 1}).to_list(500)
+        trend.append({"date": d, "revenue": round(sum(r["total"] for r in rows), 2)})
+    return trend
+
+
 @api.get("/reports/dashboard")
 async def dashboard(user=Depends(get_current_user)):
     today = datetime.now(timezone.utc).date().isoformat()
@@ -878,44 +906,21 @@ async def dashboard(user=Depends(get_current_user)):
     invoices_today = await db.invoices.find({"created_at": {"$regex": f"^{today}"}}, {"_id": 0}).to_list(500)
     invoices_month = await db.invoices.find({"created_at": {"$regex": f"^{month_prefix}"}}, {"_id": 0}).to_list(2000)
     appts_today = await db.appointments.find({"scheduled_at": {"$regex": f"^{today}"}}, {"_id": 0}).to_list(500)
-    total_customers = await db.customers.count_documents({})
-    total_staff = await db.staff.count_documents({"active": True})
     low_stock = await db.products.find({"$expr": {"$lte": ["$stock", "$low_stock_threshold"]}}, {"_id": 0}).to_list(50)
-    # service popularity
-    pipeline = [
-        {"$unwind": "$service_names"},
-        {"$group": {"_id": "$service_names", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}}, {"$limit": 5},
-    ]
-    top_services = await db.appointments.aggregate(pipeline).to_list(5)
-    # review stats
-    all_reviews = await db.reviews.find({}, {"_id": 0, "rating": 1}).to_list(2000)
-    review_count = len(all_reviews)
-    avg_rating = round(sum(r["rating"] for r in all_reviews) / review_count, 2) if review_count else 0
-    pending_reviews = await db.appointments.count_documents({"status": "completed"}) - review_count
-    # revenue trend last 7 days
-    trend = []
-    for offset in range(6, -1, -1):
-        d = (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat()
-        day_invoices = await db.invoices.find(
-            {"created_at": {"$regex": f"^{d}"}}, {"_id": 0, "total": 1}).to_list(500)
-        day_revenue = sum(inv["total"] for inv in day_invoices)
-        trend.append({"date": d, "revenue": round(day_revenue, 2)})
+    review_stats = await _dashboard_review_stats()
     return {
         "today_revenue": round(sum(inv["total"] for inv in invoices_today), 2),
         "today_bookings": len(appts_today),
         "today_invoices": len(invoices_today),
         "month_revenue": round(sum(inv["total"] for inv in invoices_month), 2),
-        "total_customers": total_customers,
-        "active_staff": total_staff,
+        "total_customers": await db.customers.count_documents({}),
+        "active_staff": await db.staff.count_documents({"active": True}),
         "low_stock_count": len(low_stock),
         "low_stock_items": low_stock[:10],
-        "top_services": [{"name": t["_id"], "count": t["count"]} for t in top_services],
-        "revenue_trend": trend,
+        "top_services": await _dashboard_top_services(),
+        "revenue_trend": await _dashboard_revenue_trend(),
         "upcoming_appointments": appts_today[:5],
-        "avg_rating": avg_rating,
-        "review_count": review_count,
-        "pending_reviews": max(0, pending_reviews),
+        **review_stats,
     }
 
 @api.get("/reports/sales")
@@ -925,11 +930,13 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
         flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
     by_mode = {}
+    total_revenue = 0.0
     for inv in invs:
         by_mode[inv["payment_mode"]] = by_mode.get(inv["payment_mode"], 0) + inv["total"]
+        total_revenue += inv["total"]
     return {
         "total_invoices": len(invs),
-        "total_revenue": round(sum(inv["total"] for inv in invs), 2),
+        "total_revenue": round(total_revenue, 2),
         "by_payment_mode": [{"mode": k, "amount": round(v, 2)} for k, v in by_mode.items()],
         "invoices": invs[:200],
     }
@@ -1000,8 +1007,8 @@ class PublicBookingIn(BaseModel):
     def _when(cls, v):
         try:
             dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
-        except Exception:
-            raise ValueError("Invalid scheduled_at, must be ISO 8601")
+        except Exception as e:
+            raise ValueError("Invalid scheduled_at, must be ISO 8601") from e
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         if dt < datetime.now(timezone.utc) - timedelta(minutes=5):
