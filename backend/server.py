@@ -946,6 +946,84 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
     }
 
 
+@api.get("/reports/staff-commission")
+async def staff_commission_report(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    pct: float = 30.0,
+    user=Depends(get_current_user),
+):
+    """Per-stylist gross revenue + commission for invoices in [start, end].
+    Item-level staff_id wins; falls back to invoice.staff_id if a line has none.
+    `pct` is the commission percentage (default 30%).
+    Returns rows sorted desc by gross_revenue."""
+    if pct < 0 or pct > 100:
+        raise HTTPException(400, "pct must be between 0 and 100")
+    flt = {}
+    if start and end:
+        flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
+    invs = await db.invoices.find(flt, {"_id": 0}).to_list(5000)
+
+    # staff_id -> {gross, items, services, products}
+    agg: dict = {}
+    unassigned = {"gross": 0.0, "items": 0, "services": 0, "products": 0}
+    for inv in invs:
+        invoice_staff = inv.get("staff_id")
+        for it in inv.get("items", []):
+            sid = it.get("staff_id") or invoice_staff
+            line_total = (it.get("qty", 1) or 0) * (it.get("price", 0) or 0)
+            if not sid:
+                unassigned["gross"] += line_total
+                unassigned["items"] += it.get("qty", 1)
+                if it.get("type") == "service":
+                    unassigned["services"] += it.get("qty", 1)
+                else:
+                    unassigned["products"] += it.get("qty", 1)
+                continue
+            row = agg.setdefault(sid, {"gross": 0.0, "items": 0, "services": 0, "products": 0})
+            row["gross"] += line_total
+            row["items"] += it.get("qty", 1)
+            if it.get("type") == "service":
+                row["services"] += it.get("qty", 1)
+            else:
+                row["products"] += it.get("qty", 1)
+
+    # Join with staff
+    staff_docs = await db.staff.find(
+        {"id": {"$in": list(agg.keys())}}, {"_id": 0, "id": 1, "name": 1, "role": 1},
+    ).to_list(200) if agg else []
+    smap = {s["id"]: s for s in staff_docs}
+    rows = []
+    for sid, row in agg.items():
+        s = smap.get(sid, {"name": "(removed)", "role": ""})
+        rows.append({
+            "staff_id": sid,
+            "staff_name": s["name"],
+            "role": s.get("role"),
+            "gross_revenue": round(row["gross"], 2),
+            "commission_pct": round(pct, 2),
+            "commission_amount": round(row["gross"] * pct / 100, 2),
+            "item_count": row["items"],
+            "service_count": row["services"],
+            "product_count": row["products"],
+        })
+    rows.sort(key=lambda r: r["gross_revenue"], reverse=True)
+    total_gross = round(sum(r["gross_revenue"] for r in rows) + unassigned["gross"], 2)
+    return {
+        "from": start, "to": end, "pct": round(pct, 2),
+        "rows": rows,
+        "unassigned": {
+            "gross_revenue": round(unassigned["gross"], 2),
+            "item_count": unassigned["items"],
+            "service_count": unassigned["services"],
+            "product_count": unassigned["products"],
+        },
+        "total_invoices": len(invs),
+        "total_gross": total_gross,
+        "total_commission": round(sum(r["commission_amount"] for r in rows), 2),
+    }
+
+
 @api.get("/reviews/blast-targets")
 async def reviews_blast_targets(user=Depends(get_current_user)):
     """Completed appointments that haven't received a review yet, with customer phone + share URL.
