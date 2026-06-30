@@ -5,72 +5,63 @@
 
 ## User-confirmed Decisions
 - **Live preview stack:** Python FastAPI + MongoDB + React (web).
-- **Reference code package:** Java 8 + Spring Boot 2.7 + Oracle SQL schema (read-only, runnable on user's own server).
-- **Scope:** Full suite (Auth, Dashboard, Appointments, Customers/CRM, Staff, Services, Inventory, POS/Billing, Reports) + **Customer-facing public booking page**.
-- **Auth:** JWT (email + password) with admin seeded on startup.
-- **Brand & Design:** Miracurl (replacing Respark) — fresh modern dark luxury aesthetic (gold #D4AF37 + blush + onyx black, Playfair Display + Outfit fonts).
+- **Reference code package:** Java 8 + Spring Boot 2.7 + Oracle SQL schema (read-only).
+- **Scope:** Full suite + Customer-facing public booking + Refer-a-friend.
+- **Auth:** JWT (email + password), admin seeded on startup, role-based DELETE.
+- **Brand:** Miracurl — dark luxury gold + blush aesthetic.
 
 ## Personas
-1. **Salon Admin / Owner** – manages staff, services, inventory, reviews reports.
-2. **Front-Desk / Stylist Staff** – books appointments, runs POS, manages customers.
-3. **End Customer** – self-books via the public `/book` link (no signup needed).
+1. **Salon Admin / Owner** – manages everything, only one allowed to delete master data.
+2. **Front-Desk / Staff** – all read + create/update on operational data, no deletes.
+3. **End Customer** – self-books at public `/book`, earns/uses referrals.
 
 ## Architecture
-- **Backend (live):** FastAPI (`/app/backend/server.py`) + MongoDB. JWT via PyJWT + bcrypt. All endpoints under `/api`. Public endpoints under `/api/public/*` (no auth).
-- **Frontend:** React 18, React-Router, Tailwind CSS, Recharts, Sonner, Lucide-react, axios.
-- **Reference backend:** `/app/java-reference/` — Spring Boot 2.7 + JWT + JPA + ojdbc8. Oracle DDL at `/app/java-reference/schema/oracle_schema.sql`.
+- **Backend (live):** FastAPI + MongoDB (motor). JWT via PyJWT + bcrypt. All endpoints under `/api`. Public (no-auth) endpoints under `/api/public/*`.
+- **Frontend:** React 18 + Tailwind + Recharts + Sonner + Lucide + axios.
+- **Reference backend:** `/app/java-reference/` — Spring Boot 2.7, JPA, JWT, ojdbc8 + Oracle DDL.
 
 ## Implemented Features
-### Iteration 1 (Jan 2026)
-- Auth (login/register/logout/me/forgot/reset/lockout)
-- Dashboard (KPIs, trend chart, top services, low-stock alerts, upcoming appts)
-- Customers CRM (search, loyalty, full CRUD)
-- Services (grouped by category, trending flag, full CRUD)
-- Staff (cards with photo/specialties/commission, full CRUD)
-- Inventory/Products (low-stock banner, full CRUD)
-- Appointments (date filter, multi-service booking, status flow)
-- POS/Billing (Services+Products cart, 4 payment modes, auto invoice no., loyalty + stock auto-update)
-- Reports (date-range sales, payment-mode pie, recent invoices)
-- Seed data + Java 8/Oracle reference package
-- 18/18 backend pytest, 100% frontend flows pass
+### Iteration 1 — MVP
+Auth, Dashboard (KPIs+charts), Appointments, Customers CRM, Services, Staff, Inventory, POS/Billing, Reports, Java/Oracle reference package, seed data. 18/18 backend tests pass.
 
-### Iteration 2 (Jan 2026) — Code review hardening
-- Backend variable shadowing fix (`i` → `inv`/`offset`)
-- Removed `localStorage` token → in-memory only
-- `useCallback` for all `load()` functions
-- Stable map keys in POS cart, receipt, Reports pie
-- Lint clean (ruff + eslint on own code)
+### Iteration 2 — Code review hardening
+Backend variable shadowing fix; removed localStorage tokens → in-memory + httpOnly cookies; useCallback for all loads; stable map keys; lint clean.
 
-### Iteration 3 (Jan 2026) — Public Booking
-- **Public booking page at `/book`** (no auth) — 5-step luxe stepper: Services → Stylist → Date & Time → Details → Review → Success
-- Same dark luxury gold theme, sticky bottom nav, sparkle-tagged "Any Stylist" option
-- Public backend endpoints: `/api/public/salon`, `/api/public/services`, `/api/public/staff`, `/api/public/book` (auto creates customer by phone)
-- **Public Booking Link widget** on admin Dashboard with Copy + Open buttons
-- Backend 25/25 pytest, 100% frontend public booking flows pass
+### Iteration 3 — Public booking
+Public `/book` 5-step luxe stepper, `/api/public/{salon,services,staff,book}` endpoints, Dashboard "Public Booking Link" widget. 25/25 backend.
+
+### Iteration 4 — "Build All" hardening + Refer-a-friend
+- ✅ **Rate-limit** (`8 req / 10min / IP`) on `/api/public/book`
+- ✅ **Server-side validation:** phone regex (7-15 digits), future-date guard, IST business-hours (10:00–21:00)
+- ✅ **Customer-update on phone match:** if existing customer, name/email get updated
+- ✅ **Refer-a-friend:** each customer gets a 6-char `referral_code`. New customer entering a valid code → both parties get ₹100 `referral_credit`. Lookup endpoint `/api/public/referral/{code}`
+- ✅ **POS invoice referral credit:** auto-applied as discount (before tax), credit decremented after use
+- ✅ **Stock availability check:** invoice creation aggregates quantities per product, rejects with clear message if insufficient
+- ✅ **Role-based authorization:** DELETE endpoints (customers, services, staff, products) require `role == admin`
+- ✅ **POS Print + WhatsApp** invoice share buttons on receipt
+- ✅ **Calendar Week View** for Appointments with prev/next week, today highlighted, click-to-filter
+- ✅ **Public booking success:** "Share & earn ₹100" card with copy + WhatsApp share
+
+**Tests:** 12/12 new iteration_3 tests pass, 3/3 frontend critical flows pass, lint clean.
 
 ## Backlog / Future
 **P1**
-- Rate-limit / captcha on `/api/public/book` to prevent bot abuse.
-- Server-side validation: future-date check, phone regex, business-hours guard.
-- Update customer name/email on /public/book when an existing phone matches.
-- Print/Share invoice (WhatsApp/PDF) from POS receipt.
-- Calendar grid (day/week) for admin Appointments.
-- Stock availability check before invoice creation.
-- Role-based authorization (admin-only deletes).
+- SMS/Email reminders (Twilio / SendGrid) — reduce no-shows.
+- Move rate-limiter to Redis (current in-memory dict won't survive multi-worker / restart).
+- Convert stock-check N+1 to single `$in` query.
 
 **P2**
-- SMS/Email appointment reminders (Twilio / SendGrid).
-- Multi-branch support, staff commission payouts report.
-- Timezone-correct scheduling (currently UTC conversion can shift the date for late-night IST bookings).
-- Migrate FastAPI `on_event` → lifespan; lock CORS for prod.
+- Multi-branch support.
+- Staff commission payouts report (already track `commission_pct`).
+- Migrate FastAPI lifecycle `on_event` → lifespan; lock CORS for production.
+- Captcha or signed link for `/public/book` if abuse spikes.
 
-## File Map (key files)
-- `/app/backend/server.py` — FastAPI app (auth, 7 admin modules, reports, public booking, seed).
+## File Map
+- `/app/backend/server.py` — auth + 7 admin modules + reports + public booking + referral + seed.
 - `/app/backend/.env` — MONGO_URL, DB_NAME, JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD.
-- `/app/frontend/src/App.js` — router (public `/book` outside protected layout).
-- `/app/frontend/src/context/AuthContext.jsx` — in-memory access token + cookies.
+- `/app/frontend/src/App.js` — router (public `/book` outside auth).
+- `/app/frontend/src/context/AuthContext.jsx` — in-memory token + cookies.
 - `/app/frontend/src/components/AppLayout.jsx` — admin sidebar + top bar.
-- `/app/frontend/src/pages/Login.jsx` Dashboard.jsx Customers.jsx Services.jsx Staff.jsx Inventory.jsx Appointments.jsx POS.jsx Reports.jsx
-- `/app/frontend/src/pages/BookPublic.jsx` — public 5-step booking flow.
-- `/app/java-reference/` — Spring Boot + Oracle backend (read-only reference).
+- `/app/frontend/src/pages/*.jsx` — Login, Dashboard, Customers, Services, Staff, Inventory, Appointments (list+week), POS (print+WA share), Reports, BookPublic (5-step + referral).
+- `/app/java-reference/` — Java 8 + Spring Boot 2.7 + Oracle reference backend.
 - `/app/memory/test_credentials.md`, `/app/auth_testing.md`
