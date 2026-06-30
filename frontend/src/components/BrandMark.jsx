@@ -13,16 +13,17 @@ import { Scissors } from "lucide-react";
  */
 export default function BrandMark({ variant = "dark", size = "md" }) {
   const sizes = {
-    sm: { pill: "w-10 h-10", icon: "w-5 h-5", word: "text-xl", sub: "text-[9px]" },
-    md: { pill: "w-12 h-12", icon: "w-6 h-6", word: "text-3xl", sub: "text-[10px]" },
-    lg: { pill: "w-12 h-12", icon: "w-6 h-6", word: "text-4xl", sub: "text-[10px]" },
+    xs: { pill: "w-9 h-9", icon: "w-4 h-4", word: "text-lg", sub: "text-[9px]", gap: "gap-2" },
+    sm: { pill: "w-10 h-10", icon: "w-5 h-5", word: "text-xl", sub: "text-[9px]", gap: "gap-3" },
+    md: { pill: "w-12 h-12", icon: "w-6 h-6", word: "text-3xl", sub: "text-[10px]", gap: "gap-3" },
+    lg: { pill: "w-12 h-12", icon: "w-6 h-6", word: "text-4xl", sub: "text-[10px]", gap: "gap-3" },
   }[size];
 
   const miraColor = variant === "light" ? "text-slate-900" : "text-white";
   const subColor = variant === "light" ? "text-slate-400" : "text-slate-400";
 
   return (
-    <div className="inline-flex items-center gap-3 select-none brand-mark" data-testid="brand-mark">
+    <div className={`inline-flex items-center ${sizes.gap} select-none brand-mark`} data-testid="brand-mark">
       <div className={`brand-pill ${sizes.pill} rounded-xl flex items-center justify-center shadow-lg relative overflow-hidden`}>
         <Scissors className={`${sizes.icon} text-white brand-scissors relative z-10`} />
       </div>
