@@ -176,7 +176,7 @@ export default function BookPublic() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {featured.slice(0, 3).map((r, idx) => (
-                <div key={idx} className="card-luxe text-sm">
+                <div key={r.id || `featured-${idx}`} className="card-luxe text-sm">
                   <div className="flex items-center gap-0.5 mb-2">
                     {[1, 2, 3, 4, 5].map(n => (
                       <Star key={n} className={`w-3.5 h-3.5 ${n <= r.rating ? "fill-gold text-gold" : "text-white/15"}`} />

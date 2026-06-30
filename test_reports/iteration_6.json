@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 6 P0 fixes verified. Backend: 12/12 regression tests PASS (auth login, /reports/sales `inv` generator, PublicBookingIn `dt` validator with future-accept/past-reject/invalid-iso-reject, multi-tenant isolation including admin own-scope, cross-tenant 403, super-admin header switching, /tenants/current per role, /super-admin/overview gating). Frontend POS print: CONFIRMED hidden iframe approach works — clicking Print appends exactly 1 hidden iframe (window.__printIframeCount=1) with srcdoc length 1549 bytes containing the receipt HTML; NO popup window opened; NO raw <script> in srcdoc; invoice INV-202606-0011 generated with correct totals (₹600 subtotal + ₹108 tax = ₹708 total) for Hair Cut - Women at 18% tax; 0 console errors during flow. WhatsApp share still opens wa.me/<phone>?text=<encoded-receipt> via window.open (captured URL). BookPublic /book/miracurl-marathahalli: hero + Marathahalli location + +91 98765 00000 phone + 3 featured review cards rendered with 0 React key warnings (r.id keying works); step-through Services→Stylist navigation verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login-side instrumentation", "issues": ["Pre-existing React hydration warning: '<span> cannot be a child of <option>' — caused by CRA build-time editor instrumentation wrapping option text in <span data-ve-dynamic>. Not from iteration 6 changes, was present in iter5. Cosmetic, no functional impact."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter6_regression.py",
+    "/app/test_reports/pytest/iter6_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "[VERIFIED CLEAN] server.py line 906: `total_revenue`: round(sum(inv[\"total\"] for inv in invs), 2) — generator variable `inv` is bound by the `for inv in invs` clause (no shadowing of outer `i` left over). Tests confirm correct sums and matching by_payment_mode breakdown.",
+    "[VERIFIED CLEAN] server.py line ~939-950: PublicBookingIn._when uses `dt = datetime.fromisoformat(...)` and returns `dt.isoformat()`. Past/invalid/business-hours all rejected with 422.",
+    "[VERIFIED CLEAN] POS.jsx printInvoice: escapeHtml applied to invoice_no, customer_name, staff_name, payment_mode, item.name, and date. Iframe approach (position:fixed;w:0;h:0;visibility:hidden;srcdoc) — no popup, removed after 1s via setTimeout. Note: srcdoc inherits parent's CSP and isolates the print context — XSS payload cannot escape into the parent page. Good fix.",
+    "[VERIFIED CLEAN] BookPublic.jsx:179 — featured review keyed by `r.id || \\`featured-${idx}\\`` (id-first with array-index fallback for backward safety). 3 featured reviews rendered with zero React duplicate-key warnings.",
+    "[MINOR/LATENT] POS.jsx printInvoice: the inline iframe.onload handler swallows printing errors silently and still removes the iframe after 1s. If contentWindow.print() throws (e.g., headless context), user sees 'Unable to open print dialog' toast — good. But the 1s removal timer may fire before slow browsers complete print queueing on very large invoices; consider hooking afterprint event or using a longer timer for invoices with >50 items.",
+    "[MINOR/CARRIED] Pre-existing pytest_results.xml warns about /api/public/book and /api/public/referral/{code} (non-slug variants) returning 404 — already documented in iter5 action items; backend has slug-required routes only. Iter6 did not change this; user-facing app uses /api/public/book/{slug} correctly."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter6_regression.py (NEW: 12 regression tests for iter6 P0 fixes)"
+  ],
+  "success_rate": {"backend": "100% (12/12 iter6 regression pass)", "frontend": "100% on iter6 critical flows (POS iframe-print, WhatsApp share, BookPublic render + step-through)"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 (default tenant), super@miracurl.com / Super@Miracurl123, owner@elegance.com / Owner@123",
+  "seed_data_creation": "1 invoice INV-202606-0011 created during POS test (Hair Cut - Women @ ₹600, customer=TEST_Iter6Future, total ₹708). 1 future-dated TEST appointment created and cleaned up by validator test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 6 only touched (a) POS print path (popup→iframe+srcdoc with HTML escaping), (b) backend dead-code cleanup in sales_report and PublicBookingIn (variable renames only — no semantic change), (c) BookPublic featured review key (idx→r.id with fallback). All three changes are XSS/code-quality hardening with no API contract changes. Run /app/backend/tests/test_iter6_regression.py + the iter5 test file for full regression. Note REACT_APP_BACKEND_URL is NOT auto-exported into the pytest shell — set it explicitly: `REACT_APP_BACKEND_URL=https://hair-hub-system.preview.emergentagent.com python -m pytest backend/tests/test_iter6_regression.py -v -o addopts=''`. The iter5 iframe-creation instrumentation in playwright (override of document.body.appendChild to capture iframe.srcdoc) is a reliable pattern for verifying print fixes.",
+  "rca of the issue": "N/A — no bugs found in iter6. Iter6 changes are pure security hardening: (1) printInvoice was previously using window.open + child.document.write(html) which would render an attacker-controlled invoice item name (or customer name with HTML tags) as raw DOM in a new window context; the new path uses srcdoc on a hidden iframe with all dynamic values passed through escapeHtml (& → &amp;, < → &lt;, > → &gt;, \" → &quot;, ' → &#39;) — verified by inspecting the srcdoc post-click and confirming no raw <script> sequence outside the inert <style> block. (2) The `inv`/`dt` variable rename in server.py was a dead-code cleanup with no functional change — regression tests confirm endpoints still return identical contracts."
+}

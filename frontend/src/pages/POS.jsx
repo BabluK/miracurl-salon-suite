@@ -60,10 +60,21 @@ export default function POS() {
     } catch (err) { toast.error(err.response?.data?.detail || "Checkout failed"); }
   }
 
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function printInvoice(inv) {
-    const itemsHtml = inv.items.map(it => `<tr><td>${it.name} × ${it.qty}</td><td style="text-align:right">₹${(it.qty * it.price).toFixed(2)}</td></tr>`).join("");
-    const html = `
-<!doctype html><html><head><title>${inv.invoice_no}</title>
+    const esc = escapeHtml;
+    const itemsHtml = inv.items
+      .map(it => `<tr><td>${esc(it.name)} × ${Number(it.qty)}</td><td style="text-align:right">₹${(it.qty * it.price).toFixed(2)}</td></tr>`)
+      .join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(inv.invoice_no)}</title>
 <style>
   body { font-family: 'Helvetica', Arial, sans-serif; color:#000; padding:24px; max-width:420px; margin:auto; }
   h1 { font-family: 'Georgia', serif; text-align:center; margin:0; color:#a08300; }
@@ -75,22 +86,33 @@ export default function POS() {
   .foot { text-align:center; font-size:10px; color:#888; margin-top:20px; }
 </style></head><body>
 <h1>Miracurl ✦</h1>
-<div class="sub">Unisex Family Salon · Marathahalli<br/>${new Date(inv.created_at).toLocaleString()}</div>
-<div class="row"><b>Invoice #</b><span>${inv.invoice_no}</span></div>
-<div class="row"><b>Customer</b><span>${inv.customer_name}</span></div>
-${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${inv.staff_name}</span></div>` : ""}
-<div class="row"><b>Payment</b><span>${inv.payment_mode.toUpperCase()}</span></div>
+<div class="sub">Unisex Family Salon · Marathahalli<br/>${esc(new Date(inv.created_at).toLocaleString())}</div>
+<div class="row"><b>Invoice #</b><span>${esc(inv.invoice_no)}</span></div>
+<div class="row"><b>Customer</b><span>${esc(inv.customer_name)}</span></div>
+${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${esc(inv.staff_name)}</span></div>` : ""}
+<div class="row"><b>Payment</b><span>${esc(String(inv.payment_mode).toUpperCase())}</span></div>
 <table>${itemsHtml}</table>
 <div class="row"><span>Subtotal</span><span>₹${inv.subtotal.toFixed(2)}</span></div>
 <div class="row"><span>Discount</span><span>−₹${inv.discount.toFixed(2)}</span></div>
 <div class="row"><span>Tax</span><span>₹${inv.tax.toFixed(2)}</span></div>
 <div class="row total"><span>Total</span><span>₹${inv.total.toFixed(2)}</span></div>
 <div class="foot">Thank you for visiting Miracurl ✦</div>
-<script>window.onload = () => { window.print(); setTimeout(()=>window.close(), 250); };</script>
 </body></html>`;
-    const w = window.open("", "miracurl-invoice", "width=480,height=720");
-    if (!w) { toast.error("Pop-up blocked — allow pop-ups to print"); return; }
-    w.document.write(html); w.document.close();
+    // Use a hidden iframe with srcdoc — safer than window.open + document.write
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    iframe.srcdoc = html;
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch {
+        toast.error("Unable to open print dialog");
+      }
+      setTimeout(() => iframe.remove(), 1000);
+    };
+    document.body.appendChild(iframe);
   }
 
   function shareInvoiceWhatsApp(inv) {
