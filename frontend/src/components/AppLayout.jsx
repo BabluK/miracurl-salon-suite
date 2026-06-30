@@ -19,7 +19,7 @@ const NAV = [
 ];
 
 export default function AppLayout() {
-  const { user, logout } = useAuth();
+  const { user, tenant, logout } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -83,7 +83,7 @@ export default function AppLayout() {
             <div>
               <div className="font-playfair text-lg leading-none">{current?.label || "Miracurl"}</div>
               <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mt-1">
-                Miracurl Unisex Family Salon • Marathahalli
+                {tenant?.name || "Miracurl Salon"}{tenant?.location ? ` • ${tenant.location}` : ""}
               </div>
             </div>
           </div>

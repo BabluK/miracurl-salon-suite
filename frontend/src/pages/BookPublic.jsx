@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
+import { useParams } from "react-router-dom";
 import axios from "axios";
 import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone, User, Mail, Sparkles, MapPin, Gift, Share2, Copy, Star } from "lucide-react";
 import { toast, Toaster } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const PUBLIC = axios.create({ baseURL: `${BACKEND_URL}/api/public` });
-
+const DEFAULT_SLUG = "miracurl-marathahalli";
 const TIME_SLOTS = [
   "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
   "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
@@ -39,6 +39,9 @@ function Stepper({ step }) {
 }
 
 export default function BookPublic() {
+  const { slug: routeSlug } = useParams();
+  const slug = routeSlug || DEFAULT_SLUG;
+  const PUBLIC = useMemo(() => axios.create({ baseURL: `${BACKEND_URL}/api/public` }), []);
   const [step, setStep] = useState(0);
   const [salon, setSalon] = useState(null);
   const [services, setServices] = useState([]);
@@ -56,11 +59,11 @@ export default function BookPublic() {
   const [featured, setFeatured] = useState([]);
 
   useEffect(() => {
-    PUBLIC.get("/salon").then(r => setSalon(r.data));
-    PUBLIC.get("/services").then(r => setServices(r.data));
-    PUBLIC.get("/staff").then(r => setStaff(r.data));
-    PUBLIC.get("/reviews/featured").then(r => setFeatured(r.data)).catch(() => setFeatured([]));
-  }, []);
+    PUBLIC.get(`/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon({ error: true }));
+    PUBLIC.get(`/services/${slug}`).then(r => setServices(r.data)).catch(() => setServices([]));
+    PUBLIC.get(`/staff/${slug}`).then(r => setStaff(r.data)).catch(() => setStaff([]));
+    PUBLIC.get(`/reviews/featured/${slug}`).then(r => setFeatured(r.data)).catch(() => setFeatured([]));
+  }, [PUBLIC, slug]);
 
   const byCategory = useMemo(() => services.reduce((acc, s) => {
     (acc[s.category] = acc[s.category] || []).push(s);
@@ -90,7 +93,7 @@ export default function BookPublic() {
     const code = form.referral_code.trim().toUpperCase();
     if (!code) { setReferralCheck(null); return; }
     try {
-      const { data } = await PUBLIC.get(`/referral/${encodeURIComponent(code)}`);
+      const { data } = await PUBLIC.get(`/referral/${slug}/${encodeURIComponent(code)}`);
       setReferralCheck({ valid: true, ...data });
     } catch (e) {
       setReferralCheck({ valid: false, error: e.response?.data?.detail || "Invalid code" });
@@ -101,7 +104,7 @@ export default function BookPublic() {
     setBusy(true);
     try {
       const scheduled = `${date}T${time}:00+05:30`;
-      const { data } = await PUBLIC.post("/book", {
+      const { data } = await PUBLIC.post(`/book/${slug}`, {
         customer_name: form.name.trim(),
         customer_phone: form.phone.trim(),
         customer_email: form.email.trim() || null,
@@ -124,6 +127,14 @@ export default function BookPublic() {
   }
 
   if (!salon) return <div className="min-h-screen flex items-center justify-center bg-bg-base text-gold font-playfair text-2xl animate-pulse">Miracurl</div>;
+  if (salon.error) return (
+    <div className="min-h-screen flex items-center justify-center bg-bg-base p-6">
+      <div className="card-luxe max-w-md text-center" data-testid="book-tenant-not-found">
+        <h2 className="font-playfair text-2xl text-red-400">Salon not found</h2>
+        <p className="text-ink-secondary text-sm mt-2">We couldn&apos;t find a Miracurl salon at <span className="text-gold font-mono">/book/{slug}</span>. Please double-check the link.</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-bg-base text-ink-primary" data-testid="public-book-page">

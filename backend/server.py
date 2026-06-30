@@ -20,7 +20,72 @@ from pydantic import BaseModel, Field, EmailStr, field_validator
 # ---------------- DB ----------------
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+_raw_db = client[os.environ['DB_NAME']]
+
+# ---------------- Tenant-aware DB wrapper ----------------
+from contextvars import ContextVar
+_current_tenant_id: ContextVar = ContextVar("current_tenant_id", default=None)
+
+class TenantCollection:
+    """Motor collection proxy that auto-applies tenant_id filter and injects tenant_id on insert."""
+    def __init__(self, coll, scoped: bool = True):
+        self._coll = coll
+        self._scoped = scoped
+
+    def _scope(self, q):
+        if not self._scoped:
+            return q if q is not None else {}
+        tid = _current_tenant_id.get()
+        if tid is None:
+            return q if q is not None else {}  # super-admin / global access
+        merged = dict(q) if q else {}
+        if "tenant_id" not in merged:
+            merged["tenant_id"] = tid
+        return merged
+
+    def find(self, q=None, *a, **kw): return self._coll.find(self._scope(q), *a, **kw)
+    async def find_one(self, q=None, *a, **kw): return await self._coll.find_one(self._scope(q), *a, **kw)
+    async def insert_one(self, doc, *a, **kw):
+        if self._scoped:
+            tid = _current_tenant_id.get()
+            if tid is not None and "tenant_id" not in doc:
+                doc["tenant_id"] = tid
+        return await self._coll.insert_one(doc, *a, **kw)
+    async def insert_many(self, docs, *a, **kw):
+        if self._scoped:
+            tid = _current_tenant_id.get()
+            if tid is not None:
+                for d in docs:
+                    if "tenant_id" not in d:
+                        d["tenant_id"] = tid
+        return await self._coll.insert_many(docs, *a, **kw)
+    async def update_one(self, q, *a, **kw): return await self._coll.update_one(self._scope(q), *a, **kw)
+    async def update_many(self, q, *a, **kw): return await self._coll.update_many(self._scope(q), *a, **kw)
+    async def delete_one(self, q, *a, **kw): return await self._coll.delete_one(self._scope(q), *a, **kw)
+    async def delete_many(self, q, *a, **kw): return await self._coll.delete_many(self._scope(q), *a, **kw)
+    async def count_documents(self, q=None, *a, **kw): return await self._coll.count_documents(self._scope(q or {}), *a, **kw)
+    def aggregate(self, pipeline, *a, **kw):
+        if self._scoped and _current_tenant_id.get() is not None:
+            pipeline = [{"$match": {"tenant_id": _current_tenant_id.get()}}] + list(pipeline)
+        return self._coll.aggregate(pipeline, *a, **kw)
+    def create_index(self, *a, **kw): return self._coll.create_index(*a, **kw)
+
+class _DB:
+    # global (unscoped) collections
+    tenants = _raw_db.tenants
+    users = _raw_db.users
+    login_attempts = _raw_db.login_attempts
+    password_reset_tokens = _raw_db.password_reset_tokens
+    # tenant-scoped collections
+    customers = TenantCollection(_raw_db.customers)
+    services = TenantCollection(_raw_db.services)
+    staff = TenantCollection(_raw_db.staff)
+    products = TenantCollection(_raw_db.products)
+    appointments = TenantCollection(_raw_db.appointments)
+    invoices = TenantCollection(_raw_db.invoices)
+    reviews = TenantCollection(_raw_db.reviews)
+
+db = _DB()
 
 # ---------------- App ----------------
 app = FastAPI(title="Miracurl Salon Management API")
@@ -70,6 +135,20 @@ async def get_current_user(request: Request) -> dict:
         user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
         if not user:
             raise HTTPException(401, "User not found")
+        # ----- set tenant context for this request -----
+        # Header / path / query overrides the user's home tenant (super-admin can switch).
+        slug = request.headers.get("X-Tenant-Slug") or request.query_params.get("tenant")
+        if slug:
+            t = await db.tenants.find_one({"slug": slug}, {"_id": 0})
+            if not t:
+                raise HTTPException(404, f"Tenant '{slug}' not found")
+            if user.get("role") != "super_admin" and user.get("tenant_id") != t["id"]:
+                raise HTTPException(403, "Cross-tenant access denied")
+            _current_tenant_id.set(t["id"])
+        else:
+            if user.get("role") != "super_admin" and user.get("tenant_id"):
+                _current_tenant_id.set(user["tenant_id"])
+            # super_admin without header → context stays None (global access)
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(401, "Token expired")
@@ -77,7 +156,7 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(401, "Invalid token")
 
 async def require_admin(user=Depends(get_current_user)):
-    if user.get("role") != "admin":
+    if user.get("role") not in ("admin", "super_admin"):
         raise HTTPException(403, "Admin role required")
     return user
 
@@ -110,6 +189,89 @@ class ForgotIn(BaseModel):
 class ResetIn(BaseModel):
     token: str
     new_password: str
+
+# ============================================================
+# MULTI-TENANCY
+# ============================================================
+DEFAULT_TENANT_SLUG = "miracurl-marathahalli"
+
+class Tenant(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    slug: str
+    name: str
+    owner_email: EmailStr
+    location: Optional[str] = None
+    phone: Optional[str] = None
+    hours: Optional[str] = "Mon–Sun · 10:00 AM – 9:00 PM"
+    hero_image: Optional[str] = "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600"
+    google_review_url: Optional[str] = ""
+    plan: str = "starter"          # starter | pro | enterprise
+    status: str = "trial"          # trial | active | suspended | cancelled
+    razorpay_subscription_id: Optional[str] = None
+    trial_ends_at: str = Field(default_factory=lambda: (datetime.now(timezone.utc) + timedelta(days=14)).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class TenantIn(BaseModel):
+    slug: str = Field(..., min_length=3, max_length=40)
+    name: str = Field(..., min_length=2, max_length=120)
+    owner_email: EmailStr
+    owner_name: str = Field(..., min_length=2, max_length=80)
+    owner_password: str = Field(..., min_length=8)
+    location: Optional[str] = None
+    phone: Optional[str] = None
+    plan: str = "starter"
+
+    @field_validator("slug")
+    @classmethod
+    def _slug(cls, v):
+        import re as _re
+        v = v.strip().lower()
+        if not _re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?", v):
+            raise ValueError("Slug must be 3-40 chars, lowercase letters/digits/hyphen, no leading/trailing hyphen")
+        return v
+
+class TenantUpdateIn(BaseModel):
+    name: Optional[str] = None
+    location: Optional[str] = None
+    phone: Optional[str] = None
+    hours: Optional[str] = None
+    hero_image: Optional[str] = None
+    google_review_url: Optional[str] = None
+    plan: Optional[str] = None
+    status: Optional[str] = None
+
+async def resolve_tenant_from_slug(slug: str) -> dict:
+    """For PUBLIC endpoints that take slug in the URL path."""
+    t = await db.tenants.find_one({"slug": slug}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, f"Tenant '{slug}' not found")
+    if t.get("status") == "suspended":
+        raise HTTPException(403, "Tenant subscription is suspended")
+    _current_tenant_id.set(t["id"])
+    return t
+
+async def require_super_admin(user=Depends(get_current_user)):
+    if user.get("role") != "super_admin":
+        raise HTTPException(403, "Super-admin role required")
+    return user
+
+async def require_tenant_admin(user=Depends(get_current_user)):
+    """Admin of the current tenant, or super-admin."""
+    if user.get("role") == "super_admin":
+        return user
+    if user.get("role") != "admin":
+        raise HTTPException(403, "Admin role required")
+    return user
+
+async def current_tenant(user=Depends(get_current_user)) -> dict:
+    """Returns the tenant dict for the currently-set context. Useful for endpoints that need salon details."""
+    tid = _current_tenant_id.get()
+    if not tid:
+        raise HTTPException(400, "No tenant context. Pass X-Tenant-Slug header or use a tenant-scoped login.")
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    return t
 
 class Customer(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -283,15 +445,24 @@ REVIEW_REWARD_CREDIT = 50.0  # ₹ credit for 4★+ reviews
 
 # ---------------- Auth Endpoints ----------------
 @api.post("/auth/register")
-async def register(body: RegisterIn, response: Response):
+async def register(body: RegisterIn, request: Request, response: Response):
     email = body.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(400, "Email already registered")
+    # Register into the tenant from the slug header, else default tenant
+    slug = request.headers.get("X-Tenant-Slug")
+    if slug:
+        tenant = await db.tenants.find_one({"slug": slug}, {"_id": 0})
+        if not tenant:
+            raise HTTPException(404, "Tenant not found")
+    else:
+        tenant = await db.tenants.find_one({"slug": DEFAULT_TENANT_SLUG}, {"_id": 0})
     user = {
         "id": str(uuid.uuid4()),
         "email": email,
         "name": body.name,
         "role": "staff",
+        "tenant_id": tenant["id"] if tenant else None,
         "password_hash": hash_pw(body.password),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -601,9 +772,12 @@ async def delete_review(rid: str, user=Depends(require_admin)):
 @api.get("/public/review-info/{token}")
 async def public_review_info(token: str):
     """Token = appointment_id. Returns appointment summary so the customer can confirm."""
-    appt = await db.appointments.find_one({"id": token}, {"_id": 0})
+    # No tenant context — find any appointment globally, then set tenant for follow-up ops
+    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
     if not appt:
         raise HTTPException(404, "Invalid review link")
+    if appt.get("tenant_id"):
+        _current_tenant_id.set(appt["tenant_id"])
     if appt.get("status") not in ("completed", "scheduled"):
         # Allow rating even if appointment isn't marked complete (some salons forget to mark)
         pass
@@ -620,9 +794,11 @@ async def public_review_info(token: str):
 @api.post("/public/review/{token}")
 async def public_review(token: str, body: ReviewIn, request: Request):
     public_rate_limit(request, key_suffix="review", limit=10, window_sec=600)
-    appt = await db.appointments.find_one({"id": token}, {"_id": 0})
+    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
     if not appt:
         raise HTTPException(404, "Invalid review link")
+    if appt.get("tenant_id"):
+        _current_tenant_id.set(appt["tenant_id"])
     if await db.reviews.find_one({"appointment_id": token}):
         raise HTTPException(400, "Review already submitted for this visit")
 
@@ -655,13 +831,18 @@ async def public_review(token: str, body: ReviewIn, request: Request):
         } if reward_code else None,
     }
 
-@api.get("/public/reviews/featured")
-async def public_featured_reviews(limit: int = 6):
+@api.get("/public/reviews/featured/{slug}")
+async def public_featured_reviews(slug: str, limit: int = 6):
+    await resolve_tenant_from_slug(slug)
     docs = await db.reviews.find(
         {"public": True, "rating": {"$gte": 4}},
         {"_id": 0, "customer_id": 0, "appointment_id": 0, "staff_id": 0, "reward_code": 0}
     ).sort("created_at", -1).to_list(limit)
     return docs
+
+@api.get("/public/reviews/featured")
+async def public_featured_reviews_default(limit: int = 6):
+    return await public_featured_reviews(DEFAULT_TENANT_SLUG, limit)
 
 # ---------------- Reports / Dashboard ----------------
 @api.get("/reports/dashboard")
@@ -768,29 +949,47 @@ class PublicBookingIn(BaseModel):
             raise ValueError("Pick a slot between 10:00 AM and 9:00 PM")
         return dt.isoformat()
 
-@api.get("/public/salon")
-async def public_salon():
+@api.get("/public/salon/{slug}")
+async def public_salon(slug: str):
+    t = await resolve_tenant_from_slug(slug)
     return {
-        "name": "Miracurl Unisex Family Salon",
+        "slug": t["slug"],
+        "name": t.get("name"),
         "tagline": "Where elegance meets every strand",
-        "location": "Marathahalli, Bangalore",
-        "phone": "+91 98765 00000",
-        "hours": "Mon–Sun · 10:00 AM – 9:00 PM",
-        "hero_image": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600",
+        "location": t.get("location") or "Marathahalli, Bangalore",
+        "phone": t.get("phone") or "+91 98765 00000",
+        "hours": t.get("hours") or "Mon–Sun · 10:00 AM – 9:00 PM",
+        "hero_image": t.get("hero_image") or "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600",
         "referral_reward": REFERRAL_REWARD_REFERRER,
-        "google_review_url": os.environ.get("GOOGLE_REVIEW_URL", ""),
+        "google_review_url": t.get("google_review_url") or "",
     }
 
-@api.get("/public/services")
-async def public_services():
+# Legacy /public/salon — falls back to default tenant for backward compatibility
+@api.get("/public/salon")
+async def public_salon_default():
+    return await public_salon(DEFAULT_TENANT_SLUG)
+
+@api.get("/public/services/{slug}")
+async def public_services(slug: str):
+    await resolve_tenant_from_slug(slug)
     return await db.services.find({"active": True}, {"_id": 0}).sort("category", 1).to_list(500)
 
-@api.get("/public/staff")
-async def public_staff():
+@api.get("/public/services")
+async def public_services_default():
+    return await public_services(DEFAULT_TENANT_SLUG)
+
+@api.get("/public/staff/{slug}")
+async def public_staff(slug: str):
+    await resolve_tenant_from_slug(slug)
     return await db.staff.find({"active": True}, {"_id": 0, "email": 0, "phone": 0, "commission_pct": 0}).to_list(500)
 
-@api.get("/public/referral/{code}")
-async def public_referral(code: str):
+@api.get("/public/staff")
+async def public_staff_default():
+    return await public_staff(DEFAULT_TENANT_SLUG)
+
+@api.get("/public/referral/{slug}/{code}")
+async def public_referral(slug: str, code: str):
+    await resolve_tenant_from_slug(slug)
     code = code.strip().upper()
     referrer = await db.customers.find_one({"referral_code": code}, {"_id": 0, "name": 1, "referral_code": 1})
     if not referrer:
@@ -802,9 +1001,10 @@ async def public_referral(code: str):
         "reward_referrer": REFERRAL_REWARD_REFERRER,
     }
 
-@api.post("/public/book")
-async def public_book(body: PublicBookingIn, request: Request):
-    public_rate_limit(request, key_suffix="book", limit=8, window_sec=600)
+@api.post("/public/book/{slug}")
+async def public_book(slug: str, body: PublicBookingIn, request: Request):
+    await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"book:{slug}", limit=8, window_sec=600)
 
     services = await db.services.find({"id": {"$in": body.service_ids}, "active": True}, {"_id": 0}).to_list(50)
     if not services:
@@ -964,9 +1164,170 @@ SEED_CUSTOMERS = [
     {"name": "Sneha Joshi", "phone": "9876123005", "email": "sneha@example.com", "gender": "Female"},
 ]
 
+# ---------------- Tenant / Super-Admin endpoints ----------------
+@api.get("/tenants/current")
+async def get_current_tenant(t=Depends(current_tenant)):
+    """The tenant the current authenticated user belongs to (or has switched into)."""
+    return t
+
+@api.get("/super-admin/tenants")
+async def list_tenants(user=Depends(require_super_admin)):
+    return await db.tenants.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+@api.post("/super-admin/tenants")
+async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
+    if await db.tenants.find_one({"slug": body.slug}):
+        raise HTTPException(400, "Slug already in use")
+    if await db.users.find_one({"email": body.owner_email.lower()}):
+        raise HTTPException(400, "Owner email already registered")
+    t = Tenant(
+        slug=body.slug, name=body.name, owner_email=body.owner_email.lower(),
+        location=body.location, phone=body.phone, plan=body.plan, status="trial",
+    ).model_dump()
+    await db.tenants.insert_one(t)
+    t.pop("_id", None)
+    # create owner admin user
+    owner = {
+        "id": str(uuid.uuid4()),
+        "email": body.owner_email.lower(),
+        "name": body.owner_name,
+        "role": "admin",
+        "tenant_id": t["id"],
+        "password_hash": hash_pw(body.owner_password),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(owner)
+    return {"tenant": t, "owner_email": body.owner_email}
+
+@api.get("/super-admin/tenants/{tid}")
+async def get_tenant(tid: str, user=Depends(require_super_admin)):
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    # add some stats
+    _current_tenant_id.set(t["id"])
+    t["stats"] = {
+        "customers": await db.customers.count_documents({}),
+        "appointments": await db.appointments.count_documents({}),
+        "invoices": await db.invoices.count_documents({}),
+        "users": await _raw_db.users.count_documents({"tenant_id": t["id"]}),
+    }
+    _current_tenant_id.set(None)
+    return t
+
+@api.put("/super-admin/tenants/{tid}")
+async def update_tenant(tid: str, body: TenantUpdateIn, user=Depends(require_super_admin)):
+    upd = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not upd:
+        raise HTTPException(400, "No fields to update")
+    await db.tenants.update_one({"id": tid}, {"$set": upd})
+    return await db.tenants.find_one({"id": tid}, {"_id": 0})
+
+@api.delete("/super-admin/tenants/{tid}")
+async def delete_tenant(tid: str, user=Depends(require_super_admin)):
+    # Soft delete: mark cancelled. Hard delete leaves orphan data we may want.
+    await db.tenants.update_one({"id": tid}, {"$set": {"status": "cancelled"}})
+    return {"ok": True}
+
+@api.get("/super-admin/overview")
+async def super_admin_overview(user=Depends(require_super_admin)):
+    tenants = await db.tenants.find({}, {"_id": 0}).to_list(500)
+    by_status = {}
+    by_plan = {}
+    for t in tenants:
+        by_status[t["status"]] = by_status.get(t["status"], 0) + 1
+        by_plan[t["plan"]] = by_plan.get(t["plan"], 0) + 1
+    return {
+        "total_tenants": len(tenants),
+        "by_status": by_status,
+        "by_plan": by_plan,
+        "recent": tenants[:5],
+    }
+
+
+    """Ensure the default tenant exists. Returns the tenant dict."""
+    t = await db.tenants.find_one({"slug": DEFAULT_TENANT_SLUG}, {"_id": 0})
+    if not t:
+        t = Tenant(
+            slug=DEFAULT_TENANT_SLUG,
+            name="Miracurl Unisex Family Salon",
+            owner_email=os.environ["ADMIN_EMAIL"].lower(),
+            location="Marathahalli, Bangalore",
+            phone="+91 98765 00000",
+            google_review_url=os.environ.get("GOOGLE_REVIEW_URL", ""),
+            plan="enterprise",
+            status="active",
+        ).model_dump()
+        await db.tenants.insert_one(t)
+        logging.info("Seeded default tenant")
+    return t
+
+async def backfill_tenant_ids(tenant_id: str):
+    """Assign tenant_id to legacy records that don't have one."""
+    for coll_name in ("customers", "services", "staff", "products", "appointments", "invoices", "reviews"):
+        coll = getattr(_raw_db, coll_name)
+        r = await coll.update_many({"tenant_id": {"$exists": False}}, {"$set": {"tenant_id": tenant_id}})
+        if r.modified_count:
+            logging.info(f"Backfilled {r.modified_count} {coll_name} with tenant_id")
+    # backfill users that have no tenant_id (legacy admin) — assign to default tenant
+    await _raw_db.users.update_many(
+        {"tenant_id": {"$exists": False}, "role": {"$ne": "super_admin"}},
+        {"$set": {"tenant_id": tenant_id}},
+    )
+
+async def seed_super_admin():
+    email = "super@miracurl.com"
+    existing = await db.users.find_one({"email": email})
+    pw = "Super@Miracurl123"
+    if not existing:
+        await db.users.insert_one({
+            "id": str(uuid.uuid4()),
+            "email": email,
+            "name": "Super Admin",
+            "role": "super_admin",
+            "tenant_id": None,
+            "password_hash": hash_pw(pw),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        logging.info(f"Seeded super-admin user (email={email})")
+    elif not verify_pw(pw, existing["password_hash"]):
+        await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_pw(pw), "role": "super_admin"}})
+
+async def seed_default_tenant():
+    """Ensure the default tenant exists. Returns the tenant dict."""
+    t = await db.tenants.find_one({"slug": DEFAULT_TENANT_SLUG}, {"_id": 0})
+    if not t:
+        t = Tenant(
+            slug=DEFAULT_TENANT_SLUG,
+            name="Miracurl Unisex Family Salon",
+            owner_email=os.environ["ADMIN_EMAIL"].lower(),
+            location="Marathahalli, Bangalore",
+            phone="+91 98765 00000",
+            google_review_url=os.environ.get("GOOGLE_REVIEW_URL", ""),
+            plan="enterprise",
+            status="active",
+        ).model_dump()
+        await db.tenants.insert_one(t)
+        logging.info("Seeded default tenant")
+    return t
+
+async def backfill_tenant_ids(tenant_id: str):
+    """Assign tenant_id to legacy records that don't have one."""
+    for coll_name in ("customers", "services", "staff", "products", "appointments", "invoices", "reviews"):
+        coll = getattr(_raw_db, coll_name)
+        r = await coll.update_many({"tenant_id": {"$exists": False}}, {"$set": {"tenant_id": tenant_id}})
+        if r.modified_count:
+            logging.info(f"Backfilled {r.modified_count} {coll_name} with tenant_id")
+    await _raw_db.users.update_many(
+        {"tenant_id": {"$exists": False}, "role": {"$ne": "super_admin"}},
+        {"$set": {"tenant_id": tenant_id}},
+    )
+
 async def seed_admin():
     admin_email = os.environ["ADMIN_EMAIL"].lower()
     admin_pw = os.environ["ADMIN_PASSWORD"]
+    default_tenant = await db.tenants.find_one({"slug": DEFAULT_TENANT_SLUG}, {"_id": 0})
+    tenant_id = default_tenant["id"] if default_tenant else None
     existing = await db.users.find_one({"email": admin_email})
     if not existing:
         await db.users.insert_one({
@@ -974,15 +1335,22 @@ async def seed_admin():
             "email": admin_email,
             "name": "Salon Admin",
             "role": "admin",
+            "tenant_id": tenant_id,
             "password_hash": hash_pw(admin_pw),
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
         logging.info("Seeded admin user")
-    elif not verify_pw(admin_pw, existing["password_hash"]):
-        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_pw(admin_pw)}})
-        logging.info("Updated admin password from env")
+    else:
+        updates = {}
+        if not verify_pw(admin_pw, existing["password_hash"]):
+            updates["password_hash"] = hash_pw(admin_pw)
+        if not existing.get("tenant_id") and tenant_id:
+            updates["tenant_id"] = tenant_id
+        if updates:
+            await db.users.update_one({"email": admin_email}, {"$set": updates})
 
 async def seed_data():
+    # All seed inserts run with the default tenant context so tenant_id auto-injects
     if await db.services.count_documents({}) == 0:
         await db.services.insert_many([Service(**s).model_dump() for s in SEED_SERVICES])
     if await db.staff.count_documents({}) == 0:
@@ -995,15 +1363,31 @@ async def seed_data():
 @app.on_event("startup")
 async def on_startup():
     await db.users.create_index("email", unique=True)
-    await db.customers.create_index("phone")
-    await db.services.create_index("category")
-    await db.products.create_index("sku", unique=True)
-    await db.appointments.create_index("scheduled_at")
-    await db.invoices.create_index("created_at")
+    await db.tenants.create_index("slug", unique=True)
+    # Drop legacy single-field unique sku index if present (multi-tenancy needs composite)
+    try:
+        existing_indexes = await _raw_db.products.index_information()
+        if "sku_1" in existing_indexes:
+            await _raw_db.products.drop_index("sku_1")
+            logging.info("Dropped legacy products.sku_1 unique index")
+    except Exception as e:
+        logging.warning(f"Could not drop legacy index: {e}")
+    await _raw_db.customers.create_index([("tenant_id", 1), ("phone", 1)])
+    await _raw_db.services.create_index([("tenant_id", 1), ("category", 1)])
+    await _raw_db.products.create_index([("tenant_id", 1), ("sku", 1)], unique=True)
+    await _raw_db.appointments.create_index([("tenant_id", 1), ("scheduled_at", 1)])
+    await _raw_db.invoices.create_index([("tenant_id", 1), ("created_at", -1)])
     await db.login_attempts.create_index("identifier")
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=3600)
+
+    default_tenant = await seed_default_tenant()
+    await backfill_tenant_ids(default_tenant["id"])
+    await seed_super_admin()
     await seed_admin()
+    # Set context to default tenant for seed_data inserts
+    _current_tenant_id.set(default_tenant["id"])
     await seed_data()
+    _current_tenant_id.set(None)
 
 @app.on_event("shutdown")
 async def on_shutdown():

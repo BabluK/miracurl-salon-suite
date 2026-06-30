@@ -15,6 +15,7 @@ import Reports from "@/pages/Reports";
 import Reviews from "@/pages/Reviews";
 import BookPublic from "@/pages/BookPublic";
 import ReviewPublic from "@/pages/ReviewPublic";
+import SuperAdmin from "@/pages/SuperAdmin";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -26,13 +27,25 @@ function Protected({ children }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+  if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
+  return children;
+}
+
+function SuperAdminProtected({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "super_admin") return <Navigate to="/dashboard" replace />;
   return children;
 }
 
 function PublicOnly({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) {
+    if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
   return children;
 }
 
@@ -43,9 +56,11 @@ export default function App() {
         <BrowserRouter>
           <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } }} />
           <Routes>
+            <Route path="/book/:slug" element={<BookPublic />} />
             <Route path="/book" element={<BookPublic />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
+            <Route path="/super-admin" element={<SuperAdminProtected><SuperAdmin /></SuperAdminProtected>} />
             <Route path="/" element={<Protected><AppLayout /></Protected>}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
@@ -55,8 +70,8 @@ export default function App() {
               <Route path="services" element={<Services />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="pos" element={<POS />} />
-              <Route path="reports" element={<Reports />} />
               <Route path="reviews" element={<Reviews />} />
+              <Route path="reports" element={<Reports />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

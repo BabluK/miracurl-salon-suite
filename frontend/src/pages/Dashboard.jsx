@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { toast } from "sonner";
@@ -23,13 +24,15 @@ function Stat({ icon: Icon, label, value, hint, testid, accent }) {
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const { tenant } = useAuth();
 
   useEffect(() => { api.get("/reports/dashboard").then(r => setData(r.data)); }, []);
 
   if (!data) return <div className="text-ink-secondary">Loading dashboard...</div>;
 
   const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-  const bookingUrl = `${window.location.origin}/book`;
+  const slug = tenant?.slug || "miracurl-marathahalli";
+  const bookingUrl = `${window.location.origin}/book/${slug}`;
   const copyLink = async () => {
     try {
       if (navigator.clipboard?.writeText) {

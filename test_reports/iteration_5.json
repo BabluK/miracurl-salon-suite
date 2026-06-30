@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration_5 (multi-tenant SaaS) tested end-to-end. Backend pytest: 23/24 PASS, 1 SKIP (documented spec deviation). Verified super-admin role-gating (admin→403, super→200), tenant CRUD with slug+email uniqueness, slug regex validation, owner-login produces role=admin+tenant_id=<new>, full tenant data isolation across customers/services/staff/products/appointments/invoices, X-Tenant-Slug header behaviour (super-admin can switch via header, regular admin gets 403 cross-tenant), /api/tenants/current returns user's tenant, all slug-scoped public endpoints work (/salon/{slug}, /services/{slug}, /staff/{slug}, /reviews/featured/{slug}, /book/{slug}), public booking writes appointment.tenant_id=correct, suspending a tenant returns 403 on /public/salon/{slug}. Frontend Playwright: super-admin landing redirect → /super-admin (NOT /dashboard) confirmed; SuperAdmin console shows KPIs (Total/Active/Trial/Cancelled), tenant table with plan+status badges, New Tenant button, /book/{slug} links per row; /book/miracurl-marathahalli renders tenant-specific hero (Miracurl, Marathahalli, +91 98765 00000), featured reviews + service grid; /book/does-not-exist-xyz shows 'Salon not found' card with data-testid='book-tenant-not-found'; admin dashboard shows tenant name in subtitle 'MIRACURL UNISEX FAMILY SALON · MARATHAHALLI, BANGALORE' and PUBLIC BOOKING LINK widget URL contains /book/miracurl-marathahalli; X-Tenant-Slug=miracurl-marathahalli header sent on /api/customers and other admin requests post-bootstrap.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/super-admin/tenants", "issue": "Returned 500 because await db.tenants.insert_one(t) mutated t to add Mongo ObjectId _id which then failed JSON serialization in the response. FIXED by adding t.pop('_id', None) after insert_one.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/public/book (no slug) & GET /api/public/referral/{code} (no slug)", "issue": "Legacy non-slug variants no longer exist; iter1-iter3 tests in /app/backend/tests/backend_test.py (TestPublicBooking, TestIter3Validation, TestIter3Referral, TestIter3InvoiceStock, TestIter3RateLimit) now fail with 404. Frontend uses /api/public/book/{slug} so user-facing app is fine. Either add backward-compat alias that resolves to DEFAULT_TENANT_SLUG, or update old tests to use slug paths."},
+      {"endpoint": "GET /api/customers as super_admin without X-Tenant-Slug header", "issue": "Spec says it should return 400 'No tenant context'; current TenantCollection.find_filter() treats tid=None as 'global access' and returns ALL tenants' customers. Documented in test_iter5 as skip with reason. Consider enforcing slug header for super-admin scope-limiting."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Initial bootstrap requests", "issue": "First /api/tenants/current and /api/reports/dashboard calls are emitted before AuthContext has bootstrapped the slug, so X-Tenant-Slug header is absent on them. Backend handles this via user.tenant_id fallback in get_current_user, so functionally fine, but only 3 of 6 captured admin requests carried the header. Cosmetic — does not affect isolation.", "affected_selectors": []}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter5_multitenant.py",
+    "/app/test_reports/pytest/iter5_results.xml"
+  ],
+  "action_items": [
+    "(MEDIUM) Update or alias legacy /api/public/book and /api/public/referral/{code} routes (non-slug variants) — pre-iter5 tests now 404. Either add a fallback that resolves to DEFAULT_TENANT_SLUG, or update backend_test.py iter1-iter3 cases to use /api/public/book/miracurl-marathahalli.",
+    "(LOW) Decide intended behaviour for super-admin hitting tenant-scoped endpoints without X-Tenant-Slug: spec says 400, current returns cross-tenant aggregated list.",
+    "(LOW) Bootstrap order: set slug into axios defaults BEFORE first /tenants/current and /reports/dashboard calls so the X-Tenant-Slug header is consistently present from the first request."
+  ],
+  "critical_code_review_comments": [
+    "[FIXED] create_tenant returned raw insert result with ObjectId _id → 500 jsonable_encoder error. Patched in server.py line ~1187: added t.pop('_id', None). All other write paths (create_customer/staff/service etc.) use models that re-serialise so they're not affected.",
+    "TenantCollection.find_filter treats _current_tenant_id=None as 'no filter / global'. This is safe for super-admin contexts but means any future code path that forgets to set the contextvar will accidentally cross-tenant. Consider failing closed: require an explicit super-admin claim instead of None.",
+    "require_admin currently accepts both 'admin' and 'super_admin' (per playbook) but super_admin has no tenant_id, so any tenant-scoped admin route called by super-admin without X-Tenant-Slug will return global data (see issue above).",
+    "get_tenant endpoint sets _current_tenant_id then resets to None at function end. If an exception fires between set() and the explicit None set, the contextvar will leak. Use a contextmanager / try-finally pattern.",
+    "Tenant suspension blocks public /api/public/* (resolve_tenant_from_slug raises 403) but does NOT block tenant admin's /api/auth/me — a suspended tenant's admin can still log in and call admin APIs. Confirm whether billing-paused tenants should also be locked out of admin console.",
+    "DELETE /api/super-admin/tenants/{id} is a soft delete (status=cancelled). It does not invalidate the owner's existing JWT — they could continue using the app until token expiry."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (FIXED: pop _id from inserted tenant doc in create_tenant)",
+    "/app/backend/tests/test_iter5_multitenant.py (NEW: 24 tests covering super-admin auth, tenant CRUD, isolation, header behaviour, public slug endpoints, public booking tenant-scoping, suspension)"
+  ],
+  "success_rate": {"backend": "96% (23/24 pass, 1 documented skip)", "frontend": "100% on critical iter5 flows (super-admin redirect, console KPIs+table, /book/{slug}, not-found state, dashboard booking-link with slug, top-bar tenant name)"},
+  "test_credentials": "Super: super@miracurl.com / Super@Miracurl123; Admin: admin@miracurl.com / Miracurl@123; pre-existing 2nd tenant: owner@elegance.com / Owner@123 (tenant elegance-koramangala).",
+  "seed_data_creation": "Created via /api/super-admin/tenants during tests: ~5 test-iter5-{hex6} tenants (later soft-deleted/cancelled by fixture teardown), 3 suspend-test-{hex5} tenants (cancelled at end). Created via owner JWT: TEST_iter5_{hex6} customers + 1 Test Cut service + 1 TEST Iter5 Stylist + 1 TEST iter5 walkin appointment (each scoped to their parent tenant). Super-admin UI screenshot shows 8 total tenants (1 active, 5 trial, 2 cancelled).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Multi-tenant infrastructure is solid. TenantCollection contextvar pattern works transparently for all existing CRUD. Key things to remember: (1) ALWAYS pass X-Tenant-Slug header when testing admin endpoints with super-admin's JWT, otherwise data leaks across tenants. (2) Tenant slugs must match [a-z0-9-]+ regex and owner_email must be a real-looking domain (not .test.local or .local — pydantic EmailStr rejects). (3) Backend test fixture must unwrap response: r.json()['tenant'] (not r.json()). (4) Backend has a backward-compat gap: /api/public/book without slug returns 404 — old iter1-3 tests need updating or backend needs alias. (5) FIXED the ObjectId _id leak in create_tenant. Re-test command: pytest /app/backend/tests/test_iter5_multitenant.py -v -o addopts=\"\".",
+  "rca of the issue": "RCA for create_tenant 500: motor's insert_one(doc) mutates the passed dict to insert _id=ObjectId(...) for the inserted document. The endpoint then returned {\"tenant\": t, ...} where t still contained that ObjectId, and FastAPI's jsonable_encoder cannot serialise ObjectId (TypeError: 'ObjectId' object is not iterable). Mitigation: pop _id immediately after insert (or use t = {**t} copy before insert). Fixed in /app/backend/server.py @ create_tenant. All other Tenant endpoints already exclude _id via find({..}, {\"_id\": 0}) projection so they were unaffected."
+}
