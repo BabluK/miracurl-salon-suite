@@ -596,7 +596,7 @@ async def public_salon():
         "location": "Marathahalli, Bangalore",
         "phone": "+91 98765 00000",
         "hours": "Mon–Sun · 10:00 AM – 9:00 PM",
-        "hero_image": "https://images.unsplash.com/photo-1759142235060-3191ee596c81?w=1600",
+        "hero_image": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600",
     }
 
 @api.get("/public/services")

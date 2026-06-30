@@ -31,8 +31,18 @@ export default function Dashboard() {
   const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
   const bookingUrl = `${window.location.origin}/book`;
   const copyLink = async () => {
-    try { await navigator.clipboard.writeText(bookingUrl); toast.success("Booking link copied!"); }
-    catch { toast.error("Couldn't copy. Long-press to copy."); }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(bookingUrl);
+        toast.success("Booking link copied!");
+        return;
+      }
+      throw new Error("clipboard unavailable");
+    } catch {
+      const el = document.getElementById("booking-link-input");
+      if (el) { el.focus(); el.select(); toast.success("Selected — press Ctrl/Cmd + C to copy"); }
+      else toast.error("Couldn't copy. Select the link manually.");
+    }
   };
 
   return (
@@ -56,7 +66,14 @@ export default function Dashboard() {
             </div>
             <p className="text-xs text-ink-secondary mb-3">Share this link on Instagram, WhatsApp & Google profile — customers can self-book 24/7.</p>
             <div className="flex items-center gap-2 bg-bg-base/80 border border-white/10 rounded-md px-3 py-2 mb-3">
-              <span className="text-xs text-white/70 font-mono truncate flex-1" data-testid="booking-link-url">{bookingUrl}</span>
+              <input
+                id="booking-link-input"
+                data-testid="booking-link-url"
+                readOnly
+                value={bookingUrl}
+                onFocus={(e) => e.target.select()}
+                className="text-xs text-white/80 font-mono truncate flex-1 bg-transparent outline-none border-0 p-0"
+              />
             </div>
             <div className="flex items-center gap-2">
               <button data-testid="copy-booking-link-btn" onClick={copyLink} className="btn-ghost flex items-center gap-2 text-xs py-1.5 px-3 flex-1 justify-center">
