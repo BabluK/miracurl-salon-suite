@@ -5,6 +5,7 @@ import {
   ShoppingCart, BarChart3, LogOut, Bell, ChevronDown, Star
 } from "lucide-react";
 import { useState } from "react";
+import BrandMark from "./BrandMark";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
@@ -32,15 +33,7 @@ export default function AppLayout() {
       {/* Sidebar */}
       <aside className="w-64 bg-[#0A0A0A] border-r border-white/5 flex flex-col fixed h-screen">
         <div className="p-6 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
-              <Scissors className="w-5 h-5 text-bg-base" />
-            </div>
-            <div>
-              <div className="font-playfair text-xl leading-none">Miracurl</div>
-              <div className="text-[10px] tracking-[0.25em] uppercase text-gold mt-1">Salon Suite</div>
-            </div>
-          </div>
+          <BrandMark variant="dark" size="sm" />
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto">

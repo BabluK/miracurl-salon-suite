@@ -146,4 +146,60 @@ table.luxe-table-light { width: 100%; border-collapse: collapse; }
   color: #334155;
 }
 .luxe-table-light tbody tr:hover { background: #f8fafc; }
+
+/* ============ Brand mark animations (Miracurl wordmark) ============ */
+.brand-pill {
+  background: linear-gradient(135deg, #ec4899 0%, #d946ef 50%, #a855f7 100%);
+  box-shadow:
+    0 8px 24px -8px rgba(236,72,153,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.18);
+  animation: brand-glow 3.2s ease-in-out infinite;
+}
+.brand-pill::after {
+  /* subtle radial highlight that drifts */
+  content: ""; position: absolute; inset: -30%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.28), transparent 55%);
+  animation: brand-highlight 6s linear infinite;
+  pointer-events: none;
+}
+.brand-scissors {
+  transform-origin: 50% 60%;
+  animation: brand-snip 4.5s ease-in-out infinite;
+}
+.brand-curl {
+  background: linear-gradient(90deg, #f43f5e 0%, #ec4899 35%, #d946ef 70%, #f43f5e 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: brand-shimmer 3.4s linear infinite;
+}
+.brand-mark { animation: brand-fade-in 0.6s ease-out both; }
+
+@keyframes brand-snip {
+  0%, 84%, 100% { transform: rotate(0deg); }
+  88%  { transform: rotate(-12deg); }
+  92%  { transform: rotate(10deg); }
+  96%  { transform: rotate(-4deg); }
+}
+@keyframes brand-shimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes brand-glow {
+  0%, 100% { box-shadow: 0 8px 24px -8px rgba(236,72,153,0.45), inset 0 1px 0 rgba(255,255,255,0.18); }
+  50%      { box-shadow: 0 12px 32px -8px rgba(236,72,153,0.75), inset 0 1px 0 rgba(255,255,255,0.25); }
+}
+@keyframes brand-highlight {
+  0%   { transform: translate(-12%, -12%); }
+  50%  { transform: translate(12%, 12%); }
+  100% { transform: translate(-12%, -12%); }
+}
+@keyframes brand-fade-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-pill, .brand-scissors, .brand-curl, .brand-mark { animation: none !important; }
+}
 .luxe-table tbody tr:hover { background: #1A1A1A; }

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { User, Lock, Eye, EyeOff, Scissors } from "lucide-react";
+import { User, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import BrandMark from "@/components/BrandMark";
 
 export default function Login() {
   const { login, register, forgot } = useAuth();
@@ -47,17 +48,7 @@ export default function Login() {
 
       {/* Brand mark — top-left */}
       <div className="relative z-10 px-8 pt-6 sm:px-14 sm:pt-10">
-        <div className="inline-flex items-center gap-3 select-none">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-fuchsia-600 flex items-center justify-center shadow-lg">
-            <Scissors className="w-6 h-6 text-white" />
-          </div>
-          <div className="leading-none">
-            <div className="font-playfair text-4xl tracking-tight text-slate-900">
-              MIRA<span className="text-rose-500">CURL</span>
-            </div>
-            <div className="text-[10px] tracking-[0.3em] uppercase text-slate-400 mt-1">Salon Suite</div>
-          </div>
-        </div>
+        <BrandMark variant="light" size="lg" />
       </div>
 
       {/* Card */}

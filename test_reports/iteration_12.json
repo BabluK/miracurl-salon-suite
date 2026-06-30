@@ -1,0 +1,31 @@
+{
+  "summary": "Iter 12 visual/animation regression test for the new <BrandMark /> component. Verified on both /login (light, lg) and /dashboard sidebar (dark, sm). All required classes (.brand-pill, .brand-scissors, .brand-curl, [data-testid=brand-mark]), wordmark text (MIRACURL + SALON SUITE), variant colors, and CSS animations (brand-glow, brand-snip, brand-shimmer) confirmed present with non-empty computed animation-name. Smoke-checked /pos, /customers, /book/miracurl-marathahalli, sign-out flow. No console errors caused by the new BrandMark component.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AppLayout sidebar BrandMark", "issue": "On /dashboard the MIRACURL wordmark appears visually clipped at the right edge of the dark sidebar (sidebar ~207px wide; size=sm wordmark uses text-xl + leading pill w-10 + gap-3 which overflows). Wordmark text reads as 'MIRACUR…' visually although DOM still contains full 'MIRACURL'. Consider size=xs (text-lg) or wider sidebar (w-56 -> w-60) or reduce gap to gap-2.", "selector": "[data-testid=brand-mark] .font-playfair", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/dashboard sidebar", "issues": ["BrandMark wordmark clipped at right edge of 208px-wide sidebar; visible text appears cut off though DOM is correct."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/login_brand.png", "/app/test_reports/dashboard_brand.png"],
+  "action_items": [
+    "Optional: reduce sidebar brand size (e.g., add an 'xs' size to BrandMark with text-lg wordmark + w-9 pill + gap-2) so MIRACURL is not visually clipped in the 208px sidebar."
+  ],
+  "critical_code_review_comments": [
+    "BrandMark.jsx is a clean reusable component (~37 lines) — good DRY refactor across Login and AppLayout.",
+    "Animations are pure CSS in index.css with prefers-reduced-motion guard — accessible.",
+    "data-testid='brand-mark' is on the root element, making it easily targetable for tests.",
+    "Minor sizing observation: size=sm wordmark (text-xl) is slightly too large for the existing 208px sidebar — wordmark gets clipped. Either widen sidebar slightly or shrink the sm wordmark to text-lg."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not requested)", "frontend": "100% (all brand mark assertions passed on both /login and /dashboard)"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 (worked)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 12 only changed the BrandMark visuals. Verified DOM contains [data-testid=brand-mark] with .brand-pill (animation-name=brand-glow), .brand-scissors (animation-name=brand-snip), .brand-curl (animation-name=brand-shimmer). Light variant uses text-slate-900 for MIRA; dark variant uses text-white. The only visual nit is sidebar text clipping at size=sm. Pre-existing non-blocking console warnings exist (hydration <span> in <option> on POS page from emergent dev-tracking attributes, and an unrelated 401 during navigation) — not caused by this iteration.",
+  "rca of the issue": "Sidebar wordmark clipping RCA: AppLayout sidebar width is w-52 (208px). BrandMark size=sm renders <pill w-10 (40px)> + gap-3 (12px) + 'MIRACURL' in text-xl font-playfair tracking-tight, which measures ~150–160px. Total ≈ 212px > 208px sidebar. Add right padding/margin reduces it further, causing visual clip of trailing 'L'. Fix: introduce an 'xs' size variant (pill w-9 h-9, text-lg, gap-2) for sidebar OR bump sidebar to w-56."
+}
