@@ -293,7 +293,7 @@ function OwnerStep({ form, update, showPw, setShowPw }) {
         onChange={v => update({ password: v })}
         placeholder="At least 8 characters"
         trailing={
-          <button type="button" onClick={() => setShowPw(!showPw)} className="text-slate-400 hover:text-slate-600" data-testid="signup-toggle-password">
+          <button type="button" onClick={() => setShowPw(!showPw)} className="text-slate-400 hover:text-slate-600" data-testid="signup-toggle-password" aria-label={showPw ? "Hide password" : "Show password"}>
             {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         }
