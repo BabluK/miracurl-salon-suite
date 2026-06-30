@@ -1253,23 +1253,6 @@ async def super_admin_overview(user=Depends(require_super_admin)):
     }
 
 
-    """Ensure the default tenant exists. Returns the tenant dict."""
-    t = await db.tenants.find_one({"slug": DEFAULT_TENANT_SLUG}, {"_id": 0})
-    if not t:
-        t = Tenant(
-            slug=DEFAULT_TENANT_SLUG,
-            name="Miracurl Unisex Family Salon",
-            owner_email=os.environ["ADMIN_EMAIL"].lower(),
-            location="Marathahalli, Bangalore",
-            phone="+91 98765 00000",
-            google_review_url=os.environ.get("GOOGLE_REVIEW_URL", ""),
-            plan="enterprise",
-            status="active",
-        ).model_dump()
-        await db.tenants.insert_one(t)
-        logging.info("Seeded default tenant")
-    return t
-
 async def backfill_tenant_ids(tenant_id: str):
     """Assign tenant_id to legacy records that don't have one."""
     for coll_name in ("customers", "services", "staff", "products", "appointments", "invoices", "reviews"):
@@ -1318,18 +1301,6 @@ async def seed_default_tenant():
         await db.tenants.insert_one(t)
         logging.info("Seeded default tenant")
     return t
-
-async def backfill_tenant_ids(tenant_id: str):
-    """Assign tenant_id to legacy records that don't have one."""
-    for coll_name in ("customers", "services", "staff", "products", "appointments", "invoices", "reviews"):
-        coll = getattr(_raw_db, coll_name)
-        r = await coll.update_many({"tenant_id": {"$exists": False}}, {"$set": {"tenant_id": tenant_id}})
-        if r.modified_count:
-            logging.info(f"Backfilled {r.modified_count} {coll_name} with tenant_id")
-    await _raw_db.users.update_many(
-        {"tenant_id": {"$exists": False}, "role": {"$ne": "super_admin"}},
-        {"$set": {"tenant_id": tenant_id}},
-    )
 
 async def seed_admin():
     admin_email = os.environ["ADMIN_EMAIL"].lower()
