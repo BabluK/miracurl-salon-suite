@@ -37,10 +37,14 @@ export function formatApiError(detail) {
  */
 export function detectTenantSlug() {
   const host = window.location.hostname.toLowerCase();
-  // production wildcard: {slug}.miracurl.com
-  if (host.endsWith(".miracurl.com") && host !== "www.miracurl.com") {
-    const sub = host.split(".")[0];
-    if (sub && !["www", "api", "app"].includes(sub)) return sub;
+  // production wildcard subdomains: {slug}.miracurlunisexsalon.com
+  // (also keep legacy .miracurl.com for backwards-compat with earlier branding)
+  const wildcardDomains = [".miracurlunisexsalon.com", ".miracurl.com"];
+  for (const d of wildcardDomains) {
+    if (host.endsWith(d) && host !== `www${d}`) {
+      const sub = host.split(".")[0];
+      if (sub && !["www", "api", "app"].includes(sub)) return sub;
+    }
   }
   const stored = localStorage.getItem("miracurl_tenant");
   if (stored) return stored;
