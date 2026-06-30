@@ -38,7 +38,7 @@ export default function Dashboard() {
           <div className="absolute inset-0 bg-gradient-to-r from-bg-surface via-bg-surface/80 to-transparent" />
         </div>
         <div className="relative z-10">
-          <div className="label-luxe text-gold">Today's Snapshot</div>
+          <div className="label-luxe text-gold">Today&apos;s Snapshot</div>
           <h1 className="font-playfair text-4xl mt-2">Good day at Miracurl ✦</h1>
           <p className="text-ink-secondary mt-2 max-w-lg">A polished glance at appointments, revenue and inventory — everything you need at a glance.</p>
         </div>

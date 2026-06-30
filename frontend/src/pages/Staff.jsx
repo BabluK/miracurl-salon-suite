@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { Plus, X, Edit3, Trash2, Phone, Mail, Percent } from "lucide-react";
 import { toast } from "sonner";
@@ -9,8 +9,8 @@ export default function Staff() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", role: "Stylist", phone: "", email: "", specialties: "", commission_pct: 10, image_url: "", active: true });
 
-  async function load() { const { data } = await api.get("/staff"); setList(data); }
-  useEffect(() => { load(); }, []);
+  const load = useCallback(async () => { const { data } = await api.get("/staff"); setList(data); }, []);
+  useEffect(() => { load(); }, [load]);
 
   function startNew() { setEditing(null); setForm({ name: "", role: "Stylist", phone: "", email: "", specialties: "", commission_pct: 10, image_url: "", active: true }); setOpen(true); }
   function startEdit(s) { setEditing(s); setForm({ ...s, specialties: (s.specialties || []).join(", ") }); setOpen(true); }

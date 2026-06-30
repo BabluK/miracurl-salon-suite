@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award } from "lucide-react";
 import { toast } from "sonner";
@@ -10,11 +10,11 @@ export default function Customers() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", phone: "", email: "", gender: "Female", address: "", notes: "" });
 
-  async function load() {
+  const load = useCallback(async () => {
     const { data } = await api.get(`/customers${q ? `?q=${encodeURIComponent(q)}` : ""}`);
     setList(data);
-  }
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q]);
+  }, [q]);
+  useEffect(() => { load(); }, [load]);
 
   function startNew() { setEditing(null); setForm({ name: "", phone: "", email: "", gender: "Female", address: "", notes: "" }); setOpen(true); }
   function startEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone, email: c.email || "", gender: c.gender || "Other", address: c.address || "", notes: c.notes || "" }); setOpen(true); }
@@ -40,7 +40,7 @@ export default function Customers() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-playfair text-3xl">Customer Relationships</h1>
-          <p className="text-ink-secondary text-sm mt-1">Manage your salon's clientele and loyalty.</p>
+          <p className="text-ink-secondary text-sm mt-1">Manage your salon&apos;s clientele and loyalty.</p>
         </div>
         <button data-testid="add-customer-btn" onClick={startNew} className="btn-gold flex items-center gap-2">
           <Plus className="w-4 h-4" /> Add Customer

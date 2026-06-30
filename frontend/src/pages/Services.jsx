@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame } from "lucide-react";
 import { toast } from "sonner";
@@ -11,8 +11,8 @@ export default function Services() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", category: "Hair", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true });
 
-  async function load() { const { data } = await api.get("/services"); setList(data); }
-  useEffect(() => { load(); }, []);
+  const load = useCallback(async () => { const { data } = await api.get("/services"); setList(data); }, []);
+  useEffect(() => { load(); }, [load]);
 
   function startNew() { setEditing(null); setForm({ name: "", category: "Hair", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true }); setOpen(true); }
   function startEdit(s) { setEditing(s); setForm({ ...s, price: s.price, duration_min: s.duration_min }); setOpen(true); }

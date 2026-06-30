@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { Plus, X, Calendar as CalendarIcon, Check, XCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -19,11 +19,11 @@ export default function Appointments() {
   const [services, setServices] = useState([]);
   const [form, setForm] = useState({ customer_id: "", staff_id: "", service_ids: [], scheduled_at: "", notes: "" });
 
-  async function load() {
+  const load = useCallback(async () => {
     const { data } = await api.get(`/appointments?date=${date}`);
     setList(data);
-  }
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [date]);
+  }, [date]);
+  useEffect(() => { load(); }, [load]);
   useEffect(() => {
     api.get("/customers").then(r => setCustomers(r.data));
     api.get("/staff").then(r => setStaff(r.data));

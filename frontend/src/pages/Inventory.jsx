@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { Plus, X, Edit3, Trash2, AlertTriangle, Package } from "lucide-react";
 import { toast } from "sonner";
@@ -9,8 +9,8 @@ export default function Inventory() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "" });
 
-  async function load() { const { data } = await api.get("/products"); setList(data); }
-  useEffect(() => { load(); }, []);
+  const load = useCallback(async () => { const { data } = await api.get("/products"); setList(data); }, []);
+  useEffect(() => { load(); }, [load]);
 
   function startNew() { setEditing(null); setForm({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "" }); setOpen(true); }
   function startEdit(p) { setEditing(p); setForm({ ...p }); setOpen(true); }

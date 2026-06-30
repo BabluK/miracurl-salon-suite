@@ -344,7 +344,8 @@ async def reset(body: ResetIn):
 
 # ---------------- Generic CRUD helpers ----------------
 def _clean(doc):
-    if not doc: return doc
+    if not doc:
+        return doc
     doc.pop("_id", None)
     return doc
 
@@ -366,7 +367,8 @@ async def create_customer(body: CustomerIn, user=Depends(get_current_user)):
 @api.get("/customers/{cid}")
 async def get_customer(cid: str, user=Depends(get_current_user)):
     c = await db.customers.find_one({"id": cid}, {"_id": 0})
-    if not c: raise HTTPException(404, "Not found")
+    if not c:
+        raise HTTPException(404, "Not found")
     return c
 
 @api.put("/customers/{cid}")
@@ -540,16 +542,17 @@ async def dashboard(user=Depends(get_current_user)):
     top_services = await db.appointments.aggregate(pipeline).to_list(5)
     # revenue trend last 7 days
     trend = []
-    for i in range(6, -1, -1):
-        d = (datetime.now(timezone.utc) - timedelta(days=i)).date().isoformat()
-        day_revenue = sum(i["total"] for i in await db.invoices.find(
-            {"created_at": {"$regex": f"^{d}"}}, {"_id": 0, "total": 1}).to_list(500))
+    for offset in range(6, -1, -1):
+        d = (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat()
+        day_invoices = await db.invoices.find(
+            {"created_at": {"$regex": f"^{d}"}}, {"_id": 0, "total": 1}).to_list(500)
+        day_revenue = sum(inv["total"] for inv in day_invoices)
         trend.append({"date": d, "revenue": round(day_revenue, 2)})
     return {
-        "today_revenue": round(sum(i["total"] for i in invoices_today), 2),
+        "today_revenue": round(sum(inv["total"] for inv in invoices_today), 2),
         "today_bookings": len(appts_today),
         "today_invoices": len(invoices_today),
-        "month_revenue": round(sum(i["total"] for i in invoices_month), 2),
+        "month_revenue": round(sum(inv["total"] for inv in invoices_month), 2),
         "total_customers": total_customers,
         "active_staff": total_staff,
         "low_stock_count": len(low_stock),
@@ -566,11 +569,11 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
         flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
     by_mode = {}
-    for i in invs:
-        by_mode[i["payment_mode"]] = by_mode.get(i["payment_mode"], 0) + i["total"]
+    for inv in invs:
+        by_mode[inv["payment_mode"]] = by_mode.get(inv["payment_mode"], 0) + inv["total"]
     return {
         "total_invoices": len(invs),
-        "total_revenue": round(sum(i["total"] for i in invs), 2),
+        "total_revenue": round(sum(inv["total"] for inv in invs), 2),
         "by_payment_mode": [{"mode": k, "amount": round(v, 2)} for k, v in by_mode.items()],
         "invoices": invs[:200],
     }

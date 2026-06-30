@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import api, { formatApiError } from "@/lib/api";
+import api, { formatApiError, setAccessToken } from "@/lib/api";
 
 const AuthContext = createContext(null);
 
@@ -8,22 +8,24 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const { data } = await api.get("/auth/me");
-        setUser(data);
-      } catch (e) {
-        setUser(false);
+        if (!cancelled) setUser(data);
+      } catch {
+        if (!cancelled) setUser(false);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, []);
 
   const login = async (email, password) => {
     try {
       const { data } = await api.post("/auth/login", { email, password });
-      if (data.access_token) localStorage.setItem("miracurl_token", data.access_token);
+      if (data.access_token) setAccessToken(data.access_token);
       setUser(data.user);
       return { ok: true };
     } catch (e) {
@@ -34,7 +36,7 @@ export function AuthProvider({ children }) {
   const register = async (name, email, password) => {
     try {
       const { data } = await api.post("/auth/register", { name, email, password });
-      if (data.access_token) localStorage.setItem("miracurl_token", data.access_token);
+      if (data.access_token) setAccessToken(data.access_token);
       setUser(data.user);
       return { ok: true };
     } catch (e) {
@@ -43,8 +45,9 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    try { await api.post("/auth/logout"); } catch (e) {}
-    localStorage.removeItem("miracurl_token");
+    try { await api.post("/auth/logout"); }
+    catch (e) { console.warn("Logout request failed:", e?.message || e); }
+    setAccessToken(null);
     setUser(false);
   };
 

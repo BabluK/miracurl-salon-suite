@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { IndianRupee, FileText } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
@@ -12,11 +12,11 @@ export default function Reports() {
   const [end, setEnd] = useState(today);
   const [data, setData] = useState(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     const { data } = await api.get(`/reports/sales?start=${start}&end=${end}`);
     setData(data);
-  }
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [start, end]);
+  }, [start, end]);
+  useEffect(() => { load(); }, [load]);
 
   const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
@@ -68,7 +68,7 @@ export default function Reports() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={data.by_payment_mode} dataKey="amount" nameKey="mode" innerRadius={45} outerRadius={75} paddingAngle={2}>
-                        {data.by_payment_mode.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                        {data.by_payment_mode.map((entry, i) => <Cell key={entry.mode} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
                       <Tooltip contentStyle={{ background: '#121212', border: '1px solid #ffffff20' }} formatter={(v) => inr(v)} />
                       <Legend />
