@@ -20,7 +20,7 @@ import requests
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASSWORD = "Miracurl@123"
+ADMIN_PASSWORD = os.environ.get("MIRACURL_ADMIN_PASSWORD", "Miracurl@123")
 TENANT2_EMAIL = "owner@elegance.com"
 TENANT2_PASSWORD = "Owner@123"
 

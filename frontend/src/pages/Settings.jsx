@@ -222,7 +222,7 @@ export default function Settings() {
             <div>
               <h2 className="text-lg font-semibold text-slate-800">Data isolation</h2>
               <p className="text-xs text-slate-500 mt-1">
-                Your salon's customers, invoices and staff are isolated by tenant ID and never visible to other salons on Miracurl.
+                Your salon&apos;s customers, invoices and staff are isolated by tenant ID and never visible to other salons on Miracurl.
               </p>
             </div>
           </div>
@@ -245,8 +245,16 @@ function AffiliateLinkRow({ slug }) {
   const share = async () => {
     const text = `Move your salon online with Miracurl — 7-day free trial, no card needed. Sign up using my link: ${link}`;
     if (navigator.share) {
-      try { await navigator.share({ title: "Miracurl Salon Suite", text, url: link }); return; }
-      catch { /* fall through */ }
+      try {
+        await navigator.share({ title: "Miracurl Salon Suite", text, url: link });
+        return;
+      } catch (err) {
+        // User dismissed the native share sheet (AbortError) or it's unsupported.
+        // Fall through to the WhatsApp fallback below — no toast needed.
+        if (err?.name && err.name !== "AbortError") {
+          console.warn("[share] navigator.share failed:", err.message);
+        }
+      }
     }
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };

@@ -135,6 +135,7 @@ def _extract_bearer_token(request: Request) -> Optional[str]:
 
 
 def _decode_access_token(token: str) -> dict:
+    payload: dict = {}
     try:
         payload = jwt.decode(token, jwt_secret(), algorithms=[JWT_ALG])
     except jwt.ExpiredSignatureError as e:

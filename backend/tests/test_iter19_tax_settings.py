@@ -7,9 +7,9 @@ import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASSWORD = "Miracurl@123"
+ADMIN_PASSWORD = os.environ.get("MIRACURL_ADMIN_PASSWORD", "Miracurl@123")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASSWORD = "Super@Miracurl123"
+SUPER_PASSWORD = os.environ.get("MIRACURL_SUPER_PASSWORD", "Super@Miracurl123")
 
 
 @pytest.fixture(scope="module")
