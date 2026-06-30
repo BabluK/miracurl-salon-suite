@@ -1,0 +1,17 @@
+{
+  "name": "Miracurl ✦ Salon Suite",
+  "short_name": "Miracurl",
+  "description": "All-in-one salon management software — online booking, billing, customer rewards, per-stylist commissions.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ec4899",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

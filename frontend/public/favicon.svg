@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ec4899"/>
+      <stop offset="50%" stop-color="#d946ef"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#g)"/>
+  <!-- Scissors (lucide-react Scissors path, centred + scaled) -->
+  <g fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" transform="translate(16 16) scale(1.33)">
+    <circle cx="6" cy="6" r="3"/>
+    <path d="M8.12 8.12 12 12"/>
+    <path d="M20 4 8.12 15.88"/>
+    <circle cx="6" cy="18" r="3"/>
+    <path d="M14.8 14.8 20 20"/>
+  </g>
+</svg>
