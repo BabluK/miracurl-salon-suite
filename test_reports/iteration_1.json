@@ -1,0 +1,47 @@
+{
+  "summary": "First MVP test of Miracurl Salon Management. Backend: 18/18 pytest tests pass covering auth (login/wrong-pwd/me/register), customers/services/staff/products CRUD, appointments flow, invoice creation with stat updates, and dashboard/sales reports. Frontend: All 11 review items pass — login + wrong-password error, dashboard with KPIs & charts, customer add/search/edit, services/staff/inventory pages with seed data + low-stock banner, POS end-to-end checkout produced Invoice INV-202606-0002 (₹708 incl. 18% tax) with receipt modal, logout redirects to /login, unauthed /dashboard redirects to /login. data-testid coverage is solid (nav-*, login-*, add-customer-button, pos-tab-*, pos-customer-select, pos-item-*, pos-generate-invoice-btn, logout-btn, etc.).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/login", "issue": "Lockout uses (host:email) identifier — rec.locked_until is updated on every failed attempt, so an attacker keeps lockout window rolling. Not a blocker for MVP."},
+      {"endpoint": "/api/customers PUT", "issue": "Update payload (CustomerIn) overwrites loyalty_points/total_spent/visits to zero via $set of full model_dump if those fields were not in the input — but CustomerIn does not contain those fields so MongoDB $set only writes provided keys (model_dump excludes nothing). Risk: editing a customer would not clobber stats only because CustomerIn does NOT include them. Verified OK in tests."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PoS / Appointments select", "issue": "React hydration warning in console: '<span> cannot be a child of <option>'. A <span> (likely an icon/badge) is rendered inside an <option> element which is invalid HTML.", "selector": "select > option > span", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard / general", "issues": ["Dark luxury gold theme renders nicely; KPIs, trend chart and low-stock alerts visible. No contrast issues observed in primary flows."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional / LOW) Remove <span> inside <option> in select dropdowns (Appointments New Booking modal / POS customer & stylist selects) to silence React hydration warning.",
+    "(Optional) Make login lockout NOT reset locked_until on every failed attempt after the lock has begun; otherwise the lock keeps rolling forward."
+  ],
+  "critical_code_review_comments": [
+    "server.py uses on_event('startup'/'shutdown') which is deprecated in FastAPI; consider migrating to lifespan handler.",
+    "CORS_ORIGINS defaults to '*' in .env, but allow_credentials=True with allow_origins=['*'] is rejected by browsers and triggers CORS errors. For local preview it works because credentials are also sent via Bearer header. For prod, configure explicit origins.",
+    "Login route uses request.client.host inside JWT_SECRET-dependent block; rate-limit identifier may be a Kubernetes ingress IP (all users share lockout). Consider using only email key with separate IP key.",
+    "Frontend stores access_token in localStorage AND backend sets httpOnly cookies — duplication. If localStorage path is kept, XSS risk increases. Prefer cookie-only.",
+    "All endpoints require auth via get_current_user but there is NO role check anywhere — any authenticated user can DELETE customers/staff/services/products. Add role-based gating.",
+    "Invoice creation does not check product stock availability before decrementing — can go negative.",
+    "_clean only pops _id but motor returns inserted docs without _id mutation; insert_one mutates the dict to inject _id which is correctly stripped. OK."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (new)"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% of reviewed flows"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 (from /app/memory/test_credentials.md, seeded on backend startup, confirmed working).",
+  "seed_data_creation": "Seed data is created automatically on backend startup: 10 services, 4 staff, 6 products (2 are low-stock to trigger banner), 5 customers. Tests created/deleted temporary TEST_* records.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login submit button uses data-testid='login-submit-btn' (not '-button'). Customer save uses 'customer-save-btn'. POS items use 'pos-item-<id>'. Sidebar uses 'nav-<page>'. Logout is 'logout-btn'. Invoice generation works end-to-end and persists to /api/invoices. After POS checkout a receipt modal opens with INV-YYYYMM-#### number; close it before navigating away else other clicks are intercepted by the overlay.",
+  "rca_of_the_issue": "No blocking bugs found. The only visible runtime warning is a React hydration warning caused by <span> inside <option> in some <select> dropdowns. Fix: move icon outside the <option> or remove it (HTML spec disallows phrasing content inside <option>)."
+}
