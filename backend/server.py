@@ -1001,6 +1001,10 @@ async def public_referral(slug: str, code: str):
         "reward_referrer": REFERRAL_REWARD_REFERRER,
     }
 
+@api.get("/public/referral/{code}")
+async def public_referral_default(code: str):
+    return await public_referral(DEFAULT_TENANT_SLUG, code)
+
 @api.post("/public/book/{slug}")
 async def public_book(slug: str, body: PublicBookingIn, request: Request):
     await resolve_tenant_from_slug(slug)
@@ -1093,6 +1097,10 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
         "referral_applied": referral_applied,
         "is_new_customer": is_new_customer,
     }
+
+@api.post("/public/book")
+async def public_book_default(body: PublicBookingIn, request: Request):
+    return await public_book(DEFAULT_TENANT_SLUG, body, request)
 
 # ---------------- Health ----------------
 @api.get("/")
