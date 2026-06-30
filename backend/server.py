@@ -971,22 +971,19 @@ async def staff_commission_report(
         invoice_staff = inv.get("staff_id")
         for it in inv.get("items", []):
             sid = it.get("staff_id") or invoice_staff
-            line_total = (it.get("qty", 1) or 0) * (it.get("price", 0) or 0)
+            qty = int(it.get("qty") or 1)
+            price = float(it.get("price") or 0)
+            line_total = qty * price
+            is_service = it.get("type") == "service"
             if not sid:
                 unassigned["gross"] += line_total
-                unassigned["items"] += it.get("qty", 1)
-                if it.get("type") == "service":
-                    unassigned["services"] += it.get("qty", 1)
-                else:
-                    unassigned["products"] += it.get("qty", 1)
+                unassigned["items"] += qty
+                unassigned["services" if is_service else "products"] += qty
                 continue
             row = agg.setdefault(sid, {"gross": 0.0, "items": 0, "services": 0, "products": 0})
             row["gross"] += line_total
-            row["items"] += it.get("qty", 1)
-            if it.get("type") == "service":
-                row["services"] += it.get("qty", 1)
-            else:
-                row["products"] += it.get("qty", 1)
+            row["items"] += qty
+            row["services" if is_service else "products"] += qty
 
     # Join with staff
     staff_docs = await db.staff.find(
