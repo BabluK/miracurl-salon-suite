@@ -1532,6 +1532,117 @@ async def get_affiliate_summary(user=Depends(require_tenant_admin), t=Depends(cu
     }
 
 
+class BrandingIn(BaseModel):
+    google_review_url: Optional[str] = Field(None, max_length=400)
+    hours: Optional[str] = Field(None, max_length=160)
+    phone: Optional[str] = Field(None, max_length=40)
+    location: Optional[str] = Field(None, max_length=200)
+    hero_image: Optional[str] = Field(None, max_length=600)
+
+    @field_validator("google_review_url")
+    @classmethod
+    def _google_url(cls, v):
+        if v is None or v == "":
+            return ""
+        v = v.strip()
+        if not (v.startswith("https://") or v.startswith("http://")):
+            raise ValueError("Must start with https:// or http://")
+        return v
+
+
+@api.get("/settings/branding")
+async def get_branding(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return {
+        "name": t.get("name", ""),
+        "slug": t.get("slug", ""),
+        "google_review_url": t.get("google_review_url") or "",
+        "hours": t.get("hours") or "",
+        "phone": t.get("phone") or "",
+        "location": t.get("location") or "",
+        "hero_image": t.get("hero_image") or "",
+    }
+
+
+@api.put("/settings/branding")
+async def update_branding(body: BrandingIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    update = {k: v for k, v in body.model_dump(exclude_none=True).items()}
+    if not update:
+        return {"ok": True}
+    await db.tenants.update_one({"id": t["id"]}, {"$set": update})
+    return {"ok": True, **update}
+
+
+@api.get("/dashboard/reminders")
+async def upcoming_reminders(user=Depends(get_current_user)):
+    """Appointments in the next 24 hours that the salon admin can WhatsApp a reminder for."""
+    now = datetime.now(timezone.utc)
+    horizon = now + timedelta(hours=26)  # small buffer so 'tomorrow same time' still appears
+    cursor = db.appointments.find(
+        {
+            "status": {"$in": ["booked", "confirmed"]},
+            "scheduled_at": {
+                "$gte": now.isoformat(),
+                "$lte": horizon.isoformat(),
+            },
+        },
+        {"_id": 0},
+    ).sort("scheduled_at", 1)
+    appts = await cursor.to_list(50)
+    # Hydrate customer phone numbers
+    cust_ids = list({a["customer_id"] for a in appts})
+    custs = await db.customers.find({"id": {"$in": cust_ids}}, {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(len(cust_ids) or 1)
+    by_id = {c["id"]: c for c in custs}
+    out = []
+    for a in appts:
+        c = by_id.get(a["customer_id"], {})
+        if not c.get("phone"):
+            continue
+        out.append({
+            "appointment_id": a["id"],
+            "customer_id": a["customer_id"],
+            "customer_name": c.get("name", a.get("customer_name", "")),
+            "customer_phone": c["phone"],
+            "scheduled_at": a["scheduled_at"],
+            "staff_name": a.get("staff_name") or "",
+            "service_names": a.get("service_names", []),
+            "reminded": bool(a.get("reminder_sent_at")),
+        })
+    return {"count": len(out), "items": out}
+
+
+@api.post("/dashboard/reminders/{aid}/mark-sent")
+async def mark_reminder_sent(aid: str, user=Depends(get_current_user)):
+    """Owner clicked the WhatsApp button — flag the appointment so it stops showing in the list."""
+    res = await db.appointments.update_one(
+        {"id": aid},
+        {"$set": {"reminder_sent_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "Appointment not found")
+    return {"ok": True}
+
+
+@api.get("/super-admin/affiliates/leaderboard")
+async def affiliate_leaderboard(user=Depends(require_super_admin), limit: int = 25):
+    """Top tenants by total affiliate credits earned through referrals."""
+    cursor = db.tenants.find(
+        {"affiliate_credits": {"$gt": 0}},
+        {"_id": 0, "id": 1, "slug": 1, "name": 1, "owner_email": 1, "affiliate_credits": 1},
+    ).sort("affiliate_credits", -1).limit(int(limit))
+    rows = await cursor.to_list(limit)
+    # Attach signup counts in a single query
+    ids = [r["id"] for r in rows]
+    pipeline = [
+        {"$match": {"referrer_tenant_id": {"$in": ids}}},
+        {"$group": {"_id": "$referrer_tenant_id", "count": {"$sum": 1}}},
+    ]
+    counts = {x["_id"]: x["count"] async for x in db.affiliate_referrals.aggregate(pipeline)}
+    for r in rows:
+        r["referral_count"] = counts.get(r["id"], 0)
+        r["affiliate_credits"] = float(r.get("affiliate_credits") or 0)
+    return {"items": rows, "reward_per_signup": AFFILIATE_REWARD_INR}
+
+
 @api.get("/super-admin/tenants")
 async def list_tenants(user=Depends(require_super_admin)):
     return await db.tenants.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)

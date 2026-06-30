@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
@@ -114,10 +114,17 @@ export default function SuperAdmin() {
             onClick={() => setTab("billing")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "billing" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           ><Receipt className="w-4 h-4" /> Billing & Subscriptions</button>
+          <button
+            data-testid="super-tab-leaderboard"
+            onClick={() => setTab("leaderboard")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "leaderboard" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><Trophy className="w-4 h-4" /> Top Referrers</button>
         </div>
 
         {tab === "billing" ? (
           <BillingPanel tenants={tenants} />
+        ) : tab === "leaderboard" ? (
+          <LeaderboardPanel />
         ) : (
           <>
         <div className="flex items-center justify-between">
@@ -264,3 +271,68 @@ export default function SuperAdmin() {
     </div>
   );
 }
+
+function LeaderboardPanel() {
+  const [data, setData] = useState({ items: [], reward_per_signup: 1000 });
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    api.get("/super-admin/affiliates/leaderboard")
+      .then(r => setData(r.data))
+      .catch(e => toast.error(e.response?.data?.detail || "Couldn't load leaderboard"))
+      .finally(() => setLoading(false));
+  }, []);
+  const items = data.items || [];
+  const medal = (i) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`;
+  return (
+    <div className="space-y-5" data-testid="leaderboard-panel">
+      <div>
+        <h1 className="font-playfair text-3xl flex items-center gap-3">
+          <Trophy className="w-7 h-7 text-amber-500" /> Top Referrers
+        </h1>
+        <p className="text-slate-500 text-sm mt-1">
+          Salons earning the most via the Refer-a-Salon program. Each verified signup credits ₹{Number(data.reward_per_signup).toLocaleString("en-IN")} to the referrer&apos;s renewal balance.
+        </p>
+      </div>
+      {loading ? (
+        <div className="text-slate-500 text-sm">Loading…</div>
+      ) : items.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center" data-testid="leaderboard-empty">
+          <Gift className="w-10 h-10 text-rose-400 mx-auto mb-3" />
+          <div className="text-slate-700 font-medium">No referrals yet</div>
+          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            Once your salons share their <span className="font-mono">?ref=</span> links and bring in new tenants, they&apos;ll appear here ranked by total credits earned.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Rank</th>
+                <th className="px-4 py-3 text-left font-medium">Salon</th>
+                <th className="px-4 py-3 text-right font-medium">Referrals</th>
+                <th className="px-4 py-3 text-right font-medium">Credit Earned</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((r, i) => (
+                <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/50" data-testid={`leaderboard-row-${r.slug}`}>
+                  <td className="px-4 py-3 text-2xl">{medal(i)}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-slate-800">{r.name}</div>
+                    <div className="text-xs text-slate-500 font-mono">{r.slug} · {r.owner_email}</div>
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-700">{r.referral_count}</td>
+                  <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                    ₹{Number(r.affiliate_credits || 0).toLocaleString("en-IN")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+

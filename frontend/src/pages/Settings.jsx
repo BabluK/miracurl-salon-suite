@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Receipt, Save, ShieldCheck, Info, Gift, Copy, Share2, Wallet } from "lucide-react";
+import { Receipt, Save, ShieldCheck, Info, Gift, Copy, Share2, Wallet, Star, Store } from "lucide-react";
 
 export default function Settings() {
   const [taxEnabled, setTaxEnabled] = useState(false);
@@ -11,22 +11,42 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [affiliate, setAffiliate] = useState(null);
+  const [branding, setBranding] = useState({ google_review_url: "", hours: "", phone: "", location: "", hero_image: "" });
+  const [savingBrand, setSavingBrand] = useState(false);
 
   useEffect(() => {
     Promise.all([
       api.get("/settings/tax"),
       api.get("/settings/affiliate").catch(() => ({ data: null })),
+      api.get("/settings/branding").catch(() => ({ data: null })),
     ])
-      .then(([taxRes, affRes]) => {
+      .then(([taxRes, affRes, brandRes]) => {
         setTaxEnabled(!!taxRes.data.tax_enabled);
         setGstNumber(taxRes.data.gst_number || "");
         setGstLegalName(taxRes.data.gst_legal_name || "");
         setTaxPct(Number(taxRes.data.tax_pct || 0));
         if (affRes.data) setAffiliate(affRes.data);
+        if (brandRes.data) setBranding({
+          google_review_url: brandRes.data.google_review_url || "",
+          hours: brandRes.data.hours || "",
+          phone: brandRes.data.phone || "",
+          location: brandRes.data.location || "",
+          hero_image: brandRes.data.hero_image || "",
+        });
       })
       .catch(e => toast.error(e.response?.data?.detail || "Couldn't load settings"))
       .finally(() => setLoading(false));
   }, []);
+
+  async function saveBranding() {
+    setSavingBrand(true);
+    try {
+      await api.put("/settings/branding", branding);
+      toast.success("Salon profile updated");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't save profile");
+    } finally { setSavingBrand(false); }
+  }
 
   async function save() {
     if (taxEnabled) {
@@ -54,6 +74,91 @@ export default function Settings() {
       <div className="max-w-3xl">
         <h1 className="text-2xl font-semibold text-slate-800">Salon Settings</h1>
         <p className="text-sm text-slate-500 mt-1">Configure how billing, tax and your business identity behave on invoices.</p>
+
+        {/* Salon Profile / Branding */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-branding-card">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center">
+              <Store className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-slate-800">Salon profile</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                These details show on your public booking page and review pages. Keep them up to date so customers find you easily.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+            <div className="md:col-span-2">
+              <label className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> Google review link
+              </label>
+              <input
+                data-testid="settings-google-review-url"
+                value={branding.google_review_url}
+                onChange={e => setBranding(b => ({ ...b, google_review_url: e.target.value }))}
+                placeholder="https://g.page/r/your-business/review"
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Get this from Google Business Profile → <i>Get more reviews</i> → copy short link. 4★+ customers will see a one-tap CTA to leave you a Google review.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 font-medium">Working hours</label>
+              <input
+                data-testid="settings-hours"
+                value={branding.hours}
+                onChange={e => setBranding(b => ({ ...b, hours: e.target.value }))}
+                placeholder="Mon–Sun · 10:00 AM – 9:00 PM"
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 font-medium">Phone</label>
+              <input
+                data-testid="settings-phone"
+                value={branding.phone}
+                onChange={e => setBranding(b => ({ ...b, phone: e.target.value }))}
+                placeholder="+91 98765 00000"
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs text-slate-500 font-medium">Location / Address</label>
+              <input
+                data-testid="settings-location"
+                value={branding.location}
+                onChange={e => setBranding(b => ({ ...b, location: e.target.value }))}
+                placeholder="Marathahalli, Bangalore"
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs text-slate-500 font-medium">Hero image URL</label>
+              <input
+                data-testid="settings-hero-image"
+                value={branding.hero_image}
+                onChange={e => setBranding(b => ({ ...b, hero_image: e.target.value }))}
+                placeholder="https://images.unsplash.com/photo-..."
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Shows at the top of your public booking page. Paste any Unsplash, your salon&apos;s Instagram image, or upload to imgur and use that URL.</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <button
+              data-testid="settings-save-branding-btn"
+              onClick={saveBranding}
+              disabled={savingBrand}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white font-semibold text-sm hover:from-violet-600 hover:to-fuchsia-600 shadow-sm disabled:opacity-60"
+            >
+              <Save className="w-4 h-4" /> {savingBrand ? "Saving…" : "Save profile"}
+            </button>
+          </div>
+        </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm">
           <div className="flex items-start gap-3">

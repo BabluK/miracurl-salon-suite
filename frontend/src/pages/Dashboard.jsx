@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send } from "lucide-react";
+import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
@@ -43,12 +43,14 @@ function Stat({ icon: Icon, label, value, hint, testid, color = "sky" }) {
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [blastOpen, setBlastOpen] = useState(false);
+  const [reminders, setReminders] = useState({ count: 0, items: [] });
   const { tenant } = useAuth();
 
   useEffect(() => {
     api.get("/reports/dashboard")
       .then(r => setData(r.data))
       .catch(e => toast.error(`Couldn't load dashboard: ${e?.message || "network error"}`));
+    api.get("/dashboard/reminders").then(r => setReminders(r.data)).catch(() => {});
   }, []);
 
   if (!data) return <div className="text-slate-500 p-4">Loading dashboard…</div>;
@@ -156,6 +158,8 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      <RemindersWidget reminders={reminders} setReminders={setReminders} salonName={tenant?.name} />
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -266,3 +270,79 @@ export default function Dashboard() {
     </div>
   );
 }
+
+function RemindersWidget({ reminders, setReminders, salonName }) {
+  const pending = (reminders.items || []).filter(i => !i.reminded);
+  if (pending.length === 0 && (reminders.count ?? 0) === 0) return null;
+
+  const sendOne = async (r) => {
+    const when = new Date(r.scheduled_at).toLocaleString("en-IN", {
+      weekday: "short", hour: "2-digit", minute: "2-digit",
+    });
+    const services = (r.service_names || []).join(", ") || "your visit";
+    const text = `Hi ${r.customer_name.split(" ")[0]} ✦ This is a friendly reminder from ${salonName || "Miracurl"} — your appointment for *${services}*${r.staff_name ? ` with ${r.staff_name}` : ""} is at *${when}*. Reply here if you need to reschedule. See you soon! 💇`;
+    const cleanPhone = String(r.customer_phone).replace(/\D/g, "");
+    const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    // Optimistically mark as sent locally + persist
+    setReminders(prev => ({
+      ...prev,
+      items: prev.items.map(i => i.appointment_id === r.appointment_id ? { ...i, reminded: true } : i),
+    }));
+    try { await api.post(`/dashboard/reminders/${r.appointment_id}/mark-sent`); }
+    catch (e) { toast.error("Couldn't update reminder status"); }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm" data-testid="reminders-widget">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <Bell className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Tomorrow&apos;s appointments</div>
+            <div className="text-lg font-semibold text-slate-800">Send WhatsApp reminders</div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-3xl font-semibold text-slate-800">{pending.length}</div>
+          <div className="text-[11px] text-slate-500 uppercase tracking-wider">to remind</div>
+        </div>
+      </div>
+      <p className="text-xs text-slate-500 mb-3">A one-tap personalised WhatsApp nudge reduces no-shows by ~30%. Tap Send next to each guest.</p>
+      {pending.length === 0 ? (
+        <div className="text-emerald-600 text-sm flex items-center gap-2 py-3" data-testid="reminders-empty">
+          <Check className="w-4 h-4" /> All sent for the next 24 hours.
+        </div>
+      ) : (
+        <ul className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+          {pending.map(r => {
+            const when = new Date(r.scheduled_at).toLocaleString("en-IN", {
+              weekday: "short", hour: "2-digit", minute: "2-digit",
+            });
+            return (
+              <li key={r.appointment_id} className="py-3 flex items-center gap-3" data-testid={`reminder-row-${r.appointment_id}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-slate-800 truncate">{r.customer_name} <span className="text-slate-400">·</span> <span className="font-mono text-xs text-slate-500">{r.customer_phone}</span></div>
+                  <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                    <Clock className="w-3 h-3" /> {when}
+                    {r.staff_name && <> <span className="text-slate-300">·</span> with {r.staff_name}</>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => sendOne(r)}
+                  data-testid={`reminder-send-${r.appointment_id}`}
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold"
+                >
+                  <Send className="w-3.5 h-3.5" /> WhatsApp
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
