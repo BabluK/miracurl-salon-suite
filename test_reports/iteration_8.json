@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 8 verified end-to-end. (1) WhatsApp share-button bug fix CONFIRMED: /book/miracurl-marathahalli success step → data-testid=share-whatsapp-btn href now = 'https://api.whatsapp.com/send?text=…' (NOT wa.me/). (2) POS rewrite CONFIRMED across the whole flow — light theme bg-slate-50, header tabs (services/products live, package/giftcard/membership disabled), 5 category buttons, invoice card with Guest dropdown + Add Guest + Stylist select, empty-state message, items table with Name/Qty/Price/Sub Total/Disc%/Tax/Total. Add-Guest inline modal POSTed /api/customers, modal auto-closed, new guest auto-selected and toast 'Added <name>' shown. Adding a service tile creates cart-line-0; ± qty controls work; per-line disc-pct=10 recomputes grand total live; payment 'Cash' selected; Create & Complete → POST /api/invoices succeeds → invoice-receipt modal opens → cart cleared. invoice-whatsapp-btn now invokes window.open with 'https://api.whatsapp.com/send?phone=…&text=…' (recipient + message). invoice-print-btn appends a hidden iframe (srcdoc). pos-guest-warning shows when cart populated but no guest, and clicking Create & Complete in that state DOES NOT call /api/invoices (verified via fetch counter). pos-clear-btn clears the cart. (3) Backend regression test_iter7_regression.py 17/17 still GREEN. (4) Login wrong-password → 'Invalid email or password' banner; admin → /dashboard; super-admin → /super-admin → Bulk Import modal: pasted 1 contact → Parsed=1 Added=1 Skipped=0 with referral code XXE07A; toast 'Imported 1 new · skipped 0'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "POS — <select> options for pos-customer-select", "issues": ["Dev-mode React hydration warning '<span> cannot be a child of <option>'. Caused by the Emergent dev overlay (x-excluded span injected into each <option>), NOT by POS.jsx itself. Cosmetic in preview only; production build strips the overlay."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter7_regression.py",
+    "/app/test_reports/pytest/iter8_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "[VERIFIED CLEAN] /app/frontend/src/lib/share.js: shareText() prefers navigator.share (handles AbortError) then falls back to openWhatsApp; openWhatsApp uses api.whatsapp.com/send (with optional phone= prefix); window.open with noopener,noreferrer; pop-up-blocked toast on null window — solid.",
+    "[VERIFIED CLEAN] POS.jsx: AddGuestModal + InvoiceReceiptModal extracted as siblings; printInvoice uses iframe.srcdoc (XSS-safe via escapeHtml) and removes the iframe after 1s; checkout() guards both empty cart and missing customerId with toast.error; pos-guest-warning surfaced separately for visual hint.",
+    "[NICE-TO-HAVE] POS.jsx checkout(): `discount` state is added to totalDiscount but no UI control exposes the top-level discount input in the new Respark layout (per-line disc-pct only). Either remove the unused `discount` state or expose it. Not a bug — just dead UI surface today.",
+    "[NICE-TO-HAVE] POS.jsx loadCustomers's first-call useEffect doesn't surface API errors (silent .then). Add .catch with toast for resilience.",
+    "[CONFIRMED OK] BookPublic.steps.jsx SuccessStep: href is api.whatsapp.com/send + onClick wraps shareText() (Web Share API path) and preventDefault when the API initiated successfully — keeps mobile share-sheet UX while degrading gracefully to WhatsApp on desktop."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (17/17 iter7 regression still passes on iter8 build)", "frontend": "100% on iter8 critical flows (POS new layout end-to-end, Add Guest inline modal, invoice WhatsApp regression, /book success share button, login wrong-password, super-admin bulk import smoke)"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 ; super@miracurl.com / Super@Miracurl123",
+  "seed_data_creation": "1 customer via Add-Guest inline modal (TEST_Guest_<ts>) in miracurl-marathahalli; 1 invoice (INV-202606-0017) via POS Create&Complete; 1 booked appointment via /book success-flow walkthrough; 1 customer (PlaywrightShare Iter8) via Super-Admin bulk import in 'Suspend Test' tenant. All TEST_ prefixed where possible.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter8 = POS visual rewrite (Respark light theme) + WhatsApp share util refactor (/app/frontend/src/lib/share.js). Backend untouched, so /app/backend/tests/test_iter7_regression.py keeps passing — keep using it as the backend smoke. The only React-dev-mode warning observed is the Emergent overlay injecting <span> children into <option>; harmless in prod. New POS testids worth knowing: pos-page, pos-search, pos-tab-{services,products,package,giftcard,membership}, pos-category-{slug}, pos-item-{id}, pos-customer-select, pos-add-guest-btn, pos-staff-select, pos-guest-warning, cart-line-{i}, cart-line-disc-{i}, cart-line-remove-{i}, pos-order-notes, pos-pay-{cash,card,upi,wallet}, pos-clear-btn, pos-create-btn, pos-create-complete-btn, add-guest-{modal,name,phone,email,save-btn,close-btn}, invoice-receipt, invoice-print-btn, invoice-whatsapp-btn, invoice-close-btn. Public booking share btn unchanged testid: share-whatsapp-btn (href must contain 'api.whatsapp.com/send').",
+  "rca of the issue": "Original bug: wa.me/?text=… without a recipient is silently ignored on iOS Safari and most Android in-app browsers (WhatsApp expects either a phone or to be opened from the contact picker). Fix: switched to api.whatsapp.com/send, which Whatsapp Web/Android handles via its picker fallback. Validated: (a) /book success href = 'https://api.whatsapp.com/send?text=…I%20just%20booked…'; (b) POS invoice share opens 'https://api.whatsapp.com/send?phone=99999810054&text=…'. No further action."
+}

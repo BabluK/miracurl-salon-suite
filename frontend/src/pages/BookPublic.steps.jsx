@@ -3,6 +3,7 @@
 // Each component is a pure presentational unit driven by props.
 import { Check, IndianRupee, Clock, Sparkles, User, Phone, Mail, Gift, Star, Copy, Share2 } from "lucide-react";
 import { toast } from "sonner";
+import { shareText as shareTextLib } from "@/lib/share";
 
 export const TIME_SLOTS = [
   "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
@@ -290,6 +291,7 @@ export function SuccessStep({ confirmation, onBookAnother }) {
   if (!confirmation) return null;
   const code = confirmation.summary.customer_referral_code;
   const shareText = `I just booked at Miracurl ✦ — try them out! Use my referral code ${code} and get ₹100 off. Book here: ${window.location.origin}/book`;
+  const onShareReferral = (payload) => shareTextLib(payload);
   return (
     <section className="max-w-2xl mx-auto text-center animate-fade-up py-10" data-testid="book-success">
       <div className="w-20 h-20 mx-auto rounded-full bg-gold flex items-center justify-center shadow-gold-glow mb-6">
@@ -340,10 +342,20 @@ export function SuccessStep({ confirmation, onBookAnother }) {
           ><Copy className="w-3 h-3" /> Copy</button>
           <a
             data-testid="share-whatsapp-btn"
-            href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
-            target="_blank" rel="noreferrer"
+            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`}
+            target="_blank" rel="noopener noreferrer"
+            onClick={(e) => {
+              // Prefer native share sheet on mobile; the href is a robust fallback.
+              if (typeof navigator !== "undefined" && navigator.share) {
+                e.preventDefault();
+                onShareReferral({
+                  title: "Miracurl ✦ — ₹100 off",
+                  text: shareText,
+                });
+              }
+            }}
             className="btn-gold text-xs px-3 py-2 flex items-center gap-1"
-          ><Share2 className="w-3 h-3" /> WhatsApp</a>
+          ><Share2 className="w-3 h-3" /> Share</a>
         </div>
       </div>
 
