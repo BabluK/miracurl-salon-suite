@@ -35,6 +35,7 @@
 | 4b | Rate-Your-Visit ⭐ — public `/review/{token}`, ₹50 reward for 4★+, admin Reviews moderation page, Dashboard rating widget, featured reviews on `/book`, send-review buttons on Appointments+POS |
 | 4c | Google Review link CTA on `/review` success (4★+) + `/book` footer |
 | **5** | **Multi-tenant SaaS conversion** ✦ |
+| **6** | **P0 security/code-quality hardening (Feb 2026)** — XSS fix in POS print (window.open + document.write → hidden iframe with srcdoc + HTML-escaped dynamic values), removed orphaned dead-code body + duplicate `backfill_tenant_ids` in server.py, stable-key fix in BookPublic featured reviews (idx → r.id). Razorpay subscription billing **deferred** — no API keys provided yet. |
 
 ## Iteration 5 — Multi-tenant SaaS
 - ✅ **`Tenant` model** with slug, name, owner_email, plan (starter/pro/enterprise), status (trial/active/suspended/cancelled), trial_ends_at, razorpay_subscription_id (placeholder).
