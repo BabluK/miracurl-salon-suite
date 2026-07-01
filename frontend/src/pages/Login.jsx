@@ -30,7 +30,7 @@ export default function Login() {
       return;
     }
     setBusy(false);
-    if (res.ok) { toast.success("Welcome back to Miracurl"); nav("/dashboard"); }
+    if (res.ok) { toast.success("Welcome back ✦"); nav("/dashboard"); }
     else setErr(res.error || "Authentication failed");
   }
 

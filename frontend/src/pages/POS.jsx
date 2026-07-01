@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { Search, X, Plus, UserPlus, IndianRupee, Receipt, Printer, Star, Share2, Calendar, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { openWhatsApp } from "@/lib/share";
+import { useAuth } from "@/context/AuthContext";
 
 const PAYMENT_MODES = [
   { k: "cash", label: "Cash" },
@@ -25,7 +26,9 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-function buildReceiptHtml(inv) {
+function buildReceiptHtml(inv, tenant) {
+  const brandName = tenant?.name || "Your Salon";
+  const brandLoc = tenant?.location || "";
   const itemsHtml = inv.items.map(it => {
     const sub = (it.qty * it.price).toFixed(2);
     const staffLine = it.staff_name
@@ -45,8 +48,8 @@ function buildReceiptHtml(inv) {
   .total{font-family:Georgia,serif;font-size:18px;font-weight:700;border-top:2px solid #000;padding-top:6px;margin-top:6px}
   .foot{text-align:center;font-size:10px;color:#888;margin-top:20px}
 </style></head><body>
-<h1>Miracurl ✦</h1>
-<div class="sub">Unisex Family Salon · Marathahalli<br/>${escapeHtml(new Date(inv.created_at).toLocaleString())}</div>
+<h1>${escapeHtml(brandName)} ✦</h1>
+<div class="sub">${escapeHtml(brandLoc)}${brandLoc ? "<br/>" : ""}${escapeHtml(new Date(inv.created_at).toLocaleString())}</div>
 <div class="row"><b>Invoice #</b><span>${escapeHtml(inv.invoice_no)}</span></div>
 <div class="row"><b>Customer</b><span>${escapeHtml(inv.customer_name)}</span></div>
 ${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${escapeHtml(inv.staff_name)}</span></div>` : ""}
@@ -56,15 +59,15 @@ ${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${escapeHtml(inv.staff_
 <div class="row"><span>Discount</span><span>−₹${inv.discount.toFixed(2)}</span></div>
 ${showTax ? `<div class="row"><span>Tax</span><span>₹${inv.tax.toFixed(2)}</span></div>` : ""}
 <div class="row total"><span>Total</span><span>₹${inv.total.toFixed(2)}</span></div>
-<div class="foot">Thank you for visiting Miracurl ✦</div>
+<div class="foot">Thank you for visiting ${escapeHtml(brandName)} ✦</div>
 </body></html>`;
 }
 
-function printInvoice(inv) {
+function printInvoice(inv, tenant) {
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
   iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-  iframe.srcdoc = buildReceiptHtml(inv);
+  iframe.srcdoc = buildReceiptHtml(inv, tenant);
   iframe.onload = () => {
     try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
     catch { toast.error("Unable to open print dialog"); }
@@ -74,6 +77,7 @@ function printInvoice(inv) {
 }
 
 export default function POS() {
+  const { tenant } = useAuth();
   const [mode, setMode] = useState("services"); // services | products
   const [services, setServices] = useState([]);
   const [products, setProducts] = useState([]);
@@ -221,6 +225,7 @@ export default function POS() {
   }
 
   function shareInvoiceWhatsApp(inv) {
+    const brandName = tenant?.name || "Your Salon";
     const cust = customers.find(c => c.id === inv.customer_id);
     const phone = cust?.phone?.replace(/\D/g, "") || "";
     const itemLines = inv.items.map(it => {
@@ -228,7 +233,7 @@ export default function POS() {
       return `• ${it.name} × ${it.qty}${staffPart} — ₹${(it.qty * it.price).toFixed(0)}`;
     }).join("\n");
     const msg = [
-      `*Miracurl ✦* Receipt`,
+      `*${brandName} ✦* Receipt`,
       `Invoice ${inv.invoice_no}`,
       `Customer: ${inv.customer_name}`,
       inv.staff_name ? `Stylist: ${inv.staff_name}` : "",
@@ -241,7 +246,7 @@ export default function POS() {
       `*Total: ₹${inv.total.toFixed(0)}*`,
       `Paid via ${inv.payment_mode.toUpperCase()}`,
       "",
-      "Thank you for visiting Miracurl ✦",
+      `Thank you for visiting ${brandName} ✦`,
     ].filter(Boolean).join("\n");
     openWhatsApp(msg, phone);
   }
@@ -582,8 +587,9 @@ export default function POS() {
       {lastInvoice && (
         <InvoiceReceiptModal
           invoice={lastInvoice}
+          tenant={tenant}
           onClose={() => setLastInvoice(null)}
-          onPrint={() => printInvoice(lastInvoice)}
+          onPrint={() => printInvoice(lastInvoice, tenant)}
           onShare={() => shareInvoiceWhatsApp(lastInvoice)}
         />
       )}
@@ -650,13 +656,15 @@ function AddGuestModal({ onClose, onCreated }) {
   );
 }
 
-function InvoiceReceiptModal({ invoice, onClose, onPrint, onShare }) {
+function InvoiceReceiptModal({ invoice, tenant, onClose, onPrint, onShare }) {
+  const brandName = tenant?.name || "Your Salon";
+  const brandLoc = tenant?.location || "";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()} data-testid="invoice-receipt">
         <div className="text-center pb-4 border-b border-slate-100">
-          <h3 className="text-2xl font-playfair text-sky-600">Miracurl ✦</h3>
-          <p className="text-xs text-slate-500">Unisex Family Salon, Marathahalli</p>
+          <h3 className="text-2xl font-playfair text-sky-600" data-testid="receipt-brand">{brandName} ✦</h3>
+          {brandLoc && <p className="text-xs text-slate-500">{brandLoc}</p>}
           <p className="text-[10px] text-slate-400 mt-1">{new Date(invoice.created_at).toLocaleString()}</p>
         </div>
         <div className="py-4 space-y-2 text-sm">

@@ -31,7 +31,7 @@ export default function Staff() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-playfair text-3xl">Team Management</h1>
-          <p className="text-slate-500 text-sm mt-1">Your stylists, therapists and the talents that make Miracurl shine.</p>
+          <p className="text-slate-500 text-sm mt-1">Your stylists, therapists and the talents that make your salon shine.</p>
         </div>
         <button data-testid="add-staff-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
           <Plus className="w-4 h-4" /> Add Staff

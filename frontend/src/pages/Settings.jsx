@@ -237,7 +237,7 @@ export default function Settings() {
                 data-testid="settings-gst-legal-name"
                 value={gstLegalName}
                 onChange={e => setGstLegalName(e.target.value)}
-                placeholder="Miracurl Salon Pvt Ltd"
+                placeholder="Your Salon Pvt Ltd"
                 className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
               />
             </div>

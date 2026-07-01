@@ -944,6 +944,15 @@ async def public_review_info(token: str):
         # Allow rating even if appointment isn't marked complete (some salons forget to mark)
         pass
     existing = await db.reviews.find_one({"appointment_id": token}, {"_id": 0})
+    # Enrich with tenant branding so the public review page can white-label
+    # correctly for each salon (Miracurl vs Elegance vs any future tenant).
+    salon_name = None
+    salon_location = None
+    if appt.get("tenant_id"):
+        t = await _raw_db.tenants.find_one({"id": appt["tenant_id"]}, {"_id": 0, "name": 1, "location": 1})
+        if t:
+            salon_name = t.get("name")
+            salon_location = t.get("location")
     return {
         "customer_name": appt["customer_name"],
         "staff_name": appt.get("staff_name"),
@@ -951,6 +960,8 @@ async def public_review_info(token: str):
         "scheduled_at": appt["scheduled_at"],
         "already_submitted": existing is not None,
         "existing_rating": existing.get("rating") if existing else None,
+        "salon_name": salon_name,
+        "salon_location": salon_location,
     }
 
 @api.post("/public/review/{token}")

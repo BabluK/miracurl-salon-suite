@@ -46,7 +46,7 @@ export default function Dashboard() {
   const [blastOpen, setBlastOpen] = useState(false);
   const [reminders, setReminders] = useState({ count: 0, items: [] });
   const [subStatus, setSubStatus] = useState(null);
-  const { tenant } = useAuth();
+  const { tenant, user } = useAuth();
 
   useEffect(() => {
     api.get("/reports/dashboard")
@@ -81,7 +81,7 @@ export default function Dashboard() {
     <div className="bg-slate-50 -mx-6 -my-6 px-6 py-6 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
 
       <RenewalBanner sub={subStatus} />
-      <DailyReportBanner ownerName={tenant?.name} />
+      <DailyReportBanner ownerName={user?.name} />
 
       {/* Hero strip with booking link */}
       <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl p-6 text-white relative overflow-hidden">
@@ -90,7 +90,7 @@ export default function Dashboard() {
         <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
           <div>
             <div className="text-xs uppercase tracking-[0.25em] text-white/80 font-medium">Today&apos;s Snapshot</div>
-            <h1 className="text-3xl sm:text-4xl font-semibold mt-2 tracking-tight">Welcome back to Miracurl ✦</h1>
+            <h1 className="text-3xl sm:text-4xl font-semibold mt-2 tracking-tight" data-testid="dashboard-welcome-heading">Welcome back to {tenant?.name || "your salon"} ✦</h1>
             <p className="text-white/85 mt-2 max-w-lg text-sm">A polished glance at appointments, revenue and inventory — everything you need at a glance.</p>
           </div>
           <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-xl p-4 max-w-md w-full" data-testid="booking-link-widget">
@@ -286,7 +286,7 @@ function RemindersWidget({ reminders, setReminders, salonName }) {
       weekday: "short", hour: "2-digit", minute: "2-digit",
     });
     const services = (r.service_names || []).join(", ") || "your visit";
-    const text = `Hi ${r.customer_name.split(" ")[0]} ✦ This is a friendly reminder from ${salonName || "Miracurl"} — your appointment for *${services}*${r.staff_name ? ` with ${r.staff_name}` : ""} is at *${when}*. Reply here if you need to reschedule. See you soon! 💇`;
+    const text = `Hi ${r.customer_name.split(" ")[0]} ✦ This is a friendly reminder from ${salonName || "your salon"} — your appointment for *${services}*${r.staff_name ? ` with ${r.staff_name}` : ""} is at *${when}*. Reply here if you need to reschedule. See you soon! 💇`;
     const cleanPhone = String(r.customer_phone).replace(/\D/g, "");
     const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
     window.open(url, "_blank", "noopener,noreferrer");

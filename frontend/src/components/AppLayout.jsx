@@ -75,9 +75,9 @@ export default function AppLayout() {
         <header className="sticky top-0 z-40 h-16 px-8 flex items-center justify-between bg-[#0A0A0A]/80 backdrop-blur-xl border-b border-white/5">
           <div className="flex items-center gap-3">
             <div>
-              <div className="font-playfair text-lg leading-none">{current?.label || "Miracurl"}</div>
+              <div className="font-playfair text-lg leading-none">{current?.label || tenant?.name || "Dashboard"}</div>
               <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mt-1">
-                {tenant?.name || "Miracurl Salon"}{tenant?.location ? ` • ${tenant.location}` : ""}
+                {tenant?.name || "Your Salon"}{tenant?.location ? ` • ${tenant.location}` : ""}
               </div>
             </div>
           </div>

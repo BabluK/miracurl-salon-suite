@@ -48,7 +48,10 @@ export default function ReviewPublic() {
     } finally { setBusy(false); }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-bg-base text-gold font-playfair text-2xl animate-pulse">Miracurl</div>;
+  const brandName = info?.salon_name || salon?.name || "Our Salon";
+  const brandLoc = info?.salon_location || salon?.location || "";
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-bg-base text-gold font-playfair text-2xl animate-pulse">Loading…</div>;
   if (error) return (
     <div className="min-h-screen flex items-center justify-center bg-bg-base p-6">
       <div className="card-luxe max-w-md text-center">
@@ -69,7 +72,7 @@ export default function ReviewPublic() {
             <Scissors className="w-5 h-5 text-bg-base" />
           </div>
           <div>
-            <div className="font-playfair text-xl">Miracurl</div>
+            <div className="font-playfair text-xl" data-testid="review-brand">{brandName}</div>
             <div className="text-[10px] tracking-[0.25em] uppercase text-gold">Rate Your Visit</div>
           </div>
         </div>
@@ -187,7 +190,7 @@ export default function ReviewPublic() {
                   ><Copy className="w-3 h-3" /> Copy</button>
                 </div>
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`Just had a ${submitted.review.rating}★ experience at Miracurl ✦ Try them! Use code ${submitted.reward.code} for ₹50 off. Book: ${window.location.origin}/book`)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(`Just had a ${submitted.review.rating}★ experience at ${brandName} ✦ Try them! Use code ${submitted.reward.code} for ₹50 off. Book: ${window.location.origin}/book`)}`}
                   target="_blank" rel="noreferrer"
                   className="btn-gold w-full mt-3 flex items-center justify-center gap-2 text-xs"
                   data-testid="review-share-whatsapp"
@@ -231,7 +234,7 @@ export default function ReviewPublic() {
       </main>
 
       <footer className="border-t border-white/5 py-6 text-center text-xs text-ink-muted">
-        © Miracurl · Crafted with care in Marathahalli
+        © {brandName}{brandLoc ? ` · ${brandLoc}` : ""}
       </footer>
     </div>
   );

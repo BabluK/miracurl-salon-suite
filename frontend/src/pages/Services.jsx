@@ -38,7 +38,7 @@ export default function Services() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-playfair text-3xl">Service Menu</h1>
-          <p className="text-slate-500 text-sm mt-1">Curate what Miracurl offers your guests.</p>
+          <p className="text-slate-500 text-sm mt-1">Curate what your salon offers your guests.</p>
         </div>
         <button data-testid="add-service-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
           <Plus className="w-4 h-4" /> Add Service

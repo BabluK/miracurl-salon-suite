@@ -1,0 +1,60 @@
+{
+  "summary": "Tested iter28 white-label branding fixes. Backend enrichment of /api/public/review-info with salon_name+salon_location works perfectly for both tenants (4/4 pytest pass). Frontend: Dashboard heading, login toast, AppLayout header, POS receipt brand, and public review page (/review/:id) header + footer all correctly reflect the tenant name. ONE CRITICAL BUG FOUND: Appointments → Send Review Link WhatsApp text is STILL hardcoded to 'Miracurl' (Appointments.jsx line 102) — Elegance tenant sends 'Thank you for visiting Miracurl today' which leaks the parent brand. Bug confirmed via E2E interception of window.open.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Appointments.jsx sendReviewLink()",
+        "issue": "WhatsApp review-link message hardcodes 'Miracurl' instead of tenant.name. Elegance owner clicking Send Review Link produces: 'Hi <name> ✦ Thank you for visiting Miracurl today!'. tenant is already destructured from useAuth() at line 30 but never used in this function. Fix: replace 'Miracurl' on line 102 with ${tenant?.name || 'us'}.",
+        "selector": "[data-testid^='send-review-']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter28_whitelabel.py",
+    "/app/test_reports/pytest/iter28_whitelabel.xml"
+  ],
+  "action_items": [
+    "Fix Appointments.jsx line 102: change hardcoded 'Miracurl' to `${tenant?.name || 'us'}` inside the sendReviewLink msg template. tenant is already available via useAuth() at line 30."
+  ],
+  "critical_code_review_comments": [
+    "Appointments.jsx line 102 is the only remaining hardcoded 'Miracurl' leak in customer-facing salon UI — a copy-paste oversight; the fix is trivial (2-char change).",
+    "AppLayout sidebar shows 'MIRACURL / Salon Suite' logo for both tenants — this appears intentional (parent SaaS brand per review request 'other_misc_info') but worth double-checking with product: when a salon is fully white-labelled on custom domain, some owners may want their OWN logo in the sidebar too. Not this iteration's scope.",
+    "server.py still at 2720 lines — carried over from iter27, should be split into routers."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter28_whitelabel.py (new pytest — 4 tests, all passing)"
+  ],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "90% (9/10 branding checks — send-review-link fails)"},
+  "test_credentials": "admin@miracurl.com/Miracurl@123 and owner@elegance.com/Owner@123 — both worked",
+  "seed_data_creation": "Created TEST_Service, TEST_Stylist, TEST_WhiteLabel customer, and one completed appointment under the Elegance tenant to enable send-review-link testing. These have TEST_ prefixes for easy cleanup.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend review-info enrichment verified via /app/backend/tests/test_iter28_whitelabel.py — parametrized over both tenants, both return correct salon_name+salon_location. Frontend confirmed via Playwright: Dashboard heading uses tenant.name correctly ('Welcome back to Miracurl Unisex Family Salon ✦' and 'Welcome back to Elegance Beauty Lounge ✦'); login toast is generic 'Welcome back ✦'; AppLayout header subtitle shows tenant.name+location; public /review/:id page shows correct salon_name in review-brand testid AND footer '© Elegance Beauty Lounge · Koramangala, Bangalore'. Only failure: Appointments sendReviewLink line 102 hardcoded 'Miracurl'. After main agent fixes that one line, this whole iteration is green — no need to retest anything else.",
+  "detailed_test_results": {
+    "backend": {
+      "review_info_returns_salon_name_and_location[miracurl]": "PASS — salon_name='Miracurl Unisex Family Salon'",
+      "review_info_returns_salon_name_and_location[elegance]": "PASS — salon_name='Elegance Beauty Lounge', salon_location='Koramangala, Bangalore'",
+      "review_info_invalid_token_returns_404": "PASS",
+      "review_info_response_shape_stable": "PASS — all 8 keys present, backward compatible"
+    },
+    "frontend": {
+      "miracurl_dashboard_heading": "PASS — 'Welcome back to Miracurl Unisex Family Salon ✦'",
+      "elegance_dashboard_heading": "PASS — 'Welcome back to Elegance Beauty Lounge ✦'",
+      "miracurl_login_toast": "PASS — 'Welcome back ✦' (generic)",
+      "elegance_login_toast": "PASS — 'Welcome back ✦' (generic)",
+      "applayout_tenant_header": "PASS — Elegance shows 'ELEGANCE BEAUTY LOUNGE · KORAMANGALA, BANGALORE' in top header",
+      "public_review_brand_elegance": "PASS — data-testid=review-brand reads 'Elegance Beauty Lounge'",
+      "public_review_footer_elegance": "PASS — visible '© Elegance Beauty Lounge · Koramangala, Bangalore'",
+      "send_review_link_elegance": "FAIL — WhatsApp URL text says 'Thank you for visiting Miracurl today' instead of 'Elegance Beauty Lounge today'. Bug in Appointments.jsx line 102.",
+      "pos_receipt_brand_source_review": "PASS via source: POS.jsx buildReceiptHtml/printInvoice/shareInvoiceWhatsApp/InvoiceReceiptModal all use tenant.name (verified via grep, not manually completing bill to avoid billing side-effects)"
+    }
+  },
+  "rca of the issue": "sendReviewLink() in /app/frontend/src/pages/Appointments.jsx destructures {tenant} from useAuth() at line 30 (so main agent clearly intended to use it), but line 102's template literal hardcodes 'Miracurl' instead of ${tenant?.name}. Fix: change 'visiting Miracurl today' to `visiting ${tenant?.name || 'us'} today`. Reproduction: login as owner@elegance.com → Appointments → click send-review-link icon on a completed appointment → observe window.open URL contains 'Miracurl'."
+}

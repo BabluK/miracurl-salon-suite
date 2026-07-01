@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
 import { Plus, X, Calendar as CalendarIcon, Check, XCircle, Clock, List as ListIcon, LayoutGrid, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
 
 const STATUS_COLOR = {
   scheduled: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -26,6 +27,7 @@ function startOfWeek(iso) {
 }
 
 export default function Appointments() {
+  const { tenant } = useAuth();
   const [list, setList] = useState([]);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [view, setView] = useState("list"); // list | week
