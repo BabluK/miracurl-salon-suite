@@ -5,6 +5,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import re
+import json
 import uuid
 import hmac
 import hashlib
@@ -2137,7 +2138,19 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
 
 @api.post("/billing/razorpay/webhook")
 async def rzp_webhook(request: Request):
-    """Optional: Razorpay-initiated status callbacks. Requires RAZORPAY_WEBHOOK_SECRET to be set."""
+    """Razorpay-initiated status callbacks. Verifies the HMAC-SHA256 signature
+    against RAZORPAY_WEBHOOK_SECRET, then reacts to key events.
+
+    Events handled:
+      - payment.failed  → mark matching subscription_payment as `failed`
+      - refund.created / refund.processed → mark subscription as `refunded`
+                          and revoke the tenant's active plan
+      - order.paid, payment.captured → info-only (main verify endpoint already
+                          records these when the user completes the checkout flow)
+
+    All events are archived to the `razorpay_webhook_events` collection so
+    finance/audit can replay them later.
+    """
     if not RAZORPAY_WEBHOOK_SECRET:
         # Webhook not configured — no-op (returning 200 avoids repeated retries)
         return {"skipped": True}
@@ -2146,9 +2159,54 @@ async def rzp_webhook(request: Request):
     expected = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, sig):
         raise HTTPException(400, "Invalid webhook signature")
-    # For now just log the event — the /verify endpoint already records the sub.
-    logging.getLogger("razorpay").info("Razorpay webhook received: %s", payload[:400])
-    return {"ok": True}
+
+    try:
+        event = json.loads(payload.decode("utf-8"))
+    except json.JSONDecodeError:
+        raise HTTPException(400, "Invalid JSON payload") from None
+
+    event_type = event.get("event", "unknown")
+    logger = logging.getLogger("razorpay")
+    logger.info("Razorpay webhook: %s", event_type)
+
+    # Archive every event — handy for finance reconciliation and dispute defence.
+    await _raw_db.razorpay_webhook_events.insert_one({
+        "id": str(uuid.uuid4()),
+        "event_type": event_type,
+        "payload": event,
+        "received_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    payment = (event.get("payload") or {}).get("payment", {}).get("entity", {})
+    refund = (event.get("payload") or {}).get("refund", {}).get("entity", {})
+    order_id = payment.get("order_id") or refund.get("order_id")
+
+    if event_type == "payment.failed" and order_id:
+        await db.subscription_payments.update_one(
+            {"razorpay_order_id": order_id},
+            {"$set": {"status": "failed", "failed_at": datetime.now(timezone.utc).isoformat(),
+                      "failure_reason": payment.get("error_description", "")}},
+        )
+        logger.warning("Payment failed for order %s: %s", order_id, payment.get("error_description"))
+
+    elif event_type in ("refund.created", "refund.processed") and order_id:
+        pay = await db.subscription_payments.find_one({"razorpay_order_id": order_id})
+        if pay:
+            tenant_id = pay.get("tenant_id")
+            await db.subscription_payments.update_one(
+                {"razorpay_order_id": order_id},
+                {"$set": {"status": "refunded", "refunded_at": datetime.now(timezone.utc).isoformat(),
+                          "refund_amount_inr": (refund.get("amount") or 0) / 100.0}},
+            )
+            # Revoke the tenant's active plan so they can't keep using paid features on a refunded sub.
+            if tenant_id:
+                await _raw_db.tenants.update_one(
+                    {"id": tenant_id},
+                    {"$set": {"status": "trial", "subscription_end_date": None}},
+                )
+                logger.warning("Refunded subscription for tenant %s (order %s)", tenant_id, order_id)
+
+    return {"ok": True, "event": event_type}
 
 
 # ---------------- Renewal reminders ----------------

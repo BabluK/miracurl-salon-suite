@@ -59,7 +59,7 @@ export default function Settings() {
           whatsapp_number: data.whatsapp_number ?? b.whatsapp_number,
         }));
       }
-      toast.success("Salon profile updated");
+      toast.success(`Salon profile updated ✦${data?.phone ? `  📞 ${data.phone}` : ""}${data?.whatsapp_number ? `  💬 ${data.whatsapp_number}` : ""}`);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't save profile");
     } finally { setSavingBrand(false); }
