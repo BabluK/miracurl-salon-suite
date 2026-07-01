@@ -152,8 +152,8 @@ export default function Appointments() {
       </div>
 
       {view === "list" && (
-        <div className="card-light p-0 overflow-hidden">
-          <table className="luxe-table-light">
+        <div className="card-light p-0 overflow-x-auto">
+          <table className="luxe-table-light min-w-[760px]">
             <thead><tr><th>Time</th><th>Customer</th><th>Services</th><th>Stylist</th><th>Total</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {list.map(a => (

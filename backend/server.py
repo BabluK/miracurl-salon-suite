@@ -5,6 +5,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import re
+import io
 import json
 import uuid
 import hmac
@@ -18,6 +19,7 @@ from typing import List, Optional
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Header
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, field_validator
 import requests
@@ -102,6 +104,7 @@ class _DB:
     appointments = TenantCollection(_raw_db.appointments)
     invoices = TenantCollection(_raw_db.invoices)
     reviews = TenantCollection(_raw_db.reviews)
+    attendance = TenantCollection(_raw_db.attendance)
 
 db = _DB()
 
@@ -267,6 +270,8 @@ async def get_current_user(request: Request) -> dict:
         )
     if user.get("status") == "pending":
         raise HTTPException(403, "Account pending admin approval.")
+    if user.get("disabled"):
+        raise HTTPException(403, "Your account has been disabled by the salon admin.")
     await _apply_tenant_context(request, user)
     return user
 
@@ -456,6 +461,10 @@ class Staff(BaseModel):
     active: bool = True
     image_url: Optional[str] = None
     joining_date: str = Field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
+    # Salary & payroll
+    monthly_base_salary: float = 0.0     # ₹ fixed monthly component
+    salary_visible: bool = True          # if False, staff cannot see own salary details
+    user_id: Optional[str] = None        # link to users collection (login credential)
 
 class StaffIn(BaseModel):
     name: str
@@ -466,6 +475,8 @@ class StaffIn(BaseModel):
     commission_pct: float = 10.0
     active: bool = True
     image_url: Optional[str] = None
+    monthly_base_salary: float = 0.0
+    salary_visible: bool = True
 
 class Product(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -775,6 +786,10 @@ async def login(body: LoginIn, request: Request, response: Response):
             upsert=True,
         )
         raise HTTPException(401, "Invalid email or password")
+    # SEC / access control: admin can disable a staff account without deleting it.
+    # A disabled user MUST NOT get a token, even if the password is correct.
+    if user.get("disabled"):
+        raise HTTPException(403, "Your account has been disabled by the salon admin. Please contact them.")
     await db.login_attempts.delete_one({"identifier": ident})
     access = make_access(user["id"], email)
     refresh = make_refresh(user["id"])
@@ -986,8 +1001,389 @@ async def update_staff(sid: str, body: StaffIn, user=Depends(get_current_user)):
 
 @api.delete("/staff/{sid}")
 async def delete_staff(sid: str, user=Depends(require_admin)):
+    # If the staff has a linked user (login credential), also delete the login
+    # so the deleted staff cannot access the salon.
+    s = await db.staff.find_one({"id": sid}, {"_id": 0, "user_id": 1})
+    if s and s.get("user_id"):
+        await db.users.delete_one({"id": s["user_id"]})
     await db.staff.delete_one({"id": sid})
     return {"ok": True}
+
+
+# ============== Staff Portal (login, attendance, salary slip) ==============
+
+class StaffLoginCreateIn(BaseModel):
+    email: EmailStr
+
+
+def _generate_temp_password() -> str:
+    """Memorable temp password: two random words + 3 digits, e.g. Bright-Silk-472."""
+    _words = ["Rose", "Silk", "Gold", "Ivory", "Coral", "Bright", "Velvet",
+              "Amber", "Pearl", "Onyx", "Blush", "Willow", "Ember", "Frost"]
+    return f"{secrets.choice(_words)}-{secrets.choice(_words)}-{secrets.randbelow(900) + 100}"
+
+
+@api.post("/staff/{sid}/create-login")
+async def create_staff_login(
+    sid: str, body: StaffLoginCreateIn,
+    admin=Depends(require_tenant_admin), t=Depends(current_tenant),
+):
+    """Create a login credential for a staff member. Returns a one-time temp
+    password to share with the staff — they'll be forced to change it on first
+    login (must_change_password=True)."""
+    s = await db.staff.find_one({"id": sid}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Staff member not found")
+    if s.get("user_id"):
+        raise HTTPException(400, "This staff already has a login")
+    email = body.email.lower().strip()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(400, "Email already registered")
+    temp_pw = _generate_temp_password()
+    new_user = {
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "name": s.get("name") or "Staff",
+        "role": "staff",
+        "tenant_id": t["id"],
+        "status": "active",
+        "disabled": False,
+        "password_hash": hash_pw(temp_pw),
+        "must_change_password": True,
+        "staff_id": sid,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(new_user)
+    await db.staff.update_one({"id": sid}, {"$set": {"user_id": new_user["id"], "email": email}})
+    return {
+        "ok": True,
+        "email": email,
+        "temp_password": temp_pw,
+        "must_change_password": True,
+    }
+
+
+@api.post("/staff/{sid}/toggle-active")
+async def toggle_staff_active(sid: str, admin=Depends(require_tenant_admin)):
+    """Enable/disable a staff record + their login (if any). Disabled staff
+    cannot log in; the record is preserved for historical reports."""
+    s = await db.staff.find_one({"id": sid}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Staff member not found")
+    new_active = not bool(s.get("active", True))
+    await db.staff.update_one({"id": sid}, {"$set": {"active": new_active}})
+    if s.get("user_id"):
+        await db.users.update_one({"id": s["user_id"]}, {"$set": {"disabled": not new_active}})
+    return {"active": new_active}
+
+
+# ---- Staff self-service (role=staff) ----
+
+async def _current_staff(user=Depends(get_current_user)) -> dict:
+    """Resolve the staff record for the logged-in user. Only staff (or admin
+    viewing their own linked record) can access self-service endpoints."""
+    staff_id = user.get("staff_id")
+    if not staff_id:
+        raise HTTPException(403, "This account is not linked to any staff profile.")
+    s = await db.staff.find_one({"id": staff_id}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Staff profile not found")
+    return s
+
+
+@api.get("/staff/me/profile")
+async def staff_me_profile(s=Depends(_current_staff)):
+    return s
+
+
+@api.post("/staff/me/check-in")
+async def staff_check_in(s=Depends(_current_staff)):
+    """Records today's check-in. Idempotent — a second call returns the existing record."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    existing = await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
+    if existing and existing.get("check_in_at"):
+        return existing
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if existing:
+        await db.attendance.update_one(
+            {"staff_id": s["id"], "date": today},
+            {"$set": {"check_in_at": now_iso}},
+        )
+    else:
+        await db.attendance.insert_one({
+            "id": str(uuid.uuid4()),
+            "staff_id": s["id"],
+            "staff_name": s.get("name"),
+            "date": today,
+            "check_in_at": now_iso,
+            "check_out_at": None,
+            "created_at": now_iso,
+        })
+    return await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
+
+
+@api.post("/staff/me/check-out")
+async def staff_check_out(s=Depends(_current_staff)):
+    today = datetime.now(timezone.utc).date().isoformat()
+    rec = await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
+    if not rec or not rec.get("check_in_at"):
+        raise HTTPException(400, "You haven't checked in yet today.")
+    if rec.get("check_out_at"):
+        return rec  # idempotent
+    now = datetime.now(timezone.utc)
+    check_in = datetime.fromisoformat(rec["check_in_at"])
+    hours = round((now - check_in).total_seconds() / 3600, 2)
+    await db.attendance.update_one(
+        {"staff_id": s["id"], "date": today},
+        {"$set": {"check_out_at": now.isoformat(), "hours_worked": hours}},
+    )
+    return await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
+
+
+@api.get("/staff/me/attendance")
+async def staff_my_attendance(month: Optional[str] = None, s=Depends(_current_staff)):
+    """List attendance for `month=YYYY-MM` (defaults to current month)."""
+    from calendar import monthrange
+    now = datetime.now(timezone.utc)
+    if month:
+        try:
+            y, m = map(int, month.split("-"))
+            start = f"{y:04d}-{m:02d}-01"
+            end_day = monthrange(y, m)[1]
+            end = f"{y:04d}-{m:02d}-{end_day:02d}"
+        except Exception:
+            raise HTTPException(400, "month must be YYYY-MM")
+    else:
+        y, m = now.year, now.month
+        start = f"{y:04d}-{m:02d}-01"
+        end_day = monthrange(y, m)[1]
+        end = f"{y:04d}-{m:02d}-{end_day:02d}"
+    recs = await db.attendance.find(
+        {"staff_id": s["id"], "date": {"$gte": start, "$lte": end}},
+        {"_id": 0},
+    ).sort("date", -1).to_list(200)
+    today = now.date().isoformat()
+    today_rec = next((r for r in recs if r.get("date") == today), None)
+    total_hours = round(sum(float(r.get("hours_worked") or 0) for r in recs), 2)
+    total_days = sum(1 for r in recs if r.get("check_in_at"))
+    return {
+        "month": f"{y:04d}-{m:02d}",
+        "records": recs,
+        "today": today_rec,
+        "total_hours": total_hours,
+        "total_days": total_days,
+    }
+
+
+async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: dict) -> dict:
+    """Base + commission from services performed in this calendar month."""
+    from calendar import monthrange
+    end_day = monthrange(year, month)[1]
+    start = f"{year:04d}-{month:02d}-01T00:00:00Z"
+    end = f"{year:04d}-{month:02d}-{end_day:02d}T23:59:59Z"
+    invs = await db.invoices.find(
+        {"created_at": {"$gte": start, "$lte": end}},
+        {"_id": 0},
+    ).to_list(5000)
+    pct = float(staff.get("commission_pct") or 0)
+    gross = 0.0
+    service_gross = 0.0
+    service_count = 0
+    for inv in invs:
+        inv_staff = inv.get("staff_id")
+        for it in inv.get("items", []):
+            sid = it.get("staff_id") or inv_staff
+            if sid != staff["id"]:
+                continue
+            qty = int(it.get("qty") or 1)
+            price = float(it.get("price") or 0)
+            line_total = qty * price
+            gross += line_total
+            if it.get("type") == "service":
+                service_gross += line_total
+                service_count += qty
+    commission = round(service_gross * pct / 100, 2)
+    # Attendance
+    att_start = f"{year:04d}-{month:02d}-01"
+    att_end = f"{year:04d}-{month:02d}-{end_day:02d}"
+    recs = await db.attendance.find(
+        {"staff_id": staff["id"], "date": {"$gte": att_start, "$lte": att_end}},
+        {"_id": 0},
+    ).to_list(200)
+    days_present = sum(1 for r in recs if r.get("check_in_at"))
+    total_hours = round(sum(float(r.get("hours_worked") or 0) for r in recs), 2)
+    base = float(staff.get("monthly_base_salary") or 0)
+    total = round(base + commission, 2)
+    return {
+        "period": f"{year:04d}-{month:02d}",
+        "period_label": datetime(year, month, 1).strftime("%B %Y"),
+        "staff": {
+            "id": staff["id"], "name": staff.get("name"), "role": staff.get("role"),
+            "email": staff.get("email"), "phone": staff.get("phone"),
+            "joining_date": staff.get("joining_date"),
+        },
+        "salon": {
+            "name": tenant.get("name"), "location": tenant.get("location"),
+            "phone": tenant.get("phone"),
+        },
+        "monthly_base_salary": round(base, 2),
+        "commission_pct": round(pct, 2),
+        "service_gross": round(service_gross, 2),
+        "service_count": service_count,
+        "commission_amount": commission,
+        "days_present": days_present,
+        "total_hours": total_hours,
+        "gross_earnings": round(gross, 2),
+        "net_payable": total,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _parse_month(month: Optional[str]) -> tuple:
+    now = datetime.now(timezone.utc)
+    if month:
+        try:
+            y, m = map(int, month.split("-"))
+            if not (1 <= m <= 12) or y < 2000 or y > 2100:
+                raise ValueError
+        except Exception:
+            raise HTTPException(400, "month must be YYYY-MM")
+        return y, m
+    return now.year, now.month
+
+
+@api.get("/staff/me/salary-slip")
+async def staff_my_salary_slip(month: Optional[str] = None,
+                               s=Depends(_current_staff),
+                               t=Depends(current_tenant)):
+    """JSON salary summary for staff to preview before download."""
+    if not s.get("salary_visible", True):
+        raise HTTPException(403, "Salary details are not visible on your account. Please contact your salon admin.")
+    y, m = _parse_month(month)
+    return await _compute_salary_for_month(s, y, m, t)
+
+
+@api.get("/staff/me/salary-slip.pdf")
+async def staff_my_salary_slip_pdf(month: Optional[str] = None,
+                                   s=Depends(_current_staff),
+                                   t=Depends(current_tenant)):
+    if not s.get("salary_visible", True):
+        raise HTTPException(403, "Salary details are not visible on your account.")
+    y, m = _parse_month(month)
+    slip = await _compute_salary_for_month(s, y, m, t)
+    pdf_bytes = _render_salary_slip_pdf(slip)
+    fname = f"salary-slip-{slip['staff']['name'].replace(' ', '-').lower()}-{slip['period']}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+def _render_salary_slip_pdf(slip: dict) -> bytes:
+    """Simple, clean single-page PDF salary slip using reportlab."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+    left = 20 * mm
+    right = w - 20 * mm
+    y = h - 22 * mm
+
+    # Header
+    c.setFillColor(colors.HexColor("#0A0A0A"))
+    c.rect(0, h - 32 * mm, w, 32 * mm, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor("#D4AF37"))
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(left, h - 15 * mm, slip["salon"].get("name") or "Salon")
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica", 9)
+    c.drawString(left, h - 21 * mm, slip["salon"].get("location") or "")
+    if slip["salon"].get("phone"):
+        c.drawString(left, h - 26 * mm, f"Phone: {slip['salon']['phone']}")
+    c.setFont("Helvetica-Bold", 12)
+    c.drawRightString(right, h - 15 * mm, "SALARY SLIP")
+    c.setFont("Helvetica", 9)
+    c.drawRightString(right, h - 21 * mm, slip["period_label"])
+
+    # Body
+    y = h - 42 * mm
+    c.setFillColor(colors.HexColor("#0A0A0A"))
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(left, y, "Employee details")
+    y -= 8 * mm
+    c.setFont("Helvetica", 10)
+    rows = [
+        ("Name", slip["staff"].get("name") or "-"),
+        ("Role", slip["staff"].get("role") or "-"),
+        ("Email", slip["staff"].get("email") or "-"),
+        ("Phone", slip["staff"].get("phone") or "-"),
+        ("Joining date", slip["staff"].get("joining_date") or "-"),
+    ]
+    for label, value in rows:
+        c.setFillColor(colors.HexColor("#6b7280"))
+        c.drawString(left, y, label)
+        c.setFillColor(colors.HexColor("#0A0A0A"))
+        c.drawString(left + 45 * mm, y, str(value))
+        y -= 6 * mm
+
+    # Attendance
+    y -= 4 * mm
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(left, y, "Attendance")
+    y -= 8 * mm
+    c.setFont("Helvetica", 10)
+    att_rows = [
+        ("Days present", str(slip.get("days_present") or 0)),
+        ("Total hours worked", f"{slip.get('total_hours') or 0} hrs"),
+    ]
+    for label, value in att_rows:
+        c.setFillColor(colors.HexColor("#6b7280"))
+        c.drawString(left, y, label)
+        c.setFillColor(colors.HexColor("#0A0A0A"))
+        c.drawString(left + 45 * mm, y, value)
+        y -= 6 * mm
+
+    # Earnings table
+    y -= 4 * mm
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(colors.HexColor("#0A0A0A"))
+    c.drawString(left, y, "Earnings")
+    y -= 8 * mm
+
+    def line(label, amount, bold=False):
+        nonlocal y
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", 11 if bold else 10)
+        c.setFillColor(colors.HexColor("#0A0A0A") if bold else colors.HexColor("#374151"))
+        c.drawString(left, y, label)
+        c.drawRightString(right, y, amount)
+        y -= 7 * mm
+
+    line("Monthly base salary", f"Rs. {slip['monthly_base_salary']:.2f}")
+    pct_txt = f" ({slip['commission_pct']}%)" if slip['commission_pct'] else ""
+    line(f"Service commission{pct_txt}", f"Rs. {slip['commission_amount']:.2f}")
+    c.setStrokeColor(colors.HexColor("#e5e7eb"))
+    c.line(left, y + 3 * mm, right, y + 3 * mm)
+    line("Net payable", f"Rs. {slip['net_payable']:.2f}", bold=True)
+
+    # Footer note
+    y -= 8 * mm
+    c.setFont("Helvetica-Oblique", 8)
+    c.setFillColor(colors.HexColor("#6b7280"))
+    c.drawString(left, y, f"Service gross for the month: Rs. {slip['service_gross']:.2f} across {slip['service_count']} service line(s).")
+    y -= 5 * mm
+    c.drawString(left, y, "This is a computer-generated salary slip and does not require a signature.")
+    y -= 5 * mm
+    c.drawString(left, y, f"Generated: {slip['generated_at'][:19].replace('T', ' ')} UTC")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
 
 # ---------------- Products / Inventory ----------------
 @api.get("/products")

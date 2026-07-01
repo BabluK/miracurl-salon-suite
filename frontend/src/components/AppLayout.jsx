@@ -2,13 +2,14 @@ import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard, Calendar, Users, UserCog, Scissors, Package,
-  ShoppingCart, BarChart3, LogOut, Bell, ChevronDown, Star, Settings as SettingsIcon
+  ShoppingCart, BarChart3, LogOut, Bell, ChevronDown, Star,
+  Settings as SettingsIcon, Menu, X, Gift
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
 
-const NAV = [
+const NAV_ADMIN = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
   { to: "/appointments", label: "Appointments", icon: Calendar, testid: "nav-appointments" },
   { to: "/customers", label: "CRM", icon: Users, testid: "nav-customers" },
@@ -17,8 +18,14 @@ const NAV = [
   { to: "/inventory", label: "Inventory", icon: Package, testid: "nav-inventory" },
   { to: "/pos", label: "POS / Billing", icon: ShoppingCart, testid: "nav-pos" },
   { to: "/reviews", label: "Reviews", icon: Star, testid: "nav-reviews" },
+  { to: "/refer", label: "Refer & Earn", icon: Gift, testid: "nav-refer" },
   { to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" },
   { to: "/settings", label: "Settings", icon: SettingsIcon, testid: "nav-settings" },
+];
+
+const NAV_STAFF = [
+  { to: "/staff-portal", label: "My Dashboard", icon: LayoutDashboard, testid: "nav-staff-portal" },
+  { to: "/appointments", label: "Appointments", icon: Calendar, testid: "nav-appointments" },
 ];
 
 export default function AppLayout() {
@@ -26,19 +33,58 @@ export default function AppLayout() {
   const nav = useNavigate();
   const loc = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const today = new Date().toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
 
+  const NAV = user?.role === "staff" ? NAV_STAFF : NAV_ADMIN;
   const current = NAV.find(n => loc.pathname.startsWith(n.to));
+
+  // Close mobile sidebar on route change
+  useEffect(() => { setSidebarOpen(false); setMenuOpen(false); }, [loc.pathname]);
+
+  // Lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [sidebarOpen]);
 
   return (
     <div className="min-h-screen flex bg-bg-base text-ink-primary">
-      {/* Sidebar */}
-      <aside className="w-64 bg-[#0A0A0A] border-r border-white/5 flex flex-col fixed h-screen">
-        <div className="p-6 border-b border-white/5">
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          data-testid="sidebar-backdrop"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar — hidden on mobile by default, slides in when opened */}
+      <aside
+        data-testid="app-sidebar"
+        className={`fixed top-0 left-0 z-50 h-screen w-[80%] max-w-[280px] lg:w-64 bg-[#0A0A0A] border-r border-white/5 flex flex-col transform transition-transform duration-300 ease-out lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
+        <div className="p-6 border-b border-white/5 flex items-center justify-between">
           {tenant ? <TenantBrandMark tenant={tenant} /> : <BrandMark variant="dark" size="xs" />}
+          <button
+            className="lg:hidden text-white/60 hover:text-white p-1"
+            onClick={() => setSidebarOpen(false)}
+            data-testid="sidebar-close-btn"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <nav className="flex-1 py-4 overflow-y-auto">
+        <nav className="flex-1 py-4 overflow-y-auto" data-testid="sidebar-nav">
           {NAV.map(item => (
             <NavLink
               key={item.to}
@@ -52,13 +98,13 @@ export default function AppLayout() {
                 }`
               }
             >
-              <item.icon className="w-4 h-4" />
+              <item.icon className="w-4 h-4 flex-shrink-0" />
               <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/5">
+        <div className="p-4 border-t border-white/5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
           <button
             data-testid="logout-btn"
             onClick={async () => { await logout(); nav("/login"); }}
@@ -71,38 +117,60 @@ export default function AppLayout() {
       </aside>
 
       {/* Main column */}
-      <div className="flex-1 ml-64 flex flex-col">
+      <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-40 h-16 px-8 flex items-center justify-between bg-[#0A0A0A]/80 backdrop-blur-xl border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div>
-              <div className="font-playfair text-lg leading-none">{current?.label || tenant?.name || "Dashboard"}</div>
-              <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mt-1">
+        <header
+          className="sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/5"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        >
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Hamburger — only visible on mobile/tablet */}
+            <button
+              className="lg:hidden p-2 -ml-2 rounded-md hover:bg-white/5 transition text-white/80 flex-shrink-0"
+              onClick={() => setSidebarOpen(true)}
+              data-testid="sidebar-open-btn"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <div className="font-playfair text-base sm:text-lg leading-none truncate">
+                {current?.label || tenant?.name || "Dashboard"}
+              </div>
+              <div className="hidden sm:block text-[10px] tracking-[0.25em] uppercase text-white/40 mt-1 truncate">
                 {tenant?.name || "Your Salon"}{tenant?.location ? ` • ${tenant.location}` : ""}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:block text-xs text-white/50 tracking-wider">{today}</div>
-            <button className="relative p-2 rounded-md hover:bg-white/5 transition" data-testid="notif-btn">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+            <div className="hidden md:block text-xs text-white/50 tracking-wider">{today}</div>
+            <button className="relative p-2 rounded-md hover:bg-white/5 transition" data-testid="notif-btn" aria-label="Notifications">
               <Bell className="w-4 h-4 text-white/70" />
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-gold" />
             </button>
             <div className="relative">
-              <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white/5 transition" data-testid="profile-menu-btn">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md hover:bg-white/5 transition"
+                data-testid="profile-menu-btn"
+              >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gold to-blush flex items-center justify-center text-bg-base font-semibold text-sm">
                   {(user?.name || "A").charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <div className="text-xs font-medium">{user?.name}</div>
+                  <div className="text-xs font-medium truncate max-w-[120px]">{user?.name}</div>
                   <div className="text-[10px] text-white/40 uppercase tracking-wider">{user?.role}</div>
                 </div>
-                <ChevronDown className="w-3 h-3 text-white/50" />
+                <ChevronDown className="hidden sm:block w-3 h-3 text-white/50" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-[#121212] border border-white/10 rounded-md shadow-card-luxe py-1">
-                  <div className="px-4 py-2 text-xs text-white/50 border-b border-white/5">{user?.email}</div>
-                  <button onClick={async () => { await logout(); nav("/login"); }} className="w-full text-left px-4 py-2 text-sm hover:bg-white/5 text-red-400">
+                <div className="absolute right-0 mt-2 w-56 bg-[#121212] border border-white/10 rounded-md shadow-card-luxe py-1 z-40">
+                  <div className="px-4 py-2 text-xs text-white/50 border-b border-white/5 truncate">{user?.email}</div>
+                  <button
+                    onClick={async () => { await logout(); nav("/login"); }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-white/5 text-red-400"
+                    data-testid="profile-signout-btn"
+                  >
                     Sign Out
                   </button>
                 </div>
@@ -111,7 +179,11 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className="flex-1 p-8 animate-fade-up" data-testid="main-content">
+        <main
+          className="flex-1 p-4 sm:p-6 lg:p-8 animate-fade-up"
+          data-testid="main-content"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
+        >
           <Outlet />
         </main>
       </div>

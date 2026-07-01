@@ -39,6 +39,18 @@ export default function SignupSalon() {
     if (auth?.user && auth.user !== false) nav("/dashboard", { replace: true });
   }, [auth?.user, nav]);
 
+  // Capture referral code from URL (?ref=slug) — also handled by Landing,
+  // but supports direct /signup-salon?ref=… links.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const ref = (params.get("ref") || "").trim().toLowerCase();
+      if (ref && /^[a-z0-9-]{2,40}$/.test(ref)) {
+        localStorage.setItem("miracurl_ref", ref);
+      }
+    } catch { /* noop */ }
+  }, []);
+
   // Auto-suggest slug from salon name (until user manually edits it)
   useEffect(() => {
     if (!form.slug_touched) {

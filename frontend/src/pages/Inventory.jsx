@@ -49,8 +49,8 @@ export default function Inventory() {
         </div>
       )}
 
-      <div className="card-light p-0 overflow-hidden">
-        <table className="luxe-table-light">
+      <div className="card-light p-0 overflow-x-auto">
+        <table className="luxe-table-light min-w-[720px]">
           <thead>
             <tr>
               <th>Product</th><th>SKU</th><th>Category</th><th>Cost</th><th>Price</th><th>Stock</th><th></th>

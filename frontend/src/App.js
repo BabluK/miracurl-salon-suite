@@ -19,6 +19,8 @@ import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
 import Landing from "@/pages/Landing";
 import Settings from "@/pages/Settings";
+import ReferEarn from "@/pages/ReferEarn";
+import StaffPortal from "@/pages/StaffPortal";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ForceChangePassword from "@/pages/ForceChangePassword";
 
@@ -41,12 +43,20 @@ function Protected({ children }) {
   return children;
 }
 
+// Restrict certain routes to admin only — staff visiting these gets bounced to their portal.
+function AdminOnly({ children }) {
+  const { user } = useAuth();
+  if (user?.role === "staff") return <Navigate to="/staff-portal" replace />;
+  return children;
+}
+
 function RootRoute() {
   // Public marketing landing for guests; logged-in users go to their workspace.
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Landing />;
   if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
+  if (user.role === "staff") return <Navigate to="/staff-portal" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -66,6 +76,7 @@ function PublicOnly({ children }) {
   if (loading) return null;
   if (user) {
     if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
+    if (user.role === "staff") return <Navigate to="/staff-portal" replace />;
     return <Navigate to="/dashboard" replace />;
   }
   return children;
@@ -87,16 +98,18 @@ export default function App() {
             <Route path="/super-admin" element={<SuperAdminProtected><SuperAdmin /></SuperAdminProtected>} />
             <Route path="/" element={<RootRoute />} />
             <Route element={<Protected><AppLayout /></Protected>}>
-              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="dashboard" element={<AdminOnly><Dashboard /></AdminOnly>} />
+              <Route path="staff-portal" element={<StaffPortal />} />
               <Route path="appointments" element={<Appointments />} />
-              <Route path="customers" element={<Customers />} />
-              <Route path="staff" element={<Staff />} />
-              <Route path="services" element={<Services />} />
-              <Route path="inventory" element={<Inventory />} />
-              <Route path="pos" element={<POS />} />
-              <Route path="reviews" element={<Reviews />} />
-              <Route path="reports" element={<Reports />} />
-              <Route path="settings" element={<Settings />} />
+              <Route path="customers" element={<AdminOnly><Customers /></AdminOnly>} />
+              <Route path="staff" element={<AdminOnly><Staff /></AdminOnly>} />
+              <Route path="services" element={<AdminOnly><Services /></AdminOnly>} />
+              <Route path="inventory" element={<AdminOnly><Inventory /></AdminOnly>} />
+              <Route path="pos" element={<AdminOnly><POS /></AdminOnly>} />
+              <Route path="reviews" element={<AdminOnly><Reviews /></AdminOnly>} />
+              <Route path="refer" element={<AdminOnly><ReferEarn /></AdminOnly>} />
+              <Route path="reports" element={<AdminOnly><Reports /></AdminOnly>} />
+              <Route path="settings" element={<AdminOnly><Settings /></AdminOnly>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

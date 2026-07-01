@@ -75,6 +75,42 @@
 
 **Testing:** Backend 23/24 ✓ (1 documented skip about super-admin no-header behaviour). Frontend Playwright 100% on iter5 critical flows.
 
+
+## Iter 34 — Mobile responsiveness + Refer & Earn (Feb 2026)
+- **Sidebar hide-on-mobile**: `AppLayout.jsx` refactored — sidebar slides in from left on <lg (1024px), hidden by default. Added hamburger (Menu icon) button in top bar (lg:hidden). Backdrop overlay + body scroll lock when open. Auto-closes on route change. Desktop keeps sidebar always visible (lg:translate-x-0, lg:ml-64).
+- **iOS + Android safe area**: `viewport-fit=cover` in index.html; env(safe-area-inset-top/bottom) padding on top bar, main content, and sidebar footer for iPhone notch / Android gesture bar.
+- **Tables → horizontal scroll on mobile**: Customers, Inventory, Appointments tables wrapped with `overflow-x-auto` + `min-w-[720px]` so they scroll cleanly on small screens instead of squishing.
+- **Refer & Earn page** (`/refer` — `ReferEarn.jsx`): Uses existing `/api/settings/affiliate` endpoint. Shows credits earned, salons referred count, unique referral link (`/?ref=<slug>`), Copy button, native Web Share, WhatsApp share, referrals history list, and "How it works" 3-step explainer. Added `nav-refer` sidebar entry with Gift icon.
+- **SignupSalon URL capture**: `?ref=<slug>` now also captured directly on `/signup-salon` (previously only Landing). Persisted to localStorage until consumed at signup.
+
+## Iter 35 — Staff Portal + Check-in/out + Salary Slips (Feb 2026)
+Backend (`server.py`):
+- **Staff model** extended: `monthly_base_salary`, `salary_visible`, `user_id` (link to users collection).
+- **Attendance collection** added (`attendance`) — tenant-scoped: `{staff_id, date "YYYY-MM-DD", check_in_at, check_out_at, hours_worked}`.
+- **User `disabled` flag**: login endpoint AND `get_current_user()` both reject disabled users with 403 — protects any refresh/session token too.
+- New endpoints:
+  - `POST /api/staff/{sid}/create-login` (admin) → creates a `role=staff` user linked to the staff record, returns one-time memorable temp password (e.g. `Gold-Silk-472`), `must_change_password=true`.
+  - `POST /api/staff/{sid}/toggle-active` (admin) → toggles `staff.active` + `user.disabled` in lockstep.
+  - `DELETE /api/staff/{sid}` also deletes the linked user login.
+  - `GET /api/staff/me/profile` (staff)
+  - `POST /api/staff/me/check-in` (staff, idempotent)
+  - `POST /api/staff/me/check-out` (staff, idempotent, computes `hours_worked`)
+  - `GET /api/staff/me/attendance?month=YYYY-MM` (staff)
+  - `GET /api/staff/me/salary-slip?month=YYYY-MM` (staff, 403 if `salary_visible=false`)
+  - `GET /api/staff/me/salary-slip.pdf?month=YYYY-MM` (staff, `application/pdf` via `reportlab`)
+- Salary = fixed `monthly_base_salary` + (`service_gross_for_month` × `commission_pct` / 100). Attendance metrics attached for information.
+- Added `reportlab==4.2.5` + `chardet==7.4.3` to `requirements.txt`.
+
+Frontend:
+- **`StaffPortal.jsx`**: Full staff self-service dashboard — profile hero, Today check-in/out with disable-once-done buttons, monthly stats (days present, hours, commission %), salary slip section with month picker + PDF download, attendance history, profile footer. Hides salary block cleanly when `salary_visible=false`.
+- **`Staff.jsx`** (admin): Rewritten to add monthly base salary field, "Allow this staff to view salary" checkbox, "Give login" button (creates temp password + shows modal with Copy + WhatsApp send buttons), "Disable / Enable" toggle. "Login active" badge on cards that already have a login.
+- **`AppLayout.jsx`**: Nav is now role-aware — `NAV_STAFF = [My Dashboard, Appointments]`; admin unchanged.
+- **`App.js`**: New `<AdminOnly>` wrapper on Dashboard, Customers, Staff, Services, Inventory, POS, Reviews, Refer, Reports, Settings — staff hitting any of these gets bounced to `/staff-portal`. `RootRoute` and `PublicOnly` also redirect staff to `/staff-portal`. New `/staff-portal` route.
+- **Force change password** flow works out of the box for staff (same `must_change_password` gate + `ChangePasswordIn` endpoint).
+
+Verified end-to-end via curl + Playwright: staff login → forced pw change → portal → check-in → salary JSON/PDF (2.7KB, valid `%PDF-1.4`) → disable-then-login rejected 403 → salary_visible=false rejects 403.
+
+
 ## Deferred (next iteration — needs your keys)
 - **Razorpay subscriptions** — please provide `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (from https://dashboard.razorpay.com/ → Account & Settings → API Keys). Once provided I'll wire: plan creation, subscribe-tenant flow, webhook handler (subscription.activated/charged/cancelled), and a "Billing" page in the salon admin app.
 

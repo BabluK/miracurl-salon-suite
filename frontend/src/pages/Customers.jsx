@@ -52,8 +52,8 @@ export default function Customers() {
         <input data-testid="customer-search" className="input-light pl-10" placeholder="Search by name or phone..." value={q} onChange={e => setQ(e.target.value)} />
       </div>
 
-      <div className="card-light p-0 overflow-hidden">
-        <table className="luxe-table-light">
+      <div className="card-light p-0 overflow-x-auto">
+        <table className="luxe-table-light min-w-[720px]">
           <thead>
             <tr>
               <th>Customer</th><th>Contact</th><th>Gender</th><th>Visits</th><th>Spent</th><th>Loyalty</th><th></th>
