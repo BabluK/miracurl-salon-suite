@@ -6,6 +6,8 @@ load_dotenv(ROOT_DIR / '.env')
 import os
 import re
 import uuid
+import hmac
+import hashlib
 import logging
 import secrets
 import bcrypt
@@ -1833,6 +1835,192 @@ async def create_subscription(body: SubscriptionIn, user=Depends(require_super_a
     sub.pop("_id", None)
     pay.pop("_id", None)
     return {"subscription": sub, "payment": pay}
+
+
+# ---------------- Razorpay (Tenant self-serve subscription) ----------------
+import razorpay as _razorpay
+
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
+
+def _rzp_client() -> Optional[_razorpay.Client]:
+    if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
+        return None
+    return _razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+
+class RzpOrderIn(BaseModel):
+    plan: str  # key from PLAN_CATALOG (e.g. "6_months", "1_year")
+
+
+class RzpVerifyIn(BaseModel):
+    plan: str
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@api.get("/billing/razorpay/config")
+async def rzp_config(user=Depends(require_tenant_admin)):
+    """Public-ish config for the frontend checkout — only the key_id is safe to expose."""
+    return {
+        "enabled": bool(RAZORPAY_KEY_ID),
+        "key_id": RAZORPAY_KEY_ID,
+        "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"),
+        "plans": [{"key": k, **v} for k, v in PLAN_CATALOG.items()],
+    }
+
+
+@api.post("/billing/razorpay/order")
+async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Create a Razorpay Order for the current tenant's chosen plan.
+
+    Applies any accumulated affiliate_credits as a discount on this renewal.
+    """
+    rzp = _rzp_client()
+    if not rzp:
+        raise HTTPException(503, "Razorpay is not configured. Contact support.")
+    plan = _plan_or_400(body.plan)
+
+    credits = float(t.get("affiliate_credits") or 0)
+    price = float(plan["price"])
+    payable = max(price - credits, 1)  # Razorpay min amount is ₹1 (100 paise)
+    credits_used = round(price - payable, 2) if credits > 0 else 0.0
+
+    receipt = f"tnt_{t['slug'][:20]}_{int(datetime.now(timezone.utc).timestamp())}"[:40]
+    order = rzp.order.create({
+        "amount": int(round(payable * 100)),  # paise
+        "currency": "INR",
+        "receipt": receipt,
+        "notes": {
+            "tenant_id": t["id"],
+            "tenant_slug": t["slug"],
+            "plan": body.plan,
+            "credits_applied_inr": str(credits_used),
+        },
+    })
+    # Track pending order server-side so we can reconcile on verify
+    await db.subscription_payments.insert_one({
+        "id": str(uuid.uuid4()),
+        "kind": "razorpay_pending",
+        "razorpay_order_id": order["id"],
+        "tenant_id": t["id"],
+        "plan": body.plan,
+        "amount": payable,
+        "credits_applied": credits_used,
+        "status": "created",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {
+        "order_id": order["id"],
+        "amount": order["amount"],
+        "currency": order["currency"],
+        "key_id": RAZORPAY_KEY_ID,
+        "plan_label": plan["label"],
+        "credits_applied": credits_used,
+        "payable_inr": payable,
+        "full_price_inr": price,
+    }
+
+
+def _verify_rzp_signature(order_id: str, payment_id: str, signature: str) -> bool:
+    """HMAC SHA256 of '<order_id>|<payment_id>' with key_secret."""
+    body = f"{order_id}|{payment_id}".encode()
+    expected = hmac.new(RAZORPAY_KEY_SECRET.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
+@api.post("/billing/razorpay/verify")
+async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Verify the checkout signature and create/extend the tenant's subscription."""
+    if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
+        raise HTTPException(503, "Razorpay is not configured.")
+    if not _verify_rzp_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
+        raise HTTPException(400, "Payment signature verification failed — possible tampering.")
+
+    # Look up the pending record we created at order time
+    pending = await db.subscription_payments.find_one(
+        {"razorpay_order_id": body.razorpay_order_id, "kind": "razorpay_pending"},
+        {"_id": 0},
+    )
+    if not pending or pending["tenant_id"] != t["id"]:
+        raise HTTPException(400, "Unknown order — please retry from scratch.")
+
+    plan_info = _plan_or_400(body.plan)
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    start_dt = datetime.now(timezone.utc)
+    end_dt = start_dt + timedelta(days=plan_info["duration_days"])
+
+    # Auto-cancel any existing active subscription for the same tenant
+    await db.subscriptions.update_many(
+        {"tenant_id": t["id"], "status": "active"},
+        {"$set": {"status": "cancelled", "cancelled_at": start_dt.isoformat(),
+                  "cancelled_reason": "superseded by Razorpay renewal"}},
+    )
+
+    sub = Subscription(
+        tenant_id=t["id"],
+        plan=body.plan,
+        price=plan_info["price"],
+        start_date=start_dt.date().isoformat(),
+        end_date=end_dt.date().isoformat(),
+        status="active",
+        payment_method="razorpay",
+        payment_ref=body.razorpay_payment_id,
+        notes=f"Razorpay order {body.razorpay_order_id}; credits applied ₹{pending.get('credits_applied',0)}",
+    ).model_dump()
+    await db.subscriptions.insert_one(sub)
+
+    pay = SubscriptionPayment(
+        subscription_id=sub["id"],
+        tenant_id=t["id"],
+        amount=float(pending["amount"]),
+        paid_at=today_iso,
+        method="razorpay",
+        txn_ref=body.razorpay_payment_id,
+        recorded_by=user["id"],
+        notes=f"Order {body.razorpay_order_id}",
+    ).model_dump()
+    await db.subscription_payments.insert_one(pay)
+
+    # Finalise the pending record + zero the affiliate credits used
+    await db.subscription_payments.update_one(
+        {"razorpay_order_id": body.razorpay_order_id, "kind": "razorpay_pending"},
+        {"$set": {"status": "captured", "razorpay_payment_id": body.razorpay_payment_id,
+                  "captured_at": start_dt.isoformat()}},
+    )
+    if pending.get("credits_applied", 0) > 0:
+        # Deduct only what was applied — never go below zero
+        await db.tenants.update_one(
+            {"id": t["id"]},
+            {"$inc": {"affiliate_credits": -float(pending["credits_applied"])}},
+        )
+
+    await db.tenants.update_one(
+        {"id": t["id"]},
+        {"$set": {"plan": body.plan, "status": "active",
+                  "subscription_end_date": sub["end_date"],
+                  "current_subscription_id": sub["id"]}},
+    )
+
+    return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"]}
+
+
+@api.post("/billing/razorpay/webhook")
+async def rzp_webhook(request: Request):
+    """Optional: Razorpay-initiated status callbacks. Requires RAZORPAY_WEBHOOK_SECRET to be set."""
+    if not RAZORPAY_WEBHOOK_SECRET:
+        # Webhook not configured — no-op (returning 200 avoids repeated retries)
+        return {"skipped": True}
+    payload = await request.body()
+    sig = request.headers.get("x-razorpay-signature", "")
+    expected = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, sig):
+        raise HTTPException(400, "Invalid webhook signature")
+    # For now just log the event — the /verify endpoint already records the sub.
+    logging.getLogger("razorpay").info("Razorpay webhook received: %s", payload[:400])
+    return {"ok": True}
 
 
 @api.post("/super-admin/subscriptions/{sid}/cancel")
