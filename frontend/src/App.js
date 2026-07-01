@@ -20,9 +20,10 @@ import SignupSalon from "@/pages/SignupSalon";
 import Landing from "@/pages/Landing";
 import Settings from "@/pages/Settings";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ForceChangePassword from "@/pages/ForceChangePassword";
 
 function Protected({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, refresh } = useAuth();
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg-base">
@@ -32,6 +33,11 @@ function Protected({ children }) {
   }
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
+  // Onboarding gate: owners created via super-admin have a temp password that
+  // MUST be changed on first login before they see any tenant data.
+  if (user.must_change_password) {
+    return <ForceChangePassword user={user} onDone={() => refresh?.()} />;
+  }
   return children;
 }
 
@@ -45,10 +51,13 @@ function RootRoute() {
 }
 
 function SuperAdminProtected({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, refresh } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "super_admin") return <Navigate to="/dashboard" replace />;
+  if (user.must_change_password) {
+    return <ForceChangePassword user={user} onDone={() => refresh?.()} />;
+  }
   return children;
 }
 

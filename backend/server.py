@@ -339,7 +339,9 @@ class TenantIn(BaseModel):
     name: str = Field(..., min_length=2, max_length=120)
     owner_email: EmailStr
     owner_name: str = Field(..., min_length=2, max_length=80)
-    owner_password: str = Field(..., min_length=8)
+    # owner_password is now OPTIONAL — leave blank and the server will generate
+    # a secure one-time password that the super-admin shares with the owner.
+    owner_password: Optional[str] = Field(None, min_length=8)
     location: Optional[str] = None
     phone: Optional[str] = None
     plan: str = "starter"
@@ -2026,18 +2028,61 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     ).model_dump()
     await db.tenants.insert_one(t)
     t.pop("_id", None)
-    # create owner admin user
+    # Generate a one-time password if the super-admin didn't supply one. The
+    # owner must change it on first login (see `must_change_password`).
+    if body.owner_password:
+        temp_pw = body.owner_password
+    else:
+        # Human-readable temp password: two random words + 3 digits, e.g. "Bright-Silk-472".
+        # Easier to dictate over WhatsApp/phone than a raw hex string.
+        _words = ["Rose", "Silk", "Gold", "Ivory", "Coral", "Bright", "Velvet", "Amber", "Ivory", "Pearl", "Onyx", "Blush", "Willow", "Ember", "Frost"]
+        temp_pw = f"{secrets.choice(_words)}-{secrets.choice(_words)}-{secrets.randbelow(900) + 100}"
     owner = {
         "id": str(uuid.uuid4()),
         "email": body.owner_email.lower(),
         "name": body.owner_name,
         "role": "admin",
         "tenant_id": t["id"],
-        "password_hash": hash_pw(body.owner_password),
+        "status": "active",
+        "password_hash": hash_pw(temp_pw),
+        "must_change_password": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(owner)
-    return {"tenant": t, "owner_email": body.owner_email}
+    # Return the temp password ONCE so super-admin can copy/share it. Never
+    # stored in cleartext or retrievable again — a lost password requires a
+    # /forgot flow just like any user.
+    return {
+        "tenant": t,
+        "owner_email": body.owner_email,
+        "temp_password": temp_pw,
+        "must_change_password": True,
+    }
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+@api.post("/auth/change-password")
+async def change_password(body: ChangePasswordIn, user=Depends(get_current_user)):
+    """Authenticated password change. Clears the must_change_password flag so
+    the forced-change modal disappears on subsequent logins."""
+    fresh = await db.users.find_one({"id": user["id"]})
+    if not fresh or not verify_pw(body.current_password, fresh["password_hash"]):
+        raise HTTPException(400, "Current password is incorrect")
+    if body.current_password == body.new_password:
+        raise HTTPException(400, "New password must be different from current")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "password_hash": hash_pw(body.new_password),
+            "must_change_password": False,
+            "password_changed_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    return {"ok": True}
 
 
 # ============== SaaS Subscription Billing (tenant → super-admin) ==============

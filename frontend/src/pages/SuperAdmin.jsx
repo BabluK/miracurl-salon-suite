@@ -43,8 +43,10 @@ export default function SuperAdmin() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const [createdCreds, setCreatedCreds] = useState(null);
+
   function startNew() {
-    setForm({ slug: "", name: "", owner_email: "", owner_name: "", owner_password: "", location: "", phone: "", plan: "starter" });
+    setForm({ slug: "", name: "", owner_email: "", owner_name: "", location: "", phone: "", plan: "starter" });
     setOpen(true);
   }
 
@@ -52,11 +54,31 @@ export default function SuperAdmin() {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post("/super-admin/tenants", form);
-      toast.success(`Tenant '${form.slug}' created with owner ${form.owner_email}`);
-      setOpen(false); load();
+      // Strip empty owner_password so Pydantic Optional[str] accepts it as None
+      // and the server generates a memorable temp password automatically.
+      const { owner_password: _unused, ...payload } = form;
+      const { data } = await api.post("/super-admin/tenants", payload);
+      toast.success(`Tenant '${form.slug}' created`);
+      setOpen(false);
+      if (data?.temp_password) {
+        setCreatedCreds({
+          email: data.owner_email,
+          temp_password: data.temp_password,
+          tenant_name: data.tenant?.name,
+          tenant_phone: form.phone,
+        });
+      }
+      load();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Couldn't create tenant");
+      // Pydantic returns detail as an array of error objects — render safely.
+      const raw = err.response?.data?.detail;
+      let msg = "Couldn't create tenant";
+      if (Array.isArray(raw)) {
+        msg = raw.map((x) => `${(x.loc || []).slice(-1)}: ${x.msg}`).join(" · ");
+      } else if (typeof raw === "string") {
+        msg = raw;
+      }
+      toast.error(msg);
     } finally { setBusy(false); }
   }
 
@@ -244,10 +266,8 @@ export default function SuperAdmin() {
                 <label className="label-light block mb-1">Owner Email *</label>
                 <input data-testid="tenant-owner-email-input" type="email" required className="input-light" value={form.owner_email} onChange={e => setForm({ ...form, owner_email: e.target.value })} placeholder="owner@salon.com" />
               </div>
-              <div>
-                <label className="label-light block mb-1">Owner Password * (≥8 chars)</label>
-                <input data-testid="tenant-owner-password-input" type="text" required minLength={8} className="input-light font-mono" value={form.owner_password} onChange={e => setForm({ ...form, owner_password: e.target.value })} placeholder="ShareThisWithThem123" />
-                <p className="text-[10px] text-slate-400 mt-1">Share this securely with the salon owner so they can log in.</p>
+              <div className="rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-[11px] text-sky-800">
+                ℹ️ A secure one-time password will be generated automatically and shown to you after creation. Share it with the owner — they&apos;ll be forced to change it on first login.
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -275,6 +295,112 @@ export default function SuperAdmin() {
           onDone={load}
         />
       )}
+
+      {createdCreds && (
+        <TempPasswordShareModal
+          creds={createdCreds}
+          onClose={() => setCreatedCreds(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * One-time modal shown to super-admin immediately after tenant creation.
+ * Displays the generated temp password + one-click Copy + prefilled WhatsApp
+ * share message. Password is displayed exactly ONCE — closing the modal
+ * discards it. If lost, the owner uses /forgot-password like anyone else.
+ */
+function TempPasswordShareModal({ creds, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const loginUrl = typeof window !== "undefined" ? `${window.location.origin}/login` : "/login";
+  const message = [
+    `Hi ${creds.tenant_name || "there"} ✦ Welcome to Miracurl!`,
+    "",
+    `Your salon account is ready. Here are your one-time login details:`,
+    "",
+    `🔗 Login URL: ${loginUrl}`,
+    `📧 Email: ${creds.email}`,
+    `🔑 Temp password: ${creds.temp_password}`,
+    "",
+    "You'll be asked to set your own password right after your first login.",
+    "",
+    "Any questions? Just reply to this message.",
+    "— Miracurl team",
+  ].join("\n");
+
+  function copy(text) {
+    try {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.warn("clipboard failed:", e);
+    }
+  }
+
+  const waPhone = (creds.tenant_phone || "").replace(/\D/g, "");
+  const waUrl = waPhone
+    ? `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`
+    : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()} data-testid="temp-password-share-modal">
+        <div className="text-center mb-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-2xl mb-3">✓</div>
+          <h3 className="text-xl font-semibold text-slate-900">Tenant created</h3>
+          <p className="text-sm text-slate-500 mt-1">Send these one-time credentials to <b>{creds.email}</b></p>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Email</label>
+              <button onClick={() => copy(creds.email)} className="text-[11px] text-sky-600 hover:text-sky-700">Copy</button>
+            </div>
+            <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 font-mono text-sm text-slate-800 break-all" data-testid="temp-creds-email">{creds.email}</div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">One-time password</label>
+              <button onClick={() => copy(creds.temp_password)} className="text-[11px] text-sky-600 hover:text-sky-700" data-testid="temp-creds-copy-btn">
+                {copied ? "Copied ✓" : "Copy"}
+              </button>
+            </div>
+            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 font-mono text-base font-semibold text-amber-900 break-all" data-testid="temp-creds-password">{creds.temp_password}</div>
+            <p className="text-[10px] text-slate-400 mt-1">This password is shown only once. The owner will be forced to change it on first login.</p>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-2">
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-emerald-500 text-white font-semibold text-sm hover:bg-emerald-600"
+            data-testid="temp-creds-whatsapp-btn"
+          >
+            💬 Send via WhatsApp
+          </a>
+          <button
+            onClick={() => copy(message)}
+            className="w-full py-2.5 rounded-lg bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200"
+            data-testid="temp-creds-copy-msg-btn"
+          >
+            Copy full welcome message
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-2 rounded-lg text-slate-500 text-sm hover:bg-slate-50"
+            data-testid="temp-creds-close-btn"
+          >
+            Done — I&apos;ve shared the credentials
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

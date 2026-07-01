@@ -114,9 +114,20 @@ export function AuthProvider({ children }) {
     else localStorage.removeItem("miracurl_tenant");
   }, []);
 
+  const refresh = useCallback(async () => {
+    try {
+      const { data } = await api.get("/auth/me");
+      setUser(data);
+      return data;
+    } catch (e) {
+      console.warn("[auth] refresh failed:", e?.message || e);
+      return null;
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ user, tenant, loading, login, register, logout, forgot, switchTenant }),
-    [user, tenant, loading, login, register, logout, forgot, switchTenant],
+    () => ({ user, tenant, loading, login, register, logout, forgot, switchTenant, refresh }),
+    [user, tenant, loading, login, register, logout, forgot, switchTenant, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
