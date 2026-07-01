@@ -1,0 +1,45 @@
+{
+  "summary": "Iter 33 image-upload feature tested end-to-end. Backend: 9/9 pytest GREEN (upload for staff/service/product kinds, roundtrip GET /api/files/{id} with exact bytes, size 413, invalid mime 400, empty 400, unauthenticated 401/403, tenant-scoped file_ids, missing file 404, Cache-Control immutable at origin). Frontend: Staff + Inventory ImageUploader flows GREEN (Choose from laptop → toast → preview → /api/files/<uuid> URL population → clear button → paste-URL backwards compat → client-side .pdf rejection). REGRESSION: TenantBrandMark and Daily Report banner both still working. CRITICAL BUG: Services page was NOT wired to ImageUploader — it still uses a plain text <input> for Image URL despite importing the component. The image-uploader-service testid does not render anywhere in the app.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/files/{id}", "issue": "Backend correctly returns 'Cache-Control: public, max-age=31536000, immutable' (verified via localhost:8001), but the Kubernetes/Cloudflare ingress in front of the preview URL rewrites this to 'no-store, no-cache, must-revalidate'. Browsers hitting the public URL will not cache images. Non-blocking for functionality but the intended perf win is neutralized in the preview environment. Test asserts backend header directly to isolate."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Services.jsx", "issue": "ImageUploader is imported (line 5) but never rendered — the Image URL field in the New Service modal is still a plain <input type='text'> on line 106. This means salon admins cannot upload service thumbnails from their laptop. data-testid='image-uploader-service' does not exist anywhere in the DOM.", "selector": "[data-testid='image-uploader-service']", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter33_image_uploads.py",
+    "/app/test_reports/pytest/iter33.xml"
+  ],
+  "action_items": [
+    "Replace the plain '<input>' for Image URL on Services.jsx line 106 with '<ImageUploader kind=\"service\" value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} />' — matches the exact pattern already used in Staff.jsx line 90 and Inventory.jsx line 120.",
+    "OPTIONAL: Investigate the ingress Cache-Control override — if the preview/prod ingress can be configured to pass through Cache-Control for /api/files/* the immutable-caching perf win will materialise. Not urgent — feature works, just extra bandwidth."
+  ],
+  "critical_code_review_comments": [
+    "server.py _init_storage/_put_object/_get_object correctly handle 403 (session expired) with a single retry after re-init — good defensive pattern.",
+    "server.py upload_image validates extension → size → emptiness in the right order; storage_path is tenant-scoped (miracurl-salon/tenants/<tenant_id>/<kind>/<uuid>.<ext>) — cross-tenant leak is impossible even if UUIDs collided.",
+    "GET /api/files/{id} intentionally has no auth — safe because the UUID is unguessable. This matches the Instagram-CDN pattern documented in the review request.",
+    "ImageUploader.jsx client-side validation mirrors server rules (mime + 3MB) — good UX, saves a round-trip on obvious rejections.",
+    "Services.jsx uses ImageUploader in import but not in JSX — likely a forgotten refactor. Staff.jsx and Inventory.jsx both wired correctly on lines 90 and 120 respectively.",
+    "server.py startup event catches init failures and logs a warning — verified: EMERGENT_LLM_KEY is present in .env so init succeeds. First upload without a key would raise HTTPException(500, 'Object storage not configured (EMERGENT_LLM_KEY missing)') — matches expected behavior in review request."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter33_image_uploads.py (new pytest — 9 tests, all passing)"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 pytest)",
+    "frontend": "80% (Staff GREEN, Inventory GREEN, Services BROKEN — component not wired)"
+  },
+  "test_credentials": "admin@miracurl.com / Miracurl@123 and owner@elegance.com / Owner@123 — both worked; EMERGENT_LLM_KEY present in backend/.env and storage init succeeded.",
+  "seed_data_creation": "Test uploads created some 288-byte PNG entries in the uploads collection tagged with tenant_id (miracurl and elegance). No user-visible seed pollution. TEST_UploadStaff was NOT persisted (name field lookup failed in Playwright — irrelevant to the feature being tested; the upload itself succeeded).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter33 backend fully green. ONE frontend blocker: Services.jsx line 106 needs the <input> replaced with <ImageUploader kind='service' value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} />. Once main agent applies that 1-line fix, the Services upload flow will work identically to Staff and Inventory (verified). To retest, just repeat the Playwright pattern already used for Inventory: goto /services, click 'Add Service' button (data-testid='add-service-btn'), find [data-testid='image-uploader-service'], set_input_files on [data-testid='image-uploader-input-service'], assert URL populates and preview renders. Test file at /app/backend/tests/test_iter33_image_uploads.py covers all backend cases and can be re-run with 'pytest backend/tests/test_iter33_image_uploads.py -v'. NOTE: pytest uses BASE_URL from REACT_APP_BACKEND_URL env — if empty it falls back to the hardcoded preview URL for robustness (matches iter29 pattern).",
+  "rca of the issue": "Services.jsx: the ImageUploader import statement was added but the corresponding JSX substitution was skipped. Original line 106 still reads '<input className=\"input-light\" value={form.image_url} onChange={e => setForm({...form, image_url: e.target.value})} />'. Mitigation: 1-line JSX swap to match Staff.jsx:90 / Inventory.jsx:120."
+}

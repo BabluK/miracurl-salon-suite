@@ -16,10 +16,11 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Header
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, field_validator
+import requests
 
 # ---------------- DB ----------------
 mongo_url = os.environ['MONGO_URL']
@@ -97,6 +98,71 @@ db = _DB()
 # ---------------- App ----------------
 app = FastAPI(title="Miracurl Salon Management API")
 api = APIRouter(prefix="/api")
+
+# ---------------- Emergent Object Storage ----------------
+# Powers image uploads for staff photos, service thumbnails, product images.
+# One shared session key across the API — Emergent's object store is a single
+# bucket per app; multi-tenant isolation happens via the path prefix.
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+APP_NAME = "miracurl-salon"
+_storage_key: Optional[str] = None
+_MIME = {
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+    "gif": "image/gif", "webp": "image/webp",
+}
+
+
+def _init_storage() -> str:
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    emergent_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not emergent_key:
+        raise HTTPException(500, "Object storage not configured (EMERGENT_LLM_KEY missing)")
+    r = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": emergent_key}, timeout=30)
+    r.raise_for_status()
+    _storage_key = r.json()["storage_key"]
+    return _storage_key
+
+
+def _put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = _init_storage()
+    r = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120,
+    )
+    if r.status_code == 403:  # session expired — force a re-init
+        global _storage_key
+        _storage_key = None
+        key = _init_storage()
+        r = requests.put(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key, "Content-Type": content_type},
+            data=data, timeout=120,
+        )
+    r.raise_for_status()
+    return r.json()
+
+
+def _get_object(path: str) -> tuple[bytes, str]:
+    key = _init_storage()
+    r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if r.status_code == 403:
+        global _storage_key
+        _storage_key = None
+        key = _init_storage()
+        r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    r.raise_for_status()
+    return r.content, r.headers.get("Content-Type", "application/octet-stream")
+
+
+@app.on_event("startup")
+async def _boot_storage():
+    try:
+        _init_storage()
+    except Exception as e:  # noqa: BLE001 — startup diagnostic
+        logging.getLogger("storage").warning("Storage init deferred: %s", e)
 
 # ---------------- JWT helpers ----------------
 JWT_ALG = "HS256"
@@ -739,6 +805,68 @@ async def update_customer(cid: str, body: CustomerIn, user=Depends(get_current_u
 async def delete_customer(cid: str, user=Depends(require_admin)):
     await db.customers.delete_one({"id": cid})
     return {"ok": True}
+
+# ---------------- Uploads (staff / service / product images) ----------------
+_MAX_UPLOAD_BYTES = 3 * 1024 * 1024  # 3MB — plenty for a Retina thumbnail
+
+
+@api.post("/uploads/image")
+async def upload_image(
+    file: UploadFile = File(...),
+    kind: str = Query("misc", regex=r"^(staff|service|product|misc|hero)$"),
+    user=Depends(require_tenant_admin),
+    t=Depends(current_tenant),
+):
+    """Accept a laptop/phone image upload from a salon admin. Stored in Emergent
+    object storage under a tenant-scoped path so cross-tenant leakage is
+    impossible. Returns a URL the frontend can save into a service/staff/product
+    image_url field."""
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "bin"
+    if ext not in _MIME:
+        raise HTTPException(400, "Only JPG, PNG, GIF or WebP images are allowed")
+    data = await file.read()
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"Image too large — max {_MAX_UPLOAD_BYTES // (1024*1024)}MB")
+    if not data:
+        raise HTTPException(400, "Empty file")
+    file_id = str(uuid.uuid4())
+    storage_path = f"{APP_NAME}/tenants/{t['id']}/{kind}/{file_id}.{ext}"
+    try:
+        result = _put_object(storage_path, data, _MIME[ext])
+    except requests.HTTPError as e:
+        raise HTTPException(502, f"Storage upload failed: {e}") from e
+    doc = {
+        "id": file_id,
+        "tenant_id": t["id"],
+        "kind": kind,
+        "storage_path": result.get("path", storage_path),
+        "original_filename": file.filename or f"{file_id}.{ext}",
+        "content_type": _MIME[ext],
+        "size": len(data),
+        "uploaded_by": user["id"],
+        "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _raw_db.uploads.insert_one(doc)
+    # Return a same-origin URL so <img src> renders directly.
+    public_url = f"/api/files/{file_id}"
+    return {"id": file_id, "url": public_url, "size": len(data), "content_type": _MIME[ext]}
+
+
+@api.get("/files/{file_id}")
+async def download_file(file_id: str):
+    """Serve an uploaded image. Public by design — anyone with the URL can view
+    (same as an Instagram CDN link). The unguessable UUID is the token."""
+    rec = await _raw_db.uploads.find_one({"id": file_id, "is_deleted": False})
+    if not rec:
+        raise HTTPException(404, "File not found")
+    try:
+        data, ct = _get_object(rec["storage_path"])
+    except requests.HTTPError as e:
+        raise HTTPException(502, f"Storage fetch failed: {e}") from e
+    return Response(content=data, media_type=rec.get("content_type", ct),
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
 
 # ---------------- Services ----------------
 @api.get("/services")

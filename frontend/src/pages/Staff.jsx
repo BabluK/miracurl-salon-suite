@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { Plus, X, Edit3, Trash2, Phone, Mail, Percent } from "lucide-react";
 import { toast } from "sonner";
+import ImageUploader from "@/components/ImageUploader";
 
 export default function Staff() {
   const [list, setList] = useState([]);
@@ -82,7 +83,17 @@ export default function Staff() {
               <div><label className="label-light block mb-1">Specialties (comma separated)</label><input className="input-light" value={form.specialties} onChange={e => setForm({ ...form, specialties: e.target.value })} placeholder="Hair, Color, Makeup" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label-light block mb-1">Commission %</label><input type="number" className="input-light" value={form.commission_pct} onChange={e => setForm({ ...form, commission_pct: e.target.value })} /></div>
-                <div><label className="label-light block mb-1">Image URL</label><input className="input-light" value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} /></div>
+                <div>{/* spacer to keep grid alignment */}</div>
+              </div>
+              <div>
+                <label className="label-light block mb-1">Staff photo</label>
+                <ImageUploader
+                  kind="staff"
+                  circular
+                  value={form.image_url}
+                  onChange={(url) => setForm({ ...form, image_url: url })}
+                  fallback="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300"
+                />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="btn-slate flex-1">Cancel</button>

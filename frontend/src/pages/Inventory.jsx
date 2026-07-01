@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { Plus, X, Edit3, Trash2, AlertTriangle, Package } from "lucide-react";
 import { toast } from "sonner";
+import ImageUploader from "@/components/ImageUploader";
 
 export default function Inventory() {
   const [list, setList] = useState([]);
@@ -114,7 +115,15 @@ export default function Inventory() {
                 <div><label className="label-light block mb-1">Stock</label><input type="number" required className="input-light" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} /></div>
                 <div><label className="label-light block mb-1">Low @</label><input type="number" className="input-light" value={form.low_stock_threshold} onChange={e => setForm({ ...form, low_stock_threshold: e.target.value })} /></div>
               </div>
-              <div><label className="label-light block mb-1">Image URL</label><input className="input-light" value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} /></div>
+              <div>
+                <label className="label-light block mb-1">Product image</label>
+                <ImageUploader
+                  kind="product"
+                  value={form.image_url}
+                  onChange={(url) => setForm({ ...form, image_url: url })}
+                  fallback="https://images.unsplash.com/photo-1583209814683-c023dd293cc6?w=80"
+                />
+              </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="btn-slate flex-1">Cancel</button>
                 <button data-testid="save-product-btn" type="submit" className="btn-blue flex-1">{editing ? "Update" : "Create"}</button>

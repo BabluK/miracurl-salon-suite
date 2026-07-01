@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame } from "lucide-react";
 import { toast } from "sonner";
+import ImageUploader from "@/components/ImageUploader";
 
 const CATS = ["Hair", "Skin", "Nails", "Makeup", "Threading", "Massage"];
 
