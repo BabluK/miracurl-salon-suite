@@ -30,6 +30,9 @@ _raw_db = client[os.environ['DB_NAME']]
 # ---------------- Tenant-aware DB wrapper ----------------
 from contextvars import ContextVar
 _current_tenant_id: ContextVar = ContextVar("current_tenant_id", default=None)
+# When True, TenantCollection allows unscoped global reads. Set by super_admin
+# routes that legitimately need cross-tenant data (revenue dashboards, etc.).
+_super_admin_ok: ContextVar = ContextVar("super_admin_ok", default=False)
 
 class TenantCollection:
     """Motor collection proxy that auto-applies tenant_id filter and injects tenant_id on insert."""
@@ -42,7 +45,14 @@ class TenantCollection:
             return q if q is not None else {}
         tid = _current_tenant_id.get()
         if tid is None:
-            return q if q is not None else {}  # super-admin / global access
+            # Global (unscoped) reads are allowed ONLY for super_admin flows
+            # that explicitly set _super_admin_ok. Otherwise, we force a filter
+            # that matches nothing so a mis-configured request never leaks data.
+            if _super_admin_ok.get():
+                return q if q is not None else {}
+            merged = dict(q) if q else {}
+            merged["tenant_id"] = "__NO_TENANT_CONTEXT__"
+            return merged
         merged = dict(q) if q else {}
         if "tenant_id" not in merged:
             merged["tenant_id"] = tid
@@ -190,8 +200,12 @@ def make_refresh(user_id: str) -> str:
     return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALG)
 
 def set_auth_cookies(resp: Response, access: str, refresh: str):
-    resp.set_cookie("access_token", access, httponly=True, secure=False, samesite="lax", max_age=28800, path="/")
-    resp.set_cookie("refresh_token", refresh, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    # Secure=True is required by browsers when SameSite is Lax on cross-origin
+    # requests over HTTPS. In dev over plain HTTP the cookie is still delivered
+    # because same-origin. Env override for special testing setups.
+    _sec = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
+    resp.set_cookie("access_token", access, httponly=True, secure=_sec, samesite="lax", max_age=28800, path="/")
+    resp.set_cookie("refresh_token", refresh, httponly=True, secure=_sec, samesite="lax", max_age=604800, path="/")
 
 def _extract_bearer_token(request: Request) -> Optional[str]:
     token = request.cookies.get("access_token")
@@ -229,7 +243,10 @@ async def _apply_tenant_context(request: Request, user: dict) -> None:
         return
     if user.get("role") != "super_admin" and user.get("tenant_id"):
         _current_tenant_id.set(user["tenant_id"])
-    # super_admin without header → context stays None (global access)
+    elif user.get("role") == "super_admin":
+        # Super-admin without a slug picks up the global-access override so
+        # TenantCollection knows this is intentional.
+        _super_admin_ok.set(True)
 
 
 async def get_current_user(request: Request) -> dict:
@@ -240,6 +257,16 @@ async def get_current_user(request: Request) -> dict:
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(401, "User not found")
+    # SEC-001 hardening: a self-registered account with no tenant_id has no
+    # business seeing anyone else's data. Only super_admin is allowed to
+    # operate globally without a tenant scope. Everyone else is fail-closed.
+    if user.get("role") != "super_admin" and not user.get("tenant_id"):
+        raise HTTPException(
+            403,
+            "Your account is not yet linked to a salon. Please ask your salon admin to activate you.",
+        )
+    if user.get("status") == "pending":
+        raise HTTPException(403, "Account pending admin approval.")
     await _apply_tenant_context(request, user)
     return user
 
@@ -540,27 +567,32 @@ class ReviewModerateIn(BaseModel):
     public: bool
 
 REVIEW_REWARD_CREDIT = 50.0  # ₹ credit for 4★+ reviews
+# SEC-002: hard cap on referral/review credits a single customer can accumulate.
+# Prevents automated "sign up as new customer, book, refer myself" farming loops.
+MAX_CUSTOMER_CREDIT = 2000.0
 
 # ---------------- Auth Endpoints ----------------
 @api.post("/auth/register")
-async def register(body: RegisterIn, request: Request, response: Response):
+async def register(body: RegisterIn, response: Response):
+    """Public staff registration.
+
+    SECURITY (SEC-001 fix): the caller-controlled X-Tenant-Slug header is
+    DELIBERATELY ignored here. A stranger cannot register themselves into
+    another salon's data. New accounts are created as ORPHANS (tenant_id=None,
+    status="pending"). A tenant admin must explicitly attach the account to
+    their tenant via /api/tenants/staff/{user_id}/attach before the user can
+    access any customer/appointment/invoice data.
+    """
     email = body.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(400, "Email already registered")
-    # Register into the tenant from the slug header, else default tenant
-    slug = request.headers.get("X-Tenant-Slug")
-    if slug:
-        tenant = await db.tenants.find_one({"slug": slug}, {"_id": 0})
-        if not tenant:
-            raise HTTPException(404, "Tenant not found")
-    else:
-        tenant = await db.tenants.find_one({"slug": DEFAULT_TENANT_SLUG}, {"_id": 0})
     user = {
         "id": str(uuid.uuid4()),
         "email": email,
         "name": body.name,
         "role": "staff",
-        "tenant_id": tenant["id"] if tenant else None,
+        "tenant_id": None,
+        "status": "pending",  # awaiting admin attach
         "password_hash": hash_pw(body.password),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -570,7 +602,43 @@ async def register(body: RegisterIn, request: Request, response: Response):
     set_auth_cookies(response, access, refresh)
     user.pop("password_hash", None)
     user.pop("_id", None)
-    return {"user": user, "access_token": access}
+    return {
+        "user": user,
+        "access_token": access,
+        "message": "Account created. Ask your salon admin to link it to your salon before you can log in fully.",
+    }
+
+
+class StaffAttachIn(BaseModel):
+    role: str = Field("staff", pattern=r"^(staff|admin)$")
+
+
+@api.post("/tenants/staff/{user_id}/attach")
+async def attach_staff(user_id: str, body: StaffAttachIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Tenant admin attaches a pending self-registered user to this tenant."""
+    target = await db.users.find_one({"id": user_id})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.get("tenant_id") and target.get("tenant_id") != t["id"]:
+        raise HTTPException(409, "User already belongs to another salon")
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"tenant_id": t["id"], "role": body.role, "status": "active",
+                  "attached_at": datetime.now(timezone.utc).isoformat(),
+                  "attached_by": admin["id"]}},
+    )
+    return {"ok": True}
+
+
+@api.get("/tenants/staff/pending")
+async def list_pending_staff(_admin=Depends(require_tenant_admin)):
+    """Show self-registered users awaiting admin attach so an owner can accept
+    only the people they recognise (email must match the person's real address)."""
+    pending = await db.users.find(
+        {"tenant_id": None, "status": "pending"},
+        {"_id": 0, "id": 1, "email": 1, "name": 1, "created_at": 1},
+    ).sort("created_at", -1).to_list(50)
+    return {"pending": pending}
 
 
 # ============== Public Salon Self-Signup (7-day trial) ==============
@@ -736,7 +804,11 @@ async def refresh_token(request: Request, response: Response):
         if not user:
             raise HTTPException(401, "User not found")
         access = make_access(user["id"], user["email"])
-        response.set_cookie("access_token", access, httponly=True, secure=False, samesite="lax", max_age=28800, path="/")
+        response.set_cookie(
+            "access_token", access, httponly=True,
+            secure=(os.environ.get("COOKIE_SECURE", "true").lower() != "false"),
+            samesite="lax", max_age=28800, path="/",
+        )
         return {"ok": True}
     except jwt.InvalidTokenError:
         raise HTTPException(401, "Invalid refresh token")
@@ -753,7 +825,10 @@ async def forgot(body: ForgotIn):
             "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
             "used": False,
         })
-        logging.info(f"[Miracurl] Password reset for {email}: token={token}")
+        # SEC-003 fix: do NOT log the reset token. Delivery must happen via a
+        # side channel (email/SMS) so a compromised log tail can't take over
+        # any account. Kept a redacted log line for ops observability only.
+        logging.info("[Miracurl] Password reset requested for %s (token %d chars)", email, len(token))
     return {"message": "If that email exists, a reset link was sent."}
 
 @api.post("/auth/reset-password")
@@ -779,7 +854,9 @@ def _clean(doc):
 async def list_customers(q: Optional[str] = None, user=Depends(get_current_user)):
     flt = {}
     if q:
-        flt = {"$or": [{"name": {"$regex": q, "$options": "i"}}, {"phone": {"$regex": q}}]}
+        # SEC-P3 fix: escape user input so `q` cannot inject a $regex DoS pattern.
+        safe_q = re.escape(q)
+        flt = {"$or": [{"name": {"$regex": safe_q, "$options": "i"}}, {"phone": {"$regex": safe_q}}]}
     docs = await db.customers.find(flt, {"_id": 0}).sort("created_at", -1).to_list(500)
     return docs
 
@@ -1104,13 +1181,20 @@ async def public_review(token: str, body: ReviewIn, request: Request):
     if await db.reviews.find_one({"appointment_id": token}):
         raise HTTPException(400, "Review already submitted for this visit")
 
+    # SEC-002: only reward if the visit was actually paid for (an invoice
+    # exists). Prevents "book fake → review fake → mint ₹50" farming loops.
+    invoiced = await db.invoices.find_one({"appointment_id": token}, {"_id": 0, "id": 1})
+
     reward_code = None
-    if body.rating >= 4:
-        reward_code = f"THANKS-{secrets.token_urlsafe(3).upper().replace('_', 'X').replace('-', 'Y')[:5]}"
-        await db.customers.update_one(
-            {"id": appt["customer_id"]},
-            {"$inc": {"referral_credit": REVIEW_REWARD_CREDIT}},
-        )
+    if body.rating >= 4 and invoiced:
+        cust_now = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0, "referral_credit": 1})
+        current_credit = float((cust_now or {}).get("referral_credit") or 0)
+        if current_credit < MAX_CUSTOMER_CREDIT:
+            reward_code = f"THANKS-{secrets.token_urlsafe(3).upper().replace('_', 'X').replace('-', 'Y')[:5]}"
+            await db.customers.update_one(
+                {"id": appt["customer_id"]},
+                {"$inc": {"referral_credit": REVIEW_REWARD_CREDIT}},
+            )
 
     review = Review(
         appointment_id=token,
@@ -1572,7 +1656,11 @@ async def _resolve_or_create_customer(body: PublicBookingIn) -> tuple[dict, bool
 
 
 async def _apply_referral_credit(cust: dict, code: Optional[str]) -> Optional[dict]:
-    """Apply referral reward to both referrer and the new customer. Returns summary or None."""
+    """Apply referral reward to both referrer and the new customer. Returns summary or None.
+
+    SEC-002: hard-caps referral_credit per customer at MAX_CUSTOMER_CREDIT so
+    a scripted attacker cannot mint unbounded wallet balances.
+    """
     if not code:
         return None
     code = code.strip().upper()
@@ -1581,6 +1669,10 @@ async def _apply_referral_credit(cust: dict, code: Optional[str]) -> Optional[di
     referrer = await db.customers.find_one({"referral_code": code}, {"_id": 0})
     if not referrer:
         return None
+    ref_credit = float(referrer.get("referral_credit") or 0)
+    cust_credit = float(cust.get("referral_credit") or 0)
+    if ref_credit >= MAX_CUSTOMER_CREDIT or cust_credit >= MAX_CUSTOMER_CREDIT:
+        return None  # cap reached — silently skip so the booking still succeeds
     await db.customers.update_one(
         {"id": referrer["id"]},
         {"$inc": {"referral_credit": REFERRAL_REWARD_REFERRER}},
@@ -1589,7 +1681,7 @@ async def _apply_referral_credit(cust: dict, code: Optional[str]) -> Optional[di
         {"id": cust["id"]},
         {"$set": {"referred_by": referrer["id"]}, "$inc": {"referral_credit": REFERRAL_REWARD_REFERRED}},
     )
-    cust["referral_credit"] = (cust.get("referral_credit") or 0) + REFERRAL_REWARD_REFERRED
+    cust["referral_credit"] = cust_credit + REFERRAL_REWARD_REFERRED
     return {"referrer_name": referrer["name"], "credit_added": REFERRAL_REWARD_REFERRED}
 
 
@@ -2905,9 +2997,29 @@ app.include_router(api)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=[
+        o.strip() for o in os.environ.get(
+            "CORS_ORIGINS",
+            "https://miracurlunisexsaloon.com,https://miracurl.com,https://hair-hub-system.preview.emergentagent.com",
+        ).split(",") if o.strip() and o.strip() != "*"
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------- Security Headers (SEC-P3) ----------------
+# Adds the standard defensive HTTP headers on every API response so a browser
+# refuses to iframe, MIME-sniff, or downgrade the connection. CSP is scoped
+# to the API side only — the frontend is a separate build.
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    return resp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

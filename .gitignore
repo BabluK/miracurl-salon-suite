@@ -4,6 +4,16 @@
 .idea/
 .vscode/
 
+# Environment files with production secrets (Razorpay LIVE keys, JWT secret,
+# seeded admin passwords). Never commit these — set them via the deployment
+# platform's env config instead.
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+!.env.example
+
 # Dependencies
 node_modules/
 /node_modules

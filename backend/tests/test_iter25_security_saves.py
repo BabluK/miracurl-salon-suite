@@ -19,12 +19,14 @@ import requests
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
-ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW    = "Miracurl@123"
-SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW    = "Super@Miracurl123"
+ADMIN_EMAIL = os.environ.get("MIRACURL_ADMIN_EMAIL", "admin@miracurl.com")
+ADMIN_PW    = os.environ.get("MIRACURL_ADMIN_PASSWORD", "Miracurl@123")
+SUPER_EMAIL = os.environ.get("MIRACURL_SUPER_EMAIL", "super@miracurl.com")
+SUPER_PW    = os.environ.get("MIRACURL_SUPER_PASSWORD", "Super@Miracurl123")
 
-RZP_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "sQXwoYe6ZdSSpt4USymXL6IR")
+# The old rzp TEST-mode secret is worthless post-live-switch, but leaving a
+# hardcoded credential here still fails audit rules. Read strictly from env.
+RZP_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
 
 
 # ---------- fixtures ----------
