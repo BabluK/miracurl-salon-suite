@@ -2145,38 +2145,138 @@ async def cancel_subscription(sid: str, body: SubscriptionCancelIn, user=Depends
 
 @api.get("/super-admin/subscriptions/revenue")
 async def subscription_revenue(user=Depends(require_super_admin)):
-    """Returns SaaS revenue stats: today, this month, last 30 days trend, plan distribution."""
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
-    pays = await db.subscription_payments.find({}, {"_id": 0}).to_list(2000)
+    """Returns SaaS revenue stats: today, this month, last 30 days trend, plan distribution,
+    MRR / ARR, churn, average subscription length, top 5 revenue tenants.
+    """
+    now = datetime.now(timezone.utc)
+    today_iso = now.date().isoformat()
+    month_prefix = now.strftime("%Y-%m")
+    pays = await db.subscription_payments.find(
+        {"$or": [{"kind": {"$exists": False}}, {"kind": {"$ne": "razorpay_pending"}}]},
+        {"_id": 0},
+    ).to_list(5000)
     today_total = sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(today_iso))
     month_total = sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(month_prefix))
     all_time = sum(p["amount"] for p in pays)
+
     # 30-day trend
     by_day: dict = {}
     for offset in range(29, -1, -1):
-        d = (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat()
+        d = (now - timedelta(days=offset)).date().isoformat()
         by_day[d] = 0.0
     for p in pays:
         d = (p.get("paid_at") or "")[:10]
         if d in by_day:
             by_day[d] += p["amount"]
     trend = [{"date": d, "amount": round(v, 2)} for d, v in by_day.items()]
-    # Plan distribution
-    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0, "plan": 1}).to_list(500)
+
+    # Active subs + plan distribution + MRR/ARR
+    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(2000)
     plan_counts: dict = {}
+    mrr = 0.0
     for s in subs:
         plan_counts[s["plan"]] = plan_counts.get(s["plan"], 0) + 1
+        # Normalise each active plan into a monthly-recurring number
+        plan_days = PLAN_CATALOG.get(s["plan"], {}).get("duration_days", 30) or 30
+        plan_price = float(s.get("price") or PLAN_CATALOG.get(s["plan"], {}).get("price") or 0)
+        mrr += plan_price * (30.0 / plan_days)
+    arr = mrr * 12.0
     plan_dist = [{"plan": k, "label": PLAN_CATALOG.get(k, {}).get("label", k), "count": v}
                  for k, v in plan_counts.items()]
+
+    # Churn (last 30 days): cancelled / (active + cancelled_in_window)
+    win_start = (now - timedelta(days=30)).isoformat()
+    cancelled_30d = await db.subscriptions.count_documents({
+        "status": "cancelled",
+        "cancelled_at": {"$gte": win_start},
+    })
+    denom = len(subs) + cancelled_30d
+    churn_rate = round(100.0 * cancelled_30d / denom, 2) if denom else 0.0
+
+    # Avg subscription lifetime (days) — over cancelled ones
+    cancelled_all = await db.subscriptions.find(
+        {"status": "cancelled", "cancelled_at": {"$exists": True}, "start_date": {"$exists": True}},
+        {"_id": 0, "start_date": 1, "cancelled_at": 1},
+    ).to_list(2000)
+    lifetimes: list = []
+    for c in cancelled_all:
+        try:
+            sd = datetime.fromisoformat(c["start_date"]).date()
+            cd = datetime.fromisoformat(c["cancelled_at"].replace("Z", "+00:00")).date()
+            lifetimes.append((cd - sd).days)
+        except (ValueError, TypeError, KeyError):
+            continue
+    avg_lifetime_days = round(sum(lifetimes) / len(lifetimes), 1) if lifetimes else None
+
+    # Top 5 tenants by all-time revenue
+    tenant_totals: dict = {}
+    for p in pays:
+        tid = p.get("tenant_id")
+        if not tid:
+            continue
+        tenant_totals[tid] = tenant_totals.get(tid, 0.0) + float(p["amount"])
+    top_ids = sorted(tenant_totals, key=tenant_totals.get, reverse=True)[:5]
+    tenant_lookup = {t["id"]: t for t in await db.tenants.find(
+        {"id": {"$in": top_ids}}, {"_id": 0, "id": 1, "slug": 1, "name": 1}
+    ).to_list(len(top_ids) or 1)}
+    top_tenants = [{
+        "tenant_id": tid,
+        "slug": tenant_lookup.get(tid, {}).get("slug", "—"),
+        "name": tenant_lookup.get(tid, {}).get("name", "—"),
+        "total_paid": round(tenant_totals[tid], 2),
+    } for tid in top_ids]
+
     return {
         "today": round(today_total, 2),
         "this_month": round(month_total, 2),
         "all_time": round(all_time, 2),
         "active_subscriptions": len(subs),
+        "cancelled_30d": cancelled_30d,
+        "churn_pct": churn_rate,
+        "mrr": round(mrr, 2),
+        "arr": round(arr, 2),
+        "avg_lifetime_days": avg_lifetime_days,
         "trend_30d": trend,
         "plan_distribution": plan_dist,
+        "top_tenants": top_tenants,
     }
+
+
+@api.get("/super-admin/subscriptions/export.csv")
+async def export_subscription_payments_csv(user=Depends(require_super_admin)):
+    """Download every payment as CSV — useful for accounting/investor sharing."""
+    import csv
+    import io
+    pays = await db.subscription_payments.find(
+        {"$or": [{"kind": {"$exists": False}}, {"kind": {"$ne": "razorpay_pending"}}]},
+        {"_id": 0},
+    ).sort("paid_at", -1).to_list(20000)
+    tids = list({p.get("tenant_id") for p in pays if p.get("tenant_id")})
+    t_map = {t["id"]: t for t in await db.tenants.find(
+        {"id": {"$in": tids}}, {"_id": 0, "id": 1, "slug": 1, "name": 1, "owner_email": 1}
+    ).to_list(len(tids) or 1)}
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["paid_at", "tenant_slug", "tenant_name", "owner_email",
+                "amount_inr", "method", "txn_ref", "subscription_id", "notes"])
+    for p in pays:
+        t = t_map.get(p.get("tenant_id"), {})
+        w.writerow([
+            p.get("paid_at", ""),
+            t.get("slug", ""),
+            t.get("name", ""),
+            t.get("owner_email", ""),
+            f"{float(p.get('amount') or 0):.2f}",
+            p.get("method", ""),
+            p.get("txn_ref", ""),
+            p.get("subscription_id", ""),
+            (p.get("notes") or "").replace("\n", " "),
+        ])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="miracurl-revenue-{datetime.now(timezone.utc).date().isoformat()}.csv"'},
+    )
 
 
 @api.get("/super-admin/tenants/{tid}/billing")

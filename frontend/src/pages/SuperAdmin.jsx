@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
@@ -119,12 +119,19 @@ export default function SuperAdmin() {
             onClick={() => setTab("leaderboard")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "leaderboard" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           ><Trophy className="w-4 h-4" /> Top Referrers</button>
+          <button
+            data-testid="super-tab-revenue"
+            onClick={() => setTab("revenue")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "revenue" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><TrendingUp className="w-4 h-4" /> Revenue</button>
         </div>
 
         {tab === "billing" ? (
           <BillingPanel tenants={tenants} />
         ) : tab === "leaderboard" ? (
           <LeaderboardPanel />
+        ) : tab === "revenue" ? (
+          <RevenuePanel />
         ) : (
           <>
         <div className="flex items-center justify-between">
@@ -430,6 +437,147 @@ function LeaderboardPanel() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+
+function RevenuePanel() {
+  const [rev, setRev] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    api.get("/super-admin/subscriptions/revenue")
+      .then(r => setRev(r.data))
+      .catch(e => toast.error(e.response?.data?.detail || "Couldn't load revenue"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="text-slate-500 text-sm">Loading revenue metrics…</div>;
+  if (!rev) return null;
+
+  const fmt = (n) => `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  const trendMax = Math.max(1, ...rev.trend_30d.map(d => d.amount));
+
+  const downloadCsv = async () => {
+    try {
+      const r = await api.get("/super-admin/subscriptions/export.csv", { responseType: "blob" });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `miracurl-revenue-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) { toast.error("Couldn't download CSV"); }
+  };
+
+  return (
+    <div className="space-y-6" data-testid="revenue-panel">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="font-playfair text-3xl flex items-center gap-3">
+            <TrendingUp className="w-7 h-7 text-emerald-500" /> Revenue
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Real-time SaaS metrics — recurring revenue, churn and top-earning salons.
+          </p>
+        </div>
+        <button
+          onClick={downloadCsv}
+          data-testid="revenue-export-btn"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800 text-white text-sm font-medium hover:bg-slate-700"
+        >
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
+      </div>
+
+      {/* Big-number cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="MRR" value={fmt(rev.mrr)} note="Monthly recurring" accent="emerald" data-testid="stat-mrr" />
+        <StatCard label="ARR" value={fmt(rev.arr)} note="Annual run-rate" accent="sky" data-testid="stat-arr" />
+        <StatCard label="This month" value={fmt(rev.this_month)} note="Collected" accent="violet" data-testid="stat-month" />
+        <StatCard label="All-time" value={fmt(rev.all_time)} note="Since day 1" accent="amber" data-testid="stat-alltime" />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Active subs" value={rev.active_subscriptions} note="Paying tenants" accent="slate" />
+        <StatCard label="Churned 30d" value={rev.cancelled_30d} note={`${rev.churn_pct}% rate`} accent="rose" />
+        <StatCard label="Avg lifetime" value={rev.avg_lifetime_days ? `${rev.avg_lifetime_days} d` : "—"} note="Cancelled subs" accent="indigo" />
+        <StatCard label="Today" value={fmt(rev.today)} note="Cash in" accent="emerald" />
+      </div>
+
+      {/* 30-day trend bar chart */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-800 mb-4">Last 30 days · daily revenue</h3>
+        <div className="flex items-end gap-1 h-40" data-testid="revenue-trend-chart">
+          {rev.trend_30d.map(d => {
+            const h = trendMax > 0 ? Math.max(2, (d.amount / trendMax) * 100) : 2;
+            return (
+              <div key={d.date} className="flex-1 flex flex-col items-center group relative">
+                <div
+                  className={`w-full rounded-t transition ${d.amount > 0 ? "bg-gradient-to-t from-emerald-500 to-emerald-300" : "bg-slate-100"}`}
+                  style={{ height: `${h}%` }}
+                  title={`${d.date}: ${fmt(d.amount)}`}
+                />
+                <div className="opacity-0 group-hover:opacity-100 absolute -top-8 text-[10px] text-slate-700 bg-white shadow px-1.5 py-0.5 rounded whitespace-nowrap">
+                  {d.date.slice(5)} · {fmt(d.amount)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Plan distribution + Top tenants */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-800 mb-3">Active plan mix</h3>
+          {rev.plan_distribution.length === 0 ? (
+            <div className="text-xs text-slate-500 py-6 text-center">No active paid subscriptions yet.</div>
+          ) : rev.plan_distribution.map(p => (
+            <div key={p.plan} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+              <div className="text-sm text-slate-700">{p.label}</div>
+              <div className="text-sm font-semibold text-slate-900">{p.count}</div>
+            </div>
+          ))}
+        </div>
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-800 mb-3">Top 5 tenants (all-time)</h3>
+          {rev.top_tenants.length === 0 ? (
+            <div className="text-xs text-slate-500 py-6 text-center">Nobody paid yet.</div>
+          ) : rev.top_tenants.map((t, i) => (
+            <div key={t.tenant_id} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0" data-testid={`top-tenant-${t.slug}`}>
+              <div>
+                <div className="text-sm text-slate-800 flex items-center gap-2">
+                  <span className="text-slate-400 text-xs w-5">#{i + 1}</span> {t.name}
+                </div>
+                <div className="text-[11px] text-slate-500 font-mono ml-7">{t.slug}</div>
+              </div>
+              <div className="text-sm font-semibold text-emerald-600 font-mono">{fmt(t.total_paid)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, note, accent = "slate", ...rest }) {
+  const styles = {
+    emerald: "border-emerald-100 bg-emerald-50/40",
+    sky: "border-sky-100 bg-sky-50/40",
+    violet: "border-violet-100 bg-violet-50/40",
+    amber: "border-amber-100 bg-amber-50/40",
+    slate: "border-slate-100 bg-slate-50/40",
+    rose: "border-rose-100 bg-rose-50/40",
+    indigo: "border-indigo-100 bg-indigo-50/40",
+  };
+  return (
+    <div className={`bg-white border rounded-2xl p-4 shadow-sm ${styles[accent] || styles.slate}`} {...rest}>
+      <div className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">{label}</div>
+      <div className="text-2xl font-bold text-slate-900 mt-1">{value}</div>
+      <div className="text-[11px] text-slate-500 mt-0.5">{note}</div>
     </div>
   );
 }
