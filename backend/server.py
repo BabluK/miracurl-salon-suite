@@ -1933,49 +1933,66 @@ def _verify_rzp_signature(order_id: str, payment_id: str, signature: str) -> boo
 
 @api.post("/billing/razorpay/verify")
 async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Verify the checkout signature and create/extend the tenant's subscription."""
+    """Verify the checkout signature and create/extend the tenant's subscription.
+
+    SECURITY: the plan/price/duration are ALWAYS read from the server-recorded pending order,
+    never from the client body — otherwise an attacker could pay for the cheap plan and
+    claim the premium plan by tampering with the payload.
+    """
     if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
         raise HTTPException(503, "Razorpay is not configured.")
     if not _verify_rzp_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
         raise HTTPException(400, "Payment signature verification failed — possible tampering.")
 
-    # Look up the pending record we created at order time
-    pending = await db.subscription_payments.find_one(
-        {"razorpay_order_id": body.razorpay_order_id, "kind": "razorpay_pending"},
-        {"_id": 0},
+    # Atomically claim the pending record — prevents replay/re-use of the same order.
+    now = datetime.now(timezone.utc)
+    pending_doc = await db.subscription_payments.find_one_and_update(
+        {
+            "razorpay_order_id": body.razorpay_order_id,
+            "kind": "razorpay_pending",
+            "status": "created",  # only claim if not yet captured
+            "tenant_id": t["id"],  # must belong to the same tenant
+        },
+        {"$set": {
+            "status": "captured",
+            "razorpay_payment_id": body.razorpay_payment_id,
+            "captured_at": now.isoformat(),
+        }},
+        return_document=True,
     )
-    if not pending or pending["tenant_id"] != t["id"]:
-        raise HTTPException(400, "Unknown order — please retry from scratch.")
+    if not pending_doc:
+        raise HTTPException(400, "Unknown, already-consumed, or foreign order — please retry from scratch.")
 
-    plan_info = _plan_or_400(body.plan)
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    start_dt = datetime.now(timezone.utc)
-    end_dt = start_dt + timedelta(days=plan_info["duration_days"])
+    # Use the SERVER-recorded plan, never the client's — SEC-002 fix.
+    server_plan = pending_doc["plan"]
+    plan_info = _plan_or_400(server_plan)
+    today_iso = now.date().isoformat()
+    end_dt = now + timedelta(days=plan_info["duration_days"])
 
     # Auto-cancel any existing active subscription for the same tenant
     await db.subscriptions.update_many(
         {"tenant_id": t["id"], "status": "active"},
-        {"$set": {"status": "cancelled", "cancelled_at": start_dt.isoformat(),
+        {"$set": {"status": "cancelled", "cancelled_at": now.isoformat(),
                   "cancelled_reason": "superseded by Razorpay renewal"}},
     )
 
     sub = Subscription(
         tenant_id=t["id"],
-        plan=body.plan,
+        plan=server_plan,
         price=plan_info["price"],
-        start_date=start_dt.date().isoformat(),
+        start_date=now.date().isoformat(),
         end_date=end_dt.date().isoformat(),
         status="active",
         payment_method="razorpay",
         payment_ref=body.razorpay_payment_id,
-        notes=f"Razorpay order {body.razorpay_order_id}; credits applied ₹{pending.get('credits_applied',0)}",
+        notes=f"Razorpay order {body.razorpay_order_id}; credits applied ₹{pending_doc.get('credits_applied',0)}",
     ).model_dump()
     await db.subscriptions.insert_one(sub)
 
     pay = SubscriptionPayment(
         subscription_id=sub["id"],
         tenant_id=t["id"],
-        amount=float(pending["amount"]),
+        amount=float(pending_doc["amount"]),
         paid_at=today_iso,
         method="razorpay",
         txn_ref=body.razorpay_payment_id,
@@ -1984,27 +2001,20 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
     ).model_dump()
     await db.subscription_payments.insert_one(pay)
 
-    # Finalise the pending record + zero the affiliate credits used
-    await db.subscription_payments.update_one(
-        {"razorpay_order_id": body.razorpay_order_id, "kind": "razorpay_pending"},
-        {"$set": {"status": "captured", "razorpay_payment_id": body.razorpay_payment_id,
-                  "captured_at": start_dt.isoformat()}},
-    )
-    if pending.get("credits_applied", 0) > 0:
-        # Deduct only what was applied — never go below zero
+    if pending_doc.get("credits_applied", 0) > 0:
         await db.tenants.update_one(
             {"id": t["id"]},
-            {"$inc": {"affiliate_credits": -float(pending["credits_applied"])}},
+            {"$inc": {"affiliate_credits": -float(pending_doc["credits_applied"])}},
         )
 
     await db.tenants.update_one(
         {"id": t["id"]},
-        {"$set": {"plan": body.plan, "status": "active",
+        {"$set": {"plan": server_plan, "status": "active",
                   "subscription_end_date": sub["end_date"],
                   "current_subscription_id": sub["id"]}},
     )
 
-    return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"]}
+    return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"], "plan": server_plan}
 
 
 @api.post("/billing/razorpay/webhook")
@@ -2362,22 +2372,31 @@ async def backfill_tenant_ids(tenant_id: str):
     )
 
 async def seed_super_admin():
-    email = "super@miracurl.com"
+    """Seed the super-admin ONCE from env. Never re-writes an existing hash so operators can rotate it."""
+    email = os.environ.get("SUPER_ADMIN_EMAIL", "super@miracurl.com").lower()
     existing = await db.users.find_one({"email": email})
-    pw = "Super@Miracurl123"
-    if not existing:
-        await db.users.insert_one({
-            "id": str(uuid.uuid4()),
-            "email": email,
-            "name": "Super Admin",
-            "role": "super_admin",
-            "tenant_id": None,
-            "password_hash": hash_pw(pw),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        logging.info(f"Seeded super-admin user (email={email})")
-    elif not verify_pw(pw, existing["password_hash"]):
-        await db.users.update_one({"email": email}, {"$set": {"password_hash": hash_pw(pw), "role": "super_admin"}})
+    if existing:
+        # Never touch an existing super-admin — the operator may have rotated the password.
+        # Only auto-heal if the role got downgraded somehow.
+        if existing.get("role") != "super_admin":
+            await db.users.update_one({"email": email}, {"$set": {"role": "super_admin"}})
+        return
+    seed_pw = os.environ.get("SUPER_ADMIN_SEED_PASSWORD")
+    if not seed_pw:
+        # No seed configured — skip. Operator must create the super-admin manually or set the env var once.
+        logging.warning("SUPER_ADMIN_SEED_PASSWORD is not set — skipping super-admin seed. Set it in .env for first-boot only.")
+        return
+    await db.users.insert_one({
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "name": "Super Admin",
+        "role": "super_admin",
+        "tenant_id": None,
+        "password_hash": hash_pw(seed_pw),
+        "must_change_password": True,   # force rotation on first login
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    logging.info("Seeded super-admin user (email=%s) — MUST rotate password on first login", email)
 
 async def seed_default_tenant():
     """Ensure the default tenant exists. Returns the tenant dict."""
@@ -2398,30 +2417,31 @@ async def seed_default_tenant():
     return t
 
 async def seed_admin():
+    """Seed default salon admin ONCE. Never re-writes an existing hash so the owner can rotate it."""
     admin_email = os.environ["ADMIN_EMAIL"].lower()
-    admin_pw = os.environ["ADMIN_PASSWORD"]
     default_tenant = await db.tenants.find_one({"slug": DEFAULT_TENANT_SLUG}, {"_id": 0})
     tenant_id = default_tenant["id"] if default_tenant else None
     existing = await db.users.find_one({"email": admin_email})
-    if not existing:
-        await db.users.insert_one({
-            "id": str(uuid.uuid4()),
-            "email": admin_email,
-            "name": "Salon Admin",
-            "role": "admin",
-            "tenant_id": tenant_id,
-            "password_hash": hash_pw(admin_pw),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        logging.info("Seeded admin user")
-    else:
-        updates = {}
-        if not verify_pw(admin_pw, existing["password_hash"]):
-            updates["password_hash"] = hash_pw(admin_pw)
+    if existing:
+        # Only auto-heal missing tenant link. Do NOT overwrite the password.
         if not existing.get("tenant_id") and tenant_id:
-            updates["tenant_id"] = tenant_id
-        if updates:
-            await db.users.update_one({"email": admin_email}, {"$set": updates})
+            await db.users.update_one({"email": admin_email}, {"$set": {"tenant_id": tenant_id}})
+        return
+    seed_pw = os.environ.get("ADMIN_PASSWORD")
+    if not seed_pw:
+        logging.warning("ADMIN_PASSWORD is not set — skipping admin seed.")
+        return
+    await db.users.insert_one({
+        "id": str(uuid.uuid4()),
+        "email": admin_email,
+        "name": "Salon Admin",
+        "role": "admin",
+        "tenant_id": tenant_id,
+        "password_hash": hash_pw(seed_pw),
+        "must_change_password": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    logging.info("Seeded admin user — MUST rotate password on first login")
 
 async def seed_data():
     # All seed inserts run with the default tenant context so tenant_id auto-injects
