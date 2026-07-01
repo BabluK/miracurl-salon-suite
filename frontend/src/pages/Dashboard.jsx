@@ -5,6 +5,7 @@ import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle,
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
+import DailyReportBanner from "@/components/DailyReportBanner";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
 const CHART_TOOLTIP_STYLE = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' };
@@ -80,6 +81,7 @@ export default function Dashboard() {
     <div className="bg-slate-50 -mx-6 -my-6 px-6 py-6 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
 
       <RenewalBanner sub={subStatus} />
+      <DailyReportBanner ownerName={tenant?.name} />
 
       {/* Hero strip with booking link */}
       <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl p-6 text-white relative overflow-hidden">

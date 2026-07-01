@@ -1,0 +1,52 @@
+{
+  "summary": "Tested new GET /api/reports/daily endpoint + DailyReportBanner UI + ErrorBoundary regression. All 6 backend tests pass and all 10 frontend UI checks pass. Feature is production-ready.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_daily_report.py",
+    "/app/test_reports/pytest/iter27_daily_report.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 2709 lines — should be split into routers (reports, invoices, auth, tenants) for maintainability. Not blocking this iteration.",
+    "Pre-existing (unrelated to this iter): Recharts warnings 'width(-1) and height(-1) of chart' logged repeatedly on Dashboard — noise in console; consider giving chart containers explicit min-height."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_daily_report.py (new pytest file)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (10/10)"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 and owner@elegance.com / Owner@123 — both worked",
+  "seed_data_creation": "None — used existing seeded invoices (Miracurl salon has 40 invoices for yesterday IST totaling ₹33,904)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Feature complete. GET /api/reports/daily returns full schema {date, date_label, revenue{total,card,upi,cash,wallet,other}, invoices, new_guests, staff[], is_empty}. Validated: default=yesterday IST, ?date=YYYY-MM-DD, ?date=badformat->400, empty day (2026-06-15)->is_empty:true, multi-tenant isolation (miracurl vs elegance), 401 without auth. UI: banner at top of dashboard above sky-blue hero, 4 payment tiles, staff toggle expanding list of 2 stylists with ranked badges, dismiss button writes miracurl_daily_report_seen_2026-06-30='1' to localStorage and persists across reload. Settings page renders 'Salon Settings' title (no blank page regression). ErrorBoundary wraps <Routes> in App.js line 71-94 as expected and did not fire on any navigation (Dashboard/Settings/POS/Staff/Customers).",
+  "detailed_test_results": {
+    "backend": {
+      "test_default_returns_full_schema": "PASS — all required keys present, correct types",
+      "test_explicit_date_valid": "PASS — ?date=2026-06-30 returned date=2026-06-30",
+      "test_explicit_date_invalid_format": "PASS — badformat returned HTTP 400 with detail 'Invalid date, must be YYYY-MM-DD'",
+      "test_empty_past_day_returns_is_empty": "PASS — 2026-06-15 returned is_empty=true, total=0, invoices=0",
+      "test_tenant_isolation": "PASS — miracurl and elegance tokens return independent reports",
+      "test_requires_auth": "PASS — 401/403 without token"
+    },
+    "frontend": {
+      "banner_visible_on_dashboard": "PASS",
+      "banner_above_hero": "PASS (visual confirmation via screenshot — banner at top ₹33,904 above 'Welcome back to Miracurl' sky-blue hero)",
+      "total_displayed": "PASS — ₹33,904",
+      "four_payment_tiles": "PASS — card/upi/cash/new-guests all present",
+      "staff_toggle_expands": "PASS — clicking toggle shows staff list with 2 stylist rows",
+      "dismiss_hides_banner": "PASS",
+      "dismiss_writes_localstorage": "PASS — miracurl_daily_report_seen_2026-06-30='1'",
+      "dismiss_persists_on_reload": "PASS — banner stayed hidden after page reload",
+      "settings_page_renders": "PASS — 'Salon Settings' title visible, no blank page, no ErrorBoundary fallback",
+      "other_pages_render_without_errorboundary": "PASS — POS/Staff/Customers/Dashboard all render normally"
+    }
+  }
+}

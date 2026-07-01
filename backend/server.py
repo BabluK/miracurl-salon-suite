@@ -1059,6 +1059,113 @@ async def dashboard(user=Depends(get_current_user)):
         **review_stats,
     }
 
+# India Standard Time offset — reports are anchored to the salon's local day, not UTC.
+IST_OFFSET = timedelta(hours=5, minutes=30)
+
+
+def _ist_day_window(date_str: Optional[str] = None) -> tuple[str, str, str]:
+    """Return (date_yyyy_mm_dd, utc_start_iso, utc_end_iso) for an IST calendar day.
+    Default: yesterday in IST. Used by the daily report so a 10 PM IST invoice
+    counts on the correct business day."""
+    now_ist = datetime.now(timezone.utc) + IST_OFFSET
+    if date_str:
+        try:
+            day = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError as e:
+            raise HTTPException(400, "Invalid date, must be YYYY-MM-DD") from e
+    else:
+        day = (now_ist - timedelta(days=1)).date()
+    ist_start = datetime(day.year, day.month, day.day, 0, 0, 0)
+    ist_end = datetime(day.year, day.month, day.day, 23, 59, 59)
+    utc_start = (ist_start - IST_OFFSET).isoformat() + "Z"
+    utc_end = (ist_end - IST_OFFSET).isoformat() + "Z"
+    return day.isoformat(), utc_start, utc_end
+
+
+@api.get("/reports/daily")
+async def daily_report(date: Optional[str] = None, user=Depends(get_current_user)):
+    """One-day revenue summary anchored to IST. Powers the 'Yesterday's Report'
+    notification that greets the salon owner on login.
+
+    Query params:
+      date  — YYYY-MM-DD (IST). Defaults to yesterday.
+
+    Returns totals split by payment mode (card / upi / cash / wallet / other),
+    invoice count, new-guest count, and per-staff gross revenue.
+    """
+    day, utc_start, utc_end = _ist_day_window(date)
+    flt = {"created_at": {"$gte": utc_start, "$lte": utc_end}}
+    invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
+
+    buckets = {"card": 0.0, "upi": 0.0, "cash": 0.0, "wallet": 0.0, "other": 0.0}
+    total = 0.0
+    for inv in invs:
+        amt = float(inv.get("total") or 0)
+        total += amt
+        mode = str(inv.get("payment_mode") or "other").lower()
+        if mode in buckets:
+            buckets[mode] += amt
+        else:
+            buckets["other"] += amt
+
+    # Per-staff breakdown: item-level staff_id wins, falls back to invoice staff_id.
+    staff_agg: dict = {}
+    unassigned = {"gross": 0.0, "invoices": set()}
+    for inv in invs:
+        inv_staff = inv.get("staff_id")
+        assigned_line = False
+        for it in inv.get("items", []):
+            sid = it.get("staff_id") or inv_staff
+            price = float(it.get("price") or 0) * int(it.get("qty") or 1)
+            if not sid:
+                unassigned["gross"] += price
+                continue
+            row = staff_agg.setdefault(sid, {"gross": 0.0, "invoice_ids": set()})
+            row["gross"] += price
+            row["invoice_ids"].add(inv.get("id"))
+            assigned_line = True
+        if not assigned_line and inv_staff:
+            row = staff_agg.setdefault(inv_staff, {"gross": 0.0, "invoice_ids": set()})
+            row["invoice_ids"].add(inv.get("id"))
+    staff_docs = await db.staff.find(
+        {"id": {"$in": list(staff_agg.keys())}}, {"_id": 0, "id": 1, "name": 1},
+    ).to_list(200) if staff_agg else []
+    smap = {s["id"]: s["name"] for s in staff_docs}
+    staff_rows = [
+        {
+            "staff_id": sid,
+            "staff_name": smap.get(sid, "(removed)"),
+            "gross": round(row["gross"], 2),
+            "invoices": len(row["invoice_ids"]),
+        }
+        for sid, row in staff_agg.items()
+    ]
+    staff_rows.sort(key=lambda r: r["gross"], reverse=True)
+
+    # New guests = customers whose first record landed on this IST day.
+    new_guests = await db.customers.count_documents(
+        {"created_at": {"$gte": utc_start, "$lte": utc_end}},
+    )
+
+    day_dt = datetime.strptime(day, "%Y-%m-%d")
+    return {
+        "date": day,
+        "date_label": day_dt.strftime("%a, %d %b %Y"),
+        "revenue": {
+            "total": round(total, 2),
+            "card": round(buckets["card"], 2),
+            "upi": round(buckets["upi"], 2),
+            "cash": round(buckets["cash"], 2),
+            "wallet": round(buckets["wallet"], 2),
+            "other": round(buckets["other"], 2),
+        },
+        "invoices": len(invs),
+        "new_guests": new_guests,
+        "staff": staff_rows,
+        "is_empty": len(invs) == 0,
+    }
+
+
 @api.get("/reports/sales")
 async def sales_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(get_current_user)):
     flt = {}
