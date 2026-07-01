@@ -1175,6 +1175,103 @@ async def staff_my_attendance(month: Optional[str] = None, s=Depends(_current_st
     }
 
 
+# ---- Admin attendance oversight ----
+
+@api.get("/attendance/today")
+async def attendance_today(date: Optional[str] = None,
+                           _=Depends(require_tenant_admin)):
+    """
+    Roster for a given day (defaults to today).
+    Returns EVERY active staff member with their current check-in/out state,
+    so admin can see at a glance who is on-shift, who's finished, and who
+    hasn't checked in yet.
+    """
+    day = (date or datetime.now(timezone.utc).date().isoformat()).strip()
+    try:
+        datetime.strptime(day, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(400, "date must be YYYY-MM-DD")
+
+    staff_list = await db.staff.find(
+        {"active": True},
+        {"_id": 0, "id": 1, "name": 1, "role": 1, "image_url": 1, "user_id": 1, "phone": 1},
+    ).sort("name", 1).to_list(500)
+    att = await db.attendance.find({"date": day}, {"_id": 0}).to_list(500)
+    att_by_sid = {a["staff_id"]: a for a in att}
+
+    roster = []
+    now = datetime.now(timezone.utc)
+    for s in staff_list:
+        rec = att_by_sid.get(s["id"])
+        status = "absent"
+        hours = 0.0
+        if rec and rec.get("check_in_at"):
+            if rec.get("check_out_at"):
+                status = "completed"
+                hours = float(rec.get("hours_worked") or 0)
+            else:
+                status = "on_shift"
+                try:
+                    hours = round(
+                        (now - datetime.fromisoformat(rec["check_in_at"])).total_seconds() / 3600, 2
+                    )
+                except Exception:
+                    hours = 0.0
+        roster.append({
+            "staff_id": s["id"],
+            "name": s.get("name"),
+            "role": s.get("role"),
+            "image_url": s.get("image_url"),
+            "phone": s.get("phone"),
+            "has_login": bool(s.get("user_id")),
+            "status": status,
+            "check_in_at": rec.get("check_in_at") if rec else None,
+            "check_out_at": rec.get("check_out_at") if rec else None,
+            "hours": hours,
+        })
+
+    return {
+        "date": day,
+        "total_staff": len(staff_list),
+        "on_shift": sum(1 for r in roster if r["status"] == "on_shift"),
+        "completed": sum(1 for r in roster if r["status"] == "completed"),
+        "absent": sum(1 for r in roster if r["status"] == "absent"),
+        "roster": roster,
+    }
+
+
+@api.get("/attendance/staff/{sid}")
+async def attendance_by_staff(sid: str, month: Optional[str] = None,
+                              _=Depends(require_tenant_admin)):
+    """Admin view: attendance history for a single staff member for a month."""
+    from calendar import monthrange
+    now = datetime.now(timezone.utc)
+    if month:
+        try:
+            y, m = map(int, month.split("-"))
+        except Exception:
+            raise HTTPException(400, "month must be YYYY-MM")
+    else:
+        y, m = now.year, now.month
+    start = f"{y:04d}-{m:02d}-01"
+    end = f"{y:04d}-{m:02d}-{monthrange(y, m)[1]:02d}"
+    staff = await db.staff.find_one({"id": sid}, {"_id": 0})
+    if not staff:
+        raise HTTPException(404, "Staff not found")
+    recs = await db.attendance.find(
+        {"staff_id": sid, "date": {"$gte": start, "$lte": end}},
+        {"_id": 0},
+    ).sort("date", -1).to_list(200)
+    return {
+        "staff": {"id": staff["id"], "name": staff.get("name"), "role": staff.get("role"),
+                  "image_url": staff.get("image_url"), "phone": staff.get("phone")},
+        "month": f"{y:04d}-{m:02d}",
+        "records": recs,
+        "days_present": sum(1 for r in recs if r.get("check_in_at")),
+        "total_hours": round(sum(float(r.get("hours_worked") or 0) for r in recs), 2),
+    }
+
+
 async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: dict) -> dict:
     """Base + commission from services performed in this calendar month."""
     from calendar import monthrange

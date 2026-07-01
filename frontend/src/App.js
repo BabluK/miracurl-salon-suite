@@ -21,6 +21,7 @@ import Landing from "@/pages/Landing";
 import Settings from "@/pages/Settings";
 import ReferEarn from "@/pages/ReferEarn";
 import StaffPortal from "@/pages/StaffPortal";
+import Attendance from "@/pages/Attendance";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ForceChangePassword from "@/pages/ForceChangePassword";
 
@@ -103,6 +104,7 @@ export default function App() {
               <Route path="appointments" element={<Appointments />} />
               <Route path="customers" element={<AdminOnly><Customers /></AdminOnly>} />
               <Route path="staff" element={<AdminOnly><Staff /></AdminOnly>} />
+              <Route path="attendance" element={<AdminOnly><Attendance /></AdminOnly>} />
               <Route path="services" element={<AdminOnly><Services /></AdminOnly>} />
               <Route path="inventory" element={<AdminOnly><Inventory /></AdminOnly>} />
               <Route path="pos" element={<AdminOnly><POS /></AdminOnly>} />
