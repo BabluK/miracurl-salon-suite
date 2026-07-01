@@ -111,16 +111,8 @@ class TestUploadValidation:
         assert "empty" in r.text.lower()
 
     def test_over_3mb_returns_413(self, mira_token):
-        # 4MB payload — build a large PNG that actually exceeds 3MB after compression
-        buf = io.BytesIO()
-        # Use noisy image so PNG doesn't compress well
-        import random
-        random.seed(1)
-        arr = bytes(random.getrandbits(8) for _ in range(1))
-        # Faster: build via PIL with random pixels
-        import struct
-        # Simpler: pad the PNG payload with 4MB of raw bytes suffix on a valid header
-        # Actually just send 4MB of arbitrary bytes with .png extension — server checks size after reading regardless of image validity.
+        # 4MB payload — send 4MB of arbitrary bytes with .png extension.
+        # Server checks size after reading regardless of image validity.
         big = b"\x89PNG\r\n\x1a\n" + os.urandom(4 * 1024 * 1024)
         files = {"file": ("big.png", big, "image/png")}
         r = requests.post(

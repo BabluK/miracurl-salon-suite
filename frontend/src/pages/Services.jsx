@@ -103,7 +103,15 @@ export default function Services() {
                 <div><label className="label-light block mb-1">Price ₹</label><input type="number" required className="input-light" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
                 <div><label className="label-light block mb-1">Duration (min)</label><input type="number" required className="input-light" value={form.duration_min} onChange={e => setForm({ ...form, duration_min: e.target.value })} /></div>
               </div>
-              <div><label className="label-light block mb-1">Image URL</label><input className="input-light" value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} /></div>
+              <div>
+                <label className="label-light block mb-1">Service image</label>
+                <ImageUploader
+                  kind="service"
+                  value={form.image_url}
+                  onChange={(url) => setForm({ ...form, image_url: url })}
+                  fallback="https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400"
+                />
+              </div>
               <div><label className="label-light block mb-1">Description</label><textarea rows="2" className="input-light" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.trending} onChange={e => setForm({ ...form, trending: e.target.checked })} />
