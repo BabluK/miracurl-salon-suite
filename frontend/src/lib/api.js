@@ -22,6 +22,31 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Global 401 handler — expired/invalid session → clear token + redirect to /login.
+// Prevents the "blank Settings page" symptom users hit after long idle sessions.
+api.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    const status = err?.response?.status;
+    const url = err?.config?.url || "";
+    // Never redirect on the bootstrap /auth/me probe or on the login endpoint itself —
+    // AuthContext already handles those explicitly.
+    const isAuthBootstrap = url.includes("/auth/me") || url.includes("/auth/login");
+    if (status === 401 && !isAuthBootstrap && typeof window !== "undefined") {
+      accessToken = null;
+      try { localStorage.removeItem("miracurl_token"); } catch { /* ignore quota */ }
+      const path = window.location.pathname;
+      // Don't loop if we're already on /login or the public marketing/booking routes
+      const isPublic = path === "/login" || path === "/" || path.startsWith("/book/") ||
+                       path.startsWith("/review/") || path === "/signup-salon";
+      if (!isPublic) {
+        window.location.assign(`/login?next=${encodeURIComponent(path + window.location.search)}`);
+      }
+    }
+    return Promise.reject(err);
+  },
+);
+
 export function formatApiError(detail) {
   if (detail == null) return "Something went wrong. Please try again.";
   if (typeof detail === "string") return detail;
