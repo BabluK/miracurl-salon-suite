@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import BrandMark from "./BrandMark";
+import TenantBrandMark from "./TenantBrandMark";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
@@ -34,7 +35,7 @@ export default function AppLayout() {
       {/* Sidebar */}
       <aside className="w-64 bg-[#0A0A0A] border-r border-white/5 flex flex-col fixed h-screen">
         <div className="p-6 border-b border-white/5">
-          <BrandMark variant="dark" size="xs" />
+          {tenant ? <TenantBrandMark tenant={tenant} /> : <BrandMark variant="dark" size="xs" />}
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto">

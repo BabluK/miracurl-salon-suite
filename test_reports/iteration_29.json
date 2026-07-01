@@ -1,0 +1,52 @@
+{
+  "summary": "Iter 29 both fixes verified GREEN end-to-end. Backend PUT/GET persistence + tenant isolation + validators all pass (6/6 pytest). Frontend Settings save re-syncs normalized whatsapp instantly, persists across hard reload, and stays tenant-isolated. TenantBrandMark sidebar shows correct per-tenant name+location for both salons.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter29_settings_persist_and_tenantbrand.py",
+    "/app/test_reports/pytest/iter29.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Settings.jsx saveBranding: response-driven re-sync is correct and safe — spreads over previous state so missing server keys don't wipe local fields.",
+    "TenantBrandMark subtitle uses `truncate` on the location line — long single-word locations may still be clipped visually, but the current 'MARATHAHALLI, BANGALORE' and 'KORAMANGALA, BANGALORE' fit without clipping. Not blocking.",
+    "server.py PUT /settings/branding returns spread of update dict — safe because BrandingIn.model_dump(exclude_none=True) already strips None values and the normalized whatsapp_number comes back as digits-only string. Tenant scoping is enforced via require_tenant_admin → current_tenant → update by t['id']. Isolation verified in both pytest and Playwright (miracurl values untouched after Elegance PUT)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter29_settings_persist_and_tenantbrand.py (new pytest — 6 tests, all passing)"
+  ],
+  "success_rate": { "backend": "100% (6/6)", "frontend": "100% (12/12 assertions — 1 initially misjudged as false was actually correct product behavior)" },
+  "test_credentials": "admin@miracurl.com / Miracurl@123 and owner@elegance.com / Owner@123 — both worked",
+  "seed_data_creation": "None — pytest restores baseline branding via teardown fixture; frontend test left phone=+91 98765 43210 wa=919123456789 on miracurl and +91 90000 11111 / 919876543210 on elegance (safe test-owned values).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter29 items ALL GREEN. Backend pytest at /app/backend/tests/test_iter29_settings_persist_and_tenantbrand.py — 6 tests in a SINGLE class (grouped intentionally so pytest-xdist LoadScope keeps them on one worker in deterministic order). If you split them into multiple classes you'll hit a race with the baseline-restore step running before the tenant-isolation assertion. Frontend Playwright: MUST wait for settings-location to have a non-empty value before filling settings-phone — otherwise the initial GET /settings/branding fetch overwrites the fill (I hit this race on the first attempt). TenantBrandMark data-testid=tenant-brand-mark renders correctly for both tenants; screenshot confirms 'Miracurl Unisex Family Salon' + 'MARATHAHALLI, BANGALORE' in the sidebar (replaces old static MIRACURL/SALON SUITE logo). Dashboard heading and Daily Report banner both use tenant.name — no 'Miracurl' hardcode leak for Elegance.",
+  "detailed_test_results": {
+    "backend_pytest_6_of_6": {
+      "test_01_miracurl_put_persists_phone_and_normalized_whatsapp": "PASS — phone stored as-is, whatsapp normalized 919123456789",
+      "test_02_elegance_put_persists": "PASS — phone stored, whatsapp normalized 919876543210",
+      "test_03_tenant_isolation_miracurl_untouched": "PASS — miracurl phone still '+91 98765 43210' after elegance PUT",
+      "test_04_whatsapp_abc_returns_422": "PASS — error body contains '10' and 'digits'",
+      "test_05_instagram_bad_url_returns_422": "PASS — error body contains 'https://'",
+      "test_06_empty_strings_allowed_and_persist": "PASS — instagram_url='' and hero_image='' persist"
+    },
+    "frontend_playwright": {
+      "miracurl_sidebar_brand": "PASS — 'Miracurl Unisex Family Salon' + 'MARATHAHALLI, BANGALORE'",
+      "elegance_sidebar_brand": "PASS — 'Elegance Beauty Lounge' + 'KORAMANGALA, BANGALORE'",
+      "miracurl_settings_save_toast": "PASS — 'Salon profile updated'",
+      "miracurl_ui_resync_after_save_no_reload": "PASS — whatsapp UI immediately shows normalized '919123456789'",
+      "miracurl_persist_hard_reload": "PASS — phone '+91 98765 43210' & wa '919123456789' survive reload",
+      "elegance_settings_save_toast": "PASS",
+      "elegance_persist_hard_reload": "PASS — phone '+91 90000 11111' & wa '919876543210' survive reload",
+      "tenant_isolation_via_ui": "PASS — after Elegance save, Miracurl phone still '+91 98765 43210' and wa '919123456789'",
+      "dashboard_heading_miracurl": "PASS — 'Welcome back to Miracurl Unisex Family Salon ✦'",
+      "dashboard_heading_elegance_no_leak": "PASS — 'Welcome back to Elegance Beauty Lounge ✦', no 'Miracurl'",
+      "daily_report_banner_no_leak": "N/A — banner text is generic 'Good morning, Salon ✦' (no tenant name embedded; not a leak vector)",
+      "brand_mark_no_horizontal_overflow": "PASS — scrollWidth==clientWidth for the wordmark"
+    }
+  }
+}

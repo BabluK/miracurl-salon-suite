@@ -43,7 +43,22 @@ export default function Settings() {
   async function saveBranding() {
     setSavingBrand(true);
     try {
-      await api.put("/settings/branding", branding);
+      const { data } = await api.put("/settings/branding", branding);
+      // Re-sync with the server's normalized values (e.g. whatsapp_number is
+      // stripped to digits by the backend validator). Without this, the field
+      // still shows the pre-normalized text and the owner thinks "it didn't save".
+      if (data) {
+        setBranding((b) => ({
+          ...b,
+          google_review_url: data.google_review_url ?? b.google_review_url,
+          hours: data.hours ?? b.hours,
+          phone: data.phone ?? b.phone,
+          location: data.location ?? b.location,
+          hero_image: data.hero_image ?? b.hero_image,
+          instagram_url: data.instagram_url ?? b.instagram_url,
+          whatsapp_number: data.whatsapp_number ?? b.whatsapp_number,
+        }));
+      }
       toast.success("Salon profile updated");
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't save profile");
