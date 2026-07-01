@@ -1670,8 +1670,12 @@ class BrandingIn(BaseModel):
         if v is None or v == "":
             return ""
         v = v.strip()
-        if not v.startswith("https://"):
-            raise ValueError("Must start with https://")
+        # Users routinely type "instagram.com/foo" or "www.instagram.com/foo" —
+        # be lenient and auto-prepend https:// so a save never fails on a link.
+        if v.startswith("http://"):
+            v = "https://" + v[len("http://"):]
+        elif not v.startswith("https://"):
+            v = "https://" + v.lstrip("/")
         return v
 
     @field_validator("whatsapp_number")
@@ -1680,10 +1684,14 @@ class BrandingIn(BaseModel):
         if v is None or v == "":
             return ""
         import re as _re
-        # Keep only digits; require 10-15 digits (E.164 style without leading +)
         digits = _re.sub(r"\D", "", v)
+        # Auto-prepend India country code if user typed a bare 10-digit mobile
+        # (the far most common salon-owner input). Anything else gets validated
+        # against the E.164 10–15 digit range.
+        if len(digits) == 10:
+            digits = "91" + digits
         if not (10 <= len(digits) <= 15):
-            raise ValueError("WhatsApp number must have 10–15 digits, including country code")
+            raise ValueError("WhatsApp number must have 10–15 digits (with country code, e.g. 91XXXXXXXXXX)")
         return digits
 
 

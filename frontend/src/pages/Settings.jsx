@@ -74,14 +74,29 @@ export default function Settings() {
       });
       toast.success(`Salon profile updated ✦${data?.phone ? `  📞 ${data.phone}` : ""}${data?.whatsapp_number ? `  💬 ${data.whatsapp_number}` : ""}`);
     } catch (e) {
+      // Pydantic returns detail as an array of {loc, msg} objects — flatten
+      // into a single human-readable string so the toast actually helps.
+      let msg = "Couldn't save profile";
+      const raw = e?.response?.data?.detail;
+      if (Array.isArray(raw)) {
+        msg = raw.map((err) => {
+          const field = Array.isArray(err.loc) ? err.loc[err.loc.length - 1] : "field";
+          const clean = String(err.msg || "").replace(/^Value error,?\s*/i, "");
+          return `${field}: ${clean}`;
+        }).join(" · ");
+      } else if (typeof raw === "string") {
+        msg = raw;
+      } else if (e?.message) {
+        msg = e.message;
+      }
       setSaveDebug({
         status: e?.response?.status || "network-error",
         ok: false,
         at: startedAt.toLocaleTimeString(),
         request: { phone: branding.phone, whatsapp_number: branding.whatsapp_number },
-        error: e?.response?.data?.detail || e?.message || "Unknown error",
+        error: msg,
       });
-      toast.error(e.response?.data?.detail || "Couldn't save profile");
+      toast.error(msg);
     } finally { setSavingBrand(false); }
   }
 
@@ -213,7 +228,7 @@ export default function Settings() {
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6">
             <div className="text-[10px] text-slate-400 font-mono" data-testid="settings-build-version">
-              build 2026-07-01-r30 · {typeof window !== "undefined" ? window.location.hostname : ""}
+              build 2026-07-01-r31 · {typeof window !== "undefined" ? window.location.hostname : ""}
             </div>
             <button
               data-testid="settings-save-branding-btn"

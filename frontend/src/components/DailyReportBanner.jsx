@@ -29,13 +29,21 @@ export default function DailyReportBanner({ ownerName }) {
     try {
       const seen = localStorage.getItem(DISMISS_KEY_PREFIX + report.date);
       if (seen === "1") setDismissed(true);
-    } catch { /* localStorage unavailable — treat as not dismissed */ }
+    } catch (e) {
+      // Safari private mode / Storage full — treat as not dismissed. Log so devs
+      // can spot the fallback in prod DevTools without hurting the user experience.
+      console.warn("[DailyReportBanner] localStorage read failed:", e);
+    }
   }, [report]);
 
   if (!report || report.is_empty || dismissed) return null;
 
   const dismiss = () => {
-    try { localStorage.setItem(DISMISS_KEY_PREFIX + report.date, "1"); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(DISMISS_KEY_PREFIX + report.date, "1");
+    } catch (e) {
+      console.warn("[DailyReportBanner] localStorage write failed — banner will reappear next visit:", e);
+    }
     setDismissed(true);
   };
 

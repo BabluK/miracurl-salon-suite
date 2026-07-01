@@ -20,11 +20,19 @@ export default class ErrorBoundary extends Component {
   }
 
   handleReload = () => {
-    try { window.location.reload(); } catch { /* ignore */ }
+    try {
+      window.location.reload();
+    } catch (e) {
+      console.warn("[ErrorBoundary] reload failed:", e);
+    }
   };
 
   handleHome = () => {
-    try { window.location.assign("/dashboard"); } catch { /* ignore */ }
+    try {
+      window.location.assign("/dashboard");
+    } catch (e) {
+      console.warn("[ErrorBoundary] navigation failed:", e);
+    }
   };
 
   render() {
