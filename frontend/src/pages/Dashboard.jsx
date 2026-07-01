@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock } from "lucide-react";
+import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [blastOpen, setBlastOpen] = useState(false);
   const [reminders, setReminders] = useState({ count: 0, items: [] });
+  const [subStatus, setSubStatus] = useState(null);
   const { tenant } = useAuth();
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function Dashboard() {
       .then(r => setData(r.data))
       .catch(e => toast.error(`Couldn't load dashboard: ${e?.message || "network error"}`));
     api.get("/dashboard/reminders").then(r => setReminders(r.data)).catch(() => {});
+    api.get("/billing/subscription-status").then(r => setSubStatus(r.data)).catch(() => {});
   }, []);
 
   if (!data) return <div className="text-slate-500 p-4">Loading dashboard…</div>;
@@ -76,6 +78,8 @@ export default function Dashboard() {
 
   return (
     <div className="bg-slate-50 -mx-6 -my-6 px-6 py-6 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
+
+      <RenewalBanner sub={subStatus} />
 
       {/* Hero strip with booking link */}
       <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl p-6 text-white relative overflow-hidden">
@@ -342,6 +346,53 @@ function RemindersWidget({ reminders, setReminders, salonName }) {
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+
+function RenewalBanner({ sub }) {
+  if (!sub || !sub.needs_renewal_prompt) return null;
+  const days = sub.days_remaining;
+  const overdue = days < 0;
+  const urgent = days <= 3;
+  const label = sub.source === "trial" ? "Free trial" : "Subscription";
+  const message = overdue
+    ? `${label} expired ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`
+    : days === 0
+    ? `${label} ends today`
+    : `${label} ends in ${days} day${days === 1 ? "" : "s"}`;
+  const tone = overdue || urgent
+    ? "from-rose-500 to-red-600"
+    : "from-amber-400 to-orange-500";
+  return (
+    <div
+      className={`relative rounded-2xl p-4 sm:p-5 text-white flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm bg-gradient-to-r ${tone}`}
+      data-testid="renewal-banner"
+    >
+      <div className="w-11 h-11 rounded-full bg-white/25 flex items-center justify-center flex-shrink-0">
+        <AlertTriangle className="w-5 h-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm sm:text-base font-semibold">
+          {message}
+        </div>
+        <div className="text-xs sm:text-sm text-white/85 mt-0.5">
+          {overdue
+            ? "Renew now to keep your bookings, invoices and customer data active."
+            : "Renew now — pay via card, UPI or NetBanking through Razorpay."}
+          {sub.affiliate_credits > 0 && (
+            <> · <b>₹{Number(sub.affiliate_credits).toLocaleString("en-IN")}</b> credit will auto-apply.</>
+          )}
+        </div>
+      </div>
+      <a
+        href="/settings#subscription"
+        data-testid="renewal-banner-cta"
+        className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white text-slate-800 font-semibold text-sm hover:bg-slate-100 transition shadow"
+      >
+        Renew now <ArrowRight className="w-4 h-4" />
+      </a>
     </div>
   );
 }

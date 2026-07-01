@@ -2023,6 +2023,95 @@ async def rzp_webhook(request: Request):
     return {"ok": True}
 
 
+# ---------------- Renewal reminders ----------------
+
+def _days_until(end_date_str: Optional[str]) -> Optional[int]:
+    """Positive if end_date is in the future, 0 = today, negative if past. None if unknown."""
+    if not end_date_str:
+        return None
+    try:
+        # Accept both YYYY-MM-DD and ISO 8601
+        end = datetime.fromisoformat(end_date_str.replace("Z", "+00:00")).date()
+    except ValueError:
+        try:
+            end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+    return (end - datetime.now(timezone.utc).date()).days
+
+
+@api.get("/billing/subscription-status")
+async def subscription_status(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Tenant-facing: 'how many days do I have left?' — powers the in-app renewal banner."""
+    sub_end = t.get("subscription_end_date")
+    trial_end = t.get("trial_end_date") or t.get("trial_ends_at")
+    if sub_end:
+        days = _days_until(sub_end)
+        source = "subscription"
+        end_date = sub_end
+    else:
+        days = _days_until(trial_end)
+        source = "trial"
+        end_date = trial_end
+    needs_prompt = days is not None and days <= 7  # window that shows the banner (incl. expired)
+    return {
+        "source": source,
+        "end_date": end_date,
+        "days_remaining": days,
+        "status": t.get("status", "trial"),
+        "current_plan": t.get("plan"),
+        "affiliate_credits": float(t.get("affiliate_credits") or 0),
+        "needs_renewal_prompt": needs_prompt,
+    }
+
+
+@api.get("/super-admin/renewals/queue")
+async def renewal_queue(user=Depends(require_super_admin), window_days: int = 10):
+    """Tenants whose subscription (or trial) ends within `window_days`. Sorted by soonest first."""
+    tenants = await db.tenants.find({}, {"_id": 0}).to_list(5000)
+    out = []
+    for t in tenants:
+        end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
+        days = _days_until(end)
+        if days is None or days > window_days:
+            continue
+        # Skip tenants already cancelled long ago
+        if t.get("status") == "cancelled" and (days < -30):
+            continue
+        out.append({
+            "id": t["id"],
+            "slug": t["slug"],
+            "name": t.get("name"),
+            "owner_email": t.get("owner_email"),
+            "phone": t.get("phone") or "",
+            "whatsapp_number": t.get("whatsapp_number") or "",
+            "plan": t.get("plan"),
+            "status": t.get("status"),
+            "end_date": end,
+            "days_remaining": days,
+            "source": "subscription" if t.get("subscription_end_date") else "trial",
+            "affiliate_credits": float(t.get("affiliate_credits") or 0),
+            "last_reminder_at": t.get("last_renewal_reminder_at"),
+            "reminder_count": int(t.get("renewal_reminder_count") or 0),
+        })
+    out.sort(key=lambda x: (x["days_remaining"] if x["days_remaining"] is not None else 9999))
+    return {"count": len(out), "items": out, "window_days": window_days}
+
+
+@api.post("/super-admin/renewals/{tid}/mark-reminded")
+async def mark_renewal_reminded(tid: str, user=Depends(require_super_admin)):
+    """Flag that you tapped WhatsApp for this tenant — increments counter + timestamp."""
+    now = datetime.now(timezone.utc).isoformat()
+    res = await db.tenants.update_one(
+        {"id": tid},
+        {"$set": {"last_renewal_reminder_at": now},
+         "$inc": {"renewal_reminder_count": 1}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "Tenant not found")
+    return {"ok": True, "reminded_at": now}
+
+
 @api.post("/super-admin/subscriptions/{sid}/cancel")
 async def cancel_subscription(sid: str, body: SubscriptionCancelIn, user=Depends(require_super_admin)):
     sub = await db.subscriptions.find_one({"id": sid}, {"_id": 0})
