@@ -19,6 +19,7 @@ import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
 import Landing from "@/pages/Landing";
 import Settings from "@/pages/Settings";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -67,6 +68,7 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } }} />
+          <ErrorBoundary>
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
             <Route path="/book" element={<BookPublic />} />
@@ -89,6 +91,7 @@ export default function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ErrorBoundary>
         </BrowserRouter>
       </AuthProvider>
     </div>
