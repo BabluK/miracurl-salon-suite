@@ -228,7 +228,7 @@ export default function Settings() {
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6">
             <div className="text-[10px] text-slate-400 font-mono" data-testid="settings-build-version">
-              build 2026-07-01-r31 · {typeof window !== "undefined" ? window.location.hostname : ""}
+              build 2026-07-01-r32 · {typeof window !== "undefined" ? window.location.hostname : ""}
             </div>
             <button
               data-testid="settings-save-branding-btn"

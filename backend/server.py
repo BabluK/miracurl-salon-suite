@@ -1656,12 +1656,12 @@ async def get_affiliate_summary(user=Depends(require_tenant_admin), t=Depends(cu
 
 
 class BrandingIn(BaseModel):
-    google_review_url: Optional[str] = Field(None, max_length=400)
-    hours: Optional[str] = Field(None, max_length=160)
+    google_review_url: Optional[str] = Field(None, max_length=2000)
+    hours: Optional[str] = Field(None, max_length=200)
     phone: Optional[str] = Field(None, max_length=40)
-    location: Optional[str] = Field(None, max_length=200)
-    hero_image: Optional[str] = Field(None, max_length=600)
-    instagram_url: Optional[str] = Field(None, max_length=200)
+    location: Optional[str] = Field(None, max_length=500)
+    hero_image: Optional[str] = Field(None, max_length=2000)
+    instagram_url: Optional[str] = Field(None, max_length=500)
     whatsapp_number: Optional[str] = Field(None, max_length=20)
 
     @field_validator("google_review_url", "instagram_url")
