@@ -1,20 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { User, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import BrandMark from "@/components/BrandMark";
 
+// Users routinely log in from the same browser; if they opt in, we remember
+// the *email only* (never the password) so the next visit is one field faster.
+const REMEMBER_KEY = "miracurl_remember_email";
+
 export default function Login() {
   const { login, register, forgot } = useAuth();
   const nav = useNavigate();
   const [mode, setMode] = useState("login"); // login | signup | forgot
-  const [email, setEmail] = useState("admin@miracurl.com");
-  const [password, setPassword] = useState("Miracurl@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [remember, setRemember] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(REMEMBER_KEY);
+      if (saved) {
+        setEmail(saved);
+        setRemember(true);
+      }
+    } catch (e) {
+      console.warn("[Login] localStorage read failed:", e);
+    }
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -30,7 +47,16 @@ export default function Login() {
       return;
     }
     setBusy(false);
-    if (res.ok) { toast.success("Welcome back ✦"); nav("/dashboard"); }
+    if (res.ok) {
+      try {
+        if (remember) localStorage.setItem(REMEMBER_KEY, email);
+        else localStorage.removeItem(REMEMBER_KEY);
+      } catch (err2) {
+        console.warn("[Login] localStorage write failed:", err2);
+      }
+      toast.success("Welcome back ✦");
+      nav("/dashboard");
+    }
     else setErr(res.error || "Authentication failed");
   }
 
@@ -107,7 +133,17 @@ export default function Login() {
             )}
 
             {mode === "login" && (
-              <div className="text-right">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none" data-testid="login-remember-label">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    data-testid="login-remember-checkbox"
+                    className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-300"
+                  />
+                  Remember my email
+                </label>
                 <button
                   type="button"
                   onClick={() => { setMode("forgot"); setErr(""); }}
@@ -153,10 +189,6 @@ export default function Login() {
               </button>
             </p>
           )}
-
-          <div className="mt-8 pt-5 border-t border-slate-100 text-[11px] text-slate-400 text-center font-mono">
-            Demo: admin@miracurl.com / Miracurl@123
-          </div>
         </div>
       </div>
     </div>
