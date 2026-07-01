@@ -1,17 +1,30 @@
 {
-  "name": "Miracurl ✦ Salon Suite",
-  "short_name": "Miracurl",
-  "description": "All-in-one salon management software — online booking, billing, customer rewards, per-stylist commissions.",
-  "start_url": "/",
+  "name": "Miracurl",
+  "short_name": "M",
+  "description": "Book your next visit at Miracurl — Unisex Family Salon, Marathahalli. Real-time availability, reminders, and rewards for every booking.",
+  "start_url": "/book/miracurl-marathahalli",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
   "theme_color": "#ec4899",
+  "categories": ["lifestyle", "beauty", "shopping"],
   "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "name": "Book appointment",
+      "short_name": "Book",
+      "description": "Reserve your next visit",
+      "url": "/book/miracurl-marathahalli",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
+  ],
+  "screenshots": [
+    { "src": "/og-image.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide" }
   ]
 }

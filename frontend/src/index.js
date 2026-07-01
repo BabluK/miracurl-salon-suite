@@ -21,3 +21,13 @@ root.render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+// Register PWA service worker so mobile browsers can offer "Install app".
+// Only on production/https — dev builds skip to avoid HMR conflicts.
+if ("serviceWorker" in navigator && window.location.protocol === "https:") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .catch((err) => console.warn("[PWA] SW registration failed:", err));
+  });
+}

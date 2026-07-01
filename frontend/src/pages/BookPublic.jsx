@@ -3,15 +3,8 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import {
-  FeaturedReviews,
-  ServicesStep,
-  StaffStep,
-  DateTimeStep,
-  DetailsStep,
-  ConfirmStep,
-  SuccessStep,
-} from "./BookPublic.steps";
+import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, ConfirmStep, SuccessStep } from "./BookPublic.steps";
+import InstallAppPrompt from "@/components/InstallAppPrompt";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const DEFAULT_SLUG = "miracurl-marathahalli";
@@ -279,6 +272,7 @@ export default function BookPublic() {
         )}
         <div>© Miracurl · Crafted with care in Marathahalli</div>
       </footer>
+      <InstallAppPrompt />
     </div>
   );
 }
