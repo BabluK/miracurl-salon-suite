@@ -17,17 +17,33 @@ export default function Settings() {
   // exact HTTP outcome without opening DevTools. Cleared on next save attempt.
   const [saveDebug, setSaveDebug] = useState(null);
   const [downloadingQr, setDownloadingQr] = useState(false);
+  const [qrPreview, setQrPreview] = useState(null);
+  const [qrError, setQrError] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await api.get(`/settings/qr-poster?origin=${encodeURIComponent(window.location.origin)}`, { responseType: "blob" });
+        if (alive) setQrPreview(URL.createObjectURL(res.data));
+      } catch (e) { console.warn("QR preview failed", e); if (alive) setQrError(true); }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   async function downloadQrPoster() {
     setDownloadingQr(true);
     try {
-      const res = await api.get(`/settings/qr-poster?origin=${encodeURIComponent(window.location.origin)}`, { responseType: "blob" });
-      const url = URL.createObjectURL(res.data);
+      let url = qrPreview;
+      if (!url) {
+        const res = await api.get(`/settings/qr-poster?origin=${encodeURIComponent(window.location.origin)}`, { responseType: "blob" });
+        url = URL.createObjectURL(res.data);
+        setQrPreview(url);
+      }
       const a = document.createElement("a");
       a.href = url; a.download = "booking-qr-poster.png"; a.click();
-      URL.revokeObjectURL(url);
       toast.success("QR poster downloaded — print it for your reception desk ✦");
-    } catch { toast.error("Couldn't generate poster"); }
+    } catch { toast.error("Couldn't generate poster — please try again"); }
     finally { setDownloadingQr(false); }
   }
 
@@ -162,6 +178,18 @@ export default function Settings() {
               {downloadingQr ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               {downloadingQr ? "Generating…" : "Download poster"}
             </button>
+          </div>
+          {/* Inline poster preview */}
+          <div className="mt-5 flex justify-center bg-slate-50 border border-slate-200 rounded-xl p-4" data-testid="qr-poster-preview">
+            {qrPreview ? (
+              <img src={qrPreview} alt="Booking QR poster preview" className="max-h-96 rounded-lg shadow-md" />
+            ) : qrError ? (
+              <div className="text-xs text-rose-500 py-8">Couldn&apos;t load the poster preview — tap &quot;Download poster&quot; to retry.</div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-slate-400 py-10">
+                <Loader2 className="w-4 h-4 animate-spin" /> Generating your QR poster…
+              </div>
+            )}
           </div>
         </div>
 

@@ -236,3 +236,7 @@ Frontend:
 
 ## Update — Jul 2, 2026 (part 11)
 - Appointments list: unapproved (status=scheduled) bookings pinned to TOP sorted by created_at desc (displayList useMemo in Appointments.jsx) with amber blinking row highlight (.appt-attention keyframes in index.css, reduced-motion safe) until confirmed/completed. Verified via screenshot.
+
+## Update — Jul 2, 2026 (part 12)
+- QR poster production failure root-caused: _build_qr_poster used hardcoded system font paths (/usr/share/fonts/...) that don't exist in the production image → 500 → "Couldn't download". Fix: bundled FreeSerifBold.ttf + FreeSansBold.ttf into /app/backend/fonts/ (deploys with code); _load_font() tries bundled → system → PIL default.
+- Settings QR card now shows an INLINE poster preview (qr-poster-preview, auto-loads on page open) alongside Download; download reuses the preview blob. Verified: preview renders + download works in preview env.

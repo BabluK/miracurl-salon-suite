@@ -1132,31 +1132,38 @@ def _build_qr_poster(salon_name: str, location: str, url: str) -> bytes:
     import qrcode
     from PIL import Image as PILImage, ImageDraw, ImageFont
 
+    def _load_font(fname, size):
+        # Bundled fonts first (survive production deploys), then system, then default
+        for p in (ROOT_DIR / "fonts" / fname, Path("/usr/share/fonts/truetype/freefont") / fname):
+            try:
+                return ImageFont.truetype(str(p), size)
+            except Exception:
+                continue
+        return ImageFont.load_default()
+
     W, H = 1240, 1754
     img = PILImage.new("RGB", (W, H), (10, 10, 10))
     d = ImageDraw.Draw(img)
-    serif = "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf"
-    sans = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
 
-    def fit_font(text, path, start, max_w):
+    def fit_font(text, fname, start, max_w):
         size = start
         while size > 30:
-            f = ImageFont.truetype(path, size)
+            f = _load_font(fname, size)
             bbox = d.textbbox((0, 0), text, font=f)
             if bbox[2] - bbox[0] <= max_w:
                 return f
             size -= 6
-        return ImageFont.truetype(path, 30)
+        return _load_font(fname, 30)
 
     def center(text, y, font, fill):
         bbox = d.textbbox((0, 0), text, font=font)
         d.text(((W - (bbox[2] - bbox[0])) / 2 - bbox[0], y), text, font=font, fill=fill)
 
-    f_sub = ImageFont.truetype(sans, 34)
-    f_small = ImageFont.truetype(sans, 28)
+    f_sub = _load_font("FreeSansBold.ttf", 34)
+    f_small = _load_font("FreeSansBold.ttf", 28)
     d.rectangle([0, 0, W, 14], fill=(212, 175, 55))
     d.rectangle([0, H - 14, W, H], fill=(212, 175, 55))
-    center(salon_name, 130, fit_font(salon_name, serif, 84, W - 120), (212, 175, 55))
+    center(salon_name, 130, fit_font(salon_name, "FreeSerifBold.ttf", 84, W - 120), (212, 175, 55))
     if location:
         center(location[:70], 260, f_small, (230, 230, 230))
     center("S C A N  ·  B O O K  ·  G L O W", 350, f_sub, (255, 255, 255))
