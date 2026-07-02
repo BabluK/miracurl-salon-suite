@@ -1511,6 +1511,28 @@ async def list_appointments(date: Optional[str] = None, user=Depends(get_current
         flt = {"scheduled_at": {"$regex": f"^{date}"}}
     return await db.appointments.find(flt, {"_id": 0}).sort("scheduled_at", 1).to_list(500)
 
+
+@api.get("/notifications/new-bookings")
+async def new_bookings(since: str, _=Depends(require_tenant_admin)):
+    """Lightweight polling endpoint — returns bookings created after `since`
+    (ISO 8601 datetime). Used by the admin UI to play a chime + toast when a
+    customer self-books via the public link."""
+    # Basic input validation — `since` must be an ISO datetime string
+    try:
+        datetime.fromisoformat(since.replace("Z", "+00:00"))
+    except Exception:
+        raise HTTPException(400, "`since` must be an ISO datetime")
+    rows = await db.appointments.find(
+        {"created_at": {"$gt": since}},
+        {"_id": 0, "id": 1, "customer_name": 1, "staff_name": 1,
+         "service_names": 1, "scheduled_at": 1, "total": 1, "created_at": 1},
+    ).sort("created_at", -1).limit(20).to_list(20)
+    return {
+        "server_time": datetime.now(timezone.utc).isoformat(),
+        "count": len(rows),
+        "bookings": rows,
+    }
+
 @api.post("/appointments")
 async def create_appointment(body: AppointmentIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})

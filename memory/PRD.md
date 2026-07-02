@@ -110,6 +110,20 @@ Frontend:
 
 Verified end-to-end via curl + Playwright: staff login → forced pw change → portal → check-in → salary JSON/PDF (2.7KB, valid `%PDF-1.4`) → disable-then-login rejected 403 → salary_visible=false rejects 403.
 
+## Iter 36 — Admin Attendance + Booking Notifications + PWA Everywhere (Feb 2026)
+Backend:
+- `GET /api/attendance/today?date=YYYY-MM-DD` (admin) — full roster with check-in/out status per active staff (on_shift / completed / absent + hours). Powers the Attendance page.
+- `GET /api/attendance/staff/{sid}?month=YYYY-MM` (admin) — per-staff monthly history for the History modal.
+- `GET /api/notifications/new-bookings?since=<iso>` (admin) — lightweight polling endpoint returning bookings created after `since`. Used by the header bell for real-time chime + toast + OS notification when customers self-book.
+
+Frontend:
+- **`Attendance.jsx`** (admin) — new sidebar page at `/attendance`. Today's roster tiles (Total / On shift / Completed / Absent), date picker, per-staff History modal with monthly summary + day-by-day list.
+- **`NewBookingNotifier.jsx`** — `useNewBookingNotifier` hook + `NotifBell` component. Polls every 20s while tab is visible, plays a synthesized 2-tone chime (Web Audio API — no audio file needed), fires OS notification via `Notification` API, pushes `sonner` toast, tracks unread badge on the bell. Auto-anchors `last_seen` in localStorage so refresh doesn't re-nag.
+- **`AppLayout.jsx`**: NotifBell replaces the static bell. Only mounted for admins/owners. First-visit shows a pulsing gold dot on the bell inviting the user to enable notifications. On click when permission is default → requests it; on click with unread → clears badge and navigates to `/appointments`.
+- **PWA install everywhere**: `InstallAppPrompt` now mounted inside AppLayout (variant="app" copy) + Login page + BookPublic. "Install app" button added inside profile dropdown (`profile-install-app-btn`) that force-shows the banner even after dismissal via `miracurl:open-install` custom event.
+- **Service worker hardening**: cache bumped to `v3` with purge-on-activate; new SW broadcasts `SW_UPDATED` message to all open tabs which auto-reload once on `controllerchange`. Fixes stale-app issues after Deploy where users saw the old bundle.
+
+
 
 ## Deferred (next iteration — needs your keys)
 - **Razorpay subscriptions** — please provide `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (from https://dashboard.razorpay.com/ → Account & Settings → API Keys). Once provided I'll wire: plan creation, subscribe-tenant flow, webhook handler (subscription.activated/charged/cancelled), and a "Billing" page in the salon admin app.

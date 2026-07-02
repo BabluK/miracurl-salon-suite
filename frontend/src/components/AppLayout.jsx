@@ -2,13 +2,14 @@ import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard, Calendar, Users, UserCog, Scissors, Package,
-  ShoppingCart, BarChart3, LogOut, Bell, ChevronDown, Star,
+  ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
   Settings as SettingsIcon, Menu, X, Gift, Clock, Download
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
 import InstallAppPrompt from "./InstallAppPrompt";
+import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
 
 const NAV_ADMIN = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
@@ -40,6 +41,11 @@ export default function AppLayout() {
 
   const NAV = user?.role === "staff" ? NAV_STAFF : NAV_ADMIN;
   const current = NAV.find(n => loc.pathname.startsWith(n.to));
+
+  // Booking notification poller — only for owners/admins. Fires a chime + OS
+  // notification when a customer self-books via the public link.
+  const isAdmin = user?.role && user.role !== "staff" && user.role !== "super_admin";
+  const notifier = useNewBookingNotifier({ enabled: isAdmin });
 
   // Close mobile sidebar on route change
   useEffect(() => { setSidebarOpen(false); setMenuOpen(false); }, [loc.pathname]);
@@ -146,10 +152,15 @@ export default function AppLayout() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <div className="hidden md:block text-xs text-white/50 tracking-wider">{today}</div>
-            <button className="relative p-2 rounded-md hover:bg-white/5 transition" data-testid="notif-btn" aria-label="Notifications">
-              <Bell className="w-4 h-4 text-white/70" />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-gold" />
-            </button>
+            {isAdmin ? (
+              <NotifBell
+                unread={notifier.unread}
+                permission={notifier.permission}
+                requestPermission={notifier.requestPermission}
+                clearUnread={notifier.clearUnread}
+                onNavigate={nav}
+              />
+            ) : null}
             <div className="relative">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
