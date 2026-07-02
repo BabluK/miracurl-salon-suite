@@ -108,6 +108,8 @@ class _DB:
     attendance = TenantCollection(_raw_db.attendance)
     feedback = TenantCollection(_raw_db.feedback)
     gallery = TenantCollection(_raw_db.gallery)
+    chat_threads = TenantCollection(_raw_db.chat_threads)
+    chat_messages = TenantCollection(_raw_db.chat_messages)
 
 db = _DB()
 
@@ -4172,6 +4174,193 @@ async def delete_gallery_item(gid: str, user=Depends(require_admin)):
     await db.gallery.delete_one({"id": gid})
     await _raw_db.uploads.update_one({"id": gid}, {"$set": {"is_deleted": True}})
     return {"ok": True}
+
+# ---------------- Public AI Beauty Advisor (recommends + books) ----------------
+_public_ai_sessions: dict = {}
+_BOOK_MARKER = "[[BOOK]]"
+
+class PublicAIChatIn(BaseModel):
+    message: str = Field(..., min_length=1, max_length=1000)
+    session_id: str = Field(..., min_length=8, max_length=64)
+
+async def _booking_catalog(t) -> str:
+    services = await db.services.find({"active": True}, {"_id": 0}).to_list(200)
+    staff = await db.staff.find({"active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(50)
+    svc_lines = "\n".join(
+        f"- id={s['id']} | {s['name']} | {s.get('category', '')} | ₹{s['price']} | {s['duration_min']}min"
+        for s in services) or "(no services listed)"
+    staff_lines = ", ".join(f"{s['name']} (id={s['id']})" for s in staff) or "any available stylist"
+    ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    return (f"Salon: {t.get('name')}{', ' + t['location'] if t.get('location') else ''}. Hours: {t.get('hours')}. "
+            f"Current date & time (IST): {ist_now.strftime('%A %Y-%m-%d %H:%M')}.\n"
+            f"SERVICE MENU:\n{svc_lines}\nSTYLISTS: {staff_lines}")
+
+async def _ai_execute_booking(payload: str):
+    """Parse the AI's booking JSON and create a real appointment. Returns (booking, error)."""
+    import json as _json
+    try:
+        data = _json.loads(payload.strip().strip("`").strip())
+        scheduled_at = f"{data['date']}T{data['time']}:00+05:30"
+        bk = PublicBookingIn(
+            customer_name=data["customer_name"], customer_phone=data["customer_phone"],
+            gender=data.get("gender"), service_ids=data["service_ids"],
+            staff_id=data.get("staff_id") or None, scheduled_at=scheduled_at,
+            notes="Booked via AI advisor chat")
+    except Exception as e:
+        msg = str(e)
+        if hasattr(e, "errors"):
+            try:
+                msg = "; ".join(err.get("msg", "") for err in e.errors())
+            except Exception:
+                pass
+        return None, msg
+    services = await db.services.find({"id": {"$in": bk.service_ids}, "active": True}, {"_id": 0}).to_list(50)
+    if not services:
+        return None, "Selected services were not found on the menu"
+    try:
+        staff = await _resolve_staff(bk.staff_id)
+        cust, _ = await _resolve_or_create_customer(bk)
+        appt, total, duration = await _create_public_appointment(cust, staff, services, bk)
+    except HTTPException as e:
+        return None, str(e.detail)
+    return {"customer_name": cust["name"], "staff_name": staff["name"],
+            "service_names": [s["name"] for s in services], "total": total,
+            "duration_min": duration, "scheduled_at": bk.scheduled_at}, None
+
+@api.post("/public/ai-chat/{slug}")
+async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
+    t = await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"aichat:{slug}", limit=40, window_sec=600)
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    sid = f"pub-{t['id']}-{body.session_id}"
+    chat = _public_ai_sessions.get(sid)
+    if chat is None:
+        catalog = await _booking_catalog(t)
+        chat = LlmChat(
+            api_key=key, session_id=sid,
+            system_message=(
+                f"You are Mira, the friendly AI beauty advisor on the online booking page of '{t.get('name', 'the salon')}'. You have two jobs:\n"
+                "1) PERSONAL BEAUTY ADVICE — recommend facials, treatments, products and hair/skin care suited to the customer's "
+                "skin tone (fair, wheatish, dusky, deep), skin type (oily/dry/combination/sensitive), hair type and concerns. "
+                "Always recommend real services from the SERVICE MENU below with their exact ₹ price. Ask 1-2 short questions if you need more info.\n"
+                "2) BOOK APPOINTMENTS — you can book directly. Collect: full name, phone number (7-15 digits), chosen service(s) from the menu, "
+                "preferred date and time (salon is open 10:00–21:00 IST; suggest tomorrow if they're unsure). "
+                "When you have ALL details, show a one-line summary (services, total ₹, date, time) and ask them to confirm.\n"
+                f"ONLY after the customer explicitly confirms, end your reply with one line in EXACTLY this format (double quotes, valid JSON):\n"
+                f'{_BOOK_MARKER}{{"customer_name":"...","customer_phone":"...","gender":"Female","service_ids":["<id from menu>"],"staff_id":null,"date":"YYYY-MM-DD","time":"HH:MM"}}\n'
+                "Rules: never mention the marker or JSON (it is machine-read); never invent service ids; time is 24h format; "
+                "keep replies short, warm and mobile-friendly; use ₹ for prices.\n\n" + catalog
+            ),
+        ).with_model("openai", "gpt-5.4")
+        _public_ai_sessions[sid] = chat
+        if len(_public_ai_sessions) > 300:
+            _public_ai_sessions.pop(next(iter(_public_ai_sessions)))
+    try:
+        resp = await chat.send_message(UserMessage(text=body.message))
+        reply = resp if isinstance(resp, str) else str(resp)
+    except Exception as e:
+        logging.getLogger("public_ai").error(f"public ai chat error: {e}")
+        raise HTTPException(502, "Mira is unavailable right now — please try again in a moment.")
+
+    booking, booking_error = None, None
+    if _BOOK_MARKER in reply:
+        text, _, payload = reply.partition(_BOOK_MARKER)
+        booking, booking_error = await _ai_execute_booking(payload)
+        reply = text.strip()
+        if booking:
+            reply = (reply + "\n\n✅ Done — your appointment is booked! The salon will confirm shortly.").strip()
+        else:
+            reply = (reply + f"\n\n⚠️ I couldn't complete the booking: {booking_error}. Let's fix that detail and try again.").strip()
+    return {"reply": reply, "booking": booking, "booking_error": booking_error}
+
+# ---------------- Customer ↔ Salon Owner Chat ----------------
+class ChatStartIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    phone: str
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v):
+        cleaned = "".join(c for c in v if c.isdigit())
+        if not re.fullmatch(r"\d{7,15}", cleaned):
+            raise ValueError("Enter a valid phone number (7-15 digits)")
+        return cleaned
+
+class ChatSendIn(BaseModel):
+    message: str = Field(..., min_length=1, max_length=1000)
+
+async def _append_chat_message(thread_id: str, sender: str, text: str) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    msg = {"id": str(uuid.uuid4()), "thread_id": thread_id, "sender": sender, "text": text, "created_at": now}
+    await db.chat_messages.insert_one(msg)
+    unread_field = "unread_admin" if sender == "customer" else "unread_customer"
+    await db.chat_threads.update_one(
+        {"id": thread_id},
+        {"$set": {"last_message": text[:120], "last_at": now}, "$inc": {unread_field: 1}})
+    return _clean(msg)
+
+@api.post("/public/chat/{slug}/start")
+async def public_chat_start(slug: str, body: ChatStartIn, request: Request):
+    await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"chatstart:{slug}", limit=10, window_sec=600)
+    th = await db.chat_threads.find_one({"customer_phone": body.phone}, {"_id": 0})
+    if not th:
+        now = datetime.now(timezone.utc).isoformat()
+        th = {"id": str(uuid.uuid4()), "customer_name": body.name.strip(), "customer_phone": body.phone,
+              "last_message": "", "last_at": now, "unread_admin": 0, "unread_customer": 0, "created_at": now}
+        await db.chat_threads.insert_one(th)
+        th.pop("_id", None)
+    elif body.name.strip() and body.name.strip() != th.get("customer_name"):
+        await db.chat_threads.update_one({"id": th["id"]}, {"$set": {"customer_name": body.name.strip()}})
+        th["customer_name"] = body.name.strip()
+    msgs = await db.chat_messages.find({"thread_id": th["id"]}, {"_id": 0}).sort("created_at", 1).to_list(200)
+    return {"thread_id": th["id"], "customer_name": th["customer_name"], "messages": msgs}
+
+@api.get("/public/chat/{slug}/{thread_id}")
+async def public_chat_poll(slug: str, thread_id: str):
+    await resolve_tenant_from_slug(slug)
+    th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0})
+    if not th:
+        raise HTTPException(404, "Chat not found")
+    await db.chat_threads.update_one({"id": thread_id}, {"$set": {"unread_customer": 0}})
+    msgs = await db.chat_messages.find({"thread_id": thread_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
+    return {"messages": msgs}
+
+@api.post("/public/chat/{slug}/{thread_id}/send")
+async def public_chat_send(slug: str, thread_id: str, body: ChatSendIn, request: Request):
+    await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"chatsend:{slug}", limit=30, window_sec=600)
+    th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0})
+    if not th:
+        raise HTTPException(404, "Chat not found")
+    return await _append_chat_message(thread_id, "customer", body.message.strip())
+
+@api.get("/owner-chats")
+async def owner_chats(user=Depends(require_tenant_admin)):
+    return await db.chat_threads.find({}, {"_id": 0}).sort("last_at", -1).to_list(200)
+
+@api.get("/owner-chats/unread-count")
+async def owner_chats_unread(user=Depends(require_tenant_admin)):
+    rows = await db.chat_threads.find({"unread_admin": {"$gt": 0}}, {"_id": 0, "unread_admin": 1}).to_list(500)
+    return {"unread": sum(int(r.get("unread_admin") or 0) for r in rows)}
+
+@api.get("/owner-chats/{thread_id}/messages")
+async def owner_chat_messages(thread_id: str, user=Depends(require_tenant_admin)):
+    th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0})
+    if not th:
+        raise HTTPException(404, "Chat not found")
+    await db.chat_threads.update_one({"id": thread_id}, {"$set": {"unread_admin": 0}})
+    msgs = await db.chat_messages.find({"thread_id": thread_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
+    return {"thread": th, "messages": msgs}
+
+@api.post("/owner-chats/{thread_id}/reply")
+async def owner_chat_reply(thread_id: str, body: ChatSendIn, user=Depends(require_tenant_admin)):
+    th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0})
+    if not th:
+        raise HTTPException(404, "Chat not found")
+    return await _append_chat_message(thread_id, "owner", body.message.strip())
 
 app.include_router(api)
 

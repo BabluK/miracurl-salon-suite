@@ -3,8 +3,10 @@ import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard, Calendar, Users, UserCog, Scissors, Package,
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
-  Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot
+  Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot,
+  Image as ImageIcon, MessageSquare
 } from "lucide-react";
+import api from "@/lib/api";
 import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
@@ -23,6 +25,8 @@ const NAV_ADMIN = [
   { to: "/reviews", label: "Reviews", icon: Star, testid: "nav-reviews" },
   { to: "/refer", label: "Refer & Earn", icon: Gift, testid: "nav-refer" },
   { to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" },
+  { to: "/messages", label: "Messages", icon: MessageSquare, testid: "nav-messages" },
+  { to: "/gallery", label: "Gallery", icon: ImageIcon, testid: "nav-gallery" },
   { to: "/assistant", label: "AI Assistant", icon: Bot, testid: "nav-assistant" },
   { to: "/settings", label: "Settings", icon: SettingsIcon, testid: "nav-settings" },
 ];
@@ -47,6 +51,16 @@ export default function AppLayout() {
   // notification when a customer self-books via the public link.
   const isAdmin = user?.role && user.role !== "staff" && user.role !== "super_admin";
   const notifier = useNewBookingNotifier({ enabled: isAdmin });
+
+  // Poll unread customer-chat count for the Messages nav badge
+  const [chatUnread, setChatUnread] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchUnread = () => api.get("/owner-chats/unread-count").then(r => setChatUnread(r.data.unread)).catch(() => {});
+    fetchUnread();
+    const t = setInterval(fetchUnread, 30000);
+    return () => clearInterval(t);
+  }, [isAdmin, loc.pathname]);
 
   // Close mobile sidebar on route change
   useEffect(() => { setSidebarOpen(false); setMenuOpen(false); }, [loc.pathname]);
@@ -109,6 +123,11 @@ export default function AppLayout() {
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
               <span>{item.label}</span>
+              {item.to === "/messages" && chatUnread > 0 && (
+                <span data-testid="nav-messages-unread" className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                  {chatUnread}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

@@ -28,6 +28,8 @@ import ManifestSwitcher from "@/components/ManifestSwitcher";
 import MicroInteractions from "@/components/MicroInteractions";
 import SalonFinder from "@/pages/SalonFinder";
 import ForceChangePassword from "@/pages/ForceChangePassword";
+import Gallery from "@/pages/Gallery";
+import Messages from "@/pages/Messages";
 
 function Protected({ children }) {
   const { user, loading, refresh } = useAuth();
@@ -118,6 +120,8 @@ export default function App() {
               <Route path="refer" element={<AdminOnly><ReferEarn /></AdminOnly>} />
               <Route path="reports" element={<AdminOnly><Reports /></AdminOnly>} />
               <Route path="assistant" element={<AdminOnly><Assistant /></AdminOnly>} />
+              <Route path="gallery" element={<AdminOnly><Gallery /></AdminOnly>} />
+              <Route path="messages" element={<AdminOnly><Messages /></AdminOnly>} />
               <Route path="settings" element={<AdminOnly><Settings /></AdminOnly>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

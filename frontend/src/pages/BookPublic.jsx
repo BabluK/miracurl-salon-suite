@@ -5,6 +5,7 @@ import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, P
 import { toast, Toaster } from "sonner";
 import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, ConfirmStep, SuccessStep } from "./BookPublic.steps";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
+import BookingChatWidget from "@/components/BookingChatWidget";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const DEFAULT_SLUG = "miracurl-marathahalli";
@@ -281,6 +282,7 @@ export default function BookPublic() {
         <div>© Miracurl · Crafted with care in Marathahalli</div>
       </footer>
       <InstallAppPrompt />
+      <BookingChatWidget slug={slug} />
     </div>
   );
 }

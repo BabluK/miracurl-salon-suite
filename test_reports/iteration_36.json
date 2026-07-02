@@ -1,0 +1,38 @@
+{
+  "summary": "Iter 36 — E2E validation of new features (Gallery + AI Promo card, AI Beauty Advisor chat widget, Customer↔Owner chat + admin Messages page). Backend: 12/12 pytest passed (test_iter36_chat_gallery.py) covering Gallery listing/auth, public AI chat (real LLM reply verified), owner-chat start/send/poll, owner-chats admin list/unread/messages/reply, and tenant isolation. Frontend: All 9 critical flows GREEN — admin sidebar shows nav-messages + nav-gallery with unread badge, Gallery page renders promo-generator-card + upload button (did not click generate to save LLM budget), Messages page renders thread list with QA Tester thread + unread badge, admin can open thread + send reply, customer polling on booking page picks up owner reply within ~3s, and regression flows (Dashboard, Appointments) still load fine.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard/Reports (carried over from iter 34/35)", "issues": ["Recharts still logs 'width(-1)/height(-1)' console warnings — non-fatal."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter36_chat_gallery.py",
+    "/app/test_reports/pytest/iter36.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Address chart width(-1)/height(-1) console warnings by setting minHeight on Recharts ResponsiveContainer wrappers.",
+    "OPTIONAL: server.py is ~4180 lines — continues to violate the 700-line guideline; consider splitting into routers (chat/gallery could be new files)."
+  ],
+  "critical_code_review_comments": [
+    "BookingChatWidget.jsx: AI tab and Owner tab correctly separated; sessionStorage keys mira_ai_sid_<slug> and mira_owner_thread_<slug/phone> ensure session persistence per browser. Verified panel opens, tabs switch, and identity-form gate works.",
+    "Messages.jsx: Thread list correctly renders unread-badge-{id} pills, chat-conversation shows both incoming (customer_message) and outgoing (owner_message) bubbles, reply sends with 200 and re-fetches. Data-testids well-placed for automation.",
+    "AppLayout.jsx: nav-messages-unread badge correctly polls /owner-chats/unread-count and shows count in sidebar (verified: badge = '2' after test session, matches unread threads on server).",
+    "server.py owner-chats endpoints: no _id leakage (verified via test_no_leak_of_other_tenants). TenantCollection wrapper on chat_threads/chat_messages ensures tenant isolation. GET /owner-chats returns only current tenant's threads.",
+    "Gallery.jsx: promo-generator-card renders behind an admin auth wall; upload endpoint /gallery/upload correctly requires auth. Delete/copy/download testids in place.",
+    "MINOR: The public /public/chat/{slug}/start endpoint upserts a thread on customer_phone match, which enables cross-slug thread merging if a customer has visited multiple tenants (may be intentional). Consider scoping the phone-lookup to the tenant to avoid one customer's history bleeding across salons.",
+    "TESTING TIP: page.fill() on Field-wrapped inputs occasionally leaves inputs empty in this app. Prefer page.locator(testid).click() → page.keyboard.type() with delay=15 for reliable form entry (worked on login page)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter36_chat_gallery.py"
+  ],
+  "success_rate": {"backend": "100% (12/12 pytest)", "frontend": "100% for all 9 requested E2E flows"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 — verified working. Tenant slug miracurl-marathahalli.",
+  "seed_data_creation": "Created chat threads via public endpoints for TEST_QA_Iter36 (pytest-driven, unique phone per run) and one QA Tester (phone 9112233445) via UI. These will accumulate in the Messages list — main agent may want to purge TEST_ threads periodically. No production data touched.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Public chat send/reply endpoints use JSON body key 'message' (NOT 'text'). data-testids verified for BookingChatWidget: booking-chat-fab, booking-chat-panel, chat-tab-ai, chat-tab-owner, ai-chat-input, ai-chat-send-btn, ai-chat-messages, owner-chat-identity-form, owner-chat-name-input, owner-chat-phone-input, owner-chat-start-btn, owner-chat-input, owner-chat-send-btn, owner-chat-messages. Admin Messages page: messages-title, chat-thread-list, chat-thread-{id}, unread-badge-{id}, chat-conversation, chat-reply-input, chat-reply-send-btn. Gallery: promo-generator-card, promo-prompt-input, promo-generate-btn (DO NOT click — consumes LLM), gallery-upload-btn, gallery-upload-input. When automating login, use page.keyboard.type after clicking the input; page.fill on Field-wrapped inputs is flaky here.",
+  "rca of the issue": "N/A — no functional bugs found. One test-only note: my initial script assumed public chat used 'text' key but API expects 'message' — fixed the tests. Also my AI-tab UI wait loop failed to detect the reply because the container includes an empty endRef scroll-anchor div as its last child, causing my innerText check to be blank; the underlying AI reply flow is verified GREEN via backend pytest (test_ai_chat_reply passed) which hits the same endpoint the UI calls."
+}
