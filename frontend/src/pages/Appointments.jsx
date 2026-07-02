@@ -83,6 +83,13 @@ export default function Appointments() {
     } catch (err) { toast.error("Booking failed"); }
   }
 
+  // Freshly booked (not yet approved) appointments pinned on top, newest first
+  const displayList = useMemo(() => {
+    const pending = list.filter(a => a.status === "scheduled").sort((x, y) => (y.created_at || "").localeCompare(x.created_at || ""));
+    const rest = list.filter(a => a.status !== "scheduled");
+    return [...pending, ...rest];
+  }, [list]);
+
   async function setStatus(id, status) {
     try {
       const { data } = await api.put(`/appointments/${id}/status`, { status });
@@ -171,8 +178,8 @@ export default function Appointments() {
           <table className="luxe-table-light min-w-[760px]">
             <thead><tr><th>Time</th><th>Customer</th><th>Services</th><th>Stylist</th><th>Total</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {list.map(a => (
-                <tr key={a.id} data-testid={`appt-row-${a.id}`}>
+              {displayList.map(a => (
+                <tr key={a.id} data-testid={`appt-row-${a.id}`} className={a.status === "scheduled" ? "appt-attention" : ""}>
                   <td>
                     {view === "upcoming" && <div className="text-xs font-medium text-slate-600">{new Date(a.scheduled_at).toLocaleDateString([], { day: "numeric", month: "short" })}</div>}
                     <div className="font-mono text-sky-600">{new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>

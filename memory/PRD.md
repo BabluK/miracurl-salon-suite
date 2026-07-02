@@ -233,3 +233,6 @@ Frontend:
 - Appointments UI: new Confirm button (BadgeCheck, shown when status=scheduled, data-testid confirm-appt-{id}) → opens WhatsApp; complete toast says "customer added to CRM".
 - Booking form: Gender pills (Female/Male/Other, default Female) on details step (book-detail-gender-*), sent as `gender` in POST /public/book.
 - E2E verified via curl: book(gender)→not in CRM→confirm(wa.me url)→complete→CRM row w/ gender/visits/spent/last_visited. UI verified via screenshots.
+
+## Update — Jul 2, 2026 (part 11)
+- Appointments list: unapproved (status=scheduled) bookings pinned to TOP sorted by created_at desc (displayList useMemo in Appointments.jsx) with amber blinking row highlight (.appt-attention keyframes in index.css, reduced-motion safe) until confirmed/completed. Verified via screenshot.

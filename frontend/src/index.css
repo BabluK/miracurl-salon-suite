@@ -295,3 +295,11 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* New booking awaiting approval — soft blinking highlight until confirmed */
+@keyframes appt-blink {
+  0%, 100% { background-color: rgba(251, 191, 36, 0.10); }
+  50% { background-color: rgba(251, 191, 36, 0.35); }
+}
+.appt-attention { animation: appt-blink 1.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .appt-attention { animation: none; background-color: rgba(251,191,36,0.18); } }
