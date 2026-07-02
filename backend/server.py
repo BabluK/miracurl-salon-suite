@@ -6,6 +6,7 @@ load_dotenv(ROOT_DIR / '.env')
 import os
 import re
 import io
+import csv
 import json
 import uuid
 import hmac
@@ -1060,6 +1061,65 @@ async def import_preset_services(user=Depends(get_current_user)):
         r = await db.services.update_many({"name": name}, {"$set": sets})
         updated += r.modified_count
     return {"added": added, "updated": updated}
+
+SERVICE_CSV_COLUMNS = ["name", "category", "price", "duration_min", "description", "image_url", "trending", "active"]
+
+@api.get("/services/export")
+async def export_services_csv(user=Depends(get_current_user)):
+    rows = await db.services.find({}).sort([("category", 1), ("name", 1)]).to_list(2000)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(SERVICE_CSV_COLUMNS)
+    for r in rows:
+        w.writerow([
+            r.get("name", ""), r.get("category", ""), r.get("price", 0),
+            r.get("duration_min", 30), r.get("description", ""), r.get("image_url", ""),
+            r.get("trending", False), r.get("active", True),
+        ])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=services.csv"},
+    )
+
+@api.post("/services/import")
+async def import_services_csv(file: UploadFile = File(...), user=Depends(get_current_user)):
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(400, "Only CSV files are supported. Export first to get the exact template.")
+    content = (await file.read()).decode("utf-8-sig", errors="ignore")
+    reader = csv.DictReader(io.StringIO(content))
+    fields = {(f or "").strip().lower() for f in (reader.fieldnames or [])}
+    if not {"name", "category", "price"}.issubset(fields):
+        raise HTTPException(400, "CSV needs columns: name, category, price (optional: duration_min, description, image_url, trending, active)")
+    added = updated = skipped = 0
+    for raw in reader:
+        row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
+        name = row.get("name", "")
+        try:
+            price = float(row.get("price") or "")
+        except ValueError:
+            price = None
+        if not name or price is None:
+            skipped += 1
+            continue
+        doc = {
+            "name": name,
+            "category": row.get("category") or "General",
+            "price": price,
+            "duration_min": int(float(row.get("duration_min") or 30)),
+            "description": row.get("description", ""),
+            "image_url": row.get("image_url", ""),
+            "trending": row.get("trending", "").lower() in ("true", "1", "yes"),
+            "active": row.get("active", "true").lower() not in ("false", "0", "no"),
+        }
+        existing = await db.services.find_one({"name": name})
+        if existing:
+            await db.services.update_one({"id": existing["id"]}, {"$set": doc})
+            updated += 1
+        else:
+            await db.services.insert_one(Service(**doc).model_dump())
+            added += 1
+    return {"added": added, "updated": updated, "skipped": skipped}
 
 @api.get("/services")
 async def list_services(user=Depends(get_current_user)):

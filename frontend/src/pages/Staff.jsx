@@ -226,6 +226,21 @@ export default function Staff() {
                   circular
                   value={form.image_url}
                   onChange={(url) => setForm({ ...form, image_url: url })}
+                  onUploaded={async (url) => {
+                    if (!editing) { toast.success("Photo attached — it saves with the profile ✦"); return; }
+                    try {
+                      await api.put(`/staff/${editing.id}`, {
+                        ...form,
+                        image_url: url,
+                        specialties: form.specialties.split(",").map(x => x.trim()).filter(Boolean),
+                        commission_pct: parseFloat(form.commission_pct) || 0,
+                        monthly_base_salary: parseFloat(form.monthly_base_salary) || 0,
+                        salary_visible: !!form.salary_visible,
+                      });
+                      toast.success("Photo uploaded & saved ✦");
+                      load();
+                    } catch { toast.error("Auto-save failed — press Save"); }
+                  }}
                   fallback="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300"
                 />
               </div>

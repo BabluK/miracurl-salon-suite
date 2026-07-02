@@ -199,3 +199,8 @@ Frontend:
 - Added full Manicure menu (8 sub-services: Basic ₹400, Aroma Magic ₹500, Rose Bud ₹500, Ragga ₹600, O3+ ₹700, Foiling & Polish ₹100, Cut & File ₹100, Ozone ₹600) and Pedicure menu (8: Basic ₹500, Aroma Magic ₹800, Rose Bud ₹700, Ragga ₹800, Pediologix O3+ ₹1000, Foiling & Polish ₹100, Cut & Foil ₹100, Ozone ₹900) with generated images.
 - import-preset endpoint now also remaps legacy categories (Hair→Men/Women Hair, Threading→Skin, Manicure/Pedicure Spa moved) and fixes broken legacy images. User must click "Import Makeup & Nails menu" once in production after deploy.
 - Verified: 7 category tabs, 34 services, all 18 unique image URLs return 200.
+
+## Update — Jul 2, 2026 (part 6)
+- Image upload UX: uploading from laptop/phone now AUTO-SAVES immediately when editing an existing service/staff/product (onUploaded prop wired in Services/Staff/Inventory); raw /api/files URL box hidden behind "or paste a URL" toggle in ImageUploader.jsx. (For new records, image saves with the Create button.)
+- Services Import/Export in CSV (Excel/Sheets compatible): GET /api/services/export downloads services.csv; POST /api/services/import upserts by name (columns: name, category, price + optional duration_min, description, image_url, trending, active). Non-CSV rejected with helpful message. Buttons: import-csv-btn / export-csv-btn on Services page.
+- Verified: export 34 rows, import round-trip 34 updated, bad-file rejection, UI buttons + uploader render. Fixed a stray JSX compile error in ImageUploader.

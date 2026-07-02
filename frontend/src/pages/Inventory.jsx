@@ -121,6 +121,14 @@ export default function Inventory() {
                   kind="product"
                   value={form.image_url}
                   onChange={(url) => setForm({ ...form, image_url: url })}
+                  onUploaded={async (url) => {
+                    if (!editing) { toast.success("Image attached — it saves with the product ✦"); return; }
+                    try {
+                      await api.put(`/products/${editing.id}`, { ...form, image_url: url, price: parseFloat(form.price), cost: parseFloat(form.cost), stock: parseInt(form.stock), low_stock_threshold: parseInt(form.low_stock_threshold) });
+                      toast.success("Image uploaded & saved ✦");
+                      load();
+                    } catch { toast.error("Auto-save failed — press Save"); }
+                  }}
                   fallback="https://images.unsplash.com/photo-1583209814683-c023dd293cc6?w=80"
                 />
               </div>

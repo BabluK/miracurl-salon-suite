@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame, Sparkles } from "lucide-react";
+import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame, Sparkles, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 
@@ -11,6 +11,36 @@ export default function Services() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", category: "Hair", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true });
+  const csvRef = useRef(null);
+
+  async function exportCsv() {
+    try {
+      const res = await api.get("/services/export", { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "services.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("services.csv downloaded — opens in Excel / Google Sheets");
+    } catch { toast.error("Export failed"); }
+  }
+
+  async function handleImportCsv(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append("file", f);
+    try {
+      const { data } = await api.post("/services/import", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      toast.success(`Imported: ${data.added} added · ${data.updated} updated${data.skipped ? ` · ${data.skipped} skipped` : ""}`);
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Import failed");
+    } finally {
+      e.target.value = "";
+    }
+  }
 
   const load = useCallback(async () => { const { data } = await api.get("/services"); setList(data); }, []);
   useEffect(() => { load(); }, [load]);
@@ -41,7 +71,14 @@ export default function Services() {
           <h1 className="font-playfair text-3xl">Service Menu</h1>
           <p className="text-slate-500 text-sm mt-1">Curate what your salon offers your guests.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} data-testid="import-csv-input" />
+          <button data-testid="import-csv-btn" onClick={() => csvRef.current?.click()} className="btn-slate flex items-center gap-2" title="Bulk add/update services from a CSV file">
+            <Upload className="w-4 h-4" /> Import CSV
+          </button>
+          <button data-testid="export-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all services as CSV (Excel compatible)">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
           <button
             data-testid="import-preset-btn"
             onClick={async () => {
@@ -124,6 +161,14 @@ export default function Services() {
                   kind="service"
                   value={form.image_url}
                   onChange={(url) => setForm({ ...form, image_url: url })}
+                  onUploaded={async (url) => {
+                    if (!editing) { toast.success("Image attached — it saves with the service ✦"); return; }
+                    try {
+                      await api.put(`/services/${editing.id}`, { ...form, image_url: url, price: parseFloat(form.price), duration_min: parseInt(form.duration_min) });
+                      toast.success("Image uploaded & saved ✦");
+                      load();
+                    } catch { toast.error("Auto-save failed — press Save Service"); }
+                  }}
                   fallback="https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400"
                 />
               </div>

@@ -17,8 +17,9 @@ import { Upload, Loader2, X } from "lucide-react";
  *   fallback   — placeholder image if no value + no upload yet (optional)
  *   circular   — render preview as circle (for avatars) vs rectangle
  */
-export default function ImageUploader({ value, onChange, kind = "misc", fallback, circular = false }) {
+export default function ImageUploader({ value, onChange, onUploaded, kind = "misc", fallback, circular = false }) {
   const [uploading, setUploading] = useState(false);
+  const [showUrl, setShowUrl] = useState(false);
   const inputRef = useRef(null);
 
   const preview = value || fallback || "";
@@ -104,15 +105,22 @@ export default function ImageUploader({ value, onChange, kind = "misc", fallback
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             {uploading ? "Uploading…" : "Choose from laptop"}
           </button>
-          <p className="text-[11px] text-slate-500 mt-1.5">JPG, PNG, WebP · under 3MB · or paste a URL below</p>
-          <input
-            type="url"
-            placeholder="https://... (optional)"
-            value={value || ""}
-            onChange={(e) => onChange(e.target.value)}
-            className="mt-2 w-full px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-sky-200"
-            data-testid={`image-uploader-url-${kind}`}
-          />
+          <p className="text-[11px] text-slate-500 mt-1.5">
+            JPG, PNG, WebP · under 3MB ·{" "}
+            <button type="button" onClick={() => setShowUrl(!showUrl)} className="underline underline-offset-2 hover:text-slate-700" data-testid={`image-uploader-toggle-url-${kind}`}>
+              {showUrl ? "hide URL" : "or paste a URL"}
+            </button>
+          </p>
+          {showUrl && (
+            <input
+              type="url"
+              placeholder="https://... (optional)"
+              value={value || ""}
+              onChange={(e) => onChange(e.target.value)}
+              className="mt-2 w-full px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-sky-200"
+              data-testid={`image-uploader-url-${kind}`}
+            />
+          )}
         </div>
       </div>
     </div>
