@@ -107,6 +107,7 @@ class _DB:
     reviews = TenantCollection(_raw_db.reviews)
     attendance = TenantCollection(_raw_db.attendance)
     feedback = TenantCollection(_raw_db.feedback)
+    gallery = TenantCollection(_raw_db.gallery)
 
 db = _DB()
 
@@ -4097,6 +4098,79 @@ async def update_feedback(fid: str, body: dict, user=Depends(require_admin)):
 @api.delete("/feedback/{fid}")
 async def delete_feedback(fid: str, user=Depends(require_admin)):
     await db.feedback.delete_one({"id": fid})
+    return {"ok": True}
+
+# ---------------- Salon Media Gallery + AI Promo Generator ----------------
+_GALLERY_IMG = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp", "gif": "image/gif"}
+_GALLERY_VID = {"mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/webm"}
+_MAX_GALLERY_IMG = 5 * 1024 * 1024
+_MAX_GALLERY_VID = 25 * 1024 * 1024
+
+async def _store_gallery_media(t, data: bytes, ext: str, mime: str, kind: str, caption: str, source: str, uploaded_by: str, filename: str = ""):
+    file_id = str(uuid.uuid4())
+    storage_path = f"{APP_NAME}/tenants/{t['id']}/gallery/{file_id}.{ext}"
+    try:
+        result = _put_object(storage_path, data, mime)
+    except requests.HTTPError as e:
+        raise HTTPException(502, f"Storage upload failed: {e}") from e
+    await _raw_db.uploads.insert_one({
+        "id": file_id, "tenant_id": t["id"], "kind": "gallery",
+        "storage_path": result.get("path", storage_path),
+        "original_filename": filename or f"{file_id}.{ext}",
+        "content_type": mime, "size": len(data), "uploaded_by": uploaded_by,
+        "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    doc = {"id": file_id, "url": f"/api/files/{file_id}", "kind": kind, "caption": caption,
+           "source": source, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.gallery.insert_one(doc)
+    return _clean(doc)
+
+@api.post("/gallery/upload")
+async def gallery_upload(file: UploadFile = File(...), caption: str = Query("", max_length=200),
+                         user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else ""
+    if ext in _GALLERY_IMG:
+        kind, mime, cap = "image", _GALLERY_IMG[ext], _MAX_GALLERY_IMG
+    elif ext in _GALLERY_VID:
+        kind, mime, cap = "video", _GALLERY_VID[ext], _MAX_GALLERY_VID
+    else:
+        raise HTTPException(400, "Allowed: JPG, PNG, WebP, GIF images or MP4, MOV, WebM videos")
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "Empty file")
+    if len(data) > cap:
+        raise HTTPException(413, f"Too large — max {cap // (1024 * 1024)}MB for {kind}s")
+    return await _store_gallery_media(t, data, ext, mime, kind, caption, "upload", user["id"], file.filename or "")
+
+class PromoGenIn(BaseModel):
+    prompt: str = Field(..., min_length=5, max_length=500)
+
+@api.post("/gallery/generate")
+async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    gen = OpenAIImageGeneration(api_key=key)
+    full_prompt = (f"Professional social-media promotional image for an Indian beauty salon named '{t.get('name', 'the salon')}'. "
+                   f"{body.prompt}. Elegant premium salon aesthetic, warm lighting, clean composition; "
+                   f"if text is included keep it minimal and legible.")
+    try:
+        images = await gen.generate_images(prompt=full_prompt, model="gpt-image-1", number_of_images=1)
+    except Exception as e:
+        raise HTTPException(502, f"Image generation failed: {e}")
+    if not images:
+        raise HTTPException(502, "No image was generated")
+    return await _store_gallery_media(t, images[0], "png", "image/png", "image", body.prompt, "ai", user["id"])
+
+@api.get("/gallery")
+async def list_gallery(user=Depends(get_current_user)):
+    return await db.gallery.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+@api.delete("/gallery/{gid}")
+async def delete_gallery_item(gid: str, user=Depends(require_admin)):
+    await db.gallery.delete_one({"id": gid})
+    await _raw_db.uploads.update_one({"id": gid}, {"$set": {"is_deleted": True}})
     return {"ok": True}
 
 app.include_router(api)
