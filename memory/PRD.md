@@ -216,3 +216,13 @@ Frontend:
 - User confusion: booking (Ankit) appeared in CRM but "not in Appointments" — root cause: Appointments page only showed ONE day (default today); the booking was on a future date. NOT a data bug (verified: booking flow creates both customer + appointment).
 - Fix: Appointments page now has Day | Upcoming | Week views. New backend param GET /api/appointments?upcoming=true (scheduled_at >= today, excludes cancelled). Upcoming table rows show the date; empty day view shows "See all upcoming" shortcut (see-upcoming-btn).
 - Verified via screenshot: day view 1 row, upcoming view 5 rows with dates.
+
+## Update — Jul 2, 2026 (part 9) — SECURITY AUDIT FIXES
+- Ran security_audit_agent. Verified-secure: cross-tenant isolation, JWT signing, Razorpay payment+webhook HMAC, password hashing, NoSQL-injection protection.
+- SEC-001 (HIGH) FIXED: staff could read owner-only revenue/commission, export customers, and edit own salary. Changed get_current_user→require_admin on: PUT /staff/{sid}, GET /customers, /customers/export, /customers/import, /services/export|import, /products/export|import, /reports/dashboard|daily|sales|staff-commission. Verified: staff→403, admin→200, staff salary edit→403.
+- SEC-002 (HIGH) FIXED: affiliate reward now recorded as PENDING at signup (no instant credit); ₹1000 credited to referrer only when referred salon completes Razorpay payment (in /billing/razorpay/verify). Prevents trial-signup farming.
+- SEC-003 (MED) FIXED: _csv_cell() prefixes =,+,-,@,tab,CR with apostrophe on all CSV exports. Verified.
+- SEC-004 (MED) FIXED: _read_csv_upload() caps imports at 5MB (413). All 3 imports use it.
+- P3 hardening noted (not fixed): token in localStorage, IP-based login throttle, public /api/files by UUID.
+- Also fixed: booking DetailsStep input icon overlapping placeholder (.input-luxe used `padding` shorthand overriding pl-10; split into individual props + .input-luxe.pl-10 rule).
+- Prachi report: she has NO appointment record (only a customer) — either added via Add Customer or a walk-in; unlike Ankit she was not booked with a date. Not a bug.

@@ -735,12 +735,9 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     }
     await db.users.insert_one(owner)
 
-    # Credit the referrer ₹1,000 to their affiliate balance (applied against next renewal)
+    # Record the referral as PENDING — the ₹1,000 reward is granted only after
+    # the referred salon completes a real subscription payment (anti-farming).
     if referrer:
-        await db.tenants.update_one(
-            {"id": referrer["id"]},
-            {"$inc": {"affiliate_credits": AFFILIATE_REWARD_INR}},
-        )
         await db.affiliate_referrals.insert_one({
             "id": str(uuid.uuid4()),
             "referrer_tenant_id": referrer["id"],
@@ -749,6 +746,7 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
             "referred_slug": tenant["slug"],
             "referred_salon_name": tenant["name"],
             "credit_amount": AFFILIATE_REWARD_INR,
+            "status": "pending",
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
 
@@ -869,7 +867,7 @@ def _clean(doc):
 
 # ---------------- Customers ----------------
 @api.get("/customers")
-async def list_customers(q: Optional[str] = None, user=Depends(get_current_user)):
+async def list_customers(q: Optional[str] = None, user=Depends(require_admin)):
     flt = {}
     if q:
         # SEC-P3 fix: escape user input so `q` cannot inject a $regex DoS pattern.
@@ -885,13 +883,13 @@ async def create_customer(body: CustomerIn, user=Depends(get_current_user)):
     return _clean(c)
 
 @api.get("/customers/export")
-async def export_customers_csv(user=Depends(get_current_user)):
+async def export_customers_csv(user=Depends(require_admin)):
     rows = await db.customers.find({}).sort("name", 1).to_list(5000)
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["name", "phone", "email", "gender", "dob", "address", "notes", "loyalty_points", "total_spent", "visits"])
     for r in rows:
-        w.writerow([
+        _csv_row(w, [
             r.get("name", ""), r.get("phone", ""), r.get("email", "") or "", r.get("gender", "") or "",
             r.get("dob", "") or "", r.get("address", "") or "", r.get("notes", "") or "",
             r.get("loyalty_points", 0), r.get("total_spent", 0), r.get("visits", 0),
@@ -900,10 +898,8 @@ async def export_customers_csv(user=Depends(get_current_user)):
                     headers={"Content-Disposition": "attachment; filename=customers.csv"})
 
 @api.post("/customers/import")
-async def import_customers_csv(file: UploadFile = File(...), user=Depends(get_current_user)):
-    if not (file.filename or "").lower().endswith(".csv"):
-        raise HTTPException(400, "Only CSV files are supported. Export first to get the exact template.")
-    content = (await file.read()).decode("utf-8-sig", errors="ignore")
+async def import_customers_csv(file: UploadFile = File(...), user=Depends(require_admin)):
+    content = await _read_csv_upload(file)
     reader = csv.DictReader(io.StringIO(content))
     fields = {(f or "").strip().lower() for f in (reader.fieldnames or [])}
     if not {"name", "phone"}.issubset(fields):
@@ -1108,6 +1104,26 @@ async def import_preset_services(user=Depends(get_current_user)):
 
 SERVICE_CSV_COLUMNS = ["name", "category", "price", "duration_min", "description", "image_url", "trending", "active"]
 
+MAX_CSV_BYTES = 5 * 1024 * 1024  # 5MB import cap
+
+def _csv_cell(v):
+    """Neutralize CSV/formula injection: prefix risky leading chars with a quote."""
+    s = "" if v is None else str(v)
+    if s and s[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + s
+    return s
+
+def _csv_row(w, values):
+    w.writerow([_csv_cell(v) for v in values])
+
+async def _read_csv_upload(file: UploadFile) -> str:
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(400, "Only CSV files are supported. Export first to get the exact template.")
+    raw = await file.read()
+    if len(raw) > MAX_CSV_BYTES:
+        raise HTTPException(413, "CSV too large — please keep imports under 5MB.")
+    return raw.decode("utf-8-sig", errors="ignore")
+
 def _build_qr_poster(salon_name: str, location: str, url: str) -> bytes:
     import qrcode
     from PIL import Image as PILImage, ImageDraw, ImageFont
@@ -1171,13 +1187,13 @@ async def download_qr_poster(origin: str = "", user=Depends(get_current_user)):
                     headers={"Content-Disposition": "attachment; filename=booking-qr-poster.png"})
 
 @api.get("/services/export")
-async def export_services_csv(user=Depends(get_current_user)):
+async def export_services_csv(user=Depends(require_admin)):
     rows = await db.services.find({}).sort([("category", 1), ("name", 1)]).to_list(2000)
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(SERVICE_CSV_COLUMNS)
     for r in rows:
-        w.writerow([
+        _csv_row(w, [
             r.get("name", ""), r.get("category", ""), r.get("price", 0),
             r.get("duration_min", 30), r.get("description", ""), r.get("image_url", ""),
             r.get("trending", False), r.get("active", True),
@@ -1189,10 +1205,8 @@ async def export_services_csv(user=Depends(get_current_user)):
     )
 
 @api.post("/services/import")
-async def import_services_csv(file: UploadFile = File(...), user=Depends(get_current_user)):
-    if not (file.filename or "").lower().endswith(".csv"):
-        raise HTTPException(400, "Only CSV files are supported. Export first to get the exact template.")
-    content = (await file.read()).decode("utf-8-sig", errors="ignore")
+async def import_services_csv(file: UploadFile = File(...), user=Depends(require_admin)):
+    content = await _read_csv_upload(file)
     reader = csv.DictReader(io.StringIO(content))
     fields = {(f or "").strip().lower() for f in (reader.fieldnames or [])}
     if not {"name", "category", "price"}.issubset(fields):
@@ -1259,7 +1273,7 @@ async def create_staff(body: StaffIn, user=Depends(get_current_user)):
     return _clean(s)
 
 @api.put("/staff/{sid}")
-async def update_staff(sid: str, body: StaffIn, user=Depends(get_current_user)):
+async def update_staff(sid: str, body: StaffIn, user=Depends(require_admin)):
     await db.staff.update_one({"id": sid}, {"$set": body.model_dump()})
     return await db.staff.find_one({"id": sid}, {"_id": 0})
 
@@ -1758,13 +1772,13 @@ async def create_product(body: ProductIn, user=Depends(get_current_user)):
     return _clean(p)
 
 @api.get("/products/export")
-async def export_products_csv(user=Depends(get_current_user)):
+async def export_products_csv(user=Depends(require_admin)):
     rows = await db.products.find({}).sort("name", 1).to_list(2000)
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["name", "brand", "category", "sku", "price", "cost", "stock", "low_stock_threshold", "image_url"])
     for r in rows:
-        w.writerow([
+        _csv_row(w, [
             r.get("name", ""), r.get("brand", "") or "", r.get("category", ""), r.get("sku", ""),
             r.get("price", 0), r.get("cost", 0), r.get("stock", 0), r.get("low_stock_threshold", 5),
             r.get("image_url", "") or "",
@@ -1773,10 +1787,8 @@ async def export_products_csv(user=Depends(get_current_user)):
                     headers={"Content-Disposition": "attachment; filename=products.csv"})
 
 @api.post("/products/import")
-async def import_products_csv(file: UploadFile = File(...), user=Depends(get_current_user)):
-    if not (file.filename or "").lower().endswith(".csv"):
-        raise HTTPException(400, "Only CSV files are supported. Export first to get the exact template.")
-    content = (await file.read()).decode("utf-8-sig", errors="ignore")
+async def import_products_csv(file: UploadFile = File(...), user=Depends(require_admin)):
+    content = await _read_csv_upload(file)
     reader = csv.DictReader(io.StringIO(content))
     fields = {(f or "").strip().lower() for f in (reader.fieldnames or [])}
     if not {"name", "category", "price", "stock"}.issubset(fields):
@@ -2097,7 +2109,7 @@ async def _dashboard_revenue_trend(days: int = 7) -> list:
 
 
 @api.get("/reports/dashboard")
-async def dashboard(user=Depends(get_current_user)):
+async def dashboard(user=Depends(require_admin)):
     today = datetime.now(timezone.utc).date().isoformat()
     month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
     invoices_today = await db.invoices.find({"created_at": {"$regex": f"^{today}"}}, {"_id": 0}).to_list(500)
@@ -2144,7 +2156,7 @@ def _ist_day_window(date_str: Optional[str] = None) -> tuple[str, str, str]:
 
 
 @api.get("/reports/daily")
-async def daily_report(date: Optional[str] = None, user=Depends(get_current_user)):
+async def daily_report(date: Optional[str] = None, user=Depends(require_admin)):
     """One-day revenue summary anchored to IST. Powers the 'Yesterday's Report'
     notification that greets the salon owner on login.
 
@@ -2228,7 +2240,7 @@ async def daily_report(date: Optional[str] = None, user=Depends(get_current_user
 
 
 @api.get("/reports/sales")
-async def sales_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(get_current_user)):
+async def sales_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(require_admin)):
     flt = {}
     if start and end:
         flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
@@ -3253,6 +3265,18 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
                   "subscription_end_date": sub["end_date"],
                   "current_subscription_id": sub["id"]}},
     )
+
+    # Anti-farming: release any PENDING affiliate reward now that this salon paid.
+    pending_ref = await db.affiliate_referrals.find_one({"referred_tenant_id": t["id"], "status": "pending"})
+    if pending_ref:
+        await db.tenants.update_one(
+            {"id": pending_ref["referrer_tenant_id"]},
+            {"$inc": {"affiliate_credits": float(pending_ref["credit_amount"])}},
+        )
+        await db.affiliate_referrals.update_one(
+            {"id": pending_ref["id"]},
+            {"$set": {"status": "credited", "credited_at": today_iso}},
+        )
 
     return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"], "plan": server_plan}
 

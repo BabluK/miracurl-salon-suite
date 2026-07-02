@@ -57,11 +57,16 @@ input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.3); }
   background: #0A0A0A;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 0.5rem;
-  padding: 0.625rem 1rem;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
   color: #FFFFFF;
   width: 100%;
   transition: all 0.2s ease;
 }
+/* Icon-prefixed inputs: give text room so the icon never overlaps the placeholder */
+.input-luxe.pl-10 { padding-left: 2.5rem; }
 .input-luxe:focus { outline: none; border-color: #D4AF37; box-shadow: 0 0 0 2px rgba(212,175,55,0.2); }
 
 .card-luxe {
