@@ -188,3 +188,8 @@ Frontend:
 - Added user's Makeup & Nails price menu (9 services): Party ₹1200 / Normal ₹700 / Bridal ₹2000 / Saree Draping ₹500 / Hair Styling ₹800 / Henna ₹200 / Gel Polish ₹500 / Gel Extension ₹1000 / Acrylic Extension ₹1500 — each with an AI-generated image.
 - New endpoint POST /api/services/import-preset (upserts preset by name, tenant-scoped) + "Import Makeup & Nails menu" button on admin Services page — lets user replicate the menu on PRODUCTION with one click after deploy.
 - Verified: 18 service cards render with image+price on public booking page (preview).
+
+## Update — Jul 2, 2026 (part 4)
+- Renamed & recolored the two PWAs per user choice: booking app = "Miracurl Book" (violet/purple, new violet icons), business app = "Miracurl Partner" (deep emerald + gold icons). ManifestSwitcher also swaps apple-touch-icon per route.
+- InstallAppPrompt rewritten: auto-shows after 4s on ALL mobile devices (iOS + Android) on Landing (/), Salon Finder (/book) and booking pages; "Not now" now snoozes for 3 days instead of forever; device-aware install guide. Mounted on Landing.jsx (was missing → root domain never prompted).
+- SW cache bumped to v6. Sidebar mobile nav re-verified working (user report was stale production bundle; preview tests pass: open via hamburger, auto-close on tab change).

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { Scissors, Search, MapPin, ArrowRight } from "lucide-react";
+import InstallAppPrompt from "@/components/InstallAppPrompt";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -26,6 +27,7 @@ export default function SalonFinder() {
 
   return (
     <div className="min-h-screen mesh-dark text-white" data-testid="salon-finder-page">
+      <InstallAppPrompt />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-16 pb-24">
         <div className="flex items-center gap-3 mb-10">
           <div className="w-11 h-11 rounded-full bg-gold flex items-center justify-center shadow-gold-glow flex-shrink-0">

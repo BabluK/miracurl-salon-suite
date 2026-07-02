@@ -13,8 +13,9 @@ export default function ManifestSwitcher() {
   useEffect(() => {
     const isBooking = pathname.startsWith("/book");
     const href = isBooking ? "/manifest.json" : "/manifest-admin.json";
-    const title = isBooking ? "M" : "Miracurl";
-    const theme = isBooking ? "#ec4899" : "#D4AF37";
+    const title = isBooking ? "Miracurl Book" : "Miracurl Partner";
+    const theme = isBooking ? "#8B5CF6" : "#059669";
+    const touchIcon = isBooking ? "/icon-192.png" : "/icon-admin-192.png";
 
     let link = document.querySelector('link[rel="manifest"]');
     if (!link) {
@@ -23,6 +24,8 @@ export default function ManifestSwitcher() {
       document.head.appendChild(link);
     }
     if (link.getAttribute("href") !== href) link.setAttribute("href", href);
+
+    document.querySelectorAll('link[rel="apple-touch-icon"]').forEach((l) => l.setAttribute("href", touchIcon));
 
     let appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
     if (!appleTitle) {

@@ -1,105 +1,110 @@
 import { useEffect, useState } from "react";
 import { Download, X, Share, Smartphone } from "lucide-react";
 
+const RESHOW_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // dismissed banners return after 3 days
+
+const THEMES = {
+  customer: {
+    appName: "Miracurl Book",
+    title: "Install Miracurl Book",
+    subtitle: "Book faster next time, get reminders, and skip the browser bar. Free ✦",
+    banner: "bg-gradient-to-br from-violet-500 to-purple-800",
+    installBtn: "bg-white text-violet-700 hover:bg-white/95",
+    guideIcon: "bg-gradient-to-br from-violet-500 to-purple-800 text-white",
+    guideBtn: "bg-violet-600 hover:bg-violet-700",
+  },
+  app: {
+    appName: "Miracurl Partner",
+    title: "Install Miracurl Partner",
+    subtitle: "Your salon dashboard in one tap — no browser bar, faster startup.",
+    banner: "bg-gradient-to-br from-emerald-600 to-emerald-950",
+    installBtn: "bg-amber-300 text-emerald-950 hover:bg-amber-200",
+    guideIcon: "bg-gradient-to-br from-emerald-600 to-emerald-950 text-amber-300",
+    guideBtn: "bg-emerald-700 hover:bg-emerald-800",
+  },
+};
+
 /**
- * Smart PWA install banner.
- * - Works on public booking page AND inside the logged-in salon app.
- * - On Chrome/Edge (desktop + Android): captures beforeinstallprompt and shows
- *   a native install button. Users on desktop get the same one-click install.
- * - On iOS Safari: shows an "Add to Home Screen" mini-tutorial (Apple doesn't
- *   fire beforeinstallprompt, so we fall back to human instructions).
- * - Hides forever after user installs OR dismisses (localStorage flag), but
- *   the trigger button in the header can force it back up any time.
- * - Never shown when the site is already running as an installed PWA.
+ * Smart PWA install banner — auto-shows on iPhone AND Android.
+ * - Android/Chrome: uses the native install prompt when available, otherwise
+ *   shows "Add to Home screen" steps.
+ * - iOS Safari: shows the Share → Add to Home Screen tutorial.
+ * - Auto-appears 4s after page load on mobile; on desktop only when the
+ *   browser says the app is installable.
+ * - "Not now" hides it for 3 days (per app), not forever.
  *
- * Props:
- *   variant: "customer" | "app"   (copy tuning only, default "customer")
+ * Props: variant "customer" (booking app) | "app" (business app)
  */
 export default function InstallAppPrompt({ variant = "customer" }) {
   const [deferred, setDeferred] = useState(null);
   const [visible, setVisible] = useState(false);
-  const [showIosGuide, setShowIosGuide] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const t = THEMES[variant] || THEMES.customer;
+  const dismissKey = `miracurl_pwa_dismiss_${variant}`;
 
   useEffect(() => {
-    // If already installed / running in standalone mode → never show
     const isStandalone =
       window.matchMedia?.("(display-mode: standalone)")?.matches ||
       window.navigator.standalone === true;
     if (isStandalone) return;
 
-    let dismissed = false;
+    let recentlyDismissed = false;
     try {
-      dismissed = localStorage.getItem("miracurl_pwa_install_dismissed") === "1";
-    } catch (e) {
-      console.warn("[InstallAppPrompt] localStorage read failed:", e);
-    }
+      const at = parseInt(localStorage.getItem(dismissKey) || "0", 10);
+      recentlyDismissed = at > 0 && Date.now() - at < RESHOW_AFTER_MS;
+    } catch (e) { console.warn("[InstallAppPrompt]", e); }
 
-    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
 
     const handler = (e) => {
       e.preventDefault();
       setDeferred(e);
-      if (!dismissed) setVisible(true);
+      if (!recentlyDismissed) setVisible(true);
     };
     window.addEventListener("beforeinstallprompt", handler);
 
-    // Manual trigger from anywhere (e.g. header button) — forces the banner up
-    // even if the user previously dismissed it.
+    // Manual trigger (header/profile menu button) — always forces banner up
     const openHandler = () => setVisible(true);
     window.addEventListener("miracurl:open-install", openHandler);
 
-    if (isIos && !dismissed) {
-      // Show iOS tutorial after 4 seconds so it doesn't feel intrusive
-      const t = setTimeout(() => setVisible(true), 4000);
-      return () => {
-        window.removeEventListener("beforeinstallprompt", handler);
-        window.removeEventListener("miracurl:open-install", openHandler);
-        clearTimeout(t);
-      };
+    // Auto-show on every mobile device — don't wait for beforeinstallprompt
+    let timer;
+    if (isMobile && !recentlyDismissed) {
+      timer = setTimeout(() => setVisible(true), 4000);
     }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
       window.removeEventListener("miracurl:open-install", openHandler);
+      if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [dismissKey]);
 
   function dismiss() {
-    try { localStorage.setItem("miracurl_pwa_install_dismissed", "1"); } catch (e) { console.warn(e); }
+    try { localStorage.setItem(dismissKey, String(Date.now())); } catch (e) { console.warn(e); }
     setVisible(false);
   }
 
   async function install() {
     if (!deferred) {
-      // No native prompt available — show device-appropriate manual steps
-      setShowIosGuide(true);
+      setShowGuide(true);
       return;
     }
     deferred.prompt();
     const result = await deferred.userChoice;
-    if (result.outcome === "accepted") {
-      dismiss(); // remember they installed so we don't nag
-    }
+    if (result.outcome === "accepted") dismiss();
     setDeferred(null);
     setVisible(false);
   }
 
   if (!visible) return null;
 
-  const copy = variant === "app"
-    ? {
-        title: "Install Miracurl on this device",
-        subtitle: "One tap to open your salon dashboard next time — no browser bar, faster startup.",
-      }
-    : {
-        title: "Install Miracurl on your phone",
-        subtitle: "Book faster next time, get reminders, and skip the browser bar. Free ✦",
-      };
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   return (
     <>
       <div
-        className="fixed bottom-4 left-4 right-4 z-40 rounded-2xl shadow-2xl bg-gradient-to-br from-rose-500 to-fuchsia-600 text-white p-4 sm:max-w-sm sm:left-auto sm:right-4 animate-slide-up"
+        className={`fixed bottom-4 left-4 right-4 z-40 rounded-2xl shadow-2xl ${t.banner} text-white p-4 sm:max-w-sm sm:left-auto sm:right-4 animate-slide-up`}
         data-testid="pwa-install-banner"
       >
         <div className="flex items-start gap-3">
@@ -107,17 +112,15 @@ export default function InstallAppPrompt({ variant = "customer" }) {
             <Smartphone className="w-6 h-6 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold leading-tight">{copy.title}</div>
-            <p className="text-[11px] text-white/85 mt-1 leading-snug">
-              {copy.subtitle}
-            </p>
+            <div className="text-sm font-semibold leading-tight">{t.title}</div>
+            <p className="text-[11px] text-white/85 mt-1 leading-snug">{t.subtitle}</p>
             <div className="flex items-center gap-2 mt-3">
               <button
                 onClick={install}
                 data-testid="pwa-install-btn"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-rose-600 text-xs font-semibold shadow-sm hover:bg-white/95"
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold shadow-sm ${t.installBtn}`}
               >
-                <Download className="w-3.5 h-3.5" /> Install app
+                <Download className="w-3.5 h-3.5" /> {isIos ? "Add to Home Screen" : "Install app"}
               </button>
               <button
                 onClick={dismiss}
@@ -128,30 +131,23 @@ export default function InstallAppPrompt({ variant = "customer" }) {
               </button>
             </div>
           </div>
-          <button
-            onClick={dismiss}
-            className="text-white/60 hover:text-white flex-shrink-0"
-            aria-label="Close"
-          >
+          <button onClick={dismiss} className="text-white/60 hover:text-white flex-shrink-0" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {showIosGuide && (
+      {showGuide && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
-          onClick={() => setShowIosGuide(false)}
+          onClick={() => setShowGuide(false)}
           data-testid="pwa-ios-guide"
         >
-          <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-rose-500 to-fuchsia-600 flex items-center justify-center text-white text-2xl font-bold mb-3">M</div>
-            {/iphone|ipad|ipod/i.test(navigator.userAgent) ? (
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center text-2xl font-bold mb-3 ${t.guideIcon}`}>M</div>
+            {isIos ? (
               <>
-                <h3 className="text-center text-lg font-semibold text-slate-900">Install Miracurl on iPhone</h3>
+                <h3 className="text-center text-lg font-semibold text-slate-900">Install {t.appName} on iPhone</h3>
                 <ol className="mt-4 space-y-3 text-sm text-slate-700">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">1</span>
@@ -169,7 +165,7 @@ export default function InstallAppPrompt({ variant = "customer" }) {
               </>
             ) : (
               <>
-                <h3 className="text-center text-lg font-semibold text-slate-900">Install Miracurl on Android</h3>
+                <h3 className="text-center text-lg font-semibold text-slate-900">Install {t.appName} on Android</h3>
                 <ol className="mt-4 space-y-3 text-sm text-slate-700">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">1</span>
@@ -187,8 +183,8 @@ export default function InstallAppPrompt({ variant = "customer" }) {
               </>
             )}
             <button
-              onClick={() => { setShowIosGuide(false); dismiss(); }}
-              className="mt-6 w-full py-2.5 rounded-lg bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600"
+              onClick={() => { setShowGuide(false); dismiss(); }}
+              className={`mt-6 w-full py-2.5 rounded-lg text-white text-sm font-semibold ${t.guideBtn}`}
             >
               Got it
             </button>
