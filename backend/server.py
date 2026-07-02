@@ -1927,7 +1927,7 @@ async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(g
         wa_phone = phone if len(phone) > 10 else f"91{phone}"
         whatsapp_url = f"https://wa.me/{wa_phone}?text={quote(msg)}"
 
-    if body.status == "completed":
+    if body.status == "completed" and not appt.get("crm_counted"):
         # Service done — NOW the client enters the CRM with visit + spend recorded.
         cust = await db.customers.find_one({"phone": phone}, {"_id": 0}) if phone else None
         if not cust and appt.get("customer_id"):
@@ -1945,6 +1945,7 @@ async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(g
             ).model_dump()
             new_cust.update(sets)
             await db.customers.insert_one(new_cust)
+        await db.appointments.update_one({"id": aid}, {"$set": {"crm_counted": True}})
         crm_updated = True
 
     return {"appointment": appt, "whatsapp_url": whatsapp_url, "crm_updated": crm_updated}
