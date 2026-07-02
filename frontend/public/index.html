@@ -11,16 +11,26 @@
 
         <!-- Favicon (modern SVG) -->
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
-        <link rel="manifest" href="/manifest-admin.json" />
+        <!-- PWA metadata is written synchronously at parse time so iOS Safari
+             (which snapshots the manifest on page load and ignores later JS swaps)
+             gets the CORRECT app: /book/* → "Miracurl Book", else "Miracurl Partner". -->
+        <script>
+          (function () {
+            var b = window.location.pathname.indexOf("/book") === 0;
+            document.write(
+              '<link rel="manifest" href="' + (b ? "/manifest.json" : "/manifest-admin.json") + '">' +
+              '<link rel="apple-touch-icon" href="' + (b ? "/icon-192.png" : "/icon-admin-192.png") + '">' +
+              '<link rel="apple-touch-icon" sizes="192x192" href="' + (b ? "/icon-192.png" : "/icon-admin-192.png") + '">' +
+              '<meta name="apple-mobile-web-app-title" content="' + (b ? "Miracurl Book" : "Miracurl Partner") + '">' +
+              '<meta name="application-name" content="' + (b ? "Miracurl Book" : "Miracurl Partner") + '">'
+            );
+          })();
+        </script>
 
         <!-- PWA / Standalone mobile-app metadata (iOS + Android install-to-home-screen) -->
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Miracurl" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="application-name" content="Miracurl" />
 
         <!-- Open Graph (WhatsApp / Facebook / LinkedIn previews) -->
         <meta property="og:type" content="website" />
