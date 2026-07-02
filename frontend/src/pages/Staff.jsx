@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
+import { ManagersSection } from "@/components/ManagersSection";
 import { openWhatsApp } from "@/lib/share";
 
 const EMPTY_FORM = {
@@ -193,6 +194,8 @@ export default function Staff() {
           <div className="col-span-full text-center py-12 text-slate-400">No staff yet — click &ldquo;Add Staff&rdquo; to get started.</div>
         )}
       </div>
+
+      <ManagersSection onCredential={setTempCred} />
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3" onClick={() => setOpen(false)}>

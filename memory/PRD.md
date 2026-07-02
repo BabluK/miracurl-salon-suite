@@ -315,3 +315,8 @@ Frontend:
 - NOTE: whatsapp_requests tenant isolation is automatic via TenantCollection proxy (testing agent's cross-tenant flag = false positive).
 - USER MUST REDEPLOY for production.
 - Backlog: 30s silence timeout verification in Mira hands-free voice (implemented part 20, needs E2E verify); server.py refactor into routes/models modules; Manager management UI for admins (create/reset managers — endpoints /api/managers exist, no UI yet).
+
+## Update — Jul 2, 2026 (part 24) — Managers UI on Staff page (production self-service)
+- USER REPORT: manager login failing on PRODUCTION — root cause: manager@miracurl.com was seeded only in the PREVIEW database; production DB is separate. (User also typo'd "manger@".)
+- FIX: new ManagersSection component (/app/frontend/src/components/ManagersSection.jsx) rendered on Staff page (managers-section, add-manager-btn, manager-name-input, manager-email-input, manager-create-submit, reset-manager-{id}, delete-manager-{id}). Uses existing /api/managers endpoints; temp password shown via existing TempCredModal (Copy + Send on WhatsApp). Verified E2E: create → temp pw login OK (must_change_password=true) → delete. Test manager cleaned up.
+- AFTER REDEPLOY, user must create the manager account on production via Staff page → Managers → Add Manager.
