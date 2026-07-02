@@ -226,3 +226,10 @@ Frontend:
 - P3 hardening noted (not fixed): token in localStorage, IP-based login throttle, public /api/files by UUID.
 - Also fixed: booking DetailsStep input icon overlapping placeholder (.input-luxe used `padding` shorthand overriding pl-10; split into individual props + .input-luxe.pl-10 rule).
 - Prachi report: she has NO appointment record (only a customer) — either added via Add Customer or a walk-in; unlike Ankit she was not booked with a date. Not a bug.
+
+## Update — Jul 2, 2026 (part 10) — CRM lifecycle + booking confirm notify + gender
+- CRM now shows ONLY customers who completed a service (or manually added). Public bookings create customer with crm_status="pending" (hidden from GET /customers). Startup migration crm_pending_migration_v1 hid 5 existing zero-visit leads (idempotent via meta collection).
+- PUT /appointments/{aid}/status enhanced: "confirmed" → returns whatsapp_url (wa.me prefilled confirmation msg with salon name/date/services/total; 10-digit phones prefixed 91); "completed" → upserts customer into CRM ($inc visits & total_spent, $set last_visited, gender, crm_status=active). Appointment now stores customer_phone + gender.
+- Appointments UI: new Confirm button (BadgeCheck, shown when status=scheduled, data-testid confirm-appt-{id}) → opens WhatsApp; complete toast says "customer added to CRM".
+- Booking form: Gender pills (Female/Male/Other, default Female) on details step (book-detail-gender-*), sent as `gender` in POST /public/book.
+- E2E verified via curl: book(gender)→not in CRM→confirm(wa.me url)→complete→CRM row w/ gender/visits/spent/last_visited. UI verified via screenshots.

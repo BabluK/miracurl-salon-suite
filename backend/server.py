@@ -419,6 +419,8 @@ class Customer(BaseModel):
     referral_code: str = Field(default_factory=lambda: secrets.token_urlsafe(4).upper().replace("_", "X").replace("-", "Y")[:6])
     referred_by: Optional[str] = None
     referral_credit: float = 0.0
+    crm_status: str = "active"  # "pending" until first completed service (public bookings)
+    last_visited: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class CustomerIn(BaseModel):
@@ -868,11 +870,13 @@ def _clean(doc):
 # ---------------- Customers ----------------
 @api.get("/customers")
 async def list_customers(q: Optional[str] = None, user=Depends(require_admin)):
-    flt = {}
+    # CRM shows only customers who completed a service (or were added manually) —
+    # public bookings stay "pending" until their appointment is marked completed.
+    flt = {"crm_status": {"$ne": "pending"}}
     if q:
         # SEC-P3 fix: escape user input so `q` cannot inject a $regex DoS pattern.
         safe_q = re.escape(q)
-        flt = {"$or": [{"name": {"$regex": safe_q, "$options": "i"}}, {"phone": {"$regex": safe_q}}]}
+        flt["$or"] = [{"name": {"$regex": safe_q, "$options": "i"}}, {"phone": {"$regex": safe_q}}]
     docs = await db.customers.find(flt, {"_id": 0}).sort("created_at", -1).to_list(500)
     return docs
 
@@ -1887,8 +1891,56 @@ async def create_appointment(body: AppointmentIn, user=Depends(get_current_user)
 
 @api.put("/appointments/{aid}/status")
 async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(get_current_user)):
+    from urllib.parse import quote
+
     await db.appointments.update_one({"id": aid}, {"$set": {"status": body.status}})
-    return await db.appointments.find_one({"id": aid}, {"_id": 0})
+    appt = await db.appointments.find_one({"id": aid}, {"_id": 0})
+    if not appt:
+        raise HTTPException(404, "Appointment not found")
+
+    phone = appt.get("customer_phone")
+    if not phone and appt.get("customer_id"):
+        c = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0})
+        phone = c.get("phone") if c else None
+
+    whatsapp_url = None
+    crm_updated = False
+
+    if body.status == "confirmed" and phone:
+        tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
+        salon = (tenant or {}).get("name", "our salon")
+        try:
+            dt = datetime.fromisoformat(str(appt["scheduled_at"]).replace("Z", "+00:00"))
+            when = dt.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
+        except Exception:
+            when = str(appt.get("scheduled_at", ""))
+        services = ", ".join(appt.get("service_names") or [])
+        msg = (f"Hi {appt.get('customer_name', '')} ✨ Your booking at {salon} is CONFIRMED!\n\n"
+               f"🗓 {when}\n💇 {services}\n💰 ₹{appt.get('total', 0):g}\n\nSee you soon!")
+        wa_phone = phone if len(phone) > 10 else f"91{phone}"
+        whatsapp_url = f"https://wa.me/{wa_phone}?text={quote(msg)}"
+
+    if body.status == "completed":
+        # Service done — NOW the client enters the CRM with visit + spend recorded.
+        cust = await db.customers.find_one({"phone": phone}, {"_id": 0}) if phone else None
+        if not cust and appt.get("customer_id"):
+            cust = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0})
+        sets = {"crm_status": "active", "last_visited": appt.get("scheduled_at")}
+        if appt.get("gender"):
+            sets["gender"] = appt["gender"]
+        inc = {"visits": 1, "total_spent": float(appt.get("total") or 0)}
+        if cust:
+            await db.customers.update_one({"id": cust["id"]}, {"$set": sets, "$inc": inc})
+        else:
+            new_cust = Customer(
+                name=appt.get("customer_name", "Walk-in"), phone=phone or "",
+                visits=1, total_spent=float(appt.get("total") or 0),
+            ).model_dump()
+            new_cust.update(sets)
+            await db.customers.insert_one(new_cust)
+        crm_updated = True
+
+    return {"appointment": appt, "whatsapp_url": whatsapp_url, "crm_updated": crm_updated}
 
 @api.delete("/appointments/{aid}")
 async def del_appointment(aid: str, user=Depends(get_current_user)):
@@ -2378,6 +2430,7 @@ class PublicBookingIn(BaseModel):
     customer_name: str = Field(..., min_length=2, max_length=80)
     customer_phone: str
     customer_email: Optional[EmailStr] = None
+    gender: Optional[str] = None
     service_ids: List[str] = Field(..., min_length=1)
     staff_id: Optional[str] = None
     scheduled_at: str
@@ -2496,7 +2549,8 @@ async def _resolve_or_create_customer(body: PublicBookingIn) -> tuple[dict, bool
     cust = await db.customers.find_one({"phone": body.customer_phone}, {"_id": 0})
     if cust is None:
         cust_doc = Customer(
-            name=body.customer_name, phone=body.customer_phone, email=body.customer_email
+            name=body.customer_name, phone=body.customer_phone, email=body.customer_email,
+            gender=body.gender or "Other", crm_status="pending",
         ).model_dump()
         await db.customers.insert_one(cust_doc)
         return cust_doc, True
@@ -3893,6 +3947,20 @@ async def on_startup():
     await _raw_db.appointments.create_index([("tenant_id", 1), ("scheduled_at", 1)])
     await _raw_db.invoices.create_index([("tenant_id", 1), ("created_at", -1)])
     await db.login_attempts.create_index("identifier")
+
+    # One-time migration: booking-created leads (0 visits, never completed a service)
+    # move out of CRM until their appointment is marked completed.
+    if not await _raw_db.meta.find_one({"key": "crm_pending_migration_v1"}):
+        res = await _raw_db.customers.update_many(
+            {"visits": {"$in": [0, None]}, "total_spent": {"$in": [0, 0.0, None]},
+             "crm_status": {"$exists": False},
+             "id": {"$in": await _raw_db.appointments.distinct(
+                 "customer_id", {"status": {"$nin": ["completed"]}})}},
+            {"$set": {"crm_status": "pending"}},
+        )
+        await _raw_db.meta.insert_one({"key": "crm_pending_migration_v1", "modified": res.modified_count,
+                                       "at": datetime.now(timezone.utc).isoformat()})
+        logging.info(f"CRM pending migration: {res.modified_count} lead customers hidden until service completion")
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=3600)
 
     default_tenant = await seed_default_tenant()

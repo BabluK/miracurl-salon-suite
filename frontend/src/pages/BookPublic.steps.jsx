@@ -254,6 +254,24 @@ export function DetailsStep({ form, onChange, referralCheck, onCheckReferral }) 
           </div>
         </div>
         <div>
+          <label className="label-luxe block mb-1">Gender</label>
+          <div className="flex gap-2" data-testid="book-gender-select">
+            {["Female", "Male", "Other"].map((g) => (
+              <button
+                key={g}
+                type="button"
+                data-testid={`book-detail-gender-${g.toLowerCase()}`}
+                onClick={() => onChange({ ...form, gender: g })}
+                className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                  form.gender === g ? "bg-gold text-bg-base border-gold" : "bg-white/5 border-white/10 text-white/60 hover:text-white"
+                }`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
           <label className="label-luxe block mb-1">Email (optional)</label>
           <div className="relative">
             <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />

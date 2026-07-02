@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, X, Calendar as CalendarIcon, Check, XCircle, Clock, List as ListIcon, LayoutGrid, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
+import { Plus, X, Calendar as CalendarIcon, Check, XCircle, Clock, List as ListIcon, LayoutGrid, ChevronLeft, ChevronRight, MessageSquare, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
@@ -84,8 +84,18 @@ export default function Appointments() {
   }
 
   async function setStatus(id, status) {
-    await api.put(`/appointments/${id}/status`, { status });
-    toast.success("Status updated"); load();
+    try {
+      const { data } = await api.put(`/appointments/${id}/status`, { status });
+      if (status === "confirmed") {
+        toast.success("Booking confirmed ✦ Opening WhatsApp to notify the customer…");
+        if (data.whatsapp_url) window.open(data.whatsapp_url, "_blank");
+      } else if (status === "completed") {
+        toast.success(data.crm_updated ? "Service completed — customer added to CRM ✦" : "Marked completed");
+      } else {
+        toast.success("Status updated");
+      }
+      load();
+    } catch { toast.error("Couldn't update status"); }
   }
   async function remove(id) {
     if (!window.confirm("Cancel this appointment?")) return;
@@ -179,6 +189,9 @@ export default function Appointments() {
                     <div className="flex items-center gap-1 justify-end">
                       {a.status === "scheduled" && (
                         <>
+                          {a.status === "scheduled" && (
+                            <button data-testid={`confirm-appt-${a.id}`} onClick={() => setStatus(a.id, "confirmed")} className="p-1.5 text-sky-500 hover:bg-sky-500/10 rounded" title="Confirm & notify customer on WhatsApp"><BadgeCheck className="w-4 h-4" /></button>
+                          )}
                           <button data-testid={`complete-appt-${a.id}`} onClick={() => setStatus(a.id, "completed")} className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded" title="Mark completed"><Check className="w-4 h-4" /></button>
                           <button data-testid={`cancel-appt-${a.id}`} onClick={() => setStatus(a.id, "cancelled")} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded" title="Cancel"><XCircle className="w-4 h-4" /></button>
                         </>

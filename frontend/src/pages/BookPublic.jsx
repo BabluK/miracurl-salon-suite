@@ -11,7 +11,7 @@ const DEFAULT_SLUG = "miracurl-marathahalli";
 const TOASTER_STYLE = { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' };
 const TOASTER_OPTIONS = { style: TOASTER_STYLE };
 const STEP_LABELS = ["Services", "Stylist", "Date & Time", "Your Details", "Confirm"];
-const INITIAL_FORM = { name: "", phone: "", email: "", notes: "", referral_code: "" };
+const INITIAL_FORM = { name: "", phone: "", email: "", notes: "", referral_code: "", gender: "Female" };
 const tomorrow = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
 function Stepper({ step }) {
@@ -124,6 +124,7 @@ export default function BookPublic() {
         customer_name: form.name.trim(),
         customer_phone: form.phone.trim(),
         customer_email: form.email.trim() || null,
+        gender: form.gender || null,
         service_ids: picked,
         staff_id: staffId || null,
         scheduled_at: scheduled,
