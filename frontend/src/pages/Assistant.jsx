@@ -11,13 +11,8 @@ const SUGGESTIONS = [
   "Give me 3 ideas to get more bookings this month",
 ];
 
-function getSessionId() {
-  let sid = localStorage.getItem("miracurl_ai_session");
-  if (!sid) {
-    sid = `s-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    localStorage.setItem("miracurl_ai_session", sid);
-  }
-  return sid;
+function newSessionId() {
+  return `s-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 const STATUS_STYLES = {
@@ -52,11 +47,9 @@ function ChatPanel() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
-  const sid = getSessionId();
-
-  useEffect(() => {
-    api.get(`/assistant/history?session_id=${sid}`).then(r => setMessages(r.data)).catch(() => {});
-  }, [sid]);
+  // Fresh session every time the chat opens (tab switch / page revisit = clean slate)
+  const sidRef = useRef(newSessionId());
+  const sid = sidRef.current;
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
