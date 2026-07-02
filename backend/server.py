@@ -963,6 +963,49 @@ async def download_file(file_id: str):
 
 
 # ---------------- Services ----------------
+PRESET_SERVICES = [
+    {"name": "Party Makeup", "category": "Makeup", "price": 1200, "duration_min": 60,
+     "description": "Glam party-ready look with premium products.",
+     "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/f58649cd3e5dc5433a3e613c71686e0279685cd352a49b7ae3e44389d3f6d831.png"},
+    {"name": "Normal Makeup", "category": "Makeup", "price": 700, "duration_min": 45,
+     "description": "Natural everyday makeup with a flawless finish.",
+     "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/731c531b0656c6858ec80c799e1f24b104d9fc58d5abcea8d9189529672bac80.png"},
+    {"name": "Bridal Makeup", "category": "Makeup", "price": 2000, "duration_min": 120, "trending": True,
+     "description": "Complete bridal transformation for your big day.",
+     "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/cd336b5a167cbc0d9e7689d19aeff40cf8a0c08dad68032a39bd286c0447d62e.png"},
+    {"name": "Saree Draping", "category": "Makeup", "price": 500, "duration_min": 30,
+     "description": "Elegant professional saree draping. ₹500 onwards.",
+     "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/b8b033a0b096d70d21c13e2b85210eaff232161014600c048b086446a4096410.png"},
+    {"name": "Hair Styling", "category": "Hair", "price": 800, "duration_min": 45,
+     "description": "Curls, updos & event styling. ₹800 onwards.",
+     "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/a53c1f7baadcb7762a987e5123a4e2636e7e01a283fc4d8939950bae1f5e5116.png"},
+    {"name": "Henna", "category": "Makeup", "price": 200, "duration_min": 30,
+     "description": "Traditional mehndi designs. ₹200 onwards.",
+     "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/88f99747c197549154e47d7d7c5f06c6b15c0a94cdcdc686ceba2204ceb7a21a.png"},
+    {"name": "Gel Polish on Natural Nail", "category": "Nails", "price": 500, "duration_min": 45,
+     "description": "Long-lasting glossy gel polish. ₹500 onwards.",
+     "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/b75966f5d7d208f7db5613bd272e507d4a4b9d2faf0d8d8766c8dd93751e3d49.png"},
+    {"name": "Gel Extension", "category": "Nails", "price": 1000, "duration_min": 75,
+     "description": "Natural-looking gel nail extensions. ₹1000 onwards.",
+     "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/bae4dc0a5e96007a3ae85a139efe0464e814c7ff78b63ec825c41fa577f36357.png"},
+    {"name": "Acrylic Extension", "category": "Nails", "price": 1500, "duration_min": 90,
+     "description": "Durable acrylic extensions with nail art. ₹1500 onwards.",
+     "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/7105caf95adc9f46495f742e3b4338725e94999fa22d5da431f9b4f49e60d360.png"},
+]
+
+@api.post("/services/import-preset")
+async def import_preset_services(user=Depends(get_current_user)):
+    added, updated = 0, 0
+    for p in PRESET_SERVICES:
+        existing = await db.services.find_one({"name": p["name"]})
+        if existing:
+            await db.services.update_one({"id": existing["id"]}, {"$set": {**p, "active": True}})
+            updated += 1
+        else:
+            await db.services.insert_one(Service(**p).model_dump())
+            added += 1
+    return {"added": added, "updated": updated}
+
 @api.get("/services")
 async def list_services(user=Depends(get_current_user)):
     return await db.services.find({}, {"_id": 0}).sort("category", 1).to_list(500)

@@ -183,3 +183,8 @@ Frontend:
 - Salon Finder at /book (SalonFinder.jsx): public salon search → white-label morph on selection. New endpoint GET /api/public/salons?q= (excludes suspended/cancelled tenants).
 - BookPublic now shows tenant name (white-label) + "Find a salon" link top-right.
 - Testing agent iteration_34: 100% pass (14 regression items, frontend+backend). Fixed Recharts minHeight warnings.
+
+## Update — Jul 2, 2026 (part 3)
+- Added user's Makeup & Nails price menu (9 services): Party ₹1200 / Normal ₹700 / Bridal ₹2000 / Saree Draping ₹500 / Hair Styling ₹800 / Henna ₹200 / Gel Polish ₹500 / Gel Extension ₹1000 / Acrylic Extension ₹1500 — each with an AI-generated image.
+- New endpoint POST /api/services/import-preset (upserts preset by name, tenant-scoped) + "Import Makeup & Nails menu" button on admin Services page — lets user replicate the menu on PRODUCTION with one click after deploy.
+- Verified: 18 service cards render with image+price on public booking page (preview).

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame } from "lucide-react";
+import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 
@@ -41,9 +41,24 @@ export default function Services() {
           <h1 className="font-playfair text-3xl">Service Menu</h1>
           <p className="text-slate-500 text-sm mt-1">Curate what your salon offers your guests.</p>
         </div>
-        <button data-testid="add-service-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Add Service
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            data-testid="import-preset-btn"
+            onClick={async () => {
+              try {
+                const { data } = await api.post("/services/import-preset");
+                toast.success(`${data.added} services imported${data.updated ? ` · ${data.updated} updated` : ""}`);
+                load();
+              } catch { toast.error("Import failed"); }
+            }}
+            className="btn-slate flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" /> Import Makeup & Nails menu
+          </button>
+          <button data-testid="add-service-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Add Service
+          </button>
+        </div>
       </div>
 
       {Object.keys(byCategory).map(cat => (
