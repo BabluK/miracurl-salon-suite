@@ -2077,6 +2077,19 @@ class PublicBookingIn(BaseModel):
             raise ValueError("Pick a slot between 10:00 AM and 9:00 PM")
         return dt.isoformat()
 
+@api.get("/public/salons")
+async def public_salons_search(q: str = "", limit: int = 20):
+    limit = max(1, min(limit, 30))
+    filt = {"status": {"$nin": ["suspended", "cancelled"]}}
+    term = q.strip()
+    if term:
+        rx = {"$regex": re.escape(term), "$options": "i"}
+        filt["$or"] = [{"name": rx}, {"location": rx}, {"slug": rx}]
+    return await db.tenants.find(
+        filt, {"_id": 0, "name": 1, "slug": 1, "location": 1, "hero_image": 1}
+    ).sort("name", 1).to_list(limit)
+
+
 @api.get("/public/salon/{slug}")
 async def public_salon(slug: str):
     t = await resolve_tenant_from_slug(slug)

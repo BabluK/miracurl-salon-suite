@@ -145,9 +145,6 @@ export default function AppLayout() {
               <div className="font-playfair text-base sm:text-lg leading-none truncate">
                 {current?.label || tenant?.name || "Dashboard"}
               </div>
-              <div className="hidden sm:block text-[10px] tracking-[0.25em] uppercase text-gold/60 mt-1 truncate">
-                {tenant?.location || tenant?.name || "Your Salon"}
-              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">

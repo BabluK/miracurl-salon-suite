@@ -242,10 +242,48 @@ select:-webkit-autofill {
 }
 .luxe-table tbody tr:hover { background: #1A1A1A; }
 
-/* Warm luxe canvas behind all admin pages — replaces flat slate-50 */
+/* Animated mesh canvas behind all admin pages — slow-drifting pastel/gold tones */
 .app-canvas {
-  background:
-    radial-gradient(1100px 480px at 88% -12%, rgba(212, 175, 55, 0.12), transparent 60%),
-    radial-gradient(900px 420px at -8% 112%, rgba(236, 72, 153, 0.07), transparent 60%),
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(900px 500px at 85% -10%, rgba(212, 175, 55, 0.14), transparent 60%),
+    radial-gradient(800px 480px at -10% 110%, rgba(236, 72, 153, 0.09), transparent 60%),
+    radial-gradient(700px 420px at 50% 55%, rgba(56, 189, 248, 0.07), transparent 65%),
     linear-gradient(135deg, #f8fafc 0%, #faf5ee 48%, #f1f5fa 100%);
+  background-size: 160% 160%, 150% 150%, 140% 140%, 100% 100%;
+  animation: mesh-drift 26s ease-in-out infinite alternate;
+}
+
+/* Dark neon mesh for public booking experience */
+.mesh-dark {
+  background-color: #0a0a0a;
+  background-image:
+    radial-gradient(1000px 600px at 80% -10%, rgba(212, 175, 55, 0.10), transparent 60%),
+    radial-gradient(900px 550px at -10% 110%, rgba(236, 72, 153, 0.10), transparent 60%),
+    radial-gradient(700px 500px at 55% 60%, rgba(88, 28, 135, 0.16), transparent 65%);
+  background-size: 170% 170%, 160% 160%, 150% 150%;
+  animation: mesh-drift 30s ease-in-out infinite alternate;
+}
+
+@keyframes mesh-drift {
+  0%   { background-position: 0% 0%, 100% 100%, 50% 50%, 0 0; }
+  50%  { background-position: 60% 30%, 40% 60%, 30% 70%, 0 0; }
+  100% { background-position: 100% 60%, 0% 20%, 70% 20%, 0 0; }
+}
+
+/* Micro-interactions: magnetic hover + material tap ripple */
+button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
+.mi-magnet { transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); will-change: transform; }
+.mi-press { scale: 0.98; transition: scale 0.12s ease; }
+.mi-ripple-wrap { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.mi-ripple {
+  position: absolute; border-radius: 9999px; pointer-events: none;
+  background: currentColor; opacity: 0.16; transform: scale(0);
+  animation: mi-ripple 0.55s ease-out forwards;
+}
+@keyframes mi-ripple { to { transform: scale(2.6); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-canvas, .mesh-dark { animation: none; }
+  .mi-ripple { animation: none; opacity: 0; }
 }

@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 34 UI regression pass after global MicroInteractions injection, animated mesh backgrounds, Salon Finder, and dual PWA manifests. Result: ALL requested flows GREEN. MicroInteractions ripple/magnet works and DOES NOT break onClick handlers for real users; verified profile dropdown, appointment modal, POS buttons, sidebar nav, hamburger, salon-card click, and find-salon-link all fire correctly. Backend /api/public/salons returns array + filters by q=. Manifest switching correct on /login (manifest-admin.json / Miracurl) and /book/miracurl-marathahalli (manifest.json / M). Dashboard top-bar has no location subtitle (only page title 'Dashboard'). All 11 admin pages (Appointments, CRM, Staff, Attendance, Services, Inventory, POS, Reviews, Referrals, Reports, Settings) load with .app-canvas mesh background. Public /book/miracurl-marathahalli shows .mesh-dark background. Staff login lands on /staff-portal with Check In / Check Out buttons visible. Mobile 390x844: hamburger opens sidebar (translate to left=0) and backdrop click closes it (left=-280).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin pages with Recharts", "issues": ["Repeating console warning: 'The width(-1) and height(-1) of chart should be greater than 0'. Non-fatal — charts still render after container measurement completes. Consider adding minHeight to ResponsiveContainer wrappers on Dashboard/Reports."]},
+      {"screen": "Appointments page", "issues": ["React hydration warning: '<span> cannot be a child of <option>' — likely a <span> being rendered inside <option> in a customer/staff select. Non-blocking but should be cleaned up."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "OPTIONAL: Add minHeight to Recharts ResponsiveContainer to remove width(-1)/height(-1) console warnings on dashboard charts.",
+    "OPTIONAL: Fix hydration warning '<span> cannot be a child of <option>' visible on /appointments (some select renders spans inside <option> for badges/pills).",
+    "NOTE for future Playwright tests: prefer page.click(selector) WITHOUT force=True on buttons wrapped by MicroInteractions. force=True combined with fast page.mouse.down/up can bypass the actionability wait and the synthesized click may not reach React's onClick. Regular page.click() works reliably (verified profile-menu-btn and add-appointment-btn)."
+  ],
+  "critical_code_review_comments": [
+    "MicroInteractions.jsx pointerdown handler correctly registered as passive (line 83), so it cannot preventDefault or block clicks — verified real clicks fire onClick handlers normally.",
+    "MicroInteractions.jsx line 78 (el.appendChild(wrap)) inserts ripple <span> during pointerdown. Both wrapper and dot have pointer-events:none in index.css line 278-280, so hit-testing for pointerup is not affected — good.",
+    "ManifestSwitcher correctly toggles link[rel=manifest] href and meta apple-mobile-web-app-title based on route. /login and admin routes → manifest-admin.json + 'Miracurl'; /book and /book/:slug → manifest.json + 'M'. Verified live.",
+    "Backend GET /api/public/salons returns array [{slug,name,location,hero_image}] and correctly filters by q= (Mongo case-insensitive regex on name/location/slug). No _id leakage.",
+    "SalonFinder.jsx correctly wires salon-search-input, salon-card-<slug>, and empty state text 'No salons found'.",
+    "BookPublic.jsx correctly exposes find-salon-link testid and applies white-label morph via /public/salons/:slug (verified header shows 'Miracurl Unisex Family Salon')."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (GET /api/public/salons + filter both green)", "frontend": "100% for all 14 requested regression items"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 (admin) and priya.staff@miracurl.com / Priya@Miracurl123 (staff) — both verified working. Did NOT test Razorpay/subscription flows per warning in review request (live mode).",
+  "seed_data_creation": "None. No test data created — only navigated/read-only flows tested.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "MicroInteractions is safe — no click regression for real user interactions. When writing Playwright tests against buttons in this app, use `await page.click(selector)` WITHOUT force=True. If using force=True, add ~500ms wait before clicks in header/toolbar to let magnet/ripple listeners attach and any transient toasts dismiss. All key data-testids used this session: profile-menu-btn, profile-signout-btn, profile-install-app-btn, sidebar-open-btn, app-sidebar, sidebar-backdrop, add-appointment-btn, salon-search-input, salon-card-miracurl-marathahalli, find-salon-link, public-book-page. Manifest switching is real — check document.querySelector('link[rel=manifest]').href to verify.",
+  "rca of the issue": "N/A — no regressions found. Initial false-negatives during automation were caused by test-harness issues (force=True + low-level mouse.down/up bypassing MicroInteractions' passive pointerdown timing), not app bugs. Verified with normal page.click(): profile dropdown opens (signout btn count 0→1) and appointment modal opens (dialog visible in screenshot)."
+}

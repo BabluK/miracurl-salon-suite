@@ -24,6 +24,8 @@ import StaffPortal from "@/pages/StaffPortal";
 import Attendance from "@/pages/Attendance";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ManifestSwitcher from "@/components/ManifestSwitcher";
+import MicroInteractions from "@/components/MicroInteractions";
+import SalonFinder from "@/pages/SalonFinder";
 import ForceChangePassword from "@/pages/ForceChangePassword";
 
 function Protected({ children }) {
@@ -90,11 +92,12 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <ManifestSwitcher />
+          <MicroInteractions />
           <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } }} />
           <ErrorBoundary>
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
-            <Route path="/book" element={<BookPublic />} />
+            <Route path="/book" element={<SalonFinder />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup-salon" element={<PublicOnly><SignupSalon /></PublicOnly>} />

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import axios from "axios";
 import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle } from "lucide-react";
 import { toast, Toaster } from "sonner";
@@ -155,19 +155,26 @@ export default function BookPublic() {
   );
 
   return (
-    <div className="min-h-screen bg-bg-base text-ink-primary" data-testid="public-book-page">
+    <div className="min-h-screen mesh-dark text-ink-primary" data-testid="public-book-page">
       <Toaster theme="dark" position="top-center" toastOptions={TOASTER_OPTIONS} />
 
       <header className="relative h-64 sm:h-80 overflow-hidden">
         <img src={salon.hero_image} className="absolute inset-0 w-full h-full object-cover" alt="" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-bg-base" />
+        <Link
+          to="/book"
+          data-testid="find-salon-link"
+          className="absolute top-4 right-4 z-20 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur border border-white/15 text-xs text-white/80 hover:text-white hover:border-gold/50 transition-colors"
+        >
+          <Star className="w-3 h-3 text-gold" /> Find a salon
+        </Link>
         <div className="relative z-10 max-w-5xl mx-auto h-full flex flex-col justify-end p-6 sm:p-10">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-11 h-11 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
               <Scissors className="w-5 h-5 text-bg-base" />
             </div>
             <div>
-              <div className="font-playfair text-2xl">Miracurl</div>
+              <div className="font-playfair text-2xl">{salon.name || "Miracurl"}</div>
               <div className="text-[10px] tracking-[0.3em] uppercase text-gold">Book Your Visit</div>
             </div>
           </div>
