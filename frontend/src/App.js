@@ -58,6 +58,14 @@ function AdminOnly({ children }) {
   return children;
 }
 
+// Owner-only routes (financials, staff mgmt, settings) — managers get bounced to dashboard.
+function OwnerOnly({ children }) {
+  const { user } = useAuth();
+  if (user?.role === "staff") return <Navigate to="/staff-portal" replace />;
+  if (user?.role === "manager") return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 function RootRoute() {
   // Public marketing landing for guests; logged-in users go to their workspace.
   const { user, loading } = useAuth();
@@ -112,19 +120,19 @@ export default function App() {
               <Route path="staff-portal" element={<StaffPortal />} />
               <Route path="appointments" element={<Appointments />} />
               <Route path="customers" element={<AdminOnly><Customers /></AdminOnly>} />
-              <Route path="staff" element={<AdminOnly><Staff /></AdminOnly>} />
-              <Route path="attendance" element={<AdminOnly><Attendance /></AdminOnly>} />
+              <Route path="staff" element={<OwnerOnly><Staff /></OwnerOnly>} />
+              <Route path="attendance" element={<OwnerOnly><Attendance /></OwnerOnly>} />
               <Route path="services" element={<AdminOnly><Services /></AdminOnly>} />
-              <Route path="inventory" element={<AdminOnly><Inventory /></AdminOnly>} />
+              <Route path="inventory" element={<OwnerOnly><Inventory /></OwnerOnly>} />
               <Route path="pos" element={<AdminOnly><POS /></AdminOnly>} />
               <Route path="reviews" element={<AdminOnly><Reviews /></AdminOnly>} />
-              <Route path="refer" element={<AdminOnly><ReferEarn /></AdminOnly>} />
-              <Route path="reports" element={<AdminOnly><Reports /></AdminOnly>} />
-              <Route path="assistant" element={<AdminOnly><Assistant /></AdminOnly>} />
-              <Route path="gallery" element={<AdminOnly><Gallery /></AdminOnly>} />
-              <Route path="messages" element={<AdminOnly><Messages /></AdminOnly>} />
-              <Route path="plans" element={<AdminOnly><Plans /></AdminOnly>} />
-              <Route path="settings" element={<AdminOnly><Settings /></AdminOnly>} />
+              <Route path="refer" element={<OwnerOnly><ReferEarn /></OwnerOnly>} />
+              <Route path="reports" element={<OwnerOnly><Reports /></OwnerOnly>} />
+              <Route path="assistant" element={<OwnerOnly><Assistant /></OwnerOnly>} />
+              <Route path="gallery" element={<OwnerOnly><Gallery /></OwnerOnly>} />
+              <Route path="messages" element={<OwnerOnly><Messages /></OwnerOnly>} />
+              <Route path="plans" element={<OwnerOnly><Plans /></OwnerOnly>} />
+              <Route path="settings" element={<OwnerOnly><Settings /></OwnerOnly>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

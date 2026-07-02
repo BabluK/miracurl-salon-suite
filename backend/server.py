@@ -111,6 +111,7 @@ class _DB:
     gallery = TenantCollection(_raw_db.gallery)
     chat_threads = TenantCollection(_raw_db.chat_threads)
     chat_messages = TenantCollection(_raw_db.chat_messages)
+    whatsapp_requests = TenantCollection(_raw_db.whatsapp_requests)
     packages = TenantCollection(_raw_db.packages)
     memberships = TenantCollection(_raw_db.memberships)
     customer_packages = TenantCollection(_raw_db.customer_packages)
@@ -287,7 +288,8 @@ async def get_current_user(request: Request) -> dict:
     return user
 
 async def require_admin(user=Depends(get_current_user)):
-    if user.get("role") not in ("admin", "super_admin"):
+    # Operational access: owners, super-admins and salon managers.
+    if user.get("role") not in ("admin", "super_admin", "manager"):
         raise HTTPException(403, "Admin role required")
     return user
 
@@ -948,7 +950,7 @@ async def get_customer(cid: str, user=Depends(get_current_user)):
     return c
 
 @api.put("/customers/{cid}")
-async def update_customer(cid: str, body: CustomerIn, user=Depends(get_current_user)):
+async def update_customer(cid: str, body: CustomerIn, user=Depends(require_admin)):
     await db.customers.update_one({"id": cid}, {"$set": body.model_dump()})
     return await db.customers.find_one({"id": cid}, {"_id": 0})
 
@@ -1098,7 +1100,7 @@ CATEGORY_REMAP = {
 }
 
 @api.post("/services/import-preset")
-async def import_preset_services(user=Depends(get_current_user)):
+async def import_preset_services(user=Depends(require_admin)):
     added, updated = 0, 0
     for p in PRESET_SERVICES:
         existing = await db.services.find_one({"name": p["name"]})
@@ -1269,13 +1271,13 @@ async def list_services(user=Depends(get_current_user)):
     return await db.services.find({}, {"_id": 0}).sort("category", 1).to_list(500)
 
 @api.post("/services")
-async def create_service(body: ServiceIn, user=Depends(get_current_user)):
+async def create_service(body: ServiceIn, user=Depends(require_admin)):
     s = Service(**body.model_dump()).model_dump()
     await db.services.insert_one(s)
     return _clean(s)
 
 @api.put("/services/{sid}")
-async def update_service(sid: str, body: ServiceIn, user=Depends(get_current_user)):
+async def update_service(sid: str, body: ServiceIn, user=Depends(require_admin)):
     await db.services.update_one({"id": sid}, {"$set": body.model_dump()})
     return await db.services.find_one({"id": sid}, {"_id": 0})
 
@@ -1296,12 +1298,12 @@ async def create_staff(body: StaffIn, user=Depends(get_current_user)):
     return _clean(s)
 
 @api.put("/staff/{sid}")
-async def update_staff(sid: str, body: StaffIn, user=Depends(require_admin)):
+async def update_staff(sid: str, body: StaffIn, user=Depends(require_tenant_admin)):
     await db.staff.update_one({"id": sid}, {"$set": body.model_dump()})
     return await db.staff.find_one({"id": sid}, {"_id": 0})
 
 @api.delete("/staff/{sid}")
-async def delete_staff(sid: str, user=Depends(require_admin)):
+async def delete_staff(sid: str, user=Depends(require_tenant_admin)):
     # If the staff has a linked user (login credential), also delete the login
     # so the deleted staff cannot access the salon.
     s = await db.staff.find_one({"id": sid}, {"_id": 0, "user_id": 1})
@@ -1384,6 +1386,113 @@ async def reset_staff_login(sid: str, admin=Depends(require_tenant_admin)):
     # owner always shares the correct address (root cause of "invalid password").
     await db.staff.update_one({"id": sid}, {"$set": {"email": login_user["email"]}})
     return {"ok": True, "email": login_user["email"], "temp_password": temp_pw, "must_change_password": True}
+
+
+# ---------------- Manager accounts (restricted-access role) ----------------
+class ManagerCreateIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v):
+        v = v.strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v):
+            raise ValueError("Enter a valid email")
+        return v
+
+@api.get("/managers")
+async def list_managers(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    rows = await _raw_db.users.find(
+        {"tenant_id": t["id"], "role": "manager"},
+        {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(100)
+    return rows
+
+@api.post("/managers")
+async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    if await _raw_db.users.find_one({"email": body.email}):
+        raise HTTPException(400, "Email already registered")
+    temp_pw = _generate_temp_password()
+    new_user = {
+        "id": str(uuid.uuid4()), "email": body.email, "name": body.name.strip(),
+        "role": "manager", "tenant_id": t["id"], "status": "active", "disabled": False,
+        "password_hash": hash_pw(temp_pw), "must_change_password": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _raw_db.users.insert_one(new_user)
+    return {"ok": True, "id": new_user["id"], "email": body.email, "name": new_user["name"],
+            "temp_password": temp_pw, "must_change_password": True}
+
+@api.post("/managers/{uid}/reset")
+async def reset_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    u = await _raw_db.users.find_one({"id": uid, "tenant_id": t["id"], "role": "manager"}, {"_id": 0, "email": 1})
+    if not u:
+        raise HTTPException(404, "Manager not found")
+    temp_pw = _generate_temp_password()
+    await _raw_db.users.update_one(
+        {"id": uid},
+        {"$set": {"password_hash": hash_pw(temp_pw), "must_change_password": True, "disabled": False, "status": "active"}})
+    return {"ok": True, "email": u["email"], "temp_password": temp_pw, "must_change_password": True}
+
+@api.delete("/managers/{uid}")
+async def delete_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await _raw_db.users.delete_one({"id": uid, "tenant_id": t["id"], "role": "manager"})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Manager not found")
+    return {"ok": True}
+
+
+# ---------------- WhatsApp send-approval workflow (manager → admin) ----------------
+class WhatsAppRequestIn(BaseModel):
+    client_name: str = Field(..., max_length=120)
+    client_phone: str = Field("", max_length=20)
+    message: str = Field(..., max_length=2000)
+    kind: str = Field("confirmation", max_length=40)
+
+@api.post("/whatsapp-requests")
+async def create_whatsapp_request(body: WhatsAppRequestIn, user=Depends(get_current_user)):
+    """A manager requests to send a WhatsApp message; admin must approve."""
+    doc = {
+        "id": str(uuid.uuid4()), "requested_by": user["id"],
+        "requested_by_name": user.get("name") or user.get("email"),
+        "client_name": body.client_name, "client_phone": "".join(c for c in body.client_phone if c.isdigit()),
+        "message": body.message, "kind": body.kind, "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.whatsapp_requests.insert_one(doc)
+    return {"ok": True, "id": doc["id"], "status": "pending"}
+
+@api.get("/whatsapp-requests")
+async def list_whatsapp_requests(status: str = "pending", admin=Depends(require_tenant_admin)):
+    q = {} if status == "all" else {"status": status}
+    return await db.whatsapp_requests.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+@api.get("/whatsapp-requests/pending-count")
+async def whatsapp_pending_count(admin=Depends(require_tenant_admin)):
+    return {"count": await db.whatsapp_requests.count_documents({"status": "pending"})}
+
+@api.post("/whatsapp-requests/{rid}/approve")
+async def approve_whatsapp_request(rid: str, admin=Depends(require_tenant_admin)):
+    r = await db.whatsapp_requests.find_one({"id": rid}, {"_id": 0})
+    if not r:
+        raise HTTPException(404, "Request not found")
+    await db.whatsapp_requests.update_one(
+        {"id": rid}, {"$set": {"status": "approved", "approved_by": admin["id"],
+                               "approved_at": datetime.now(timezone.utc).isoformat()}})
+    phone = r.get("client_phone") or ""
+    from urllib.parse import quote as _quote
+    wa_url = (f"https://wa.me/{phone}?text=" if phone else "https://wa.me/?text=") + _quote(r["message"])
+    return {"ok": True, "wa_url": wa_url}
+
+@api.post("/whatsapp-requests/{rid}/reject")
+async def reject_whatsapp_request(rid: str, admin=Depends(require_tenant_admin)):
+    res = await db.whatsapp_requests.update_one(
+        {"id": rid, "status": "pending"},
+        {"$set": {"status": "rejected", "approved_by": admin["id"], "approved_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Request not found or already handled")
+    return {"ok": True}
+
 
 
 @api.post("/staff/{sid}/toggle-active")
@@ -1817,7 +1926,7 @@ async def create_product(body: ProductIn, user=Depends(get_current_user)):
     return _clean(p)
 
 @api.get("/products/export")
-async def export_products_csv(user=Depends(require_admin)):
+async def export_products_csv(user=Depends(require_tenant_admin)):
     rows = await db.products.find({}).sort("name", 1).to_list(2000)
     buf = io.StringIO()
     w = csv.writer(buf)
@@ -1832,7 +1941,7 @@ async def export_products_csv(user=Depends(require_admin)):
                     headers={"Content-Disposition": "attachment; filename=products.csv"})
 
 @api.post("/products/import")
-async def import_products_csv(file: UploadFile = File(...), user=Depends(require_admin)):
+async def import_products_csv(file: UploadFile = File(...), user=Depends(require_tenant_admin)):
     content = await _read_csv_upload(file)
     reader = csv.DictReader(io.StringIO(content))
     fields = {(f or "").strip().lower() for f in (reader.fieldnames or [])}
@@ -1873,7 +1982,7 @@ async def update_product(pid: str, body: ProductIn, user=Depends(get_current_use
     return await db.products.find_one({"id": pid}, {"_id": 0})
 
 @api.delete("/products/{pid}")
-async def delete_product(pid: str, user=Depends(require_admin)):
+async def delete_product(pid: str, user=Depends(require_tenant_admin)):
     await db.products.delete_one({"id": pid})
     return {"ok": True}
 
@@ -1946,6 +2055,7 @@ async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(g
 
     whatsapp_url = None
     crm_updated = False
+    wa_request_created = False
 
     if body.status == "confirmed" and phone:
         tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
@@ -1959,7 +2069,19 @@ async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(g
         msg = (f"Hi {appt.get('customer_name', '')} ✨ Your booking at {salon} is CONFIRMED!\n\n"
                f"🗓 {when}\n💇 {services}\n💰 ₹{appt.get('total', 0):g}\n\nSee you soon!")
         wa_phone = phone if len(phone) > 10 else f"91{phone}"
-        whatsapp_url = f"https://wa.me/{wa_phone}?text={quote(msg)}"
+        if user.get("role") == "manager":
+            # Managers can't message customers directly — queue for admin approval.
+            await db.whatsapp_requests.insert_one({
+                "id": str(uuid.uuid4()), "requested_by": user["id"],
+                "requested_by_name": user.get("name") or user.get("email"),
+                "client_name": appt.get("customer_name", ""), "client_phone": wa_phone,
+                "message": msg, "kind": "confirmation", "status": "pending",
+                "appointment_id": aid,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            wa_request_created = True
+        else:
+            whatsapp_url = f"https://wa.me/{wa_phone}?text={quote(msg)}"
 
     if body.status == "completed" and not appt.get("crm_counted"):
         # Service done — NOW the client enters the CRM with visit + spend recorded.
@@ -1982,7 +2104,7 @@ async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(g
         await db.appointments.update_one({"id": aid}, {"$set": {"crm_counted": True}})
         crm_updated = True
 
-    return {"appointment": appt, "whatsapp_url": whatsapp_url, "crm_updated": crm_updated}
+    return {"appointment": appt, "whatsapp_url": whatsapp_url, "crm_updated": crm_updated, "wa_request_created": wa_request_created}
 
 @api.delete("/appointments/{aid}")
 async def del_appointment(aid: str, user=Depends(get_current_user)):
@@ -2408,7 +2530,7 @@ def _ist_day_window(date_str: Optional[str] = None) -> tuple[str, str, str]:
 
 
 @api.get("/reports/daily")
-async def daily_report(date: Optional[str] = None, user=Depends(require_admin)):
+async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_admin)):
     """One-day revenue summary anchored to IST. Powers the 'Yesterday's Report'
     notification that greets the salon owner on login.
 
@@ -2492,7 +2614,7 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_admin)):
 
 
 @api.get("/reports/sales")
-async def sales_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(require_admin)):
+async def sales_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(require_tenant_admin)):
     flt = {}
     if start and end:
         flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
@@ -2515,7 +2637,7 @@ async def staff_commission_report(
     start: Optional[str] = None,
     end: Optional[str] = None,
     pct: float = 30.0,
-    user=Depends(get_current_user),
+    user=Depends(require_tenant_admin),
 ):
     """Per-stylist gross revenue + commission for invoices in [start, end].
     Item-level staff_id wins; falls back to invoice.staff_id if a line has none.
@@ -2800,9 +2922,7 @@ async def _resolve_or_create_customer(body: PublicBookingIn) -> tuple[dict, bool
 
 
 async def _apply_referral_credit(cust: dict, code: Optional[str]) -> Optional[dict]:
-    """Apply referral reward to both referrer and the new customer. Returns summary or None.
-
-    SEC-002: hard-caps referral_credit per customer at MAX_CUSTOMER_CREDIT so
+    """Apply referral reward to both referrer and the new customer. Returns summary or None._credit per customer at MAX_CUSTOMER_CREDIT so
     a scripted attacker cannot mint unbounded wallet balances.
     """
     if not code:
@@ -4276,7 +4396,7 @@ async def _salon_context(user) -> str:
             f"low-stock products: {low_stock}, active services: {services_count}.")
 
 @api.post("/assistant/chat")
-async def assistant_chat(body: AssistantChatIn, user=Depends(require_admin)):
+async def assistant_chat(body: AssistantChatIn, user=Depends(require_tenant_admin)):
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         raise HTTPException(500, "AI key not configured")
@@ -4328,7 +4448,7 @@ async def assistant_chat(body: AssistantChatIn, user=Depends(require_admin)):
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 @api.get("/assistant/history")
-async def assistant_history(session_id: str, user=Depends(require_admin)):
+async def assistant_history(session_id: str, user=Depends(require_tenant_admin)):
     rows = await _raw_db.assistant_messages.find(
         {"tenant_id": user.get("tenant_id"), "session_id": session_id}, {"_id": 0}
     ).sort("created_at", 1).to_list(100)
@@ -4431,7 +4551,7 @@ async def list_gallery(user=Depends(get_current_user)):
     return await db.gallery.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
 
 @api.delete("/gallery/{gid}")
-async def delete_gallery_item(gid: str, user=Depends(require_admin)):
+async def delete_gallery_item(gid: str, user=Depends(require_tenant_admin)):
     await db.gallery.delete_one({"id": gid})
     await _raw_db.uploads.update_one({"id": gid}, {"$set": {"is_deleted": True}})
     return {"ok": True}
@@ -4487,7 +4607,7 @@ async def list_packages(user=Depends(get_current_user)):
     return await db.packages.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
 
 @api.post("/packages")
-async def create_package(body: PackageIn, user=Depends(require_admin)):
+async def create_package(body: PackageIn, user=Depends(require_tenant_admin)):
     svc = await db.services.find_one({"id": body.service_id}, {"_id": 0, "name": 1})
     if not svc:
         raise HTTPException(400, "Service not found")
@@ -4497,7 +4617,7 @@ async def create_package(body: PackageIn, user=Depends(require_admin)):
     return _clean(doc)
 
 @api.put("/packages/{pid}")
-async def update_package(pid: str, body: PackageIn, user=Depends(require_admin)):
+async def update_package(pid: str, body: PackageIn, user=Depends(require_tenant_admin)):
     svc = await db.services.find_one({"id": body.service_id}, {"_id": 0, "name": 1})
     if not svc:
         raise HTTPException(400, "Service not found")
@@ -4505,7 +4625,7 @@ async def update_package(pid: str, body: PackageIn, user=Depends(require_admin))
     return await db.packages.find_one({"id": pid}, {"_id": 0})
 
 @api.delete("/packages/{pid}")
-async def delete_package(pid: str, user=Depends(require_admin)):
+async def delete_package(pid: str, user=Depends(require_tenant_admin)):
     await db.packages.delete_one({"id": pid})
     return {"ok": True}
 
@@ -4514,18 +4634,18 @@ async def list_memberships(user=Depends(get_current_user)):
     return await db.memberships.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
 
 @api.post("/memberships")
-async def create_membership(body: MembershipIn, user=Depends(require_admin)):
+async def create_membership(body: MembershipIn, user=Depends(require_tenant_admin)):
     doc = {"id": str(uuid.uuid4()), **body.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
     await db.memberships.insert_one(doc)
     return _clean(doc)
 
 @api.put("/memberships/{mid}")
-async def update_membership(mid: str, body: MembershipIn, user=Depends(require_admin)):
+async def update_membership(mid: str, body: MembershipIn, user=Depends(require_tenant_admin)):
     await db.memberships.update_one({"id": mid}, {"$set": body.model_dump()})
     return await db.memberships.find_one({"id": mid}, {"_id": 0})
 
 @api.delete("/memberships/{mid}")
-async def delete_membership(mid: str, user=Depends(require_admin)):
+async def delete_membership(mid: str, user=Depends(require_tenant_admin)):
     await db.memberships.delete_one({"id": mid})
     return {"ok": True}
 
@@ -4534,7 +4654,7 @@ async def list_coupons(user=Depends(get_current_user)):
     return await db.coupons.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
 
 @api.post("/coupons")
-async def create_coupon(body: CouponIn, user=Depends(require_admin)):
+async def create_coupon(body: CouponIn, user=Depends(require_tenant_admin)):
     if await db.coupons.find_one({"code": body.code}, {"_id": 0, "id": 1}):
         raise HTTPException(400, f"Coupon '{body.code}' already exists")
     doc = {"id": str(uuid.uuid4()), **body.model_dump(), "used_count": 0,
@@ -4543,7 +4663,7 @@ async def create_coupon(body: CouponIn, user=Depends(require_admin)):
     return _clean(doc)
 
 @api.put("/coupons/{cid}")
-async def update_coupon(cid: str, body: CouponIn, user=Depends(require_admin)):
+async def update_coupon(cid: str, body: CouponIn, user=Depends(require_tenant_admin)):
     dup = await db.coupons.find_one({"code": body.code, "id": {"$ne": cid}}, {"_id": 0, "id": 1})
     if dup:
         raise HTTPException(400, f"Coupon '{body.code}' already exists")
@@ -4551,7 +4671,7 @@ async def update_coupon(cid: str, body: CouponIn, user=Depends(require_admin)):
     return await db.coupons.find_one({"id": cid}, {"_id": 0})
 
 @api.delete("/coupons/{cid}")
-async def delete_coupon(cid: str, user=Depends(require_admin)):
+async def delete_coupon(cid: str, user=Depends(require_tenant_admin)):
     await db.coupons.delete_one({"id": cid})
     return {"ok": True}
 

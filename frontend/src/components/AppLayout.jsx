@@ -37,6 +37,15 @@ const NAV_STAFF = [
   { to: "/appointments", label: "Appointments", icon: Calendar, testid: "nav-appointments" },
 ];
 
+const NAV_MANAGER = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
+  { to: "/appointments", label: "Appointments", icon: Calendar, testid: "nav-appointments" },
+  { to: "/customers", label: "CRM", icon: Users, testid: "nav-customers" },
+  { to: "/services", label: "Services", icon: Scissors, testid: "nav-services" },
+  { to: "/pos", label: "POS / Billing", icon: ShoppingCart, testid: "nav-pos" },
+  { to: "/reviews", label: "Reviews", icon: Star, testid: "nav-reviews" },
+];
+
 export default function AppLayout() {
   const { user, tenant, logout } = useAuth();
   const nav = useNavigate();
@@ -45,12 +54,13 @@ export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const today = new Date().toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
 
-  const NAV = user?.role === "staff" ? NAV_STAFF : NAV_ADMIN;
+  const NAV = user?.role === "staff" ? NAV_STAFF : user?.role === "manager" ? NAV_MANAGER : NAV_ADMIN;
   const current = NAV.find(n => loc.pathname.startsWith(n.to));
 
   // Booking notification poller — only for owners/admins. Fires a chime + OS
   // notification when a customer self-books via the public link.
   const isAdmin = user?.role && user.role !== "staff" && user.role !== "super_admin";
+  const isOwner = user?.role === "admin" || user?.role === "super_admin";
   const notifier = useNewBookingNotifier({ enabled: isAdmin });
 
   // Poll unread customer-chat count for the Messages nav badge

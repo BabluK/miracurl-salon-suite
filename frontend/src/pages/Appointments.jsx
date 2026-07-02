@@ -27,7 +27,8 @@ function startOfWeek(iso) {
 }
 
 export default function Appointments() {
-  const { tenant } = useAuth();
+  const { tenant, user } = useAuth();
+  const isManager = user?.role === "manager";
   const [list, setList] = useState([]);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [view, setView] = useState("list"); // list | week
@@ -94,8 +95,12 @@ export default function Appointments() {
     try {
       const { data } = await api.put(`/appointments/${id}/status`, { status });
       if (status === "confirmed") {
-        toast.success("Booking confirmed ✦ Opening WhatsApp to notify the customer…");
-        if (data.whatsapp_url) window.open(data.whatsapp_url, "_blank");
+        if (data.wa_request_created) {
+          toast.success("Booking confirmed ✦ WhatsApp message sent to admin for approval");
+        } else {
+          toast.success("Booking confirmed ✦ Opening WhatsApp to notify the customer…");
+          if (data.whatsapp_url) window.open(data.whatsapp_url, "_blank");
+        }
       } else if (status === "completed") {
         toast.success(data.crm_updated ? "Service completed — customer added to CRM ✦" : "Marked completed");
       } else {
@@ -113,14 +118,21 @@ export default function Appointments() {
     setForm(f => ({ ...f, service_ids: f.service_ids.includes(sid) ? f.service_ids.filter(x => x !== sid) : [...f.service_ids, sid] }));
   }
 
+  async function requestWA(a, phone, message, kind) {
+    try {
+      await api.post("/whatsapp-requests", { client_name: a.customer_name, client_phone: phone, message, kind });
+      toast.success("Sent to admin for approval ✦ The message goes out once approved");
+    } catch { toast.error("Couldn't send approval request"); }
+  }
+
   function sendReminder(a) {
     const cust = customers.find(c => c.id === a.customer_id);
     const phone = cust?.phone?.replace(/\D/g, "") || "";
     const when = new Date(a.scheduled_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
     const services = (a.services || []).map(s => s.name).join(", ") || "your appointment";
-    const msg = encodeURIComponent(
-      `Hi ${a.customer_name.split(" ")[0]} ✦ A friendly reminder from Miracurl!\n\n💇 ${services}\n🗓 ${when}${a.staff_name ? `\n🧑‍🎨 Stylist: ${a.staff_name}` : ""}${a.total ? `\n💰 ₹${a.total}` : ""}\n\nSee you soon! Reply here if you need to reschedule 😊`
-    );
+    const raw = `Hi ${a.customer_name.split(" ")[0]} ✦ A friendly reminder from Miracurl!\n\n💇 ${services}\n🗓 ${when}${a.staff_name ? `\n🧑‍🎨 Stylist: ${a.staff_name}` : ""}${a.total ? `\n💰 ₹${a.total}` : ""}\n\nSee you soon! Reply here if you need to reschedule 😊`;
+    if (isManager) { requestWA(a, phone, raw, "reminder"); return; }
+    const msg = encodeURIComponent(raw);
     const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
     window.open(url, "_blank", "noopener,noreferrer");
   }
@@ -129,7 +141,9 @@ export default function Appointments() {
     const cust = customers.find(c => c.id === a.customer_id);
     const phone = cust?.phone?.replace(/\D/g, "") || "";
     const link = `${window.location.origin}/review/${a.id}`;
-    const msg = `Hi ${a.customer_name.split(" ")[0]} ✦ Thank you for visiting Miracurl today!%0A%0AWe'd love your feedback — it takes 10 seconds:%0A${link}%0A%0AGive us 4★ or 5★ and we'll add ₹50 credit to your account ✦`;
+    const raw = `Hi ${a.customer_name.split(" ")[0]} ✦ Thank you for visiting Miracurl today!\n\nWe'd love your feedback — it takes 10 seconds:\n${link}\n\nGive us 4★ or 5★ and we'll add ₹50 credit to your account ✦`;
+    if (isManager) { requestWA(a, phone, raw, "review"); return; }
+    const msg = encodeURIComponent(raw);
     const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
     window.open(url, "_blank", "noopener,noreferrer");
   }

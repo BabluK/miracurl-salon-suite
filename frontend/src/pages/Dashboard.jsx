@@ -6,6 +6,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, 
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
 import DailyReportBanner from "@/components/DailyReportBanner";
+import { WhatsAppApprovals } from "@/components/WhatsAppApprovals";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
 const CHART_TOOLTIP_STYLE = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' };
@@ -82,6 +83,7 @@ export default function Dashboard() {
 
       <RenewalBanner sub={subStatus} />
       <DailyReportBanner ownerName={user?.name} />
+      {(user?.role === "admin" || user?.role === "super_admin") && <WhatsAppApprovals />}
 
       {/* Hero strip with booking link */}
       <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl p-6 text-white relative overflow-hidden">
