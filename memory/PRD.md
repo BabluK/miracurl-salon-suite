@@ -260,3 +260,8 @@ Frontend:
 - User reported (production): Mira re-asked for the service after customer already picked services + gave name/phone/time. ROOT CAUSE: LlmChat sessions were in-memory (_public_ai_sessions dict) — production runs multiple workers/restarts → follow-up hits a worker with no session → fresh chat, context lost.
 - FIX: removed in-memory cache; conversation history now persisted in _raw_db.public_ai_messages (keyed sid=pub-{tenant}-{session}); each request rebuilds a fresh LlmChat and prepends last 24 messages as transcript ("CONVERSATION SO FAR... do NOT re-ask"). Added CRITICAL MEMORY RULE to system prompt. Booking replies stored with "[Appointment booked]" tag.
 - VERIFIED: full Kamal scenario via curl incl. backend restart mid-conversation — Mira remembered service+name+phone+time and booked after "confirm". USER MUST REDEPLOY to get fix in production.
+
+## Update — Jul 2, 2026 (part 16) — Service category dropdown fix + custom categories
+- Services.jsx CATS was stale ("Hair, Threading, Massage…") and didn't match booking page tabs. Now matches BookPublic.steps.jsx CATEGORY_ORDER exactly (Skin, Manicure, Pedicure, Men Hair, Women Hair, Makeup, Nails) + dedupe of any existing custom categories + "＋ Add new category…" option that swaps to a free-text input (service-category-select / service-new-category-input). Empty category guarded in save().
+- Custom categories automatically appear as tabs on the booking page (ServicesStep already appends non-canonical categories for both genders). Verified E2E: created "Spa" service via API → appeared in /public/services → cleaned up. UI screenshot-verified.
+- NOTE: user must REDEPLOY for production.

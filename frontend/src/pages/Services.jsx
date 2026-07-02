@@ -4,13 +4,16 @@ import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame, Sparkles, Download, 
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 
-const CATS = ["Hair", "Skin", "Nails", "Makeup", "Threading", "Massage"];
+// Must match the booking page category tabs (BookPublic.steps.jsx CATEGORY_ORDER)
+const CATS = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup", "Nails"];
+const NEW_CAT = "__new__";
 
 export default function Services() {
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", category: "Hair", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true });
+  const [form, setForm] = useState({ name: "", category: "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true });
+  const [newCat, setNewCat] = useState(false);
   const csvRef = useRef(null);
 
   async function exportCsv() {
@@ -45,13 +48,14 @@ export default function Services() {
   const load = useCallback(async () => { const { data } = await api.get("/services"); setList(data); }, []);
   useEffect(() => { load(); }, [load]);
 
-  function startNew() { setEditing(null); setForm({ name: "", category: "Hair", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true }); setOpen(true); }
-  function startEdit(s) { setEditing(s); setForm({ ...s, price: s.price, duration_min: s.duration_min }); setOpen(true); }
+  function startNew() { setEditing(null); setNewCat(false); setForm({ name: "", category: "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true }); setOpen(true); }
+  function startEdit(s) { setEditing(s); setNewCat(false); setForm({ ...s, price: s.price, duration_min: s.duration_min }); setOpen(true); }
 
   async function save(e) {
     e.preventDefault();
+    if (!form.category.trim()) { toast.error("Enter a category name"); return; }
     try {
-      const payload = { ...form, price: parseFloat(form.price), duration_min: parseInt(form.duration_min) };
+      const payload = { ...form, category: form.category.trim(), price: parseFloat(form.price), duration_min: parseInt(form.duration_min) };
       if (editing) { await api.put(`/services/${editing.id}`, payload); toast.success("Service updated"); }
       else { await api.post("/services", payload); toast.success("Service added"); }
       setOpen(false); load();
@@ -63,6 +67,7 @@ export default function Services() {
   }
 
   const byCategory = list.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {});
+  const catOptions = [...CATS, ...Object.keys(byCategory).filter(c => !CATS.includes(c)).sort()];
 
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
@@ -148,9 +153,21 @@ export default function Services() {
               <div><label className="label-light block mb-1">Name *</label><input data-testid="service-name-input" required className="input-light" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
               <div className="grid grid-cols-3 gap-3">
                 <div><label className="label-light block mb-1">Category</label>
-                  <select className="input-light" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-                    {CATS.map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  {newCat ? (
+                    <div className="flex gap-1">
+                      <input data-testid="service-new-category-input" autoFocus className="input-light" placeholder="e.g. Spa" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} />
+                      <button type="button" data-testid="service-new-category-cancel" onClick={() => { setNewCat(false); setForm({ ...form, category: "Skin" }); }} className="text-slate-400 hover:text-slate-600 px-1" title="Back to list"><X className="w-4 h-4" /></button>
+                    </div>
+                  ) : (
+                    <select data-testid="service-category-select" className="input-light" value={form.category}
+                      onChange={e => {
+                        if (e.target.value === NEW_CAT) { setNewCat(true); setForm({ ...form, category: "" }); }
+                        else setForm({ ...form, category: e.target.value });
+                      }}>
+                      {catOptions.map(c => <option key={c}>{c}</option>)}
+                      <option value={NEW_CAT}>＋ Add new category…</option>
+                    </select>
+                  )}
                 </div>
                 <div><label className="label-light block mb-1">Price ₹</label><input type="number" required className="input-light" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
                 <div><label className="label-light block mb-1">Duration (min)</label><input type="number" required className="input-light" value={form.duration_min} onChange={e => setForm({ ...form, duration_min: e.target.value })} /></div>
