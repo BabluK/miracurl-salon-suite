@@ -211,3 +211,8 @@ Frontend:
 - Booking QR poster generator: GET /api/settings/qr-poster?origin= (qrcode + PIL, dark/gold A4 poster with salon name, QR to /book/{slug}, install CTA). "Download poster" button in Settings (settings-qr-card). Added qrcode to requirements.txt.
 - All verified: CSV round-trips via curl, poster PNG visually checked, gender toggle screenshot-tested.
 - LESSON: avoid multiple parallel search_replace edits to the SAME file — two batches silently clobbered each other (server.py customers routes + BookPublic.steps.jsx), causing compile errors that were then fixed.
+
+## Update — Jul 2, 2026 (part 8)
+- User confusion: booking (Ankit) appeared in CRM but "not in Appointments" — root cause: Appointments page only showed ONE day (default today); the booking was on a future date. NOT a data bug (verified: booking flow creates both customer + appointment).
+- Fix: Appointments page now has Day | Upcoming | Week views. New backend param GET /api/appointments?upcoming=true (scheduled_at >= today, excludes cancelled). Upcoming table rows show the date; empty day view shows "See all upcoming" shortcut (see-upcoming-btn).
+- Verified via screenshot: day view 1 row, upcoming view 5 rows with dates.

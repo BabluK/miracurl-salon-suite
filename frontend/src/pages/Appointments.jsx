@@ -39,9 +39,10 @@ export default function Appointments() {
   const [form, setForm] = useState({ customer_id: "", staff_id: "", service_ids: [], scheduled_at: "", notes: "" });
 
   const load = useCallback(async () => {
-    const { data } = await api.get(`/appointments?date=${date}`);
+    const url = view === "upcoming" ? "/appointments?upcoming=true" : `/appointments?date=${date}`;
+    const { data } = await api.get(url);
     setList(data);
-  }, [date]);
+  }, [date, view]);
 
   const loadWeek = useCallback(async () => {
     const monday = startOfWeek(date);
@@ -54,8 +55,8 @@ export default function Appointments() {
   }, [date]);
 
   useEffect(() => {
-    if (view === "list") load();
-    else loadWeek();
+    if (view === "week") loadWeek();
+    else load();
   }, [view, load, loadWeek]);
 
   useEffect(() => {
@@ -129,18 +130,22 @@ export default function Appointments() {
           {/* View toggle */}
           <div className="flex gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100">
             <button data-testid="appt-view-list" onClick={() => setView("list")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "list" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}>
-              <ListIcon className="w-3.5 h-3.5" /> List
+              <ListIcon className="w-3.5 h-3.5" /> Day
+            </button>
+            <button data-testid="appt-view-upcoming" onClick={() => setView("upcoming")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "upcoming" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}>
+              <Clock className="w-3.5 h-3.5" /> Upcoming
             </button>
             <button data-testid="appt-view-week" onClick={() => setView("week")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "week" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}>
               <LayoutGrid className="w-3.5 h-3.5" /> Week
             </button>
           </div>
-          {view === "list" ? (
+          {view === "list" && (
             <div className="relative">
               <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input type="date" data-testid="appt-date-filter" className="input-light pl-10" value={date} onChange={e => setDate(e.target.value)} />
             </div>
-          ) : (
+          )}
+          {view === "week" && (
             <div className="flex items-center gap-1">
               <button data-testid="appt-week-prev" onClick={() => shiftWeek(-7)} className="p-2 rounded-md hover:bg-slate-50 border border-slate-200"><ChevronLeft className="w-4 h-4" /></button>
               <span className="text-sm text-slate-500 px-3 font-mono">{weekRange}</span>
@@ -151,7 +156,7 @@ export default function Appointments() {
         </div>
       </div>
 
-      {view === "list" && (
+      {view !== "week" && (
         <div className="card-light p-0 overflow-x-auto">
           <table className="luxe-table-light min-w-[760px]">
             <thead><tr><th>Time</th><th>Customer</th><th>Services</th><th>Stylist</th><th>Total</th><th>Status</th><th></th></tr></thead>
@@ -159,6 +164,7 @@ export default function Appointments() {
               {list.map(a => (
                 <tr key={a.id} data-testid={`appt-row-${a.id}`}>
                   <td>
+                    {view === "upcoming" && <div className="text-xs font-medium text-slate-600">{new Date(a.scheduled_at).toLocaleDateString([], { day: "numeric", month: "short" })}</div>}
                     <div className="font-mono text-sky-600">{new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                     <div className="text-[10px] text-slate-400">{a.duration_min} min</div>
                   </td>
@@ -185,7 +191,15 @@ export default function Appointments() {
                   </td>
                 </tr>
               ))}
-              {list.length === 0 && <tr><td colSpan="7" className="text-center text-slate-500 py-12"><Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />No appointments on {date}</td></tr>}
+              {list.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="text-center text-slate-500 py-12">
+                    <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    {view === "upcoming" ? "No upcoming bookings" : <>No appointments on {date} — bookings may be on another date.{" "}
+                      <button data-testid="see-upcoming-btn" onClick={() => setView("upcoming")} className="text-sky-600 underline underline-offset-2 font-medium">See all upcoming</button></>}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

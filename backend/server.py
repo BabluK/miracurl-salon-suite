@@ -1822,9 +1822,12 @@ async def delete_product(pid: str, user=Depends(require_admin)):
 
 # ---------------- Appointments ----------------
 @api.get("/appointments")
-async def list_appointments(date: Optional[str] = None, user=Depends(get_current_user)):
+async def list_appointments(date: Optional[str] = None, upcoming: bool = False, user=Depends(get_current_user)):
     flt = {}
-    if date:
+    if upcoming:
+        today = datetime.now(timezone.utc).date().isoformat()
+        flt = {"scheduled_at": {"$gte": today}, "status": {"$ne": "cancelled"}}
+    elif date:
         flt = {"scheduled_at": {"$regex": f"^{date}"}}
     return await db.appointments.find(flt, {"_id": 0}).sort("scheduled_at", 1).to_list(500)
 
