@@ -72,7 +72,7 @@ export default function Reports() {
               <div className="font-playfair text-xl mt-1 mb-3">Breakdown</div>
               {data.by_payment_mode.length === 0 ? <div className="text-slate-500 text-sm py-8 text-center">No data</div> : (
                 <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                     <PieChart>
                       <Pie data={data.by_payment_mode} dataKey="amount" nameKey="mode" innerRadius={45} outerRadius={75} paddingAngle={2}>
                         {data.by_payment_mode.map((entry, i) => <Cell key={entry.mode} fill={COLORS[i % COLORS.length]} />)}

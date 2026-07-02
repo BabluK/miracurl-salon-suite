@@ -175,3 +175,11 @@ Frontend:
 - P1: Daily WhatsApp pulse summary (needs Twilio)
 - P2: More notification chimes + Do-not-disturb toggle
 - Refactor: split monolithic backend/server.py (~3500 lines) into routers/models/services
+
+## Update — Jul 2, 2026 (part 2)
+- Removed duplicate location text from admin top bar (kept in sidebar only).
+- Animated mesh gradient backgrounds: `.app-canvas` (light, admin pages) + `.mesh-dark` (booking pages), 26-30s drift, respects prefers-reduced-motion.
+- Global micro-interactions (MicroInteractions.jsx): magnetic hover pull (max 5px, 20px sticky radius, fine pointers only) + centered material ripple with 98% press squeeze on all buttons/links.
+- Salon Finder at /book (SalonFinder.jsx): public salon search → white-label morph on selection. New endpoint GET /api/public/salons?q= (excludes suspended/cancelled tenants).
+- BookPublic now shows tenant name (white-label) + "Find a salon" link top-right.
+- Testing agent iteration_34: 100% pass (14 regression items, frontend+backend). Fixed Recharts minHeight warnings.

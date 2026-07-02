@@ -177,7 +177,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
               <LineChart data={data.revenue_trend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickFormatter={d => d.slice(5)} />
@@ -196,7 +196,7 @@ export default function Dashboard() {
             <div className="text-slate-400 text-sm py-8 text-center">No bookings yet</div>
           ) : (
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                 <BarChart data={data.top_services} layout="vertical">
                   <XAxis type="number" stroke="#94a3b8" fontSize={11} />
                   <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={11} width={90} />
