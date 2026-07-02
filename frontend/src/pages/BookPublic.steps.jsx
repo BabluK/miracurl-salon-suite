@@ -2,8 +2,11 @@
 // Extracted from BookPublic.jsx to reduce that file's complexity (was 549 lines).
 // Each component is a pure presentational unit driven by props.
 import { Check, IndianRupee, Clock, Sparkles, User, Phone, Mail, Gift, Star, Copy, Share2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { shareText as shareTextLib } from "@/lib/share";
+
+const CATEGORY_ORDER = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup", "Nails"];
 
 export const TIME_SLOTS = [
   "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
@@ -47,17 +50,47 @@ export function FeaturedReviews({ featured }) {
 }
 
 export function ServicesStep({ byCategory, picked, onToggle }) {
+  const cats = useMemo(() => {
+    const known = CATEGORY_ORDER.filter((c) => byCategory[c]?.length);
+    const extra = Object.keys(byCategory).filter((c) => !CATEGORY_ORDER.includes(c)).sort();
+    return [...known, ...extra];
+  }, [byCategory]);
+  const [active, setActive] = useState("All");
+  const shown = active === "All" ? cats : cats.filter((c) => c === active);
+
   return (
-    <section className="space-y-8 animate-fade-up">
+    <section className="space-y-6 animate-fade-up">
       <div>
         <h2 className="font-playfair text-3xl">Choose your services</h2>
         <p className="text-ink-secondary text-sm mt-1">Pick one or more — we&apos;ll add up the total for you.</p>
       </div>
-      {Object.keys(byCategory).map(cat => (
+
+      {/* Main category tabs */}
+      <div className="sticky top-0 z-20 -mx-4 px-4 py-3 bg-bg-base/85 backdrop-blur-md">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar" data-testid="book-category-tabs">
+          {["All", ...cats].map((c) => (
+            <button
+              key={c}
+              data-testid={`book-cat-pill-${c.replace(/\s+/g, "-").toLowerCase()}`}
+              onClick={() => setActive(c)}
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-semibold tracking-wide transition-colors ${
+                active === c
+                  ? "bg-gold text-bg-base shadow-gold-glow"
+                  : "bg-white/5 border border-white/10 text-white/70 hover:text-white hover:border-gold/40"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {shown.map(cat => (
         <div key={cat}>
           <div className="flex items-center gap-3 mb-3">
             <h3 className="font-playfair text-xl text-gold">{cat}</h3>
             <div className="h-px bg-white/10 flex-1" />
+            <span className="text-[10px] uppercase tracking-widest text-white/40">{byCategory[cat].length} services</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {byCategory[cat].map(s => {

@@ -963,6 +963,8 @@ async def download_file(file_id: str):
 
 
 # ---------------- Services ----------------
+_MANI_IMG = "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/517ab2838ad15ec1f57e6f8972aa70b440e973f00372bedc22928e043bf5e3fa.png"
+_PEDI_IMG = "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/82bf0bbcc6388db24726408d8073b9f0797e69bf194297f46c1756bd08813d97.png"
 PRESET_SERVICES = [
     {"name": "Party Makeup", "category": "Makeup", "price": 1200, "duration_min": 60,
      "description": "Glam party-ready look with premium products.",
@@ -976,7 +978,7 @@ PRESET_SERVICES = [
     {"name": "Saree Draping", "category": "Makeup", "price": 500, "duration_min": 30,
      "description": "Elegant professional saree draping. ₹500 onwards.",
      "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/b8b033a0b096d70d21c13e2b85210eaff232161014600c048b086446a4096410.png"},
-    {"name": "Hair Styling", "category": "Hair", "price": 800, "duration_min": 45,
+    {"name": "Hair Styling", "category": "Women Hair", "price": 800, "duration_min": 45,
      "description": "Curls, updos & event styling. ₹800 onwards.",
      "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/a53c1f7baadcb7762a987e5123a4e2636e7e01a283fc4d8939950bae1f5e5116.png"},
     {"name": "Henna", "category": "Makeup", "price": 200, "duration_min": 30,
@@ -991,7 +993,52 @@ PRESET_SERVICES = [
     {"name": "Acrylic Extension", "category": "Nails", "price": 1500, "duration_min": 90,
      "description": "Durable acrylic extensions with nail art. ₹1500 onwards.",
      "image_url": "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/7105caf95adc9f46495f742e3b4338725e94999fa22d5da431f9b4f49e60d360.png"},
+    # -------- Manicure --------
+    {"name": "Basic Manicure", "category": "Manicure", "price": 400, "duration_min": 40,
+     "description": "Classic nail shaping, cuticle care & polish.", "image_url": _MANI_IMG},
+    {"name": "Aroma Magic Manicure", "category": "Manicure", "price": 500, "duration_min": 45,
+     "description": "Aromatherapy manicure with nourishing oils.", "image_url": _MANI_IMG},
+    {"name": "Rose Bud Manicure", "category": "Manicure", "price": 500, "duration_min": 45,
+     "description": "Rose-infused soak for soft, fragrant hands.", "image_url": _MANI_IMG},
+    {"name": "Ragga Manicure", "category": "Manicure", "price": 600, "duration_min": 50,
+     "description": "Premium Ragga range hand treatment.", "image_url": _MANI_IMG},
+    {"name": "Manicure (O3+)", "category": "Manicure", "price": 700, "duration_min": 50,
+     "description": "O3+ professional brightening manicure.", "image_url": _MANI_IMG},
+    {"name": "Foiling & Polish (Hands)", "category": "Manicure", "price": 100, "duration_min": 15,
+     "description": "Quick foil buff & polish for hands.", "image_url": _MANI_IMG},
+    {"name": "Cut & File", "category": "Manicure", "price": 100, "duration_min": 15,
+     "description": "Nail cutting & shaping.", "image_url": _MANI_IMG},
+    {"name": "Ozone Manicure", "category": "Manicure", "price": 600, "duration_min": 50,
+     "description": "Ozone therapy manicure for healthy nails.", "image_url": _MANI_IMG},
+    # -------- Pedicure --------
+    {"name": "Basic Pedicure", "category": "Pedicure", "price": 500, "duration_min": 45,
+     "description": "Classic foot soak, scrub, cuticle care & polish.", "image_url": _PEDI_IMG},
+    {"name": "Aroma Magic Pedicure", "category": "Pedicure", "price": 800, "duration_min": 60,
+     "description": "Aromatherapy pedicure with relaxing massage.", "image_url": _PEDI_IMG},
+    {"name": "Rose Bud Pedicure", "category": "Pedicure", "price": 700, "duration_min": 55,
+     "description": "Rose-infused soak for tired feet.", "image_url": _PEDI_IMG},
+    {"name": "Ragga Pedicure", "category": "Pedicure", "price": 800, "duration_min": 60,
+     "description": "Premium Ragga range foot treatment.", "image_url": _PEDI_IMG},
+    {"name": "Pediologix (O3+)", "category": "Pedicure", "price": 1000, "duration_min": 60,
+     "description": "O3+ Pediologix advanced foot therapy.", "image_url": _PEDI_IMG},
+    {"name": "Foiling & Polish (Feet)", "category": "Pedicure", "price": 100, "duration_min": 15,
+     "description": "Quick foil buff & polish for feet.", "image_url": _PEDI_IMG},
+    {"name": "Cut & Foil", "category": "Pedicure", "price": 100, "duration_min": 15,
+     "description": "Toe nail cutting & foil finish.", "image_url": _PEDI_IMG},
+    {"name": "Ozone Pedicure", "category": "Pedicure", "price": 900, "duration_min": 60,
+     "description": "Ozone therapy pedicure for healthy feet.", "image_url": _PEDI_IMG},
 ]
+
+# Moves legacy services into the new main-tab category structure
+CATEGORY_REMAP = {
+    "Hair Cut - Men": "Men Hair",
+    "Hair Cut - Women": "Women Hair",
+    "Hair Color - Global": "Women Hair",
+    "Keratin Treatment": "Women Hair",
+    "Threading": "Skin",
+    "Manicure": "Manicure",
+    "Pedicure Spa": "Pedicure",
+}
 
 @api.post("/services/import-preset")
 async def import_preset_services(user=Depends(get_current_user)):
@@ -1004,6 +1051,14 @@ async def import_preset_services(user=Depends(get_current_user)):
         else:
             await db.services.insert_one(Service(**p).model_dump())
             added += 1
+    for name, cat in CATEGORY_REMAP.items():
+        sets = {"category": cat}
+        if name == "Pedicure Spa":
+            sets["image_url"] = _PEDI_IMG
+        elif name == "Manicure":
+            sets["image_url"] = _MANI_IMG
+        r = await db.services.update_many({"name": name}, {"$set": sets})
+        updated += r.modified_count
     return {"added": added, "updated": updated}
 
 @api.get("/services")

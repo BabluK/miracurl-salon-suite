@@ -193,3 +193,9 @@ Frontend:
 - Renamed & recolored the two PWAs per user choice: booking app = "Miracurl Book" (violet/purple, new violet icons), business app = "Miracurl Partner" (deep emerald + gold icons). ManifestSwitcher also swaps apple-touch-icon per route.
 - InstallAppPrompt rewritten: auto-shows after 4s on ALL mobile devices (iOS + Android) on Landing (/), Salon Finder (/book) and booking pages; "Not now" now snoozes for 3 days instead of forever; device-aware install guide. Mounted on Landing.jsx (was missing → root domain never prompted).
 - SW cache bumped to v6. Sidebar mobile nav re-verified working (user report was stale production bundle; preview tests pass: open via hamburger, auto-close on tab change).
+
+## Update — Jul 2, 2026 (part 5)
+- Booking page restructured like reference app: horizontal main-category tab pills (All · Skin · Manicure · Pedicure · Men Hair · Women Hair · Makeup · Nails) with sticky tab bar; tapping a pill filters services (BookPublic.steps.jsx, CATEGORY_ORDER).
+- Added full Manicure menu (8 sub-services: Basic ₹400, Aroma Magic ₹500, Rose Bud ₹500, Ragga ₹600, O3+ ₹700, Foiling & Polish ₹100, Cut & File ₹100, Ozone ₹600) and Pedicure menu (8: Basic ₹500, Aroma Magic ₹800, Rose Bud ₹700, Ragga ₹800, Pediologix O3+ ₹1000, Foiling & Polish ₹100, Cut & Foil ₹100, Ozone ₹900) with generated images.
+- import-preset endpoint now also remaps legacy categories (Hair→Men/Women Hair, Threading→Skin, Manicure/Pedicure Spa moved) and fixes broken legacy images. User must click "Import Makeup & Nails menu" once in production after deploy.
+- Verified: 7 category tabs, 34 services, all 18 unique image URLs return 200.

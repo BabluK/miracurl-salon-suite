@@ -287,3 +287,6 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   .app-canvas, .mesh-dark { animation: none; }
   .mi-ripple { animation: none; opacity: 0; }
 }
+
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
