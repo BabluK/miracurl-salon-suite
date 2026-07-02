@@ -4550,18 +4550,28 @@ async def _booking_catalog(t) -> str:
         f"- {m['name']}: {int(m['discount_pct'])}% off all services for ₹{int(m['price'])} ({m.get('validity_days', 180)} days)"
         for m in mems) or "(none currently)"
     ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    # Slot availability for the next 3 days so Mira never offers a full time.
+    days = [(ist_now + timedelta(days=d)).date().isoformat() for d in range(3)]
+    free_lists = await asyncio.gather(*[_free_slots_for(d) for d in days])
+    avail_lines = "\n".join(
+        f"- {d}: {', '.join(fl) if fl else 'FULLY BOOKED — do not offer this day'}"
+        for d, fl in zip(days, free_lists))
     return (f"Salon: {t.get('name')}{', ' + t['location'] if t.get('location') else ''}. Hours: {t.get('hours')}. "
             f"Phone: {t.get('phone') or 'ask at the salon'}. "
             f"Current date & time (IST): {ist_now.strftime('%A %Y-%m-%d %H:%M')}.\n"
             f"SERVICE MENU:\n{svc_lines}\nSTYLISTS: {staff_lines}\n"
+            f"OPEN TIME SLOTS (only ever offer/confirm a time from this list — others are full):\n{avail_lines}\n"
             f"CURRENT OFFERS (coupon codes customers can apply):\n{offer_lines}\n"
             f"PACKAGES (bought at the salon):\n{pkg_lines}\nMEMBERSHIPS (bought at the salon):\n{mem_lines}")
 
 async def _ai_execute_booking(payload: str):
-    """Parse the AI's booking JSON and create a real appointment. Returns (booking, error)."""
+    """Parse the AI's booking JSON and create a real appointment.
+    Returns (booking, error, requested_date)."""
     import json as _json
+    req_date = None
     try:
         data = _json.loads(payload.strip().strip("`").strip())
+        req_date = data.get("date")
         scheduled_at = f"{data['date']}T{data['time']}:00+05:30"
         bk = PublicBookingIn(
             customer_name=data["customer_name"], customer_phone=data["customer_phone"],
@@ -4575,19 +4585,44 @@ async def _ai_execute_booking(payload: str):
                 msg = "; ".join(err.get("msg", "") for err in e.errors())
             except Exception:
                 pass
-        return None, msg
+        return None, msg, req_date
     services = await db.services.find({"id": {"$in": bk.service_ids}, "active": True}, {"_id": 0}).to_list(50)
     if not services:
-        return None, "Selected services were not found on the menu"
+        return None, "Selected services were not found on the menu", req_date
     try:
         staff = await _resolve_staff(bk.staff_id)
         cust, _ = await _resolve_or_create_customer(bk)
         appt, total, duration = await _create_public_appointment(cust, staff, services, bk)
     except HTTPException as e:
-        return None, str(e.detail)
+        return None, str(e.detail), req_date
     return {"customer_name": cust["name"], "staff_name": staff["name"],
             "service_names": [s["name"] for s in services], "total": total,
-            "duration_min": duration, "scheduled_at": bk.scheduled_at}, None
+            "duration_min": duration, "scheduled_at": bk.scheduled_at}, None, req_date
+
+async def _free_slots_for(date: str) -> list[str]:
+    """Return the list of 'HH:MM' slots still open on a given YYYY-MM-DD (IST)."""
+    if not date or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        return []
+    staff_count = await db.staff.count_documents({"active": True}) or 1
+    appts = await db.appointments.find(
+        {"scheduled_at": {"$regex": f"^{date}"}, "status": {"$nin": ["cancelled", "no_show"]}},
+        {"_id": 0, "scheduled_at": 1, "duration_min": 1}).to_list(500)
+    parsed = []
+    for a in appts:
+        try:
+            ast = datetime.fromisoformat(a["scheduled_at"])
+            if ast.tzinfo is None:
+                ast = ast.replace(tzinfo=timezone.utc)
+            parsed.append((ast, ast + timedelta(minutes=int(a.get("duration_min") or 30))))
+        except ValueError:
+            continue
+    free = []
+    for hhmm in _SLOT_TIMES:
+        s = datetime.fromisoformat(f"{date}T{hhmm}:00+05:30")
+        e = s + timedelta(minutes=30)
+        if sum(1 for ast, aen in parsed if ast < e and aen > s) < staff_count:
+            free.append(hhmm)
+    return free
 
 async def _public_ai_reply(t, session_id: str, message: str):
     """Shared Mira pipeline for text + voice. Returns (reply, booking, booking_error)."""
@@ -4647,12 +4682,22 @@ async def _public_ai_reply(t, session_id: str, message: str):
     booking, booking_error = None, None
     if _BOOK_MARKER in reply:
         text, _, payload = reply.partition(_BOOK_MARKER)
-        booking, booking_error = await _ai_execute_booking(payload)
-        reply = text.strip()
+        booking, booking_error, req_date = await _ai_execute_booking(payload)
+        text = text.strip()
         if booking:
-            reply = (reply + "\n\n✅ Done — your appointment is booked! The salon will confirm shortly.").strip()
+            reply = (text + "\n\n✅ Done — your appointment is booked! The salon will confirm shortly.").strip()
         else:
-            reply = (reply + f"\n\n⚠️ I couldn't complete the booking: {booking_error}. Let's fix that detail and try again.").strip()
+            # Booking FAILED — never keep the model's premature "confirmed" text.
+            # Apologise and, if the slot was full, offer the times that are actually free.
+            free = await _free_slots_for(req_date) if req_date else []
+            if free:
+                shown = ", ".join(free[:8])
+                reply = (f"I'm so sorry — that time slot just got fully booked 🙏\n\n"
+                         f"Here are the open times for {req_date}: {shown}.\n"
+                         f"Which one shall I book for you? ✨")
+            else:
+                reply = (f"I'm so sorry — I couldn't complete that booking ({booking_error}). "
+                         f"Could we try a different date or time? I'll get you in as soon as possible 💖")
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.public_ai_messages.insert_many([
         {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "user", "content": message, "created_at": now},
@@ -4697,8 +4742,8 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
     audio_b64 = None
     try:
         tts = OpenAITextToSpeech(api_key=key)
-        speech_text = re.sub(r"\*\*|✨|💖|💆‍♀️|✅|⚠️|📞", "", reply)[:4000]
-        audio_b64 = await tts.generate_speech_base64(text=speech_text, model="tts-1", voice="coral")
+        speech_text = re.sub(r"\*\*|✨|💖|💆‍♀️|✅|⚠️|📞|🙏", "", reply)[:4000]
+        audio_b64 = await tts.generate_speech_base64(text=speech_text, model="tts-1-hd", voice="shimmer", speed=0.95)
     except Exception as e:
         logging.getLogger("public_ai").error(f"tts error: {e}")
     return {"transcript": transcript, "reply": reply, "booking": booking,

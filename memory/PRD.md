@@ -287,3 +287,9 @@ Frontend:
 - AI SPEED: parallelized _booking_catalog's 5 DB queries via asyncio.gather (was sequential). AI reply now ~1.9s in preview. Added `import asyncio`.
 - PERF NOTE: all backend endpoints measured 0.12–0.2s in preview (dashboard/appointments/customers/services/invoices). Any production slowness is likely infra/cold-start or first-load bundle, not code — asked user to specify page.
 - USER MUST REDEPLOY for all above to reach production.
+
+## Update — Jul 2, 2026 (part 20) — Mira slot-check before confirm + hands-free voice + HD voice
+- BOOKING SLOT FIX (user report: Mira said "confirmed" then failed with slot-full): (1) _booking_catalog now injects OPEN TIME SLOTS for next 3 days (via new _free_slots_for helper, asyncio.gather) so Mira only offers free times; (2) on booking failure the model's premature "confirmed" text is DISCARDED and replaced with an apology + list of actually-free slots for the requested date ("Which one shall I book?"). _ai_execute_booking now returns (booking, error, req_date). Verified E2E: filled 11:00 with 4 appts → Mira apologized + offered open slots → rebooked at 11:30 successfully.
+- HANDS-FREE VOICE (AUTO button, data-testid ai-handsfree-btn): Web Audio AnalyserNode VAD — auto-stops 1.4s after speech pause and sends; 30s max with NO speech → "Sorry, I didn't catch anything 🙉" message + hands-free off; after Mira's spoken reply ends, mic auto-resumes (stops after successful booking). Manual mic unchanged (ai-voice-btn now wraps onClick to avoid event-as-arg bug).
+- VOICE QUALITY: tts-1-hd + 'shimmer' voice + speed 0.95 (was tts-1 coral). NOTE: OpenAI TTS has NO Indian-accent voice (checked SDK: only alloy/ash/coral/echo/fable/nova/onyx/sage/shimmer). True Indian voice requires ElevenLabs (needs user API key) — offered to user, awaiting decision.
+- Voice E2E verified: STT + greeting + HD audio ~9.6s round trip. Test data cleaned.

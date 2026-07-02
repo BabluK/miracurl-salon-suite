@@ -55,18 +55,26 @@ function AiTab({ slug }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [handsFree, setHandsFree] = useState(false);
   const endRef = useRef(null);
   const sidRef = useRef(null);
   const recRef = useRef(null);
   const chunksRef = useRef([]);
   const audioRef = useRef(null);
+  const vadCtxRef = useRef(null);
+  const silenceTimerRef = useRef(null);
+  const maxTimerRef = useRef(null);
+  const rafRef = useRef(null);
+  const speechRef = useRef(false);
+  const handsFreeRef = useRef(false);
+  useEffect(() => { handsFreeRef.current = handsFree; }, [handsFree]);
   if (!sidRef.current) {
     const k = `mira_ai_sid_${slug}`;
     sidRef.current = sessionStorage.getItem(k) || newSid();
     sessionStorage.setItem(k, sidRef.current);
   }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
-  useEffect(() => () => { audioRef.current?.pause(); recRef.current?.stream?.getTracks().forEach(t => t.stop()); }, []);
+  useEffect(() => () => { audioRef.current?.pause(); cleanupVad(); try { recRef.current?.state !== "inactive" && recRef.current?.stop(); } catch { /* noop */ } }, []);
 
   async function send(preset) {
     const text = (preset ?? input).trim();
@@ -82,43 +90,100 @@ function AiTab({ slug }) {
     } finally { setBusy(false); }
   }
 
-  function playAudio(b64) {
+  function playAudio(b64, onEnd) {
     try {
       audioRef.current?.pause();
       const a = new Audio(`data:audio/mp3;base64,${b64}`);
       audioRef.current = a;
-      a.play().catch(() => {});
-    } catch { /* autoplay blocked */ }
+      if (onEnd) a.onended = onEnd;
+      a.play().catch(() => onEnd?.());
+    } catch { onEnd?.(); }
   }
 
-  async function startRecording() {
+  function cleanupVad() {
+    clearTimeout(silenceTimerRef.current);
+    clearTimeout(maxTimerRef.current);
+    cancelAnimationFrame(rafRef.current);
+    try { vadCtxRef.current?.close(); } catch { /* ignore */ }
+    vadCtxRef.current = null;
+  }
+
+  async function startRecording(auto = false) {
     if (busy || recording) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
       const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       chunksRef.current = [];
+      speechRef.current = false;
       rec.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       rec.onstop = async () => {
+        cleanupVad();
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-        if (blob.size < 1000) { setRecording(false); return; }
-        await sendVoice(blob);
+        setRecording(false);
+        // Hands-free with no speech at all → timeout message + reset
+        if (auto && !speechRef.current) {
+          setHandsFree(false);
+          setMsgs(m => [...m, mkMsg({ role: "ai", text: "Sorry, I didn't catch anything 🙉 — tap the mic or a suggestion below whenever you're ready. 💖" })]);
+          return;
+        }
+        if (blob.size < 1200) return;
+        await sendVoice(blob, auto);
       };
       rec.start();
       recRef.current = rec;
       setRecording(true);
+
+      // Voice-activity detection: auto-stop on a natural pause after speech,
+      // or after 30s of total silence in hands-free mode.
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      vadCtxRef.current = ctx;
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      src.connect(analyser);
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+      maxTimerRef.current = setTimeout(() => { try { rec.state !== "inactive" && rec.stop(); } catch { /* noop */ } }, 30000);
+      const tick = () => {
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+        const rms = Math.sqrt(sum / buf.length);
+        if (rms > 0.045) {
+          speechRef.current = true;
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        } else if (speechRef.current && !silenceTimerRef.current) {
+          // 1.4s of silence after speech → end turn and send
+          silenceTimerRef.current = setTimeout(() => { try { rec.state !== "inactive" && rec.stop(); } catch { /* noop */ } }, 1400);
+        }
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
     } catch {
-      setMsgs(m => [...m, { role: "ai", text: "I couldn't access your microphone 🎙️ — please allow mic permission and try again, or just type your message." }]);
+      setHandsFree(false);
+      setMsgs(m => [...m, mkMsg({ role: "ai", text: "I couldn't access your microphone 🎙️ — please allow mic permission and try again, or just type your message." })]);
     }
   }
 
   function stopRecording() {
-    recRef.current?.stop();
+    cleanupVad();
+    try { recRef.current?.state !== "inactive" && recRef.current?.stop(); } catch { /* noop */ }
     setRecording(false);
   }
 
-  async function sendVoice(blob) {
+  function toggleHandsFree() {
+    if (handsFree) {
+      setHandsFree(false);
+      stopRecording();
+    } else {
+      setHandsFree(true);
+      startRecording(true);
+    }
+  }
+
+  async function sendVoice(blob, auto = false) {
     setBusy(true);
     setMsgs(m => [...m, mkMsg({ role: "user", text: "🎙️ …", pending: true })]);
     try {
@@ -130,7 +195,10 @@ function AiTab({ slug }) {
         const next = m.filter(x => !x.pending);
         return [...next, mkMsg({ role: "user", text: `🎙️ ${data.transcript}` }), mkMsg({ role: "ai", text: data.reply, booking: data.booking, spoken: !!data.audio_b64 })];
       });
-      if (data.audio_b64) playAudio(data.audio_b64);
+      // In hands-free mode, resume listening once Mira finishes speaking.
+      const resume = () => { if (auto && handsFreeRef.current && !data.booking) startRecording(true); };
+      if (data.audio_b64) playAudio(data.audio_b64, resume);
+      else resume();
     } catch (e) {
       setMsgs(m => [...m.filter(x => !x.pending), mkMsg({ role: "ai", text: e.response?.data?.detail || "Sorry, I couldn't hear that — please try again." })]);
     } finally { setBusy(false); }
@@ -161,13 +229,23 @@ function AiTab({ slug }) {
       <div className="p-3 border-t border-white/10 flex gap-2 items-center">
         <button
           data-testid="ai-voice-btn"
-          onClick={recording ? stopRecording : startRecording}
+          onClick={() => (recording ? stopRecording() : startRecording(false))}
           disabled={busy}
           title={recording ? "Tap to stop & send" : "Speak to Mira"}
           className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
             recording ? "bg-rose-500 text-white animate-pulse" : "bg-white/10 text-gold hover:bg-white/20"}`}
         >
           {recording ? <Square className="w-3.5 h-3.5" /> : <Mic className="w-4 h-4" />}
+        </button>
+        <button
+          data-testid="ai-handsfree-btn"
+          onClick={toggleHandsFree}
+          disabled={busy && !handsFree}
+          title={handsFree ? "Hands-free ON — Mira listens automatically. Tap to stop." : "Hands-free voice chat — talk to Mira without tapping"}
+          className={`h-9 px-2.5 rounded-full flex items-center justify-center gap-1 flex-shrink-0 text-[10px] font-bold transition-colors disabled:opacity-50 ${
+            handsFree ? "bg-gold text-bg-base animate-pulse" : "bg-white/10 text-white/60 hover:bg-white/20"}`}
+        >
+          <Volume2 className="w-3.5 h-3.5" /> AUTO
         </button>
         <input
           data-testid="ai-chat-input"
