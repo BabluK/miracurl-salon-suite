@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import axios from "axios";
-import { Sparkles, MessageCircle, X, Send, Loader2, Check, User } from "lucide-react";
+import { Sparkles, MessageCircle, X, Send, Loader2, Check, User, Mic, Square, Volume2 } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -41,17 +41,22 @@ function Bubble({ m }) {
 }
 
 function AiTab({ slug }) {
-  const [msgs, setMsgs] = useState([{ role: "ai", text: "Hi! I'm Mira ✨ Tell me your skin tone or hair concern and I'll suggest the perfect facial or treatment — I can even book your appointment right here!" }]);
+  const [msgs, setMsgs] = useState([{ role: "ai", text: "Hi! I'm Mira ✨ your personal beauty advisor. May I know your name, please?" }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [recording, setRecording] = useState(false);
   const endRef = useRef(null);
   const sidRef = useRef(null);
+  const recRef = useRef(null);
+  const chunksRef = useRef([]);
+  const audioRef = useRef(null);
   if (!sidRef.current) {
     const k = `mira_ai_sid_${slug}`;
     sidRef.current = sessionStorage.getItem(k) || newSid();
     sessionStorage.setItem(k, sidRef.current);
   }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+  useEffect(() => () => { audioRef.current?.pause(); recRef.current?.stream?.getTracks().forEach(t => t.stop()); }, []);
 
   async function send() {
     const text = input.trim();
@@ -67,23 +72,93 @@ function AiTab({ slug }) {
     } finally { setBusy(false); }
   }
 
+  function playAudio(b64) {
+    try {
+      audioRef.current?.pause();
+      const a = new Audio(`data:audio/mp3;base64,${b64}`);
+      audioRef.current = a;
+      a.play().catch(() => {});
+    } catch { /* autoplay blocked */ }
+  }
+
+  async function startRecording() {
+    if (busy || recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      chunksRef.current = [];
+      rec.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      rec.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
+        if (blob.size < 1000) { setRecording(false); return; }
+        await sendVoice(blob);
+      };
+      rec.start();
+      recRef.current = rec;
+      setRecording(true);
+    } catch {
+      setMsgs(m => [...m, { role: "ai", text: "I couldn't access your microphone 🎙️ — please allow mic permission and try again, or just type your message." }]);
+    }
+  }
+
+  function stopRecording() {
+    recRef.current?.stop();
+    setRecording(false);
+  }
+
+  async function sendVoice(blob) {
+    setBusy(true);
+    setMsgs(m => [...m, { role: "user", text: "🎙️ …", pending: true }]);
+    try {
+      const fd = new FormData();
+      fd.append("audio", blob, "voice.webm");
+      fd.append("session_id", sidRef.current);
+      const { data } = await axios.post(`${BACKEND_URL}/api/public/ai-voice/${slug}`, fd, { timeout: 120000 });
+      setMsgs(m => {
+        const next = m.filter(x => !x.pending);
+        return [...next, { role: "user", text: `🎙️ ${data.transcript}` }, { role: "ai", text: data.reply, booking: data.booking, spoken: !!data.audio_b64 }];
+      });
+      if (data.audio_b64) playAudio(data.audio_b64);
+    } catch (e) {
+      setMsgs(m => [...m.filter(x => !x.pending), { role: "ai", text: e.response?.data?.detail || "Sorry, I couldn't hear that — please try again." }]);
+    } finally { setBusy(false); }
+  }
+
   return (
     <>
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5" data-testid="ai-chat-messages">
-        {msgs.map((m, i) => <Bubble key={i} m={m} />)}
-        {busy && <div className="flex items-center gap-2 text-white/50 text-xs px-1"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is typing…</div>}
+        {msgs.map((m, i) => (
+          <div key={i}>
+            <Bubble m={m} />
+            {m.spoken && <div className="flex justify-start mt-0.5"><span className="text-[9px] text-white/30 flex items-center gap-1 px-1"><Volume2 className="w-2.5 h-2.5" /> spoken</span></div>}
+          </div>
+        ))}
+        {busy && <div className="flex items-center gap-2 text-white/50 text-xs px-1"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is {recording ? "listening" : "typing"}…</div>}
         <div ref={endRef} />
       </div>
-      <div className="p-3 border-t border-white/10 flex gap-2">
+      <div className="p-3 border-t border-white/10 flex gap-2 items-center">
+        <button
+          data-testid="ai-voice-btn"
+          onClick={recording ? stopRecording : startRecording}
+          disabled={busy}
+          title={recording ? "Tap to stop & send" : "Speak to Mira"}
+          className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${
+            recording ? "bg-rose-500 text-white animate-pulse" : "bg-white/10 text-gold hover:bg-white/20"}`}
+        >
+          {recording ? <Square className="w-3.5 h-3.5" /> : <Mic className="w-4 h-4" />}
+        </button>
         <input
           data-testid="ai-chat-input"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()}
-          placeholder="e.g. I have dusky skin, which facial suits me?"
-          className="flex-1 bg-white/5 border border-white/15 rounded-full px-4 py-2 text-[13px] text-white placeholder:text-white/30 focus:outline-none focus:border-gold/60"
+          placeholder={recording ? "Listening… tap ■ to send" : "Type or tap the mic to speak…"}
+          disabled={recording}
+          className="flex-1 bg-white/5 border border-white/15 rounded-full px-4 py-2 text-[13px] text-white placeholder:text-white/30 focus:outline-none focus:border-gold/60 disabled:opacity-60"
         />
-        <button data-testid="ai-chat-send-btn" onClick={send} disabled={busy} className="w-9 h-9 rounded-full bg-gold text-bg-base flex items-center justify-center disabled:opacity-50 flex-shrink-0">
+        <button data-testid="ai-chat-send-btn" onClick={send} disabled={busy || recording} className="w-9 h-9 rounded-full bg-gold text-bg-base flex items-center justify-center disabled:opacity-50 flex-shrink-0">
           <Send className="w-4 h-4" />
         </button>
       </div>

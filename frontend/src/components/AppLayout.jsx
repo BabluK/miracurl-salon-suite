@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Calendar, Users, UserCog, Scissors, Package,
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
   Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot,
-  Image as ImageIcon, MessageSquare
+  Image as ImageIcon, MessageSquare, BadgePercent
 } from "lucide-react";
 import api from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -23,6 +23,7 @@ const NAV_ADMIN = [
   { to: "/inventory", label: "Inventory", icon: Package, testid: "nav-inventory" },
   { to: "/pos", label: "POS / Billing", icon: ShoppingCart, testid: "nav-pos" },
   { to: "/reviews", label: "Reviews", icon: Star, testid: "nav-reviews" },
+  { to: "/plans", label: "Offers & Plans", icon: BadgePercent, testid: "nav-plans" },
   { to: "/refer", label: "Refer & Earn", icon: Gift, testid: "nav-refer" },
   { to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" },
   { to: "/messages", label: "Messages", icon: MessageSquare, testid: "nav-messages" },

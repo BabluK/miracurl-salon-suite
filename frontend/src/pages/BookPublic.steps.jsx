@@ -190,8 +190,9 @@ export function StaffStep({ staff, staffId, onPick }) {
   );
 }
 
-export function DateTimeStep({ date, time, onDate, onTime }) {
+export function DateTimeStep({ date, time, onDate, onTime, availability }) {
   const minDate = new Date().toISOString().slice(0, 10);
+  const slots = availability?.slots || {};
   return (
     <section className="space-y-6 animate-fade-up">
       <div>
@@ -212,26 +213,35 @@ export function DateTimeStep({ date, time, onDate, onTime }) {
       <div>
         <div className="label-luxe mb-3">Available Time Slots</div>
         <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
-          {TIME_SLOTS.map(t => (
-            <button
-              key={t}
-              data-testid={`book-time-${t}`}
-              onClick={() => onTime(t)}
-              className={`py-2.5 rounded-md text-sm font-mono transition-all ${
-                time === t ? "bg-gold text-bg-base font-semibold shadow-gold-glow" :
-                "bg-white/5 border border-white/10 text-white/70 hover:border-gold/40 hover:text-white"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+          {TIME_SLOTS.map(t => {
+            const full = availability && slots[t] === false;
+            return (
+              <button
+                key={t}
+                data-testid={`book-time-${t}`}
+                onClick={() => !full && onTime(t)}
+                disabled={full}
+                title={full ? "Fully booked" : undefined}
+                className={`py-2.5 rounded-md text-sm font-mono transition-all ${
+                  full ? "bg-white/[0.02] border border-white/5 text-white/20 line-through cursor-not-allowed" :
+                  time === t ? "bg-gold text-bg-base font-semibold shadow-gold-glow" :
+                  "bg-white/5 border border-white/10 text-white/70 hover:border-gold/40 hover:text-white"
+                }`}
+              >
+                {t}
+              </button>
+            );
+          })}
         </div>
+        {availability && Object.values(slots).every(v => v === false) && (
+          <p className="text-xs text-amber-400 mt-3" data-testid="book-day-full-note">All slots are booked for this day — please pick another date 🙏</p>
+        )}
       </div>
     </section>
   );
 }
 
-export function DetailsStep({ form, onChange, referralCheck, onCheckReferral }) {
+export function DetailsStep({ form, onChange, referralCheck, onCheckReferral, couponCheck, onCheckCoupon }) {
   return (
     <section className="space-y-6 animate-fade-up max-w-xl">
       <div>
@@ -283,8 +293,36 @@ export function DetailsStep({ form, onChange, referralCheck, onCheckReferral }) 
           <textarea data-testid="book-notes-input" rows="3" className="input-luxe" value={form.notes} onChange={e => onChange({ ...form, notes: e.target.value })} placeholder="Anything we should know?" />
         </div>
         <ReferralRow form={form} onChange={onChange} referralCheck={referralCheck} onCheckReferral={onCheckReferral} />
+        <CouponRow form={form} onChange={onChange} couponCheck={couponCheck} onCheckCoupon={onCheckCoupon} />
       </div>
     </section>
+  );
+}
+
+function CouponRow({ form, onChange, couponCheck, onCheckCoupon }) {
+  return (
+    <div className="pt-2 border-t border-white/5">
+      <label className="label-luxe block mb-1 flex items-center gap-2"><Gift className="w-3 h-3 text-gold" /> Coupon code (optional)</label>
+      <div className="flex gap-2">
+        <input
+          data-testid="book-coupon-input"
+          className="input-luxe uppercase tracking-widest"
+          value={form.coupon_code || ""}
+          onChange={e => onChange({ ...form, coupon_code: e.target.value.toUpperCase() })}
+          onBlur={onCheckCoupon}
+          placeholder="FESTIVE20"
+        />
+        <button type="button" data-testid="book-coupon-check-btn" onClick={onCheckCoupon} className="btn-ghost text-xs px-3">Apply</button>
+      </div>
+      {couponCheck?.valid && (
+        <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1" data-testid="book-coupon-valid">
+          <Check className="w-3 h-3" /> {couponCheck.code} applied — {couponCheck.type === "percent" ? `${couponCheck.value}% off` : `₹${couponCheck.value} off`} your bill
+        </div>
+      )}
+      {couponCheck?.valid === false && (
+        <div className="mt-2 text-xs text-red-400" data-testid="book-coupon-invalid">{couponCheck.error}</div>
+      )}
+    </div>
   );
 }
 

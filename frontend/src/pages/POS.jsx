@@ -15,9 +15,9 @@ const PAYMENT_MODES = [
 const TAB_BUTTONS = [
   { k: "services", label: "Add Service", live: true },
   { k: "products", label: "Add Product", live: true },
-  { k: "package", label: "Add Package", live: false },
+  { k: "package", label: "Add Package", live: true },
   { k: "giftcard", label: "Add GiftCard", live: false },
-  { k: "membership", label: "Add Membership", live: false },
+  { k: "membership", label: "Add Membership", live: true },
 ];
 
 function escapeHtml(s) {
@@ -81,6 +81,12 @@ export default function POS() {
   const [mode, setMode] = useState("services"); // services | products
   const [services, setServices] = useState([]);
   const [products, setProducts] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [memberships, setMemberships] = useState([]);
+  const [benefits, setBenefits] = useState(null);
+  const [redeemPoints, setRedeemPoints] = useState(0);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponInfo, setCouponInfo] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [staff, setStaff] = useState([]);
   const [category, setCategory] = useState(""); // selected left-column category
@@ -111,6 +117,8 @@ export default function POS() {
       setCategory(c => c || firstCat || "");
     });
     api.get("/products").then(r => setProducts(r.data));
+    api.get("/packages").then(r => setPackages(r.data.filter(p => p.active))).catch(() => {});
+    api.get("/memberships").then(r => setMemberships(r.data.filter(m => m.active))).catch(() => {});
     api.get("/staff").then(r => setStaff(r.data));
     api.get("/settings/tax")
       .then(r => { setTaxEnabled(!!r.data.tax_enabled); setTaxPct(Number(r.data.tax_pct || 0)); })
@@ -129,8 +137,20 @@ export default function POS() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const catalog = mode === "services" ? services : products;
-  const categories = useMemo(() => [...new Set(catalog.map(i => i.category || "Other"))], [catalog]);
+  // Load guest benefits (loyalty, packages, membership) when a guest is selected
+  useEffect(() => {
+    setBenefits(null); setRedeemPoints(0);
+    if (!customerId) return;
+    api.get(`/customers/${customerId}/benefits`).then(r => setBenefits(r.data)).catch(() => {});
+  }, [customerId]);
+
+  const catalog = mode === "services" ? services
+    : mode === "products" ? products
+    : mode === "package" ? packages
+    : mode === "membership" ? memberships : [];
+  const categories = useMemo(
+    () => (mode === "services" || mode === "products") ? [...new Set(catalog.map(i => i.category || "Other"))] : [],
+    [catalog, mode]);
 
   // Reset selected category when switching mode
   useEffect(() => {
@@ -138,9 +158,9 @@ export default function POS() {
   }, [categories, category]);
 
   const filtered = useMemo(() => catalog.filter(i =>
-    (!category || (i.category || "Other") === category) &&
+    (!categories.length || !category || (i.category || "Other") === category) &&
     (!q || i.name.toLowerCase().includes(q.toLowerCase())),
-  ), [catalog, category, q]);
+  ), [catalog, categories, category, q]);
 
   const customer = useMemo(() => customers.find(c => c.id === customerId), [customers, customerId]);
 
@@ -167,7 +187,13 @@ export default function POS() {
   }
 
   function addToCart(it) {
-    const type = mode === "services" ? "service" : "product";
+    const type = mode === "services" ? "service" : mode === "products" ? "product"
+      : mode === "package" ? "package" : "membership";
+    if (type === "package" || type === "membership") {
+      if (cart.some(c => c.type === type && c.ref_id === it.id)) { toast.info("Already in the bill"); return; }
+      setCart([...cart, { type, ref_id: it.id, name: it.name, qty: 1, price: it.price, disc_pct: 0, staff_id: "", staff_name: "" }]);
+      return;
+    }
     const existsIdx = cart.findIndex(c => c.type === type && c.ref_id === it.id);
     if (existsIdx >= 0) {
       const next = [...cart]; next[existsIdx] = { ...next[existsIdx], qty: next[existsIdx].qty + 1 };
@@ -193,14 +219,32 @@ export default function POS() {
   const lineDiscount = useMemo(() =>
     cart.reduce((s, c) => s + (c.qty * c.price) * ((c.disc_pct || 0) / 100), 0),
   [cart]);
-  const totalDiscount = lineDiscount;
+  const servicesSubtotal = useMemo(() => cart.filter(c => c.type === "service").reduce((s, c) => s + c.qty * c.price, 0), [cart]);
+  const membershipDiscount = benefits?.membership ? servicesSubtotal * benefits.membership.discount_pct / 100 : 0;
+  const afterMemb = Math.max(0, subtotal - lineDiscount - membershipDiscount);
+  const couponDiscount = couponInfo ? (couponInfo.type === "percent" ? afterMemb * couponInfo.value / 100 : Math.min(couponInfo.value, afterMemb)) : 0;
+  const pointsUsed = Math.min(redeemPoints || 0, benefits?.loyalty_points || 0, Math.max(0, afterMemb - couponDiscount));
+  const totalDiscount = lineDiscount + membershipDiscount + couponDiscount + pointsUsed;
   const taxable = Math.max(0, subtotal - totalDiscount);
   const tax = taxable * taxPct / 100;
   const total = taxable + tax;
 
+  async function checkCoupon() {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) { setCouponInfo(null); return; }
+    try {
+      const { data } = await api.get(`/coupons`);
+      const c = data.find(x => x.code === code && x.active);
+      if (!c) { setCouponInfo(null); toast.error("Invalid coupon code"); return; }
+      setCouponInfo({ code: c.code, type: c.type, value: c.value });
+      toast.success(`Coupon ${c.code} applied ✦`);
+    } catch { toast.error("Couldn't check coupon"); }
+  }
+
   function clearAll() {
     setCart([]); setOrderNotes(""); setStaffId("");
     setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("cash");
+    setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
   }
 
   async function checkout(complete = true) {
@@ -214,11 +258,13 @@ export default function POS() {
           type, ref_id, name, qty, price,
           staff_id: staff_id || null, staff_name: staff_name || null,
         })),
-        discount: totalDiscount,
+        discount: lineDiscount,
         tax_pct: taxPct,
         payment_mode: payment,
+        redeem_points: pointsUsed,
+        coupon_code: couponInfo?.code || null,
       });
-      toast.success(`Invoice ${data.invoice_no} created`);
+      toast.success(`Invoice ${data.invoice_no} created${data.points_earned ? ` · +${data.points_earned} pts earned` : ""}`);
       setLastInvoice(data);
       if (complete) clearAll();
     } catch (err) { toast.error(err.response?.data?.detail || "Checkout failed"); }
@@ -307,7 +353,9 @@ export default function POS() {
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <h3 className="text-base font-semibold text-slate-700 mb-3">{category || "All items"}</h3>
+            <h3 className="text-base font-semibold text-slate-700 mb-3">
+              {categories.length ? (category || "All items") : mode === "package" ? "Packages" : mode === "membership" ? "Memberships" : "All items"}
+            </h3>
             <div className="grid grid-cols-2 gap-2 max-h-[calc(100vh-22rem)] overflow-y-auto pr-1">
               {filtered.map(i => (
                 <button
@@ -419,6 +467,40 @@ export default function POS() {
               </div>
             )}
 
+            {/* Guest benefits: loyalty points, membership, prepaid packages */}
+            {customerId && benefits && (
+              <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="pos-benefits-panel">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 font-medium" data-testid="pos-loyalty-chip">
+                  🪙 {benefits.loyalty_points} pts (₹{benefits.loyalty_points})
+                </span>
+                {benefits.loyalty_points > 0 && (
+                  <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                    Redeem
+                    <input type="number" min="0" max={benefits.loyalty_points} value={redeemPoints || ""}
+                      data-testid="pos-redeem-points-input"
+                      onChange={e => setRedeemPoints(Math.min(benefits.loyalty_points, Math.max(0, parseInt(e.target.value || 0))))}
+                      className="w-20 px-2 py-1 rounded border border-slate-200 bg-white text-xs" placeholder="0" /> pts
+                  </span>
+                )}
+                {benefits.membership && (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-medium" data-testid="pos-membership-chip">
+                    👑 {benefits.membership.name} · {benefits.membership.discount_pct}% off services
+                  </span>
+                )}
+                {benefits.packages.map(p => (
+                  <button key={p.id} type="button" data-testid={`pos-package-redeem-${p.id}`}
+                    onClick={() => {
+                      if (cart.some(c => c.type === "package_redeem" && c.ref_id === p.id)) { toast.info("Session already added"); return; }
+                      setCart(prev => [...prev, { type: "package_redeem", ref_id: p.id, name: `${p.service_name} (package session)`, qty: 1, price: 0, disc_pct: 0, staff_id: "", staff_name: "" }]);
+                      toast.success(`Session from '${p.package_name}' added at ₹0`);
+                    }}
+                    className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium hover:bg-emerald-100">
+                    📦 {p.package_name}: {p.sessions_left} left — Use session
+                  </button>
+                ))}
+              </div>
+            )}
+
             {!customerId && cart.length > 0 && (
               <p className="text-red-500 text-xs mt-2" data-testid="pos-guest-warning">Please select guest</p>
             )}
@@ -495,7 +577,21 @@ export default function POS() {
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-slate-200 px-4 py-3 flex items-center justify-end gap-6 text-sm text-slate-600">
+            <div className="border-t border-slate-200 px-4 py-3 flex flex-wrap items-center justify-end gap-x-6 gap-y-2 text-sm text-slate-600">
+              <span className="inline-flex items-center gap-1.5">
+                <input
+                  data-testid="pos-coupon-input"
+                  value={couponCode}
+                  onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponInfo(null); }}
+                  onKeyDown={e => e.key === "Enter" && checkCoupon()}
+                  placeholder="Coupon code"
+                  className="w-28 px-2 py-1 rounded border border-slate-200 bg-slate-50 text-xs font-mono uppercase"
+                />
+                <button type="button" data-testid="pos-coupon-apply-btn" onClick={checkCoupon} className="text-xs text-sky-600 font-medium hover:underline">Apply</button>
+              </span>
+              {membershipDiscount > 0 && <span className="text-violet-600" data-testid="pos-membership-discount">👑 −₹{membershipDiscount.toFixed(0)}</span>}
+              {couponDiscount > 0 && <span className="text-emerald-600" data-testid="pos-coupon-discount">🎟 {couponInfo.code} −₹{couponDiscount.toFixed(0)}</span>}
+              {pointsUsed > 0 && <span className="text-amber-600" data-testid="pos-points-discount">🪙 −₹{pointsUsed.toFixed(0)}</span>}
               <span>Discount: <span className="font-semibold text-slate-800">₹{totalDiscount.toFixed(0)}</span></span>
               {taxEnabled && (
                 <span>Tax ({taxPct}%): <span className="font-semibold text-slate-800">₹{tax.toFixed(0)}</span></span>

@@ -12,7 +12,7 @@ const DEFAULT_SLUG = "miracurl-marathahalli";
 const TOASTER_STYLE = { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' };
 const TOASTER_OPTIONS = { style: TOASTER_STYLE };
 const STEP_LABELS = ["Services", "Stylist", "Date & Time", "Your Details", "Confirm"];
-const INITIAL_FORM = { name: "", phone: "", email: "", notes: "", referral_code: "", gender: "Female" };
+const INITIAL_FORM = { name: "", phone: "", email: "", notes: "", referral_code: "", coupon_code: "", gender: "Female" };
 const tomorrow = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
 function Stepper({ step }) {
@@ -64,7 +64,15 @@ export default function BookPublic() {
   const [time, setTime] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
   const [referralCheck, setReferralCheck] = useState(null);
+  const [couponCheck, setCouponCheck] = useState(null);
+  const [availability, setAvailability] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
+
+  useEffect(() => {
+    if (!date) return;
+    setAvailability(null);
+    PUBLIC.get(`/availability/${slug}?date=${date}`).then(r => setAvailability(r.data)).catch(() => setAvailability(null));
+  }, [PUBLIC, slug, date]);
 
   useEffect(() => {
     PUBLIC.get(`/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon({ error: true }));
@@ -92,8 +100,9 @@ export default function BookPublic() {
 
   const handleFormChange = useCallback(next => {
     setReferralCheck(prev => (next.referral_code !== form.referral_code ? null : prev));
+    setCouponCheck(prev => (next.coupon_code !== form.coupon_code ? null : prev));
     setForm(next);
-  }, [form.referral_code]);
+  }, [form.referral_code, form.coupon_code]);
 
   function next() {
     if (step === 0 && picked.length === 0) { toast.error("Please pick at least one service"); return; }
@@ -117,6 +126,17 @@ export default function BookPublic() {
     }
   }, [PUBLIC, slug, form.referral_code]);
 
+  const checkCoupon = useCallback(async () => {
+    const code = (form.coupon_code || "").trim().toUpperCase();
+    if (!code) { setCouponCheck(null); return; }
+    try {
+      const { data } = await PUBLIC.get(`/coupon-check/${slug}/${encodeURIComponent(code)}`);
+      setCouponCheck({ valid: true, ...data });
+    } catch (e) {
+      setCouponCheck({ valid: false, error: e.response?.data?.detail || "Invalid coupon" });
+    }
+  }, [PUBLIC, slug, form.coupon_code]);
+
   async function submit() {
     setBusy(true);
     try {
@@ -131,6 +151,7 @@ export default function BookPublic() {
         scheduled_at: scheduled,
         notes: form.notes || null,
         referral_code: form.referral_code.trim().toUpperCase() || null,
+        coupon_code: couponCheck?.valid ? form.coupon_code.trim().toUpperCase() : null,
       });
       setConfirmation(data);
       setStep(5);
@@ -141,7 +162,7 @@ export default function BookPublic() {
   }
 
   function bookAnother() {
-    setStep(0); setPicked([]); setTime(""); setReferralCheck(null);
+    setStep(0); setPicked([]); setTime(""); setReferralCheck(null); setCouponCheck(null);
     setForm(INITIAL_FORM);
     setConfirmation(null);
   }
@@ -195,8 +216,8 @@ export default function BookPublic() {
 
         {step === 0 && <ServicesStep byCategory={byCategory} picked={picked} onToggle={toggleService} />}
         {step === 1 && <StaffStep staff={staff} staffId={staffId} onPick={setStaffId} />}
-        {step === 2 && <DateTimeStep date={date} time={time} onDate={setDate} onTime={setTime} />}
-        {step === 3 && <DetailsStep form={form} onChange={handleFormChange} referralCheck={referralCheck} onCheckReferral={checkReferral} />}
+        {step === 2 && <DateTimeStep date={date} time={time} onDate={setDate} onTime={setTime} availability={availability} />}
+        {step === 3 && <DetailsStep form={form} onChange={handleFormChange} referralCheck={referralCheck} onCheckReferral={checkReferral} couponCheck={couponCheck} onCheckCoupon={checkCoupon} />}
         {step === 4 && (
           <ConfirmStep
             pickedServices={pickedServices}

@@ -18,7 +18,7 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Header, Form
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -110,6 +110,11 @@ class _DB:
     gallery = TenantCollection(_raw_db.gallery)
     chat_threads = TenantCollection(_raw_db.chat_threads)
     chat_messages = TenantCollection(_raw_db.chat_messages)
+    packages = TenantCollection(_raw_db.packages)
+    memberships = TenantCollection(_raw_db.memberships)
+    customer_packages = TenantCollection(_raw_db.customer_packages)
+    customer_memberships = TenantCollection(_raw_db.customer_memberships)
+    coupons = TenantCollection(_raw_db.coupons)
 
 db = _DB()
 
@@ -534,7 +539,7 @@ class AppointmentStatusIn(BaseModel):
     status: str
 
 class InvoiceItem(BaseModel):
-    type: str  # service | product
+    type: str  # service | product | package | membership | package_redeem
     ref_id: str
     name: str
     qty: int = 1
@@ -565,6 +570,8 @@ class InvoiceIn(BaseModel):
     discount: float = 0
     tax_pct: float = 18.0
     payment_mode: str = "cash"
+    redeem_points: int = 0
+    coupon_code: Optional[str] = None
 
 class Review(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -1983,11 +1990,45 @@ async def _check_stock_or_400(items) -> dict:
     return needed
 
 
-def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: float) -> dict:
+async def _validate_coupon(code: Optional[str]):
+    """Returns coupon doc or raises 400. None code → None."""
+    if not code:
+        return None
+    c = await db.coupons.find_one({"code": code.strip().upper(), "active": True}, {"_id": 0})
+    if not c:
+        raise HTTPException(400, "Invalid coupon code")
+    if c.get("expires_at") and c["expires_at"] < datetime.now(timezone.utc).date().isoformat():
+        raise HTTPException(400, "This coupon has expired")
+    if c.get("max_uses") and int(c.get("used_count") or 0) >= int(c["max_uses"]):
+        raise HTTPException(400, "This coupon has reached its usage limit")
+    return c
+
+def _coupon_discount(coupon, amount: float) -> float:
+    if not coupon or amount <= 0:
+        return 0.0
+    if coupon["type"] == "percent":
+        return round(amount * float(coupon["value"]) / 100, 2)
+    return round(min(float(coupon["value"]), amount), 2)
+
+async def _active_membership(customer_id: str):
+    now = datetime.now(timezone.utc).isoformat()
+    return await db.customer_memberships.find_one(
+        {"customer_id": customer_id, "expires_at": {"$gt": now}}, {"_id": 0}, sort=[("discount_pct", -1)])
+
+def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: float,
+                            membership_pct: float = 0.0, coupon=None, redeem_points: int = 0) -> dict:
     raw_subtotal = sum(it.qty * it.price for it in items)
+    services_subtotal = sum(it.qty * it.price for it in items if it.type == "service")
+    membership_discount = round(services_subtotal * (membership_pct or 0) / 100, 2)
+    remaining = max(0, raw_subtotal - (discount_in or 0) - membership_discount)
+    coupon_discount = _coupon_discount(coupon, remaining)
+    remaining = max(0, remaining - coupon_discount)
     referral_credit_available = float(cust.get("referral_credit") or 0)
-    referral_credit_used = min(referral_credit_available, raw_subtotal)
-    discount = (discount_in or 0) + referral_credit_used
+    referral_credit_used = min(referral_credit_available, remaining)
+    remaining = max(0, remaining - referral_credit_used)
+    points_available = int(cust.get("loyalty_points") or 0)
+    points_used = min(max(0, int(redeem_points or 0)), points_available, int(remaining))
+    discount = (discount_in or 0) + membership_discount + coupon_discount + referral_credit_used + points_used
     taxable = max(0, raw_subtotal - discount)
     tax = taxable * (tax_pct or 0) / 100
     return {
@@ -1996,7 +2037,39 @@ def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: floa
         "tax": tax,
         "total": taxable + tax,
         "referral_credit_used": referral_credit_used,
+        "membership_discount": membership_discount,
+        "coupon_discount": coupon_discount,
+        "points_used": points_used,
     }
+
+
+LOYALTY_EARN_PER_100 = 5  # points earned per ₹100 of final bill; 1 point = ₹1
+
+async def _process_benefit_items(inv: dict, cust: dict):
+    """Create package/membership records for purchases; consume redeemed sessions."""
+    now = datetime.now(timezone.utc)
+    for it in inv["items"]:
+        if it["type"] == "package":
+            p = await db.packages.find_one({"id": it["ref_id"]}, {"_id": 0})
+            if p:
+                await db.customer_packages.insert_one({
+                    "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
+                    "package_id": p["id"], "package_name": p["name"], "service_id": p.get("service_id"),
+                    "service_name": p.get("service_name"), "sessions_left": int(p["sessions"]),
+                    "sessions_total": int(p["sessions"]),
+                    "expires_at": (now + timedelta(days=int(p.get("validity_days") or 365))).isoformat(),
+                    "purchased_at": now.isoformat(), "invoice_id": inv["id"]})
+        elif it["type"] == "membership":
+            m = await db.memberships.find_one({"id": it["ref_id"]}, {"_id": 0})
+            if m:
+                await db.customer_memberships.insert_one({
+                    "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
+                    "membership_id": m["id"], "name": m["name"], "discount_pct": float(m["discount_pct"]),
+                    "expires_at": (now + timedelta(days=int(m.get("validity_days") or 180))).isoformat(),
+                    "purchased_at": now.isoformat(), "invoice_id": inv["id"]})
+        elif it["type"] == "package_redeem":
+            await db.customer_packages.update_one(
+                {"id": it["ref_id"], "sessions_left": {"$gt": 0}}, {"$inc": {"sessions_left": -1}})
 
 
 @api.post("/invoices")
@@ -2006,14 +2079,32 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         raise HTTPException(400, "Invalid customer")
     staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
 
+    # Validate package-redeem lines (must belong to this customer, have sessions, not expired) and force ₹0
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for it in body.items:
+        if it.type == "package_redeem":
+            cp = await db.customer_packages.find_one({"id": it.ref_id}, {"_id": 0})
+            if not cp or cp["customer_id"] != cust["id"]:
+                raise HTTPException(400, "Package not found for this guest")
+            if cp["sessions_left"] < 1:
+                raise HTTPException(400, f"No sessions left in '{cp['package_name']}'")
+            if cp["expires_at"] < now_iso:
+                raise HTTPException(400, f"Package '{cp['package_name']}' has expired")
+            it.price = 0.0
+            it.qty = 1
+
     # Tax is ONLY applied when the tenant has opted-in by configuring GST settings.
-    # Owners without GST registration must not be forced to charge tax on receipts.
     tid = _current_tenant_id.get()
     tenant_doc = await db.tenants.find_one({"id": tid}, {"_id": 0}) if tid else None
     effective_tax_pct = float(tenant_doc.get("tax_pct") or 0) if (tenant_doc and tenant_doc.get("tax_enabled")) else 0.0
 
+    membership = await _active_membership(cust["id"])
+    coupon = await _validate_coupon(body.coupon_code)
     needed = await _check_stock_or_400(body.items)
-    totals = _compute_invoice_totals(body.items, cust, body.discount, effective_tax_pct)
+    totals = _compute_invoice_totals(
+        body.items, cust, body.discount, effective_tax_pct,
+        membership_pct=float(membership["discount_pct"]) if membership else 0.0,
+        coupon=coupon, redeem_points=body.redeem_points)
 
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),
@@ -2023,16 +2114,27 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         items=body.items, subtotal=totals["subtotal"], discount=totals["discount"],
         tax=totals["tax"], total=totals["total"], payment_mode=body.payment_mode,
     ).model_dump()
+    inv["membership_discount"] = totals["membership_discount"]
+    inv["coupon_code"] = coupon["code"] if coupon else None
+    inv["coupon_discount"] = totals["coupon_discount"]
+    inv["points_used"] = totals["points_used"]
     await db.invoices.insert_one(inv)
 
-    # Update customer stats and consume referral credit
-    cust_inc = {"total_spent": totals["total"], "visits": 1, "loyalty_points": int(totals["total"] // 100)}
+    # Update customer stats, consume credits/points, award loyalty (5 pts per ₹100)
+    points_earned = int(totals["total"] // 100) * LOYALTY_EARN_PER_100
+    cust_inc = {"total_spent": totals["total"], "visits": 1,
+                "loyalty_points": points_earned - totals["points_used"]}
     if totals["referral_credit_used"] > 0:
         cust_inc["referral_credit"] = -totals["referral_credit_used"]
     await db.customers.update_one({"id": cust["id"]}, {"$inc": cust_inc})
 
+    if coupon:
+        await db.coupons.update_one({"id": coupon["id"]}, {"$inc": {"used_count": 1}})
+    await _process_benefit_items(inv, cust)
+
     for pid, qty in needed.items():
         await db.products.update_one({"id": pid}, {"$inc": {"stock": -qty}})
+    inv["points_earned"] = points_earned
     return _clean(inv)
 
 # ---------------- Reviews ----------------
@@ -2448,6 +2550,7 @@ class PublicBookingIn(BaseModel):
     scheduled_at: str
     notes: Optional[str] = Field(None, max_length=500)
     referral_code: Optional[str] = None
+    coupon_code: Optional[str] = None
 
     @field_validator("customer_phone")
     @classmethod
@@ -2613,9 +2716,42 @@ async def _apply_referral_credit(cust: dict, code: Optional[str]) -> Optional[di
     return {"referrer_name": referrer["name"], "credit_added": REFERRAL_REWARD_REFERRED}
 
 
+_SLOT_TIMES = ["10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+               "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+               "18:00", "18:30", "19:00", "19:30", "20:00", "20:30"]
+
+async def _count_overlapping(start: datetime, end: datetime) -> int:
+    date_prefix = start.astimezone(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+    appts = await db.appointments.find(
+        {"scheduled_at": {"$regex": f"^{date_prefix}"}, "status": {"$nin": ["cancelled", "no_show"]}},
+        {"_id": 0, "scheduled_at": 1, "duration_min": 1}).to_list(500)
+    busy = 0
+    for a in appts:
+        try:
+            ast = datetime.fromisoformat(a["scheduled_at"])
+        except ValueError:
+            continue
+        if ast.tzinfo is None:
+            ast = ast.replace(tzinfo=timezone.utc)
+        aen = ast + timedelta(minutes=int(a.get("duration_min") or 30))
+        if ast < end and aen > start:
+            busy += 1
+    return busy
+
+async def _ensure_slot_capacity(scheduled_at: str, duration_min: int):
+    staff_count = await db.staff.count_documents({"active": True}) or 1
+    start = datetime.fromisoformat(scheduled_at)
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    busy = await _count_overlapping(start, start + timedelta(minutes=duration_min or 30))
+    if busy >= staff_count:
+        raise HTTPException(409, "That time slot is fully booked — please pick another time.")
+
+
 async def _create_public_appointment(cust: dict, staff: dict, services: list, body: PublicBookingIn) -> tuple[dict, float, int]:
     total = sum(s["price"] for s in services)
     duration = sum(s["duration_min"] for s in services) or 30
+    await _ensure_slot_capacity(body.scheduled_at, duration)
     appt = Appointment(
         customer_id=cust["id"], customer_name=cust["name"],
         staff_id=staff["id"], staff_name=staff["name"],
@@ -2639,9 +2775,20 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
         raise HTTPException(400, "Invalid services")
 
     staff = await _resolve_staff(body.staff_id)
+    coupon = await _validate_coupon(body.coupon_code)
     cust, is_new_customer = await _resolve_or_create_customer(body)
     referral_applied = await _apply_referral_credit(cust, body.referral_code) if is_new_customer else None
     appt, total, duration = await _create_public_appointment(cust, staff, services, body)
+
+    coupon_discount = 0.0
+    if coupon:
+        coupon_discount = _coupon_discount(coupon, total)
+        await db.appointments.update_one(
+            {"id": appt["id"]},
+            {"$set": {"coupon_code": coupon["code"], "coupon_discount": coupon_discount, "total": total - coupon_discount}})
+        await db.coupons.update_one({"id": coupon["id"]}, {"$inc": {"used_count": 1}})
+        appt.update({"coupon_code": coupon["code"], "coupon_discount": coupon_discount, "total": total - coupon_discount})
+        total = total - coupon_discount
 
     return {
         "appointment": appt,
@@ -2652,6 +2799,8 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
             "staff_name": staff["name"],
             "service_names": [s["name"] for s in services],
             "total": total,
+            "coupon_code": coupon["code"] if coupon else None,
+            "coupon_discount": coupon_discount,
             "duration_min": duration,
             "scheduled_at": body.scheduled_at,
         },
@@ -4175,6 +4324,164 @@ async def delete_gallery_item(gid: str, user=Depends(require_admin)):
     await _raw_db.uploads.update_one({"id": gid}, {"$set": {"is_deleted": True}})
     return {"ok": True}
 
+# ---------------- Packages, Memberships & Coupons ----------------
+class PackageIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=120)
+    price: float = Field(..., gt=0)
+    service_id: str
+    sessions: int = Field(..., ge=1, le=100)
+    validity_days: int = Field(365, ge=1, le=1825)
+    active: bool = True
+
+class MembershipIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=120)
+    price: float = Field(..., gt=0)
+    discount_pct: float = Field(..., gt=0, le=90)
+    validity_days: int = Field(180, ge=1, le=1825)
+    active: bool = True
+
+class CouponIn(BaseModel):
+    code: str = Field(..., min_length=3, max_length=20)
+    type: str = "percent"  # percent | flat
+    value: float = Field(..., gt=0)
+    expires_at: Optional[str] = None  # YYYY-MM-DD
+    max_uses: Optional[int] = Field(None, ge=1)
+    active: bool = True
+
+    @field_validator("code")
+    @classmethod
+    def _code(cls, v):
+        v = v.strip().upper()
+        if not re.fullmatch(r"[A-Z0-9]{3,20}", v):
+            raise ValueError("Code must be 3-20 letters/digits")
+        return v
+
+    @field_validator("type")
+    @classmethod
+    def _type(cls, v):
+        if v not in ("percent", "flat"):
+            raise ValueError("type must be percent or flat")
+        return v
+
+@api.get("/packages")
+async def list_packages(user=Depends(get_current_user)):
+    return await db.packages.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+
+@api.post("/packages")
+async def create_package(body: PackageIn, user=Depends(require_admin)):
+    svc = await db.services.find_one({"id": body.service_id}, {"_id": 0, "name": 1})
+    if not svc:
+        raise HTTPException(400, "Service not found")
+    doc = {"id": str(uuid.uuid4()), **body.model_dump(), "service_name": svc["name"],
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.packages.insert_one(doc)
+    return _clean(doc)
+
+@api.put("/packages/{pid}")
+async def update_package(pid: str, body: PackageIn, user=Depends(require_admin)):
+    svc = await db.services.find_one({"id": body.service_id}, {"_id": 0, "name": 1})
+    if not svc:
+        raise HTTPException(400, "Service not found")
+    await db.packages.update_one({"id": pid}, {"$set": {**body.model_dump(), "service_name": svc["name"]}})
+    return await db.packages.find_one({"id": pid}, {"_id": 0})
+
+@api.delete("/packages/{pid}")
+async def delete_package(pid: str, user=Depends(require_admin)):
+    await db.packages.delete_one({"id": pid})
+    return {"ok": True}
+
+@api.get("/memberships")
+async def list_memberships(user=Depends(get_current_user)):
+    return await db.memberships.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+
+@api.post("/memberships")
+async def create_membership(body: MembershipIn, user=Depends(require_admin)):
+    doc = {"id": str(uuid.uuid4()), **body.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.memberships.insert_one(doc)
+    return _clean(doc)
+
+@api.put("/memberships/{mid}")
+async def update_membership(mid: str, body: MembershipIn, user=Depends(require_admin)):
+    await db.memberships.update_one({"id": mid}, {"$set": body.model_dump()})
+    return await db.memberships.find_one({"id": mid}, {"_id": 0})
+
+@api.delete("/memberships/{mid}")
+async def delete_membership(mid: str, user=Depends(require_admin)):
+    await db.memberships.delete_one({"id": mid})
+    return {"ok": True}
+
+@api.get("/coupons")
+async def list_coupons(user=Depends(get_current_user)):
+    return await db.coupons.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+@api.post("/coupons")
+async def create_coupon(body: CouponIn, user=Depends(require_admin)):
+    if await db.coupons.find_one({"code": body.code}, {"_id": 0, "id": 1}):
+        raise HTTPException(400, f"Coupon '{body.code}' already exists")
+    doc = {"id": str(uuid.uuid4()), **body.model_dump(), "used_count": 0,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.coupons.insert_one(doc)
+    return _clean(doc)
+
+@api.put("/coupons/{cid}")
+async def update_coupon(cid: str, body: CouponIn, user=Depends(require_admin)):
+    dup = await db.coupons.find_one({"code": body.code, "id": {"$ne": cid}}, {"_id": 0, "id": 1})
+    if dup:
+        raise HTTPException(400, f"Coupon '{body.code}' already exists")
+    await db.coupons.update_one({"id": cid}, {"$set": body.model_dump()})
+    return await db.coupons.find_one({"id": cid}, {"_id": 0})
+
+@api.delete("/coupons/{cid}")
+async def delete_coupon(cid: str, user=Depends(require_admin)):
+    await db.coupons.delete_one({"id": cid})
+    return {"ok": True}
+
+@api.get("/customers/{cid}/benefits")
+async def customer_benefits(cid: str, user=Depends(get_current_user)):
+    cust = await db.customers.find_one({"id": cid}, {"_id": 0, "loyalty_points": 1, "referral_credit": 1})
+    if cust is None:
+        raise HTTPException(404, "Customer not found")
+    now = datetime.now(timezone.utc).isoformat()
+    pkgs = await db.customer_packages.find(
+        {"customer_id": cid, "sessions_left": {"$gt": 0}, "expires_at": {"$gt": now}}, {"_id": 0}).to_list(50)
+    membership = await _active_membership(cid)
+    return {"loyalty_points": int(cust.get("loyalty_points") or 0),
+            "referral_credit": float(cust.get("referral_credit") or 0),
+            "packages": pkgs, "membership": membership}
+
+@api.get("/public/coupon-check/{slug}/{code}")
+async def public_coupon_check(slug: str, code: str, request: Request):
+    await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"coupon:{slug}", limit=20, window_sec=600)
+    c = await _validate_coupon(code)
+    return {"valid": True, "code": c["code"], "type": c["type"], "value": c["value"]}
+
+@api.get("/public/availability/{slug}")
+async def public_availability(slug: str, date: str):
+    await resolve_tenant_from_slug(slug)
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        raise HTTPException(400, "date must be YYYY-MM-DD")
+    staff_count = await db.staff.count_documents({"active": True}) or 1
+    appts = await db.appointments.find(
+        {"scheduled_at": {"$regex": f"^{date}"}, "status": {"$nin": ["cancelled", "no_show"]}},
+        {"_id": 0, "scheduled_at": 1, "duration_min": 1}).to_list(500)
+    parsed = []
+    for a in appts:
+        try:
+            ast = datetime.fromisoformat(a["scheduled_at"])
+            if ast.tzinfo is None:
+                ast = ast.replace(tzinfo=timezone.utc)
+            parsed.append((ast, ast + timedelta(minutes=int(a.get("duration_min") or 30))))
+        except ValueError:
+            continue
+    slots = {}
+    for hhmm in _SLOT_TIMES:
+        s = datetime.fromisoformat(f"{date}T{hhmm}:00+05:30")
+        e = s + timedelta(minutes=30)
+        busy = sum(1 for ast, aen in parsed if ast < e and aen > s)
+        slots[hhmm] = busy < staff_count
+    return {"date": date, "staff_count": staff_count, "slots": slots}
+
 # ---------------- Public AI Beauty Advisor (recommends + books) ----------------
 _BOOK_MARKER = "[[BOOK]]"
 
@@ -4189,11 +4496,29 @@ async def _booking_catalog(t) -> str:
         f"- id={s['id']} | {s['name']} | {s.get('category', '')} | ₹{s['price']} | {s['duration_min']}min"
         for s in services) or "(no services listed)"
     staff_lines = ", ".join(f"{s['name']} (id={s['id']})" for s in staff) or "any available stylist"
+    today = datetime.now(timezone.utc).date().isoformat()
+    coupons = await db.coupons.find({"active": True}, {"_id": 0}).to_list(50)
+    live_coupons = [c for c in coupons
+                    if (not c.get("expires_at") or c["expires_at"] >= today)
+                    and (not c.get("max_uses") or int(c.get("used_count") or 0) < int(c["max_uses"]))]
+    offer_lines = "\n".join(
+        f"- Code {c['code']}: {int(c['value'])}% off" if c["type"] == "percent" else f"- Code {c['code']}: ₹{int(c['value'])} off"
+        for c in live_coupons) or "(none currently)"
+    pkgs = await db.packages.find({"active": True}, {"_id": 0}).to_list(50)
+    pkg_lines = "\n".join(
+        f"- {p['name']}: {p['sessions']}× {p.get('service_name', '')} for ₹{int(p['price'])} (valid {p.get('validity_days', 365)} days)"
+        for p in pkgs) or "(none currently)"
+    mems = await db.memberships.find({"active": True}, {"_id": 0}).to_list(50)
+    mem_lines = "\n".join(
+        f"- {m['name']}: {int(m['discount_pct'])}% off all services for ₹{int(m['price'])} ({m.get('validity_days', 180)} days)"
+        for m in mems) or "(none currently)"
     ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
     return (f"Salon: {t.get('name')}{', ' + t['location'] if t.get('location') else ''}. Hours: {t.get('hours')}. "
             f"Phone: {t.get('phone') or 'ask at the salon'}. "
             f"Current date & time (IST): {ist_now.strftime('%A %Y-%m-%d %H:%M')}.\n"
-            f"SERVICE MENU:\n{svc_lines}\nSTYLISTS: {staff_lines}")
+            f"SERVICE MENU:\n{svc_lines}\nSTYLISTS: {staff_lines}\n"
+            f"CURRENT OFFERS (coupon codes customers can apply):\n{offer_lines}\n"
+            f"PACKAGES (bought at the salon):\n{pkg_lines}\nMEMBERSHIPS (bought at the salon):\n{mem_lines}")
 
 async def _ai_execute_booking(payload: str):
     """Parse the AI's booking JSON and create a real appointment. Returns (booking, error)."""
@@ -4227,16 +4552,12 @@ async def _ai_execute_booking(payload: str):
             "service_names": [s["name"] for s in services], "total": total,
             "duration_min": duration, "scheduled_at": bk.scheduled_at}, None
 
-@api.post("/public/ai-chat/{slug}")
-async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
-    t = await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"aichat:{slug}", limit=40, window_sec=600)
+async def _public_ai_reply(t, session_id: str, message: str):
+    """Shared Mira pipeline for text + voice. Returns (reply, booking, booking_error)."""
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         raise HTTPException(500, "AI key not configured")
-    sid = f"pub-{t['id']}-{body.session_id}"
-    # DB-backed history: survives restarts & multiple workers (production runs >1 worker,
-    # so in-memory sessions caused Mira to forget mid-conversation details).
+    sid = f"pub-{t['id']}-{session_id}"
     hist = await _raw_db.public_ai_messages.find({"sid": sid}, {"_id": 0}).sort("created_at", 1).to_list(40)
     catalog = await _booking_catalog(t)
     chat = LlmChat(
@@ -4244,20 +4565,26 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
         system_message=(
             f"You are Mira, the expert AI beauty consultant on the online booking page of '{t.get('name', 'the salon')}'. "
             "You are warm, gracious and extremely polite — like the most caring senior beautician who treats every guest like a VIP.\n\n"
+            "GREETING FLOW: at the very start of a conversation, warmly ask: 'May I know your name, please?'. "
+            f"When the customer tells you their name, reply: 'Welcome to Mira chat bot, [Name]! 💖 Thank you for choosing {t.get('name', 'our salon')}. How may I help you today?' and then assist them. "
+            "Use their name naturally afterwards. Never repeat the welcome once given.\n"
             "1) EXPERT BEAUTY ADVICE — give specific, detailed, professional recommendations for ANY beauty question: "
             "skin tone (fair, wheatish, dusky, deep), skin type (oily/dry/combination/sensitive), hair type (straight/wavy/curly, thin/thick), "
             "concerns (acne, tanning, pigmentation, dandruff, hair fall, frizz, dullness, aging), ingredients (vitamin C, niacinamide, hyaluronic acid, keratin, argan oil), "
-            "aftercare routines, and product guidance (e.g. which cleanser/serum/sunscreen suits their skin). Explain WHY a treatment suits them in 1-2 lines. "
-            "Ask 1-2 short questions if you need more info to personalise.\n"
+            "aftercare routines, and product guidance. Explain WHY a treatment suits them in 1-2 lines. Ask 1-2 short questions if you need more info.\n"
             "2) MENU MATCHING — when recommending treatments, first check the SERVICE MENU below and quote exact ₹ prices. "
-            "NEVER say 'we don't have that' or 'it's not on our menu' bluntly. If something isn't listed yet, still give full expert advice about it, "
-            "then gracefully suggest the CLOSEST service we do offer (e.g. no 'Hydrafacial' listed → suggest our Gold or Classic Facial as a lovely alternative), "
-            "and politely add they can tap the 'Message Salon' tab to ask the owner directly — the salon is always adding new services and happily takes special requests.\n"
-            "3) SALON QUESTIONS — answer anything about the salon (timings, location, phone, stylists, prices, offers) using the details below, always politely. "
-            "If you genuinely don't know something (like parking or a specific brand used), warmly direct them to the 'Message Salon' tab or the salon phone number — never guess facts about the salon.\n"
-            "4) BOOK APPOINTMENTS — you can book directly. Collect: full name, phone number (7-15 digits), chosen service(s) from the menu, "
+            "NEVER say 'we don't have that' bluntly. If something isn't listed yet, still give full expert advice about it, "
+            "then gracefully suggest the CLOSEST service we do offer, and politely add they can tap the 'Message Salon' tab to ask the owner directly.\n"
+            "3) OFFERS & PACKAGES — if the customer asks about offers, discounts, packages or memberships: share the CURRENT OFFERS / PACKAGES / MEMBERSHIPS listed below if any exist. "
+            "If none exist, say warmly: 'I'm so sorry, currently we are not running any offers — but we will make sure to create a special package for you once you visit our salon 😊'. "
+            "If a coupon code exists, tell them the code and that they can apply it while booking.\n"
+            "4) SALON QUESTIONS — answer anything about the salon (timings, location, phone, stylists, prices) using the details below, always politely. "
+            "If you genuinely don't know something, warmly direct them to the 'Message Salon' tab or the salon phone — never guess facts about the salon.\n"
+            "5) BOOK APPOINTMENTS — you can book directly. Collect: full name, phone number (7-15 digits), chosen service(s) from the menu, "
             "preferred date and time (salon is open 10:00–21:00 IST; suggest tomorrow if they're unsure). "
             "When you have ALL details, show a one-line summary (services, total ₹, date, time) and ask them to confirm.\n"
+            "6) SMART UPSELL — when the customer has chosen their service(s) and BEFORE asking for final confirmation, suggest exactly ONE complementary add-on from the menu "
+            "(e.g. 'Would you like to add a Pedicure for just ₹500 more? ✨'). Suggest it only ONCE — if they decline or ignore it, proceed graciously without repeating.\n"
             "CRITICAL MEMORY RULE: carefully re-read the conversation history before replying and NEVER re-ask for anything the customer already told you "
             "(chosen services, name, phone, date, time, skin/hair details). If earlier they picked services and now send name+phone+time, go straight to the summary + confirmation.\n"
             f"ONLY after the customer explicitly confirms, end your reply with one line in EXACTLY this format (double quotes, valid JSON):\n"
@@ -4270,9 +4597,9 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
     if hist:
         transcript = "\n".join(f"{'Customer' if h['role'] == 'user' else 'Mira'}: {h['content']}" for h in hist[-24:])
         prompt_text = (f"CONVERSATION SO FAR (remember every detail the customer already shared — do NOT re-ask):\n{transcript}\n\n"
-                       f"Customer's new message: {body.message}")
+                       f"Customer's new message: {message}")
     else:
-        prompt_text = body.message
+        prompt_text = message
     try:
         resp = await chat.send_message(UserMessage(text=prompt_text))
         reply = resp if isinstance(resp, str) else str(resp)
@@ -4291,11 +4618,54 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
             reply = (reply + f"\n\n⚠️ I couldn't complete the booking: {booking_error}. Let's fix that detail and try again.").strip()
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.public_ai_messages.insert_many([
-        {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "user", "content": body.message, "created_at": now},
+        {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "user", "content": message, "created_at": now},
         {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "assistant",
          "content": reply + (" [Appointment booked]" if booking else ""), "created_at": datetime.now(timezone.utc).isoformat()},
     ])
+    return reply, booking, booking_error
+
+@api.post("/public/ai-chat/{slug}")
+async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
+    t = await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"aichat:{slug}", limit=40, window_sec=600)
+    reply, booking, booking_error = await _public_ai_reply(t, body.session_id, body.message)
     return {"reply": reply, "booking": booking, "booking_error": booking_error}
+
+@api.post("/public/ai-voice/{slug}")
+async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(...), session_id: str = Form(..., min_length=8, max_length=64)):
+    from emergentintegrations.llm.openai import OpenAISpeechToText, OpenAITextToSpeech
+    t = await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"aivoice:{slug}", limit=30, window_sec=600)
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    data = await audio.read()
+    if not data:
+        raise HTTPException(400, "Empty audio")
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(413, "Audio too large — keep it under a minute")
+    buf = io.BytesIO(data)
+    ext = (audio.filename or "voice.webm").rsplit(".", 1)[-1].lower()
+    buf.name = f"voice.{ext if ext in ('webm', 'mp3', 'mp4', 'wav', 'm4a', 'mpeg', 'mpga') else 'webm'}"
+    stt = OpenAISpeechToText(api_key=key)
+    try:
+        tr = await stt.transcribe(file=buf, model="whisper-1", response_format="json")
+        transcript = (tr.text or "").strip()
+    except Exception as e:
+        logging.getLogger("public_ai").error(f"stt error: {e}")
+        raise HTTPException(502, "Sorry, I couldn't hear that — please try again.")
+    if not transcript:
+        raise HTTPException(400, "I couldn't hear anything — please speak again.")
+    reply, booking, booking_error = await _public_ai_reply(t, session_id, transcript)
+    audio_b64 = None
+    try:
+        tts = OpenAITextToSpeech(api_key=key)
+        speech_text = re.sub(r"\*\*|✨|💖|💆‍♀️|✅|⚠️|📞", "", reply)[:4000]
+        audio_b64 = await tts.generate_speech_base64(text=speech_text, model="tts-1", voice="coral")
+    except Exception as e:
+        logging.getLogger("public_ai").error(f"tts error: {e}")
+    return {"transcript": transcript, "reply": reply, "booking": booking,
+            "booking_error": booking_error, "audio_b64": audio_b64}
 
 # ---------------- Customer ↔ Salon Owner Chat ----------------
 class ChatStartIn(BaseModel):
