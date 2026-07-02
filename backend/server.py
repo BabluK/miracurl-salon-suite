@@ -542,8 +542,8 @@ class InvoiceItem(BaseModel):
     type: str  # service | product | package | membership | package_redeem
     ref_id: str
     name: str
-    qty: int = 1
-    price: float
+    qty: int = Field(1, ge=1, le=100)
+    price: float = Field(..., ge=0)
     staff_id: Optional[str] = None
     staff_name: Optional[str] = None
 
@@ -2010,6 +2010,19 @@ def _coupon_discount(coupon, amount: float) -> float:
         return round(amount * float(coupon["value"]) / 100, 2)
     return round(min(float(coupon["value"]), amount), 2)
 
+async def _consume_coupon(coupon) -> bool:
+    """SEC-002: atomically increment used_count only while under max_uses.
+    Returns True if consumed, False if the limit was hit under concurrency."""
+    if not coupon:
+        return False
+    if coupon.get("max_uses"):
+        res = await db.coupons.update_one(
+            {"id": coupon["id"], "used_count": {"$lt": int(coupon["max_uses"])}},
+            {"$inc": {"used_count": 1}})
+        return res.modified_count == 1
+    await db.coupons.update_one({"id": coupon["id"]}, {"$inc": {"used_count": 1}})
+    return True
+
 async def _active_membership(customer_id: str):
     now = datetime.now(timezone.utc).isoformat()
     return await db.customer_memberships.find_one(
@@ -2100,6 +2113,8 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
 
     membership = await _active_membership(cust["id"])
     coupon = await _validate_coupon(body.coupon_code)
+    if coupon and not await _consume_coupon(coupon):
+        raise HTTPException(400, "This coupon has reached its usage limit")
     needed = await _check_stock_or_400(body.items)
     totals = _compute_invoice_totals(
         body.items, cust, body.discount, effective_tax_pct,
@@ -2128,8 +2143,6 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         cust_inc["referral_credit"] = -totals["referral_credit_used"]
     await db.customers.update_one({"id": cust["id"]}, {"$inc": cust_inc})
 
-    if coupon:
-        await db.coupons.update_one({"id": coupon["id"]}, {"$inc": {"used_count": 1}})
     await _process_benefit_items(inv, cust)
 
     for pid, qty in needed.items():
@@ -2669,15 +2682,8 @@ async def _resolve_or_create_customer(body: PublicBookingIn) -> tuple[dict, bool
         ).model_dump()
         await db.customers.insert_one(cust_doc)
         return cust_doc, True
-    updates = {}
-    name = (body.customer_name or "").strip()
-    if name and name != cust.get("name"):
-        updates["name"] = name
-    if body.customer_email and body.customer_email != cust.get("email"):
-        updates["email"] = body.customer_email
-    if updates:
-        await db.customers.update_one({"id": cust["id"]}, {"$set": updates})
-        cust.update(updates)
+    # SEC-003: never overwrite a returning customer's saved name/email from an
+    # unauthenticated public booking — a stranger could tamper with their record.
     if not cust.get("referral_code"):
         new_code = secrets.token_urlsafe(4).upper().replace("_", "X").replace("-", "Y")[:6]
         await db.customers.update_one({"id": cust["id"]}, {"$set": {"referral_code": new_code}})
@@ -2781,12 +2787,11 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
     appt, total, duration = await _create_public_appointment(cust, staff, services, body)
 
     coupon_discount = 0.0
-    if coupon:
+    if coupon and await _consume_coupon(coupon):
         coupon_discount = _coupon_discount(coupon, total)
         await db.appointments.update_one(
             {"id": appt["id"]},
             {"$set": {"coupon_code": coupon["code"], "coupon_discount": coupon_discount, "total": total - coupon_discount}})
-        await db.coupons.update_one({"id": coupon["id"]}, {"$inc": {"used_count": 1}})
         appt.update({"coupon_code": coupon["code"], "coupon_discount": coupon_discount, "total": total - coupon_discount})
         total = total - coupon_discount
 
@@ -2794,8 +2799,8 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
         "appointment": appt,
         "summary": {
             "customer_name": cust["name"],
-            "customer_referral_code": cust.get("referral_code"),
-            "referral_credit": cust.get("referral_credit", 0),
+            "customer_referral_code": cust.get("referral_code") if is_new_customer else None,
+            "referral_credit": cust.get("referral_credit", 0) if is_new_customer else None,
             "staff_name": staff["name"],
             "service_names": [s["name"] for s in services],
             "total": total,
@@ -4348,6 +4353,13 @@ class CouponIn(BaseModel):
     max_uses: Optional[int] = Field(None, ge=1)
     active: bool = True
 
+    @field_validator("value")
+    @classmethod
+    def _value(cls, v, info):
+        if info.data.get("type") == "percent" and v > 100:
+            raise ValueError("Percent discount cannot exceed 100")
+        return v
+
     @field_validator("code")
     @classmethod
     def _code(cls, v):
@@ -4671,6 +4683,9 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
 class ChatStartIn(BaseModel):
     name: str = Field(..., min_length=2, max_length=80)
     phone: str
+    # SEC-001: a client-owned secret binds a chat thread to the device that created it,
+    # so history is NOT retrievable by merely knowing a victim's phone number.
+    session_key: str = Field(..., min_length=16, max_length=64)
 
     @field_validator("phone")
     @classmethod
@@ -4679,6 +4694,13 @@ class ChatStartIn(BaseModel):
         if not re.fullmatch(r"\d{7,15}", cleaned):
             raise ValueError("Enter a valid phone number (7-15 digits)")
         return cleaned
+
+    @field_validator("session_key")
+    @classmethod
+    def _skey(cls, v):
+        if not re.fullmatch(r"[A-Za-z0-9_-]{16,64}", v):
+            raise ValueError("Invalid session key")
+        return v
 
 class ChatSendIn(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000)
@@ -4697,16 +4719,26 @@ async def _append_chat_message(thread_id: str, sender: str, text: str) -> dict:
 async def public_chat_start(slug: str, body: ChatStartIn, request: Request):
     await resolve_tenant_from_slug(slug)
     public_rate_limit(request, key_suffix=f"chatstart:{slug}", limit=10, window_sec=600)
-    th = await db.chat_threads.find_one({"customer_phone": body.phone}, {"_id": 0})
+    # SEC-001: look up the thread by the caller's secret session_key, NOT by phone.
+    # An attacker entering a victim's phone gets a fresh empty thread (their own key),
+    # never the victim's history. The owner still sees every thread in the admin panel.
+    th = await db.chat_threads.find_one({"session_key": body.session_key}, {"_id": 0})
     if not th:
         now = datetime.now(timezone.utc).isoformat()
-        th = {"id": str(uuid.uuid4()), "customer_name": body.name.strip(), "customer_phone": body.phone,
+        th = {"id": str(uuid.uuid4()), "session_key": body.session_key,
+              "customer_name": body.name.strip(), "customer_phone": body.phone,
               "last_message": "", "last_at": now, "unread_admin": 0, "unread_customer": 0, "created_at": now}
         await db.chat_threads.insert_one(th)
         th.pop("_id", None)
-    elif body.name.strip() and body.name.strip() != th.get("customer_name"):
-        await db.chat_threads.update_one({"id": th["id"]}, {"$set": {"customer_name": body.name.strip()}})
-        th["customer_name"] = body.name.strip()
+    else:
+        upd = {}
+        if body.name.strip() and body.name.strip() != th.get("customer_name"):
+            upd["customer_name"] = body.name.strip()
+        if body.phone != th.get("customer_phone"):
+            upd["customer_phone"] = body.phone
+        if upd:
+            await db.chat_threads.update_one({"id": th["id"]}, {"$set": upd})
+            th.update(upd)
     msgs = await db.chat_messages.find({"thread_id": th["id"]}, {"_id": 0}).sort("created_at", 1).to_list(200)
     return {"thread_id": th["id"], "customer_name": th["customer_name"], "messages": msgs}
 
@@ -4731,7 +4763,7 @@ async def public_chat_send(slug: str, thread_id: str, body: ChatSendIn, request:
 
 @api.get("/owner-chats")
 async def owner_chats(user=Depends(require_tenant_admin)):
-    return await db.chat_threads.find({}, {"_id": 0}).sort("last_at", -1).to_list(200)
+    return await db.chat_threads.find({}, {"_id": 0, "session_key": 0}).sort("last_at", -1).to_list(200)
 
 @api.get("/owner-chats/unread-count")
 async def owner_chats_unread(user=Depends(require_tenant_admin)):
@@ -4740,7 +4772,7 @@ async def owner_chats_unread(user=Depends(require_tenant_admin)):
 
 @api.get("/owner-chats/{thread_id}/messages")
 async def owner_chat_messages(thread_id: str, user=Depends(require_tenant_admin)):
-    th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0})
+    th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0, "session_key": 0})
     if not th:
         raise HTTPException(404, "Chat not found")
     await db.chat_threads.update_one({"id": thread_id}, {"$set": {"unread_admin": 0}})

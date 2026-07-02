@@ -199,8 +199,16 @@ function OwnerTab({ slug }) {
   async function start() {
     if (name.trim().length < 2 || !/^\d{7,15}$/.test(phone.trim())) return;
     setBusy(true);
+    // SEC-001: a persistent per-device secret binds this chat to us, so no one
+    // can read our history just by typing our phone number on another device.
+    const skKey = `salon_chat_key_${slug}`;
+    let sessionKey = localStorage.getItem(skKey);
+    if (!sessionKey) {
+      sessionKey = (crypto.randomUUID?.() || newSid()).replace(/-/g, "").slice(0, 32);
+      localStorage.setItem(skKey, sessionKey);
+    }
     try {
-      const { data } = await axios.post(`${BACKEND_URL}/api/public/chat/${slug}/start`, { name: name.trim(), phone: phone.trim() });
+      const { data } = await axios.post(`${BACKEND_URL}/api/public/chat/${slug}/start`, { name: name.trim(), phone: phone.trim(), session_key: sessionKey });
       const id = { name: name.trim(), phone: phone.trim(), thread_id: data.thread_id };
       localStorage.setItem(storeKey, JSON.stringify(id));
       setIdentity(id);

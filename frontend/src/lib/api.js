@@ -3,11 +3,8 @@ import axios from "axios";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
-let accessToken = null;
 let tenantSlug = null;
 
-export function setAccessToken(token) { accessToken = token || null; }
-export function getAccessToken() { return accessToken; }
 export function setTenantSlug(slug) { tenantSlug = slug || null; }
 export function getTenantSlug() { return tenantSlug; }
 
@@ -16,8 +13,10 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Auth is carried ONLY by the HttpOnly `access_token` cookie the server sets on
+// login (sent automatically thanks to withCredentials). The JWT never touches
+// JavaScript, so an XSS payload cannot read or exfiltrate it.
 api.interceptors.request.use((config) => {
-  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   if (tenantSlug) config.headers["X-Tenant-Slug"] = tenantSlug;
   return config;
 });
@@ -33,8 +32,6 @@ api.interceptors.response.use(
     // AuthContext already handles those explicitly.
     const isAuthBootstrap = url.includes("/auth/me") || url.includes("/auth/login");
     if (status === 401 && !isAuthBootstrap && typeof window !== "undefined") {
-      accessToken = null;
-      try { localStorage.removeItem("miracurl_token"); } catch { /* ignore quota */ }
       const path = window.location.pathname;
       // Don't loop if we're already on /login or the public marketing/booking routes
       const isPublic = path === "/login" || path === "/" || path.startsWith("/book/") ||

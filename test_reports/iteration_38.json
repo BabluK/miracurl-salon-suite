@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 38 — Regression + security verification after AUTH migration to HttpOnly cookies (no Authorization header) and SEC-001/002/003 fixes. Backend: 12/12 pytest pass, 1 skip (SEC-002 second-use rejected — no admin update route to bump used_count, but atomic _consume_coupon path was already curl-verified by main agent). Frontend: cookie-only auth verified end-to-end — login sets HttpOnly cookies (JS document.cookie shows NO access_token, localStorage has NO token keys); Dashboard/Appointments/POS/Services/Plans/Messages/Reports all loaded with cookie auth (0 x /api/ 401s across all 7 pages); hard-reload to /appointments stayed authenticated; logout button [data-testid=logout-btn] cleared session and protected route bounced to /login. SEC-001 UI re-verified on /book/miracurl-marathahalli: opened chat FAB → Message Salon tab → started chat with TEST_UI_140954 / 9876500954 → thread b4e378d3-d253-46ff-baf4-b12eb9030689, 0 initial messages (confirming session_key isolation from earlier /9876500954 threads); sent 'TEST_ui_msg_185067' with 200 response. Assistant AI streaming chat (POST /api/assistant/chat) works via cookie auth (200 stream, no 401). Owner chats endpoint response confirmed to exclude session_key field. SEC-003 pytest confirmed: seeded customer TEST_OriginalName + TEST_original@example.com not overwritten by public booking with ATTACKER_Name/attacker@evil.com; and summary.customer_referral_code/referral_credit both null for the returning-customer case.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter38_auth_cookie_and_sec.py",
+    "/app/test_reports/pytest/iter38.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: expose an admin PUT/PATCH /api/coupons/{id} that allows setting used_count (or a dedicated /reset endpoint) so QA can deterministically re-test the 'coupon exhausted → /public/coupon-check rejects' path without concurrent-load harness. Currently the atomic guard is only reproducible via 6-way concurrent public booking.",
+    "OPTIONAL (carried): server.py is 4820 lines — still exceeds 700-line guideline; split into routers (auth, coupons, packages, memberships, public-booking, chat, ai/assistant, reports)."
+  ],
+  "critical_code_review_comments": [
+    "server.py line 220 set_cookie call uses secure=_sec, httponly=True, samesite='lax' — verified via browser Set-Cookie headers: HttpOnly + Secure + SameSite=lax present. Good.",
+    "server.py line 224 _extract_bearer_token reads cookie FIRST then falls back to Authorization header — this preserves back-compat for any legacy client but the frontend api.js no longer sends Authorization (verified). Consider removing Authorization fallback in a future iteration for defense-in-depth.",
+    "server.py line 634 login response still returns access_token in body (backward-compat) — front-end ignores it (verified: localStorage has no token). Once no mobile/legacy client relies on it, drop it from the response body to strictly enforce HttpOnly-only.",
+    "server.py line 2013-2024 _consume_coupon uses conditional update with $lt guard — correct atomic single-doc write; race-safe.",
+    "server.py line 2675-2692 _resolve_or_create_customer explicitly does NOT overwrite existing customer's name/email — SEC-003 fix verified.",
+    "server.py line 4725 public_chat_start looks up thread by session_key (not phone) — SEC-001 verified: two different session_keys with same phone produced two different thread_ids and the second saw ZERO messages.",
+    "server.py line 4766 owner_chats projection {'_id':0, 'session_key':0} — verified: session_key NOT leaked in /api/owner-chats response.",
+    "Frontend /app/frontend/src/lib/api.js uses withCredentials:true and does not attach Authorization header — verified by DOM inspection (no token in localStorage; document.cookie contains only posthog + tenant + notif keys, NOT access_token/refresh_token).",
+    "Logout endpoint (server.py:815) uses response.delete_cookie for access_token but only for that one cookie — Set-Cookie header shows BOTH access_token and refresh_token cleared with Max-Age=0. Confirmed via curl that both cookies are cleared."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter38_auth_cookie_and_sec.py"
+  ],
+  "success_rate": {"backend": "100% (12/12 pytest; 1 skipped due to no admin used_count reset route)", "frontend": "100% (login+7 pages+hard-reload+logout+SEC-001 chat UI)"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 verified via UI + curl + Python requests. Tenant slug miracurl-marathahalli.",
+  "seed_data_creation": "Created (auto-cleaned in fixtures): coupon TESTSEC{5hex}, customer TEST_OriginalName. Left behind (no delete endpoint available): 3 chat threads TEST_Victim / TEST_Attacker / TEST_UI_140954 (SEC-001 tests). These threads live in db.chat_threads with distinct session_keys and are inert; can be pruned via a Mongo delete on customer_name LIKE 'TEST_'.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "AUTH cookie migration is stable. Key selectors verified: [data-testid=logout-btn] exists (top-level, no user-menu drill-down needed). Login uses React-controlled inputs — MUST use page.click + page.keyboard.type (delay=10-15); page.fill() does NOT trigger React onChange and results in empty submissions with no /api/auth/login network call. BookingChatWidget has: [data-testid=booking-chat-fab], [data-testid=booking-chat-panel], [data-testid=chat-tab-owner], [data-testid=owner-chat-send-btn]. Chat start endpoint requires session_key length 16-64 (regex A-Za-z0-9_-); client generates it automatically. /api/public/chat/{slug}/start does NOT need auth; owner_chats endpoints need admin cookie. Post-login lands on /dashboard (not /). Emergent LLM key intact — assistant chat streams within ~1s.",
+  "rca of the issue": "N/A — no functional regressions found. AUTH cookie migration is complete and every requested check passed."
+}

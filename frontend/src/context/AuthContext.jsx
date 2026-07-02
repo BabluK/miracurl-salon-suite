@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import api, { formatApiError, setAccessToken, setTenantSlug, detectTenantSlug } from "@/lib/api";
+import api, { formatApiError, setTenantSlug, detectTenantSlug } from "@/lib/api";
 
 const AuthContext = createContext(null);
 
@@ -61,7 +61,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const afterAuth = useCallback(async (data) => {
-    if (data.access_token) setAccessToken(data.access_token);
     setUser(data.user);
     if (data.user.role === "super_admin") {
       setTenant(null);
@@ -97,7 +96,6 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try { await api.post("/auth/logout"); }
     catch (e) { console.warn("[auth] logout failed:", e?.message || e); }
-    setAccessToken(null);
     clearTenantStorage();
     setUser(false);
     setTenant(null);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import api, { getAccessToken } from "@/lib/api";
+import api from "@/lib/api";
 import { toast } from "sonner";
 import { Bot, Send, Sparkles, MessageSquarePlus, Bug, Lightbulb, Trash2, Loader2 } from "lucide-react";
 
@@ -62,9 +62,9 @@ function ChatPanel() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/assistant/chat`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getAccessToken()}`,
         },
         body: JSON.stringify({ message: msg, session_id: sid }),
       });

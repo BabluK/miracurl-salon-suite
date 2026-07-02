@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import api, { API, formatApiError, getAccessToken } from "@/lib/api";
+import api, { API, formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Clock, LogIn, LogOut, IndianRupee, Download, User as UserIcon,
@@ -93,10 +93,8 @@ export default function StaffPortal() {
 
   async function downloadSlip() {
     try {
-      const token = getAccessToken();
       const url = `${API}/staff/me/salary-slip.pdf?month=${encodeURIComponent(month)}`;
       const resp = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: "include",
       });
       if (!resp.ok) {
