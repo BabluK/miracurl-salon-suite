@@ -209,6 +209,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Staff performance */}
+      <StaffPerformance inr={inr} />
+
       {/* Two columns: upcoming + low stock */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
@@ -395,6 +398,74 @@ function RenewalBanner({ sub }) {
       >
         Renew now <ArrowRight className="w-4 h-4" />
       </a>
+    </div>
+  );
+}
+
+const PERF_TABS = [
+  { k: "today", label: "Today" },
+  { k: "week", label: "This Week" },
+  { k: "month", label: "This Month" },
+  { k: "last_month", label: "Last Month" },
+];
+
+function StaffPerformance({ inr }) {
+  const [perf, setPerf] = useState(null);
+  const [tab, setTab] = useState("today");
+
+  useEffect(() => {
+    api.get("/reports/staff-performance").then(r => setPerf(r.data)).catch(() => setPerf({}));
+  }, []);
+
+  const rows = perf?.[tab] || [];
+  const maxRev = rows[0]?.revenue || 1;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm" data-testid="staff-performance-card">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Staff Performance</div>
+          <div className="text-xl font-semibold text-slate-800 mt-1">Business by Stylist</div>
+        </div>
+        <div className="flex gap-1.5">
+          {PERF_TABS.map(t => (
+            <button key={t.k} data-testid={`perf-tab-${t.k}`} onClick={() => setTab(t.k)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                tab === t.k ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {!perf ? (
+        <div className="text-slate-400 text-sm py-6 text-center">Loading…</div>
+      ) : rows.length === 0 ? (
+        <div className="text-slate-400 text-sm py-6 text-center">No billing recorded for this period yet.</div>
+      ) : (
+        <ul className="space-y-2" data-testid="perf-rows">
+          {rows.map((r, i) => (
+            <li key={r.staff_id} data-testid={`perf-row-${r.staff_id}`} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                i === 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
+                {i === 0 ? "🏆" : `#${i + 1}`}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-slate-800 text-sm truncate">{r.name}</span>
+                  <span className="font-bold text-slate-900 text-sm">{inr(r.revenue)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <span className="text-[11px] text-slate-400">{r.bills} bill{r.bills !== 1 ? "s" : ""} · {r.services} service{r.services !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-slate-100 mt-1.5 overflow-hidden">
+                  <div className={`h-full rounded-full ${i === 0 ? "bg-amber-400" : "bg-sky-400"}`}
+                    style={{ width: `${Math.max(4, (r.revenue / maxRev) * 100)}%` }} />
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

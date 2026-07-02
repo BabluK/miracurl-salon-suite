@@ -2310,6 +2310,56 @@ async def _dashboard_revenue_trend(days: int = 7) -> list:
     return trend
 
 
+@api.get("/reports/staff-performance")
+async def staff_performance(user=Depends(get_current_user)):
+    """Revenue per stylist for today / this week / this month / last month (IST)."""
+    ist = timezone(timedelta(hours=5, minutes=30))
+    now = datetime.now(ist)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=today_start.weekday())
+    month_start = today_start.replace(day=1)
+    last_month_start = (month_start - timedelta(days=1)).replace(day=1)
+    periods = {
+        "today": (today_start, None),
+        "week": (week_start, None),
+        "month": (month_start, None),
+        "last_month": (last_month_start, month_start),
+    }
+    since_utc = last_month_start.astimezone(timezone.utc).isoformat()
+    invoices, staff_docs = await asyncio.gather(
+        db.invoices.find({"created_at": {"$gte": since_utc}},
+                         {"_id": 0, "items": 1, "staff_id": 1, "staff_name": 1, "created_at": 1}).to_list(5000),
+        db.staff.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(100),
+    )
+    names = {s["id"]: s["name"] for s in staff_docs}
+    out = {k: {} for k in periods}
+    for inv in invoices:
+        try:
+            created = datetime.fromisoformat(inv["created_at"])
+        except (ValueError, TypeError, KeyError):
+            continue
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        c_ist = created.astimezone(ist)
+        buckets = {}
+        for it in (inv.get("items") or []):
+            sid = it.get("staff_id") or inv.get("staff_id") or "unassigned"
+            b = buckets.setdefault(sid, {"revenue": 0.0, "services": 0, "sname": it.get("staff_name")})
+            b["revenue"] += (it.get("qty") or 1) * (it.get("price") or 0)
+            b["services"] += (it.get("qty") or 1)
+        for key, (start, end) in periods.items():
+            if c_ist >= start and (end is None or c_ist < end):
+                for sid, b in buckets.items():
+                    rec = out[key].setdefault(sid, {
+                        "staff_id": sid,
+                        "name": names.get(sid) or b.get("sname") or inv.get("staff_name") or "Unassigned",
+                        "revenue": 0.0, "bills": 0, "services": 0})
+                    rec["revenue"] += b["revenue"]
+                    rec["services"] += b["services"]
+                    rec["bills"] += 1
+    return {k: sorted(v.values(), key=lambda r: -r["revenue"]) for k, v in out.items()}
+
+
 @api.get("/reports/dashboard")
 async def dashboard(user=Depends(require_admin)):
     today = datetime.now(timezone.utc).date().isoformat()

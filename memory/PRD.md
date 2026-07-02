@@ -299,3 +299,8 @@ Frontend:
 - WHATSAPP CONFIRMATIONS: (1) booking success screen now has "Get confirmation on WhatsApp" green button (book-whatsapp-confirm-btn) — wa.me share with full booking summary; (2) Appointments table: green WhatsApp reminder button (remind-appt-{id}) for scheduled/confirmed rows — opens wa.me/<customer phone> with prefilled reminder (services, date/time, stylist, total). No API keys needed (wa.me links).
 - STYLIST-LEVEL SLOTS: _resolve_staff(staff_id, scheduled_at, duration) — chosen stylist must be free (409 "Priya is already booked at that time…"); "Any stylist" auto-assigns a stylist who is actually free (verified: Priya busy at 15:00 → auto-assigned Rahul). New _staff_busy helper. /public/availability accepts optional staff_id (capacity=1 for specific stylist). BookPublic refetches availability when stylist changes (staffId in deps). Verified E2E via curl.
 - sw.js v9. Test data cleaned. USER MUST REDEPLOY.
+
+## Update — Jul 2, 2026 (part 22) — Staff Performance dashboard section
+- New GET /api/reports/staff-performance: revenue/bills/services per stylist for today | week (Mon-) | month | last_month (IST boundaries). Attribution: per-item staff_id → fallback invoice staff_id → "Unassigned". Single invoices fetch since last-month start, computed in Python, gathered with staff names.
+- Dashboard: new <StaffPerformance> card (staff-performance-card) below charts — 4 period tabs (perf-tab-today/week/month/last_month), ranked rows with 🏆 for #1, revenue bars, bills+services counts. Verified via curl + screenshot (Rahul ₹5400, Priya ₹5150 this week; "Unassigned" = old invoices billed without stylist selection).
+- USER MUST REDEPLOY.
