@@ -2684,15 +2684,49 @@ async def public_referral(slug: str, code: str):
 async def public_referral_default(code: str):
     return await public_referral(DEFAULT_TENANT_SLUG, code)
 
-async def _resolve_staff(staff_id: Optional[str]) -> dict:
+async def _staff_busy(staff_id: str, scheduled_at: str, duration_min: int) -> bool:
+    """True if this stylist has an overlapping appointment."""
+    try:
+        start = datetime.fromisoformat(scheduled_at)
+    except ValueError:
+        return False
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    end = start + timedelta(minutes=duration_min or 30)
+    date_prefix = start.astimezone(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+    appts = await db.appointments.find(
+        {"staff_id": staff_id, "scheduled_at": {"$regex": f"^{date_prefix}"}, "status": {"$nin": ["cancelled", "no_show"]}},
+        {"_id": 0, "scheduled_at": 1, "duration_min": 1}).to_list(200)
+    for a in appts:
+        try:
+            ast = datetime.fromisoformat(a["scheduled_at"])
+        except ValueError:
+            continue
+        if ast.tzinfo is None:
+            ast = ast.replace(tzinfo=timezone.utc)
+        if ast < end and ast + timedelta(minutes=int(a.get("duration_min") or 30)) > start:
+            return True
+    return False
+
+
+async def _resolve_staff(staff_id: Optional[str], scheduled_at: Optional[str] = None, duration_min: int = 30) -> dict:
+    """Stylist-level slots: a chosen stylist must be free at the requested time;
+    'Any stylist' is auto-assigned to a stylist who is actually free."""
     if staff_id:
         s = await db.staff.find_one({"id": staff_id, "active": True}, {"_id": 0})
         if s:
+            if scheduled_at and await _staff_busy(s["id"], scheduled_at, duration_min):
+                raise HTTPException(409, f"{s['name']} is already booked at that time — please pick another time or choose a different stylist.")
             return s
-    s = await db.staff.find_one({"active": True}, {"_id": 0})
-    if not s:
+    candidates = await db.staff.find({"active": True}, {"_id": 0}).to_list(50)
+    if not candidates:
         raise HTTPException(400, "No stylist available")
-    return s
+    if not scheduled_at:
+        return candidates[0]
+    for s in candidates:
+        if not await _staff_busy(s["id"], scheduled_at, duration_min):
+            return s
+    raise HTTPException(409, "That time slot is fully booked — please pick another time.")
 
 
 async def _resolve_or_create_customer(body: PublicBookingIn) -> tuple[dict, bool]:
@@ -2803,7 +2837,7 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
     if not services:
         raise HTTPException(400, "Invalid services")
 
-    staff = await _resolve_staff(body.staff_id)
+    staff = await _resolve_staff(body.staff_id, body.scheduled_at, sum(s["duration_min"] for s in services) or 30)
     coupon = await _validate_coupon(body.coupon_code)
     cust, is_new_customer = await _resolve_or_create_customer(body)
     referral_applied = await _apply_referral_credit(cust, body.referral_code) if is_new_customer else None
@@ -4492,14 +4526,18 @@ async def public_coupon_check(slug: str, code: str, request: Request):
     return {"valid": True, "code": c["code"], "type": c["type"], "value": c["value"]}
 
 @api.get("/public/availability/{slug}")
-async def public_availability(slug: str, date: str):
+async def public_availability(slug: str, date: str, staff_id: Optional[str] = None):
     await resolve_tenant_from_slug(slug)
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
         raise HTTPException(400, "date must be YYYY-MM-DD")
-    staff_count = await db.staff.count_documents({"active": True}) or 1
-    appts = await db.appointments.find(
-        {"scheduled_at": {"$regex": f"^{date}"}, "status": {"$nin": ["cancelled", "no_show"]}},
-        {"_id": 0, "scheduled_at": 1, "duration_min": 1}).to_list(500)
+    # Stylist-level: a specific stylist has capacity 1; "Any" uses full staff count.
+    appt_q = {"scheduled_at": {"$regex": f"^{date}"}, "status": {"$nin": ["cancelled", "no_show"]}}
+    if staff_id:
+        appt_q["staff_id"] = staff_id
+        capacity = 1
+    else:
+        capacity = await db.staff.count_documents({"active": True}) or 1
+    appts = await db.appointments.find(appt_q, {"_id": 0, "scheduled_at": 1, "duration_min": 1}).to_list(500)
     parsed = []
     for a in appts:
         try:
@@ -4514,8 +4552,8 @@ async def public_availability(slug: str, date: str):
         s = datetime.fromisoformat(f"{date}T{hhmm}:00+05:30")
         e = s + timedelta(minutes=30)
         busy = sum(1 for ast, aen in parsed if ast < e and aen > s)
-        slots[hhmm] = busy < staff_count
-    return {"date": date, "staff_count": staff_count, "slots": slots}
+        slots[hhmm] = busy < capacity
+    return {"date": date, "staff_count": capacity, "slots": slots}
 
 # ---------------- Public AI Beauty Advisor (recommends + books) ----------------
 _BOOK_MARKER = "[[BOOK]]"
@@ -4590,7 +4628,7 @@ async def _ai_execute_booking(payload: str):
     if not services:
         return None, "Selected services were not found on the menu", req_date
     try:
-        staff = await _resolve_staff(bk.staff_id)
+        staff = await _resolve_staff(bk.staff_id, bk.scheduled_at, sum(s["duration_min"] for s in services) or 30)
         cust, _ = await _resolve_or_create_customer(bk)
         appt, total, duration = await _create_public_appointment(cust, staff, services, bk)
     except HTTPException as e:

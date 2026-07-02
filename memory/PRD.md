@@ -293,3 +293,9 @@ Frontend:
 - HANDS-FREE VOICE (AUTO button, data-testid ai-handsfree-btn): Web Audio AnalyserNode VAD — auto-stops 1.4s after speech pause and sends; 30s max with NO speech → "Sorry, I didn't catch anything 🙉" message + hands-free off; after Mira's spoken reply ends, mic auto-resumes (stops after successful booking). Manual mic unchanged (ai-voice-btn now wraps onClick to avoid event-as-arg bug).
 - VOICE QUALITY: tts-1-hd + 'shimmer' voice + speed 0.95 (was tts-1 coral). NOTE: OpenAI TTS has NO Indian-accent voice (checked SDK: only alloy/ash/coral/echo/fable/nova/onyx/sage/shimmer). True Indian voice requires ElevenLabs (needs user API key) — offered to user, awaiting decision.
 - Voice E2E verified: STT + greeting + HD audio ~9.6s round trip. Test data cleaned.
+
+## Update — Jul 2, 2026 (part 21) — WhatsApp confirmations + Stylist-level slots
+- USER DECLINED booking deposits (#6) — booking stays free, no payment.
+- WHATSAPP CONFIRMATIONS: (1) booking success screen now has "Get confirmation on WhatsApp" green button (book-whatsapp-confirm-btn) — wa.me share with full booking summary; (2) Appointments table: green WhatsApp reminder button (remind-appt-{id}) for scheduled/confirmed rows — opens wa.me/<customer phone> with prefilled reminder (services, date/time, stylist, total). No API keys needed (wa.me links).
+- STYLIST-LEVEL SLOTS: _resolve_staff(staff_id, scheduled_at, duration) — chosen stylist must be free (409 "Priya is already booked at that time…"); "Any stylist" auto-assigns a stylist who is actually free (verified: Priya busy at 15:00 → auto-assigned Rahul). New _staff_busy helper. /public/availability accepts optional staff_id (capacity=1 for specific stylist). BookPublic refetches availability when stylist changes (staffId in deps). Verified E2E via curl.
+- sw.js v9. Test data cleaned. USER MUST REDEPLOY.

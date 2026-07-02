@@ -71,8 +71,9 @@ export default function BookPublic() {
   useEffect(() => {
     if (!date) return;
     setAvailability(null);
-    PUBLIC.get(`/availability/${slug}?date=${date}`).then(r => setAvailability(r.data)).catch(() => setAvailability(null));
-  }, [PUBLIC, slug, date]);
+    const staffParam = staffId ? `&staff_id=${staffId}` : "";
+    PUBLIC.get(`/availability/${slug}?date=${date}${staffParam}`).then(r => setAvailability(r.data)).catch(() => setAvailability(null));
+  }, [PUBLIC, slug, date, staffId]);
 
   useEffect(() => {
     PUBLIC.get(`/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon({ error: true }));
