@@ -4,7 +4,7 @@
  * - Cache-first for static assets (fonts, icons, JS bundles)
  * - Never caches HTML — always fresh from network to avoid stale-app trap
  */
-const CACHE = "miracurl-v3";
+const CACHE = "miracurl-v4";
 const STATIC = ["/manifest.json", "/favicon.svg", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {

@@ -71,7 +71,7 @@ export default function InstallAppPrompt({ variant = "customer" }) {
 
   async function install() {
     if (!deferred) {
-      // iOS path OR desktop Safari — show the manual instructions overlay
+      // No native prompt available — show device-appropriate manual steps
       setShowIosGuide(true);
       return;
     }
@@ -149,21 +149,43 @@ export default function InstallAppPrompt({ variant = "customer" }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-rose-500 to-fuchsia-600 flex items-center justify-center text-white text-2xl font-bold mb-3">M</div>
-            <h3 className="text-center text-lg font-semibold text-slate-900">Install Miracurl on iPhone</h3>
-            <ol className="mt-4 space-y-3 text-sm text-slate-700">
-              <li className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">1</span>
-                <span>Tap the <Share className="inline w-4 h-4 mx-1 -mt-1 text-sky-500" /> <b>Share</b> button in Safari&apos;s toolbar</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">2</span>
-                <span>Scroll down and tap <b>&quot;Add to Home Screen&quot;</b></span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">3</span>
-                <span>Tap <b>Add</b> — you&apos;re done! ✨</span>
-              </li>
-            </ol>
+            {/iphone|ipad|ipod/i.test(navigator.userAgent) ? (
+              <>
+                <h3 className="text-center text-lg font-semibold text-slate-900">Install Miracurl on iPhone</h3>
+                <ol className="mt-4 space-y-3 text-sm text-slate-700">
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">1</span>
+                    <span>Tap the <Share className="inline w-4 h-4 mx-1 -mt-1 text-sky-500" /> <b>Share</b> button in Safari&apos;s toolbar</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">2</span>
+                    <span>Scroll down and tap <b>&quot;Add to Home Screen&quot;</b></span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">3</span>
+                    <span>Tap <b>Add</b> — you&apos;re done! ✨</span>
+                  </li>
+                </ol>
+              </>
+            ) : (
+              <>
+                <h3 className="text-center text-lg font-semibold text-slate-900">Install Miracurl on Android</h3>
+                <ol className="mt-4 space-y-3 text-sm text-slate-700">
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">1</span>
+                    <span>Tap the <b>⋮ menu</b> (three dots) in Chrome&apos;s top-right corner</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">2</span>
+                    <span>Tap <b>&quot;Add to Home screen&quot;</b> or <b>&quot;Install app&quot;</b></span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-semibold flex-shrink-0">3</span>
+                    <span>Tap <b>Install</b> — you&apos;re done! ✨</span>
+                  </li>
+                </ol>
+              </>
+            )}
             <button
               onClick={() => { setShowIosGuide(false); dismiss(); }}
               className="mt-6 w-full py-2.5 rounded-lg bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600"
