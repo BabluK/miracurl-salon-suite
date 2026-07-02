@@ -240,3 +240,10 @@ Frontend:
 ## Update — Jul 2, 2026 (part 12)
 - QR poster production failure root-caused: _build_qr_poster used hardcoded system font paths (/usr/share/fonts/...) that don't exist in the production image → 500 → "Couldn't download". Fix: bundled FreeSerifBold.ttf + FreeSansBold.ttf into /app/backend/fonts/ (deploys with code); _load_font() tries bundled → system → PIL default.
 - Settings QR card now shows an INLINE poster preview (qr-poster-preview, auto-loads on page open) alongside Download; download reuses the preview blob. Verified: preview renders + download works in preview env.
+
+## Update — Jul 2, 2026 (part 13) — Full regression + AI Assistant & Feedback Board
+- Full regression (testing_agent iteration_35): 100% PASS — 32/32 backend, all frontend flows. Fixed found edge case: double "completed" no longer double-counts CRM visits (crm_counted flag on appointment).
+- AI Assistant "Mira" (admin-only page /assistant, nav-assistant): streams via POST /api/assistant/chat (emergentintegrations LlmChat, openai gpt-5.4, EMERGENT_LLM_KEY in backend/.env), multi-turn per session_id (in-memory LlmChat cache keyed tenant+session, max 200), system prompt injected with live salon stats (_salon_context: today's appts, pending approvals, CRM count, month revenue, low stock). History persisted in _raw_db.assistant_messages (tenant_id scoped) + GET /api/assistant/history. Frontend streams via fetch reader (token from getAccessToken(), NOT localStorage).
+- Feedback Board (same page, tab 2): POST/GET /api/feedback (any logged-in), PUT/DELETE admin-only (status open/planned/done, priority). Added `feedback` to _DB TenantCollection whitelist (REMEMBER: new collections must be whitelisted in _DB class ~line 108).
+- Verified: multi-turn memory via curl ("What is my name?" → "Ravi"), live stats answer, feedback CRUD, UI tabs render.
+- KNOWN BLOCKER: Emergent Universal Key budget exhausted ("Budget exceeded, max 0.001") → Mira replies with snag message. User must top up: Profile → Universal Key → Add Balance.

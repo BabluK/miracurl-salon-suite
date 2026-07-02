@@ -19,6 +19,7 @@ import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
 import Landing from "@/pages/Landing";
 import Settings from "@/pages/Settings";
+import Assistant from "@/pages/Assistant";
 import ReferEarn from "@/pages/ReferEarn";
 import StaffPortal from "@/pages/StaffPortal";
 import Attendance from "@/pages/Attendance";
@@ -116,6 +117,7 @@ export default function App() {
               <Route path="reviews" element={<AdminOnly><Reviews /></AdminOnly>} />
               <Route path="refer" element={<AdminOnly><ReferEarn /></AdminOnly>} />
               <Route path="reports" element={<AdminOnly><Reports /></AdminOnly>} />
+              <Route path="assistant" element={<AdminOnly><Assistant /></AdminOnly>} />
               <Route path="settings" element={<AdminOnly><Settings /></AdminOnly>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

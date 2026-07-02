@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard, Calendar, Users, UserCog, Scissors, Package,
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
-  Settings as SettingsIcon, Menu, X, Gift, Clock, Download
+  Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
@@ -23,6 +23,7 @@ const NAV_ADMIN = [
   { to: "/reviews", label: "Reviews", icon: Star, testid: "nav-reviews" },
   { to: "/refer", label: "Refer & Earn", icon: Gift, testid: "nav-refer" },
   { to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" },
+  { to: "/assistant", label: "AI Assistant", icon: Bot, testid: "nav-assistant" },
   { to: "/settings", label: "Settings", icon: SettingsIcon, testid: "nav-settings" },
 ];
 
