@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, AlertTriangle, Package } from "lucide-react";
+import { Plus, X, Edit3, Trash2, AlertTriangle, Package, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 
@@ -12,6 +12,31 @@ export default function Inventory() {
 
   const load = useCallback(async () => { const { data } = await api.get("/products"); setList(data); }, []);
   useEffect(() => { load(); }, [load]);
+  const csvRef = useRef(null);
+
+  async function exportCsv() {
+    try {
+      const res = await api.get("/products/export", { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = "products.csv"; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("products.csv downloaded — opens in Excel / Google Sheets");
+    } catch { toast.error("Export failed"); }
+  }
+
+  async function handleImportCsv(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append("file", f);
+    try {
+      const { data } = await api.post("/products/import", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      toast.success(`Imported: ${data.added} added · ${data.updated} updated${data.skipped ? ` · ${data.skipped} skipped` : ""}`);
+      load();
+    } catch (err) { toast.error(err.response?.data?.detail || "Import failed"); }
+    finally { e.target.value = ""; }
+  }
 
   function startNew() { setEditing(null); setForm({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "" }); setOpen(true); }
   function startEdit(p) { setEditing(p); setForm({ ...p }); setOpen(true); }
@@ -36,7 +61,16 @@ export default function Inventory() {
           <h1 className="font-playfair text-3xl">Inventory</h1>
           <p className="text-slate-500 text-sm mt-1">Track products, stock and reorder alerts.</p>
         </div>
-        <button data-testid="add-product-btn" onClick={startNew} className="btn-blue flex items-center gap-2"><Plus className="w-4 h-4" /> Add Product</button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} data-testid="import-products-csv-input" />
+          <button data-testid="import-products-csv-btn" onClick={() => csvRef.current?.click()} className="btn-slate flex items-center gap-2" title="Bulk add/update products from CSV">
+            <Upload className="w-4 h-4" /> Import CSV
+          </button>
+          <button data-testid="export-products-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all products as CSV">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+          <button data-testid="add-product-btn" onClick={startNew} className="btn-blue flex items-center gap-2"><Plus className="w-4 h-4" /> Add Product</button>
+        </div>
       </div>
 
       {lowStock.length > 0 && (

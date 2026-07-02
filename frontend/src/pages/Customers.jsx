@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
-import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award } from "lucide-react";
+import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Customers() {
@@ -15,6 +15,31 @@ export default function Customers() {
     setList(data);
   }, [q]);
   useEffect(() => { load(); }, [load]);
+  const csvRef = useRef(null);
+
+  async function exportCsv() {
+    try {
+      const res = await api.get("/customers/export", { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = "customers.csv"; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("customers.csv downloaded — opens in Excel / Google Sheets");
+    } catch { toast.error("Export failed"); }
+  }
+
+  async function handleImportCsv(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append("file", f);
+    try {
+      const { data } = await api.post("/customers/import", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      toast.success(`Imported: ${data.added} added · ${data.updated} updated${data.skipped ? ` · ${data.skipped} skipped` : ""}`);
+      load();
+    } catch (err) { toast.error(err.response?.data?.detail || "Import failed"); }
+    finally { e.target.value = ""; }
+  }
 
   function startNew() { setEditing(null); setForm({ name: "", phone: "", email: "", gender: "Female", address: "", notes: "" }); setOpen(true); }
   function startEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone, email: c.email || "", gender: c.gender || "Other", address: c.address || "", notes: c.notes || "" }); setOpen(true); }
@@ -42,9 +67,18 @@ export default function Customers() {
           <h1 className="font-playfair text-3xl">Customer Relationships</h1>
           <p className="text-slate-500 text-sm mt-1">Manage your salon&apos;s clientele and loyalty.</p>
         </div>
-        <button data-testid="add-customer-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Add Customer
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} data-testid="import-customers-csv-input" />
+          <button data-testid="import-customers-csv-btn" onClick={() => csvRef.current?.click()} className="btn-slate flex items-center gap-2" title="Bulk add/update customers from CSV (great for migrating old data)">
+            <Upload className="w-4 h-4" /> Import CSV
+          </button>
+          <button data-testid="export-customers-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all customers as CSV">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+          <button data-testid="add-customer-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Add Customer
+          </button>
+        </div>
       </div>
 
       <div className="relative max-w-md">

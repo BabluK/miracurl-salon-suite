@@ -7,6 +7,10 @@ import { toast } from "sonner";
 import { shareText as shareTextLib } from "@/lib/share";
 
 const CATEGORY_ORDER = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup", "Nails"];
+const GENDER_CATS = {
+  Female: ["Skin", "Manicure", "Pedicure", "Women Hair", "Makeup", "Nails"],
+  Male: ["Skin", "Manicure", "Pedicure", "Men Hair", "Nails"],
+};
 
 export const TIME_SLOTS = [
   "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
@@ -50,19 +54,37 @@ export function FeaturedReviews({ featured }) {
 }
 
 export function ServicesStep({ byCategory, picked, onToggle }) {
+  const [gender, setGender] = useState("Female");
   const cats = useMemo(() => {
-    const known = CATEGORY_ORDER.filter((c) => byCategory[c]?.length);
+    const allowed = GENDER_CATS[gender];
+    const known = CATEGORY_ORDER.filter((c) => byCategory[c]?.length && allowed.includes(c));
     const extra = Object.keys(byCategory).filter((c) => !CATEGORY_ORDER.includes(c)).sort();
     return [...known, ...extra];
-  }, [byCategory]);
+  }, [byCategory, gender]);
   const [active, setActive] = useState("All");
   const shown = active === "All" ? cats : cats.filter((c) => c === active);
 
   return (
     <section className="space-y-6 animate-fade-up">
-      <div>
-        <h2 className="font-playfair text-3xl">Choose your services</h2>
-        <p className="text-ink-secondary text-sm mt-1">Pick one or more — we&apos;ll add up the total for you.</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="font-playfair text-3xl">Choose your services</h2>
+          <p className="text-ink-secondary text-sm mt-1">Pick one or more — we&apos;ll add up the total for you.</p>
+        </div>
+        <div className="flex rounded-full bg-white/5 border border-white/10 p-1" data-testid="book-gender-toggle">
+          {["Female", "Male"].map((g) => (
+            <button
+              key={g}
+              data-testid={`book-gender-${g.toLowerCase()}`}
+              onClick={() => { setGender(g); setActive("All"); }}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                gender === g ? "bg-gold text-bg-base shadow-gold-glow" : "text-white/60 hover:text-white"
+              }`}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Main category tabs */}

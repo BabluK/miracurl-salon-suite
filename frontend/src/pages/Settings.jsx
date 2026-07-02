@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Receipt, Save, ShieldCheck, Info, Gift, Copy, Share2, Wallet, Star, Store, Instagram, MessageCircle, CreditCard, Check, Sparkles, Loader2 } from "lucide-react";
+import { Receipt, Save, ShieldCheck, Info, Gift, Copy, Share2, Wallet, Star, Store, Instagram, MessageCircle, CreditCard, Check, Sparkles, Loader2, QrCode, Download } from "lucide-react";
 
 export default function Settings() {
   const [taxEnabled, setTaxEnabled] = useState(false);
@@ -16,6 +16,20 @@ export default function Settings() {
   // Save-Debug snapshot — visible in-page so users on production can see the
   // exact HTTP outcome without opening DevTools. Cleared on next save attempt.
   const [saveDebug, setSaveDebug] = useState(null);
+  const [downloadingQr, setDownloadingQr] = useState(false);
+
+  async function downloadQrPoster() {
+    setDownloadingQr(true);
+    try {
+      const res = await api.get(`/settings/qr-poster?origin=${encodeURIComponent(window.location.origin)}`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = "booking-qr-poster.png"; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("QR poster downloaded — print it for your reception desk ✦");
+    } catch { toast.error("Couldn't generate poster"); }
+    finally { setDownloadingQr(false); }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -126,6 +140,30 @@ export default function Settings() {
       <div className="max-w-3xl">
         <h1 className="text-2xl font-semibold text-slate-800">Salon Settings</h1>
         <p className="text-sm text-slate-500 mt-1">Configure how billing, tax and your business identity behave on invoices.</p>
+
+        {/* Booking QR Poster */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-qr-card">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+              <QrCode className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-slate-800">Booking QR poster</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                A print-ready poster for your reception desk. Clients scan it with their phone camera → your booking page opens → they install the Miracurl Book app and self-book their next visit.
+              </p>
+            </div>
+            <button
+              data-testid="download-qr-poster-btn"
+              onClick={downloadQrPoster}
+              disabled={downloadingQr}
+              className="btn-blue flex items-center gap-2 flex-shrink-0 disabled:opacity-60"
+            >
+              {downloadingQr ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {downloadingQr ? "Generating…" : "Download poster"}
+            </button>
+          </div>
+        </div>
 
         {/* Salon Profile / Branding */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-branding-card">

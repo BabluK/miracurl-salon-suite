@@ -204,3 +204,10 @@ Frontend:
 - Image upload UX: uploading from laptop/phone now AUTO-SAVES immediately when editing an existing service/staff/product (onUploaded prop wired in Services/Staff/Inventory); raw /api/files URL box hidden behind "or paste a URL" toggle in ImageUploader.jsx. (For new records, image saves with the Create button.)
 - Services Import/Export in CSV (Excel/Sheets compatible): GET /api/services/export downloads services.csv; POST /api/services/import upserts by name (columns: name, category, price + optional duration_min, description, image_url, trending, active). Non-CSV rejected with helpful message. Buttons: import-csv-btn / export-csv-btn on Services page.
 - Verified: export 34 rows, import round-trip 34 updated, bad-file rejection, UI buttons + uploader render. Fixed a stray JSX compile error in ImageUploader.
+
+## Update — Jul 2, 2026 (part 7)
+- CSV Import/Export added for Customers (GET/POST /api/customers/export|import, upsert by phone; cols: name, phone + optional email/gender/dob/address/notes; export includes loyalty/spend/visits) and Products (upsert by sku or name; cols: name, category, price, stock + optional brand/sku/cost/low_stock_threshold/image_url). Buttons on Customers & Inventory pages. NOTE: /customers/export route MUST stay registered before /customers/{cid}.
+- Female/Male toggle on booking page ServicesStep (GENDER_CATS): Female → Skin/Manicure/Pedicure/Women Hair/Makeup/Nails; Male → Skin/Manicure/Pedicure/Men Hair/Nails.
+- Booking QR poster generator: GET /api/settings/qr-poster?origin= (qrcode + PIL, dark/gold A4 poster with salon name, QR to /book/{slug}, install CTA). "Download poster" button in Settings (settings-qr-card). Added qrcode to requirements.txt.
+- All verified: CSV round-trips via curl, poster PNG visually checked, gender toggle screenshot-tested.
+- LESSON: avoid multiple parallel search_replace edits to the SAME file — two batches silently clobbered each other (server.py customers routes + BookPublic.steps.jsx), causing compile errors that were then fixed.

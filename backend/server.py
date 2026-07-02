@@ -884,6 +884,50 @@ async def create_customer(body: CustomerIn, user=Depends(get_current_user)):
     await db.customers.insert_one(c)
     return _clean(c)
 
+@api.get("/customers/export")
+async def export_customers_csv(user=Depends(get_current_user)):
+    rows = await db.customers.find({}).sort("name", 1).to_list(5000)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["name", "phone", "email", "gender", "dob", "address", "notes", "loyalty_points", "total_spent", "visits"])
+    for r in rows:
+        w.writerow([
+            r.get("name", ""), r.get("phone", ""), r.get("email", "") or "", r.get("gender", "") or "",
+            r.get("dob", "") or "", r.get("address", "") or "", r.get("notes", "") or "",
+            r.get("loyalty_points", 0), r.get("total_spent", 0), r.get("visits", 0),
+        ])
+    return Response(content=buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=customers.csv"})
+
+@api.post("/customers/import")
+async def import_customers_csv(file: UploadFile = File(...), user=Depends(get_current_user)):
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(400, "Only CSV files are supported. Export first to get the exact template.")
+    content = (await file.read()).decode("utf-8-sig", errors="ignore")
+    reader = csv.DictReader(io.StringIO(content))
+    fields = {(f or "").strip().lower() for f in (reader.fieldnames or [])}
+    if not {"name", "phone"}.issubset(fields):
+        raise HTTPException(400, "CSV needs columns: name, phone (optional: email, gender, dob, address, notes)")
+    added = updated = skipped = 0
+    for raw in reader:
+        row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
+        name, phone = row.get("name", ""), re.sub(r"[^\d+]", "", row.get("phone", ""))
+        if not name or not phone:
+            skipped += 1
+            continue
+        doc = {"name": name, "phone": phone}
+        for f in ("email", "gender", "dob", "address", "notes"):
+            if row.get(f):
+                doc[f] = row[f]
+        existing = await db.customers.find_one({"phone": phone})
+        if existing:
+            await db.customers.update_one({"id": existing["id"]}, {"$set": doc})
+            updated += 1
+        else:
+            await db.customers.insert_one(Customer(**doc).model_dump())
+            added += 1
+    return {"added": added, "updated": updated, "skipped": skipped}
+
 @api.get("/customers/{cid}")
 async def get_customer(cid: str, user=Depends(get_current_user)):
     c = await db.customers.find_one({"id": cid}, {"_id": 0})
@@ -1063,6 +1107,68 @@ async def import_preset_services(user=Depends(get_current_user)):
     return {"added": added, "updated": updated}
 
 SERVICE_CSV_COLUMNS = ["name", "category", "price", "duration_min", "description", "image_url", "trending", "active"]
+
+def _build_qr_poster(salon_name: str, location: str, url: str) -> bytes:
+    import qrcode
+    from PIL import Image as PILImage, ImageDraw, ImageFont
+
+    W, H = 1240, 1754
+    img = PILImage.new("RGB", (W, H), (10, 10, 10))
+    d = ImageDraw.Draw(img)
+    serif = "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf"
+    sans = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
+
+    def fit_font(text, path, start, max_w):
+        size = start
+        while size > 30:
+            f = ImageFont.truetype(path, size)
+            bbox = d.textbbox((0, 0), text, font=f)
+            if bbox[2] - bbox[0] <= max_w:
+                return f
+            size -= 6
+        return ImageFont.truetype(path, 30)
+
+    def center(text, y, font, fill):
+        bbox = d.textbbox((0, 0), text, font=font)
+        d.text(((W - (bbox[2] - bbox[0])) / 2 - bbox[0], y), text, font=font, fill=fill)
+
+    f_sub = ImageFont.truetype(sans, 34)
+    f_small = ImageFont.truetype(sans, 28)
+    d.rectangle([0, 0, W, 14], fill=(212, 175, 55))
+    d.rectangle([0, H - 14, W, H], fill=(212, 175, 55))
+    center(salon_name, 130, fit_font(salon_name, serif, 84, W - 120), (212, 175, 55))
+    if location:
+        center(location[:70], 260, f_small, (230, 230, 230))
+    center("S C A N  ·  B O O K  ·  G L O W", 350, f_sub, (255, 255, 255))
+
+    qr = qrcode.QRCode(box_size=12, border=2)
+    qr.add_data(url)
+    qr.make(fit=True)
+    qimg = qr.make_image(fill_color="black", back_color="white").convert("RGB").resize((640, 640))
+    panel = PILImage.new("RGB", (700, 700), (255, 255, 255))
+    panel.paste(qimg, (30, 30))
+    img.paste(panel, ((W - 700) // 2, 450))
+
+    y = 450 + 700 + 70
+    center("Point your phone camera at the code", y, f_sub, (255, 255, 255))
+    center("Book your visit in seconds — no calls, no waiting", y + 62, f_small, (200, 200, 200))
+    center("Tap Install to get the Miracurl Book app for offers & reminders", y + 118, f_small, (212, 175, 55))
+    center("Powered by Miracurl", H - 90, f_small, (130, 130, 130))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+@api.get("/settings/qr-poster")
+async def download_qr_poster(origin: str = "", user=Depends(get_current_user)):
+    if not origin.startswith("http"):
+        raise HTTPException(400, "origin query param required")
+    tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+    url = f"{origin.rstrip('/')}/book/{tenant['slug']}"
+    png = _build_qr_poster(tenant.get("name", "Your Salon"), tenant.get("location", "") or "", url)
+    return Response(content=png, media_type="image/png",
+                    headers={"Content-Disposition": "attachment; filename=booking-qr-poster.png"})
 
 @api.get("/services/export")
 async def export_services_csv(user=Depends(get_current_user)):
@@ -1650,6 +1756,59 @@ async def create_product(body: ProductIn, user=Depends(get_current_user)):
     p = Product(**body.model_dump()).model_dump()
     await db.products.insert_one(p)
     return _clean(p)
+
+@api.get("/products/export")
+async def export_products_csv(user=Depends(get_current_user)):
+    rows = await db.products.find({}).sort("name", 1).to_list(2000)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["name", "brand", "category", "sku", "price", "cost", "stock", "low_stock_threshold", "image_url"])
+    for r in rows:
+        w.writerow([
+            r.get("name", ""), r.get("brand", "") or "", r.get("category", ""), r.get("sku", ""),
+            r.get("price", 0), r.get("cost", 0), r.get("stock", 0), r.get("low_stock_threshold", 5),
+            r.get("image_url", "") or "",
+        ])
+    return Response(content=buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=products.csv"})
+
+@api.post("/products/import")
+async def import_products_csv(file: UploadFile = File(...), user=Depends(get_current_user)):
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(400, "Only CSV files are supported. Export first to get the exact template.")
+    content = (await file.read()).decode("utf-8-sig", errors="ignore")
+    reader = csv.DictReader(io.StringIO(content))
+    fields = {(f or "").strip().lower() for f in (reader.fieldnames or [])}
+    if not {"name", "category", "price", "stock"}.issubset(fields):
+        raise HTTPException(400, "CSV needs columns: name, category, price, stock (optional: brand, sku, cost, low_stock_threshold, image_url)")
+    added = updated = skipped = 0
+    for raw in reader:
+        row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
+        name = row.get("name", "")
+        try:
+            price = float(row.get("price") or "")
+            stock = int(float(row.get("stock") or 0))
+        except ValueError:
+            skipped += 1
+            continue
+        if not name:
+            skipped += 1
+            continue
+        sku = row.get("sku") or f"SKU-{re.sub(r'[^A-Za-z0-9]', '', name)[:12].upper()}"
+        doc = {
+            "name": name, "brand": row.get("brand", ""), "category": row.get("category") or "General",
+            "sku": sku, "price": price, "cost": float(row.get("cost") or 0), "stock": stock,
+            "low_stock_threshold": int(float(row.get("low_stock_threshold") or 5)),
+            "image_url": row.get("image_url", ""),
+        }
+        existing = await db.products.find_one({"$or": [{"sku": sku}, {"name": name}]})
+        if existing:
+            await db.products.update_one({"id": existing["id"]}, {"$set": doc})
+            updated += 1
+        else:
+            await db.products.insert_one(Product(**doc).model_dump())
+            added += 1
+    return {"added": added, "updated": updated, "skipped": skipped}
 
 @api.put("/products/{pid}")
 async def update_product(pid: str, body: ProductIn, user=Depends(get_current_user)):

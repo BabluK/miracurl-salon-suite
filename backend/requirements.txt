@@ -12,6 +12,7 @@ boto3==1.43.36
 botocore==1.43.36
 certifi==2026.6.17
 cffi==2.0.0
+chardet==7.4.3
 charset-normalizer==3.4.7
 click==8.4.2
 cryptography==49.0.0
@@ -97,9 +98,11 @@ python-jose==3.5.0
 python-multipart==0.0.32
 pytokens==0.4.1
 PyYAML==6.0.3
+qrcode==8.2
 razorpay==2.0.1
 referencing==0.37.0
 regex==2026.6.28
+reportlab==4.2.5
 requests==2.34.2
 requests-oauthlib==2.0.0
 rich==15.0.0
@@ -127,5 +130,3 @@ watchfiles==1.2.0
 websockets==16.0
 yarl==1.24.2
 zipp==4.1.0
-reportlab==4.2.5
-chardet==7.4.3
