@@ -122,7 +122,7 @@ export default function Settings() {
   if (loading) return <div className="text-slate-500 text-sm">Loading…</div>;
 
   return (
-    <div className="bg-slate-50 -mx-8 -my-8 px-8 py-8 min-h-[calc(100vh-4rem)]" data-testid="settings-page">
+    <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)]" data-testid="settings-page">
       <div className="max-w-3xl">
         <h1 className="text-2xl font-semibold text-slate-800">Salon Settings</h1>
         <p className="text-sm text-slate-500 mt-1">Configure how billing, tax and your business identity behave on invoices.</p>

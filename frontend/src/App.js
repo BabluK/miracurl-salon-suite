@@ -23,6 +23,7 @@ import ReferEarn from "@/pages/ReferEarn";
 import StaffPortal from "@/pages/StaffPortal";
 import Attendance from "@/pages/Attendance";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ManifestSwitcher from "@/components/ManifestSwitcher";
 import ForceChangePassword from "@/pages/ForceChangePassword";
 
 function Protected({ children }) {
@@ -88,6 +89,7 @@ export default function App() {
     <div className="App">
       <AuthProvider>
         <BrowserRouter>
+          <ManifestSwitcher />
           <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } }} />
           <ErrorBoundary>
           <Routes>

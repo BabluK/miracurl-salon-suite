@@ -52,7 +52,7 @@ export default function Attendance() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="bg-slate-50 -mx-4 sm:-mx-6 -my-6 px-4 sm:px-6 py-6 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
+    <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-playfair text-2xl sm:text-3xl">Attendance</h1>

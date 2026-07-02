@@ -161,3 +161,17 @@ Frontend:
 - `/app/frontend/src/pages/SuperAdmin.jsx` — HQ console (iter 5).
 - `/app/java-reference/` — Java 8 + Spring Boot reference.
 - `/app/memory/PRD.md`, `/app/memory/test_credentials.md`, `/app/auth_testing.md`.
+
+## Update — Jul 2, 2026 (fork session)
+- Fixed desktop layout: removed black frame around pages (padding/negative-margin mismatch), added warm luxe gradient canvas (`.app-canvas` in index.css) across all 11 admin pages, restyled header (gold accents, date chip, deduped salon name subtitle in AppLayout.jsx).
+- Dual PWA apps from one codebase via ManifestSwitcher.jsx (route-based manifest swap):
+  - /book/* → "M" client booking app (manifest.json, id miracurl-booking, scope /book/)
+  - everything else → "Miracurl" admin/staff app (manifest-admin.json, id miracurl-admin, start_url /login, gold icons icon-admin-*.png)
+- Bumped SW cache to miracurl-v5; Android users now see Android-specific install instructions (was showing iPhone steps).
+- User must click Deploy for these to reach production (miracurlunisexsaloon.com).
+
+### Pending/backlog (unchanged)
+- P1: Email + SMS receipts (blocked: needs SendGrid/Twilio keys)
+- P1: Daily WhatsApp pulse summary (needs Twilio)
+- P2: More notification chimes + Do-not-disturb toggle
+- Refactor: split monolithic backend/server.py (~3500 lines) into routers/models/services

@@ -48,7 +48,7 @@ export default function Reviews() {
   }
 
   return (
-    <div className="bg-slate-50 -mx-6 -my-6 px-6 py-6 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
+    <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div>
         <h1 className="font-playfair text-3xl">Customer Reviews</h1>
         <p className="text-slate-500 text-sm mt-1">Moderate what shows up on your public booking page.</p>

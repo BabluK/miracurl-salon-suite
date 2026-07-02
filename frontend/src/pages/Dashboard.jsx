@@ -78,7 +78,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-slate-50 -mx-6 -my-6 px-6 py-6 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
+    <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
 
       <RenewalBanner sub={subStatus} />
       <DailyReportBanner ownerName={user?.name} />

@@ -128,7 +128,7 @@ export default function AppLayout() {
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
         {/* Top bar */}
         <header
-          className="sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/5"
+          className="sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between bg-gradient-to-r from-[#0A0A0A] via-[#151210] to-[#0A0A0A] backdrop-blur-xl border-b border-gold/20"
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -145,13 +145,13 @@ export default function AppLayout() {
               <div className="font-playfair text-base sm:text-lg leading-none truncate">
                 {current?.label || tenant?.name || "Dashboard"}
               </div>
-              <div className="hidden sm:block text-[10px] tracking-[0.25em] uppercase text-white/40 mt-1 truncate">
-                {tenant?.name || "Your Salon"}{tenant?.location ? ` • ${tenant.location}` : ""}
+              <div className="hidden sm:block text-[10px] tracking-[0.25em] uppercase text-gold/60 mt-1 truncate">
+                {tenant?.location || tenant?.name || "Your Salon"}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-            <div className="hidden md:block text-xs text-white/50 tracking-wider">{today}</div>
+            <div className="hidden md:flex items-center px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 tracking-wider">{today}</div>
             {isAdmin ? (
               <NotifBell
                 unread={notifier.unread}
