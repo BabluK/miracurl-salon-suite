@@ -59,7 +59,7 @@ export default function AppLayout() {
 
   // Booking notification poller — only for owners/admins. Fires a chime + OS
   // notification when a customer self-books via the public link.
-  const isAdmin = user?.role && user.role !== "staff" && user.role !== "super_admin";
+  const isAdmin = user?.role === "admin";
   const isOwner = user?.role === "admin" || user?.role === "super_admin";
   const notifier = useNewBookingNotifier({ enabled: isAdmin });
 

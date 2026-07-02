@@ -304,3 +304,14 @@ Frontend:
 - New GET /api/reports/staff-performance: revenue/bills/services per stylist for today | week (Mon-) | month | last_month (IST boundaries). Attribution: per-item staff_id → fallback invoice staff_id → "Unassigned". Single invoices fetch since last-month start, computed in Python, gathered with staff names.
 - Dashboard: new <StaffPerformance> card (staff-performance-card) below charts — 4 period tabs (perf-tab-today/week/month/last_month), ranked rows with 🏆 for #1, revenue bars, bills+services counts. Verified via curl + screenshot (Rahul ₹5400, Priya ₹5150 this week; "Unassigned" = old invoices billed without stylist selection).
 - USER MUST REDEPLOY.
+
+## Update — Jul 2, 2026 (part 23) — Manager Role + WhatsApp Approval Workflow (iteration_39: 100% pass)
+- NEW ROLE `manager` (seeded: manager@miracurl.com / Manager@Miracurl123, tenant Miracurl Marathahalli, /app/scripts/seed_manager.py). Access: Dashboard, Appointments, CRM, Services, POS/Billing, Reviews ONLY.
+- FRONTEND RBAC: App.js OwnerOnly wrapper (staff→/staff-portal, manager→/dashboard) on /staff /attendance /inventory /refer /reports /messages /gallery /assistant /plans /settings. NAV_MANAGER trimmed to 6 items. All 10 restricted deep-links verified redirecting.
+- BACKEND RBAC: require_admin now allows manager (operational endpoints); moved to strict require_tenant_admin: reports/daily, reports/sales, reports/staff-commission, assistant chat+history, staff update/delete, products import/export/delete, packages/memberships/coupons CRUD, gallery delete. Verified 403s via curl.
+- WA APPROVAL WORKFLOW: managers never open wa.me directly. (1) Confirming an appointment as manager → backend creates whatsapp_requests doc (tenant-scoped via TenantCollection) and returns wa_request_created=true, whatsapp_url=null. (2) Reminder/review buttons in Appointments.jsx call requestWA() → POST /api/whatsapp-requests. (3) Admin Dashboard shows WhatsAppApprovals widget (wa-approvals-widget, polls 30s) with Approve & Send (opens returned wa_url) / Reject. Verified E2E both roles.
+- CONSOLE 403 CLEANUP: Dashboard.jsx gates reminders/subscription/DailyReportBanner/RemindersWidget to owners; AppLayout isAdmin narrowed to role==='admin' (booking notifier + owner-chats poll). Manager dashboard now zero 403s.
+- FIXED pre-existing: priya.staff@miracurl.com password reset back to Priya@Miracurl123 (had been rotated by earlier test run); stray `')` at server.py EOF (was crashing backend on reload).
+- NOTE: whatsapp_requests tenant isolation is automatic via TenantCollection proxy (testing agent's cross-tenant flag = false positive).
+- USER MUST REDEPLOY for production.
+- Backlog: 30s silence timeout verification in Mira hands-free voice (implemented part 20, needs E2E verify); server.py refactor into routes/models modules; Manager management UI for admins (create/reset managers — endpoints /api/managers exist, no UI yet).

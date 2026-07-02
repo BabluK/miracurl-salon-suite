@@ -48,14 +48,17 @@ export default function Dashboard() {
   const [reminders, setReminders] = useState({ count: 0, items: [] });
   const [subStatus, setSubStatus] = useState(null);
   const { tenant, user } = useAuth();
+  const isOwner = user?.role === "admin" || user?.role === "super_admin";
 
   useEffect(() => {
     api.get("/reports/dashboard")
       .then(r => setData(r.data))
       .catch(e => toast.error(`Couldn't load dashboard: ${e?.message || "network error"}`));
-    api.get("/dashboard/reminders").then(r => setReminders(r.data)).catch(() => {});
-    api.get("/billing/subscription-status").then(r => setSubStatus(r.data)).catch(() => {});
-  }, []);
+    if (isOwner) {
+      api.get("/dashboard/reminders").then(r => setReminders(r.data)).catch(() => {});
+      api.get("/billing/subscription-status").then(r => setSubStatus(r.data)).catch(() => {});
+    }
+  }, [isOwner]);
 
   if (!data) return <div className="text-slate-500 p-4">Loading dashboard…</div>;
 
@@ -82,8 +85,8 @@ export default function Dashboard() {
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
 
       <RenewalBanner sub={subStatus} />
-      <DailyReportBanner ownerName={user?.name} />
-      {(user?.role === "admin" || user?.role === "super_admin") && <WhatsAppApprovals />}
+      {isOwner && <DailyReportBanner ownerName={user?.name} />}
+      {isOwner && <WhatsAppApprovals />}
 
       {/* Hero strip with booking link */}
       <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl p-6 text-white relative overflow-hidden">
@@ -167,7 +170,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <RemindersWidget reminders={reminders} setReminders={setReminders} salonName={tenant?.name} />
+      {isOwner && <RemindersWidget reminders={reminders} setReminders={setReminders} salonName={tenant?.name} />}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
