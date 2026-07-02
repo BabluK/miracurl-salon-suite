@@ -3,11 +3,12 @@ import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard, Calendar, Users, UserCog, Scissors, Package,
   ShoppingCart, BarChart3, LogOut, Bell, ChevronDown, Star,
-  Settings as SettingsIcon, Menu, X, Gift, Clock
+  Settings as SettingsIcon, Menu, X, Gift, Clock, Download
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
+import InstallAppPrompt from "./InstallAppPrompt";
 
 const NAV_ADMIN = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
@@ -168,6 +169,17 @@ export default function AppLayout() {
                 <div className="absolute right-0 mt-2 w-56 bg-[#121212] border border-white/10 rounded-md shadow-card-luxe py-1 z-40">
                   <div className="px-4 py-2 text-xs text-white/50 border-b border-white/5 truncate">{user?.email}</div>
                   <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      try { localStorage.removeItem("miracurl_pwa_install_dismissed"); } catch (e) { /* noop */ }
+                      window.dispatchEvent(new CustomEvent("miracurl:open-install"));
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-white/5 text-white/80 flex items-center gap-2"
+                    data-testid="profile-install-app-btn"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Install app
+                  </button>
+                  <button
                     onClick={async () => { await logout(); nav("/login"); }}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-white/5 text-red-400"
                     data-testid="profile-signout-btn"
@@ -188,6 +200,10 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* PWA install banner — auto-shown when installable, or on demand via
+          the "Install app" menu item. Copy tuned for the logged-in salon app. */}
+      <InstallAppPrompt variant="app" />
     </div>
   );
 }

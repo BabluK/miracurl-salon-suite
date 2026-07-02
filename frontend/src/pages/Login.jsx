@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { User, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import BrandMark from "@/components/BrandMark";
+import InstallAppPrompt from "@/components/InstallAppPrompt";
 
 // Users routinely log in from the same browser; if they opt in, we remember
 // the *email only* (never the password) so the next visit is one field faster.
@@ -76,6 +77,10 @@ export default function Login() {
       <div className="relative z-10 px-8 pt-6 sm:px-14 sm:pt-10">
         <BrandMark variant="light" size="lg" />
       </div>
+
+      {/* PWA install prompt — encourages install from the login screen so
+          returning users can open the app in one tap. */}
+      <InstallAppPrompt variant="app" />
 
       {/* Card */}
       <div className="relative z-10 flex items-start justify-center px-4 pt-10 pb-24 sm:pt-16">

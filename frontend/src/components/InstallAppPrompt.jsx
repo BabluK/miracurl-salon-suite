@@ -2,15 +2,20 @@ import { useEffect, useState } from "react";
 import { Download, X, Share, Smartphone } from "lucide-react";
 
 /**
- * Smart PWA install banner shown on the customer booking page.
- * - On Chrome/Edge/Android: captures the browser's beforeinstallprompt event
- *   and shows a native install-app button.
+ * Smart PWA install banner.
+ * - Works on public booking page AND inside the logged-in salon app.
+ * - On Chrome/Edge (desktop + Android): captures beforeinstallprompt and shows
+ *   a native install button. Users on desktop get the same one-click install.
  * - On iOS Safari: shows an "Add to Home Screen" mini-tutorial (Apple doesn't
  *   fire beforeinstallprompt, so we fall back to human instructions).
- * - Hides forever after user installs OR dismisses (localStorage flag).
- * - Never shown when the site is already opened as an installed PWA.
+ * - Hides forever after user installs OR dismisses (localStorage flag), but
+ *   the trigger button in the header can force it back up any time.
+ * - Never shown when the site is already running as an installed PWA.
+ *
+ * Props:
+ *   variant: "customer" | "app"   (copy tuning only, default "customer")
  */
-export default function InstallAppPrompt() {
+export default function InstallAppPrompt({ variant = "customer" }) {
   const [deferred, setDeferred] = useState(null);
   const [visible, setVisible] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
@@ -28,27 +33,35 @@ export default function InstallAppPrompt() {
     } catch (e) {
       console.warn("[InstallAppPrompt] localStorage read failed:", e);
     }
-    if (dismissed) return;
 
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
     const handler = (e) => {
       e.preventDefault();
       setDeferred(e);
-      setVisible(true);
+      if (!dismissed) setVisible(true);
     };
     window.addEventListener("beforeinstallprompt", handler);
 
-    if (isIos) {
+    // Manual trigger from anywhere (e.g. header button) — forces the banner up
+    // even if the user previously dismissed it.
+    const openHandler = () => setVisible(true);
+    window.addEventListener("miracurl:open-install", openHandler);
+
+    if (isIos && !dismissed) {
       // Show iOS tutorial after 4 seconds so it doesn't feel intrusive
       const t = setTimeout(() => setVisible(true), 4000);
       return () => {
         window.removeEventListener("beforeinstallprompt", handler);
+        window.removeEventListener("miracurl:open-install", openHandler);
         clearTimeout(t);
       };
     }
 
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("miracurl:open-install", openHandler);
+    };
   }, []);
 
   function dismiss() {
@@ -58,7 +71,7 @@ export default function InstallAppPrompt() {
 
   async function install() {
     if (!deferred) {
-      // iOS path — show the manual instructions overlay instead
+      // iOS path OR desktop Safari — show the manual instructions overlay
       setShowIosGuide(true);
       return;
     }
@@ -68,9 +81,20 @@ export default function InstallAppPrompt() {
       dismiss(); // remember they installed so we don't nag
     }
     setDeferred(null);
+    setVisible(false);
   }
 
   if (!visible) return null;
+
+  const copy = variant === "app"
+    ? {
+        title: "Install Miracurl on this device",
+        subtitle: "One tap to open your salon dashboard next time — no browser bar, faster startup.",
+      }
+    : {
+        title: "Install Miracurl on your phone",
+        subtitle: "Book faster next time, get reminders, and skip the browser bar. Free ✦",
+      };
 
   return (
     <>
@@ -83,9 +107,9 @@ export default function InstallAppPrompt() {
             <Smartphone className="w-6 h-6 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold leading-tight">Install Miracurl on your phone</div>
+            <div className="text-sm font-semibold leading-tight">{copy.title}</div>
             <p className="text-[11px] text-white/85 mt-1 leading-snug">
-              Book faster next time, get reminders, and skip the browser bar. Free ✦
+              {copy.subtitle}
             </p>
             <div className="flex items-center gap-2 mt-3">
               <button
