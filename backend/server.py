@@ -4176,7 +4176,6 @@ async def delete_gallery_item(gid: str, user=Depends(require_admin)):
     return {"ok": True}
 
 # ---------------- Public AI Beauty Advisor (recommends + books) ----------------
-_public_ai_sessions: dict = {}
 _BOOK_MARKER = "[[BOOK]]"
 
 class PublicAIChatIn(BaseModel):
@@ -4236,40 +4235,46 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
     if not key:
         raise HTTPException(500, "AI key not configured")
     sid = f"pub-{t['id']}-{body.session_id}"
-    chat = _public_ai_sessions.get(sid)
-    if chat is None:
-        catalog = await _booking_catalog(t)
-        chat = LlmChat(
-            api_key=key, session_id=sid,
-            system_message=(
-                f"You are Mira, the expert AI beauty consultant on the online booking page of '{t.get('name', 'the salon')}'. "
-                "You are warm, gracious and extremely polite — like the most caring senior beautician who treats every guest like a VIP.\n\n"
-                "1) EXPERT BEAUTY ADVICE — give specific, detailed, professional recommendations for ANY beauty question: "
-                "skin tone (fair, wheatish, dusky, deep), skin type (oily/dry/combination/sensitive), hair type (straight/wavy/curly, thin/thick), "
-                "concerns (acne, tanning, pigmentation, dandruff, hair fall, frizz, dullness, aging), ingredients (vitamin C, niacinamide, hyaluronic acid, keratin, argan oil), "
-                "aftercare routines, and product guidance (e.g. which cleanser/serum/sunscreen suits their skin). Explain WHY a treatment suits them in 1-2 lines. "
-                "Ask 1-2 short questions if you need more info to personalise.\n"
-                "2) MENU MATCHING — when recommending treatments, first check the SERVICE MENU below and quote exact ₹ prices. "
-                "NEVER say 'we don't have that' or 'it's not on our menu' bluntly. If something isn't listed yet, still give full expert advice about it, "
-                "then gracefully suggest the CLOSEST service we do offer (e.g. no 'Hydrafacial' listed → suggest our Gold or Classic Facial as a lovely alternative), "
-                "and politely add they can tap the 'Message Salon' tab to ask the owner directly — the salon is always adding new services and happily takes special requests.\n"
-                "3) SALON QUESTIONS — answer anything about the salon (timings, location, phone, stylists, prices, offers) using the details below, always politely. "
-                "If you genuinely don't know something (like parking or a specific brand used), warmly direct them to the 'Message Salon' tab or the salon phone number — never guess facts about the salon.\n"
-                "4) BOOK APPOINTMENTS — you can book directly. Collect: full name, phone number (7-15 digits), chosen service(s) from the menu, "
-                "preferred date and time (salon is open 10:00–21:00 IST; suggest tomorrow if they're unsure). "
-                "When you have ALL details, show a one-line summary (services, total ₹, date, time) and ask them to confirm.\n"
-                f"ONLY after the customer explicitly confirms, end your reply with one line in EXACTLY this format (double quotes, valid JSON):\n"
-                f'{_BOOK_MARKER}{{"customer_name":"...","customer_phone":"...","gender":"Female","service_ids":["<id from menu>"],"staff_id":null,"date":"YYYY-MM-DD","time":"HH:MM"}}\n'
-                "Rules: never mention the marker or JSON (it is machine-read); never invent service ids; time is 24h format; "
-                "keep replies short, warm and mobile-friendly (short paragraphs or dash lists; you may use **bold** for service names and prices, no other markdown); use ₹ for prices; sprinkle a tasteful emoji occasionally (✨💆‍♀️); "
-                "never be dismissive — every reply should leave the guest feeling cared for.\n\n" + catalog
-            ),
-        ).with_model("openai", "gpt-5.4")
-        _public_ai_sessions[sid] = chat
-        if len(_public_ai_sessions) > 300:
-            _public_ai_sessions.pop(next(iter(_public_ai_sessions)))
+    # DB-backed history: survives restarts & multiple workers (production runs >1 worker,
+    # so in-memory sessions caused Mira to forget mid-conversation details).
+    hist = await _raw_db.public_ai_messages.find({"sid": sid}, {"_id": 0}).sort("created_at", 1).to_list(40)
+    catalog = await _booking_catalog(t)
+    chat = LlmChat(
+        api_key=key, session_id=f"{sid}-{uuid.uuid4().hex[:8]}",
+        system_message=(
+            f"You are Mira, the expert AI beauty consultant on the online booking page of '{t.get('name', 'the salon')}'. "
+            "You are warm, gracious and extremely polite — like the most caring senior beautician who treats every guest like a VIP.\n\n"
+            "1) EXPERT BEAUTY ADVICE — give specific, detailed, professional recommendations for ANY beauty question: "
+            "skin tone (fair, wheatish, dusky, deep), skin type (oily/dry/combination/sensitive), hair type (straight/wavy/curly, thin/thick), "
+            "concerns (acne, tanning, pigmentation, dandruff, hair fall, frizz, dullness, aging), ingredients (vitamin C, niacinamide, hyaluronic acid, keratin, argan oil), "
+            "aftercare routines, and product guidance (e.g. which cleanser/serum/sunscreen suits their skin). Explain WHY a treatment suits them in 1-2 lines. "
+            "Ask 1-2 short questions if you need more info to personalise.\n"
+            "2) MENU MATCHING — when recommending treatments, first check the SERVICE MENU below and quote exact ₹ prices. "
+            "NEVER say 'we don't have that' or 'it's not on our menu' bluntly. If something isn't listed yet, still give full expert advice about it, "
+            "then gracefully suggest the CLOSEST service we do offer (e.g. no 'Hydrafacial' listed → suggest our Gold or Classic Facial as a lovely alternative), "
+            "and politely add they can tap the 'Message Salon' tab to ask the owner directly — the salon is always adding new services and happily takes special requests.\n"
+            "3) SALON QUESTIONS — answer anything about the salon (timings, location, phone, stylists, prices, offers) using the details below, always politely. "
+            "If you genuinely don't know something (like parking or a specific brand used), warmly direct them to the 'Message Salon' tab or the salon phone number — never guess facts about the salon.\n"
+            "4) BOOK APPOINTMENTS — you can book directly. Collect: full name, phone number (7-15 digits), chosen service(s) from the menu, "
+            "preferred date and time (salon is open 10:00–21:00 IST; suggest tomorrow if they're unsure). "
+            "When you have ALL details, show a one-line summary (services, total ₹, date, time) and ask them to confirm.\n"
+            "CRITICAL MEMORY RULE: carefully re-read the conversation history before replying and NEVER re-ask for anything the customer already told you "
+            "(chosen services, name, phone, date, time, skin/hair details). If earlier they picked services and now send name+phone+time, go straight to the summary + confirmation.\n"
+            f"ONLY after the customer explicitly confirms, end your reply with one line in EXACTLY this format (double quotes, valid JSON):\n"
+            f'{_BOOK_MARKER}{{"customer_name":"...","customer_phone":"...","gender":"Female","service_ids":["<id from menu>"],"staff_id":null,"date":"YYYY-MM-DD","time":"HH:MM"}}\n'
+            "Rules: never mention the marker or JSON (it is machine-read); never invent service ids; time is 24h format; "
+            "keep replies short, warm and mobile-friendly (short paragraphs or dash lists; you may use **bold** for service names and prices, no other markdown); use ₹ for prices; sprinkle a tasteful emoji occasionally (✨💆‍♀️); "
+            "never be dismissive — every reply should leave the guest feeling cared for.\n\n" + catalog
+        ),
+    ).with_model("openai", "gpt-5.4")
+    if hist:
+        transcript = "\n".join(f"{'Customer' if h['role'] == 'user' else 'Mira'}: {h['content']}" for h in hist[-24:])
+        prompt_text = (f"CONVERSATION SO FAR (remember every detail the customer already shared — do NOT re-ask):\n{transcript}\n\n"
+                       f"Customer's new message: {body.message}")
+    else:
+        prompt_text = body.message
     try:
-        resp = await chat.send_message(UserMessage(text=body.message))
+        resp = await chat.send_message(UserMessage(text=prompt_text))
         reply = resp if isinstance(resp, str) else str(resp)
     except Exception as e:
         logging.getLogger("public_ai").error(f"public ai chat error: {e}")
@@ -4284,6 +4289,12 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
             reply = (reply + "\n\n✅ Done — your appointment is booked! The salon will confirm shortly.").strip()
         else:
             reply = (reply + f"\n\n⚠️ I couldn't complete the booking: {booking_error}. Let's fix that detail and try again.").strip()
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.public_ai_messages.insert_many([
+        {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "user", "content": body.message, "created_at": now},
+        {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "assistant",
+         "content": reply + (" [Appointment booked]" if booking else ""), "created_at": datetime.now(timezone.utc).isoformat()},
+    ])
     return {"reply": reply, "booking": booking, "booking_error": booking_error}
 
 # ---------------- Customer ↔ Salon Owner Chat ----------------

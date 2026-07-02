@@ -255,3 +255,8 @@ Frontend:
 - Admin "Messages" page (/messages, Messages.jsx, nav-messages) — thread list w/ unread pills, conversation pane, reply, 8-15s polling. Sidebar nav badge (nav-messages-unread) polls unread-count every 30s in AppLayout.
 - SW cache bumped to v7. Testing: iteration_36.json — 12/12 backend pytest + 9/9 frontend flows PASS. LLM key budget was topped up (previous blocker resolved).
 - Backlog: Email+SMS receipts (awaiting SendGrid/Twilio keys), Daily WhatsApp Pulse (Twilio), extra notification chimes + DND toggle, server.py refactor into routers (~4390 lines), optional Recharts width warnings fix.
+
+## Update — Jul 2, 2026 (part 15) — Mira memory bug fix (production report)
+- User reported (production): Mira re-asked for the service after customer already picked services + gave name/phone/time. ROOT CAUSE: LlmChat sessions were in-memory (_public_ai_sessions dict) — production runs multiple workers/restarts → follow-up hits a worker with no session → fresh chat, context lost.
+- FIX: removed in-memory cache; conversation history now persisted in _raw_db.public_ai_messages (keyed sid=pub-{tenant}-{session}); each request rebuilds a fresh LlmChat and prepends last 24 messages as transcript ("CONVERSATION SO FAR... do NOT re-ask"). Added CRITICAL MEMORY RULE to system prompt. Booking replies stored with "[Appointment booked]" tag.
+- VERIFIED: full Kamal scenario via curl incl. backend restart mid-conversation — Mira remembered service+name+phone+time and booked after "confirm". USER MUST REDEPLOY to get fix in production.
