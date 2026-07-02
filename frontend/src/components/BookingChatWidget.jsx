@@ -10,6 +10,14 @@ function newSid() {
 
 const mkMsg = (m) => ({ id: crypto.randomUUID(), ...m });
 
+const QUICK_PROMPTS = [
+  "Want to book a men's haircut? ✂️",
+  "Advise me a hair colour for women 🎨",
+  "Book Botox / Keratin service ✨",
+  "Book manicure & pedicure 💅",
+  "Suggest a facial for my skin 💆‍♀️",
+];
+
 function BookingCard({ booking }) {
   return (
     <div className="mt-2 rounded-xl border border-gold/40 bg-gold/10 p-3 text-xs space-y-1" data-testid="ai-booking-card">
@@ -43,7 +51,7 @@ function Bubble({ m }) {
 }
 
 function AiTab({ slug }) {
-  const [msgs, setMsgs] = useState([mkMsg({ role: "ai", text: "Hi! I'm Mira ✨ your personal beauty advisor. May I know your name, please?" })]);
+  const [msgs, setMsgs] = useState([mkMsg({ role: "ai", text: "Hi! I'm Mira ✨ your personal beauty advisor.\n\nI can book appointments for you, or suggest the right service for your hair & skin. May I know your name, please? 💖" })]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -60,8 +68,8 @@ function AiTab({ slug }) {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
   useEffect(() => () => { audioRef.current?.pause(); recRef.current?.stream?.getTracks().forEach(t => t.stop()); }, []);
 
-  async function send() {
-    const text = input.trim();
+  async function send(preset) {
+    const text = (preset ?? input).trim();
     if (!text || busy) return;
     setInput("");
     setMsgs(m => [...m, mkMsg({ role: "user", text })]);
@@ -138,6 +146,16 @@ function AiTab({ slug }) {
           </div>
         ))}
         {busy && <div className="flex items-center gap-2 text-white/50 text-xs px-1"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is {recording ? "listening" : "typing"}…</div>}
+        {msgs.length <= 2 && !busy && (
+          <div className="flex flex-wrap gap-1.5 pt-1" data-testid="ai-quick-prompts">
+            {QUICK_PROMPTS.map(p => (
+              <button key={p} data-testid="ai-quick-prompt" onClick={() => send(p)}
+                className="text-[11px] px-2.5 py-1.5 rounded-full bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-colors">
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
         <div ref={endRef} />
       </div>
       <div className="p-3 border-t border-white/10 flex gap-2 items-center">
@@ -160,7 +178,7 @@ function AiTab({ slug }) {
           disabled={recording}
           className="flex-1 bg-white/5 border border-white/15 rounded-full px-4 py-2 text-[13px] text-white placeholder:text-white/30 focus:outline-none focus:border-gold/60 disabled:opacity-60"
         />
-        <button data-testid="ai-chat-send-btn" onClick={send} disabled={busy || recording} className="w-9 h-9 rounded-full bg-gold text-bg-base flex items-center justify-center disabled:opacity-50 flex-shrink-0">
+        <button data-testid="ai-chat-send-btn" onClick={() => send()} disabled={busy || recording} className="w-9 h-9 rounded-full bg-gold text-bg-base flex items-center justify-center disabled:opacity-50 flex-shrink-0">
           <Send className="w-4 h-4" />
         </button>
       </div>

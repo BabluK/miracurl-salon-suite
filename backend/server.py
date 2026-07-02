@@ -10,6 +10,7 @@ import csv
 import json
 import uuid
 import hmac
+import asyncio
 import hashlib
 import logging
 import secrets
@@ -1361,6 +1362,28 @@ async def create_staff_login(
         "temp_password": temp_pw,
         "must_change_password": True,
     }
+
+
+@api.post("/staff/{sid}/reset-login")
+async def reset_staff_login(sid: str, admin=Depends(require_tenant_admin)):
+    """Regenerate a one-time temp password for a staff who ALREADY has a login
+    (e.g. the owner lost the original). Forces a password change on next login."""
+    s = await db.staff.find_one({"id": sid}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Staff member not found")
+    if not s.get("user_id"):
+        raise HTTPException(400, "This staff has no login yet — use 'Give login' first")
+    login_user = await db.users.find_one({"id": s["user_id"]}, {"_id": 0, "email": 1})
+    if not login_user:
+        raise HTTPException(400, "Linked login account not found — use 'Give login' to recreate it")
+    temp_pw = _generate_temp_password()
+    await db.users.update_one(
+        {"id": s["user_id"]},
+        {"$set": {"password_hash": hash_pw(temp_pw), "must_change_password": True, "disabled": False, "status": "active"}})
+    # Keep the staff record's email in sync with the actual login email so the
+    # owner always shares the correct address (root cause of "invalid password").
+    await db.staff.update_one({"id": sid}, {"$set": {"email": login_user["email"]}})
+    return {"ok": True, "email": login_user["email"], "temp_password": temp_pw, "must_change_password": True}
 
 
 @api.post("/staff/{sid}/toggle-active")
@@ -4502,25 +4525,27 @@ class PublicAIChatIn(BaseModel):
     session_id: str = Field(..., min_length=8, max_length=64)
 
 async def _booking_catalog(t) -> str:
-    services = await db.services.find({"active": True}, {"_id": 0}).to_list(200)
-    staff = await db.staff.find({"active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(50)
+    services, staff, coupons, pkgs, mems = await asyncio.gather(
+        db.services.find({"active": True}, {"_id": 0}).to_list(200),
+        db.staff.find({"active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(50),
+        db.coupons.find({"active": True}, {"_id": 0}).to_list(50),
+        db.packages.find({"active": True}, {"_id": 0}).to_list(50),
+        db.memberships.find({"active": True}, {"_id": 0}).to_list(50),
+    )
     svc_lines = "\n".join(
         f"- id={s['id']} | {s['name']} | {s.get('category', '')} | ₹{s['price']} | {s['duration_min']}min"
         for s in services) or "(no services listed)"
     staff_lines = ", ".join(f"{s['name']} (id={s['id']})" for s in staff) or "any available stylist"
     today = datetime.now(timezone.utc).date().isoformat()
-    coupons = await db.coupons.find({"active": True}, {"_id": 0}).to_list(50)
     live_coupons = [c for c in coupons
                     if (not c.get("expires_at") or c["expires_at"] >= today)
                     and (not c.get("max_uses") or int(c.get("used_count") or 0) < int(c["max_uses"]))]
     offer_lines = "\n".join(
         f"- Code {c['code']}: {int(c['value'])}% off" if c["type"] == "percent" else f"- Code {c['code']}: ₹{int(c['value'])} off"
         for c in live_coupons) or "(none currently)"
-    pkgs = await db.packages.find({"active": True}, {"_id": 0}).to_list(50)
     pkg_lines = "\n".join(
         f"- {p['name']}: {p['sessions']}× {p.get('service_name', '')} for ₹{int(p['price'])} (valid {p.get('validity_days', 365)} days)"
         for p in pkgs) or "(none currently)"
-    mems = await db.memberships.find({"active": True}, {"_id": 0}).to_list(50)
     mem_lines = "\n".join(
         f"- {m['name']}: {int(m['discount_pct'])}% off all services for ₹{int(m['price'])} ({m.get('validity_days', 180)} days)"
         for m in mems) or "(none currently)"

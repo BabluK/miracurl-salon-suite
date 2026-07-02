@@ -100,6 +100,17 @@ export default function Staff() {
     }
   }
 
+  async function resetLogin(s) {
+    if (!window.confirm(`Reset ${s.name}'s password? A new temporary password will be generated and they'll set their own on next login.`)) return;
+    try {
+      const { data } = await api.post(`/staff/${s.id}/reset-login`);
+      setTempCred({ name: s.name, phone: s.phone, email: data.email, temp_password: data.temp_password });
+      toast.success("New password generated — share it with the staff");
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Failed to reset password");
+    }
+  }
+
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -147,7 +158,7 @@ export default function Staff() {
             </div>
             <div className="flex flex-wrap items-center gap-1.5 justify-center mt-4">
               <button data-testid={`edit-staff-${s.id}`} onClick={() => startEdit(s)} className="btn-slate flex items-center gap-1 text-xs py-1.5 px-3"><Edit3 className="w-3 h-3" /> Edit</button>
-              {!s.user_id && (
+              {!s.user_id ? (
                 <button
                   data-testid={`create-login-${s.id}`}
                   onClick={() => createLogin(s)}
@@ -155,6 +166,15 @@ export default function Staff() {
                   title="Create login credentials for this staff"
                 >
                   <KeyRound className="w-3 h-3" /> Give login
+                </button>
+              ) : (
+                <button
+                  data-testid={`reset-login-${s.id}`}
+                  onClick={() => resetLogin(s)}
+                  className="text-xs py-1.5 px-3 rounded-md bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 inline-flex items-center gap-1"
+                  title="Generate a new temporary password for this staff"
+                >
+                  <KeyRound className="w-3 h-3" /> Reset password
                 </button>
               )}
               <button
