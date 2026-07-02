@@ -58,7 +58,7 @@ function ChatPanel() {
     if (!msg || busy) return;
     setInput("");
     setBusy(true);
-    setMessages(m => [...m, { role: "user", content: msg }, { role: "assistant", content: "" }]);
+    setMessages(m => [...m, { id: crypto.randomUUID(), role: "user", content: msg }, { id: crypto.randomUUID(), role: "assistant", content: "" }]);
     try {
       const res = await fetch(`${BACKEND_URL}/api/assistant/chat`, {
         method: "POST",
@@ -103,7 +103,7 @@ function ChatPanel() {
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div key={m.id || i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-violet-600 text-white rounded-br-sm" : "bg-slate-100 text-slate-800 rounded-bl-sm"}`}>
               {m.content || <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
             </div>

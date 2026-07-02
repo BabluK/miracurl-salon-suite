@@ -188,7 +188,7 @@ export default function ReferEarn() {
             "They sign up for a free 7-day trial and set up their salon.",
             `You get ₹${reward} credited to your Miracurl subscription — automatically applied on your next renewal.`,
           ].map((step, i) => (
-            <li key={i} className="flex gap-3">
+            <li key={step} className="flex gap-3">
               <div className="w-6 h-6 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-gold text-xs font-semibold flex-shrink-0">
                 {i + 1}
               </div>

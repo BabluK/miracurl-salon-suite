@@ -144,10 +144,12 @@ export default function POS() {
     api.get(`/customers/${customerId}/benefits`).then(r => setBenefits(r.data)).catch(() => {});
   }, [customerId]);
 
-  const catalog = mode === "services" ? services
+  const catalog = useMemo(() => (
+    mode === "services" ? services
     : mode === "products" ? products
     : mode === "package" ? packages
-    : mode === "membership" ? memberships : [];
+    : mode === "membership" ? memberships : []
+  ), [mode, services, products, packages, memberships]);
   const categories = useMemo(
     () => (mode === "services" || mode === "products") ? [...new Set(catalog.map(i => i.category || "Other"))] : [],
     [catalog, mode]);
@@ -354,7 +356,12 @@ export default function POS() {
 
           <div className="bg-white rounded-xl border border-slate-200 p-4">
             <h3 className="text-base font-semibold text-slate-700 mb-3">
-              {categories.length ? (category || "All items") : mode === "package" ? "Packages" : mode === "membership" ? "Memberships" : "All items"}
+              {(() => {
+                if (categories.length) return category || "All items";
+                if (mode === "package") return "Packages";
+                if (mode === "membership") return "Memberships";
+                return "All items";
+              })()}
             </h3>
             <div className="grid grid-cols-2 gap-2 max-h-[calc(100vh-22rem)] overflow-y-auto pr-1">
               {filtered.map(i => (

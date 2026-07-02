@@ -48,7 +48,9 @@ export default function SignupSalon() {
       if (ref && /^[a-z0-9-]{2,40}$/.test(ref)) {
         localStorage.setItem("miracurl_ref", ref);
       }
-    } catch { /* noop */ }
+    } catch (err) {
+      console.warn("Referral param parse failed:", err);
+    }
   }, []);
 
   // Auto-suggest slug from salon name (until user manually edits it)

@@ -8,6 +8,8 @@ function newSid() {
   return `s-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+const mkMsg = (m) => ({ id: crypto.randomUUID(), ...m });
+
 function BookingCard({ booking }) {
   return (
     <div className="mt-2 rounded-xl border border-gold/40 bg-gold/10 p-3 text-xs space-y-1" data-testid="ai-booking-card">
@@ -41,7 +43,7 @@ function Bubble({ m }) {
 }
 
 function AiTab({ slug }) {
-  const [msgs, setMsgs] = useState([{ role: "ai", text: "Hi! I'm Mira ✨ your personal beauty advisor. May I know your name, please?" }]);
+  const [msgs, setMsgs] = useState([mkMsg({ role: "ai", text: "Hi! I'm Mira ✨ your personal beauty advisor. May I know your name, please?" })]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -62,13 +64,13 @@ function AiTab({ slug }) {
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
-    setMsgs(m => [...m, { role: "user", text }]);
+    setMsgs(m => [...m, mkMsg({ role: "user", text })]);
     setBusy(true);
     try {
       const { data } = await axios.post(`${BACKEND_URL}/api/public/ai-chat/${slug}`, { message: text, session_id: sidRef.current }, { timeout: 90000 });
-      setMsgs(m => [...m, { role: "ai", text: data.reply, booking: data.booking }]);
+      setMsgs(m => [...m, mkMsg({ role: "ai", text: data.reply, booking: data.booking })]);
     } catch (e) {
-      setMsgs(m => [...m, { role: "ai", text: e.response?.data?.detail || "Sorry, I hit a snag — please try again." }]);
+      setMsgs(m => [...m, mkMsg({ role: "ai", text: e.response?.data?.detail || "Sorry, I hit a snag — please try again." })]);
     } finally { setBusy(false); }
   }
 
@@ -110,7 +112,7 @@ function AiTab({ slug }) {
 
   async function sendVoice(blob) {
     setBusy(true);
-    setMsgs(m => [...m, { role: "user", text: "🎙️ …", pending: true }]);
+    setMsgs(m => [...m, mkMsg({ role: "user", text: "🎙️ …", pending: true })]);
     try {
       const fd = new FormData();
       fd.append("audio", blob, "voice.webm");
@@ -118,11 +120,11 @@ function AiTab({ slug }) {
       const { data } = await axios.post(`${BACKEND_URL}/api/public/ai-voice/${slug}`, fd, { timeout: 120000 });
       setMsgs(m => {
         const next = m.filter(x => !x.pending);
-        return [...next, { role: "user", text: `🎙️ ${data.transcript}` }, { role: "ai", text: data.reply, booking: data.booking, spoken: !!data.audio_b64 }];
+        return [...next, mkMsg({ role: "user", text: `🎙️ ${data.transcript}` }), mkMsg({ role: "ai", text: data.reply, booking: data.booking, spoken: !!data.audio_b64 })];
       });
       if (data.audio_b64) playAudio(data.audio_b64);
     } catch (e) {
-      setMsgs(m => [...m.filter(x => !x.pending), { role: "ai", text: e.response?.data?.detail || "Sorry, I couldn't hear that — please try again." }]);
+      setMsgs(m => [...m.filter(x => !x.pending), mkMsg({ role: "ai", text: e.response?.data?.detail || "Sorry, I couldn't hear that — please try again." })]);
     } finally { setBusy(false); }
   }
 
@@ -130,7 +132,7 @@ function AiTab({ slug }) {
     <>
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5" data-testid="ai-chat-messages">
         {msgs.map((m, i) => (
-          <div key={i}>
+          <div key={m.id || i}>
             <Bubble m={m} />
             {m.spoken && <div className="flex justify-start mt-0.5"><span className="text-[9px] text-white/30 flex items-center gap-1 px-1"><Volume2 className="w-2.5 h-2.5" /> spoken</span></div>}
           </div>
