@@ -377,3 +377,10 @@ Frontend:
 - PLAN PRICING (user req): half_year ₹10,000 → ₹12,000 (PLAN_CATALOG + Landing.jsx; annual stays ₹20,000, "save ₹4,000"). Settings/BillingPanel read prices from API — auto-updated.
 - GOODWILL EXTENSION (user req: "client facing financial issue — extend 1 more month"): NEW POST /api/super-admin/subscriptions/{sid}/extend → +30 days on active sub end_date, audit trail pushed to sub.extensions[], tenant.subscription_end_date synced. BillingPanel: CalendarPlus button (extend-sub-{id}) on active rows + "+N mo extended" label under End date. CURL verified (2027-01-02 → 2027-02-01 on throwaway Suspend Test tenant, then cancelled).
 - USER MUST REDEPLOY.
+
+## Update — Jul 3, 2026 (part 33) — Mira FAB everywhere + Settings crash fix + code review triage
+- MIRA AI AGENT (user req): new MiraFab.jsx — floating mira-bot.png avatar w/ gold glow + 3 staggered sparkle-twinkle Sparkles + "Ask Mira ✦" hover tooltip → navigates /assistant. Rendered in AppLayout (admins only; hidden on /assistant). main paddingBottom raised 1.5rem→5.5rem for FAB clearance. Screenshot-verified on Dashboard + POS, click→/assistant works.
+- PROD BUG FIX: Settings.jsx used <ChangePasswordSection /> without import → "ChangePasswordSection is not defined" crash on /settings (user screenshot from production). Added import; screenshot-verified /settings loads.
+- PASSWORD ROTATION CLARIFIED: preview rotation verified (old pw→401, new→200). Production DB is separate — user must rotate own admin/super accounts manually via Settings→Change Password after redeploy. NEW salons already forced (must_change_password flow exists end-to-end).
+- CODE REVIEW TRIAGE: 103 hook-deps claims → 0 real (eslint exhaustive-deps clean); 12 localStorage "vulns" → benign (auth is HttpOnly cookies); 15 backend undefined vars → pyflakes clean. FIXED: stable keys for sparkle maps (Landing/LogoStudio). Deferred: complexity refactors (server.py modularization, POS/Settings/BookingChatWidget splits) — roadmap item, needs dedicated regression-tested session.
+- USER MUST REDEPLOY (esp. for Settings crash fix).

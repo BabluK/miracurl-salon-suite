@@ -163,8 +163,8 @@ export default function Landing() {
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1b1533] via-[#2a1c4f] to-[#141126] text-white p-8 sm:p-12">
           <div className="pointer-events-none absolute -right-20 -top-20 w-80 h-80 rounded-full bg-fuchsia-500/20 blur-3xl" />
           <div className="pointer-events-none absolute -left-16 -bottom-24 w-72 h-72 rounded-full bg-amber-400/15 blur-3xl" />
-          {[["6%", "14%", "0s"], ["30%", "78%", "0.8s"], ["55%", "10%", "1.4s"], ["90%", "62%", "0.5s"]].map(([l, t, d], i) => (
-            <Sparkles key={i} className="sparkle-twinkle absolute w-4 h-4 text-amber-300/70 pointer-events-none" style={{ left: l, top: t, animationDelay: d }} />
+          {[["6%", "14%", "0s"], ["30%", "78%", "0.8s"], ["55%", "10%", "1.4s"], ["90%", "62%", "0.5s"]].map(([l, t, d]) => (
+            <Sparkles key={`${l}-${t}`} className="sparkle-twinkle absolute w-4 h-4 text-amber-300/70 pointer-events-none" style={{ left: l, top: t, animationDelay: d }} />
           ))}
           <div className="relative flex flex-col lg:flex-row items-center gap-10">
             <div className="relative shrink-0">

@@ -55,8 +55,8 @@ export const LogoStudio = () => {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-[#1b1533] via-[#241a45] to-[#141126] p-6 text-white" data-testid="logo-studio">
       {/* sparkle field */}
-      {[["8%", "18%", "0s"], ["22%", "70%", "0.7s"], ["45%", "12%", "1.3s"], ["68%", "80%", "0.4s"], ["85%", "30%", "1.8s"], ["60%", "50%", "2.3s"]].map(([l, t, d], i) => (
-        <Sparkles key={i} className="sparkle-twinkle absolute w-4 h-4 text-amber-300/80 pointer-events-none" style={{ left: l, top: t, animationDelay: d }} />
+      {[["8%", "18%", "0s"], ["22%", "70%", "0.7s"], ["45%", "12%", "1.3s"], ["68%", "80%", "0.4s"], ["85%", "30%", "1.8s"], ["60%", "50%", "2.3s"]].map(([l, t, d]) => (
+        <Sparkles key={`${l}-${t}`} className="sparkle-twinkle absolute w-4 h-4 text-amber-300/80 pointer-events-none" style={{ left: l, top: t, animationDelay: d }} />
       ))}
       <div className="relative flex flex-col lg:flex-row lg:items-center gap-6">
         <div className="flex-1">
