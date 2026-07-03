@@ -1,11 +1,12 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
-import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle } from "lucide-react";
+import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle, Sparkles } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, ConfirmStep, SuccessStep } from "./BookPublic.steps";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import BookingChatWidget from "@/components/BookingChatWidget";
+import { HeroCTAs, GalleryShowcase, VerifiedTeam, ReferEarnBanner, AITrustStrip, openMira } from "@/components/BookPublicExtras";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const DEFAULT_SLUG = "miracurl-marathahalli";
@@ -56,6 +57,7 @@ export default function BookPublic() {
   const [services, setServices] = useState([]);
   const [staff, setStaff] = useState([]);
   const [featured, setFeatured] = useState([]);
+  const [gallery, setGallery] = useState([]);
   const [busy, setBusy] = useState(false);
 
   const [picked, setPicked] = useState([]);
@@ -80,6 +82,7 @@ export default function BookPublic() {
     PUBLIC.get(`/services/${slug}`).then(r => setServices(r.data)).catch(() => setServices([]));
     PUBLIC.get(`/staff/${slug}`).then(r => setStaff(r.data)).catch(() => setStaff([]));
     PUBLIC.get(`/reviews/featured/${slug}`).then(r => setFeatured(r.data)).catch(() => setFeatured([]));
+    PUBLIC.get(`/gallery/${slug}`).then(r => setGallery(r.data)).catch(() => setGallery([]));
   }, [PUBLIC, slug]);
 
   const byCategory = useMemo(() => services.reduce((acc, s) => {
@@ -182,7 +185,7 @@ export default function BookPublic() {
     <div className="min-h-screen mesh-dark text-ink-primary" data-testid="public-book-page">
       <Toaster theme="dark" position="top-center" toastOptions={TOASTER_OPTIONS} />
 
-      <header className="relative h-64 sm:h-80 overflow-hidden">
+      <header className="relative h-80 sm:h-96 overflow-hidden">
         <img src={salon.hero_image} className="absolute inset-0 w-full h-full object-cover" alt="" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-bg-base" />
         <Link
@@ -192,6 +195,21 @@ export default function BookPublic() {
         >
           <Star className="w-3 h-3 text-gold" /> Find a salon
         </Link>
+        {/* Animated Mira AI orb */}
+        <button
+          data-testid="hero-ai-orb"
+          onClick={() => openMira("ai")}
+          aria-label="Chat with Mira AI"
+          className="ai-orb absolute top-14 right-4 sm:top-16 sm:right-8 z-20 flex flex-col items-center gap-1.5"
+        >
+          <span className="relative w-14 h-14 sm:w-16 sm:h-16">
+            <span className="ai-orb-ring absolute -inset-1.5 rounded-full" />
+            <span className="ai-orb-core absolute inset-0 rounded-full flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-[#16120d]" />
+            </span>
+          </span>
+          <span className="text-[9px] uppercase tracking-[0.2em] text-gold bg-black/50 backdrop-blur px-2 py-0.5 rounded-full border border-gold/30">Mira AI</span>
+        </button>
         <div className="relative z-10 max-w-5xl mx-auto h-full flex flex-col justify-end p-6 sm:p-10">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-11 h-11 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
@@ -208,10 +226,11 @@ export default function BookPublic() {
             <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-gold" /> {salon.hours}</span>
             <span className="flex items-center gap-1"><PhoneIcon className="w-3 h-3 text-gold" /> {salon.phone}</span>
           </div>
+          <HeroCTAs />
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+      <main id="booking-wizard" className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {step === 0 && <FeaturedReviews featured={featured} />}
         {step < 5 && <Stepper step={step} />}
 
@@ -253,6 +272,15 @@ export default function BookPublic() {
               </button>
             )}
           </div>
+        )}
+
+        {step === 0 && (
+          <>
+            <GalleryShowcase items={gallery} />
+            <VerifiedTeam staff={staff} />
+            <ReferEarnBanner salonName={salon.name} reward={salon.referral_reward} />
+            <AITrustStrip />
+          </>
         )}
       </main>
 

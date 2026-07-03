@@ -2838,6 +2838,11 @@ async def public_staff(slug: str):
 async def public_staff_default():
     return await public_staff(DEFAULT_TENANT_SLUG)
 
+@api.get("/public/gallery/{slug}")
+async def public_gallery(slug: str):
+    await resolve_tenant_from_slug(slug)
+    return await db.gallery.find({}, {"_id": 0}).sort("created_at", -1).to_list(24)
+
 @api.get("/public/referral/{slug}/{code}")
 async def public_referral(slug: str, code: str):
     await resolve_tenant_from_slug(slug)

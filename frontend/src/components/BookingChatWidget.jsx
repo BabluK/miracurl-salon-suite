@@ -371,6 +371,12 @@ export const BookingChatWidget = ({ slug }) => {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("ai");
 
+  useEffect(() => {
+    const h = (e) => { setTab(e.detail?.tab || "ai"); setOpen(true); };
+    window.addEventListener("miracurl:open-chat", h);
+    return () => window.removeEventListener("miracurl:open-chat", h);
+  }, []);
+
   return (
     <>
       {!open && (
@@ -379,6 +385,10 @@ export const BookingChatWidget = ({ slug }) => {
           onClick={() => setOpen(true)}
           className="fixed bottom-24 sm:bottom-6 right-4 z-50 flex items-center gap-2 pl-3 pr-4 py-3 rounded-full bg-gold text-bg-base shadow-gold-glow font-semibold text-sm hover:scale-105 transition-transform"
         >
+          <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-60" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-white/90" />
+          </span>
           <Sparkles className="w-4 h-4" /> Ask Mira
         </button>
       )}

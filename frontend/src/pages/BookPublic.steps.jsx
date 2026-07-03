@@ -1,12 +1,16 @@
 // Step components for the public booking page.
 // Extracted from BookPublic.jsx to reduce that file's complexity (was 549 lines).
 // Each component is a pure presentational unit driven by props.
-import { Check, IndianRupee, Clock, Sparkles, User, Phone, Mail, Gift, Star, Copy, Share2 } from "lucide-react";
+import { Check, IndianRupee, Clock, Sparkles, User, Phone, Mail, Gift, Star, Copy, Share2, Hand, Footprints, Scissors, Brush, Paintbrush } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { shareText as shareTextLib } from "@/lib/share";
 
 const CATEGORY_ORDER = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup", "Nails"];
+const CATEGORY_ICONS = {
+  Skin: Sparkles, Manicure: Hand, Pedicure: Footprints,
+  "Women Hair": Scissors, "Men Hair": Scissors, Makeup: Brush, Nails: Paintbrush,
+};
 const GENDER_CATS = {
   Female: ["Skin", "Manicure", "Pedicure", "Women Hair", "Makeup", "Nails"],
   Male: ["Skin", "Manicure", "Pedicure", "Men Hair", "Nails"],
@@ -114,29 +118,38 @@ export function ServicesStep({ byCategory, picked, onToggle }) {
             <div className="h-px bg-white/10 flex-1" />
             <span className="text-[10px] uppercase tracking-widest text-white/40">{byCategory[cat].length} services</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {byCategory[cat].map(s => {
               const on = picked.includes(s.id);
+              const Icon = CATEGORY_ICONS[s.category] || Sparkles;
               return (
                 <button
                   key={s.id}
                   data-testid={`book-service-${s.id}`}
                   onClick={() => onToggle(s.id)}
-                  className={`text-left card-luxe p-0 overflow-hidden transition-all ${on ? "border-gold ring-2 ring-gold/30 shadow-gold-glow" : "hover:border-gold/40"}`}
+                  className={`relative text-left w-full rounded-2xl overflow-hidden border flex items-stretch bg-white/[0.045] backdrop-blur-sm transition-all duration-300 ${on ? "border-gold ring-2 ring-gold/30 shadow-gold-glow" : "border-white/10 hover:border-gold/40 hover:bg-white/[0.07]"}`}
                 >
-                  <div className="h-28 relative">
-                    <img src={s.image_url || DEFAULT_SERVICE_IMG} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-bg-surface to-transparent" />
-                    {s.trending && <span className="absolute top-2 left-2 bg-gold text-bg-base text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded">Trending</span>}
-                    {on && <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-gold flex items-center justify-center"><Check className="w-3.5 h-3.5 text-bg-base" /></span>}
-                  </div>
-                  <div className="p-4">
-                    <div className="font-playfair text-lg">{s.name}</div>
-                    {s.description && <div className="text-xs text-ink-secondary mt-1 line-clamp-2">{s.description}</div>}
-                    <div className="flex items-center justify-between mt-3 text-sm">
-                      <span className="text-gold font-semibold flex items-center"><IndianRupee className="w-3 h-3" />{s.price}</span>
-                      <span className="text-ink-secondary text-xs flex items-center gap-1"><Clock className="w-3 h-3" />{s.duration_min}m</span>
+                  <div className="flex-1 min-w-0 p-4 sm:p-5 flex gap-3.5">
+                    <div className="w-12 h-12 rounded-full bg-gold/10 border border-gold/25 flex items-center justify-center shrink-0">
+                      <Icon className="w-5 h-5 text-gold" />
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-playfair text-lg leading-snug pr-1">{s.name}</div>
+                      {s.description && <div className="text-xs text-ink-secondary mt-1 line-clamp-2">{s.description}</div>}
+                      <div className="text-ink-secondary text-xs flex items-center gap-1 mt-2"><Clock className="w-3 h-3" />{s.duration_min}m</div>
+                    </div>
+                    <div className="flex flex-col items-end justify-center gap-2.5 shrink-0">
+                      <span className="text-gold font-bold text-lg flex items-center"><IndianRupee className="w-3.5 h-3.5" />{s.price}</span>
+                      <span className={`text-xs font-semibold px-4 py-1.5 rounded-lg border transition-colors ${on ? "bg-gold text-bg-base border-gold" : "border-gold/60 text-gold"}`}>
+                        {on ? "Selected ✓" : "Select"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-28 sm:w-40 relative shrink-0">
+                    <img src={s.image_url || DEFAULT_SERVICE_IMG} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#15110d] via-transparent to-transparent" />
+                    {s.trending && <span className="absolute top-2 right-2 bg-gold text-bg-base text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">Trending</span>}
+                    {on && <span className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-gold flex items-center justify-center"><Check className="w-3.5 h-3.5 text-bg-base" /></span>}
                   </div>
                 </button>
               );

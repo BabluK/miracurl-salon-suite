@@ -259,15 +259,43 @@ select:-webkit-autofill {
   animation: mesh-drift 26s ease-in-out infinite alternate;
 }
 
-/* Dark neon mesh for public booking experience */
+/* Dark neon mesh for public booking experience — warm soft charcoal, easy on the eyes */
 .mesh-dark {
-  background-color: #0a0a0a;
+  background-color: #16120d;
   background-image:
-    radial-gradient(1000px 600px at 80% -10%, rgba(212, 175, 55, 0.10), transparent 60%),
-    radial-gradient(900px 550px at -10% 110%, rgba(236, 72, 153, 0.10), transparent 60%),
-    radial-gradient(700px 500px at 55% 60%, rgba(88, 28, 135, 0.16), transparent 65%);
+    radial-gradient(1000px 600px at 80% -10%, rgba(212, 175, 55, 0.12), transparent 60%),
+    radial-gradient(900px 550px at -10% 110%, rgba(190, 120, 60, 0.08), transparent 60%),
+    radial-gradient(700px 500px at 55% 60%, rgba(120, 72, 35, 0.10), transparent 65%);
   background-size: 170% 170%, 160% 160%, 150% 150%;
   animation: mesh-drift 30s ease-in-out infinite alternate;
+}
+
+/* Floating AI orb (Mira) — pure CSS, works on iOS & Android */
+@keyframes ai-orb-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-7px) scale(1.04); }
+}
+@keyframes ai-orb-glow {
+  0%, 100% { box-shadow: 0 0 18px rgba(212,175,55,0.45), 0 0 40px rgba(212,175,55,0.15); }
+  50% { box-shadow: 0 0 30px rgba(212,175,55,0.75), 0 0 70px rgba(212,175,55,0.28); }
+}
+@keyframes ai-orb-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.ai-orb {
+  animation: ai-orb-float 3.6s ease-in-out infinite;
+}
+.ai-orb-core {
+  background: conic-gradient(from 0deg, #d4af37, #f5e2a0, #b8860b, #ffd97a, #d4af37);
+  animation: ai-orb-glow 2.8s ease-in-out infinite;
+}
+.ai-orb-ring {
+  border: 1.5px dashed rgba(212,175,55,0.5);
+  animation: ai-orb-spin 9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-orb, .ai-orb-core, .ai-orb-ring { animation: none; }
 }
 
 @keyframes mesh-drift {
