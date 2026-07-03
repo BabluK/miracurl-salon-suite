@@ -36,6 +36,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
+    const PUBLIC_PREFIXES = ["/book", "/staff-registry", "/review/"];
+    if (PUBLIC_PREFIXES.some(p => window.location.pathname.startsWith(p))) {
+      setUser(false);
+      setLoading(false);
+      return undefined;
+    }
     (async () => {
       try {
         const { data } = await api.get("/auth/me");
