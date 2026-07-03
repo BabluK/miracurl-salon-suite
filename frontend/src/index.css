@@ -123,6 +123,10 @@ table.luxe-table { width: 100%; border-collapse: collapse; }
   transition: all 0.15s ease;
 }
 .input-light:focus { outline: none; background: #fff; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(186,230,253,0.5); }
+/* Let Tailwind left-padding utilities win over .input-light's shorthand padding
+   (inputs with an absolute-positioned leading icon) */
+.input-light.pl-9 { padding-left: 2.25rem; }
+.input-light.pl-10 { padding-left: 2.5rem; }
 
 .card-light {
   background: #fff;
