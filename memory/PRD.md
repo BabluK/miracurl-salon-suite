@@ -405,3 +405,12 @@ Frontend:
 - FRONTEND (Reports.jsx): "Branch Performance" card (branch-performance-card / branch-perf-{name}) — side-by-side tiles: revenue, bill count, avg bill, % share progress bar; hidden until bills are branch-tagged. Screenshot-verified (Main 94% vs AECS 6%).
 - GOTCHA AGAIN: search_replace import edit (MapPin) reported success but didn't persist → crash; re-applied + verified with head. NOTE FOR NEXT AGENT: after search_replace on frontend files, verify critical import/state edits actually landed.
 - USER MUST REDEPLOY.
+
+## Update — Jul 3, 2026 (part 37) — Security audit fixes + dashboard collection chip + 2nd code review triage
+- DASHBOARD (user req): "Today's Collection: ₹X · N bills" chip (hero-today-collection) below the "Welcome back..." heading in the snapshot banner. Screenshot-verified. (Today Revenue KPI card was never removed — prod showed ₹0 due to no bills that day.)
+- SECURITY AUDIT (ran via security_audit_agent — verdict CONDITIONAL PASS, 2 MEDIUM): BOTH FIXED:
+  - SEC-002 session revocation: JWT access+refresh now carry iat; _reject_if_token_predates_password_change() enforced in get_current_user AND /auth/refresh; password_changed_at set on change-password (already), reset-password, staff reset, manager reset. E2E VERIFIED with manager acct: pre-change token → 401, new login OK, password restored. Missing-iat legacy tokens treated as pre-change.
+  - SEC-001 AI prompt injection: _ai_safe() strips control chars/newlines + caps 120ch on tenant name/slug/location/branch name/address in _super_platform_stats; stats wrapped in <platform-data> delimiters + explicit "data not instructions" rule. AI chat re-verified working.
+  - Remaining P3 (accepted for now): server-side must_change_password enforcement; caching of AI stats.
+- 2ND CODE REVIEW TRIAGE: same false positives re-verified (eslint 0 hook violations, pyflakes 0 undefined vars, localStorage benign). FIXED: BookingChatWidget renderText key now index+content. POS.jsx:402 noop catch is intentional (localStorage). Complexity refactors still deferred to dedicated session.
+- USER MUST REDEPLOY.

@@ -32,7 +32,7 @@ function BookingCard({ booking }) {
 function renderText(text) {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
     part.startsWith("**") && part.endsWith("**")
-      ? <strong key={i}>{part.slice(2, -2)}</strong>
+      ? <strong key={`${i}-${part.slice(2, 10)}`}>{part.slice(2, -2)}</strong>
       : part
   );
 }
