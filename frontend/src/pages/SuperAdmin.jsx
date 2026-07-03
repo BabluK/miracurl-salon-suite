@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
+import { SuperProfileCard, HealthBadge, AiInsightsPanel } from "@/components/SuperAdminExtras";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -124,6 +125,9 @@ export default function SuperAdmin() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10 space-y-6 pb-24">
+        {/* Super-admin profile */}
+        <SuperProfileCard />
+
         {/* Tabs */}
         <div className="flex items-center gap-2 border-b border-slate-200">
           <button
@@ -146,6 +150,11 @@ export default function SuperAdmin() {
             onClick={() => setTab("revenue")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "revenue" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           ><TrendingUp className="w-4 h-4" /> Revenue</button>
+          <button
+            data-testid="super-tab-ai"
+            onClick={() => setTab("ai")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "ai" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><Sparkles className="w-4 h-4" /> AI Insights</button>
         </div>
 
         {tab === "billing" ? (
@@ -154,6 +163,8 @@ export default function SuperAdmin() {
           <LeaderboardPanel />
         ) : tab === "revenue" ? (
           <RevenuePanel />
+        ) : tab === "ai" ? (
+          <AiInsightsPanel />
         ) : (
           <>
         <div className="flex items-center justify-between">
@@ -189,7 +200,7 @@ export default function SuperAdmin() {
         {/* Tenant list */}
         <div className="card-light p-0 overflow-hidden">
           <table className="luxe-table-light">
-            <thead><tr><th>Salon</th><th>Slug</th><th>Owner</th><th>Plan</th><th>Status</th><th>Booking Link</th><th></th></tr></thead>
+            <thead><tr><th>Salon</th><th>Slug</th><th>Owner</th><th>Plan</th><th>Status</th><th>Health</th><th>Booking Link</th><th></th></tr></thead>
             <tbody>
               {tenants.map(t => (
                 <tr key={t.id} data-testid={`tenant-row-${t.id}`}>
@@ -205,6 +216,7 @@ export default function SuperAdmin() {
                   <td>
                     <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded ${STATUS_BADGE[t.status] || ''}`}>{t.status}</span>
                   </td>
+                  <td><HealthBadge t={t} /></td>
                   <td>
                     <a href={publicBookingUrl(t.slug)} target="_blank" rel="noreferrer" className="text-xs text-sky-600 hover:underline flex items-center gap-1" data-testid={`booking-link-${t.id}`}>
                       <ExternalLink className="w-3 h-3" /> /book/{t.slug}
@@ -223,7 +235,7 @@ export default function SuperAdmin() {
                   </td>
                 </tr>
               ))}
-              {tenants.length === 0 && <tr><td colSpan="7" className="text-center text-slate-500 py-12">No tenants yet. Add your first salon!</td></tr>}
+              {tenants.length === 0 && <tr><td colSpan="8" className="text-center text-slate-500 py-12">No tenants yet. Add your first salon!</td></tr>}
             </tbody>
           </table>
         </div>
