@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
 import InstallAppPrompt from "./InstallAppPrompt";
+import MiraFab from "./MiraFab";
 import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
 
 const NAV_ADMIN = [
@@ -235,7 +236,7 @@ export default function AppLayout() {
         <main
           className="flex-1 p-4 sm:p-6 lg:p-8 animate-fade-up"
           data-testid="main-content"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)" }}
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5.5rem)" }}
         >
           <Outlet />
         </main>
@@ -244,6 +245,9 @@ export default function AppLayout() {
       {/* PWA install banner — auto-shown when installable, or on demand via
           the "Install app" menu item. Copy tuned for the logged-in salon app. */}
       <InstallAppPrompt variant="app" />
+
+      {/* Mira AI agent — floats on every portal section (admins only; staff/manager navs don't include /assistant) */}
+      {user?.role === "admin" && <MiraFab />}
     </div>
   );
 }
