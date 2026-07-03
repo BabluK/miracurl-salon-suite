@@ -2813,6 +2813,8 @@ async def public_salon(slug: str):
         "google_review_url": t.get("google_review_url") or "",
         "instagram_url": t.get("instagram_url") or "",
         "whatsapp_number": t.get("whatsapp_number") or "",
+        "logo_url": t.get("logo_url") or "",
+        "branches": t.get("branches", []),
     }
 
 # Legacy /public/salon — falls back to default tenant for backward compatibility
@@ -3124,6 +3126,85 @@ SEED_CUSTOMERS = [
 async def get_current_tenant(t=Depends(current_tenant)):
     """The tenant the current authenticated user belongs to (or has switched into)."""
     return t
+
+
+# ---------------- Branches (multi-location) ----------------
+class BranchIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    address: str = Field(..., min_length=5, max_length=300)
+    phone: str = Field("", max_length=20)
+    maps_url: str = Field("", max_length=500)
+
+@api.get("/branches")
+async def list_branches(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return t.get("branches", [])
+
+@api.post("/branches")
+async def add_branch(body: BranchIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    branch = {"id": str(uuid.uuid4()), **body.model_dump()}
+    await db.tenants.update_one({"id": t["id"]}, {"$push": {"branches": branch}})
+    return branch
+
+@api.put("/branches/{bid}")
+async def update_branch(bid: str, body: BranchIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await db.tenants.update_one(
+        {"id": t["id"], "branches.id": bid},
+        {"$set": {f"branches.$.{k}": v for k, v in body.model_dump().items()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Branch not found")
+    return {"ok": True}
+
+@api.delete("/branches/{bid}")
+async def delete_branch(bid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    await db.tenants.update_one({"id": t["id"]}, {"$pull": {"branches": {"id": bid}}})
+    return {"ok": True}
+
+# ---------------- Brand Studio (AI logo) ----------------
+class LogoGenIn(BaseModel):
+    style: str = Field("luxury gold minimal", max_length=200)
+
+@api.post("/branding/logo/generate")
+async def generate_logo(body: LogoGenIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    gen = OpenAIImageGeneration(api_key=key)
+    prompt = (f"A premium circular logo emblem for a beauty salon named '{t.get('name', 'the salon')}'. "
+              f"Style: {body.style}. Flat vector emblem, centered composition, elegant typography featuring the salon name, "
+              f"scissors or beauty motif, solid deep charcoal background, gold accent palette, "
+              f"high contrast, crisp edges, logo design only — no photo, no watermark, no mockup.")
+    try:
+        images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+    except Exception as e:
+        raise HTTPException(502, f"Logo generation failed: {e}")
+    if not images:
+        raise HTTPException(502, "No image was generated")
+    file_id = str(uuid.uuid4())
+    storage_path = f"{APP_NAME}/tenants/{t['id']}/logo/{file_id}.png"
+    try:
+        result = _put_object(storage_path, images[0], "image/png")
+    except requests.HTTPError as e:
+        raise HTTPException(502, f"Storage upload failed: {e}") from e
+    await _raw_db.uploads.insert_one({
+        "id": file_id, "tenant_id": t["id"], "kind": "logo",
+        "storage_path": result.get("path", storage_path),
+        "original_filename": f"{file_id}.png", "content_type": "image/png",
+        "size": len(images[0]), "uploaded_by": user["id"], "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"ok": True, "url": f"/api/files/{file_id}"}
+
+class LogoApplyIn(BaseModel):
+    url: str = Field("", max_length=500)
+
+@api.post("/branding/logo/apply")
+async def apply_logo(body: LogoApplyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    url = body.url.strip()
+    if url and not (url.startswith("/api/files/") or url.startswith("http")):
+        raise HTTPException(400, "Invalid logo URL")
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"logo_url": url}})
+    return {"ok": True, "logo_url": url}
 
 
 class TaxSettingsIn(BaseModel):

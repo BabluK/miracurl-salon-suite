@@ -298,6 +298,14 @@ select:-webkit-autofill {
   .ai-orb, .ai-orb-core, .ai-orb-ring { animation: none; }
 }
 
+/* Twinkling sparkles for the AI Brand Studio card */
+@keyframes sparkle-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.7) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
+}
+.sparkle-twinkle { animation: sparkle-twinkle 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .sparkle-twinkle { animation: none; } }
+
 @keyframes mesh-drift {
   0%   { background-position: 0% 0%, 100% 100%, 50% 50%, 0 0; }
   50%  { background-position: 60% 30%, 40% 60%, 30% 70%, 0 0; }

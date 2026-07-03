@@ -6,7 +6,7 @@ import { toast, Toaster } from "sonner";
 import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, ConfirmStep, SuccessStep } from "./BookPublic.steps";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import BookingChatWidget from "@/components/BookingChatWidget";
-import { HeroCTAs, GalleryShowcase, VerifiedTeam, ReferEarnBanner, AITrustStrip, openMira } from "@/components/BookPublicExtras";
+import { HeroCTAs, GalleryShowcase, VerifiedTeam, ReferEarnBanner, AITrustStrip, LocationsSection, openMira } from "@/components/BookPublicExtras";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const DEFAULT_SLUG = "miracurl-marathahalli";
@@ -204,17 +204,21 @@ export default function BookPublic() {
         >
           <span className="relative w-14 h-14 sm:w-16 sm:h-16">
             <span className="ai-orb-ring absolute -inset-1.5 rounded-full" />
-            <span className="ai-orb-core absolute inset-0 rounded-full flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-[#16120d]" />
+            <span className="ai-orb-core absolute inset-0 rounded-full overflow-hidden flex items-center justify-center">
+              <img src="/mira-bot.png" alt="Mira AI" className="w-full h-full object-cover" />
             </span>
           </span>
           <span className="text-[9px] uppercase tracking-[0.2em] text-gold bg-black/50 backdrop-blur px-2 py-0.5 rounded-full border border-gold/30">Mira AI</span>
         </button>
         <div className="relative z-10 max-w-5xl mx-auto h-full flex flex-col justify-end p-6 sm:p-10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-11 h-11 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
-              <Scissors className="w-5 h-5 text-bg-base" />
-            </div>
+            {salon.logo_url ? (
+              <img src={salon.logo_url.startsWith("/api/") ? `${BACKEND_URL}${salon.logo_url}` : salon.logo_url} alt={salon.name} data-testid="hero-salon-logo" className="w-11 h-11 rounded-full object-cover border-2 border-gold shadow-gold-glow" />
+            ) : (
+              <div className="w-11 h-11 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
+                <Scissors className="w-5 h-5 text-bg-base" />
+              </div>
+            )}
             <div>
               <div className="font-playfair text-2xl">{salon.name || "Miracurl"}</div>
               <div className="text-[10px] tracking-[0.3em] uppercase text-gold">Book Your Visit</div>
@@ -283,6 +287,8 @@ export default function BookPublic() {
           </>
         )}
       </main>
+
+      <LocationsSection salon={salon} />
 
       <footer className="border-t border-white/5 mt-10 py-8 text-center text-xs text-ink-muted">
         <div className="flex items-center justify-center gap-4 mb-4">

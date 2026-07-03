@@ -383,13 +383,17 @@ export const BookingChatWidget = ({ slug }) => {
         <button
           data-testid="booking-chat-fab"
           onClick={() => setOpen(true)}
-          className="fixed bottom-24 sm:bottom-6 right-4 z-50 flex items-center gap-2 pl-3 pr-4 py-3 rounded-full bg-gold text-bg-base shadow-gold-glow font-semibold text-sm hover:scale-105 transition-transform"
+          className="fixed bottom-24 sm:bottom-6 right-4 z-50 flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-gold text-bg-base shadow-gold-glow font-semibold text-sm hover:scale-105 transition-transform"
         >
           <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-60" />
             <span className="relative inline-flex rounded-full h-3 w-3 bg-white/90" />
           </span>
-          <Sparkles className="w-4 h-4" /> Ask Mira
+          <img src="/mira-bot.png" alt="Mira" className="w-10 h-10 rounded-full object-cover border-2 border-bg-base/20" />
+          <span className="text-left leading-tight">
+            Ask Mira AI
+            <span className="block text-[9px] font-medium opacity-80 tracking-wide">Skin, Hair &amp; Beauty Expert</span>
+          </span>
         </button>
       )}
       {open && (
@@ -399,10 +403,10 @@ export const BookingChatWidget = ({ slug }) => {
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-gradient-to-r from-gold/15 to-transparent">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gold flex items-center justify-center"><Sparkles className="w-4 h-4 text-bg-base" /></div>
+              <img src="/mira-bot.png" alt="Mira" className="w-9 h-9 rounded-full object-cover border border-gold/50" />
               <div>
-                <div className="text-sm font-semibold text-white">{tab === "ai" ? "Mira — AI Beauty Advisor" : "Chat with Salon"}</div>
-                <div className="text-[10px] text-gold uppercase tracking-widest">{tab === "ai" ? "Advice · Booking" : "Owner replies here"}</div>
+                <div className="text-sm font-semibold text-white">{tab === "ai" ? "Mira — Skin, Hair & Beauty Expert" : "Chat with Salon"}</div>
+                <div className="text-[10px] text-gold uppercase tracking-widest">{tab === "ai" ? "AI Advice · Booking" : "Owner replies here"}</div>
               </div>
             </div>
             <button data-testid="booking-chat-close-btn" onClick={() => setOpen(false)} className="p-1.5 text-white/50 hover:text-white rounded-md hover:bg-white/5">

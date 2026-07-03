@@ -1,4 +1,4 @@
-import { Sparkles, ShieldCheck, Gift, ArrowRight, Play, MessageCircle } from "lucide-react";
+import { Sparkles, ShieldCheck, Gift, ArrowRight, Play, MessageCircle, MapPin, Phone, Navigation } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -127,6 +127,51 @@ export const ReferEarnBanner = ({ salonName, reward }) => {
             <MessageCircle className="w-4 h-4" /> Share on WhatsApp
           </button>
         </div>
+      </div>
+    </section>
+  );
+};
+
+/* ---- Our Locations (main + branches) ---- */
+export const LocationsSection = ({ salon }) => {
+  const branches = salon?.branches || [];
+  const main = {
+    id: "main",
+    name: `${salon?.name || "Main Salon"}${branches.length ? " — Main Branch" : ""}`,
+    address: salon?.location || "",
+    phone: salon?.phone || "",
+    maps_url: "",
+  };
+  const all = [main, ...branches];
+  return (
+    <section className="max-w-5xl mx-auto px-4 sm:px-6 mt-4 mb-12" data-testid="locations-section">
+      <div className="text-[10px] tracking-[0.3em] uppercase text-gold">Our Locations</div>
+      <h2 className="font-playfair text-2xl mt-1 mb-5">Find us near you</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {all.map(b => {
+          const mapsHref = b.maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${b.name} ${b.address}`)}`;
+          return (
+            <div key={b.id} className="bg-white/[0.045] backdrop-blur border border-white/10 rounded-2xl p-5 hover:border-gold/40 transition-colors" data-testid={`location-card-${b.id}`}>
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-full bg-gold/10 border border-gold/25 flex items-center justify-center shrink-0"><MapPin className="w-4 h-4 text-gold" /></span>
+                <div className="font-playfair text-base leading-snug">{b.name}</div>
+              </div>
+              {b.address && <p className="text-xs text-ink-secondary mt-2.5 leading-relaxed">{b.address}</p>}
+              <div className="flex flex-wrap items-center gap-2 mt-3.5">
+                {b.phone && (
+                  <a href={`tel:${b.phone.replace(/\s/g, "")}`} data-testid={`location-call-${b.id}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/15 text-xs text-white/80 hover:border-gold/50 transition-colors">
+                    <Phone className="w-3 h-3 text-gold" /> {b.phone}
+                  </a>
+                )}
+                <a href={mapsHref} target="_blank" rel="noreferrer" data-testid={`location-directions-${b.id}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold/15 border border-gold/40 text-xs text-gold hover:bg-gold/25 transition-colors">
+                  <Navigation className="w-3 h-3" /> Get Directions
+                </a>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

@@ -1,0 +1,34 @@
+{
+  "summary": "Tested branches CRUD, AI Logo Studio (without triggering generation), Mira chat FAB rename, public locations section, RBAC, and booking wizard regression. 14/14 backend tests PASS. All frontend flows verified successfully.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_branches_branding.py",
+    "/app/test_reports/pytest/branches_branding.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is >5600 lines — recommend splitting into routers per domain (branches, branding, tenants, ...) for maintainability.",
+    "BranchIn allows empty phone/maps_url and no format validation on maps_url; consider URL validation to catch typos before they hit the public page.",
+    "LogoStudio hard-codes a 900ms window.location.reload() after apply — brittle if API is slow; prefer re-fetch tenant + update AuthContext instead of full reload."
+  ],
+  "updated_files": ["/app/backend/tests/test_branches_branding.py"],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% (all flows verified)"},
+  "test_credentials": "admin@miracurl.com / Miracurl@123 ; manager@miracurl.com / Manager@Miracurl123 (both worked). Tenant slug: miracurl-marathahalli (NOT hair-hub-system).",
+  "seed_data_creation": "Created + cleaned up TEST_* branches during backend and UI tests. Existing 'Miracurl — Koramangala' branch preserved. Logo re-applied to /api/files/4e079c13-1102-4e77-b87d-6d0595320b00 after remove/reapply test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Public salon slug is 'miracurl-marathahalli' (not 'hair-hub-system' which is only the host prefix). Backend BranchIn requires name>=2 chars, address>=5 chars (validation returns 422). Manager returns 403 on /api/branches and /api/branding/*.  Reuse /app/backend/tests/test_branches_branding.py as regression.",
+  "verified_flows": [
+    "Backend: GET/POST/PUT/DELETE /api/branches (200), validation 422, non-existent 404, manager RBAC 403",
+    "Backend: Public /api/public/salon/miracurl-marathahalli returns branches[] & logo_url in sync",
+    "Backend: POST /api/branding/logo/apply with '' removes, with /api/files/... restores; invalid URL → 400; manager → 403",
+    "UI Admin: LogoStudio card visible with style chips (logo-style-luxury etc), Generate + Upload buttons (Generate NOT clicked), logo-current-img + logo-remove-btn shown",
+    "UI Admin sidebar: tenant-logo-img present (not scissors)",
+    "UI Settings: branches-section visible, Add branch modal → row created → delete removes row",
+    "UI Public /book/miracurl-marathahalli: locations-section shows 2 cards (main + Koramangala), tel: links, Get Directions links, hero-salon-logo present",
+    "UI Chat FAB: shows /mira-bot.png + 'Ask Mira AI / Skin, Hair & Beauty Expert'; panel header 'Mira — Skin, Hair & Beauty Expert' with bot avatar",
+    "UI Regression: booking wizard step 1 → step 2 (Services → Stylist) works via Select + Continue",
+    "UI RBAC: manager dashboard has NO logo-studio card"
+  ]
+}
