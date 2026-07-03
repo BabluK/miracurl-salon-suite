@@ -199,6 +199,8 @@ export default function Settings() {
           <BranchesSection />
         </div>
 
+        <ChangePasswordSection />
+
         {/* Salon Profile / Branding */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-branding-card">
           <div className="flex items-start gap-3">
@@ -722,4 +724,3 @@ function RazorpayCard() {
     </div>
   );
 }
-

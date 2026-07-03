@@ -388,7 +388,7 @@ export const BookingChatWidget = ({ slug }) => {
         <button
           data-testid="booking-chat-fab"
           onClick={() => setOpen(true)}
-          className="fixed bottom-24 sm:bottom-6 right-4 z-50 flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-gold text-bg-base shadow-gold-glow font-semibold text-sm hover:scale-105 transition-transform"
+          className="fixed bottom-40 sm:bottom-6 right-4 z-50 flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-gold text-bg-base shadow-gold-glow font-semibold text-sm hover:scale-105 transition-transform"
         >
           <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-60" />
