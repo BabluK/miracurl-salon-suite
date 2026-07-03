@@ -98,7 +98,12 @@ export default function Dashboard() {
           <div>
             <div className="text-xs uppercase tracking-[0.25em] text-white/80 font-medium">Today&apos;s Snapshot</div>
             <h1 className="text-3xl sm:text-4xl font-semibold mt-2 tracking-tight" data-testid="dashboard-welcome-heading">Welcome back to {tenant?.name || "your salon"} ✦</h1>
-            <p className="text-white/85 mt-2 max-w-lg text-sm">A polished glance at appointments, revenue and inventory — everything you need at a glance.</p>
+            <div className="mt-3 inline-flex items-center gap-2 bg-white/15 backdrop-blur-md border border-white/30 rounded-full px-4 py-2" data-testid="hero-today-collection">
+              <IndianRupee className="w-4 h-4 text-emerald-200" />
+              <span className="text-sm font-semibold">Today&apos;s Collection: {inr(data.today_revenue)}</span>
+              <span className="text-xs text-white/80">· {data.today_invoices} bill{data.today_invoices === 1 ? "" : "s"}</span>
+            </div>
+            <p className="text-white/85 mt-3 max-w-lg text-sm">A polished glance at appointments, revenue and inventory — everything you need at a glance.</p>
           </div>
           <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-xl p-4 max-w-md w-full" data-testid="booking-link-widget">
             <div className="flex items-center gap-2 mb-2">
