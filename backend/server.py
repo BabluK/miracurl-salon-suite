@@ -5080,6 +5080,7 @@ class RegistryEmployeeIn(BaseModel):
     name: str = Field(..., min_length=2, max_length=80)
     aadhaar: str
     permanent_address: str = Field(..., min_length=5, max_length=300)
+    current_address: str = Field("", max_length=300)
     city: str = Field("", max_length=80)
     email: str = Field("", max_length=120)
     phone: str
@@ -5165,7 +5166,8 @@ async def _registry_profile(emp: dict) -> dict:
         "photo_url": emp.get("photo_url") or "", "email": emp.get("email") or "",
         "phone": emp.get("phone") or "",
         "aadhaar_masked": f"XXXX-XXXX-{emp.get('aadhaar_last4', '')}",
-        "permanent_address": emp.get("permanent_address") or "", "city": emp.get("city") or "",
+        "permanent_address": emp.get("permanent_address") or "",
+        "current_address": emp.get("current_address") or "", "city": emp.get("city") or "",
         "total_years": round(total_years, 1), "avg_rating": avg_rating,
         "badge": _registry_badge(total_years, avg_rating),
         "employments": emps, "created_at": emp.get("created_at"),
@@ -5185,7 +5187,8 @@ async def registry_create_employee(body: RegistryEmployeeIn, admin=Depends(requi
     doc = {
         "id": str(uuid.uuid4()), "staff_code": code, "name": body.name.strip(),
         "aadhaar_last4": body.aadhaar[-4:], "aadhaar_hash": fp,
-        "permanent_address": body.permanent_address.strip(), "city": body.city.strip(),
+        "permanent_address": body.permanent_address.strip(), "current_address": body.current_address.strip(),
+        "city": body.city.strip(),
         "email": body.email.strip().lower(), "phone": body.phone,
         "photo_url": body.photo_url.strip(), "created_by_tenant": t["id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -5259,6 +5262,7 @@ _REG_BADGE_COLORS = {
 }
 
 def _build_registry_pdf(p: dict) -> bytes:
+    from math import sin, cos, pi
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.utils import ImageReader, simpleSplit
     from reportlab.pdfgen import canvas as _canvas
@@ -5266,115 +5270,216 @@ def _build_registry_pdf(p: dict) -> bytes:
     buf = io.BytesIO()
     c = _canvas.Canvas(buf, pagesize=A4)
     W, H = A4
+    GOLD = (0.83, 0.69, 0.22)
+    INK = (0.09, 0.1, 0.13)
+    MUTED = (0.45, 0.47, 0.53)
+    CARD = (0.965, 0.968, 0.975)
+    badge_color = _REG_BADGE_COLORS.get(p["badge"], (0.4, 0.4, 0.4))
 
-    def header(title="STAFF VERIFICATION REPORT"):
-        c.setFillColorRGB(0.07, 0.07, 0.09)
-        c.rect(0, H - 90, W, 90, fill=1, stroke=0)
-        c.setFillColorRGB(0.83, 0.69, 0.22)
-        c.setFont("Helvetica-Bold", 20)
-        c.drawString(40, H - 48, title)
-        c.setFillColorRGB(0.85, 0.85, 0.85)
+    def _star(cx, cy, r, filled):
+        pts = []
+        for i in range(10):
+            rr = r if i % 2 == 0 else r * 0.45
+            ang = -pi / 2 + i * pi / 5
+            pts.append((cx + rr * cos(ang), cy + rr * sin(ang)))
+        path = c.beginPath()
+        path.moveTo(*pts[0])
+        for pt in pts[1:]:
+            path.lineTo(*pt)
+        path.close()
+        if filled:
+            c.setFillColorRGB(0.96, 0.72, 0.15)
+            c.drawPath(path, fill=1, stroke=0)
+        else:
+            c.setStrokeColorRGB(0.78, 0.8, 0.84)
+            c.setLineWidth(0.8)
+            c.drawPath(path, fill=0, stroke=1)
+
+    def header(contd=False):
+        c.setFillColorRGB(*INK)
+        c.rect(0, H - 96, W, 96, fill=1, stroke=0)
+        c.setFillColorRGB(*GOLD)
+        c.rect(0, H - 99, W, 3, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 21)
+        c.drawString(44, H - 50, "STAFF VERIFICATION REPORT" + (" (contd.)" if contd else ""))
+        c.setFillColorRGB(0.72, 0.73, 0.78)
         c.setFont("Helvetica", 9)
-        c.drawString(40, H - 68, "Miracurl Salon Staff Registry — cross-salon employment history & reputation")
+        c.drawString(44, H - 70, "Miracurl Staff Registry  ·  cross-salon employment history & reputation")
+        c.setFont("Helvetica", 8)
+        c.drawRightString(W - 44, H - 70, datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y"))
 
     header()
-    y = H - 130
 
-    # Badge box
-    color = _REG_BADGE_COLORS.get(p["badge"], (0.4, 0.4, 0.4))
-    c.setFillColorRGB(*color)
-    c.roundRect(W - 220, y - 34, 180, 56, 8, fill=1, stroke=0)
+    # ---- Identity card ----
+    top = H - 120
+    nx = 44 + 28 + 84 + 22  # left pad + photo block + gap
+    addr_wrap_w = W - 445  # text starts at nx + label indent; right limit = badge left edge - margin
+    perm = p["permanent_address"] + (f", {p['city']}" if p["city"] else "")
+    addr_lines = [("Permanent:  ", ln) for ln in simpleSplit(perm, "Helvetica", 9, addr_wrap_w)]
+    if p.get("current_address"):
+        addr_lines += [("Current:  ", ln) for ln in simpleSplit(p["current_address"], "Helvetica", 9, addr_wrap_w)]
+    contact = f"+{p['phone']}" if p["phone"] else ""
+    if p["email"]:
+        contact += ("   ·   " if contact else "") + p["email"]
+    contact += ("   ·   " if contact else "") + f"Aadhaar {p['aadhaar_masked']}"
+    contact_lines = simpleSplit(contact, "Helvetica", 9, W - 390)
+    card_h = max(150, 84 + (len(contact_lines) + len(addr_lines)) * 12 + 20)
     c.setFillColorRGB(1, 1, 1)
-    c.setFont("Helvetica-Bold", 15)
-    c.drawCentredString(W - 130, y - 2, p["badge"])
-    c.setFont("Helvetica", 10)
-    rating_txt = f"Rating: {p['avg_rating']} / 5" if p["avg_rating"] is not None else "Not yet rated"
-    c.drawCentredString(W - 130, y - 20, rating_txt)
+    c.setStrokeColorRGB(0.88, 0.89, 0.92)
+    c.setLineWidth(1)
+    c.roundRect(44, top - card_h, W - 88, card_h, 14, fill=1, stroke=1)
 
-    # Photo
-    photo_h = 0
+    # Circular photo (cover-cropped) or initials avatar
+    pr = 42
+    pcx, pcy = 44 + 28 + pr, top - card_h / 2
+    drew_photo = False
     if p.get("photo_url"):
         try:
-            resp = requests.get(p["photo_url"], timeout=6)
+            resp = requests.get(p["photo_url"], timeout=6, stream=True)
             resp.raise_for_status()
-            img = ImageReader(io.BytesIO(resp.content))
-            c.drawImage(img, 40, y - 80, width=90, height=90, preserveAspectRatio=True, mask="auto")
-            photo_h = 100
+            raw = resp.raw.read(4 * 1024 * 1024, decode_content=True)
+            img = ImageReader(io.BytesIO(raw))
+            iw, ih = img.getSize()
+            scale = (2 * pr) / min(iw, ih)
+            dw, dh = iw * scale, ih * scale
+            c.saveState()
+            clip = c.beginPath()
+            clip.circle(pcx, pcy, pr)
+            c.clipPath(clip, stroke=0, fill=0)
+            c.drawImage(img, pcx - dw / 2, pcy - dh / 2, width=dw, height=dh, mask="auto")
+            c.restoreState()
+            drew_photo = True
         except Exception:
-            photo_h = 0
+            drew_photo = False
+    if not drew_photo:
+        c.setFillColorRGB(0.93, 0.91, 0.99)
+        c.circle(pcx, pcy, pr, stroke=0, fill=1)
+        initials = "".join(w[0] for w in p["name"].split()[:2]).upper()
+        c.setFillColorRGB(0.42, 0.27, 0.75)
+        c.setFont("Helvetica-Bold", 26)
+        c.drawCentredString(pcx, pcy - 9, initials)
+    c.setStrokeColorRGB(*badge_color)
+    c.setLineWidth(2.5)
+    c.circle(pcx, pcy, pr + 2, stroke=1, fill=0)
 
-    # Details
-    dx = 150 if photo_h else 40
-    c.setFillColorRGB(0.1, 0.1, 0.12)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(dx, y, p["name"])
-    c.setFont("Helvetica", 10)
-    rows = [
-        ("Staff ID", p["staff_code"]),
-        ("Phone", f"+{p['phone']}" if p["phone"] else "—"),
-        ("Email", p["email"] or "—"),
-        ("Aadhaar", p["aadhaar_masked"]),
-        ("Address", (p["permanent_address"] + (f", {p['city']}" if p["city"] else "")) or "—"),
-        ("Total Experience", f"{p['total_years']} years"),
-    ]
-    yy = y - 18
-    for label, val in rows:
-        c.setFillColorRGB(0.45, 0.45, 0.5)
-        c.drawString(dx, yy, f"{label}:")
-        c.setFillColorRGB(0.1, 0.1, 0.12)
-        for i, line in enumerate(simpleSplit(str(val), "Helvetica", 10, W - dx - 160)):
-            c.drawString(dx + 95, yy - i * 12, line)
-        yy -= 16
-    y = min(yy, y - photo_h) - 26
+    # Name + ID chip
+    c.setFillColorRGB(*INK)
+    c.setFont("Helvetica-Bold", 19)
+    c.drawString(nx, top - 38, p["name"])
+    c.setFont("Helvetica-Bold", 9)
+    chip_w = c.stringWidth(p["staff_code"], "Helvetica-Bold", 9) + 16
+    c.setFillColorRGB(0.94, 0.95, 0.97)
+    c.roundRect(nx, top - 60, chip_w, 15, 7, fill=1, stroke=0)
+    c.setFillColorRGB(0.3, 0.32, 0.38)
+    c.drawString(nx + 8, top - 56, p["staff_code"])
+    c.setFillColorRGB(*MUTED)
+    c.setFont("Helvetica", 9)
+    c.drawString(nx + chip_w + 10, top - 56, f"Total experience: {p['total_years']} yrs")
 
-    # Employment history
+    # Contact + address lines inside card
+    c.setFont("Helvetica", 9)
+    c.setFillColorRGB(*MUTED)
+    yy = top - 80
+    for ln in contact_lines:
+        c.drawString(nx, yy, ln)
+        yy -= 12
+    yy -= 3
+    label_prev = None
+    for lbl, ln in addr_lines:
+        c.setFillColorRGB(0.58, 0.6, 0.65)
+        shown = lbl if lbl != label_prev else ""
+        if shown:
+            c.drawString(nx, yy, shown)
+        label_prev = lbl
+        c.setFillColorRGB(*MUTED)
+        c.drawString(nx + c.stringWidth("Permanent:  ", "Helvetica", 9), yy, ln)
+        yy -= 12
+
+    # Badge pill (right side of card)
+    bw, bh = 132, 62
+    bx, by = W - 44 - 24 - bw, top - card_h / 2 - bh / 2
+    c.setFillColorRGB(*badge_color)
+    c.roundRect(bx, by, bw, bh, 12, fill=1, stroke=0)
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(bx + bw / 2, by + bh - 22, p["badge"])
+    stars_cx = bx + bw / 2 - 30
+    if p["avg_rating"] is not None:
+        for i in range(5):
+            _star(stars_cx + i * 15, by + 24, 5.6, filled=(i < round(p["avg_rating"])))
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawCentredString(bx + bw / 2, by + 8, f"{p['avg_rating']} / 5")
+    else:
+        c.setFont("Helvetica", 8)
+        c.drawCentredString(bx + bw / 2, by + 16, "Not yet rated")
+
+    y = top - card_h - 34
+
+    # ---- Employment history ----
+    c.setFillColorRGB(*INK)
     c.setFont("Helvetica-Bold", 13)
-    c.setFillColorRGB(0.1, 0.1, 0.12)
-    c.drawString(40, y, "Employment History")
-    y -= 8
-    c.setStrokeColorRGB(0.8, 0.8, 0.82)
-    c.line(40, y, W - 40, y)
-    y -= 20
+    c.drawString(44, y, "Employment History")
+    c.setFillColorRGB(*GOLD)
+    c.rect(44, y - 7, 34, 2.5, fill=1, stroke=0)
+    y -= 26
 
     if not p["employments"]:
         c.setFont("Helvetica", 10)
-        c.setFillColorRGB(0.45, 0.45, 0.5)
-        c.drawString(40, y, "No employment records yet.")
+        c.setFillColorRGB(*MUTED)
+        c.drawString(44, y, "No employment records yet.")
         y -= 20
 
     for e in p["employments"]:
-        if y < 120:
-            c.showPage()
-            header("STAFF VERIFICATION REPORT (contd.)")
-            y = H - 130
-        period = f"{e['from_date']}  →  {e['to_date'] or 'Present'}   ({e.get('years', 0)} yrs)"
-        c.setFont("Helvetica-Bold", 11)
-        c.setFillColorRGB(0.1, 0.1, 0.12)
-        c.drawString(40, y, f"{e.get('salon_name', 'Salon')} — {e.get('designation', '')}")
-        c.setFont("Helvetica", 9)
-        c.setFillColorRGB(0.35, 0.35, 0.4)
-        c.drawString(40, y - 13, period)
+        comment_lines = simpleSplit(f"\u201C{e['comment']}\u201D", "Helvetica-Oblique", 9, W - 160) if e.get("comment") else []
         extras = []
-        if e.get("rating"):
-            extras.append(f"Owner rating: {e['rating']}/5")
         if e.get("reason_for_leaving"):
-            extras.append(f"Reason: {e['reason_for_leaving']}")
+            extras.append(e["reason_for_leaving"])
         if e.get("skills"):
             extras.append("Skills: " + ", ".join(e["skills"]))
+        eh = 58 + (12 if extras else 0) + len(comment_lines) * 12
+        if y - eh < 80:
+            c.showPage()
+            header(contd=True)
+            y = H - 130
+        # card
+        c.setFillColorRGB(*CARD)
+        c.setStrokeColorRGB(0.9, 0.9, 0.93)
+        c.roundRect(44, y - eh, W - 88, eh, 10, fill=1, stroke=1)
+        c.setFillColorRGB(*badge_color)
+        c.roundRect(44, y - eh, 4, eh, 2, fill=1, stroke=0)
+        tx, ty = 62, y - 20
+        c.setFillColorRGB(*INK)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(tx, ty, f"{e.get('salon_name', 'Salon')}  —  {e.get('designation', '')}")
+        if e.get("rating"):
+            for i in range(5):
+                _star(W - 150 + i * 14, ty + 3, 5, filled=(i < round(float(e["rating"]))))
+            c.setFillColorRGB(*MUTED)
+            c.setFont("Helvetica", 8)
+            c.drawString(W - 150 + 5 * 14 + 6, ty, f"{e['rating']}/5")
+        c.setFillColorRGB(*MUTED)
+        c.setFont("Helvetica", 9)
+        c.drawString(tx, ty - 15, f"{e['from_date']}  \u2192  {e['to_date'] or 'Present'}    ·    {e.get('years', 0)} yrs")
+        yy = ty - 27
         if extras:
-            c.drawString(40, y - 25, "  ·  ".join(extras))
-        yy = y - 37
-        if e.get("comment"):
-            c.setFillColorRGB(0.25, 0.25, 0.3)
-            for line in simpleSplit(f"\u201C{e['comment']}\u201D", "Helvetica", 9, W - 100):
-                c.drawString(52, yy, line)
-                yy -= 11
-        y = yy - 12
+            c.drawString(tx, yy, "   ·   ".join(extras))
+            yy -= 12
+        c.setFillColorRGB(0.3, 0.32, 0.38)
+        c.setFont("Helvetica-Oblique", 9)
+        for line in comment_lines:
+            c.drawString(tx, yy, line)
+            yy -= 12
+        y -= eh + 12
 
-    c.setFont("Helvetica", 8)
-    c.setFillColorRGB(0.55, 0.55, 0.6)
-    c.drawString(40, 40, f"Generated on {datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%d %b %Y, %I:%M %p')} IST · Miracurl Staff Registry")
-    c.drawString(40, 30, "Badge is auto-computed from verified service duration and salon-owner ratings. This report is for reference only.")
+    # Footer
+    c.setStrokeColorRGB(0.88, 0.89, 0.92)
+    c.setLineWidth(0.8)
+    c.line(44, 52, W - 44, 52)
+    c.setFont("Helvetica", 7.5)
+    c.setFillColorRGB(0.55, 0.56, 0.61)
+    c.drawString(44, 40, f"Generated on {datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%d %b %Y, %I:%M %p')} IST  ·  Miracurl Staff Registry")
+    c.drawString(44, 30, "Badge is auto-computed from verified service duration and salon-owner ratings. Aadhaar is never stored or shown in full. For reference only.")
     c.save()
     return buf.getvalue()
 

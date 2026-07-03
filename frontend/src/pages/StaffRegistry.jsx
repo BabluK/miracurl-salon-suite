@@ -17,7 +17,7 @@ export const BADGE_STYLES = {
   BAD: "bg-red-100 text-red-700 border-red-300",
 };
 
-const EMPTY_REG = { name: "", aadhaar: "", phone: "", email: "", permanent_address: "", city: "", photo_url: "" };
+const EMPTY_REG = { name: "", aadhaar: "", phone: "", email: "", permanent_address: "", current_address: "", city: "", photo_url: "" };
 const EMPTY_EMP = { designation: "", skills: "", from_date: "", to_date: "", current: false, reason_for_leaving: "", rating: "", comment: "" };
 const REASONS = ["Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Other"];
 
@@ -231,6 +231,7 @@ export default function StaffRegistry() {
                 <div><label className="label-light block mb-1">Email</label><input data-testid="reg-email-input" type="email" className="input-light w-full" value={regForm.email} onChange={e => setRegForm(f => ({ ...f, email: e.target.value }))} /></div>
               </div>
               <div><label className="label-light block mb-1">Permanent address *</label><textarea data-testid="reg-address-input" required minLength={5} rows={2} className="input-light w-full" value={regForm.permanent_address} onChange={e => setRegForm(f => ({ ...f, permanent_address: e.target.value }))} /></div>
+              <div><label className="label-light block mb-1">Current address</label><textarea data-testid="reg-current-address-input" rows={2} className="input-light w-full" placeholder="Where they live now (if different)" value={regForm.current_address} onChange={e => setRegForm(f => ({ ...f, current_address: e.target.value }))} /></div>
               <div><label className="label-light block mb-1">City</label><input data-testid="reg-city-input" className="input-light w-full" value={regForm.city} onChange={e => setRegForm(f => ({ ...f, city: e.target.value }))} /></div>
               <button data-testid="reg-submit-btn" disabled={saving} className="btn-blue w-full">{saving ? "Registering…" : "Create Staff ID"}</button>
             </form>

@@ -101,7 +101,8 @@ export default function RegistryPublic() {
                   <div className="flex items-center gap-2"><Fingerprint className="w-3.5 h-3.5 text-violet-400" /> ID: <span className="font-mono text-slate-200">{profile.staff_code}</span> · Aadhaar {profile.aadhaar_masked}</div>
                   <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-violet-400" /> +{profile.phone}</div>
                   {profile.email && <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-violet-400" /> {profile.email}</div>}
-                  <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-violet-400" /> {profile.permanent_address}{profile.city && `, ${profile.city}`}</div>
+                  <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-violet-400" /> Permanent: {profile.permanent_address}{profile.city && `, ${profile.city}`}</div>
+                  {profile.current_address && <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-violet-400" /> Current: {profile.current_address}</div>}
                 </div>
               </div>
             </div>
