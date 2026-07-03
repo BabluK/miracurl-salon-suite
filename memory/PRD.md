@@ -356,3 +356,9 @@ Frontend:
 - FRONTEND: StaffRegistry.jsx — pencil Edit button (registry-edit-emp-{code}, shown only for own-registered employees) → modal w/ ImageUploader photo + phone/email/current-address/city (edit-emp-* testids). E2E verified: prefill → save → toast → row updates.
 - NOTE: user considers Staff↔Registry linking DONE (declined earlier proposal — remove from backlog).
 - USER MUST REDEPLOY.
+
+## Update — Jul 3, 2026 (part 30) — Registry Transfer flow
+- NEW: POST /api/registry/employees/{eid}/transfer — closes ALL open employments at OTHER salons (to_date = new from_date, reason 'Transferred', closed_by_transfer flag) + inserts open record at caller's salon. 'Transferred' added to _REG_REASONS + frontend REASONS.
+- FRONTEND (StaffRegistry.jsx): Add Record modal auto-detects open employment elsewhere (openElsewhere) → amber 'Transfer detected' banner (transfer-banner / transfer-checkbox, default ON) when 'currently working' checked → submit routes to /transfer, toast shows closed count.
+- E2E VERIFIED: elegance owner transferred STF-00001 (closed:1, Miracurl record closed w/ 'Transferred', new open at Elegance) — demo data then restored via mongo; UI banner screenshot-verified from elegance account.
+- USER MUST REDEPLOY.

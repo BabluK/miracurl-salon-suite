@@ -19,7 +19,7 @@ export const BADGE_STYLES = {
 
 const EMPTY_REG = { name: "", aadhaar: "", phone: "", email: "", permanent_address: "", current_address: "", city: "", photo_url: "" };
 const EMPTY_EMP = { designation: "", skills: "", from_date: "", to_date: "", current: false, reason_for_leaving: "", rating: "", comment: "" };
-const REASONS = ["Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Other"];
+const REASONS = ["Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Transferred", "Other"];
 
 function BadgeChip({ badge, rating }) {
   return (
@@ -42,6 +42,11 @@ export default function StaffRegistry() {
   const [editForm, setEditForm] = useState({ phone: "", email: "", photo_url: "", current_address: "", city: "" });
   const [expanded, setExpanded] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [transferOn, setTransferOn] = useState(true);
+
+  const openElsewhere = empModal && !empModal.editing
+    ? (empModal.employee.employments || []).find(e => !e.to_date && e.tenant_id !== tenant?.id)
+    : null;
 
   const load = useCallback(async (query = "") => {
     setLoading(true);
@@ -113,6 +118,9 @@ export default function StaffRegistry() {
       if (empModal.editing) {
         await api.put(`/registry/employments/${empModal.editing.id}`, payload);
         toast.success("Record updated");
+      } else if (openElsewhere && transferOn && empForm.current) {
+        const { data } = await api.post(`/registry/employees/${empModal.employee.id}/transfer`, payload);
+        toast.success(`Transferred ✦ Closed ${data.closed} open record${data.closed === 1 ? "" : "s"} at the previous salon`);
       } else {
         await api.post(`/registry/employees/${empModal.employee.id}/employments`, payload);
         toast.success("Employment record added");
@@ -311,6 +319,17 @@ export default function StaffRegistry() {
               <label className="flex items-center gap-2 text-sm text-slate-600">
                 <input data-testid="emp-current-checkbox" type="checkbox" checked={empForm.current} onChange={e => setEmpForm(f => ({ ...f, current: e.target.checked }))} /> Currently working here
               </label>
+              {openElsewhere && empForm.current && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="transfer-banner">
+                  <label className="flex items-start gap-2.5 text-xs text-amber-800 cursor-pointer">
+                    <input data-testid="transfer-checkbox" type="checkbox" checked={transferOn} onChange={e => setTransferOn(e.target.checked)} className="mt-0.5" />
+                    <span>
+                      <b>Transfer detected:</b> {empModal.employee.name} is still marked as working at <b>{openElsewhere.salon_name}</b>.
+                      Close that record automatically (end date = your From date, reason “Transferred”) and start yours — keeps the timeline clean.
+                    </span>
+                  </label>
+                </div>
+              )}
               {!empForm.current && (
                 <div>
                   <label className="label-light block mb-1">Reason for leaving</label>

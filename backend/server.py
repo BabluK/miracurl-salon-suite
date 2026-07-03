@@ -5153,7 +5153,7 @@ async def owner_chat_reply(thread_id: str, body: ChatSendIn, user=Depends(requir
 
 # ---------------- Cross-Salon Staff History Registry (public verification) ----------------
 _REG_BADGE_ORDER = ["NEW", "GOOD", "EXCELLENT", "EXTRAORDINARY"]
-_REG_REASONS = {"", "Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Other"}
+_REG_REASONS = {"", "Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Transferred", "Other"}
 
 def _aadhaar_fp(num: str) -> str:
     return hashlib.sha256(f"aadhaar:{num}:{jwt_secret()}".encode()).hexdigest()
@@ -5338,6 +5338,28 @@ async def registry_add_employment(eid: str, body: RegistryEmploymentIn, admin=De
     }
     await _raw_db.registry_employments.insert_one(doc)
     return {"ok": True, "id": doc["id"]}
+
+@api.post("/registry/employees/{eid}/transfer")
+async def registry_transfer_employee(eid: str, body: RegistryEmploymentIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """One-tap transfer: close open employments at other salons, start a record here."""
+    emp = await _raw_db.registry_employees.find_one({"id": eid}, {"_id": 0, "id": 1})
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    res = await _raw_db.registry_employments.update_many(
+        {"employee_id": eid, "to_date": None, "tenant_id": {"$ne": t["id"]}},
+        {"$set": {"to_date": body.from_date, "reason_for_leaving": "Transferred",
+                  "closed_by_transfer": True, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    payload = body.model_dump()
+    payload["to_date"] = None
+    payload["reason_for_leaving"] = "Working"
+    doc = {
+        "id": str(uuid.uuid4()), "employee_id": eid, "tenant_id": t["id"],
+        "salon_name": t.get("name", "Salon"),
+        **payload,
+        "created_by": admin["id"], "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _raw_db.registry_employments.insert_one(doc)
+    return {"ok": True, "id": doc["id"], "closed": res.modified_count}
 
 @api.put("/registry/employments/{rid}")
 async def registry_update_employment(rid: str, body: RegistryEmploymentIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
