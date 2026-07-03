@@ -2631,14 +2631,21 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
         flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
     by_mode = {}
+    by_branch = {}
     total_revenue = 0.0
     for inv in invs:
         by_mode[inv["payment_mode"]] = by_mode.get(inv["payment_mode"], 0) + inv["total"]
+        b = by_branch.setdefault(inv.get("branch_name") or "Main", {"revenue": 0.0, "invoices": 0})
+        b["revenue"] += inv["total"]
+        b["invoices"] += 1
         total_revenue += inv["total"]
     return {
         "total_invoices": len(invs),
         "total_revenue": round(total_revenue, 2),
         "by_payment_mode": [{"mode": k, "amount": round(v, 2)} for k, v in by_mode.items()],
+        "by_branch": sorted(
+            [{"branch": k, "revenue": round(v["revenue"], 2), "invoices": v["invoices"]} for k, v in by_branch.items()],
+            key=lambda x: -x["revenue"]),
         "invoices": invs[:200],
     }
 

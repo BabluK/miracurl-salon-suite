@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
-import { IndianRupee, FileText, Users, Percent } from "lucide-react";
+import { IndianRupee, FileText, Users, Percent, MapPin } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
@@ -65,6 +65,35 @@ export default function Reports() {
               <div className="text-xs text-slate-500 mt-2">payment modes used</div>
             </div>
           </div>
+
+          {/* Branch performance — shown once bills are branch-tagged */}
+          {(data.by_branch || []).length > 0 && (data.by_branch.length > 1 || data.by_branch[0].branch !== "Main") && (
+            <div className="card-light" data-testid="branch-performance-card">
+              <div className="flex items-center gap-2 mb-1">
+                <MapPin className="w-5 h-5 text-sky-500" />
+                <h3 className="font-playfair text-xl">Branch Performance</h3>
+              </div>
+              <p className="text-xs text-slate-500 mb-4">Compare your locations side by side · bills without a branch selected at the POS appear under “Main”.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data.by_branch.map(b => {
+                  const share = data.total_revenue ? (b.revenue / data.total_revenue) * 100 : 0;
+                  return (
+                    <div key={b.branch} className="rounded-xl border border-slate-200 bg-slate-50 p-4" data-testid={`branch-perf-${b.branch}`}>
+                      <div className="text-sm font-semibold text-slate-700 truncate" title={b.branch}>{b.branch}</div>
+                      <div className="font-playfair text-2xl text-sky-600 mt-1.5">{inr(b.revenue)}</div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {b.invoices} bill{b.invoices === 1 ? "" : "s"} · avg {inr(b.invoices ? b.revenue / b.invoices : 0)}
+                      </div>
+                      <div className="mt-3 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-sky-400 to-blue-500" style={{ width: `${share}%` }} />
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-1">{share.toFixed(0)}% of period revenue</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="card-light">

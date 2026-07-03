@@ -399,3 +399,9 @@ Frontend:
 - E2E VERIFIED: created ₹2,000 invoice tagged "Miracurl — AECS Layout, Brookefield" via API → HQ Analyst answered "AECS Layout: ₹2,000 this month, Main Marathahalli: ₹0" with untagged note. POS UI screenshot-verified (selector shows Main + AECS options).
 - GOTCHA HIT: first search_replace for branchId state reported success but didn't persist → "branchId is not defined" crash; re-applied and verified.
 - USER MUST REDEPLOY.
+
+## Update — Jul 3, 2026 (part 36) — Branch Performance card on owner Reports page
+- BACKEND: /reports/sales now returns by_branch [{branch, revenue, invoices}] (untagged → "Main"), sorted by revenue desc. Curl-verified: Main ₹33,904/40 bills + AECS ₹2,000/1 bill.
+- FRONTEND (Reports.jsx): "Branch Performance" card (branch-performance-card / branch-perf-{name}) — side-by-side tiles: revenue, bill count, avg bill, % share progress bar; hidden until bills are branch-tagged. Screenshot-verified (Main 94% vs AECS 6%).
+- GOTCHA AGAIN: search_replace import edit (MapPin) reported success but didn't persist → crash; re-applied + verified with head. NOTE FOR NEXT AGENT: after search_replace on frontend files, verify critical import/state edits actually landed.
+- USER MUST REDEPLOY.
