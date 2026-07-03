@@ -4,6 +4,7 @@ import { Calendar, Receipt, Star, Users, BarChart3, Shield, ArrowRight, Check, S
 import BrandMark from "@/components/BrandMark";
 import ChatButton from "@/components/ChatButton";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
+import { DemoCarousel } from "@/components/DemoCarousel";
 
 const FEATURES = [
   { icon: Sparkles, title: "Mira — AI Booking Agent", desc: "Skin, hair & beauty expert. Chats, advises and books slots for clients — text or hands-free voice.", color: "fuchsia" },
@@ -131,6 +132,8 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      <DemoCarousel />
 
       {/* Features */}
       <section id="features" className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 py-16">

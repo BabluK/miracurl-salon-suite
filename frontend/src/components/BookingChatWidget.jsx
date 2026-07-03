@@ -122,10 +122,15 @@ function AiTab({ slug }) {
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
         setRecording(false);
-        // Hands-free with no speech at all → timeout message + reset
+        // Hands-free with no speech for 30s → spoken apology + end voice chat
         if (auto && !speechRef.current) {
           setHandsFree(false);
-          setMsgs(m => [...m, mkMsg({ role: "ai", text: "Sorry, I didn't catch anything 🙉 — tap the mic or a suggestion below whenever you're ready. 💖" })]);
+          setMsgs(m => [...m, mkMsg({ role: "ai", text: "Sorry, we haven't heard anything 🙉 — ending voice chat for now. Tap the mic or type whenever you're ready. 💖" })]);
+          try {
+            const a = new Audio("/mira-timeout.mp3");
+            audioRef.current = a;
+            a.play().catch(() => {});
+          } catch { /* noop */ }
           return;
         }
         if (blob.size < 1200) return;
