@@ -38,6 +38,8 @@ export default function StaffRegistry() {
   const [regForm, setRegForm] = useState(EMPTY_REG);
   const [empModal, setEmpModal] = useState(null); // {employee, editing}
   const [empForm, setEmpForm] = useState(EMPTY_EMP);
+  const [editEmp, setEditEmp] = useState(null);
+  const [editForm, setEditForm] = useState({ phone: "", email: "", photo_url: "", current_address: "", city: "" });
   const [expanded, setExpanded] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -66,6 +68,23 @@ export default function StaffRegistry() {
       setOpenReg(false); setRegForm(EMPTY_REG); setQ(""); load();
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Couldn't register employee");
+    } finally { setSaving(false); }
+  }
+
+  function startEdit(p) {
+    setEditEmp(p);
+    setEditForm({ phone: p.phone || "", email: p.email || "", photo_url: p.photo_url || "", current_address: p.current_address || "", city: p.city || "" });
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.put(`/registry/employees/${editEmp.id}`, editForm);
+      toast.success("Details updated");
+      setEditEmp(null); load(q);
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Update failed");
     } finally { setSaving(false); }
   }
 
@@ -168,6 +187,12 @@ export default function StaffRegistry() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {p.created_by_tenant === tenant?.id && (
+                    <button data-testid={`registry-edit-emp-${p.staff_code}`} onClick={() => startEdit(p)} title="Edit phone / photo / address"
+                      className="p-1.5 text-slate-500 hover:text-sky-600 border border-slate-200 rounded-md">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <a href={`${API}/public/registry/${p.staff_code}/pdf`} target="_blank" rel="noreferrer" data-testid={`registry-pdf-${p.staff_code}`}
                     className="text-xs py-1.5 px-3 rounded-md bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 inline-flex items-center gap-1">
                     <FileDown className="w-3 h-3" /> Badge PDF
@@ -234,6 +259,29 @@ export default function StaffRegistry() {
               <div><label className="label-light block mb-1">Current address</label><textarea data-testid="reg-current-address-input" rows={2} className="input-light w-full" placeholder="Where they live now (if different)" value={regForm.current_address} onChange={e => setRegForm(f => ({ ...f, current_address: e.target.value }))} /></div>
               <div><label className="label-light block mb-1">City</label><input data-testid="reg-city-input" className="input-light w-full" value={regForm.city} onChange={e => setRegForm(f => ({ ...f, city: e.target.value }))} /></div>
               <button data-testid="reg-submit-btn" disabled={saving} className="btn-blue w-full">{saving ? "Registering…" : "Create Staff ID"}</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit basic details modal */}
+      {editEmp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3" onClick={() => setEditEmp(null)}>
+          <div className="card-light w-full max-w-md max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-playfair text-xl">Edit Details</h3>
+              <button onClick={() => setEditEmp(null)} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">{editEmp.name} · {editEmp.staff_code} — name &amp; Aadhaar are identity fields and can't be changed.</p>
+            <form onSubmit={saveEdit} className="space-y-3">
+              <div className="flex justify-center"><ImageUploader value={editForm.photo_url} onChange={url => setEditForm(f => ({ ...f, photo_url: url }))} kind="staff" circular /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="label-light block mb-1">Phone *</label><input data-testid="edit-emp-phone-input" required className="input-light w-full" value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} /></div>
+                <div><label className="label-light block mb-1">Email</label><input data-testid="edit-emp-email-input" type="email" className="input-light w-full" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} /></div>
+              </div>
+              <div><label className="label-light block mb-1">Current address</label><textarea data-testid="edit-emp-address-input" rows={2} className="input-light w-full" value={editForm.current_address} onChange={e => setEditForm(f => ({ ...f, current_address: e.target.value }))} /></div>
+              <div><label className="label-light block mb-1">City</label><input data-testid="edit-emp-city-input" className="input-light w-full" value={editForm.city} onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))} /></div>
+              <button data-testid="edit-emp-save-btn" disabled={saving} className="btn-blue w-full">{saving ? "Saving…" : "Save Details"}</button>
             </form>
           </div>
         </div>

@@ -5257,6 +5257,7 @@ async def _registry_profile(emp: dict) -> dict:
         "total_years": round(total_years, 1), "avg_rating": avg_rating,
         "badge": _registry_badge(total_years, avg_rating),
         "employments": emps, "created_at": emp.get("created_at"),
+        "created_by_tenant": emp.get("created_by_tenant", ""),
     }
 
 @api.post("/registry/employees")
@@ -5281,6 +5282,32 @@ async def registry_create_employee(body: RegistryEmployeeIn, admin=Depends(requi
     }
     await _raw_db.registry_employees.insert_one(doc)
     return {"ok": True, "id": doc["id"], "staff_code": code}
+
+class RegistryEmployeeUpdateIn(BaseModel):
+    phone: str
+    email: str = Field("", max_length=120)
+    photo_url: str = Field("", max_length=500)
+    current_address: str = Field("", max_length=300)
+    city: str = Field("", max_length=80)
+
+    @field_validator("phone")
+    @classmethod
+    def _v_phone(cls, v):
+        v = re.sub(r"\D", "", v)
+        if len(v) < 10:
+            raise ValueError("Enter a valid phone number")
+        return v
+
+@api.put("/registry/employees/{eid}")
+async def registry_update_employee(eid: str, body: RegistryEmployeeUpdateIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await _raw_db.registry_employees.update_one(
+        {"id": eid, "created_by_tenant": t["id"]},
+        {"$set": {"phone": body.phone, "email": body.email.strip().lower(),
+                  "photo_url": body.photo_url.strip(), "current_address": body.current_address.strip(),
+                  "city": body.city.strip(), "updated_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Employee not found (only the salon that registered them can edit their details)")
+    return {"ok": True}
 
 @api.get("/registry/employees")
 async def registry_list_employees(q: Optional[str] = None, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):

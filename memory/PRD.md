@@ -350,3 +350,9 @@ Frontend:
 - 30S VOICE SILENCE TIMEOUT (user verification request): confirmed logic in BookingChatWidget — maxTimerRef stops recording at 30s; if hands-free & no speech detected → hands-free OFF + apology message. IMPROVED per user's original spec ("AI should say"): message now "Sorry, we haven't heard anything — ending voice chat..." AND is SPOKEN via pre-generated TTS audio /app/frontend/public/mira-timeout.mp3 (shimmer tts-1-hd, generated once — zero runtime LLM cost). Served 200 verified. NOTE: true mic E2E not possible in headless automation — user should verify on phone (enable hands-free, stay silent 30s).
 - DEMO CAROUSEL (user approved suggestion): captured real product screenshots (dashboard/pos/appointments/mira with chat open) → /app/frontend/public/demo/*.jpeg. New DemoCarousel.jsx ("See it in action" section after hero stats): browser-chrome frame, 4 slides auto-advance 3.8s, pause on hover, dots, tag pill. Verified: auto-advance + dot click work. TIP: screenshot_tool saves files to /root/.emergent/automation_output/<ts>/ as .jpeg (NOT to absolute paths given in script) — copy from there.
 - USER MUST REDEPLOY.
+
+## Update — Jul 3, 2026 (part 29) — Registry employee edit (basic details)
+- USER REQUEST: owner can update registered staff's basic details. NEW: PUT /api/registry/employees/{eid} (RegistryEmployeeUpdateIn: phone/email/photo_url/current_address/city; name & Aadhaar locked) — only created_by_tenant can edit (cross-tenant → 404, curl-verified). _registry_profile now returns created_by_tenant.
+- FRONTEND: StaffRegistry.jsx — pencil Edit button (registry-edit-emp-{code}, shown only for own-registered employees) → modal w/ ImageUploader photo + phone/email/current-address/city (edit-emp-* testids). E2E verified: prefill → save → toast → row updates.
+- NOTE: user considers Staff↔Registry linking DONE (declined earlier proposal — remove from backlog).
+- USER MUST REDEPLOY.
