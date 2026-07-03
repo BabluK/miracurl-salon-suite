@@ -31,6 +31,8 @@ import ForceChangePassword from "@/pages/ForceChangePassword";
 import Gallery from "@/pages/Gallery";
 import Messages from "@/pages/Messages";
 import Plans from "@/pages/Plans";
+import StaffRegistry from "@/pages/StaffRegistry";
+import RegistryPublic from "@/pages/RegistryPublic";
 
 function Protected({ children }) {
   const { user, loading, refresh } = useAuth();
@@ -109,6 +111,7 @@ export default function App() {
           <ErrorBoundary>
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
+            <Route path="/staff-registry" element={<RegistryPublic />} />
             <Route path="/book" element={<SalonFinder />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
@@ -121,6 +124,7 @@ export default function App() {
               <Route path="appointments" element={<Appointments />} />
               <Route path="customers" element={<AdminOnly><Customers /></AdminOnly>} />
               <Route path="staff" element={<OwnerOnly><Staff /></OwnerOnly>} />
+              <Route path="registry" element={<OwnerOnly><StaffRegistry /></OwnerOnly>} />
               <Route path="attendance" element={<OwnerOnly><Attendance /></OwnerOnly>} />
               <Route path="services" element={<AdminOnly><Services /></AdminOnly>} />
               <Route path="inventory" element={<OwnerOnly><Inventory /></OwnerOnly>} />

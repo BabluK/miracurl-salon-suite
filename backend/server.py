@@ -5064,6 +5064,332 @@ async def owner_chat_reply(thread_id: str, body: ChatSendIn, user=Depends(requir
         raise HTTPException(404, "Chat not found")
     return await _append_chat_message(thread_id, "owner", body.message.strip())
 
+
+# ---------------- Cross-Salon Staff History Registry (public verification) ----------------
+_REG_BADGE_ORDER = ["NEW", "GOOD", "EXCELLENT", "EXTRAORDINARY"]
+_REG_REASONS = {"", "Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Other"}
+
+def _aadhaar_fp(num: str) -> str:
+    return hashlib.sha256(f"aadhaar:{num}:{jwt_secret()}".encode()).hexdigest()
+
+def _reg_date_ok(v: str) -> str:
+    datetime.strptime(v, "%Y-%m-%d")
+    return v
+
+class RegistryEmployeeIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    aadhaar: str
+    permanent_address: str = Field(..., min_length=5, max_length=300)
+    city: str = Field("", max_length=80)
+    email: str = Field("", max_length=120)
+    phone: str
+    photo_url: str = Field("", max_length=500)
+
+    @field_validator("aadhaar")
+    @classmethod
+    def _v_aadhaar(cls, v):
+        v = re.sub(r"\D", "", v)
+        if len(v) != 12:
+            raise ValueError("Aadhaar must be exactly 12 digits")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def _v_phone(cls, v):
+        v = re.sub(r"\D", "", v)
+        if len(v) < 10:
+            raise ValueError("Enter a valid phone number")
+        return v
+
+class RegistryEmploymentIn(BaseModel):
+    designation: str = Field(..., min_length=2, max_length=80)
+    skills: List[str] = []
+    from_date: str
+    to_date: Optional[str] = None
+    reason_for_leaving: str = Field("", max_length=40)
+    rating: Optional[float] = Field(None, ge=1, le=5)
+    comment: str = Field("", max_length=1000)
+
+    @field_validator("from_date")
+    @classmethod
+    def _v_from(cls, v):
+        return _reg_date_ok(v)
+
+    @field_validator("to_date")
+    @classmethod
+    def _v_to(cls, v):
+        if v in (None, ""):
+            return None
+        return _reg_date_ok(v)
+
+    @field_validator("reason_for_leaving")
+    @classmethod
+    def _v_reason(cls, v):
+        if v not in _REG_REASONS:
+            raise ValueError("Invalid reason")
+        return v
+
+def _employment_years(e: dict) -> float:
+    try:
+        start = datetime.strptime(e["from_date"], "%Y-%m-%d")
+        end = datetime.strptime(e["to_date"], "%Y-%m-%d") if e.get("to_date") else datetime.now()
+        return max((end - start).days, 0) / 365.25
+    except Exception:
+        return 0.0
+
+def _registry_badge(total_years: float, avg_rating) -> str:
+    if avg_rating is not None and avg_rating < 2:
+        return "BAD"
+    if total_years < 1:
+        idx = 0
+    elif total_years < 3:
+        idx = 1
+    elif total_years < 5:
+        idx = 2
+    else:
+        idx = 3
+    if avg_rating is not None and avg_rating < 3 and idx > 0:
+        idx -= 1
+    return _REG_BADGE_ORDER[idx]
+
+async def _registry_profile(emp: dict) -> dict:
+    emps = await _raw_db.registry_employments.find(
+        {"employee_id": emp["id"]}, {"_id": 0}).sort("from_date", -1).to_list(100)
+    for e in emps:
+        e["years"] = round(_employment_years(e), 1)
+    total_years = sum(_employment_years(e) for e in emps)
+    ratings = [float(e["rating"]) for e in emps if e.get("rating")]
+    avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
+    return {
+        "id": emp["id"], "staff_code": emp["staff_code"], "name": emp["name"],
+        "photo_url": emp.get("photo_url") or "", "email": emp.get("email") or "",
+        "phone": emp.get("phone") or "",
+        "aadhaar_masked": f"XXXX-XXXX-{emp.get('aadhaar_last4', '')}",
+        "permanent_address": emp.get("permanent_address") or "", "city": emp.get("city") or "",
+        "total_years": round(total_years, 1), "avg_rating": avg_rating,
+        "badge": _registry_badge(total_years, avg_rating),
+        "employments": emps, "created_at": emp.get("created_at"),
+    }
+
+@api.post("/registry/employees")
+async def registry_create_employee(body: RegistryEmployeeIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    fp = _aadhaar_fp(body.aadhaar)
+    existing = await _raw_db.registry_employees.find_one({"aadhaar_hash": fp}, {"_id": 0, "staff_code": 1})
+    if existing:
+        raise HTTPException(409, f"This Aadhaar is already registered with Staff ID {existing['staff_code']}. Search that ID to add your salon's employment record.")
+    seq = await _raw_db.registry_employees.count_documents({}) + 1
+    code = f"STF-{seq:05d}"
+    while await _raw_db.registry_employees.find_one({"staff_code": code}):
+        seq += 1
+        code = f"STF-{seq:05d}"
+    doc = {
+        "id": str(uuid.uuid4()), "staff_code": code, "name": body.name.strip(),
+        "aadhaar_last4": body.aadhaar[-4:], "aadhaar_hash": fp,
+        "permanent_address": body.permanent_address.strip(), "city": body.city.strip(),
+        "email": body.email.strip().lower(), "phone": body.phone,
+        "photo_url": body.photo_url.strip(), "created_by_tenant": t["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _raw_db.registry_employees.insert_one(doc)
+    return {"ok": True, "id": doc["id"], "staff_code": code}
+
+@api.get("/registry/employees")
+async def registry_list_employees(q: Optional[str] = None, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    if q and q.strip():
+        qs = q.strip()
+        digits = re.sub(r"\D", "", qs)
+        ors = [{"staff_code": qs.upper()}, {"name": {"$regex": re.escape(qs), "$options": "i"}}]
+        if len(digits) >= 6:
+            ors.append({"phone": {"$regex": f"{digits}$"}})
+        rows = await _raw_db.registry_employees.find({"$or": ors}, {"_id": 0, "aadhaar_hash": 0}).to_list(20)
+    else:
+        emp_ids = await _raw_db.registry_employments.distinct("employee_id", {"tenant_id": t["id"]})
+        rows = await _raw_db.registry_employees.find(
+            {"$or": [{"created_by_tenant": t["id"]}, {"id": {"$in": emp_ids}}]},
+            {"_id": 0, "aadhaar_hash": 0}).sort("created_at", -1).to_list(100)
+    return [await _registry_profile(r) for r in rows]
+
+@api.post("/registry/employees/{eid}/employments")
+async def registry_add_employment(eid: str, body: RegistryEmploymentIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    emp = await _raw_db.registry_employees.find_one({"id": eid}, {"_id": 0, "id": 1})
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+    doc = {
+        "id": str(uuid.uuid4()), "employee_id": eid, "tenant_id": t["id"],
+        "salon_name": t.get("name", "Salon"),
+        **body.model_dump(),
+        "created_by": admin["id"], "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _raw_db.registry_employments.insert_one(doc)
+    return {"ok": True, "id": doc["id"]}
+
+@api.put("/registry/employments/{rid}")
+async def registry_update_employment(rid: str, body: RegistryEmploymentIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await _raw_db.registry_employments.update_one(
+        {"id": rid, "tenant_id": t["id"]},
+        {"$set": {**body.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Employment record not found (you can only edit your own salon's records)")
+    return {"ok": True}
+
+@api.delete("/registry/employments/{rid}")
+async def registry_delete_employment(rid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await _raw_db.registry_employments.delete_one({"id": rid, "tenant_id": t["id"]})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Employment record not found (you can only delete your own salon's records)")
+    return {"ok": True}
+
+@api.get("/public/registry/search")
+async def registry_public_search(q: str, request: Request):
+    public_rate_limit(request, key_suffix="registry", limit=20, window_sec=600)
+    qs = (q or "").strip()
+    if not qs:
+        raise HTTPException(400, "Enter a Staff ID or phone number")
+    digits = re.sub(r"\D", "", qs)
+    emp = await _raw_db.registry_employees.find_one({"staff_code": qs.upper()}, {"_id": 0})
+    if not emp and len(digits) >= 10:
+        emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{digits[-10:]}$"}}, {"_id": 0})
+    if not emp:
+        raise HTTPException(404, "No staff found with that ID or phone number")
+    return await _registry_profile(emp)
+
+_REG_BADGE_COLORS = {
+    "EXTRAORDINARY": (0.55, 0.35, 0.85), "EXCELLENT": (0.06, 0.62, 0.45),
+    "GOOD": (0.02, 0.52, 0.84), "NEW": (0.45, 0.5, 0.55), "BAD": (0.86, 0.15, 0.15),
+}
+
+def _build_registry_pdf(p: dict) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader, simpleSplit
+    from reportlab.pdfgen import canvas as _canvas
+
+    buf = io.BytesIO()
+    c = _canvas.Canvas(buf, pagesize=A4)
+    W, H = A4
+
+    def header(title="STAFF VERIFICATION REPORT"):
+        c.setFillColorRGB(0.07, 0.07, 0.09)
+        c.rect(0, H - 90, W, 90, fill=1, stroke=0)
+        c.setFillColorRGB(0.83, 0.69, 0.22)
+        c.setFont("Helvetica-Bold", 20)
+        c.drawString(40, H - 48, title)
+        c.setFillColorRGB(0.85, 0.85, 0.85)
+        c.setFont("Helvetica", 9)
+        c.drawString(40, H - 68, "Miracurl Salon Staff Registry — cross-salon employment history & reputation")
+
+    header()
+    y = H - 130
+
+    # Badge box
+    color = _REG_BADGE_COLORS.get(p["badge"], (0.4, 0.4, 0.4))
+    c.setFillColorRGB(*color)
+    c.roundRect(W - 220, y - 34, 180, 56, 8, fill=1, stroke=0)
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Helvetica-Bold", 15)
+    c.drawCentredString(W - 130, y - 2, p["badge"])
+    c.setFont("Helvetica", 10)
+    rating_txt = f"Rating: {p['avg_rating']} / 5" if p["avg_rating"] is not None else "Not yet rated"
+    c.drawCentredString(W - 130, y - 20, rating_txt)
+
+    # Photo
+    photo_h = 0
+    if p.get("photo_url"):
+        try:
+            resp = requests.get(p["photo_url"], timeout=6)
+            resp.raise_for_status()
+            img = ImageReader(io.BytesIO(resp.content))
+            c.drawImage(img, 40, y - 80, width=90, height=90, preserveAspectRatio=True, mask="auto")
+            photo_h = 100
+        except Exception:
+            photo_h = 0
+
+    # Details
+    dx = 150 if photo_h else 40
+    c.setFillColorRGB(0.1, 0.1, 0.12)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(dx, y, p["name"])
+    c.setFont("Helvetica", 10)
+    rows = [
+        ("Staff ID", p["staff_code"]),
+        ("Phone", f"+{p['phone']}" if p["phone"] else "—"),
+        ("Email", p["email"] or "—"),
+        ("Aadhaar", p["aadhaar_masked"]),
+        ("Address", (p["permanent_address"] + (f", {p['city']}" if p["city"] else "")) or "—"),
+        ("Total Experience", f"{p['total_years']} years"),
+    ]
+    yy = y - 18
+    for label, val in rows:
+        c.setFillColorRGB(0.45, 0.45, 0.5)
+        c.drawString(dx, yy, f"{label}:")
+        c.setFillColorRGB(0.1, 0.1, 0.12)
+        for i, line in enumerate(simpleSplit(str(val), "Helvetica", 10, W - dx - 160)):
+            c.drawString(dx + 95, yy - i * 12, line)
+        yy -= 16
+    y = min(yy, y - photo_h) - 26
+
+    # Employment history
+    c.setFont("Helvetica-Bold", 13)
+    c.setFillColorRGB(0.1, 0.1, 0.12)
+    c.drawString(40, y, "Employment History")
+    y -= 8
+    c.setStrokeColorRGB(0.8, 0.8, 0.82)
+    c.line(40, y, W - 40, y)
+    y -= 20
+
+    if not p["employments"]:
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(0.45, 0.45, 0.5)
+        c.drawString(40, y, "No employment records yet.")
+        y -= 20
+
+    for e in p["employments"]:
+        if y < 120:
+            c.showPage()
+            header("STAFF VERIFICATION REPORT (contd.)")
+            y = H - 130
+        period = f"{e['from_date']}  →  {e['to_date'] or 'Present'}   ({e.get('years', 0)} yrs)"
+        c.setFont("Helvetica-Bold", 11)
+        c.setFillColorRGB(0.1, 0.1, 0.12)
+        c.drawString(40, y, f"{e.get('salon_name', 'Salon')} — {e.get('designation', '')}")
+        c.setFont("Helvetica", 9)
+        c.setFillColorRGB(0.35, 0.35, 0.4)
+        c.drawString(40, y - 13, period)
+        extras = []
+        if e.get("rating"):
+            extras.append(f"Owner rating: {e['rating']}/5")
+        if e.get("reason_for_leaving"):
+            extras.append(f"Reason: {e['reason_for_leaving']}")
+        if e.get("skills"):
+            extras.append("Skills: " + ", ".join(e["skills"]))
+        if extras:
+            c.drawString(40, y - 25, "  ·  ".join(extras))
+        yy = y - 37
+        if e.get("comment"):
+            c.setFillColorRGB(0.25, 0.25, 0.3)
+            for line in simpleSplit(f"\u201C{e['comment']}\u201D", "Helvetica", 9, W - 100):
+                c.drawString(52, yy, line)
+                yy -= 11
+        y = yy - 12
+
+    c.setFont("Helvetica", 8)
+    c.setFillColorRGB(0.55, 0.55, 0.6)
+    c.drawString(40, 40, f"Generated on {datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%d %b %Y, %I:%M %p')} IST · Miracurl Staff Registry")
+    c.drawString(40, 30, "Badge is auto-computed from verified service duration and salon-owner ratings. This report is for reference only.")
+    c.save()
+    return buf.getvalue()
+
+@api.get("/public/registry/{staff_code}/pdf")
+async def registry_public_pdf(staff_code: str, request: Request):
+    public_rate_limit(request, key_suffix="registry-pdf", limit=10, window_sec=600)
+    emp = await _raw_db.registry_employees.find_one({"staff_code": staff_code.upper()}, {"_id": 0})
+    if not emp:
+        raise HTTPException(404, "Staff not found")
+    profile = await _registry_profile(emp)
+    pdf_bytes = await asyncio.to_thread(_build_registry_pdf, profile)
+    return Response(content=pdf_bytes, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{emp["staff_code"]}-badge.pdf"'})
+
+
 app.include_router(api)
 
 app.add_middleware(

@@ -1,0 +1,48 @@
+{
+  "summary": "Iter 40 — Cross-Salon Staff History Registry: 19/19 backend tests PASS. UI flows verified for admin (registry page load, banner, register employee, list rows, badge computation display), public /staff-registry (search by Staff ID + phone, masked aadhaar, badge, employment history, PDF button), and manager RBAC (nav hidden + /registry redirects to /dashboard).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter40_staff_registry.py",
+    "/app/test_reports/pytest/iter40.xml"
+  ],
+  "action_items": [
+    "Owner should periodically prune TEST_* / STF-000xx test employees from registry_employees / registry_employments collections (created ~15 by this iter's tests)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now ~5400 lines — well past 700-line guideline. Recommend extracting the registry module (employees, employments, public search, PDF) into /app/backend/routes/registry.py for maintainability.",
+    "_aadhaar_fp uses SHA256 with jwt_secret() as pepper — good, but if JWT_SECRET rotates, all dup-detection breaks silently. Consider a dedicated REGISTRY_PEPPER env var.",
+    "PDF fetches remote photo_url synchronously via requests.get inside asyncio.to_thread — OK but no size cap; a malicious photo URL could balloon RAM. Add max content-length check.",
+    "registry_list_employees with empty q returns up to 100 employees created by tenant OR any employee they've added an employment for. Consider pagination (currently no cursor)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter40_staff_registry.py"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% of tested flows"},
+  "test_credentials": "admin@miracurl.com/Miracurl@123, owner@elegance.com/Owner@123, manager@miracurl.com/Manager@Miracurl123, priya.staff@miracurl.com/Priya@Miracurl123",
+  "seed_data_creation": "~10 test employees STF-000xx (TEST Badge G/E/X/D/B, TEST CrossT, TEST Reg One, TEST UI Emp) with employment records. Non-destructive; STF-00001 (Ravi Test Kumar) preserved.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests use time-based unique aadhaars so reruns are safe. UI Playwright: use `page.click(sel)` then `page.keyboard.type()` — direct `page.fill()` sometimes fails to persist controlled React input values on this build. Public search rate limit: 20/10min per IP; PDF: 10/10min. All 19 backend tests are idempotent.",
+  "verified_test_matrix": {
+    "admin_sidebar_has_nav_registry": true,
+    "registry_page_loads_with_banner_and_copy": true,
+    "admin_registers_new_employee_ui": true,
+    "duplicate_aadhaar_409_with_existing_staff_code": true,
+    "add_employment_via_api_all_5_badge_tiers": "NEW/GOOD/EXCELLENT/EXTRAORDINARY plus downgrade + BAD all pass",
+    "cross_tenant_edit_delete_returns_404": true,
+    "second_salon_can_search_and_add_own_employment": true,
+    "public_search_by_staff_id_ok": true,
+    "public_search_by_phone_ok": true,
+    "public_unknown_returns_404": true,
+    "aadhaar_never_full_in_api_response": true,
+    "pdf_download_content_type_and_magic_bytes": true,
+    "manager_role_403_on_api_and_no_nav_and_redirect_to_dashboard": true,
+    "staff_role_403_on_api": true,
+    "regression_staff_and_appointments_endpoints_200": true
+  }
+}
