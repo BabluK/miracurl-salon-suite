@@ -2815,6 +2815,7 @@ async def public_salon(slug: str):
         "instagram_url": t.get("instagram_url") or "",
         "whatsapp_number": t.get("whatsapp_number") or "",
         "logo_url": t.get("logo_url") or "",
+        "maps_url": t.get("maps_url") or "",
         "branches": t.get("branches", []),
     }
 
@@ -3282,12 +3283,23 @@ async def get_affiliate_summary(user=Depends(require_tenant_admin), t=Depends(cu
 
 class BrandingIn(BaseModel):
     google_review_url: Optional[str] = Field(None, max_length=2000)
+    maps_url: Optional[str] = Field(None, max_length=500)
     hours: Optional[str] = Field(None, max_length=200)
     phone: Optional[str] = Field(None, max_length=40)
     location: Optional[str] = Field(None, max_length=500)
     hero_image: Optional[str] = Field(None, max_length=2000)
     instagram_url: Optional[str] = Field(None, max_length=500)
     whatsapp_number: Optional[str] = Field(None, max_length=20)
+
+    @field_validator("maps_url")
+    @classmethod
+    def _v_maps_url(cls, v):
+        if v is None or v == "":
+            return ""
+        v = v.strip()
+        if urlparse(v).scheme not in ("http", "https"):
+            raise ValueError("Maps link must be a valid http(s) URL")
+        return v
 
     @field_validator("google_review_url", "instagram_url")
     @classmethod
@@ -3489,11 +3501,11 @@ async def change_password(body: ChangePasswordIn, user=Depends(get_current_user)
 
 
 # ============== SaaS Subscription Billing (tenant → super-admin) ==============
-# Plans: 6-month at ₹10,000 OR 1-year at ₹20,000. Payments recorded manually
+# Plans: 6-month at ₹12,000 OR 1-year at ₹20,000. Payments recorded manually
 # (e.g., from a Paytm UPI transfer) by the super-admin. Each payment generates a
 # bill record; daily / monthly revenue can be aggregated by GET /revenue.
 PLAN_CATALOG = {
-    "half_year": {"label": "6-Month Plan", "price": 10000.0, "duration_days": 183},
+    "half_year": {"label": "6-Month Plan", "price": 12000.0, "duration_days": 183},
     "annual":    {"label": "Annual Plan",  "price": 20000.0, "duration_days": 365},
 }
 
@@ -3630,6 +3642,40 @@ async def create_subscription(body: SubscriptionIn, user=Depends(require_super_a
     sub.pop("_id", None)
     pay.pop("_id", None)
     return {"subscription": sub, "payment": pay}
+
+
+class SubscriptionExtendIn(BaseModel):
+    reason: Optional[str] = None
+
+
+@api.post("/super-admin/subscriptions/{sid}/extend")
+async def extend_subscription(sid: str, body: SubscriptionExtendIn, user=Depends(require_super_admin)):
+    """Goodwill extension: add 1 month (30 days) to an active subscription's end date.
+    Used when a client is facing financial issues and needs extra time to renew."""
+    sub = await db.subscriptions.find_one({"id": sid}, {"_id": 0})
+    if not sub:
+        raise HTTPException(404, "Subscription not found")
+    if sub["status"] != "active":
+        raise HTTPException(400, "Only active subscriptions can be extended")
+    try:
+        new_end = (datetime.fromisoformat(sub["end_date"]) + timedelta(days=30)).date().isoformat()
+    except Exception as e:
+        raise HTTPException(400, "Subscription has an invalid end date") from e
+    ext = {
+        "extended_at": datetime.now(timezone.utc).isoformat(),
+        "extended_by": user["id"],
+        "days": 30,
+        "reason": (body.reason or "Goodwill extension — financial hardship").strip(),
+        "previous_end_date": sub["end_date"],
+        "new_end_date": new_end,
+    }
+    await db.subscriptions.update_one(
+        {"id": sid},
+        {"$set": {"end_date": new_end}, "$push": {"extensions": ext}})
+    await db.tenants.update_one(
+        {"id": sub["tenant_id"], "current_subscription_id": sid},
+        {"$set": {"subscription_end_date": new_end}})
+    return {"ok": True, "end_date": new_end, "extension": ext}
 
 
 # ---------------- Razorpay (Tenant self-serve subscription) ----------------
@@ -5301,7 +5347,7 @@ def _registry_badge(total_years: float, avg_rating) -> str:
         idx -= 1
     return _REG_BADGE_ORDER[idx]
 
-async def _registry_profile(emp: dict) -> dict:
+async def _registry_profile(emp: dict, current_only: bool = False) -> dict:
     emps = await _raw_db.registry_employments.find(
         {"employee_id": emp["id"]}, {"_id": 0}).sort("from_date", -1).to_list(100)
     for e in emps:
@@ -5309,7 +5355,10 @@ async def _registry_profile(emp: dict) -> dict:
     total_years = sum(_employment_years(e) for e in emps)
     ratings = [float(e["rating"]) for e in emps if e.get("rating")]
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
+    if current_only:
+        emps = [e for e in emps if not e.get("to_date")]
     return {
+        "history_scope": "current" if current_only else "full",
         "id": emp["id"], "staff_code": emp["staff_code"], "name": emp["name"],
         "photo_url": emp.get("photo_url") or "", "email": emp.get("email") or "",
         "phone": emp.get("phone") or "",
@@ -5384,7 +5433,12 @@ async def registry_list_employees(q: Optional[str] = None, admin=Depends(require
     if q and q.strip():
         qs = q.strip()
         digits = re.sub(r"\D", "", qs)
-        ors = [{"staff_code": qs.upper()}, {"name": {"$regex": re.escape(qs), "$options": "i"}}]
+        # Searching by Staff ID -> current organization only; phone/name -> full history
+        if re.fullmatch(r"STF-\d+", qs.upper()):
+            rows = await _raw_db.registry_employees.find(
+                {"staff_code": qs.upper()}, {"_id": 0, "aadhaar_hash": 0}).to_list(5)
+            return [await _registry_profile(r, current_only=True) for r in rows]
+        ors = [{"name": {"$regex": re.escape(qs), "$options": "i"}}]
         if len(digits) >= 6:
             ors.append({"phone": {"$regex": f"{digits}$"}})
         rows = await _raw_db.registry_employees.find({"$or": ors}, {"_id": 0, "aadhaar_hash": 0}).to_list(20)
@@ -5456,8 +5510,12 @@ async def registry_public_search(q: str, request: Request):
     if not qs:
         raise HTTPException(400, "Enter a Staff ID or phone number")
     digits = re.sub(r"\D", "", qs)
+    # Staff ID lookup -> only the CURRENT organization is shown.
+    # Phone lookup -> the FULL employment history (past + present) is shown.
     emp = await _raw_db.registry_employees.find_one({"staff_code": qs.upper()}, {"_id": 0})
-    if not emp and len(digits) >= 10:
+    if emp:
+        return await _registry_profile(emp, current_only=True)
+    if len(digits) >= 10:
         emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{digits[-10:]}$"}}, {"_id": 0})
     if not emp:
         raise HTTPException(404, "No staff found with that ID or phone number")

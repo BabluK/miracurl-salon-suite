@@ -44,9 +44,9 @@ const STEPS = [
 const PLANS = [
   { key: "trial", title: "Free Trial", price: "₹0", per: "7 days", cta: "Start trial", primary: false,
     items: ["All features unlocked", "Up to 50 customers", "Email support", "Cancel anytime"] },
-  { key: "half_year", title: "6-Month Plan", price: "₹10,000", per: "for 6 months", cta: "Get started", primary: true,
+  { key: "half_year", title: "6-Month Plan", price: "₹12,000", per: "for 6 months", cta: "Get started", primary: true,
     items: ["Unlimited customers", "Unlimited bookings", "Per-stylist commission", "WhatsApp support", "All features"] },
-  { key: "annual", title: "Annual Plan", price: "₹20,000", per: "for 1 year — save ₹0 effectively", cta: "Best value", primary: false,
+  { key: "annual", title: "Annual Plan", price: "₹20,000", per: "for 1 year — save ₹4,000", cta: "Best value", primary: false,
     items: ["Everything in 6-Month", "12 months access", "Priority support", "Custom branding next year"] },
 ];
 

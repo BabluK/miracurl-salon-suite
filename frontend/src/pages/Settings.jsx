@@ -12,7 +12,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [affiliate, setAffiliate] = useState(null);
-  const [branding, setBranding] = useState({ google_review_url: "", hours: "", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "" });
+  const [branding, setBranding] = useState({ google_review_url: "", maps_url: "", hours: "", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "" });
   const [savingBrand, setSavingBrand] = useState(false);
   // Save-Debug snapshot — visible in-page so users on production can see the
   // exact HTTP outcome without opening DevTools. Cleared on next save attempt.
@@ -62,6 +62,7 @@ export default function Settings() {
         if (affRes.data) setAffiliate(affRes.data);
         if (brandRes.data) setBranding({
           google_review_url: brandRes.data.google_review_url || "",
+          maps_url: brandRes.data.maps_url || "",
           hours: brandRes.data.hours || "",
           phone: brandRes.data.phone || "",
           location: brandRes.data.location || "",
@@ -88,6 +89,7 @@ export default function Settings() {
         setBranding((b) => ({
           ...b,
           google_review_url: data.google_review_url ?? b.google_review_url,
+          maps_url: data.maps_url ?? b.maps_url,
           hours: data.hours ?? b.hours,
           phone: data.phone ?? b.phone,
           location: data.location ?? b.location,
@@ -229,6 +231,21 @@ export default function Settings() {
               />
               <p className="text-[11px] text-slate-400 mt-1">
                 Get this from Google Business Profile → <i>Get more reviews</i> → copy short link. 4★+ customers will see a one-tap CTA to leave you a Google review.
+              </p>
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                <Star className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500" /> Google Maps location link (main salon)
+              </label>
+              <input
+                data-testid="settings-maps-url"
+                value={branding.maps_url}
+                onChange={e => setBranding(b => ({ ...b, maps_url: e.target.value }))}
+                placeholder="https://maps.app.goo.gl/…"
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Open your salon on Google Maps → <i>Share</i> → copy link. Shown as the “Get Directions” button in the <b>Our Locations</b> section of your booking page.
               </p>
             </div>
             <div>

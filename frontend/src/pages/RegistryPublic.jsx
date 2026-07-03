@@ -66,6 +66,9 @@ export default function RegistryPublic() {
             </button>
           </form>
           {error && <div data-testid="public-registry-error" className="mt-4 text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{error}</div>}
+          <p className="mt-3 text-[11px] text-slate-500">
+            Search by <b className="text-slate-400">Staff ID</b> → shows the current organization only. Search by <b className="text-slate-400">phone number</b> → shows the full employment history.
+          </p>
         </div>
       </div>
 
@@ -118,29 +121,50 @@ export default function RegistryPublic() {
           {/* History */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <h3 className="text-sm uppercase tracking-[0.2em] text-slate-400 mb-4">Employment History</h3>
+            {profile.history_scope === "current" && (
+              <div data-testid="registry-scope-note" className="mb-4 text-xs text-sky-300 bg-sky-500/10 border border-sky-400/30 rounded-xl px-4 py-3">
+                Searched by Staff ID — showing the <b>current organization</b> only. Search by phone number to view the full past history.
+              </div>
+            )}
             {profile.employments.length === 0 && <div className="text-sm text-slate-500">No employment records yet.</div>}
-            <div className="space-y-4">
-              {profile.employments.map(e => (
-                <div key={e.id} className="border-l-2 border-violet-500/40 pl-4" data-testid={`public-registry-employment-${e.id}`}>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Building2 className="w-4 h-4 text-violet-300" />
-                    <span className="font-semibold text-sm">{e.salon_name}</span>
-                    <span className="text-xs text-slate-400">— {e.designation}</span>
-                    {e.rating && <span className="inline-flex items-center gap-0.5 text-xs text-amber-300"><Star className="w-3 h-3 fill-amber-400 text-amber-400" />{e.rating}/5</span>}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    {e.from_date} → {e.to_date || "Present"} <span className="text-slate-300">({e.years} yrs)</span>
-                    {e.reason_for_leaving && ` · ${e.reason_for_leaving}`}
-                  </div>
-                  {(e.skills || []).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {e.skills.map(s => <span key={s} className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-slate-300">{s}</span>)}
+            {[
+              { title: "Current Organization", items: profile.employments.filter(e => !e.to_date) },
+              { title: "Past Organizations", items: profile.employments.filter(e => e.to_date) },
+            ].map(group => group.items.length > 0 && (
+              <div key={group.title} className="mb-6 last:mb-0" data-testid={`registry-group-${group.title.split(" ")[0].toLowerCase()}`}>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-gold/90 font-semibold mb-3">{group.title}</div>
+                <div className="space-y-4">
+                  {group.items.map(e => (
+                    <div key={e.id} className="border-l-2 border-violet-500/40 pl-4" data-testid={`public-registry-employment-${e.id}`}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Building2 className="w-4 h-4 text-violet-300" />
+                        <span className="font-semibold text-sm">{e.salon_name}</span>
+                        <span className="text-xs text-slate-400">— {e.designation}</span>
+                        {!e.to_date ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 px-2 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Currently Working
+                          </span>
+                        ) : (
+                          <span className="text-[10px] uppercase tracking-wider bg-white/10 border border-white/20 text-slate-300 px-2 py-0.5 rounded-full">
+                            Left{e.reason_for_leaving ? ` · ${e.reason_for_leaving}` : ""}
+                          </span>
+                        )}
+                        {e.rating && <span className="inline-flex items-center gap-0.5 text-xs text-amber-300"><Star className="w-3 h-3 fill-amber-400 text-amber-400" />{e.rating}/5</span>}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {e.from_date} → {e.to_date || "Present"} · Duration: <span className="text-slate-300 font-semibold">{e.years} yrs</span>
+                      </div>
+                      {(e.skills || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {e.skills.map(s => <span key={s} className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-slate-300">{s}</span>)}
+                        </div>
+                      )}
+                      {e.comment && <p className="text-xs text-slate-400 italic mt-1.5">“{e.comment}”</p>}
                     </div>
-                  )}
-                  {e.comment && <p className="text-xs text-slate-400 italic mt-1.5">“{e.comment}”</p>}
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
           <p className="text-[11px] text-slate-600 text-center pb-8">Badges are auto-computed from verified service duration and salon-owner ratings. Aadhaar numbers are never stored or shown in full.</p>
         </div>

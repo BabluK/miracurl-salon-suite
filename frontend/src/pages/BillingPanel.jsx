@@ -2,7 +2,7 @@
 // Lets the super-admin sell 6-month / 12-month plans to salon tenants,
 // record Paytm payments manually, see revenue stats, and cancel subscriptions.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { IndianRupee, TrendingUp, Calendar, X, Plus, Ban, CheckCircle2, Receipt, AlertTriangle } from "lucide-react";
+import { IndianRupee, TrendingUp, Calendar, X, Plus, Ban, CheckCircle2, Receipt, AlertTriangle, CalendarPlus } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -41,6 +41,17 @@ export default function BillingPanel({ tenants }) {
       await load();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Cancel failed");
+    }
+  }
+
+  async function extend(sub) {
+    if (!window.confirm(`Give ${sub.tenant?.name || "this salon"} 1 extra month (goodwill extension)?\nNew end date will be 30 days after ${sub.end_date}.`)) return;
+    try {
+      const { data } = await api.post(`/super-admin/subscriptions/${sub.id}/extend`, { reason: "Goodwill extension — financial hardship" });
+      toast.success(`Extended by 1 month → new end date ${data.end_date}`);
+      await load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Extension failed");
     }
   }
 
@@ -120,7 +131,12 @@ export default function BillingPanel({ tenants }) {
                   <td>{s.plan_label}</td>
                   <td className="text-slate-700">₹{s.price.toLocaleString("en-IN")}</td>
                   <td className="text-xs">{s.start_date}</td>
-                  <td className="text-xs">{s.end_date}</td>
+                  <td className="text-xs">
+                    {s.end_date}
+                    {(s.extensions || []).length > 0 && (
+                      <div className="text-[10px] text-emerald-600 font-medium">+{s.extensions.length} mo extended</div>
+                    )}
+                  </td>
                   <td>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-semibold border ${STATUS_PILL[s.status] || STATUS_PILL.cancelled}`}>
                       {s.status}
@@ -129,12 +145,20 @@ export default function BillingPanel({ tenants }) {
                   <td className="font-mono text-[11px] text-slate-500">{s.payment_ref || "—"}</td>
                   <td className="text-right">
                     {s.status === "active" && (
-                      <button
-                        data-testid={`cancel-sub-${s.id}`}
-                        onClick={() => cancel(s)}
-                        className="text-red-500 hover:text-red-700 p-1.5"
-                        title="Cancel"
-                      ><Ban className="w-4 h-4" /></button>
+                      <>
+                        <button
+                          data-testid={`extend-sub-${s.id}`}
+                          onClick={() => extend(s)}
+                          className="text-emerald-600 hover:text-emerald-800 p-1.5"
+                          title="Extend by 1 month (goodwill — financial hardship)"
+                        ><CalendarPlus className="w-4 h-4" /></button>
+                        <button
+                          data-testid={`cancel-sub-${s.id}`}
+                          onClick={() => cancel(s)}
+                          className="text-red-500 hover:text-red-700 p-1.5"
+                          title="Cancel"
+                        ><Ban className="w-4 h-4" /></button>
+                      </>
                     )}
                   </td>
                 </tr>

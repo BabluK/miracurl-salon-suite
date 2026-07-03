@@ -140,7 +140,7 @@ export const LocationsSection = ({ salon }) => {
     name: `${salon?.name || "Main Salon"}${branches.length ? " — Main Branch" : ""}`,
     address: salon?.location || "",
     phone: salon?.phone || "",
-    maps_url: "",
+    maps_url: salon?.maps_url || "",
   };
   const all = [main, ...branches];
   return (
