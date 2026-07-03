@@ -1,17 +1,26 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Calendar, Receipt, Star, Users, BarChart3, Shield, ArrowRight, Check, Sparkles, Zap, MessageSquare, Scissors, Gift } from "lucide-react";
+import { Calendar, Receipt, Star, Users, BarChart3, Shield, ArrowRight, Check, Sparkles, Zap, MessageSquare, Scissors, Gift, ShieldCheck, Wand2, MapPin, Image as ImageIcon, UserCog, Mic, BadgePercent } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 import ChatButton from "@/components/ChatButton";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 
 const FEATURES = [
-  { icon: Calendar, title: "Online Booking 24/7", desc: "Customers self-book in 5 taps. Shareable WhatsApp link.", color: "sky" },
+  { icon: Sparkles, title: "Mira — AI Booking Agent", desc: "Skin, hair & beauty expert. Chats, advises and books slots for clients — text or hands-free voice.", color: "fuchsia" },
+  { icon: Calendar, title: "Online Booking 24/7", desc: "Customers self-book in 5 taps. Shareable WhatsApp link, stylist-level slots, no double-booking.", color: "sky" },
   { icon: Receipt, title: "POS & Billing", desc: "Add Guest, multi-stylist invoices, GST, Paytm/Cash/Card.", color: "rose" },
+  { icon: MessageSquare, title: "WhatsApp Confirmations", desc: "One-tap booking confirmations, reminders & review links — with manager approval workflow.", color: "emerald" },
+  { icon: ShieldCheck, title: "Staff Registry & Badges", desc: "Verify any stylist's cross-salon history. Auto badges (Good → Extraordinary) + downloadable PDF.", color: "violet" },
   { icon: Star, title: "Reviews → ₹ Credits", desc: "4★+ reviews earn ₹50 credit. Lifts your Google rating.", color: "amber" },
-  { icon: Users, title: "Customer CRM", desc: "Phone-first dedupe, referral codes, ₹100 reward each side.", color: "emerald" },
-  { icon: BarChart3, title: "Reports + Commission", desc: "Daily, monthly revenue. Per-stylist commission tracked.", color: "violet" },
-  { icon: Shield, title: "Multi-tenant Secure", desc: "Each salon's data is fully isolated. JWT + tenant context.", color: "indigo" },
+  { icon: Users, title: "Customer CRM", desc: "Phone-first dedupe, visit history, memberships & loyalty points.", color: "teal" },
+  { icon: Gift, title: "Refer & Earn", desc: "Referral codes reward both sides — clients bring clients.", color: "rose" },
+  { icon: Wand2, title: "AI Brand Studio", desc: "Generate your salon logo & promo posters with AI — applied to your page in one tap.", color: "fuchsia" },
+  { icon: ImageIcon, title: "Gallery Showcase", desc: "Your best transformations on the booking page, with AI promo generator.", color: "sky" },
+  { icon: MapPin, title: "Multi-Branch Locations", desc: "List every branch with phone & directions on your public page.", color: "emerald" },
+  { icon: UserCog, title: "Roles: Owner/Manager/Staff", desc: "Staff portal, attendance, commissions — managers restricted from finances.", color: "indigo" },
+  { icon: BarChart3, title: "Reports + Commission", desc: "Daily, monthly revenue. Per-stylist commission & performance.", color: "violet" },
+  { icon: Zap, title: "Installable PWA Apps", desc: "Owner app + client booking app install to home screen on iOS & Android.", color: "amber" },
+  { icon: Shield, title: "Multi-tenant Secure", desc: "Each salon's data fully isolated. HttpOnly cookie auth.", color: "indigo" },
 ];
 
 const COLOR_MAP = {
@@ -21,6 +30,8 @@ const COLOR_MAP = {
   emerald: { tile: "bg-emerald-100", icon: "text-emerald-600" },
   violet: { tile: "bg-violet-100", icon: "text-violet-600" },
   indigo: { tile: "bg-indigo-100", icon: "text-indigo-600" },
+  fuchsia: { tile: "bg-fuchsia-100", icon: "text-fuchsia-600" },
+  teal: { tile: "bg-teal-100", icon: "text-teal-600" },
 };
 
 const STEPS = [
@@ -141,6 +152,48 @@ export default function Landing() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* Meet Mira — AI agent showcase */}
+      <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 py-16" data-testid="mira-showcase-section">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1b1533] via-[#2a1c4f] to-[#141126] text-white p-8 sm:p-12">
+          <div className="pointer-events-none absolute -right-20 -top-20 w-80 h-80 rounded-full bg-fuchsia-500/20 blur-3xl" />
+          <div className="pointer-events-none absolute -left-16 -bottom-24 w-72 h-72 rounded-full bg-amber-400/15 blur-3xl" />
+          {[["6%", "14%", "0s"], ["30%", "78%", "0.8s"], ["55%", "10%", "1.4s"], ["90%", "62%", "0.5s"]].map(([l, t, d], i) => (
+            <Sparkles key={i} className="sparkle-twinkle absolute w-4 h-4 text-amber-300/70 pointer-events-none" style={{ left: l, top: t, animationDelay: d }} />
+          ))}
+          <div className="relative flex flex-col lg:flex-row items-center gap-10">
+            <div className="relative shrink-0">
+              <span className="absolute -inset-4 rounded-full border-2 border-dashed border-amber-300/40 ai-orb-ring" />
+              <img src="/mira-bot.png" alt="Mira AI assistant" data-testid="mira-showcase-img" className="w-44 h-44 sm:w-56 sm:h-56 rounded-full object-cover border-4 border-amber-300/60 shadow-[0_0_60px_rgba(252,211,77,0.35)]" />
+              <span className="absolute bottom-2 right-2 flex items-center gap-1 bg-emerald-400 text-slate-900 text-[10px] font-bold px-2 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse" /> ONLINE 24/7</span>
+            </div>
+            <div className="flex-1">
+              <span className="text-xs uppercase tracking-[0.25em] text-amber-300 font-semibold flex items-center gap-2"><Sparkles className="w-4 h-4" /> Meet your AI employee</span>
+              <h2 className="font-playfair text-3xl sm:text-5xl mt-3">Mira — Skin, Hair &amp; Beauty Expert</h2>
+              <p className="text-white/70 mt-4 max-w-xl leading-relaxed">
+                Every Miracurl salon gets Mira on its booking page. She answers beauty questions, recommends services,
+                checks real slot availability and books appointments end-to-end — even hands-free by voice, in a natural Indian accent.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
+                {[
+                  [Mic, "Hands-free voice booking"],
+                  [Calendar, "Slot-aware — never double-books"],
+                  [MessageSquare, "Hands off to the owner chat anytime"],
+                  [BadgePercent, "Suggests offers, packages & memberships"],
+                ].map(([I, txt]) => (
+                  <div key={txt} className="flex items-center gap-2.5 bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white/85">
+                    <I className="w-4 h-4 text-amber-300 shrink-0" /> {txt}
+                  </div>
+                ))}
+              </div>
+              <a href="/book/miracurl-marathahalli" target="_blank" rel="noreferrer" data-testid="mira-try-live-btn"
+                className="inline-flex items-center gap-2 mt-7 px-6 py-3 rounded-full bg-amber-300 text-slate-900 font-semibold text-sm hover:bg-amber-200 transition">
+                Try Mira on a live booking page <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
         </div>
       </section>
 
