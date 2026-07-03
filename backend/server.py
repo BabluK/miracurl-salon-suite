@@ -565,6 +565,8 @@ class Invoice(BaseModel):
     total: float
     payment_mode: str  # cash | card | upi | wallet
     paid: bool = True
+    branch_id: Optional[str] = None
+    branch_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class InvoiceIn(BaseModel):
@@ -576,6 +578,7 @@ class InvoiceIn(BaseModel):
     payment_mode: str = "cash"
     redeem_points: int = 0
     coupon_code: Optional[str] = None
+    branch_id: Optional[str] = None
 
 class Review(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -2257,6 +2260,11 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     tenant_doc = await db.tenants.find_one({"id": tid}, {"_id": 0}) if tid else None
     effective_tax_pct = float(tenant_doc.get("tax_pct") or 0) if (tenant_doc and tenant_doc.get("tax_enabled")) else 0.0
 
+    # Branch tagging — enables per-branch collection reports
+    branch = None
+    if body.branch_id:
+        branch = next((b for b in (tenant_doc or {}).get("branches", []) if b.get("id") == body.branch_id), None)
+
     membership = await _active_membership(cust["id"])
     coupon = await _validate_coupon(body.coupon_code)
     if coupon and not await _consume_coupon(coupon):
@@ -2274,6 +2282,8 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         staff_name=staff["name"] if staff else None,
         items=body.items, subtotal=totals["subtotal"], discount=totals["discount"],
         tax=totals["tax"], total=totals["total"], payment_mode=body.payment_mode,
+        branch_id=branch["id"] if branch else None,
+        branch_name=branch["name"] if branch else None,
     ).model_dump()
     inv["membership_discount"] = totals["membership_discount"]
     inv["coupon_code"] = coupon["code"] if coupon else None
@@ -4435,6 +4445,12 @@ async def _super_platform_stats() -> str:
                         "this_month": {"$sum": {"$cond": [{"$gte": ["$created_at", month_start]}, "$total", 0]}}}},
         ]).to_list(1)
         rev = agg[0] if agg else {}
+        by_branch = await _raw_db.invoices.aggregate([
+            {"$match": {"tenant_id": t["id"], "paid": True}},
+            {"$group": {"_id": {"$ifNull": ["$branch_name", "Main (untagged)"]},
+                        "all_time": {"$sum": "$total"},
+                        "this_month": {"$sum": {"$cond": [{"$gte": ["$created_at", month_start]}, "$total", 0]}}}},
+        ]).to_list(20)
         customers = await _raw_db.customers.count_documents({"tenant_id": t["id"]})
         staff = await _raw_db.staff.count_documents({"tenant_id": t["id"]})
         appts_today = await _raw_db.appointments.count_documents(
@@ -4455,6 +4471,10 @@ async def _super_platform_stats() -> str:
             f"all-time: Rs {rev.get('all_time', 0):,.0f} ({rev.get('invoices', 0)} paid invoices) | "
             f"customers: {customers} | staff: {staff} | appointments today: {appts_today}"
         )
+        if by_branch and (len(by_branch) > 1 or by_branch[0]["_id"] != "Main (untagged)"):
+            lines.append("  collection by branch: " + " | ".join(
+                f"{b['_id']}: this month Rs {b['this_month']:,.0f}, all-time Rs {b['all_time']:,.0f}"
+                for b in sorted(by_branch, key=lambda x: -x["all_time"])))
     pays = await _raw_db.subscription_payments.aggregate([
         {"$match": {"$or": [{"kind": {"$exists": False}}, {"kind": {"$ne": "razorpay_pending"}}]}},
         {"$group": {"_id": None, "all_time": {"$sum": "$amount"},
@@ -4488,8 +4508,10 @@ async def super_admin_ai_chat(body: SuperAiChatIn, user=Depends(require_super_ad
             "using ONLY the LIVE PLATFORM DATA below. Never invent numbers.\n"
             "LOCATION / BRANCH MATCHING: when the super-admin mentions a place (e.g. 'Munnekolal', 'AECS Layout', 'Marathahalli'), "
             "match it case-insensitively (partial matches ok) against each salon's main location AND its branch names/addresses. "
-            "NOTE: billing is recorded per salon, not per branch — if the place matches a branch, report the whole salon's collection "
-            "and clearly note the figure covers the salon including all its branches (branch-level split isn't tracked yet).\n"
+            "If the salon has a 'collection by branch' line, use those per-branch figures directly. "
+            "Bills created before branch-tagging (or made without picking a branch at the POS) appear under 'Main (untagged)' — "
+            "mention this if it affects the answer. If no per-branch line exists, report the whole salon's collection and note "
+            "the branch split isn't available for that salon.\n"
             "STYLE: concise and professional; short dash lists; **bold** the key rupee figures; write amounts as ₹ with Indian comma format; "
             "if the data doesn't contain what's asked, say so plainly.\n\n"
             "LIVE PLATFORM DATA:\n" + stats

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
-import { Search, X, Plus, UserPlus, IndianRupee, Receipt, Printer, Star, Share2, Calendar, Trash2 } from "lucide-react";
+import { Search, X, Plus, UserPlus, IndianRupee, Receipt, Printer, Star, Share2, Calendar, Trash2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { openWhatsApp } from "@/lib/share";
 import { useAuth } from "@/context/AuthContext";
@@ -99,6 +99,9 @@ export default function POS() {
   const [taxPct, setTaxPct] = useState(0);
   const [taxEnabled, setTaxEnabled] = useState(false);
   const [payment, setPayment] = useState("cash");
+  const [branchId, setBranchId] = useState(() => {
+    try { return localStorage.getItem("pos_branch") || ""; } catch { return ""; }
+  });
   const [lastInvoice, setLastInvoice] = useState(null);
   const [addGuestOpen, setAddGuestOpen] = useState(false);
   const [orderNotes, setOrderNotes] = useState("");
@@ -265,6 +268,7 @@ export default function POS() {
         payment_mode: payment,
         redeem_points: pointsUsed,
         coupon_code: couponInfo?.code || null,
+        branch_id: branchId || null,
       });
       toast.success(`Invoice ${data.invoice_no} created${data.points_earned ? ` · +${data.points_earned} pts earned` : ""}`);
       setLastInvoice(data);
@@ -388,9 +392,26 @@ export default function POS() {
           <div className="bg-white rounded-xl border border-slate-200 px-5 py-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-slate-700">Invoice</h3>
-              <div className="flex items-center gap-1 text-sm text-slate-500">
-                <Calendar className="w-4 h-4" />
-                {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+              <div className="flex items-center gap-3">
+                {(tenant?.branches || []).length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-sky-500" />
+                    <select
+                      data-testid="pos-branch-select"
+                      value={branchId}
+                      onChange={e => { setBranchId(e.target.value); try { localStorage.setItem("pos_branch", e.target.value); } catch { /* noop */ } }}
+                      className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-200 max-w-[220px]"
+                      title="Bills are tagged to this branch for per-branch collection reports"
+                    >
+                      <option value="">Main — {tenant?.location || "primary location"}</option>
+                      {tenant.branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div className="flex items-center gap-1 text-sm text-slate-500">
+                  <Calendar className="w-4 h-4" />
+                  {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                </div>
               </div>
             </div>
 
@@ -775,6 +796,7 @@ function InvoiceReceiptModal({ invoice, tenant, onClose, onPrint, onShare }) {
           <Row label="Customer" value={invoice.customer_name} />
           {invoice.staff_name && <Row label="Stylist" value={invoice.staff_name} />}
           <Row label="Payment" value={<span className="uppercase text-sky-600">{invoice.payment_mode}</span>} />
+          {invoice.branch_name && <Row label="Branch" value={invoice.branch_name} />}
         </div>
         <div className="border-t border-slate-100 pt-3 space-y-1 text-sm">
           {invoice.items.map((it, idx) => (

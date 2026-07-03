@@ -392,3 +392,10 @@ Frontend:
 - HQ ANALYST AI: POST /api/super-admin/ai-chat {message, session_id} → _super_platform_stats() builds live context (per-tenant: revenue today/month/all-time via invoice aggregation, customers, staff, appts today, plan/subscription days-left, BRANCH names+addresses; SaaS payment totals) → LlmChat gpt-5.4 (Emergent key). History in super_ai_messages (multi-turn verified: "And all-time?" resolved to AECS context). Branch queries: matches location AND branch names, reports salon total + honest note that billing isn't branch-tagged. UI: AI Insights tab (AiInsightsPanel, quick-question chips, testids ai-insights-*).
 - KNOWN LIMIT: invoices have no branch_id — per-branch revenue split needs POS branch selector (backlog).
 - USER MUST REDEPLOY.
+
+## Update — Jul 3, 2026 (part 35) — POS branch tagging → per-branch AI collection reports
+- BACKEND: Invoice + InvoiceIn now carry branch_id/branch_name; create_invoice resolves branch from tenant.branches (invalid/missing → untagged). _super_platform_stats adds "collection by branch" line per tenant ($ifNull branch_name → "Main (untagged)"); AI system prompt updated to use per-branch figures + explain untagged bucket.
+- FRONTEND (POS.jsx): branch selector (pos-branch-select, MapPin icon) in Invoice header — visible only when tenant has branches; persists in localStorage("pos_branch"); checkout sends branch_id; receipt modal shows Branch row.
+- E2E VERIFIED: created ₹2,000 invoice tagged "Miracurl — AECS Layout, Brookefield" via API → HQ Analyst answered "AECS Layout: ₹2,000 this month, Main Marathahalli: ₹0" with untagged note. POS UI screenshot-verified (selector shows Main + AECS options).
+- GOTCHA HIT: first search_replace for branchId state reported success but didn't persist → "branchId is not defined" crash; re-applied and verified.
+- USER MUST REDEPLOY.
