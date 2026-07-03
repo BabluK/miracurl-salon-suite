@@ -362,3 +362,11 @@ Frontend:
 - FRONTEND (StaffRegistry.jsx): Add Record modal auto-detects open employment elsewhere (openElsewhere) → amber 'Transfer detected' banner (transfer-banner / transfer-checkbox, default ON) when 'currently working' checked → submit routes to /transfer, toast shows closed count.
 - E2E VERIFIED: elegance owner transferred STF-00001 (closed:1, Miracurl record closed w/ 'Transferred', new open at Elegance) — demo data then restored via mongo; UI banner screenshot-verified from elegance account.
 - USER MUST REDEPLOY.
+
+## Update — Jul 3, 2026 (part 31) — Security Audit fixes (SEC-001/002/003 + hardening)
+- SEC-001 [HIGH] SSRF: registry photo_url fetched by public PDF. FIX: new is_safe_public_url() (http(s) only, blocks private/loopback/link-local/reserved/metadata IPs via getaddrinfo) + _safe_fetch_image_bytes() (allow_redirects=False, 4MB cap). PDF now uses it. VERIFIED: photo_url=http://169.254.169.254 → PDF falls back to initials (4.9KB vs 36KB), no fetch. Also added photo_url validators (allow empty, /api/files/, http(s)) to RegistryEmployeeIn + RegistryEmployeeUpdateIn.
+- SEC-002 [MED] Unvalidated href: BranchIn.maps_url now rejects non-http(s) (422 verified for javascript:). google_review_url/instagram_url already force https (BrandingIn). Added top-level `from urllib.parse import urlparse`.
+- SEC-003 [MED] Transfer abuse: added audit trail (closed_by_tenant/closed_by_name/closed_by_user) to transfer-closed records for traceability. NOTE: cross-salon closure is intended per spec; full consent/OTP flow deferred (documented backlog).
+- HARDENING: _aadhaar_fp now uses os.environ REGISTRY_PEPPER with jwt_secret fallback (unset in .env to preserve existing hash matching; owner can set on fresh deploy). Audit confirmed PASS on: tenant isolation, RBAC (manager blocks), NoSQL (re.escape), Razorpay HMAC, cookies (HttpOnly/Secure/SameSite=Lax), reset tokens, file serving, Aadhaar never exposed in full.
+- Backlog (P3 from audit): durable per-tenant rate limits for AI endpoints (currently in-memory per-IP); rotate seeded admin/super_admin passwords; transfer consent flow.
+- USER MUST REDEPLOY for fixes to reach production.

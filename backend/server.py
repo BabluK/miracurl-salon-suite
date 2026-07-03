@@ -25,6 +25,7 @@ from starlette.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, field_validator
 import requests
+from urllib.parse import urlparse as urlparse
 
 # ---------------- DB ----------------
 mongo_url = os.environ['MONGO_URL']
@@ -3135,6 +3136,15 @@ class BranchIn(BaseModel):
     phone: str = Field("", max_length=20)
     maps_url: str = Field("", max_length=500)
 
+    @field_validator("maps_url")
+    @classmethod
+    def _v_maps(cls, v):
+        from urllib.parse import urlparse
+        v = (v or "").strip()
+        if v and urlparse(v).scheme not in ("http", "https"):
+            raise ValueError("Maps link must be a valid http(s) URL")
+        return v
+
 @api.get("/branches")
 async def list_branches(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     return t.get("branches", [])
@@ -5156,7 +5166,51 @@ _REG_BADGE_ORDER = ["NEW", "GOOD", "EXCELLENT", "EXTRAORDINARY"]
 _REG_REASONS = {"", "Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Transferred", "Other"}
 
 def _aadhaar_fp(num: str) -> str:
-    return hashlib.sha256(f"aadhaar:{num}:{jwt_secret()}".encode()).hexdigest()
+    pepper = os.environ.get("REGISTRY_PEPPER") or jwt_secret()
+    return hashlib.sha256(f"aadhaar:{num}:{pepper}".encode()).hexdigest()
+
+def is_safe_public_url(url: str) -> bool:
+    """Allow only http(s) URLs that do not resolve to private/loopback/link-local hosts (SSRF guard)."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+    try:
+        p = urlparse((url or "").strip())
+    except Exception:
+        return False
+    if p.scheme not in ("http", "https") or not p.hostname:
+        return False
+    try:
+        infos = socket.getaddrinfo(p.hostname, None)
+    except Exception:
+        return False
+    for info in infos:
+        addr = info[4][0]
+        try:
+            ip = ipaddress.ip_address(addr)
+        except ValueError:
+            return False
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+            return False
+    return True
+
+def is_safe_link(url: str) -> bool:
+    """http(s)-only scheme check for links rendered as href on public pages (XSS guard). Empty allowed."""
+    u = (url or "").strip()
+    if not u:
+        return True
+    from urllib.parse import urlparse
+    try:
+        return urlparse(u).scheme in ("http", "https")
+    except Exception:
+        return False
+
+def _safe_fetch_image_bytes(url: str, limit: int = 4 * 1024 * 1024) -> bytes:
+    if not is_safe_public_url(url):
+        raise ValueError("blocked url")
+    resp = requests.get(url, timeout=6, stream=True, allow_redirects=False)
+    resp.raise_for_status()
+    return resp.raw.read(limit, decode_content=True)
 
 def _reg_date_ok(v: str) -> str:
     datetime.strptime(v, "%Y-%m-%d")
@@ -5186,6 +5240,14 @@ class RegistryEmployeeIn(BaseModel):
         v = re.sub(r"\D", "", v)
         if len(v) < 10:
             raise ValueError("Enter a valid phone number")
+        return v
+
+    @field_validator("photo_url")
+    @classmethod
+    def _v_photo(cls, v):
+        v = (v or "").strip()
+        if v and not v.startswith("/api/files/") and urlparse(v).scheme not in ("http", "https"):
+            raise ValueError("Invalid photo URL")
         return v
 
 class RegistryEmploymentIn(BaseModel):
@@ -5298,6 +5360,14 @@ class RegistryEmployeeUpdateIn(BaseModel):
             raise ValueError("Enter a valid phone number")
         return v
 
+    @field_validator("photo_url")
+    @classmethod
+    def _v_photo(cls, v):
+        v = (v or "").strip()
+        if v and not v.startswith("/api/files/") and urlparse(v).scheme not in ("http", "https"):
+            raise ValueError("Invalid photo URL")
+        return v
+
 @api.put("/registry/employees/{eid}")
 async def registry_update_employee(eid: str, body: RegistryEmployeeUpdateIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     res = await _raw_db.registry_employees.update_one(
@@ -5348,7 +5418,9 @@ async def registry_transfer_employee(eid: str, body: RegistryEmploymentIn, admin
     res = await _raw_db.registry_employments.update_many(
         {"employee_id": eid, "to_date": None, "tenant_id": {"$ne": t["id"]}},
         {"$set": {"to_date": body.from_date, "reason_for_leaving": "Transferred",
-                  "closed_by_transfer": True, "updated_at": datetime.now(timezone.utc).isoformat()}})
+                  "closed_by_transfer": True, "closed_by_tenant": t["id"],
+                  "closed_by_name": t.get("name", "Salon"), "closed_by_user": admin["id"],
+                  "updated_at": datetime.now(timezone.utc).isoformat()}})
     payload = body.model_dump()
     payload["to_date"] = None
     payload["reason_for_leaving"] = "Working"
@@ -5470,9 +5542,7 @@ def _build_registry_pdf(p: dict) -> bytes:
     drew_photo = False
     if p.get("photo_url"):
         try:
-            resp = requests.get(p["photo_url"], timeout=6, stream=True)
-            resp.raise_for_status()
-            raw = resp.raw.read(4 * 1024 * 1024, decode_content=True)
+            raw = _safe_fetch_image_bytes(p["photo_url"])
             img = ImageReader(io.BytesIO(raw))
             iw, ih = img.getSize()
             scale = (2 * pr) / min(iw, ih)
