@@ -460,3 +460,11 @@ Frontend:
   - Defense-in-depth: _welcome_email_html escapes salon_name.
 - GOTCHA: file got a duplicated trailing fragment (return resp + logging line) breaking syntax — hot-reload write race; fixed. ALSO the contact-hq rate-limit edit silently didn't persist on first apply (recurring search_replace persistence issue) — ALWAYS grep-verify critical edits.
 - Test hq_messages cleaned from DB.
+
+## Update — Jul 4, 2026 (part 43) — Code review round 3: complexity refactor of top-2 flagged functions (REGRESSION TESTED)
+- FALSE POSITIVES re-verified 3rd time: eslint exhaustive-deps 0, pyflakes 0, console.log count 0 (only warn/error in catch = legit), localStorage all UI-prefs (report's own rule allows).
+- REFACTORED update_appt_status: extracted _appt_confirmation_whatsapp() (confirmation msg + manager approval queue) + _crm_count_completed_appt() (CRM visit/spend counting). create_invoice: extracted _validate_package_redeem_items(). NO behavior change.
+- ⚠️ CRITICAL GOTCHA: inserting helper functions ABOVE a decorated route makes the @api decorator attach to the HELPER (route broke with 422 until fixed). When extracting helpers near routes, ALWAYS re-grep `-B1 "async def"` to confirm decorator placement.
+- REGRESSION (sandbox tenant test-trial-salon, curl): appointment create→confirm (wa_url ✅, wa_request False)→complete (crm_updated ✅, customer visits=1/spent=500 ✅); invoice created INV-202607-0001 w/ staff_name ✅; invalid package_redeem → 400 ✅.
+- Sandbox tenant now has: customer "Regression Guest", service Haircut ₹500, staff "Test Stylist", 1 appointment, 1 invoice.
+- DECLINED (explained to user): nested-ternary rewrites (JSX class toggles, churn risk), type-hint blanket pass, frontend mega-splits (BookingChatWidget/POS/AppLayout) + server.py modularization → dedicated session.

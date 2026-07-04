@@ -2075,10 +2075,58 @@ async def create_appointment(body: AppointmentIn, user=Depends(get_current_user)
     await db.appointments.insert_one(a)
     return _clean(a)
 
+async def _appt_confirmation_whatsapp(appt: dict, phone: str, aid: str, user: dict):
+    """Build the confirmation WhatsApp for an appointment. Managers get a pending
+    approval request instead of a direct link. Returns (whatsapp_url, wa_request_created)."""
+    from urllib.parse import quote
+    tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
+    salon = (tenant or {}).get("name", "our salon")
+    try:
+        dt = datetime.fromisoformat(str(appt["scheduled_at"]).replace("Z", "+00:00"))
+        when = dt.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
+    except Exception:
+        when = str(appt.get("scheduled_at", ""))
+    services = ", ".join(appt.get("service_names") or [])
+    msg = (f"Hi {appt.get('customer_name', '')} ✨ Your booking at {salon} is CONFIRMED!\n\n"
+           f"🗓 {when}\n💇 {services}\n💰 ₹{appt.get('total', 0):g}\n\nSee you soon!")
+    wa_phone = phone if len(phone) > 10 else f"91{phone}"
+    if user.get("role") == "manager":
+        # Managers can't message customers directly — queue for admin approval.
+        await db.whatsapp_requests.insert_one({
+            "id": str(uuid.uuid4()), "requested_by": user["id"],
+            "requested_by_name": user.get("name") or user.get("email"),
+            "client_name": appt.get("customer_name", ""), "client_phone": wa_phone,
+            "message": msg, "kind": "confirmation", "status": "pending",
+            "appointment_id": aid,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        return None, True
+    return f"https://wa.me/{wa_phone}?text={quote(msg)}", False
+
+
+async def _crm_count_completed_appt(appt: dict, phone: Optional[str], aid: str):
+    """Service done — NOW the client enters the CRM with visit + spend recorded."""
+    cust = await db.customers.find_one({"phone": phone}, {"_id": 0}) if phone else None
+    if not cust and appt.get("customer_id"):
+        cust = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0})
+    sets = {"crm_status": "active", "last_visited": appt.get("scheduled_at")}
+    if appt.get("gender"):
+        sets["gender"] = appt["gender"]
+    inc = {"visits": 1, "total_spent": float(appt.get("total") or 0)}
+    if cust:
+        await db.customers.update_one({"id": cust["id"]}, {"$set": sets, "$inc": inc})
+    else:
+        new_cust = Customer(
+            name=appt.get("customer_name", "Walk-in"), phone=phone or "",
+            visits=1, total_spent=float(appt.get("total") or 0),
+        ).model_dump()
+        new_cust.update(sets)
+        await db.customers.insert_one(new_cust)
+    await db.appointments.update_one({"id": aid}, {"$set": {"crm_counted": True}})
+
+
 @api.put("/appointments/{aid}/status")
 async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(get_current_user)):
-    from urllib.parse import quote
-
     await db.appointments.update_one({"id": aid}, {"$set": {"status": body.status}})
     appt = await db.appointments.find_one({"id": aid}, {"_id": 0})
     if not appt:
@@ -2094,50 +2142,10 @@ async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(g
     wa_request_created = False
 
     if body.status == "confirmed" and phone:
-        tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
-        salon = (tenant or {}).get("name", "our salon")
-        try:
-            dt = datetime.fromisoformat(str(appt["scheduled_at"]).replace("Z", "+00:00"))
-            when = dt.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
-        except Exception:
-            when = str(appt.get("scheduled_at", ""))
-        services = ", ".join(appt.get("service_names") or [])
-        msg = (f"Hi {appt.get('customer_name', '')} ✨ Your booking at {salon} is CONFIRMED!\n\n"
-               f"🗓 {when}\n💇 {services}\n💰 ₹{appt.get('total', 0):g}\n\nSee you soon!")
-        wa_phone = phone if len(phone) > 10 else f"91{phone}"
-        if user.get("role") == "manager":
-            # Managers can't message customers directly — queue for admin approval.
-            await db.whatsapp_requests.insert_one({
-                "id": str(uuid.uuid4()), "requested_by": user["id"],
-                "requested_by_name": user.get("name") or user.get("email"),
-                "client_name": appt.get("customer_name", ""), "client_phone": wa_phone,
-                "message": msg, "kind": "confirmation", "status": "pending",
-                "appointment_id": aid,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            })
-            wa_request_created = True
-        else:
-            whatsapp_url = f"https://wa.me/{wa_phone}?text={quote(msg)}"
+        whatsapp_url, wa_request_created = await _appt_confirmation_whatsapp(appt, phone, aid, user)
 
     if body.status == "completed" and not appt.get("crm_counted"):
-        # Service done — NOW the client enters the CRM with visit + spend recorded.
-        cust = await db.customers.find_one({"phone": phone}, {"_id": 0}) if phone else None
-        if not cust and appt.get("customer_id"):
-            cust = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0})
-        sets = {"crm_status": "active", "last_visited": appt.get("scheduled_at")}
-        if appt.get("gender"):
-            sets["gender"] = appt["gender"]
-        inc = {"visits": 1, "total_spent": float(appt.get("total") or 0)}
-        if cust:
-            await db.customers.update_one({"id": cust["id"]}, {"$set": sets, "$inc": inc})
-        else:
-            new_cust = Customer(
-                name=appt.get("customer_name", "Walk-in"), phone=phone or "",
-                visits=1, total_spent=float(appt.get("total") or 0),
-            ).model_dump()
-            new_cust.update(sets)
-            await db.customers.insert_one(new_cust)
-        await db.appointments.update_one({"id": aid}, {"$set": {"crm_counted": True}})
+        await _crm_count_completed_appt(appt, phone, aid)
         crm_updated = True
 
     return {"appointment": appt, "whatsapp_url": whatsapp_url, "crm_updated": crm_updated, "wa_request_created": wa_request_created}
@@ -2266,16 +2274,11 @@ async def _process_benefit_items(inv: dict, cust: dict):
                 {"id": it["ref_id"], "sessions_left": {"$gt": 0}}, {"$inc": {"sessions_left": -1}})
 
 
-@api.post("/invoices")
-async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
-    cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
-    if not cust:
-        raise HTTPException(400, "Invalid customer")
-    staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
-
-    # Validate package-redeem lines (must belong to this customer, have sessions, not expired) and force ₹0
+async def _validate_package_redeem_items(items: list, cust: dict):
+    """Package-redeem lines must belong to this customer, have sessions left and
+    not be expired; their price is forced to ₹0 (session pays, not money)."""
     now_iso = datetime.now(timezone.utc).isoformat()
-    for it in body.items:
+    for it in items:
         if it.type == "package_redeem":
             cp = await db.customer_packages.find_one({"id": it.ref_id}, {"_id": 0})
             if not cp or cp["customer_id"] != cust["id"]:
@@ -2286,6 +2289,16 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
                 raise HTTPException(400, f"Package '{cp['package_name']}' has expired")
             it.price = 0.0
             it.qty = 1
+
+
+@api.post("/invoices")
+async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
+    cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
+    if not cust:
+        raise HTTPException(400, "Invalid customer")
+    staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
+
+    await _validate_package_redeem_items(body.items, cust)
 
     # Tax is ONLY applied when the tenant has opted-in by configuring GST settings.
     tid = _current_tenant_id.get()
