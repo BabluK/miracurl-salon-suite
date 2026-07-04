@@ -485,3 +485,8 @@ Frontend:
 - **P0 BUG FIX (production-affecting)**: PWA service worker in `index.js` fired `window.location.reload()` on `controllerchange` even on FIRST install (clients.claim), aborting in-flight requests — this killed a first-time visitor's login POST (net::ERR_ABORTED). Now reloads only when a previous controller existed (true SW update). Needs REDEPLOY to reach production.
 - **Manager form verified via screenshot**: Add Manager modal shows full staff fields (name, role, phone, email, specialties, commission %, monthly salary, salary-visible toggle).
 - **Resend DNS**: user pasted DKIM value but `resend._domainkey.miracurlunisexsaloon.com` still NXDOMAIN (domain on IONOS). Waiting for user to add TXT (resend._domainkey) + MX/TXT on `send` subdomain per Resend dashboard, then flip SENDER_EMAIL in backend/.env.
+
+## Update — Jul 4, 2026 (part 24) — Tenant Re-onboarding (Reactivate)
+- New `POST /api/super-admin/tenants/{tid}/reactivate` for cancelled/suspended tenants: restores status to trial with 7-day grace, regenerates one-time owner password (must_change_password), re-sends welcome email ("Welcome back to Miracurl") to owner + salon email. All historical data preserved.
+- SuperAdmin.jsx: green RotateCcw button (data-testid `reactivate-tenant-{id}`) on cancelled rows; success opens the existing TempPasswordShareModal (copy + WhatsApp share).
+- Verified end-to-end via curl (email sent via Resend, login with temp pw returns must_change_password=True) + screenshot.

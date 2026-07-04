@@ -4343,6 +4343,45 @@ async def delete_tenant(tid: str, user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+@api.post("/super-admin/tenants/{tid}/reactivate")
+async def reactivate_tenant(tid: str, user=Depends(require_super_admin)):
+    """Re-onboard a cancelled salon: restore access (7-day grace trial), issue a
+    fresh one-time owner password and re-send the welcome email. All historical
+    data (customers, invoices, staff) is preserved."""
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    if t.get("status") not in ("cancelled", "suspended"):
+        raise HTTPException(400, f"Tenant is already {t.get('status')} — nothing to reactivate")
+    owner = await db.users.find_one(
+        {"tenant_id": tid, "email": (t.get("owner_email") or "").lower()}, {"_id": 0})
+    if not owner:
+        owner = await db.users.find_one({"tenant_id": tid, "role": "admin"}, {"_id": 0})
+    if not owner:
+        raise HTTPException(404, "No owner login found for this tenant")
+    trial_end = (datetime.now(timezone.utc) + timedelta(days=7)).date().isoformat()
+    await db.tenants.update_one({"id": tid}, {"$set": {
+        "status": "trial", "trial_end_date": trial_end, "trial_ends_at": trial_end,
+        "subscription_end_date": None,
+        "reactivated_at": datetime.now(timezone.utc).isoformat(),
+    }})
+    temp_pw = _generate_temp_password()
+    await db.users.update_one({"id": owner["id"]}, {"$set": {
+        "password_hash": hash_pw(temp_pw), "must_change_password": True, "status": "active"}})
+    recipients = [owner["email"]]
+    if t.get("salon_email") and t["salon_email"] not in recipients:
+        recipients.append(t["salon_email"])
+    email_status = await _send_email(
+        recipients,
+        "Welcome back to Miracurl — your salon is live again ✦",
+        _welcome_email_html(t["name"], owner["email"], temp_pw))
+    return {
+        "ok": True, "owner_email": owner["email"], "temp_password": temp_pw,
+        "trial_end_date": trial_end, "email_recipients": recipients,
+        "email_status": email_status,
+    }
+
+
 # ---------------- Super-Admin: Bulk customer import ----------------
 VCARD_FN_RE = re.compile(r"^FN(?:;[^:]*)?:(.+)$", re.MULTILINE)
 VCARD_N_RE = re.compile(r"^N(?:;[^:]*)?:(.+)$", re.MULTILINE)

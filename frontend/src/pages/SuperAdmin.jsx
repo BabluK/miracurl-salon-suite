@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
@@ -107,6 +107,25 @@ export default function SuperAdmin() {
       toast.success(`${t.name} → ${status}`);
       load();
     } catch (err) { toast.error("Update failed"); }
+  }
+
+  async function reactivateTenant(t) {
+    if (!window.confirm(`Re-onboard ${t.name}? The salon comes back with all its old data, gets a 7-day grace period, a fresh owner password is generated and emailed.`)) return;
+    try {
+      const { data } = await api.post(`/super-admin/tenants/${t.id}/reactivate`);
+      toast.success(`${t.name} is back — grace period till ${data.trial_end_date}`);
+      setCreatedCreds({
+        email: data.owner_email,
+        temp_password: data.temp_password,
+        tenant_name: t.name,
+        tenant_phone: t.phone,
+        email_recipients: data.email_recipients,
+        email_status: data.email_status,
+      });
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Reactivation failed");
+    }
   }
 
   async function deleteTenant(t) {
@@ -268,6 +287,8 @@ export default function SuperAdmin() {
                         <button data-testid={`suspend-tenant-${t.id}`} onClick={() => setStatus(t, "suspended")} title="Suspend" className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"><Pause className="w-3.5 h-3.5" /></button>
                       ) : t.status === "suspended" ? (
                         <button data-testid={`activate-tenant-${t.id}`} onClick={() => setStatus(t, "active")} title="Re-activate" className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded"><Play className="w-3.5 h-3.5" /></button>
+                      ) : t.status === "cancelled" ? (
+                        <button data-testid={`reactivate-tenant-${t.id}`} onClick={() => reactivateTenant(t)} title="Re-onboard: restore salon + new credentials + welcome email" className="p-1.5 text-emerald-500 hover:bg-emerald-500/10 rounded"><RotateCcw className="w-3.5 h-3.5" /></button>
                       ) : null}
                       <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
