@@ -451,3 +451,12 @@ Frontend:
 - ⚠️ DOMAIN NOT ACTUALLY VERIFIED: user claimed verified but Resend API rejects hello@miracurlunisexsaloon.com ("domain is not verified"). SENDER_EMAIL reverted to onboarding@resend.dev (test mode: delivery ONLY to miracurlunisexsaloon@gmail.com; mixed-recipient sends fail entirely). ACTION FOR USER: finish DNS records at resend.com/domains until status = Verified, then switch SENDER_EMAIL back to hello@miracurlunisexsaloon.com and restart backend.
 - NOTE: main tenant salon_email currently None (was temp-set during testing, cleaned).
 - NEXT (user requested): server.py modular refactor — needs dedicated pass + full regression run.
+
+## Update — Jul 4, 2026 (part 42) — Security audit #3 fixes (ALL VERIFIED)
+- Audit verdict: CONDITIONAL PASS, 2 MEDIUM + 1 P3. ALL FIXED:
+  - SEC-001 filename HTML injection into HQ email: filenames CR/LF-stripped + capped 120ch at intake; html_lib.escape on the joined list in email HTML. (HqInbox already safe — React escaping.)
+  - SEC-002 weak temp passwords (~17 bits): _generate_temp_password now Word-Word-token_urlsafe(8) (~64-bit token); inline duplicate in create_tenant replaced with the helper. Affects staff/manager/owner provisioning + resets.
+  - P3 contact-hq abuse: per-tenant rate limit 5/hour via public_rate_limit(key hq-{tenant_id}) — VERIFIED 429 on 6th send.
+  - Defense-in-depth: _welcome_email_html escapes salon_name.
+- GOTCHA: file got a duplicated trailing fragment (return resp + logging line) breaking syntax — hot-reload write race; fixed. ALSO the contact-hq rate-limit edit silently didn't persist on first apply (recurring search_replace persistence issue) — ALWAYS grep-verify critical edits.
+- Test hq_messages cleaned from DB.

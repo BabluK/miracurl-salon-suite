@@ -1353,10 +1353,11 @@ class StaffLoginCreateIn(BaseModel):
 
 
 def _generate_temp_password() -> str:
-    """Memorable temp password: two random words + 3 digits, e.g. Bright-Silk-472."""
+    """Temp password: two friendly words + a strong random token, e.g. Bright-Silk-kTz9Qw2Lp4A.
+    The token alone carries ~64 bits of entropy (audit SEC-002)."""
     _words = ["Rose", "Silk", "Gold", "Ivory", "Coral", "Bright", "Velvet",
               "Amber", "Pearl", "Onyx", "Blush", "Willow", "Ember", "Frost"]
-    return f"{secrets.choice(_words)}-{secrets.choice(_words)}-{secrets.randbelow(900) + 100}"
+    return f"{secrets.choice(_words)}-{secrets.choice(_words)}-{secrets.token_urlsafe(8)}"
 
 
 @api.post("/staff/{sid}/create-login")
@@ -3508,7 +3509,7 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str) -> str:
 {img_row}
 <tr><td style="padding:32px 36px">
 <h1 style="margin:0 0 6px;font-size:22px;color:#1a1a2e">We're happy to onboard you! 🎉</h1>
-<p style="margin:0 0 18px;font-size:15px;color:#444">Hi <b>{salon_name}</b> ✦ Welcome to Miracurl!</p>
+<p style="margin:0 0 18px;font-size:15px;color:#444">Hi <b>{html_lib.escape(salon_name)}</b> ✦ Welcome to Miracurl!</p>
 <p style="margin:0 0 14px;font-size:14px;color:#444">Your salon account is ready. Here are your one-time login details:</p>
 <table cellpadding="0" cellspacing="0" style="background:#f8f7fc;border:1px solid #e6e3f2;border-radius:10px;width:100%">
 <tr><td style="padding:16px 20px;font-size:14px;color:#333;line-height:2">
@@ -3654,10 +3655,8 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     if body.owner_password:
         temp_pw = body.owner_password
     else:
-        # Human-readable temp password: two random words + 3 digits, e.g. "Bright-Silk-472".
-        # Easier to dictate over WhatsApp/phone than a raw hex string.
-        _words = ["Rose", "Silk", "Gold", "Ivory", "Coral", "Bright", "Velvet", "Amber", "Ivory", "Pearl", "Onyx", "Blush", "Willow", "Ember", "Frost"]
-        temp_pw = f"{secrets.choice(_words)}-{secrets.choice(_words)}-{secrets.randbelow(900) + 100}"
+        # Friendly prefix + high-entropy token (~64 bits) — see _generate_temp_password.
+        temp_pw = _generate_temp_password()
     owner = {
         "id": str(uuid.uuid4()),
         "email": body.owner_email.lower(),
@@ -3698,11 +3697,14 @@ _HQ_MAX_TOTAL_BYTES = 10 * 1024 * 1024
 
 @api.post("/contact-hq")
 async def contact_hq(
+    request: Request,
     subject: str = Form(..., min_length=2, max_length=150),
     message: str = Form(..., min_length=2, max_length=5000),
     files: List[UploadFile] = File(default=[]),
     admin=Depends(require_tenant_admin), t=Depends(current_tenant),
 ):
+    # Throttle per tenant: 5 messages / hour (audit P3 — email quota/storage abuse)
+    public_rate_limit(request, key_suffix=f"hq-{t['id']}", limit=5, window_sec=3600)
     if len(files) > _HQ_MAX_FILES:
         raise HTTPException(400, f"Maximum {_HQ_MAX_FILES} attachments allowed")
     attachments, names, total = [], [], 0
@@ -3712,8 +3714,9 @@ async def contact_hq(
         if total > _HQ_MAX_TOTAL_BYTES:
             raise HTTPException(413, "Attachments too large — max 10MB total")
         if data:
-            attachments.append({"filename": f.filename or "attachment", "content": base64.b64encode(data).decode()})
-            names.append(f.filename or "attachment")
+            fname = re.sub(r"[\r\n]", "", (f.filename or "attachment"))[:120]
+            attachments.append({"filename": fname, "content": base64.b64encode(data).decode()})
+            names.append(fname)
     safe_msg = html_lib.escape(message).replace("\n", "<br/>")
     html = f"""
 <div style="font-family:Arial,sans-serif;max-width:600px">
@@ -3722,7 +3725,7 @@ async def contact_hq(
 <b>From:</b> {html_lib.escape(admin['email'])}<br/>
 <b>Subject:</b> {html_lib.escape(subject)}</p>
 <div style="background:#f8f7fc;border:1px solid #e6e3f2;border-radius:10px;padding:16px;font-size:14px;color:#333">{safe_msg}</div>
-<p style="font-size:12px;color:#888;margin-top:14px">Attachments: {', '.join(names) or 'none'} · Sent via Miracurl Contact HQ</p>
+<p style="font-size:12px;color:#888;margin-top:14px">Attachments: {html_lib.escape(', '.join(names)) or 'none'} · Sent via Miracurl Contact HQ</p>
 </div>"""
     status = await _send_email(
         [os.environ.get("HQ_EMAIL", "admin@miracurl.com")],
