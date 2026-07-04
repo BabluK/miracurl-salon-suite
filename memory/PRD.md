@@ -414,3 +414,16 @@ Frontend:
   - Remaining P3 (accepted for now): server-side must_change_password enforcement; caching of AI stats.
 - 2ND CODE REVIEW TRIAGE: same false positives re-verified (eslint 0 hook violations, pyflakes 0 undefined vars, localStorage benign). FIXED: BookingChatWidget renderText key now index+content. POS.jsx:402 noop catch is intentional (localStorage). Complexity refactors still deferred to dedicated session.
 - USER MUST REDEPLOY.
+
+## Update — Jul 3, 2026 (part 38) — Phase 1 of user's 8-point batch (ALL TESTED, iteration_43 100% PASS)
+- FORCE-CHANGE REDIRECT: after first-login password setup → logout + redirect to /login (ForceChangePassword.jsx; onDone prop removed).
+- SETTINGS: debug box ("Save OK · HTTP 200", build version line, saveDebug state) fully removed; save still toasts.
+- TRIAL REMINDER: TrialReminder.jsx — polite popup once/day (localStorage trial_popup_YYYY-MM-DD) during last 7 days of trial (uses tenant.trial_end_date||trial_ends_at), OK + Pay Now (→/settings); mounted in AppLayout for admins.
+- ONBOARDING FIELDS: Tenant+TenantIn models + create_tenant now carry salon_email + owner_phone (owner PERSONAL phone); SuperAdmin modal has Salon Email + Owner Personal Phone inputs, Phone relabeled Salon Phone.
+- RENEWAL NUDGE: RenewalNudge (SuperAdminExtras) — wa.me link to owner_phone (personal) w/ polite renewal msg, shows for trial or ≤30d-left tenants next to HealthBadge.
+- MIRA EXPERTS: _booking_catalog staff now includes role+tags ("OUR TEAM OF EXPERTS"); new prompt rule 7 EXPERT SELECTION (ask which expert; suggest matching expert for new guests; staff_id in booking JSON). Curl-verified: "manicure → suggests Anjali Mehta, Beauty Therapist".
+- DISABLED STAFF: public staff + Mira already filter active:True (verified via API).
+- MANAGERS: already staff-like (Add Manager → temp password shown once; Reset password) — no change needed.
+- TEST TENANT: test-trial-salon / trialowner@test.com / TestPass@123 (trial ends +3d) — for popup testing.
+- PHASE 2 PENDING: Resend email (user chose option a) — NEED RESEND API KEY from user. Playbook received: resend lib, RESEND_API_KEY + SENDER_EMAIL env, asyncio.to_thread(resend.Emails.send, params). Features: onboarding email w/ AI welcome image to BOTH owner+salon emails; "Contact Miracurl HQ" section (admin→super-admin mail with attachments).
+- PHASE 3 PENDING (user confirmed): super-admin full control — browse into any salon (staff/products/registry/services), edit-only (no delete for super-admin), modification-request notifications from admins.
