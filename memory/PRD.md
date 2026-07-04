@@ -468,3 +468,14 @@ Frontend:
 - REGRESSION (sandbox tenant test-trial-salon, curl): appointment create→confirm (wa_url ✅, wa_request False)→complete (crm_updated ✅, customer visits=1/spent=500 ✅); invoice created INV-202607-0001 w/ staff_name ✅; invalid package_redeem → 400 ✅.
 - Sandbox tenant now has: customer "Regression Guest", service Haircut ₹500, staff "Test Stylist", 1 appointment, 1 invoice.
 - DECLINED (explained to user): nested-ternary rewrites (JSX class toggles, churn risk), type-hint blanket pass, frontend mega-splits (BookingChatWidget/POS/AppLayout) + server.py modularization → dedicated session.
+
+## Update — Jul 4, 2026 (part 44) — server.py modular refactor — PHASE 1 (email + PDF extracted, VERIFIED)
+- REFACTOR_PLAN.md written (full target structure + gotchas) at /app/memory/.
+- EXTRACTED (zero behavior change):
+  - email_service.py (94 lines): _send_email, _welcome_email_html, _monthly_report_html. server.py imports them; `import resend` line replaced by the import.
+  - services/pdf.py (337 lines): _render_salary_slip_pdf, _build_registry_pdf (+ _REG_BADGE_COLORS). Registry PDF now takes fetch_image param (DI) instead of calling _safe_fetch_image_bytes directly — call site passes _safe_fetch_image_bytes. services/__init__.py created.
+- server.py 6246 → 5833 lines. pyflakes clean on all 3 files.
+- VERIFIED: registry PDF endpoint 200 application/pdf; salary slip pure-fn renders %PDF (2643 bytes) via import; monthly report send works; admin dashboard/appointments/invoices 200; super-admin overview 200; public salon page 200.
+- TECHNIQUE THAT WORKED: bulk block removal via python slicing (del lines[a:b] in DESCENDING order) instead of search_replace (avoids the persistence race). Verified boundaries with sed before cutting.
+- REMAINING (future dedicated pass, see REFACTOR_PLAN.md): config.py, database.py (db wrapper + contextvar), models.py (60 classes — but INTERLEAVED with deps/routes, risky), security.py (auth deps + _apply_tenant_context incl. super-admin DELETE guard), services/ai.py, services/storage.py, routes/*. Do with testing_agent regression after.
+- RESEND DOMAIN STILL NOT VERIFIED: re-tested from hello@miracurlunisexsaloon.com → still "domain is not verified". SENDER_EMAIL stays onboarding@resend.dev. User must complete DNS at resend.com/domains.
