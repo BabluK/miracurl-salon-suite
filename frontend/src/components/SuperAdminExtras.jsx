@@ -1,9 +1,9 @@
 // Super-Admin console extras: profile card, tenant health badge, AI Insights panel.
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Sparkles, Pencil, X, Camera, Send, Loader2, Phone, Briefcase, HeartPulse, MessageCircle } from "lucide-react";
+import { Sparkles, Pencil, X, Camera, Send, Loader2, Phone, Briefcase, HeartPulse, MessageCircle, MailOpen } from "lucide-react";
 
 // ---------- Tenant subscription health ----------
 export function healthInfo(t) {
@@ -45,6 +45,61 @@ export function RenewalNudge({ t }) {
       className="inline-flex ml-1.5 p-1 rounded-full bg-green-50 border border-green-200 text-green-600 hover:bg-green-100 align-middle transition">
       <MessageCircle className="w-3.5 h-3.5" />
     </a>
+  );
+}
+
+// ---------- HQ Inbox — messages/requests from salon owners (Contact HQ) ----------
+export function HqInbox({ onUnreadChange }) {
+  const [items, setItems] = useState(null);
+  const load = useCallback(async () => {
+    const { data } = await api.get("/super-admin/hq-messages");
+    setItems(data.items);
+    onUnreadChange?.(data.unread || 0);
+  }, [onUnreadChange]);
+  useEffect(() => { load(); }, [load]);
+
+  async function markRead(m) {
+    await api.patch(`/super-admin/hq-messages/${m.id}/read`);
+    await load();
+  }
+
+  if (!items) return <div className="text-slate-500 p-4">Loading inbox…</div>;
+  return (
+    <div className="card-light" data-testid="hq-inbox">
+      <div className="flex items-center gap-2 mb-1">
+        <MailOpen className="w-5 h-5 text-violet-500" />
+        <h3 className="font-playfair text-xl text-slate-800">HQ Inbox</h3>
+      </div>
+      <p className="text-xs text-slate-500 mb-4">Messages, modification &amp; deletion requests from salon owners (sent via their "Contact Miracurl HQ" section). Also delivered to your email.</p>
+      {items.length === 0 && <div className="text-sm text-slate-400 py-8 text-center border border-dashed border-slate-200 rounded-xl">No messages yet.</div>}
+      <div className="space-y-3">
+        {items.map(m => (
+          <div key={m.id} data-testid={`hq-msg-${m.id}`} className={`rounded-xl border p-4 ${m.read ? "border-slate-200 bg-white" : "border-violet-200 bg-violet-50/60"}`}>
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-800 flex items-center gap-2 flex-wrap">
+                  {!m.read && <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />}
+                  {m.subject}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  <b className="text-slate-600">{m.tenant_name}</b> · {m.from_email} · {new Date(m.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </div>
+              </div>
+              {!m.read && (
+                <button data-testid={`hq-mark-read-${m.id}`} onClick={() => markRead(m)}
+                  className="text-xs px-3 py-1.5 rounded-full bg-violet-100 border border-violet-200 text-violet-700 hover:bg-violet-200 transition shrink-0">
+                  Mark read
+                </button>
+              )}
+            </div>
+            <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">{m.message}</p>
+            {(m.attachments || []).length > 0 && (
+              <div className="text-[11px] text-slate-500 mt-2">📎 {m.attachments.join(", ")} <span className="text-slate-400">(attached in the email copy)</span></div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

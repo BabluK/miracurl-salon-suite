@@ -44,6 +44,25 @@ api.interceptors.response.use(
   },
 );
 
+// "Act as salon" mode — super-admin browsing/correcting a tenant's data.
+export function setActAsSalon(slug, name) {
+  try {
+    localStorage.setItem("act_as_salon", JSON.stringify({ slug, name }));
+    localStorage.setItem("miracurl_tenant", slug);
+  } catch { /* private mode */ }
+  setTenantSlug(slug);
+}
+export function getActAsSalon() {
+  try { return JSON.parse(localStorage.getItem("act_as_salon") || "null"); } catch { return null; }
+}
+export function clearActAsSalon() {
+  try {
+    localStorage.removeItem("act_as_salon");
+    localStorage.removeItem("miracurl_tenant");
+  } catch { /* private mode */ }
+  setTenantSlug(null);
+}
+
 export function formatApiError(detail) {
   if (detail == null) return "Something went wrong. Please try again.";
   if (typeof detail === "string") return detail;

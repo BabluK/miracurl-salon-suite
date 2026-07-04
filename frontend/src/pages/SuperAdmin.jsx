@@ -2,11 +2,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
-import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge } from "@/components/SuperAdminExtras";
+import { setActAsSalon } from "@/lib/api";
+import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -25,6 +26,7 @@ export default function SuperAdmin() {
   const nav = useNavigate();
   const [overview, setOverview] = useState(null);
   const [tenants, setTenants] = useState([]);
+  const [hqUnread, setHqUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [tab, setTab] = useState("tenants"); // tenants | billing
@@ -35,12 +37,14 @@ export default function SuperAdmin() {
   });
 
   const load = useCallback(async () => {
-    const [o, t] = await Promise.all([
+    const [o, t, hq] = await Promise.all([
       api.get("/super-admin/overview"),
       api.get("/super-admin/tenants"),
+      api.get("/super-admin/hq-messages").catch(() => ({ data: { unread: 0 } })),
     ]);
     setOverview(o.data);
     setTenants(t.data);
+    setHqUnread(hq.data.unread || 0);
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -157,6 +161,13 @@ export default function SuperAdmin() {
             onClick={() => setTab("ai")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "ai" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           ><Sparkles className="w-4 h-4" /> AI Insights</button>
+          <button
+            data-testid="super-tab-inbox"
+            onClick={() => setTab("inbox")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "inbox" ? "border-violet-500 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><Inbox className="w-4 h-4" /> HQ Inbox
+            {hqUnread > 0 && <span data-testid="hq-unread-badge" className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{hqUnread}</span>}
+          </button>
         </div>
 
         {tab === "billing" ? (
@@ -167,6 +178,8 @@ export default function SuperAdmin() {
           <RevenuePanel />
         ) : tab === "ai" ? (
           <AiInsightsPanel />
+        ) : tab === "inbox" ? (
+          <HqInbox onUnreadChange={setHqUnread} />
         ) : (
           <>
         <div className="flex items-center justify-between">
@@ -226,6 +239,7 @@ export default function SuperAdmin() {
                   </td>
                   <td>
                     <div className="flex items-center gap-1 justify-end">
+                      <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
                       <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
                       {t.status === "active" || t.status === "trial" ? (
                         <button data-testid={`suspend-tenant-${t.id}`} onClick={() => setStatus(t, "suspended")} title="Suspend" className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"><Pause className="w-3.5 h-3.5" /></button>

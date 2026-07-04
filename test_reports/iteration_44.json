@@ -1,0 +1,40 @@
+{
+  "summary": "Frontend-only testing of Phase 3 super-admin 'act-as-salon' + HQ Inbox. FLOW A/C/D/E PASS. FLOW B (delete blocked) reveals backend correctly returns 403 but frontend does NOT show any toast — an uncaught runtime error overlay appears instead (missing try/catch on api.delete in Services.jsx and multiple other pages).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ActAsBanner", "issue": "Banner text renders 'Super-Admin mode — viewing salon' instead of the actual salon name (e.g., 'Miracurl Unisex Family Salon'). Root cause: in AuthContext.jsx bootstrap effect (line 50) and afterAuth (line 71), when user.role === 'super_admin' the code returns early WITHOUT fetching /tenants/current, so `tenant` stays null even in act-as mode. AppLayout passes this null tenant to ActAsBanner which falls back to the literal 'salon'.", "selector": "[data-testid=act-as-banner]", "priority": "MEDIUM"},
+      {"component": "Services.jsx remove()", "issue": "No try/catch around `await api.delete(/services/{id})`. When super-admin in act-as mode triggers delete, backend correctly returns 403 with friendly message 'deleting is reserved for the salon owner', but frontend throws an Uncaught runtime error, shows the react-error-overlay full-screen instead of the required error toast. User expectation ('error toast containing \"deleting is reserved for the salon owner\"') is NOT met.", "selector": "[data-testid^=delete-service-]", "priority": "HIGH"},
+      {"component": "Multiple delete handlers", "issue": "Same missing try/catch pattern (silent failure + potential runtime error on 403) exists in: Appointments.jsx:114, Staff.jsx:69, Plans.jsx:30, Assistant.jsx:146, Gallery.jsx:51, Inventory.jsx:53, Customers.jsx:58, ManagersSection.jsx:43. All these will misbehave in act-as mode when the server returns 403.", "selector": "N/A", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "FLOW B – act-as delete blocked", "issue": "Server returns 403 as expected (verified via network response), item not deleted, BUT no toast shown; instead react runtime error overlay covers the page. Users have no idea why the delete failed.", "affected_selectors": ["[data-testid^=delete-service-]"]}
+    ],
+    "design_issues": [
+      {"screen": "Act-as banner", "issues": ["Banner is fixed at top with z-70 (46px tall) but neither body nor the AppLayout header get a top-padding offset, so on small screens the salon header/nav is partially covered by the banner. Currently visually acceptable on desktop because layout has enough margin."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_44.json"],
+  "action_items": [
+    "Wrap all `api.delete(...)` calls in try/catch and surface `formatApiError(err?.response?.data?.detail)` via toast.error — priority Services.jsx first (line 64-67).",
+    "Fix ActAsBanner tenant name: in AuthContext.jsx, when role === 'super_admin' AND getActAsSalon() is set, fetch /tenants/current (with X-Tenant-Slug header from setActAsSalon) so `tenant.name` is populated. Alternatively pass name from localStorage (getActAsSalon().name) directly to ActAsBanner.",
+    "Consider adding top padding (~46px) to app root when banner is visible so it never overlaps the header on mobile."
+  ],
+  "critical_code_review_comments": [
+    "Services.jsx remove(): no try/catch → uncaught axios rejection escapes as react runtime error overlay. Same anti-pattern in ~8 other delete handlers.",
+    "AuthContext bootstrap returns early on super_admin without honoring act-as mode → tenant state stays null even after setActAsSalon(). Should fetch tenant when act-as is active.",
+    "Services.jsx and Inventory.jsx use native window.confirm() which is inconsistent with the shadcn AlertDialog used elsewhere (Reviews, StaffRegistry). UX inconsistency.",
+    "Console log spam: multiple 401s on the login page and repeated Recharts 'width(-1) height(-1)' warnings on /super-admin — cosmetic but noisy."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "FLOW A: PASS (with name bug), FLOW B edit: not fully tested (blocked by runtime overlay from delete), FLOW B delete blocked: BACKEND ok / FRONTEND FAIL, FLOW C: PASS, FLOW D: PASS (badge 2→1 after mark-read), FLOW E: PASS (message delivered + badge increased)"},
+  "test_credentials": "Used super@miracurl.com / og9T@41Es#OQb6 and admin@miracurl.com / q6QY@tn3p#9DtL as provided.",
+  "seed_data_creation": "FLOW E created ONE HQ message ('Please update my address' from admin@miracurl.com, tenant miracurl-marathahalli). This was intentional per instructions. Message is unread in HQ Inbox.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Two verified bugs remain: (1) Services.jsx (and other pages) missing try/catch around api.delete — causes runtime error overlay instead of the friendly 403 toast; (2) ActAsBanner shows 'viewing salon' because AuthContext skips tenant fetch for super_admin. Backend 403 payload contains the correct message. After main agent applies the fix, retest FLOW B end-to-end (both edit save toast and delete blocked toast). FLOW A/C/D/E already validated.",
+  "rca of the issue": "Services delete failure: backend `_apply_tenant_context` correctly returns 403 with `deleting is reserved for the salon owner` (verified: network tab shows 403 response). Frontend `remove()` in Services.jsx (line 64) calls `await api.delete(...)` with no try/catch → axios rejects → uncaught in async handler → react-error-overlay pops. Fix: `try { await api.delete(...); toast.success('Deleted'); load(); } catch (err) { toast.error(formatApiError(err?.response?.data?.detail) || 'Delete failed'); }`. ActAsBanner name: AuthContext.jsx line 50 short-circuits for super_admin — must add branch: if super_admin AND getActAsSalon() → still fetch tenant (with X-Tenant-Slug header) OR read name from localStorage."
+}

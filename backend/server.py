@@ -273,6 +273,9 @@ async def _apply_tenant_context(request: Request, user: dict) -> None:
             raise HTTPException(404, f"Tenant '{slug}' not found")
         if user.get("role") != "super_admin" and user.get("tenant_id") != t["id"]:
             raise HTTPException(403, "Cross-tenant access denied")
+        if (user.get("role") == "super_admin" and request.method == "DELETE"
+                and not request.url.path.startswith("/api/super-admin")):
+            raise HTTPException(403, "Super-admin can view, correct and update salon data — but deleting is reserved for the salon owner. Ask the owner, or note it via Contact HQ.")
         _current_tenant_id.set(t["id"])
         return
     if user.get("role") != "super_admin" and user.get("tenant_id"):
@@ -3521,6 +3524,19 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str) -> str:
 </td></tr></table>"""
 
 
+@api.get("/super-admin/hq-messages")
+async def hq_messages(user=Depends(require_super_admin)):
+    items = await _raw_db.hq_messages.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    unread = await _raw_db.hq_messages.count_documents({"read": {"$ne": True}})
+    return {"items": items, "unread": unread}
+
+
+@api.patch("/super-admin/hq-messages/{mid}/read")
+async def hq_message_read(mid: str, user=Depends(require_super_admin)):
+    await _raw_db.hq_messages.update_one({"id": mid}, {"$set": {"read": True}})
+    return {"ok": True}
+
+
 @api.get("/super-admin/tenants")
 async def list_tenants(user=Depends(require_super_admin)):
     return await db.tenants.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
@@ -3619,7 +3635,7 @@ async def contact_hq(
     await _raw_db.hq_messages.insert_one({
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_name": t["name"],
         "from_email": admin["email"], "subject": subject, "message": message,
-        "attachments": names, "email_status": status,
+        "attachments": names, "email_status": status, "read": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     if not status.get("sent"):

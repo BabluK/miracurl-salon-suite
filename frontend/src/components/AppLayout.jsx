@@ -13,6 +13,7 @@ import TenantBrandMark from "./TenantBrandMark";
 import InstallAppPrompt from "./InstallAppPrompt";
 import MiraFab from "./MiraFab";
 import TrialReminder from "./TrialReminder";
+import ActAsBanner from "./ActAsBanner";
 import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
 
 const NAV_ADMIN = [
@@ -90,7 +91,7 @@ export default function AppLayout() {
   }, [sidebarOpen]);
 
   return (
-    <div className="min-h-screen flex bg-bg-base text-ink-primary">
+    <div className="min-h-screen flex bg-bg-base text-ink-primary" style={user?.role === "super_admin" ? { paddingTop: "38px" } : undefined}>
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
@@ -246,6 +247,9 @@ export default function AppLayout() {
       {/* PWA install banner — auto-shown when installable, or on demand via
           the "Install app" menu item. Copy tuned for the logged-in salon app. */}
       <InstallAppPrompt variant="app" />
+
+      {/* Act-as-salon banner for super-admin */}
+      {user?.role === "super_admin" && <ActAsBanner tenant={tenant} />}
 
       {/* Mira AI agent — floats on every portal section (admins only; staff/manager navs don't include /assistant) */}
       {user?.role === "admin" && <MiraFab />}

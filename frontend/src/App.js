@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import "@/App.css";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { getActAsSalon } from "@/lib/api";
 import Login from "@/pages/Login";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
@@ -44,7 +45,7 @@ function Protected({ children }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
+  if (user.role === "super_admin" && !getActAsSalon()) return <Navigate to="/super-admin" replace />;
   // Onboarding gate: owners created via super-admin have a temp password that
   // MUST be changed on first login before they see any tenant data.
   if (user.must_change_password) {
