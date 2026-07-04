@@ -443,3 +443,11 @@ Frontend:
 - HQ INBOX: GET /super-admin/hq-messages {items,unread} + PATCH /{id}/read; hq_messages now has read:False. SuperAdmin "HQ Inbox" tab (super-tab-inbox) w/ red unread badge (hq-unread-badge), HqInbox in SuperAdminExtras (mark-read, attachments note). This = the "modification request notification" channel (admins send via Contact HQ).
 - TESTING-AGENT FINDINGS FIXED: (1) 7 delete handlers lacked try/catch (Services, Appointments, Plans, Assistant/feedback, Gallery, Inventory, Customers) → error overlay on 403; all now toast the server detail. Staff+ManagersSection already had it. (2) ActAsBanner name fallback. (3) padding 38→46px.
 - BACKLOG: monthly business report email to owners (user said yes — needs manual-trigger button or scheduler); server.py modular refactor.
+
+## Update — Jul 4, 2026 (part 41) — Monthly business report emails (TESTED, delivered)
+- BACKEND: POST /api/super-admin/send-monthly-report {tenant_id?|all active+trial} → _tenant_month_stats (last calendar month: revenue, invoices, avg bill, new customers, appointments, top-3 services by item revenue, top-3 staff by invoice revenue) → _monthly_report_html (dark header, 3 KPI tiles, tables) → emailed to owner_email+salon_email. Returns per-tenant sent/failed results.
+- FRONTEND: "Email monthly reports" button (super-monthly-report-btn) next to New Tenant in SuperAdmin header w/ confirm + result toast.
+- VERIFIED: sent June 2026 report to miracurlunisexsaloon@gmail.com (sent:1) via temporary owner_email swap (restored after).
+- ⚠️ DOMAIN NOT ACTUALLY VERIFIED: user claimed verified but Resend API rejects hello@miracurlunisexsaloon.com ("domain is not verified"). SENDER_EMAIL reverted to onboarding@resend.dev (test mode: delivery ONLY to miracurlunisexsaloon@gmail.com; mixed-recipient sends fail entirely). ACTION FOR USER: finish DNS records at resend.com/domains until status = Verified, then switch SENDER_EMAIL back to hello@miracurlunisexsaloon.com and restart backend.
+- NOTE: main tenant salon_email currently None (was temp-set during testing, cleaned).
+- NEXT (user requested): server.py modular refactor — needs dedicated pass + full regression run.

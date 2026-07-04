@@ -27,6 +27,18 @@ export default function SuperAdmin() {
   const [overview, setOverview] = useState(null);
   const [tenants, setTenants] = useState([]);
   const [hqUnread, setHqUnread] = useState(0);
+  const [sendingReports, setSendingReports] = useState(false);
+
+  async function sendMonthlyReports() {
+    if (!window.confirm("Email last month's business report to every active/trial salon owner?")) return;
+    setSendingReports(true);
+    try {
+      const { data } = await api.post("/super-admin/send-monthly-report", {});
+      toast.success(`${data.month} reports: ${data.sent} sent${data.failed ? `, ${data.failed} failed` : ""}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't send reports");
+    } finally { setSendingReports(false); }
+  }
   const [open, setOpen] = useState(false);
   const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [tab, setTab] = useState("tenants"); // tenants | billing
@@ -187,9 +199,20 @@ export default function SuperAdmin() {
             <h1 className="font-playfair text-3xl">Tenants</h1>
             <p className="text-slate-500 text-sm mt-1">Manage every salon on the Miracurl platform.</p>
           </div>
-          <button data-testid="super-new-tenant-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
-            <Plus className="w-4 h-4" /> New Tenant
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              data-testid="super-monthly-report-btn"
+              onClick={sendMonthlyReports}
+              disabled={sendingReports}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 disabled:opacity-50"
+              title="Email last month's business report to every active salon owner"
+            >
+              <Send className="w-4 h-4" /> {sendingReports ? "Sending…" : "Email monthly reports"}
+            </button>
+            <button data-testid="super-new-tenant-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
+              <Plus className="w-4 h-4" /> New Tenant
+            </button>
+          </div>
         </div>
 
         {/* KPIs */}

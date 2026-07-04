@@ -3537,6 +3537,101 @@ async def hq_message_read(mid: str, user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+def _monthly_report_html(t: dict, month_label: str, stats: dict) -> str:
+    rows = "".join(
+        f'<tr><td style="padding:6px 10px;font-size:13px;color:#444">{html_lib.escape(name)}</td>'
+        f'<td style="padding:6px 10px;font-size:13px;color:#333;text-align:right"><b>Rs {rev:,.0f}</b></td></tr>'
+        for name, rev in stats["top_services"])
+    staff_rows = "".join(
+        f'<tr><td style="padding:6px 10px;font-size:13px;color:#444">{html_lib.escape(name)}</td>'
+        f'<td style="padding:6px 10px;font-size:13px;color:#333;text-align:right"><b>Rs {rev:,.0f}</b></td></tr>'
+        for name, rev in stats["top_staff"])
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:24px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:14px;overflow:hidden;font-family:Arial,sans-serif">
+<tr><td style="background:#12121e;padding:26px 36px">
+<h1 style="margin:0;font-size:20px;color:#f5d67b">✦ Miracurl Monthly Report</h1>
+<p style="margin:6px 0 0;font-size:13px;color:#bbb">{html_lib.escape(t['name'])} · {month_label}</p>
+</td></tr>
+<tr><td style="padding:28px 36px">
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;text-align:center">
+<div style="font-size:11px;color:#15803d;text-transform:uppercase">Collection</div>
+<div style="font-size:22px;color:#166534;font-weight:bold">Rs {stats['revenue']:,.0f}</div></td>
+<td style="width:10px"></td>
+<td style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;text-align:center">
+<div style="font-size:11px;color:#1d4ed8;text-transform:uppercase">Bills</div>
+<div style="font-size:22px;color:#1e40af;font-weight:bold">{stats['invoices']}</div></td>
+<td style="width:10px"></td>
+<td style="background:#fdf4ff;border:1px solid #f5d0fe;border-radius:10px;padding:14px;text-align:center">
+<div style="font-size:11px;color:#a21caf;text-transform:uppercase">New Guests</div>
+<div style="font-size:22px;color:#86198f;font-weight:bold">{stats['new_customers']}</div></td>
+</tr></table>
+<p style="font-size:13px;color:#666;margin:16px 0 4px">Average bill: <b>Rs {stats['avg_bill']:,.0f}</b> · Appointments: <b>{stats['appointments']}</b></p>
+{f'<h3 style="font-size:14px;color:#333;margin:18px 0 6px">🏆 Top services</h3><table width="100%" style="background:#fafafa;border-radius:8px">{rows}</table>' if rows else ''}
+{f'<h3 style="font-size:14px;color:#333;margin:18px 0 6px">⭐ Star team members</h3><table width="100%" style="background:#fafafa;border-radius:8px">{staff_rows}</table>' if staff_rows else ''}
+<p style="font-size:12px;color:#999;margin-top:24px">Keep shining! — Miracurl team · reply to this email anytime.</p>
+</td></tr></table></td></tr></table>"""
+
+
+async def _tenant_month_stats(tid: str, start: str, end: str) -> dict:
+    invs = await _raw_db.invoices.find(
+        {"tenant_id": tid, "paid": True, "created_at": {"$gte": start, "$lt": end}}, {"_id": 0}).to_list(3000)
+    revenue = sum(i["total"] for i in invs)
+    by_svc, by_staff = {}, {}
+    for i in invs:
+        for it in i.get("items", []):
+            by_svc[it["name"]] = by_svc.get(it["name"], 0) + it["price"] * it.get("qty", 1)
+        if i.get("staff_name"):
+            by_staff[i["staff_name"]] = by_staff.get(i["staff_name"], 0) + i["total"]
+    return {
+        "revenue": revenue,
+        "invoices": len(invs),
+        "avg_bill": revenue / len(invs) if invs else 0,
+        "new_customers": await _raw_db.customers.count_documents(
+            {"tenant_id": tid, "created_at": {"$gte": start, "$lt": end}}),
+        "appointments": await _raw_db.appointments.count_documents(
+            {"tenant_id": tid, "scheduled_at": {"$gte": start, "$lt": end}}),
+        "top_services": sorted(by_svc.items(), key=lambda x: -x[1])[:3],
+        "top_staff": sorted(by_staff.items(), key=lambda x: -x[1])[:3],
+    }
+
+
+class MonthlyReportIn(BaseModel):
+    tenant_id: Optional[str] = None   # None = all active/trial tenants
+
+
+@api.post("/super-admin/send-monthly-report")
+async def send_monthly_report(body: MonthlyReportIn, user=Depends(require_super_admin)):
+    now = datetime.now(timezone.utc)
+    first_this = now.replace(day=1)
+    last_month_end = first_this.strftime("%Y-%m-%d")
+    last_month_start = (first_this - timedelta(days=1)).replace(day=1)
+    start = last_month_start.strftime("%Y-%m-%d")
+    month_label = last_month_start.strftime("%B %Y")
+    flt = {"id": body.tenant_id} if body.tenant_id else {"status": {"$in": ["active", "trial"]}}
+    tenants = await db.tenants.find(flt, {"_id": 0}).to_list(500)
+    if not tenants:
+        raise HTTPException(404, "No matching salons")
+    results = []
+    for t in tenants:
+        recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
+        if not recipients:
+            results.append({"tenant": t["name"], "sent": False, "error": "no email on file"})
+            continue
+        stats = await _tenant_month_stats(t["id"], start, last_month_end)
+        status = await _send_email(
+            recipients,
+            f"✦ Your Miracurl monthly report — {month_label}",
+            _monthly_report_html(t, month_label, stats))
+        results.append({"tenant": t["name"], "recipients": recipients,
+                        "sent": status.get("sent", False), "error": status.get("error")})
+    sent = sum(1 for r in results if r["sent"])
+    return {"month": month_label, "sent": sent, "failed": len(results) - sent, "results": results}
+
+
 @api.get("/super-admin/tenants")
 async def list_tenants(user=Depends(require_super_admin)):
     return await db.tenants.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
