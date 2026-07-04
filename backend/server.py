@@ -2449,7 +2449,15 @@ async def staff_performance(user=Depends(get_current_user)):
                     rec["revenue"] += b["revenue"]
                     rec["services"] += b["services"]
                     rec["bills"] += 1
-    return {k: sorted(v.values(), key=lambda r: -r["revenue"]) for k, v in out.items()}
+    result = {k: sorted(v.values(), key=lambda r: -r["revenue"]) for k, v in out.items()}
+    last_month_end = month_start - timedelta(days=1)
+    result["ranges"] = {
+        "today": {"start": today_start.date().isoformat(), "end": now.date().isoformat()},
+        "week": {"start": week_start.date().isoformat(), "end": now.date().isoformat()},
+        "month": {"start": month_start.date().isoformat(), "end": now.date().isoformat()},
+        "last_month": {"start": last_month_start.date().isoformat(), "end": last_month_end.date().isoformat()},
+    }
+    return result
 
 
 @api.get("/reports/dashboard")

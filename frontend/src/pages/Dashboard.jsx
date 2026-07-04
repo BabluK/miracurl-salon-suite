@@ -431,6 +431,9 @@ function StaffPerformance({ inr }) {
 
   const rows = perf?.[tab] || [];
   const maxRev = rows[0]?.revenue || 1;
+  const range = perf?.ranges?.[tab];
+  const fmtD = (s) => s ? new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "";
+  const rangeLabel = range ? (range.start === range.end ? fmtD(range.start) : `${fmtD(range.start)} – ${fmtD(range.end)}`) : "";
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm" data-testid="staff-performance-card">
@@ -438,6 +441,14 @@ function StaffPerformance({ inr }) {
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Staff Performance</div>
           <div className="text-xl font-semibold text-slate-800 mt-1">Business by Stylist</div>
+          {rangeLabel && (
+            <div className="text-[11px] text-slate-400 mt-0.5" data-testid="perf-range-label">
+              {rangeLabel}
+              {tab === "week" && perf?.ranges?.week?.start?.slice(0, 7) !== perf?.ranges?.month?.start?.slice(0, 7) && (
+                <span className="text-amber-500 font-medium"> · includes end of last month</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex gap-1.5">
           {PERF_TABS.map(t => (

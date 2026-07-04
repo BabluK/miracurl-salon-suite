@@ -44,10 +44,13 @@ if ("serviceWorker" in navigator && window.location.protocol === "https:") {
       })
       .catch((err) => console.warn("[PWA] SW registration failed:", err));
 
-    // When the new SW activates and takes control, reload once so the UI
-    // is guaranteed to be running the latest JS bundle.
+    // When a NEW SW replaces an old one, reload once so the UI runs the
+    // latest bundle. Skip the very first install (no prior controller) —
+    // reloading there aborts in-flight requests like a user's first login.
+    let hadController = !!navigator.serviceWorker.controller;
     let reloaded = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController) { hadController = true; return; }
       if (reloaded) return;
       reloaded = true;
       window.location.reload();
@@ -56,7 +59,7 @@ if ("serviceWorker" in navigator && window.location.protocol === "https:") {
     // The SW also broadcasts SW_UPDATED after clients.claim(); use that as a
     // belt-and-braces reload trigger on browsers that don't fire controllerchange.
     navigator.serviceWorker.addEventListener("message", (e) => {
-      if (e.data?.type === "SW_UPDATED" && !reloaded) {
+      if (e.data?.type === "SW_UPDATED" && hadController && !reloaded) {
         reloaded = true;
         window.location.reload();
       }
