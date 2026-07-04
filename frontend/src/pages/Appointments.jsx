@@ -111,7 +111,8 @@ export default function Appointments() {
   }
   async function remove(id) {
     if (!window.confirm("Cancel this appointment?")) return;
-    await api.delete(`/appointments/${id}`); toast.success("Deleted"); load();
+    try { await api.delete(`/appointments/${id}`); toast.success("Deleted"); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
   }
 
   function toggleService(sid) {

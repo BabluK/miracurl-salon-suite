@@ -50,7 +50,11 @@ export default function Inventory() {
       toast.success(editing ? "Updated" : "Added"); setOpen(false); load();
     } catch (err) { toast.error(err.response?.data?.detail || "Save failed"); }
   }
-  async function remove(id) { if (!window.confirm("Delete?")) return; await api.delete(`/products/${id}`); toast.success("Deleted"); load(); }
+  async function remove(id) {
+    if (!window.confirm("Delete?")) return;
+    try { await api.delete(`/products/${id}`); toast.success("Deleted"); load(); }
+    catch (err) { toast.error(err.response?.data?.detail || "Delete failed"); }
+  }
 
   const lowStock = list.filter(p => p.stock <= p.low_stock_threshold);
 

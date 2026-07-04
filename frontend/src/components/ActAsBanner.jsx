@@ -1,10 +1,11 @@
 // Sticky banner shown while the super-admin is browsing a salon's workspace.
 import { useNavigate } from "react-router-dom";
-import { clearActAsSalon } from "@/lib/api";
+import { clearActAsSalon, getActAsSalon } from "@/lib/api";
 import { ShieldCheck, LogOut } from "lucide-react";
 
 export const ActAsBanner = ({ tenant }) => {
   const nav = useNavigate();
+  const salonName = tenant?.name || getActAsSalon()?.name || "salon";
   return (
     <div
       data-testid="act-as-banner"
@@ -12,7 +13,7 @@ export const ActAsBanner = ({ tenant }) => {
     >
       <ShieldCheck className="w-4 h-4 shrink-0" />
       <span className="truncate">
-        Super-Admin mode — viewing <b>{tenant?.name || "salon"}</b>. You can correct &amp; update data; deleting is disabled.
+        Super-Admin mode — viewing <b>{salonName}</b>. You can correct &amp; update data; deleting is disabled.
       </span>
       <button
         data-testid="act-as-exit-btn"

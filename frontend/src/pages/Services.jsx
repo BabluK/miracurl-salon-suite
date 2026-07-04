@@ -63,7 +63,8 @@ export default function Services() {
   }
   async function remove(id) {
     if (!window.confirm("Delete this service?")) return;
-    await api.delete(`/services/${id}`); toast.success("Deleted"); load();
+    try { await api.delete(`/services/${id}`); toast.success("Deleted"); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
   }
 
   const byCategory = list.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {});

@@ -143,7 +143,10 @@ function FeedbackBoard() {
   }
 
   async function setStatus(id, status) { await api.put(`/feedback/${id}`, { status }); load(); }
-  async function remove(id) { await api.delete(`/feedback/${id}`); load(); }
+  async function remove(id) {
+    try { await api.delete(`/feedback/${id}`); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+  }
 
   return (
     <div className="grid lg:grid-cols-3 gap-6">

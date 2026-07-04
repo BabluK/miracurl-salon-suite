@@ -48,8 +48,8 @@ export default function Gallery() {
 
   async function remove(id) {
     if (!window.confirm("Delete this media?")) return;
-    await api.delete(`/gallery/${id}`);
-    load();
+    try { await api.delete(`/gallery/${id}`); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
   }
 
   return (

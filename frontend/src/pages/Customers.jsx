@@ -55,9 +55,13 @@ export default function Customers() {
 
   async function remove(id) {
     if (!window.confirm("Delete this customer?")) return;
-    await api.delete(`/customers/${id}`);
-    toast.success("Deleted");
-    load();
+    try {
+      await api.delete(`/customers/${id}`);
+      toast.success("Deleted");
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Delete failed");
+    }
   }
 
   return (

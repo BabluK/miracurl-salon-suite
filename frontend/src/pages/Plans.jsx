@@ -27,9 +27,13 @@ export default function Plans() {
 
   async function remove(kind, id) {
     if (!window.confirm("Delete this item?")) return;
-    await api.delete(`/${kind}/${id}`);
-    toast.success("Deleted");
-    load();
+    try {
+      await api.delete(`/${kind}/${id}`);
+      toast.success("Deleted");
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Delete failed");
+    }
   }
 
   return (

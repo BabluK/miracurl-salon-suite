@@ -435,3 +435,11 @@ Frontend:
 - CONTACT MIRACURL HQ: POST /api/contact-hq (tenant admin, multipart: subject/message/files ≤3, ≤10MB total, base64 attachments) → emails HQ_EMAIL + stores in hq_messages collection. ContactHQSection.jsx card in Settings (after ChangePassword). VERIFIED e2e with attachment {ok:true}.
 - GOTCHAS: (1) HTTPException(502) from app gets replaced by Cloudflare's HTML error page — use 400 for app-level errors. (2) global CSS makes bare h3 white → always add text-slate-800 on light cards. (3) Resend test mode error message names the account email.
 - PHASE 3 NEXT (user confirmed): super-admin full control (browse/edit any salon data, no delete for super-admin, modification-request notifications from admins).
+
+## Update — Jul 4, 2026 (part 40) — Phase 3: Super-admin full control + HQ Inbox (TESTED iteration_44 + retest PASS)
+- DOMAIN VERIFIED: SENDER_EMAIL switched to hello@miracurlunisexsaloon.com (Resend can now email anyone). HQ_EMAIL stays miracurlunisexsaloon@gmail.com.
+- ACT-AS-SALON: super-admin Eye button (open-salon-{id}) per tenant row → setActAsSalon() (localStorage act_as_salon + miracurl_tenant + X-Tenant-Slug header, helpers in api.js) → opens salon workspace. App.js Protected allows super_admin when act-as set. Amber sticky ActAsBanner.jsx (name from tenant||getActAsSalon().name) + Exit (clears + reload). AppLayout root gets 46px paddingTop for super_admin.
+- DELETE GUARD (backend _apply_tenant_context): super_admin + DELETE on non-/api/super-admin paths → 403 "deleting is reserved for the salon owner". Curl + UI verified (edit 200, delete 403 toast).
+- HQ INBOX: GET /super-admin/hq-messages {items,unread} + PATCH /{id}/read; hq_messages now has read:False. SuperAdmin "HQ Inbox" tab (super-tab-inbox) w/ red unread badge (hq-unread-badge), HqInbox in SuperAdminExtras (mark-read, attachments note). This = the "modification request notification" channel (admins send via Contact HQ).
+- TESTING-AGENT FINDINGS FIXED: (1) 7 delete handlers lacked try/catch (Services, Appointments, Plans, Assistant/feedback, Gallery, Inventory, Customers) → error overlay on 403; all now toast the server detail. Staff+ManagersSection already had it. (2) ActAsBanner name fallback. (3) padding 38→46px.
+- BACKLOG: monthly business report email to owners (user said yes — needs manual-trigger button or scheduler); server.py modular refactor.

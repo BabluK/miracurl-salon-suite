@@ -91,7 +91,7 @@ export default function AppLayout() {
   }, [sidebarOpen]);
 
   return (
-    <div className="min-h-screen flex bg-bg-base text-ink-primary" style={user?.role === "super_admin" ? { paddingTop: "38px" } : undefined}>
+    <div className="min-h-screen flex bg-bg-base text-ink-primary" style={user?.role === "super_admin" ? { paddingTop: "46px" } : undefined}>
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
