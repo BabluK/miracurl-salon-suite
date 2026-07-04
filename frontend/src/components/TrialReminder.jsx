@@ -15,8 +15,10 @@ export const TrialReminder = () => {
     if (!endRaw) return;
     const end = new Date(`${String(endRaw).slice(0, 10)}T23:59:59`);
     const days = Math.ceil((end - new Date()) / 86400000);
-    if (days > 7) return;
-    const key = `trial_popup_${new Date().toISOString().slice(0, 10)}`;
+    // Early in the trial: one-time welcome popup. Last 7 days: once-a-day reminder.
+    const key = days > 7
+      ? `trial_welcome_${tenant.id || tenant.slug}`
+      : `trial_popup_${new Date().toISOString().slice(0, 10)}`;
     try {
       if (localStorage.getItem(key)) return;
       localStorage.setItem(key, "1");
@@ -31,9 +33,12 @@ export const TrialReminder = () => {
         <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center text-white mb-4">
           <Sparkles className="w-7 h-7" />
         </div>
-        <h3 className="font-playfair text-2xl text-slate-800">A gentle reminder ✦</h3>
+        <h3 className="font-playfair text-2xl text-slate-800">{info.days > 7 ? "Welcome to Miracurl ✦" : "A gentle reminder ✦"}</h3>
         <p className="text-sm text-slate-600 mt-3 leading-relaxed" data-testid="trial-reminder-message">
-          {info.days >= 0 ? (
+          {info.days > 7 ? (
+            <>Your salon is all set! You're on a <b>free trial</b> until <b className="text-slate-800">{info.endDate}</b> ({info.days} days).
+              Explore everything — bookings, POS, reports & more. Subscribe anytime to keep it running without interruption 💜</>
+          ) : info.days >= 0 ? (
             <>Your free trial ends on <b className="text-slate-800">{info.endDate}</b>{info.days > 0 ? <> — just <b>{info.days} day{info.days === 1 ? "" : "s"}</b> to go</> : <> — <b>today</b></>}.
               We'd love to keep serving your salon! Kindly choose a subscription before then so everything continues without interruption 💜</>
           ) : (
