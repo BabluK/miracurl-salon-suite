@@ -8,7 +8,7 @@ import { Lock, Eye, EyeOff, Check } from "lucide-react";
  * first time (after super-admin onboarding, before they can access anything).
  * Only exits when the server clears must_change_password.
  */
-export default function ForceChangePassword({ user, onDone }) {
+export default function ForceChangePassword({ user }) {
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -32,8 +32,9 @@ export default function ForceChangePassword({ user, onDone }) {
     setErr("");
     try {
       await api.post("/auth/change-password", { current_password: currentPw, new_password: newPw });
-      toast.success("Password updated ✦ Welcome to Miracurl");
-      onDone();
+      toast.success("Password set ✦ Please log in with your new password");
+      try { await api.post("/auth/logout"); } catch { /* session already invalid */ }
+      window.location.href = "/login";
     } catch (e2) {
       const detail = e2?.response?.data?.detail;
       const msg = typeof detail === "string" ? detail : (e2?.message || "Couldn't change password");

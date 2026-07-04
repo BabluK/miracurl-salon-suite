@@ -15,9 +15,6 @@ export default function Settings() {
   const [affiliate, setAffiliate] = useState(null);
   const [branding, setBranding] = useState({ google_review_url: "", maps_url: "", hours: "", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "" });
   const [savingBrand, setSavingBrand] = useState(false);
-  // Save-Debug snapshot — visible in-page so users on production can see the
-  // exact HTTP outcome without opening DevTools. Cleared on next save attempt.
-  const [saveDebug, setSaveDebug] = useState(null);
   const [downloadingQr, setDownloadingQr] = useState(false);
   const [qrPreview, setQrPreview] = useState(null);
   const [qrError, setQrError] = useState(false);
@@ -78,8 +75,6 @@ export default function Settings() {
 
   async function saveBranding() {
     setSavingBrand(true);
-    setSaveDebug(null);
-    const startedAt = new Date();
     try {
       const resp = await api.put("/settings/branding", branding);
       const data = resp.data;
@@ -99,13 +94,6 @@ export default function Settings() {
           whatsapp_number: data.whatsapp_number ?? b.whatsapp_number,
         }));
       }
-      setSaveDebug({
-        status: resp.status,
-        ok: true,
-        at: startedAt.toLocaleTimeString(),
-        request: { phone: branding.phone, whatsapp_number: branding.whatsapp_number },
-        response: { phone: data?.phone, whatsapp_number: data?.whatsapp_number },
-      });
       toast.success(`Salon profile updated ✦${data?.phone ? `  📞 ${data.phone}` : ""}${data?.whatsapp_number ? `  💬 ${data.whatsapp_number}` : ""}`);
     } catch (e) {
       // Pydantic returns detail as an array of {loc, msg} objects — flatten
@@ -123,13 +111,6 @@ export default function Settings() {
       } else if (e?.message) {
         msg = e.message;
       }
-      setSaveDebug({
-        status: e?.response?.status || "network-error",
-        ok: false,
-        at: startedAt.toLocaleTimeString(),
-        request: { phone: branding.phone, whatsapp_number: branding.whatsapp_number },
-        error: msg,
-      });
       toast.error(msg);
     } finally { setSavingBrand(false); }
   }
@@ -318,10 +299,7 @@ export default function Settings() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6">
-            <div className="text-[10px] text-slate-400 font-mono" data-testid="settings-build-version">
-              build 2026-07-01-r32 · {typeof window !== "undefined" ? window.location.hostname : ""}
-            </div>
+          <div className="flex justify-end mt-6">
             <button
               data-testid="settings-save-branding-btn"
               onClick={saveBranding}
@@ -331,33 +309,6 @@ export default function Settings() {
               <Save className="w-4 h-4" /> {savingBrand ? "Saving…" : "Save profile"}
             </button>
           </div>
-
-          {saveDebug && (
-            <div
-              className={`mt-4 rounded-lg border px-4 py-3 text-[11px] font-mono ${
-                saveDebug.ok ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-800"
-              }`}
-              data-testid="settings-save-debug"
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-semibold not-italic">
-                  {saveDebug.ok ? "✅ Save OK" : "❌ Save FAILED"} · HTTP {saveDebug.status} · {saveDebug.at}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSaveDebug(null)}
-                  className="text-current opacity-60 hover:opacity-100"
-                  aria-label="Dismiss debug"
-                >×</button>
-              </div>
-              <div className="opacity-80">Sent → phone: {JSON.stringify(saveDebug.request.phone)} · wa: {JSON.stringify(saveDebug.request.whatsapp_number)}</div>
-              {saveDebug.ok ? (
-                <div className="opacity-80">Server → phone: {JSON.stringify(saveDebug.response.phone)} · wa: {JSON.stringify(saveDebug.response.whatsapp_number)}</div>
-              ) : (
-                <div className="opacity-80">Error → {String(saveDebug.error)}</div>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm">

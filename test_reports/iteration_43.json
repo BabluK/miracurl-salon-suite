@@ -1,0 +1,30 @@
+{
+  "summary": "Phase 1 batch verified: force-change-password redirect to /login, trial reminder popup with OK/Pay Now (once/day + navigates to /settings), settings debug box removed, super-admin onboard modal has new Salon Email + Owner Personal Phone + relabeled Salon Phone, WhatsApp renewal nudge with wa.me link containing 919876501234, and public staff API returns only active=true staff.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (trial tenant)", "issues": ["Recharts warning: chart container width/height -1 — cosmetic console warnings, not blocking"]}
+    ]
+  },
+  "flow_results": {
+    "FLOW_A_force_change_redirect": "PASS - force-change-password-screen shown, after submit redirects to /login (not dashboard)",
+    "FLOW_B_trial_popup": "PASS - popup shown on dashboard, OK+Pay Now testids present, Pay Now navigates to /settings, popup does NOT reappear on reload (localStorage day key working). Popup copy: 'A gentle reminder ✦ Your free trial ends on 7 July 2026 — just 4 days to go...'",
+    "FLOW_C_settings_debug_removed": "PASS - no 'build 2026-07-01-r32' text, no settings-save-debug element, even after clicking Save profile",
+    "FLOW_D_onboard_fields": "PASS - tenant-salon-email-input and tenant-owner-phone-input both present in Onboard Salon modal; 'Salon Phone' label present (uppercase SALON PHONE) alongside SALON EMAIL and OWNER PERSONAL PHONE (with helper text 'WhatsApp renewal reminders go here')",
+    "FLOW_E_renewal_nudge": "PASS - renew-nudge-<tenantid> element rendered for Test Trial Salon row with wa.me href containing 919876501234 and pre-filled Miracurl renewal message",
+    "FLOW_F_public_staff_active_filter": "PASS - GET /api/public/staff/miracurl-marathahalli returns 4 staff, all with active:true"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "used credentials from review_request; trialowner password now TestPass@123",
+  "seed_data_creation": "None (did NOT create new tenants as instructed)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "trialowner@test.com password is now TestPass@123 (Rose-Pearl-718 is consumed). Trial popup uses localStorage keys prefixed with trial_popup_ — clear them to re-test. All 6 Phase 1 items verified passing.",
+  "rca of the issue": "N/A - all flows passing"
+}

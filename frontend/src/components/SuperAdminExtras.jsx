@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Sparkles, Pencil, X, Camera, Send, Loader2, Phone, Briefcase, HeartPulse } from "lucide-react";
+import { Sparkles, Pencil, X, Camera, Send, Loader2, Phone, Briefcase, HeartPulse, MessageCircle } from "lucide-react";
 
 // ---------- Tenant subscription health ----------
 export function healthInfo(t) {
@@ -27,6 +27,24 @@ export function HealthBadge({ t }) {
       className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full border ${h.cls}`}>
       <HeartPulse className="w-3 h-3" /> {h.label}
     </span>
+  );
+}
+
+// WhatsApp renewal nudge → owner's PERSONAL phone, shown when subscription/trial is expiring
+export function RenewalNudge({ t }) {
+  const h = healthInfo(t);
+  const phone = String(t.owner_phone || "").replace(/\D/g, "");
+  const expiring = (h.days !== null && h.days <= 30) || t.status === "trial";
+  if (!phone || !expiring) return null;
+  const wa = phone.length === 10 ? `91${phone}` : phone;
+  const when = t.subscription_end_date || (t.trial_ends_at || "").slice(0, 10);
+  const msg = `Hello! 💜 A gentle reminder from Miracurl — the subscription for *${t.name}* ${h.days !== null && h.days < 0 ? "has expired" : `ends on ${when}`}. Kindly renew so your salon services continue without any interruption. Need help or extra time? Just reply here — we're happy to assist! — Miracurl team`;
+  return (
+    <a data-testid={`renew-nudge-${t.id}`} href={`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`}
+      target="_blank" rel="noreferrer" title="Send renewal reminder on WhatsApp (owner's personal phone)"
+      className="inline-flex ml-1.5 p-1 rounded-full bg-green-50 border border-green-200 text-green-600 hover:bg-green-100 align-middle transition">
+      <MessageCircle className="w-3.5 h-3.5" />
+    </a>
   );
 }
 

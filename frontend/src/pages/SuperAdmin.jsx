@@ -6,7 +6,7 @@ import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, U
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
-import { SuperProfileCard, HealthBadge, AiInsightsPanel } from "@/components/SuperAdminExtras";
+import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge } from "@/components/SuperAdminExtras";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -31,7 +31,7 @@ export default function SuperAdmin() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     slug: "", name: "", owner_email: "", owner_name: "", owner_password: "",
-    location: "", phone: "", plan: "starter",
+    location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter",
   });
 
   const load = useCallback(async () => {
@@ -47,7 +47,7 @@ export default function SuperAdmin() {
   const [createdCreds, setCreatedCreds] = useState(null);
 
   function startNew() {
-    setForm({ slug: "", name: "", owner_email: "", owner_name: "", location: "", phone: "", plan: "starter" });
+    setForm({ slug: "", name: "", owner_email: "", owner_name: "", location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter" });
     setOpen(true);
   }
 
@@ -216,7 +216,7 @@ export default function SuperAdmin() {
                   <td>
                     <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded ${STATUS_BADGE[t.status] || ''}`}>{t.status}</span>
                   </td>
-                  <td><HealthBadge t={t} /></td>
+                  <td><HealthBadge t={t} /><RenewalNudge t={t} /></td>
                   <td>
                     <a href={publicBookingUrl(t.slug)} target="_blank" rel="noreferrer" className="text-xs text-sky-600 hover:underline flex items-center gap-1" data-testid={`booking-link-${t.id}`}>
                       <ExternalLink className="w-3 h-3" /> /book/{t.slug}
@@ -275,8 +275,20 @@ export default function SuperAdmin() {
                 </div>
               </div>
               <div>
-                <label className="label-light block mb-1">Owner Email *</label>
-                <input data-testid="tenant-owner-email-input" type="email" required className="input-light" value={form.owner_email} onChange={e => setForm({ ...form, owner_email: e.target.value })} placeholder="owner@salon.com" />
+                <label className="label-light block mb-1">Owner Email (personal) *</label>
+                <input data-testid="tenant-owner-email-input" type="email" required className="input-light" value={form.owner_email} onChange={e => setForm({ ...form, owner_email: e.target.value })} placeholder="owner@gmail.com" />
+                <p className="text-[10px] text-slate-400 mt-0.5">Used for login. Login details are sent to this AND the salon email.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-light block mb-1">Salon Email</label>
+                  <input data-testid="tenant-salon-email-input" type="email" className="input-light" value={form.salon_email} onChange={e => setForm({ ...form, salon_email: e.target.value })} placeholder="hello@salon.com" />
+                </div>
+                <div>
+                  <label className="label-light block mb-1">Owner Personal Phone</label>
+                  <input data-testid="tenant-owner-phone-input" className="input-light" value={form.owner_phone} onChange={e => setForm({ ...form, owner_phone: e.target.value })} placeholder="+91 98…" />
+                  <p className="text-[10px] text-slate-400 mt-0.5">WhatsApp renewal reminders go here.</p>
+                </div>
               </div>
               <div className="rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-[11px] text-sky-800">
                 ℹ️ A secure one-time password will be generated automatically and shown to you after creation. Share it with the owner — they&apos;ll be forced to change it on first login.
@@ -287,7 +299,7 @@ export default function SuperAdmin() {
                   <input className="input-light" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
                 </div>
                 <div>
-                  <label className="label-light block mb-1">Phone</label>
+                  <label className="label-light block mb-1">Salon Phone</label>
                   <input className="input-light" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
                 </div>
               </div>

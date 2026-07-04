@@ -12,6 +12,7 @@ import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
 import InstallAppPrompt from "./InstallAppPrompt";
 import MiraFab from "./MiraFab";
+import TrialReminder from "./TrialReminder";
 import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
 
 const NAV_ADMIN = [
@@ -248,6 +249,9 @@ export default function AppLayout() {
 
       {/* Mira AI agent — floats on every portal section (admins only; staff/manager navs don't include /assistant) */}
       {user?.role === "admin" && <MiraFab />}
+
+      {/* Once-a-day polite trial expiry reminder for owners */}
+      {user?.role === "admin" && <TrialReminder />}
     </div>
   );
 }

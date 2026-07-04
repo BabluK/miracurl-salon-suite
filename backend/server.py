@@ -356,6 +356,8 @@ class Tenant(BaseModel):
     hero_image: Optional[str] = "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600"
     google_review_url: Optional[str] = ""
     plan: str = "starter"          # starter | pro | enterprise
+    salon_email: Optional[str] = None
+    owner_phone: Optional[str] = None   # owner's PERSONAL phone — WhatsApp renewal reminders go here
     status: str = "trial"          # trial | active | suspended | cancelled
     razorpay_subscription_id: Optional[str] = None
     # Tax / GST (off by default — owner must opt-in by filling GST details)
@@ -379,6 +381,8 @@ class TenantIn(BaseModel):
     owner_password: Optional[str] = Field(None, min_length=8)
     location: Optional[str] = None
     phone: Optional[str] = None
+    salon_email: Optional[EmailStr] = None
+    owner_phone: Optional[str] = Field(None, max_length=20)
     plan: str = "starter"
 
     @field_validator("slug")
@@ -3478,6 +3482,7 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     t = Tenant(
         slug=body.slug, name=body.name, owner_email=body.owner_email.lower(),
         location=body.location, phone=body.phone, plan=body.plan, status="trial",
+        salon_email=(body.salon_email or "").lower() or None, owner_phone=body.owner_phone,
     ).model_dump()
     await db.tenants.insert_one(t)
     t.pop("_id", None)
@@ -5083,7 +5088,7 @@ class PublicAIChatIn(BaseModel):
 async def _booking_catalog(t) -> str:
     services, staff, coupons, pkgs, mems = await asyncio.gather(
         db.services.find({"active": True}, {"_id": 0}).to_list(200),
-        db.staff.find({"active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(50),
+        db.staff.find({"active": True}, {"_id": 0, "id": 1, "name": 1, "role": 1, "tags": 1}).to_list(50),
         db.coupons.find({"active": True}, {"_id": 0}).to_list(50),
         db.packages.find({"active": True}, {"_id": 0}).to_list(50),
         db.memberships.find({"active": True}, {"_id": 0}).to_list(50),
@@ -5091,7 +5096,10 @@ async def _booking_catalog(t) -> str:
     svc_lines = "\n".join(
         f"- id={s['id']} | {s['name']} | {s.get('category', '')} | ₹{s['price']} | {s['duration_min']}min"
         for s in services) or "(no services listed)"
-    staff_lines = ", ".join(f"{s['name']} (id={s['id']})" for s in staff) or "any available stylist"
+    staff_lines = "\n".join(
+        f"- {s['name']} (id={s['id']}) — {s.get('role') or 'Stylist'}"
+        + (f" | specialties: {', '.join(s['tags'])}" if s.get("tags") else "")
+        for s in staff) or "- any available stylist"
     today = datetime.now(timezone.utc).date().isoformat()
     live_coupons = [c for c in coupons
                     if (not c.get("expires_at") or c["expires_at"] >= today)
@@ -5115,7 +5123,7 @@ async def _booking_catalog(t) -> str:
     return (f"Salon: {t.get('name')}{', ' + t['location'] if t.get('location') else ''}. Hours: {t.get('hours')}. "
             f"Phone: {t.get('phone') or 'ask at the salon'}. "
             f"Current date & time (IST): {ist_now.strftime('%A %Y-%m-%d %H:%M')}.\n"
-            f"SERVICE MENU:\n{svc_lines}\nSTYLISTS: {staff_lines}\n"
+            f"SERVICE MENU:\n{svc_lines}\nOUR TEAM OF EXPERTS:\n{staff_lines}\n"
             f"OPEN TIME SLOTS (only ever offer/confirm a time from this list — others are full):\n{avail_lines}\n"
             f"CURRENT OFFERS (coupon codes customers can apply):\n{offer_lines}\n"
             f"PACKAGES (bought at the salon):\n{pkg_lines}\nMEMBERSHIPS (bought at the salon):\n{mem_lines}")
@@ -5213,6 +5221,11 @@ async def _public_ai_reply(t, session_id: str, message: str):
             "When you have ALL details, show a one-line summary (services, total ₹, date, time) and ask them to confirm.\n"
             "6) SMART UPSELL — when the customer has chosen their service(s) and BEFORE asking for final confirmation, suggest exactly ONE complementary add-on from the menu "
             "(e.g. 'Would you like to add a Pedicure for just ₹500 more? ✨'). Suggest it only ONCE — if they decline or ignore it, proceed graciously without repeating.\n"
+            "7) EXPERT SELECTION — OUR TEAM OF EXPERTS (with their specialties) is listed below. While booking, ask warmly: "
+            "'Which of our experts would you like for your service?' and mention the experts by name whose specialty matches "
+            "(e.g. nails → the nail expert, hair → the hair expert). If the guest is new or unsure, say something like "
+            "'Since it's your first time, I'd suggest [Name] — our [specialty] expert, you'll be in great hands! ✨'. "
+            "Put the chosen expert's id in staff_id in the booking JSON; if they truly have no preference, use null. Never invent staff names.\n"
             "CRITICAL MEMORY RULE: carefully re-read the conversation history before replying and NEVER re-ask for anything the customer already told you "
             "(chosen services, name, phone, date, time, skin/hair details). If earlier they picked services and now send name+phone+time, go straight to the summary + confirmation.\n"
             f"ONLY after the customer explicitly confirms, end your reply with one line in EXACTLY this format (double quotes, valid JSON):\n"
