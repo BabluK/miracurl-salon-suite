@@ -1428,6 +1428,12 @@ async def reset_staff_login(sid: str, admin=Depends(require_tenant_admin)):
 class ManagerCreateIn(BaseModel):
     name: str = Field(..., min_length=2, max_length=80)
     email: str
+    role: str = "Manager"
+    phone: str = ""
+    specialties: List[str] = []
+    commission_pct: float = 10.0
+    monthly_base_salary: float = 0.0
+    salary_visible: bool = True
 
     @field_validator("email")
     @classmethod
@@ -1456,6 +1462,15 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await _raw_db.users.insert_one(new_user)
+    # A manager is also a team member: create a linked staff profile so they appear
+    # in Staff/booking and get salary slips (all details captured up-front, like staff).
+    staff_doc = Staff(
+        name=new_user["name"], role=body.role or "Manager", phone=body.phone,
+        email=body.email, specialties=body.specialties, commission_pct=body.commission_pct,
+        monthly_base_salary=body.monthly_base_salary, salary_visible=body.salary_visible,
+        user_id=new_user["id"],
+    ).model_dump()
+    await db.staff.insert_one(staff_doc)
     return {"ok": True, "id": new_user["id"], "email": body.email, "name": new_user["name"],
             "temp_password": temp_pw, "must_change_password": True}
 
@@ -1476,6 +1491,7 @@ async def delete_manager(uid: str, admin=Depends(require_tenant_admin), t=Depend
     res = await _raw_db.users.delete_one({"id": uid, "tenant_id": t["id"], "role": "manager"})
     if res.deleted_count == 0:
         raise HTTPException(404, "Manager not found")
+    await db.staff.delete_one({"user_id": uid})
     return {"ok": True}
 
 

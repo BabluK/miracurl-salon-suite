@@ -6,7 +6,7 @@ import { ShieldCheck, Plus, KeyRound, Trash2, X } from "lucide-react";
 export const ManagersSection = ({ onCredential }) => {
   const [managers, setManagers] = useState([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "" });
+  const [form, setForm] = useState({ name: "", email: "", role: "Manager", phone: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
@@ -18,9 +18,19 @@ export const ManagersSection = ({ onCredential }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const { data } = await api.post("/managers", { name: form.name.trim(), email: form.email.trim().toLowerCase() });
+      const { data } = await api.post("/managers", {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        role: form.role.trim() || "Manager",
+        phone: form.phone.trim(),
+        specialties: form.specialties.split(",").map(s => s.trim()).filter(Boolean),
+        commission_pct: Number(form.commission_pct) || 0,
+        monthly_base_salary: Number(form.monthly_base_salary) || 0,
+        salary_visible: form.salary_visible,
+      });
       onCredential({ name: data.name, email: data.email, temp_password: data.temp_password });
-      setOpen(false); setForm({ name: "", email: "" });
+      setOpen(false);
+      setForm({ name: "", email: "", role: "Manager", phone: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true });
       load();
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Couldn't create manager");
@@ -106,14 +116,42 @@ export const ManagersSection = ({ onCredential }) => {
             </div>
             <form onSubmit={create} className="space-y-3">
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Full name</label>
+                <label className="text-xs text-slate-500 mb-1 block">Full name *</label>
                 <input data-testid="manager-name-input" required minLength={2} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input-light w-full" placeholder="e.g. Ramesh Kumar" />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">Role</label>
+                  <input data-testid="manager-role-input" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className="input-light w-full" placeholder="Manager / Stylist" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">Phone</label>
+                  <input data-testid="manager-phone-input" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="input-light w-full" placeholder="+91 98…" />
+                </div>
+              </div>
               <div>
-                <label className="text-xs text-slate-500 mb-1 block">Login email</label>
+                <label className="text-xs text-slate-500 mb-1 block">Login email *</label>
                 <input data-testid="manager-email-input" required type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="input-light w-full" placeholder="manager@yoursalon.com" />
               </div>
-              <p className="text-[11px] text-slate-500">A temporary password will be generated — share it on WhatsApp. The manager sets their own password on first login.</p>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Specialties (comma separated)</label>
+                <input data-testid="manager-specialties-input" value={form.specialties} onChange={e => setForm(f => ({ ...f, specialties: e.target.value }))} className="input-light w-full" placeholder="Hair Color, Bridal Makeup" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">Commission %</label>
+                  <input data-testid="manager-commission-input" type="number" min={0} max={100} value={form.commission_pct} onChange={e => setForm(f => ({ ...f, commission_pct: e.target.value }))} className="input-light w-full" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">₹ Monthly base salary</label>
+                  <input data-testid="manager-salary-input" type="number" min={0} value={form.monthly_base_salary} onChange={e => setForm(f => ({ ...f, monthly_base_salary: e.target.value }))} className="input-light w-full" />
+                </div>
+              </div>
+              <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                <input data-testid="manager-salary-visible-input" type="checkbox" checked={form.salary_visible} onChange={e => setForm(f => ({ ...f, salary_visible: e.target.checked }))} className="mt-0.5 w-4 h-4 accent-violet-600" />
+                <span>Allow this manager to view their salary<br /><span className="text-[11px] text-slate-500">If unchecked, salary slips are hidden from their portal.</span></span>
+              </label>
+              <p className="text-[11px] text-slate-500">A temporary password will be generated — share it on WhatsApp. The manager sets their own password on first login. They&apos;ll also appear in Staff & bookings.</p>
               <button data-testid="manager-create-submit" disabled={saving} type="submit" className="btn-blue w-full">{saving ? "Creating…" : "Create manager login"}</button>
             </form>
           </div>
