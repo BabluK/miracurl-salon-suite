@@ -11,6 +11,9 @@ import json
 import uuid
 import hmac
 import asyncio
+import base64
+import html as html_lib
+import resend
 import hashlib
 import logging
 import secrets
@@ -3469,6 +3472,55 @@ async def affiliate_leaderboard(user=Depends(require_super_admin), limit: int = 
     return {"items": rows, "reward_per_signup": AFFILIATE_REWARD_INR}
 
 
+# ---------------- Email (Resend) ----------------
+async def _send_email(to: list, subject: str, html: str, attachments: list | None = None) -> dict:
+    key = os.environ.get("RESEND_API_KEY")
+    if not key:
+        return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
+    resend.api_key = key
+    params = {
+        "from": f"Miracurl <{os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')}>",
+        "to": to, "subject": subject, "html": html,
+    }
+    if attachments:
+        params["attachments"] = attachments
+    try:
+        r = await asyncio.to_thread(resend.Emails.send, params)
+        return {"sent": True, "id": (r or {}).get("id")}
+    except Exception as e:
+        logging.getLogger("email").error(f"resend send failed: {e}")
+        return {"sent": False, "error": str(e)[:300]}
+
+
+def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str) -> str:
+    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/login"
+    img = os.environ.get("WELCOME_IMAGE_URL", "")
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Welcome to Miracurl" width="600" '
+               f'style="display:block;width:100%;border-radius:14px 14px 0 0"/></td></tr>') if img else ""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:24px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;overflow:hidden;font-family:Arial,Helvetica,sans-serif">
+{img_row}
+<tr><td style="padding:32px 36px">
+<h1 style="margin:0 0 6px;font-size:22px;color:#1a1a2e">We're happy to onboard you! 🎉</h1>
+<p style="margin:0 0 18px;font-size:15px;color:#444">Hi <b>{salon_name}</b> ✦ Welcome to Miracurl!</p>
+<p style="margin:0 0 14px;font-size:14px;color:#444">Your salon account is ready. Here are your one-time login details:</p>
+<table cellpadding="0" cellspacing="0" style="background:#f8f7fc;border:1px solid #e6e3f2;border-radius:10px;width:100%">
+<tr><td style="padding:16px 20px;font-size:14px;color:#333;line-height:2">
+🔗 <b>Login URL:</b> <a href="{login_url}" style="color:#7c3aed">{login_url}</a><br/>
+📧 <b>Email:</b> {owner_email}<br/>
+🔑 <b>Temp password:</b> <span style="font-family:monospace;background:#fef3c7;padding:2px 8px;border-radius:6px;font-weight:bold">{temp_pw}</span>
+</td></tr></table>
+<p style="margin:18px 0 6px;font-size:13px;color:#666">You'll be asked to set your own password right after your first login.</p>
+<p style="margin:0 0 22px;font-size:13px;color:#666">Any questions? Just reply to this message.</p>
+<p style="margin:0;font-size:13px;color:#888">— Miracurl team<br/>Number: +91-7206869271<br/>Email: {hq_email}</p>
+</td></tr>
+</table>
+</td></tr></table>"""
+
+
 @api.get("/super-admin/tenants")
 async def list_tenants(user=Depends(require_super_admin)):
     return await db.tenants.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
@@ -3507,6 +3559,14 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(owner)
+    # Email the one-time credentials to the owner's personal email AND the salon email.
+    recipients = [body.owner_email.lower()]
+    if t.get("salon_email") and t["salon_email"] not in recipients:
+        recipients.append(t["salon_email"])
+    email_status = await _send_email(
+        recipients,
+        "Welcome to Miracurl — your salon account is ready ✦",
+        _welcome_email_html(t["name"], body.owner_email.lower(), temp_pw))
     # Return the temp password ONCE so super-admin can copy/share it. Never
     # stored in cleartext or retrievable again — a lost password requires a
     # /forgot flow just like any user.
@@ -3515,7 +3575,56 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
         "owner_email": body.owner_email,
         "temp_password": temp_pw,
         "must_change_password": True,
+        "email_recipients": recipients,
+        "email_status": email_status,
     }
+
+
+# ---------------- Contact Miracurl HQ (admin → platform team, with attachments) ----------------
+_HQ_MAX_FILES = 3
+_HQ_MAX_TOTAL_BYTES = 10 * 1024 * 1024
+
+
+@api.post("/contact-hq")
+async def contact_hq(
+    subject: str = Form(..., min_length=2, max_length=150),
+    message: str = Form(..., min_length=2, max_length=5000),
+    files: List[UploadFile] = File(default=[]),
+    admin=Depends(require_tenant_admin), t=Depends(current_tenant),
+):
+    if len(files) > _HQ_MAX_FILES:
+        raise HTTPException(400, f"Maximum {_HQ_MAX_FILES} attachments allowed")
+    attachments, names, total = [], [], 0
+    for f in files:
+        data = await f.read()
+        total += len(data)
+        if total > _HQ_MAX_TOTAL_BYTES:
+            raise HTTPException(413, "Attachments too large — max 10MB total")
+        if data:
+            attachments.append({"filename": f.filename or "attachment", "content": base64.b64encode(data).decode()})
+            names.append(f.filename or "attachment")
+    safe_msg = html_lib.escape(message).replace("\n", "<br/>")
+    html = f"""
+<div style="font-family:Arial,sans-serif;max-width:600px">
+<h2 style="color:#1a1a2e">📨 Message from a salon owner</h2>
+<p><b>Salon:</b> {html_lib.escape(t['name'])} ({t['slug']})<br/>
+<b>From:</b> {html_lib.escape(admin['email'])}<br/>
+<b>Subject:</b> {html_lib.escape(subject)}</p>
+<div style="background:#f8f7fc;border:1px solid #e6e3f2;border-radius:10px;padding:16px;font-size:14px;color:#333">{safe_msg}</div>
+<p style="font-size:12px;color:#888;margin-top:14px">Attachments: {', '.join(names) or 'none'} · Sent via Miracurl Contact HQ</p>
+</div>"""
+    status = await _send_email(
+        [os.environ.get("HQ_EMAIL", "admin@miracurl.com")],
+        f"[Miracurl HQ] {subject} — {t['name']}", html, attachments or None)
+    await _raw_db.hq_messages.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_name": t["name"],
+        "from_email": admin["email"], "subject": subject, "message": message,
+        "attachments": names, "email_status": status,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    if not status.get("sent"):
+        raise HTTPException(400, f"Message saved but email delivery failed: {status.get('error')}")
+    return {"ok": True}
 
 
 class ChangePasswordIn(BaseModel):

@@ -72,6 +72,7 @@ packaging==26.2
 pandas==3.0.3
 passlib==1.7.4
 pathspec==1.1.1
+pdf2image==1.17.0
 pillow==12.2.0
 platformdirs==4.10.0
 pluggy==1.6.0
@@ -89,6 +90,7 @@ Pygments==2.20.0
 PyJWT==2.13.0
 pymongo==4.6.3
 pyparsing==3.3.2
+pypdf==6.14.2
 pytest==9.1.1
 pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
@@ -105,6 +107,7 @@ regex==2026.6.28
 reportlab==4.2.5
 requests==2.34.2
 requests-oauthlib==2.0.0
+resend==2.32.2
 rich==15.0.0
 rpds-py==2026.5.1
 rsa==4.9.1

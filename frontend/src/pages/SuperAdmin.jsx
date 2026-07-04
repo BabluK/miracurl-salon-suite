@@ -67,6 +67,8 @@ export default function SuperAdmin() {
           temp_password: data.temp_password,
           tenant_name: data.tenant?.name,
           tenant_phone: form.phone,
+          email_recipients: data.email_recipients,
+          email_status: data.email_status,
         });
       }
       load();
@@ -376,6 +378,13 @@ function TempPasswordShareModal({ creds, onClose }) {
           <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-2xl mb-3">✓</div>
           <h3 className="text-xl font-semibold text-slate-900">Tenant created</h3>
           <p className="text-sm text-slate-500 mt-1">Send these one-time credentials to <b>{creds.email}</b></p>
+          {creds.email_status && (
+            <div data-testid="creds-email-status" className={`mt-2 text-xs rounded-lg px-3 py-2 border ${creds.email_status.sent ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+              {creds.email_status.sent
+                ? <>📧 Login details emailed to {creds.email_recipients?.join(" & ")}</>
+                : <>⚠️ Email couldn&apos;t be delivered ({creds.email_status.error}) — please share the credentials manually below.</>}
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">

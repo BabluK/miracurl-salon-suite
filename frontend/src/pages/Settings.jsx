@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { BranchesSection } from "@/components/BranchesSection";
 import { ChangePasswordSection } from "@/components/ChangePasswordSection";
+import { ContactHQSection } from "@/components/ContactHQSection";
 import { toast } from "sonner";
 import { Receipt, Save, ShieldCheck, Info, Gift, Copy, Share2, Wallet, Star, Store, Instagram, MessageCircle, CreditCard, Check, Sparkles, Loader2, QrCode, Download } from "lucide-react";
 
@@ -184,6 +185,8 @@ export default function Settings() {
         </div>
 
         <ChangePasswordSection />
+
+        <ContactHQSection />
 
         {/* Salon Profile / Branding */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-branding-card">
