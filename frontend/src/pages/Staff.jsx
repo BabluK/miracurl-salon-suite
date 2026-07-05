@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
-import { Plus } from "lucide-react";
+import { Plus, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import { ManagersSection } from "@/components/ManagersSection";
 import { useAuth } from "@/context/AuthContext";
@@ -174,6 +174,38 @@ export default function Staff() {
       </div>
 
       <ManagersSection onCredential={setTempCred} />
+
+      {list.some(s => s.bank_details && (s.bank_details.bank_name || s.bank_details.ifsc || s.bank_details.account_holder)) && (
+        <div className="card-light" data-testid="staff-bank-details-card">
+          <div className="flex items-center gap-2 mb-1">
+            <Landmark className="w-4 h-4 text-sky-600" />
+            <h3 className="font-playfair text-xl">Staff Bank Details</h3>
+          </div>
+          <p className="text-xs text-slate-400 mb-4">Added by staff from their portal — use these for salary payouts.</p>
+          <div className="overflow-x-auto">
+            <table className="luxe-table-light min-w-[560px] w-full">
+              <thead>
+                <tr>
+                  <th className="text-left">Name</th>
+                  <th className="text-left">Bank</th>
+                  <th className="text-left">IFSC</th>
+                  <th className="text-left">Account holder</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.filter(s => s.bank_details && (s.bank_details.bank_name || s.bank_details.ifsc || s.bank_details.account_holder)).map(s => (
+                  <tr key={s.id} data-testid={`bank-row-${s.id}`}>
+                    <td className="font-medium">{s.name}</td>
+                    <td>{s.bank_details.bank_name || "—"}</td>
+                    <td className="font-mono text-xs uppercase">{s.bank_details.ifsc || "—"}</td>
+                    <td>{s.bank_details.account_holder || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {open && (
         <StaffFormModal

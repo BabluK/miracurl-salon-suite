@@ -26,6 +26,8 @@ import Settings from "@/pages/Settings";
 import Assistant from "@/pages/Assistant";
 import ReferEarn from "@/pages/ReferEarn";
 import StaffPortal from "@/pages/StaffPortal";
+import StaffBankDetails from "@/pages/StaffBankDetails";
+import StaffResume from "@/pages/StaffResume";
 import Attendance from "@/pages/Attendance";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ManifestSwitcher from "@/components/ManifestSwitcher";
@@ -125,6 +127,8 @@ export default function App() {
             <Route element={<Protected><AppLayout /></Protected>}>
               <Route path="dashboard" element={<AdminOnly><Dashboard /></AdminOnly>} />
               <Route path="staff-portal" element={<StaffPortal />} />
+              <Route path="bank-details" element={<StaffBankDetails />} />
+              <Route path="build-resume" element={<StaffResume />} />
               <Route path="appointments" element={<Appointments />} />
               <Route path="customers" element={<AdminOnly><Customers /></AdminOnly>} />
               <Route path="staff" element={<OwnerOnly><Staff /></OwnerOnly>} />

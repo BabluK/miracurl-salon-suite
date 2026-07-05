@@ -580,3 +580,18 @@ OFFER MAKER (OffersStudio.jsx):
 - Fields: total exp years, name/email/phone (prefilled from staff profile), current+permanent address, current salon block (name/working Y-N/salon phone for verification/address — prefilled from tenant), designation multi-select chips (Beauty/Nail/Hair Expert, Manager, Chemical Expert) — toggling a chip auto-inserts an optimized editable responsibility paragraph (RESUME_ROLE_PROMPTS in server.py), past jobs list (salon, from–to, verify phone, address, add/remove), achievements/hobbies/awards, auto "Regards, Name · Phone" footer.
 - Backend: GET/PUT /api/staff/me/resume (db.staff_resumes, tenant-scoped — added to database.py whitelist), GET /api/staff/me/resume.pdf (_render_resume_pdf in services/pdf.py — circular photo top-right via _safe_fetch_image_bytes, gold section headings, multipage-safe).
 - Verified: prefill GET, chip auto-prompt, PUT save, PDF rendered & inspected (name, gold designations, sections, verification phones, regards footer). UI screenshot-verified as Priya.
+
+## Update — Jul 5, 2026 (part 36) — Security fixes + Staff photo/bank/nav + SuperAdmin Onboarding Image (ALL VERIFIED)
+SECURITY AUDIT round 3 fixes:
+- SEC-001 SSRF: _safe_fetch_image_bytes now re-validates the ACTUAL connected peer IP post-connect (fails closed) — external fetch OK, loopback blocked (tested).
+- SEC-002: ResumeIn/ResumePastJob field max_lengths + responsibilities validator (5 keys, 1500 chars) + past_jobs≤10 — oversize returns 422 (tested).
+- BFLA: POST /staff now require_tenant_admin (was get_current_user).
+- Deferred (pre-existing): dedicated Aadhaar pepper env + slow KDF (needs migration).
+
+STAFF PORTAL nav restructure (AppLayout NAV_STAFF): My Dashboard / Appointments / Bank Details (/bank-details, pages/StaffBankDetails.jsx) / Build Your Resume (/build-resume, pages/StaffResume.jsx — ResumeBuilder standalone prop). ResumeBuilder card removed from dashboard.
+
+STAFF PHOTO UPLOAD: camera overlay on portal hero avatar (staff-photo-upload-label/input) → POST /api/staff/me/photo (magic-byte validated, object storage, kind "staff") → updates staff.image_url → visible on admin Staff page + public booking page (verified: 3 /api/files imgs on booking). Resume PDF now resolves internal /api/files/{id} photos straight from object storage (tenant-checked) and falls back to staff image_url.
+
+BANK DETAILS: PUT /api/staff/me/bank-details {bank_name, ifsc, account_holder} stored on staff.bank_details; admin Staff page shows "Staff Bank Details" table (staff-bank-details-card) — verified end-to-end (HDFC/HDFC0001234/Priya visible to admin).
+
+SUPERADMIN ONBOARDING IMAGE: new "Onboarding Image" tab (super-tab-onboarding, components/superadmin/OnboardingStudio.jsx) — pick tenant, 4 vibe options, POST /api/super-admin/onboarding-image (gpt-image-1 via Emergent key, 9:16 bg, stored kind "onboarding") composited on canvas with tenant logo circle + "Welcome Onboard — {Salon}" + Miracurl branding footer; instant gradient fallback; Download PNG for WhatsApp status. Verified live incl. real AI generation.

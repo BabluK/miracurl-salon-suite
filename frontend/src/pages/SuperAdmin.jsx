@@ -10,6 +10,7 @@ import { setActAsSalon } from "@/lib/api";
 import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
 import EngineerPanel from "@/components/EngineerPanel";
 import { LeaderboardPanel, RevenuePanel } from "@/components/superadmin/LeaderboardRevenue";
+import { OnboardingStudio } from "@/components/superadmin/OnboardingStudio";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -216,6 +217,11 @@ export default function SuperAdmin() {
             onClick={() => setTab("engineer")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "engineer" ? "border-emerald-500 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           ><Wrench className="w-4 h-4" /> AI Engineer</button>
+          <button
+            data-testid="super-tab-onboarding"
+            onClick={() => setTab("onboarding")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "onboarding" ? "border-fuchsia-500 text-fuchsia-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><Sparkles className="w-4 h-4" /> Onboarding Image</button>
         </div>
 
         {tab === "billing" ? (
@@ -230,6 +236,8 @@ export default function SuperAdmin() {
           <HqInbox onUnreadChange={setHqUnread} />
         ) : tab === "engineer" ? (
           <EngineerPanel />
+        ) : tab === "onboarding" ? (
+          <OnboardingStudio tenants={tenants} />
         ) : (
           <>
         <div className="flex items-center justify-between">

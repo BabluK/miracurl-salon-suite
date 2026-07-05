@@ -1068,7 +1068,7 @@ def _staff_write_payload(body: StaffIn) -> dict:
 
 
 @api.post("/staff")
-async def create_staff(body: StaffIn, user=Depends(get_current_user)):
+async def create_staff(body: StaffIn, user=Depends(require_tenant_admin)):
     s = Staff(**_staff_write_payload(body)).model_dump()
     await db.staff.insert_one(s)
     return _clean({k: v for k, v in s.items() if k != "aadhaar_hash"})
@@ -1831,31 +1831,38 @@ RESUME_ROLE_PROMPTS = {
 
 
 class ResumePastJob(BaseModel):
-    salon_name: str = ""
-    from_date: str = ""
-    to_date: str = ""
-    phone: str = ""
-    address: str = ""
+    salon_name: str = Field("", max_length=120)
+    from_date: str = Field("", max_length=30)
+    to_date: str = Field("", max_length=30)
+    phone: str = Field("", max_length=20)
+    address: str = Field("", max_length=300)
 
 
 class ResumeIn(BaseModel):
-    total_experience_years: str = ""
-    name: str = ""
-    email: str = ""
-    phone: str = ""
-    current_address: str = ""
-    permanent_address: str = ""
-    photo_url: str = ""
-    current_salon: str = ""
+    total_experience_years: str = Field("", max_length=10)
+    name: str = Field("", max_length=100)
+    email: str = Field("", max_length=120)
+    phone: str = Field("", max_length=20)
+    current_address: str = Field("", max_length=300)
+    permanent_address: str = Field("", max_length=300)
+    photo_url: str = Field("", max_length=500)
+    current_salon: str = Field("", max_length=150)
     currently_working: bool = True
-    salon_phone: str = ""
-    salon_address: str = ""
-    designations: List[str] = Field(default_factory=list)
+    salon_phone: str = Field("", max_length=20)
+    salon_address: str = Field("", max_length=300)
+    designations: List[str] = Field(default_factory=list, max_length=5)
     responsibilities: Dict[str, str] = Field(default_factory=dict)
-    past_jobs: List[ResumePastJob] = Field(default_factory=list)
-    achievements: str = ""
-    hobbies: str = ""
-    awards: str = ""
+    past_jobs: List[ResumePastJob] = Field(default_factory=list, max_length=10)
+    achievements: str = Field("", max_length=1500)
+    hobbies: str = Field("", max_length=300)
+    awards: str = Field("", max_length=1500)
+
+    @field_validator("responsibilities")
+    @classmethod
+    def _cap_responsibilities(cls, v):
+        if len(v) > 5:
+            raise ValueError("too many responsibility entries")
+        return {k[:50]: (val or "")[:1500] for k, val in v.items()}
 
 
 def _resume_defaults(s: dict, t: dict) -> dict:
@@ -1907,13 +1914,74 @@ async def staff_save_resume(body: ResumeIn, s=Depends(_current_staff)):
 async def staff_my_resume_pdf(s=Depends(_current_staff), t=Depends(current_tenant)):
     saved = await db.staff_resumes.find_one({"staff_id": s["id"]}, {"_id": 0})
     data = saved or _resume_defaults(s, t)
-    pdf_bytes = await asyncio.to_thread(_render_resume_pdf, data, _safe_fetch_image_bytes)
+    if not (data.get("photo_url") or "").strip():
+        data["photo_url"] = s.get("image_url") or ""
+    # Internal upload URLs (/api/files/{id}) are read straight from object storage.
+    purl = (data.get("photo_url") or "").strip()
+    photo_bytes = None
+    if purl.startswith("/api/files/"):
+        rec = await _raw_db.uploads.find_one({"id": purl.rsplit("/", 1)[-1], "is_deleted": False})
+        if rec and rec.get("tenant_id") == t["id"]:
+            try:
+                photo_bytes, _ = _get_object(rec["storage_path"])
+            except Exception:
+                photo_bytes = None
+    fetcher = (lambda _u: photo_bytes) if photo_bytes else _safe_fetch_image_bytes
+    pdf_bytes = await asyncio.to_thread(_render_resume_pdf, data, fetcher)
     fname = f"resume-{(data.get('name') or 'staff').replace(' ', '-').lower()}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
+
+
+class BankDetailsIn(BaseModel):
+    bank_name: str = Field("", max_length=100)
+    ifsc: str = Field("", max_length=20)
+    account_holder: str = Field("", max_length=100)
+
+
+@api.put("/staff/me/bank-details")
+async def staff_save_bank_details(body: BankDetailsIn, s=Depends(_current_staff)):
+    """Staff self-service: save bank details (visible to salon admin for payouts)."""
+    await db.staff.update_one({"id": s["id"]}, {"$set": {
+        "bank_details": body.model_dump(),
+        "bank_details_updated_at": datetime.now(timezone.utc).isoformat(),
+    }})
+    return {"ok": True}
+
+
+@api.post("/staff/me/photo")
+async def staff_upload_photo(file: UploadFile = File(...), s=Depends(_current_staff), t=Depends(current_tenant)):
+    """Staff self-service photo upload — updates their profile picture, which is
+    shown on the admin Staff page and the public booking page."""
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "bin"
+    if ext not in _MIME:
+        raise HTTPException(400, "Only JPG, PNG, GIF or WebP images are allowed")
+    data = await file.read()
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"Image too large — max {_MAX_UPLOAD_BYTES // (1024*1024)}MB")
+    if not data:
+        raise HTTPException(400, "Empty file")
+    validate_image_bytes(ext, data)
+    file_id = str(uuid.uuid4())
+    storage_path = f"{APP_NAME}/tenants/{t['id']}/staff/{file_id}.{ext}"
+    try:
+        result = _put_object(storage_path, data, _MIME[ext])
+    except requests.HTTPError as e:
+        raise HTTPException(502, f"Storage upload failed: {e}") from e
+    await _raw_db.uploads.insert_one({
+        "id": file_id, "tenant_id": t["id"], "kind": "staff",
+        "storage_path": result.get("path", storage_path),
+        "original_filename": file.filename or f"{file_id}.{ext}",
+        "content_type": _MIME[ext], "size": len(data),
+        "uploaded_by": s["id"], "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    public_url = f"/api/files/{file_id}"
+    await db.staff.update_one({"id": s["id"]}, {"$set": {"image_url": public_url}})
+    return {"url": public_url}
 
 
 # ---------------- Products / Inventory ----------------
@@ -3589,6 +3657,53 @@ async def send_monthly_report(body: MonthlyReportIn, user=Depends(require_super_
 @api.get("/super-admin/tenants")
 async def list_tenants(user=Depends(require_super_admin)):
     return await db.tenants.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+
+class OnboardImgIn(BaseModel):
+    tenant_id: str = Field(..., max_length=64)
+    vibe: str = Field("luxury", max_length=40)
+
+
+@api.post("/super-admin/onboarding-image")
+async def superadmin_onboarding_bg(body: OnboardImgIn, user=Depends(require_super_admin)):
+    """AI background for the 'Welcome Onboard' WhatsApp-status poster."""
+    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    t = await db.tenants.find_one({"id": body.tenant_id}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    vibes = {
+        "luxury": "opulent dark luxury salon interior, warm golden bokeh lights, marble and brass details",
+        "festive": "celebratory salon scene with soft golden confetti, ribbons and sparkling bokeh",
+        "minimal": "elegant minimal beauty studio, soft neutral tones, diffused daylight, subtle gold accents",
+        "floral": "dreamy salon backdrop with soft blush florals, silk drapes and golden light leaks",
+    }
+    prompt = (f"Vertical 9:16 background image for a premium salon welcome poster: "
+              f"{vibes.get(body.vibe, vibes['luxury'])}. Cinematic soft-focus photography, dark vignette edges, "
+              f"generous empty space in the center for overlay text. Absolutely NO text, NO letters, NO logos, NO people's faces.")
+    gen = OpenAIImageGeneration(api_key=key)
+    try:
+        images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+    except Exception as e:
+        raise HTTPException(502, f"Background generation failed: {e}")
+    if not images:
+        raise HTTPException(502, "No image was generated")
+    file_id = str(uuid.uuid4())
+    storage_path = f"{APP_NAME}/superadmin/onboarding/{file_id}.png"
+    try:
+        result = _put_object(storage_path, images[0], "image/png")
+    except requests.HTTPError as e:
+        raise HTTPException(502, f"Storage upload failed: {e}") from e
+    await _raw_db.uploads.insert_one({
+        "id": file_id, "tenant_id": t["id"], "kind": "onboarding",
+        "storage_path": result.get("path", storage_path),
+        "original_filename": f"{file_id}.png", "content_type": "image/png",
+        "size": len(images[0]), "uploaded_by": user["id"], "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"url": f"/api/files/{file_id}"}
 
 @api.post("/super-admin/tenants")
 async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
@@ -5883,11 +5998,24 @@ def is_safe_link(url: str) -> bool:
         return False
 
 def _safe_fetch_image_bytes(url: str, limit: int = 4 * 1024 * 1024) -> bytes:
+    import ipaddress
     if not is_safe_public_url(url):
         raise ValueError("blocked url")
     resp = requests.get(url, timeout=6, stream=True, allow_redirects=False)
-    resp.raise_for_status()
-    return resp.raw.read(limit, decode_content=True)
+    try:
+        # SEC: re-validate the ACTUAL connected peer IP (defeats DNS-rebinding TOCTOU).
+        try:
+            sock = resp.raw._connection.sock  # noqa: SLF001
+            peer = ipaddress.ip_address(sock.getpeername()[0])
+        except Exception:
+            raise ValueError("blocked url")  # fail closed if peer can't be verified
+        if (peer.is_private or peer.is_loopback or peer.is_link_local
+                or peer.is_reserved or peer.is_multicast or peer.is_unspecified):
+            raise ValueError("blocked url")
+        resp.raise_for_status()
+        return resp.raw.read(limit, decode_content=True)
+    finally:
+        resp.close()
 
 def _reg_date_ok(v: str) -> str:
     datetime.strptime(v, "%Y-%m-%d")

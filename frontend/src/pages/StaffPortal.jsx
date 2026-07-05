@@ -3,9 +3,8 @@ import api, { API, formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Clock, LogIn, LogOut, IndianRupee, Download, User as UserIcon,
-  Calendar, Sparkles, CheckCircle2, TrendingUp, FileText,
+  Calendar, Sparkles, CheckCircle2, TrendingUp, FileText, Camera,
 } from "lucide-react";
-import { ResumeBuilder } from "@/components/staff/ResumeBuilder";
 
 function monthOptions(count = 6) {
   const now = new Date();
@@ -105,6 +104,22 @@ export default function StaffPortal() {
     } finally { setBusy(false); }
   }
 
+  async function uploadPhoto(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { toast.error("Image too large — max 8MB"); return; }
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      await api.post("/staff/me/photo", fd);
+      toast.success("Photo updated ✦ It now shows on the booking page & admin portal");
+      load();
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Photo upload failed");
+    }
+  }
+
   async function downloadSlip() {
     try {
       const url = `${API}/staff/me/salary-slip.pdf?month=${encodeURIComponent(month)}`;
@@ -146,11 +161,21 @@ export default function StaffPortal() {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gold/20 via-blush/10 to-transparent border border-gold/30 p-5 sm:p-8">
         <div className="absolute -top-8 -right-8 w-40 h-40 bg-gold/20 rounded-full blur-3xl" />
         <div className="relative flex items-center gap-4">
-          <img
-            src={profile.image_url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300"}
-            alt={profile.name}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-gold/50"
-          />
+          <div className="relative shrink-0">
+            <img
+              src={profile.image_url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300"}
+              alt={profile.name}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-gold/50"
+            />
+            <label
+              data-testid="staff-photo-upload-label"
+              title="Change photo — shows on the booking page & admin portal"
+              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gold text-bg-base flex items-center justify-center cursor-pointer hover:opacity-90 border-2 border-bg-base"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <input data-testid="staff-photo-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={uploadPhoto} />
+            </label>
+          </div>
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">Welcome back</div>
             <div className="font-playfair text-2xl sm:text-3xl truncate">{profile.name}</div>
@@ -302,9 +327,6 @@ export default function StaffPortal() {
           </div>
         )}
       </div>
-
-      {/* Resume builder */}
-      <ResumeBuilder />
 
       {/* Profile footer */}
       <div className="rounded-2xl bg-[#0F0F0F] border border-white/5 p-5 sm:p-6">

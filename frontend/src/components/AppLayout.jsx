@@ -4,7 +4,8 @@ import {
   LayoutDashboard, Calendar, Users, UserCog, Scissors, Package,
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
   Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot,
-  Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck, Megaphone
+  Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck, Megaphone,
+  Landmark, FileText
 } from "lucide-react";
 import BranchSwitcher from "./BranchSwitcher";
 import api from "@/lib/api";
@@ -41,6 +42,8 @@ const NAV_ADMIN = [
 const NAV_STAFF = [
   { to: "/staff-portal", label: "My Dashboard", icon: LayoutDashboard, testid: "nav-staff-portal" },
   { to: "/appointments", label: "Appointments", icon: Calendar, testid: "nav-appointments" },
+  { to: "/bank-details", label: "Bank Details", icon: Landmark, testid: "nav-bank-details" },
+  { to: "/build-resume", label: "Build Your Resume", icon: FileText, testid: "nav-build-resume" },
 ];
 
 const NAV_MANAGER = [

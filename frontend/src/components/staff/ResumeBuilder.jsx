@@ -8,8 +8,8 @@ const inputCls = "w-full bg-black/40 border border-white/10 rounded-md px-3 py-2
 const labelCls = "block text-[10px] uppercase tracking-[0.2em] text-white/40 mb-1";
 const EMPTY_JOB = { salon_name: "", from_date: "", to_date: "", phone: "", address: "" };
 
-export function ResumeBuilder() {
-  const [open, setOpen] = useState(false);
+export function ResumeBuilder({ standalone = false }) {
+  const [open, setOpen] = useState(standalone);
   const [r, setR] = useState(null);
   const [prompts, setPrompts] = useState({});
   const [busy, setBusy] = useState(false);
@@ -69,14 +69,16 @@ export function ResumeBuilder() {
 
   return (
     <div className="rounded-2xl bg-[#0F0F0F] border border-white/5 p-5 sm:p-6" data-testid="resume-builder-card">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between" data-testid="resume-builder-toggle">
-        <div className="font-playfair text-lg flex items-center gap-2">
-          <FileText className="w-4 h-4 text-gold" /> Resume Builder
-        </div>
-        <span className="text-white/40 flex items-center gap-2 text-xs">
-          Build & download your professional resume {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </span>
-      </button>
+      {!standalone && (
+        <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between" data-testid="resume-builder-toggle">
+          <div className="font-playfair text-lg flex items-center gap-2">
+            <FileText className="w-4 h-4 text-gold" /> Resume Builder
+          </div>
+          <span className="text-white/40 flex items-center gap-2 text-xs">
+            Build & download your professional resume {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </span>
+        </button>
+      )}
 
       {open && !r && <div className="text-white/40 text-sm py-6">Loading…</div>}
 
