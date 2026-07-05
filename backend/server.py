@@ -15,14 +15,14 @@ import asyncio
 import base64
 import html as html_lib
 from email_service import _send_email, _welcome_email_html, _monthly_report_html
-from services.pdf import _render_salary_slip_pdf, _build_registry_pdf
+from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf
 import hashlib
 import logging
 import secrets
 import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Form
 from starlette.middleware.cors import CORSMiddleware
@@ -1818,6 +1818,102 @@ async def staff_my_salary_slip_pdf(month: Optional[str] = None,
     )
 
 
+
+
+# ---------------- Staff resume builder ----------------
+RESUME_ROLE_PROMPTS = {
+    "Beauty Expert": "As a Beauty Expert, I take complete care of every client — analysing their skin tone and skin type to recommend the best-suited facials and skincare products. I specialise in facials, clean-ups, de-tan treatments, hair spa and relaxing head massages, and I always guide clients on the right home-care routine so the results last longer.",
+    "Nail Expert": "As a Nail Expert, I provide professional manicure, pedicure, nail-extension and nail-art services. I maintain strict hygiene and sterilisation standards, advise clients on nail health and after-care, and keep myself updated with the latest nail trends, shapes and techniques.",
+    "Hair Expert": "As a Hair Expert, I handle haircuts, styling, blow-dry, colouring and hair treatments for both men and women. I study each client's face shape and hair texture to suggest the most flattering style, and I recommend the right products and routines to keep their hair healthy after every service.",
+    "Manager": "As a Salon Manager, I oversee the complete daily operations — appointments, staff coordination, billing, inventory and client relationships. I focus on customer satisfaction, resolve escalations quickly, train and mentor junior staff, and consistently drive the salon's sales and service targets.",
+    "Chemical Expert": "As a Chemical Expert, I specialise in advanced chemical services such as smoothening, keratin, botox, rebonding and global colouring. I carefully assess hair condition before every treatment, follow exact product ratios and safety protocols, and deliver zero-damage results with proper after-care guidance.",
+}
+
+
+class ResumePastJob(BaseModel):
+    salon_name: str = ""
+    from_date: str = ""
+    to_date: str = ""
+    phone: str = ""
+    address: str = ""
+
+
+class ResumeIn(BaseModel):
+    total_experience_years: str = ""
+    name: str = ""
+    email: str = ""
+    phone: str = ""
+    current_address: str = ""
+    permanent_address: str = ""
+    photo_url: str = ""
+    current_salon: str = ""
+    currently_working: bool = True
+    salon_phone: str = ""
+    salon_address: str = ""
+    designations: List[str] = Field(default_factory=list)
+    responsibilities: Dict[str, str] = Field(default_factory=dict)
+    past_jobs: List[ResumePastJob] = Field(default_factory=list)
+    achievements: str = ""
+    hobbies: str = ""
+    awards: str = ""
+
+
+def _resume_defaults(s: dict, t: dict) -> dict:
+    years = ""
+    if s.get("joining_date"):
+        try:
+            jd = datetime.fromisoformat(str(s["joining_date"])[:10])
+            years = str(max(0, round((datetime.now() - jd).days / 365, 1)))
+        except Exception:
+            years = ""
+    return {
+        "total_experience_years": years,
+        "name": s.get("name") or "",
+        "email": s.get("email") or "",
+        "phone": s.get("phone") or "",
+        "current_address": "",
+        "permanent_address": "",
+        "photo_url": s.get("image_url") or "",
+        "current_salon": t.get("name") or "",
+        "currently_working": bool(s.get("active", True)),
+        "salon_phone": t.get("phone") or "",
+        "salon_address": t.get("location") or "",
+        "designations": [],
+        "responsibilities": {},
+        "past_jobs": [],
+        "achievements": "",
+        "hobbies": "",
+        "awards": "",
+    }
+
+
+@api.get("/staff/me/resume")
+async def staff_my_resume(s=Depends(_current_staff), t=Depends(current_tenant)):
+    saved = await db.staff_resumes.find_one({"staff_id": s["id"]}, {"_id": 0})
+    data = saved or _resume_defaults(s, t)
+    return {**data, "role_prompts": RESUME_ROLE_PROMPTS, "saved": bool(saved)}
+
+
+@api.put("/staff/me/resume")
+async def staff_save_resume(body: ResumeIn, s=Depends(_current_staff)):
+    doc = body.model_dump()
+    doc["designations"] = [d for d in doc["designations"] if d in RESUME_ROLE_PROMPTS]
+    doc.update({"staff_id": s["id"], "updated_at": datetime.now(timezone.utc).isoformat()})
+    await db.staff_resumes.update_one({"staff_id": s["id"]}, {"$set": doc}, upsert=True)
+    return {"ok": True}
+
+
+@api.get("/staff/me/resume.pdf")
+async def staff_my_resume_pdf(s=Depends(_current_staff), t=Depends(current_tenant)):
+    saved = await db.staff_resumes.find_one({"staff_id": s["id"]}, {"_id": 0})
+    data = saved or _resume_defaults(s, t)
+    pdf_bytes = await asyncio.to_thread(_render_resume_pdf, data, _safe_fetch_image_bytes)
+    fname = f"resume-{(data.get('name') or 'staff').replace(' ', '-').lower()}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 # ---------------- Products / Inventory ----------------

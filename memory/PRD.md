@@ -574,3 +574,9 @@ Genuine fixes applied:
 OFFER MAKER (OffersStudio.jsx):
 - FIXED overlap: "Big badge" circle was pinned at 46% height covering the "✦ Theme Special ✦" subtitle — badge now positioned dynamically below subtitle (by = max(0.46h, y+br+50)); shrinks to 150px radius when services present.
 - NEW: Service offers card (service-offers-card) — pick services from menu (GET /services, name+price prefetched), set offer price, discount % auto-calculated (discountPct), max 5 rows. Poster renders centred lines: name + struck-through actual + accent offer price + "% OFF" pill (strike hidden when no discount). Overflow-guarded (never spills into footer). Screenshot-verified on badge + classic layouts (Bridal Makeup ₹2,000→₹1,400 30% OFF).
+
+## Update — Jul 5, 2026 (part 35) — Staff Resume Builder (VERIFIED)
+- Staff Portal (staff login) → collapsible "Resume Builder" card (resume-builder-card / resume-builder-toggle) via components/staff/ResumeBuilder.jsx.
+- Fields: total exp years, name/email/phone (prefilled from staff profile), current+permanent address, current salon block (name/working Y-N/salon phone for verification/address — prefilled from tenant), designation multi-select chips (Beauty/Nail/Hair Expert, Manager, Chemical Expert) — toggling a chip auto-inserts an optimized editable responsibility paragraph (RESUME_ROLE_PROMPTS in server.py), past jobs list (salon, from–to, verify phone, address, add/remove), achievements/hobbies/awards, auto "Regards, Name · Phone" footer.
+- Backend: GET/PUT /api/staff/me/resume (db.staff_resumes, tenant-scoped — added to database.py whitelist), GET /api/staff/me/resume.pdf (_render_resume_pdf in services/pdf.py — circular photo top-right via _safe_fetch_image_bytes, gold section headings, multipage-safe).
+- Verified: prefill GET, chip auto-prompt, PUT save, PDF rendered & inspected (name, gold designations, sections, verification phones, regards footer). UI screenshot-verified as Priya.

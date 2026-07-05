@@ -98,5 +98,6 @@ class _DB:
     customer_memberships = TenantCollection(_raw_db.customer_memberships)
     coupons = TenantCollection(_raw_db.coupons)
     advances = TenantCollection(_raw_db.advances)
+    staff_resumes = TenantCollection(_raw_db.staff_resumes)
 
 db = _DB()

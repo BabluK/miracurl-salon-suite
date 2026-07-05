@@ -5,6 +5,216 @@ import io
 from datetime import datetime, timezone, timedelta
 
 
+def _render_resume_pdf(r: dict, fetch_image) -> bytes:
+    """Professional staff resume: circular photo top-right, role paragraphs,
+    employment history with verification phones, achievements & regards footer."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader, simpleSplit
+    from reportlab.pdfgen import canvas as _canvas
+
+    buf = io.BytesIO()
+    c = _canvas.Canvas(buf, pagesize=A4)
+    W, H = A4
+    INK = (0.09, 0.1, 0.13)
+    MUTED = (0.42, 0.44, 0.5)
+    GOLD = (0.72, 0.55, 0.14)
+    LEFT, RIGHT = 46, W - 46
+    y = H - 56
+
+    def ensure(space):
+        nonlocal y
+        if y < 56 + space:
+            c.showPage()
+            y = H - 56
+
+    def heading(txt):
+        nonlocal y
+        ensure(34)
+        y -= 10
+        c.setFillColorRGB(*GOLD)
+        c.rect(LEFT, y - 3, 3, 13, fill=1, stroke=0)
+        c.setFillColorRGB(*INK)
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(LEFT + 10, y, txt.upper())
+        y -= 8
+        c.setStrokeColorRGB(0.88, 0.89, 0.92)
+        c.setLineWidth(0.8)
+        c.line(LEFT, y, RIGHT, y)
+        y -= 16
+
+    def para(txt, size=10, leading=14, color=INK, font="Helvetica", indent=0, max_w=None):
+        nonlocal y
+        if not txt:
+            return
+        c.setFont(font, size)
+        c.setFillColorRGB(*color)
+        for ln in simpleSplit(str(txt), font, size, (max_w or (RIGHT - LEFT)) - indent):
+            ensure(leading)
+            c.setFont(font, size)
+            c.setFillColorRGB(*color)
+            c.drawString(LEFT + indent, y, ln)
+            y -= leading
+
+    def labeled(label, value):
+        nonlocal y
+        if not value:
+            return
+        ensure(15)
+        c.setFont("Helvetica", 9.5)
+        c.setFillColorRGB(*MUTED)
+        c.drawString(LEFT, y, label)
+        c.setFillColorRGB(*INK)
+        c.setFont("Helvetica", 10)
+        for i, ln in enumerate(simpleSplit(str(value), "Helvetica", 10, RIGHT - LEFT - 130)):
+            if i:
+                ensure(13)
+            c.drawString(LEFT + 130, y, ln)
+            y -= 13
+        y -= 2
+
+    # ---- Header: name/contact left, circular photo right ----
+    pr = 44
+    pcx, pcy = W - 46 - pr, H - 56 - pr
+    drew = False
+    if r.get("photo_url"):
+        try:
+            raw = fetch_image(r["photo_url"])
+            img = ImageReader(io.BytesIO(raw))
+            iw, ih = img.getSize()
+            scale = (2 * pr) / min(iw, ih)
+            c.saveState()
+            clip = c.beginPath()
+            clip.circle(pcx, pcy, pr)
+            c.clipPath(clip, stroke=0, fill=0)
+            c.drawImage(img, pcx - iw * scale / 2, pcy - ih * scale / 2, width=iw * scale, height=ih * scale, mask="auto")
+            c.restoreState()
+            drew = True
+        except Exception:
+            drew = False
+    if not drew:
+        c.setFillColorRGB(0.95, 0.93, 0.88)
+        c.circle(pcx, pcy, pr, stroke=0, fill=1)
+        initials = "".join(w[0] for w in (r.get("name") or "S").split()[:2]).upper()
+        c.setFillColorRGB(*GOLD)
+        c.setFont("Helvetica-Bold", 28)
+        c.drawCentredString(pcx, pcy - 10, initials)
+    c.setStrokeColorRGB(*GOLD)
+    c.setLineWidth(2.2)
+    c.circle(pcx, pcy, pr + 2.5, stroke=1, fill=0)
+
+    text_w = W - 46 - (2 * pr) - 70 - LEFT  # keep clear of the photo
+    c.setFillColorRGB(*INK)
+    c.setFont("Helvetica-Bold", 24)
+    c.drawString(LEFT, y, r.get("name") or "Your Name")
+    y -= 18
+    desigs = " · ".join(r.get("designations") or [])
+    if desigs:
+        c.setFillColorRGB(*GOLD)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(LEFT, y, desigs)
+        y -= 15
+    exp = str(r.get("total_experience_years") or "").strip()
+    if exp:
+        c.setFillColorRGB(*MUTED)
+        c.setFont("Helvetica", 10)
+        c.drawString(LEFT, y, f"Total experience: {exp} year(s)")
+        y -= 14
+    contact = "   ·   ".join(x for x in [r.get("phone"), r.get("email")] if x)
+    if contact:
+        c.setFillColorRGB(*MUTED)
+        c.setFont("Helvetica", 9.5)
+        for ln in simpleSplit(contact, "Helvetica", 9.5, text_w):
+            c.drawString(LEFT, y, ln)
+            y -= 12
+    for label, addr in (("Current address:  ", r.get("current_address")), ("Permanent address:  ", r.get("permanent_address"))):
+        if addr:
+            c.setFont("Helvetica", 9)
+            c.setFillColorRGB(*MUTED)
+            for ln in simpleSplit(label + addr, "Helvetica", 9, text_w):
+                c.drawString(LEFT, y, ln)
+                y -= 11.5
+    y = min(y, pcy - pr - 18)
+    c.setStrokeColorRGB(*GOLD)
+    c.setLineWidth(1.4)
+    c.line(LEFT, y, RIGHT, y)
+    y -= 8
+
+    # ---- Roles & responsibilities ----
+    resp = r.get("responsibilities") or {}
+    active = [d for d in (r.get("designations") or []) if (resp.get(d) or "").strip()]
+    if active:
+        heading("Roles & Responsibilities")
+        for d in active:
+            ensure(30)
+            c.setFillColorRGB(*INK)
+            c.setFont("Helvetica-Bold", 10.5)
+            c.drawString(LEFT, y, d)
+            y -= 14
+            para(resp[d], size=9.8, leading=13, color=(0.25, 0.27, 0.32), indent=0)
+            y -= 8
+
+    # ---- Current employment ----
+    if r.get("current_salon"):
+        heading("Current Employment")
+        labeled("Salon / Company", r.get("current_salon"))
+        labeled("Currently working", "Yes" if r.get("currently_working", True) else "No")
+        labeled("Salon phone (verify)", r.get("salon_phone"))
+        labeled("Address", r.get("salon_address"))
+        y -= 4
+
+    # ---- Previous experience ----
+    past = [p for p in (r.get("past_jobs") or []) if (p.get("salon_name") or "").strip()]
+    if past:
+        heading("Previous Experience")
+        for p in past:
+            ensure(40)
+            c.setFillColorRGB(*INK)
+            c.setFont("Helvetica-Bold", 10.5)
+            c.drawString(LEFT, y, p["salon_name"])
+            period = " – ".join(x for x in [p.get("from_date"), p.get("to_date")] if x)
+            if period:
+                c.setFillColorRGB(*MUTED)
+                c.setFont("Helvetica", 9.5)
+                c.drawRightString(RIGHT, y, period)
+            y -= 13
+            sub = "   ·   ".join(x for x in [p.get("phone") and f"Phone (verify): {p['phone']}", p.get("address")] if x)
+            if sub:
+                para(sub, size=9, leading=12, color=MUTED)
+            y -= 6
+
+    # ---- Achievements / hobbies / awards ----
+    for title, key in (("Achievements", "achievements"), ("Hobbies", "hobbies"), ("Awards & Appreciation", "awards")):
+        val = (r.get(key) or "").strip()
+        if val:
+            heading(title)
+            para(val, size=9.8, leading=13, color=(0.25, 0.27, 0.32))
+            y -= 4
+
+    # ---- Regards footer ----
+    ensure(56)
+    y -= 14
+    c.setStrokeColorRGB(0.88, 0.89, 0.92)
+    c.setLineWidth(0.8)
+    c.line(LEFT, y, RIGHT, y)
+    y -= 18
+    c.setFillColorRGB(*MUTED)
+    c.setFont("Helvetica-Oblique", 10)
+    c.drawString(LEFT, y, "Regards,")
+    y -= 14
+    c.setFillColorRGB(*INK)
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(LEFT, y, r.get("name") or "")
+    if r.get("phone"):
+        c.setFillColorRGB(*MUTED)
+        c.setFont("Helvetica", 10)
+        c.drawString(LEFT + 4 + c.stringWidth(r.get("name") or "", "Helvetica-Bold", 11) + 6, y, f"·  {r['phone']}")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+
 def _render_salary_slip_pdf(slip: dict) -> bytes:
     """Simple, clean single-page PDF salary slip using reportlab."""
     from reportlab.lib.pagesizes import A4

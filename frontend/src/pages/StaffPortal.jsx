@@ -5,6 +5,7 @@ import {
   Clock, LogIn, LogOut, IndianRupee, Download, User as UserIcon,
   Calendar, Sparkles, CheckCircle2, TrendingUp, FileText,
 } from "lucide-react";
+import { ResumeBuilder } from "@/components/staff/ResumeBuilder";
 
 function monthOptions(count = 6) {
   const now = new Date();
@@ -301,6 +302,9 @@ export default function StaffPortal() {
           </div>
         )}
       </div>
+
+      {/* Resume builder */}
+      <ResumeBuilder />
 
       {/* Profile footer */}
       <div className="rounded-2xl bg-[#0F0F0F] border border-white/5 p-5 sm:p-6">
