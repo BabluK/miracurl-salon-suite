@@ -3,6 +3,7 @@ import { BranchesSection } from "@/components/BranchesSection";
 import { ChangePasswordSection } from "@/components/ChangePasswordSection";
 import { ContactHQSection } from "@/components/ContactHQSection";
 import { QrPosterCard } from "@/components/settings/QrPosterCard";
+import { ProfileCompletenessCard } from "@/components/settings/ProfileCompletenessCard";
 import { BrandingCard } from "@/components/settings/BrandingCard";
 import { TaxCard } from "@/components/settings/TaxCard";
 import { AffiliateCard } from "@/components/settings/AffiliateCard";
@@ -14,6 +15,8 @@ export default function Settings() {
       <div className="max-w-3xl">
         <h1 className="text-2xl font-semibold text-slate-800">Salon Settings</h1>
         <p className="text-sm text-slate-500 mt-1">Configure how billing, tax and your business identity behave on invoices.</p>
+
+        <ProfileCompletenessCard />
 
         <QrPosterCard />
 

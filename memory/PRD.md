@@ -604,3 +604,6 @@ Genuine fixes:
 - Settings.jsx SPLIT: 699→52 lines. New components/settings/{QrPosterCard,BrandingCard,TaxCard,AffiliateCard,RazorpayCard}.jsx — each self-fetching. Verified: all cards render, branding prefilled, "Save profile" + "Save settings" both toast success.
 - Backend extract-method: _payment_mode_buckets + _daily_staff_agg (daily_report), _commission_agg (staff_commission_report). API shapes curl-verified identical. Dead `unassigned` bucket in daily_report removed (was never in response).
 Deliberate deferrals (state if asked): create_invoice (money path, already delegates to 4 helpers), CSV import refactors, POS/StaffRegistry/Appointments splits, bulk type-hint coverage.
+
+## Update — Jul 5, 2026 (part 38) — Profile Completeness meter (VERIFIED)
+- components/settings/ProfileCompletenessCard.jsx at top of Settings (settings-completeness-card): 10 checks (logo, hero image, address, phone, WhatsApp, hours, review link, maps link, Instagram, GPS pin) from GET /tenants/current; % with color-coded bar (rose<50, amber<80, emerald≥80), green/grey chips with hover hints (check-{key}, completeness-pct/bar). Screenshot-verified at 70% amber with 7/10 done.
