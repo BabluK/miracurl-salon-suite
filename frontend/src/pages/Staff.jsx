@@ -162,6 +162,18 @@ export default function Staff() {
               <div className="flex items-center gap-2 justify-center"><Phone className="w-3 h-3" /> {s.phone}</div>
               {s.email && <div className="flex items-center gap-2 justify-center"><Mail className="w-3 h-3" /> {s.email}</div>}
               <div className="flex items-center gap-2 justify-center text-sky-600"><Percent className="w-3 h-3" /> {s.commission_pct}% commission</div>
+              <div className="flex items-center gap-2 justify-center text-slate-500" data-testid={`shift-chip-${s.id}`}>
+                <Clock className="w-3 h-3" /> {s.shift_start || "10:00"}–{s.shift_end || "21:00"}
+                {Number(s.overtime_rate) > 0 && <span className="text-violet-600">· OT ₹{s.overtime_rate}/hr</span>}
+              </div>
+              {s.serving_notice && (
+                <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-700 font-medium" data-testid={`notice-badge-${s.id}`}>
+                  Serving notice{s.last_working_day ? ` · last day ${s.last_working_day}` : ""}
+                </div>
+              )}
+              {s.aadhaar_last4 && (
+                <div className="text-[10px] text-slate-400">Aadhaar · XXXX-XXXX-{s.aadhaar_last4}</div>
+              )}
               {s.monthly_base_salary > 0 && (
                 <div className="flex items-center gap-2 justify-center text-emerald-600 font-medium">
                   <IndianRupee className="w-3 h-3" /> ₹{Number(s.monthly_base_salary).toLocaleString("en-IN")}/mo base
@@ -428,7 +440,7 @@ function AdvanceModal({ staff, onClose }) {
           <form onSubmit={give} className="space-y-3 mb-4">
             <div>
               <label className="label-light block mb-1">Amount ₹ *</label>
-              <input data-testid="advance-amount-input" required type="number" min="1" step="100" max={maxAdv > 0 ? maxAdv : undefined} className="input-light" value={amount} onChange={e => setAmount(e.target.value)} />
+              <input data-testid="advance-amount-input" required type="number" min="1" step="any" max={maxAdv > 0 ? maxAdv : undefined} className="input-light" value={amount} onChange={e => setAmount(e.target.value)} />
             </div>
             <div>
               <label className="label-light block mb-1">Note</label>

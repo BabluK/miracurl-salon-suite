@@ -490,3 +490,16 @@ Frontend:
 - New `POST /api/super-admin/tenants/{tid}/reactivate` for cancelled/suspended tenants: restores status to trial with 7-day grace, regenerates one-time owner password (must_change_password), re-sends welcome email ("Welcome back to Miracurl") to owner + salon email. All historical data preserved.
 - SuperAdmin.jsx: green RotateCcw button (data-testid `reactivate-tenant-{id}`) on cancelled rows; success opens the existing TempPasswordShareModal (copy + WhatsApp share).
 - Verified end-to-end via curl (email sent via Resend, login with temp pw returns must_change_password=True) + screenshot.
+
+## Update — Jul 5, 2026 (part 25) — Staff HR Module (shifts, geo, fines, OT, advances, notice, Aadhaar)
+User confirmed: 1a per-staff overtime rate, 2b per-staff shift timing (10-min grace fixed), 3 advance rules yes, 4 aadhaar masked, 5b block check-in >200m, 6 notice period yes.
+- Staff model new fields: shift_start(10:00)/shift_end(21:00), overtime_rate ₹/hr, max_advance, notice_period_days, serving_notice, last_working_day, aadhaar_last4/aadhaar_hash (write-only `aadhaar` on StaffIn, hash never returned by API).
+- Check-in: geo-fenced (tenant.latitude/longitude, blocked >200m=403, missing coords=400 when fence set), late fine ₹50 per started 5-min block after 10-min grace vs shift_start IST. Check-out: overtime = hrs past shift_end × overtime_rate. Auto-checkout after 12h (`_auto_close_stale_attendance`, auto_checked_out flag).
+- Advances: POST /api/staff/{sid}/advance — one per month, only after 15th (IST), ≤ max_advance; GET list; DELETE same-month undo. Managers work too (they have linked staff docs).
+- Salary slip (+PDF): overtime_total, late_penalty_total, advance_total, deductions_total; net = base+commission+OT−deductions.
+- Tenant geo: PUT/DELETE /api/tenants/current/geo; GeoFenceCard on /attendance page (pin via browser GPS).
+- Registry: 12-digit query searches by aadhaar_hash → full cross-salon history.
+- Frontend: Staff.jsx (Shift/Advance/Compliance form section, shift chip, notice badge, AdvanceModal), StaffPortal.jsx (GPS on check-in/out, late/OT chips, new slip rows), Attendance.jsx (GeoFenceCard, Fine/OT column).
+- Tested: iteration_45.json — backend 14/14 pass; frontend fixes applied post-test (advance input step=any, shift chip, re-applied lost edits) and screenshot-verified.
+- NOTE: advance happy-path (recording) untestable until 16th of month by design.
+- Salon geo currently pinned at 12.9569,77.7011 (Marathahalli) in preview.
