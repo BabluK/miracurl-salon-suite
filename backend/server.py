@@ -2640,6 +2640,38 @@ def _ist_day_window(date_str: Optional[str] = None) -> tuple[str, str, str]:
     return day.isoformat(), utc_start, utc_end
 
 
+def _payment_mode_buckets(invs: list) -> tuple:
+    buckets = {"card": 0.0, "upi": 0.0, "cash": 0.0, "wallet": 0.0, "other": 0.0}
+    total = 0.0
+    for inv in invs:
+        amt = float(inv.get("total") or 0)
+        total += amt
+        mode = str(inv.get("payment_mode") or "other").lower()
+        buckets[mode if mode in buckets else "other"] += amt
+    return buckets, total
+
+
+def _daily_staff_agg(invs: list) -> dict:
+    """staff_id -> {gross, invoice_ids}; item-level staff_id wins over invoice's."""
+    staff_agg: dict = {}
+    for inv in invs:
+        inv_staff = inv.get("staff_id")
+        assigned_line = False
+        for it in inv.get("items", []):
+            sid = it.get("staff_id") or inv_staff
+            if not sid:
+                continue
+            price = float(it.get("price") or 0) * int(it.get("qty") or 1)
+            row = staff_agg.setdefault(sid, {"gross": 0.0, "invoice_ids": set()})
+            row["gross"] += price
+            row["invoice_ids"].add(inv.get("id"))
+            assigned_line = True
+        if not assigned_line and inv_staff:
+            row = staff_agg.setdefault(inv_staff, {"gross": 0.0, "invoice_ids": set()})
+            row["invoice_ids"].add(inv.get("id"))
+    return staff_agg
+
+
 @api.get("/reports/daily")
 async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_admin)):
     """One-day revenue summary anchored to IST. Powers the 'Yesterday's Report'
@@ -2655,36 +2687,8 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
     flt = {"created_at": {"$gte": utc_start, "$lte": utc_end}}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
 
-    buckets = {"card": 0.0, "upi": 0.0, "cash": 0.0, "wallet": 0.0, "other": 0.0}
-    total = 0.0
-    for inv in invs:
-        amt = float(inv.get("total") or 0)
-        total += amt
-        mode = str(inv.get("payment_mode") or "other").lower()
-        if mode in buckets:
-            buckets[mode] += amt
-        else:
-            buckets["other"] += amt
-
-    # Per-staff breakdown: item-level staff_id wins, falls back to invoice staff_id.
-    staff_agg: dict = {}
-    unassigned = {"gross": 0.0, "invoices": set()}
-    for inv in invs:
-        inv_staff = inv.get("staff_id")
-        assigned_line = False
-        for it in inv.get("items", []):
-            sid = it.get("staff_id") or inv_staff
-            price = float(it.get("price") or 0) * int(it.get("qty") or 1)
-            if not sid:
-                unassigned["gross"] += price
-                continue
-            row = staff_agg.setdefault(sid, {"gross": 0.0, "invoice_ids": set()})
-            row["gross"] += price
-            row["invoice_ids"].add(inv.get("id"))
-            assigned_line = True
-        if not assigned_line and inv_staff:
-            row = staff_agg.setdefault(inv_staff, {"gross": 0.0, "invoice_ids": set()})
-            row["invoice_ids"].add(inv.get("id"))
+    buckets, total = _payment_mode_buckets(invs)
+    staff_agg = _daily_staff_agg(invs)
     staff_docs = await db.staff.find(
         {"id": {"$in": list(staff_agg.keys())}}, {"_id": 0, "id": 1, "name": 1},
     ).to_list(200) if staff_agg else []
@@ -2709,14 +2713,7 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
     return {
         "date": day,
         "date_label": day_dt.strftime("%a, %d %b %Y"),
-        "revenue": {
-            "total": round(total, 2),
-            "card": round(buckets["card"], 2),
-            "upi": round(buckets["upi"], 2),
-            "cash": round(buckets["cash"], 2),
-            "wallet": round(buckets["wallet"], 2),
-            "other": round(buckets["other"], 2),
-        },
+        "revenue": {"total": round(total, 2), **{k: round(v, 2) for k, v in buckets.items()}},
         "invoices": len(invs),
         "new_guests": new_guests,
         "staff": staff_rows,
@@ -2750,6 +2747,24 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
     }
 
 
+def _commission_agg(invs: list) -> tuple:
+    """(staff_id -> {gross,items,services,products}, unassigned bucket)."""
+    agg: dict = {}
+    unassigned = {"gross": 0.0, "items": 0, "services": 0, "products": 0}
+    for inv in invs:
+        invoice_staff = inv.get("staff_id")
+        for it in inv.get("items", []):
+            sid = it.get("staff_id") or invoice_staff
+            qty = int(it.get("qty") or 1)
+            line_total = qty * float(it.get("price") or 0)
+            kind = "services" if it.get("type") == "service" else "products"
+            row = agg.setdefault(sid, {"gross": 0.0, "items": 0, "services": 0, "products": 0}) if sid else unassigned
+            row["gross"] += line_total
+            row["items"] += qty
+            row[kind] += qty
+    return agg, unassigned
+
+
 @api.get("/reports/staff-commission")
 async def staff_commission_report(
     start: Optional[str] = None,
@@ -2768,26 +2783,7 @@ async def staff_commission_report(
         flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(5000)
 
-    # staff_id -> {gross, items, services, products}
-    agg: dict = {}
-    unassigned = {"gross": 0.0, "items": 0, "services": 0, "products": 0}
-    for inv in invs:
-        invoice_staff = inv.get("staff_id")
-        for it in inv.get("items", []):
-            sid = it.get("staff_id") or invoice_staff
-            qty = int(it.get("qty") or 1)
-            price = float(it.get("price") or 0)
-            line_total = qty * price
-            is_service = it.get("type") == "service"
-            if not sid:
-                unassigned["gross"] += line_total
-                unassigned["items"] += qty
-                unassigned["services" if is_service else "products"] += qty
-                continue
-            row = agg.setdefault(sid, {"gross": 0.0, "items": 0, "services": 0, "products": 0})
-            row["gross"] += line_total
-            row["items"] += qty
-            row["services" if is_service else "products"] += qty
+    agg, unassigned = _commission_agg(invs)
 
     # Join with staff
     staff_docs = await db.staff.find(

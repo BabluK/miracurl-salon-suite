@@ -595,3 +595,12 @@ STAFF PHOTO UPLOAD: camera overlay on portal hero avatar (staff-photo-upload-lab
 BANK DETAILS: PUT /api/staff/me/bank-details {bank_name, ifsc, account_holder} stored on staff.bank_details; admin Staff page shows "Staff Bank Details" table (staff-bank-details-card) — verified end-to-end (HDFC/HDFC0001234/Priya visible to admin).
 
 SUPERADMIN ONBOARDING IMAGE: new "Onboarding Image" tab (super-tab-onboarding, components/superadmin/OnboardingStudio.jsx) — pick tenant, 4 vibe options, POST /api/super-admin/onboarding-image (gpt-image-1 via Emergent key, 9:16 bg, stored kind "onboarding") composited on canvas with tenant logo circle + "Welcome Onboard — {Salon}" + Miracurl branding footer; instant gradient fallback; Download PNG for WhatsApp status. Verified live incl. real AI generation.
+
+## Update — Jul 5, 2026 (part 37) — Code review round 4 fixes (VERIFIED)
+FALSE POSITIVES re-confirmed with linters: eslint (incl. exhaustive-deps) = 0 findings; ruff F821 = 0 undefined vars; NO tokens in localStorage (httpOnly cookie auth).
+Genuine fixes:
+- ResumeBuilder past_jobs: stable uid keys (no array-index keys).
+- SuperAdmin.jsx: 8-way nested ternary tab chain → panels lookup map (601→598 lines; all 8 tabs screenshot-verified rendering).
+- Settings.jsx SPLIT: 699→52 lines. New components/settings/{QrPosterCard,BrandingCard,TaxCard,AffiliateCard,RazorpayCard}.jsx — each self-fetching. Verified: all cards render, branding prefilled, "Save profile" + "Save settings" both toast success.
+- Backend extract-method: _payment_mode_buckets + _daily_staff_agg (daily_report), _commission_agg (staff_commission_report). API shapes curl-verified identical. Dead `unassigned` bucket in daily_report removed (was never in response).
+Deliberate deferrals (state if asked): create_invoice (money path, already delegates to 4 helpers), CSV import refactors, POS/StaffRegistry/Appointments splits, bulk type-hint coverage.

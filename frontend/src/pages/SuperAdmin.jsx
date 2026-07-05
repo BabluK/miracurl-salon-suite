@@ -224,21 +224,18 @@ export default function SuperAdmin() {
           ><Sparkles className="w-4 h-4" /> Onboarding Image</button>
         </div>
 
-        {tab === "billing" ? (
-          <BillingPanel tenants={tenants} />
-        ) : tab === "leaderboard" ? (
-          <LeaderboardPanel />
-        ) : tab === "revenue" ? (
-          <RevenuePanel />
-        ) : tab === "ai" ? (
-          <AiInsightsPanel />
-        ) : tab === "inbox" ? (
-          <HqInbox onUnreadChange={setHqUnread} />
-        ) : tab === "engineer" ? (
-          <EngineerPanel />
-        ) : tab === "onboarding" ? (
-          <OnboardingStudio tenants={tenants} />
-        ) : (
+        {(() => {
+          const panels = {
+            billing: <BillingPanel tenants={tenants} />,
+            leaderboard: <LeaderboardPanel />,
+            revenue: <RevenuePanel />,
+            ai: <AiInsightsPanel />,
+            inbox: <HqInbox onUnreadChange={setHqUnread} />,
+            engineer: <EngineerPanel />,
+            onboarding: <OnboardingStudio tenants={tenants} />,
+          };
+          return panels[tab];
+        })() || (
           <>
         <div className="flex items-center justify-between">
           <div>

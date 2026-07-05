@@ -146,12 +146,12 @@ export function ResumeBuilder({ standalone = false }) {
           <div className="rounded-xl border border-white/10 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-[10px] uppercase tracking-[0.2em] text-gold/80">Previous salons / companies</div>
-              <button data-testid="resume-add-job" onClick={() => set("past_jobs", [...r.past_jobs, { ...EMPTY_JOB }])}
+              <button data-testid="resume-add-job" onClick={() => set("past_jobs", [...r.past_jobs, { ...EMPTY_JOB, uid: `job-${Date.now()}` }])}
                 className="text-xs text-gold flex items-center gap-1 hover:opacity-80"><Plus className="w-3.5 h-3.5" /> Add</button>
             </div>
             {r.past_jobs.length === 0 && <div className="text-white/30 text-xs">No previous workplaces added.</div>}
             {r.past_jobs.map((j, i) => (
-              <div key={i} className="rounded-lg bg-white/5 p-3 space-y-2 relative" data-testid={`resume-job-${i}`}>
+              <div key={j.uid || `${j.salon_name}-${i}`} className="rounded-lg bg-white/5 p-3 space-y-2 relative" data-testid={`resume-job-${i}`}>
                 <button onClick={() => set("past_jobs", r.past_jobs.filter((_, xi) => xi !== i))}
                   className="absolute top-2 right-2 text-white/30 hover:text-red-400"><X className="w-4 h-4" /></button>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
