@@ -1586,6 +1586,7 @@ async def staff_my_attendance(month: Optional[str] = None, s=Depends(_current_st
 
 @api.get("/attendance/today")
 async def attendance_today(date: Optional[str] = None,
+                           branch: Optional[str] = None,
                            _=Depends(require_tenant_admin)):
     """
     Roster for a given day (defaults to today).
@@ -1600,8 +1601,11 @@ async def attendance_today(date: Optional[str] = None,
         raise HTTPException(400, "date must be YYYY-MM-DD")
     await _auto_close_stale_attendance()
 
+    staff_q = {"active": True}
+    if branch:
+        staff_q["branch"] = branch
     staff_list = await db.staff.find(
-        {"active": True},
+        staff_q,
         {"_id": 0, "id": 1, "name": 1, "role": 1, "image_url": 1, "user_id": 1, "phone": 1, "branch": 1},
     ).sort("name", 1).to_list(500)
     att = await db.attendance.find({"date": day}, {"_id": 0}).to_list(500)
@@ -6120,3 +6124,4 @@ async def _security_headers(request: Request, call_next):
     return resp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+

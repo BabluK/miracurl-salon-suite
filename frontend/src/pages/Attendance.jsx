@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
+import { getSelectedBranch } from "@/lib/branch";
 import { toast } from "sonner";
 import {
   Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin,
@@ -40,7 +41,8 @@ export default function Attendance() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/attendance/today", { params: { date } });
+      const b = getSelectedBranch();
+      const { data } = await api.get("/attendance/today", { params: b ? { date, branch: b } : { date } });
       setData(data);
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Failed to load attendance");
@@ -50,6 +52,10 @@ export default function Attendance() {
   }, [date]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    window.addEventListener("branch-changed", load);
+    return () => window.removeEventListener("branch-changed", load);
+  }, [load]);
 
   async function waiveFine(r) {
     if (!r.record_id) return;
@@ -69,7 +75,14 @@ export default function Attendance() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="font-playfair text-2xl sm:text-3xl">Attendance</h1>
-          <p className="text-slate-500 text-sm mt-1">See who checked in, who&apos;s still on shift, and download history.</p>
+          <p className="text-slate-500 text-sm mt-1">
+            See who checked in, who&apos;s still on shift, and download history.
+            {getSelectedBranch() && (
+              <span data-testid="attendance-branch-filter-tag" className="ml-2 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-medium">
+                <MapPin className="w-3 h-3" /> {getSelectedBranch()}
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-slate-500" />

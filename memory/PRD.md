@@ -554,3 +554,9 @@ Audit verdict: 1 HIGH + hardening items. Fixed:
 ## Remaining backlog
 - P2: Automate Monthly Business Report emails (currently manual trigger in Super-Admin; needs scheduled job e.g. daily check for 1st-of-month IST).
 - Refactor backlog: route-module split of server.py; Settings.jsx/BookingChatWidget.jsx/Staff.jsx splits.
+
+## Update — Jul 5, 2026 (part 33) — Attendance branch filter (VERIFIED)
+- GET /api/attendance/today now accepts ?branch= (filters staff by branch name; summary tiles follow).
+- Attendance.jsx wired to global header BranchSwitcher (getSelectedBranch + branch-changed event, same pattern as Dashboard); violet filter tag (attendance-branch-filter-tag) shows next to subtitle when a branch is selected.
+- Verified: switcher→AECS shows only Priya (total 1); All branches shows 4. Screenshot verified.
+- Also fixed: stray corrupt trailing line in server.py that briefly broke backend import.
