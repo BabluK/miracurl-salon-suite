@@ -62,3 +62,17 @@ def _get_object(path: str) -> tuple[bytes, str]:
     return r.content, r.headers.get("Content-Type", "application/octet-stream")
 
 
+
+
+_IMG_SIGS = {
+    "jpg": (b"\xff\xd8\xff",), "jpeg": (b"\xff\xd8\xff",),
+    "png": (b"\x89PNG\r\n\x1a\n",), "gif": (b"GIF87a", b"GIF89a"),
+    "webp": (b"RIFF",),
+}
+
+
+def validate_image_bytes(ext: str, data: bytes):
+    """Magic-byte sniffing — extension alone is spoofable (security hardening)."""
+    sigs = _IMG_SIGS.get(ext)
+    if sigs and not any(data.startswith(s) for s in sigs):
+        raise HTTPException(400, "File content doesn't match its image type")

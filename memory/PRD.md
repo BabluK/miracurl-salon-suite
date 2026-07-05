@@ -531,3 +531,10 @@ Tested: iteration_46.json — backend 15/15 pass; 1 UI fix (manager branch switc
   • Remaining refactor backlog: route-module split of server.py (~150 routes), Settings.jsx/BookingChatWidget.jsx/Staff.jsx splits.
 - POS: category tiles shrunk (py-4 text-xs truncate). Receipt modal got data-testid invoice-receipt-modal.
 - Onboarding clarified: salon NAME and salon CONTACT email may repeat across tenants (e.g. "Miracurl - AECS", "Miracurl - Munnekolla"); only slug + owner LOGIN email must be unique — duplicate owner email now returns a helpful guidance message.
+
+## Update — Jul 5, 2026 (part 30) — Security Audit round 2 (fixes applied & verified)
+Audit verdict: 1 HIGH + hardening items. Fixed:
+- SEC-001 (HIGH) Public registry PII exposure: `_registry_profile(redact=True)` on /api/public/registry/search + /public/registry/{code}/pdf — hides email & addresses, masks phone (XXXXXX+last4); keeps name/photo/city/badge/verdict/employment history. Authenticated /registry/employees searches redacted for NON-active (trial) tenants (blocks instant-free-trial bulk harvesting); own roster + paid salons + super_admin unredacted. Verified via curl (public redacted / paid full / trial redacted).
+- Upload hardening: magic-byte sniffing via services/storage.validate_image_bytes on 3 endpoints (/uploads/image, /super-admin/uploads/photo, gallery images). Fake .png rejected 400, real png OK.
+- /auth/refresh now rejects disabled accounts (status=="disabled" or active==False).
+- Deferred (needs data migration): dedicated Aadhaar pepper env + slow KDF (existing hashes would break; document before attempting).

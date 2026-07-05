@@ -41,7 +41,7 @@ from database import (  # noqa: F401 — shared DB foundation
 app = FastAPI(title="Miracurl Salon Management API")
 api = APIRouter(prefix="/api")
 
-from services.storage import _init_storage, _put_object, _get_object, _MIME, APP_NAME  # noqa: F401
+from services.storage import _init_storage, _put_object, _get_object, _MIME, APP_NAME, validate_image_bytes  # noqa: F401
 
 @app.on_event("startup")
 async def _boot_storage():
@@ -591,6 +591,8 @@ async def refresh_token(request: Request, response: Response):
         user = await db.users.find_one({"id": payload["sub"]})
         if not user:
             raise HTTPException(401, "User not found")
+        if user.get("status") == "disabled" or user.get("active") is False:
+            raise HTTPException(401, "Account disabled")
         _reject_if_token_predates_password_change(payload, user)
         access = make_access(user["id"], user["email"])
         response.set_cookie(
@@ -741,6 +743,7 @@ async def upload_image(
         raise HTTPException(413, f"Image too large — max {_MAX_UPLOAD_BYTES // (1024*1024)}MB")
     if not data:
         raise HTTPException(400, "Empty file")
+    validate_image_bytes(ext, data)
     file_id = str(uuid.uuid4())
     storage_path = f"{APP_NAME}/tenants/{t['id']}/{kind}/{file_id}.{ext}"
     try:
@@ -4491,6 +4494,7 @@ async def super_upload_photo(file: UploadFile = File(...), user=Depends(require_
         raise HTTPException(413, f"Image too large — max {_MAX_UPLOAD_BYTES // (1024*1024)}MB")
     if not data:
         raise HTTPException(400, "Empty file")
+    validate_image_bytes(ext, data)
     file_id = str(uuid.uuid4())
     storage_path = f"{APP_NAME}/super-admin/{file_id}.{ext}"
     try:
@@ -5107,6 +5111,8 @@ async def gallery_upload(file: UploadFile = File(...), caption: str = Query("", 
     data = await file.read()
     if not data:
         raise HTTPException(400, "Empty file")
+    if kind == "image":
+        validate_image_bytes(ext, data)
     if len(data) > cap:
         raise HTTPException(413, f"Too large — max {cap // (1024 * 1024)}MB for {kind}s")
     return await _store_gallery_media(t, data, ext, mime, kind, caption, "upload", user["id"], file.filename or "")
@@ -5799,7 +5805,7 @@ def _registry_badge(total_years: float, avg_rating) -> str:
         idx -= 1
     return _REG_BADGE_ORDER[idx]
 
-async def _registry_profile(emp: dict, current_only: bool = False) -> dict:
+async def _registry_profile(emp: dict, current_only: bool = False, redact: bool = False) -> dict:
     emps = await _raw_db.registry_employments.find(
         {"employee_id": emp["id"]}, {"_id": 0}).sort("from_date", -1).to_list(100)
     for e in emps:
@@ -5821,14 +5827,19 @@ async def _registry_profile(emp: dict, current_only: bool = False) -> dict:
         verdict, verdict_note = "amber", "Limited history — new to the registry, no ratings yet. Take references."
     else:
         verdict, verdict_note = "amber", "Average record — acceptable history, review ratings and reasons before hiring."
+    # `redact` hides direct-contact PII on public / low-trust paths (SEC-001):
+    # employment history + verdict stay visible; home addresses & contacts do not.
+    phone = emp.get("phone") or ""
     return {
         "history_scope": "current" if current_only else "full",
         "id": emp["id"], "staff_code": emp["staff_code"], "name": emp["name"],
-        "photo_url": emp.get("photo_url") or "", "email": emp.get("email") or "",
-        "phone": emp.get("phone") or "",
+        "photo_url": emp.get("photo_url") or "",
+        "email": "" if redact else (emp.get("email") or ""),
+        "phone": (f"XXXXXX{phone[-4:]}" if phone else "") if redact else phone,
         "aadhaar_masked": f"XXXX-XXXX-{emp.get('aadhaar_last4', '')}",
-        "permanent_address": emp.get("permanent_address") or "",
-        "current_address": emp.get("current_address") or "", "city": emp.get("city") or "",
+        "permanent_address": "" if redact else (emp.get("permanent_address") or ""),
+        "current_address": "" if redact else (emp.get("current_address") or ""),
+        "city": emp.get("city") or "",
         "total_years": round(total_years, 1), "avg_rating": avg_rating,
         "badge": badge,
         "hire_verdict": verdict, "hire_verdict_note": verdict_note,
@@ -5895,6 +5906,9 @@ async def registry_update_employee(eid: str, body: RegistryEmployeeUpdateIn, adm
 
 @api.get("/registry/employees")
 async def registry_list_employees(q: Optional[str] = None, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    # Contact & address details only for PAID salons (or HQ). Instant free-trial
+    # signups get the redacted view — blocks bulk PII harvesting (SEC-001).
+    redact = admin.get("role") != "super_admin" and t.get("status") != "active"
     if q and q.strip():
         qs = q.strip()
         digits = re.sub(r"\D", "", qs)
@@ -5902,21 +5916,22 @@ async def registry_list_employees(q: Optional[str] = None, admin=Depends(require
         if re.fullmatch(r"STF-\d+", qs.upper()):
             rows = await _raw_db.registry_employees.find(
                 {"staff_code": qs.upper()}, {"_id": 0, "aadhaar_hash": 0}).to_list(5)
-            return [await _registry_profile(r, current_only=True) for r in rows]
+            return [await _registry_profile(r, current_only=True, redact=redact) for r in rows]
         # 12-digit query = Aadhaar — the permanent identifier: full history across salons
         if len(digits) == 12:
             rows = await _raw_db.registry_employees.find(
                 {"aadhaar_hash": _aadhaar_fp(digits)}, {"_id": 0, "aadhaar_hash": 0}).to_list(5)
-            return [await _registry_profile(r) for r in rows]
+            return [await _registry_profile(r, redact=redact) for r in rows]
         ors = [{"name": {"$regex": re.escape(qs), "$options": "i"}}]
         if len(digits) >= 6:
             ors.append({"phone": {"$regex": f"{digits}$"}})
         rows = await _raw_db.registry_employees.find({"$or": ors}, {"_id": 0, "aadhaar_hash": 0}).to_list(20)
-    else:
-        emp_ids = await _raw_db.registry_employments.distinct("employee_id", {"tenant_id": t["id"]})
-        rows = await _raw_db.registry_employees.find(
-            {"$or": [{"created_by_tenant": t["id"]}, {"id": {"$in": emp_ids}}]},
-            {"_id": 0, "aadhaar_hash": 0}).sort("created_at", -1).to_list(100)
+        return [await _registry_profile(r, redact=redact) for r in rows]
+    # No query: this salon's own roster (created here or employed here) — unredacted.
+    emp_ids = await _raw_db.registry_employments.distinct("employee_id", {"tenant_id": t["id"]})
+    rows = await _raw_db.registry_employees.find(
+        {"$or": [{"created_by_tenant": t["id"]}, {"id": {"$in": emp_ids}}]},
+        {"_id": 0, "aadhaar_hash": 0}).sort("created_at", -1).to_list(100)
     return [await _registry_profile(r) for r in rows]
 
 @api.post("/registry/employees/{eid}/employments")
@@ -5993,18 +6008,18 @@ async def registry_public_search(q: str, request: Request):
     # Phone lookup -> the FULL employment history (past + present) is shown.
     emp = await _raw_db.registry_employees.find_one({"staff_code": qs.upper()}, {"_id": 0})
     if emp:
-        return await _registry_profile(emp, current_only=True)
+        return await _registry_profile(emp, current_only=True, redact=True)
     # 12-digit query = Aadhaar (permanent ID) → full cross-salon history
     if len(digits) == 12:
         emp = await _raw_db.registry_employees.find_one({"aadhaar_hash": _aadhaar_fp(digits)}, {"_id": 0})
         if not emp:
             raise HTTPException(404, "No staff found with that Aadhaar number — check all 12 digits")
-        return await _registry_profile(emp)
+        return await _registry_profile(emp, redact=True)
     if len(digits) >= 10:
         emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{digits[-10:]}$"}}, {"_id": 0})
     if not emp:
         raise HTTPException(404, "No staff found. Use their 12-digit Aadhaar, 10-digit phone, or Staff ID (STF-xxxxx)")
-    return await _registry_profile(emp)
+    return await _registry_profile(emp, redact=True)
 
 
 
@@ -6014,7 +6029,7 @@ async def registry_public_pdf(staff_code: str, request: Request):
     emp = await _raw_db.registry_employees.find_one({"staff_code": staff_code.upper()}, {"_id": 0})
     if not emp:
         raise HTTPException(404, "Staff not found")
-    profile = await _registry_profile(emp)
+    profile = await _registry_profile(emp, redact=True)
     pdf_bytes = await asyncio.to_thread(_build_registry_pdf, profile, _safe_fetch_image_bytes)
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{emp["staff_code"]}-badge.pdf"'})
