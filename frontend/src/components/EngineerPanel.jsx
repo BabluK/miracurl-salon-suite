@@ -5,6 +5,7 @@ import {
   Activity, Database, Ticket, Send, Bot, Trash2, Plus, CircleCheck, Wrench,
 } from "lucide-react";
 
+const TICKET_STATUSES = ["open", "in_progress", "done", "wont_fix"];
 const PRIORITY_CLS = {
   low: "bg-slate-100 text-slate-600", medium: "bg-sky-100 text-sky-700",
   high: "bg-amber-100 text-amber-700", critical: "bg-red-100 text-red-700",
@@ -101,7 +102,7 @@ export const EngineerPanel = () => {
                     </div>
                   )}
                   <div className="flex gap-1.5 mt-2">
-                    {["open", "in_progress", "done", "wont_fix"].filter(s => s !== t.status).map(s => (
+                    {TICKET_STATUSES.filter(s => s !== t.status).map(s => (
                       <button key={s} onClick={() => setStatus(t, s)}
                         className="text-[10px] px-2 py-1 rounded border border-slate-200 text-slate-500 hover:bg-slate-50">
                         {s.replace("_", " ")}

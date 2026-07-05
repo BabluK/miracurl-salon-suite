@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Download, Palette, Sparkles } from "lucide-react";
+import { Download, Palette, Sparkles, Plus, X } from "lucide-react";
 
 const MIRA_HEADLINE = "MEET MIRA — AI BEAUTY EXPERT";
 const MIRA_DETAILS = "Consult Mira AI, our 24/7 beauty & hair expert. Share your skin tone and dream hair colour — get personalised suggestions, and Mira books your appointment with our in-salon experts to bring the look to life.";
@@ -26,8 +26,58 @@ const LAYOUTS = [
   { id: "badge", name: "Big badge" },
 ];
 
+const discountPct = (actual, offer) => {
+  const a = parseFloat(actual), o = parseFloat(offer);
+  if (!(a > 0) || !(o >= 0) || o >= a) return 0;
+  return Math.round((1 - o / a) * 100);
+};
+
+// One centred "Service  ₹500  ₹350  30% OFF" line with strikethrough on the actual price.
+function drawServiceLine(ctx, s, cx, y, scale, accent) {
+  const nameSeg = s.name;
+  const pct = discountPct(s.actual, s.offer);
+  const actualSeg = pct > 0 ? `₹${Number(s.actual).toLocaleString("en-IN")}` : "";
+  const offerSeg = `₹${Number(s.offer).toLocaleString("en-IN")}`;
+  const discSeg = pct > 0 ? `${pct}% OFF` : "";
+  const gap = 18 * scale;
+  const fName = `600 ${30 * scale}px Arial`;
+  const fActual = `400 ${28 * scale}px Arial`;
+  const fOffer = `bold ${30 * scale}px Arial`;
+  const fDisc = `bold ${24 * scale}px Arial`;
+
+  ctx.font = fName; const wName = ctx.measureText(nameSeg).width;
+  ctx.font = fActual; const wActual = actualSeg ? ctx.measureText(actualSeg).width : 0;
+  ctx.font = fOffer; const wOffer = ctx.measureText(offerSeg).width;
+  ctx.font = fDisc; const wDisc = discSeg ? ctx.measureText(discSeg).width + 20 * scale : 0;
+  const total = wName + gap + (actualSeg ? wActual + gap : 0) + wOffer + (discSeg ? gap + wDisc : 0);
+
+  ctx.save();
+  ctx.textAlign = "left";
+  let x = cx - total / 2;
+  ctx.fillStyle = "#ffffff"; ctx.font = fName;
+  ctx.fillText(nameSeg, x, y); x += wName + gap;
+  if (actualSeg) {
+    ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.font = fActual;
+    ctx.fillText(actualSeg, x, y);
+    ctx.strokeStyle = "rgba(255,255,255,0.65)"; ctx.lineWidth = 2 * scale;
+    ctx.beginPath(); ctx.moveTo(x - 3 * scale, y - 9 * scale); ctx.lineTo(x + wActual + 3 * scale, y - 9 * scale); ctx.stroke();
+    x += wActual + gap;
+  }
+  ctx.fillStyle = accent; ctx.font = fOffer;
+  ctx.fillText(offerSeg, x, y); x += wOffer + (discSeg ? gap : 0);
+  if (discSeg) {
+    ctx.font = fDisc;
+    const padX = 10 * scale, ph = 34 * scale;
+    ctx.fillStyle = accent + "2e";
+    ctx.beginPath(); ctx.roundRect(x - padX, y - 24 * scale, wDisc, ph, ph / 2); ctx.fill();
+    ctx.fillStyle = accent;
+    ctx.fillText(discSeg, x, y);
+  }
+  ctx.restore();
+}
+
 function drawPoster(canvas, opts) {
-  const { w, h, palette, layoutId, themeName, salon, offerTitle, offerDetails, location, phone, validity, logoImg, miraImg, isMira } = opts;
+  const { w, h, palette, layoutId, themeName, salon, offerTitle, offerDetails, location, phone, validity, logoImg, miraImg, isMira, services = [] } = opts;
   const [c1, c2, accent] = palette;
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
@@ -132,38 +182,58 @@ function drawPoster(canvas, opts) {
   ctx.font = F(26, 400, "Arial");
   ctx.fillText(`✦ ${themeName} Special ✦`, cx, y);
 
-  // offer headline
+  const hasServices = services.length > 0;
+  const footerH = 0.10 * h;
+
+  // offer headline — badge is positioned BELOW the subtitle (never overlapping it)
   if (layoutId === "badge") {
-    const br = 210 * scale;
-    const by = h * 0.46;
+    const br = (hasServices ? 150 : 210) * scale;
+    const by = Math.max(h * (hasServices ? 0.36 : 0.46), y + br + 50 * scale);
     ctx.beginPath(); ctx.arc(cx, by, br, 0, Math.PI * 2);
     ctx.fillStyle = accent; ctx.fill();
     ctx.beginPath(); ctx.arc(cx, by, br - 10 * scale, 0, Math.PI * 2);
     ctx.lineWidth = 3 * scale; ctx.strokeStyle = c1 + "66"; ctx.stroke();
-    ctx.fillStyle = c1; ctx.font = F(72, "bold");
-    wrapText(ctx, offerTitle || "20% OFF", cx, by - 10 * scale, br * 1.6, 80 * scale);
+    ctx.fillStyle = c1; ctx.font = F(hasServices ? 54 : 72, "bold");
+    wrapText(ctx, offerTitle || "20% OFF", cx, by - 10 * scale, br * 1.6, (hasServices ? 60 : 80) * scale);
     y = by + br + 70 * scale;
   } else {
-    y = h * (layoutId === "band" ? 0.42 : 0.44);
-    ctx.fillStyle = "#ffffff"; ctx.font = F(96, "bold");
-    wrapText(ctx, offerTitle || "20% OFF", cx, y, w * 0.85, 104 * scale);
-    y += 130 * scale;
+    y = Math.max(h * (layoutId === "band" ? 0.42 : 0.44), y + 120 * scale);
+    ctx.fillStyle = "#ffffff"; ctx.font = F(hasServices ? 72 : 96, "bold");
+    wrapText(ctx, offerTitle || "20% OFF", cx, y, w * 0.85, (hasServices ? 80 : 104) * scale);
+    y += (hasServices ? 90 : 130) * scale;
   }
+
+  // per-service offer lines
+  if (hasServices) {
+    const lineH = 54 * scale;
+    // thin divider above the list
+    ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath(); ctx.moveTo(cx - w * 0.28, y - 34 * scale); ctx.lineTo(cx + w * 0.28, y - 34 * scale); ctx.stroke();
+    for (const s of services) {
+      if (y > h - footerH - 150 * scale) break; // never spill into the footer
+      drawServiceLine(ctx, s, cx, y, scale, accent);
+      y += lineH;
+    }
+    ctx.beginPath(); ctx.moveTo(cx - w * 0.28, y - 26 * scale); ctx.lineTo(cx + w * 0.28, y - 26 * scale); ctx.stroke();
+    y += 30 * scale;
+  }
+
   // details
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = F(34, 400, "Arial");
-  wrapText(ctx, offerDetails || "On all hair & beauty services", cx, y, w * 0.8, 46 * scale);
-  y += 110 * scale;
-  if (validity) {
+  if (offerDetails && y < h - footerH - 130 * scale) {
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = F(hasServices ? 28 : 34, 400, "Arial");
+    wrapText(ctx, offerDetails || "On all hair & beauty services", cx, y, w * 0.8, 46 * scale);
+    y += (hasServices ? 70 : 110) * scale;
+  }
+  if (validity && y < h - footerH - 60 * scale) {
     ctx.fillStyle = accent; ctx.font = F(28, "bold", "Arial");
     ctx.fillText(`Valid till ${validity}`, cx, y);
   }
   // footer bar
-  const fh = 0.10 * h;
   ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.fillRect(0, h - fh, w, fh);
+  ctx.fillRect(0, h - footerH, w, footerH);
   ctx.fillStyle = "#ffffff"; ctx.font = F(28, 400, "Arial");
-  ctx.fillText([location, phone && `📞 ${phone}`].filter(Boolean).join("   ·   "), cx, h - fh / 2 + 10 * scale);
+  ctx.fillText([location, phone && `📞 ${phone}`].filter(Boolean).join("   ·   "), cx, h - footerH / 2 + 10 * scale);
 }
 
 function wrapText(ctx, text, x, y, maxW, lineH) {
@@ -178,22 +248,80 @@ function wrapText(ctx, text, x, y, maxW, lineH) {
   ctx.fillText(line, x, yy);
 }
 
+const MAX_SERVICE_ROWS = 5;
+
+function ServiceOfferRows({ services, rows, setRows }) {
+  const [selId, setSelId] = useState("");
+
+  function addRow() {
+    const svc = services.find(s => s.id === selId);
+    if (!svc) return;
+    if (rows.some(r => r.service_id === svc.id)) { toast.info("Service already added"); return; }
+    if (rows.length >= MAX_SERVICE_ROWS) { toast.info(`Max ${MAX_SERVICE_ROWS} services fit on a poster`); return; }
+    setRows([...rows, { service_id: svc.id, name: svc.name, actual: svc.price, offer: svc.price }]);
+    setSelId("");
+  }
+
+  return (
+    <div className="card-light space-y-3" data-testid="service-offers-card">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Service offers (optional)</div>
+      <p className="text-xs text-slate-400 -mt-1">Pick services — actual price comes from your menu, you set the offer price, discount is calculated for the poster.</p>
+      <div className="flex gap-2">
+        <select data-testid="service-offer-select" className="input-light flex-1" value={selId} onChange={e => setSelId(e.target.value)}>
+          <option value="">Choose a service…</option>
+          {services.map(s => (
+            <option key={s.id} value={s.id}>{s.name} — ₹{s.price}</option>
+          ))}
+        </select>
+        <button data-testid="service-offer-add-btn" onClick={addRow} disabled={!selId} className="btn-blue text-xs px-3 flex items-center gap-1 disabled:opacity-50">
+          <Plus className="w-3.5 h-3.5" /> Add
+        </button>
+      </div>
+      {rows.length > 0 && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-[1fr_76px_76px_64px_24px] gap-2 text-[10px] uppercase tracking-wider text-slate-400 px-1">
+            <span>Service</span><span>Actual ₹</span><span>Offer ₹</span><span>Disc.</span><span />
+          </div>
+          {rows.map((r, i) => {
+            const pct = discountPct(r.actual, r.offer);
+            return (
+              <div key={r.service_id} className="grid grid-cols-[1fr_76px_76px_64px_24px] gap-2 items-center" data-testid={`service-offer-row-${i}`}>
+                <div className="text-sm truncate" title={r.name}>{r.name}</div>
+                <div className="text-sm text-slate-500 tabular-nums">₹{Number(r.actual).toLocaleString("en-IN")}</div>
+                <input
+                  data-testid={`service-offer-price-${i}`}
+                  type="number" min="0" step="any"
+                  className="input-light py-1 text-sm"
+                  value={r.offer}
+                  onChange={e => setRows(rows.map((x, xi) => xi === i ? { ...x, offer: e.target.value } : x))}
+                />
+                <span data-testid={`service-offer-disc-${i}`} className={`text-xs font-semibold text-center px-1 py-0.5 rounded ${pct > 0 ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-slate-50 text-slate-400 border border-slate-200"}`}>
+                  {pct > 0 ? `${pct}%` : "—"}
+                </span>
+                <button data-testid={`service-offer-remove-${i}`} onClick={() => setRows(rows.filter((_, xi) => xi !== i))} className="text-slate-300 hover:text-red-500">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OffersStudio() {
   const canvasRef = useRef(null);
   const [tenant, setTenant] = useState(null);
   const [logoImg, setLogoImg] = useState(null);
   const [miraImg, setMiraImg] = useState(null);
-
-  useEffect(() => {
-    const mi = new Image();
-    mi.onload = () => setMiraImg(mi);
-    mi.src = "/mira-banner-avatar.png";
-  }, []);
   const [theme, setTheme] = useState(THEMES[0]);
   const [paletteIdx, setPaletteIdx] = useState(0);
   const [layout, setLayout] = useState(LAYOUTS[0]);
   const [format, setFormat] = useState("post"); // post 1080x1080 | status 1080x1920
   const [f, setF] = useState({ offerTitle: "FLAT 30% OFF", offerDetails: "On all hair, beauty & bridal services", validity: "", location: "", phone: "" });
+  const [services, setServices] = useState([]);
+  const [rows, setRows] = useState([]); // {service_id, name, actual, offer}
 
   useEffect(() => {
     const mi = new Image();
@@ -202,6 +330,7 @@ export default function OffersStudio() {
   }, []);
 
   useEffect(() => {
+    api.get("/services").then(r => setServices(r.data || [])).catch(() => {});
     api.get("/tenants/current").then(r => {
       setTenant(r.data);
       setF(prev => ({ ...prev, location: r.data.location || "", phone: r.data.phone || "" }));
@@ -220,9 +349,11 @@ export default function OffersStudio() {
     const w = 1080, h = format === "post" ? 1080 : 1920;
     drawPoster(canvasRef.current, {
       w, h, palette: theme.palettes[paletteIdx], layoutId: layout.id, themeName: theme.name,
-      salon: tenant?.name, logoImg, miraImg, isMira: theme.id === "mira", ...f,
+      salon: tenant?.name, logoImg, miraImg, isMira: theme.id === "mira",
+      services: rows.filter(r => parseFloat(r.actual) > 0 && parseFloat(r.offer) >= 0),
+      ...f,
     });
-  }, [theme, paletteIdx, layout, format, tenant, logoImg, miraImg, f]);
+  }, [theme, paletteIdx, layout, format, tenant, logoImg, miraImg, f, rows]);
   useEffect(() => { render(); }, [render]);
 
   function download() {
@@ -295,6 +426,8 @@ export default function OffersStudio() {
               </div>
             </div>
           </div>
+
+          <ServiceOfferRows services={services} rows={rows} setRows={setRows} />
 
           <div className="card-light space-y-3">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Offer details</div>

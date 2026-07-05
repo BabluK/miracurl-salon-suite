@@ -560,3 +560,17 @@ Audit verdict: 1 HIGH + hardening items. Fixed:
 - Attendance.jsx wired to global header BranchSwitcher (getSelectedBranch + branch-changed event, same pattern as Dashboard); violet filter tag (attendance-branch-filter-tag) shows next to subtitle when a branch is selected.
 - Verified: switcher→AECS shows only Priya (total 1); All branches shows 4. Screenshot verified.
 - Also fixed: stray corrupt trailing line in server.py that briefly broke backend import.
+
+## Update — Jul 5, 2026 (part 34) — Code review fixes + Offer Maker service offers (VERIFIED)
+CODE REVIEW verdict: both "critical" claims were STALE/false positives — ruff F821 = 0 undefined vars; eslint react-hooks/exhaustive-deps = 0 warnings; NO auth tokens in localStorage (auth = httpOnly cookies; localStorage only stores remembered email/branch name/dismiss flags/public chat session id).
+Genuine fixes applied:
+- Removed 2 unused vars in backend tests (ruff clean).
+- index.js prod silencer now also mutes console.warn.
+- Perf: TOAST_OPTIONS module consts (App.js, ReviewPublic), TICKET_STATUSES const (EngineerPanel).
+- Backend extract-method: _roster_row(), _staff_invoice_earnings(), _attendance_month_totals(), _invoice_staff_buckets(), _parse_invoice_created_ist() — attendance_today/_compute_salary_for_month/staff_performance simplified; API shapes verified identical via curl.
+- Frontend splits: Staff.jsx 552→~210 (components/staff/{StaffCard,StaffFormModal,AdvanceModal,TempCredModal}.jsx); BookingChatWidget 439→372 via hooks/useVoiceRecording.js (VAD mic recording hook). Staff page + form modal + public Mira chat (text reply w/ session) screenshot-verified.
+- NOT refactored (deliberate): create_invoice (already delegates; money path), Settings.jsx split still in backlog.
+
+OFFER MAKER (OffersStudio.jsx):
+- FIXED overlap: "Big badge" circle was pinned at 46% height covering the "✦ Theme Special ✦" subtitle — badge now positioned dynamically below subtitle (by = max(0.46h, y+br+50)); shrinks to 150px radius when services present.
+- NEW: Service offers card (service-offers-card) — pick services from menu (GET /services, name+price prefetched), set offer price, discount % auto-calculated (discountPct), max 5 rows. Poster renders centred lines: name + struck-through actual + accent offer price + "% OFF" pill (strike hidden when no discount). Overflow-guarded (never spills into footer). Screenshot-verified on badge + classic layouts (Bridal Makeup ₹2,000→₹1,400 30% OFF).

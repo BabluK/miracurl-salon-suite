@@ -263,7 +263,7 @@ class TestAssistantAiChat:
                                timeout=90, stream=True)
         assert r.status_code == 200, f"cookie-auth regression: {r.status_code} {r.text[:200]}"
         # consume a tiny bit of the stream to ensure it's actually flowing
-        chunk = next(r.iter_content(64, decode_unicode=True), None)
+        next(r.iter_content(64, decode_unicode=True), None)
         # LLM may or may not respond quickly; presence of ANY bytes (or empty on error path) is OK
         # main assertion is the 200 status (no 401)
         r.close()

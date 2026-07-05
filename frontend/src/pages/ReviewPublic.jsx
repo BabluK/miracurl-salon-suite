@@ -6,6 +6,7 @@ import { toast, Toaster } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const PUBLIC = axios.create({ baseURL: `${BACKEND_URL}/api/public` });
+const TOAST_OPTIONS = { style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } };
 
 export default function ReviewPublic() {
   const { token } = useParams();
@@ -64,7 +65,7 @@ export default function ReviewPublic() {
 
   return (
     <div className="min-h-screen bg-bg-base text-ink-primary flex flex-col" data-testid="review-page">
-      <Toaster theme="dark" position="top-center" toastOptions={{ style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } }} />
+      <Toaster theme="dark" position="top-center" toastOptions={TOAST_OPTIONS} />
 
       <header className="border-b border-white/5 py-4">
         <div className="max-w-2xl mx-auto px-6 flex items-center gap-3">

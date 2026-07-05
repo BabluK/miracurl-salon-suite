@@ -1584,6 +1584,42 @@ async def staff_my_attendance(month: Optional[str] = None, s=Depends(_current_st
 
 # ---- Admin attendance oversight ----
 
+def _roster_row(s: dict, rec: Optional[dict], now: datetime) -> dict:
+    """One attendance-roster row: derive status/hours from the day's record."""
+    status, hours = "absent", 0.0
+    if rec and rec.get("check_in_at"):
+        if rec.get("check_out_at"):
+            status = "completed"
+            hours = float(rec.get("hours_worked") or 0)
+        else:
+            status = "on_shift"
+            try:
+                hours = round((now - datetime.fromisoformat(rec["check_in_at"])).total_seconds() / 3600, 2)
+            except Exception:
+                hours = 0.0
+    r = rec or {}
+    return {
+        "staff_id": s["id"],
+        "name": s.get("name"),
+        "role": s.get("role"),
+        "image_url": s.get("image_url"),
+        "phone": s.get("phone"),
+        "has_login": bool(s.get("user_id")),
+        "status": status,
+        "check_in_at": r.get("check_in_at"),
+        "check_out_at": r.get("check_out_at"),
+        "hours": hours,
+        "late_minutes": r.get("late_minutes") or 0,
+        "late_penalty": r.get("late_penalty") or 0,
+        "late_penalty_waived": r.get("late_penalty_waived") or 0,
+        "record_id": r.get("id"),
+        "branch": s.get("branch") or "",
+        "overtime_hours": r.get("overtime_hours") or 0,
+        "overtime_pay": r.get("overtime_pay") or 0,
+        "auto_checked_out": bool(r.get("auto_checked_out")),
+    }
+
+
 @api.get("/attendance/today")
 async def attendance_today(date: Optional[str] = None,
                            branch: Optional[str] = None,
@@ -1614,41 +1650,7 @@ async def attendance_today(date: Optional[str] = None,
     roster = []
     now = datetime.now(timezone.utc)
     for s in staff_list:
-        rec = att_by_sid.get(s["id"])
-        status = "absent"
-        hours = 0.0
-        if rec and rec.get("check_in_at"):
-            if rec.get("check_out_at"):
-                status = "completed"
-                hours = float(rec.get("hours_worked") or 0)
-            else:
-                status = "on_shift"
-                try:
-                    hours = round(
-                        (now - datetime.fromisoformat(rec["check_in_at"])).total_seconds() / 3600, 2
-                    )
-                except Exception:
-                    hours = 0.0
-        roster.append({
-            "staff_id": s["id"],
-            "name": s.get("name"),
-            "role": s.get("role"),
-            "image_url": s.get("image_url"),
-            "phone": s.get("phone"),
-            "has_login": bool(s.get("user_id")),
-            "status": status,
-            "check_in_at": rec.get("check_in_at") if rec else None,
-            "check_out_at": rec.get("check_out_at") if rec else None,
-            "hours": hours,
-            "late_minutes": (rec or {}).get("late_minutes") or 0,
-            "late_penalty": (rec or {}).get("late_penalty") or 0,
-            "late_penalty_waived": (rec or {}).get("late_penalty_waived") or 0,
-            "record_id": (rec or {}).get("id"),
-            "branch": s.get("branch") or "",
-            "overtime_hours": (rec or {}).get("overtime_hours") or 0,
-            "overtime_pay": (rec or {}).get("overtime_pay") or 0,
-            "auto_checked_out": bool((rec or {}).get("auto_checked_out")),
-        })
+        roster.append(_roster_row(s, att_by_sid.get(s["id"]), now))
 
     return {
         "date": day,
@@ -1692,6 +1694,36 @@ async def attendance_by_staff(sid: str, month: Optional[str] = None,
     }
 
 
+def _staff_invoice_earnings(invs: list, staff_id: str) -> tuple:
+    """(gross, service_gross, service_count) attributable to one staff member."""
+    gross = service_gross = 0.0
+    service_count = 0
+    for inv in invs:
+        inv_staff = inv.get("staff_id")
+        for it in inv.get("items", []):
+            sid = it.get("staff_id") or inv_staff
+            if sid != staff_id:
+                continue
+            qty = int(it.get("qty") or 1)
+            line_total = qty * float(it.get("price") or 0)
+            gross += line_total
+            if it.get("type") == "service":
+                service_gross += line_total
+                service_count += qty
+    return gross, service_gross, service_count
+
+
+def _attendance_month_totals(recs: list) -> dict:
+    return {
+        "days_present": sum(1 for r in recs if r.get("check_in_at")),
+        "total_hours": round(sum(float(r.get("hours_worked") or 0) for r in recs), 2),
+        "overtime_hours_total": round(sum(float(r.get("overtime_hours") or 0) for r in recs), 2),
+        "overtime_total": round(sum(float(r.get("overtime_pay") or 0) for r in recs), 2),
+        "late_penalty_total": round(sum(float(r.get("late_penalty") or 0) for r in recs), 2),
+        "late_days": sum(1 for r in recs if (r.get("late_penalty") or 0) > 0),
+    }
+
+
 async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: dict) -> dict:
     """Base + commission from services performed in this calendar month."""
     from calendar import monthrange
@@ -1703,22 +1735,7 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         {"_id": 0},
     ).to_list(5000)
     pct = float(staff.get("commission_pct") or 0)
-    gross = 0.0
-    service_gross = 0.0
-    service_count = 0
-    for inv in invs:
-        inv_staff = inv.get("staff_id")
-        for it in inv.get("items", []):
-            sid = it.get("staff_id") or inv_staff
-            if sid != staff["id"]:
-                continue
-            qty = int(it.get("qty") or 1)
-            price = float(it.get("price") or 0)
-            line_total = qty * price
-            gross += line_total
-            if it.get("type") == "service":
-                service_gross += line_total
-                service_count += qty
+    gross, service_gross, service_count = _staff_invoice_earnings(invs, staff["id"])
     commission = round(service_gross * pct / 100, 2)
     # Attendance
     att_start = f"{year:04d}-{month:02d}-01"
@@ -1727,18 +1744,13 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         {"staff_id": staff["id"], "date": {"$gte": att_start, "$lte": att_end}},
         {"_id": 0},
     ).to_list(200)
-    days_present = sum(1 for r in recs if r.get("check_in_at"))
-    total_hours = round(sum(float(r.get("hours_worked") or 0) for r in recs), 2)
-    overtime_hours_total = round(sum(float(r.get("overtime_hours") or 0) for r in recs), 2)
-    overtime_total = round(sum(float(r.get("overtime_pay") or 0) for r in recs), 2)
-    late_penalty_total = round(sum(float(r.get("late_penalty") or 0) for r in recs), 2)
-    late_days = sum(1 for r in recs if (r.get("late_penalty") or 0) > 0)
+    att = _attendance_month_totals(recs)
     adv_rows = await db.advances.find(
         {"staff_id": staff["id"], "month": f"{year:04d}-{month:02d}"}, {"_id": 0}).to_list(5)
     advance_total = round(sum(float(a.get("amount") or 0) for a in adv_rows), 2)
     base = float(staff.get("monthly_base_salary") or 0)
-    deductions_total = round(late_penalty_total + advance_total, 2)
-    total = round(base + commission + overtime_total - deductions_total, 2)
+    deductions_total = round(att["late_penalty_total"] + advance_total, 2)
+    total = round(base + commission + att["overtime_total"] - deductions_total, 2)
     return {
         "period": f"{year:04d}-{month:02d}",
         "period_label": datetime(year, month, 1).strftime("%B %Y"),
@@ -1756,12 +1768,7 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         "service_gross": round(service_gross, 2),
         "service_count": service_count,
         "commission_amount": commission,
-        "days_present": days_present,
-        "total_hours": total_hours,
-        "overtime_hours_total": overtime_hours_total,
-        "overtime_total": overtime_total,
-        "late_days": late_days,
-        "late_penalty_total": late_penalty_total,
+        **att,
         "advance_total": advance_total,
         "deductions_total": deductions_total,
         "gross_earnings": round(gross, 2),
@@ -2351,6 +2358,27 @@ async def _dashboard_revenue_trend(days: int = 7) -> list:
     return trend
 
 
+def _invoice_staff_buckets(inv: dict) -> dict:
+    """Per-staff {revenue, services, sname} buckets for one invoice's items."""
+    buckets = {}
+    for it in (inv.get("items") or []):
+        sid = it.get("staff_id") or inv.get("staff_id") or "unassigned"
+        b = buckets.setdefault(sid, {"revenue": 0.0, "services": 0, "sname": it.get("staff_name")})
+        b["revenue"] += (it.get("qty") or 1) * (it.get("price") or 0)
+        b["services"] += (it.get("qty") or 1)
+    return buckets
+
+
+def _parse_invoice_created_ist(inv: dict, ist) -> Optional[datetime]:
+    try:
+        created = datetime.fromisoformat(inv["created_at"])
+    except (ValueError, TypeError, KeyError):
+        return None
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return created.astimezone(ist)
+
+
 @api.get("/reports/staff-performance")
 async def staff_performance(user=Depends(get_current_user)):
     """Revenue per stylist for today / this week / this month / last month (IST)."""
@@ -2375,19 +2403,10 @@ async def staff_performance(user=Depends(get_current_user)):
     names = {s["id"]: s["name"] for s in staff_docs}
     out = {k: {} for k in periods}
     for inv in invoices:
-        try:
-            created = datetime.fromisoformat(inv["created_at"])
-        except (ValueError, TypeError, KeyError):
+        c_ist = _parse_invoice_created_ist(inv, ist)
+        if c_ist is None:
             continue
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=timezone.utc)
-        c_ist = created.astimezone(ist)
-        buckets = {}
-        for it in (inv.get("items") or []):
-            sid = it.get("staff_id") or inv.get("staff_id") or "unassigned"
-            b = buckets.setdefault(sid, {"revenue": 0.0, "services": 0, "sname": it.get("staff_name")})
-            b["revenue"] += (it.get("qty") or 1) * (it.get("price") or 0)
-            b["services"] += (it.get("qty") or 1)
+        buckets = _invoice_staff_buckets(inv)
         for key, (start, end) in periods.items():
             if c_ist >= start and (end is None or c_ist < end):
                 for sid, b in buckets.items():

@@ -3,6 +3,8 @@ import { Toaster } from "sonner";
 import "@/App.css";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { getActAsSalon } from "@/lib/api";
+
+const TOAST_OPTIONS = { style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } };
 import Login from "@/pages/Login";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
@@ -109,7 +111,7 @@ export default function App() {
         <BrowserRouter>
           <ManifestSwitcher />
           <MicroInteractions />
-          <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } }} />
+          <Toaster theme="dark" position="top-right" toastOptions={TOAST_OPTIONS} />
           <ErrorBoundary>
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />

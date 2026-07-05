@@ -52,12 +52,6 @@ def test_public_availability_slot_blocked():
     assert r.status_code == 200, r.text
     d = r.json()
     slots = d.get("slots") or d.get("availability") or d
-    # Find 18:00 slot
-    found = None
-    if isinstance(slots, list):
-        for s in slots:
-            if s.get("time") in ("18:00","18:30"):
-                found = s; break
     print("slots sample:", str(slots)[:400])
     # Non-strict - just report
     assert slots is not None

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import axios from "axios";
 import { Sparkles, MessageCircle, X, Send, Loader2, Check, User, Mic, Square, Volume2 } from "lucide-react";
+import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -54,19 +55,30 @@ function AiTab({ slug }) {
   const [msgs, setMsgs] = useState([mkMsg({ role: "ai", text: "Hi! I'm Mira ✨ your personal beauty advisor.\n\nI can book appointments for you, or suggest the right service for your hair & skin. May I know your name, please? 💖" })]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [recording, setRecording] = useState(false);
   const [handsFree, setHandsFree] = useState(false);
   const endRef = useRef(null);
   const sidRef = useRef(null);
-  const recRef = useRef(null);
-  const chunksRef = useRef([]);
   const audioRef = useRef(null);
-  const vadCtxRef = useRef(null);
-  const silenceTimerRef = useRef(null);
-  const maxTimerRef = useRef(null);
-  const rafRef = useRef(null);
-  const speechRef = useRef(false);
   const handsFreeRef = useRef(false);
+
+  const { recording, startRecording, stopRecording } = useVoiceRecording({
+    onBlob: (blob, auto) => sendVoice(blob, auto),
+    onNoSpeech: () => {
+      // Hands-free with no speech for 30s → spoken apology + end voice chat
+      setHandsFree(false);
+      setMsgs(m => [...m, mkMsg({ role: "ai", text: "Sorry, we haven't heard anything 🙉 — ending voice chat for now. Tap the mic or type whenever you're ready. 💖" })]);
+      try {
+        const a = new Audio("/mira-timeout.mp3");
+        audioRef.current = a;
+        a.play().catch(() => {});
+      } catch { /* noop */ }
+    },
+    onMicError: () => {
+      setHandsFree(false);
+      setMsgs(m => [...m, mkMsg({ role: "ai", text: "I couldn't access your microphone 🎙️ — please allow mic permission and try again, or just type your message." })]);
+    },
+  });
+
   useEffect(() => { handsFreeRef.current = handsFree; }, [handsFree]);
   if (!sidRef.current) {
     const k = `mira_ai_sid_${slug}`;
@@ -74,7 +86,7 @@ function AiTab({ slug }) {
     sessionStorage.setItem(k, sidRef.current);
   }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
-  useEffect(() => () => { audioRef.current?.pause(); cleanupVad(); try { recRef.current?.state !== "inactive" && recRef.current?.stop(); } catch { /* noop */ } }, []);
+  useEffect(() => () => { audioRef.current?.pause(); }, []);
 
   async function send(preset) {
     const text = (preset ?? input).trim();
@@ -98,84 +110,6 @@ function AiTab({ slug }) {
       if (onEnd) a.onended = onEnd;
       a.play().catch(() => onEnd?.());
     } catch { onEnd?.(); }
-  }
-
-  function cleanupVad() {
-    clearTimeout(silenceTimerRef.current);
-    clearTimeout(maxTimerRef.current);
-    cancelAnimationFrame(rafRef.current);
-    try { vadCtxRef.current?.close(); } catch { /* ignore */ }
-    vadCtxRef.current = null;
-  }
-
-  async function startRecording(auto = false) {
-    if (busy || recording) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
-      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      chunksRef.current = [];
-      speechRef.current = false;
-      rec.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      rec.onstop = async () => {
-        cleanupVad();
-        stream.getTracks().forEach(t => t.stop());
-        const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-        setRecording(false);
-        // Hands-free with no speech for 30s → spoken apology + end voice chat
-        if (auto && !speechRef.current) {
-          setHandsFree(false);
-          setMsgs(m => [...m, mkMsg({ role: "ai", text: "Sorry, we haven't heard anything 🙉 — ending voice chat for now. Tap the mic or type whenever you're ready. 💖" })]);
-          try {
-            const a = new Audio("/mira-timeout.mp3");
-            audioRef.current = a;
-            a.play().catch(() => {});
-          } catch { /* noop */ }
-          return;
-        }
-        if (blob.size < 1200) return;
-        await sendVoice(blob, auto);
-      };
-      rec.start();
-      recRef.current = rec;
-      setRecording(true);
-
-      // Voice-activity detection: auto-stop on a natural pause after speech,
-      // or after 30s of total silence in hands-free mode.
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      vadCtxRef.current = ctx;
-      const src = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 512;
-      src.connect(analyser);
-      const buf = new Uint8Array(analyser.frequencyBinCount);
-      maxTimerRef.current = setTimeout(() => { try { rec.state !== "inactive" && rec.stop(); } catch { /* noop */ } }, 30000);
-      const tick = () => {
-        analyser.getByteTimeDomainData(buf);
-        let sum = 0;
-        for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
-        const rms = Math.sqrt(sum / buf.length);
-        if (rms > 0.045) {
-          speechRef.current = true;
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        } else if (speechRef.current && !silenceTimerRef.current) {
-          // 1.4s of silence after speech → end turn and send
-          silenceTimerRef.current = setTimeout(() => { try { rec.state !== "inactive" && rec.stop(); } catch { /* noop */ } }, 1400);
-        }
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
-    } catch {
-      setHandsFree(false);
-      setMsgs(m => [...m, mkMsg({ role: "ai", text: "I couldn't access your microphone 🎙️ — please allow mic permission and try again, or just type your message." })]);
-    }
-  }
-
-  function stopRecording() {
-    cleanupVad();
-    try { recRef.current?.state !== "inactive" && recRef.current?.stop(); } catch { /* noop */ }
-    setRecording(false);
   }
 
   function toggleHandsFree() {
