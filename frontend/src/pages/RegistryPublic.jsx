@@ -57,7 +57,7 @@ export default function RegistryPublic() {
               <input
                 data-testid="public-registry-search-input"
                 value={q} onChange={e => setQ(e.target.value)}
-                placeholder="Enter Staff ID (e.g. STF-00001) or phone number"
+                placeholder="Enter Aadhaar (12 digits), phone number or Staff ID (STF-00001)"
                 className="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-4 py-3 text-sm placeholder:text-slate-500 focus:outline-none focus:border-violet-400/60 focus:bg-white/10 transition"
               />
             </div>
@@ -67,7 +67,7 @@ export default function RegistryPublic() {
           </form>
           {error && <div data-testid="public-registry-error" className="mt-4 text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{error}</div>}
           <p className="mt-3 text-[11px] text-slate-500">
-            Search by <b className="text-slate-400">Staff ID</b> → shows the current organization only. Search by <b className="text-slate-400">phone number</b> → shows the full employment history.
+            Search by <b className="text-slate-400">Aadhaar (12 digits)</b> or <b className="text-slate-400">phone</b> → full employment history. Search by <b className="text-slate-400">Staff ID</b> → current organization only.
           </p>
         </div>
       </div>

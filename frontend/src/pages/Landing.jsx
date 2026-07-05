@@ -48,6 +48,8 @@ const PLANS = [
     items: ["Unlimited customers", "Unlimited bookings", "Per-stylist commission", "WhatsApp support", "All features"] },
   { key: "annual", title: "Annual Plan", price: "₹20,000", per: "for 1 year — save ₹4,000", cta: "Best value", primary: false,
     items: ["Everything in 6-Month", "12 months access", "Priority support", "Custom branding next year"] },
+  { key: "multi_branch", title: "Multi-Branch (5+ branches)", price: "₹70,000", per: "per year · or ₹45,000 for 6 months", cta: "For salon chains", primary: false,
+    items: ["Everything in Annual", "5+ branches under one account", "Branch-wise reports & switching", "Branch-tagged billing (POS)", "Dedicated onboarding support"] },
 ];
 
 export default function Landing() {
@@ -228,7 +230,7 @@ export default function Landing() {
           <h2 className="font-playfair text-3xl sm:text-5xl text-slate-900 mt-3">Simple, salon-friendly</h2>
           <p className="text-slate-600 mt-3 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Pay once, use everything.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {PLANS.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
                  className={`rounded-2xl border p-6 shadow-sm relative ${p.primary ? "bg-gradient-to-b from-sky-50/60 to-white border-sky-300 ring-2 ring-sky-200" : "bg-white border-slate-200"}`}>

@@ -6205,6 +6205,15 @@ async def registry_add_employment(eid: str, body: RegistryEmploymentIn, admin=De
     emp = await _raw_db.registry_employees.find_one({"id": eid}, {"_id": 0, "id": 1})
     if not emp:
         raise HTTPException(404, "Employee not found")
+    # One record per staff per salon. Re-hires are controlled by HQ: the
+    # super-admin (via Act As Salon) can always add the returning-employee record.
+    if admin.get("role") != "super_admin":
+        existing = await _raw_db.registry_employments.find_one(
+            {"employee_id": eid, "tenant_id": t["id"]}, {"_id": 0, "id": 1})
+        if existing:
+            raise HTTPException(
+                403, "A record for this staff already exists under your salon. "
+                     "If they re-joined, contact HQ (super-admin) to add the re-hire record.")
     doc = {
         "id": str(uuid.uuid4()), "employee_id": eid, "tenant_id": t["id"],
         "salon_name": t.get("name", "Salon"),
@@ -6266,10 +6275,16 @@ async def registry_public_search(q: str, request: Request):
     emp = await _raw_db.registry_employees.find_one({"staff_code": qs.upper()}, {"_id": 0})
     if emp:
         return await _registry_profile(emp, current_only=True)
+    # 12-digit query = Aadhaar (permanent ID) → full cross-salon history
+    if len(digits) == 12:
+        emp = await _raw_db.registry_employees.find_one({"aadhaar_hash": _aadhaar_fp(digits)}, {"_id": 0})
+        if not emp:
+            raise HTTPException(404, "No staff found with that Aadhaar number — check all 12 digits")
+        return await _registry_profile(emp)
     if len(digits) >= 10:
         emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{digits[-10:]}$"}}, {"_id": 0})
     if not emp:
-        raise HTTPException(404, "No staff found with that ID or phone number")
+        raise HTTPException(404, "No staff found. Use their 12-digit Aadhaar, 10-digit phone, or Staff ID (STF-xxxxx)")
     return await _registry_profile(emp)
 
 

@@ -512,3 +512,8 @@ User confirmed: 1a per-staff overtime rate, 2b per-staff shift timing (10-min gr
 5. **Auto monthly reports**: _run_monthly_reports() shared; startup hourly loop sends on 1st ≥9AM IST, dedup via monthly_report_runs collection.
 6. **Public staff verification links** on Landing nav ('Verify Staff — Free', data-testid landing-verify-staff) + footer → existing public /staff-registry.
 Tested: iteration_46.json — backend 15/15 pass; 1 UI fix (manager branch switcher visibility) applied + screenshot-verified.
+
+## Update — Jul 5, 2026 (part 27) — Registry rules + public Aadhaar search + landing pricing
+- Registry: one employment record per staff per salon — POST /registry/employees/{eid}/employments & /transfer now 403 for owner/manager if a record by that tenant exists; super_admin role (via Act As Salon) bypasses to add re-hire records. Staff-ID stays permanent. Edit/delete already owner-only (require_tenant_admin blocks managers; registry page is OwnerOnly route).
+- Public /api/public/registry/search: 12-digit query now searches by aadhaar_hash → full history; better error hints; RegistryPublic.jsx placeholder/hints updated. (User's prod attempt failed because they typed 10 digits AND prod lacked the feature — needs redeploy.)
+- Landing pricing: added 4th card 'Multi-Branch (5+ branches)' ₹70,000/yr or ₹45,000/6mo (grid now lg:grid-cols-4). Screenshot verified.
