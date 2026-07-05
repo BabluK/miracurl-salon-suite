@@ -6103,6 +6103,18 @@ async def _registry_profile(emp: dict, current_only: bool = False) -> dict:
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
     if current_only:
         emps = [e for e in emps if not e.get("to_date")]
+    badge = _registry_badge(total_years, avg_rating)
+    # Hire-worthiness verdict for the public verify page
+    red_reasons = [e.get("reason_for_leaving") for e in emps if e.get("reason_for_leaving") in ("Terminated", "Absconded")]
+    if red_reasons or badge == "BAD" or (avg_rating is not None and avg_rating < 2.5):
+        verdict, verdict_note = "red", "Caution — past record shows " + (
+            f"{'/'.join(sorted(set(red_reasons)))}" if red_reasons else "very low ratings") + ". Verify carefully before hiring."
+    elif (avg_rating is not None and avg_rating >= 4) or badge in ("Excellent", "Extraordinary"):
+        verdict, verdict_note = "green", "Strong record — well-rated with clean employment history. Recommended."
+    elif avg_rating is None and total_years < 1:
+        verdict, verdict_note = "amber", "Limited history — new to the registry, no ratings yet. Take references."
+    else:
+        verdict, verdict_note = "amber", "Average record — acceptable history, review ratings and reasons before hiring."
     return {
         "history_scope": "current" if current_only else "full",
         "id": emp["id"], "staff_code": emp["staff_code"], "name": emp["name"],
@@ -6112,7 +6124,8 @@ async def _registry_profile(emp: dict, current_only: bool = False) -> dict:
         "permanent_address": emp.get("permanent_address") or "",
         "current_address": emp.get("current_address") or "", "city": emp.get("city") or "",
         "total_years": round(total_years, 1), "avg_rating": avg_rating,
-        "badge": _registry_badge(total_years, avg_rating),
+        "badge": badge,
+        "hire_verdict": verdict, "hire_verdict_note": verdict_note,
         "employments": emps, "created_at": emp.get("created_at"),
         "created_by_tenant": emp.get("created_by_tenant", ""),
     }

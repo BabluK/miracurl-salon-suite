@@ -76,6 +76,24 @@ export default function RegistryPublic() {
       {profile && (
         <div className="max-w-3xl mx-auto px-4 py-8 space-y-5" data-testid="public-registry-result">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+            {profile.hire_verdict && (
+              <div
+                data-testid="hire-verdict-banner"
+                className={`mb-5 flex items-center gap-3 rounded-xl px-4 py-3 border ${
+                  profile.hire_verdict === "green" ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-300"
+                  : profile.hire_verdict === "red" ? "bg-red-500/15 border-red-400/40 text-red-300"
+                  : "bg-amber-500/15 border-amber-400/40 text-amber-300"}`}
+              >
+                <span className={`w-3.5 h-3.5 rounded-full shrink-0 ${
+                  profile.hire_verdict === "green" ? "bg-emerald-400" : profile.hire_verdict === "red" ? "bg-red-400" : "bg-amber-400"} ${profile.hire_verdict !== "red" ? "" : "animate-pulse"}`} />
+                <div>
+                  <div className="text-sm font-bold uppercase tracking-wider">
+                    {profile.hire_verdict === "green" ? "Safe to hire" : profile.hire_verdict === "red" ? "Hire with caution" : "Verify references"}
+                  </div>
+                  <div className="text-xs opacity-90 mt-0.5">{profile.hire_verdict_note}</div>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-5">
               <img
                 src={profile.photo_url || "https://ui-avatars.com/api/?background=2e1065&color=c4b5fd&size=160&name=" + encodeURIComponent(profile.name)}

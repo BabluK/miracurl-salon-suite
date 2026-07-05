@@ -3,8 +3,12 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Download, Palette, Sparkles } from "lucide-react";
 
-// 10 seasonal themes × 4 palettes × 3 layouts = 120 templates
+const MIRA_HEADLINE = "MEET MIRA — AI BEAUTY EXPERT";
+const MIRA_DETAILS = "Consult Mira AI, our 24/7 beauty & hair expert. Share your skin tone and dream hair colour — get personalised suggestions, and Mira books your appointment with our in-salon experts to bring the look to life.";
+
+// 10 seasonal themes × 4 palettes × 3 layouts = 120 templates (+ Mira AI special)
 const THEMES = [
+  { id: "mira", name: "✦ Mira AI Expert", palettes: [["#241b4d", "#3b2a73", "#d4af37"], ["#12101f", "#2d2350", "#d4af37"], ["#3c096c", "#5a189a", "#ffd166"], ["#1a1423", "#463f5e", "#e0aaff"]] },
   { id: "diwali", name: "Diwali", palettes: [["#2a0a4a", "#7b2ff7", "#ffd166"], ["#3d0b0b", "#b31217", "#ffd166"], ["#1a1a2e", "#e94560", "#ffd166"], ["#4a148c", "#ff6f00", "#fff3b0"]] },
   { id: "holi", name: "Holi", palettes: [["#ff5d8f", "#ffd166", "#4cc9f0"], ["#7209b7", "#f72585", "#ffd60a"], ["#06d6a0", "#ef476f", "#ffd166"], ["#4361ee", "#f72585", "#4cc9f0"]] },
   { id: "christmas", name: "Christmas / New Year", palettes: [["#0b3d2e", "#c1121f", "#ffd166"], ["#14213d", "#fca311", "#e5e5e5"], ["#1b4332", "#d8f3dc", "#c1121f"], ["#03045e", "#caf0f8", "#ffd166"]] },
@@ -23,7 +27,7 @@ const LAYOUTS = [
 ];
 
 function drawPoster(canvas, opts) {
-  const { w, h, palette, layoutId, themeName, salon, offerTitle, offerDetails, location, phone, validity, logoImg } = opts;
+  const { w, h, palette, layoutId, themeName, salon, offerTitle, offerDetails, location, phone, validity, logoImg, miraImg, isMira } = opts;
   const [c1, c2, accent] = palette;
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
@@ -47,6 +51,51 @@ function drawPoster(canvas, opts) {
   const scale = w / 1080;
   const F = (px, weight = 600, fam = "Georgia, serif") => `${weight === "bold" ? "bold " : ""}${px * scale}px ${fam}`;
   ctx.textAlign = "center";
+
+  if (isMira && miraImg) {
+    // gold dashed decorative ring
+    ctx.save();
+    ctx.setLineDash([10 * scale, 12 * scale]);
+    ctx.strokeStyle = accent + "99";
+    ctx.lineWidth = 2.5 * scale;
+    ctx.beginPath(); ctx.arc(cx, h * 0.30, 250 * scale, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    // avatar in gold circle
+    const ar = 205 * scale;
+    const ay = h * 0.30;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, ay, ar, 0, Math.PI * 2); ctx.clip();
+    ctx.drawImage(miraImg, cx - ar, ay - ar, ar * 2, ar * 2);
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(cx, ay, ar, 0, Math.PI * 2);
+    ctx.lineWidth = 7 * scale; ctx.strokeStyle = accent; ctx.stroke();
+    // ONLINE 24/7 pill
+    const pw = 250 * scale, ph = 56 * scale, px0 = cx + ar - pw + 30 * scale, py0 = ay + ar - ph - 6 * scale;
+    ctx.fillStyle = "#34d399";
+    ctx.beginPath(); ctx.roundRect(px0, py0, pw, ph, ph / 2); ctx.fill();
+    ctx.fillStyle = "#0f172a"; ctx.font = F(26, "bold", "Arial");
+    ctx.fillText("● ONLINE 24/7", px0 + pw / 2, py0 + ph / 2 + 9 * scale);
+    // texts
+    let ty = ay + ar + 90 * scale;
+    ctx.fillStyle = accent; ctx.font = F(30, "bold", "Arial");
+    ctx.fillText(salon || "Your Salon", cx, ty);
+    ty += 70 * scale;
+    ctx.fillStyle = "#ffffff"; ctx.font = F(60, "bold");
+    wrapText(ctx, offerTitle || MIRA_HEADLINE, cx, ty, w * 0.86, 70 * scale);
+    ty += 130 * scale;
+    ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.font = F(30, 400, "Arial");
+    wrapText(ctx, offerDetails || MIRA_DETAILS, cx, ty, w * 0.78, 44 * scale);
+    if (validity) {
+      ctx.fillStyle = accent; ctx.font = F(26, "bold", "Arial");
+      ctx.fillText(`Valid till ${validity}`, cx, h - 0.16 * h);
+    }
+    const fh2 = 0.09 * h;
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fillRect(0, h - fh2, w, fh2);
+    ctx.fillStyle = "#ffffff"; ctx.font = F(26, 400, "Arial");
+    ctx.fillText([location, phone && `📞 ${phone}`].filter(Boolean).join("   ·   "), cx, h - fh2 / 2 + 9 * scale);
+    return;
+  }
 
   let y = (layoutId === "band" ? 0.10 : 0.12) * h;
   // top band
@@ -133,11 +182,24 @@ export default function OffersStudio() {
   const canvasRef = useRef(null);
   const [tenant, setTenant] = useState(null);
   const [logoImg, setLogoImg] = useState(null);
+  const [miraImg, setMiraImg] = useState(null);
+
+  useEffect(() => {
+    const mi = new Image();
+    mi.onload = () => setMiraImg(mi);
+    mi.src = "/mira-banner-avatar.png";
+  }, []);
   const [theme, setTheme] = useState(THEMES[0]);
   const [paletteIdx, setPaletteIdx] = useState(0);
   const [layout, setLayout] = useState(LAYOUTS[0]);
   const [format, setFormat] = useState("post"); // post 1080x1080 | status 1080x1920
   const [f, setF] = useState({ offerTitle: "FLAT 30% OFF", offerDetails: "On all hair, beauty & bridal services", validity: "", location: "", phone: "" });
+
+  useEffect(() => {
+    const mi = new Image();
+    mi.onload = () => setMiraImg(mi);
+    mi.src = "/mira-banner-avatar.png";
+  }, []);
 
   useEffect(() => {
     api.get("/tenants/current").then(r => {
@@ -158,9 +220,9 @@ export default function OffersStudio() {
     const w = 1080, h = format === "post" ? 1080 : 1920;
     drawPoster(canvasRef.current, {
       w, h, palette: theme.palettes[paletteIdx], layoutId: layout.id, themeName: theme.name,
-      salon: tenant?.name, logoImg, ...f,
+      salon: tenant?.name, logoImg, miraImg, isMira: theme.id === "mira", ...f,
     });
-  }, [theme, paletteIdx, layout, format, tenant, logoImg, f]);
+  }, [theme, paletteIdx, layout, format, tenant, logoImg, miraImg, f]);
   useEffect(() => { render(); }, [render]);
 
   function download() {
@@ -193,7 +255,14 @@ export default function OffersStudio() {
               <label className="label-light block mb-1">Season / occasion</label>
               <div className="flex flex-wrap gap-1.5">
                 {THEMES.map(t => (
-                  <button key={t.id} data-testid={`theme-${t.id}`} onClick={() => setTheme(t)}
+                  <button key={t.id} data-testid={`theme-${t.id}`}
+                    onClick={() => {
+                      setTheme(t);
+                      if (t.id === "mira") {
+                        setF(prev => ({ ...prev, offerTitle: MIRA_HEADLINE, offerDetails: MIRA_DETAILS }));
+                        toast.success("Mira AI banner loaded — edit the text freely ✦");
+                      }
+                    }}
                     className={`text-xs px-2.5 py-1.5 rounded-full border transition ${theme.id === t.id ? "bg-slate-800 text-white border-slate-800" : "border-slate-200 text-slate-500 hover:border-slate-400"}`}>
                     {t.name}
                   </button>
@@ -232,7 +301,7 @@ export default function OffersStudio() {
             <div><label className="label-light block mb-1">Headline</label>
               <input data-testid="offer-title-input" className="input-light" value={f.offerTitle} onChange={e => setF({ ...f, offerTitle: e.target.value })} placeholder="FLAT 30% OFF" maxLength={40} /></div>
             <div><label className="label-light block mb-1">Details</label>
-              <input data-testid="offer-details-input" className="input-light" value={f.offerDetails} onChange={e => setF({ ...f, offerDetails: e.target.value })} placeholder="On all hair & beauty services" maxLength={90} /></div>
+              <input data-testid="offer-details-input" className="input-light" value={f.offerDetails} onChange={e => setF({ ...f, offerDetails: e.target.value })} placeholder="On all hair & beauty services" maxLength={240} /></div>
             <div className="grid grid-cols-3 gap-3">
               <div><label className="label-light block mb-1">Valid till</label>
                 <input className="input-light" value={f.validity} onChange={e => setF({ ...f, validity: e.target.value })} placeholder="31 Oct" maxLength={20} /></div>
