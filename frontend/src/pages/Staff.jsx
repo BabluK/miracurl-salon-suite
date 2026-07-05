@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 import { ManagersSection } from "@/components/ManagersSection";
 import { openWhatsApp } from "@/lib/share";
+import { useAuth } from "@/context/AuthContext";
 
 const EMPTY_FORM = {
   name: "", role: "Stylist", phone: "", email: "", specialties: "",
@@ -15,7 +16,7 @@ const EMPTY_FORM = {
   image_url: "", active: true,
   shift_start: "10:00", shift_end: "21:00", overtime_rate: 0,
   max_advance: 0, notice_period_days: 30, serving_notice: false,
-  last_working_day: "", aadhaar: "",
+  last_working_day: "", aadhaar: "", branch: "",
 };
 
 const buildStaffPayload = (form) => ({
@@ -33,6 +34,8 @@ const buildStaffPayload = (form) => ({
 });
 
 export default function Staff() {
+  const { tenant } = useAuth();
+  const branches = tenant?.branches || [];
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -166,6 +169,11 @@ export default function Staff() {
                 <Clock className="w-3 h-3" /> {s.shift_start || "10:00"}–{s.shift_end || "21:00"}
                 {Number(s.overtime_rate) > 0 && <span className="text-violet-600">· OT ₹{s.overtime_rate}/hr</span>}
               </div>
+              {s.branch && (
+                <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-medium max-w-full truncate" data-testid={`branch-tag-${s.id}`} title={s.branch}>
+                  📍 {s.branch}
+                </div>
+              )}
               {s.serving_notice && (
                 <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-700 font-medium" data-testid={`notice-badge-${s.id}`}>
                   Serving notice{s.last_working_day ? ` · last day ${s.last_working_day}` : ""}
@@ -284,6 +292,16 @@ export default function Staff() {
               </label>
               <div className="rounded-xl border border-slate-200 p-3 space-y-3" data-testid="staff-shift-section">
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Shift, Advance & Compliance</div>
+                {branches.length > 0 && (
+                  <div>
+                    <label className="label-light block mb-1">Assigned branch</label>
+                    <select data-testid="staff-branch-select" className="input-light" value={form.branch || ""} onChange={e => setForm({ ...form, branch: e.target.value })}>
+                      <option value="">Main salon (no branch tag)</option>
+                      {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
+                    </select>
+                    <p className="text-[10px] text-slate-400 mt-1">Staff gets this branch tag & must check in at THIS branch&apos;s GPS location</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="label-light block mb-1">Shift start</label>

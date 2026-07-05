@@ -543,3 +543,14 @@ Audit verdict: 1 HIGH + hardening items. Fixed:
 - Late fines now apply ONLY on geo-verified check-ins (salon GPS pinned + staff within 200m). No fence → late_minutes recorded, penalty forced to 0. GeoFenceCard text explains this. Verified: 387-min-late check-in without fence → ₹0.
 - POST /api/attendance/{rec_id}/waive-fine (require_tenant_admin: owner + super-admin via Act-As) — zeroes late_penalty, stores late_penalty_waived/waived_by/waived_note/waived_at. Roster returns record_id + late_penalty_waived; Attendance.jsx Fine/OT column has "waive" button (prompt for reason) + "fine waived ✓" tag. Verified: ₹3800 fine → waived → salary auto-corrects (slip sums late_penalty).
 - Production note: Riya's wrong ₹3700 fine on prod can be waived by owner from Attendance page after redeploy.
+
+## Update — Jul 5, 2026 (part 32) — Per-branch staff tagging & branch geo check-in (VERIFIED)
+- staff.branch (branch NAME string) assignable via Staff.jsx "Assigned branch" select (staff-branch-select); violet 📍 tag on staff cards (branch-tag-{id}).
+- Check-in fence: _fence_for(staff, tenant) in server.py — staff with a branch is fenced to that branch's GPS (branches[].latitude/longitude, pinned via PUT /tenants/current/geo {branch}); else falls back to main salon pin. 403 error names the branch.
+- BUGFIX: attendance roster staff projection was missing "branch" → tag never showed in Attendance table. Fixed (line ~1605).
+- Verified end-to-end: Priya assigned to "Miracurl — AECS Layout, Brookefield"; far check-in → 403 "7762m from Miracurl — AECS Layout…"; near (44m) → 200 with check_in_distance_m=44.5. UI tags screenshot-verified on /staff and /attendance.
+- REMINDER: user must REDEPLOY for this to reach production.
+
+## Remaining backlog
+- P2: Automate Monthly Business Report emails (currently manual trigger in Super-Admin; needs scheduled job e.g. daily check for 1st-of-month IST).
+- Refactor backlog: route-module split of server.py; Settings.jsx/BookingChatWidget.jsx/Staff.jsx splits.

@@ -224,6 +224,7 @@ class Staff(BaseModel):
     last_working_day: Optional[str] = None
     aadhaar_last4: Optional[str] = None  # only last 4 shown; full number never stored
     aadhaar_hash: Optional[str] = None
+    branch: Optional[str] = None         # assigned branch name — drives geo fence + tag
 
 class StaffIn(BaseModel):
     name: str
@@ -245,6 +246,7 @@ class StaffIn(BaseModel):
     notice_start_date: Optional[str] = None
     last_working_day: Optional[str] = None
     aadhaar: Optional[str] = None        # write-only: hashed server-side
+    branch: Optional[str] = None
 
 class Product(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -1465,6 +1467,17 @@ async def waive_late_fine(rec_id: str, body: WaiveFineIn, admin=Depends(require_
     return {"ok": True, "waived_amount": fine}
 
 
+def _fence_for(staff: dict, tenant: dict):
+    """(lat, lng, label) the staff must check in near — their branch first, else main salon."""
+    if staff.get("branch"):
+        for b in tenant.get("branches") or []:
+            if b.get("name") == staff["branch"] and b.get("latitude") is not None and b.get("longitude") is not None:
+                return b["latitude"], b["longitude"], b["name"]
+    if tenant.get("latitude") is not None and tenant.get("longitude") is not None:
+        return tenant["latitude"], tenant["longitude"], "the salon"
+    return None, None, None
+
+
 @api.post("/staff/me/check-in")
 async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff), t=Depends(current_tenant)):
     """Geo-fenced check-in with automatic late-fine calculation. Idempotent."""
@@ -1475,12 +1488,13 @@ async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff)
     if existing and existing.get("check_in_at"):
         return existing
     distance_m = None
-    if t.get("latitude") is not None and t.get("longitude") is not None:
+    f_lat, f_lng, f_label = _fence_for(s, t)
+    if f_lat is not None:
         if geo.lat is None or geo.lng is None:
             raise HTTPException(400, "Location required — please allow GPS access in your browser to check in.")
-        distance_m = round(_haversine_m(geo.lat, geo.lng, t["latitude"], t["longitude"]), 1)
+        distance_m = round(_haversine_m(geo.lat, geo.lng, f_lat, f_lng), 1)
         if distance_m > GEO_FENCE_M:
-            raise HTTPException(403, f"You appear to be {int(distance_m)}m from the salon. Check-in is allowed only within {GEO_FENCE_M}m.")
+            raise HTTPException(403, f"You appear to be {int(distance_m)}m from {f_label}. Check-in is allowed only within {GEO_FENCE_M}m.")
     now = datetime.now(timezone.utc)
     late_min, penalty = _late_penalty_for(s, now.astimezone(IST_TZ))
     # Fines only for geo-verified, on-site check-ins. If the salon hasn't pinned
@@ -1588,7 +1602,7 @@ async def attendance_today(date: Optional[str] = None,
 
     staff_list = await db.staff.find(
         {"active": True},
-        {"_id": 0, "id": 1, "name": 1, "role": 1, "image_url": 1, "user_id": 1, "phone": 1},
+        {"_id": 0, "id": 1, "name": 1, "role": 1, "image_url": 1, "user_id": 1, "phone": 1, "branch": 1},
     ).sort("name", 1).to_list(500)
     att = await db.attendance.find({"date": day}, {"_id": 0}).to_list(500)
     att_by_sid = {a["staff_id"]: a for a in att}
@@ -1626,6 +1640,7 @@ async def attendance_today(date: Optional[str] = None,
             "late_penalty": (rec or {}).get("late_penalty") or 0,
             "late_penalty_waived": (rec or {}).get("late_penalty_waived") or 0,
             "record_id": (rec or {}).get("id"),
+            "branch": s.get("branch") or "",
             "overtime_hours": (rec or {}).get("overtime_hours") or 0,
             "overtime_pay": (rec or {}).get("overtime_pay") or 0,
             "auto_checked_out": bool((rec or {}).get("auto_checked_out")),
@@ -3048,20 +3063,33 @@ async def get_current_tenant(t=Depends(current_tenant)):
 class TenantGeoIn(BaseModel):
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
+    branch: Optional[str] = None   # pin a specific branch instead of the main salon
 
 
 @api.put("/tenants/current/geo")
 async def set_tenant_geo(body: TenantGeoIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Pin the salon's GPS location — staff check-in is then geo-fenced to 200m."""
-    await db.tenants.update_one({"id": t["id"]}, {"$set": {
-        "latitude": body.latitude, "longitude": body.longitude,
-        "geo_set_at": datetime.now(timezone.utc).isoformat()}})
-    return {"ok": True, "latitude": body.latitude, "longitude": body.longitude}
+    """Pin GPS for the main salon or a specific branch — staff check-in is geo-fenced to 200m."""
+    if body.branch:
+        res = await db.tenants.update_one(
+            {"id": t["id"], "branches.name": body.branch},
+            {"$set": {"branches.$.latitude": body.latitude, "branches.$.longitude": body.longitude}})
+        if res.matched_count == 0:
+            raise HTTPException(404, f"Branch '{body.branch}' not found")
+    else:
+        await db.tenants.update_one({"id": t["id"]}, {"$set": {
+            "latitude": body.latitude, "longitude": body.longitude,
+            "geo_set_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "latitude": body.latitude, "longitude": body.longitude, "branch": body.branch}
 
 
 @api.delete("/tenants/current/geo")
-async def clear_tenant_geo(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    await db.tenants.update_one({"id": t["id"]}, {"$unset": {"latitude": "", "longitude": ""}})
+async def clear_tenant_geo(branch: Optional[str] = None, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    if branch:
+        await db.tenants.update_one(
+            {"id": t["id"], "branches.name": branch},
+            {"$unset": {"branches.$.latitude": "", "branches.$.longitude": ""}})
+    else:
+        await db.tenants.update_one({"id": t["id"]}, {"$unset": {"latitude": "", "longitude": ""}})
     return {"ok": True}
 
 

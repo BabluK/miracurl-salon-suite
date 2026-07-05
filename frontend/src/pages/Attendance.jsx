@@ -125,7 +125,10 @@ export default function Attendance() {
                       />
                       <div>
                         <div className="font-medium">{r.name}</div>
-                        <div className="text-xs text-slate-500">{r.role}</div>
+                        <div className="text-xs text-slate-500">
+                          {r.role}
+                          {r.branch && <span className="ml-1 text-violet-500" title={r.branch}>· 📍 {r.branch.length > 24 ? r.branch.slice(0, 24) + "…" : r.branch}</span>}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -199,11 +202,18 @@ export default function Attendance() {
 function GeoFenceCard() {
   const [tenant, setTenant] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [target, setTarget] = useState(""); // "" = main salon, else branch name
 
   const load = useCallback(async () => {
     try { const { data } = await api.get("/tenants/current"); setTenant(data); } catch { /* non-admin */ }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const branches = tenant?.branches || [];
+  const targetBranch = branches.find(b => b.name === target);
+  const cur = target ? targetBranch : tenant;
+  const isSet = cur?.latitude != null && cur?.longitude != null;
+  const label = target ? `branch "${target}"` : "the main salon";
 
   async function setHere() {
     if (!navigator.geolocation) { toast.error("This device doesn't support GPS"); return; }
@@ -211,8 +221,8 @@ function GeoFenceCard() {
     navigator.geolocation.getCurrentPosition(
       async (p) => {
         try {
-          await api.put("/tenants/current/geo", { latitude: p.coords.latitude, longitude: p.coords.longitude });
-          toast.success("Salon location pinned — staff check-in is now geo-fenced to 200m");
+          await api.put("/tenants/current/geo", { latitude: p.coords.latitude, longitude: p.coords.longitude, branch: target || null });
+          toast.success(`Location pinned for ${label} — check-in geo-fenced to 200m`);
           load();
         } catch (e) {
           toast.error(formatApiError(e.response?.data?.detail) || "Couldn't save location");
@@ -224,33 +234,42 @@ function GeoFenceCard() {
   }
 
   async function clear() {
-    if (!window.confirm("Remove the geo-fence? Staff will be able to check in from anywhere.")) return;
+    if (!window.confirm(`Remove the geo-fence for ${label}?`)) return;
     try {
-      await api.delete("/tenants/current/geo");
+      await api.delete(`/tenants/current/geo${target ? `?branch=${encodeURIComponent(target)}` : ""}`);
       toast.success("Geo-fence removed");
       load();
     } catch { toast.error("Couldn't remove"); }
   }
 
-  const isSet = tenant?.latitude != null && tenant?.longitude != null;
   return (
     <div className="card-light flex flex-col sm:flex-row sm:items-center justify-between gap-3" data-testid="geo-fence-card">
       <div className="flex items-start gap-3">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSet ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isSet ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
           <MapPin className="w-4 h-4" />
         </div>
         <div>
-          <div className="font-medium text-sm">GPS check-in fence {isSet ? "· ON" : "· OFF"}</div>
+          <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
+            GPS check-in fence
+            {branches.length > 0 && (
+              <select data-testid="geo-target-select" value={target} onChange={e => setTarget(e.target.value)}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white max-w-[220px]">
+                <option value="">Main salon</option>
+                {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}{b.latitude != null ? " ✓" : ""}</option>)}
+              </select>
+            )}
+            <span className={isSet ? "text-emerald-600" : "text-amber-600"}>{isSet ? "· ON" : "· OFF"}</span>
+          </div>
           <div className="text-xs text-slate-500 mt-0.5">
             {isSet
-              ? `Staff can only check in within 200m of the salon (pinned at ${Number(tenant.latitude).toFixed(4)}, ${Number(tenant.longitude).toFixed(4)}). Late fines are active.`
-              : "Not set — staff can check in from anywhere and NO late fines are applied. Stand inside the salon and pin its location to enable the 200m fence + automatic late fines."}
+              ? `Staff assigned to ${label} can only check in within 200m (pinned at ${Number(cur.latitude).toFixed(4)}, ${Number(cur.longitude).toFixed(4)}). Late fines are active.`
+              : `Not pinned for ${label} — those staff can check in from anywhere and NO late fines apply. Stand at ${label} and pin its location.`}
           </div>
         </div>
       </div>
       <div className="flex gap-2 shrink-0">
         <button data-testid="set-salon-geo-btn" onClick={setHere} disabled={busy} className="btn-blue text-xs py-2 px-3 flex items-center gap-1.5">
-          <MapPin className="w-3.5 h-3.5" /> {busy ? "Locating…" : isSet ? "Re-pin location" : "Pin salon location"}
+          <MapPin className="w-3.5 h-3.5" /> {busy ? "Locating…" : isSet ? "Re-pin location" : "Pin location here"}
         </button>
         {isSet && (
           <button data-testid="clear-salon-geo-btn" onClick={clear} className="btn-slate text-xs py-2 px-3">Remove</button>
