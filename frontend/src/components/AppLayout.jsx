@@ -187,7 +187,7 @@ export default function AppLayout() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <div className="hidden md:flex items-center px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 tracking-wider">{today}</div>
-            {isAdmin ? <BranchSwitcher /> : null}
+            {(isAdmin || user?.role === "manager") ? <BranchSwitcher /> : null}
             {isAdmin ? (
               <NotifBell
                 unread={notifier.unread}

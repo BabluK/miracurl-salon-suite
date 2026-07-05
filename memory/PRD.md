@@ -503,3 +503,12 @@ User confirmed: 1a per-staff overtime rate, 2b per-staff shift timing (10-min gr
 - Tested: iteration_45.json — backend 14/14 pass; frontend fixes applied post-test (advance input step=any, shift chip, re-applied lost edits) and screenshot-verified.
 - NOTE: advance happy-path (recording) untestable until 16th of month by design.
 - Salon geo currently pinned at 12.9569,77.7011 (Marathahalli) in preview.
+
+## Update — Jul 5, 2026 (part 26) — 6 features batch (user items 5-10)
+1. **AI Engineer (Super-Admin tab)**: GET /api/super-admin/system/health (db latency, uptime, counts, open tickets); dev-tickets CRUD with gpt-5.4 AI triage on create (_ai_triage_ticket); POST /api/super-admin/engineer-chat (grounded in live health+tickets, session history in engineer_ai_messages). Component: EngineerPanel.jsx, tab data-testid super-tab-engineer. Honesty rule baked in: AI prepares fixes, code ships via Emergent+Redeploy.
+2. **Offer Maker** (/offers-studio, admin+manager): OffersStudio.jsx — 120 canvas templates (10 themes × 4 palettes × 3 layouts), auto logo (crossOrigin, monogram fallback), salon/location/phone footer, 1080x1080 post & 1080x1920 status PNG download.
+3. **Branch switcher**: BranchSwitcher.jsx in header beside bell (admin + manager), lib/branch.js localStorage + 'branch-changed' event; /reports/dashboard?branch= filters invoices by branch_name.
+4. **Multi-branch plans**: PLAN_CATALOG += multi_branch_half ₹45k/183d, multi_branch_annual ₹70k/365d (auto-appears in billing UIs).
+5. **Auto monthly reports**: _run_monthly_reports() shared; startup hourly loop sends on 1st ≥9AM IST, dedup via monthly_report_runs collection.
+6. **Public staff verification links** on Landing nav ('Verify Staff — Free', data-testid landing-verify-staff) + footer → existing public /staff-registry.
+Tested: iteration_46.json — backend 15/15 pass; 1 UI fix (manager branch switcher visibility) applied + screenshot-verified.
