@@ -3419,7 +3419,10 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     if await db.tenants.find_one({"slug": body.slug}):
         raise HTTPException(400, "Slug already in use")
     if await db.users.find_one({"email": body.owner_email.lower()}):
-        raise HTTPException(400, "Owner email already registered")
+        raise HTTPException(
+            400, "This owner email already has a login on another salon. "
+                 "For another branch of the same salon, either add it as a Branch in that salon's Settings, "
+                 "or use a different owner login email (the salon contact email CAN be the same).")
     t = Tenant(
         slug=body.slug, name=body.name, owner_email=body.owner_email.lower(),
         location=body.location, phone=body.phone, plan=body.plan, status="trial",

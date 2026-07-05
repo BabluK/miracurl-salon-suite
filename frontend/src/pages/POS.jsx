@@ -296,7 +296,7 @@ export default function POS() {
                 key={c}
                 data-testid={`pos-category-${c.toLowerCase().replace(/\s+/g, "-")}`}
                 onClick={() => setCategory(c)}
-                className={`rounded-xl py-6 text-sm font-semibold uppercase tracking-wider border transition shadow-sm ${
+                className={`rounded-xl py-4 px-2 text-xs font-semibold uppercase tracking-wide truncate border transition shadow-sm ${
                   category === c
                     ? "bg-sky-50 border-sky-400 text-sky-600 ring-2 ring-sky-200"
                     : "bg-white border-slate-200 text-slate-600 hover:border-sky-200"

@@ -522,3 +522,12 @@ Tested: iteration_46.json — backend 15/15 pass; 1 UI fix (manager branch switc
 - Offer Maker: new "✦ Mira AI Expert" theme (first in THEMES) — draws /public/mira-banner-avatar.png (user's golden Mira avatar, same-origin so PNG export works) in gold circle + dashed ring + ONLINE 24/7 pill, prefills headline "MEET MIRA — AI BEAUTY EXPERT" + user's consultation copy (MIRA_DETAILS const), 4 purple/gold palettes, details maxLength 240. Screenshot verified.
 - Public verify page: _registry_profile now returns hire_verdict (green/amber/red) + hire_verdict_note. Red if Terminated/Absconded reason, BAD badge or rating<2.5; green if rating≥4 or Excellent/Extraordinary badge; else amber. RegistryPublic.jsx shows banner (data-testid hire-verdict-banner) "Safe to hire / Verify references / Hire with caution". Verified green case live.
 - LESSON: parallel search_replace edits to the SAME file can race and silently drop changes — edit same-file sequentially.
+
+## Update — Jul 5, 2026 (part 29) — SuperAdmin UI polish + Refactor Phase 1 + POS polish
+- SuperAdmin console: dark indigo gradient header, animated gold shimmer "Super Admin" badge (.super-badge CSS in index.css), SuperNotifBell (HQ Alerts: trial/subscription expiring ≤7d + unread inbox, ping animation), status filter chips (all/active/trial/cancelled/suspended) + clickable KPI cards filter the tenants table, page bg gradient. Screenshot verified.
+- REFACTOR PHASE 1 DONE (iteration_47: 26/26 backend regression PASS):
+  • Backend: server.py 6348→6051 lines. Extracted /app/backend/database.py (client, TenantCollection, contextvars), /app/backend/security.py (JWT/cookies/hash/guards/rate-limit), /app/backend/services/storage.py (object storage, APP_NAME).
+  • Frontend: POS.jsx 836→672 (components/pos/receipt.js, AddGuestModal.jsx, InvoiceReceiptModal.jsx); SuperAdmin.jsx 896→594 (components/superadmin/LeaderboardRevenue.jsx).
+  • Remaining refactor backlog: route-module split of server.py (~150 routes), Settings.jsx/BookingChatWidget.jsx/Staff.jsx splits.
+- POS: category tiles shrunk (py-4 text-xs truncate). Receipt modal got data-testid invoice-receipt-modal.
+- Onboarding clarified: salon NAME and salon CONTACT email may repeat across tenants (e.g. "Miracurl - AECS", "Miracurl - Munnekolla"); only slug + owner LOGIN email must be unique — duplicate owner email now returns a helpful guidance message.
