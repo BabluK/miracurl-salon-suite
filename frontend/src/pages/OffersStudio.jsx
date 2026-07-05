@@ -205,7 +205,7 @@ export default function OffersStudio() {
                 <label className="label-light block mb-1">Colour style</label>
                 <div className="flex gap-1.5">
                   {theme.palettes.map((p, i) => (
-                    <button key={i} data-testid={`palette-${i}`} onClick={() => setPaletteIdx(i)}
+                    <button key={p.join("-")} data-testid={`palette-${i}`} onClick={() => setPaletteIdx(i)}
                       className={`w-9 h-9 rounded-full border-2 ${paletteIdx === i ? "border-slate-800" : "border-transparent"}`}
                       style={{ background: `linear-gradient(135deg, ${p[0]}, ${p[1]} 60%, ${p[2]})` }} />
                   ))}

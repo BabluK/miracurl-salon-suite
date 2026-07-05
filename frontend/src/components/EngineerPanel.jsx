@@ -182,11 +182,11 @@ function EngineerChat() {
     e.preventDefault();
     const text = input.trim();
     if (!text || busy) return;
-    setMsgs(m => [...m, { role: "user", content: text }]);
+    setMsgs(m => [...m, { id: `u${Date.now()}`, role: "user", content: text }]);
     setInput(""); setBusy(true);
     try {
       const { data } = await api.post("/super-admin/engineer-chat", { message: text, session_id: sessionId });
-      setMsgs(m => [...m, { role: "assistant", content: data.reply }]);
+      setMsgs(m => [...m, { id: `a${Date.now()}`, role: "assistant", content: data.reply }]);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Engineer AI unavailable");
     } finally { setBusy(false); }
@@ -201,8 +201,8 @@ function EngineerChat() {
             &ldquo;Why is the dashboard slow?&rdquo; · &ldquo;Plan a loyalty-points feature&rdquo; · &ldquo;Any risky open tickets?&rdquo;
           </div>
         )}
-        {msgs.map((m, i) => (
-          <div key={i} className={`text-sm rounded-xl px-3 py-2 whitespace-pre-wrap ${m.role === "user" ? "bg-sky-50 border border-sky-100 ml-8" : "bg-slate-50 border border-slate-200 mr-8"}`}>
+        {msgs.map((m) => (
+          <div key={m.id} className={`text-sm rounded-xl px-3 py-2 whitespace-pre-wrap ${m.role === "user" ? "bg-sky-50 border border-sky-100 ml-8" : "bg-slate-50 border border-slate-200 mr-8"}`}>
             {m.content}
           </div>
         ))}
