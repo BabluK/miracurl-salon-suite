@@ -28,6 +28,17 @@ function fmtTime(iso) {
   } catch { return "—"; }
 }
 
+function getPosition() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  });
+}
+
 export default function StaffPortal() {
   const [profile, setProfile] = useState(null);
   const [attendance, setAttendance] = useState(null);
@@ -72,7 +83,8 @@ export default function StaffPortal() {
   async function checkIn() {
     setBusy(true);
     try {
-      await api.post("/staff/me/check-in");
+      const pos = await getPosition();
+      await api.post("/staff/me/check-in", pos || {});
       toast.success("Checked in ✦ Have a great shift");
       load();
     } catch (e) {
@@ -83,7 +95,8 @@ export default function StaffPortal() {
   async function checkOut() {
     setBusy(true);
     try {
-      await api.post("/staff/me/check-out");
+      const pos = await getPosition();
+      await api.post("/staff/me/check-out", pos || {});
       toast.success("Checked out — see you tomorrow");
       load();
     } catch (e) {
@@ -161,6 +174,25 @@ export default function StaffPortal() {
             <div className="text-lg font-medium" data-testid="today-checkout-time">{fmtTime(today?.check_out_at)}</div>
           </div>
         </div>
+        {(today?.late_penalty > 0 || today?.overtime_pay > 0 || today?.auto_checked_out) && (
+          <div className="flex flex-wrap gap-2 mb-4" data-testid="today-flags">
+            {today?.late_penalty > 0 && (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-300" data-testid="today-late-chip">
+                Late by {today.late_minutes} min · fine ₹{today.late_penalty}
+              </span>
+            )}
+            {today?.overtime_pay > 0 && (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300" data-testid="today-ot-chip">
+                Overtime {today.overtime_hours}h · +₹{today.overtime_pay}
+              </span>
+            )}
+            {today?.auto_checked_out && (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                Auto checked-out (12h limit)
+              </span>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             onClick={checkIn}
@@ -224,6 +256,9 @@ export default function StaffPortal() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <SlipRow label="Monthly base" value={`₹${(slip.monthly_base_salary || 0).toLocaleString("en-IN")}`} />
               <SlipRow label={`Commission (${slip.commission_pct || 0}%)`} value={`₹${(slip.commission_amount || 0).toLocaleString("en-IN")}`} />
+              <SlipRow label="Overtime" value={`+ ₹${(slip.overtime_total || 0).toLocaleString("en-IN")}`} sub={slip.overtime_hours_total ? `${slip.overtime_hours_total}h past shift end` : "no overtime"} />
+              <SlipRow label="Late fines" value={`− ₹${(slip.late_penalty_total || 0).toLocaleString("en-IN")}`} sub={slip.late_days ? `${slip.late_days} late day(s)` : "no late marks"} />
+              <SlipRow label="Advance taken" value={`− ₹${(slip.advance_total || 0).toLocaleString("en-IN")}`} />
               <SlipRow label="Days present" value={slip.days_present || 0} />
               <SlipRow label="Hours worked" value={`${slip.total_hours || 0} h`} />
               <SlipRow label="Service gross" value={`₹${(slip.service_gross || 0).toLocaleString("en-IN")}`} sub={`${slip.service_count || 0} service line(s)`} />

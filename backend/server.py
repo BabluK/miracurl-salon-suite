@@ -8,6 +8,7 @@ import re
 import io
 import csv
 import json
+import math
 import uuid
 import hmac
 import asyncio
@@ -122,6 +123,7 @@ class _DB:
     customer_packages = TenantCollection(_raw_db.customer_packages)
     customer_memberships = TenantCollection(_raw_db.customer_memberships)
     coupons = TenantCollection(_raw_db.coupons)
+    advances = TenantCollection(_raw_db.advances)
 
 db = _DB()
 
@@ -508,6 +510,17 @@ class Staff(BaseModel):
     monthly_base_salary: float = 0.0     # ₹ fixed monthly component
     salary_visible: bool = True          # if False, staff cannot see own salary details
     user_id: Optional[str] = None        # link to users collection (login credential)
+    # Shift, penalties & compliance
+    shift_start: str = "10:00"           # HH:MM IST — 10 min grace, then late fine
+    shift_end: str = "21:00"             # HH:MM IST — work past this earns overtime
+    overtime_rate: float = 0.0           # ₹ per hour after shift_end
+    max_advance: float = 0.0             # ₹ cap admin allows as monthly advance
+    notice_period_days: int = 30
+    serving_notice: bool = False
+    notice_start_date: Optional[str] = None
+    last_working_day: Optional[str] = None
+    aadhaar_last4: Optional[str] = None  # only last 4 shown; full number never stored
+    aadhaar_hash: Optional[str] = None
 
 class StaffIn(BaseModel):
     name: str
@@ -520,6 +533,15 @@ class StaffIn(BaseModel):
     image_url: Optional[str] = None
     monthly_base_salary: float = 0.0
     salary_visible: bool = True
+    shift_start: str = "10:00"
+    shift_end: str = "21:00"
+    overtime_rate: float = 0.0
+    max_advance: float = 0.0
+    notice_period_days: int = 30
+    serving_notice: bool = False
+    notice_start_date: Optional[str] = None
+    last_working_day: Optional[str] = None
+    aadhaar: Optional[str] = None        # write-only: hashed server-side
 
 class Product(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -1323,18 +1345,30 @@ async def delete_service(sid: str, user=Depends(require_admin)):
 # ---------------- Staff ----------------
 @api.get("/staff")
 async def list_staff(user=Depends(get_current_user)):
-    return await db.staff.find({}, {"_id": 0}).to_list(500)
+    return await db.staff.find({}, {"_id": 0, "aadhaar_hash": 0}).to_list(500)
+
+
+def _staff_write_payload(body: StaffIn) -> dict:
+    d = body.model_dump()
+    aad = re.sub(r"\D", "", d.pop("aadhaar", None) or "")
+    if aad:
+        if len(aad) != 12:
+            raise HTTPException(400, "Aadhaar must be exactly 12 digits")
+        d["aadhaar_last4"] = aad[-4:]
+        d["aadhaar_hash"] = _aadhaar_fp(aad)
+    return d
+
 
 @api.post("/staff")
 async def create_staff(body: StaffIn, user=Depends(get_current_user)):
-    s = Staff(**body.model_dump()).model_dump()
+    s = Staff(**_staff_write_payload(body)).model_dump()
     await db.staff.insert_one(s)
-    return _clean(s)
+    return _clean({k: v for k, v in s.items() if k != "aadhaar_hash"})
 
 @api.put("/staff/{sid}")
 async def update_staff(sid: str, body: StaffIn, user=Depends(require_tenant_admin)):
-    await db.staff.update_one({"id": sid}, {"$set": body.model_dump()})
-    return await db.staff.find_one({"id": sid}, {"_id": 0})
+    await db.staff.update_one({"id": sid}, {"$set": _staff_write_payload(body)})
+    return await db.staff.find_one({"id": sid}, {"_id": 0, "aadhaar_hash": 0})
 
 @api.delete("/staff/{sid}")
 async def delete_staff(sid: str, user=Depends(require_tenant_admin)):
@@ -1344,6 +1378,55 @@ async def delete_staff(sid: str, user=Depends(require_tenant_admin)):
     if s and s.get("user_id"):
         await db.users.delete_one({"id": s["user_id"]})
     await db.staff.delete_one({"id": sid})
+    return {"ok": True}
+
+
+# ---------------- Salary advances ----------------
+class AdvanceIn(BaseModel):
+    amount: float = Field(..., gt=0)
+    note: str = Field("", max_length=200)
+
+
+@api.post("/staff/{sid}/advance")
+async def give_advance(sid: str, body: AdvanceIn, admin=Depends(require_tenant_admin)):
+    """One advance per staff per month, only after the 15th, capped at staff.max_advance.
+    Auto-deducted from that month's salary slip."""
+    staff = await db.staff.find_one({"id": sid}, {"_id": 0})
+    if not staff:
+        raise HTTPException(404, "Staff not found")
+    max_adv = float(staff.get("max_advance") or 0)
+    if max_adv <= 0:
+        raise HTTPException(400, "No advance limit set for this staff. Edit the staff profile and set 'Max advance' first.")
+    if body.amount > max_adv:
+        raise HTTPException(400, f"Advance cannot exceed the ₹{max_adv:,.0f} limit set for {staff.get('name')}.")
+    today_ist = datetime.now(IST_TZ).date()
+    if today_ist.day <= 15:
+        raise HTTPException(400, "Advance can only be given after the 15th of the month.")
+    month = today_ist.strftime("%Y-%m")
+    if await db.advances.find_one({"staff_id": sid, "month": month}):
+        raise HTTPException(400, f"{staff.get('name')} has already taken an advance this month (one per month).")
+    doc = {
+        "id": str(uuid.uuid4()), "staff_id": sid, "staff_name": staff.get("name"),
+        "amount": round(body.amount, 2), "note": body.note.strip(), "month": month,
+        "given_by": admin.get("email"), "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.advances.insert_one(doc)
+    return _clean(doc)
+
+
+@api.get("/staff/{sid}/advances")
+async def list_advances(sid: str, admin=Depends(require_tenant_admin)):
+    rows = await db.advances.find({"staff_id": sid}, {"_id": 0}).sort("created_at", -1).to_list(24)
+    return rows
+
+
+@api.delete("/staff/{sid}/advance/{aid}")
+async def delete_advance(sid: str, aid: str, admin=Depends(require_tenant_admin)):
+    """Undo a mistakenly-recorded advance — allowed only within the same month."""
+    month = datetime.now(IST_TZ).strftime("%Y-%m")
+    res = await db.advances.delete_one({"id": aid, "staff_id": sid, "month": month})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Advance not found (past-month advances can't be removed)")
     return {"ok": True}
 
 
@@ -1581,18 +1664,108 @@ async def staff_me_profile(s=Depends(_current_staff)):
     return s
 
 
+# ---- Attendance rules: geo-fence, late fines, overtime, auto-checkout ----
+IST_TZ = timezone(timedelta(hours=5, minutes=30))
+GRACE_MINUTES = 10          # arrive within 10 min of shift start — no fine
+LATE_FINE_PER_5MIN = 50.0   # ₹50 deducted per started 5-min block after grace
+GEO_FENCE_M = 200           # check-in blocked beyond this distance from salon
+AUTO_CHECKOUT_HOURS = 12    # forgot to check out — shift auto-closes at 12h
+
+
+class GeoIn(BaseModel):
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+def _parse_hhmm(val, fallback: str) -> tuple:
+    try:
+        h, m = str(val).strip().split(":")
+        h, m = int(h), int(m)
+        if 0 <= h <= 23 and 0 <= m <= 59:
+            return h, m
+    except (ValueError, AttributeError):
+        pass
+    h, m = fallback.split(":")
+    return int(h), int(m)
+
+
+def _late_penalty_for(staff: dict, checkin_ist: datetime) -> tuple:
+    """(minutes_late, fine ₹). Fine starts after the 10-min grace, ₹50 per 5-min block."""
+    h, m = _parse_hhmm(staff.get("shift_start"), "10:00")
+    start = checkin_ist.replace(hour=h, minute=m, second=0, microsecond=0)
+    late_min = int((checkin_ist - start).total_seconds() // 60)
+    if late_min <= GRACE_MINUTES:
+        return max(late_min, 0), 0.0
+    blocks = math.ceil((late_min - GRACE_MINUTES) / 5)
+    return late_min, round(blocks * LATE_FINE_PER_5MIN, 2)
+
+
+def _overtime_for(staff: dict, checkout_ist: datetime) -> tuple:
+    """(overtime_hours, overtime_pay ₹) for time worked past shift_end."""
+    rate = float(staff.get("overtime_rate") or 0)
+    h, m = _parse_hhmm(staff.get("shift_end"), "21:00")
+    end = checkout_ist.replace(hour=h, minute=m, second=0, microsecond=0)
+    if checkout_ist <= end:
+        return 0.0, 0.0
+    hours = round((checkout_ist - end).total_seconds() / 3600, 2)
+    return hours, round(hours * rate, 2)
+
+
+def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    return 2 * 6371000.0 * math.asin(math.sqrt(a))
+
+
+async def _auto_close_stale_attendance():
+    """Close any shift still open after 12h (staff forgot to check out)."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=AUTO_CHECKOUT_HOURS)).isoformat()
+    stale = await db.attendance.find(
+        {"check_out_at": None, "check_in_at": {"$ne": None, "$lt": cutoff}},
+        {"_id": 0}).to_list(200)
+    for rec in stale:
+        try:
+            ci = datetime.fromisoformat(rec["check_in_at"])
+        except (ValueError, TypeError):
+            continue
+        co = ci + timedelta(hours=AUTO_CHECKOUT_HOURS)
+        staff = await db.staff.find_one({"id": rec["staff_id"]}, {"_id": 0}) or {}
+        ot_h, ot_pay = _overtime_for(staff, co.astimezone(IST_TZ))
+        await db.attendance.update_one(
+            {"id": rec["id"]},
+            {"$set": {"check_out_at": co.isoformat(), "hours_worked": float(AUTO_CHECKOUT_HOURS),
+                      "auto_checked_out": True, "overtime_hours": ot_h, "overtime_pay": ot_pay}})
+
+
 @api.post("/staff/me/check-in")
-async def staff_check_in(s=Depends(_current_staff)):
-    """Records today's check-in. Idempotent — a second call returns the existing record."""
+async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff), t=Depends(current_tenant)):
+    """Geo-fenced check-in with automatic late-fine calculation. Idempotent."""
+    await _auto_close_stale_attendance()
+    geo = body or GeoIn()
     today = datetime.now(timezone.utc).date().isoformat()
     existing = await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
     if existing and existing.get("check_in_at"):
         return existing
-    now_iso = datetime.now(timezone.utc).isoformat()
+    distance_m = None
+    if t.get("latitude") is not None and t.get("longitude") is not None:
+        if geo.lat is None or geo.lng is None:
+            raise HTTPException(400, "Location required — please allow GPS access in your browser to check in.")
+        distance_m = round(_haversine_m(geo.lat, geo.lng, t["latitude"], t["longitude"]), 1)
+        if distance_m > GEO_FENCE_M:
+            raise HTTPException(403, f"You appear to be {int(distance_m)}m from the salon. Check-in is allowed only within {GEO_FENCE_M}m.")
+    now = datetime.now(timezone.utc)
+    late_min, penalty = _late_penalty_for(s, now.astimezone(IST_TZ))
+    fields = {
+        "check_in_at": now.isoformat(),
+        "late_minutes": late_min, "late_penalty": penalty,
+        "check_in_lat": geo.lat, "check_in_lng": geo.lng, "check_in_distance_m": distance_m,
+    }
     if existing:
         await db.attendance.update_one(
             {"staff_id": s["id"], "date": today},
-            {"$set": {"check_in_at": now_iso}},
+            {"$set": fields},
         )
     else:
         await db.attendance.insert_one({
@@ -1600,15 +1773,16 @@ async def staff_check_in(s=Depends(_current_staff)):
             "staff_id": s["id"],
             "staff_name": s.get("name"),
             "date": today,
-            "check_in_at": now_iso,
+            **fields,
             "check_out_at": None,
-            "created_at": now_iso,
+            "created_at": now.isoformat(),
         })
     return await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
 
 
 @api.post("/staff/me/check-out")
-async def staff_check_out(s=Depends(_current_staff)):
+async def staff_check_out(body: Optional[GeoIn] = None, s=Depends(_current_staff)):
+    geo = body or GeoIn()
     today = datetime.now(timezone.utc).date().isoformat()
     rec = await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
     if not rec or not rec.get("check_in_at"):
@@ -1618,9 +1792,12 @@ async def staff_check_out(s=Depends(_current_staff)):
     now = datetime.now(timezone.utc)
     check_in = datetime.fromisoformat(rec["check_in_at"])
     hours = round((now - check_in).total_seconds() / 3600, 2)
+    ot_h, ot_pay = _overtime_for(s, now.astimezone(IST_TZ))
     await db.attendance.update_one(
         {"staff_id": s["id"], "date": today},
-        {"$set": {"check_out_at": now.isoformat(), "hours_worked": hours}},
+        {"$set": {"check_out_at": now.isoformat(), "hours_worked": hours,
+                  "overtime_hours": ot_h, "overtime_pay": ot_pay,
+                  "check_out_lat": geo.lat, "check_out_lng": geo.lng}},
     )
     return await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
 
@@ -1629,6 +1806,7 @@ async def staff_check_out(s=Depends(_current_staff)):
 async def staff_my_attendance(month: Optional[str] = None, s=Depends(_current_staff)):
     """List attendance for `month=YYYY-MM` (defaults to current month)."""
     from calendar import monthrange
+    await _auto_close_stale_attendance()
     now = datetime.now(timezone.utc)
     if month:
         try:
@@ -1676,6 +1854,7 @@ async def attendance_today(date: Optional[str] = None,
         datetime.strptime(day, "%Y-%m-%d")
     except ValueError:
         raise HTTPException(400, "date must be YYYY-MM-DD")
+    await _auto_close_stale_attendance()
 
     staff_list = await db.staff.find(
         {"active": True},
@@ -1713,6 +1892,11 @@ async def attendance_today(date: Optional[str] = None,
             "check_in_at": rec.get("check_in_at") if rec else None,
             "check_out_at": rec.get("check_out_at") if rec else None,
             "hours": hours,
+            "late_minutes": (rec or {}).get("late_minutes") or 0,
+            "late_penalty": (rec or {}).get("late_penalty") or 0,
+            "overtime_hours": (rec or {}).get("overtime_hours") or 0,
+            "overtime_pay": (rec or {}).get("overtime_pay") or 0,
+            "auto_checked_out": bool((rec or {}).get("auto_checked_out")),
         })
 
     return {
@@ -1794,8 +1978,16 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
     ).to_list(200)
     days_present = sum(1 for r in recs if r.get("check_in_at"))
     total_hours = round(sum(float(r.get("hours_worked") or 0) for r in recs), 2)
+    overtime_hours_total = round(sum(float(r.get("overtime_hours") or 0) for r in recs), 2)
+    overtime_total = round(sum(float(r.get("overtime_pay") or 0) for r in recs), 2)
+    late_penalty_total = round(sum(float(r.get("late_penalty") or 0) for r in recs), 2)
+    late_days = sum(1 for r in recs if (r.get("late_penalty") or 0) > 0)
+    adv_rows = await db.advances.find(
+        {"staff_id": staff["id"], "month": f"{year:04d}-{month:02d}"}, {"_id": 0}).to_list(5)
+    advance_total = round(sum(float(a.get("amount") or 0) for a in adv_rows), 2)
     base = float(staff.get("monthly_base_salary") or 0)
-    total = round(base + commission, 2)
+    deductions_total = round(late_penalty_total + advance_total, 2)
+    total = round(base + commission + overtime_total - deductions_total, 2)
     return {
         "period": f"{year:04d}-{month:02d}",
         "period_label": datetime(year, month, 1).strftime("%B %Y"),
@@ -1815,6 +2007,12 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         "commission_amount": commission,
         "days_present": days_present,
         "total_hours": total_hours,
+        "overtime_hours_total": overtime_hours_total,
+        "overtime_total": overtime_total,
+        "late_days": late_days,
+        "late_penalty_total": late_penalty_total,
+        "advance_total": advance_total,
+        "deductions_total": deductions_total,
         "gross_earnings": round(gross, 2),
         "net_payable": total,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -3112,6 +3310,26 @@ SEED_CUSTOMERS = [
 async def get_current_tenant(t=Depends(current_tenant)):
     """The tenant the current authenticated user belongs to (or has switched into)."""
     return t
+
+
+class TenantGeoIn(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+
+
+@api.put("/tenants/current/geo")
+async def set_tenant_geo(body: TenantGeoIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Pin the salon's GPS location — staff check-in is then geo-fenced to 200m."""
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {
+        "latitude": body.latitude, "longitude": body.longitude,
+        "geo_set_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "latitude": body.latitude, "longitude": body.longitude}
+
+
+@api.delete("/tenants/current/geo")
+async def clear_tenant_geo(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    await db.tenants.update_one({"id": t["id"]}, {"$unset": {"latitude": "", "longitude": ""}})
+    return {"ok": True}
 
 
 # ---------------- Branches (multi-location) ----------------
@@ -5766,6 +5984,11 @@ async def registry_list_employees(q: Optional[str] = None, admin=Depends(require
             rows = await _raw_db.registry_employees.find(
                 {"staff_code": qs.upper()}, {"_id": 0, "aadhaar_hash": 0}).to_list(5)
             return [await _registry_profile(r, current_only=True) for r in rows]
+        # 12-digit query = Aadhaar — the permanent identifier: full history across salons
+        if len(digits) == 12:
+            rows = await _raw_db.registry_employees.find(
+                {"aadhaar_hash": _aadhaar_fp(digits)}, {"_id": 0, "aadhaar_hash": 0}).to_list(5)
+            return [await _registry_profile(r) for r in rows]
         ors = [{"name": {"$regex": re.escape(qs), "$options": "i"}}]
         if len(digits) >= 6:
             ors.append({"phone": {"$regex": f"{digits}$"}})

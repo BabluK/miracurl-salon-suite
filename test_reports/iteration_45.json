@@ -1,0 +1,49 @@
+{
+  "summary": "Full backend + frontend testing of the new HR module (shifts, geo-fence, late fines, overtime, salary advances, auto-checkout, aadhaar, salary slip, notice period). 14/14 backend HR test cases pass. Frontend: geo-fence card, Fine/OT column, staff portal late chip, salary-slip rows (Overtime/Late fines/Advance/Net) and advance-modal 'after the 15th' toast all work. Two frontend gaps found: (1) required data-testid attributes on the Edit Staff shift-section are MISSING even though the UI fields are present & working; (2) staff card in admin /staff page does NOT show the required shift chip (10:00–21:00 · OT ₹100/hr).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/staff/{id} and POST /api/staff", "issue": "Uses StaffIn schema which requires name/role/phone; partial updates (send only aadhaar/shift fields) return 422. Frontend workaround: always resends full staff row. Consider a StaffPatchIn for partial updates OR document that clients must merge before PUT."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Staff.jsx StaffCard", "issue": "Staff card does NOT render the shift chip '10:00–21:00 · OT ₹100/hr' required by the FE spec. Currently only shows role, phone, commission, login-active label + action buttons. Notice badge could not be verified (Priya is not serving_notice; toggle needs to be saved to test).", "selector": "[data-testid^='staff-card-']", "priority": "MEDIUM"},
+      {"component": "Staff.jsx Edit modal — SHIFT, ADVANCE & COMPLIANCE section", "issue": "Required data-testids are MISSING: staff-shift-section, staff-shift-start, staff-shift-end, staff-overtime-rate, staff-max-advance, staff-notice-days, staff-aadhaar, staff-serving-notice, staff-last-working-day. All the underlying inputs ARE present and functional (visually confirmed) — just untagged, which blocks automation.", "selector": "[data-testid=staff-shift-section]", "priority": "MEDIUM"},
+      {"component": "AdvanceModal amount input", "issue": "input type=number has attributes min=1, max=5000, STEP=100. HTML5 validation rejects any value that isn't 1 + 100*n (e.g. 100, 500, 1000 are all blocked; only 1, 101, 201, ..., 4901 pass). Users trying to give ₹500 or ₹1000 will hit browser-level 'Please enter a valid value' before the request is even sent. Change to step=1 (or step='any').", "selector": "[data-testid='advance-modal'] input[type=number]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login page", "issues": ["4x /api/auth/me 401 on initial mount before login — cosmetic but noisy in console"]},
+      {"screen": "Dashboard", "issues": ["Recharts 'width(-1) height(-1)' warnings continue to spam console"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_hr_module.py",
+    "/app/backend/tests/test_hr_auto_checkout.py",
+    "/app/test_reports/pytest/hr_results.xml"
+  ],
+  "action_items": [
+    "Staff.jsx: Add shift chip rendering on StaffCard (e.g. '10:00–21:00 · OT ₹100/hr') when overtime_rate>0 or shift_start/shift_end set.",
+    "Staff.jsx: Add data-testid to shift/advance/compliance section wrapper (staff-shift-section) and to the individual inputs (staff-shift-start, staff-shift-end, staff-overtime-rate, staff-max-advance, staff-notice-days, staff-aadhaar, staff-serving-notice, staff-last-working-day).",
+    "AdvanceModal: change amount input step from 100 to 1 (or 'any') so admins can enter arbitrary rupee amounts.",
+    "(Optional) StaffPatchIn schema so PUT /api/staff/{id} can accept partial updates without name/role/phone."
+  ],
+  "critical_code_review_comments": [
+    "AdvanceModal number input step=100 is a footgun — users cannot enter ₹500 or ₹1000. Root cause is in the JSX in Staff.jsx AdvanceModal component.",
+    "StaffCard is missing the informational shift chip the product spec calls out; the data is available on `staff` object (shift_start/shift_end/overtime_rate) so this is a one-line JSX addition.",
+    "Testability regression: earlier iterations set data-testid on all form inputs; the new Shift/Advance/Compliance block did not follow the pattern.",
+    "Console warning: 'value prop on input should not be null' in Edit Staff modal (some numeric field is uncontrolled/null when the row lacks a value). Consider defaulting to '' or the DB default before binding."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_hr_module.py (new)",
+    "/app/backend/tests/test_hr_auto_checkout.py (new)"
+  ],
+  "success_rate": {"backend": "100% (14/14 HR tests passing; 2 skipped only because Priya already had today's idempotent check-in — that's expected behaviour per the review-request note)", "frontend": "~85% (all backend-touching flows work; 3 UI gaps: missing shift chip, missing testids, wrong step on advance input)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL and priya.staff@miracurl.com / Priya@Miracurl123 from /app/memory/test_credentials.md",
+  "seed_data_creation": "Created + auto-deleted one temporary attendance doc (id starts with 'TEST_autoclose_') to validate the 12h auto-checkout job. Also transiently created + deleted one TEST_HRProbe staff in the regression test.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend HR feature-set is FULLY working end-to-end. The salon geo fence was restored to (12.9569, 77.7011) as required. Priya still has today's completed attendance (fined ₹50 for being 12min late) — do NOT delete unless required for re-testing check-in flows. When re-testing frontend after fixes: (a) verify shift chip appears on Priya's card, (b) verify data-testid=staff-shift-section is present in the Edit modal DOM, (c) verify AdvanceModal amount field accepts arbitrary values like 500, and (d) toggle serving-notice + save then confirm notice badge shows on the staff card.",
+  "rca of the issue": "Advance modal 'stuck' initially: HTML5 native validation blocked submit because step=100 (not a code bug in submit-handler, but a JSX attribute mistake). Once the value matched the step (101), the POST fired and produced the correct backend 400 which was properly surfaced as a toast. StaffCard missing shift chip: JSX for the card element (Staff.jsx) never renders shift info block; feature spec calls for it. data-testid gaps: new HR section was added without the project-wide data-testid convention followed elsewhere."
+}

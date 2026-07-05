@@ -91,6 +91,18 @@ def _render_salary_slip_pdf(slip: dict) -> bytes:
     line("Monthly base salary", f"Rs. {slip['monthly_base_salary']:.2f}")
     pct_txt = f" ({slip['commission_pct']}%)" if slip['commission_pct'] else ""
     line(f"Service commission{pct_txt}", f"Rs. {slip['commission_amount']:.2f}")
+    if slip.get("overtime_total"):
+        line(f"Overtime ({slip.get('overtime_hours_total', 0)}h past shift end)", f"Rs. {slip['overtime_total']:.2f}")
+    if slip.get("late_penalty_total") or slip.get("advance_total"):
+        y -= 2 * mm
+        c.setFont("Helvetica-Bold", 11)
+        c.setFillColor(colors.HexColor("#0A0A0A"))
+        c.drawString(left, y, "Deductions")
+        y -= 8 * mm
+        if slip.get("late_penalty_total"):
+            line(f"Late-arrival fines ({slip.get('late_days', 0)} day(s))", f"- Rs. {slip['late_penalty_total']:.2f}")
+        if slip.get("advance_total"):
+            line("Salary advance taken", f"- Rs. {slip['advance_total']:.2f}")
     c.setStrokeColor(colors.HexColor("#e5e7eb"))
     c.line(left, y + 3 * mm, right, y + 3 * mm)
     line("Net payable", f"Rs. {slip['net_payable']:.2f}", bold=True)

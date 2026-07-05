@@ -166,7 +166,7 @@ export default function StaffRegistry() {
       <form onSubmit={(e) => { e.preventDefault(); load(q); }} className="flex gap-2">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input data-testid="registry-search-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any staff — ID (STF-00001), phone or name…" className="input-light w-full pl-9" />
+          <input data-testid="registry-search-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search any staff — Aadhaar (full history), phone, name or ID (STF-00001)…" className="input-light w-full pl-9" />
         </div>
         <button type="submit" data-testid="registry-search-btn" className="btn-slate">Search</button>
         {q && <button type="button" onClick={() => { setQ(""); load(); }} className="btn-slate px-3"><X className="w-4 h-4" /></button>}

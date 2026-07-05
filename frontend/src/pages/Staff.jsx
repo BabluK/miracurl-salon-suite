@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import {
   Plus, X, Edit3, Trash2, Phone, Mail, Percent, IndianRupee,
-  KeyRound, Eye, EyeOff, Copy, Power, MessageCircle,
+  KeyRound, Eye, EyeOff, Copy, Power, MessageCircle, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
@@ -13,7 +13,24 @@ const EMPTY_FORM = {
   name: "", role: "Stylist", phone: "", email: "", specialties: "",
   commission_pct: 10, monthly_base_salary: 0, salary_visible: true,
   image_url: "", active: true,
+  shift_start: "10:00", shift_end: "21:00", overtime_rate: 0,
+  max_advance: 0, notice_period_days: 30, serving_notice: false,
+  last_working_day: "", aadhaar: "",
 };
+
+const buildStaffPayload = (form) => ({
+  ...form,
+  specialties: form.specialties.split(",").map(x => x.trim()).filter(Boolean),
+  commission_pct: parseFloat(form.commission_pct) || 0,
+  monthly_base_salary: parseFloat(form.monthly_base_salary) || 0,
+  salary_visible: !!form.salary_visible,
+  overtime_rate: parseFloat(form.overtime_rate) || 0,
+  max_advance: parseFloat(form.max_advance) || 0,
+  notice_period_days: parseInt(form.notice_period_days, 10) || 30,
+  serving_notice: !!form.serving_notice,
+  last_working_day: form.last_working_day || null,
+  aadhaar: (form.aadhaar || "").trim() || null,
+});
 
 export default function Staff() {
   const [list, setList] = useState([]);
@@ -21,6 +38,7 @@ export default function Staff() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [tempCred, setTempCred] = useState(null); // {name, email, temp_password, phone}
+  const [advanceFor, setAdvanceFor] = useState(null); // staff for advance modal
 
   const load = useCallback(async () => {
     const { data } = await api.get("/staff");
@@ -36,6 +54,14 @@ export default function Staff() {
       specialties: (s.specialties || []).join(", "),
       monthly_base_salary: s.monthly_base_salary ?? 0,
       salary_visible: s.salary_visible !== false,
+      shift_start: s.shift_start || "10:00",
+      shift_end: s.shift_end || "21:00",
+      overtime_rate: s.overtime_rate ?? 0,
+      max_advance: s.max_advance ?? 0,
+      notice_period_days: s.notice_period_days ?? 30,
+      serving_notice: !!s.serving_notice,
+      last_working_day: s.last_working_day || "",
+      aadhaar: "",
     });
     setOpen(true);
   }
@@ -43,13 +69,7 @@ export default function Staff() {
   async function save(e) {
     e.preventDefault();
     try {
-      const payload = {
-        ...form,
-        specialties: form.specialties.split(",").map(x => x.trim()).filter(Boolean),
-        commission_pct: parseFloat(form.commission_pct) || 0,
-        monthly_base_salary: parseFloat(form.monthly_base_salary) || 0,
-        salary_visible: !!form.salary_visible,
-      };
+      const payload = buildStaffPayload(form);
       if (editing) {
         await api.put(`/staff/${editing.id}`, payload);
         toast.success("Staff updated");
@@ -159,6 +179,14 @@ export default function Staff() {
             </div>
             <div className="flex flex-wrap items-center gap-1.5 justify-center mt-4">
               <button data-testid={`edit-staff-${s.id}`} onClick={() => startEdit(s)} className="btn-slate flex items-center gap-1 text-xs py-1.5 px-3"><Edit3 className="w-3 h-3" /> Edit</button>
+              <button
+                data-testid={`advance-staff-${s.id}`}
+                onClick={() => setAdvanceFor(s)}
+                className="text-xs py-1.5 px-3 rounded-md bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 inline-flex items-center gap-1"
+                title="Give / view salary advance"
+              >
+                <IndianRupee className="w-3 h-3" /> Advance
+              </button>
               {!s.user_id ? (
                 <button
                   data-testid={`create-login-${s.id}`}
@@ -242,6 +270,64 @@ export default function Staff() {
                   <span className="block text-xs text-slate-500">If unchecked, they can still check in/out but salary slips will be hidden from their portal.</span>
                 </span>
               </label>
+              <div className="rounded-xl border border-slate-200 p-3 space-y-3" data-testid="staff-shift-section">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Shift, Advance & Compliance</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label-light block mb-1">Shift start</label>
+                    <input data-testid="staff-shift-start-input" type="time" className="input-light" value={form.shift_start} onChange={e => setForm({ ...form, shift_start: e.target.value })} />
+                    <p className="text-[10px] text-slate-400 mt-1">10-min grace, then ₹50 fine per 5 min late</p>
+                  </div>
+                  <div>
+                    <label className="label-light block mb-1">Shift end</label>
+                    <input data-testid="staff-shift-end-input" type="time" className="input-light" value={form.shift_end} onChange={e => setForm({ ...form, shift_end: e.target.value })} />
+                    <p className="text-[10px] text-slate-400 mt-1">Work after this earns overtime</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label-light block mb-1">Overtime ₹/hr</label>
+                    <input data-testid="staff-overtime-rate-input" type="number" min="0" step="10" className="input-light" value={form.overtime_rate} onChange={e => setForm({ ...form, overtime_rate: e.target.value })} placeholder="50 Beautician · 100 Senior" />
+                  </div>
+                  <div>
+                    <label className="label-light block mb-1">Max advance ₹/month</label>
+                    <input data-testid="staff-max-advance-input" type="number" min="0" step="500" className="input-light" value={form.max_advance} onChange={e => setForm({ ...form, max_advance: e.target.value })} placeholder="e.g. 5000" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label-light block mb-1">Notice period (days)</label>
+                    <input data-testid="staff-notice-days-input" type="number" min="0" className="input-light" value={form.notice_period_days} onChange={e => setForm({ ...form, notice_period_days: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label-light block mb-1">Aadhaar number</label>
+                    <input data-testid="staff-aadhaar-input" inputMode="numeric" maxLength={14} className="input-light" value={form.aadhaar} onChange={e => setForm({ ...form, aadhaar: e.target.value })}
+                      placeholder={editing?.aadhaar_last4 ? `Saved · XXXX-XXXX-${editing.aadhaar_last4}` : "12 digits"} />
+                    <p className="text-[10px] text-slate-400 mt-1">Stored securely — only last 4 digits shown</p>
+                  </div>
+                </div>
+                <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                  <input data-testid="staff-serving-notice-toggle" type="checkbox" checked={!!form.serving_notice}
+                    onChange={e => {
+                      const on = e.target.checked;
+                      const lwd = on && !form.last_working_day
+                        ? new Date(Date.now() + (parseInt(form.notice_period_days, 10) || 30) * 86400000).toISOString().slice(0, 10)
+                        : form.last_working_day;
+                      setForm({ ...form, serving_notice: on, last_working_day: on ? lwd : "" });
+                    }}
+                    className="mt-0.5" />
+                  <span>
+                    <span className="font-medium">Serving notice period</span>
+                    <span className="block text-xs text-slate-500">Marks this staff as resigned — last working day auto-computed from notice period.</span>
+                  </span>
+                </label>
+                {form.serving_notice && (
+                  <div>
+                    <label className="label-light block mb-1">Last working day</label>
+                    <input data-testid="staff-last-working-day-input" type="date" className="input-light" value={form.last_working_day} onChange={e => setForm({ ...form, last_working_day: e.target.value })} />
+                  </div>
+                )}
+              </div>
               <div>
                 <label className="label-light block mb-1">Staff photo</label>
                 <ImageUploader
@@ -252,14 +338,7 @@ export default function Staff() {
                   onUploaded={async (url) => {
                     if (!editing) { toast.success("Photo attached — it saves with the profile ✦"); return; }
                     try {
-                      await api.put(`/staff/${editing.id}`, {
-                        ...form,
-                        image_url: url,
-                        specialties: form.specialties.split(",").map(x => x.trim()).filter(Boolean),
-                        commission_pct: parseFloat(form.commission_pct) || 0,
-                        monthly_base_salary: parseFloat(form.monthly_base_salary) || 0,
-                        salary_visible: !!form.salary_visible,
-                      });
+                      await api.put(`/staff/${editing.id}`, { ...buildStaffPayload(form), image_url: url });
                       toast.success("Photo uploaded & saved ✦");
                       load();
                     } catch { toast.error("Auto-save failed — press Save"); }
@@ -279,6 +358,104 @@ export default function Staff() {
       {tempCred && (
         <TempCredModal cred={tempCred} onClose={() => setTempCred(null)} />
       )}
+
+      {advanceFor && (
+        <AdvanceModal staff={advanceFor} onClose={() => setAdvanceFor(null)} />
+      )}
+    </div>
+  );
+}
+
+function AdvanceModal({ staff, onClose }) {
+  const [rows, setRows] = useState(null);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const month = new Date().toISOString().slice(0, 7);
+  const thisMonth = (rows || []).find(r => r.month === month);
+  const maxAdv = Number(staff.max_advance) || 0;
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await api.get(`/staff/${staff.id}/advances`);
+      setRows(data);
+    } catch { setRows([]); }
+  }, [staff.id]);
+  useEffect(() => { load(); }, [load]);
+
+  async function give(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.post(`/staff/${staff.id}/advance`, { amount: parseFloat(amount) || 0, note });
+      toast.success(`Advance recorded for ${staff.name}`);
+      setAmount(""); setNote("");
+      load();
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't record advance");
+    } finally { setBusy(false); }
+  }
+
+  async function undo(aid) {
+    if (!window.confirm("Remove this advance entry?")) return;
+    try {
+      await api.delete(`/staff/${staff.id}/advance/${aid}`);
+      toast.success("Advance removed");
+      load();
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't remove");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3" onClick={onClose}>
+      <div className="card-light w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()} data-testid="advance-modal">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-playfair text-xl">Salary advance — {staff.name}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 px-3 py-2 mb-4 space-y-0.5">
+          <div>• Max limit: <b>{maxAdv > 0 ? `₹${maxAdv.toLocaleString("en-IN")}` : "not set (edit staff to set it)"}</b></div>
+          <div>• One advance per month, only after the 15th</div>
+          <div>• Auto-deducted from this month&apos;s salary slip</div>
+        </div>
+        {thisMonth ? (
+          <div className="rounded-lg bg-violet-50 border border-violet-200 px-3 py-2 mb-4 text-sm text-violet-800 flex items-center justify-between" data-testid="advance-this-month">
+            <span>This month: <b>₹{Number(thisMonth.amount).toLocaleString("en-IN")}</b> on {thisMonth.created_at?.slice(0, 10)}</span>
+            <button onClick={() => undo(thisMonth.id)} className="text-xs text-red-500 hover:underline">undo</button>
+          </div>
+        ) : (
+          <form onSubmit={give} className="space-y-3 mb-4">
+            <div>
+              <label className="label-light block mb-1">Amount ₹ *</label>
+              <input data-testid="advance-amount-input" required type="number" min="1" step="100" max={maxAdv > 0 ? maxAdv : undefined} className="input-light" value={amount} onChange={e => setAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="label-light block mb-1">Note</label>
+              <input data-testid="advance-note-input" className="input-light" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. family emergency" maxLength={200} />
+            </div>
+            <button data-testid="advance-submit-btn" disabled={busy || maxAdv <= 0} type="submit" className="btn-blue w-full">{busy ? "Recording…" : "Record advance"}</button>
+          </form>
+        )}
+        <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-2">History</div>
+        {rows === null ? (
+          <div className="text-slate-400 text-sm">Loading…</div>
+        ) : rows.length === 0 ? (
+          <div className="text-slate-400 text-sm">No advances yet.</div>
+        ) : (
+          <div className="divide-y divide-slate-100 text-sm">
+            {rows.map(r => (
+              <div key={r.id} className="py-2 flex items-center justify-between">
+                <div>
+                  <span className="font-medium">₹{Number(r.amount).toLocaleString("en-IN")}</span>
+                  <span className="text-slate-400 text-xs ml-2">{r.month}{r.note ? ` · ${r.note}` : ""}</span>
+                </div>
+                <span className="text-[10px] text-slate-400">{r.given_by}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

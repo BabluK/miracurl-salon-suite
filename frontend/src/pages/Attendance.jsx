@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import {
-  Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft,
+  Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin,
 } from "lucide-react";
 
 function fmtTime(iso) {
@@ -79,6 +79,8 @@ export default function Attendance() {
         <SummaryTile label="Absent" value={data?.absent ?? 0} icon={CircleAlert} tone="rose" testid="sum-absent" />
       </div>
 
+      <GeoFenceCard />
+
       {/* Roster table */}
       <div className="card-light p-0 overflow-x-auto" data-testid="attendance-roster">
         <table className="luxe-table-light min-w-[720px]">
@@ -89,6 +91,7 @@ export default function Attendance() {
               <th>Check-in</th>
               <th>Check-out</th>
               <th>Hours</th>
+              <th>Fine / OT</th>
               <th></th>
             </tr>
           </thead>
@@ -126,6 +129,18 @@ export default function Attendance() {
                   <td className="tabular-nums">{fmtTime(r.check_out_at)}</td>
                   <td className="tabular-nums font-medium">
                     {r.hours > 0 ? `${r.hours}h` : "—"}
+                    {r.auto_checked_out && <span className="ml-1 text-[9px] text-amber-600 uppercase">auto</span>}
+                  </td>
+                  <td>
+                    <div className="flex flex-col gap-0.5 text-[11px]">
+                      {r.late_penalty > 0 && (
+                        <span className="text-red-600" data-testid={`late-fine-${r.staff_id}`}>−₹{r.late_penalty} ({r.late_minutes}m late)</span>
+                      )}
+                      {r.overtime_pay > 0 && (
+                        <span className="text-emerald-600" data-testid={`ot-pay-${r.staff_id}`}>+₹{r.overtime_pay} OT ({r.overtime_hours}h)</span>
+                      )}
+                      {!(r.late_penalty > 0) && !(r.overtime_pay > 0) && <span className="text-slate-300">—</span>}
+                    </div>
                   </td>
                   <td>
                     <button
@@ -140,7 +155,7 @@ export default function Attendance() {
               );
             })}
             {!loading && data?.roster?.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-6 text-slate-400">No active staff — add staff first.</td></tr>
+              <tr><td colSpan={7} className="text-center py-6 text-slate-400">No active staff — add staff first.</td></tr>
             )}
           </tbody>
         </table>
@@ -153,6 +168,70 @@ export default function Attendance() {
           onClose={() => setSelected(null)}
         />
       )}
+    </div>
+  );
+}
+
+function GeoFenceCard() {
+  const [tenant, setTenant] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try { const { data } = await api.get("/tenants/current"); setTenant(data); } catch { /* non-admin */ }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function setHere() {
+    if (!navigator.geolocation) { toast.error("This device doesn't support GPS"); return; }
+    setBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      async (p) => {
+        try {
+          await api.put("/tenants/current/geo", { latitude: p.coords.latitude, longitude: p.coords.longitude });
+          toast.success("Salon location pinned — staff check-in is now geo-fenced to 200m");
+          load();
+        } catch (e) {
+          toast.error(formatApiError(e.response?.data?.detail) || "Couldn't save location");
+        } finally { setBusy(false); }
+      },
+      () => { toast.error("Allow location access to pin the salon"); setBusy(false); },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  }
+
+  async function clear() {
+    if (!window.confirm("Remove the geo-fence? Staff will be able to check in from anywhere.")) return;
+    try {
+      await api.delete("/tenants/current/geo");
+      toast.success("Geo-fence removed");
+      load();
+    } catch { toast.error("Couldn't remove"); }
+  }
+
+  const isSet = tenant?.latitude != null && tenant?.longitude != null;
+  return (
+    <div className="card-light flex flex-col sm:flex-row sm:items-center justify-between gap-3" data-testid="geo-fence-card">
+      <div className="flex items-start gap-3">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSet ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
+          <MapPin className="w-4 h-4" />
+        </div>
+        <div>
+          <div className="font-medium text-sm">GPS check-in fence {isSet ? "· ON" : "· OFF"}</div>
+          <div className="text-xs text-slate-500 mt-0.5">
+            {isSet
+              ? `Staff can only check in within 200m of the salon (pinned at ${Number(tenant.latitude).toFixed(4)}, ${Number(tenant.longitude).toFixed(4)}).`
+              : "Not set — staff can check in from anywhere. Stand inside the salon and pin its location to enable the 200m fence."}
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-2 shrink-0">
+        <button data-testid="set-salon-geo-btn" onClick={setHere} disabled={busy} className="btn-blue text-xs py-2 px-3 flex items-center gap-1.5">
+          <MapPin className="w-3.5 h-3.5" /> {busy ? "Locating…" : isSet ? "Re-pin location" : "Pin salon location"}
+        </button>
+        {isSet && (
+          <button data-testid="clear-salon-geo-btn" onClick={clear} className="btn-slate text-xs py-2 px-3">Remove</button>
+        )}
+      </div>
     </div>
   );
 }
