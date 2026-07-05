@@ -14,6 +14,13 @@ const queryClient = new QueryClient({
 });
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
+
+// Production: silence diagnostic console output (errors still surface).
+if (process.env.NODE_ENV === "production") {
+  console.log = () => {};
+  console.debug = () => {};
+  console.info = () => {};
+}
 root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
