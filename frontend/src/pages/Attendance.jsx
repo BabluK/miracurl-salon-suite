@@ -51,6 +51,19 @@ export default function Attendance() {
 
   useEffect(() => { load(); }, [load]);
 
+  async function waiveFine(r) {
+    if (!r.record_id) return;
+    const note = window.prompt(`Waive ₹${r.late_penalty} fine for ${r.name}? Add a short reason:`, "Applied by mistake");
+    if (note === null) return;
+    try {
+      await api.post(`/attendance/${r.record_id}/waive-fine`, { note });
+      toast.success(`₹${r.late_penalty} fine waived for ${r.name}`);
+      load();
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Couldn't waive fine");
+    }
+  }
+
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -134,12 +147,23 @@ export default function Attendance() {
                   <td>
                     <div className="flex flex-col gap-0.5 text-[11px]">
                       {r.late_penalty > 0 && (
-                        <span className="text-red-600" data-testid={`late-fine-${r.staff_id}`}>−₹{r.late_penalty} ({r.late_minutes}m late)</span>
+                        <span className="text-red-600 flex items-center gap-1.5" data-testid={`late-fine-${r.staff_id}`}>
+                          −₹{r.late_penalty} ({r.late_minutes}m late)
+                          <button
+                            data-testid={`waive-fine-${r.staff_id}`}
+                            title="Waive this fine (wrongly applied)"
+                            onClick={() => waiveFine(r)}
+                            className="text-[9px] uppercase px-1.5 py-0.5 rounded border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-300"
+                          >waive</button>
+                        </span>
+                      )}
+                      {r.late_penalty_waived > 0 && !(r.late_penalty > 0) && (
+                        <span className="text-emerald-600" data-testid={`fine-waived-${r.staff_id}`}>₹{r.late_penalty_waived} fine waived ✓</span>
                       )}
                       {r.overtime_pay > 0 && (
                         <span className="text-emerald-600" data-testid={`ot-pay-${r.staff_id}`}>+₹{r.overtime_pay} OT ({r.overtime_hours}h)</span>
                       )}
-                      {!(r.late_penalty > 0) && !(r.overtime_pay > 0) && <span className="text-slate-300">—</span>}
+                      {!(r.late_penalty > 0) && !(r.overtime_pay > 0) && !(r.late_penalty_waived > 0) && <span className="text-slate-300">—</span>}
                     </div>
                   </td>
                   <td>
@@ -219,8 +243,8 @@ function GeoFenceCard() {
           <div className="font-medium text-sm">GPS check-in fence {isSet ? "· ON" : "· OFF"}</div>
           <div className="text-xs text-slate-500 mt-0.5">
             {isSet
-              ? `Staff can only check in within 200m of the salon (pinned at ${Number(tenant.latitude).toFixed(4)}, ${Number(tenant.longitude).toFixed(4)}).`
-              : "Not set — staff can check in from anywhere. Stand inside the salon and pin its location to enable the 200m fence."}
+              ? `Staff can only check in within 200m of the salon (pinned at ${Number(tenant.latitude).toFixed(4)}, ${Number(tenant.longitude).toFixed(4)}). Late fines are active.`
+              : "Not set — staff can check in from anywhere and NO late fines are applied. Stand inside the salon and pin its location to enable the 200m fence + automatic late fines."}
           </div>
         </div>
       </div>

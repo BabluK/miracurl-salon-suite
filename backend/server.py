@@ -1445,6 +1445,26 @@ async def _auto_close_stale_attendance():
                       "auto_checked_out": True, "overtime_hours": ot_h, "overtime_pay": ot_pay}})
 
 
+class WaiveFineIn(BaseModel):
+    note: str = Field("", max_length=200)
+
+
+@api.post("/attendance/{rec_id}/waive-fine")
+async def waive_late_fine(rec_id: str, body: WaiveFineIn, admin=Depends(require_tenant_admin)):
+    """Correct a wrongly-applied late fine — zeroes the deduction, keeps an audit trail."""
+    rec = await db.attendance.find_one({"id": rec_id}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Attendance record not found")
+    fine = float(rec.get("late_penalty") or 0)
+    if fine <= 0:
+        raise HTTPException(400, "No fine on this record")
+    await db.attendance.update_one({"id": rec_id}, {"$set": {
+        "late_penalty": 0.0, "late_penalty_waived": fine,
+        "waived_by": admin.get("email"), "waived_note": body.note.strip(),
+        "waived_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "waived_amount": fine}
+
+
 @api.post("/staff/me/check-in")
 async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff), t=Depends(current_tenant)):
     """Geo-fenced check-in with automatic late-fine calculation. Idempotent."""
@@ -1463,6 +1483,10 @@ async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff)
             raise HTTPException(403, f"You appear to be {int(distance_m)}m from the salon. Check-in is allowed only within {GEO_FENCE_M}m.")
     now = datetime.now(timezone.utc)
     late_min, penalty = _late_penalty_for(s, now.astimezone(IST_TZ))
+    # Fines only for geo-verified, on-site check-ins. If the salon hasn't pinned
+    # its GPS location yet, we record the time but never auto-fine.
+    if distance_m is None:
+        penalty = 0.0
     fields = {
         "check_in_at": now.isoformat(),
         "late_minutes": late_min, "late_penalty": penalty,
@@ -1600,6 +1624,8 @@ async def attendance_today(date: Optional[str] = None,
             "hours": hours,
             "late_minutes": (rec or {}).get("late_minutes") or 0,
             "late_penalty": (rec or {}).get("late_penalty") or 0,
+            "late_penalty_waived": (rec or {}).get("late_penalty_waived") or 0,
+            "record_id": (rec or {}).get("id"),
             "overtime_hours": (rec or {}).get("overtime_hours") or 0,
             "overtime_pay": (rec or {}).get("overtime_pay") or 0,
             "auto_checked_out": bool((rec or {}).get("auto_checked_out")),

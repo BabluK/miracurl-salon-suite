@@ -538,3 +538,8 @@ Audit verdict: 1 HIGH + hardening items. Fixed:
 - Upload hardening: magic-byte sniffing via services/storage.validate_image_bytes on 3 endpoints (/uploads/image, /super-admin/uploads/photo, gallery images). Fake .png rejected 400, real png OK.
 - /auth/refresh now rejects disabled accounts (status=="disabled" or active==False).
 - Deferred (needs data migration): dedicated Aadhaar pepper env + slow KDF (existing hashes would break; document before attempting).
+
+## Update — Jul 5, 2026 (part 31) — Fair-fine rule + fine waiver
+- Late fines now apply ONLY on geo-verified check-ins (salon GPS pinned + staff within 200m). No fence → late_minutes recorded, penalty forced to 0. GeoFenceCard text explains this. Verified: 387-min-late check-in without fence → ₹0.
+- POST /api/attendance/{rec_id}/waive-fine (require_tenant_admin: owner + super-admin via Act-As) — zeroes late_penalty, stores late_penalty_waived/waived_by/waived_note/waived_at. Roster returns record_id + late_penalty_waived; Attendance.jsx Fine/OT column has "waive" button (prompt for reason) + "fine waived ✓" tag. Verified: ₹3800 fine → waived → salary auto-corrects (slip sums late_penalty).
+- Production note: Riya's wrong ₹3700 fine on prod can be waived by owner from Attendance page after redeploy.
