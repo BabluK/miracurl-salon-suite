@@ -32,162 +32,16 @@ from pydantic import BaseModel, Field, EmailStr, field_validator
 import requests
 from urllib.parse import urlparse as urlparse
 
-# ---------------- DB ----------------
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-_raw_db = client[os.environ['DB_NAME']]
+from database import (  # noqa: F401 — shared DB foundation
+    client, _raw_db, db, _current_tenant_id, _super_admin_ok, TenantCollection,
+)
 
-# ---------------- Tenant-aware DB wrapper ----------------
-from contextvars import ContextVar
-_current_tenant_id: ContextVar = ContextVar("current_tenant_id", default=None)
-# When True, TenantCollection allows unscoped global reads. Set by super_admin
-# routes that legitimately need cross-tenant data (revenue dashboards, etc.).
-_super_admin_ok: ContextVar = ContextVar("super_admin_ok", default=False)
-
-class TenantCollection:
-    """Motor collection proxy that auto-applies tenant_id filter and injects tenant_id on insert."""
-    def __init__(self, coll, scoped: bool = True):
-        self._coll = coll
-        self._scoped = scoped
-
-    def _scope(self, q):
-        if not self._scoped:
-            return q if q is not None else {}
-        tid = _current_tenant_id.get()
-        if tid is None:
-            # Global (unscoped) reads are allowed ONLY for super_admin flows
-            # that explicitly set _super_admin_ok. Otherwise, we force a filter
-            # that matches nothing so a mis-configured request never leaks data.
-            if _super_admin_ok.get():
-                return q if q is not None else {}
-            merged = dict(q) if q else {}
-            merged["tenant_id"] = "__NO_TENANT_CONTEXT__"
-            return merged
-        merged = dict(q) if q else {}
-        if "tenant_id" not in merged:
-            merged["tenant_id"] = tid
-        return merged
-
-    def find(self, q=None, *a, **kw): return self._coll.find(self._scope(q), *a, **kw)
-    async def find_one(self, q=None, *a, **kw): return await self._coll.find_one(self._scope(q), *a, **kw)
-    async def insert_one(self, doc, *a, **kw):
-        if self._scoped:
-            tid = _current_tenant_id.get()
-            if tid is not None and "tenant_id" not in doc:
-                doc["tenant_id"] = tid
-        return await self._coll.insert_one(doc, *a, **kw)
-    async def insert_many(self, docs, *a, **kw):
-        if self._scoped:
-            tid = _current_tenant_id.get()
-            if tid is not None:
-                for d in docs:
-                    if "tenant_id" not in d:
-                        d["tenant_id"] = tid
-        return await self._coll.insert_many(docs, *a, **kw)
-    async def update_one(self, q, *a, **kw): return await self._coll.update_one(self._scope(q), *a, **kw)
-    async def update_many(self, q, *a, **kw): return await self._coll.update_many(self._scope(q), *a, **kw)
-    async def delete_one(self, q, *a, **kw): return await self._coll.delete_one(self._scope(q), *a, **kw)
-    async def delete_many(self, q, *a, **kw): return await self._coll.delete_many(self._scope(q), *a, **kw)
-    async def count_documents(self, q=None, *a, **kw): return await self._coll.count_documents(self._scope(q or {}), *a, **kw)
-    def aggregate(self, pipeline, *a, **kw):
-        if self._scoped and _current_tenant_id.get() is not None:
-            pipeline = [{"$match": {"tenant_id": _current_tenant_id.get()}}] + list(pipeline)
-        return self._coll.aggregate(pipeline, *a, **kw)
-    def create_index(self, *a, **kw): return self._coll.create_index(*a, **kw)
-
-class _DB:
-    # global (unscoped) collections
-    tenants = _raw_db.tenants
-    users = _raw_db.users
-    login_attempts = _raw_db.login_attempts
-    password_reset_tokens = _raw_db.password_reset_tokens
-    subscriptions = _raw_db.subscriptions
-    subscription_payments = _raw_db.subscription_payments
-    affiliate_referrals = _raw_db.affiliate_referrals
-    # tenant-scoped collections
-    customers = TenantCollection(_raw_db.customers)
-    services = TenantCollection(_raw_db.services)
-    staff = TenantCollection(_raw_db.staff)
-    products = TenantCollection(_raw_db.products)
-    appointments = TenantCollection(_raw_db.appointments)
-    invoices = TenantCollection(_raw_db.invoices)
-    reviews = TenantCollection(_raw_db.reviews)
-    attendance = TenantCollection(_raw_db.attendance)
-    feedback = TenantCollection(_raw_db.feedback)
-    gallery = TenantCollection(_raw_db.gallery)
-    chat_threads = TenantCollection(_raw_db.chat_threads)
-    chat_messages = TenantCollection(_raw_db.chat_messages)
-    whatsapp_requests = TenantCollection(_raw_db.whatsapp_requests)
-    packages = TenantCollection(_raw_db.packages)
-    memberships = TenantCollection(_raw_db.memberships)
-    customer_packages = TenantCollection(_raw_db.customer_packages)
-    customer_memberships = TenantCollection(_raw_db.customer_memberships)
-    coupons = TenantCollection(_raw_db.coupons)
-    advances = TenantCollection(_raw_db.advances)
-
-db = _DB()
 
 # ---------------- App ----------------
 app = FastAPI(title="Miracurl Salon Management API")
 api = APIRouter(prefix="/api")
 
-# ---------------- Emergent Object Storage ----------------
-# Powers image uploads for staff photos, service thumbnails, product images.
-# One shared session key across the API — Emergent's object store is a single
-# bucket per app; multi-tenant isolation happens via the path prefix.
-STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
-APP_NAME = "miracurl-salon"
-_storage_key: Optional[str] = None
-_MIME = {
-    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-    "gif": "image/gif", "webp": "image/webp",
-}
-
-
-def _init_storage() -> str:
-    global _storage_key
-    if _storage_key:
-        return _storage_key
-    emergent_key = os.environ.get("EMERGENT_LLM_KEY")
-    if not emergent_key:
-        raise HTTPException(500, "Object storage not configured (EMERGENT_LLM_KEY missing)")
-    r = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": emergent_key}, timeout=30)
-    r.raise_for_status()
-    _storage_key = r.json()["storage_key"]
-    return _storage_key
-
-
-def _put_object(path: str, data: bytes, content_type: str) -> dict:
-    key = _init_storage()
-    r = requests.put(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key, "Content-Type": content_type},
-        data=data, timeout=120,
-    )
-    if r.status_code == 403:  # session expired — force a re-init
-        global _storage_key
-        _storage_key = None
-        key = _init_storage()
-        r = requests.put(
-            f"{STORAGE_URL}/objects/{path}",
-            headers={"X-Storage-Key": key, "Content-Type": content_type},
-            data=data, timeout=120,
-        )
-    r.raise_for_status()
-    return r.json()
-
-
-def _get_object(path: str) -> tuple[bytes, str]:
-    key = _init_storage()
-    r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
-    if r.status_code == 403:
-        global _storage_key
-        _storage_key = None
-        key = _init_storage()
-        r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
-    r.raise_for_status()
-    return r.content, r.headers.get("Content-Type", "application/octet-stream")
-
+from services.storage import _init_storage, _put_object, _get_object, _MIME, APP_NAME  # noqa: F401
 
 @app.on_event("startup")
 async def _boot_storage():
@@ -196,141 +50,13 @@ async def _boot_storage():
     except Exception as e:  # noqa: BLE001 — startup diagnostic
         logging.getLogger("storage").warning("Storage init deferred: %s", e)
 
-# ---------------- JWT helpers ----------------
-JWT_ALG = "HS256"
-def jwt_secret(): return os.environ["JWT_SECRET"]
-
-def hash_pw(p: str) -> str:
-    return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
-
-def verify_pw(p: str, h: str) -> bool:
-    try:
-        return bcrypt.checkpw(p.encode(), h.encode())
-    except Exception:
-        return False
-
-def make_access(user_id: str, email: str) -> str:
-    payload = {"sub": user_id, "email": email,
-               "iat": int(datetime.now(timezone.utc).timestamp()),
-               "exp": datetime.now(timezone.utc) + timedelta(hours=8),
-               "type": "access"}
-    return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALG)
-
-def make_refresh(user_id: str) -> str:
-    payload = {"sub": user_id,
-               "iat": int(datetime.now(timezone.utc).timestamp()),
-               "exp": datetime.now(timezone.utc) + timedelta(days=7),
-               "type": "refresh"}
-    return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALG)
-
-def _reject_if_token_predates_password_change(payload: dict, user: dict):
-    """SEC-002: tokens minted before the user's last password change are dead.
-    Old tokens without an iat claim are treated as pre-change (rejected)."""
-    pca = user.get("password_changed_at")
-    if not pca:
-        return
-    try:
-        pca_ts = datetime.fromisoformat(pca).timestamp()
-    except Exception:
-        return
-    if float(payload.get("iat", 0)) < pca_ts:
-        raise HTTPException(401, "Session expired — please sign in again")
-
-def set_auth_cookies(resp: Response, access: str, refresh: str):
-    # Secure=True is required by browsers when SameSite is Lax on cross-origin
-    # requests over HTTPS. In dev over plain HTTP the cookie is still delivered
-    # because same-origin. Env override for special testing setups.
-    _sec = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
-    resp.set_cookie("access_token", access, httponly=True, secure=_sec, samesite="lax", max_age=28800, path="/")
-    resp.set_cookie("refresh_token", refresh, httponly=True, secure=_sec, samesite="lax", max_age=604800, path="/")
-
-def _extract_bearer_token(request: Request) -> Optional[str]:
-    token = request.cookies.get("access_token")
-    if token:
-        return token
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        return auth[7:]
-    return None
-
-
-def _decode_access_token(token: str) -> dict:
-    payload: dict = {}
-    try:
-        payload = jwt.decode(token, jwt_secret(), algorithms=[JWT_ALG])
-    except jwt.ExpiredSignatureError as e:
-        raise HTTPException(401, "Token expired") from e
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(401, "Invalid token") from e
-    if payload.get("type") != "access":
-        raise HTTPException(401, "Invalid token type")
-    return payload
-
-
-async def _apply_tenant_context(request: Request, user: dict) -> None:
-    """Set tenant context from explicit header/query, falling back to user.tenant_id."""
-    slug = request.headers.get("X-Tenant-Slug") or request.query_params.get("tenant")
-    if slug:
-        t = await db.tenants.find_one({"slug": slug}, {"_id": 0})
-        if not t:
-            raise HTTPException(404, f"Tenant '{slug}' not found")
-        if user.get("role") != "super_admin" and user.get("tenant_id") != t["id"]:
-            raise HTTPException(403, "Cross-tenant access denied")
-        if (user.get("role") == "super_admin" and request.method == "DELETE"
-                and not request.url.path.startswith("/api/super-admin")):
-            raise HTTPException(403, "Super-admin can view, correct and update salon data — but deleting is reserved for the salon owner. Ask the owner, or note it via Contact HQ.")
-        _current_tenant_id.set(t["id"])
-        return
-    if user.get("role") != "super_admin" and user.get("tenant_id"):
-        _current_tenant_id.set(user["tenant_id"])
-    elif user.get("role") == "super_admin":
-        # Super-admin without a slug picks up the global-access override so
-        # TenantCollection knows this is intentional.
-        _super_admin_ok.set(True)
-
-
-async def get_current_user(request: Request) -> dict:
-    token = _extract_bearer_token(request)
-    if not token:
-        raise HTTPException(401, "Not authenticated")
-    payload = _decode_access_token(token)
-    user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
-    if not user:
-        raise HTTPException(401, "User not found")
-    _reject_if_token_predates_password_change(payload, user)
-    # SEC-001 hardening: a self-registered account with no tenant_id has no
-    # business seeing anyone else's data. Only super_admin is allowed to
-    # operate globally without a tenant scope. Everyone else is fail-closed.
-    if user.get("role") != "super_admin" and not user.get("tenant_id"):
-        raise HTTPException(
-            403,
-            "Your account is not yet linked to a salon. Please ask your salon admin to activate you.",
-        )
-    if user.get("status") == "pending":
-        raise HTTPException(403, "Account pending admin approval.")
-    if user.get("disabled"):
-        raise HTTPException(403, "Your account has been disabled by the salon admin.")
-    await _apply_tenant_context(request, user)
-    return user
-
-async def require_admin(user=Depends(get_current_user)):
-    # Operational access: owners, super-admins and salon managers.
-    if user.get("role") not in ("admin", "super_admin", "manager"):
-        raise HTTPException(403, "Admin role required")
-    return user
-
-# ---- In-memory rate limit for public booking ----
-_RATE_BUCKET: dict = {}
-def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, window_sec: int = 600):
-    """Allow `limit` requests per IP per `window_sec` seconds."""
-    ip = request.client.host if request.client else "anon"
-    key = f"{ip}:{key_suffix}"
-    now = datetime.now(timezone.utc).timestamp()
-    bucket = [t for t in _RATE_BUCKET.get(key, []) if now - t < window_sec]
-    if len(bucket) >= limit:
-        raise HTTPException(429, "Too many requests. Please wait a few minutes and try again.")
-    bucket.append(now)
-    _RATE_BUCKET[key] = bucket
+from security import (  # noqa: F401 — auth & tenancy guards
+    JWT_ALG, jwt_secret, hash_pw, verify_pw, make_access, make_refresh,
+    _reject_if_token_predates_password_change, set_auth_cookies,
+    _extract_bearer_token, _decode_access_token, _apply_tenant_context,
+    get_current_user, require_admin, public_rate_limit,
+    require_super_admin, require_tenant_admin, current_tenant,
+)
 
 # ---------------- Models ----------------
 class RegisterIn(BaseModel):
@@ -421,29 +147,6 @@ async def resolve_tenant_from_slug(slug: str) -> dict:
     if t.get("status") == "suspended":
         raise HTTPException(403, "Tenant subscription is suspended")
     _current_tenant_id.set(t["id"])
-    return t
-
-async def require_super_admin(user=Depends(get_current_user)):
-    if user.get("role") != "super_admin":
-        raise HTTPException(403, "Super-admin role required")
-    return user
-
-async def require_tenant_admin(user=Depends(get_current_user)):
-    """Admin of the current tenant, or super-admin."""
-    if user.get("role") == "super_admin":
-        return user
-    if user.get("role") != "admin":
-        raise HTTPException(403, "Admin role required")
-    return user
-
-async def current_tenant(user=Depends(get_current_user)) -> dict:
-    """Returns the tenant dict for the currently-set context. Useful for endpoints that need salon details."""
-    tid = _current_tenant_id.get()
-    if not tid:
-        raise HTTPException(400, "No tenant context. Pass X-Tenant-Slug header or use a tenant-scoped login.")
-    t = await db.tenants.find_one({"id": tid}, {"_id": 0})
-    if not t:
-        raise HTTPException(404, "Tenant not found")
     return t
 
 class Customer(BaseModel):

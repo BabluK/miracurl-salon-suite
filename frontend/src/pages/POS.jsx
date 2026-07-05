@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
-import { Search, X, Plus, UserPlus, IndianRupee, Receipt, Printer, Star, Share2, Calendar, Trash2, MapPin } from "lucide-react";
+import { Search, X, UserPlus, Receipt, Calendar, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { openWhatsApp } from "@/lib/share";
 import { useAuth } from "@/context/AuthContext";
@@ -20,61 +20,10 @@ const TAB_BUTTONS = [
   { k: "membership", label: "Add Membership", live: true },
 ];
 
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
+import { printInvoice } from "@/components/pos/receipt";
+import AddGuestModal from "@/components/pos/AddGuestModal";
+import InvoiceReceiptModal from "@/components/pos/InvoiceReceiptModal";
 
-function buildReceiptHtml(inv, tenant) {
-  const brandName = tenant?.name || "Your Salon";
-  const brandLoc = tenant?.location || "";
-  const itemsHtml = inv.items.map(it => {
-    const sub = (it.qty * it.price).toFixed(2);
-    const staffLine = it.staff_name
-      ? `<div style="font-size:10px;color:#666">by ${escapeHtml(it.staff_name)}</div>`
-      : "";
-    return `<tr><td>${escapeHtml(it.name)} × ${Number(it.qty)}${staffLine}</td><td style="text-align:right">₹${sub}</td></tr>`;
-  }).join("");
-  const showTax = Number(inv.tax) > 0;
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(inv.invoice_no)}</title>
-<style>
-  body{font-family:Arial,sans-serif;color:#000;padding:24px;max-width:420px;margin:auto}
-  h1{font-family:Georgia,serif;text-align:center;margin:0;color:#a08300}
-  .sub{text-align:center;font-size:11px;color:#666;margin-bottom:16px}
-  .row{display:flex;justify-content:space-between;font-size:12px;padding:3px 0}
-  table{width:100%;border-top:1px dashed #999;border-bottom:1px dashed #999;margin-top:12px}
-  table td{padding:4px 0;font-size:12px}
-  .total{font-family:Georgia,serif;font-size:18px;font-weight:700;border-top:2px solid #000;padding-top:6px;margin-top:6px}
-  .foot{text-align:center;font-size:10px;color:#888;margin-top:20px}
-</style></head><body>
-<h1>${escapeHtml(brandName)} ✦</h1>
-<div class="sub">${escapeHtml(brandLoc)}${brandLoc ? "<br/>" : ""}${escapeHtml(new Date(inv.created_at).toLocaleString())}</div>
-<div class="row"><b>Invoice #</b><span>${escapeHtml(inv.invoice_no)}</span></div>
-<div class="row"><b>Customer</b><span>${escapeHtml(inv.customer_name)}</span></div>
-${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${escapeHtml(inv.staff_name)}</span></div>` : ""}
-<div class="row"><b>Payment</b><span>${escapeHtml(String(inv.payment_mode).toUpperCase())}</span></div>
-<table>${itemsHtml}</table>
-<div class="row"><span>Subtotal</span><span>₹${inv.subtotal.toFixed(2)}</span></div>
-<div class="row"><span>Discount</span><span>−₹${inv.discount.toFixed(2)}</span></div>
-${showTax ? `<div class="row"><span>Tax</span><span>₹${inv.tax.toFixed(2)}</span></div>` : ""}
-<div class="row total"><span>Total</span><span>₹${inv.total.toFixed(2)}</span></div>
-<div class="foot">Thank you for visiting ${escapeHtml(brandName)} ✦</div>
-</body></html>`;
-}
-
-function printInvoice(inv, tenant) {
-  const iframe = document.createElement("iframe");
-  iframe.setAttribute("aria-hidden", "true");
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-  iframe.srcdoc = buildReceiptHtml(inv, tenant);
-  iframe.onload = () => {
-    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
-    catch { toast.error("Unable to open print dialog"); }
-    setTimeout(() => iframe.remove(), 1000);
-  };
-  document.body.appendChild(iframe);
-}
 
 export default function POS() {
   const { tenant } = useAuth();
@@ -721,115 +670,3 @@ export default function POS() {
   );
 }
 
-function AddGuestModal({ onClose, onCreated }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function save(e) {
-    e.preventDefault();
-    if (!name.trim() || !/^\d{7,15}$/.test(phone.replace(/\D/g, ""))) {
-      toast.error("Name and a valid phone are required");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { data } = await api.post("/customers", {
-        name: name.trim(),
-        phone: phone.replace(/\D/g, ""),
-        email: email.trim() || null,
-      });
-      onCreated(data);
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Couldn't create guest");
-    } finally { setBusy(false); }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <form onSubmit={save} className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4" onClick={e => e.stopPropagation()} data-testid="add-guest-modal">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2"><UserPlus className="w-5 h-5 text-sky-500" /> Add Guest</h3>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700" data-testid="add-guest-close-btn"><X className="w-5 h-5" /></button>
-        </div>
-        <p className="text-xs text-slate-500">Add a new walk-in customer. Their personal referral code is generated automatically.</p>
-        <div>
-          <label className="text-xs text-slate-500 font-medium">Name *</label>
-          <input data-testid="add-guest-name" value={name} onChange={e => setName(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Full name" />
-        </div>
-        <div>
-          <label className="text-xs text-slate-500 font-medium">Phone *</label>
-          <input data-testid="add-guest-phone" value={phone} onChange={e => setPhone(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="98765 43210" />
-        </div>
-        <div>
-          <label className="text-xs text-slate-500 font-medium">Email (optional)</label>
-          <input data-testid="add-guest-email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="you@example.com" />
-        </div>
-        <div className="flex gap-2 pt-2">
-          <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">Cancel</button>
-          <button
-            type="submit"
-            data-testid="add-guest-save-btn"
-            disabled={busy}
-            className="flex-1 px-4 py-2.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 text-white text-sm font-semibold disabled:opacity-60"
-          >{busy ? "Saving…" : "Save Guest"}</button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function InvoiceReceiptModal({ invoice, tenant, onClose, onPrint, onShare }) {
-  const brandName = tenant?.name || "Your Salon";
-  const brandLoc = tenant?.location || "";
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()} data-testid="invoice-receipt">
-        <div className="text-center pb-4 border-b border-slate-100">
-          <h3 className="text-2xl font-playfair text-sky-600" data-testid="receipt-brand">{brandName} ✦</h3>
-          {brandLoc && <p className="text-xs text-slate-500">{brandLoc}</p>}
-          <p className="text-[10px] text-slate-400 mt-1">{new Date(invoice.created_at).toLocaleString()}</p>
-        </div>
-        <div className="py-4 space-y-2 text-sm">
-          <Row label="Invoice #" value={<span className="font-mono">{invoice.invoice_no}</span>} />
-          <Row label="Customer" value={invoice.customer_name} />
-          {invoice.staff_name && <Row label="Stylist" value={invoice.staff_name} />}
-          <Row label="Payment" value={<span className="uppercase text-sky-600">{invoice.payment_mode}</span>} />
-          {invoice.branch_name && <Row label="Branch" value={invoice.branch_name} />}
-        </div>
-        <div className="border-t border-slate-100 pt-3 space-y-1 text-sm">
-          {invoice.items.map((it, idx) => (
-            <div key={`${it.type}:${it.ref_id}:${idx}`} className="flex justify-between">
-              <div>
-                <div className="text-slate-800">{it.name} × {it.qty}</div>
-                {it.staff_name && <div className="text-[10px] text-slate-500">by {it.staff_name}</div>}
-              </div>
-              <span className="text-slate-800">₹{(it.qty * it.price).toFixed(2)}</span>
-            </div>
-          ))}
-        </div>
-        <div className="border-t border-slate-100 pt-3 mt-3 space-y-1 text-sm">
-          <Row label="Subtotal" value={`₹${invoice.subtotal.toFixed(2)}`} />
-          <Row label="Discount" value={`−₹${invoice.discount.toFixed(2)}`} />
-          {Number(invoice.tax) > 0 && <Row label="Tax" value={`₹${invoice.tax.toFixed(2)}`} />}
-          <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-200"><span>Total</span><span className="text-sky-600">₹{invoice.total.toFixed(2)}</span></div>
-        </div>
-        <div className="flex items-center gap-2 mt-5">
-          <button data-testid="invoice-print-btn" onClick={onPrint} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Printer className="w-3.5 h-3.5" /> Print</button>
-          <button data-testid="invoice-whatsapp-btn" onClick={onShare} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> WhatsApp</button>
-          <button data-testid="invoice-close-btn" onClick={onClose} className="flex-1 px-3 py-2 rounded-lg bg-sky-500 text-white text-xs font-medium hover:bg-sky-600">Close</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-slate-800">{value}</span>
-    </div>
-  );
-}

@@ -1,0 +1,102 @@
+"""Mongo foundation: client, tenant-scoped collection proxy, contextvars.
+
+`db` auto-applies the current tenant filter (set per-request in security deps).
+`_raw_db` is unscoped — for global collections (tenants, users) and super-admin flows.
+"""
+import os
+from contextvars import ContextVar
+from motor.motor_asyncio import AsyncIOMotorClient
+
+# ---------------- DB ----------------
+mongo_url = os.environ['MONGO_URL']
+client = AsyncIOMotorClient(mongo_url)
+_raw_db = client[os.environ['DB_NAME']]
+
+# ---------------- Tenant-aware DB wrapper ----------------
+_current_tenant_id: ContextVar = ContextVar("current_tenant_id", default=None)
+# When True, TenantCollection allows unscoped global reads. Set by super_admin
+# routes that legitimately need cross-tenant data (revenue dashboards, etc.).
+_super_admin_ok: ContextVar = ContextVar("super_admin_ok", default=False)
+
+class TenantCollection:
+    """Motor collection proxy that auto-applies tenant_id filter and injects tenant_id on insert."""
+    def __init__(self, coll, scoped: bool = True):
+        self._coll = coll
+        self._scoped = scoped
+
+    def _scope(self, q):
+        if not self._scoped:
+            return q if q is not None else {}
+        tid = _current_tenant_id.get()
+        if tid is None:
+            # Global (unscoped) reads are allowed ONLY for super_admin flows
+            # that explicitly set _super_admin_ok. Otherwise, we force a filter
+            # that matches nothing so a mis-configured request never leaks data.
+            if _super_admin_ok.get():
+                return q if q is not None else {}
+            merged = dict(q) if q else {}
+            merged["tenant_id"] = "__NO_TENANT_CONTEXT__"
+            return merged
+        merged = dict(q) if q else {}
+        if "tenant_id" not in merged:
+            merged["tenant_id"] = tid
+        return merged
+
+    def find(self, q=None, *a, **kw): return self._coll.find(self._scope(q), *a, **kw)
+    async def find_one(self, q=None, *a, **kw): return await self._coll.find_one(self._scope(q), *a, **kw)
+    async def insert_one(self, doc, *a, **kw):
+        if self._scoped:
+            tid = _current_tenant_id.get()
+            if tid is not None and "tenant_id" not in doc:
+                doc["tenant_id"] = tid
+        return await self._coll.insert_one(doc, *a, **kw)
+    async def insert_many(self, docs, *a, **kw):
+        if self._scoped:
+            tid = _current_tenant_id.get()
+            if tid is not None:
+                for d in docs:
+                    if "tenant_id" not in d:
+                        d["tenant_id"] = tid
+        return await self._coll.insert_many(docs, *a, **kw)
+    async def update_one(self, q, *a, **kw): return await self._coll.update_one(self._scope(q), *a, **kw)
+    async def update_many(self, q, *a, **kw): return await self._coll.update_many(self._scope(q), *a, **kw)
+    async def delete_one(self, q, *a, **kw): return await self._coll.delete_one(self._scope(q), *a, **kw)
+    async def delete_many(self, q, *a, **kw): return await self._coll.delete_many(self._scope(q), *a, **kw)
+    async def count_documents(self, q=None, *a, **kw): return await self._coll.count_documents(self._scope(q or {}), *a, **kw)
+    def aggregate(self, pipeline, *a, **kw):
+        if self._scoped and _current_tenant_id.get() is not None:
+            pipeline = [{"$match": {"tenant_id": _current_tenant_id.get()}}] + list(pipeline)
+        return self._coll.aggregate(pipeline, *a, **kw)
+    def create_index(self, *a, **kw): return self._coll.create_index(*a, **kw)
+
+class _DB:
+    # global (unscoped) collections
+    tenants = _raw_db.tenants
+    users = _raw_db.users
+    login_attempts = _raw_db.login_attempts
+    password_reset_tokens = _raw_db.password_reset_tokens
+    subscriptions = _raw_db.subscriptions
+    subscription_payments = _raw_db.subscription_payments
+    affiliate_referrals = _raw_db.affiliate_referrals
+    # tenant-scoped collections
+    customers = TenantCollection(_raw_db.customers)
+    services = TenantCollection(_raw_db.services)
+    staff = TenantCollection(_raw_db.staff)
+    products = TenantCollection(_raw_db.products)
+    appointments = TenantCollection(_raw_db.appointments)
+    invoices = TenantCollection(_raw_db.invoices)
+    reviews = TenantCollection(_raw_db.reviews)
+    attendance = TenantCollection(_raw_db.attendance)
+    feedback = TenantCollection(_raw_db.feedback)
+    gallery = TenantCollection(_raw_db.gallery)
+    chat_threads = TenantCollection(_raw_db.chat_threads)
+    chat_messages = TenantCollection(_raw_db.chat_messages)
+    whatsapp_requests = TenantCollection(_raw_db.whatsapp_requests)
+    packages = TenantCollection(_raw_db.packages)
+    memberships = TenantCollection(_raw_db.memberships)
+    customer_packages = TenantCollection(_raw_db.customer_packages)
+    customer_memberships = TenantCollection(_raw_db.customer_memberships)
+    coupons = TenantCollection(_raw_db.coupons)
+    advances = TenantCollection(_raw_db.advances)
+
+db = _DB()

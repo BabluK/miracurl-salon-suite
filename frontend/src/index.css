@@ -346,3 +346,15 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 
 .inp { width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 0.875rem; color: #1e293b; }
 .inp:focus { outline: none; border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.15); }
+
+/* Super-admin animated badge */
+.super-badge {
+  background: linear-gradient(110deg, #fbbf24 20%, #fff7d6 40%, #fbbf24 60%, #d97706 80%);
+  background-size: 220% 100%;
+  animation: super-badge-shimmer 2.8s linear infinite;
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.45);
+}
+@keyframes super-badge-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -20% 0; }
+}

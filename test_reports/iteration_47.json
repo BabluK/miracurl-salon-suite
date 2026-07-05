@@ -1,0 +1,46 @@
+{
+  "summary": "Iter 47 — Post-refactor regression suite (database.py / security.py / services/storage.py extractions from server.py, plus POS/SuperAdmin frontend component extractions). BACKEND: 26/26 pytest cases PASS (1 skipped registry-pdf endpoint not exposed publicly, non-blocking). Verified all 4 auth roles login+/me+refresh+logout, HttpOnly cookies set, wrong-pw 401, protected-without-cookie 401, tenant scoping intact (admin only sees own-tenant staff), manager blocked from require_tenant_admin endpoint (403), image upload+serve, staff CRUD list, attendance/today, staff geo check-in, reports/dashboard + ?branch= filter, /api/public/registry/search returns hire_verdict, POS invoice create, super-admin tenants/overview/engineer-health, no 500s on cross-module PDF endpoints. FRONTEND: SuperAdmin — animated Super-Admin badge, notif bell + HQ Alerts dropdown, all 5 status filter chips (all/active/trial/cancelled/suspended), KPI cards clickable as filters, Leaderboard/Revenue/AI-Engineer/Billing tabs all render post-extraction. POS — AddGuestModal opens (visible with Name/Phone/Email fields), guest search dropdown returns matches, service line added, invoice created (INV-202607-0044), InvoiceReceiptModal renders with Invoice#/Customer/Subtotal/Discount/Total, Print button clicks without JS crash → printInvoice from components/pos/receipt.js works. Smoke: dashboard/staff/attendance/offers-studio all load.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "InvoiceReceiptModal (components/pos/InvoiceReceiptModal.jsx)",
+        "issue": "The rendered receipt dialog does NOT carry the data-testid='invoice-receipt-modal' attribute expected by the review spec. Modal renders and functions correctly (verified visually with INV-202607-0044), but automated tests cannot select it by testid. Add data-testid to the outer modal container.",
+        "selector": "[data-testid='invoice-receipt-modal']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "POS + others", "issues": ["Pre-existing hydration warning: '<span> cannot be a child of <option>' — coming from a <select> that contains rich children. Cosmetic, unchanged from prior iterations."]},
+      {"screen": "Any page pre-login", "issues": ["4x /api/auth/me 401 on initial mount (cosmetic, unchanged)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter47_refactor_regression.py",
+    "/app/test_reports/pytest/iter47_results.xml"
+  ],
+  "action_items": [
+    "(Optional / LOW) Add data-testid='invoice-receipt-modal' to the root element of components/pos/InvoiceReceiptModal.jsx so automated flows can select it directly. Modal itself works — this is purely a testability nit."
+  ],
+  "critical_code_review_comments": [
+    "Module extractions are clean — no import cycles, no missing symbols. server.py imports from database/security/services.storage all resolve; supervisor logs show no import errors after every reload.",
+    "iter46 fix on BranchSwitcher role-gate is intact at AppLayout.jsx line 190: `(isAdmin || user?.role === 'manager') ? <BranchSwitcher /> : null`. BranchSwitcher self-hides when tenant has no branches (returns null when branches.length === 0), which is why the miracurl tenant (single-branch) doesn't show a testid on dashboard header — expected behavior.",
+    "server.py still 6051 lines even after refactor — cross-iteration debt; not introduced this iter but worth a note.",
+    "POST /api/staff uses `get_current_user` (any role) — managers CAN create staff. DELETE /api/staff/{sid} uses `require_tenant_admin` — managers correctly blocked. Behavior consistent with existing RBAC; not a regression.",
+    "Invoice payload contract: InvoiceItem.type (not 'kind') is required — worth documenting on the API side. Not a bug."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter47_refactor_regression.py (NEW — 26 pytest cases)"
+  ],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "~98% — one testid nit on InvoiceReceiptModal, otherwise fully verified"},
+  "test_credentials": "Used super@miracurl.com, admin@miracurl.com, manager@miracurl.com, priya.staff@miracurl.com — all pass. Read from /app/memory/test_credentials.md.",
+  "seed_data_creation": "Created 1 real invoice INV-202607-0044 (Priya Sharma, Henna ₹200) via POS UI test and 1-2 test invoices via API test_pos_invoice_create. Also created + deleted one TEST_denied staff during a scaffolding attempt (deleted via admin session). No stale test data left.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Refactor session is validated. Backend surface fully covered by /app/backend/tests/test_iter47_refactor_regression.py (26 cases). For future runs export REACT_APP_BACKEND_URL before invoking pytest. If InvoiceReceiptModal testid gets added, uncomment/adjust the corresponding assertion in the frontend playwright block. Do not add cleanup for public registry — search endpoint expects `?q=` (not `?aadhaar=`). Invoice create expects items[].type (not kind).",
+  "rca of the issue": "N/A — no regression detected. The one testability nit (missing invoice-receipt-modal testid) is a cosmetic gap, not a behavior bug."
+}
