@@ -14,6 +14,7 @@ import Inventory from "@/pages/Inventory";
 import POS from "@/pages/POS";
 import Reports from "@/pages/Reports";
 import Reviews from "@/pages/Reviews";
+import OffersStudio from "@/pages/OffersStudio";
 import BookPublic from "@/pages/BookPublic";
 import ReviewPublic from "@/pages/ReviewPublic";
 import SuperAdmin from "@/pages/SuperAdmin";
@@ -131,6 +132,7 @@ export default function App() {
               <Route path="inventory" element={<OwnerOnly><Inventory /></OwnerOnly>} />
               <Route path="pos" element={<AdminOnly><POS /></AdminOnly>} />
               <Route path="reviews" element={<AdminOnly><Reviews /></AdminOnly>} />
+              <Route path="offers-studio" element={<AdminOnly><OffersStudio /></AdminOnly>} />
               <Route path="refer" element={<OwnerOnly><ReferEarn /></OwnerOnly>} />
               <Route path="reports" element={<OwnerOnly><Reports /></OwnerOnly>} />
               <Route path="assistant" element={<OwnerOnly><Assistant /></OwnerOnly>} />

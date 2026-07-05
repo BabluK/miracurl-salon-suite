@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 46 — full backend + frontend testing of the 6 new features: (1) system health, (2) dev-tickets CRUD + AI triage, (3) engineer chat with context, (4) new multi-branch plans, (5) monthly-report refactor, (6) dashboard ?branch= filter, plus Offer Maker page, branch switcher header, super-admin AI Engineer tab, and landing 'Verify Staff — Free' link. 15/15 pytest backend cases PASS. UI: all data-testids present and functional; ONE issue found: BranchSwitcher is gated on role=='admin' so managers do NOT see it in the header, contradicting the spec ('owner + manager').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AppLayout.jsx (line 190) → BranchSwitcher",
+        "issue": "Branch switcher is rendered only when user.role === 'admin' (isAdmin check). Manager user (manager@miracurl.com) logs in and the dropdown is MISSING from the header. Review-request explicitly states owner + manager should both see it. Fix: replace `isAdmin ? <BranchSwitcher/> : null` with `(isAdmin || user?.role === 'manager') ? <BranchSwitcher/> : null` (or use a helper like `canSeeBranchSwitcher`).",
+        "selector": "[data-testid='branch-switcher-select']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard", "issues": ["Recharts 'width(-1) height(-1)' console warnings persist (cosmetic, unchanged from previous iterations)"]},
+      {"screen": "Any page", "issues": ["4x /api/auth/me 401 on initial mount pre-login (cosmetic noise, unchanged)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter46_new_features.py",
+    "/app/test_reports/pytest/iter46_results.xml"
+  ],
+  "action_items": [
+    "AppLayout.jsx: extend BranchSwitcher visibility to include role=='manager' (spec requires owner + manager)."
+  ],
+  "critical_code_review_comments": [
+    "Role-gate on BranchSwitcher is the only functional gap. All other pieces (Offer Maker, AI Engineer, tickets CRUD, engineer chat, plans, monthly-report refactor, dashboard ?branch= filter, landing verify-staff link) are working end-to-end.",
+    "engineer_chat replies use gpt-5.4 with 30-day chat history recall via engineer_ai_messages collection — grounded correctly (returned '5' for tenant count, '1' for open ticket count in tests).",
+    "AI triage on ticket creation returned a substantial (>20 char) triage string for the test ticket in <10s — good UX, generous 60s test timeout is sufficient.",
+    "Landing page 'Verify Staff — Free' link uses hidden sm:block — invisible on mobile widths <640px. Consider whether that's intentional; footer variant is always visible so probably fine.",
+    "server.py is 6320 lines — well past the 700-line guideline. Cross-iteration debt; not introduced this iter."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter46_new_features.py (new)"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "~92% — one role-gate bug on BranchSwitcher for managers, everything else verified working"},
+  "test_credentials": "Used super@miracurl.com, admin@miracurl.com, manager@miracurl.com from /app/memory/test_credentials.md — all rotated passwords work.",
+  "seed_data_creation": "Created one TEST_iter46 UI-probe dev ticket during frontend flow test — deleted at end of the same run via API call. Created + deleted one TEST_iter46 pytest ticket. No residual test data.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend fully green. Only fix needed: extend BranchSwitcher render gate in AppLayout.jsx (line 190) to include role=='manager'. Re-run the manager login flow after fix and confirm [data-testid='branch-switcher-select'] is present on the manager dashboard. Do NOT retest the auto-scheduler (only runs on 1st of month); it's already covered by code review + the manual send-monthly-report endpoint which passed. Resend is in TEST MODE so email sent=false for non-miracurlunisexsaloon@gmail.com salons is EXPECTED behaviour (not a bug).",
+  "rca of the issue": "BranchSwitcher gap RCA: AppLayout.jsx line 190 hard-codes `{isAdmin ? <BranchSwitcher /> : null}` where `isAdmin = user?.role === 'admin'`. Manager (role='manager') falls through and gets null. The BranchSwitcher component itself has no role-guard, so the fix is a one-line change at the render site."
+}

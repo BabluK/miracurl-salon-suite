@@ -6,6 +6,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, 
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
 import DailyReportBanner from "@/components/DailyReportBanner";
+import { getSelectedBranch } from "@/lib/branch";
 import { WhatsAppApprovals } from "@/components/WhatsAppApprovals";
 import { LogoStudio } from "@/components/LogoStudio";
 
@@ -52,13 +53,19 @@ export default function Dashboard() {
   const isOwner = user?.role === "admin" || user?.role === "super_admin";
 
   useEffect(() => {
-    api.get("/reports/dashboard")
-      .then(r => setData(r.data))
-      .catch(e => toast.error(`Couldn't load dashboard: ${e?.message || "network error"}`));
+    const fetchDash = () => {
+      const b = getSelectedBranch();
+      api.get("/reports/dashboard", { params: b ? { branch: b } : {} })
+        .then(r => setData(r.data))
+        .catch(e => toast.error(`Couldn't load dashboard: ${e?.message || "network error"}`));
+    };
+    fetchDash();
+    window.addEventListener("branch-changed", fetchDash);
     if (isOwner) {
       api.get("/dashboard/reminders").then(r => setReminders(r.data)).catch(() => {});
       api.get("/billing/subscription-status").then(r => setSubStatus(r.data)).catch(() => {});
     }
+    return () => window.removeEventListener("branch-changed", fetchDash);
   }, [isOwner]);
 
   if (!data) return <div className="text-slate-500 p-4">Loading dashboard…</div>;

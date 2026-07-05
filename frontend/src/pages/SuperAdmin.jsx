@@ -2,12 +2,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, RotateCcw } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, RotateCcw, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
 import { setActAsSalon } from "@/lib/api";
 import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
+import EngineerPanel from "@/components/EngineerPanel";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -199,6 +200,11 @@ export default function SuperAdmin() {
           ><Inbox className="w-4 h-4" /> HQ Inbox
             {hqUnread > 0 && <span data-testid="hq-unread-badge" className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{hqUnread}</span>}
           </button>
+          <button
+            data-testid="super-tab-engineer"
+            onClick={() => setTab("engineer")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "engineer" ? "border-emerald-500 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><Wrench className="w-4 h-4" /> AI Engineer</button>
         </div>
 
         {tab === "billing" ? (
@@ -211,6 +217,8 @@ export default function SuperAdmin() {
           <AiInsightsPanel />
         ) : tab === "inbox" ? (
           <HqInbox onUnreadChange={setHqUnread} />
+        ) : tab === "engineer" ? (
+          <EngineerPanel />
         ) : (
           <>
         <div className="flex items-center justify-between">

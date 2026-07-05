@@ -79,6 +79,7 @@ export default function Landing() {
         <div className="flex items-center gap-3 sm:gap-6 text-sm">
           <a href="#features" className="hidden sm:block text-slate-600 hover:text-slate-900">Features</a>
           <a href="#pricing" className="hidden sm:block text-slate-600 hover:text-slate-900">Pricing</a>
+          <Link to="/staff-registry" data-testid="landing-verify-staff" className="hidden sm:block text-emerald-700 hover:text-emerald-900 font-medium">Verify Staff — Free</Link>
           <Link to="/login" className="text-slate-600 hover:text-slate-900 font-medium" data-testid="landing-login">Sign in</Link>
           <Link to="/signup-salon" data-testid="landing-cta-nav"
                 className="px-4 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white text-xs sm:text-sm font-semibold hover:from-rose-600 hover:to-fuchsia-700 shadow-[0_8px_20px_-6px_rgba(244,63,94,0.55)] transition">
@@ -278,6 +279,7 @@ export default function Landing() {
           <Link to="/signup-salon" className="hover:text-slate-700">Free trial</Link>
           <a href="#features" className="hover:text-slate-700">Features</a>
           <a href="#pricing" className="hover:text-slate-700">Pricing</a>
+          <Link to="/staff-registry" className="hover:text-slate-700">Verify staff (free)</Link>
         </div>
       </footer>
       <ChatButton message="Hi Miracurl ✦ I'd like to know more about getting my salon on the platform." />

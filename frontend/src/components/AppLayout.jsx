@@ -4,8 +4,9 @@ import {
   LayoutDashboard, Calendar, Users, UserCog, Scissors, Package,
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
   Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot,
-  Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck
+  Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck, Megaphone
 } from "lucide-react";
+import BranchSwitcher from "./BranchSwitcher";
 import api from "@/lib/api";
 import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
@@ -28,6 +29,7 @@ const NAV_ADMIN = [
   { to: "/pos", label: "POS / Billing", icon: ShoppingCart, testid: "nav-pos" },
   { to: "/reviews", label: "Reviews", icon: Star, testid: "nav-reviews" },
   { to: "/plans", label: "Offers & Plans", icon: BadgePercent, testid: "nav-plans" },
+  { to: "/offers-studio", label: "Offer Maker", icon: Megaphone, testid: "nav-offers-studio" },
   { to: "/refer", label: "Refer & Earn", icon: Gift, testid: "nav-refer" },
   { to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" },
   { to: "/messages", label: "Messages", icon: MessageSquare, testid: "nav-messages" },
@@ -48,6 +50,7 @@ const NAV_MANAGER = [
   { to: "/services", label: "Services", icon: Scissors, testid: "nav-services" },
   { to: "/pos", label: "POS / Billing", icon: ShoppingCart, testid: "nav-pos" },
   { to: "/reviews", label: "Reviews", icon: Star, testid: "nav-reviews" },
+  { to: "/offers-studio", label: "Offer Maker", icon: Megaphone, testid: "nav-offers-studio" },
 ];
 
 export default function AppLayout() {
@@ -184,6 +187,7 @@ export default function AppLayout() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <div className="hidden md:flex items-center px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 tracking-wider">{today}</div>
+            {isAdmin ? <BranchSwitcher /> : null}
             {isAdmin ? (
               <NotifBell
                 unread={notifier.unread}
