@@ -653,3 +653,10 @@ Deliberate deferrals (state if asked): create_invoice (money path, already deleg
 2. UI: ThermalPrintButton in InvoiceReceiptModal (thermal-print-btn) — hidden if neither API supported (iPhone → system Print). Connect modal (printer-connect-modal): paper width toggle, connect-bluetooth-btn / connect-serial-btn, connected state w/ Print bill + Disconnect. Once connected, main button prints in one tap.
 3. MIRA ON-LEAVE MENTION: voice greeting now names staff on approved leave today ("Also, Priya Sharma is on approved leave today — plan the roster accordingly"). VERIFIED via temp approved leave + curl (audio 689KB).
 4. VERIFIED: node test of ESC/POS bytes (fixed lr() right-align bug), full POS billing flow via playwright — receipt modal → thermal button → connect modal render. Real hardware print NOT testable in cloud env — user must verify with their printer.
+
+## Update — Jul 6, 2026 (part 46) — QR code on thermal bill (VERIFIED)
+- thermalPrinter.js: qrBytes() emits native ESC/POS QR (GS ( k — model 2, module 6, EC level M, store+print). Receipt footer prints centered QR with label:
+  - tenant.google_review_url set → "Loved it? Scan & rate us on Google!" linking there
+  - else tenant.slug → "Scan to book your next visit!" linking to {origin}/book/{slug}
+  - neither → no QR.
+- VERIFIED via node unit test (all 3 cases: cmd bytes, labels, embedded URLs). Miracurl tenant has google_review_url set in Settings. Hardware QR render needs user's printer (most modern thermals support GS ( k).

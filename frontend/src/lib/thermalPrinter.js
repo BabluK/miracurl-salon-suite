@@ -39,6 +39,22 @@ const lr = (left, right, width) => {
   return pad >= 1 ? l + " ".repeat(pad) + r : l.slice(0, Math.max(width - r.length - 1, 0)) + " " + r;
 };
 
+// ESC/POS native QR code (GS ( k) — supported by most modern thermal printers.
+function qrBytes(data) {
+  const payload = ENC.encode(data);
+  const len = payload.length + 3;
+  const out = [
+    [0x1d, 0x28, 0x6b, 4, 0, 0x31, 0x41, 0x32, 0x00],          // model 2
+    [0x1d, 0x28, 0x6b, 3, 0, 0x31, 0x43, 0x06],                 // module size 6
+    [0x1d, 0x28, 0x6b, 3, 0, 0x31, 0x45, 0x31],                 // error correction M
+    [0x1d, 0x28, 0x6b, len & 0xff, (len >> 8) & 0xff, 0x31, 0x50, 0x30], // store
+  ];
+  const chunks = out.map(a => new Uint8Array(a));
+  chunks.splice(4, 0, payload);
+  chunks.push(new Uint8Array([0x1d, 0x28, 0x6b, 3, 0, 0x31, 0x51, 0x30])); // print
+  return chunks;
+}
+
 export function buildReceiptBytes(invoice, tenant, paperWidth = 32) {
   const W = paperWidth; // 32 chars (58mm) or 48 chars (80mm)
   const out = [];
@@ -82,6 +98,15 @@ export function buildReceiptBytes(invoice, tenant, paperWidth = 32) {
   rule();
 
   raw(CMD.ALIGN_CENTER);
+  const reviewUrl = tenant?.google_review_url || "";
+  const bookUrl = !reviewUrl && tenant?.slug && typeof window !== "undefined"
+    ? `${window.location.origin}/book/${tenant.slug}` : "";
+  const qrUrl = reviewUrl || bookUrl;
+  if (qrUrl) {
+    txt(reviewUrl ? "Loved it? Scan & rate us on Google!" : "Scan to book your next visit!");
+    qrBytes(qrUrl).forEach(c => out.push(c));
+    txt("");
+  }
   txt("Thank you! Visit again :)");
   txt("Powered by Miracurl");
   raw(CMD.FEED4);
