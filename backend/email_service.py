@@ -11,9 +11,12 @@ async def _send_email(to: list, subject: str, html: str, attachments: list | Non
     key = os.environ.get("RESEND_API_KEY")
     if not key:
         return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
+    sender = os.environ.get("SENDER_EMAIL")
+    if not sender:
+        return {"sent": False, "error": "Email not configured (SENDER_EMAIL missing — set it to an address on your verified Resend domain, e.g. noreply@miracurlunisexsaloon.com)"}
     resend.api_key = key
     params = {
-        "from": f"Miracurl <{os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')}>",
+        "from": f"Miracurl <{sender}>",
         "to": to, "subject": subject, "html": html,
     }
     if attachments:

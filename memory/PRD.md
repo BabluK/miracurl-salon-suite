@@ -703,3 +703,8 @@ Note for deploy: REGISTRY_PEPPER must be added to production env vars too.
 4. NOTIFICATIONS: _briefing_notifications() → pending leave requests (names), new bookings today, new reviews today; "Mira noticed for you" panel (briefing-notifications) with Review→/staff, View→/appointments, Read→/reviews links; voice announces them.
 5. Refactor: vendor add form extracted to components/briefing/VendorAddForm.jsx.
 6. VERIFIED: curl EN + HI audio (both ask_restock true, Hindi text correct), cache 0.2s repeats, UI screenshot shows lang toggle/staff chips/notif panel/Hindi ask panel. Speech recognition needs real Chrome mic (untestable headless — buttons work as fallback).
+
+## Update — Jul 6, 2026 (part 53) — Resend sandbox error explained + sender fallback removed (VERIFIED)
+- USER saw on PRODUCTION: "You can only send testing emails to your own email address... verify a domain at resend.com/domains". CAUSE: production env missing SENDER_EMAIL → code silently fell back to onboarding@resend.dev (Resend sandbox → only sends to account owner's email). Preview has SENDER_EMAIL=noreply@miracurlunisexsaloon.com (verified) and works.
+- FIX: removed the onboarding@resend.dev fallback in email_service.py — _send_email now returns explicit "SENDER_EMAIL missing" error. Verified preview still sends (200 ok).
+- USER ACTION REQUIRED: add SENDER_EMAIL=noreply@miracurlunisexsaloon.com (and RESEND_API_KEY + REGISTRY_PEPPER) to PRODUCTION env vars, then redeploy. Domain miracurlunisexsaloon.com must be verified in the Resend account whose API key production uses.
