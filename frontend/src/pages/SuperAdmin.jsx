@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Pause, Play, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, RotateCcw, Wrench } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
@@ -11,6 +11,7 @@ import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox }
 import EngineerPanel from "@/components/EngineerPanel";
 import { LeaderboardPanel, RevenuePanel } from "@/components/superadmin/LeaderboardRevenue";
 import { OnboardingStudio } from "@/components/superadmin/OnboardingStudio";
+import { SuperNotifBell, StatusActionButton } from "@/components/superadmin/SuperNotifBell";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -325,13 +326,7 @@ export default function SuperAdmin() {
                     <div className="flex items-center gap-1 justify-end">
                       <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
                       <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
-                      {t.status === "active" || t.status === "trial" ? (
-                        <button data-testid={`suspend-tenant-${t.id}`} onClick={() => setStatus(t, "suspended")} title="Suspend" className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"><Pause className="w-3.5 h-3.5" /></button>
-                      ) : t.status === "suspended" ? (
-                        <button data-testid={`activate-tenant-${t.id}`} onClick={() => setStatus(t, "active")} title="Re-activate" className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded"><Play className="w-3.5 h-3.5" /></button>
-                      ) : t.status === "cancelled" ? (
-                        <button data-testid={`reactivate-tenant-${t.id}`} onClick={() => reactivateTenant(t)} title="Re-onboard: restore salon + new credentials + welcome email" className="p-1.5 text-emerald-500 hover:bg-emerald-500/10 rounded"><RotateCcw className="w-3.5 h-3.5" /></button>
-                      ) : null}
+                      <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />
                       <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
@@ -439,64 +434,6 @@ export default function SuperAdmin() {
  * share message. Password is displayed exactly ONCE — closing the modal
  * discards it. If lost, the owner uses /forgot-password like anyone else.
  */
-function SuperNotifBell({ tenants, hqUnread, onGoInbox }) {
-  const [open, setOpen] = useState(false);
-  const alerts = [];
-  const now = new Date();
-  for (const t of tenants) {
-    if (!["active", "trial"].includes(t.status)) continue;
-    const endRaw = t.subscription_end_date || t.trial_ends_at || t.trial_end_date;
-    if (!endRaw) continue;
-    const days = Math.ceil((new Date(String(endRaw).slice(0, 10)) - now) / 86400000);
-    if (days <= 7) {
-      alerts.push({
-        id: t.id,
-        tone: days < 0 ? "red" : days <= 3 ? "amber" : "sky",
-        text: days < 0
-          ? `${t.name} — ${t.status === "trial" ? "trial" : "subscription"} EXPIRED ${-days}d ago`
-          : `${t.name} — ${t.status === "trial" ? "trial" : "subscription"} ends in ${days}d`,
-      });
-    }
-  }
-  const total = alerts.length + (hqUnread || 0);
-  return (
-    <div className="relative">
-      <button data-testid="super-notif-bell" onClick={() => setOpen(o => !o)}
-        className="relative p-2.5 rounded-full bg-white/10 border border-white/15 text-white/80 hover:bg-white/20 transition">
-        <Bell className="w-4 h-4" />
-        {total > 0 && (
-          <>
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{total}</span>
-            <span className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-red-500 animate-ping opacity-40" />
-          </>
-        )}
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50" data-testid="super-notif-dropdown">
-          <div className="px-4 py-3 bg-gradient-to-r from-indigo-950 to-violet-950 text-white text-sm font-medium flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" /> HQ Alerts
-          </div>
-          <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
-            {hqUnread > 0 && (
-              <button onClick={() => { setOpen(false); onGoInbox(); }} className="w-full text-left px-4 py-3 text-xs hover:bg-slate-50 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
-                <span><b>{hqUnread}</b> unread message(s) from salon owners — open inbox</span>
-              </button>
-            )}
-            {alerts.map(a => (
-              <div key={a.id} className="px-4 py-3 text-xs flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${a.tone === "red" ? "bg-red-500" : a.tone === "amber" ? "bg-amber-500" : "bg-sky-500"}`} />
-                <span className="text-slate-600">{a.text}</span>
-              </div>
-            ))}
-            {total === 0 && <div className="px-4 py-8 text-center text-xs text-slate-400">All clear — no alerts ✦</div>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function TempPasswordShareModal({ creds, onClose }) {
   const [copied, setCopied] = useState(false);
   const loginUrl = typeof window !== "undefined" ? `${window.location.origin}/login` : "/login";

@@ -19,7 +19,6 @@ from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_r
 import hashlib
 import logging
 import secrets
-import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
@@ -27,13 +26,12 @@ from typing import Dict, List, Optional
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Form
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, field_validator
 import requests
 from urllib.parse import urlparse as urlparse
 
 from database import (  # noqa: F401 — shared DB foundation
-    client, _raw_db, db, _current_tenant_id, _super_admin_ok, TenantCollection,
+    client, _raw_db, db, _current_tenant_id,
 )
 
 
@@ -53,7 +51,6 @@ async def _boot_storage():
 from security import (  # noqa: F401 — auth & tenancy guards
     JWT_ALG, jwt_secret, hash_pw, verify_pw, make_access, make_refresh,
     _reject_if_token_predates_password_change, set_auth_cookies,
-    _extract_bearer_token, _decode_access_token, _apply_tenant_context,
     get_current_user, require_admin, public_rate_limit,
     require_super_admin, require_tenant_admin, current_tenant,
 )
@@ -2145,6 +2142,46 @@ async def set_voice_greeting(body: VoiceGreetingIn, user=Depends(require_tenant_
 _TTS_CACHE: dict = {}  # (tenant_id, user_id) -> (date_str, payload) — 1 OpenAI call/user/day (SEC-003)
 
 
+def _revenue_sentence(yesterday: float, last_week: float) -> str:
+    if yesterday <= 0:
+        return "Yesterday was quiet on the billing front — today is a fresh chance to shine. "
+    s = f"Yesterday you brought in {_speak_amount(yesterday)} in revenue — great work! "
+    if last_week > 0:
+        pct = round((yesterday - last_week) / last_week * 100)
+        if pct >= 5:
+            s += f"That's {pct} percent up from the same day last week — you're on a roll! "
+        elif pct <= -5:
+            s += f"That's {abs(pct)} percent below the same day last week — let's bounce back today! "
+    return s
+
+
+def _leave_sentence(names: list) -> str:
+    if not names:
+        return ""
+    who = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+    verb = "is" if len(names) == 1 else "are"
+    return f"Also, {who} {verb} on approved leave today — plan the roster accordingly. "
+
+
+async def _build_greeting_text(user: dict, t: dict, ist: datetime, today_str: str) -> str:
+    salutation = "Good morning" if ist.hour < 12 else ("Good afternoon" if ist.hour < 17 else "Good evening")
+    low_count = await db.products.count_documents({"stock": {"$lt": LOW_STOCK_LIMIT}})
+    appts = await db.appointments.count_documents({"date": today_str})
+    leaves_today = await db.leave_requests.find(
+        {"status": "approved", "from_date": {"$lte": today_str}, "to_date": {"$gte": today_str}},
+        {"_id": 0, "staff_name": 1}).to_list(50)
+    yesterday_revenue = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
+    last_week_revenue = await _revenue_for_day((ist - timedelta(days=8)).strftime("%Y-%m-%d"))
+    name = user.get("name") or "there"
+    text = f"Hey, {salutation} {name}! Welcome back to {t.get('name') or 'your salon'}. "
+    text += _revenue_sentence(yesterday_revenue, last_week_revenue)
+    text += f"You have {appts} appointment{'s' if appts != 1 else ''} today. " if appts else "Your calendar is open today — a great day to bring in walk-ins. "
+    text += _leave_sentence([lv["staff_name"] for lv in leaves_today if lv.get("staff_name")])
+    if low_count:
+        text += f"Heads up — {low_count} product{'s are' if low_count != 1 else ' is'} running low on stock. I've listed them in your briefing. "
+    return text + "Have a wonderful day ahead!"
+
+
 @api.get("/reports/morning-briefing/audio")
 async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(current_tenant)):
     """Mira speaks the greeting aloud (OpenAI TTS, shimmer voice)."""
@@ -2158,35 +2195,7 @@ async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(curre
     cached = _TTS_CACHE.get(cache_key)
     if cached and cached[0] == today_str:
         return cached[1]
-    salutation = "Good morning" if ist.hour < 12 else ("Good afternoon" if ist.hour < 17 else "Good evening")
-    low_count = await db.products.count_documents({"stock": {"$lt": LOW_STOCK_LIMIT}})
-    appts = await db.appointments.count_documents({"date": today_str})
-    leaves_today = await db.leave_requests.find(
-        {"status": "approved", "from_date": {"$lte": today_str}, "to_date": {"$gte": today_str}},
-        {"_id": 0, "staff_name": 1}).to_list(50)
-    yesterday_revenue = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
-    last_week_revenue = await _revenue_for_day((ist - timedelta(days=8)).strftime("%Y-%m-%d"))
-    name = user.get("name") or "there"
-    text = f"Hey, {salutation} {name}! Welcome back to {t.get('name') or 'your salon'}. "
-    if yesterday_revenue > 0:
-        text += f"Yesterday you brought in {_speak_amount(yesterday_revenue)} in revenue — great work! "
-        if last_week_revenue > 0:
-            pct = round((yesterday_revenue - last_week_revenue) / last_week_revenue * 100)
-            if pct >= 5:
-                text += f"That's {pct} percent up from the same day last week — you're on a roll! "
-            elif pct <= -5:
-                text += f"That's {abs(pct)} percent below the same day last week — let's bounce back today! "
-    else:
-        text += "Yesterday was quiet on the billing front — today is a fresh chance to shine. "
-    text += f"You have {appts} appointment{'s' if appts != 1 else ''} today. " if appts else "Your calendar is open today — a great day to bring in walk-ins. "
-    leave_names = [lv["staff_name"] for lv in leaves_today if lv.get("staff_name")]
-    if len(leave_names) == 1:
-        text += f"Also, {leave_names[0]} is on approved leave today — plan the roster accordingly. "
-    elif leave_names:
-        text += f"Also, {', '.join(leave_names[:-1])} and {leave_names[-1]} are on approved leave today — plan the roster accordingly. "
-    if low_count:
-        text += f"Heads up — {low_count} product{'s are' if low_count != 1 else ' is'} running low on stock. I've listed them in your briefing. "
-    text += "Have a wonderful day ahead!"
+    text = await _build_greeting_text(user, t, ist, today_str)
     try:
         tts = OpenAITextToSpeech(api_key=key)
         audio_b64 = await tts.generate_speech_base64(text=text, model="tts-1-hd", voice="shimmer", speed=0.97)

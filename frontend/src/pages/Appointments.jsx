@@ -1,21 +1,16 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, X, Calendar as CalendarIcon, Check, XCircle, Clock, List as ListIcon, LayoutGrid, ChevronLeft, ChevronRight, MessageSquare, BadgeCheck } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Check, XCircle, Clock, List as ListIcon, LayoutGrid, ChevronLeft, ChevronRight, MessageSquare, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { WeekGrid } from "@/components/appointments/WeekGrid";
+import { NewAppointmentModal } from "@/components/appointments/NewAppointmentModal";
 
 const STATUS_COLOR = {
   scheduled: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   completed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
   no_show: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-};
-
-const STATUS_DOT = {
-  scheduled: "bg-blue-400",
-  completed: "bg-emerald-400",
-  cancelled: "bg-red-400",
-  no_show: "bg-amber-400",
 };
 
 function startOfWeek(iso) {
@@ -258,94 +253,15 @@ export default function Appointments() {
       )}
 
       {view === "week" && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3" data-testid="appt-week-grid">
-          {weekData.map(day => {
-            const d = new Date(day.date + "T00:00:00");
-            const isToday = day.date === new Date().toISOString().slice(0, 10);
-            return (
-              <div key={day.date} data-testid={`week-col-${day.date}`} className={`card-light p-0 overflow-hidden min-h-[280px] ${isToday ? "border-sky-400 ring-1 ring-sky-200" : ""}`}>
-                <div className={`px-3 py-2 border-b border-slate-100 ${isToday ? "bg-sky-50" : "bg-slate-50/40"}`}>
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">{d.toLocaleDateString(undefined, { weekday: "short" })}</div>
-                  <div className={`font-playfair text-2xl ${isToday ? "text-sky-600" : ""}`}>{d.getDate()}</div>
-                  <div className="text-[10px] text-slate-400">{day.items.length} bookings</div>
-                </div>
-                <div className="p-2 space-y-2">
-                  {day.items.length === 0 ? (
-                    <div className="text-[10px] text-slate-400 text-center py-4">—</div>
-                  ) : day.items.map(a => (
-                    <button
-                      key={a.id}
-                      data-testid={`week-appt-${a.id}`}
-                      onClick={() => { setDate(day.date); setView("list"); }}
-                      className="w-full text-left bg-slate-50/50 hover:bg-slate-50 border border-slate-100 hover:border-sky-300 rounded-md p-2 transition-all"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[a.status]}`} />
-                        <span className="text-[10px] font-mono text-sky-600">{new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <div className="text-xs font-medium mt-1 line-clamp-1">{a.customer_name}</div>
-                      <div className="text-[10px] text-slate-500 line-clamp-1">{a.service_names.join(", ")}</div>
-                      <div className="text-[10px] text-slate-400 mt-1">with {a.staff_name}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <WeekGrid weekData={weekData} onOpenDay={(d) => { setDate(d); setView("list"); }} />
       )}
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          <div className="card-light w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-playfair text-2xl">New Appointment</h3>
-              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={save} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label-light block mb-1">Customer *</label>
-                  <select data-testid="appt-customer-select" required className="input-light" value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}>
-                    <option value="">-- select --</option>
-                    {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="label-light block mb-1">Staff *</label>
-                  <select data-testid="appt-staff-select" required className="input-light" value={form.staff_id} onChange={e => setForm({ ...form, staff_id: e.target.value })}>
-                    <option value="">-- select --</option>
-                    {staff.map(s => <option key={s.id} value={s.id}>{s.name} • {s.role}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="label-light block mb-1">Date & Time *</label>
-                <input type="datetime-local" data-testid="appt-datetime-input" required className="input-light" value={form.scheduled_at} onChange={e => setForm({ ...form, scheduled_at: e.target.value })} />
-              </div>
-              <div>
-                <label className="label-light block mb-1">Services * ({form.service_ids.length} selected)</label>
-                <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-md p-2 space-y-1">
-                  {services.map(s => (
-                    <label key={s.id} className="flex items-center justify-between px-3 py-2 rounded hover:bg-slate-50 cursor-pointer text-sm">
-                      <div className="flex items-center gap-2">
-                        <input type="checkbox" checked={form.service_ids.includes(s.id)} onChange={() => toggleService(s.id)} />
-                        <span>{s.name}</span>
-                        <span className="text-[10px] text-slate-400">{s.category}</span>
-                      </div>
-                      <span className="text-sky-600">₹{s.price} · {s.duration_min}m</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div><label className="label-light block mb-1">Notes</label><textarea rows="2" className="input-light" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setOpen(false)} className="btn-slate flex-1">Cancel</button>
-                <button data-testid="save-appt-btn" type="submit" className="btn-blue flex-1">Book Appointment</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <NewAppointmentModal
+          form={form} setForm={setForm}
+          customers={customers} staff={staff} services={services}
+          toggleService={toggleService} onSubmit={save} onClose={() => setOpen(false)}
+        />
       )}
     </div>
   );

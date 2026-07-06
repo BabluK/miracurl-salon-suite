@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 48 — Regression testing after component extractions (POS.jsx → POSHeader/CatalogPanel/InvoiceHeader/CartTable/PaymentSection, Appointments → WeekGrid/NewAppointmentModal, StaffRegistry → RegistryModals, SuperAdmin → SuperNotifBell) and backend refactors (list_staff field-strip, morning_briefing helpers). BACKEND: 11/11 pytest cases PASS covering (a) admin GET /api/staff includes monthly_base_salary + sensitive keys; (b) staff role GET /api/staff DOES NOT leak monthly_base_salary/bank_details/aadhaar_last4/commission_pct/max_advance/overtime_rate; (c) /api/reports/morning-briefing returns yesterday_revenue; (d) /api/reports/morning-briefing/audio returns text+audio_b64 (2nd call cached, <5s, both text values identical); (e) /api/staff/me/leave-requests (staff) and /api/leave-requests?status=all + /api/leave-requests/pending-count (admin) all 200; (f) POS invoice create with customer_id+staff_id+items succeeds; (g) /api/appointments list; (h) /api/super-admin/tenants list. FRONTEND: (POS /pos) all four catalog tabs (pos-tab-services/products/package/membership) visible + switchable; pos-guest-search typeahead returned Priya option → pos-guest-option-0 clickable; pos-add-guest-btn opens add guest modal with Name field; 5 pos-item-* tiles render; pos-pay-upi + pos-create-complete-btn visible in PaymentSection. (Appointments) week view toggle opens appt-week-grid successfully; page renders. (Staff Registry /registry, not /staff-registry which is public verify portal) staff-registry-page renders, 'Register Employee' button opens modal exposing reg-name-input + reg-aadhaar-input. (Super Admin /super-admin) super-notif-bell + super-notif-dropdown open, 4 suspend-tenant-* buttons render for active tenants (activate-tenant-* rendered when tenant status is suspended). (Staff Portal /staff-portal) planned-leave-card visible for Priya, shows previous leave requests (Rejected + Approved), Attendance/Profile/Leave sections all present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Multiple pages (POS InvoiceHeader, Dashboard MorningBriefing vendor select)", "issues": ["Pre-existing React hydration warning: '<span> cannot be a child of <option>' in <select> elements — cosmetic, unchanged from iter47."]},
+      {"screen": "Login page mount", "issues": ["4x /api/auth/me 401s on initial mount before login — cosmetic, unchanged from iter47."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter48_refactor_regression.py",
+    "/app/test_reports/pytest/iter48_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Component extractions are clean — no import errors, no missing testids, all interactive elements still wired up. Cart line quantity input rendered but cart-line-disc-0 selector was not visible before an item add (item-tile click test worked; cart-line testid appears only after further interaction — worth verifying if E1 needs strict cart-line-* testid presence, otherwise not a bug).",
+    "list_staff() field stripping correctly blocks non-admin roles (staff role validated — no leaks). Manager role is also non-admin per implementation (only 'admin' and 'super_admin' see sensitive keys) — consistent with SEC-001.",
+    "morning_briefing helpers (_build_greeting_text/_revenue_sentence/_leave_sentence) preserve caching — second audio call was <5s and text matched exactly, confirming per-user-per-day cache is intact after refactor.",
+    "/staff-registry route in App.js is the PUBLIC verification portal (RegistryPublic); the admin employee-registry page is /registry — spec referenced /staff-registry but flow actually lives at /registry. E1 should confirm this is intentional (it was already the case in iter47).",
+    "server.py still at ~6800 lines even after database.py/security.py/services.storage extractions — pre-existing tech debt, not this iter."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter48_refactor_regression.py (NEW — 11 pytest cases)"],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% — all extracted-component testids resolve and flows work"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 · admin@miracurl.com / q6QY@tn3p#9DtL · priya.staff@miracurl.com / Priya@Miracurl123",
+  "seed_data_creation": "One test invoice created via /api/invoices (admin login, first customer + first staff + first service, ₹price×1, UPI). No stale test data left; existing seed used elsewhere.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression fully green. Reuse /app/backend/tests/test_iter48_refactor_regression.py (11 pytest cases) — set REACT_APP_BACKEND_URL env var before running. Note: /registry is admin employee-registry, /staff-registry is public verify portal. Invoice payload contract: customer_id + staff_id + items[].type + payment_mode; do NOT use customer_name/customer_phone/tax_pct. Super admin tenants endpoint is /api/super-admin/tenants (hyphen). Cart line testids (cart-line-disc-0 etc.) only render after item is added; if strict verification is needed, add explicit cart-line assertion after click.",
+  "rca of the issue": "N/A — no regression introduced by the component-extraction/backend-refactor changes. All 11 backend endpoints and every extracted-component testid render and function as before."
+}

@@ -383,11 +383,11 @@ function RenewalBanner({ sub }) {
   const overdue = days < 0;
   const urgent = days <= 3;
   const label = sub.source === "trial" ? "Free trial" : "Subscription";
-  const message = overdue
-    ? `${label} expired ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`
-    : days === 0
-    ? `${label} ends today`
-    : `${label} ends in ${days} day${days === 1 ? "" : "s"}`;
+  const message = (() => {
+    if (overdue) return `${label} expired ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ago`;
+    if (days === 0) return `${label} ends today`;
+    return `${label} ends in ${days} day${days === 1 ? "" : "s"}`;
+  })();
   const tone = overdue || urgent
     ? "from-rose-500 to-red-600"
     : "from-amber-400 to-orange-500";

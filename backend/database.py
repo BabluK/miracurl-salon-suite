@@ -4,6 +4,7 @@
 `_raw_db` is unscoped — for global collections (tenants, users) and super-admin flows.
 """
 import os
+from typing import Any, Optional
 from contextvars import ContextVar
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -13,18 +14,18 @@ client = AsyncIOMotorClient(mongo_url)
 _raw_db = client[os.environ['DB_NAME']]
 
 # ---------------- Tenant-aware DB wrapper ----------------
-_current_tenant_id: ContextVar = ContextVar("current_tenant_id", default=None)
+_current_tenant_id: ContextVar[Optional[str]] = ContextVar("current_tenant_id", default=None)
 # When True, TenantCollection allows unscoped global reads. Set by super_admin
 # routes that legitimately need cross-tenant data (revenue dashboards, etc.).
-_super_admin_ok: ContextVar = ContextVar("super_admin_ok", default=False)
+_super_admin_ok: ContextVar[bool] = ContextVar("super_admin_ok", default=False)
 
 class TenantCollection:
     """Motor collection proxy that auto-applies tenant_id filter and injects tenant_id on insert."""
-    def __init__(self, coll, scoped: bool = True):
+    def __init__(self, coll: Any, scoped: bool = True) -> None:
         self._coll = coll
         self._scoped = scoped
 
-    def _scope(self, q):
+    def _scope(self, q: Optional[dict]) -> dict:
         if not self._scoped:
             return q if q is not None else {}
         tid = _current_tenant_id.get()
@@ -42,15 +43,15 @@ class TenantCollection:
             merged["tenant_id"] = tid
         return merged
 
-    def find(self, q=None, *a, **kw): return self._coll.find(self._scope(q), *a, **kw)
-    async def find_one(self, q=None, *a, **kw): return await self._coll.find_one(self._scope(q), *a, **kw)
-    async def insert_one(self, doc, *a, **kw):
+    def find(self, q: Optional[dict] = None, *a: Any, **kw: Any) -> Any: return self._coll.find(self._scope(q), *a, **kw)
+    async def find_one(self, q: Optional[dict] = None, *a: Any, **kw: Any) -> Optional[dict]: return await self._coll.find_one(self._scope(q), *a, **kw)
+    async def insert_one(self, doc: dict, *a: Any, **kw: Any) -> Any:
         if self._scoped:
             tid = _current_tenant_id.get()
             if tid is not None and "tenant_id" not in doc:
                 doc["tenant_id"] = tid
         return await self._coll.insert_one(doc, *a, **kw)
-    async def insert_many(self, docs, *a, **kw):
+    async def insert_many(self, docs: list, *a: Any, **kw: Any) -> Any:
         if self._scoped:
             tid = _current_tenant_id.get()
             if tid is not None:
@@ -58,16 +59,16 @@ class TenantCollection:
                     if "tenant_id" not in d:
                         d["tenant_id"] = tid
         return await self._coll.insert_many(docs, *a, **kw)
-    async def update_one(self, q, *a, **kw): return await self._coll.update_one(self._scope(q), *a, **kw)
-    async def update_many(self, q, *a, **kw): return await self._coll.update_many(self._scope(q), *a, **kw)
-    async def delete_one(self, q, *a, **kw): return await self._coll.delete_one(self._scope(q), *a, **kw)
-    async def delete_many(self, q, *a, **kw): return await self._coll.delete_many(self._scope(q), *a, **kw)
-    async def count_documents(self, q=None, *a, **kw): return await self._coll.count_documents(self._scope(q or {}), *a, **kw)
-    def aggregate(self, pipeline, *a, **kw):
+    async def update_one(self, q: dict, *a: Any, **kw: Any) -> Any: return await self._coll.update_one(self._scope(q), *a, **kw)
+    async def update_many(self, q: dict, *a: Any, **kw: Any) -> Any: return await self._coll.update_many(self._scope(q), *a, **kw)
+    async def delete_one(self, q: dict, *a: Any, **kw: Any) -> Any: return await self._coll.delete_one(self._scope(q), *a, **kw)
+    async def delete_many(self, q: dict, *a: Any, **kw: Any) -> Any: return await self._coll.delete_many(self._scope(q), *a, **kw)
+    async def count_documents(self, q: Optional[dict] = None, *a: Any, **kw: Any) -> int: return await self._coll.count_documents(self._scope(q or {}), *a, **kw)
+    def aggregate(self, pipeline: list, *a: Any, **kw: Any) -> Any:
         if self._scoped and _current_tenant_id.get() is not None:
             pipeline = [{"$match": {"tenant_id": _current_tenant_id.get()}}] + list(pipeline)
         return self._coll.aggregate(pipeline, *a, **kw)
-    def create_index(self, *a, **kw): return self._coll.create_index(*a, **kw)
+    def create_index(self, *a: Any, **kw: Any) -> Any: return self._coll.create_index(*a, **kw)
 
 class _DB:
     # global (unscoped) collections
