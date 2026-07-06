@@ -392,7 +392,6 @@ async def register(body: RegisterIn, response: Response):
     user.pop("_id", None)
     return {
         "user": user,
-        "access_token": access,
         "message": "Account created. Ask your salon admin to link it to your salon before you can log in fully.",
     }
 
@@ -533,7 +532,6 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     return {
         "user": owner,
         "tenant": tenant,
-        "access_token": access,
         "trial_end_date": trial_end,
         "trial_days": TRIAL_DAYS,
     }
@@ -569,7 +567,7 @@ async def login(body: LoginIn, request: Request, response: Response):
     set_auth_cookies(response, access, refresh)
     user.pop("password_hash", None)
     user.pop("_id", None)
-    return {"user": user, "access_token": access}
+    return {"user": user}
 
 @api.post("/auth/logout")
 async def logout(response: Response):
@@ -2207,69 +2205,98 @@ def _joined(names: list, lang: str) -> str:
     return f"{', '.join(names[:-1])}{sep}{names[-1]}"
 
 
-def _greeting_hi(name, salon, ist, rev, lastweek, appts, staff_st, notif, low_count, has_vendor):
-    parts = ["सुप्रभात" if ist.hour < 12 else ("नमस्ते" if ist.hour < 17 else "शुभ संध्या")]
-    text = f"{parts[0]} {name} जी! {salon} में आपका स्वागत है। "
-    if rev > 0:
-        text += f"कल आपने {int(round(rev))} रुपये की कमाई की — बहुत बढ़िया! "
-        if lastweek > 0:
-            pct = round((rev - lastweek) / lastweek * 100)
-            if pct >= 5:
-                text += f"यह पिछले हफ्ते के इसी दिन से {pct} प्रतिशत ज़्यादा है — शानदार! "
-            elif pct <= -5:
-                text += f"यह पिछले हफ्ते से {abs(pct)} प्रतिशत कम है — आज वापसी करते हैं! "
-    else:
-        text += "कल बिलिंग शांत रही — आज एक नया मौका है। "
-    text += f"आज आपके पास {appts} अपॉइंटमेंट हैं। " if appts else "आज कैलेंडर खाली है — वॉक-इन के लिए अच्छा दिन है। "
+def _staff_sentence(staff_st: dict, lang: str) -> str:
     ci, ni, ol = len(staff_st["checked_in"]), len(staff_st["not_checked_in"]), staff_st["on_leave"]
+    s = ""
+    if lang == "hi":
+        if ci:
+            s += f"{ci} स्टाफ चेक-इन कर चुके हैं" + (f", {ni} अभी बाकी हैं। " if ni else "। ")
+        elif ni:
+            s += "टीम ने अभी चेक-इन नहीं किया है। "
+        if ol:
+            s += f"{_joined(ol, 'hi')} आज छुट्टी पर हैं। "
+        return s
     if ci:
-        text += f"{ci} स्टाफ चेक-इन कर चुके हैं"
-        text += f", {ni} अभी बाकी हैं। " if ni else "। "
+        s += f"{ci} of your team {'have' if ci != 1 else 'has'} checked in"
+        s += f", {ni} {'are' if ni != 1 else 'is'} yet to arrive. " if ni else ". "
     elif ni:
-        text += "टीम ने अभी चेक-इन नहीं किया है। "
+        s += "None of your team has checked in yet. "
     if ol:
-        text += f"{_joined(ol, 'hi')} आज छुट्टी पर {'हैं' if len(ol) > 1 else 'हैं'}। "
-    if notif["pending_leaves"]:
-        names = [p["staff_name"] for p in notif["pending_leaves"] if p.get("staff_name")]
-        text += f"{len(notif['pending_leaves'])} छुट्टी की अर्ज़ी आपकी मंज़ूरी का इंतज़ार कर रही है — {_joined(names[:3], 'hi')} की तरफ़ से। "
+        s += f"{_joined(ol, 'en')} {'are' if len(ol) > 1 else 'is'} on approved leave today — plan the roster accordingly. "
+    return s
+
+
+def _notif_sentence(notif: dict, lang: str) -> str:
+    s = ""
+    pend = notif["pending_leaves"]
+    names = [p["staff_name"] for p in pend if p.get("staff_name")]
+    if lang == "hi":
+        if pend:
+            s += f"{len(pend)} छुट्टी की अर्ज़ी आपकी मंज़ूरी का इंतज़ार कर रही है — {_joined(names[:3], 'hi')} की तरफ़ से। "
+        if notif["new_bookings_today"]:
+            s += f"आज {notif['new_bookings_today']} नई बुकिंग आई हैं। "
+        if notif["new_reviews_today"]:
+            s += f"और {notif['new_reviews_today']} नया रिव्यू भी मिला है। "
+        return s
+    if pend:
+        s += f"You have {len(pend)} leave request{'s' if len(pend) != 1 else ''} waiting for your approval — from {_joined(names[:3], 'en')}. "
     if notif["new_bookings_today"]:
-        text += f"आज {notif['new_bookings_today']} नई बुकिंग आई हैं। "
+        s += f"{notif['new_bookings_today']} new booking{'s' if notif['new_bookings_today'] != 1 else ''} came in today. "
     if notif["new_reviews_today"]:
-        text += f"और {notif['new_reviews_today']} नया रिव्यू भी मिला है। "
-    if low_count:
-        text += f"ध्यान दें — {low_count} प्रोडक्ट का स्टॉक कम हो रहा है। "
+        s += f"And you received {notif['new_reviews_today']} new review{'s' if notif['new_reviews_today'] != 1 else ''}. "
+    return s
+
+
+def _lowstock_sentence(low_count: int, has_vendor: bool, lang: str) -> str:
+    if not low_count:
+        return ""
+    if lang == "hi":
+        s = f"ध्यान दें — {low_count} प्रोडक्ट का स्टॉक कम हो रहा है। "
         if has_vendor:
-            text += "क्या मैं रीस्टॉक लिस्ट वेंडर को मेल करूं या व्हाट्सएप पर भेजूं? बस बोलिए — मेल या व्हाट्सएप। "
-    text += "आपका दिन शुभ हो!"
-    return text
+            s += "क्या मैं रीस्टॉक लिस्ट वेंडर को मेल करूं या व्हाट्सएप पर भेजूं? बस बोलिए — मेल या व्हाट्सएप। "
+        return s
+    s = f"Heads up — {low_count} product{'s are' if low_count != 1 else ' is'} running low on stock. "
+    if has_vendor:
+        s += "Should I send the restock list to your vendor by mail, or on WhatsApp? Just say mail or WhatsApp. "
+    return s
 
 
-def _greeting_en(name, salon, ist, rev, lastweek, appts, staff_st, notif, low_count, has_vendor):
+def _revenue_sentence_hi(rev: float, lastweek: float) -> str:
+    if rev <= 0:
+        return "कल बिलिंग शांत रही — आज एक नया मौका है। "
+    s = f"कल आपने {int(round(rev))} रुपये की कमाई की — बहुत बढ़िया! "
+    if lastweek > 0:
+        pct = round((rev - lastweek) / lastweek * 100)
+        if pct >= 5:
+            s += f"यह पिछले हफ्ते के इसी दिन से {pct} प्रतिशत ज़्यादा है — शानदार! "
+        elif pct <= -5:
+            s += f"यह पिछले हफ्ते से {abs(pct)} प्रतिशत कम है — आज वापसी करते हैं! "
+    return s
+
+
+def _greeting_hi(ctx: dict) -> str:
+    ist = ctx["ist"]
+    hello = "सुप्रभात" if ist.hour < 12 else ("नमस्ते" if ist.hour < 17 else "शुभ संध्या")
+    text = f"{hello} {ctx['name']} जी! {ctx['salon']} में आपका स्वागत है। "
+    text += _revenue_sentence_hi(ctx["rev"], ctx["lastweek"])
+    text += f"आज आपके पास {ctx['appts']} अपॉइंटमेंट हैं। " if ctx["appts"] else "आज कैलेंडर खाली है — वॉक-इन के लिए अच्छा दिन है। "
+    text += _staff_sentence(ctx["staff_st"], "hi")
+    text += _notif_sentence(ctx["notif"], "hi")
+    text += _lowstock_sentence(ctx["low_count"], ctx["has_vendor"], "hi")
+    return text + "आपका दिन शुभ हो!"
+
+
+def _greeting_en(ctx: dict) -> str:
+    ist = ctx["ist"]
     salutation = "Good morning" if ist.hour < 12 else ("Good afternoon" if ist.hour < 17 else "Good evening")
-    text = f"Hey, {salutation} {name}! Welcome back to {salon}. "
-    text += _revenue_sentence(rev, lastweek)
+    text = f"Hey, {salutation} {ctx['name']}! Welcome back to {ctx['salon']}. "
+    text += _revenue_sentence(ctx["rev"], ctx["lastweek"])
+    appts = ctx["appts"]
     text += f"You have {appts} appointment{'s' if appts != 1 else ''} today. " if appts else "Your calendar is open today — a great day to bring in walk-ins. "
-    ci, ni, ol = len(staff_st["checked_in"]), len(staff_st["not_checked_in"]), staff_st["on_leave"]
-    if ci:
-        text += f"{ci} of your team {'have' if ci != 1 else 'has'} checked in"
-        text += f", {ni} {'are' if ni != 1 else 'is'} yet to arrive. " if ni else ". "
-    elif ni:
-        text += "None of your team has checked in yet. "
-    if ol:
-        text += f"{_joined(ol, 'en')} {'are' if len(ol) > 1 else 'is'} on approved leave today — plan the roster accordingly. "
-    if notif["pending_leaves"]:
-        names = [p["staff_name"] for p in notif["pending_leaves"] if p.get("staff_name")]
-        text += f"You have {len(notif['pending_leaves'])} leave request{'s' if len(notif['pending_leaves']) != 1 else ''} waiting for your approval — from {_joined(names[:3], 'en')}. "
-    if notif["new_bookings_today"]:
-        text += f"{notif['new_bookings_today']} new booking{'s' if notif['new_bookings_today'] != 1 else ''} came in today. "
-    if notif["new_reviews_today"]:
-        text += f"And you received {notif['new_reviews_today']} new review{'s' if notif['new_reviews_today'] != 1 else ''}. "
-    if low_count:
-        text += f"Heads up — {low_count} product{'s are' if low_count != 1 else ' is'} running low on stock. "
-        if has_vendor:
-            text += "Should I send the restock list to your vendor by mail, or on WhatsApp? Just say mail or WhatsApp. "
-    text += "Have a wonderful day ahead!"
-    return text
+    text += _staff_sentence(ctx["staff_st"], "en")
+    text += _notif_sentence(ctx["notif"], "en")
+    text += _lowstock_sentence(ctx["low_count"], ctx["has_vendor"], "en")
+    return text + "Have a wonderful day ahead!"
 
 
 async def _build_greeting_text(user: dict, t: dict, ist: datetime, today_str: str, lang: str = "en") -> tuple:
@@ -2280,11 +2307,11 @@ async def _build_greeting_text(user: dict, t: dict, ist: datetime, today_str: st
     notif = await _briefing_notifications(today_str)
     yesterday = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
     last_week = await _revenue_for_day((ist - timedelta(days=8)).strftime("%Y-%m-%d"))
-    name = user.get("name") or "there"
-    salon = t.get("name") or "your salon"
+    ctx = {"ist": ist, "name": user.get("name") or "there", "salon": t.get("name") or "your salon",
+           "rev": yesterday, "lastweek": last_week, "appts": appts, "staff_st": staff_st,
+           "notif": notif, "low_count": low_count, "has_vendor": has_vendor}
     builder = _greeting_hi if lang == "hi" else _greeting_en
-    text = builder(name, salon, ist, yesterday, last_week, appts, staff_st, notif, low_count, has_vendor)
-    return text, bool(low_count and has_vendor)
+    return builder(ctx), bool(low_count and has_vendor)
 
 
 @api.get("/reports/morning-briefing/audio")
@@ -2315,6 +2342,84 @@ async def morning_briefing_audio(lang: str = "en", user=Depends(get_current_user
 
 
 LOW_STOCK_LIMIT = 3
+
+
+def _evening_en(ctx: dict) -> str:
+    text = f"Good evening {ctx['name']}! The day at {ctx['salon']} is winding down. "
+    if ctx["rev_today"] > 0:
+        text += f"Today you served {ctx['bills']} bill{'s' if ctx['bills'] != 1 else ''} and brought in {_speak_amount(ctx['rev_today'])}. "
+        if ctx["rev_yest"] > 0:
+            text += ("That's ahead of yesterday — wonderful momentum! " if ctx["rev_today"] >= ctx["rev_yest"]
+                     else f"Yesterday was {_speak_amount(ctx['rev_yest'])}, so tomorrow is a fresh chance to top it. ")
+    else:
+        text += "It was a quiet day on billing — tomorrow is a brand new canvas. "
+    if ctx["top_staff"]:
+        text += f"Today's star performer was {ctx['top_staff']} — do pass on a word of appreciation. "
+    if ctx["tomorrow_appts"]:
+        text += f"You already have {ctx['tomorrow_appts']} appointment{'s' if ctx['tomorrow_appts'] != 1 else ''} booked for tomorrow. "
+    return text + "Great work today. Rest well — Mira will see you in the morning!"
+
+
+def _evening_hi(ctx: dict) -> str:
+    text = f"शुभ संध्या {ctx['name']} जी! {ctx['salon']} में आज का दिन पूरा होने वाला है। "
+    if ctx["rev_today"] > 0:
+        text += f"आज आपने {ctx['bills']} बिल बनाए और {_speak_amount(ctx['rev_today'])} की कमाई की। "
+        if ctx["rev_yest"] > 0:
+            text += ("यह कल से बेहतर है — शानदार! " if ctx["rev_today"] >= ctx["rev_yest"]
+                     else "कल थोड़ा ज़्यादा था — कल फिर से मौका है। ")
+    else:
+        text += "आज बिलिंग शांत रही — कल एक नई शुरुआत है। "
+    if ctx["top_staff"]:
+        text += f"आज के स्टार परफ़ॉर्मर रहे {ctx['top_staff']} — उन्हें शाबाशी ज़रूर दें। "
+    if ctx["tomorrow_appts"]:
+        text += f"कल के लिए {ctx['tomorrow_appts']} अपॉइंटमेंट पहले से बुक हैं। "
+    return text + "आज बहुत अच्छा काम किया। आराम कीजिए — मीरा सुबह फिर मिलेगी!"
+
+
+async def _build_evening_text(user: dict, t: dict, ist: datetime, lang: str) -> str:
+    today_str = ist.strftime("%Y-%m-%d")
+    invs = await db.invoices.find({"created_at": {"$regex": f"^{today_str}"}}, {"_id": 0, "total": 1, "staff_name": 1}).to_list(2000)
+    by_staff = {}
+    for i in invs:
+        if i.get("staff_name"):
+            by_staff[i["staff_name"]] = by_staff.get(i["staff_name"], 0) + float(i.get("total") or 0)
+    ctx = {
+        "name": user.get("name") or "there",
+        "salon": t.get("name") or "your salon",
+        "rev_today": round(sum(float(i.get("total") or 0) for i in invs), 2),
+        "rev_yest": await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d")),
+        "bills": len(invs),
+        "top_staff": max(by_staff, key=by_staff.get) if by_staff else "",
+        "tomorrow_appts": await db.appointments.count_documents({"date": (ist + timedelta(days=1)).strftime("%Y-%m-%d")}),
+    }
+    return _evening_hi(ctx) if lang == "hi" else _evening_en(ctx)
+
+
+@api.get("/reports/evening-briefing/audio")
+async def evening_briefing_audio(lang: str = "en", user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Evening Mira — closing-time reflection spoken aloud. lang: en | hi."""
+    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    lang = "hi" if lang == "hi" else "en"
+    ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    today_str = ist.strftime("%Y-%m-%d")
+    cache_key = (t["id"], user["id"], lang, "eve")
+    cached = _TTS_CACHE.get(cache_key)
+    if cached and cached[0] == today_str:
+        return cached[1]
+    text = await _build_evening_text(user, t, ist, lang)
+    try:
+        tts = OpenAITextToSpeech(api_key=key)
+        audio_b64 = await tts.generate_speech_base64(text=text, model="tts-1", voice="shimmer", speed=0.97)
+    except Exception as e:
+        raise HTTPException(400, f"Voice generation failed: {e}")
+    payload = {"audio_b64": audio_b64, "text": text, "ask_restock": False, "lang": lang}
+    if len(_TTS_CACHE) > 2000 or (cached and cached[0] != today_str):
+        _TTS_CACHE.clear()
+    _TTS_CACHE[cache_key] = (today_str, payload)
+    return payload
 
 
 async def _revenue_for_day(day_str: str) -> float:
@@ -2502,6 +2607,27 @@ async def export_products_csv(user=Depends(require_tenant_admin)):
     return Response(content=buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=products.csv"})
 
+def _product_doc_from_csv_row(raw: dict) -> Optional[dict]:
+    """Parse one CSV row into a product doc. Returns None if the row is invalid."""
+    row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
+    name = row.get("name", "")
+    if not name:
+        return None
+    try:
+        price = float(row.get("price") or "")
+        stock = int(float(row.get("stock") or 0))
+        cost = float(row.get("cost") or 0)
+        threshold = int(float(row.get("low_stock_threshold") or 5))
+    except ValueError:
+        return None
+    sku = row.get("sku") or f"SKU-{re.sub(r'[^A-Za-z0-9]', '', name)[:12].upper()}"
+    return {
+        "name": name, "brand": row.get("brand", ""), "category": row.get("category") or "General",
+        "sku": sku, "price": price, "cost": cost, "stock": stock,
+        "low_stock_threshold": threshold, "image_url": row.get("image_url", ""),
+    }
+
+
 @api.post("/products/import")
 async def import_products_csv(file: UploadFile = File(...), user=Depends(require_tenant_admin)):
     content = await _read_csv_upload(file)
@@ -2511,25 +2637,11 @@ async def import_products_csv(file: UploadFile = File(...), user=Depends(require
         raise HTTPException(400, "CSV needs columns: name, category, price, stock (optional: brand, sku, cost, low_stock_threshold, image_url)")
     added = updated = skipped = 0
     for raw in reader:
-        row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
-        name = row.get("name", "")
-        try:
-            price = float(row.get("price") or "")
-            stock = int(float(row.get("stock") or 0))
-        except ValueError:
+        doc = _product_doc_from_csv_row(raw)
+        if doc is None:
             skipped += 1
             continue
-        if not name:
-            skipped += 1
-            continue
-        sku = row.get("sku") or f"SKU-{re.sub(r'[^A-Za-z0-9]', '', name)[:12].upper()}"
-        doc = {
-            "name": name, "brand": row.get("brand", ""), "category": row.get("category") or "General",
-            "sku": sku, "price": price, "cost": float(row.get("cost") or 0), "stock": stock,
-            "low_stock_threshold": int(float(row.get("low_stock_threshold") or 5)),
-            "image_url": row.get("image_url", ""),
-        }
-        existing = await db.products.find_one({"$or": [{"sku": sku}, {"name": name}]})
+        existing = await db.products.find_one({"$or": [{"sku": doc["sku"]}, {"name": doc["name"]}]})
         if existing:
             await db.products.update_one({"id": existing["id"]}, {"$set": doc})
             updated += 1
@@ -2745,6 +2857,20 @@ async def _active_membership(customer_id: str):
     return await db.customer_memberships.find_one(
         {"customer_id": customer_id, "expires_at": {"$gt": now}}, {"_id": 0}, sort=[("discount_pct", -1)])
 
+def _redeemable_points(cust: dict, redeem_points: int, raw_subtotal: float,
+                       remaining: float, loyalty_rules: Optional[dict]) -> int:
+    """How many loyalty points can actually be redeemed on this bill."""
+    req_points = max(0, int(redeem_points or 0))
+    if loyalty_rules:
+        if raw_subtotal < float(loyalty_rules.get("min_bill_to_redeem") or 0):
+            return 0
+        cap = int(loyalty_rules.get("max_redeem_per_visit") or 0)
+        if cap > 0:
+            req_points = min(req_points, cap)
+    points_available = int(cust.get("loyalty_points") or 0)
+    return min(req_points, points_available, int(remaining))
+
+
 def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: float,
                             membership_pct: float = 0.0, coupon=None, redeem_points: int = 0,
                             loyalty_rules: Optional[dict] = None) -> dict:
@@ -2757,15 +2883,7 @@ def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: floa
     referral_credit_available = float(cust.get("referral_credit") or 0)
     referral_credit_used = min(referral_credit_available, remaining)
     remaining = max(0, remaining - referral_credit_used)
-    points_available = int(cust.get("loyalty_points") or 0)
-    req_points = max(0, int(redeem_points or 0))
-    if loyalty_rules:
-        if raw_subtotal < float(loyalty_rules.get("min_bill_to_redeem") or 0):
-            req_points = 0  # bill too small to redeem points
-        cap = int(loyalty_rules.get("max_redeem_per_visit") or 0)
-        if cap > 0:
-            req_points = min(req_points, cap)
-    points_used = min(req_points, points_available, int(remaining))
+    points_used = _redeemable_points(cust, redeem_points, raw_subtotal, remaining, loyalty_rules)
     discount = (discount_in or 0) + membership_discount + coupon_discount + referral_credit_used + points_used
     taxable = max(0, raw_subtotal - discount)
     tax = taxable * (tax_pct or 0) / 100
@@ -4171,13 +4289,27 @@ async def _tenant_month_stats(tid: str, start: str, end: str) -> dict:
         {"tenant_id": tid, "paid": True, "created_at": {"$gte": start, "$lt": end}}, {"_id": 0}).to_list(3000)
     revenue = sum(i["total"] for i in invs)
     by_svc, by_staff = {}, {}
+    weekly = [0.0, 0.0, 0.0, 0.0, 0.0]  # days 1-7, 8-14, 15-21, 22-28, 29+
     for i in invs:
         for it in i.get("items", []):
             by_svc[it["name"]] = by_svc.get(it["name"], 0) + it["price"] * it.get("qty", 1)
         if i.get("staff_name"):
             by_staff[i["staff_name"]] = by_staff.get(i["staff_name"], 0) + i["total"]
+        try:
+            day = int(str(i.get("created_at", ""))[8:10])
+            weekly[min((day - 1) // 7, 4)] += float(i.get("total") or 0)
+        except (ValueError, IndexError):
+            pass
+    prev_start_dt = (datetime.strptime(start, "%Y-%m-%d") - timedelta(days=1)).replace(day=1)
+    prev_invs = await _raw_db.invoices.find(
+        {"tenant_id": tid, "paid": True,
+         "created_at": {"$gte": prev_start_dt.strftime("%Y-%m-%d"), "$lt": start}},
+        {"_id": 0, "total": 1}).to_list(3000)
+    prev_revenue = sum(float(i.get("total") or 0) for i in prev_invs)
     return {
         "revenue": revenue,
+        "prev_revenue": prev_revenue,
+        "weekly": weekly,
         "invoices": len(invs),
         "avg_bill": revenue / len(invs) if invs else 0,
         "new_customers": await _raw_db.customers.count_documents(
@@ -4288,8 +4420,7 @@ async def _generate_onboarding_poster(t: dict) -> str:
         key = os.environ.get("EMERGENT_LLM_KEY")
         if not key:
             return ""
-        import random
-        vibe = random.choice([
+        vibe = secrets.choice([
             "opulent dark luxury salon interior with warm golden bokeh lights, marble and brass details",
             "celebratory salon scene with soft golden confetti, ribbons and sparkling champagne bokeh",
             "dreamy salon backdrop with soft blush florals, silk drapes and golden light leaks",
@@ -6614,8 +6745,25 @@ _REG_BADGE_ORDER = ["NEW", "GOOD", "EXCELLENT", "EXTRAORDINARY"]
 _REG_REASONS = {"", "Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Transferred", "Other"}
 
 def _aadhaar_fp(num: str) -> str:
-    pepper = os.environ.get("REGISTRY_PEPPER") or jwt_secret()
+    pepper = os.environ["REGISTRY_PEPPER"]
     return hashlib.sha256(f"aadhaar:{num}:{pepper}".encode()).hexdigest()
+
+def _aadhaar_fps(num: str) -> list:
+    """Current fp + legacy fp (pre-migration pepper) for backwards-compatible lookups."""
+    fps = [_aadhaar_fp(num)]
+    legacy = os.environ.get("REGISTRY_PEPPER_LEGACY")
+    if legacy:
+        fps.append(hashlib.sha256(f"aadhaar:{num}:{legacy}".encode()).hexdigest())
+    return fps
+
+async def _registry_find_by_aadhaar(num: str, projection: dict, limit: int = 5) -> list:
+    """Lookup by Aadhaar fingerprint; lazily re-peppers legacy hashes on match."""
+    fps = _aadhaar_fps(num)
+    rows = await _raw_db.registry_employees.find({"aadhaar_hash": {"$in": fps}}, projection).to_list(limit)
+    if rows and len(fps) > 1:
+        await _raw_db.registry_employees.update_many(
+            {"aadhaar_hash": fps[1]}, {"$set": {"aadhaar_hash": fps[0]}})
+    return rows
 
 def is_safe_public_url(url: str) -> bool:
     """Allow only http(s) URLs that do not resolve to private/loopback/link-local hosts (SSRF guard)."""
@@ -6807,9 +6955,9 @@ async def _registry_profile(emp: dict, current_only: bool = False, redact: bool 
 @api.post("/registry/employees")
 async def registry_create_employee(body: RegistryEmployeeIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     fp = _aadhaar_fp(body.aadhaar)
-    existing = await _raw_db.registry_employees.find_one({"aadhaar_hash": fp}, {"_id": 0, "staff_code": 1})
-    if existing:
-        raise HTTPException(409, f"This Aadhaar is already registered with Staff ID {existing['staff_code']}. Search that ID to add your salon's employment record.")
+    dup = await _registry_find_by_aadhaar(body.aadhaar, {"_id": 0, "staff_code": 1}, limit=1)
+    if dup:
+        raise HTTPException(409, f"This Aadhaar is already registered with Staff ID {dup[0]['staff_code']}. Search that ID to add your salon's employment record.")
     seq = await _raw_db.registry_employees.count_documents({}) + 1
     code = f"STF-{seq:05d}"
     while await _raw_db.registry_employees.find_one({"staff_code": code}):
@@ -6876,8 +7024,7 @@ async def registry_list_employees(q: Optional[str] = None, admin=Depends(require
             return [await _registry_profile(r, current_only=True, redact=redact) for r in rows]
         # 12-digit query = Aadhaar — the permanent identifier: full history across salons
         if len(digits) == 12:
-            rows = await _raw_db.registry_employees.find(
-                {"aadhaar_hash": _aadhaar_fp(digits)}, {"_id": 0, "aadhaar_hash": 0}).to_list(5)
+            rows = await _registry_find_by_aadhaar(digits, {"_id": 0, "aadhaar_hash": 0})
             return [await _registry_profile(r, redact=redact) for r in rows]
         ors = [{"name": {"$regex": re.escape(qs), "$options": "i"}}]
         if len(digits) >= 6:
@@ -7023,4 +7170,3 @@ async def _security_headers(request: Request, call_next):
     return resp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-

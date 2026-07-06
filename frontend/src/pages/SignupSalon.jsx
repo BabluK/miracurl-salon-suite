@@ -6,7 +6,7 @@ import { toast, Toaster } from "sonner";
 import BrandMark from "@/components/BrandMark";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
-import { setTenantSlug } from "@/lib/api";
+import { setTenantSlug, formatApiError } from "@/lib/api";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const TOASTER_OPTIONS = { style: { background: "#fff", color: "#0f172a", border: "1px solid rgba(14,165,233,0.2)" } };

@@ -9,6 +9,7 @@ import InstallAppPrompt from "@/components/InstallAppPrompt";
 // Users routinely log in from the same browser; if they opt in, we remember
 // the *email only* (never the password) so the next visit is one field faster.
 const REMEMBER_KEY = "miracurl_remember_email";
+const SUBMIT_LABELS = { login: "Login", signup: "Create Account", forgot: "Send Reset Link" };
 
 export default function Login() {
   const { login, register, forgot } = useAuth();
@@ -170,7 +171,7 @@ export default function Login() {
                          disabled:opacity-60 disabled:cursor-not-allowed
                          transition-all active:scale-[0.98]"
             >
-              {busy ? "Please wait..." : (mode === "login" ? "Login" : mode === "signup" ? "Create Account" : "Send Reset Link")}
+              {busy ? "Please wait..." : SUBMIT_LABELS[mode] || "Login"}
             </button>
           </form>
 

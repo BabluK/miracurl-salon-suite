@@ -19,8 +19,10 @@ export function MorningBriefing() {
   const briefRef = useRef(null);
   const vendorIdRef = useRef("");
 
-  const todayKey = `mira_briefing_${new Date().toISOString().slice(0, 10)}`;
-  const voiceKey = `mira_voice_${new Date().toISOString().slice(0, 10)}`;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const isEvening = new Date().getHours() >= 19;
+  const todayKey = `mira_briefing_${isEvening ? "eve_" : ""}${todayIso}`;
+  const voiceKey = `mira_voice_${isEvening ? "eve_" : ""}${todayIso}`;
 
   useEffect(() => { briefRef.current = brief; }, [brief]);
   useEffect(() => { vendorIdRef.current = vendorId; }, [vendorId]);
@@ -77,7 +79,8 @@ export function MorningBriefing() {
   async function playGreeting(manual = false, useLang = lang) {
     setVoiceState("loading");
     try {
-      const { data } = await api.get(`/reports/morning-briefing/audio?lang=${useLang}`);
+      const endpoint = isEvening ? "/reports/evening-briefing/audio" : "/reports/morning-briefing/audio";
+      const { data } = await api.get(`${endpoint}?lang=${useLang}`);
       const audio = new Audio(`data:audio/mp3;base64,${data.audio_b64}`);
       audio.onended = () => {
         if (data.ask_restock) startListening(useLang);
@@ -98,7 +101,7 @@ export function MorningBriefing() {
       setBrief(r.data);
       setVoiceOn(!!r.data.voice_greeting_enabled);
       if (r.data.vendors?.length) setVendorId(r.data.vendors[0].id);
-      if (r.data.voice_greeting_enabled && !localStorage.getItem(`mira_voice_${new Date().toISOString().slice(0, 10)}`)) {
+      if (r.data.voice_greeting_enabled && !localStorage.getItem(voiceKey)) {
         playGreeting(false);
       }
     }).catch(() => {});
@@ -178,7 +181,7 @@ export function MorningBriefing() {
             {voiceState === "blocked" && (
               <button data-testid="voice-play-btn" onClick={() => playGreeting(true)}
                 className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-amber-500 text-white font-medium hover:bg-amber-600">
-                <Volume2 className="w-3 h-3" /> Play Mira's greeting
+                <Volume2 className="w-3 h-3" /> {isEvening ? "Play Mira's evening reflection" : "Play Mira's greeting"}
               </button>
             )}
             {voiceState === "playing" && <span className="text-[11px] text-emerald-600 flex items-center gap-1"><Volume2 className="w-3 h-3" /> Mira is speaking…</span>}

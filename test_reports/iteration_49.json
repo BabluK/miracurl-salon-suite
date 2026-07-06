@@ -1,0 +1,37 @@
+{
+  "summary": "Iter 49 — Regression testing after httpOnly-cookie-only auth migration, evening Mira endpoint addition, monthly-report luxe HTML, and Aadhaar pepper migration. BACKEND: 13/13 pytest PASS after 1 fix. Verified (a) POST /api/auth/login returns {user:...} with NO access_token/token/refresh_token in body; access_token+refresh_token cookies set; (b) /api/auth/me works via cookie only (no Authorization header sent); (c) /api/auth/logout deletes cookies → subsequent /api/auth/me returns 401; (d) /api/public/signup-salon returns user+tenant WITHOUT access_token in body, cookies set (throwaway TEST_Salon cleaned up); (e) /api/reports/morning-briefing + morning-briefing/audio (refactored ctx-dict greeting) return 200 with audio_b64+text — no 500; (f) /api/reports/evening-briefing/audio?lang=en returns audio_b64+text+ask_restock:false+lang:en; lang=hi returns Hindi variant; (g) /api/super-admin/send-monthly-report guarded — 403 for salon admin, 200 for super-admin sending to a specific tenant; (h) /api/registry/employees?q=priya returns list (pepper migration lookup path OK); (i) /api/products/import with tiny CSV returns {added, updated, skipped} AFTER FIXING missing route decorator (see RCA); (j) /api/invoices create with customer+staff+service returns subtotal+total>0 (loyalty _redeemable_points helper OK). FRONTEND: /login → /dashboard OK (Miracurl salon), localStorage token is null (cookie-only confirmed on client), page refresh keeps session (dashboard still loaded), Sign Out click clears cookie and redirects to /login.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter49_auth_cookie_regressions.py",
+    "/app/test_reports/pytest/iter49_results.xml"
+  ],
+  "action_items": [
+    "Confirm the /api/products/import decorator fix (main agent should sanity-check the diff; a testing agent added the @api.post('/products/import') decorator that was missing from server.py near line 2631)."
+  ],
+  "critical_code_review_comments": [
+    "Cookie-only auth is correctly implemented end-to-end: server.py login/signup/staff-register all set_auth_cookies(response, access, refresh) and return only {user,...} without access_token; frontend AuthContext reads only data.user; no localStorage token was found in browser after login. Great.",
+    "REGRESSION FIXED BY TESTER: `import_products_csv` (server.py line ~2631) was defined without an `@api.post('/products/import')` decorator, so POST /api/products/import was returning 405 Method Not Allowed even though the frontend Inventory page calls it. Added the decorator. Please review to confirm the intent (module-scoped helper vs API endpoint).",
+    "logout only deletes cookies client-side — no server-side JWT/refresh-token blacklist. If a refresh token is stolen it remains valid until natural expiry (7 days). Consider a token-version bump or a refresh_tokens revocation table if session invalidation on logout is a security requirement.",
+    "Evening/Morning audio endpoints depend on emergentintegrations OpenAITextToSpeech; failure raises HTTP 400. Non-blocking, but consider caching audio_b64 in Mongo (not just process memory _TTS_CACHE) so a backend restart doesn't burn LLM credits regenerating the same day's briefing.",
+    "server.py is ~7171 lines — still monolithic. Extraction of routers (auth, reports, products, registry, super-admin) would help maintainability."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (added missing `@api.post('/products/import')` decorator above `async def import_products_csv` at line ~2631)",
+    "/app/backend/tests/test_iter49_auth_cookie_regressions.py (NEW — 13 pytest cases)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% (login/refresh/logout flow all green)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (tenant miracurl-marathahalli); super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "Signup-salon test created a TEST_Salon_<uuid> tenant + owner user + one TEST_Product_<hash> product; all cleaned up after run via a motor delete_many script (0 residuals).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_iter49_auth_cookie_regressions.py. Set REACT_APP_BACKEND_URL env var before pytest. The signup-salon payload MUST use `owner_email` (not `email`). Route decorator on import_products_csv was added this iter — if it disappears again after a refactor, POST /api/products/import will 405. TTS endpoints cost credits and are cached per (tenant,user,lang,slot,date) — call at most once per test run.",
+  "rca of the issue": "BUG FOUND & FIXED — POST /api/products/import: root cause was that during the recent refactor introducing `_product_doc_from_csv_row(raw)` helper (server.py ~line 2610), the surrounding `@api.post('/products/import')` decorator on the `import_products_csv` function was inadvertently removed, leaving the function as a plain async def unreachable via HTTP. Reproduction: `curl -X POST $BACKEND/api/products/import -F file=@x.csv` returned 405. Mitigation: re-inserted the `@api.post('/products/import')` decorator immediately above the function; restarted backend; endpoint now returns 200 with {added,updated,skipped}. Impact: frontend Inventory 'Import CSV' button (Inventory.jsx line 38) was broken in production until this fix."
+}
