@@ -623,3 +623,8 @@ Deliberate deferrals (state if asked): create_invoice (money path, already deleg
 - Frontend: components/MorningBriefing.jsx mounted top of Dashboard (owner only) — greeting card (morning-briefing-card/briefing-greeting), low-stock chips, vendor select + "Email restock list to vendor" + inline "Add vendor" form; dismissible, shows once per day (localStorage mira_briefing_YYYY-MM-DD). Screenshot-verified.
 - Demo data: vendor "Suresh", 2 products set to stock=1 (Argan Oil Conditioner, Hydra Shampoo 500ml).
 - NOT BUILT (needs clarification): separate "AI Review Reply Generator" (auto-drafting replies to customer reviews) — user mentioned the phrase but described the greeting/stock feature.
+
+## Update — Jul 6, 2026 (part 41) — Resend domain verified
+- User verified miracurlunisexsaloon.com in Resend (IONOS DNS). SENDER_EMAIL in backend/.env changed onboarding@resend.dev → noreply@miracurlunisexsaloon.com; backend restarted.
+- VERIFIED: restock email now delivers to ANY external address (sent to suresh.vendor@example.com, 200 OK). All app emails (welcome, expiry, monthly reports, restock) now come from Miracurl <noreply@miracurlunisexsaloon.com>.
+- Vendor "Suresh" email left as suresh.vendor@example.com (placeholder — user should edit to the real vendor address).
