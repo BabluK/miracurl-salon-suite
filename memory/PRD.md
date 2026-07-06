@@ -660,3 +660,11 @@ Deliberate deferrals (state if asked): create_invoice (money path, already deleg
   - else tenant.slug → "Scan to book your next visit!" linking to {origin}/book/{slug}
   - neither → no QR.
 - VERIFIED via node unit test (all 3 cases: cmd bytes, labels, embedded URLs). Miracurl tenant has google_review_url set in Settings. Hardware QR render needs user's printer (most modern thermals support GS ( k).
+
+## Update — Jul 6, 2026 (part 47) — Security audit fixes (VERIFIED)
+Audit verdict was FAIL (1 HIGH, 2 LOW). All fixed:
+1. SEC-001 (HIGH): GET /api/staff now strips pay/bank/ID fields (_STAFF_SENSITIVE_FIELDS: monthly_base_salary, commission_pct, bank_details, aadhaar_last4, max_advance, overtime_rate, salary_visible, notice fields) for non-admin roles (staff/manager). Admin/super_admin unchanged. VERIFIED: staff login gets no leaked fields; admin still sees salary.
+2. SEC-002 (LOW): /api/appointments?date= now validated against ^\d{4}-\d{2}(-\d{2})?$ → 400 on regex-injection payloads. VERIFIED.
+3. SEC-003 (LOW): morning-briefing/audio TTS cached per (tenant,user) per IST day in _TTS_CACHE (bounds OpenAI spend to 1 call/user/day; cache cleared on rollover/2000 entries). VERIFIED: call1 7s → call2 0.2s.
+4. Hardening: dedicated REGISTRY_PEPPER env added in backend/.env (pinned to current effective pepper so existing Aadhaar fingerprints stay valid; now decoupled from JWT_SECRET rotation).
+Note for deploy: REGISTRY_PEPPER must be added to production env vars too.

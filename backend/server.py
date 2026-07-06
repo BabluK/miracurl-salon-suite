@@ -1052,9 +1052,19 @@ async def delete_service(sid: str, user=Depends(require_admin)):
     return {"ok": True}
 
 # ---------------- Staff ----------------
+_STAFF_SENSITIVE_FIELDS = {
+    "monthly_base_salary": 0, "commission_pct": 0, "bank_details": 0, "aadhaar_last4": 0,
+    "max_advance": 0, "overtime_rate": 0, "salary_visible": 0, "notice_period_days": 0,
+    "serving_notice": 0, "last_working_day": 0,
+}
+
+
 @api.get("/staff")
 async def list_staff(user=Depends(get_current_user)):
-    return await db.staff.find({}, {"_id": 0, "aadhaar_hash": 0}).to_list(500)
+    proj = {"_id": 0, "aadhaar_hash": 0}
+    if user.get("role") not in ("admin", "super_admin"):
+        proj.update(_STAFF_SENSITIVE_FIELDS)  # SEC-001: staff/manager get no pay/bank/ID data
+    return await db.staff.find({}, proj).to_list(500)
 
 
 def _staff_write_payload(body: StaffIn) -> dict:
@@ -2132,6 +2142,9 @@ async def set_voice_greeting(body: VoiceGreetingIn, user=Depends(require_tenant_
     return {"enabled": body.enabled}
 
 
+_TTS_CACHE: dict = {}  # (tenant_id, user_id) -> (date_str, payload) — 1 OpenAI call/user/day (SEC-003)
+
+
 @api.get("/reports/morning-briefing/audio")
 async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(current_tenant)):
     """Mira speaks the greeting aloud (OpenAI TTS, shimmer voice)."""
@@ -2140,9 +2153,13 @@ async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(curre
     if not key:
         raise HTTPException(500, "AI key not configured")
     ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    today_str = ist.strftime("%Y-%m-%d")
+    cache_key = (t["id"], user["id"])
+    cached = _TTS_CACHE.get(cache_key)
+    if cached and cached[0] == today_str:
+        return cached[1]
     salutation = "Good morning" if ist.hour < 12 else ("Good afternoon" if ist.hour < 17 else "Good evening")
     low_count = await db.products.count_documents({"stock": {"$lt": LOW_STOCK_LIMIT}})
-    today_str = ist.strftime("%Y-%m-%d")
     appts = await db.appointments.count_documents({"date": today_str})
     leaves_today = await db.leave_requests.find(
         {"status": "approved", "from_date": {"$lte": today_str}, "to_date": {"$gte": today_str}},
@@ -2175,7 +2192,11 @@ async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(curre
         audio_b64 = await tts.generate_speech_base64(text=text, model="tts-1-hd", voice="shimmer", speed=0.97)
     except Exception as e:
         raise HTTPException(502, f"Voice generation failed: {e}")
-    return {"audio_b64": audio_b64, "text": text}
+    payload = {"audio_b64": audio_b64, "text": text}
+    if len(_TTS_CACHE) > 2000 or (cached and cached[0] != today_str):
+        _TTS_CACHE.clear()
+    _TTS_CACHE[cache_key] = (today_str, payload)
+    return payload
 
 
 LOW_STOCK_LIMIT = 3
@@ -2340,6 +2361,8 @@ async def list_appointments(date: Optional[str] = None, upcoming: bool = False, 
         today = datetime.now(timezone.utc).date().isoformat()
         flt = {"scheduled_at": {"$gte": today}, "status": {"$ne": "cancelled"}}
     elif date:
+        if not re.fullmatch(r"\d{4}-\d{2}(-\d{2})?", date):
+            raise HTTPException(400, "date must be YYYY-MM-DD or YYYY-MM")
         flt = {"scheduled_at": {"$regex": f"^{date}"}}
     return await db.appointments.find(flt, {"_id": 0}).sort("scheduled_at", 1).to_list(500)
 
