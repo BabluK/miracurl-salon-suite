@@ -708,3 +708,10 @@ Note for deploy: REGISTRY_PEPPER must be added to production env vars too.
 - USER saw on PRODUCTION: "You can only send testing emails to your own email address... verify a domain at resend.com/domains". CAUSE: production env missing SENDER_EMAIL → code silently fell back to onboarding@resend.dev (Resend sandbox → only sends to account owner's email). Preview has SENDER_EMAIL=noreply@miracurlunisexsaloon.com (verified) and works.
 - FIX: removed the onboarding@resend.dev fallback in email_service.py — _send_email now returns explicit "SENDER_EMAIL missing" error. Verified preview still sends (200 ok).
 - USER ACTION REQUIRED: add SENDER_EMAIL=noreply@miracurlunisexsaloon.com (and RESEND_API_KEY + REGISTRY_PEPPER) to PRODUCTION env vars, then redeploy. Domain miracurlunisexsaloon.com must be verified in the Resend account whose API key production uses.
+
+## Update — Jul 6, 2026 (part 54) — Luxe email designs + unique AI poster per onboarded tenant (VERIFIED)
+1. RESTOCK EMAIL redesigned (dark luxe, gold sparkle theme): user-chosen RESTOCK ALERT banner (RESTOCK_IMAGE_URL in backend/.env → customer-assets URL), dark header w/ salon name, styled product table w/ "N left" pills, footer "Sent with ♥ by Mira". Greets vendor contact_person (or vendor name).
+2. WELCOME EMAIL redesigned (matching luxe theme): per-tenant AI poster on top, gold credentials box, "Login & Set Your Password" CTA button, dark footer.
+3. UNIQUE AI POSTER PER TENANT: _generate_onboarding_poster() in create_tenant — gpt-image-1 renders "Welcome {salon name}" over 1 of 5 random luxury salon vibes, uploads via _put_object, stores welcome_poster_url on tenant, serves via APP_PUBLIC_URL/api/files/{id}. Fails silently (never blocks onboarding). Reactivate email reuses stored poster.
+4. VERIFIED: onboarded test tenant → poster generated + stored (files/52207a0a...); sample WELCOME (with poster) and sample RESTOCK (new banner) both delivered to miracurlunisexsaloon@gmail.com (Resend ids). Test tenants + sample vendor cleaned up.
+NOTE: preview-generated poster URLs use APP_PUBLIC_URL (prod domain) — correct in production; preview test used preview URL manually.

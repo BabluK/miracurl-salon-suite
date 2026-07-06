@@ -2367,25 +2367,57 @@ class LowStockMailIn(BaseModel):
 
 
 def _restock_email(vendor: dict, items: list, t: dict) -> tuple:
+    img = os.environ.get("RESTOCK_IMAGE_URL", "")
+    img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Restock Alert" width="600" '
+               f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
     rows = "".join(
-        f"<tr><td style='padding:8px 12px;border-bottom:1px solid #eee'>{p['name']}</td>"
-        f"<td style='padding:8px 12px;border-bottom:1px solid #eee'>{p.get('brand') or '—'}</td>"
-        f"<td style='padding:8px 12px;border-bottom:1px solid #eee'>{p.get('sku') or '—'}</td>"
-        f"<td style='padding:8px 12px;border-bottom:1px solid #eee;text-align:center;color:#dc2626;font-weight:bold'>{p['stock']}</td></tr>"
+        f"<tr>"
+        f"<td style='padding:12px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:14px'>{p['name']}</td>"
+        f"<td style='padding:12px 16px;border-bottom:1px solid #f1e8d8;color:#6b6b75;font-size:13px'>{p.get('brand') or '—'}</td>"
+        f"<td style='padding:12px 16px;border-bottom:1px solid #f1e8d8;color:#6b6b75;font-size:13px;font-family:monospace'>{p.get('sku') or '—'}</td>"
+        f"<td style='padding:12px 16px;border-bottom:1px solid #f1e8d8;text-align:center'>"
+        f"<span style='display:inline-block;background:#fdecec;color:#dc2626;font-weight:bold;font-size:13px;padding:3px 12px;border-radius:999px'>{p['stock']} left</span></td></tr>"
         for p in items)
     html = f"""
-    <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#1f2937">
-      <h2 style="color:#0f172a">Restock request — {t.get('name')}</h2>
-      <p>Dear {vendor.get('contact_person') or vendor['name']},</p>
-      <p>The following products are running low (below {LOW_STOCK_LIMIT} units). Kindly arrange a fresh supply at the earliest:</p>
-      <table style="border-collapse:collapse;width:100%;font-size:14px">
-        <tr style="background:#f8fafc"><th style="padding:8px 12px;text-align:left">Product</th><th style="padding:8px 12px;text-align:left">Brand</th><th style="padding:8px 12px;text-align:left">SKU</th><th style="padding:8px 12px">Stock left</th></tr>
-        {rows}
-      </table>
-      <p style="margin-top:16px">Please confirm availability and delivery timeline.</p>
-      <p>Regards,<br/><b>{t.get('name')}</b><br/>{t.get('phone') or ''}<br/>{t.get('location') or ''}</p>
-    </div>"""
-    subject = f"Restock request — {len(items)} products low at {t.get('name')}"
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 40px rgba(212,175,55,.25)">
+{img_row}
+<tr><td style="background:linear-gradient(135deg,#17171f,#26202b);padding:26px 36px;text-align:center">
+  <div style="color:#e6c66e;font-size:12px;letter-spacing:4px;text-transform:uppercase">✦ &nbsp;Inventory Alert&nbsp; ✦</div>
+  <div style="color:#ffffff;font-size:26px;margin-top:8px">{t.get('name')}</div>
+  <div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">{len(items)} product{'s' if len(items) != 1 else ''} need restocking</div>
+</td></tr>
+<tr><td style="padding:30px 36px 8px">
+  <p style="margin:0;color:#2b2b33;font-size:15px;font-family:Arial,sans-serif">Dear <b>{vendor.get('contact_person') or vendor['name']}</b>,</p>
+  <p style="margin:12px 0 0;color:#55555f;font-size:14px;line-height:1.6;font-family:Arial,sans-serif">
+    The following products are running low at our salon (below {LOW_STOCK_LIMIT} units).
+    Kindly arrange a fresh supply at the earliest — details below:</p>
+</td></tr>
+<tr><td style="padding:18px 36px">
+  <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #f1e8d8;border-radius:12px;overflow:hidden">
+    <tr style="background:#faf6ec">
+      <th style="padding:12px 16px;text-align:left;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#a08a4b;font-family:Arial,sans-serif">Product</th>
+      <th style="padding:12px 16px;text-align:left;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#a08a4b;font-family:Arial,sans-serif">Brand</th>
+      <th style="padding:12px 16px;text-align:left;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#a08a4b;font-family:Arial,sans-serif">SKU</th>
+      <th style="padding:12px 16px;text-align:center;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#a08a4b;font-family:Arial,sans-serif">Stock</th>
+    </tr>
+    {rows}
+  </table>
+</td></tr>
+<tr><td style="padding:8px 36px 26px">
+  <p style="margin:0;color:#55555f;font-size:14px;line-height:1.6;font-family:Arial,sans-serif">
+    Please confirm availability and expected delivery timeline by replying to this email
+    {f"or calling us at <b>{t.get('phone')}</b>" if t.get('phone') else ""}.</p>
+</td></tr>
+<tr><td style="background:#17171f;padding:22px 36px;text-align:center">
+  <div style="color:#e6c66e;font-size:16px">✦ {t.get('name')} ✦</div>
+  <div style="color:#8f8798;font-size:12px;margin-top:6px;font-family:Arial,sans-serif">{t.get('location') or ''}{(' · ' + t.get('phone')) if t.get('phone') else ''}</div>
+  <div style="color:#5d5766;font-size:11px;margin-top:10px;font-family:Arial,sans-serif">Sent with ♥ by Mira — your salon's AI assistant</div>
+</td></tr>
+</table>
+</td></tr></table>"""
+    subject = f"✦ Restock request — {len(items)} products low at {t.get('name')}"
     return subject, html
 
 
@@ -4249,6 +4281,46 @@ async def superadmin_onboarding_bg(body: OnboardImgIn, user=Depends(require_supe
     })
     return {"url": f"/api/files/{file_id}"}
 
+async def _generate_onboarding_poster(t: dict) -> str:
+    """Unique AI welcome poster per tenant. Returns absolute URL or '' (never blocks onboarding)."""
+    try:
+        from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+        key = os.environ.get("EMERGENT_LLM_KEY")
+        if not key:
+            return ""
+        import random
+        vibe = random.choice([
+            "opulent dark luxury salon interior with warm golden bokeh lights, marble and brass details",
+            "celebratory salon scene with soft golden confetti, ribbons and sparkling champagne bokeh",
+            "dreamy salon backdrop with soft blush florals, silk drapes and golden light leaks",
+            "modern chic salon with emerald velvet chairs, gold-rimmed mirrors and glowing pendant lights",
+            "royal Indian-inspired salon decor with marigold accents, warm diyas glow and gold filigree",
+        ])
+        prompt = (f"Wide 3:2 luxury welcome banner for a beauty salon: {vibe}. "
+                  f"Elegant gold serif text centered reading exactly: 'Welcome {t['name']}'. "
+                  f"Sparkling light particles, cinematic lighting, premium beauty-brand aesthetic. No people's faces.")
+        gen = OpenAIImageGeneration(api_key=key)
+        images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+        if not images:
+            return ""
+        file_id = str(uuid.uuid4())
+        storage_path = f"{APP_NAME}/superadmin/welcome-posters/{file_id}.png"
+        result = _put_object(storage_path, images[0], "image/png")
+        await _raw_db.uploads.insert_one({
+            "id": file_id, "tenant_id": t["id"], "kind": "welcome_poster",
+            "storage_path": result.get("path", storage_path),
+            "original_filename": f"{file_id}.png", "content_type": "image/png",
+            "size": len(images[0]), "uploaded_by": "system", "is_deleted": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/api/files/{file_id}"
+        await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"welcome_poster_url": url}})
+        return url
+    except Exception as e:
+        logging.warning(f"welcome poster generation failed: {e}")
+        return ""
+
+
 @api.post("/super-admin/tenants")
 async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     if await db.tenants.find_one({"slug": body.slug}):
@@ -4288,10 +4360,12 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     recipients = [body.owner_email.lower()]
     if t.get("salon_email") and t["salon_email"] not in recipients:
         recipients.append(t["salon_email"])
+    # Every onboarded salon gets its own unique AI-generated welcome poster.
+    poster_url = await _generate_onboarding_poster(t)
     email_status = await _send_email(
         recipients,
         "Welcome to Miracurl — your salon account is ready ✦",
-        _welcome_email_html(t["name"], body.owner_email.lower(), temp_pw))
+        _welcome_email_html(t["name"], body.owner_email.lower(), temp_pw, poster_url))
     # Return the temp password ONCE so super-admin can copy/share it. Never
     # stored in cleartext or retrievable again — a lost password requires a
     # /forgot flow just like any user.
@@ -5144,7 +5218,7 @@ async def reactivate_tenant(tid: str, user=Depends(require_super_admin)):
     email_status = await _send_email(
         recipients,
         "Welcome back to Miracurl — your salon is live again ✦",
-        _welcome_email_html(t["name"], owner["email"], temp_pw))
+        _welcome_email_html(t["name"], owner["email"], temp_pw, t.get("welcome_poster_url") or ""))
     return {
         "ok": True, "owner_email": owner["email"], "temp_password": temp_pw,
         "trial_end_date": trial_end, "email_recipients": recipients,
