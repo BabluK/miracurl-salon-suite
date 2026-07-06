@@ -257,6 +257,7 @@ class Product(BaseModel):
     stock: int
     low_stock_threshold: int = 5
     image_url: Optional[str] = None
+    vendor_id: Optional[str] = None
 
 class ProductIn(BaseModel):
     name: str
@@ -268,6 +269,7 @@ class ProductIn(BaseModel):
     stock: int
     low_stock_threshold: int = 5
     image_url: Optional[str] = None
+    vendor_id: Optional[str] = None
 
 class Appointment(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -2274,26 +2276,17 @@ class LowStockMailIn(BaseModel):
     vendor_id: str = Field(..., max_length=64)
 
 
-@api.post("/vendors/send-low-stock")
-async def send_low_stock_email(body: LowStockMailIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    vendor = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0})
-    if not vendor:
-        raise HTTPException(404, "Vendor not found")
-    low = await db.products.find(
-        {"stock": {"$lt": LOW_STOCK_LIMIT}}, {"_id": 0, "name": 1, "brand": 1, "stock": 1, "sku": 1},
-    ).sort("stock", 1).to_list(100)
-    if not low:
-        raise HTTPException(400, "No products are low on stock right now")
+def _restock_email(vendor: dict, items: list, t: dict) -> tuple:
     rows = "".join(
         f"<tr><td style='padding:8px 12px;border-bottom:1px solid #eee'>{p['name']}</td>"
         f"<td style='padding:8px 12px;border-bottom:1px solid #eee'>{p.get('brand') or '—'}</td>"
         f"<td style='padding:8px 12px;border-bottom:1px solid #eee'>{p.get('sku') or '—'}</td>"
         f"<td style='padding:8px 12px;border-bottom:1px solid #eee;text-align:center;color:#dc2626;font-weight:bold'>{p['stock']}</td></tr>"
-        for p in low)
+        for p in items)
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#1f2937">
       <h2 style="color:#0f172a">Restock request — {t.get('name')}</h2>
-      <p>Dear {vendor['name']},</p>
+      <p>Dear {vendor.get('contact_person') or vendor['name']},</p>
       <p>The following products are running low (below {LOW_STOCK_LIMIT} units). Kindly arrange a fresh supply at the earliest:</p>
       <table style="border-collapse:collapse;width:100%;font-size:14px">
         <tr style="background:#f8fafc"><th style="padding:8px 12px;text-align:left">Product</th><th style="padding:8px 12px;text-align:left">Brand</th><th style="padding:8px 12px;text-align:left">SKU</th><th style="padding:8px 12px">Stock left</th></tr>
@@ -2302,10 +2295,62 @@ async def send_low_stock_email(body: LowStockMailIn, user=Depends(require_tenant
       <p style="margin-top:16px">Please confirm availability and delivery timeline.</p>
       <p>Regards,<br/><b>{t.get('name')}</b><br/>{t.get('phone') or ''}<br/>{t.get('location') or ''}</p>
     </div>"""
-    result = await _send_email([vendor["email"]], f"Restock request — {len(low)} products low at {t.get('name')}", html)
+    subject = f"Restock request — {len(items)} products low at {t.get('name')}"
+    return subject, html
+
+
+def _vendor_items(low: list, vendor_id: str) -> list:
+    """Vendor's tagged low items; if none are tagged to them, fall back to untagged items."""
+    tagged = [p for p in low if p.get("vendor_id") == vendor_id]
+    if tagged:
+        return tagged
+    return [p for p in low if not p.get("vendor_id")]
+
+
+@api.post("/vendors/send-low-stock")
+async def send_low_stock_email(body: LowStockMailIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    vendor = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0})
+    if not vendor:
+        raise HTTPException(404, "Vendor not found")
+    low = await db.products.find(
+        {"stock": {"$lt": LOW_STOCK_LIMIT}}, {"_id": 0, "name": 1, "brand": 1, "stock": 1, "sku": 1, "vendor_id": 1},
+    ).sort("stock", 1).to_list(100)
+    if not low:
+        raise HTTPException(400, "No products are low on stock right now")
+    items = _vendor_items(low, body.vendor_id)
+    if not items:
+        raise HTTPException(400, f"No low-stock products are assigned to {vendor['name']} (all are tagged to other vendors)")
+    subject, html = _restock_email(vendor, items, t)
+    result = await _send_email([vendor["email"]], subject, html)
     if not result.get("sent"):
         raise HTTPException(502, result.get("error") or "Email failed")
-    return {"ok": True, "sent_to": vendor["email"], "products": len(low)}
+    return {"ok": True, "sent_to": vendor["email"], "products": len(items)}
+
+
+@api.post("/vendors/send-low-stock-all")
+async def send_low_stock_all(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Email every vendor only THEIR tagged low-stock products in one click."""
+    low = await db.products.find(
+        {"stock": {"$lt": LOW_STOCK_LIMIT}}, {"_id": 0, "name": 1, "brand": 1, "stock": 1, "sku": 1, "vendor_id": 1},
+    ).sort("stock", 1).to_list(100)
+    if not low:
+        raise HTTPException(400, "No products are low on stock right now")
+    vendors = await db.vendors.find({}, {"_id": 0}).to_list(100)
+    if not vendors:
+        raise HTTPException(400, "Add a vendor first")
+    by_vendor = {v["id"]: v for v in vendors}
+    sent, failed = [], []
+    unassigned = sum(1 for p in low if not p.get("vendor_id") or p.get("vendor_id") not in by_vendor)
+    for vid, vendor in by_vendor.items():
+        items = [p for p in low if p.get("vendor_id") == vid]
+        if not items:
+            continue
+        subject, html = _restock_email(vendor, items, t)
+        result = await _send_email([vendor["email"]], subject, html)
+        (sent if result.get("sent") else failed).append({"vendor": vendor["name"], "email": vendor["email"], "products": len(items)})
+    if not sent and not failed:
+        raise HTTPException(400, "No low-stock products are tagged to a vendor yet — set the Vendor field on products in Inventory")
+    return {"ok": True, "sent": sent, "failed": failed, "unassigned_products": unassigned}
 
 
 # ---------------- Products / Inventory ----------------

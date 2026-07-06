@@ -92,6 +92,18 @@ export function MorningBriefing() {
     } finally { setSending(false); }
   }
 
+  async function sendMailAll() {
+    setSending(true);
+    try {
+      const { data } = await api.post("/vendors/send-low-stock-all");
+      const parts = data.sent.map(s => `${s.vendor} (${s.products})`).join(", ");
+      toast.success(`Restock lists sent: ${parts}${data.unassigned_products ? ` · ${data.unassigned_products} product(s) have no vendor tag` : ""}`);
+      if (data.failed?.length) toast.error(`Failed: ${data.failed.map(f => f.vendor).join(", ")}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't send emails");
+    } finally { setSending(false); }
+  }
+
   return (
     <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 p-5 relative" data-testid="morning-briefing-card">
       <button onClick={dismiss} data-testid="briefing-dismiss-btn" className="absolute top-3 right-3 text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
@@ -159,6 +171,13 @@ export function MorningBriefing() {
                   className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-medium disabled:opacity-50">
                   {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Email restock list to vendor
                 </button>
+                {brief.vendors.length > 1 && (
+                  <button data-testid="briefing-send-all-btn" onClick={sendMailAll} disabled={sending}
+                    title="Each vendor receives only the low products tagged to them in Inventory"
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium disabled:opacity-50">
+                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Email all vendors their items
+                  </button>
+                )}
                 <button data-testid="briefing-add-vendor-btn" onClick={() => setAddOpen(!addOpen)}
                   className="inline-flex items-center gap-1 text-xs px-3 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-white">
                   <Plus className="w-3.5 h-3.5" /> Add vendor

@@ -681,3 +681,10 @@ Note for deploy: REGISTRY_PEPPER must be added to production env vars too.
 1. Backend: VendorIn extended — name*, email*, phone, contact_person, gst_number (validated 15-char GSTIN regex, auto-uppercase), address, notes. New PUT /api/vendors/{vid} for edit. VERIFIED via curl: create w/ GST, invalid GST → 422, update, list multiple.
 2. Settings → new "Vendor Details" section (components/settings/VendorsCard.jsx, rendered after TaxCard): vendor list rows (name, contact person, email, phone, GST, address) with edit/delete, labeled add/edit form. Fixed white-on-white h3 (global dark h3 → text-slate-800).
 3. Dashboard Morning Briefing: inline Add Vendor form now has LABELED fields (Vendor name*, Email*, Phone, Contact person, GST number, Address) — fixes user report of blank unlabeled boxes; vendor select supports multiple vendors and shows selected vendor's details line (contact, phone, GST, address) under the dropdown (briefing-vendor-details); hint link to Settings → Vendor Details.
+
+## Update — Jul 6, 2026 (part 50) — Vendor-specific restock emails (VERIFIED)
+1. Product/ProductIn: new optional vendor_id. Inventory UI: "Vendor / Supplier" select in product form (product-vendor-select), Vendor column in table (product-vendor-{id}).
+2. /vendors/send-low-stock now sends only the vendor's TAGGED low items (_vendor_items: falls back to untagged items if vendor has no tags; 400 if nothing applicable). Shared _restock_email() builder (greets contact_person when set).
+3. NEW POST /api/vendors/send-low-stock-all: one click emails EVERY vendor only their tagged low items; response {sent[], failed[], unassigned_products}. Dashboard briefing shows "Email all vendors their items" button (briefing-send-all-btn, visible when >1 vendor).
+4. VERIFIED: curl — tagged Argan Oil Conditioner to Beauty Supplies; single-send delivered 1 item (not all low); send-all reported 1 sent + 1 unassigned. UI screenshots: vendor column, form select (3 options), send-all button.
+5. Fix during work: broken Inventory.jsx edit left duplicate JSX tail (compile error) — truncated + re-applied vendors state.

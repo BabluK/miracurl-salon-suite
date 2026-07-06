@@ -8,10 +8,14 @@ export default function Inventory() {
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "" });
+  const [form, setForm] = useState({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "", vendor_id: "" });
+  const [vendors, setVendors] = useState([]);
 
   const load = useCallback(async () => { const { data } = await api.get("/products"); setList(data); }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    api.get("/vendors").then(r => setVendors(r.data)).catch(() => {});
+  }, [load]);
   const csvRef = useRef(null);
 
   async function exportCsv() {
@@ -38,13 +42,13 @@ export default function Inventory() {
     finally { e.target.value = ""; }
   }
 
-  function startNew() { setEditing(null); setForm({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "" }); setOpen(true); }
-  function startEdit(p) { setEditing(p); setForm({ ...p }); setOpen(true); }
+  function startNew() { setEditing(null); setForm({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "", vendor_id: "" }); setOpen(true); }
+  function startEdit(p) { setEditing(p); setForm({ ...p, vendor_id: p.vendor_id || "" }); setOpen(true); }
 
   async function save(e) {
     e.preventDefault();
     try {
-      const payload = { ...form, price: parseFloat(form.price), cost: parseFloat(form.cost), stock: parseInt(form.stock), low_stock_threshold: parseInt(form.low_stock_threshold) };
+      const payload = { ...form, price: parseFloat(form.price), cost: parseFloat(form.cost), stock: parseInt(form.stock), low_stock_threshold: parseInt(form.low_stock_threshold), vendor_id: form.vendor_id || null };
       if (editing) await api.put(`/products/${editing.id}`, payload);
       else await api.post("/products", payload);
       toast.success(editing ? "Updated" : "Added"); setOpen(false); load();
@@ -91,7 +95,7 @@ export default function Inventory() {
         <table className="luxe-table-light min-w-[720px]">
           <thead>
             <tr>
-              <th>Product</th><th>SKU</th><th>Category</th><th>Cost</th><th>Price</th><th>Stock</th><th></th>
+              <th>Product</th><th>SKU</th><th>Category</th><th>Vendor</th><th>Cost</th><th>Price</th><th>Stock</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -110,6 +114,9 @@ export default function Inventory() {
                   </td>
                   <td className="font-mono text-xs text-slate-500">{p.sku}</td>
                   <td className="text-sm">{p.category}</td>
+                  <td className="text-xs text-slate-500" data-testid={`product-vendor-${p.id}`}>
+                    {vendors.find(v => v.id === p.vendor_id)?.name || <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="text-sm">₹{p.cost}</td>
                   <td className="text-sky-600 font-medium">₹{p.price}</td>
                   <td>
@@ -126,7 +133,7 @@ export default function Inventory() {
                 </tr>
               );
             })}
-            {list.length === 0 && <tr><td colSpan="7" className="text-center text-slate-500 py-12">No products yet</td></tr>}
+            {list.length === 0 && <tr><td colSpan="8" className="text-center text-slate-500 py-12">No products yet</td></tr>}
           </tbody>
         </table>
       </div>
@@ -146,6 +153,13 @@ export default function Inventory() {
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label-light block mb-1">SKU *</label><input data-testid="product-sku-input" required className="input-light" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} /></div>
                 <div><label className="label-light block mb-1">Category</label><input className="input-light" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></div>
+              </div>
+              <div>
+                <label className="label-light block mb-1">Vendor / Supplier <span className="text-slate-400 normal-case">(restock emails go to them)</span></label>
+                <select data-testid="product-vendor-select" className="input-light w-full" value={form.vendor_id || ""} onChange={e => setForm({ ...form, vendor_id: e.target.value })}>
+                  <option value="">— No vendor —</option>
+                  {vendors.map(v => <option key={v.id} value={v.id}>{v.name}{v.contact_person ? ` (${v.contact_person})` : ""}</option>)}
+                </select>
               </div>
               <div className="grid grid-cols-4 gap-3">
                 <div><label className="label-light block mb-1">Cost ₹</label><input type="number" required className="input-light" value={form.cost} onChange={e => setForm({ ...form, cost: e.target.value })} /></div>
@@ -181,3 +195,4 @@ export default function Inventory() {
     </div>
   );
 }
+
