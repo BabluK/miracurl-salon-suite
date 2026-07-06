@@ -2176,53 +2176,138 @@ def _revenue_sentence(yesterday: float, last_week: float) -> str:
     return s
 
 
-def _leave_sentence(names: list) -> str:
-    if not names:
-        return ""
-    who = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
-    verb = "is" if len(names) == 1 else "are"
-    return f"Also, {who} {verb} on approved leave today — plan the roster accordingly. "
+async def _staff_today_status(day: str) -> dict:
+    staff_list = await db.staff.find({"active": {"$ne": False}}, {"_id": 0, "id": 1, "name": 1}).to_list(200)
+    att = await db.attendance.find({"date": day}, {"_id": 0, "staff_id": 1}).to_list(300)
+    checked = {a["staff_id"] for a in att}
+    leaves = await db.leave_requests.find(
+        {"status": "approved", "from_date": {"$lte": day}, "to_date": {"$gte": day}},
+        {"_id": 0, "staff_id": 1}).to_list(100)
+    on_leave = {lv["staff_id"] for lv in leaves}
+    return {
+        "checked_in": [s["name"] for s in staff_list if s["id"] in checked],
+        "on_leave": [s["name"] for s in staff_list if s["id"] in on_leave and s["id"] not in checked],
+        "not_checked_in": [s["name"] for s in staff_list if s["id"] not in checked and s["id"] not in on_leave],
+    }
 
 
-async def _build_greeting_text(user: dict, t: dict, ist: datetime, today_str: str) -> str:
+async def _briefing_notifications(today_str: str) -> dict:
+    pend = await db.leave_requests.find(
+        {"status": "pending"}, {"_id": 0, "staff_name": 1, "from_date": 1, "to_date": 1, "days": 1},
+    ).sort("created_at", -1).to_list(20)
+    new_bookings = await db.appointments.count_documents({"created_at": {"$regex": f"^{today_str}"}})
+    new_reviews = await db.reviews.count_documents({"created_at": {"$regex": f"^{today_str}"}})
+    return {"pending_leaves": pend, "new_bookings_today": new_bookings, "new_reviews_today": new_reviews}
+
+
+def _joined(names: list, lang: str) -> str:
+    if len(names) == 1:
+        return names[0]
+    sep = " और " if lang == "hi" else " and "
+    return f"{', '.join(names[:-1])}{sep}{names[-1]}"
+
+
+def _greeting_hi(name, salon, ist, rev, lastweek, appts, staff_st, notif, low_count, has_vendor):
+    parts = ["सुप्रभात" if ist.hour < 12 else ("नमस्ते" if ist.hour < 17 else "शुभ संध्या")]
+    text = f"{parts[0]} {name} जी! {salon} में आपका स्वागत है। "
+    if rev > 0:
+        text += f"कल आपने {int(round(rev))} रुपये की कमाई की — बहुत बढ़िया! "
+        if lastweek > 0:
+            pct = round((rev - lastweek) / lastweek * 100)
+            if pct >= 5:
+                text += f"यह पिछले हफ्ते के इसी दिन से {pct} प्रतिशत ज़्यादा है — शानदार! "
+            elif pct <= -5:
+                text += f"यह पिछले हफ्ते से {abs(pct)} प्रतिशत कम है — आज वापसी करते हैं! "
+    else:
+        text += "कल बिलिंग शांत रही — आज एक नया मौका है। "
+    text += f"आज आपके पास {appts} अपॉइंटमेंट हैं। " if appts else "आज कैलेंडर खाली है — वॉक-इन के लिए अच्छा दिन है। "
+    ci, ni, ol = len(staff_st["checked_in"]), len(staff_st["not_checked_in"]), staff_st["on_leave"]
+    if ci:
+        text += f"{ci} स्टाफ चेक-इन कर चुके हैं"
+        text += f", {ni} अभी बाकी हैं। " if ni else "। "
+    elif ni:
+        text += "टीम ने अभी चेक-इन नहीं किया है। "
+    if ol:
+        text += f"{_joined(ol, 'hi')} आज छुट्टी पर {'हैं' if len(ol) > 1 else 'हैं'}। "
+    if notif["pending_leaves"]:
+        names = [p["staff_name"] for p in notif["pending_leaves"] if p.get("staff_name")]
+        text += f"{len(notif['pending_leaves'])} छुट्टी की अर्ज़ी आपकी मंज़ूरी का इंतज़ार कर रही है — {_joined(names[:3], 'hi')} की तरफ़ से। "
+    if notif["new_bookings_today"]:
+        text += f"आज {notif['new_bookings_today']} नई बुकिंग आई हैं। "
+    if notif["new_reviews_today"]:
+        text += f"और {notif['new_reviews_today']} नया रिव्यू भी मिला है। "
+    if low_count:
+        text += f"ध्यान दें — {low_count} प्रोडक्ट का स्टॉक कम हो रहा है। "
+        if has_vendor:
+            text += "क्या मैं रीस्टॉक लिस्ट वेंडर को मेल करूं या व्हाट्सएप पर भेजूं? बस बोलिए — मेल या व्हाट्सएप। "
+    text += "आपका दिन शुभ हो!"
+    return text
+
+
+def _greeting_en(name, salon, ist, rev, lastweek, appts, staff_st, notif, low_count, has_vendor):
     salutation = "Good morning" if ist.hour < 12 else ("Good afternoon" if ist.hour < 17 else "Good evening")
+    text = f"Hey, {salutation} {name}! Welcome back to {salon}. "
+    text += _revenue_sentence(rev, lastweek)
+    text += f"You have {appts} appointment{'s' if appts != 1 else ''} today. " if appts else "Your calendar is open today — a great day to bring in walk-ins. "
+    ci, ni, ol = len(staff_st["checked_in"]), len(staff_st["not_checked_in"]), staff_st["on_leave"]
+    if ci:
+        text += f"{ci} of your team {'have' if ci != 1 else 'has'} checked in"
+        text += f", {ni} {'are' if ni != 1 else 'is'} yet to arrive. " if ni else ". "
+    elif ni:
+        text += "None of your team has checked in yet. "
+    if ol:
+        text += f"{_joined(ol, 'en')} {'are' if len(ol) > 1 else 'is'} on approved leave today — plan the roster accordingly. "
+    if notif["pending_leaves"]:
+        names = [p["staff_name"] for p in notif["pending_leaves"] if p.get("staff_name")]
+        text += f"You have {len(notif['pending_leaves'])} leave request{'s' if len(notif['pending_leaves']) != 1 else ''} waiting for your approval — from {_joined(names[:3], 'en')}. "
+    if notif["new_bookings_today"]:
+        text += f"{notif['new_bookings_today']} new booking{'s' if notif['new_bookings_today'] != 1 else ''} came in today. "
+    if notif["new_reviews_today"]:
+        text += f"And you received {notif['new_reviews_today']} new review{'s' if notif['new_reviews_today'] != 1 else ''}. "
+    if low_count:
+        text += f"Heads up — {low_count} product{'s are' if low_count != 1 else ' is'} running low on stock. "
+        if has_vendor:
+            text += "Should I send the restock list to your vendor by mail, or on WhatsApp? Just say mail or WhatsApp. "
+    text += "Have a wonderful day ahead!"
+    return text
+
+
+async def _build_greeting_text(user: dict, t: dict, ist: datetime, today_str: str, lang: str = "en") -> tuple:
     low_count = await db.products.count_documents({"stock": {"$lt": LOW_STOCK_LIMIT}})
     appts = await db.appointments.count_documents({"date": today_str})
-    leaves_today = await db.leave_requests.find(
-        {"status": "approved", "from_date": {"$lte": today_str}, "to_date": {"$gte": today_str}},
-        {"_id": 0, "staff_name": 1}).to_list(50)
-    yesterday_revenue = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
-    last_week_revenue = await _revenue_for_day((ist - timedelta(days=8)).strftime("%Y-%m-%d"))
+    has_vendor = await db.vendors.count_documents({}) > 0
+    staff_st = await _staff_today_status(today_str)
+    notif = await _briefing_notifications(today_str)
+    yesterday = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
+    last_week = await _revenue_for_day((ist - timedelta(days=8)).strftime("%Y-%m-%d"))
     name = user.get("name") or "there"
-    text = f"Hey, {salutation} {name}! Welcome back to {t.get('name') or 'your salon'}. "
-    text += _revenue_sentence(yesterday_revenue, last_week_revenue)
-    text += f"You have {appts} appointment{'s' if appts != 1 else ''} today. " if appts else "Your calendar is open today — a great day to bring in walk-ins. "
-    text += _leave_sentence([lv["staff_name"] for lv in leaves_today if lv.get("staff_name")])
-    if low_count:
-        text += f"Heads up — {low_count} product{'s are' if low_count != 1 else ' is'} running low on stock. I've listed them in your briefing. "
-    return text + "Have a wonderful day ahead!"
+    salon = t.get("name") or "your salon"
+    builder = _greeting_hi if lang == "hi" else _greeting_en
+    text = builder(name, salon, ist, yesterday, last_week, appts, staff_st, notif, low_count, has_vendor)
+    return text, bool(low_count and has_vendor)
 
 
 @api.get("/reports/morning-briefing/audio")
-async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Mira speaks the greeting aloud (OpenAI TTS, shimmer voice)."""
+async def morning_briefing_audio(lang: str = "en", user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Mira speaks the greeting aloud (OpenAI TTS, shimmer voice). lang: en | hi."""
     from emergentintegrations.llm.openai import OpenAITextToSpeech
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         raise HTTPException(500, "AI key not configured")
+    lang = "hi" if lang == "hi" else "en"
     ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
     today_str = ist.strftime("%Y-%m-%d")
-    cache_key = (t["id"], user["id"])
+    cache_key = (t["id"], user["id"], lang)
     cached = _TTS_CACHE.get(cache_key)
     if cached and cached[0] == today_str:
         return cached[1]
-    text = await _build_greeting_text(user, t, ist, today_str)
+    text, ask_restock = await _build_greeting_text(user, t, ist, today_str, lang)
     try:
         tts = OpenAITextToSpeech(api_key=key)
-        audio_b64 = await tts.generate_speech_base64(text=text, model="tts-1-hd", voice="shimmer", speed=0.97)
+        audio_b64 = await tts.generate_speech_base64(text=text, model="tts-1", voice="shimmer", speed=0.97)
     except Exception as e:
         raise HTTPException(400, f"Voice generation failed: {e}")
-    payload = {"audio_b64": audio_b64, "text": text}
+    payload = {"audio_b64": audio_b64, "text": text, "ask_restock": ask_restock, "lang": lang}
     if len(_TTS_CACHE) > 2000 or (cached and cached[0] != today_str):
         _TTS_CACHE.clear()
     _TTS_CACHE[cache_key] = (today_str, payload)
@@ -2259,9 +2344,14 @@ async def morning_briefing(user=Depends(get_current_user), t=Depends(current_ten
     vendors = await db.vendors.find({}, {"_id": 0}).sort("name", 1).to_list(100)
     today_appts = await db.appointments.count_documents({"date": ist.strftime("%Y-%m-%d")})
     yesterday_revenue = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
+    today_str = ist.strftime("%Y-%m-%d")
+    staff_today = await _staff_today_status(today_str)
+    notifications = await _briefing_notifications(today_str)
     return {
         "salutation": salutation,
         "yesterday_revenue": yesterday_revenue,
+        "staff_today": staff_today,
+        "notifications": notifications,
         "name": user.get("name") or t.get("name") or "there",
         "date_label": ist.strftime("%A, %d %B %Y"),
         "low_stock": low,

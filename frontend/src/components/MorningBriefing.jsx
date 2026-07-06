@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Sun, Moon, Sunset, Send, Plus, X, Loader2, Volume2 } from "lucide-react";
+import { openWhatsApp } from "@/lib/share";
+import { Sun, Moon, Sunset, Send, Plus, X, Loader2, Volume2, Mic, MessageCircle, Mail, Bell } from "lucide-react";
+import { VendorAddForm } from "@/components/briefing/VendorAddForm";
 
 export function MorningBriefing() {
   const [brief, setBrief] = useState(null);
@@ -9,24 +12,81 @@ export function MorningBriefing() {
   const [vendorId, setVendorId] = useState("");
   const [sending, setSending] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [vForm, setVForm] = useState({ name: "", email: "", phone: "", contact_person: "", gst_number: "", address: "", notes: "" });
   const [voiceOn, setVoiceOn] = useState(false);
-  const [voiceState, setVoiceState] = useState("idle"); // idle | loading | blocked | playing
+  const [voiceState, setVoiceState] = useState("idle"); // idle | loading | blocked | playing | listening
+  const [lang, setLang] = useState(() => localStorage.getItem("mira_lang") || "en");
+  const recRef = useRef(null);
+  const briefRef = useRef(null);
+  const vendorIdRef = useRef("");
 
   const todayKey = `mira_briefing_${new Date().toISOString().slice(0, 10)}`;
   const voiceKey = `mira_voice_${new Date().toISOString().slice(0, 10)}`;
 
-  async function playGreeting(manual = false) {
+  useEffect(() => { briefRef.current = brief; }, [brief]);
+  useEffect(() => { vendorIdRef.current = vendorId; }, [vendorId]);
+
+  async function doSendMail() {
+    const vid = vendorIdRef.current;
+    if (!vid) { toast.info("Add a vendor first"); return; }
+    setSending(true);
+    try {
+      const { data } = await api.post("/vendors/send-low-stock", { vendor_id: vid });
+      toast.success(`✅ Mira sent the restock list (${data.products} items) to ${data.sent_to}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Email failed");
+    } finally { setSending(false); }
+  }
+
+  function doSendWhatsApp() {
+    const b = briefRef.current;
+    const vendor = b?.vendors?.find(v => v.id === vendorIdRef.current) || b?.vendors?.[0];
+    const low = b?.low_stock || [];
+    if (!low.length) return;
+    const items = low.map(p => `• ${p.name}${p.brand ? ` (${p.brand})` : ""} — only ${p.stock} left`).join("\n");
+    const msg = `*Restock request*\n\nHello${vendor?.contact_person ? ` ${vendor.contact_person}` : ""}, the following products are running low. Kindly arrange a fresh supply:\n\n${items}\n\nPlease confirm availability and delivery timeline.\nThank you!`;
+    openWhatsApp(msg, vendor?.phone?.replace(/\D/g, "") || "");
+    toast.success("✅ Mira opened WhatsApp with the restock list — just hit send");
+  }
+
+  function startListening(currentLang) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { toast.info("Voice replies need Chrome — use the Mail / WhatsApp buttons instead"); return; }
+    try {
+      const rec = new SR();
+      recRef.current = rec;
+      rec.lang = currentLang === "hi" ? "hi-IN" : "en-IN";
+      rec.interimResults = false;
+      rec.maxAlternatives = 3;
+      setVoiceState("listening");
+      const stopAll = () => { setVoiceState("idle"); try { rec.stop(); } catch { /* done */ } };
+      const timer = setTimeout(stopAll, 8000);
+      rec.onresult = (ev) => {
+        clearTimeout(timer);
+        const heard = Array.from(ev.results[0]).map(a => a.transcript.toLowerCase()).join(" ");
+        setVoiceState("idle");
+        if (/whatsapp|whats app|वॉट्स|व्हाट्स/.test(heard)) doSendWhatsApp();
+        else if (/mail|email|मेल|ईमेल/.test(heard)) doSendMail();
+        else toast.info(`Mira heard "${heard}" — tap Mail or WhatsApp below`);
+      };
+      rec.onerror = () => { clearTimeout(timer); setVoiceState("idle"); };
+      rec.onend = () => { clearTimeout(timer); setVoiceState(s => (s === "listening" ? "idle" : s)); };
+      rec.start();
+    } catch { setVoiceState("idle"); }
+  }
+
+  async function playGreeting(manual = false, useLang = lang) {
     setVoiceState("loading");
     try {
-      const { data } = await api.get("/reports/morning-briefing/audio");
+      const { data } = await api.get(`/reports/morning-briefing/audio?lang=${useLang}`);
       const audio = new Audio(`data:audio/mp3;base64,${data.audio_b64}`);
-      audio.onended = () => setVoiceState("idle");
+      audio.onended = () => {
+        if (data.ask_restock) startListening(useLang);
+        else setVoiceState("idle");
+      };
       await audio.play();
       setVoiceState("playing");
       localStorage.setItem(voiceKey, "1");
     } catch {
-      // autoplay blocked or generation failed — offer manual play
       setVoiceState(manual ? "idle" : "blocked");
       if (manual) toast.error("Couldn't play the greeting");
     }
@@ -58,50 +118,23 @@ export function MorningBriefing() {
     }
   }
 
+  function switchLang(l) {
+    setLang(l);
+    localStorage.setItem("mira_lang", l);
+    if (voiceOn) playGreeting(true, l);
+    else toast.success(l === "hi" ? "मीरा अब हिंदी में बोलेगी ✦" : "Mira will speak in English ✦");
+  }
+
   if (dismissed || !brief) return null;
   const Icon = brief.salutation === "Good Morning" ? Sun : brief.salutation === "Good Afternoon" ? Sunset : Moon;
   const low = brief.low_stock || [];
+  const st = brief.staff_today || { checked_in: [], not_checked_in: [], on_leave: [] };
+  const notif = brief.notifications || { pending_leaves: [], new_bookings_today: 0, new_reviews_today: 0 };
+  const hasNotifs = notif.pending_leaves.length > 0 || notif.new_bookings_today > 0 || notif.new_reviews_today > 0;
 
   function dismiss() {
     localStorage.setItem(todayKey, "1");
     setDismissed(true);
-  }
-
-  async function addVendor(e) {
-    e.preventDefault();
-    try {
-      const { data } = await api.post("/vendors", { ...vForm, email: vForm.email.trim() });
-      setBrief(b => ({ ...b, vendors: [...b.vendors, data] }));
-      setVendorId(data.id);
-      setAddOpen(false);
-      setVForm({ name: "", email: "", phone: "", contact_person: "", gst_number: "", address: "", notes: "" });
-      toast.success(`Vendor ${data.name} added ✦`);
-    } catch (err) {
-      toast.error(err.response?.data?.detail?.[0]?.msg || err.response?.data?.detail || "Couldn't add vendor");
-    }
-  }
-
-  async function sendMail() {
-    if (!vendorId) { toast.info("Add a vendor first"); return; }
-    setSending(true);
-    try {
-      const { data } = await api.post("/vendors/send-low-stock", { vendor_id: vendorId });
-      toast.success(`Restock request for ${data.products} products emailed to ${data.sent_to} ✦`);
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "Email failed");
-    } finally { setSending(false); }
-  }
-
-  async function sendMailAll() {
-    setSending(true);
-    try {
-      const { data } = await api.post("/vendors/send-low-stock-all");
-      const parts = data.sent.map(s => `${s.vendor} (${s.products})`).join(", ");
-      toast.success(`Restock lists sent: ${parts}${data.unassigned_products ? ` · ${data.unassigned_products} product(s) have no vendor tag` : ""}`);
-      if (data.failed?.length) toast.error(`Failed: ${data.failed.map(f => f.vendor).join(", ")}`);
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "Couldn't send emails");
-    } finally { setSending(false); }
   }
 
   return (
@@ -126,6 +159,7 @@ export function MorningBriefing() {
             )}
           </p>
 
+          {/* voice + language controls */}
           <div className="flex flex-wrap items-center gap-2 mt-2">
             <label className="inline-flex items-center gap-2 cursor-pointer select-none" data-testid="voice-greeting-toggle">
               <button type="button" role="switch" aria-checked={voiceOn} onClick={toggleVoice}
@@ -134,6 +168,12 @@ export function MorningBriefing() {
               </button>
               <span className="text-[11px] text-slate-600 font-medium">Enable Mira AI voice greeting</span>
             </label>
+            <div className="inline-flex rounded-full border border-amber-300 overflow-hidden" data-testid="mira-lang-toggle">
+              <button onClick={() => switchLang("en")} data-testid="mira-lang-en"
+                className={`text-[11px] px-2.5 py-1 font-medium ${lang === "en" ? "bg-amber-500 text-white" : "text-amber-700 hover:bg-amber-100"}`}>English</button>
+              <button onClick={() => switchLang("hi")} data-testid="mira-lang-hi"
+                className={`text-[11px] px-2.5 py-1 font-medium ${lang === "hi" ? "bg-amber-500 text-white" : "text-amber-700 hover:bg-amber-100"}`}>हिंदी</button>
+            </div>
             {voiceState === "loading" && <span className="text-[11px] text-amber-600 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Mira is warming up…</span>}
             {voiceState === "blocked" && (
               <button data-testid="voice-play-btn" onClick={() => playGreeting(true)}
@@ -142,7 +182,58 @@ export function MorningBriefing() {
               </button>
             )}
             {voiceState === "playing" && <span className="text-[11px] text-emerald-600 flex items-center gap-1"><Volume2 className="w-3 h-3" /> Mira is speaking…</span>}
+            {voiceState === "listening" && (
+              <span className="text-[11px] text-rose-600 flex items-center gap-1 animate-pulse" data-testid="mira-listening">
+                <Mic className="w-3 h-3" /> {lang === "hi" ? "मीरा सुन रही है — बोलिए 'मेल' या 'व्हाट्सएप'" : "Mira is listening — say 'Mail' or 'WhatsApp'"}
+              </span>
+            )}
           </div>
+
+          {/* staff today */}
+          {(st.checked_in.length + st.not_checked_in.length + st.on_leave.length) > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3" data-testid="briefing-staff-status">
+              {st.checked_in.length > 0 && (
+                <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700" title={st.checked_in.join(", ")}>
+                  ✅ {st.checked_in.length} checked in
+                </span>
+              )}
+              {st.not_checked_in.length > 0 && (
+                <span className="text-[11px] px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700" title={st.not_checked_in.join(", ")}>
+                  ⏳ {st.not_checked_in.length} not in yet{st.not_checked_in.length <= 3 ? `: ${st.not_checked_in.join(", ")}` : ""}
+                </span>
+              )}
+              {st.on_leave.length > 0 && (
+                <span className="text-[11px] px-2 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700">
+                  🌴 On leave: {st.on_leave.join(", ")}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* notifications Mira detected */}
+          {hasNotifs && (
+            <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50/60 px-3 py-2.5" data-testid="briefing-notifications">
+              <div className="text-[11px] font-semibold text-sky-800 flex items-center gap-1.5 mb-1"><Bell className="w-3 h-3" /> Mira noticed for you:</div>
+              <div className="space-y-1 text-xs text-slate-700">
+                {notif.pending_leaves.length > 0 && (
+                  <div data-testid="notif-pending-leaves">
+                    📋 {notif.pending_leaves.length} leave request{notif.pending_leaves.length > 1 ? "s" : ""} waiting for approval — {notif.pending_leaves.slice(0, 3).map(p => p.staff_name).join(", ")}
+                    <Link to="/staff" className="ml-1.5 text-sky-600 font-medium hover:underline">Review →</Link>
+                  </div>
+                )}
+                {notif.new_bookings_today > 0 && (
+                  <div data-testid="notif-new-bookings">📅 {notif.new_bookings_today} new booking{notif.new_bookings_today > 1 ? "s" : ""} came in today
+                    <Link to="/appointments" className="ml-1.5 text-sky-600 font-medium hover:underline">View →</Link>
+                  </div>
+                )}
+                {notif.new_reviews_today > 0 && (
+                  <div data-testid="notif-new-reviews">⭐ {notif.new_reviews_today} new review{notif.new_reviews_today > 1 ? "s" : ""} today
+                    <Link to="/reviews" className="ml-1.5 text-sky-600 font-medium hover:underline">Read →</Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {low.length === 0 ? (
             <p className="text-sm text-emerald-700 mt-3" data-testid="briefing-stock-ok">✅ Inventory looks healthy — no product is below {brief.low_stock_limit} units.</p>
@@ -160,80 +251,69 @@ export function MorningBriefing() {
                 {low.length > 8 && <span className="text-[11px] text-slate-400 self-center">+{low.length - 8} more</span>}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                {brief.vendors.length > 0 && (
-                  <select data-testid="briefing-vendor-select" value={vendorId} onChange={e => setVendorId(e.target.value)}
-                    className="text-xs px-2 py-2 rounded-lg border border-slate-200 bg-white text-slate-700">
-                    {brief.vendors.map(v => <option key={v.id} value={v.id}>{v.name} ({v.email})</option>)}
-                  </select>
-                )}
-                <button data-testid="briefing-send-mail-btn" onClick={sendMail} disabled={sending || !brief.vendors.length}
-                  className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-medium disabled:opacity-50">
-                  {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Email restock list to vendor
-                </button>
-                {brief.vendors.length > 1 && (
-                  <button data-testid="briefing-send-all-btn" onClick={sendMailAll} disabled={sending}
-                    title="Each vendor receives only the low products tagged to them in Inventory"
-                    className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium disabled:opacity-50">
-                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Email all vendors their items
+              {/* Mira asks */}
+              <div className="mt-3 rounded-xl border border-amber-300 bg-white/70 px-3 py-2.5" data-testid="mira-ask-panel">
+                <div className="text-xs text-slate-700 mb-2">
+                  <b className="text-amber-700">🎙 Mira asks:</b> {lang === "hi" ? "क्या मैं यह रीस्टॉक लिस्ट वेंडर को भेज दूं — मेल या व्हाट्सएप?" : "Should I send this restock list to your vendor — by Mail or WhatsApp?"}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {brief.vendors.length > 0 && (
+                    <select data-testid="briefing-vendor-select" value={vendorId} onChange={e => setVendorId(e.target.value)}
+                      className="text-xs px-2 py-2 rounded-lg border border-slate-200 bg-white text-slate-700">
+                      {brief.vendors.map(v => <option key={v.id} value={v.id}>{v.name} ({v.email})</option>)}
+                    </select>
+                  )}
+                  <button data-testid="briefing-send-mail-btn" onClick={doSendMail} disabled={sending || !brief.vendors.length}
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-medium disabled:opacity-50">
+                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />} Mail
                   </button>
-                )}
-                <button data-testid="briefing-add-vendor-btn" onClick={() => setAddOpen(!addOpen)}
-                  className="inline-flex items-center gap-1 text-xs px-3 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-white">
-                  <Plus className="w-3.5 h-3.5" /> Add vendor
-                </button>
+                  <button data-testid="briefing-send-whatsapp-btn" onClick={doSendWhatsApp} disabled={!low.length}
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium disabled:opacity-50">
+                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                  </button>
+                  <button data-testid="mira-mic-btn" onClick={() => startListening(lang)} disabled={voiceState === "listening"}
+                    title="Answer Mira by voice — say Mail or WhatsApp"
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-amber-400 text-amber-700 hover:bg-amber-50 font-medium disabled:opacity-50">
+                    <Mic className="w-3.5 h-3.5" /> {voiceState === "listening" ? "Listening…" : "Answer by voice"}
+                  </button>
+                  {brief.vendors.length > 1 && (
+                    <button data-testid="briefing-send-all-btn" onClick={async () => {
+                      setSending(true);
+                      try {
+                        const { data } = await api.post("/vendors/send-low-stock-all");
+                        toast.success(`Restock lists sent: ${data.sent.map(s => `${s.vendor} (${s.products})`).join(", ")}${data.unassigned_products ? ` · ${data.unassigned_products} untagged` : ""}`);
+                      } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send"); }
+                      finally { setSending(false); }
+                    }} disabled={sending}
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium disabled:opacity-50">
+                      <Send className="w-3.5 h-3.5" /> Email all vendors
+                    </button>
+                  )}
+                  <button data-testid="briefing-add-vendor-btn" onClick={() => setAddOpen(!addOpen)}
+                    className="inline-flex items-center gap-1 text-xs px-3 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-white">
+                    <Plus className="w-3.5 h-3.5" /> Add vendor
+                  </button>
+                </div>
+
+                {(() => {
+                  const sel = brief.vendors.find(v => v.id === vendorId);
+                  if (!sel) return null;
+                  return (
+                    <div className="mt-2 text-[11px] text-slate-500 flex flex-wrap gap-x-4 gap-y-0.5" data-testid="briefing-vendor-details">
+                      {sel.contact_person && <span>👤 {sel.contact_person}</span>}
+                      {sel.phone && <span>📞 {sel.phone}</span>}
+                      {sel.gst_number && <span className="font-mono">GST: {sel.gst_number}</span>}
+                      {sel.address && <span>📍 {sel.address}</span>}
+                      {!sel.phone && <span className="text-amber-600">⚠ Add the vendor's phone in Settings to enable WhatsApp</span>}
+                    </div>
+                  );
+                })()}
               </div>
 
-              {(() => {
-                const sel = brief.vendors.find(v => v.id === vendorId);
-                if (!sel) return null;
-                return (
-                  <div className="mt-2 text-[11px] text-slate-500 flex flex-wrap gap-x-4 gap-y-0.5" data-testid="briefing-vendor-details">
-                    {sel.contact_person && <span>👤 {sel.contact_person}</span>}
-                    {sel.phone && <span>📞 {sel.phone}</span>}
-                    {sel.gst_number && <span className="font-mono">GST: {sel.gst_number}</span>}
-                    {sel.address && <span>📍 {sel.address}</span>}
-                  </div>
-                );
-              })()}
-
               {addOpen && (
-                <form onSubmit={addVendor} className="mt-3 rounded-xl border border-slate-200 bg-white p-3" data-testid="vendor-add-form">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    <div>
-                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Vendor name <span className="text-rose-500">*</span></label>
-                      <input required minLength={2} placeholder="e.g. Beauty Supplies Co." value={vForm.name} onChange={e => setVForm({ ...vForm, name: e.target.value })}
-                        data-testid="vendor-name-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Email <span className="text-rose-500">*</span></label>
-                      <input required type="email" placeholder="orders@vendor.com" value={vForm.email} onChange={e => setVForm({ ...vForm, email: e.target.value })}
-                        data-testid="vendor-email-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Phone</label>
-                      <input placeholder="98765 43210" value={vForm.phone} onChange={e => setVForm({ ...vForm, phone: e.target.value })}
-                        data-testid="vendor-phone-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Contact person</label>
-                      <input placeholder="e.g. Suresh Kumar" value={vForm.contact_person} onChange={e => setVForm({ ...vForm, contact_person: e.target.value })}
-                        data-testid="vendor-contact-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">GST number</label>
-                      <input maxLength={15} placeholder="29ABCDE1234F1Z5" value={vForm.gst_number} onChange={e => setVForm({ ...vForm, gst_number: e.target.value.toUpperCase() })}
-                        data-testid="vendor-gst-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 font-mono placeholder:text-slate-400 placeholder:font-sans" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Address</label>
-                      <input placeholder="Street, city" value={vForm.address} onChange={e => setVForm({ ...vForm, address: e.target.value })}
-                        data-testid="vendor-address-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
-                    </div>
-                  </div>
-                  <button type="submit" data-testid="vendor-save-btn" className="mt-3 text-xs px-4 py-2 rounded-lg bg-slate-800 text-white font-medium hover:bg-slate-700">Save vendor</button>
-                  <span className="ml-2 text-[10px] text-slate-400">Manage all vendors in Settings → Vendor Details</span>
-                </form>
+                <VendorAddForm
+                  onCreated={(v) => { setBrief(b => ({ ...b, vendors: [...b.vendors, v] })); setVendorId(v.id); setAddOpen(false); }}
+                />
               )}
             </div>
           )}
