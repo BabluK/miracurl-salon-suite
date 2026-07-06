@@ -1373,6 +1373,109 @@ async def staff_me_profile(s=Depends(_current_staff)):
     return s
 
 
+# ---------------- Staff planned leave requests ----------------
+LONG_LEAVE_DAYS = 5          # leaves LONGER than this need advance notice
+LONG_LEAVE_NOTICE_DAYS = 30  # ...of at least 1 month
+
+
+class LeaveRequestIn(BaseModel):
+    from_date: str = Field(..., max_length=10)
+    to_date: str = Field(..., max_length=10)
+    reason: str = Field("", max_length=500)
+
+
+def _parse_leave_dates(from_date: str, to_date: str) -> tuple:
+    try:
+        f = datetime.strptime(from_date, "%Y-%m-%d").date()
+        t = datetime.strptime(to_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(400, "Dates must be YYYY-MM-DD")
+    if t < f:
+        raise HTTPException(400, "End date cannot be before start date")
+    return f, t
+
+
+@api.post("/staff/me/leave-requests")
+async def create_leave_request(body: LeaveRequestIn, s=Depends(_current_staff)):
+    f, t = _parse_leave_dates(body.from_date, body.to_date)
+    today_ist = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+    if f < today_ist:
+        raise HTTPException(400, "Leave cannot start in the past")
+    days = (t - f).days + 1
+    if days > LONG_LEAVE_DAYS and f < today_ist + timedelta(days=LONG_LEAVE_NOTICE_DAYS):
+        raise HTTPException(
+            400,
+            f"Leaves longer than {LONG_LEAVE_DAYS} days must be requested at least 1 month in advance "
+            f"(earliest allowed start: {(today_ist + timedelta(days=LONG_LEAVE_NOTICE_DAYS)).isoformat()})",
+        )
+    overlap = await db.leave_requests.find_one({
+        "staff_id": s["id"], "status": {"$in": ["pending", "approved"]},
+        "from_date": {"$lte": t.isoformat()}, "to_date": {"$gte": f.isoformat()},
+    }, {"_id": 0, "id": 1, "status": 1})
+    if overlap:
+        raise HTTPException(400, f"You already have a {overlap['status']} leave request overlapping these dates")
+    doc = {
+        "id": str(uuid.uuid4()), "staff_id": s["id"], "staff_name": s.get("name"),
+        "from_date": f.isoformat(), "to_date": t.isoformat(), "days": days,
+        "reason": body.reason.strip(), "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.leave_requests.insert_one(doc)
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+
+@api.get("/staff/me/leave-requests")
+async def my_leave_requests(s=Depends(_current_staff)):
+    return await db.leave_requests.find({"staff_id": s["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+
+
+@api.delete("/staff/me/leave-requests/{rid}")
+async def cancel_leave_request(rid: str, s=Depends(_current_staff)):
+    res = await db.leave_requests.update_one(
+        {"id": rid, "staff_id": s["id"], "status": "pending"},
+        {"$set": {"status": "cancelled", "cancelled_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Request not found or already handled")
+    return {"ok": True}
+
+
+@api.get("/leave-requests")
+async def list_leave_requests(status: str = "pending", admin=Depends(require_tenant_admin)):
+    q = {} if status == "all" else {"status": status}
+    return await db.leave_requests.find(q, {"_id": 0}).sort("created_at", -1).to_list(300)
+
+
+@api.get("/leave-requests/pending-count")
+async def leave_requests_pending_count(admin=Depends(require_tenant_admin)):
+    return {"count": await db.leave_requests.count_documents({"status": "pending"})}
+
+
+class LeaveDecisionIn(BaseModel):
+    note: str = Field("", max_length=300)
+
+
+@api.post("/leave-requests/{rid}/approve")
+async def approve_leave_request(rid: str, body: LeaveDecisionIn = LeaveDecisionIn(), admin=Depends(require_tenant_admin)):
+    res = await db.leave_requests.update_one(
+        {"id": rid, "status": "pending"},
+        {"$set": {"status": "approved", "admin_note": body.note.strip(), "decided_by": admin.get("name") or admin.get("email"),
+                  "decided_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Request not found or already handled")
+    return {"ok": True, "status": "approved"}
+
+
+@api.post("/leave-requests/{rid}/reject")
+async def reject_leave_request(rid: str, body: LeaveDecisionIn = LeaveDecisionIn(), admin=Depends(require_tenant_admin)):
+    res = await db.leave_requests.update_one(
+        {"id": rid, "status": "pending"},
+        {"$set": {"status": "rejected", "admin_note": body.note.strip(), "decided_by": admin.get("name") or admin.get("email"),
+                  "decided_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Request not found or already handled")
+    return {"ok": True, "status": "rejected"}
+
+
 # ---- Attendance rules: geo-fence, late fines, overtime, auto-checkout ----
 IST_TZ = timezone(timedelta(hours=5, minutes=30))
 GRACE_MINUTES = 10          # arrive within 10 min of shift start — no fine
@@ -1647,11 +1750,18 @@ async def attendance_today(date: Optional[str] = None,
     ).sort("name", 1).to_list(500)
     att = await db.attendance.find({"date": day}, {"_id": 0}).to_list(500)
     att_by_sid = {a["staff_id"]: a for a in att}
+    leaves = await db.leave_requests.find(
+        {"status": "approved", "from_date": {"$lte": day}, "to_date": {"$gte": day}},
+        {"_id": 0, "staff_id": 1}).to_list(300)
+    on_leave_ids = {lv["staff_id"] for lv in leaves}
 
     roster = []
     now = datetime.now(timezone.utc)
     for s in staff_list:
-        roster.append(_roster_row(s, att_by_sid.get(s["id"]), now))
+        row = _roster_row(s, att_by_sid.get(s["id"]), now)
+        if row["status"] == "absent" and s["id"] in on_leave_ids:
+            row["status"] = "on_leave"
+        roster.append(row)
 
     return {
         "date": day,
@@ -1659,6 +1769,7 @@ async def attendance_today(date: Optional[str] = None,
         "on_shift": sum(1 for r in roster if r["status"] == "on_shift"),
         "completed": sum(1 for r in roster if r["status"] == "completed"),
         "absent": sum(1 for r in roster if r["status"] == "absent"),
+        "on_leave": sum(1 for r in roster if r["status"] == "on_leave"),
         "roster": roster,
     }
 
@@ -2033,10 +2144,17 @@ async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(curre
     low_count = await db.products.count_documents({"stock": {"$lt": LOW_STOCK_LIMIT}})
     appts = await db.appointments.count_documents({"date": ist.strftime("%Y-%m-%d")})
     yesterday_revenue = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
+    last_week_revenue = await _revenue_for_day((ist - timedelta(days=8)).strftime("%Y-%m-%d"))
     name = user.get("name") or "there"
     text = f"Hey, {salutation} {name}! Welcome back to {t.get('name') or 'your salon'}. "
     if yesterday_revenue > 0:
         text += f"Yesterday you brought in {_speak_amount(yesterday_revenue)} in revenue — great work! "
+        if last_week_revenue > 0:
+            pct = round((yesterday_revenue - last_week_revenue) / last_week_revenue * 100)
+            if pct >= 5:
+                text += f"That's {pct} percent up from the same day last week — you're on a roll! "
+            elif pct <= -5:
+                text += f"That's {abs(pct)} percent below the same day last week — let's bounce back today! "
     else:
         text += "Yesterday was quiet on the billing front — today is a fresh chance to shine. "
     text += f"You have {appts} appointment{'s' if appts != 1 else ''} today. " if appts else "Your calendar is open today — a great day to bring in walk-ins. "

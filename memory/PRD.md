@@ -638,3 +638,12 @@ Deliberate deferrals (state if asked): create_invoice (money path, already deleg
 1. Backend: _revenue_for_day(day_str) sums invoices.total by created_at prefix; _speak_amount() converts ₹ to spoken form ("4.2 thousand rupees" / "x lakh rupees"). /reports/morning-briefing now returns yesterday_revenue; /reports/morning-briefing/audio TTS text includes "Yesterday you brought in {amount} in revenue — great work!" or a motivating zero-day line.
 2. Frontend: MorningBriefing.jsx shows briefing-yesterday-revenue line (💰 Yesterday's revenue: ₹4,200 — great work! / quiet-day message).
 3. VERIFIED: curl briefing → yesterday_revenue 4200.0; audio endpoint text contains revenue + 560KB mp3; UI screenshot shows revenue line on dashboard.
+
+## Update — Jul 6, 2026 (part 44) — Staff Planned Leave workflow + Mira week-over-week (VERIFIED)
+1. LEAVE REQUESTS (db.leave_requests, tenant-scoped — added to database.py):
+   - Staff: POST/GET /api/staff/me/leave-requests, DELETE .../{rid} (cancel pending). Rules: no past start; >5 days requires start ≥ today+30d (LONG_LEAVE_DAYS/LONG_LEAVE_NOTICE_DAYS); overlap with pending/approved blocked.
+   - Admin: GET /api/leave-requests?status=, GET /leave-requests/pending-count, POST /{rid}/approve|reject (optional note, records decided_by/decided_at).
+   - Attendance: /attendance/today marks staff with approved leave covering the date as status "on_leave" + on_leave count. Attendance date input now allows FUTURE dates so admin can see upcoming leave.
+2. UI: StaffPortal → PlannedLeaveCard (leave-from/to/reason inputs, live day-count + 1-month warning, my-leave-list with status chips + admin rejection note, cancel). Staff page (admin) → LeaveApprovalsPanel (leave-approvals-panel, tabs pending/approved/rejected/all, pending badge, approve/reject buttons). Attendance: on_leave status chip (violet) + "On leave" summary tile (sum-on-leave).
+3. MIRA WEEK COMPARISON (voice ONLY, per user): TTS text adds "That's X percent up/below the same day last week" when yesterday & last-week-same-day both > 0 and |pct| ≥ 5. Not shown on visual card.
+4. VERIFIED via curl (all validation errors, approve/reject, 403 for staff on admin routes, on_leave in roster for 2026-07-09) + UI screenshots (staff portal card with approved/rejected rows; admin panel with tabs & note).

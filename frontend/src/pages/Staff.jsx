@@ -8,6 +8,7 @@ import { StaffCard } from "@/components/staff/StaffCard";
 import { StaffFormModal } from "@/components/staff/StaffFormModal";
 import { AdvanceModal } from "@/components/staff/AdvanceModal";
 import { TempCredModal } from "@/components/staff/TempCredModal";
+import { LeaveApprovalsPanel } from "@/components/staff/LeaveApprovalsPanel";
 
 const EMPTY_FORM = {
   name: "", role: "Stylist", phone: "", email: "", specialties: "",
@@ -172,6 +173,8 @@ export default function Staff() {
           <div className="col-span-full text-center py-12 text-slate-400">No staff yet — click &ldquo;Add Staff&rdquo; to get started.</div>
         )}
       </div>
+
+      <LeaveApprovalsPanel />
 
       <ManagersSection onCredential={setTempCred} />
 

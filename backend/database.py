@@ -100,5 +100,6 @@ class _DB:
     advances = TenantCollection(_raw_db.advances)
     vendors = TenantCollection(_raw_db.vendors)
     staff_resumes = TenantCollection(_raw_db.staff_resumes)
+    leave_requests = TenantCollection(_raw_db.leave_requests)
 
 db = _DB()

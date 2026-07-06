@@ -5,6 +5,7 @@ import {
   Clock, LogIn, LogOut, IndianRupee, Download, User as UserIcon,
   Calendar, Sparkles, CheckCircle2, TrendingUp, FileText, Camera,
 } from "lucide-react";
+import { PlannedLeaveCard } from "@/components/staff/PlannedLeaveCard";
 
 function monthOptions(count = 6) {
   const now = new Date();
@@ -244,6 +245,8 @@ export default function StaffPortal() {
           </button>
         </div>
       </div>
+
+      <PlannedLeaveCard />
 
       {/* Month summary */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
