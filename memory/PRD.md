@@ -688,3 +688,10 @@ Note for deploy: REGISTRY_PEPPER must be added to production env vars too.
 3. NEW POST /api/vendors/send-low-stock-all: one click emails EVERY vendor only their tagged low items; response {sent[], failed[], unassigned_products}. Dashboard briefing shows "Email all vendors their items" button (briefing-send-all-btn, visible when >1 vendor).
 4. VERIFIED: curl — tagged Argan Oil Conditioner to Beauty Supplies; single-send delivered 1 item (not all low); send-all reported 1 sent + 1 unassigned. UI screenshots: vendor column, form select (3 options), send-all button.
 5. Fix during work: broken Inventory.jsx edit left duplicate JSX tail (compile error) — truncated + re-applied vendors state.
+
+## Update — Jul 6, 2026 (part 51) — Email audit + Cloudflare 502 fix (VERIFIED)
+1. USER REPORT: production (miracurlunisexsaloon.com) showed Cloudflare "invalid response" page when emailing vendor restock list. ROOT CAUSE: backend raised HTTPException(502) on email/AI failures; Cloudflare intercepts origin 502 and replaces JSON with its own error page, masking the real error.
+2. FIX: all HTTPException(502, ...) → 400 across server.py (email, TTS, AI, storage, image-gen) so real error messages reach the UI toast on production.
+3. FULL EMAIL AUDIT (all _send_email call sites): Welcome/onboarding (create_tenant — graceful email_status in response), Welcome-back (reactivate — graceful), Monthly report (manual + scheduler — per-tenant results), Contact HQ (status stored), Vendor restock single+all (raised 502 → now 400).
+4. VERIFIED IN PREVIEW via full lifecycle test (create test tenant with delivered@resend.dev → welcome sent:True w/ Resend id; cancel→reactivate → welcome-back sent:True; monthly report sent:True; vendor restock sent:True earlier; test tenant deleted).
+5. PRODUCTION NOTE: preview email works; if production still fails after redeploy, the deployed env is missing RESEND_API_KEY/SENDER_EMAIL — the new 400 errors will now show the exact reason in the toast. REGISTRY_PEPPER must also be in production env (from part 47).

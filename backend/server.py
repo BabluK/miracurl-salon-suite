@@ -751,7 +751,7 @@ async def upload_image(
     try:
         result = _put_object(storage_path, data, _MIME[ext])
     except requests.HTTPError as e:
-        raise HTTPException(502, f"Storage upload failed: {e}") from e
+        raise HTTPException(400, f"Storage upload failed: {e}") from e
     doc = {
         "id": file_id,
         "tenant_id": t["id"],
@@ -780,7 +780,7 @@ async def download_file(file_id: str):
     try:
         data, ct = _get_object(rec["storage_path"])
     except requests.HTTPError as e:
-        raise HTTPException(502, f"Storage fetch failed: {e}") from e
+        raise HTTPException(400, f"Storage fetch failed: {e}") from e
     return Response(content=data, media_type=rec.get("content_type", ct),
                     headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
@@ -2091,7 +2091,7 @@ async def staff_upload_photo(file: UploadFile = File(...), s=Depends(_current_st
     try:
         result = _put_object(storage_path, data, _MIME[ext])
     except requests.HTTPError as e:
-        raise HTTPException(502, f"Storage upload failed: {e}") from e
+        raise HTTPException(400, f"Storage upload failed: {e}") from e
     await _raw_db.uploads.insert_one({
         "id": file_id, "tenant_id": t["id"], "kind": "staff",
         "storage_path": result.get("path", storage_path),
@@ -2221,7 +2221,7 @@ async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(curre
         tts = OpenAITextToSpeech(api_key=key)
         audio_b64 = await tts.generate_speech_base64(text=text, model="tts-1-hd", voice="shimmer", speed=0.97)
     except Exception as e:
-        raise HTTPException(502, f"Voice generation failed: {e}")
+        raise HTTPException(400, f"Voice generation failed: {e}")
     payload = {"audio_b64": audio_b64, "text": text}
     if len(_TTS_CACHE) > 2000 or (cached and cached[0] != today_str):
         _TTS_CACHE.clear()
@@ -2323,7 +2323,7 @@ async def send_low_stock_email(body: LowStockMailIn, user=Depends(require_tenant
     subject, html = _restock_email(vendor, items, t)
     result = await _send_email([vendor["email"]], subject, html)
     if not result.get("sent"):
-        raise HTTPException(502, result.get("error") or "Email failed")
+        raise HTTPException(400, result.get("error") or "Email failed")
     return {"ok": True, "sent_to": vendor["email"], "products": len(items)}
 
 
@@ -2835,7 +2835,7 @@ async def suggest_review_reply(rid: str, user=Depends(require_admin), t=Depends(
         resp = await chat.send_message(UserMessage(text=prompt))
         reply = (resp or "").strip()[:1000]
     except Exception as e:
-        raise HTTPException(502, f"AI reply failed: {e}")
+        raise HTTPException(400, f"AI reply failed: {e}")
     return {"reply": reply}
 
 
@@ -3792,15 +3792,15 @@ async def generate_logo(body: LogoGenIn, user=Depends(require_tenant_admin), t=D
     try:
         images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
     except Exception as e:
-        raise HTTPException(502, f"Logo generation failed: {e}")
+        raise HTTPException(400, f"Logo generation failed: {e}")
     if not images:
-        raise HTTPException(502, "No image was generated")
+        raise HTTPException(400, "No image was generated")
     file_id = str(uuid.uuid4())
     storage_path = f"{APP_NAME}/tenants/{t['id']}/logo/{file_id}.png"
     try:
         result = _put_object(storage_path, images[0], "image/png")
     except requests.HTTPError as e:
-        raise HTTPException(502, f"Storage upload failed: {e}") from e
+        raise HTTPException(400, f"Storage upload failed: {e}") from e
     await _raw_db.uploads.insert_one({
         "id": file_id, "tenant_id": t["id"], "kind": "logo",
         "storage_path": result.get("path", storage_path),
@@ -4141,15 +4141,15 @@ async def superadmin_onboarding_bg(body: OnboardImgIn, user=Depends(require_supe
     try:
         images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
     except Exception as e:
-        raise HTTPException(502, f"Background generation failed: {e}")
+        raise HTTPException(400, f"Background generation failed: {e}")
     if not images:
-        raise HTTPException(502, "No image was generated")
+        raise HTTPException(400, "No image was generated")
     file_id = str(uuid.uuid4())
     storage_path = f"{APP_NAME}/superadmin/onboarding/{file_id}.png"
     try:
         result = _put_object(storage_path, images[0], "image/png")
     except requests.HTTPError as e:
-        raise HTTPException(502, f"Storage upload failed: {e}") from e
+        raise HTTPException(400, f"Storage upload failed: {e}") from e
     await _raw_db.uploads.insert_one({
         "id": file_id, "tenant_id": t["id"], "kind": "onboarding",
         "storage_path": result.get("path", storage_path),
@@ -5242,7 +5242,7 @@ async def super_upload_photo(file: UploadFile = File(...), user=Depends(require_
     try:
         result = _put_object(storage_path, data, _MIME[ext])
     except requests.HTTPError as e:
-        raise HTTPException(502, f"Storage upload failed: {e}") from e
+        raise HTTPException(400, f"Storage upload failed: {e}") from e
     await _raw_db.uploads.insert_one({
         "id": file_id, "tenant_id": None, "kind": "super-profile",
         "storage_path": result.get("path", storage_path),
@@ -5360,7 +5360,7 @@ async def super_admin_ai_chat(body: SuperAiChatIn, user=Depends(require_super_ad
         reply = resp if isinstance(resp, str) else str(resp)
     except Exception as e:
         logging.getLogger("super_ai").error(f"super ai chat error: {e}")
-        raise HTTPException(502, "The analyst AI is unavailable right now — please try again in a moment.")
+        raise HTTPException(400, "The analyst AI is unavailable right now — please try again in a moment.")
     now_iso = datetime.now(timezone.utc).isoformat()
     await _raw_db.super_ai_messages.insert_many([
         {"sid": sid, "role": "user", "content": body.message, "created_at": now_iso},
@@ -5528,7 +5528,7 @@ async def engineer_chat(body: SuperAiChatIn, user=Depends(require_super_admin)):
         reply = resp if isinstance(resp, str) else str(resp)
     except Exception as e:
         logging.getLogger("engineer_ai").error(f"engineer chat error: {e}")
-        raise HTTPException(502, "The engineer AI is unavailable right now — please try again in a moment.")
+        raise HTTPException(400, "The engineer AI is unavailable right now — please try again in a moment.")
     now_iso = datetime.now(timezone.utc).isoformat()
     await _raw_db.engineer_ai_messages.insert_many([
         {"sid": sid, "role": "user", "content": body.message, "created_at": now_iso},
@@ -5850,7 +5850,7 @@ async def _store_gallery_media(t, data: bytes, ext: str, mime: str, kind: str, c
     try:
         result = _put_object(storage_path, data, mime)
     except requests.HTTPError as e:
-        raise HTTPException(502, f"Storage upload failed: {e}") from e
+        raise HTTPException(400, f"Storage upload failed: {e}") from e
     await _raw_db.uploads.insert_one({
         "id": file_id, "tenant_id": t["id"], "kind": "gallery",
         "storage_path": result.get("path", storage_path),
@@ -5898,9 +5898,9 @@ async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin),
     try:
         images = await gen.generate_images(prompt=full_prompt, model="gpt-image-1", number_of_images=1)
     except Exception as e:
-        raise HTTPException(502, f"Image generation failed: {e}")
+        raise HTTPException(400, f"Image generation failed: {e}")
     if not images:
-        raise HTTPException(502, "No image was generated")
+        raise HTTPException(400, "No image was generated")
     return await _store_gallery_media(t, images[0], "png", "image/png", "image", body.prompt, "ai", user["id"])
 
 @api.get("/gallery")
@@ -6265,7 +6265,7 @@ async def _public_ai_reply(t, session_id: str, message: str):
         reply = resp if isinstance(resp, str) else str(resp)
     except Exception as e:
         logging.getLogger("public_ai").error(f"public ai chat error: {e}")
-        raise HTTPException(502, "Mira is unavailable right now — please try again in a moment.")
+        raise HTTPException(400, "Mira is unavailable right now — please try again in a moment.")
 
     booking, booking_error = None, None
     if _BOOK_MARKER in reply:
@@ -6323,7 +6323,7 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
         transcript = (tr.text or "").strip()
     except Exception as e:
         logging.getLogger("public_ai").error(f"stt error: {e}")
-        raise HTTPException(502, "Sorry, I couldn't hear that — please try again.")
+        raise HTTPException(400, "Sorry, I couldn't hear that — please try again.")
     if not transcript:
         raise HTTPException(400, "I couldn't hear anything — please speak again.")
     reply, booking, booking_error = await _public_ai_reply(t, session_id, transcript)
