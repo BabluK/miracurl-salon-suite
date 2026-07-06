@@ -5,6 +5,112 @@ import io
 from datetime import datetime, timezone, timedelta
 
 
+def _render_invoice_pdf(inv: dict, tenant: dict) -> bytes:
+    """A5 receipt PDF for printing / sharing."""
+    from reportlab.lib.pagesizes import A5
+    from reportlab.lib.utils import simpleSplit
+    from reportlab.pdfgen import canvas as _canvas
+
+    buf = io.BytesIO()
+    W, H = A5
+    c = _canvas.Canvas(buf, pagesize=A5)
+    INK = (0.09, 0.1, 0.13)
+    MUTED = (0.45, 0.47, 0.52)
+    LEFT, RIGHT = 30, W - 30
+    y = H - 40
+
+    c.setFillColorRGB(*INK)
+    c.setFont("Helvetica-Bold", 15)
+    c.drawCentredString(W / 2, y, tenant.get("name") or "Salon")
+    y -= 14
+    c.setFillColorRGB(*MUTED)
+    c.setFont("Helvetica", 8)
+    for ln in simpleSplit(tenant.get("location") or "", "Helvetica", 8, RIGHT - LEFT):
+        c.drawCentredString(W / 2, y, ln)
+        y -= 10
+    if tenant.get("phone"):
+        c.drawCentredString(W / 2, y, f"Ph: {tenant['phone']}")
+        y -= 10
+    if tenant.get("tax_enabled") and tenant.get("gst_number"):
+        c.drawCentredString(W / 2, y, f"GSTIN: {tenant['gst_number']}")
+        y -= 10
+    y -= 4
+    c.setStrokeColorRGB(0.8, 0.8, 0.85)
+    c.setDash(2, 2)
+    c.line(LEFT, y, RIGHT, y)
+    c.setDash()
+    y -= 16
+
+    c.setFont("Helvetica", 9)
+    created = str(inv.get("created_at") or "")[:16].replace("T", " ")
+    for label, val in (("Invoice", inv.get("invoice_no")), ("Date", created),
+                       ("Customer", inv.get("customer_name")), ("Payment", (inv.get("payment_mode") or "").upper())):
+        if val:
+            c.setFillColorRGB(*MUTED)
+            c.drawString(LEFT, y, label)
+            c.setFillColorRGB(*INK)
+            c.drawRightString(RIGHT, y, str(val))
+            y -= 13
+    y -= 6
+    c.line(LEFT, y, RIGHT, y)
+    y -= 15
+
+    for it in inv.get("items", []):
+        name = f"{it.get('name')} x {it.get('qty', 1)}"
+        amt = f"Rs {(it.get('qty', 1) * it.get('price', 0)):,.2f}"
+        c.setFont("Helvetica", 9)
+        c.setFillColorRGB(*INK)
+        lines = simpleSplit(name, "Helvetica", 9, RIGHT - LEFT - 70)
+        c.drawString(LEFT, y, lines[0])
+        c.drawRightString(RIGHT, y, amt)
+        y -= 12
+        for extra in lines[1:]:
+            c.drawString(LEFT, y, extra)
+            y -= 12
+        if it.get("staff_name"):
+            c.setFillColorRGB(*MUTED)
+            c.setFont("Helvetica-Oblique", 7.5)
+            c.drawString(LEFT + 6, y, f"by {it['staff_name']}")
+            y -= 11
+        if y < 130:
+            c.showPage()
+            y = H - 50
+    y -= 4
+    c.setStrokeColorRGB(0.8, 0.8, 0.85)
+    c.line(LEFT, y, RIGHT, y)
+    y -= 15
+
+    rows = [("Subtotal", inv.get("subtotal")),
+            ("Discount", -(inv.get("discount") or 0) if inv.get("discount") else None),
+            ("GST", inv.get("tax") if inv.get("tax") else None)]
+    c.setFont("Helvetica", 9)
+    for label, val in rows:
+        if val is None:
+            continue
+        c.setFillColorRGB(*MUTED)
+        c.drawString(LEFT, y, label)
+        c.setFillColorRGB(*INK)
+        c.drawRightString(RIGHT, y, f"Rs {val:,.2f}")
+        y -= 13
+    y -= 4
+    c.setFont("Helvetica-Bold", 13)
+    c.setFillColorRGB(*INK)
+    c.drawString(LEFT, y, "Total")
+    c.drawRightString(RIGHT, y, f"Rs {(inv.get('total') or 0):,.2f}")
+    y -= 20
+    if inv.get("points_earned"):
+        c.setFont("Helvetica", 8)
+        c.setFillColorRGB(0.1, 0.5, 0.3)
+        c.drawCentredString(W / 2, y, f"You earned {inv['points_earned']} loyalty points on this visit!")
+        y -= 14
+    c.setFillColorRGB(*MUTED)
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawCentredString(W / 2, y, "Thank you for visiting - see you again soon")
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 def _render_resume_pdf(r: dict, fetch_image) -> bytes:
     """Professional staff resume: circular photo top-right, role paragraphs,
     employment history with verification phones, achievements & regards footer."""

@@ -6,6 +6,7 @@ import { QrPosterCard } from "@/components/settings/QrPosterCard";
 import { ProfileCompletenessCard } from "@/components/settings/ProfileCompletenessCard";
 import { BrandingCard } from "@/components/settings/BrandingCard";
 import { TaxCard } from "@/components/settings/TaxCard";
+import { LoyaltyCard } from "@/components/settings/LoyaltyCard";
 import { AffiliateCard } from "@/components/settings/AffiliateCard";
 import { RazorpayCard } from "@/components/settings/RazorpayCard";
 
@@ -31,6 +32,8 @@ export default function Settings() {
         <BrandingCard />
 
         <TaxCard />
+
+        <LoyaltyCard />
 
         <AffiliateCard />
 

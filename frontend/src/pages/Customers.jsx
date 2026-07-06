@@ -8,7 +8,7 @@ export default function Customers() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", gender: "Female", address: "", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" });
 
   const load = useCallback(async () => {
     const { data } = await api.get(`/customers${q ? `?q=${encodeURIComponent(q)}` : ""}`);
@@ -41,8 +41,8 @@ export default function Customers() {
     finally { e.target.value = ""; }
   }
 
-  function startNew() { setEditing(null); setForm({ name: "", phone: "", email: "", gender: "Female", address: "", notes: "" }); setOpen(true); }
-  function startEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone, email: c.email || "", gender: c.gender || "Other", address: c.address || "", notes: c.notes || "" }); setOpen(true); }
+  function startNew() { setEditing(null); setForm({ name: "", phone: "", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" }); setOpen(true); }
+  function startEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone, email: c.email || "", gender: c.gender || "Other", dob: c.dob || "", anniversary: c.anniversary || "", address: c.address || "", notes: c.notes || "" }); setOpen(true); }
 
   async function save(e) {
     e.preventDefault();
@@ -156,6 +156,16 @@ export default function Customers() {
                   </select>
                 </div>
                 <div><label className="label-light block mb-1">Address</label><input className="input-light" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="label-light block mb-1">🎂 Birthday</label>
+                  <input data-testid="customer-dob-input" type="date" className="input-light" value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })} />
+                  <p className="text-[10px] text-slate-400 mt-1">POS reminds you to give a birthday discount</p>
+                </div>
+                <div><label className="label-light block mb-1">💞 Anniversary</label>
+                  <input data-testid="customer-anniversary-input" type="date" className="input-light" value={form.anniversary} onChange={e => setForm({ ...form, anniversary: e.target.value })} />
+                  <p className="text-[10px] text-slate-400 mt-1">POS reminds you on their anniversary week</p>
+                </div>
               </div>
               <div><label className="label-light block mb-1">Notes</label><textarea rows="3" className="input-light" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
               <div className="flex gap-3 pt-2">

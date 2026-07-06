@@ -177,7 +177,10 @@ export default function POS() {
   const membershipDiscount = benefits?.membership ? servicesSubtotal * benefits.membership.discount_pct / 100 : 0;
   const afterMemb = Math.max(0, subtotal - lineDiscount - membershipDiscount);
   const couponDiscount = couponInfo ? (couponInfo.type === "percent" ? afterMemb * couponInfo.value / 100 : Math.min(couponInfo.value, afterMemb)) : 0;
-  const pointsUsed = Math.min(redeemPoints || 0, benefits?.loyalty_points || 0, Math.max(0, afterMemb - couponDiscount));
+  const loyaltyRules = benefits?.loyalty_rules || {};
+  const redeemCap = Number(loyaltyRules.max_redeem_per_visit) > 0 ? Number(loyaltyRules.max_redeem_per_visit) : Infinity;
+  const canRedeem = subtotal >= Number(loyaltyRules.min_bill_to_redeem || 0);
+  const pointsUsed = canRedeem ? Math.min(redeemPoints || 0, benefits?.loyalty_points || 0, redeemCap, Math.max(0, afterMemb - couponDiscount)) : 0;
   const totalDiscount = lineDiscount + membershipDiscount + couponDiscount + pointsUsed;
   const taxable = Math.max(0, subtotal - totalDiscount);
   const tax = taxable * taxPct / 100;
@@ -451,12 +454,29 @@ export default function POS() {
                   🪙 {benefits.loyalty_points} pts (₹{benefits.loyalty_points})
                 </span>
                 {benefits.loyalty_points > 0 && (
-                  <span className="inline-flex items-center gap-1 text-xs text-slate-600">
-                    Redeem
-                    <input type="number" min="0" max={benefits.loyalty_points} value={redeemPoints || ""}
-                      data-testid="pos-redeem-points-input"
-                      onChange={e => setRedeemPoints(Math.min(benefits.loyalty_points, Math.max(0, parseInt(e.target.value || 0))))}
-                      className="w-20 px-2 py-1 rounded border border-slate-200 bg-white text-xs" placeholder="0" /> pts
+                  canRedeem ? (
+                    <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                      Redeem
+                      <input type="number" min="0" max={Math.min(benefits.loyalty_points, redeemCap)} value={redeemPoints || ""}
+                        data-testid="pos-redeem-points-input"
+                        onChange={e => setRedeemPoints(Math.min(Math.min(benefits.loyalty_points, redeemCap), Math.max(0, parseInt(e.target.value || 0))))}
+                        className="w-20 px-2 py-1 rounded border border-slate-200 bg-white text-xs" placeholder="0" /> pts
+                      {Number.isFinite(redeemCap) && <span className="text-[10px] text-slate-400">(max {redeemCap}/visit)</span>}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400" data-testid="pos-redeem-locked">
+                      🔒 Points redeemable on bills of ₹{Number(loyaltyRules.min_bill_to_redeem || 0).toLocaleString("en-IN")}+
+                    </span>
+                  )
+                )}
+                {benefits.birthday_week && (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-pink-50 border border-pink-200 text-pink-700 font-medium" data-testid="pos-birthday-chip">
+                    🎂 Birthday week — treat them with a special discount!
+                  </span>
+                )}
+                {benefits.anniversary_week && (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-medium" data-testid="pos-anniversary-chip">
+                    💞 Anniversary week — a little extra off goes a long way!
                   </span>
                 )}
                 {benefits.membership && (

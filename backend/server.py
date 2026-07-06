@@ -15,7 +15,7 @@ import asyncio
 import base64
 import html as html_lib
 from email_service import _send_email, _welcome_email_html, _monthly_report_html
-from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf
+from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf, _render_invoice_pdf
 import hashlib
 import logging
 import secrets
@@ -174,6 +174,7 @@ class CustomerIn(BaseModel):
     email: Optional[str] = None
     gender: Optional[str] = "Other"
     dob: Optional[str] = None
+    anniversary: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
 
@@ -2252,7 +2253,8 @@ async def _active_membership(customer_id: str):
         {"customer_id": customer_id, "expires_at": {"$gt": now}}, {"_id": 0}, sort=[("discount_pct", -1)])
 
 def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: float,
-                            membership_pct: float = 0.0, coupon=None, redeem_points: int = 0) -> dict:
+                            membership_pct: float = 0.0, coupon=None, redeem_points: int = 0,
+                            loyalty_rules: Optional[dict] = None) -> dict:
     raw_subtotal = sum(it.qty * it.price for it in items)
     services_subtotal = sum(it.qty * it.price for it in items if it.type == "service")
     membership_discount = round(services_subtotal * (membership_pct or 0) / 100, 2)
@@ -2263,7 +2265,14 @@ def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: floa
     referral_credit_used = min(referral_credit_available, remaining)
     remaining = max(0, remaining - referral_credit_used)
     points_available = int(cust.get("loyalty_points") or 0)
-    points_used = min(max(0, int(redeem_points or 0)), points_available, int(remaining))
+    req_points = max(0, int(redeem_points or 0))
+    if loyalty_rules:
+        if raw_subtotal < float(loyalty_rules.get("min_bill_to_redeem") or 0):
+            req_points = 0  # bill too small to redeem points
+        cap = int(loyalty_rules.get("max_redeem_per_visit") or 0)
+        if cap > 0:
+            req_points = min(req_points, cap)
+    points_used = min(req_points, points_available, int(remaining))
     discount = (discount_in or 0) + membership_discount + coupon_discount + referral_credit_used + points_used
     taxable = max(0, raw_subtotal - discount)
     tax = taxable * (tax_pct or 0) / 100
@@ -2279,7 +2288,31 @@ def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: floa
     }
 
 
-LOYALTY_EARN_PER_100 = 5  # points earned per ₹100 of final bill; 1 point = ₹1
+LOYALTY_EARN_PER_100 = 5  # default points per ₹100 of final bill; 1 point = ₹1
+LOYALTY_DEFAULTS = {"earn_per_100": LOYALTY_EARN_PER_100, "max_redeem_per_visit": 200, "min_bill_to_redeem": 1000}
+
+
+def _loyalty_rules(tenant_doc: Optional[dict]) -> dict:
+    saved = (tenant_doc or {}).get("loyalty") or {}
+    return {**LOYALTY_DEFAULTS, **{k: v for k, v in saved.items() if k in LOYALTY_DEFAULTS}}
+
+
+class LoyaltySettingsIn(BaseModel):
+    earn_per_100: float = Field(5, ge=0, le=100)
+    max_redeem_per_visit: int = Field(200, ge=0, le=100000)
+    min_bill_to_redeem: float = Field(1000, ge=0, le=1000000)
+
+
+@api.get("/settings/loyalty")
+async def get_loyalty_settings(user=Depends(get_current_user), t=Depends(current_tenant)):
+    return _loyalty_rules(t)
+
+
+@api.put("/settings/loyalty")
+async def save_loyalty_settings(body: LoyaltySettingsIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"loyalty": body.model_dump()}})
+    return _loyalty_rules({"loyalty": body.model_dump()})
+
 
 async def _process_benefit_items(inv: dict, cust: dict):
     """Create package/membership records for purchases; consume redeemed sessions."""
@@ -2325,6 +2358,19 @@ async def _validate_package_redeem_items(items: list, cust: dict):
             it.qty = 1
 
 
+@api.get("/invoices/{inv_id}/pdf")
+async def invoice_pdf(inv_id: str, user=Depends(get_current_user), t=Depends(current_tenant)):
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    pdf_bytes = await asyncio.to_thread(_render_invoice_pdf, inv, t)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{inv.get("invoice_no") or inv_id}.pdf"'},
+    )
+
+
 @api.post("/invoices")
 async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
@@ -2349,10 +2395,11 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     if coupon and not await _consume_coupon(coupon):
         raise HTTPException(400, "This coupon has reached its usage limit")
     needed = await _check_stock_or_400(body.items)
+    loyalty_rules = _loyalty_rules(tenant_doc)
     totals = _compute_invoice_totals(
         body.items, cust, body.discount, effective_tax_pct,
         membership_pct=float(membership["discount_pct"]) if membership else 0.0,
-        coupon=coupon, redeem_points=body.redeem_points)
+        coupon=coupon, redeem_points=body.redeem_points, loyalty_rules=loyalty_rules)
 
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),
@@ -2371,7 +2418,7 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     await db.invoices.insert_one(inv)
 
     # Update customer stats, consume credits/points, award loyalty (5 pts per ₹100)
-    points_earned = int(totals["total"] // 100) * LOYALTY_EARN_PER_100
+    points_earned = int(int(totals["total"] // 100) * float(loyalty_rules.get("earn_per_100") or 0))
     cust_inc = {"total_spent": totals["total"], "visits": 1,
                 "loyalty_points": points_earned - totals["points_used"]}
     if totals["referral_credit_used"] > 0:
@@ -5175,8 +5222,31 @@ async def seed_data():
     if await db.customers.count_documents({}) == 0:
         await db.customers.insert_many([Customer(**c).model_dump() for c in SEED_CUSTOMERS])
 
+async def _monthly_report_scheduler():
+    """On the 1st of each month (after 09:00 IST) auto-email every active salon
+    owner their previous month's business report. Idempotent via system_flags."""
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.day == 1 and ist_now.hour >= 9:
+                period = ist_now.strftime("%Y-%m")
+                flag = await _raw_db.system_flags.find_one({"key": "monthly_report_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await _run_monthly_reports(None)
+                    await _raw_db.system_flags.update_one(
+                        {"key": "monthly_report_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    logging.info(f"Auto monthly reports for {period}: sent={out.get('sent')} failed={out.get('failed')}")
+        except Exception as e:
+            logging.error(f"monthly report scheduler error: {e}")
+        await asyncio.sleep(3600)
+
+
 @app.on_event("startup")
 async def on_startup():
+    asyncio.get_event_loop().create_task(_monthly_report_scheduler())
     await db.users.create_index("email", unique=True)
     await db.tenants.create_index("slug", unique=True)
     # Drop legacy single-field unique sku index if present (multi-tenancy needs composite)
@@ -5552,17 +5622,32 @@ async def delete_coupon(cid: str, user=Depends(require_tenant_admin)):
     return {"ok": True}
 
 @api.get("/customers/{cid}/benefits")
-async def customer_benefits(cid: str, user=Depends(get_current_user)):
-    cust = await db.customers.find_one({"id": cid}, {"_id": 0, "loyalty_points": 1, "referral_credit": 1})
+async def customer_benefits(cid: str, user=Depends(get_current_user), t=Depends(current_tenant)):
+    cust = await db.customers.find_one({"id": cid}, {"_id": 0, "loyalty_points": 1, "referral_credit": 1, "dob": 1, "anniversary": 1})
     if cust is None:
         raise HTTPException(404, "Customer not found")
     now = datetime.now(timezone.utc).isoformat()
     pkgs = await db.customer_packages.find(
         {"customer_id": cid, "sessions_left": {"$gt": 0}, "expires_at": {"$gt": now}}, {"_id": 0}).to_list(50)
     membership = await _active_membership(cid)
+
+    def _within_week(datestr):
+        if not datestr:
+            return False
+        try:
+            m, d = int(str(datestr)[5:7]), int(str(datestr)[8:10])
+            today = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            this_year = today.replace(month=m, day=d, hour=0, minute=0, second=0, microsecond=0)
+            return abs((this_year - today).days) <= 7
+        except Exception:
+            return False
+
     return {"loyalty_points": int(cust.get("loyalty_points") or 0),
             "referral_credit": float(cust.get("referral_credit") or 0),
-            "packages": pkgs, "membership": membership}
+            "packages": pkgs, "membership": membership,
+            "loyalty_rules": _loyalty_rules(t),
+            "birthday_week": _within_week(cust.get("dob")),
+            "anniversary_week": _within_week(cust.get("anniversary"))}
 
 @api.get("/public/coupon-check/{slug}/{code}")
 async def public_coupon_check(slug: str, code: str, request: Request):
