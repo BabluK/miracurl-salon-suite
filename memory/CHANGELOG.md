@@ -567,3 +567,10 @@ NOTE: preview-generated poster URLs use APP_PUBLIC_URL (prod domain) — correct
 4. AADHAAR PEPPER MIGRATION: REGISTRY_PEPPER rotated to dedicated secret (was == JWT_SECRET); REGISTRY_PEPPER_LEGACY kept for lookups; _registry_find_by_aadhaar lazily re-peppers matched docs. Verified: seeded legacy-hash doc → search found it → hash auto-upgraded.
 5. Testing agent (iteration_49): 13/13 backend + full frontend login/refresh/logout green. Tester fixed a missing @api.post("/products/import") decorator (refactor casualty).
 6. PRODUCTION ENV TODO: add REGISTRY_PEPPER (new value), REGISTRY_PEPPER_LEGACY (old value = JWT_SECRET), MONTHLY_REPORT_IMAGE_URL when redeploying.
+
+## Update — Jul 6, 2026 (part 56) — Weekly Monday mini-report emails (VERIFIED)
+1. NEW _weekly_report_html (email_service.py): luxe dark/gold mini snapshot — AI "Weekly Business Snapshot" banner (WEEKLY_REPORT_IMAGE_URL in .env), week's collection, growth % chip vs prior week, Bills/Avg Bill/New Guests cards, Mon–Sun daily gold bar chart, highlights (top service + star of the week).
+2. Backend: _tenant_week_stats (daily[7] buckets, prev-week revenue), _run_weekly_reports (last completed Mon–Sun window), POST /api/super-admin/send-weekly-report (super-admin only), _weekly_report_scheduler (every Monday ≥09:00 IST, idempotent via system_flags key weekly_report_auto).
+3. Frontend: SuperAdmin HQ → "Email weekly snapshots" button (super-weekly-report-btn) beside monthly.
+4. VERIFIED: manual send for Miracurl tenant → sent:true via Resend (week 29 Jun – 05 Jul 2026); template screenshot approved; HQ button renders; scheduler task registered at startup.
+5. PRODUCTION ENV TODO: add WEEKLY_REPORT_IMAGE_URL on redeploy.

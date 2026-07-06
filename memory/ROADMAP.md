@@ -2,6 +2,7 @@
 
 ## P1
 - Automatic birthday emails to guests (daily scheduler + Resend, reuse luxe template style)
+- DONE Jul 6: Weekly Monday mini-report emails (auto scheduler + HQ button)
 - Razorpay webhook secret setup in production (user action, guide in test_credentials.md)
 
 ## P2

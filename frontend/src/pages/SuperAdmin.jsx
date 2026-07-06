@@ -32,6 +32,7 @@ export default function SuperAdmin() {
   const [tenants, setTenants] = useState([]);
   const [hqUnread, setHqUnread] = useState(0);
   const [sendingReports, setSendingReports] = useState(false);
+  const [sendingWeekly, setSendingWeekly] = useState(false);
 
   async function sendMonthlyReports() {
     if (!window.confirm("Email last month's business report to every active/trial salon owner?")) return;
@@ -42,6 +43,16 @@ export default function SuperAdmin() {
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't send reports");
     } finally { setSendingReports(false); }
+  }
+  async function sendWeeklyReports() {
+    if (!window.confirm("Email last week's business snapshot to every active/trial salon owner?")) return;
+    setSendingWeekly(true);
+    try {
+      const { data } = await api.post("/super-admin/send-weekly-report", {});
+      toast.success(`Week ${data.week}: ${data.sent} sent${data.failed ? `, ${data.failed} failed` : ""}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't send weekly snapshots");
+    } finally { setSendingWeekly(false); }
   }
   const [open, setOpen] = useState(false);
   const [importFor, setImportFor] = useState(null); // tenant being imported into
@@ -244,6 +255,15 @@ export default function SuperAdmin() {
             <p className="text-slate-500 text-sm mt-1">Manage every salon on the Miracurl platform.</p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              data-testid="super-weekly-report-btn"
+              onClick={sendWeeklyReports}
+              disabled={sendingWeekly}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-sky-300 bg-sky-50 text-sky-700 text-sm font-medium hover:bg-sky-100 disabled:opacity-50"
+              title="Email last week's business snapshot to every active salon owner"
+            >
+              <Send className="w-4 h-4" /> {sendingWeekly ? "Sending…" : "Email weekly snapshots"}
+            </button>
             <button
               data-testid="super-monthly-report-btn"
               onClick={sendMonthlyReports}

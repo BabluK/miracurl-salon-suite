@@ -14,7 +14,7 @@ import hmac
 import asyncio
 import base64
 import html as html_lib
-from email_service import _send_email, _welcome_email_html, _monthly_report_html
+from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html
 from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf, _render_invoice_pdf
 import hashlib
 import logging
@@ -4354,6 +4354,77 @@ async def _run_monthly_reports(tenant_id: Optional[str] = None) -> dict:
     return {"month": month_label, "sent": sent, "failed": len(results) - sent, "results": results}
 
 
+async def _tenant_week_stats(tid: str, start: str, end: str) -> dict:
+    """Stats for one Mon–Sun week [start, end). daily[7] indexed Mon..Sun."""
+    invs = await _raw_db.invoices.find(
+        {"tenant_id": tid, "paid": True, "created_at": {"$gte": start, "$lt": end}}, {"_id": 0}).to_list(3000)
+    revenue = sum(float(i.get("total") or 0) for i in invs)
+    start_dt = datetime.strptime(start, "%Y-%m-%d")
+    daily = [0.0] * 7
+    by_svc, by_staff = {}, {}
+    for i in invs:
+        for it in i.get("items", []):
+            by_svc[it["name"]] = by_svc.get(it["name"], 0) + it["price"] * it.get("qty", 1)
+        if i.get("staff_name"):
+            by_staff[i["staff_name"]] = by_staff.get(i["staff_name"], 0) + float(i.get("total") or 0)
+        try:
+            idx = (datetime.strptime(str(i.get("created_at", ""))[:10], "%Y-%m-%d") - start_dt).days
+            if 0 <= idx <= 6:
+                daily[idx] += float(i.get("total") or 0)
+        except ValueError:
+            pass
+    prev_start = (start_dt - timedelta(days=7)).strftime("%Y-%m-%d")
+    prev_invs = await _raw_db.invoices.find(
+        {"tenant_id": tid, "paid": True, "created_at": {"$gte": prev_start, "$lt": start}},
+        {"_id": 0, "total": 1}).to_list(3000)
+    return {
+        "revenue": revenue,
+        "prev_revenue": sum(float(i.get("total") or 0) for i in prev_invs),
+        "daily": daily,
+        "invoices": len(invs),
+        "avg_bill": revenue / len(invs) if invs else 0,
+        "new_customers": await _raw_db.customers.count_documents(
+            {"tenant_id": tid, "created_at": {"$gte": start, "$lt": end}}),
+        "top_services": sorted(by_svc.items(), key=lambda x: -x[1])[:3],
+        "top_staff": sorted(by_staff.items(), key=lambda x: -x[1])[:3],
+    }
+
+
+async def _run_weekly_reports(tenant_id: Optional[str] = None) -> dict:
+    """Email last completed Mon–Sun week's snapshot. Used by the super-admin button AND the Monday auto-scheduler."""
+    ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    this_monday = (ist - timedelta(days=ist.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_dt = this_monday - timedelta(days=7)
+    start = start_dt.strftime("%Y-%m-%d")
+    end = this_monday.strftime("%Y-%m-%d")
+    week_label = f"{start_dt.strftime('%d %b')} – {(this_monday - timedelta(days=1)).strftime('%d %b %Y')}"
+    flt = {"id": tenant_id} if tenant_id else {"status": {"$in": ["active", "trial"]}}
+    tenants = await db.tenants.find(flt, {"_id": 0}).to_list(500)
+    results = []
+    for t in tenants:
+        recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
+        if not recipients:
+            results.append({"tenant": t["name"], "sent": False, "error": "no email on file"})
+            continue
+        stats = await _tenant_week_stats(t["id"], start, end)
+        status = await _send_email(
+            recipients,
+            f"✦ Your Miracurl weekly snapshot — {week_label}",
+            _weekly_report_html(t, week_label, stats))
+        results.append({"tenant": t["name"], "recipients": recipients,
+                        "sent": status.get("sent", False), "error": status.get("error")})
+    sent = sum(1 for r in results if r["sent"])
+    return {"week": week_label, "sent": sent, "failed": len(results) - sent, "results": results}
+
+
+@api.post("/super-admin/send-weekly-report")
+async def send_weekly_report(body: MonthlyReportIn, user=Depends(require_super_admin)):
+    out = await _run_weekly_reports(body.tenant_id)
+    if not out["results"]:
+        raise HTTPException(404, "No matching salons")
+    return out
+
+
 @api.post("/super-admin/send-monthly-report")
 async def send_monthly_report(body: MonthlyReportIn, user=Depends(require_super_admin)):
     out = await _run_monthly_reports(body.tenant_id)
@@ -5950,9 +6021,32 @@ async def _monthly_report_scheduler():
         await asyncio.sleep(3600)
 
 
+async def _weekly_report_scheduler():
+    """Every Monday (after 09:00 IST) auto-email each active salon owner last
+    week's business snapshot. Idempotent via system_flags."""
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.weekday() == 0 and ist_now.hour >= 9:
+                period = (ist_now - timedelta(days=7)).strftime("%Y-%m-%d")  # last week's Monday
+                flag = await _raw_db.system_flags.find_one({"key": "weekly_report_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await _run_weekly_reports(None)
+                    await _raw_db.system_flags.update_one(
+                        {"key": "weekly_report_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    logging.info(f"Auto weekly reports for week of {period}: sent={out.get('sent')} failed={out.get('failed')}")
+        except Exception as e:
+            logging.error(f"weekly report scheduler error: {e}")
+        await asyncio.sleep(3600)
+
+
 @app.on_event("startup")
 async def on_startup():
     asyncio.get_event_loop().create_task(_monthly_report_scheduler())
+    asyncio.get_event_loop().create_task(_weekly_report_scheduler())
     await db.users.create_index("email", unique=True)
     await db.tenants.create_index("slug", unique=True)
     # Drop legacy single-field unique sku index if present (multi-tenancy needs composite)
