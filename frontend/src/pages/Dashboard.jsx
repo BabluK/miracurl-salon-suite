@@ -6,6 +6,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, 
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
 import DailyReportBanner from "@/components/DailyReportBanner";
+import { MorningBriefing } from "@/components/MorningBriefing";
 import { getSelectedBranch } from "@/lib/branch";
 import { WhatsAppApprovals } from "@/components/WhatsAppApprovals";
 import { LogoStudio } from "@/components/LogoStudio";
@@ -93,6 +94,7 @@ export default function Dashboard() {
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
 
       <RenewalBanner sub={subStatus} />
+      {isOwner && <MorningBriefing />}
       {isOwner && <DailyReportBanner ownerName={user?.name} />}
       {isOwner && <WhatsAppApprovals />}
       {isOwner && <LogoStudio />}

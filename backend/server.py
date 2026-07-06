@@ -1985,7 +1985,96 @@ async def staff_upload_photo(file: UploadFile = File(...), s=Depends(_current_st
     return {"url": public_url}
 
 
+# ---------------- Vendors & morning briefing ----------------
+class VendorIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    email: EmailStr
+    phone: str = Field("", max_length=20)
+    notes: str = Field("", max_length=300)
+
+
+@api.get("/vendors")
+async def list_vendors(user=Depends(get_current_user)):
+    return await db.vendors.find({}, {"_id": 0}).sort("name", 1).to_list(100)
+
+
+@api.post("/vendors")
+async def create_vendor(body: VendorIn, user=Depends(require_tenant_admin)):
+    doc = {"id": str(uuid.uuid4()), **body.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.vendors.insert_one(doc)
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+
+@api.delete("/vendors/{vid}")
+async def delete_vendor(vid: str, user=Depends(require_tenant_admin)):
+    await db.vendors.delete_one({"id": vid})
+    return {"ok": True}
+
+
+LOW_STOCK_LIMIT = 3
+
+
+@api.get("/reports/morning-briefing")
+async def morning_briefing(user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Mira's login greeting: time-of-day salutation + low-stock products (< 3)."""
+    ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    salutation = "Good Morning" if ist.hour < 12 else ("Good Afternoon" if ist.hour < 17 else "Good Evening")
+    low = await db.products.find(
+        {"stock": {"$lt": LOW_STOCK_LIMIT}}, {"_id": 0, "id": 1, "name": 1, "brand": 1, "stock": 1, "sku": 1},
+    ).sort("stock", 1).to_list(100)
+    vendors = await db.vendors.find({}, {"_id": 0}).sort("name", 1).to_list(100)
+    today_appts = await db.appointments.count_documents({"date": ist.strftime("%Y-%m-%d")})
+    return {
+        "salutation": salutation,
+        "name": user.get("name") or t.get("name") or "there",
+        "date_label": ist.strftime("%A, %d %B %Y"),
+        "low_stock": low,
+        "low_stock_limit": LOW_STOCK_LIMIT,
+        "vendors": vendors,
+        "today_appointments": today_appts,
+    }
+
+
+class LowStockMailIn(BaseModel):
+    vendor_id: str = Field(..., max_length=64)
+
+
+@api.post("/vendors/send-low-stock")
+async def send_low_stock_email(body: LowStockMailIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    vendor = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0})
+    if not vendor:
+        raise HTTPException(404, "Vendor not found")
+    low = await db.products.find(
+        {"stock": {"$lt": LOW_STOCK_LIMIT}}, {"_id": 0, "name": 1, "brand": 1, "stock": 1, "sku": 1},
+    ).sort("stock", 1).to_list(100)
+    if not low:
+        raise HTTPException(400, "No products are low on stock right now")
+    rows = "".join(
+        f"<tr><td style='padding:8px 12px;border-bottom:1px solid #eee'>{p['name']}</td>"
+        f"<td style='padding:8px 12px;border-bottom:1px solid #eee'>{p.get('brand') or '—'}</td>"
+        f"<td style='padding:8px 12px;border-bottom:1px solid #eee'>{p.get('sku') or '—'}</td>"
+        f"<td style='padding:8px 12px;border-bottom:1px solid #eee;text-align:center;color:#dc2626;font-weight:bold'>{p['stock']}</td></tr>"
+        for p in low)
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#1f2937">
+      <h2 style="color:#0f172a">Restock request — {t.get('name')}</h2>
+      <p>Dear {vendor['name']},</p>
+      <p>The following products are running low (below {LOW_STOCK_LIMIT} units). Kindly arrange a fresh supply at the earliest:</p>
+      <table style="border-collapse:collapse;width:100%;font-size:14px">
+        <tr style="background:#f8fafc"><th style="padding:8px 12px;text-align:left">Product</th><th style="padding:8px 12px;text-align:left">Brand</th><th style="padding:8px 12px;text-align:left">SKU</th><th style="padding:8px 12px">Stock left</th></tr>
+        {rows}
+      </table>
+      <p style="margin-top:16px">Please confirm availability and delivery timeline.</p>
+      <p>Regards,<br/><b>{t.get('name')}</b><br/>{t.get('phone') or ''}<br/>{t.get('location') or ''}</p>
+    </div>"""
+    result = await _send_email([vendor["email"]], f"Restock request — {len(low)} products low at {t.get('name')}", html)
+    if not result.get("sent"):
+        raise HTTPException(502, result.get("error") or "Email failed")
+    return {"ok": True, "sent_to": vendor["email"], "products": len(low)}
+
+
 # ---------------- Products / Inventory ----------------
+
 @api.get("/products")
 async def list_products(user=Depends(get_current_user)):
     return await db.products.find({}, {"_id": 0}).to_list(500)
