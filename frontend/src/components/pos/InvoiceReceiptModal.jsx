@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Printer, Share2, FileDown, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import ThermalPrintButton from "@/components/pos/ThermalPrintButton";
 
 export default function InvoiceReceiptModal({ invoice, tenant, onClose, onPrint, onShare }) {
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -54,7 +55,8 @@ export default function InvoiceReceiptModal({ invoice, tenant, onClose, onPrint,
           {Number(invoice.tax) > 0 && <Row label="Tax" value={`₹${invoice.tax.toFixed(2)}`} />}
           <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-200"><span>Total</span><span className="text-sky-600">₹{invoice.total.toFixed(2)}</span></div>
         </div>
-        <div className="flex items-center gap-2 mt-5">
+        <ThermalPrintButton invoice={invoice} tenant={tenant} />
+        <div className="flex items-center gap-2 mt-3">
           <button data-testid="invoice-print-btn" onClick={onPrint} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Printer className="w-3.5 h-3.5" /> Print</button>
           <button data-testid="invoice-pdf-btn" onClick={downloadPdf} disabled={pdfBusy} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5 disabled:opacity-50">{pdfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />} PDF</button>
           <button data-testid="invoice-whatsapp-btn" onClick={onShare} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> WhatsApp</button>

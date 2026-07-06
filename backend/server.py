@@ -2142,7 +2142,11 @@ async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(curre
     ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
     salutation = "Good morning" if ist.hour < 12 else ("Good afternoon" if ist.hour < 17 else "Good evening")
     low_count = await db.products.count_documents({"stock": {"$lt": LOW_STOCK_LIMIT}})
-    appts = await db.appointments.count_documents({"date": ist.strftime("%Y-%m-%d")})
+    today_str = ist.strftime("%Y-%m-%d")
+    appts = await db.appointments.count_documents({"date": today_str})
+    leaves_today = await db.leave_requests.find(
+        {"status": "approved", "from_date": {"$lte": today_str}, "to_date": {"$gte": today_str}},
+        {"_id": 0, "staff_name": 1}).to_list(50)
     yesterday_revenue = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
     last_week_revenue = await _revenue_for_day((ist - timedelta(days=8)).strftime("%Y-%m-%d"))
     name = user.get("name") or "there"
@@ -2158,6 +2162,11 @@ async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(curre
     else:
         text += "Yesterday was quiet on the billing front — today is a fresh chance to shine. "
     text += f"You have {appts} appointment{'s' if appts != 1 else ''} today. " if appts else "Your calendar is open today — a great day to bring in walk-ins. "
+    leave_names = [lv["staff_name"] for lv in leaves_today if lv.get("staff_name")]
+    if len(leave_names) == 1:
+        text += f"Also, {leave_names[0]} is on approved leave today — plan the roster accordingly. "
+    elif leave_names:
+        text += f"Also, {', '.join(leave_names[:-1])} and {leave_names[-1]} are on approved leave today — plan the roster accordingly. "
     if low_count:
         text += f"Heads up — {low_count} product{'s are' if low_count != 1 else ' is'} running low on stock. I've listed them in your briefing. "
     text += "Have a wonderful day ahead!"
