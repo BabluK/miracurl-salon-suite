@@ -2011,6 +2011,41 @@ async def delete_vendor(vid: str, user=Depends(require_tenant_admin)):
     return {"ok": True}
 
 
+class VoiceGreetingIn(BaseModel):
+    enabled: bool
+
+
+@api.put("/settings/voice-greeting")
+async def set_voice_greeting(body: VoiceGreetingIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"voice_greeting_enabled": body.enabled}})
+    return {"enabled": body.enabled}
+
+
+@api.get("/reports/morning-briefing/audio")
+async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Mira speaks the greeting aloud (OpenAI TTS, shimmer voice)."""
+    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    salutation = "Good morning" if ist.hour < 12 else ("Good afternoon" if ist.hour < 17 else "Good evening")
+    low_count = await db.products.count_documents({"stock": {"$lt": LOW_STOCK_LIMIT}})
+    appts = await db.appointments.count_documents({"date": ist.strftime("%Y-%m-%d")})
+    name = user.get("name") or "there"
+    text = f"Hey, {salutation} {name}! Welcome back to {t.get('name') or 'your salon'}. "
+    text += f"You have {appts} appointment{'s' if appts != 1 else ''} today. " if appts else "Your calendar is open today — a great day to bring in walk-ins. "
+    if low_count:
+        text += f"Heads up — {low_count} product{'s are' if low_count != 1 else ' is'} running low on stock. I've listed them in your briefing. "
+    text += "Have a wonderful day ahead!"
+    try:
+        tts = OpenAITextToSpeech(api_key=key)
+        audio_b64 = await tts.generate_speech_base64(text=text, model="tts-1-hd", voice="shimmer", speed=0.97)
+    except Exception as e:
+        raise HTTPException(502, f"Voice generation failed: {e}")
+    return {"audio_b64": audio_b64, "text": text}
+
+
 LOW_STOCK_LIMIT = 3
 
 
@@ -2032,6 +2067,7 @@ async def morning_briefing(user=Depends(get_current_user), t=Depends(current_ten
         "low_stock_limit": LOW_STOCK_LIMIT,
         "vendors": vendors,
         "today_appointments": today_appts,
+        "voice_greeting_enabled": bool(t.get("voice_greeting_enabled")),
     }
 
 
@@ -2525,6 +2561,46 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
 @api.get("/reviews")
 async def list_reviews(user=Depends(get_current_user)):
     return await db.reviews.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+class ReviewReplyIn(BaseModel):
+    reply: str = Field(..., max_length=1000)
+
+
+@api.post("/reviews/{rid}/suggest-reply")
+async def suggest_review_reply(rid: str, user=Depends(require_admin), t=Depends(current_tenant)):
+    """AI-drafted polite owner reply for a customer review."""
+    rev = await db.reviews.find_one({"id": rid}, {"_id": 0})
+    if not rev:
+        raise HTTPException(404, "Review not found")
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    chat = LlmChat(
+        api_key=key, session_id=f"review-reply-{rid}-{uuid.uuid4().hex[:8]}",
+        system_message=(
+            f"You write short, warm, professional owner replies to customer reviews for '{t.get('name')}', an Indian salon. "
+            "Rules: 2-4 sentences max. Thank them by name if given. For 4-5 stars: express joy, invite them back. "
+            "For 3 stars: thank + acknowledge there's room to improve. For 1-2 stars: apologise sincerely, promise to fix it, "
+            "invite them to call the salon so you can make it right. No hashtags. At most one emoji. "
+            "Reply with ONLY the reply text, nothing else."),
+    ).with_model("openai", "gpt-4o-mini")
+    prompt = f"Rating: {rev.get('rating')}/5\nCustomer: {rev.get('customer_name') or 'Guest'}\nReview: {rev.get('comment') or '(no comment, rating only)'}"
+    try:
+        resp = await chat.send_message(UserMessage(text=prompt))
+        reply = (resp or "").strip()[:1000]
+    except Exception as e:
+        raise HTTPException(502, f"AI reply failed: {e}")
+    return {"reply": reply}
+
+
+@api.put("/reviews/{rid}/reply")
+async def save_review_reply(rid: str, body: ReviewReplyIn, user=Depends(require_admin)):
+    await db.reviews.update_one({"id": rid}, {"$set": {
+        "owner_reply": body.reply.strip(),
+        "owner_reply_at": datetime.now(timezone.utc).isoformat(),
+    }})
+    return await db.reviews.find_one({"id": rid}, {"_id": 0})
+
 
 @api.put("/reviews/{rid}/moderate")
 async def moderate_review(rid: str, body: ReviewModerateIn, user=Depends(require_admin)):

@@ -1,7 +1,77 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
-import { Star, Eye, EyeOff, Trash2, MessageSquare } from "lucide-react";
+import { Star, Eye, EyeOff, Trash2, MessageSquare, Sparkles, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+
+function AiReplyBox({ r, onSaved }) {
+  const [draft, setDraft] = useState(r.owner_reply || "");
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function generate() {
+    setBusy(true);
+    try {
+      const { data } = await api.post(`/reviews/${r.id}/suggest-reply`);
+      setDraft(data.reply);
+      setEditing(true);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "AI reply failed");
+    } finally { setBusy(false); }
+  }
+  async function save() {
+    try {
+      await api.put(`/reviews/${r.id}/reply`, { reply: draft });
+      toast.success("Reply saved ✦");
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Save failed");
+    }
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(draft); toast.success("Copied — paste it on Google reviews too"); }
+    catch { toast.error("Copy failed"); }
+  }
+
+  if (!editing && r.owner_reply) {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-sky-50 border border-sky-100" data-testid={`owner-reply-${r.id}`}>
+        <div className="text-[10px] uppercase tracking-wider text-sky-600 font-semibold mb-1">Your reply</div>
+        <p className="text-xs text-slate-600">{r.owner_reply}</p>
+        <div className="flex gap-2 mt-2">
+          <button onClick={() => { setDraft(r.owner_reply); setEditing(true); }} className="text-[10px] text-sky-600 hover:underline">Edit</button>
+          <button onClick={copy} className="text-[10px] text-slate-500 hover:underline flex items-center gap-0.5"><Copy className="w-2.5 h-2.5" /> Copy</button>
+          <button onClick={generate} disabled={busy} className="text-[10px] text-violet-600 hover:underline flex items-center gap-0.5">
+            {busy ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />} Regenerate
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (!editing) {
+    return (
+      <button data-testid={`ai-reply-btn-${r.id}`} onClick={generate} disabled={busy}
+        className="mt-3 inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 disabled:opacity-50">
+        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+        {busy ? "Mira is writing…" : "AI reply"}
+      </button>
+    );
+  }
+  return (
+    <div className="mt-3" data-testid={`ai-reply-editor-${r.id}`}>
+      <textarea rows={3} value={draft} onChange={e => setDraft(e.target.value)} maxLength={1000}
+        className="w-full text-xs px-3 py-2 rounded-lg border border-violet-200 bg-violet-50/50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+      <div className="flex gap-2 mt-1.5">
+        <button data-testid={`ai-reply-save-${r.id}`} onClick={save} disabled={!draft.trim()} className="text-[11px] px-3 py-1.5 rounded-lg bg-violet-600 text-white font-medium disabled:opacity-50">Save reply</button>
+        <button onClick={copy} className="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 flex items-center gap-1"><Copy className="w-3 h-3" /> Copy</button>
+        <button onClick={generate} disabled={busy} className="text-[11px] px-3 py-1.5 rounded-lg border border-violet-200 text-violet-600 flex items-center gap-1">
+          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Regenerate
+        </button>
+        <button onClick={() => setEditing(false)} className="text-[11px] text-slate-400 hover:text-slate-600">Cancel</button>
+      </div>
+    </div>
+  );
+}
 
 function StarRow({ rating }) {
   return (
@@ -125,6 +195,7 @@ export default function Reviews() {
               <StarRow rating={r.rating} />
             </div>
             {r.comment && <p className="text-sm text-slate-500 mt-3 italic">&ldquo;{r.comment}&rdquo;</p>}
+            <AiReplyBox r={r} onSaved={load} />
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
               <div className="flex items-center gap-2 text-[10px] text-slate-400">
                 <span>{new Date(r.created_at).toLocaleDateString()}</span>

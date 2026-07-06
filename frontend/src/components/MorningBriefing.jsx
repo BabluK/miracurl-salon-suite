@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Sun, Moon, Sunset, Send, Plus, X, Loader2 } from "lucide-react";
+import { Sun, Moon, Sunset, Send, Plus, X, Loader2, Volume2 } from "lucide-react";
 
 export function MorningBriefing() {
   const [brief, setBrief] = useState(null);
@@ -10,16 +10,53 @@ export function MorningBriefing() {
   const [sending, setSending] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [vForm, setVForm] = useState({ name: "", email: "", phone: "" });
+  const [voiceOn, setVoiceOn] = useState(false);
+  const [voiceState, setVoiceState] = useState("idle"); // idle | loading | blocked | playing
 
   const todayKey = `mira_briefing_${new Date().toISOString().slice(0, 10)}`;
+  const voiceKey = `mira_voice_${new Date().toISOString().slice(0, 10)}`;
+
+  async function playGreeting(manual = false) {
+    setVoiceState("loading");
+    try {
+      const { data } = await api.get("/reports/morning-briefing/audio");
+      const audio = new Audio(`data:audio/mp3;base64,${data.audio_b64}`);
+      audio.onended = () => setVoiceState("idle");
+      await audio.play();
+      setVoiceState("playing");
+      localStorage.setItem(voiceKey, "1");
+    } catch {
+      // autoplay blocked or generation failed — offer manual play
+      setVoiceState(manual ? "idle" : "blocked");
+      if (manual) toast.error("Couldn't play the greeting");
+    }
+  }
 
   useEffect(() => {
     if (localStorage.getItem(todayKey)) { setDismissed(true); return; }
     api.get("/reports/morning-briefing").then(r => {
       setBrief(r.data);
+      setVoiceOn(!!r.data.voice_greeting_enabled);
       if (r.data.vendors?.length) setVendorId(r.data.vendors[0].id);
+      if (r.data.voice_greeting_enabled && !localStorage.getItem(`mira_voice_${new Date().toISOString().slice(0, 10)}`)) {
+        playGreeting(false);
+      }
     }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayKey]);
+
+  async function toggleVoice() {
+    const next = !voiceOn;
+    setVoiceOn(next);
+    try {
+      await api.put("/settings/voice-greeting", { enabled: next });
+      toast.success(next ? "Mira will greet you aloud on your first login each day ✦" : "Voice greeting turned off");
+      if (next) playGreeting(true);
+    } catch {
+      setVoiceOn(!next);
+      toast.error("Couldn't save the preference");
+    }
+  }
 
   if (dismissed || !brief) return null;
   const Icon = brief.salutation === "Good Morning" ? Sun : brief.salutation === "Good Afternoon" ? Sunset : Moon;
@@ -69,6 +106,24 @@ export function MorningBriefing() {
           <p className="text-xs text-slate-500 mt-0.5">
             {brief.date_label} · {brief.today_appointments} appointment{brief.today_appointments === 1 ? "" : "s"} today — Mira's daily briefing
           </p>
+
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none" data-testid="voice-greeting-toggle">
+              <button type="button" role="switch" aria-checked={voiceOn} onClick={toggleVoice}
+                className={`relative inline-flex h-5 w-9 rounded-full transition ${voiceOn ? "bg-amber-500" : "bg-slate-300"}`}>
+                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition mt-0.5 ${voiceOn ? "translate-x-4.5 ml-4" : "ml-0.5"}`} />
+              </button>
+              <span className="text-[11px] text-slate-600 font-medium">Enable Mira AI voice greeting</span>
+            </label>
+            {voiceState === "loading" && <span className="text-[11px] text-amber-600 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Mira is warming up…</span>}
+            {voiceState === "blocked" && (
+              <button data-testid="voice-play-btn" onClick={() => playGreeting(true)}
+                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-amber-500 text-white font-medium hover:bg-amber-600">
+                <Volume2 className="w-3 h-3" /> Play Mira's greeting
+              </button>
+            )}
+            {voiceState === "playing" && <span className="text-[11px] text-emerald-600 flex items-center gap-1"><Volume2 className="w-3 h-3" /> Mira is speaking…</span>}
+          </div>
 
           {low.length === 0 ? (
             <p className="text-sm text-emerald-700 mt-3" data-testid="briefing-stock-ok">✅ Inventory looks healthy — no product is below {brief.low_stock_limit} units.</p>

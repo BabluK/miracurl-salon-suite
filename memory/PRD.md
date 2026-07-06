@@ -628,3 +628,8 @@ Deliberate deferrals (state if asked): create_invoice (money path, already deleg
 - User verified miracurlunisexsaloon.com in Resend (IONOS DNS). SENDER_EMAIL in backend/.env changed onboarding@resend.dev → noreply@miracurlunisexsaloon.com; backend restarted.
 - VERIFIED: restock email now delivers to ANY external address (sent to suresh.vendor@example.com, 200 OK). All app emails (welcome, expiry, monthly reports, restock) now come from Miracurl <noreply@miracurlunisexsaloon.com>.
 - Vendor "Suresh" email left as suresh.vendor@example.com (placeholder — user should edit to the real vendor address).
+
+## Update — Jul 6, 2026 (part 42) — AI Review Reply Generator + Mira Voice Greeting (VERIFIED)
+1. AI REVIEW REPLIES: POST /api/reviews/{rid}/suggest-reply (LlmChat gpt-4o-mini, tone rules by star rating) + PUT /api/reviews/{rid}/reply saves owner_reply/owner_reply_at. Reviews.jsx AiReplyBox: "✨ AI reply" button → editable draft → Save/Copy/Regenerate; saved reply shows as "YOUR REPLY" box. VERIFIED live: 2★ review got a proper apology reply, saved & displayed.
+2. MIRA VOICE GREETING: toggle in MorningBriefing (voice-greeting-toggle) → PUT /api/settings/voice-greeting stores tenant.voice_greeting_enabled (also returned by /reports/morning-briefing). GET /api/reports/morning-briefing/audio → OpenAI TTS (tts-1-hd, shimmer) speaks "Hey, Good morning {name}! Welcome back to {salon}… appointments… low stock…" — VERIFIED (431KB mp3). Plays once/day on first login (localStorage mira_voice_YYYY-MM-DD); autoplay-blocked fallback shows "🔊 Play Mira's greeting" button.
+- Demo reviews seeded: Anita Rao 5★ (public), Rohit K 2★ (with saved AI reply).
