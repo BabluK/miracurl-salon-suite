@@ -9,7 +9,7 @@ export function MorningBriefing() {
   const [vendorId, setVendorId] = useState("");
   const [sending, setSending] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [vForm, setVForm] = useState({ name: "", email: "", phone: "" });
+  const [vForm, setVForm] = useState({ name: "", email: "", phone: "", contact_person: "", gst_number: "", address: "", notes: "" });
   const [voiceOn, setVoiceOn] = useState(false);
   const [voiceState, setVoiceState] = useState("idle"); // idle | loading | blocked | playing
 
@@ -74,7 +74,7 @@ export function MorningBriefing() {
       setBrief(b => ({ ...b, vendors: [...b.vendors, data] }));
       setVendorId(data.id);
       setAddOpen(false);
-      setVForm({ name: "", email: "", phone: "" });
+      setVForm({ name: "", email: "", phone: "", contact_person: "", gst_number: "", address: "", notes: "" });
       toast.success(`Vendor ${data.name} added ✦`);
     } catch (err) {
       toast.error(err.response?.data?.detail?.[0]?.msg || err.response?.data?.detail || "Couldn't add vendor");
@@ -165,15 +165,55 @@ export function MorningBriefing() {
                 </button>
               </div>
 
+              {(() => {
+                const sel = brief.vendors.find(v => v.id === vendorId);
+                if (!sel) return null;
+                return (
+                  <div className="mt-2 text-[11px] text-slate-500 flex flex-wrap gap-x-4 gap-y-0.5" data-testid="briefing-vendor-details">
+                    {sel.contact_person && <span>👤 {sel.contact_person}</span>}
+                    {sel.phone && <span>📞 {sel.phone}</span>}
+                    {sel.gst_number && <span className="font-mono">GST: {sel.gst_number}</span>}
+                    {sel.address && <span>📍 {sel.address}</span>}
+                  </div>
+                );
+              })()}
+
               {addOpen && (
-                <form onSubmit={addVendor} className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-2" data-testid="vendor-add-form">
-                  <input required placeholder="Vendor name (e.g. Suresh)" value={vForm.name} onChange={e => setVForm({ ...vForm, name: e.target.value })}
-                    data-testid="vendor-name-input" className="text-xs px-2 py-2 rounded-lg border border-slate-200 bg-white" />
-                  <input required type="email" placeholder="Email" value={vForm.email} onChange={e => setVForm({ ...vForm, email: e.target.value })}
-                    data-testid="vendor-email-input" className="text-xs px-2 py-2 rounded-lg border border-slate-200 bg-white" />
-                  <input placeholder="Phone" value={vForm.phone} onChange={e => setVForm({ ...vForm, phone: e.target.value })}
-                    data-testid="vendor-phone-input" className="text-xs px-2 py-2 rounded-lg border border-slate-200 bg-white" />
-                  <button type="submit" data-testid="vendor-save-btn" className="text-xs px-3 py-2 rounded-lg bg-slate-800 text-white font-medium">Save vendor</button>
+                <form onSubmit={addVendor} className="mt-3 rounded-xl border border-slate-200 bg-white p-3" data-testid="vendor-add-form">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Vendor name <span className="text-rose-500">*</span></label>
+                      <input required minLength={2} placeholder="e.g. Beauty Supplies Co." value={vForm.name} onChange={e => setVForm({ ...vForm, name: e.target.value })}
+                        data-testid="vendor-name-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Email <span className="text-rose-500">*</span></label>
+                      <input required type="email" placeholder="orders@vendor.com" value={vForm.email} onChange={e => setVForm({ ...vForm, email: e.target.value })}
+                        data-testid="vendor-email-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Phone</label>
+                      <input placeholder="98765 43210" value={vForm.phone} onChange={e => setVForm({ ...vForm, phone: e.target.value })}
+                        data-testid="vendor-phone-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Contact person</label>
+                      <input placeholder="e.g. Suresh Kumar" value={vForm.contact_person} onChange={e => setVForm({ ...vForm, contact_person: e.target.value })}
+                        data-testid="vendor-contact-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">GST number</label>
+                      <input maxLength={15} placeholder="29ABCDE1234F1Z5" value={vForm.gst_number} onChange={e => setVForm({ ...vForm, gst_number: e.target.value.toUpperCase() })}
+                        data-testid="vendor-gst-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 font-mono placeholder:text-slate-400 placeholder:font-sans" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-[0.15em] text-slate-500 block mb-0.5">Address</label>
+                      <input placeholder="Street, city" value={vForm.address} onChange={e => setVForm({ ...vForm, address: e.target.value })}
+                        data-testid="vendor-address-input" className="w-full text-xs px-2 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 placeholder:text-slate-400" />
+                    </div>
+                  </div>
+                  <button type="submit" data-testid="vendor-save-btn" className="mt-3 text-xs px-4 py-2 rounded-lg bg-slate-800 text-white font-medium hover:bg-slate-700">Save vendor</button>
+                  <span className="ml-2 text-[10px] text-slate-400">Manage all vendors in Settings → Vendor Details</span>
                 </form>
               )}
             </div>

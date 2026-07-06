@@ -2105,10 +2105,21 @@ async def staff_upload_photo(file: UploadFile = File(...), s=Depends(_current_st
 
 # ---------------- Vendors & morning briefing ----------------
 class VendorIn(BaseModel):
-    name: str = Field(..., max_length=100)
+    name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
     phone: str = Field("", max_length=20)
+    contact_person: str = Field("", max_length=100)
+    gst_number: str = Field("", max_length=15)
+    address: str = Field("", max_length=300)
     notes: str = Field("", max_length=300)
+
+    @field_validator("gst_number")
+    @classmethod
+    def _gst_format(cls, v: str) -> str:
+        v = v.strip().upper()
+        if v and not re.fullmatch(r"[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]", v):
+            raise ValueError("GST number must be 15 characters, e.g. 29ABCDE1234F1Z5")
+        return v
 
 
 @api.get("/vendors")
@@ -2121,6 +2132,14 @@ async def create_vendor(body: VendorIn, user=Depends(require_tenant_admin)):
     doc = {"id": str(uuid.uuid4()), **body.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
     await db.vendors.insert_one(doc)
     return {k: v for k, v in doc.items() if k != "_id"}
+
+
+@api.put("/vendors/{vid}")
+async def update_vendor(vid: str, body: VendorIn, user=Depends(require_tenant_admin)):
+    res = await db.vendors.update_one({"id": vid}, {"$set": body.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Vendor not found")
+    return await db.vendors.find_one({"id": vid}, {"_id": 0})
 
 
 @api.delete("/vendors/{vid}")
