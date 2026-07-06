@@ -2032,8 +2032,13 @@ async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(curre
     salutation = "Good morning" if ist.hour < 12 else ("Good afternoon" if ist.hour < 17 else "Good evening")
     low_count = await db.products.count_documents({"stock": {"$lt": LOW_STOCK_LIMIT}})
     appts = await db.appointments.count_documents({"date": ist.strftime("%Y-%m-%d")})
+    yesterday_revenue = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
     name = user.get("name") or "there"
     text = f"Hey, {salutation} {name}! Welcome back to {t.get('name') or 'your salon'}. "
+    if yesterday_revenue > 0:
+        text += f"Yesterday you brought in {_speak_amount(yesterday_revenue)} in revenue — great work! "
+    else:
+        text += "Yesterday was quiet on the billing front — today is a fresh chance to shine. "
     text += f"You have {appts} appointment{'s' if appts != 1 else ''} today. " if appts else "Your calendar is open today — a great day to bring in walk-ins. "
     if low_count:
         text += f"Heads up — {low_count} product{'s are' if low_count != 1 else ' is'} running low on stock. I've listed them in your briefing. "
@@ -2049,6 +2054,22 @@ async def morning_briefing_audio(user=Depends(get_current_user), t=Depends(curre
 LOW_STOCK_LIMIT = 3
 
 
+async def _revenue_for_day(day_str: str) -> float:
+    rows = await db.invoices.find({"created_at": {"$regex": f"^{day_str}"}}, {"_id": 0, "total": 1}).to_list(2000)
+    return round(sum(float(r.get("total") or 0) for r in rows), 2)
+
+
+def _speak_amount(amount: float) -> str:
+    n = int(round(amount))
+    if n >= 100000:
+        lakhs = n / 100000
+        return f"{lakhs:.1f}".rstrip("0").rstrip(".") + " lakh rupees"
+    if n >= 1000:
+        thousands = n / 1000
+        return f"{thousands:.1f}".rstrip("0").rstrip(".") + " thousand rupees"
+    return f"{n} rupees"
+
+
 @api.get("/reports/morning-briefing")
 async def morning_briefing(user=Depends(get_current_user), t=Depends(current_tenant)):
     """Mira's login greeting: time-of-day salutation + low-stock products (< 3)."""
@@ -2059,8 +2080,10 @@ async def morning_briefing(user=Depends(get_current_user), t=Depends(current_ten
     ).sort("stock", 1).to_list(100)
     vendors = await db.vendors.find({}, {"_id": 0}).sort("name", 1).to_list(100)
     today_appts = await db.appointments.count_documents({"date": ist.strftime("%Y-%m-%d")})
+    yesterday_revenue = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
     return {
         "salutation": salutation,
+        "yesterday_revenue": yesterday_revenue,
         "name": user.get("name") or t.get("name") or "there",
         "date_label": ist.strftime("%A, %d %B %Y"),
         "low_stock": low,

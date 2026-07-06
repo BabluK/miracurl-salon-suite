@@ -106,6 +106,13 @@ export function MorningBriefing() {
           <p className="text-xs text-slate-500 mt-0.5">
             {brief.date_label} · {brief.today_appointments} appointment{brief.today_appointments === 1 ? "" : "s"} today — Mira's daily briefing
           </p>
+          <p className="text-sm mt-2" data-testid="briefing-yesterday-revenue">
+            {brief.yesterday_revenue > 0 ? (
+              <span className="text-slate-700">💰 Yesterday's revenue: <b className="text-emerald-700">₹{Number(brief.yesterday_revenue).toLocaleString("en-IN")}</b> — great work!</span>
+            ) : (
+              <span className="text-slate-600">Yesterday was quiet on billing — today is a fresh chance to shine ✦</span>
+            )}
+          </p>
 
           <div className="flex flex-wrap items-center gap-2 mt-2">
             <label className="inline-flex items-center gap-2 cursor-pointer select-none" data-testid="voice-greeting-toggle">
