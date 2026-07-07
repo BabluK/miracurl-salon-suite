@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { FloatingPlayer } from "@/components/FloatingPlayer";
 import BranchSwitcher from "./BranchSwitcher";
+import SalonSwitcher from "./SalonSwitcher";
 import api from "@/lib/api";
 import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
@@ -192,6 +193,7 @@ export default function AppLayout() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <div className="hidden md:flex items-center px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 tracking-wider">{today}</div>
+            {isAdmin ? <SalonSwitcher /> : null}
             {(isAdmin || user?.role === "manager") ? <BranchSwitcher /> : null}
             {isAdmin ? (
               <NotifBell

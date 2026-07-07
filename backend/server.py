@@ -818,6 +818,36 @@ async def branch_switch_owner_pin(body: OwnerPinIn, user=Depends(get_current_use
     return {"ok": True}
 
 
+class SalonSwitchIn(BaseModel):
+    tenant_id: str
+    pin: Optional[str] = None
+
+
+@api.post("/auth/switch-salon")
+async def switch_salon(body: SalonSwitchIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Multi-salon owners: switch the active salon on their login.
+    Owner PIN of the CURRENT salon confirms the switch (no-op until a PIN is set)."""
+    allowed = set(user.get("tenant_ids") or [])
+    if user.get("tenant_id"):
+        allowed.add(user["tenant_id"])
+    if body.tenant_id not in allowed:
+        raise HTTPException(403, "This salon is not linked to your login")
+    if body.tenant_id == user.get("tenant_id"):
+        return {"ok": True, "already_active": True}
+    ph = (t or {}).get("security_pin_hash")
+    if ph:
+        if not body.pin:
+            raise HTTPException(403, "OWNER_PIN_REQUIRED")
+        await _pin_attempt_guard(t["id"])
+        if not verify_pw(body.pin, ph):
+            await _pin_attempt_fail(t["id"])
+            raise HTTPException(403, "Incorrect PIN")
+        await _pin_attempt_clear(t["id"])
+    await db.users.update_one({"id": user["id"]}, {"$set": {"tenant_id": body.tenant_id}})
+    target = await db.tenants.find_one({"id": body.tenant_id}, {"_id": 0, "id": 1, "name": 1, "slug": 1})
+    return {"ok": True, "active_salon": target}
+
+
 @api.get("/branch-switch/pending")
 async def branch_switch_pending(user=Depends(require_tenant_admin)):
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -3692,7 +3722,18 @@ async def send_monthly_report(body: MonthlyReportIn, user=Depends(require_super_
 
 @api.get("/super-admin/tenants")
 async def list_tenants(user=Depends(require_super_admin)):
-    return await db.tenants.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    tenants = await db.tenants.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # Salons-per-owner-email count (multi-salon owners)
+    owners = await db.users.find(
+        {"role": "admin", "email": {"$in": list({t.get("owner_email") for t in tenants if t.get("owner_email")})}},
+        {"_id": 0, "email": 1, "tenant_ids": 1, "tenant_id": 1}).to_list(1000)
+    counts = {}
+    for o in owners:
+        ids = o.get("tenant_ids") or ([o["tenant_id"]] if o.get("tenant_id") else [])
+        counts[o["email"]] = max(counts.get(o["email"], 0), len(set(ids)))
+    for t in tenants:
+        t["owner_salon_count"] = counts.get(t.get("owner_email"), 1)
+    return tenants
 
 
 class OnboardImgIn(BaseModel):
@@ -3784,11 +3825,10 @@ async def _generate_onboarding_poster(t: dict) -> str:
 async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     if await db.tenants.find_one({"slug": body.slug}):
         raise HTTPException(400, "Slug already in use")
-    if await db.users.find_one({"email": body.owner_email.lower()}):
+    existing_owner = await db.users.find_one({"email": body.owner_email.lower()})
+    if existing_owner and existing_owner.get("role") != "admin":
         raise HTTPException(
-            400, "This owner email already has a login on another salon. "
-                 "For another branch of the same salon, either add it as a Branch in that salon's Settings, "
-                 "or use a different owner login email (the salon contact email CAN be the same).")
+            400, "This email belongs to a staff/manager login — a salon can only be tagged to an OWNER (admin) email.")
     t = Tenant(
         slug=body.slug, name=body.name, owner_email=body.owner_email.lower(),
         location=body.location, phone=body.phone, plan=body.plan, status="trial",
@@ -3796,6 +3836,29 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     ).model_dump()
     await db.tenants.insert_one(t)
     t.pop("_id", None)
+
+    if existing_owner:
+        # MULTI-SALON: tag the new salon to the existing owner login (same email & password).
+        prev_ids = existing_owner.get("tenant_ids") or ([existing_owner["tenant_id"]] if existing_owner.get("tenant_id") else [])
+        await db.users.update_one(
+            {"id": existing_owner["id"]},
+            {"$set": {"tenant_ids": sorted(set(prev_ids) | {t["id"]})}})
+        salon_count = len(set(prev_ids) | {t["id"]})
+        email_status = await _send_email(
+            [body.owner_email.lower()],
+            f"New salon added to your Miracurl account ✦ {t['name']}",
+            f"<div style='font-family:Georgia,serif;padding:24px'><h2>Namaste {existing_owner.get('name') or 'Owner'} ✦</h2>"
+            f"<p><b>{t['name']}</b> has been added to your Miracurl account.</p>"
+            f"<p>You now manage <b>{salon_count} salons</b> with the same login ({body.owner_email.lower()}). "
+            f"Use the salon switcher in the top bar (your Owner PIN confirms each switch).</p></div>")
+        return {
+            "tenant": t,
+            "owner_email": body.owner_email,
+            "linked_existing_owner": True,
+            "owner_salon_count": salon_count,
+            "email_status": email_status,
+        }
+
     # Generate a one-time password if the super-admin didn't supply one. The
     # owner must change it on first login (see `must_change_password`).
     if body.owner_password:

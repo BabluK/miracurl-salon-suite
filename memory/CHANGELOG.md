@@ -683,3 +683,12 @@ NOTE: Twilio trial daily 50-msg cap can be burned by full-suite runs (invoice te
 1. VERIFIED CLEAN (stale report items): backend undefined vars → pylint E0601/E0602/E0606 = 10/10, ruff F821 = 0. Frontend → eslint (172 files): 0 exhaustive-deps warnings, 0 empty catches (fixed in earlier session). localStorage audit: no tokens/secrets — only UI prefs (remember-email opt-in, branch name, language, dismissed flags); auth is httpOnly cookies.
 2. FIXED: 3 unused test vars (F841). create_invoice complexity 26→~10: extracted _resolve_billing_context + _apply_post_invoice_effects in routes/appointments_pos.py (48 billing tests pass).
 3. DEFERRED (backlog, unchanged): email_service HTML builder split, AppLayout/SuperAdmin/BookingChatWidget component splits (need full UI regression), incremental type hints (new modules are typed).
+
+## Update — Jul 7 (part 71) — Multi-salon owner (one email, many salons)
+1. Super-admin create-tenant: existing ADMIN owner_email no longer 400s — new salon is TAGGED to that login (users.tenant_ids array, password unchanged, FYI email sent). Staff/manager emails still rejected.
+2. GET /super-admin/tenants: each row has owner_salon_count; UI shows "×N salons" fuchsia badge + salon_email subline (SuperAdmin.jsx).
+3. POST /auth/switch-salon {tenant_id, pin}: membership check (403 foreign), Owner PIN of CURRENT salon required when set (pin_attempt lockout reused), updates users.tenant_id (tenant resolved per-request from user doc — no JWT re-issue needed).
+4. /auth/login + /auth/me attach user.salons[] when >1 (_attach_salons in routes/auth.py).
+5. Frontend: SalonSwitcher.jsx in AppLayout header (admins only, shows when 2+ salons) with PIN modal; switch reloads to /dashboard.
+6. Demo data: second salon "miracurl-whitefield" tagged to admin@miracurl.com (count ×2) for user to try.
+Tested: curl e2e (tag, login salons list, PIN-gated switch, me scoping, foreign-tenant 403, counts) + screenshot of switcher dropdown.

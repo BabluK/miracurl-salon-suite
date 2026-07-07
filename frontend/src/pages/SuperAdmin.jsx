@@ -107,7 +107,11 @@ export default function SuperAdmin() {
       // and the server generates a memorable temp password automatically.
       const { owner_password: _unused, ...payload } = form;
       const { data } = await api.post("/super-admin/tenants", payload);
-      toast.success(`Tenant '${form.slug}' created`);
+      if (data?.linked_existing_owner) {
+        toast.success(`'${form.slug}' created & tagged to ${data.owner_email} — this owner now has ${data.owner_salon_count} salons on one login`, { duration: 8000 });
+      } else {
+        toast.success(`Tenant '${form.slug}' created`);
+      }
       setOpen(false);
       if (data?.temp_password) {
         setCreatedCreds({
@@ -371,7 +375,20 @@ export default function SuperAdmin() {
                     <div className="text-[10px] text-slate-400">{t.location || "—"}</div>
                   </td>
                   <td className="font-mono text-xs text-sky-600">{t.slug}</td>
-                  <td className="text-xs">{t.owner_email}</td>
+                  <td className="text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span>{t.owner_email}</span>
+                      {(t.owner_salon_count || 1) > 1 && (
+                        <span data-testid={`salon-count-${t.id}`} title={`This owner email manages ${t.owner_salon_count} salons`}
+                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-200">
+                          ×{t.owner_salon_count} salons
+                        </span>
+                      )}
+                    </div>
+                    {t.salon_email && t.salon_email !== t.owner_email && (
+                      <div className="text-[10px] text-slate-400">salon: {t.salon_email}</div>
+                    )}
+                  </td>
                   <td>
                     <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded border ${PLAN_BADGE[t.plan] || ''}`}>{t.plan}</span>
                   </td>

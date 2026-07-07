@@ -217,6 +217,19 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     }
 
 
+async def _attach_salons(user: dict) -> dict:
+    """Multi-salon owners: list all salons linked to this login."""
+    ids = set(user.get("tenant_ids") or [])
+    if user.get("tenant_id"):
+        ids.add(user["tenant_id"])
+    if len(ids) > 1:
+        user["salons"] = await db.tenants.find(
+            {"id": {"$in": list(ids)}},
+            {"_id": 0, "id": 1, "name": 1, "slug": 1, "logo_url": 1, "location": 1, "status": 1},
+        ).sort("name", 1).to_list(20)
+    return user
+
+
 @router.post("/auth/login")
 async def login(body: LoginIn, request: Request, response: Response):
     email = body.email.lower()
@@ -247,6 +260,7 @@ async def login(body: LoginIn, request: Request, response: Response):
     set_auth_cookies(response, access, refresh)
     user.pop("password_hash", None)
     user.pop("_id", None)
+    await _attach_salons(user)
     return {"user": user}
 
 @router.post("/auth/logout")
@@ -258,7 +272,7 @@ async def logout(request: Request, response: Response):
 
 @router.get("/auth/me")
 async def me(user=Depends(get_current_user)):
-    return user
+    return await _attach_salons(user)
 
 @router.post("/auth/refresh")
 async def refresh_token(request: Request, response: Response):
