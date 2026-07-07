@@ -622,3 +622,14 @@ NOTE: preview-generated poster URLs use APP_PUBLIC_URL (prod domain) — correct
 4. database.py: registered branch_switch_requests + sms_pack_payments TenantCollections (new collections MUST be registered in _DB or AttributeError).
 - Post-test polish: pinApi friendly error messages (no raw OWNER_PIN_REQUIRED toast), SecurityPinCard 'Checking…' badge state.
 - Tests: /app/test_reports/iteration_53.json + /app/backend/tests/test_iter53_pin_sms_branch.py. ⚠️ Razorpay LIVE — testing only creates orders, never pays.
+
+## Update — Jul 7, 2026 (part 63) — Security Audit + all fixes applied (iteration_54: 17/17 backend, frontend 100%, zero regressions)
+Audit verdict: CONDITIONAL PASS → all findings fixed:
+1. SEC-001 Referral farming: referrer's ₹100 now released only on the referred guest's FIRST paid invoice (referral_pending marker on customer, consumed idempotently in create_invoice). Welcome credit to new guest still immediate.
+2. SEC-002 Registry PII enumeration: public staff_code lookups (search + badge PDF) now require the badge NAME as verifier (_name_matches in routes/registry.py); aadhaar last-4 fully masked (XXXX-XXXX-XXXX) on public code/phone lookups (show_aadhaar param, aadhaar-based lookup + authenticated views unchanged); registry rate limit 20→10/10min. RegistryPublic.jsx shows conditional name input for STF queries + backend error details.
+3. SEC-003 Webhook misconfig visibility: skipped-webhook now logs a loud warning; /super-admin/system/health returns razorpay_webhook_configured + razorpay_live_mode flags.
+4. SEC-004 Owner-PIN brute force: 5 wrong PINs → 15-min lockout (HTTP 423) via _raw_db.pin_attempts (guard/fail/clear helpers) applied to require_owner_pin, branch-switch owner-pin, and change-PIN. Missing header does NOT count as an attempt.
+5. SEC-005 must_change_password enforced server-side: get_current_user 403s 'PASSWORD_CHANGE_REQUIRED' outside /api/auth/* for flagged accounts (frontend ForceChangePassword flow already existed).
+6. Token refresh now also rejects users with disabled:true (routes/auth.py).
+- Tests: /app/test_reports/iteration_54.json + /app/backend/tests/test_iter54_sec_regression.py (reusable security regression suite).
+- Remaining audit note (accepted risk): /api/files/{id} serves uploads by UUID (images only); sequential STF codes still exist but are no longer enumerable without names.
