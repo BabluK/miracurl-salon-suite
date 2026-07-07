@@ -217,6 +217,9 @@ async def system_health(user=Depends(require_super_admin)):
         "uptime_seconds": uptime_s,
         "tenants": tenants_n, "users": users_n, "invoices": inv_n, "appointments": appt_n,
         "open_tickets": open_tickets,
+        # SEC-003: refunds only auto-revoke plans when the webhook secret is set.
+        "razorpay_webhook_configured": bool(os.environ.get("RAZORPAY_WEBHOOK_SECRET")),
+        "razorpay_live_mode": os.environ.get("RAZORPAY_KEY_ID", "").startswith("rzp_live_"),
         "checked_at": datetime.now(timezone.utc).isoformat(),
     }
 

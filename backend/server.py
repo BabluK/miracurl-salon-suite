@@ -757,23 +757,54 @@ async def security_pin_status(user=Depends(require_tenant_admin), t=Depends(curr
 @api.put("/settings/security-pin")
 async def set_security_pin(body: SecurityPinIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     existing = t.get("security_pin_hash")
-    if existing and not (body.current_pin and verify_pw(body.current_pin, existing)):
-        raise HTTPException(403, "Current PIN is incorrect")
+    if existing:
+        await _pin_attempt_guard(t["id"])
+        if not (body.current_pin and verify_pw(body.current_pin, existing)):
+            await _pin_attempt_fail(t["id"])
+            raise HTTPException(403, "Current PIN is incorrect")
+        await _pin_attempt_clear(t["id"])
     await db.tenants.update_one({"id": t["id"]}, {"$set": {"security_pin_hash": hash_pw(body.new_pin)}})
     return {"ok": True, "set": True}
 
 
+async def _pin_attempt_guard(tid: str):
+    rec = await _raw_db.pin_attempts.find_one({"tenant_id": tid})
+    if rec and rec.get("count", 0) >= 5:
+        lu = rec.get("locked_until")
+        if lu and datetime.fromisoformat(lu) > datetime.now(timezone.utc):
+            raise HTTPException(423, "Too many wrong PIN attempts — locked for 15 minutes.")
+
+
+async def _pin_attempt_fail(tid: str):
+    now = datetime.now(timezone.utc)
+    await _raw_db.pin_attempts.update_one(
+        {"tenant_id": tid},
+        {"$inc": {"count": 1},
+         "$set": {"last_attempt": now.isoformat(),
+                  "locked_until": (now + timedelta(minutes=15)).isoformat()}},
+        upsert=True)
+
+
+async def _pin_attempt_clear(tid: str):
+    await _raw_db.pin_attempts.delete_one({"tenant_id": tid})
+
+
 async def require_owner_pin(request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
     """Guards sensitive staff/salary writes on the shared admin login.
-    No-op until the owner sets a Security PIN in Settings."""
+    No-op until the owner sets a Security PIN in Settings. 5 wrong tries = 15-min lockout."""
     if user.get("role") == "super_admin":
         return True
     ph = (t or {}).get("security_pin_hash")
     if not ph:
         return True
     pin = request.headers.get("X-Owner-Pin") or ""
-    if not pin or not verify_pw(pin, ph):
+    if not pin:
         raise HTTPException(403, "OWNER_PIN_REQUIRED")
+    await _pin_attempt_guard(t["id"])
+    if not verify_pw(pin, ph):
+        await _pin_attempt_fail(t["id"])
+        raise HTTPException(403, "OWNER_PIN_REQUIRED")
+    await _pin_attempt_clear(t["id"])
     return True
 
 
@@ -865,8 +896,11 @@ async def branch_switch_owner_pin(body: OwnerPinIn, user=Depends(get_current_use
     ph = (t or {}).get("security_pin_hash")
     if not ph:
         raise HTTPException(400, "No owner PIN set — use the OTP option")
+    await _pin_attempt_guard(t["id"])
     if not verify_pw(body.pin, ph):
+        await _pin_attempt_fail(t["id"])
         raise HTTPException(403, "Incorrect PIN")
+    await _pin_attempt_clear(t["id"])
     return {"ok": True}
 
 
@@ -3043,6 +3077,15 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         cust_inc["referral_credit"] = -totals["referral_credit_used"]
     await db.customers.update_one({"id": cust["id"]}, {"$inc": cust_inc})
 
+    # SEC-001: release the referrer's reward only after the referred guest actually pays.
+    if cust.get("referral_pending") and cust.get("referred_by"):
+        await db.customers.update_one({"id": cust["id"]}, {"$unset": {"referral_pending": ""}})
+        referrer = await db.customers.find_one(
+            {"id": cust["referred_by"]}, {"_id": 0, "id": 1, "referral_credit": 1})
+        if referrer and float(referrer.get("referral_credit") or 0) < MAX_CUSTOMER_CREDIT:
+            await db.customers.update_one(
+                {"id": referrer["id"]}, {"$inc": {"referral_credit": REFERRAL_REWARD_REFERRER}})
+
     await _process_benefit_items(inv, cust)
 
     for pid, qty in needed.items():
@@ -3389,9 +3432,9 @@ async def _resolve_or_create_customer(body: PublicBookingIn) -> tuple[dict, bool
 
 
 async def _apply_referral_credit(cust: dict, code: Optional[str]) -> Optional[dict]:
-    """Apply referral reward to both referrer and the new customer. Returns summary or None._credit per customer at MAX_CUSTOMER_CREDIT so
-    a scripted attacker cannot mint unbounded wallet balances.
-    """
+    """Welcome credit for the new customer is immediate; the REFERRER's reward is
+    only released after the referred guest's first PAID invoice (SEC-001: prevents
+    scripted fake bookings from farming wallet credit). Caps at MAX_CUSTOMER_CREDIT."""
     if not code:
         return None
     code = code.strip().upper()
@@ -3405,12 +3448,9 @@ async def _apply_referral_credit(cust: dict, code: Optional[str]) -> Optional[di
     if ref_credit >= MAX_CUSTOMER_CREDIT or cust_credit >= MAX_CUSTOMER_CREDIT:
         return None  # cap reached — silently skip so the booking still succeeds
     await db.customers.update_one(
-        {"id": referrer["id"]},
-        {"$inc": {"referral_credit": REFERRAL_REWARD_REFERRER}},
-    )
-    await db.customers.update_one(
         {"id": cust["id"]},
-        {"$set": {"referred_by": referrer["id"]}, "$inc": {"referral_credit": REFERRAL_REWARD_REFERRED}},
+        {"$set": {"referred_by": referrer["id"], "referral_pending": True},
+         "$inc": {"referral_credit": REFERRAL_REWARD_REFERRED}},
     )
     cust["referral_credit"] = cust_credit + REFERRAL_REWARD_REFERRED
     return {"referrer_name": referrer["name"], "credit_added": REFERRAL_REWARD_REFERRED}
@@ -4810,7 +4850,10 @@ async def rzp_webhook(request: Request):
     finance/audit can replay them later.
     """
     if not RAZORPAY_WEBHOOK_SECRET:
-        # Webhook not configured — no-op (returning 200 avoids repeated retries)
+        # SEC-003: refunds/failed payments will NOT auto-reconcile until the secret is set.
+        logging.getLogger("razorpay").warning(
+            "Webhook received but RAZORPAY_WEBHOOK_SECRET is not configured — event skipped. "
+            "Set the secret (see test_credentials.md guide) so refunds revoke plans automatically.")
         return {"skipped": True}
     payload = await request.body()
     sig = request.headers.get("x-razorpay-signature", "")

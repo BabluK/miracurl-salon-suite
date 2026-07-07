@@ -190,7 +190,7 @@ def _registry_badge(total_years: float, avg_rating) -> str:
         idx -= 1
     return _REG_BADGE_ORDER[idx]
 
-async def _registry_profile(emp: dict, current_only: bool = False, redact: bool = False) -> dict:
+async def _registry_profile(emp: dict, current_only: bool = False, redact: bool = False, show_aadhaar: bool = True) -> dict:
     emps = await _raw_db.registry_employments.find(
         {"employee_id": emp["id"]}, {"_id": 0}).sort("from_date", -1).to_list(100)
     for e in emps:
@@ -221,7 +221,7 @@ async def _registry_profile(emp: dict, current_only: bool = False, redact: bool 
         "photo_url": emp.get("photo_url") or "",
         "email": "" if redact else (emp.get("email") or ""),
         "phone": (f"XXXXXX{phone[-4:]}" if phone else "") if redact else phone,
-        "aadhaar_masked": f"XXXX-XXXX-{emp.get('aadhaar_last4', '')}",
+        "aadhaar_masked": f"XXXX-XXXX-{emp.get('aadhaar_last4', '')}" if show_aadhaar else "XXXX-XXXX-XXXX",
         "permanent_address": "" if redact else (emp.get("permanent_address") or ""),
         "current_address": "" if redact else (emp.get("current_address") or ""),
         "city": emp.get("city") or "",
@@ -381,18 +381,34 @@ async def registry_delete_employment(rid: str, admin=Depends(require_tenant_admi
         raise HTTPException(404, "Employment record not found (you can only delete your own salon's records)")
     return {"ok": True}
 
+def _name_matches(emp_name: str, given: str) -> bool:
+    """SEC-002: staff-code lookups need the name printed on the badge — blocks blind
+    enumeration of sequential STF-xxxxx IDs."""
+    g = re.sub(r"\s+", " ", (given or "").strip().lower())
+    n = re.sub(r"\s+", " ", (emp_name or "").strip().lower())
+    if len(g) < 2:
+        return False
+    return g == n or g in n.split() or n.startswith(g)
+
+
+_NAME_REQUIRED_MSG = ("To verify a Staff ID, also enter the staff member's name exactly as printed "
+                      "on their badge (first name is enough).")
+
+
 @router.get("/public/registry/search")
-async def registry_public_search(q: str, request: Request):
-    public_rate_limit(request, key_suffix="registry", limit=20, window_sec=600)
+async def registry_public_search(q: str, request: Request, name: str = ""):
+    public_rate_limit(request, key_suffix="registry", limit=10, window_sec=600)
     qs = (q or "").strip()
     if not qs:
         raise HTTPException(400, "Enter a Staff ID or phone number")
     digits = re.sub(r"\D", "", qs)
-    # Staff ID lookup -> only the CURRENT organization is shown.
+    # Staff ID lookup -> requires the badge name as a verifier; only the CURRENT organization is shown.
     # Phone lookup -> the FULL employment history (past + present) is shown.
     emp = await _raw_db.registry_employees.find_one({"staff_code": qs.upper()}, {"_id": 0})
     if emp:
-        return await _registry_profile(emp, current_only=True, redact=True)
+        if not _name_matches(emp.get("name", ""), name):
+            raise HTTPException(400, _NAME_REQUIRED_MSG)
+        return await _registry_profile(emp, current_only=True, redact=True, show_aadhaar=False)
     # 12-digit query = Aadhaar (permanent ID) → full cross-salon history
     if len(digits) == 12:
         emp = await _raw_db.registry_employees.find_one({"aadhaar_hash": _aadhaar_fp(digits)}, {"_id": 0})
@@ -403,17 +419,19 @@ async def registry_public_search(q: str, request: Request):
         emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{digits[-10:]}$"}}, {"_id": 0})
     if not emp:
         raise HTTPException(404, "No staff found. Use their 12-digit Aadhaar, 10-digit phone, or Staff ID (STF-xxxxx)")
-    return await _registry_profile(emp, redact=True)
+    return await _registry_profile(emp, redact=True, show_aadhaar=False)
 
 
 
 @router.get("/public/registry/{staff_code}/pdf")
-async def registry_public_pdf(staff_code: str, request: Request):
+async def registry_public_pdf(staff_code: str, request: Request, name: str = ""):
     public_rate_limit(request, key_suffix="registry-pdf", limit=10, window_sec=600)
     emp = await _raw_db.registry_employees.find_one({"staff_code": staff_code.upper()}, {"_id": 0})
     if not emp:
         raise HTTPException(404, "Staff not found")
-    profile = await _registry_profile(emp, redact=True)
+    if not _name_matches(emp.get("name", ""), name):
+        raise HTTPException(400, _NAME_REQUIRED_MSG)
+    profile = await _registry_profile(emp, redact=True, show_aadhaar=False)
     pdf_bytes = await asyncio.to_thread(_build_registry_pdf, profile, _safe_fetch_image_bytes)
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{emp["staff_code"]}-badge.pdf"'})

@@ -273,7 +273,7 @@ async def refresh_token(request: Request, response: Response):
         user = await db.users.find_one({"id": payload["sub"]})
         if not user:
             raise HTTPException(401, "User not found")
-        if user.get("status") == "disabled" or user.get("active") is False:
+        if user.get("disabled") or user.get("status") == "disabled" or user.get("active") is False:
             raise HTTPException(401, "Account disabled")
         _reject_if_token_predates_password_change(payload, user)
         access = make_access(user["id"], user["email"])

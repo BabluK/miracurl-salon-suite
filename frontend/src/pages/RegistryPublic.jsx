@@ -17,19 +17,25 @@ const BADGE_LABEL = {
 
 export default function RegistryPublic() {
   const [q, setQ] = useState("");
+  const [name, setName] = useState("");
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const isStaffId = /^stf-?\d*/i.test(q.trim());
 
   async function search(e) {
     e.preventDefault();
     if (!q.trim()) return;
     setLoading(true); setError(""); setProfile(null);
     try {
-      const { data } = await api.get(`/public/registry/search?q=${encodeURIComponent(q.trim())}`);
+      const { data } = await api.get(`/public/registry/search?q=${encodeURIComponent(q.trim())}&name=${encodeURIComponent(name.trim())}`);
       setProfile(data);
     } catch (err) {
-      setError(err.response?.status === 404 ? "No staff found with that ID or phone number." : "Search failed — please try again in a moment.");
+      const detail = err.response?.data?.detail;
+      setError(
+        err.response?.status === 400 && typeof detail === "string" ? detail
+          : err.response?.status === 404 ? "No staff found with that ID or phone number."
+            : "Search failed — please try again in a moment.");
     } finally { setLoading(false); }
   }
 
@@ -51,19 +57,29 @@ export default function RegistryPublic() {
             Verify a salon professional's employment history, service duration and reputation badge before you hire.
             Staff members can also download their official badge report here.
           </p>
-          <form onSubmit={search} className="mt-8 flex gap-2">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                data-testid="public-registry-search-input"
-                value={q} onChange={e => setQ(e.target.value)}
-                placeholder="Enter Aadhaar (12 digits), phone number or Staff ID (STF-00001)"
-                className="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-4 py-3 text-sm placeholder:text-slate-500 focus:outline-none focus:border-violet-400/60 focus:bg-white/10 transition"
-              />
+          <form onSubmit={search} className="mt-8 space-y-2">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  data-testid="public-registry-search-input"
+                  value={q} onChange={e => setQ(e.target.value)}
+                  placeholder="Enter Aadhaar (12 digits), phone number or Staff ID (STF-00001)"
+                  className="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-4 py-3 text-sm placeholder:text-slate-500 focus:outline-none focus:border-violet-400/60 focus:bg-white/10 transition"
+                />
+              </div>
+              <button data-testid="public-registry-search-btn" disabled={loading} className="px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition disabled:opacity-50">
+                {loading ? "Searching…" : "Verify"}
+              </button>
             </div>
-            <button data-testid="public-registry-search-btn" disabled={loading} className="px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition disabled:opacity-50">
-              {loading ? "Searching…" : "Verify"}
-            </button>
+            {isStaffId && (
+              <input
+                data-testid="public-registry-name-input"
+                value={name} onChange={e => setName(e.target.value)}
+                placeholder="Staff member's name as printed on the badge (required for Staff ID search)"
+                className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm placeholder:text-slate-500 focus:outline-none focus:border-violet-400/60 focus:bg-white/10 transition"
+              />
+            )}
           </form>
           {error && <div data-testid="public-registry-error" className="mt-4 text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">{error}</div>}
           <p className="mt-3 text-[11px] text-slate-500">
@@ -129,7 +145,7 @@ export default function RegistryPublic() {
             </div>
             <a
               data-testid="public-registry-pdf-btn"
-              href={`${API}/public/registry/${profile.staff_code}/pdf`}
+              href={`${API}/public/registry/${profile.staff_code}/pdf?name=${encodeURIComponent(profile.name || "")}`}
               className="mt-5 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white text-slate-900 text-sm font-semibold hover:bg-slate-200 transition"
             >
               <FileDown className="w-4 h-4" /> Download Badge Report (PDF)

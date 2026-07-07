@@ -1,0 +1,31 @@
+{
+  "summary": "Iter 54 — Security-audit regression testing (SEC-001/002/004/005 + auth/PIN/registry/POS regressions). Backend 17/17 PASS (/app/backend/tests/test_iter54_sec_regression.py, junitxml=/app/test_reports/pytest/iter54_results.xml). Frontend SEC-002 UI verified via Playwright. ALL 6 SECURITY FIXES CONFIRMED WORKING, ZERO REGRESSIONS FOUND.\n\nVERIFIED FIXES:\n- SEC-001 (referral deferral + replay-guard): public /book/{slug} with referral_code → new customer created with ₹100 welcome credit; referrer credit UNCHANGED at booking time; first invoice for that customer → referrer +₹100 exactly once; second invoice → NO further credit (replay guard holds). Delta observed: before=X, after_booking=X, after_inv1=X+100, after_inv2=X+100.\n- SEC-002 (public registry name verifier + aadhaar masking): GET /public/registry/search?q=STF-00001 (no name) → 400 with 'name'; +&name=Ravi → 200 with aadhaar_masked='XXXX-XXXX-XXXX' (no last-4 leak). GET /public/registry/STF-00001/pdf → 400 without name, 200 with ?name=Ravi. Frontend /staff-registry: name input hidden for non-STF query, appears when q starts with STF, search returns Ravi Test Kumar profile with fully masked aadhaar.\n- SEC-004 (owner-pin lockout): 5× wrong PIN on /branch-switch/owner-pin → 403 each; 6th → 423 'Too many wrong PIN attempts'; correct PIN also blocked during lockout (423). After db.pin_attempts.delete_many({}) cleanup, correct PIN=4321 → 200 ok. Lockout state cleaned up at end.\n- SEC-005 (must_change_password gate): staff user priya.staff@miracurl.com (must_change_password=false) unblocked on /customers business endpoint — no PASSWORD_CHANGE_REQUIRED false-positive. Admin fully unaffected (login/me/refresh/logout all 200).\n\nREGRESSIONS VERIFIED:\n- Auth: admin login + /me + /refresh (cookie) + /logout all 200; post-logout /me → 401.\n- Owner-PIN staff flow: POST /staff without header → 403 OWNER_PIN_REQUIRED AND pin_attempts collection remains empty (does NOT count toward lockout) ✅. With X-Owner-Pin=4321 → staff created; DELETE with same header → cleaned.\n- Authenticated registry: GET /registry/employees?q=STF-00001 as admin returns unredacted profile with real aadhaar last-4 (pattern XXXX-XXXX-#### matched).\n- POS/invoice normal checkout: /invoices for existing customer with items[{type:'service',ref_id,...}] returns 200 with total field.\n- Settings/late-fines, /sms-packs, /entertainment endpoints: /settings/late-fines 200, /sms-packs 200 (enabled=true, packs present); /entertainment path not found via probe (skipped — may be frontend-only page, main agent to confirm route name).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter54_sec_regression.py",
+    "/app/test_reports/pytest/iter54_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SEC-001 deferral (server.py _apply_referral_credit ~L3450 + create_invoice ~L2990): correctly uses a pending marker on the referred customer that gets consumed atomically by the first invoice creation. Replay-guard verified: 2nd invoice does not re-credit — good idempotency.",
+    "SEC-002 registry public search: _name_matches / name verifier prevents PII enumeration by staff_code alone. Consider adding a low-noise rate-limit hit metric (already limited to 10/10min per iter53 notes) — good.",
+    "SEC-004 pin_attempts lockout: uses (tenant_id) as key with 5-strike threshold. IMPORTANT — verified: OWNER_PIN_REQUIRED (missing header) does NOT increment attempts, only wrong PIN values do. That is the correct UX so normal 'first hit → prompt → retry' doesn't lock users out. LGTM.",
+    "SEC-005 get_current_user gate: correctly whitelists /api/auth/* paths so a must_change_password user can still call change-password endpoint. Regression proven — priya.staff normal user unaffected.",
+    "server.py still ~6400+ lines; router split for security/pin/branch-switch/sms-packs is still outstanding (called out in iter50-53). No functional bug — just tech-debt reminder.",
+    "Minor: /entertainment endpoint route name unclear from server.py grep — the frontend page may hit a different path (e.g. /videos, /content). Recommend main agent confirm the route name in the Entertainment page component; test was skipped safely."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter54_sec_regression.py (NEW — 18 pytest cases across 7 test classes)"
+  ],
+  "success_rate": {"backend": "100% (17/17 executed, 1 informational skip for /entertainment probe)", "frontend": "100% for SEC-002 UI (conditional name input + masked aadhaar profile render)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, priya.staff@miracurl.com / Priya@Miracurl123, Owner PIN=4321 (unchanged).",
+  "seed_data_creation": "Created & cleaned up: (a) 1 test customer via public booking + 2 test invoices — deleted from mongo after test. (b) 1 TEST_iter54_ok staff — deleted via API. (c) pin_attempts lockout row created during SEC-004 test — cleared via db.pin_attempts.delete_many({}) at test end; correct PIN=4321 confirmed working. No LIVE Razorpay payment attempted.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_iter54_sec_regression.py for future security regressions. Key notes: (1) The referral deferral test does its own cleanup of the created customer + invoices via direct mongo delete_many (tenant_id filter). (2) SEC-004 test wipes pin_attempts twice (before and after) to guarantee clean lockout state — safe to re-run. (3) Invoice payload requires items[].type and items[].ref_id (not just service_id) — 422 otherwise. (4) Authenticated registry endpoint is /registry/employees?q=... (not /registry/search). (5) Entertainment endpoint route not found by probing common paths — check EntertainmentPage.jsx for actual fetch URL if needed."
+}

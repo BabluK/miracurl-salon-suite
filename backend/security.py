@@ -149,6 +149,9 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(403, "Account pending admin approval.")
     if user.get("disabled"):
         raise HTTPException(403, "Your account has been disabled by the salon admin.")
+    # SEC-005: temp-password accounts may only touch auth endpoints until they rotate.
+    if user.get("must_change_password") and not request.url.path.startswith("/api/auth/"):
+        raise HTTPException(403, "PASSWORD_CHANGE_REQUIRED")
     await _apply_tenant_context(request, user)
     return user
 
