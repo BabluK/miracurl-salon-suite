@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
 import { SmsCreditLog } from "@/components/superadmin/SmsCreditLog";
+import { PartnersPanel } from "@/components/superadmin/PartnersPanel";
+import { Handshake } from "lucide-react";
 import { setActAsSalon } from "@/lib/api";
 import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
 import EngineerPanel from "@/components/EngineerPanel";
@@ -229,6 +231,11 @@ export default function SuperAdmin() {
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "billing" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           ><Receipt className="w-4 h-4" /> Billing & Subscriptions</button>
           <button
+            data-testid="super-tab-partners"
+            onClick={() => setTab("partners")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "partners" ? "border-emerald-500 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><Handshake className="w-4 h-4" /> Partners</button>
+          <button
             data-testid="super-tab-leaderboard"
             onClick={() => setTab("leaderboard")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "leaderboard" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
@@ -272,6 +279,7 @@ export default function SuperAdmin() {
         {(() => {
           const panels = {
             billing: <BillingPanel tenants={tenants} />,
+            partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,
             revenue: <RevenuePanel />,
             ai: <AiInsightsPanel />,

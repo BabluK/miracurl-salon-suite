@@ -39,6 +39,8 @@ import Messages from "@/pages/Messages";
 import Plans from "@/pages/Plans";
 import StaffRegistry from "@/pages/StaffRegistry";
 import RegistryPublic from "@/pages/RegistryPublic";
+import Partners from "@/pages/Partners";
+import { PlayerProvider } from "@/context/PlayerContext";
 import Entertainment from "@/pages/Entertainment";
 
 function Protected({ children }) {
@@ -116,9 +118,11 @@ export default function App() {
           <MicroInteractions />
           <Toaster theme="dark" position="top-right" toastOptions={TOAST_OPTIONS} />
           <ErrorBoundary>
+          <PlayerProvider>
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
             <Route path="/staff-registry" element={<RegistryPublic />} />
+            <Route path="/partners" element={<Partners />} />
             <Route path="/book" element={<SalonFinder />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
@@ -151,6 +155,7 @@ export default function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </PlayerProvider>
           </ErrorBoundary>
         </BrowserRouter>
       </AuthProvider>

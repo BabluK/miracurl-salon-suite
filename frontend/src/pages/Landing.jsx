@@ -5,6 +5,8 @@ import BrandMark from "@/components/BrandMark";
 import SalesChatWidget from "@/components/SalesChatWidget";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { DemoCarousel } from "@/components/DemoCarousel";
+import { PartnerGrid } from "@/components/PartnerGrid";
+import api from "@/lib/api";
 
 const IMG = {
   hero: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/5f277bf6c250f088f3edd106c237e68fc45cb57e393b44d9d947c28d4668ebdb.png",
@@ -45,6 +47,29 @@ const TESTIMONIALS = [
 const Label = ({ children, className = "" }) => (
   <span className={`text-xs uppercase tracking-[0.25em] font-outfit font-semibold ${className}`}>{children}</span>
 );
+
+function TrustedPartnersSection() {
+  const [partners, setPartners] = useState([]);
+  useEffect(() => {
+    api.get("/public/partners").then(r => setPartners(r.data)).catch(() => {});
+  }, []);
+  if (!partners.length) return null;
+  return (
+    <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-24" data-testid="trusted-partners-section">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
+        <div>
+          <Label className="text-emerald-300">Our Trusted Partners</Label>
+          <p className="text-sm text-white/50 mt-3 max-w-xl">Salons already growing on Miracurl — rated by their own customers.</p>
+        </div>
+        <Link to="/partners" data-testid="view-all-partners-link"
+          className="inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 transition font-medium">
+          View all partners <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+      <PartnerGrid partners={partners} compact />
+    </section>
+  );
+}
 
 export default function Landing() {
   const [refSlug, setRefSlug] = useState(null);
@@ -211,6 +236,9 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      {/* Trusted Partners — onboarded salons, auto-listed */}
+      <TrustedPartnersSection />
 
       {/* Pricing */}
       <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 pb-24">

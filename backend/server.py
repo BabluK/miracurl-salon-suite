@@ -917,6 +917,49 @@ async def branch_switch_deny(rid: str, user=Depends(require_tenant_admin)):
     return {"ok": True}
 
 
+# ---------------- Entertainment: custom tenant playlists ----------------
+class PlaylistIn(BaseModel):
+    label: str = Field(..., min_length=2, max_length=60)
+    url: str = Field(..., min_length=10, max_length=500)
+
+
+def _parse_media_url(url: str) -> Optional[dict]:
+    u = url.strip()
+    m = re.search(r"open\.spotify\.com/(playlist|album|track)/([A-Za-z0-9]+)", u)
+    if m:
+        return {"kind": "spotify", "media_type": m.group(1), "media_id": m.group(2)}
+    if "youtube.com" in u or "youtu.be" in u:
+        m = re.search(r"[?&]list=([A-Za-z0-9_-]+)", u)
+        if m:
+            return {"kind": "youtube", "media_type": "playlist", "media_id": m.group(1)}
+        m = re.search(r"(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([A-Za-z0-9_-]{6,})", u)
+        if m:
+            return {"kind": "youtube", "media_type": "video", "media_id": m.group(1)}
+    return None
+
+
+@api.get("/entertainment/playlists")
+async def list_playlists(user=Depends(require_tenant_admin)):
+    return await db.entertainment_playlists.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+
+
+@api.post("/entertainment/playlists")
+async def add_playlist(body: PlaylistIn, user=Depends(require_tenant_admin)):
+    parsed = _parse_media_url(body.url)
+    if not parsed:
+        raise HTTPException(400, "Couldn't read that link — paste a YouTube video/playlist URL or a Spotify playlist/album/track URL.")
+    doc = {"id": str(uuid.uuid4()), "label": body.label.strip(), "url": body.url.strip(),
+           **parsed, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.entertainment_playlists.insert_one(doc)
+    return _clean(doc)
+
+
+@api.delete("/entertainment/playlists/{pid}")
+async def delete_playlist(pid: str, user=Depends(require_tenant_admin)):
+    await db.entertainment_playlists.delete_one({"id": pid})
+    return {"ok": True}
+
+
 # ---------------- Staff ----------------
 _STAFF_SENSITIVE_FIELDS = {
     "monthly_base_salary": 0, "commission_pct": 0, "bank_details": 0, "aadhaar_last4": 0,
@@ -5218,6 +5261,108 @@ async def sms_credit_history(user=Depends(require_super_admin)):
     for r in rows:
         r["tenant_name"] = names.get(r.get("tenant_id"), "—")
     return rows
+
+
+# ---------------- Trusted Partners (public profile of the platform) ----------------
+async def _reviews_by_tenant() -> dict:
+    aggs = await _raw_db.reviews.aggregate([
+        {"$match": {"public": True}},
+        {"$group": {"_id": "$tenant_id", "avg": {"$avg": "$rating"}, "n": {"$sum": 1}}},
+    ]).to_list(2000)
+    return {a["_id"]: a for a in aggs}
+
+
+def _tenant_partner_card(t: dict, agg: Optional[dict]) -> dict:
+    return {
+        "id": t["id"], "source": "tenant", "name": t.get("name") or "",
+        "logo_url": t.get("logo_url") or "", "city": t.get("location") or "",
+        "rating": round(float(agg["avg"]), 1) if agg else None,
+        "reviews_count": int(agg["n"]) if agg else 0,
+        "blurb": t.get("partner_blurb") or "",
+        "featured": bool(t.get("partner_featured")),
+        "slug": t.get("slug") or "", "since": (t.get("created_at") or "")[:10],
+    }
+
+
+@api.get("/public/partners")
+async def public_partners(request: Request):
+    """Landing-page 'Trusted Partners': onboarded salons (auto) + manual partners."""
+    public_rate_limit(request, key_suffix="partners", limit=30, window_sec=600)
+    by_tid = await _reviews_by_tenant()
+    tenants = await _raw_db.tenants.find(
+        {"status": {"$in": ["active", "trial"]}},
+        {"_id": 0, "id": 1, "name": 1, "logo_url": 1, "location": 1, "slug": 1,
+         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1},
+    ).to_list(300)
+    out = [_tenant_partner_card(t, by_tid.get(t["id"]))
+           for t in tenants if t.get("partner_visible") is not False]
+    manual = await _raw_db.partners.find({}, {"_id": 0}).to_list(100)
+    out += [{**p, "source": "manual", "reviews_count": p.get("reviews_count", 0)} for p in manual]
+    out.sort(key=lambda p: (not p.get("featured"), -(p.get("rating") or 0)))
+    return out
+
+
+class PartnerTenantIn(BaseModel):
+    visible: Optional[bool] = None
+    featured: Optional[bool] = None
+    blurb: Optional[str] = Field(None, max_length=400)
+
+
+class ManualPartnerIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    logo_url: str = Field("", max_length=500)
+    city: str = Field("", max_length=100)
+    blurb: str = Field("", max_length=400)
+    rating: Optional[float] = Field(None, ge=0, le=5)
+    featured: bool = False
+
+
+@api.get("/super-admin/partners")
+async def super_partners(user=Depends(require_super_admin)):
+    by_tid = await _reviews_by_tenant()
+    tenants = await _raw_db.tenants.find(
+        {"status": {"$in": ["active", "trial"]}},
+        {"_id": 0, "id": 1, "name": 1, "logo_url": 1, "location": 1, "slug": 1,
+         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1},
+    ).to_list(300)
+    cards = []
+    for t in tenants:
+        c = _tenant_partner_card(t, by_tid.get(t["id"]))
+        c["visible"] = t.get("partner_visible") is not False
+        cards.append(c)
+    manual = await _raw_db.partners.find({}, {"_id": 0}).to_list(100)
+    return {"tenants": cards, "manual": manual}
+
+
+@api.put("/super-admin/partners/tenant/{tid}")
+async def update_partner_tenant(tid: str, body: PartnerTenantIn, user=Depends(require_super_admin)):
+    sets = {}
+    if body.visible is not None:
+        sets["partner_visible"] = body.visible
+    if body.featured is not None:
+        sets["partner_featured"] = body.featured
+    if body.blurb is not None:
+        sets["partner_blurb"] = body.blurb.strip()
+    if not sets:
+        raise HTTPException(400, "Nothing to update")
+    r = await db.tenants.update_one({"id": tid}, {"$set": sets})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Tenant not found")
+    return {"ok": True, **sets}
+
+
+@api.post("/super-admin/partners/manual")
+async def add_manual_partner(body: ManualPartnerIn, user=Depends(require_super_admin)):
+    doc = {"id": str(uuid.uuid4()), **body.model_dump(),
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.partners.insert_one(doc)
+    return _clean(doc)
+
+
+@api.delete("/super-admin/partners/manual/{pid}")
+async def delete_manual_partner(pid: str, user=Depends(require_super_admin)):
+    await _raw_db.partners.delete_one({"id": pid})
+    return {"ok": True}
 
 
 @api.delete("/super-admin/tenants/{tid}")

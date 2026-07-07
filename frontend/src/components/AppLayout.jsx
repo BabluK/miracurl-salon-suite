@@ -7,6 +7,7 @@ import {
   Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck, Megaphone,
   Landmark, FileText, Music
 } from "lucide-react";
+import { FloatingPlayer } from "@/components/FloatingPlayer";
 import BranchSwitcher from "./BranchSwitcher";
 import api from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -251,6 +252,9 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Movable music mini-player — persists across pages while playing */}
+      <FloatingPlayer />
 
       {/* PWA install banner — auto-shown when installable, or on demand via
           the "Install app" menu item. Copy tuned for the logged-in salon app. */}
