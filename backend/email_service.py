@@ -168,7 +168,7 @@ def _monthly_report_html(t: dict, month_label: str, stats: dict) -> str:
 </td></tr></table>"""
 
 
-def _weekly_report_html(t: dict, week_label: str, stats: dict) -> str:
+def _weekly_report_html(t: dict, week_label: str, stats: dict, tip: str = "") -> str:
     img = os.environ.get("WEEKLY_REPORT_IMAGE_URL", "")
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Weekly Business Snapshot" width="600" '
@@ -219,6 +219,15 @@ def _weekly_report_html(t: dict, week_label: str, stats: dict) -> str:
                       f'<h3 style="font-size:13px;color:#a08a4b;margin:14px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">✨ Highlights</h3>'
                       f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{rows}</table></td></tr>')
 
+    tip_block = ""
+    if tip:
+        tip_block = (f'<tr><td style="padding:4px 36px 8px">'
+                     f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#17171f;border-radius:12px">'
+                     f'<tr><td style="padding:16px 22px">'
+                     f'<div style="font-size:11px;color:#e6c66e;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">💡 Mira\'s tip for this week</div>'
+                     f'<div style="font-size:14px;color:#f0ead6;margin-top:8px;line-height:1.6;font-family:Georgia,serif">{html_lib.escape(tip)}</div>'
+                     f'</td></tr></table></td></tr>')
+
     return f"""
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
 <tr><td align="center">
@@ -245,6 +254,7 @@ def _weekly_report_html(t: dict, week_label: str, stats: dict) -> str:
 </td></tr>
 {chart_block}
 {highlights}
+{tip_block}
 <tr><td style="padding:14px 36px 24px;text-align:center">
   <p style="margin:0;font-size:13px;color:#55555f;font-family:Arial,sans-serif;line-height:1.6">A fresh week begins today — Mira wishes you a full appointment book ✦</p>
 </td></tr>
@@ -252,6 +262,44 @@ def _weekly_report_html(t: dict, week_label: str, stats: dict) -> str:
   <div style="color:#e6c66e;font-size:16px">✦ Miracurl ✦</div>
   <div style="color:#8f8798;font-size:12px;margin-top:6px;font-family:Arial,sans-serif">Questions? Just reply to this email · {hq_email}</div>
   <div style="color:#5d5766;font-size:11px;margin-top:10px;font-family:Arial,sans-serif">Sent with ♥ by Mira — your salon's AI assistant</div>
+</td></tr>
+</table>
+</td></tr></table>"""
+
+
+def _birthday_email_html(t: dict, cust_name: str, offer_text: str, booking_url: str) -> str:
+    img = os.environ.get("BIRTHDAY_IMAGE_URL", "")
+    img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Happy Birthday" width="600" '
+               f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
+    offer_block = (
+        f'<tr><td style="padding:6px 36px">'
+        f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#faf6ec;border:1px dashed #d4af37;border-radius:12px">'
+        f'<tr><td style="padding:16px 22px;text-align:center">'
+        f'<div style="font-size:11px;color:#a08a4b;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">🎁 Your birthday treat</div>'
+        f'<div style="font-size:16px;color:#2b2b33;margin-top:6px;font-family:Georgia,serif"><b>{html_lib.escape(offer_text)}</b></div>'
+        f'</td></tr></table></td></tr>') if offer_text else ""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 40px rgba(212,175,55,.25)">
+{img_row}
+<tr><td style="background:linear-gradient(135deg,#17171f,#26202b);padding:24px 36px;text-align:center">
+  <div style="color:#e6c66e;font-size:12px;letter-spacing:4px;text-transform:uppercase">✦ &nbsp;Happy Birthday&nbsp; ✦</div>
+  <div style="color:#ffffff;font-size:26px;margin-top:8px">{html_lib.escape(cust_name)}</div>
+  <div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">With love from {html_lib.escape(t.get('name') or 'your salon')} 🎂</div>
+</td></tr>
+<tr><td style="padding:26px 36px 8px;text-align:center">
+  <p style="margin:0;color:#2b2b33;font-size:15px;line-height:1.7;font-family:Arial,sans-serif">
+    Wishing you a day as beautiful as you are! May this year bring you endless joy,
+    great hair days and moments worth celebrating ✨</p>
+</td></tr>
+{offer_block}
+<tr><td style="padding:18px 36px 26px;text-align:center">
+  <a href="{booking_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:14px;padding:13px 42px;border-radius:999px;display:inline-block">✦ &nbsp;Book Your Birthday Pamper&nbsp; ✦</a>
+</td></tr>
+<tr><td style="background:#17171f;padding:20px 36px;text-align:center">
+  <div style="color:#e6c66e;font-size:16px">✦ {html_lib.escape(t.get('name') or 'Miracurl')} ✦</div>
+  <div style="color:#5d5766;font-size:11px;margin-top:8px;font-family:Arial,sans-serif">Sent with ♥ by Mira — your salon's AI assistant</div>
 </td></tr>
 </table>
 </td></tr></table>"""

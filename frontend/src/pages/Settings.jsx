@@ -10,6 +10,7 @@ import { LoyaltyCard } from "@/components/settings/LoyaltyCard";
 import { AffiliateCard } from "@/components/settings/AffiliateCard";
 import { RazorpayCard } from "@/components/settings/RazorpayCard";
 import { VendorsCard } from "@/components/settings/VendorsCard";
+import { BirthdayCard } from "@/components/settings/BirthdayCard";
 
 export default function Settings() {
   return (
@@ -39,6 +40,10 @@ export default function Settings() {
         </div>
 
         <LoyaltyCard />
+
+        <div className="mt-6">
+          <BirthdayCard />
+        </div>
 
         <AffiliateCard />
 

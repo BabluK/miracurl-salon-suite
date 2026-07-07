@@ -14,7 +14,7 @@ import hmac
 import asyncio
 import base64
 import html as html_lib
-from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html
+from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html
 from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf, _render_invoice_pdf
 import hashlib
 import logging
@@ -2156,6 +2156,61 @@ class VoiceGreetingIn(BaseModel):
 async def set_voice_greeting(body: VoiceGreetingIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     await db.tenants.update_one({"id": t["id"]}, {"$set": {"voice_greeting_enabled": body.enabled}})
     return {"enabled": body.enabled}
+
+
+class BirthdayOfferIn(BaseModel):
+    enabled: bool = True
+    offer_text: str = Field("", max_length=200)
+
+
+@api.get("/settings/birthday-offer")
+async def get_birthday_offer(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return {"enabled": t.get("birthday_emails_enabled", True), "offer_text": t.get("birthday_offer_text") or ""}
+
+
+@api.put("/settings/birthday-offer")
+async def set_birthday_offer(body: BirthdayOfferIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    await db.tenants.update_one(
+        {"id": t["id"]},
+        {"$set": {"birthday_emails_enabled": body.enabled, "birthday_offer_text": body.offer_text.strip()}})
+    return {"enabled": body.enabled, "offer_text": body.offer_text.strip()}
+
+
+async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
+    """Email birthday wishes to every guest whose dob is today (IST). Used by the
+    daily scheduler AND the admin 'send now' button."""
+    ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    mmdd = ist.strftime("%m-%d")
+    flt = {"id": tenant_id} if tenant_id else {"status": {"$in": ["active", "trial"]}}
+    tenants = await _raw_db.tenants.find(flt, {"_id": 0}).to_list(500)
+    app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurlunisexsaloon.com")
+    results = []
+    for t in tenants:
+        if not tenant_id and t.get("birthday_emails_enabled") is False:
+            continue
+        custs = await _raw_db.customers.find(
+            {"tenant_id": t["id"], "dob": {"$regex": f"-{mmdd}$"},
+             "email": {"$exists": True, "$nin": [None, ""]}},
+            {"_id": 0, "name": 1, "email": 1}).to_list(200)
+        for c in custs:
+            status = await _send_email(
+                [c["email"]],
+                f"🎂 Happy Birthday {c['name']} — from {t.get('name', 'your salon')} ✦",
+                _birthday_email_html(t, c["name"], t.get("birthday_offer_text") or "",
+                                     f"{app_url}/book/{t.get('slug', '')}"))
+            results.append({"tenant": t["name"], "customer": c["name"], "email": c["email"],
+                            "sent": status.get("sent", False), "error": status.get("error")})
+    sent = sum(1 for r in results if r["sent"])
+    return {"date": ist.strftime("%Y-%m-%d"), "sent": sent, "failed": len(results) - sent, "results": results}
+
+
+@api.post("/crm/send-birthday-wishes")
+async def send_birthday_wishes(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Admin manually triggers today's birthday emails for their salon."""
+    out = await _run_birthday_emails(t["id"])
+    if not out["results"]:
+        return {**out, "message": "No guests with a birthday today (or missing email on their profile)."}
+    return out
 
 
 _TTS_CACHE: dict = {}  # (tenant_id, user_id) -> (date_str, payload) — 1 OpenAI call/user/day (SEC-003)
@@ -4390,6 +4445,50 @@ async def _tenant_week_stats(tid: str, start: str, end: str) -> dict:
     }
 
 
+_WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+def _rule_based_tip(stats: dict) -> str:
+    daily = stats.get("daily") or []
+    if not daily or max(daily) <= 0:
+        return "A quiet week — try sharing your online booking link on WhatsApp status to fill next week's slots."
+    best = _WEEK_DAYS[daily.index(max(daily))]
+    positive = [d for d in daily if d > 0]
+    worst_val = min(positive) if positive else 0
+    worst = _WEEK_DAYS[daily.index(worst_val)] if positive else ""
+    tip = f"{best} was your strongest day"
+    if worst and worst != best:
+        tip += f" — consider a {worst} happy-hour offer to fill the quieter slot."
+    else:
+        tip += " — keep that momentum going with a repeat-visit offer."
+    return tip
+
+
+async def _weekly_tip(t: dict, stats: dict) -> str:
+    """One AI-written actionable tip for the weekly email; rule-based fallback."""
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        return _rule_based_tip(stats)
+    daily = stats.get("daily") or []
+    day_summary = ", ".join(f"{_WEEK_DAYS[i]} ₹{v:,.0f}" for i, v in enumerate(daily[:7]))
+    top_svc = stats["top_services"][0][0] if stats.get("top_services") else "n/a"
+    try:
+        chat = LlmChat(
+            api_key=key, session_id=f"weekly-tip-{t['id']}-{uuid.uuid4().hex[:6]}",
+            system_message=("You write ONE actionable business tip (max 30 words, no emojis, no preamble) "
+                            "for an Indian salon owner based on their weekly numbers. Be specific and practical."),
+        ).with_model("openai", "gpt-5.4-mini")
+        resp = await chat.send_message(UserMessage(text=(
+            f"Week revenue ₹{stats['revenue']:,.0f} (previous week ₹{stats.get('prev_revenue', 0):,.0f}), "
+            f"{stats['invoices']} bills, {stats['new_customers']} new guests, top service: {top_svc}. "
+            f"Day-wise: {day_summary}. Give one tip.")))
+        tip = (resp or "").strip().strip('"')
+        return tip if 10 < len(tip) < 260 else _rule_based_tip(stats)
+    except Exception as e:
+        logging.warning(f"weekly tip LLM failed, using fallback: {e}")
+        return _rule_based_tip(stats)
+
+
 async def _run_weekly_reports(tenant_id: Optional[str] = None) -> dict:
     """Email last completed Mon–Sun week's snapshot. Used by the super-admin button AND the Monday auto-scheduler."""
     ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
@@ -4407,10 +4506,11 @@ async def _run_weekly_reports(tenant_id: Optional[str] = None) -> dict:
             results.append({"tenant": t["name"], "sent": False, "error": "no email on file"})
             continue
         stats = await _tenant_week_stats(t["id"], start, end)
+        tip = await _weekly_tip(t, stats)
         status = await _send_email(
             recipients,
             f"✦ Your Miracurl weekly snapshot — {week_label}",
-            _weekly_report_html(t, week_label, stats))
+            _weekly_report_html(t, week_label, stats, tip))
         results.append({"tenant": t["name"], "recipients": recipients,
                         "sent": status.get("sent", False), "error": status.get("error")})
     sent = sum(1 for r in results if r["sent"])
@@ -6043,10 +6143,33 @@ async def _weekly_report_scheduler():
         await asyncio.sleep(3600)
 
 
+async def _birthday_scheduler():
+    """Daily (after 09:00 IST) auto-email birthday wishes to guests. Idempotent via system_flags."""
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.hour >= 9:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "birthday_email_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await _run_birthday_emails(None)
+                    await _raw_db.system_flags.update_one(
+                        {"key": "birthday_email_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    if out.get("sent") or out.get("failed"):
+                        logging.info(f"Auto birthday emails {period}: sent={out.get('sent')} failed={out.get('failed')}")
+        except Exception as e:
+            logging.error(f"birthday scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 @app.on_event("startup")
 async def on_startup():
     asyncio.get_event_loop().create_task(_monthly_report_scheduler())
     asyncio.get_event_loop().create_task(_weekly_report_scheduler())
+    asyncio.get_event_loop().create_task(_birthday_scheduler())
     await db.users.create_index("email", unique=True)
     await db.tenants.create_index("slug", unique=True)
     # Drop legacy single-field unique sku index if present (multi-tenancy needs composite)
@@ -6832,6 +6955,134 @@ async def owner_chat_reply(thread_id: str, body: ChatSendIn, user=Depends(requir
     if not th:
         raise HTTPException(404, "Chat not found")
     return await _append_chat_message(thread_id, "owner", body.message.strip())
+
+
+# ---------------- Sales Mira: landing-page product chat + tenant inquiries ----------------
+_SALES_SESSIONS: dict = {}
+
+_SALES_SYSTEM_PROMPT = (
+    "You are Mira, the friendly AI sales assistant on the Miracurl Salon Suite website "
+    "(miracurlunisexsaloon.com). You help salon owners understand the product and choose a plan. "
+    "PRODUCT KNOWLEDGE — Miracurl is an all-in-one salon management suite built for Indian salons: "
+    "• Appointments & 24/7 online booking page (each salon gets its own /book link + QR poster) "
+    "• POS billing with GST invoices, thermal-printer receipts with Google-review QR codes, packages, memberships "
+    "• Customer CRM with loyalty points, birthday tracking + automatic birthday emails, WhatsApp confirmations "
+    "• Staff management: geo-fenced attendance check-in/out, PDF salary slips, commission tracking, leave approval workflow "
+    "• Cross-salon Staff Registry: free Aadhaar-verified staff history verification "
+    "• Inventory with low-stock alerts and one-click vendor restock emails "
+    "• AI tools: Mira voice briefings (English + Hindi), AI logo & poster studio, AI review replies, business reports emailed weekly & monthly "
+    "• Multi-branch support, PWA mobile apps, Reviews→₹credits, Refer & Earn. "
+    "PRICING (INR, no per-booking fees or commissions): Free Trial ₹0 for 7 days (all features, up to 50 customers, no credit card); "
+    "6-Month Plan ₹12,000; Annual Plan ₹20,000 (save ₹4,000); Multi-Branch (5+ branches) ₹45,000 for 6 months or ₹70,000 per year. "
+    "SIGNUP: 'Start free trial' button on the site → live in under 90 seconds. "
+    "CONTACT: WhatsApp +91 82170 72523. "
+    "RULES: Only discuss Miracurl — politely decline unrelated topics. Never invent features or prices. "
+    "Be warm, concise (2-4 short sentences), use ₹ for money. Always nudge toward the free trial. "
+    "The visitor's contact details are already saved — our team will reach out; you don't need to ask for them again."
+)
+
+
+class SalesChatStartIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    email: str = Field(..., max_length=120)
+    phone: str = Field(..., max_length=20)
+
+    @field_validator("email")
+    @classmethod
+    def _v_email(cls, v):
+        v = (v or "").strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]{2,}", v):
+            raise ValueError("Enter a valid email address")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def _v_phone(cls, v):
+        digits = re.sub(r"\D", "", v or "")
+        if len(digits) < 10:
+            raise ValueError("Enter a valid phone number")
+        return digits
+
+
+class SalesChatMsgIn(BaseModel):
+    inquiry_id: str = Field(..., min_length=8, max_length=64)
+    message: str = Field(..., min_length=1, max_length=1000)
+
+
+@api.post("/public/sales-chat/start")
+async def sales_chat_start(body: SalesChatStartIn, request: Request):
+    public_rate_limit(request, "sales-start", limit=5, window_sec=600)
+    now = datetime.now(timezone.utc).isoformat()
+    first = body.name.strip().split()[0].title()
+    greeting = (f"Lovely to meet you, {first} ✦ I'm Mira — I know everything about Miracurl Salon Suite. "
+                f"Ask me about features, pricing, the free trial, or how salons like yours use it day-to-day!")
+    doc = {
+        "id": str(uuid.uuid4()), "name": body.name.strip(), "email": body.email,
+        "phone": body.phone, "status": "new", "source": "landing_chat",
+        "messages": [{"role": "assistant", "content": greeting, "at": now}],
+        "created_at": now, "last_message_at": now,
+    }
+    await _raw_db.tenant_inquiries.insert_one(doc)
+    return {"inquiry_id": doc["id"], "reply": greeting}
+
+
+@api.post("/public/sales-chat/message")
+async def sales_chat_message(body: SalesChatMsgIn, request: Request):
+    public_rate_limit(request, "sales-msg", limit=30, window_sec=600)
+    inq = await _raw_db.tenant_inquiries.find_one({"id": body.inquiry_id}, {"_id": 0, "id": 1, "name": 1})
+    if not inq:
+        raise HTTPException(404, "Chat session not found — please start again")
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    chat = _SALES_SESSIONS.get(body.inquiry_id)
+    if chat is None:
+        chat = LlmChat(
+            api_key=key, session_id=f"sales-{body.inquiry_id}",
+            system_message=_SALES_SYSTEM_PROMPT + f" The visitor's name is {inq.get('name', 'there')}.",
+        ).with_model("openai", "gpt-5.4")
+        _SALES_SESSIONS[body.inquiry_id] = chat
+        if len(_SALES_SESSIONS) > 300:
+            _SALES_SESSIONS.pop(next(iter(_SALES_SESSIONS)))
+    try:
+        resp = await chat.send_message(UserMessage(text=body.message))
+        reply = (resp or "").strip() or "I didn't quite catch that — could you rephrase?"
+    except Exception as e:
+        logging.error(f"sales chat LLM error: {e}")
+        raise HTTPException(400, "Mira is momentarily unavailable — please try again in a minute")
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.tenant_inquiries.update_one(
+        {"id": body.inquiry_id},
+        {"$push": {"messages": {"$each": [
+            {"role": "user", "content": body.message, "at": now},
+            {"role": "assistant", "content": reply, "at": now}]}},
+         "$set": {"last_message_at": now}})
+    return {"reply": reply}
+
+
+class InquiryStatusIn(BaseModel):
+    status: str = Field(..., pattern=r"^(new|contacted|converted)$")
+
+
+@api.get("/super-admin/inquiries")
+async def list_tenant_inquiries(user=Depends(require_super_admin)):
+    items = await _raw_db.tenant_inquiries.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
+    return {"items": items, "new_count": sum(1 for i in items if i.get("status") == "new")}
+
+
+@api.patch("/super-admin/inquiries/{iid}")
+async def update_tenant_inquiry(iid: str, body: InquiryStatusIn, user=Depends(require_super_admin)):
+    res = await _raw_db.tenant_inquiries.update_one({"id": iid}, {"$set": {"status": body.status}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Inquiry not found")
+    return {"ok": True, "status": body.status}
+
+
+@api.delete("/super-admin/inquiries/{iid}")
+async def delete_tenant_inquiry(iid: str, user=Depends(require_super_admin)):
+    await _raw_db.tenant_inquiries.delete_one({"id": iid})
+    _SALES_SESSIONS.pop(iid, None)
+    return {"ok": True}
 
 
 # ---------------- Cross-Salon Staff History Registry (public verification) ----------------

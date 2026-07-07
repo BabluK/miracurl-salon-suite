@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Calendar, Receipt, Star, Users, BarChart3, Shield, ArrowRight, Check, Sparkles, Zap, MessageSquare, Scissors, Gift, ShieldCheck, Wand2, MapPin, Image as ImageIcon, UserCog, Mic, BadgePercent } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
-import ChatButton from "@/components/ChatButton";
+import SalesChatWidget from "@/components/SalesChatWidget";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { DemoCarousel } from "@/components/DemoCarousel";
 
@@ -284,7 +284,7 @@ export default function Landing() {
           <Link to="/staff-registry" className="hover:text-slate-700">Verify staff (free)</Link>
         </div>
       </footer>
-      <ChatButton message="Hi Miracurl ✦ I'd like to know more about getting my salon on the platform." />
+      <SalesChatWidget />
       <InstallAppPrompt variant="app" />
     </div>
   );

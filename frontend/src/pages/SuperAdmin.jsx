@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
@@ -12,6 +12,7 @@ import EngineerPanel from "@/components/EngineerPanel";
 import { LeaderboardPanel, RevenuePanel } from "@/components/superadmin/LeaderboardRevenue";
 import { OnboardingStudio } from "@/components/superadmin/OnboardingStudio";
 import { SuperNotifBell, StatusActionButton } from "@/components/superadmin/SuperNotifBell";
+import { InquiriesPanel } from "@/components/superadmin/InquiriesPanel";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -31,6 +32,7 @@ export default function SuperAdmin() {
   const [overview, setOverview] = useState(null);
   const [tenants, setTenants] = useState([]);
   const [hqUnread, setHqUnread] = useState(0);
+  const [inquiryNew, setInquiryNew] = useState(0);
   const [sendingReports, setSendingReports] = useState(false);
   const [sendingWeekly, setSendingWeekly] = useState(false);
 
@@ -65,14 +67,16 @@ export default function SuperAdmin() {
   });
 
   const load = useCallback(async () => {
-    const [o, t, hq] = await Promise.all([
+    const [o, t, hq, inq] = await Promise.all([
       api.get("/super-admin/overview"),
       api.get("/super-admin/tenants"),
       api.get("/super-admin/hq-messages").catch(() => ({ data: { unread: 0 } })),
+      api.get("/super-admin/inquiries").catch(() => ({ data: { new_count: 0 } })),
     ]);
     setOverview(o.data);
     setTenants(t.data);
     setHqUnread(hq.data.unread || 0);
+    setInquiryNew(inq.data.new_count || 0);
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -218,6 +222,13 @@ export default function SuperAdmin() {
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "ai" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           ><Sparkles className="w-4 h-4" /> AI Insights</button>
           <button
+            data-testid="super-tab-inquiries"
+            onClick={() => setTab("inquiries")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "inquiries" ? "border-rose-500 text-rose-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><Users className="w-4 h-4" /> Inquiries
+            {inquiryNew > 0 && <span data-testid="inquiries-new-badge" className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{inquiryNew}</span>}
+          </button>
+          <button
             data-testid="super-tab-inbox"
             onClick={() => setTab("inbox")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "inbox" ? "border-violet-500 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
@@ -243,6 +254,7 @@ export default function SuperAdmin() {
             revenue: <RevenuePanel />,
             ai: <AiInsightsPanel />,
             inbox: <HqInbox onUnreadChange={setHqUnread} />,
+            inquiries: <InquiriesPanel onNewCount={setInquiryNew} />,
             engineer: <EngineerPanel />,
             onboarding: <OnboardingStudio tenants={tenants} />,
           };
