@@ -9,6 +9,7 @@ import DailyReportBanner from "@/components/DailyReportBanner";
 import { MorningBriefing } from "@/components/MorningBriefing";
 import { getSelectedBranch } from "@/lib/branch";
 import { WhatsAppApprovals } from "@/components/WhatsAppApprovals";
+import { BranchSwitchApprovals } from "@/components/BranchSwitchApprovals";
 import { LogoStudio } from "@/components/LogoStudio";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
@@ -97,6 +98,7 @@ export default function Dashboard() {
       {isOwner && <MorningBriefing />}
       {isOwner && <DailyReportBanner ownerName={user?.name} />}
       {isOwner && <WhatsAppApprovals />}
+      {isOwner && <BranchSwitchApprovals />}
       {isOwner && <LogoStudio />}
 
       {/* Hero strip with booking link */}

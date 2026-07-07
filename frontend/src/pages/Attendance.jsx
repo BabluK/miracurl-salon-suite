@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
+import pinApi from "@/lib/ownerPin";
 import { getSelectedBranch } from "@/lib/branch";
 import { toast } from "sonner";
 import {
@@ -63,7 +64,7 @@ export default function Attendance() {
     const note = window.prompt(`Waive ₹${r.late_penalty} fine for ${r.name}? Add a short reason:`, "Applied by mistake");
     if (note === null) return;
     try {
-      await api.post(`/attendance/${r.record_id}/waive-fine`, { note });
+      await pinApi.post(`/attendance/${r.record_id}/waive-fine`, { note });
       toast.success(`₹${r.late_penalty} fine waived for ${r.name}`);
       load();
     } catch (e) {

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
+import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 
@@ -24,7 +25,7 @@ export function AdvanceModal({ staff, onClose }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post(`/staff/${staff.id}/advance`, { amount: parseFloat(amount) || 0, note });
+      await pinApi.post(`/staff/${staff.id}/advance`, { amount: parseFloat(amount) || 0, note });
       toast.success(`Advance recorded for ${staff.name}`);
       setAmount(""); setNote("");
       load();
@@ -36,7 +37,7 @@ export function AdvanceModal({ staff, onClose }) {
   async function undo(aid) {
     if (!window.confirm("Remove this advance entry?")) return;
     try {
-      await api.delete(`/staff/${staff.id}/advance/${aid}`);
+      await pinApi.delete(`/staff/${staff.id}/advance/${aid}`);
       toast.success("Advance removed");
       load();
     } catch (err) {

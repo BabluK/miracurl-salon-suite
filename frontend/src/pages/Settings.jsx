@@ -12,6 +12,8 @@ import { RazorpayCard } from "@/components/settings/RazorpayCard";
 import { VendorsCard } from "@/components/settings/VendorsCard";
 import { BirthdayCard } from "@/components/settings/BirthdayCard";
 import { AttendanceFinesCard } from "@/components/settings/AttendanceFinesCard";
+import { SmsPacksCard } from "@/components/settings/SmsPacksCard";
+import { SecurityPinCard } from "@/components/settings/SecurityPinCard";
 
 export default function Settings() {
   return (
@@ -37,6 +39,10 @@ export default function Settings() {
         <TaxCard />
 
         <AttendanceFinesCard />
+
+        <SecurityPinCard />
+
+        <SmsPacksCard />
 
         <div className="mt-6">
           <VendorsCard />

@@ -743,6 +743,146 @@ async def delete_service(sid: str, user=Depends(require_admin)):
     await db.services.delete_one({"id": sid})
     return {"ok": True}
 
+# ---------------- Owner Security PIN + Branch-switch approval ----------------
+class SecurityPinIn(BaseModel):
+    new_pin: str = Field(..., pattern=r"^\d{4,6}$")
+    current_pin: Optional[str] = None
+
+
+@api.get("/settings/security-pin")
+async def security_pin_status(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return {"set": bool(t.get("security_pin_hash"))}
+
+
+@api.put("/settings/security-pin")
+async def set_security_pin(body: SecurityPinIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    existing = t.get("security_pin_hash")
+    if existing and not (body.current_pin and verify_pw(body.current_pin, existing)):
+        raise HTTPException(403, "Current PIN is incorrect")
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"security_pin_hash": hash_pw(body.new_pin)}})
+    return {"ok": True, "set": True}
+
+
+async def require_owner_pin(request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Guards sensitive staff/salary writes on the shared admin login.
+    No-op until the owner sets a Security PIN in Settings."""
+    if user.get("role") == "super_admin":
+        return True
+    ph = (t or {}).get("security_pin_hash")
+    if not ph:
+        return True
+    pin = request.headers.get("X-Owner-Pin") or ""
+    if not pin or not verify_pw(pin, ph):
+        raise HTTPException(403, "OWNER_PIN_REQUIRED")
+    return True
+
+
+class BranchSwitchRequestIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    phone: str = Field(..., min_length=7, max_length=20)
+    position: str = Field(..., min_length=2, max_length=60)
+    branch: str = Field("", max_length=120)
+
+
+class BranchSwitchVerifyIn(BaseModel):
+    request_id: str
+    otp: str = Field(..., min_length=4, max_length=8)
+
+
+class OwnerPinIn(BaseModel):
+    pin: str = Field(..., min_length=4, max_length=6)
+
+
+def _mask_email(e: str) -> str:
+    if not e or "@" not in e:
+        return ""
+    u, d = e.split("@", 1)
+    return f"{u[:2]}***@{d}"
+
+
+def _switch_otp_email_html(t: dict, req: dict) -> str:
+    esc = html_lib.escape
+    return f"""<div style="font-family:Georgia,serif;background:#f4f2ee;padding:24px">
+    <div style="max-width:520px;margin:0 auto;background:#191921;border-radius:16px;padding:28px;text-align:center">
+      <div style="color:#c9a35c;font-size:11px;letter-spacing:3px;text-transform:uppercase">Branch switch approval</div>
+      <div style="color:#fff;font-size:20px;margin-top:8px">{esc(t.get('name') or 'Your salon')}</div>
+      <p style="color:#9a9aa6;font-size:13px;margin-top:14px"><b style="color:#fff">{esc(req['requester_name'])}</b> ({esc(req['requester_position'])} &middot; {esc(req['requester_phone'])}) wants to switch the dashboard to <b style="color:#fff">{esc(req.get('branch') or 'All branches')}</b>.</p>
+      <div style="background:#26262f;border:1px solid #c9a35c;border-radius:12px;padding:14px;margin:18px 0">
+        <div style="color:#9a9aa6;font-size:11px">Share this OTP only if you approve</div>
+        <div style="color:#c9a35c;font-size:32px;letter-spacing:8px;font-weight:700;margin-top:4px">{req['otp']}</div>
+      </div>
+      <div style="color:#6f6f7a;font-size:11px">Valid for 10 minutes. If you don't recognise this person, ignore this email.</div>
+    </div></div>"""
+
+
+@api.post("/branch-switch/request")
+async def branch_switch_request(body: BranchSwitchRequestIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Anyone on a shared login must identify themselves; a 6-digit OTP goes to the owner."""
+    now = datetime.now(timezone.utc)
+    doc = {
+        "id": str(uuid.uuid4()), "otp": f"{secrets.randbelow(900000) + 100000}",
+        "requester_name": body.name.strip(), "requester_phone": body.phone.strip(),
+        "requester_position": body.position.strip(), "branch": body.branch.strip(),
+        "status": "pending", "attempts": 0, "requested_by_user": user.get("email"),
+        "expires_at": (now + timedelta(minutes=10)).isoformat(), "created_at": now.isoformat(),
+    }
+    await db.branch_switch_requests.insert_one(doc)
+    owner_email = (t or {}).get("owner_email")
+    sent = False
+    if owner_email:
+        res = await _send_email(
+            [owner_email],
+            f"Branch switch OTP — {body.name.strip()} ({body.position.strip()})",
+            _switch_otp_email_html(t, doc))
+        sent = bool(res.get("sent"))
+    return {"request_id": doc["id"], "owner_email": _mask_email(owner_email or ""),
+            "email_sent": sent, "expires_in_min": 10}
+
+
+@api.post("/branch-switch/verify")
+async def branch_switch_verify(body: BranchSwitchVerifyIn, user=Depends(get_current_user)):
+    req = await db.branch_switch_requests.find_one({"id": body.request_id}, {"_id": 0})
+    if not req or req.get("status") != "pending":
+        raise HTTPException(400, "Request not found or already used — ask for a new OTP")
+    if req["expires_at"] < datetime.now(timezone.utc).isoformat():
+        await db.branch_switch_requests.update_one({"id": req["id"]}, {"$set": {"status": "expired"}})
+        raise HTTPException(400, "OTP expired — please request approval again")
+    if int(req.get("attempts") or 0) >= 5:
+        await db.branch_switch_requests.update_one({"id": req["id"]}, {"$set": {"status": "blocked"}})
+        raise HTTPException(400, "Too many wrong attempts — request a new OTP")
+    if not hmac.compare_digest(str(req["otp"]), body.otp.strip()):
+        await db.branch_switch_requests.update_one({"id": req["id"]}, {"$inc": {"attempts": 1}})
+        raise HTTPException(400, "Incorrect OTP")
+    await db.branch_switch_requests.update_one(
+        {"id": req["id"]},
+        {"$set": {"status": "approved", "approved_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True}
+
+
+@api.post("/branch-switch/owner-pin")
+async def branch_switch_owner_pin(body: OwnerPinIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Owner fast-path: knowing the Security PIN proves it's the owner switching."""
+    ph = (t or {}).get("security_pin_hash")
+    if not ph:
+        raise HTTPException(400, "No owner PIN set — use the OTP option")
+    if not verify_pw(body.pin, ph):
+        raise HTTPException(403, "Incorrect PIN")
+    return {"ok": True}
+
+
+@api.get("/branch-switch/pending")
+async def branch_switch_pending(user=Depends(require_tenant_admin)):
+    now_iso = datetime.now(timezone.utc).isoformat()
+    return await db.branch_switch_requests.find(
+        {"status": "pending", "expires_at": {"$gt": now_iso}}, {"_id": 0}).sort("created_at", -1).to_list(20)
+
+
+@api.post("/branch-switch/{rid}/deny")
+async def branch_switch_deny(rid: str, user=Depends(require_tenant_admin)):
+    await db.branch_switch_requests.update_one({"id": rid}, {"$set": {"status": "denied"}})
+    return {"ok": True}
+
+
 # ---------------- Staff ----------------
 _STAFF_SENSITIVE_FIELDS = {
     "monthly_base_salary": 0, "commission_pct": 0, "bank_details": 0, "aadhaar_last4": 0,
@@ -771,18 +911,18 @@ def _staff_write_payload(body: StaffIn) -> dict:
 
 
 @api.post("/staff")
-async def create_staff(body: StaffIn, user=Depends(require_tenant_admin)):
+async def create_staff(body: StaffIn, user=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
     s = Staff(**_staff_write_payload(body)).model_dump()
     await db.staff.insert_one(s)
     return _clean({k: v for k, v in s.items() if k != "aadhaar_hash"})
 
 @api.put("/staff/{sid}")
-async def update_staff(sid: str, body: StaffIn, user=Depends(require_tenant_admin)):
+async def update_staff(sid: str, body: StaffIn, user=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
     await db.staff.update_one({"id": sid}, {"$set": _staff_write_payload(body)})
     return await db.staff.find_one({"id": sid}, {"_id": 0, "aadhaar_hash": 0})
 
 @api.delete("/staff/{sid}")
-async def delete_staff(sid: str, user=Depends(require_tenant_admin)):
+async def delete_staff(sid: str, user=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
     # If the staff has a linked user (login credential), also delete the login
     # so the deleted staff cannot access the salon.
     s = await db.staff.find_one({"id": sid}, {"_id": 0, "user_id": 1})
@@ -799,7 +939,7 @@ class AdvanceIn(BaseModel):
 
 
 @api.post("/staff/{sid}/advance")
-async def give_advance(sid: str, body: AdvanceIn, admin=Depends(require_tenant_admin)):
+async def give_advance(sid: str, body: AdvanceIn, admin=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
     """One advance per staff per month, only after the 15th, capped at staff.max_advance.
     Auto-deducted from that month's salary slip."""
     staff = await db.staff.find_one({"id": sid}, {"_id": 0})
@@ -832,7 +972,7 @@ async def list_advances(sid: str, admin=Depends(require_tenant_admin)):
 
 
 @api.delete("/staff/{sid}/advance/{aid}")
-async def delete_advance(sid: str, aid: str, admin=Depends(require_tenant_admin)):
+async def delete_advance(sid: str, aid: str, admin=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
     """Undo a mistakenly-recorded advance — allowed only within the same month."""
     month = datetime.now(IST_TZ).strftime("%Y-%m")
     res = await db.advances.delete_one({"id": aid, "staff_id": sid, "month": month})
@@ -1302,7 +1442,7 @@ class WaiveFineIn(BaseModel):
 
 
 @api.post("/attendance/{rec_id}/waive-fine")
-async def waive_late_fine(rec_id: str, body: WaiveFineIn, admin=Depends(require_tenant_admin)):
+async def waive_late_fine(rec_id: str, body: WaiveFineIn, admin=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
     """Correct a wrongly-applied late fine — zeroes the deduction, keeps an audit trail."""
     rec = await db.attendance.find_one({"id": rec_id}, {"_id": 0})
     if not rec:
@@ -4481,6 +4621,79 @@ def _verify_rzp_signature(order_id: str, payment_id: str, signature: str) -> boo
     body = f"{order_id}|{payment_id}".encode()
     expected = hmac.new(RAZORPAY_KEY_SECRET.encode(), body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
+
+
+# ---------------- SMS Point Packs (self-serve Razorpay top-up) ----------------
+SMS_PACKS = {
+    "pack_199": {"price": 199, "points": 250, "label": "Starter"},
+    "pack_499": {"price": 499, "points": 700, "label": "Growth"},
+    "pack_999": {"price": 999, "points": 1500, "label": "Pro"},
+}
+
+
+class SmsPackOrderIn(BaseModel):
+    pack: str
+
+
+class SmsPackVerifyIn(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@api.get("/sms-packs")
+async def sms_packs(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return {"enabled": bool(RAZORPAY_KEY_ID), "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"),
+            "packs": [{"key": k, **v} for k, v in SMS_PACKS.items()],
+            "balance": int(t.get("sms_points") or 0)}
+
+
+@api.post("/sms-packs/order")
+async def sms_pack_order(body: SmsPackOrderIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    rzp = _rzp_client()
+    if not rzp:
+        raise HTTPException(503, "Razorpay is not configured. Ask HQ to credit SMS points manually.")
+    pack = SMS_PACKS.get(body.pack)
+    if not pack:
+        raise HTTPException(400, "Unknown pack")
+    receipt = f"sms_{t['slug'][:18]}_{int(datetime.now(timezone.utc).timestamp())}"[:40]
+    order = rzp.order.create({
+        "amount": int(pack["price"]) * 100, "currency": "INR", "receipt": receipt,
+        "notes": {"kind": "sms_pack", "tenant_id": t["id"], "pack": body.pack}})
+    await db.sms_pack_payments.insert_one({
+        "id": str(uuid.uuid4()), "kind": "sms_pack_pending", "razorpay_order_id": order["id"],
+        "tenant_id": t["id"], "pack": body.pack, "points": pack["points"], "amount": pack["price"],
+        "status": "created", "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"order_id": order["id"], "amount": order["amount"], "currency": order["currency"],
+            "key_id": RAZORPAY_KEY_ID, "pack_label": f"{pack['points']} SMS points",
+            "points": pack["points"]}
+
+
+@api.post("/sms-packs/verify")
+async def sms_pack_verify(body: SmsPackVerifyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Signature-verified; points/price always come from the server-recorded pending order."""
+    if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
+        raise HTTPException(503, "Razorpay is not configured.")
+    if not _verify_rzp_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
+        raise HTTPException(400, "Payment signature verification failed — possible tampering.")
+    now = datetime.now(timezone.utc)
+    pending = await db.sms_pack_payments.find_one_and_update(
+        {"razorpay_order_id": body.razorpay_order_id, "kind": "sms_pack_pending",
+         "status": "created", "tenant_id": t["id"]},
+        {"$set": {"status": "captured", "razorpay_payment_id": body.razorpay_payment_id,
+                  "captured_at": now.isoformat()}},
+        return_document=True)
+    if not pending:
+        raise HTTPException(400, "Unknown, already-consumed, or foreign order — please retry.")
+    pts = int(pending["points"])
+    await db.tenants.update_one({"id": t["id"]}, {"$inc": {"sms_points": pts}})
+    await _raw_db.sms_credit_log.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": t["id"], "points": pts, "source": "razorpay",
+        "payment_ref": body.razorpay_payment_id, "amount": pending["amount"],
+        "credited_by": user.get("email"), "at": now.isoformat()})
+    fresh = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "sms_points": 1})
+    return {"ok": True, "points_added": pts,
+            "sms_points": int((fresh or {}).get("sms_points") or 0)}
 
 
 @api.post("/billing/razorpay/verify")

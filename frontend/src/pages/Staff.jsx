@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
+import pinApi from "@/lib/ownerPin";
 import { Plus, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import { ManagersSection } from "@/components/ManagersSection";
@@ -74,10 +75,10 @@ export default function Staff() {
     try {
       const payload = buildStaffPayload(form);
       if (editing) {
-        await api.put(`/staff/${editing.id}`, payload);
+        await pinApi.put(`/staff/${editing.id}`, payload);
         toast.success("Staff updated");
       } else {
-        await api.post("/staff", payload);
+        await pinApi.post("/staff", payload);
         toast.success("Staff added");
       }
       setOpen(false); load();
@@ -89,7 +90,7 @@ export default function Staff() {
   async function remove(id) {
     if (!window.confirm("Delete this staff member? Their login (if any) will also be removed.")) return;
     try {
-      await api.delete(`/staff/${id}`);
+      await pinApi.delete(`/staff/${id}`);
       toast.success("Deleted");
       load();
     } catch (e) {
@@ -138,7 +139,7 @@ export default function Staff() {
   async function photoUploaded(url) {
     if (!editing) { toast.success("Photo attached — it saves with the profile ✦"); return; }
     try {
-      await api.put(`/staff/${editing.id}`, { ...buildStaffPayload(form), image_url: url });
+      await pinApi.put(`/staff/${editing.id}`, { ...buildStaffPayload(form), image_url: url });
       toast.success("Photo uploaded & saved ✦");
       load();
     } catch { toast.error("Auto-save failed — press Save"); }
