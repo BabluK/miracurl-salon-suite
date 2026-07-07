@@ -11,6 +11,7 @@ import { AffiliateCard } from "@/components/settings/AffiliateCard";
 import { RazorpayCard } from "@/components/settings/RazorpayCard";
 import { VendorsCard } from "@/components/settings/VendorsCard";
 import { BirthdayCard } from "@/components/settings/BirthdayCard";
+import { AttendanceFinesCard } from "@/components/settings/AttendanceFinesCard";
 
 export default function Settings() {
   return (
@@ -34,6 +35,8 @@ export default function Settings() {
         <BrandingCard />
 
         <TaxCard />
+
+        <AttendanceFinesCard />
 
         <div className="mt-6">
           <VendorsCard />

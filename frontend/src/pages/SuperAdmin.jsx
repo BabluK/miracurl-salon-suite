@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
@@ -160,6 +160,18 @@ export default function SuperAdmin() {
     if (!window.confirm(`Cancel subscription for ${t.name}? Their account will be disabled.`)) return;
     try { await api.delete(`/super-admin/tenants/${t.id}`); toast.success("Tenant cancelled"); load(); }
     catch (err) { toast.error("Delete failed"); }
+  }
+
+  async function creditSms(t) {
+    const val = window.prompt(`Add SMS points for ${t.name} (current balance: ${t.sms_points || 0})\n1 point = 1 billing SMS`, "100");
+    if (!val) return;
+    const points = parseInt(val, 10);
+    if (!points || points < 1) { toast.error("Enter a positive number of points"); return; }
+    try {
+      const { data } = await api.post(`/super-admin/tenants/${t.id}/sms-points`, { points });
+      toast.success(`${t.name} now has ${data.sms_points} SMS points`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't credit SMS points"); }
   }
 
   function publicBookingUrl(slug) {
@@ -366,6 +378,10 @@ export default function SuperAdmin() {
                     <div className="flex items-center gap-1 justify-end">
                       <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
                       <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
+                      <button data-testid={`sms-points-${t.id}`} onClick={() => creditSms(t)} title={`SMS points: ${t.sms_points || 0} — click to credit more`} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded relative">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-emerald-100 text-emerald-700 rounded-full px-1 min-w-[14px] text-center leading-[14px]">{t.sms_points || 0}</span>
+                      </button>
                       <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />
                       <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>

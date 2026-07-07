@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { openWhatsApp } from "@/lib/share";
-import { Sun, Moon, Sunset, Send, Plus, X, Loader2, Volume2, Mic, MessageCircle, Mail, Bell } from "lucide-react";
+import { Sun, Moon, Sunset, Send, Plus, X, Loader2, Volume2, Mic, MessageCircle, Mail, Bell, Music } from "lucide-react";
 import { VendorAddForm } from "@/components/briefing/VendorAddForm";
 
 export function MorningBriefing() {
@@ -191,6 +191,19 @@ export function MorningBriefing() {
               </span>
             )}
           </div>
+
+          {/* Mira's morning music suggestion */}
+          {!isEvening && (
+            <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/60 px-3 py-2.5 flex flex-wrap items-center gap-2" data-testid="mira-bhakti-suggestion">
+              <span className="text-xs text-slate-700">
+                <b className="text-violet-700">🎵 Mira suggests:</b> {lang === "hi" ? "दिन की शुभ शुरुआत के लिए 30 मिनट भक्ति संगीत?" : "Start the day with 30 minutes of Bhakti songs?"}
+              </span>
+              <Link to="/entertainment?play=bhakti&timer=30" data-testid="mira-play-bhakti-btn"
+                className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-violet-500 hover:bg-violet-600 text-white font-medium">
+                <Music className="w-3.5 h-3.5" /> {lang === "hi" ? "अभी चलाओ" : "Play now"}
+              </Link>
+            </div>
+          )}
 
           {/* staff today */}
           {(st.checked_in.length + st.not_checked_in.length + st.on_leave.length) > 0 && (

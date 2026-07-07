@@ -39,6 +39,7 @@ import Messages from "@/pages/Messages";
 import Plans from "@/pages/Plans";
 import StaffRegistry from "@/pages/StaffRegistry";
 import RegistryPublic from "@/pages/RegistryPublic";
+import Entertainment from "@/pages/Entertainment";
 
 function Protected({ children }) {
   const { user, loading, refresh } = useAuth();
@@ -143,6 +144,7 @@ export default function App() {
               <Route path="reports" element={<OwnerOnly><Reports /></OwnerOnly>} />
               <Route path="assistant" element={<OwnerOnly><Assistant /></OwnerOnly>} />
               <Route path="gallery" element={<OwnerOnly><Gallery /></OwnerOnly>} />
+              <Route path="entertainment" element={<AdminOnly><Entertainment /></AdminOnly>} />
               <Route path="messages" element={<OwnerOnly><Messages /></OwnerOnly>} />
               <Route path="plans" element={<OwnerOnly><Plans /></OwnerOnly>} />
               <Route path="settings" element={<OwnerOnly><Settings /></OwnerOnly>} />

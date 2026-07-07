@@ -218,6 +218,10 @@ export default function POS() {
         branch_id: branchId || null,
       });
       toast.success(`Invoice ${data.invoice_no} created${data.points_earned ? ` · +${data.points_earned} pts earned` : ""}`);
+      const rc = data.receipts || {};
+      if (rc.email?.sent) toast.info("📧 Receipt emailed to the guest");
+      if (rc.sms?.sent) toast.info(`📱 SMS receipt sent · ${rc.sms.points_left} SMS points left`);
+      else if (rc.sms?.error === "no_sms_points") toast.warning("SMS receipt skipped — no SMS points left. Ask HQ to recharge.");
       setLastInvoice(data);
       if (complete) clearAll();
     } catch (err) { toast.error(err.response?.data?.detail || "Checkout failed"); }

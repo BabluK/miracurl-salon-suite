@@ -5,7 +5,7 @@ import {
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
   Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot,
   Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck, Megaphone,
-  Landmark, FileText
+  Landmark, FileText, Music
 } from "lucide-react";
 import BranchSwitcher from "./BranchSwitcher";
 import api from "@/lib/api";
@@ -35,6 +35,7 @@ const NAV_ADMIN = [
   { to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" },
   { to: "/messages", label: "Messages", icon: MessageSquare, testid: "nav-messages" },
   { to: "/gallery", label: "Gallery", icon: ImageIcon, testid: "nav-gallery" },
+  { to: "/entertainment", label: "Entertainment", icon: Music, testid: "nav-entertainment" },
   { to: "/assistant", label: "AI Assistant", icon: Bot, testid: "nav-assistant" },
   { to: "/settings", label: "Settings", icon: SettingsIcon, testid: "nav-settings" },
 ];

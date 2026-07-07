@@ -15,6 +15,8 @@ import asyncio
 import base64
 import html as html_lib
 from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html, _lead_alert_email_html, _platform_digest_html
+from receipt_email import send_invoice_receipt_email
+from sms_service import send_sms
 from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf, _render_invoice_pdf
 import hashlib
 import logging
@@ -1178,8 +1180,8 @@ async def reject_leave_request(rid: str, body: LeaveDecisionIn = LeaveDecisionIn
 
 # ---- Attendance rules: geo-fence, late fines, overtime, auto-checkout ----
 IST_TZ = timezone(timedelta(hours=5, minutes=30))
-GRACE_MINUTES = 10          # arrive within 10 min of shift start — no fine
-LATE_FINE_PER_5MIN = 50.0   # ₹50 deducted per started 5-min block after grace
+GRACE_MINUTES = 10          # default grace — admin can override per tenant
+LATE_FINE_TIERS_DEFAULT = {"grace_minutes": GRACE_MINUTES, "fine_5": 50.0, "fine_10": 100.0, "fine_15": 150.0, "fine_30": 300.0}
 GEO_FENCE_M = 200           # check-in blocked beyond this distance from salon
 AUTO_CHECKOUT_HOURS = 12    # forgot to check out — shift auto-closes at 12h
 
@@ -1201,15 +1203,49 @@ def _parse_hhmm(val, fallback: str) -> tuple:
     return int(h), int(m)
 
 
-def _late_penalty_for(staff: dict, checkin_ist: datetime) -> tuple:
-    """(minutes_late, fine ₹). Fine starts after the 10-min grace, ₹50 per 5-min block."""
+def _late_fine_rules(tenant: Optional[dict]) -> dict:
+    saved = (tenant or {}).get("late_fines") or {}
+    return {**LATE_FINE_TIERS_DEFAULT, **{k: saved[k] for k in LATE_FINE_TIERS_DEFAULT if k in saved}}
+
+
+def _late_penalty_for(staff: dict, checkin_ist: datetime, tenant: Optional[dict] = None) -> tuple:
+    """(minutes_late, fine ₹). Admin-configurable tiered fines after the grace window."""
+    rules = _late_fine_rules(tenant)
     h, m = _parse_hhmm(staff.get("shift_start"), "10:00")
     start = checkin_ist.replace(hour=h, minute=m, second=0, microsecond=0)
     late_min = int((checkin_ist - start).total_seconds() // 60)
-    if late_min <= GRACE_MINUTES:
+    grace = int(rules["grace_minutes"])
+    if late_min <= grace:
         return max(late_min, 0), 0.0
-    blocks = math.ceil((late_min - GRACE_MINUTES) / 5)
-    return late_min, round(blocks * LATE_FINE_PER_5MIN, 2)
+    past = late_min - grace
+    if past <= 5:
+        fine = rules["fine_5"]
+    elif past <= 10:
+        fine = rules["fine_10"]
+    elif past <= 15:
+        fine = rules["fine_15"]
+    else:
+        fine = rules["fine_30"]
+    return late_min, round(float(fine), 2)
+
+
+class LateFineSettingsIn(BaseModel):
+    grace_minutes: int = Field(10, ge=0, le=120)
+    fine_5: float = Field(50, ge=0, le=100000)
+    fine_10: float = Field(100, ge=0, le=100000)
+    fine_15: float = Field(150, ge=0, le=100000)
+    fine_30: float = Field(300, ge=0, le=100000)
+
+
+@api.get("/settings/late-fines")
+async def get_late_fine_settings(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return _late_fine_rules(t)
+
+
+@api.put("/settings/late-fines")
+async def save_late_fine_settings(body: LateFineSettingsIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"late_fines": body.model_dump()}})
+    return body.model_dump()
 
 
 # OT policy: every completed 30-min block past shift end earns ₹50 by default.
@@ -1310,7 +1346,7 @@ async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff)
         if distance_m > GEO_FENCE_M:
             raise HTTPException(403, f"You appear to be {int(distance_m)}m from {f_label}. Check-in is allowed only within {GEO_FENCE_M}m.")
     now = datetime.now(timezone.utc)
-    late_min, penalty = _late_penalty_for(s, now.astimezone(IST_TZ))
+    late_min, penalty = _late_penalty_for(s, now.astimezone(IST_TZ), t)
     # Fines only for geo-verified, on-site check-ins. If the salon hasn't pinned
     # its GPS location yet, we record the time but never auto-fine.
     if distance_m is None:
@@ -2051,6 +2087,8 @@ def _greeting_hi(ctx: dict) -> str:
     text += _staff_sentence(ctx["staff_st"], "hi")
     text += _notif_sentence(ctx["notif"], "hi")
     text += _lowstock_sentence(ctx["low_count"], ctx["has_vendor"], "hi")
+    if ist.hour < 12:
+        text += "क्या मैं दिन की शुभ शुरुआत के लिए 30 मिनट भक्ति संगीत चला दूं? बस एंटरटेनमेंट टैब खोलिए। "
     return text + "आपका दिन शुभ हो!"
 
 
@@ -2064,6 +2102,8 @@ def _greeting_en(ctx: dict) -> str:
     text += _staff_sentence(ctx["staff_st"], "en")
     text += _notif_sentence(ctx["notif"], "en")
     text += _lowstock_sentence(ctx["low_count"], ctx["has_vendor"], "en")
+    if ist.hour < 12:
+        text += "Shall I play soothing Bhakti songs for 30 minutes to start the day on a divine note? Just open the Entertainment tab. "
     return text + "Have a wonderful day ahead!"
 
 
@@ -2756,6 +2796,46 @@ async def _validate_package_redeem_items(items: list, cust: dict):
             it.qty = 1
 
 
+def _receipt_sms_text(t: dict, inv: dict, points_earned: int) -> str:
+    name = (t or {}).get("name") or "Your Salon"
+    pts = f" You earned {points_earned} loyalty pts." if points_earned else ""
+    return (f"{name}: Thank you {inv['customer_name']}! Receipt {inv['invoice_no']} - "
+            f"Rs.{inv['total']:.0f} paid via {str(inv['payment_mode']).upper()}.{pts} See you again!")
+
+
+async def _send_billing_receipts(inv: dict, cust: dict, tenant_doc: Optional[dict], points_earned: int) -> dict:
+    """Post-billing receipts. Email is free; each SMS burns 1 sms_point (credited by HQ)."""
+    out = {"email": None, "sms": None}
+    t = tenant_doc or {}
+    try:
+        if cust.get("email"):
+            out["email"] = await send_invoice_receipt_email(t, inv, cust["email"], points_earned)
+        else:
+            out["email"] = {"sent": False, "error": "no_email"}
+    except Exception as e:  # noqa: BLE001 — receipts must never break checkout
+        out["email"] = {"sent": False, "error": str(e)[:200]}
+    try:
+        if not cust.get("phone"):
+            out["sms"] = {"sent": False, "error": "no_phone"}
+        elif not t.get("id"):
+            out["sms"] = {"sent": False, "error": "no_tenant"}
+        else:
+            r = await db.tenants.update_one(
+                {"id": t["id"], "sms_points": {"$gte": 1}}, {"$inc": {"sms_points": -1}})
+            if r.modified_count == 0:
+                out["sms"] = {"sent": False, "error": "no_sms_points"}
+            else:
+                res = await send_sms(cust["phone"], _receipt_sms_text(t, inv, points_earned))
+                if not res.get("sent"):
+                    await db.tenants.update_one({"id": t["id"]}, {"$inc": {"sms_points": 1}})
+                fresh = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "sms_points": 1})
+                res["points_left"] = int((fresh or {}).get("sms_points") or 0)
+                out["sms"] = res
+    except Exception as e:  # noqa: BLE001
+        out["sms"] = {"sent": False, "error": str(e)[:200]}
+    return out
+
+
 @api.get("/invoices/{inv_id}/pdf")
 async def invoice_pdf(inv_id: str, user=Depends(get_current_user), t=Depends(current_tenant)):
     inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
@@ -2828,6 +2908,7 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     for pid, qty in needed.items():
         await db.products.update_one({"id": pid}, {"$inc": {"stock": -qty}})
     inv["points_earned"] = points_earned
+    inv["receipts"] = await _send_billing_receipts(inv, cust, tenant_doc, points_earned)
     return _clean(inv)
 
 # ---------------- Reviews ----------------
@@ -4852,6 +4933,24 @@ async def update_tenant(tid: str, body: TenantUpdateIn, user=Depends(require_sup
         raise HTTPException(400, "No fields to update")
     await db.tenants.update_one({"id": tid}, {"$set": upd})
     return await db.tenants.find_one({"id": tid}, {"_id": 0})
+
+class SmsPointsIn(BaseModel):
+    points: int = Field(..., ge=1, le=100000)
+
+
+@api.post("/super-admin/tenants/{tid}/sms-points")
+async def credit_sms_points(tid: str, body: SmsPointsIn, user=Depends(require_super_admin)):
+    """Super-admin credits SMS points to a tenant (1 point = 1 billing SMS)."""
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    await db.tenants.update_one({"id": tid}, {"$inc": {"sms_points": int(body.points)}})
+    await _raw_db.sms_credit_log.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": tid, "points": int(body.points),
+        "credited_by": user.get("email"), "at": datetime.now(timezone.utc).isoformat()})
+    fresh = await db.tenants.find_one({"id": tid}, {"_id": 0, "sms_points": 1})
+    return {"ok": True, "sms_points": int((fresh or {}).get("sms_points") or 0)}
+
 
 @api.delete("/super-admin/tenants/{tid}")
 async def delete_tenant(tid: str, user=Depends(require_super_admin)):
