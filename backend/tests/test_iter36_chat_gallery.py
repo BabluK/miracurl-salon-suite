@@ -11,6 +11,7 @@ import uuid
 import time
 import pytest
 import requests
+from creds import password_for
 
 _env_path = "/app/frontend/.env"
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL")
@@ -23,9 +24,9 @@ BASE_URL = BASE_URL.rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "Miracurl@123"
+ADMIN_PASS = password_for("admin@miracurl.com")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "Super@Miracurl123"
+SUPER_PASS = password_for("super@miracurl.com")
 TENANT_SLUG = "miracurl-marathahalli"
 
 
@@ -33,7 +34,7 @@ TENANT_SLUG = "miracurl-marathahalli"
 def admin_headers():
     r = requests.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASS}, timeout=15)
     assert r.status_code == 200, f"admin login failed: {r.status_code} {r.text[:200]}"
-    tok = r.json().get("access_token") or r.json().get("token")
+    tok = r.cookies.get("access_token") or r.json().get("token")
     assert tok
     return {"Authorization": f"Bearer {tok}"}
 
@@ -74,7 +75,8 @@ class TestPublicAIChat:
 @pytest.fixture(scope="module")
 def thread_ctx():
     """Create a chat thread on public side; return thread_id + phone."""
-    payload = {"name": "TEST_QA_Iter36", "phone": f"9{int(time.time())%10**9:09d}"}
+    payload = {"name": "TEST_QA_Iter36", "phone": f"9{int(time.time())%10**9:09d}",
+               "session_key": uuid.uuid4().hex}
     r = requests.post(f"{API}/public/chat/{TENANT_SLUG}/start", json=payload, timeout=15)
     assert r.status_code == 200, f"chat start failed: {r.status_code} {r.text[:200]}"
     data = r.json()

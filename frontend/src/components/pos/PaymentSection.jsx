@@ -1,11 +1,7 @@
 import { Receipt } from "lucide-react";
+import { PAY_LABELS } from "@/components/pos/payLabels";
 
-const PAYMENT_MODES = [
-  { k: "cash", label: "Cash" },
-  { k: "card", label: "Card" },
-  { k: "upi", label: "GPay" },
-  { k: "wallet", label: "Phone Pay" },
-];
+const PAYMENT_MODES = Object.entries(PAY_LABELS).map(([k, label]) => ({ k, label }));
 
 export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment, onClear, onCheckout }) {
   return (

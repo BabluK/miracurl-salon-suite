@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Handshake, Star, Eye, EyeOff, Plus, Trash2, Save } from "lucide-react";
+import { Handshake, Star, Eye, EyeOff, Plus, Trash2, Save, Lock, LockOpen } from "lucide-react";
 
 const inputCls = "px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200";
 
@@ -70,11 +70,22 @@ export function PartnersPanel() {
                 )}
               </div>
               <Rating rating={t.rating} count={t.reviews_count} />
-              <input data-testid={`partner-blurb-${t.id}`} value={blurbs[t.id] ?? ""} maxLength={400}
-                onChange={e => setBlurbs(b => ({ ...b, [t.id]: e.target.value }))}
-                placeholder="Optional note shown publicly…" className={`${inputCls} w-56`} />
+              <div className="flex flex-col">
+                <label className="text-[10px] text-slate-400 mb-0.5 ml-1">Public note (shown on partner card)</label>
+                <input data-testid={`partner-blurb-${t.id}`} value={blurbs[t.id] ?? ""} maxLength={400}
+                  onChange={e => setBlurbs(b => ({ ...b, [t.id]: e.target.value }))}
+                  placeholder="e.g. Flagship partner since 2024…" className={`${inputCls} w-56`} />
+              </div>
               <button data-testid={`partner-blurb-save-${t.id}`} onClick={() => updateTenant(t, { blurb: blurbs[t.id] || "" })}
                 title="Save note" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Save className="w-4 h-4" /></button>
+              {t.owner_review?.rating && (
+                <button data-testid={`partner-review-unlock-${t.id}`}
+                  onClick={() => updateTenant(t, { allow_review_edit: !t.review_editable })}
+                  title={t.review_editable ? "Review editing is ENABLED — click to lock again" : "Review locked (one-time). Click to let the owner edit their review"}
+                  className={`p-1.5 rounded ${t.review_editable ? "text-emerald-600 bg-emerald-50" : "text-slate-300 hover:text-emerald-600 hover:bg-emerald-50"}`}>
+                  {t.review_editable ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                </button>
+              )}
               <button data-testid={`partner-feature-${t.id}`} onClick={() => updateTenant(t, { featured: !t.featured })}
                 title={t.featured ? "Un-feature" : "Feature at top"}
                 className={`p-1.5 rounded ${t.featured ? "text-amber-500 bg-amber-50" : "text-slate-300 hover:text-amber-500 hover:bg-amber-50"}`}>
@@ -96,12 +107,29 @@ export function PartnersPanel() {
           <Plus className="w-4 h-4 text-violet-600" /> Manual partners — suppliers, brands, collaborators
         </h3>
         <form onSubmit={addManual} className="grid grid-cols-1 sm:grid-cols-5 gap-2 mt-4">
-          <input data-testid="manual-partner-name" required minLength={2} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Partner name *" className={inputCls} />
-          <input data-testid="manual-partner-city" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="City" className={inputCls} />
-          <input data-testid="manual-partner-logo" value={form.logo_url} onChange={e => setForm({ ...form, logo_url: e.target.value })} placeholder="Logo URL" className={inputCls} />
-          <input data-testid="manual-partner-rating" type="number" min="0" max="5" step="0.1" value={form.rating} onChange={e => setForm({ ...form, rating: e.target.value })} placeholder="Rating 0–5" className={inputCls} />
-          <button data-testid="manual-partner-add" className="px-4 py-2 rounded-lg bg-violet-500 hover:bg-violet-600 text-white text-sm font-semibold">Add</button>
-          <input data-testid="manual-partner-blurb" value={form.blurb} onChange={e => setForm({ ...form, blurb: e.target.value })} maxLength={400} placeholder="Review / note shown publicly" className={`${inputCls} sm:col-span-5`} />
+          <div className="flex flex-col">
+            <label className="text-[10px] text-slate-400 mb-0.5 ml-1">Partner name *</label>
+            <input data-testid="manual-partner-name" required minLength={2} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. L'Oréal Professionnel" className={inputCls} />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[10px] text-slate-400 mb-0.5 ml-1">City</label>
+            <input data-testid="manual-partner-city" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="e.g. Bengaluru" className={inputCls} />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[10px] text-slate-400 mb-0.5 ml-1">Logo image URL</label>
+            <input data-testid="manual-partner-logo" value={form.logo_url} onChange={e => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…/logo.png" className={inputCls} />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[10px] text-slate-400 mb-0.5 ml-1">Rating (0–5)</label>
+            <input data-testid="manual-partner-rating" type="number" min="0" max="5" step="0.1" value={form.rating} onChange={e => setForm({ ...form, rating: e.target.value })} placeholder="e.g. 4.5" className={inputCls} />
+          </div>
+          <div className="flex flex-col justify-end">
+            <button data-testid="manual-partner-add" className="px-4 py-2 rounded-lg bg-violet-500 hover:bg-violet-600 text-white text-sm font-semibold">Add</button>
+          </div>
+          <div className="flex flex-col sm:col-span-5">
+            <label className="text-[10px] text-slate-400 mb-0.5 ml-1">Short review / note (shown publicly on the partner card)</label>
+            <input data-testid="manual-partner-blurb" value={form.blurb} onChange={e => setForm({ ...form, blurb: e.target.value })} maxLength={400} placeholder="e.g. Our trusted colour & haircare supplier" className={inputCls} />
+          </div>
         </form>
         <div className="mt-4 space-y-2">
           {data.manual.map(p => (

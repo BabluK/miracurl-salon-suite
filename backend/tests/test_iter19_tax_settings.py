@@ -4,12 +4,13 @@ Tests for GET/PUT /api/settings/tax, invoice tax enforcement, and resets state.
 import os
 import pytest
 import requests
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASSWORD = os.environ.get("MIRACURL_ADMIN_PASSWORD", "Miracurl@123")
+ADMIN_PASSWORD = os.environ.get("MIRACURL_ADMIN_PASSWORD", password_for("admin@miracurl.com"))
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASSWORD = os.environ.get("MIRACURL_SUPER_PASSWORD", "Super@Miracurl123")
+SUPER_PASSWORD = os.environ.get("MIRACURL_SUPER_PASSWORD", password_for("super@miracurl.com"))
 
 
 @pytest.fixture(scope="module")
@@ -17,7 +18,7 @@ def admin_token():
     r = requests.post(f"{BASE_URL}/api/auth/login",
                       json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}, timeout=20)
     assert r.status_code == 200, r.text
-    return r.json()["access_token"]
+    return r.cookies["access_token"]
 
 
 @pytest.fixture(scope="module")
@@ -118,13 +119,15 @@ class TestInvoiceTax:
 
 
 class TestCleanup:
-    def test_reset_tax_disabled(self, admin_headers):
+    def test_restore_tax_enabled_18(self, admin_headers):
+        # Demo tenant's steady state is GST ON @ 18% — restore it so other suites/preview data stay intact.
         r = requests.put(f"{BASE_URL}/api/settings/tax", headers=admin_headers,
-                         json={"tax_enabled": False, "tax_pct": 0}, timeout=15)
+                         json={"tax_enabled": True, "gst_number": "29ABCDE1234F1Z5",
+                               "gst_legal_name": "Miracurl Salon", "tax_pct": 18}, timeout=15)
         assert r.status_code == 200, r.text
         g = requests.get(f"{BASE_URL}/api/settings/tax", headers=admin_headers, timeout=15).json()
-        assert g["tax_enabled"] is False
-        assert g["tax_pct"] == 0
+        assert g["tax_enabled"] is True
+        assert g["tax_pct"] == 18
 
 
 # ---------------- Regression: super-admin + public booking ----------------
@@ -134,7 +137,7 @@ class TestRegression:
         r = requests.post(f"{BASE_URL}/api/auth/login",
                           json={"email": SUPER_EMAIL, "password": SUPER_PASSWORD}, timeout=15)
         assert r.status_code == 200, r.text
-        token = r.json()["access_token"]
+        token = r.cookies["access_token"]
         tr = requests.get(f"{BASE_URL}/api/super-admin/tenants",
                           headers={"Authorization": f"Bearer {token}"}, timeout=15)
         assert tr.status_code == 200, tr.text

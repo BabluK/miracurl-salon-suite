@@ -15,7 +15,8 @@
 
 ## P2
 - DONE Jul 7 (iter50): router split — auth, reports, registry, super_admin, sales in routes/ + shared models.py (server.py ~5980 lines)
-- Further split candidates: appointments/invoices/POS, staff/attendance, razorpay/subscriptions, brand studio
+- DONE Jul 7 (part 69): appointments/POS → routes/appointments_pos.py, subscriptions/razorpay/SMS-packs → routes/subscriptions.py, billing helpers → services/billing.py (server.py ~5290 lines)
+- Further split candidates: staff/attendance, public booking, reviews, brand studio
 - Brute-force lockout: key by X-Forwarded-For real client IP (currently per-pod IP behind ingress) — tester iter50
 - DONE Jul 7: TTS Mongo cache, logout jti revocation, avg rating on Reports, Lead→Tenant convert, zero-env-var prod defaults
 

@@ -6,6 +6,12 @@ from email_service import _send_email
 GOLD = "#c9a35c"
 INK = "#191921"
 
+_PAY_LABELS = {"cash": "Cash", "card": "Card", "upi": "GPay", "wallet": "Phone Pay"}
+
+
+def _pay_label(mode) -> str:
+    return _PAY_LABELS.get(str(mode or "").lower(), str(mode or "").upper())
+
 
 def _money_row(label: str, amount: float, sign: str = "", color: str = "#55555f", bold: bool = False) -> str:
     w, size = ("700", "17px") if bold else ("500", "13px")
@@ -80,7 +86,7 @@ def _receipt_email_html(t: dict, inv: dict, points_earned: int = 0) -> str:
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
     <tr>
       <td style="font-size:13px;color:#55555f">Receipt for<br/><b style="color:{INK};font-size:15px">{esc(inv.get('customer_name') or 'Guest')}</b></td>
-      <td style="text-align:right;font-size:13px;color:#55555f">Invoice <b style="color:{INK}">{esc(inv.get('invoice_no') or '')}</b><br/>{esc(created)} &middot; Paid via {esc((inv.get('payment_mode') or '').upper())}</td>
+      <td style="text-align:right;font-size:13px;color:#55555f">Invoice <b style="color:{INK}">{esc(inv.get('invoice_no') or '')}</b><br/>{esc(created)} &middot; Paid via {esc(_pay_label(inv.get('payment_mode')))}</td>
     </tr>
   </table>
   <div style="height:1px;background:linear-gradient(90deg,{GOLD},transparent);margin:18px 0"></div>

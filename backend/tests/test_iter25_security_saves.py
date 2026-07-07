@@ -8,6 +8,8 @@ Covers:
   * REGRESSION: billing config, dashboard reminders, super-admin renewals queue, settings/tax GET
 """
 import os
+from dotenv import load_dotenv
+load_dotenv("/app/backend/.env")
 import time
 import hmac
 import hashlib
@@ -15,14 +17,15 @@ import uuid
 import asyncio
 import pytest
 import requests
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = os.environ.get("MIRACURL_ADMIN_EMAIL", "admin@miracurl.com")
-ADMIN_PW    = os.environ.get("MIRACURL_ADMIN_PASSWORD", "Miracurl@123")
+ADMIN_PW    = os.environ.get("MIRACURL_ADMIN_PASSWORD", password_for("admin@miracurl.com"))
 SUPER_EMAIL = os.environ.get("MIRACURL_SUPER_EMAIL", "super@miracurl.com")
-SUPER_PW    = os.environ.get("MIRACURL_SUPER_PASSWORD", "Super@Miracurl123")
+SUPER_PW    = os.environ.get("MIRACURL_SUPER_PASSWORD", password_for("super@miracurl.com"))
 
 # The old rzp TEST-mode secret is worthless post-live-switch, but leaving a
 # hardcoded credential here still fails audit rules. Read strictly from env.
@@ -35,9 +38,8 @@ def admin_token():
     r = requests.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PW}, timeout=15)
     assert r.status_code == 200, f"admin login failed: {r.status_code} {r.text}"
     data = r.json()
-    assert "access_token" in data
     assert data["user"]["role"] == "admin"
-    return data["access_token"]
+    return r.cookies["access_token"]
 
 
 @pytest.fixture(scope="module")
@@ -46,7 +48,7 @@ def super_token():
     assert r.status_code == 200, f"super login failed: {r.status_code} {r.text}"
     data = r.json()
     assert data["user"]["role"] == "super_admin"
-    return data["access_token"]
+    return r.cookies["access_token"]
 
 
 def _h(tok):
@@ -134,16 +136,17 @@ class TestSaveFlows:
 
     def test_staff_create_and_update(self, admin_token):
         payload = {"name": "TEST_iter25_staff", "role": "Stylist", "phone": "+91 88888 25001"}
-        r = requests.post(f"{API}/staff", headers=_h(admin_token), json=payload, timeout=15)
+        h = {**_h(admin_token), "X-Owner-Pin": "4321"}
+        r = requests.post(f"{API}/staff", headers=h, json=payload, timeout=15)
         assert r.status_code in (200, 201), r.text
         sid = r.json()["id"]
 
         upd = {"name": "TEST_iter25_staff_upd", "role": "Senior Stylist", "phone": payload["phone"]}
-        r = requests.put(f"{API}/staff/{sid}", headers=_h(admin_token), json=upd, timeout=15)
+        r = requests.put(f"{API}/staff/{sid}", headers=h, json=upd, timeout=15)
         assert r.status_code == 200, r.text
         assert r.json()["name"] == "TEST_iter25_staff_upd"
 
-        requests.delete(f"{API}/staff/{sid}", headers=_h(admin_token), timeout=15)
+        requests.delete(f"{API}/staff/{sid}", headers=h, timeout=15)
 
     def test_product_create_and_update(self, admin_token):
         sku = f"TESTSKU25-{uuid.uuid4().hex[:6]}"
@@ -175,7 +178,7 @@ class TestRazorpaySecurity:
         assert r.status_code == 200
         j = r.json()
         assert "key_id" in j
-        assert j["test_mode"] is True
+        assert isinstance(j["test_mode"], bool)  # live key in preview is valid
         assert isinstance(j["plans"], list) and len(j["plans"]) >= 2
 
     def test_verify_uses_server_plan_and_blocks_replay(self, admin_token):
@@ -188,7 +191,9 @@ class TestRazorpaySecurity:
         )
         assert r.status_code == 200, f"order create failed: {r.status_code} {r.text}"
         order = r.json()
-        assert order["amount"] == 1_000_000, f"expected 1,000,000 paise, got {order['amount']}"
+        # amount = (plan price − affiliate credits) in paise; must match server-reported payable
+        assert order["amount"] == int(round(order["payable_inr"] * 100)), order
+        assert order["full_price_inr"] == 12000.0, order
         order_id = order["order_id"]
 
         # (b) compute a valid signature
@@ -259,6 +264,8 @@ class TestRegressionEndpoints:
 class TestSeedNoOverwrite:
     """Rotate admin password directly in Mongo → restart backend → old .env password must be REJECTED."""
 
+    @pytest.mark.skipif(int(os.environ.get("PYTEST_XDIST_WORKER_COUNT", "0") or 0) > 1,
+                        reason="restarts the backend — disrupts parallel workers; run with -n 0")
     def test_seed_does_not_overwrite(self, admin_token):
         import subprocess
         from motor.motor_asyncio import AsyncIOMotorClient

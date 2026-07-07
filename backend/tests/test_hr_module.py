@@ -21,14 +21,16 @@ def login(email, password):
     s = requests.Session()
     r = s.post(f"{BASE}/api/auth/login", json={"email": email, "password": password}, timeout=15)
     assert r.status_code == 200, f"login failed: {r.status_code} {r.text}"
-    tok = r.json().get("access_token") or r.json().get("token")
+    tok = r.cookies.get("access_token") or r.json().get("token")
     if tok:
         s.headers.update({"Authorization": f"Bearer {tok}"})
     return s
 
 @pytest.fixture(scope="module")
 def admin():
-    return login(ADMIN_EMAIL, ADMIN_PASS)
+    s = login(ADMIN_EMAIL, ADMIN_PASS)
+    s.headers.update({"X-Owner-Pin": "4321"})
+    return s
 
 @pytest.fixture(scope="module")
 def staff():
@@ -112,14 +114,14 @@ class TestGeoFenceCheckin:
 
     def test_check_in_far_coords_returns_403(self, staff):
         r = staff.post(f"{BASE}/api/staff/me/check-in",
-                        json={"latitude": FAR_LAT, "longitude": FAR_LNG}, timeout=15)
+                        json={"lat": FAR_LAT, "lng": FAR_LNG}, timeout=15)
         if r.status_code == 200:
             pytest.skip("Priya already checked in today (idempotent).")
         assert r.status_code == 403, r.text
 
     def test_check_in_near_coords_success(self, staff):
         r = staff.post(f"{BASE}/api/staff/me/check-in",
-                        json={"latitude": NEAR_LAT, "longitude": NEAR_LNG}, timeout=15)
+                        json={"lat": NEAR_LAT, "lng": NEAR_LNG}, timeout=15)
         assert r.status_code == 200, r.text
         data = r.json()
         # record fields

@@ -1,5 +1,6 @@
 // Receipt HTML builder + hidden-iframe printing for POS invoices.
 import { toast } from "sonner";
+import { payLabel } from "@/components/pos/payLabels";
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -34,7 +35,7 @@ export function buildReceiptHtml(inv, tenant) {
 <div class="row"><b>Invoice #</b><span>${escapeHtml(inv.invoice_no)}</span></div>
 <div class="row"><b>Customer</b><span>${escapeHtml(inv.customer_name)}</span></div>
 ${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${escapeHtml(inv.staff_name)}</span></div>` : ""}
-<div class="row"><b>Payment</b><span>${escapeHtml(String(inv.payment_mode).toUpperCase())}</span></div>
+<div class="row"><b>Payment</b><span>${escapeHtml(payLabel(inv.payment_mode))}</span></div>
 <table>${itemsHtml}</table>
 <div class="row"><span>Subtotal</span><span>₹${inv.subtotal.toFixed(2)}</span></div>
 <div class="row"><span>Discount</span><span>−₹${inv.discount.toFixed(2)}</span></div>

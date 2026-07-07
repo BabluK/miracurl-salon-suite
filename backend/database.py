@@ -108,3 +108,10 @@ class _DB:
     entertainment_playlists = TenantCollection(_raw_db.entertainment_playlists)
 
 db = _DB()
+
+
+def _clean(doc):
+    if not doc:
+        return doc
+    doc.pop("_id", None)
+    return doc

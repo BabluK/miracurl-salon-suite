@@ -16,11 +16,12 @@ import os
 import time
 import pytest
 import requests
+from creds import password_for
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 
 ADMIN_EMAIL = os.environ.get("MIRACURL_ADMIN_EMAIL", "admin@miracurl.com")
-ADMIN_PASSWORD = os.environ.get("MIRACURL_ADMIN_PASSWORD", "Miracurl@123")
+ADMIN_PASSWORD = os.environ.get("MIRACURL_ADMIN_PASSWORD", password_for("admin@miracurl.com"))
 TENANT2_EMAIL = os.environ.get("ELEGANCE_ADMIN_EMAIL", "owner@elegance.com")
 TENANT2_PASSWORD = os.environ.get("ELEGANCE_ADMIN_PASSWORD", "Owner@123")
 
@@ -32,7 +33,7 @@ def _login(email, password):
         timeout=15,
     )
     assert r.status_code == 200, f"login {email}: {r.status_code} {r.text}"
-    return r.json()["access_token"]
+    return r.cookies["access_token"]
 
 
 @pytest.fixture(scope="module")

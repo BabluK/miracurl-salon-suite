@@ -1,7 +1,8 @@
 """Shared Pydantic models used across server.py and routes/ modules."""
+import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -31,3 +32,104 @@ class Tenant(BaseModel):
     referred_by_tenant_id: Optional[str] = None
     trial_ends_at: str = Field(default_factory=lambda: (datetime.now(timezone.utc) + timedelta(days=14)).isoformat())
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+# ---------------- Credits / rewards constants ----------------
+REVIEW_REWARD_CREDIT = 50.0  # ₹ credit for 4★+ reviews
+# SEC-002: hard cap on referral/review credits a single customer can accumulate.
+# Prevents automated "sign up as new customer, book, refer myself" farming loops.
+MAX_CUSTOMER_CREDIT = 2000.0
+REFERRAL_REWARD_REFERRER = 100.0  # ₹ credit to referrer
+REFERRAL_REWARD_REFERRED = 100.0  # ₹ credit to new customer
+
+
+class Customer(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    phone: str
+    email: Optional[str] = None
+    gender: Optional[str] = "Other"
+    dob: Optional[str] = None
+    address: Optional[str] = None
+    loyalty_points: int = 0
+    total_spent: float = 0.0
+    visits: int = 0
+    notes: Optional[str] = None
+    referral_code: str = Field(default_factory=lambda: secrets.token_urlsafe(4).upper().replace("_", "X").replace("-", "Y")[:6])
+    referred_by: Optional[str] = None
+    referral_credit: float = 0.0
+    crm_status: str = "active"  # "pending" until first completed service (public bookings)
+    last_visited: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class Appointment(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    customer_id: str
+    customer_name: str
+    staff_id: str
+    staff_name: str
+    service_ids: List[str]
+    service_names: List[str]
+    scheduled_at: str  # ISO datetime
+    duration_min: int
+    status: str = "scheduled"  # scheduled | completed | cancelled | no_show
+    notes: Optional[str] = None
+    total: float = 0.0
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class AppointmentIn(BaseModel):
+    customer_id: str
+    staff_id: str
+    service_ids: List[str]
+    scheduled_at: str
+    notes: Optional[str] = None
+
+
+class AppointmentStatusIn(BaseModel):
+    status: str
+
+
+class InvoiceItem(BaseModel):
+    type: str  # service | product | package | membership | package_redeem
+    ref_id: str
+    name: str
+    qty: int = Field(1, ge=1, le=100)
+    price: float = Field(..., ge=0)
+    staff_id: Optional[str] = None
+    staff_name: Optional[str] = None
+
+
+class Invoice(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    invoice_no: str
+    customer_id: str
+    customer_name: str
+    staff_id: Optional[str] = None
+    staff_name: Optional[str] = None
+    items: List[InvoiceItem]
+    subtotal: float
+    discount: float = 0
+    tax: float = 0
+    total: float
+    payment_mode: str  # cash | card | upi | wallet
+    paid: bool = True
+    appointment_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    branch_name: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class InvoiceIn(BaseModel):
+    customer_id: str
+    staff_id: Optional[str] = None
+    items: List[InvoiceItem]
+    discount: float = 0
+    tax_pct: float = 18.0
+    payment_mode: str = "cash"
+    redeem_points: int = 0
+    coupon_code: Optional[str] = None
+    appointment_id: Optional[str] = None
+    branch_id: Optional[str] = None
+

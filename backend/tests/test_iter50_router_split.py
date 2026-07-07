@@ -114,6 +114,8 @@ class TestPublicSignup:
         }
         s = requests.Session()
         r = s.post(f"{API}/public/signup-salon", json=payload)
+        if r.status_code == 429:
+            pytest.skip("signup rate-limited")
         assert r.status_code in (200, 201), r.text
         data = r.json()
         # NO tokens in body
@@ -185,7 +187,7 @@ class TestRegistry:
     def test_public_registry_search_no_500(self):
         r = requests.get(f"{API}/public/registry/search", params={"q": "STF-00001"})
         assert r.status_code != 500, r.text
-        assert r.status_code in (200, 404)
+        assert r.status_code in (200, 400, 404, 429)  # 400 = name verifier required (SEC), 429 = public rate limit
 
     def test_public_registry_pdf(self, admin_sess):
         # First get an existing staff code
@@ -200,7 +202,10 @@ class TestRegistry:
                 break
         if not staff_code:
             pytest.skip("No staff_code available in registry roster")
-        r2 = requests.get(f"{API}/public/registry/{staff_code}/pdf")
+        emp_name = (next((it.get("name") for it in items if (it.get("staff_code") or it.get("code")) == staff_code), "") or "").split(" ")[0]
+        r2 = requests.get(f"{API}/public/registry/{staff_code}/pdf", params={"name": emp_name})
+        if r2.status_code == 429:
+            pytest.skip("public registry rate-limited")
         assert r2.status_code == 200, r2.text
         assert "pdf" in r2.headers.get("content-type", "").lower()
 

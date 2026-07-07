@@ -2,7 +2,7 @@ import { Sunrise, Disc3, Coffee, Flame, PartyPopper, Globe2 } from "lucide-react
 
 // Browser-verified embeddable YouTube IDs (Jul 2026). Spotify optional per channel.
 export const MUSIC_CHANNELS = [
-  { id: "bhakti", label: "Morning Bhakti", desc: "Devotional bhajans to open the day on a divine note", yt: "ZD72mEhB6TE", spotify: "1osTTfhMyThJE1AqNRjZSw", icon: Sunrise, tint: "bg-amber-100 text-amber-700 border-amber-200" },
+  { id: "bhakti", label: "Morning Bhakti", desc: "Bhajans & Bollywood bhakti songs — a divine start to the day", yt: "ZD72mEhB6TE", spotify: "1osTTfhMyThJE1AqNRjZSw", icon: Sunrise, tint: "bg-amber-100 text-amber-700 border-amber-200" },
   { id: "nineties", label: "90's Bollywood", desc: "Evergreen Kumar Sanu–era romantic jukebox", yt: "-sbKzeFczbw", spotify: "", icon: Disc3, tint: "bg-teal-100 text-teal-700 border-teal-200" },
   { id: "chill", label: "Bollywood & Chill", desc: "24/7 lofi Bollywood mashups for a calm salon vibe", yt: "6SMpIcjJ17M", spotify: "37i9dQZF1DWX76Z8XDsZzF", icon: Coffee, tint: "bg-sky-100 text-sky-700 border-sky-200" },
   { id: "hits", label: "Bollywood Hot Hits", desc: "Live stream of the best Hindi chartbusters", yt: "IYuhfdw8_yc", spotify: "37i9dQZF1DX0XUfTFmNBRM", icon: Flame, tint: "bg-rose-100 text-rose-700 border-rose-200" },
@@ -17,4 +17,16 @@ export function playPayload(c, source = "youtube") {
     media_type: src === "youtube" ? "video" : "playlist",
     media_id: src === "youtube" ? c.yt : c.spotify,
   };
+}
+
+// Morning Bhakti window: 6:00–11:00 AM IST — bhakti channel is auto-promoted first.
+export function isBhaktiTime() {
+  const istHour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }).format(new Date()));
+  return istHour >= 6 && istHour < 11;
+}
+
+// Channels in display order — bhakti pinned first during the morning window.
+export function orderedChannels() {
+  if (!isBhaktiTime()) return MUSIC_CHANNELS;
+  return [...MUSIC_CHANNELS].sort((a, b) => (a.id === "bhakti" ? -1 : b.id === "bhakti" ? 1 : 0));
 }

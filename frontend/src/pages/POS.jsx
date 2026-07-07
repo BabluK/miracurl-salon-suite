@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { openWhatsApp } from "@/lib/share";
+import { payLabel } from "@/components/pos/payLabels";
 import { useAuth } from "@/context/AuthContext";
 import { printInvoice } from "@/components/pos/receipt";
 import AddGuestModal from "@/components/pos/AddGuestModal";
@@ -247,7 +248,7 @@ export default function POS() {
       `Discount: −₹${inv.discount.toFixed(0)}`,
       Number(inv.tax) > 0 ? `Tax: ₹${inv.tax.toFixed(0)}` : "",
       `*Total: ₹${inv.total.toFixed(0)}*`,
-      `Paid via ${inv.payment_mode.toUpperCase()}`,
+      `Paid via ${payLabel(inv.payment_mode)}`,
       "",
       `Thank you for visiting ${brandName} ✦`,
     ].filter(Boolean).join("\n");
@@ -313,6 +314,8 @@ export default function POS() {
         <InvoiceReceiptModal
           invoice={lastInvoice}
           tenant={tenant}
+          customer={customers.find(c => c.id === lastInvoice.customer_id)}
+          onEmailSaved={(cid, email) => setCustomers(prev => prev.map(c => (c.id === cid ? { ...c, email } : c)))}
           onClose={() => setLastInvoice(null)}
           onPrint={() => printInvoice(lastInvoice, tenant)}
           onShare={() => shareInvoiceWhatsApp(lastInvoice)}

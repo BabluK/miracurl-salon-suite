@@ -11,13 +11,14 @@ import io
 import os
 import pytest
 import requests
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "Miracurl@123"
+ADMIN_PW = password_for("admin@miracurl.com")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "Super@Miracurl123"
+SUPER_PW = password_for("super@miracurl.com")
 
 EXPECTED_CSV_HEADER = [
     "paid_at", "tenant_slug", "tenant_name", "owner_email",
@@ -30,7 +31,7 @@ def super_token():
     r = requests.post(f"{BASE_URL}/api/auth/login",
                       json={"email": SUPER_EMAIL, "password": SUPER_PW}, timeout=15)
     assert r.status_code == 200, f"super login failed {r.status_code} {r.text}"
-    return r.json()["access_token"]
+    return r.cookies["access_token"]
 
 
 @pytest.fixture(scope="session")
@@ -38,7 +39,7 @@ def admin_token():
     r = requests.post(f"{BASE_URL}/api/auth/login",
                       json={"email": ADMIN_EMAIL, "password": ADMIN_PW}, timeout=15)
     assert r.status_code == 200, f"admin login failed {r.status_code} {r.text}"
-    return r.json()["access_token"]
+    return r.cookies["access_token"]
 
 
 def _auth(token):
@@ -188,21 +189,22 @@ class TestCustomerSave:
 # ---------- Staff save flow ----------
 class TestStaffSave:
     def test_create_edit_delete(self, admin_token):
+        pin = {"X-Owner-Pin": "4321"}
         payload = {"name": "TEST_iter26_staff", "role": "stylist", "phone": "9990000226"}
         r = requests.post(f"{BASE_URL}/api/staff", json=payload,
-                          headers=_auth(admin_token), timeout=15)
+                          headers={**_auth(admin_token), **pin}, timeout=15)
         assert r.status_code == 200, r.text
         sid = r.json()["id"]
         r2 = requests.put(f"{BASE_URL}/api/staff/{sid}",
                           json={"name": "TEST_iter26_staff_v2", "role": "stylist", "phone": "9990000226"},
-                          headers=_auth(admin_token), timeout=15)
+                          headers={**_auth(admin_token), **pin}, timeout=15)
         assert r2.status_code == 200
         # Verify — list
-        lst = requests.get(f"{BASE_URL}/api/staff", headers=_auth(admin_token), timeout=15).json()
+        lst = requests.get(f"{BASE_URL}/api/staff", headers={**_auth(admin_token), **pin}, timeout=15).json()
         assert any(s.get("id") == sid and s.get("name") == "TEST_iter26_staff_v2" for s in lst)
         # Delete
         d = requests.delete(f"{BASE_URL}/api/staff/{sid}",
-                            headers=_auth(admin_token), timeout=15)
+                            headers={**_auth(admin_token), **pin}, timeout=15)
         assert d.status_code in (200, 204)
 
 

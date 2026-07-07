@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { usePlayer } from "@/context/PlayerContext";
-import { MUSIC_CHANNELS, playPayload } from "@/constants/musicChannels";
+import { MUSIC_CHANNELS, orderedChannels, playPayload, isBhaktiTime } from "@/constants/musicChannels";
 import { Music, Timer, Plus, Trash2, Youtube, ListMusic, Play } from "lucide-react";
 
 const TIMER_CHOICES = [15, 30, 60];
@@ -95,12 +95,18 @@ export default function Entertainment() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-          {MUSIC_CHANNELS.map(c => {
+          {isBhaktiTime() && (
+            <div data-testid="bhakti-morning-banner" className="col-span-2 lg:col-span-3 flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800">
+              🌅 <b>Morning Bhakti hours (6–11 AM)</b> — start the day on a divine note. Bhakti channel is featured first; tap any other channel anytime.
+            </div>
+          )}
+          {orderedChannels().map(c => {
             const Icon = c.icon;
             const on = nowPlaying?.id === c.id;
+            const featured = isBhaktiTime() && c.id === "bhakti" && !on;
             return (
               <button key={c.id} data-testid={`channel-${c.id}`} onClick={() => playBuiltIn(c)}
-                className={`text-left rounded-2xl border p-4 transition shadow-sm hover:shadow-md ${on ? "border-slate-800 bg-slate-900 text-white" : "bg-white border-slate-200"}`}>
+                className={`text-left rounded-2xl border p-4 transition shadow-sm hover:shadow-md ${on ? "border-slate-800 bg-slate-900 text-white" : "bg-white border-slate-200"} ${featured ? "ring-2 ring-amber-300" : ""}`}>
                 <span className={`inline-flex w-9 h-9 rounded-lg items-center justify-center border ${c.tint}`}><Icon className="w-4.5 h-4.5" /></span>
                 <div className={`font-semibold text-sm mt-3 ${on ? "text-white" : "text-slate-800"}`}>{c.label}</div>
                 <div className={`text-[11px] mt-1 leading-snug ${on ? "text-slate-300" : "text-slate-500"}`}>{c.desc}</div>

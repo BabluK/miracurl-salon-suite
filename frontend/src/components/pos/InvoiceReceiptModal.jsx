@@ -1,11 +1,33 @@
 import { useState } from "react";
-import { Printer, Share2, FileDown, Loader2 } from "lucide-react";
+import { Printer, Share2, FileDown, Loader2, Mail, CheckCircle2, MessageSquare } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import ThermalPrintButton from "@/components/pos/ThermalPrintButton";
+import { payLabel } from "@/components/pos/payLabels";
 
-export default function InvoiceReceiptModal({ invoice, tenant, onClose, onPrint, onShare }) {
+export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmailSaved, onClose, onPrint, onShare }) {
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailAdded, setEmailAdded] = useState(false);
+
+  async function saveEmail() {
+    const clean = email.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) { toast.error("Enter a valid email address"); return; }
+    setEmailBusy(true);
+    try {
+      await api.put(`/customers/${customer.id}`, {
+        name: customer.name, phone: customer.phone, email: clean,
+        gender: customer.gender, dob: customer.dob, anniversary: customer.anniversary,
+        address: customer.address, notes: customer.notes,
+      });
+      setEmailAdded(true);
+      onEmailSaved?.(customer.id, clean);
+      toast.success("Email saved — bills will now be emailed to this guest automatically");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't save the email");
+    } finally { setEmailBusy(false); }
+  }
   async function downloadPdf() {
     setPdfBusy(true);
     try {
@@ -35,9 +57,39 @@ export default function InvoiceReceiptModal({ invoice, tenant, onClose, onPrint,
           <Row label="Invoice #" value={<span className="font-mono">{invoice.invoice_no}</span>} />
           <Row label="Customer" value={invoice.customer_name} />
           {invoice.staff_name && <Row label="Stylist" value={invoice.staff_name} />}
-          <Row label="Payment" value={<span className="uppercase text-sky-600">{invoice.payment_mode}</span>} />
+          <Row label="Payment" value={<span className="text-sky-600 font-medium" data-testid="receipt-payment-mode">{payLabel(invoice.payment_mode)}</span>} />
           {invoice.branch_name && <Row label="Branch" value={invoice.branch_name} />}
         </div>
+        {(invoice.receipts?.email?.sent || invoice.receipts?.sms?.sent) && (
+          <div className="flex flex-wrap gap-2 pb-3" data-testid="receipt-delivery-status">
+            {invoice.receipts?.email?.sent && (
+              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3" /> Emailed to guest
+              </span>
+            )}
+            {invoice.receipts?.sms?.sent && (
+              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <MessageSquare className="w-3 h-3" /> SMS receipt sent
+              </span>
+            )}
+          </div>
+        )}
+        {customer && !customer.email && !emailAdded && (
+          <div className="pb-3" data-testid="receipt-add-email-section">
+            <p className="text-[11px] text-slate-500 mb-1.5 flex items-center gap-1">
+              <Mail className="w-3 h-3" /> No email on file — add one to auto-email bills to this guest
+            </p>
+            <div className="flex gap-2">
+              <input data-testid="receipt-email-input" type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="guest@email.com"
+                className="flex-1 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" />
+              <button data-testid="receipt-email-save-btn" onClick={saveEmail} disabled={emailBusy}
+                className="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold disabled:opacity-50">
+                {emailBusy ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        )}
         <div className="border-t border-slate-100 pt-3 space-y-1 text-sm">
           {invoice.items.map((it, idx) => (
             <div key={`${it.type}:${it.ref_id}:${idx}`} className="flex justify-between">

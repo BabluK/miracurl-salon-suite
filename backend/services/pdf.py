@@ -4,6 +4,8 @@ callable so it stays decoupled from server-side SSRF-safe image fetching."""
 import io
 from datetime import datetime, timezone, timedelta
 
+from receipt_email import _pay_label
+
 
 def _render_invoice_pdf(inv: dict, tenant: dict) -> bytes:
     """A5 receipt PDF for printing / sharing."""
@@ -44,7 +46,7 @@ def _render_invoice_pdf(inv: dict, tenant: dict) -> bytes:
     c.setFont("Helvetica", 9)
     created = str(inv.get("created_at") or "")[:16].replace("T", " ")
     for label, val in (("Invoice", inv.get("invoice_no")), ("Date", created),
-                       ("Customer", inv.get("customer_name")), ("Payment", (inv.get("payment_mode") or "").upper())):
+                       ("Customer", inv.get("customer_name")), ("Payment", _pay_label(inv.get("payment_mode")))):
         if val:
             c.setFillColorRGB(*MUTED)
             c.drawString(LEFT, y, label)

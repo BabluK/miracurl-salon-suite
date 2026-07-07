@@ -2,19 +2,40 @@
 import os
 import requests
 import pytest
+from creds import password_for
 
 BASE = (os.environ.get('REACT_APP_BACKEND_URL') or 'https://hair-hub-system.preview.emergentagent.com').rstrip('/')
 SLUG = "miracurl-marathahalli"
 
 @pytest.fixture(scope="module")
 def token():
-    r = requests.post(f"{BASE}/api/auth/login", json={"email":"admin@miracurl.com","password":"Miracurl@123"})
+    r = requests.post(f"{BASE}/api/auth/login", json={"email":"admin@miracurl.com","password":password_for("admin@miracurl.com")})
     assert r.status_code == 200
-    return r.json()["access_token"]
+    return r.cookies["access_token"]
 
 @pytest.fixture(scope="module")
 def h(token):
     return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture(scope="module", autouse=True)
+def ensure_seed_offers(h):
+    """Data drifts in a long-lived preview DB — recreate the demo offers if missing."""
+    cs = requests.get(f"{BASE}/api/coupons", headers=h).json()
+    if not any(c.get("code") == "TESTQA20" for c in cs):
+        requests.post(f"{BASE}/api/coupons", headers=h,
+                      json={"code": "TESTQA20", "type": "percent", "value": 20, "active": True})
+    ps = requests.get(f"{BASE}/api/packages", headers=h).json()
+    if not any("Facial" in (p.get("name") or "") for p in ps):
+        svcs = requests.get(f"{BASE}/api/services", headers=h).json()
+        if svcs:
+            requests.post(f"{BASE}/api/packages", headers=h,
+                          json={"name": "Facial Glow Pack (5 sessions)", "price": 4000,
+                                "service_id": svcs[0]["id"], "sessions": 5, "validity_days": 365})
+    ms = requests.get(f"{BASE}/api/memberships", headers=h).json()
+    if not any("Gold" in (m.get("name") or "") for m in ms):
+        requests.post(f"{BASE}/api/memberships", headers=h,
+                      json={"name": "Gold Membership", "price": 2999, "discount_pct": 15, "validity_days": 365})
+
 
 def test_list_coupons(h):
     r = requests.get(f"{BASE}/api/coupons", headers=h)

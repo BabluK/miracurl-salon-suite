@@ -1,4 +1,5 @@
 // Thermal receipt printing: ESC/POS builder + Web Bluetooth / Web Serial transports.
+import { payLabel } from "@/components/pos/payLabels";
 
 const ENC = new TextEncoder();
 
@@ -92,7 +93,7 @@ export function buildReceiptBytes(invoice, tenant, paperWidth = 32) {
   raw(CMD.BOLD_ON); raw(CMD.DOUBLE_ON);
   txt(lr("TOTAL", money(invoice.total), Math.floor(W / 2)));
   raw(CMD.DOUBLE_OFF); raw(CMD.BOLD_OFF);
-  txt(lr("Paid by", (invoice.payment_mode || "").toUpperCase(), W));
+  txt(lr("Paid by", payLabel(invoice.payment_mode), W));
   if (invoice.points_earned) txt(lr("Points earned", `+${invoice.points_earned}`, W));
   if (invoice.points_used) txt(lr("Points redeemed", `-${invoice.points_used}`, W));
   rule();

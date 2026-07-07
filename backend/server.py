@@ -15,9 +15,7 @@ import asyncio
 import base64
 import html as html_lib
 from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html, _lead_alert_email_html, _platform_digest_html
-from receipt_email import send_invoice_receipt_email
-from sms_service import send_sms
-from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf, _render_invoice_pdf
+from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf
 import hashlib
 import logging
 import secrets
@@ -33,7 +31,7 @@ import requests
 from urllib.parse import urlparse as urlparse
 
 from database import (  # noqa: F401 — shared DB foundation
-    client, _raw_db, db, _current_tenant_id,
+    client, _raw_db, db, _current_tenant_id, _clean,
 )
 
 
@@ -65,7 +63,14 @@ from security import (  # noqa: F401 — auth & tenancy guards
 # ============================================================
 DEFAULT_TENANT_SLUG = "miracurl-marathahalli"
 
-from models import Tenant  # noqa: E402 — shared models (models.py)
+from models import (  # noqa: E402 — shared models (models.py)
+    Tenant, Customer, Appointment,
+    REVIEW_REWARD_CREDIT, MAX_CUSTOMER_CREDIT,
+    REFERRAL_REWARD_REFERRER, REFERRAL_REWARD_REFERRED,
+)
+from services.billing import (  # noqa: E402 — shared billing helpers
+    _validate_coupon, _consume_coupon, _coupon_discount, _active_membership, _loyalty_rules,
+)
 
 
 class TenantIn(BaseModel):
@@ -110,25 +115,6 @@ async def resolve_tenant_from_slug(slug: str) -> dict:
         raise HTTPException(403, "Tenant subscription is suspended")
     _current_tenant_id.set(t["id"])
     return t
-
-class Customer(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    phone: str
-    email: Optional[str] = None
-    gender: Optional[str] = "Other"
-    dob: Optional[str] = None
-    address: Optional[str] = None
-    loyalty_points: int = 0
-    total_spent: float = 0.0
-    visits: int = 0
-    notes: Optional[str] = None
-    referral_code: str = Field(default_factory=lambda: secrets.token_urlsafe(4).upper().replace("_", "X").replace("-", "Y")[:6])
-    referred_by: Optional[str] = None
-    referral_credit: float = 0.0
-    crm_status: str = "active"  # "pending" until first completed service (public bookings)
-    last_visited: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class CustomerIn(BaseModel):
     name: str
@@ -236,69 +222,6 @@ class ProductIn(BaseModel):
     image_url: Optional[str] = None
     vendor_id: Optional[str] = None
 
-class Appointment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    customer_id: str
-    customer_name: str
-    staff_id: str
-    staff_name: str
-    service_ids: List[str]
-    service_names: List[str]
-    scheduled_at: str  # ISO datetime
-    duration_min: int
-    status: str = "scheduled"  # scheduled | completed | cancelled | no_show
-    notes: Optional[str] = None
-    total: float = 0.0
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class AppointmentIn(BaseModel):
-    customer_id: str
-    staff_id: str
-    service_ids: List[str]
-    scheduled_at: str
-    notes: Optional[str] = None
-
-class AppointmentStatusIn(BaseModel):
-    status: str
-
-class InvoiceItem(BaseModel):
-    type: str  # service | product | package | membership | package_redeem
-    ref_id: str
-    name: str
-    qty: int = Field(1, ge=1, le=100)
-    price: float = Field(..., ge=0)
-    staff_id: Optional[str] = None
-    staff_name: Optional[str] = None
-
-class Invoice(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    invoice_no: str
-    customer_id: str
-    customer_name: str
-    staff_id: Optional[str] = None
-    staff_name: Optional[str] = None
-    items: List[InvoiceItem]
-    subtotal: float
-    discount: float = 0
-    tax: float = 0
-    total: float
-    payment_mode: str  # cash | card | upi | wallet
-    paid: bool = True
-    branch_id: Optional[str] = None
-    branch_name: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class InvoiceIn(BaseModel):
-    customer_id: str
-    staff_id: Optional[str] = None
-    items: List[InvoiceItem]
-    discount: float = 0
-    tax_pct: float = 18.0
-    payment_mode: str = "cash"
-    redeem_points: int = 0
-    coupon_code: Optional[str] = None
-    branch_id: Optional[str] = None
-
 class Review(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     appointment_id: str
@@ -319,10 +242,6 @@ class ReviewIn(BaseModel):
 class ReviewModerateIn(BaseModel):
     public: bool
 
-REVIEW_REWARD_CREDIT = 50.0  # ₹ credit for 4★+ reviews
-# SEC-002: hard cap on referral/review credits a single customer can accumulate.
-# Prevents automated "sign up as new customer, book, refer myself" farming loops.
-MAX_CUSTOMER_CREDIT = 2000.0
 
 from routes.auth import (  # noqa: E402 — auth module (routes/auth.py)
     router as auth_router, AFFILIATE_REWARD_INR, TRIAL_DAYS,
@@ -331,11 +250,6 @@ api.include_router(auth_router)
 
 
 # ---------------- Generic CRUD helpers ----------------
-def _clean(doc):
-    if not doc:
-        return doc
-    doc.pop("_id", None)
-    return doc
 
 # ---------------- Customers ----------------
 @api.get("/customers")
@@ -2704,439 +2618,6 @@ async def delete_product(pid: str, user=Depends(require_tenant_admin)):
     await db.products.delete_one({"id": pid})
     return {"ok": True}
 
-# ---------------- Appointments ----------------
-@api.get("/appointments")
-async def list_appointments(date: Optional[str] = None, upcoming: bool = False, user=Depends(get_current_user)):
-    flt = {}
-    if upcoming:
-        today = datetime.now(timezone.utc).date().isoformat()
-        flt = {"scheduled_at": {"$gte": today}, "status": {"$ne": "cancelled"}}
-    elif date:
-        if not re.fullmatch(r"\d{4}-\d{2}(-\d{2})?", date):
-            raise HTTPException(400, "date must be YYYY-MM-DD or YYYY-MM")
-        flt = {"scheduled_at": {"$regex": f"^{date}"}}
-    return await db.appointments.find(flt, {"_id": 0}).sort("scheduled_at", 1).to_list(500)
-
-
-@api.get("/notifications/new-bookings")
-async def new_bookings(since: str, _=Depends(require_tenant_admin)):
-    """Lightweight polling endpoint — returns bookings created after `since`
-    (ISO 8601 datetime). Used by the admin UI to play a chime + toast when a
-    customer self-books via the public link."""
-    # Basic input validation — `since` must be an ISO datetime string
-    try:
-        datetime.fromisoformat(since.replace("Z", "+00:00"))
-    except Exception:
-        raise HTTPException(400, "`since` must be an ISO datetime")
-    rows = await db.appointments.find(
-        {"created_at": {"$gt": since}},
-        {"_id": 0, "id": 1, "customer_name": 1, "staff_name": 1,
-         "service_names": 1, "scheduled_at": 1, "total": 1, "created_at": 1},
-    ).sort("created_at", -1).limit(20).to_list(20)
-    return {
-        "server_time": datetime.now(timezone.utc).isoformat(),
-        "count": len(rows),
-        "bookings": rows,
-    }
-
-@api.post("/appointments")
-async def create_appointment(body: AppointmentIn, user=Depends(get_current_user)):
-    cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
-    staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0})
-    if not cust or not staff:
-        raise HTTPException(400, "Invalid customer or staff")
-    services = await db.services.find({"id": {"$in": body.service_ids}}, {"_id": 0}).to_list(50)
-    total = sum(s["price"] for s in services)
-    duration = sum(s["duration_min"] for s in services) or 30
-    a = Appointment(
-        customer_id=cust["id"], customer_name=cust["name"],
-        staff_id=staff["id"], staff_name=staff["name"],
-        service_ids=[s["id"] for s in services],
-        service_names=[s["name"] for s in services],
-        scheduled_at=body.scheduled_at, duration_min=duration,
-        notes=body.notes, total=total,
-    ).model_dump()
-    await db.appointments.insert_one(a)
-    return _clean(a)
-
-async def _appt_confirmation_whatsapp(appt: dict, phone: str, aid: str, user: dict):
-    """Build the confirmation WhatsApp for an appointment. Managers get a pending
-    approval request instead of a direct link. Returns (whatsapp_url, wa_request_created)."""
-    from urllib.parse import quote
-    tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
-    salon = (tenant or {}).get("name", "our salon")
-    try:
-        dt = datetime.fromisoformat(str(appt["scheduled_at"]).replace("Z", "+00:00"))
-        when = dt.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
-    except Exception:
-        when = str(appt.get("scheduled_at", ""))
-    services = ", ".join(appt.get("service_names") or [])
-    msg = (f"Hi {appt.get('customer_name', '')} ✨ Your booking at {salon} is CONFIRMED!\n\n"
-           f"🗓 {when}\n💇 {services}\n💰 ₹{appt.get('total', 0):g}\n\nSee you soon!")
-    wa_phone = phone if len(phone) > 10 else f"91{phone}"
-    if user.get("role") == "manager":
-        # Managers can't message customers directly — queue for admin approval.
-        await db.whatsapp_requests.insert_one({
-            "id": str(uuid.uuid4()), "requested_by": user["id"],
-            "requested_by_name": user.get("name") or user.get("email"),
-            "client_name": appt.get("customer_name", ""), "client_phone": wa_phone,
-            "message": msg, "kind": "confirmation", "status": "pending",
-            "appointment_id": aid,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        return None, True
-    return f"https://wa.me/{wa_phone}?text={quote(msg)}", False
-
-
-async def _crm_count_completed_appt(appt: dict, phone: Optional[str], aid: str):
-    """Service done — NOW the client enters the CRM with visit + spend recorded."""
-    cust = await db.customers.find_one({"phone": phone}, {"_id": 0}) if phone else None
-    if not cust and appt.get("customer_id"):
-        cust = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0})
-    sets = {"crm_status": "active", "last_visited": appt.get("scheduled_at")}
-    if appt.get("gender"):
-        sets["gender"] = appt["gender"]
-    inc = {"visits": 1, "total_spent": float(appt.get("total") or 0)}
-    if cust:
-        await db.customers.update_one({"id": cust["id"]}, {"$set": sets, "$inc": inc})
-    else:
-        new_cust = Customer(
-            name=appt.get("customer_name", "Walk-in"), phone=phone or "",
-            visits=1, total_spent=float(appt.get("total") or 0),
-        ).model_dump()
-        new_cust.update(sets)
-        await db.customers.insert_one(new_cust)
-    await db.appointments.update_one({"id": aid}, {"$set": {"crm_counted": True}})
-
-
-@api.put("/appointments/{aid}/status")
-async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(get_current_user)):
-    await db.appointments.update_one({"id": aid}, {"$set": {"status": body.status}})
-    appt = await db.appointments.find_one({"id": aid}, {"_id": 0})
-    if not appt:
-        raise HTTPException(404, "Appointment not found")
-
-    phone = appt.get("customer_phone")
-    if not phone and appt.get("customer_id"):
-        c = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0})
-        phone = c.get("phone") if c else None
-
-    whatsapp_url = None
-    crm_updated = False
-    wa_request_created = False
-
-    if body.status == "confirmed" and phone:
-        whatsapp_url, wa_request_created = await _appt_confirmation_whatsapp(appt, phone, aid, user)
-
-    if body.status == "completed" and not appt.get("crm_counted"):
-        await _crm_count_completed_appt(appt, phone, aid)
-        crm_updated = True
-
-    return {"appointment": appt, "whatsapp_url": whatsapp_url, "crm_updated": crm_updated, "wa_request_created": wa_request_created}
-
-@api.delete("/appointments/{aid}")
-async def del_appointment(aid: str, user=Depends(get_current_user)):
-    await db.appointments.delete_one({"id": aid})
-    return {"ok": True}
-
-# ---------------- Invoices / POS ----------------
-async def _gen_invoice_no():
-    count = await db.invoices.count_documents({}) + 1
-    return f"INV-{datetime.now(timezone.utc).strftime('%Y%m')}-{count:04d}"
-
-@api.get("/invoices")
-async def list_invoices(user=Depends(get_current_user)):
-    return await db.invoices.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
-
-async def _check_stock_or_400(items) -> dict:
-    """Aggregate product quantities, verify stock; return {product_id: qty_needed}."""
-    needed = {}
-    for it in items:
-        if it.type == "product":
-            needed[it.ref_id] = needed.get(it.ref_id, 0) + it.qty
-    for pid, qty in needed.items():
-        prod = await db.products.find_one({"id": pid}, {"_id": 0, "name": 1, "stock": 1})
-        if not prod:
-            raise HTTPException(400, f"Product not found: {pid}")
-        if prod["stock"] < qty:
-            raise HTTPException(400, f"Insufficient stock for '{prod['name']}' — {prod['stock']} left, {qty} requested")
-    return needed
-
-
-async def _validate_coupon(code: Optional[str]):
-    """Returns coupon doc or raises 400. None code → None."""
-    if not code:
-        return None
-    c = await db.coupons.find_one({"code": code.strip().upper(), "active": True}, {"_id": 0})
-    if not c:
-        raise HTTPException(400, "Invalid coupon code")
-    if c.get("expires_at") and c["expires_at"] < datetime.now(timezone.utc).date().isoformat():
-        raise HTTPException(400, "This coupon has expired")
-    if c.get("max_uses") and int(c.get("used_count") or 0) >= int(c["max_uses"]):
-        raise HTTPException(400, "This coupon has reached its usage limit")
-    return c
-
-def _coupon_discount(coupon, amount: float) -> float:
-    if not coupon or amount <= 0:
-        return 0.0
-    if coupon["type"] == "percent":
-        return round(amount * float(coupon["value"]) / 100, 2)
-    return round(min(float(coupon["value"]), amount), 2)
-
-async def _consume_coupon(coupon) -> bool:
-    """SEC-002: atomically increment used_count only while under max_uses.
-    Returns True if consumed, False if the limit was hit under concurrency."""
-    if not coupon:
-        return False
-    if coupon.get("max_uses"):
-        res = await db.coupons.update_one(
-            {"id": coupon["id"], "used_count": {"$lt": int(coupon["max_uses"])}},
-            {"$inc": {"used_count": 1}})
-        return res.modified_count == 1
-    await db.coupons.update_one({"id": coupon["id"]}, {"$inc": {"used_count": 1}})
-    return True
-
-async def _active_membership(customer_id: str):
-    now = datetime.now(timezone.utc).isoformat()
-    return await db.customer_memberships.find_one(
-        {"customer_id": customer_id, "expires_at": {"$gt": now}}, {"_id": 0}, sort=[("discount_pct", -1)])
-
-def _redeemable_points(cust: dict, redeem_points: int, raw_subtotal: float,
-                       remaining: float, loyalty_rules: Optional[dict]) -> int:
-    """How many loyalty points can actually be redeemed on this bill."""
-    req_points = max(0, int(redeem_points or 0))
-    if loyalty_rules:
-        if raw_subtotal < float(loyalty_rules.get("min_bill_to_redeem") or 0):
-            return 0
-        cap = int(loyalty_rules.get("max_redeem_per_visit") or 0)
-        if cap > 0:
-            req_points = min(req_points, cap)
-    points_available = int(cust.get("loyalty_points") or 0)
-    return min(req_points, points_available, int(remaining))
-
-
-def _compute_invoice_totals(items, cust: dict, discount_in: float, tax_pct: float,
-                            membership_pct: float = 0.0, coupon=None, redeem_points: int = 0,
-                            loyalty_rules: Optional[dict] = None) -> dict:
-    raw_subtotal = sum(it.qty * it.price for it in items)
-    services_subtotal = sum(it.qty * it.price for it in items if it.type == "service")
-    membership_discount = round(services_subtotal * (membership_pct or 0) / 100, 2)
-    remaining = max(0, raw_subtotal - (discount_in or 0) - membership_discount)
-    coupon_discount = _coupon_discount(coupon, remaining)
-    remaining = max(0, remaining - coupon_discount)
-    referral_credit_available = float(cust.get("referral_credit") or 0)
-    referral_credit_used = min(referral_credit_available, remaining)
-    remaining = max(0, remaining - referral_credit_used)
-    points_used = _redeemable_points(cust, redeem_points, raw_subtotal, remaining, loyalty_rules)
-    discount = (discount_in or 0) + membership_discount + coupon_discount + referral_credit_used + points_used
-    taxable = max(0, raw_subtotal - discount)
-    tax = taxable * (tax_pct or 0) / 100
-    return {
-        "subtotal": raw_subtotal,
-        "discount": discount,
-        "tax": tax,
-        "total": taxable + tax,
-        "referral_credit_used": referral_credit_used,
-        "membership_discount": membership_discount,
-        "coupon_discount": coupon_discount,
-        "points_used": points_used,
-    }
-
-
-LOYALTY_EARN_PER_100 = 5  # default points per ₹100 of final bill; 1 point = ₹1
-LOYALTY_DEFAULTS = {"earn_per_100": LOYALTY_EARN_PER_100, "max_redeem_per_visit": 200, "min_bill_to_redeem": 1000}
-
-
-def _loyalty_rules(tenant_doc: Optional[dict]) -> dict:
-    saved = (tenant_doc or {}).get("loyalty") or {}
-    return {**LOYALTY_DEFAULTS, **{k: v for k, v in saved.items() if k in LOYALTY_DEFAULTS}}
-
-
-class LoyaltySettingsIn(BaseModel):
-    earn_per_100: float = Field(5, ge=0, le=100)
-    max_redeem_per_visit: int = Field(200, ge=0, le=100000)
-    min_bill_to_redeem: float = Field(1000, ge=0, le=1000000)
-
-
-@api.get("/settings/loyalty")
-async def get_loyalty_settings(user=Depends(get_current_user), t=Depends(current_tenant)):
-    return _loyalty_rules(t)
-
-
-@api.put("/settings/loyalty")
-async def save_loyalty_settings(body: LoyaltySettingsIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    await db.tenants.update_one({"id": t["id"]}, {"$set": {"loyalty": body.model_dump()}})
-    return _loyalty_rules({"loyalty": body.model_dump()})
-
-
-async def _process_benefit_items(inv: dict, cust: dict):
-    """Create package/membership records for purchases; consume redeemed sessions."""
-    now = datetime.now(timezone.utc)
-    for it in inv["items"]:
-        if it["type"] == "package":
-            p = await db.packages.find_one({"id": it["ref_id"]}, {"_id": 0})
-            if p:
-                await db.customer_packages.insert_one({
-                    "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
-                    "package_id": p["id"], "package_name": p["name"], "service_id": p.get("service_id"),
-                    "service_name": p.get("service_name"), "sessions_left": int(p["sessions"]),
-                    "sessions_total": int(p["sessions"]),
-                    "expires_at": (now + timedelta(days=int(p.get("validity_days") or 365))).isoformat(),
-                    "purchased_at": now.isoformat(), "invoice_id": inv["id"]})
-        elif it["type"] == "membership":
-            m = await db.memberships.find_one({"id": it["ref_id"]}, {"_id": 0})
-            if m:
-                await db.customer_memberships.insert_one({
-                    "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
-                    "membership_id": m["id"], "name": m["name"], "discount_pct": float(m["discount_pct"]),
-                    "expires_at": (now + timedelta(days=int(m.get("validity_days") or 180))).isoformat(),
-                    "purchased_at": now.isoformat(), "invoice_id": inv["id"]})
-        elif it["type"] == "package_redeem":
-            await db.customer_packages.update_one(
-                {"id": it["ref_id"], "sessions_left": {"$gt": 0}}, {"$inc": {"sessions_left": -1}})
-
-
-async def _validate_package_redeem_items(items: list, cust: dict):
-    """Package-redeem lines must belong to this customer, have sessions left and
-    not be expired; their price is forced to ₹0 (session pays, not money)."""
-    now_iso = datetime.now(timezone.utc).isoformat()
-    for it in items:
-        if it.type == "package_redeem":
-            cp = await db.customer_packages.find_one({"id": it.ref_id}, {"_id": 0})
-            if not cp or cp["customer_id"] != cust["id"]:
-                raise HTTPException(400, "Package not found for this guest")
-            if cp["sessions_left"] < 1:
-                raise HTTPException(400, f"No sessions left in '{cp['package_name']}'")
-            if cp["expires_at"] < now_iso:
-                raise HTTPException(400, f"Package '{cp['package_name']}' has expired")
-            it.price = 0.0
-            it.qty = 1
-
-
-def _receipt_sms_text(t: dict, inv: dict, points_earned: int) -> str:
-    name = (t or {}).get("name") or "Your Salon"
-    pts = f" You earned {points_earned} loyalty pts." if points_earned else ""
-    return (f"{name}: Thank you {inv['customer_name']}! Receipt {inv['invoice_no']} - "
-            f"Rs.{inv['total']:.0f} paid via {str(inv['payment_mode']).upper()}.{pts} See you again!")
-
-
-async def _send_billing_receipts(inv: dict, cust: dict, tenant_doc: Optional[dict], points_earned: int) -> dict:
-    """Post-billing receipts. Email is free; each SMS burns 1 sms_point (credited by HQ)."""
-    out = {"email": None, "sms": None}
-    t = tenant_doc or {}
-    try:
-        if cust.get("email"):
-            out["email"] = await send_invoice_receipt_email(t, inv, cust["email"], points_earned)
-        else:
-            out["email"] = {"sent": False, "error": "no_email"}
-    except Exception as e:  # noqa: BLE001 — receipts must never break checkout
-        out["email"] = {"sent": False, "error": str(e)[:200]}
-    try:
-        if not cust.get("phone"):
-            out["sms"] = {"sent": False, "error": "no_phone"}
-        elif not t.get("id"):
-            out["sms"] = {"sent": False, "error": "no_tenant"}
-        else:
-            r = await db.tenants.update_one(
-                {"id": t["id"], "sms_points": {"$gte": 1}}, {"$inc": {"sms_points": -1}})
-            if r.modified_count == 0:
-                out["sms"] = {"sent": False, "error": "no_sms_points"}
-            else:
-                res = await send_sms(cust["phone"], _receipt_sms_text(t, inv, points_earned))
-                if not res.get("sent"):
-                    await db.tenants.update_one({"id": t["id"]}, {"$inc": {"sms_points": 1}})
-                fresh = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "sms_points": 1})
-                res["points_left"] = int((fresh or {}).get("sms_points") or 0)
-                out["sms"] = res
-    except Exception as e:  # noqa: BLE001
-        out["sms"] = {"sent": False, "error": str(e)[:200]}
-    return out
-
-
-@api.get("/invoices/{inv_id}/pdf")
-async def invoice_pdf(inv_id: str, user=Depends(get_current_user), t=Depends(current_tenant)):
-    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
-    if not inv:
-        raise HTTPException(404, "Invoice not found")
-    pdf_bytes = await asyncio.to_thread(_render_invoice_pdf, inv, t)
-    return StreamingResponse(
-        io.BytesIO(pdf_bytes),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{inv.get("invoice_no") or inv_id}.pdf"'},
-    )
-
-
-@api.post("/invoices")
-async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
-    cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
-    if not cust:
-        raise HTTPException(400, "Invalid customer")
-    staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
-
-    await _validate_package_redeem_items(body.items, cust)
-
-    # Tax is ONLY applied when the tenant has opted-in by configuring GST settings.
-    tid = _current_tenant_id.get()
-    tenant_doc = await db.tenants.find_one({"id": tid}, {"_id": 0}) if tid else None
-    effective_tax_pct = float(tenant_doc.get("tax_pct") or 0) if (tenant_doc and tenant_doc.get("tax_enabled")) else 0.0
-
-    # Branch tagging — enables per-branch collection reports
-    branch = None
-    if body.branch_id:
-        branch = next((b for b in (tenant_doc or {}).get("branches", []) if b.get("id") == body.branch_id), None)
-
-    membership = await _active_membership(cust["id"])
-    coupon = await _validate_coupon(body.coupon_code)
-    if coupon and not await _consume_coupon(coupon):
-        raise HTTPException(400, "This coupon has reached its usage limit")
-    needed = await _check_stock_or_400(body.items)
-    loyalty_rules = _loyalty_rules(tenant_doc)
-    totals = _compute_invoice_totals(
-        body.items, cust, body.discount, effective_tax_pct,
-        membership_pct=float(membership["discount_pct"]) if membership else 0.0,
-        coupon=coupon, redeem_points=body.redeem_points, loyalty_rules=loyalty_rules)
-
-    inv = Invoice(
-        invoice_no=await _gen_invoice_no(),
-        customer_id=cust["id"], customer_name=cust["name"],
-        staff_id=staff["id"] if staff else None,
-        staff_name=staff["name"] if staff else None,
-        items=body.items, subtotal=totals["subtotal"], discount=totals["discount"],
-        tax=totals["tax"], total=totals["total"], payment_mode=body.payment_mode,
-        branch_id=branch["id"] if branch else None,
-        branch_name=branch["name"] if branch else None,
-    ).model_dump()
-    inv["membership_discount"] = totals["membership_discount"]
-    inv["coupon_code"] = coupon["code"] if coupon else None
-    inv["coupon_discount"] = totals["coupon_discount"]
-    inv["points_used"] = totals["points_used"]
-    await db.invoices.insert_one(inv)
-
-    # Update customer stats, consume credits/points, award loyalty (5 pts per ₹100)
-    points_earned = int(int(totals["total"] // 100) * float(loyalty_rules.get("earn_per_100") or 0))
-    cust_inc = {"total_spent": totals["total"], "visits": 1,
-                "loyalty_points": points_earned - totals["points_used"]}
-    if totals["referral_credit_used"] > 0:
-        cust_inc["referral_credit"] = -totals["referral_credit_used"]
-    await db.customers.update_one({"id": cust["id"]}, {"$inc": cust_inc})
-
-    # SEC-001: release the referrer's reward only after the referred guest actually pays.
-    if cust.get("referral_pending") and cust.get("referred_by"):
-        await db.customers.update_one({"id": cust["id"]}, {"$unset": {"referral_pending": ""}})
-        referrer = await db.customers.find_one(
-            {"id": cust["referred_by"]}, {"_id": 0, "id": 1, "referral_credit": 1})
-        if referrer and float(referrer.get("referral_credit") or 0) < MAX_CUSTOMER_CREDIT:
-            await db.customers.update_one(
-                {"id": referrer["id"]}, {"$inc": {"referral_credit": REFERRAL_REWARD_REFERRER}})
-
-    await _process_benefit_items(inv, cust)
-
-    for pid, qty in needed.items():
-        await db.products.update_one({"id": pid}, {"$inc": {"stock": -qty}})
-    inv["points_earned"] = points_earned
-    inv["receipts"] = await _send_billing_receipts(inv, cust, tenant_doc, points_earned)
-    return _clean(inv)
-
 # ---------------- Reviews ----------------
 @api.get("/reviews")
 async def list_reviews(user=Depends(get_current_user)):
@@ -3236,9 +2717,12 @@ async def public_review(token: str, body: ReviewIn, request: Request):
     if await db.reviews.find_one({"appointment_id": token}):
         raise HTTPException(400, "Review already submitted for this visit")
 
-    # SEC-002: only reward if the visit was actually paid for (an invoice
-    # exists). Prevents "book fake → review fake → mint ₹50" farming loops.
-    invoiced = await db.invoices.find_one({"appointment_id": token}, {"_id": 0, "id": 1})
+    # SEC-002: only reward if the guest has actually paid — an invoice linked to
+    # this appointment OR any paid invoice for this customer. Prevents
+    # "book fake → review fake → mint ₹50" farming loops.
+    invoiced = await db.invoices.find_one(
+        {"$or": [{"appointment_id": token}, {"customer_id": appt["customer_id"]}]},
+        {"_id": 0, "id": 1})
 
     reward_code = None
     if body.rating >= 4 and invoiced:
@@ -3290,8 +2774,6 @@ api.include_router(reports_router)
 
 # ---------------- Public (no auth) - Customer-facing booking ----------------
 
-REFERRAL_REWARD_REFERRER = 100.0  # ₹ credit to referrer
-REFERRAL_REWARD_REFERRED = 100.0  # ₹ credit to new customer
 
 class PublicBookingIn(BaseModel):
     customer_name: str = Field(..., min_length=2, max_length=80)
@@ -4432,782 +3914,6 @@ async def change_password(body: ChangePasswordIn, user=Depends(get_current_user)
     return {"ok": True}
 
 
-# ============== SaaS Subscription Billing (tenant → super-admin) ==============
-# Plans: 6-month at ₹12,000 OR 1-year at ₹20,000. Payments recorded manually
-# (e.g., from a Paytm UPI transfer) by the super-admin. Each payment generates a
-# bill record; daily / monthly revenue can be aggregated by GET /revenue.
-PLAN_CATALOG = {
-    "half_year": {"label": "6-Month Plan", "price": 12000.0, "duration_days": 183},
-    "annual":    {"label": "Annual Plan",  "price": 20000.0, "duration_days": 365},
-    "multi_branch_half":   {"label": "Multi-Branch 6-Month (5+ branches)", "price": 45000.0, "duration_days": 183},
-    "multi_branch_annual": {"label": "Multi-Branch Annual (5+ branches)",  "price": 70000.0, "duration_days": 365},
-}
-
-
-class Subscription(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    tenant_id: str
-    plan: str  # 'half_year' | 'annual'
-    price: float
-    start_date: str  # ISO date
-    end_date: str    # ISO date
-    status: str = "active"  # active | cancelled | expired
-    payment_method: Optional[str] = "paytm"
-    payment_ref: Optional[str] = None
-    notes: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    cancelled_at: Optional[str] = None
-    cancelled_reason: Optional[str] = None
-
-
-class SubscriptionPayment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    subscription_id: str
-    tenant_id: str
-    amount: float
-    paid_at: str  # ISO date
-    method: str = "paytm"
-    txn_ref: Optional[str] = None
-    recorded_by: Optional[str] = None  # super-admin user id
-    notes: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-
-class SubscriptionIn(BaseModel):
-    tenant_id: str
-    plan: str
-    start_date: Optional[str] = None  # default = today
-    payment_method: str = "paytm"
-    payment_ref: Optional[str] = None
-    amount_paid: Optional[float] = None  # default = plan price
-    paid_at: Optional[str] = None  # default = today
-    notes: Optional[str] = None
-
-
-class SubscriptionCancelIn(BaseModel):
-    reason: Optional[str] = None
-
-
-def _plan_or_400(plan: str) -> dict:
-    p = PLAN_CATALOG.get(plan)
-    if not p:
-        raise HTTPException(400, f"Unknown plan '{plan}'. Valid: {list(PLAN_CATALOG)}")
-    return p
-
-
-@api.get("/super-admin/plans")
-async def list_plans(user=Depends(require_super_admin)):
-    return [{"key": k, **v} for k, v in PLAN_CATALOG.items()]
-
-
-@api.get("/super-admin/subscriptions")
-async def list_subscriptions(user=Depends(require_super_admin)):
-    """List all subscriptions across tenants, latest first, joined with tenant name."""
-    subs = await db.subscriptions.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
-    tids = list({s["tenant_id"] for s in subs})
-    tmap = {
-        t["id"]: t for t in
-        await db.tenants.find({"id": {"$in": tids}}, {"_id": 0, "id": 1, "slug": 1, "name": 1}).to_list(500)
-    }
-    out = []
-    for s in subs:
-        s["tenant"] = tmap.get(s["tenant_id"], {"name": "(deleted tenant)", "slug": "—"})
-        s["plan_label"] = PLAN_CATALOG.get(s["plan"], {}).get("label", s["plan"])
-        out.append(s)
-    return out
-
-
-@api.post("/super-admin/subscriptions")
-async def create_subscription(body: SubscriptionIn, user=Depends(require_super_admin)):
-    """Create a subscription for a tenant + record the corresponding payment in one shot."""
-    tenant = await db.tenants.find_one({"id": body.tenant_id}, {"_id": 0})
-    if not tenant:
-        raise HTTPException(404, "Tenant not found")
-
-    plan_info = _plan_or_400(body.plan)
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    start = body.start_date or today_iso
-    try:
-        start_dt = datetime.fromisoformat(start)
-    except Exception as e:
-        raise HTTPException(400, "Invalid start_date — use YYYY-MM-DD") from e
-    end_dt = start_dt + timedelta(days=plan_info["duration_days"])
-
-    # Auto-cancel any existing active subscription for the same tenant
-    await db.subscriptions.update_many(
-        {"tenant_id": body.tenant_id, "status": "active"},
-        {"$set": {"status": "cancelled", "cancelled_at": datetime.now(timezone.utc).isoformat(),
-                  "cancelled_reason": "superseded by new subscription"}},
-    )
-
-    sub = Subscription(
-        tenant_id=body.tenant_id,
-        plan=body.plan,
-        price=plan_info["price"],
-        start_date=start_dt.date().isoformat(),
-        end_date=end_dt.date().isoformat(),
-        status="active",
-        payment_method=body.payment_method or "paytm",
-        payment_ref=body.payment_ref,
-        notes=body.notes,
-    ).model_dump()
-    await db.subscriptions.insert_one(sub)
-
-    pay = SubscriptionPayment(
-        subscription_id=sub["id"],
-        tenant_id=body.tenant_id,
-        amount=body.amount_paid if body.amount_paid is not None else plan_info["price"],
-        paid_at=body.paid_at or today_iso,
-        method=body.payment_method or "paytm",
-        txn_ref=body.payment_ref,
-        recorded_by=user["id"],
-        notes=body.notes,
-    ).model_dump()
-    await db.subscription_payments.insert_one(pay)
-
-    # Reflect on tenant for quick-access UI
-    await db.tenants.update_one(
-        {"id": body.tenant_id},
-        {"$set": {"plan": body.plan, "status": "active",
-                  "subscription_end_date": sub["end_date"],
-                  "current_subscription_id": sub["id"]}},
-    )
-
-    sub.pop("_id", None)
-    pay.pop("_id", None)
-    return {"subscription": sub, "payment": pay}
-
-
-class SubscriptionExtendIn(BaseModel):
-    reason: Optional[str] = None
-
-
-@api.post("/super-admin/subscriptions/{sid}/extend")
-async def extend_subscription(sid: str, body: SubscriptionExtendIn, user=Depends(require_super_admin)):
-    """Goodwill extension: add 1 month (30 days) to an active subscription's end date.
-    Used when a client is facing financial issues and needs extra time to renew."""
-    sub = await db.subscriptions.find_one({"id": sid}, {"_id": 0})
-    if not sub:
-        raise HTTPException(404, "Subscription not found")
-    if sub["status"] != "active":
-        raise HTTPException(400, "Only active subscriptions can be extended")
-    try:
-        new_end = (datetime.fromisoformat(sub["end_date"]) + timedelta(days=30)).date().isoformat()
-    except Exception as e:
-        raise HTTPException(400, "Subscription has an invalid end date") from e
-    ext = {
-        "extended_at": datetime.now(timezone.utc).isoformat(),
-        "extended_by": user["id"],
-        "days": 30,
-        "reason": (body.reason or "Goodwill extension — financial hardship").strip(),
-        "previous_end_date": sub["end_date"],
-        "new_end_date": new_end,
-    }
-    await db.subscriptions.update_one(
-        {"id": sid},
-        {"$set": {"end_date": new_end}, "$push": {"extensions": ext}})
-    await db.tenants.update_one(
-        {"id": sub["tenant_id"], "current_subscription_id": sid},
-        {"$set": {"subscription_end_date": new_end}})
-    return {"ok": True, "end_date": new_end, "extension": ext}
-
-
-# ---------------- Razorpay (Tenant self-serve subscription) ----------------
-import razorpay as _razorpay
-
-RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
-RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
-RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
-
-def _rzp_client() -> Optional[_razorpay.Client]:
-    if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
-        return None
-    return _razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-
-
-class RzpOrderIn(BaseModel):
-    plan: str  # key from PLAN_CATALOG (e.g. "6_months", "1_year")
-
-
-class RzpVerifyIn(BaseModel):
-    plan: str
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: str
-
-
-@api.get("/billing/razorpay/config")
-async def rzp_config(user=Depends(require_tenant_admin)):
-    """Public-ish config for the frontend checkout — only the key_id is safe to expose."""
-    return {
-        "enabled": bool(RAZORPAY_KEY_ID),
-        "key_id": RAZORPAY_KEY_ID,
-        "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"),
-        "plans": [{"key": k, **v} for k, v in PLAN_CATALOG.items()],
-    }
-
-
-@api.post("/billing/razorpay/order")
-async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Create a Razorpay Order for the current tenant's chosen plan.
-
-    Applies any accumulated affiliate_credits as a discount on this renewal.
-    """
-    rzp = _rzp_client()
-    if not rzp:
-        raise HTTPException(503, "Razorpay is not configured. Contact support.")
-    plan = _plan_or_400(body.plan)
-
-    credits = float(t.get("affiliate_credits") or 0)
-    price = float(plan["price"])
-    payable = max(price - credits, 1)  # Razorpay min amount is ₹1 (100 paise)
-    credits_used = round(price - payable, 2) if credits > 0 else 0.0
-
-    receipt = f"tnt_{t['slug'][:20]}_{int(datetime.now(timezone.utc).timestamp())}"[:40]
-    order = rzp.order.create({
-        "amount": int(round(payable * 100)),  # paise
-        "currency": "INR",
-        "receipt": receipt,
-        "notes": {
-            "tenant_id": t["id"],
-            "tenant_slug": t["slug"],
-            "plan": body.plan,
-            "credits_applied_inr": str(credits_used),
-        },
-    })
-    # Track pending order server-side so we can reconcile on verify
-    await db.subscription_payments.insert_one({
-        "id": str(uuid.uuid4()),
-        "kind": "razorpay_pending",
-        "razorpay_order_id": order["id"],
-        "tenant_id": t["id"],
-        "plan": body.plan,
-        "amount": payable,
-        "credits_applied": credits_used,
-        "status": "created",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    return {
-        "order_id": order["id"],
-        "amount": order["amount"],
-        "currency": order["currency"],
-        "key_id": RAZORPAY_KEY_ID,
-        "plan_label": plan["label"],
-        "credits_applied": credits_used,
-        "payable_inr": payable,
-        "full_price_inr": price,
-    }
-
-
-def _verify_rzp_signature(order_id: str, payment_id: str, signature: str) -> bool:
-    """HMAC SHA256 of '<order_id>|<payment_id>' with key_secret."""
-    body = f"{order_id}|{payment_id}".encode()
-    expected = hmac.new(RAZORPAY_KEY_SECRET.encode(), body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature)
-
-
-# ---------------- SMS Point Packs (self-serve Razorpay top-up) ----------------
-SMS_PACKS = {
-    "pack_199": {"price": 199, "points": 250, "label": "Starter"},
-    "pack_499": {"price": 499, "points": 700, "label": "Growth"},
-    "pack_999": {"price": 999, "points": 1500, "label": "Pro"},
-}
-
-
-class SmsPackOrderIn(BaseModel):
-    pack: str
-
-
-class SmsPackVerifyIn(BaseModel):
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: str
-
-
-@api.get("/sms-packs")
-async def sms_packs(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    return {"enabled": bool(RAZORPAY_KEY_ID), "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"),
-            "packs": [{"key": k, **v} for k, v in SMS_PACKS.items()],
-            "balance": int(t.get("sms_points") or 0)}
-
-
-@api.post("/sms-packs/order")
-async def sms_pack_order(body: SmsPackOrderIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    rzp = _rzp_client()
-    if not rzp:
-        raise HTTPException(503, "Razorpay is not configured. Ask HQ to credit SMS points manually.")
-    pack = SMS_PACKS.get(body.pack)
-    if not pack:
-        raise HTTPException(400, "Unknown pack")
-    receipt = f"sms_{t['slug'][:18]}_{int(datetime.now(timezone.utc).timestamp())}"[:40]
-    order = rzp.order.create({
-        "amount": int(pack["price"]) * 100, "currency": "INR", "receipt": receipt,
-        "notes": {"kind": "sms_pack", "tenant_id": t["id"], "pack": body.pack}})
-    await db.sms_pack_payments.insert_one({
-        "id": str(uuid.uuid4()), "kind": "sms_pack_pending", "razorpay_order_id": order["id"],
-        "tenant_id": t["id"], "pack": body.pack, "points": pack["points"], "amount": pack["price"],
-        "status": "created", "created_at": datetime.now(timezone.utc).isoformat()})
-    return {"order_id": order["id"], "amount": order["amount"], "currency": order["currency"],
-            "key_id": RAZORPAY_KEY_ID, "pack_label": f"{pack['points']} SMS points",
-            "points": pack["points"]}
-
-
-@api.post("/sms-packs/verify")
-async def sms_pack_verify(body: SmsPackVerifyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Signature-verified; points/price always come from the server-recorded pending order."""
-    if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
-        raise HTTPException(503, "Razorpay is not configured.")
-    if not _verify_rzp_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
-        raise HTTPException(400, "Payment signature verification failed — possible tampering.")
-    now = datetime.now(timezone.utc)
-    pending = await db.sms_pack_payments.find_one_and_update(
-        {"razorpay_order_id": body.razorpay_order_id, "kind": "sms_pack_pending",
-         "status": "created", "tenant_id": t["id"]},
-        {"$set": {"status": "captured", "razorpay_payment_id": body.razorpay_payment_id,
-                  "captured_at": now.isoformat()}},
-        return_document=True)
-    if not pending:
-        raise HTTPException(400, "Unknown, already-consumed, or foreign order — please retry.")
-    pts = int(pending["points"])
-    await db.tenants.update_one({"id": t["id"]}, {"$inc": {"sms_points": pts}})
-    await _raw_db.sms_credit_log.insert_one({
-        "id": str(uuid.uuid4()), "tenant_id": t["id"], "points": pts, "source": "razorpay",
-        "payment_ref": body.razorpay_payment_id, "amount": pending["amount"],
-        "credited_by": user.get("email"), "at": now.isoformat()})
-    fresh = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "sms_points": 1})
-    return {"ok": True, "points_added": pts,
-            "sms_points": int((fresh or {}).get("sms_points") or 0)}
-
-
-@api.post("/billing/razorpay/verify")
-async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Verify the checkout signature and create/extend the tenant's subscription.
-
-    SECURITY: the plan/price/duration are ALWAYS read from the server-recorded pending order,
-    never from the client body — otherwise an attacker could pay for the cheap plan and
-    claim the premium plan by tampering with the payload.
-    """
-    if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
-        raise HTTPException(503, "Razorpay is not configured.")
-    if not _verify_rzp_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
-        raise HTTPException(400, "Payment signature verification failed — possible tampering.")
-
-    # Atomically claim the pending record — prevents replay/re-use of the same order.
-    now = datetime.now(timezone.utc)
-    pending_doc = await db.subscription_payments.find_one_and_update(
-        {
-            "razorpay_order_id": body.razorpay_order_id,
-            "kind": "razorpay_pending",
-            "status": "created",  # only claim if not yet captured
-            "tenant_id": t["id"],  # must belong to the same tenant
-        },
-        {"$set": {
-            "status": "captured",
-            "razorpay_payment_id": body.razorpay_payment_id,
-            "captured_at": now.isoformat(),
-        }},
-        return_document=True,
-    )
-    if not pending_doc:
-        raise HTTPException(400, "Unknown, already-consumed, or foreign order — please retry from scratch.")
-
-    # Use the SERVER-recorded plan, never the client's — SEC-002 fix.
-    server_plan = pending_doc["plan"]
-    plan_info = _plan_or_400(server_plan)
-    today_iso = now.date().isoformat()
-    end_dt = now + timedelta(days=plan_info["duration_days"])
-
-    # Auto-cancel any existing active subscription for the same tenant
-    await db.subscriptions.update_many(
-        {"tenant_id": t["id"], "status": "active"},
-        {"$set": {"status": "cancelled", "cancelled_at": now.isoformat(),
-                  "cancelled_reason": "superseded by Razorpay renewal"}},
-    )
-
-    sub = Subscription(
-        tenant_id=t["id"],
-        plan=server_plan,
-        price=plan_info["price"],
-        start_date=now.date().isoformat(),
-        end_date=end_dt.date().isoformat(),
-        status="active",
-        payment_method="razorpay",
-        payment_ref=body.razorpay_payment_id,
-        notes=f"Razorpay order {body.razorpay_order_id}; credits applied ₹{pending_doc.get('credits_applied',0)}",
-    ).model_dump()
-    await db.subscriptions.insert_one(sub)
-
-    pay = SubscriptionPayment(
-        subscription_id=sub["id"],
-        tenant_id=t["id"],
-        amount=float(pending_doc["amount"]),
-        paid_at=today_iso,
-        method="razorpay",
-        txn_ref=body.razorpay_payment_id,
-        recorded_by=user["id"],
-        notes=f"Order {body.razorpay_order_id}",
-    ).model_dump()
-    await db.subscription_payments.insert_one(pay)
-
-    if pending_doc.get("credits_applied", 0) > 0:
-        await db.tenants.update_one(
-            {"id": t["id"]},
-            {"$inc": {"affiliate_credits": -float(pending_doc["credits_applied"])}},
-        )
-
-    await db.tenants.update_one(
-        {"id": t["id"]},
-        {"$set": {"plan": server_plan, "status": "active",
-                  "subscription_end_date": sub["end_date"],
-                  "current_subscription_id": sub["id"]}},
-    )
-
-    # Anti-farming: release any PENDING affiliate reward now that this salon paid.
-    pending_ref = await db.affiliate_referrals.find_one({"referred_tenant_id": t["id"], "status": "pending"})
-    if pending_ref:
-        await db.tenants.update_one(
-            {"id": pending_ref["referrer_tenant_id"]},
-            {"$inc": {"affiliate_credits": float(pending_ref["credit_amount"])}},
-        )
-        await db.affiliate_referrals.update_one(
-            {"id": pending_ref["id"]},
-            {"$set": {"status": "credited", "credited_at": today_iso}},
-        )
-
-    return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"], "plan": server_plan}
-
-
-@api.post("/billing/razorpay/webhook")
-async def rzp_webhook(request: Request):
-    """Razorpay-initiated status callbacks. Verifies the HMAC-SHA256 signature
-    against RAZORPAY_WEBHOOK_SECRET, then reacts to key events.
-
-    Events handled:
-      - payment.failed  → mark matching subscription_payment as `failed`
-      - refund.created / refund.processed → mark subscription as `refunded`
-                          and revoke the tenant's active plan
-      - order.paid, payment.captured → info-only (main verify endpoint already
-                          records these when the user completes the checkout flow)
-
-    All events are archived to the `razorpay_webhook_events` collection so
-    finance/audit can replay them later.
-    """
-    if not RAZORPAY_WEBHOOK_SECRET:
-        # SEC-003: refunds/failed payments will NOT auto-reconcile until the secret is set.
-        logging.getLogger("razorpay").warning(
-            "Webhook received but RAZORPAY_WEBHOOK_SECRET is not configured — event skipped. "
-            "Set the secret (see test_credentials.md guide) so refunds revoke plans automatically.")
-        return {"skipped": True}
-    payload = await request.body()
-    sig = request.headers.get("x-razorpay-signature", "")
-    expected = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, sig):
-        raise HTTPException(400, "Invalid webhook signature")
-
-    try:
-        event = json.loads(payload.decode("utf-8"))
-    except json.JSONDecodeError:
-        raise HTTPException(400, "Invalid JSON payload") from None
-
-    event_type = event.get("event", "unknown")
-    logger = logging.getLogger("razorpay")
-    logger.info("Razorpay webhook: %s", event_type)
-
-    # Archive every event — handy for finance reconciliation and dispute defence.
-    await _raw_db.razorpay_webhook_events.insert_one({
-        "id": str(uuid.uuid4()),
-        "event_type": event_type,
-        "payload": event,
-        "received_at": datetime.now(timezone.utc).isoformat(),
-    })
-
-    payment = (event.get("payload") or {}).get("payment", {}).get("entity", {})
-    refund = (event.get("payload") or {}).get("refund", {}).get("entity", {})
-    order_id = payment.get("order_id") or refund.get("order_id")
-
-    if event_type == "payment.failed" and order_id:
-        await db.subscription_payments.update_one(
-            {"razorpay_order_id": order_id},
-            {"$set": {"status": "failed", "failed_at": datetime.now(timezone.utc).isoformat(),
-                      "failure_reason": payment.get("error_description", "")}},
-        )
-        logger.warning("Payment failed for order %s: %s", order_id, payment.get("error_description"))
-
-    elif event_type in ("refund.created", "refund.processed") and order_id:
-        pay = await db.subscription_payments.find_one({"razorpay_order_id": order_id})
-        if pay:
-            tenant_id = pay.get("tenant_id")
-            await db.subscription_payments.update_one(
-                {"razorpay_order_id": order_id},
-                {"$set": {"status": "refunded", "refunded_at": datetime.now(timezone.utc).isoformat(),
-                          "refund_amount_inr": (refund.get("amount") or 0) / 100.0}},
-            )
-            # Revoke the tenant's active plan so they can't keep using paid features on a refunded sub.
-            if tenant_id:
-                await _raw_db.tenants.update_one(
-                    {"id": tenant_id},
-                    {"$set": {"status": "trial", "subscription_end_date": None}},
-                )
-                logger.warning("Refunded subscription for tenant %s (order %s)", tenant_id, order_id)
-
-    return {"ok": True, "event": event_type}
-
-
-# ---------------- Renewal reminders ----------------
-
-def _days_until(end_date_str: Optional[str]) -> Optional[int]:
-    """Positive if end_date is in the future, 0 = today, negative if past. None if unknown."""
-    if not end_date_str:
-        return None
-    try:
-        # Accept both YYYY-MM-DD and ISO 8601
-        end = datetime.fromisoformat(end_date_str.replace("Z", "+00:00")).date()
-    except ValueError:
-        try:
-            end = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return None
-    return (end - datetime.now(timezone.utc).date()).days
-
-
-@api.get("/billing/subscription-status")
-async def subscription_status(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Tenant-facing: 'how many days do I have left?' — powers the in-app renewal banner."""
-    sub_end = t.get("subscription_end_date")
-    trial_end = t.get("trial_end_date") or t.get("trial_ends_at")
-    if sub_end:
-        days = _days_until(sub_end)
-        source = "subscription"
-        end_date = sub_end
-    else:
-        days = _days_until(trial_end)
-        source = "trial"
-        end_date = trial_end
-    needs_prompt = days is not None and days <= 7  # window that shows the banner (incl. expired)
-    return {
-        "source": source,
-        "end_date": end_date,
-        "days_remaining": days,
-        "status": t.get("status", "trial"),
-        "current_plan": t.get("plan"),
-        "affiliate_credits": float(t.get("affiliate_credits") or 0),
-        "needs_renewal_prompt": needs_prompt,
-    }
-
-
-@api.get("/super-admin/renewals/queue")
-async def renewal_queue(user=Depends(require_super_admin), window_days: int = 10):
-    """Tenants whose subscription (or trial) ends within `window_days`. Sorted by soonest first."""
-    tenants = await db.tenants.find({}, {"_id": 0}).to_list(5000)
-    out = []
-    for t in tenants:
-        end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
-        days = _days_until(end)
-        if days is None or days > window_days:
-            continue
-        # Skip tenants already cancelled long ago
-        if t.get("status") == "cancelled" and (days < -30):
-            continue
-        out.append({
-            "id": t["id"],
-            "slug": t["slug"],
-            "name": t.get("name"),
-            "owner_email": t.get("owner_email"),
-            "phone": t.get("phone") or "",
-            "whatsapp_number": t.get("whatsapp_number") or "",
-            "plan": t.get("plan"),
-            "status": t.get("status"),
-            "end_date": end,
-            "days_remaining": days,
-            "source": "subscription" if t.get("subscription_end_date") else "trial",
-            "affiliate_credits": float(t.get("affiliate_credits") or 0),
-            "last_reminder_at": t.get("last_renewal_reminder_at"),
-            "reminder_count": int(t.get("renewal_reminder_count") or 0),
-        })
-    out.sort(key=lambda x: (x["days_remaining"] if x["days_remaining"] is not None else 9999))
-    return {"count": len(out), "items": out, "window_days": window_days}
-
-
-@api.post("/super-admin/renewals/{tid}/mark-reminded")
-async def mark_renewal_reminded(tid: str, user=Depends(require_super_admin)):
-    """Flag that you tapped WhatsApp for this tenant — increments counter + timestamp."""
-    now = datetime.now(timezone.utc).isoformat()
-    res = await db.tenants.update_one(
-        {"id": tid},
-        {"$set": {"last_renewal_reminder_at": now},
-         "$inc": {"renewal_reminder_count": 1}},
-    )
-    if res.matched_count == 0:
-        raise HTTPException(404, "Tenant not found")
-    return {"ok": True, "reminded_at": now}
-
-
-@api.post("/super-admin/subscriptions/{sid}/cancel")
-async def cancel_subscription(sid: str, body: SubscriptionCancelIn, user=Depends(require_super_admin)):
-    sub = await db.subscriptions.find_one({"id": sid}, {"_id": 0})
-    if not sub:
-        raise HTTPException(404, "Subscription not found")
-    if sub["status"] != "active":
-        raise HTTPException(400, f"Subscription is already {sub['status']}")
-    await db.subscriptions.update_one(
-        {"id": sid},
-        {"$set": {"status": "cancelled",
-                  "cancelled_at": datetime.now(timezone.utc).isoformat(),
-                  "cancelled_reason": body.reason}},
-    )
-    # Mark the tenant as cancelled too (matches the existing soft-delete flow)
-    await db.tenants.update_one(
-        {"id": sub["tenant_id"]},
-        {"$set": {"status": "cancelled"}},
-    )
-    return {"ok": True}
-
-
-@api.get("/super-admin/subscriptions/revenue")
-async def subscription_revenue(user=Depends(require_super_admin)):
-    """Returns SaaS revenue stats: today, this month, last 30 days trend, plan distribution,
-    MRR / ARR, churn, average subscription length, top 5 revenue tenants.
-    """
-    now = datetime.now(timezone.utc)
-    today_iso = now.date().isoformat()
-    month_prefix = now.strftime("%Y-%m")
-    pays = await db.subscription_payments.find(
-        {"$or": [{"kind": {"$exists": False}}, {"kind": {"$ne": "razorpay_pending"}}]},
-        {"_id": 0},
-    ).to_list(5000)
-    today_total = sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(today_iso))
-    month_total = sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(month_prefix))
-    all_time = sum(p["amount"] for p in pays)
-
-    # 30-day trend
-    by_day: dict = {}
-    for offset in range(29, -1, -1):
-        d = (now - timedelta(days=offset)).date().isoformat()
-        by_day[d] = 0.0
-    for p in pays:
-        d = (p.get("paid_at") or "")[:10]
-        if d in by_day:
-            by_day[d] += p["amount"]
-    trend = [{"date": d, "amount": round(v, 2)} for d, v in by_day.items()]
-
-    # Active subs + plan distribution + MRR/ARR
-    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(2000)
-    plan_counts: dict = {}
-    mrr = 0.0
-    for s in subs:
-        plan_counts[s["plan"]] = plan_counts.get(s["plan"], 0) + 1
-        # Normalise each active plan into a monthly-recurring number
-        plan_days = PLAN_CATALOG.get(s["plan"], {}).get("duration_days", 30) or 30
-        plan_price = float(s.get("price") or PLAN_CATALOG.get(s["plan"], {}).get("price") or 0)
-        mrr += plan_price * (30.0 / plan_days)
-    arr = mrr * 12.0
-    plan_dist = [{"plan": k, "label": PLAN_CATALOG.get(k, {}).get("label", k), "count": v}
-                 for k, v in plan_counts.items()]
-
-    # Churn (last 30 days): cancelled / (active + cancelled_in_window)
-    win_start = (now - timedelta(days=30)).isoformat()
-    cancelled_30d = await db.subscriptions.count_documents({
-        "status": "cancelled",
-        "cancelled_at": {"$gte": win_start},
-    })
-    denom = len(subs) + cancelled_30d
-    churn_rate = round(100.0 * cancelled_30d / denom, 2) if denom else 0.0
-
-    # Avg subscription lifetime (days) — over cancelled ones
-    cancelled_all = await db.subscriptions.find(
-        {"status": "cancelled", "cancelled_at": {"$exists": True}, "start_date": {"$exists": True}},
-        {"_id": 0, "start_date": 1, "cancelled_at": 1},
-    ).to_list(2000)
-    lifetimes: list = []
-    for c in cancelled_all:
-        try:
-            sd = datetime.fromisoformat(c["start_date"]).date()
-            cd = datetime.fromisoformat(c["cancelled_at"].replace("Z", "+00:00")).date()
-            lifetimes.append((cd - sd).days)
-        except (ValueError, TypeError, KeyError):
-            continue
-    avg_lifetime_days = round(sum(lifetimes) / len(lifetimes), 1) if lifetimes else None
-
-    # Top 5 tenants by all-time revenue
-    tenant_totals: dict = {}
-    for p in pays:
-        tid = p.get("tenant_id")
-        if not tid:
-            continue
-        tenant_totals[tid] = tenant_totals.get(tid, 0.0) + float(p["amount"])
-    top_ids = sorted(tenant_totals, key=tenant_totals.get, reverse=True)[:5]
-    tenant_lookup = {t["id"]: t for t in await db.tenants.find(
-        {"id": {"$in": top_ids}}, {"_id": 0, "id": 1, "slug": 1, "name": 1}
-    ).to_list(len(top_ids) or 1)}
-    top_tenants = [{
-        "tenant_id": tid,
-        "slug": tenant_lookup.get(tid, {}).get("slug", "—"),
-        "name": tenant_lookup.get(tid, {}).get("name", "—"),
-        "total_paid": round(tenant_totals[tid], 2),
-    } for tid in top_ids]
-
-    return {
-        "today": round(today_total, 2),
-        "this_month": round(month_total, 2),
-        "all_time": round(all_time, 2),
-        "active_subscriptions": len(subs),
-        "cancelled_30d": cancelled_30d,
-        "churn_pct": churn_rate,
-        "mrr": round(mrr, 2),
-        "arr": round(arr, 2),
-        "avg_lifetime_days": avg_lifetime_days,
-        "trend_30d": trend,
-        "plan_distribution": plan_dist,
-        "top_tenants": top_tenants,
-    }
-
-
-@api.get("/super-admin/subscriptions/export.csv")
-async def export_subscription_payments_csv(user=Depends(require_super_admin)):
-    """Download every payment as CSV — useful for accounting/investor sharing."""
-    import csv
-    import io
-    pays = await db.subscription_payments.find(
-        {"$or": [{"kind": {"$exists": False}}, {"kind": {"$ne": "razorpay_pending"}}]},
-        {"_id": 0},
-    ).sort("paid_at", -1).to_list(20000)
-    tids = list({p.get("tenant_id") for p in pays if p.get("tenant_id")})
-    t_map = {t["id"]: t for t in await db.tenants.find(
-        {"id": {"$in": tids}}, {"_id": 0, "id": 1, "slug": 1, "name": 1, "owner_email": 1}
-    ).to_list(len(tids) or 1)}
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(["paid_at", "tenant_slug", "tenant_name", "owner_email",
-                "amount_inr", "method", "txn_ref", "subscription_id", "notes"])
-    for p in pays:
-        t = t_map.get(p.get("tenant_id"), {})
-        w.writerow([
-            p.get("paid_at", ""),
-            t.get("slug", ""),
-            t.get("name", ""),
-            t.get("owner_email", ""),
-            f"{float(p.get('amount') or 0):.2f}",
-            p.get("method", ""),
-            p.get("txn_ref", ""),
-            p.get("subscription_id", ""),
-            (p.get("notes") or "").replace("\n", " "),
-        ])
-    return Response(
-        content=buf.getvalue(),
-        media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="miracurl-revenue-{datetime.now(timezone.utc).date().isoformat()}.csv"'},
-    )
-
-
-@api.get("/super-admin/tenants/{tid}/billing")
-async def tenant_billing_history(tid: str, user=Depends(require_super_admin)):
-    """Subscription history + payment log for a single tenant."""
-    subs = await db.subscriptions.find({"tenant_id": tid}, {"_id": 0}).sort("created_at", -1).to_list(50)
-    pays = await db.subscription_payments.find({"tenant_id": tid}, {"_id": 0}).sort("paid_at", -1).to_list(200)
-    for s in subs:
-        s["plan_label"] = PLAN_CATALOG.get(s["plan"], {}).get("label", s["plan"])
-    return {"subscriptions": subs, "payments": pays}
-
 
 @api.get("/super-admin/tenants/{tid}")
 async def get_tenant(tid: str, user=Depends(require_super_admin)):
@@ -5232,35 +3938,6 @@ async def update_tenant(tid: str, body: TenantUpdateIn, user=Depends(require_sup
         raise HTTPException(400, "No fields to update")
     await db.tenants.update_one({"id": tid}, {"$set": upd})
     return await db.tenants.find_one({"id": tid}, {"_id": 0})
-
-class SmsPointsIn(BaseModel):
-    points: int = Field(..., ge=1, le=100000)
-
-
-@api.post("/super-admin/tenants/{tid}/sms-points")
-async def credit_sms_points(tid: str, body: SmsPointsIn, user=Depends(require_super_admin)):
-    """Super-admin credits SMS points to a tenant (1 point = 1 billing SMS)."""
-    t = await db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1})
-    if not t:
-        raise HTTPException(404, "Tenant not found")
-    await db.tenants.update_one({"id": tid}, {"$inc": {"sms_points": int(body.points)}})
-    await _raw_db.sms_credit_log.insert_one({
-        "id": str(uuid.uuid4()), "tenant_id": tid, "points": int(body.points), "source": "manual",
-        "credited_by": user.get("email"), "at": datetime.now(timezone.utc).isoformat()})
-    fresh = await db.tenants.find_one({"id": tid}, {"_id": 0, "sms_points": 1})
-    return {"ok": True, "sms_points": int((fresh or {}).get("sms_points") or 0)}
-
-
-@api.get("/super-admin/sms-credits")
-async def sms_credit_history(user=Depends(require_super_admin)):
-    """Every SMS point credit — manual (HQ) and razorpay (tenant self-purchase)."""
-    rows = await _raw_db.sms_credit_log.find({}, {"_id": 0}).sort("at", -1).to_list(100)
-    tids = list({r.get("tenant_id") for r in rows if r.get("tenant_id")})
-    ts = await db.tenants.find({"id": {"$in": tids}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
-    names = {t["id"]: t["name"] for t in ts}
-    for r in rows:
-        r["tenant_name"] = names.get(r.get("tenant_id"), "—")
-    return rows
 
 
 # ---------------- Trusted Partners (public profile of the platform) ----------------
@@ -5293,16 +3970,23 @@ class PartnerReviewIn(BaseModel):
 @api.get("/partner-review")
 async def get_partner_review(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """The salon owner's own rating/review of the Miracurl platform."""
-    return t.get("partner_review") or {}
+    rev = t.get("partner_review") or {}
+    locked = bool(rev) and not t.get("partner_review_editable")
+    return {**rev, "locked": locked}
 
 
 @api.put("/partner-review")
 async def save_partner_review(body: PartnerReviewIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    # One-time review: once submitted it locks. Only Miracurl HQ can re-enable editing.
+    if t.get("partner_review") and not t.get("partner_review_editable"):
+        raise HTTPException(403, "Your review is already published and locked. Contact Miracurl HQ to enable editing.")
     doc = {"rating": int(body.rating), "text": body.text.strip(),
            "author": user.get("name") or t.get("owner_name") or t.get("name") or "Owner",
            "updated_at": datetime.now(timezone.utc).isoformat()}
-    await db.tenants.update_one({"id": t["id"]}, {"$set": {"partner_review": doc}})
-    return doc
+    await db.tenants.update_one(
+        {"id": t["id"]},
+        {"$set": {"partner_review": doc}, "$unset": {"partner_review_editable": ""}})
+    return {**doc, "locked": True}
 
 
 @api.get("/public/partners")
@@ -5327,6 +4011,7 @@ class PartnerTenantIn(BaseModel):
     visible: Optional[bool] = None
     featured: Optional[bool] = None
     blurb: Optional[str] = Field(None, max_length=400)
+    allow_review_edit: Optional[bool] = None
 
 
 class ManualPartnerIn(BaseModel):
@@ -5344,12 +4029,14 @@ async def super_partners(user=Depends(require_super_admin)):
     tenants = await _raw_db.tenants.find(
         {"status": {"$in": ["active", "trial"]}},
         {"_id": 0, "id": 1, "name": 1, "logo_url": 1, "location": 1, "slug": 1,
-         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1, "partner_review": 1},
+         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1,
+         "partner_review": 1, "partner_review_editable": 1},
     ).to_list(300)
     cards = []
     for t in tenants:
         c = _tenant_partner_card(t, by_tid.get(t["id"]))
         c["visible"] = t.get("partner_visible") is not False
+        c["review_editable"] = bool(t.get("partner_review_editable"))
         cards.append(c)
     manual = await _raw_db.partners.find({}, {"_id": 0}).to_list(100)
     return {"tenants": cards, "manual": manual}
@@ -5364,6 +4051,8 @@ async def update_partner_tenant(tid: str, body: PartnerTenantIn, user=Depends(re
         sets["partner_featured"] = body.featured
     if body.blurb is not None:
         sets["partner_blurb"] = body.blurb.strip()
+    if body.allow_review_edit is not None:
+        sets["partner_review_editable"] = body.allow_review_edit
     if not sets:
         raise HTTPException(400, "Nothing to update")
     r = await db.tenants.update_one({"id": tid}, {"$set": sets})
@@ -6228,12 +4917,17 @@ class PublicAIChatIn(BaseModel):
     session_id: str = Field(..., min_length=8, max_length=64)
 
 async def _booking_catalog(t) -> str:
-    services, staff, coupons, pkgs, mems = await asyncio.gather(
+    today_iso = datetime.now(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+    services, staff, coupons, pkgs, mems, products, leaves = await asyncio.gather(
         db.services.find({"active": True}, {"_id": 0}).to_list(200),
         db.staff.find({"active": True}, {"_id": 0, "id": 1, "name": 1, "role": 1, "tags": 1}).to_list(50),
         db.coupons.find({"active": True}, {"_id": 0}).to_list(50),
         db.packages.find({"active": True}, {"_id": 0}).to_list(50),
         db.memberships.find({"active": True}, {"_id": 0}).to_list(50),
+        db.products.find({}, {"_id": 0, "name": 1, "category": 1, "price": 1, "stock": 1}).to_list(100),
+        db.leave_requests.find(
+            {"status": "approved", "from_date": {"$lte": today_iso}, "to_date": {"$gte": today_iso}},
+            {"_id": 0, "staff_name": 1, "to_date": 1}).to_list(50),
     )
     svc_lines = "\n".join(
         f"- id={s['id']} | {s['name']} | {s.get('category', '')} | ₹{s['price']} | {s['duration_min']}min"
@@ -6242,6 +4936,11 @@ async def _booking_catalog(t) -> str:
         f"- {s['name']} (id={s['id']}) — {s.get('role') or 'Stylist'}"
         + (f" | specialties: {', '.join(s['tags'])}" if s.get("tags") else "")
         for s in staff) or "- any available stylist"
+    on_leave = {(lv.get("staff_name") or "").strip() for lv in leaves if lv.get("staff_name")}
+    leave_line = (
+        "STAFF ON LEAVE TODAY (do NOT offer them for today's bookings; they're back after their leave): "
+        + ", ".join(f"{lv['staff_name']} (till {lv['to_date']})" for lv in leaves)
+        if on_leave else "STAFF ON LEAVE TODAY: none — full team available.")
     today = datetime.now(timezone.utc).date().isoformat()
     live_coupons = [c for c in coupons
                     if (not c.get("expires_at") or c["expires_at"] >= today)
@@ -6255,6 +4954,10 @@ async def _booking_catalog(t) -> str:
     mem_lines = "\n".join(
         f"- {m['name']}: {int(m['discount_pct'])}% off all services for ₹{int(m['price'])} ({m.get('validity_days', 180)} days)"
         for m in mems) or "(none currently)"
+    prod_lines = "\n".join(
+        f"- {p['name']}{' (' + p['category'] + ')' if p.get('category') else ''} — ₹{int(p.get('price') or 0)}"
+        + (" | in stock" if int(p.get("stock") or 0) > 0 else " | currently out of stock")
+        for p in products) or "(no retail products listed)"
     ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
     # Slot availability for the next 3 days so Mira never offers a full time.
     days = [(ist_now + timedelta(days=d)).date().isoformat() for d in range(3)]
@@ -6265,10 +4968,11 @@ async def _booking_catalog(t) -> str:
     return (f"Salon: {t.get('name')}{', ' + t['location'] if t.get('location') else ''}. Hours: {t.get('hours')}. "
             f"Phone: {t.get('phone') or 'ask at the salon'}. "
             f"Current date & time (IST): {ist_now.strftime('%A %Y-%m-%d %H:%M')}.\n"
-            f"SERVICE MENU:\n{svc_lines}\nOUR TEAM OF EXPERTS:\n{staff_lines}\n"
+            f"SERVICE MENU:\n{svc_lines}\nOUR TEAM OF EXPERTS:\n{staff_lines}\n{leave_line}\n"
             f"OPEN TIME SLOTS (only ever offer/confirm a time from this list — others are full):\n{avail_lines}\n"
             f"CURRENT OFFERS (coupon codes customers can apply):\n{offer_lines}\n"
-            f"PACKAGES (bought at the salon):\n{pkg_lines}\nMEMBERSHIPS (bought at the salon):\n{mem_lines}")
+            f"PACKAGES (bought at the salon):\n{pkg_lines}\nMEMBERSHIPS (bought at the salon):\n{mem_lines}\n"
+            f"RETAIL PRODUCTS (guests can buy these at the salon — recommend when relevant to their concern):\n{prod_lines}")
 
 async def _ai_execute_booking(payload: str):
     """Parse the AI's booking JSON and create a real appointment.
@@ -6343,9 +5047,13 @@ async def _public_ai_reply(t, session_id: str, message: str):
         system_message=(
             f"You are Mira, the expert AI beauty consultant on the online booking page of '{t.get('name', 'the salon')}'. "
             "You are warm, gracious and extremely polite — like the most caring senior beautician who treats every guest like a VIP.\n\n"
-            "GREETING FLOW: at the very start of a conversation, warmly ask: 'May I know your name, please?'. "
+            "LANGUAGE RULE (VERY IMPORTANT): detect the language of each customer message and ALWAYS reply in that SAME language and script — "
+            "English, Hindi (देवनागरी), Kannada (ಕನ್ನಡ), Tamil, Telugu, Malayalam, Marathi, Bengali, Urdu (اردو), or Hinglish/Kanglish in Latin script. "
+            "If they switch languages mid-chat, switch with them instantly. Keep service names from the menu as-is but explain around them in their language.\n"
+            "GREETING FLOW: at the very start of a conversation, warmly ask (in the customer's language): 'May I know your name, please?'. "
             f"When the customer tells you their name, reply: 'Welcome to Mira chat bot, [Name]! 💖 Thank you for choosing {t.get('name', 'our salon')}. How may I help you today?' and then assist them. "
-            "Use their name naturally afterwards. Never repeat the welcome once given.\n"
+            "Use their name naturally afterwards. Never repeat the welcome once given. "
+            "ASK FOR THE NAME AT MOST ONCE — if their reply contains anything that could plausibly be a name (any language/script), accept it warmly and move on; NEVER ask for the name a second time.\n"
             "1) EXPERT BEAUTY ADVICE — give specific, detailed, professional recommendations for ANY beauty question: "
             "skin tone (fair, wheatish, dusky, deep), skin type (oily/dry/combination/sensitive), hair type (straight/wavy/curly, thin/thick), "
             "concerns (acne, tanning, pigmentation, dandruff, hair fall, frizz, dullness, aging), ingredients (vitamin C, niacinamide, hyaluronic acid, keratin, argan oil), "
@@ -6376,7 +5084,7 @@ async def _public_ai_reply(t, session_id: str, message: str):
             "keep replies short, warm and mobile-friendly (short paragraphs or dash lists; you may use **bold** for service names and prices, no other markdown); use ₹ for prices; sprinkle a tasteful emoji occasionally (✨💆‍♀️); "
             "never be dismissive — every reply should leave the guest feeling cared for.\n\n" + catalog
         ),
-    ).with_model("openai", "gpt-5.4")
+    ).with_model("openai", "gpt-5.4-mini")
     if hist:
         transcript = "\n".join(f"{'Customer' if h['role'] == 'user' else 'Mira'}: {h['content']}" for h in hist[-24:])
         prompt_text = (f"CONVERSATION SO FAR (remember every detail the customer already shared — do NOT re-ask):\n{transcript}\n\n"
@@ -6442,7 +5150,10 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
     buf.name = f"voice.{ext if ext in ('webm', 'mp3', 'mp4', 'wav', 'm4a', 'mpeg', 'mpga') else 'webm'}"
     stt = OpenAISpeechToText(api_key=key)
     try:
-        tr = await stt.transcribe(file=buf, model="whisper-1", response_format="json")
+        # Bias prompt helps Whisper with Indian multilingual salon vocabulary (auto language detect).
+        tr = await stt.transcribe(
+            file=buf, model="whisper-1", response_format="json",
+            prompt="Indian salon booking call. ग्राहक हिंदी या English में बोलते हैं: हेयरकट, फेशियल, कीमत, बुकिंग. Beauty terms: haircut, facial, keratin, mehendi, pedicure.")
         transcript = (tr.text or "").strip()
     except Exception as e:
         logging.getLogger("public_ai").error(f"stt error: {e}")
@@ -6454,7 +5165,7 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
     try:
         tts = OpenAITextToSpeech(api_key=key)
         speech_text = re.sub(r"\*\*|✨|💖|💆‍♀️|✅|⚠️|📞|🙏", "", reply)[:4000]
-        audio_b64 = await tts.generate_speech_base64(text=speech_text, model="tts-1-hd", voice="shimmer", speed=0.95)
+        audio_b64 = await tts.generate_speech_base64(text=speech_text, model="tts-1", voice="shimmer", speed=1.0)
     except Exception as e:
         logging.getLogger("public_ai").error(f"tts error: {e}")
     return {"transcript": transcript, "reply": reply, "booking": booking,
@@ -6576,6 +5287,12 @@ from routes.registry import (  # noqa: E402 — registry module (routes/registry
     router as registry_router, _aadhaar_fp, _safe_fetch_image_bytes,
 )
 api.include_router(registry_router)
+
+from routes.appointments_pos import router as appointments_pos_router  # noqa: E402
+api.include_router(appointments_pos_router)
+
+from routes.subscriptions import router as subscriptions_router  # noqa: E402
+api.include_router(subscriptions_router)
 
 
 

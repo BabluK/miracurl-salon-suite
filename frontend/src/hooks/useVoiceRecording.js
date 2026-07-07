@@ -61,13 +61,13 @@ export function useVoiceRecording({ onBlob, onNoSpeech, onMicError }) {
         let sum = 0;
         for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
         const rms = Math.sqrt(sum / buf.length);
-        if (rms > 0.045) {
+        if (rms > 0.035) {
           speechRef.current = true;
           clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = null;
         } else if (speechRef.current && !silenceTimerRef.current) {
-          // 1.4s of silence after speech → end turn and send
-          silenceTimerRef.current = setTimeout(() => { try { rec.state !== "inactive" && rec.stop(); } catch { /* noop */ } }, 1400);
+          // 1s of silence after speech → end turn and send (snappy listener)
+          silenceTimerRef.current = setTimeout(() => { try { rec.state !== "inactive" && rec.stop(); } catch { /* noop */ } }, 1000);
         }
         rafRef.current = requestAnimationFrame(tick);
       };

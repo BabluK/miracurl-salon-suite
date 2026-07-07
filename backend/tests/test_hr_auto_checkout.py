@@ -42,7 +42,7 @@ def test_auto_checkout_stale_attendance():
         s = requests.Session()
         r = s.post(f"{BASE}/api/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASS}, timeout=15)
         assert r.status_code == 200
-        tok = r.json().get("access_token") or r.json().get("token")
+        tok = r.cookies.get("access_token") or r.json().get("token")
         s.headers.update({"Authorization": f"Bearer {tok}"})
         # Hitting /attendance/today should trigger _auto_close_stale_attendance
         r = s.get(f"{BASE}/api/attendance/today", timeout=15)

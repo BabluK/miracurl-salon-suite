@@ -10,11 +10,12 @@ import os
 import time
 import pytest
 import requests
+from creds import password_for
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASSWORD = os.environ.get("MIRACURL_ADMIN_PASSWORD", "Miracurl@123")
+ADMIN_PASSWORD = os.environ.get("MIRACURL_ADMIN_PASSWORD", password_for("admin@miracurl.com"))
 
 
 @pytest.fixture(scope="module")
@@ -25,7 +26,7 @@ def admin_token():
         timeout=15,
     )
     assert r.status_code == 200, r.text
-    return r.json()["access_token"]
+    return r.cookies["access_token"]
 
 
 @pytest.fixture(scope="module")

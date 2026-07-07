@@ -12,18 +12,19 @@ import os
 import re
 import pytest
 import requests
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE_URL}/api"
 
-MIRACURL = {"email": "admin@miracurl.com", "password": "Miracurl@123"}
+MIRACURL = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com")}
 ELEGANCE = {"email": "owner@elegance.com", "password": "Owner@123"}
 
 
 def _login(creds):
     r = requests.post(f"{API}/auth/login", json=creds, timeout=30)
     assert r.status_code == 200, f"login failed for {creds['email']}: {r.status_code} {r.text}"
-    return r.json()["access_token"]
+    return r.cookies["access_token"]
 
 
 @pytest.fixture(scope="module")

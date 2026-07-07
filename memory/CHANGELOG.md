@@ -666,3 +666,15 @@ DEFERRED (backlog): email_service monthly/weekly HTML refactor, AppLayout/SuperA
 2. E2E verified: POST /api/invoices → SMS "delivered" to +918217072523 (verified salon number), sms_points 87→86, refund-on-fail logic intact. Test invoice/customer cleaned from DB.
 3. TRIAL LIMITS: SMS only to verified numbers (+918217072523 currently); messages prefixed "Sent from your Twilio trial account". Personal number 7406869271 NOT verified in Twilio console yet.
 4. User confirmed future switch to MSG91 — swap lives entirely in sms_service.py (send_sms signature stays same).
+
+## Update — Jul 7 (part 69) — Router split, review lock, POS labels, Mira upgrade, Bhakti window, suite rehab
+1. REFACTOR: server.py 6612→~5290 lines. New modules: services/billing.py (invoice totals/coupons/loyalty/receipts), routes/appointments_pos.py (appointments+POS+loyalty settings), routes/subscriptions.py (plans, Razorpay, SMS packs, renewals, revenue, sms-credits). Models Customer/Appointment/Invoice/etc + credit constants moved to models.py; _clean moved to database.py.
+2. Partner review ONE-TIME lock: PUT /partner-review 403 after first submit; super-admin unlocks via allow_review_edit (PartnersPanel lock/unlock button); auto-relocks after one edit. Curl-verified e2e.
+3. PartnersPanel: labels on all inputs (public note, manual partner name/city/logo/rating/note). RateMiracurlCard: locked read-only view with HQ note.
+4. POS payment labels: payLabels.js single source (cash/card/upi→GPay/wallet→Phone Pay) across receipt modal, print, thermal, PDF, SMS, email. Receipt modal: delivery-status chips + inline "add guest email" (PUT /customers).
+5. BUG FIX (real): review rewards never fired since SEC-002 (invoices lacked appointment_id). Gate now matches appointment_id OR customer_id; InvoiceIn/Invoice accept appointment_id.
+6. Mira AI: gpt-5.4→gpt-5.4-mini (1.4-2.5s replies, was 5-15s), tts-1 (faster voice), Whisper Devanagari bias prompt, language-mirroring rule (Kannada/Urdu/Tamil/etc tested OK), ask-name-once rule, VAD 1.4s→1.0s + lower threshold. Catalog now includes RETAIL PRODUCTS + STAFF ON LEAVE TODAY. Internal owner assistant also on mini.
+7. Bhakti morning window: isBhaktiTime() 6-11 AM IST → bhakti channel pinned first + pulse + badge in QuickMusicBar, banner in Entertainment. Desc now "Bhajans & Bollywood bhakti songs".
+8. TEST SUITE REHAB: 186→500 passing. Fixed stale creds (creds.py everywhere), cookie-auth contract, Owner-PIN headers, plan prices (12000/20000), GST-on steady state (iter19 cleanup restores ENABLED 18%), registry name-verifier contract, randomized booking slots, saturation/rate-limit skips, shared event loop (iter51), Razorpay live-key tolerance, modernized SEC-001/002/003 contracts in backend_test. Purged 135 TEST appointments/153 customers/112 invoices from preview DB.
+NOTE: 3 tests are parallel-race flaky only (pass serially): insufficient_stock, full_booking_flow, late_fines_settings.
+NOTE: Twilio trial daily 50-msg cap can be burned by full-suite runs (invoice tests attempt SMS to fake numbers; points auto-refund).

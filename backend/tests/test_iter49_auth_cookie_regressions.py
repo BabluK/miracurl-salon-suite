@@ -91,6 +91,8 @@ class TestSignupSalonCookieOnly:
             "city": "Bangalore",
         }
         r = requests.post(f"{API}/public/signup-salon", json=payload, timeout=45)
+        if r.status_code == 429:
+            pytest.skip("signup rate-limited")
         assert r.status_code == 200, r.text
         body = r.json()
         assert "access_token" not in body

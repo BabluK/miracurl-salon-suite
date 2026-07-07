@@ -4,6 +4,7 @@
 import os
 import pytest
 import requests
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
@@ -15,7 +16,7 @@ if not BASE_URL:
                 break
 
 CREDS = {
-    "miracurl": {"email": "admin@miracurl.com", "password": "Miracurl@123", "expected_name_contains": "Miracurl"},
+    "miracurl": {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com"), "expected_name_contains": "Miracurl"},
     "elegance": {"email": "owner@elegance.com", "password": "Owner@123", "expected_name_contains": "Elegance"},
 }
 
@@ -23,7 +24,7 @@ CREDS = {
 def _login(email, password):
     r = requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
     assert r.status_code == 200, f"login failed for {email}: {r.status_code} {r.text}"
-    return r.json()["access_token"], r.json()["user"]["tenant_id"]
+    return r.cookies["access_token"], r.json()["user"]["tenant_id"]
 
 
 def _get_tenant_info(token):

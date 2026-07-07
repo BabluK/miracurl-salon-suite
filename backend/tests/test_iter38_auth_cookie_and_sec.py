@@ -10,12 +10,13 @@ import time
 import uuid
 import requests
 import pytest
+from creds import password_for
 
 BASE = (os.environ.get("REACT_APP_BACKEND_URL") or "").rstrip("/")
 assert BASE, "REACT_APP_BACKEND_URL must be set"
 SLUG = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "Miracurl@123"
+ADMIN_PASS = password_for("admin@miracurl.com")
 
 
 # -------- Fixtures --------

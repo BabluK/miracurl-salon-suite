@@ -8,14 +8,15 @@ import os
 import pytest
 import requests
 from datetime import datetime, timezone, timedelta
+from creds import password_for
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "Miracurl@123"
+ADMIN_PASS = password_for("admin@miracurl.com")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "Super@Miracurl123"
+SUPER_PASS = password_for("super@miracurl.com")
 ELEGANCE_EMAIL = "owner@elegance.com"
 ELEGANCE_PASS = "Owner@123"
 DEFAULT_SLUG = "miracurl-marathahalli"
@@ -25,7 +26,7 @@ ELEGANCE_SLUG = "elegance-koramangala"
 def _login(email, password):
     r = requests.post(f"{API}/auth/login", json={"email": email, "password": password})
     assert r.status_code == 200, f"login failed {email}: {r.status_code} {r.text}"
-    return r.json()["access_token"]
+    return r.cookies["access_token"]
 
 
 @pytest.fixture(scope="module")
@@ -49,8 +50,7 @@ class TestAuthRegression:
         r = requests.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASS})
         assert r.status_code == 200
         data = r.json()
-        assert "access_token" in data
-        assert isinstance(data["access_token"], str) and len(data["access_token"]) > 20
+        assert isinstance(r.cookies.get("access_token"), str) and len(r.cookies["access_token"]) > 20
         assert data["user"]["email"] == ADMIN_EMAIL
 
 

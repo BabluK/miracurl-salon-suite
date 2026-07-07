@@ -12,20 +12,21 @@ import os
 import pytest
 import requests
 from PIL import Image
+from creds import password_for
 
 BASE = os.environ.get(
     "REACT_APP_BACKEND_URL",
     "https://hair-hub-system.preview.emergentagent.com",
 ).rstrip("/")
 
-MIRA = {"email": "admin@miracurl.com", "password": "Miracurl@123"}
+MIRA = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com")}
 ELEG = {"email": "owner@elegance.com", "password": "Owner@123"}
 
 
 def _login(creds):
     r = requests.post(f"{BASE}/api/auth/login", json=creds, timeout=30)
     assert r.status_code == 200, f"login failed for {creds['email']}: {r.status_code} {r.text}"
-    return r.json()["access_token"]
+    return r.cookies["access_token"]
 
 
 def _png_bytes(size=(64, 64), color="blue"):

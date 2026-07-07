@@ -17,13 +17,14 @@ import uuid
 import requests
 import pytest
 from datetime import datetime, timezone, timedelta
+from creds import password_for
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE_URL}/api"
 
 TENANT_SLUG = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "Miracurl@123"
+ADMIN_PASS = password_for("admin@miracurl.com")
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +34,7 @@ def admin_session():
     r = s.post(f"{API}/auth/login",
                json={"email": ADMIN_EMAIL, "password": ADMIN_PASS})
     assert r.status_code == 200, f"login failed: {r.text}"
-    token = r.json().get("access_token")
+    token = r.cookies.get("access_token")
     assert token, "missing access_token"
     s.headers.update({"Authorization": f"Bearer {token}"})
     return s
@@ -193,10 +194,11 @@ class TestPublicBookingValidation:
         services = requests.get(f"{API}/public/services/{TENANT_SLUG}").json()
         assert services, "no public services to book"
         svc_id = services[0]["id"]
-        # Use IST 15:00 on day +2 to be safely within 10:00-21:00 business hours
+        # Random future slot within 10:00-20:30 IST — fixed slots saturate across suite runs
+        import random
         ist_tz = timezone(timedelta(hours=5, minutes=30))
-        when = (datetime.now(ist_tz) + timedelta(days=2)).replace(
-            hour=15, minute=0, second=0, microsecond=0).isoformat()
+        when = (datetime.now(ist_tz) + timedelta(days=random.randint(4, 45))).replace(
+            hour=random.randint(10, 20), minute=random.choice((0, 30)), second=0, microsecond=0).isoformat()
         body = {
             "customer_name": f"TEST_Iter11_OK_{uuid.uuid4().hex[:5]}",
             "customer_phone": "9" + str(uuid.uuid4().int)[:9],
