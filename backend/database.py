@@ -76,6 +76,7 @@ class _DB:
     users = _raw_db.users
     login_attempts = _raw_db.login_attempts
     password_reset_tokens = _raw_db.password_reset_tokens
+    revoked_tokens = _raw_db.revoked_tokens
     subscriptions = _raw_db.subscriptions
     subscription_payments = _raw_db.subscription_payments
     affiliate_referrals = _raw_db.affiliate_referrals

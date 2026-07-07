@@ -1,5 +1,6 @@
 """Auth & tenancy security: JWT, cookies, password hashing, role guards, rate limit."""
 import os
+import uuid
 import jwt
 import bcrypt
 from datetime import datetime, timezone, timedelta
@@ -22,6 +23,7 @@ def verify_pw(p: str, h: str) -> bool:
 
 def make_access(user_id: str, email: str) -> str:
     payload = {"sub": user_id, "email": email,
+               "jti": uuid.uuid4().hex,
                "iat": int(datetime.now(timezone.utc).timestamp()),
                "exp": datetime.now(timezone.utc) + timedelta(hours=8),
                "type": "access"}
@@ -29,6 +31,7 @@ def make_access(user_id: str, email: str) -> str:
 
 def make_refresh(user_id: str) -> str:
     payload = {"sub": user_id,
+               "jti": uuid.uuid4().hex,
                "iat": int(datetime.now(timezone.utc).timestamp()),
                "exp": datetime.now(timezone.utc) + timedelta(days=7),
                "type": "refresh"}
@@ -100,11 +103,36 @@ async def _apply_tenant_context(request: Request, user: dict) -> None:
         _super_admin_ok.set(True)
 
 
+async def revoke_token_jtis(request: Request):
+    """SEC: blacklist the presented tokens' jtis on logout (per-device — other sessions live on)."""
+    for name in ("access_token", "refresh_token"):
+        token = request.cookies.get(name)
+        if not token:
+            continue
+        try:
+            payload = jwt.decode(token, jwt_secret(), algorithms=[JWT_ALG])
+        except jwt.InvalidTokenError:
+            continue
+        jti, exp = payload.get("jti"), payload.get("exp")
+        if jti and exp:
+            await db.revoked_tokens.update_one(
+                {"jti": jti},
+                {"$set": {"jti": jti, "expires_at": datetime.fromtimestamp(exp, tz=timezone.utc)}},
+                upsert=True)
+
+
+async def _reject_if_revoked(payload: dict):
+    jti = payload.get("jti")
+    if jti and await db.revoked_tokens.find_one({"jti": jti}, {"_id": 1}):
+        raise HTTPException(401, "Session ended — please sign in again")
+
+
 async def get_current_user(request: Request) -> dict:
     token = _extract_bearer_token(request)
     if not token:
         raise HTTPException(401, "Not authenticated")
     payload = _decode_access_token(token)
+    await _reject_if_revoked(payload)
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(401, "User not found")

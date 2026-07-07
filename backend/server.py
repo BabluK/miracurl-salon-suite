@@ -53,6 +53,7 @@ from security import (  # noqa: F401 — auth & tenancy guards
     _reject_if_token_predates_password_change, set_auth_cookies,
     get_current_user, require_admin, public_rate_limit,
     require_super_admin, require_tenant_admin, current_tenant,
+    revoke_token_jtis, _reject_if_revoked,
 )
 
 # ---------------- Models ----------------
@@ -570,7 +571,8 @@ async def login(body: LoginIn, request: Request, response: Response):
     return {"user": user}
 
 @api.post("/auth/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
+    await revoke_token_jtis(request)
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
     return {"ok": True}
@@ -588,6 +590,7 @@ async def refresh_token(request: Request, response: Response):
         payload = jwt.decode(token, jwt_secret(), algorithms=[JWT_ALG])
         if payload.get("type") != "refresh":
             raise HTTPException(401, "Invalid type")
+        await _reject_if_revoked(payload)
         user = await db.users.find_one({"id": payload["sub"]})
         if not user:
             raise HTTPException(401, "User not found")
@@ -2369,6 +2372,29 @@ async def _build_greeting_text(user: dict, t: dict, ist: datetime, today_str: st
     return builder(ctx), bool(low_count and has_vendor)
 
 
+async def _tts_cache_get(cache_key: tuple, today_str: str):
+    """Two-tier TTS cache: in-memory, then Mongo (survives restarts)."""
+    cached = _TTS_CACHE.get(cache_key)
+    if cached and cached[0] == today_str:
+        return cached[1]
+    doc = await _raw_db.tts_cache.find_one(
+        {"key": ":".join(cache_key), "date": today_str}, {"_id": 0, "payload": 1})
+    if doc:
+        _TTS_CACHE[cache_key] = (today_str, doc["payload"])
+        return doc["payload"]
+    return None
+
+
+async def _tts_cache_put(cache_key: tuple, today_str: str, payload: dict):
+    if len(_TTS_CACHE) > 2000:
+        _TTS_CACHE.clear()
+    _TTS_CACHE[cache_key] = (today_str, payload)
+    await _raw_db.tts_cache.update_one(
+        {"key": ":".join(cache_key)},
+        {"$set": {"date": today_str, "payload": payload, "created_at": datetime.now(timezone.utc)}},
+        upsert=True)
+
+
 @api.get("/reports/morning-briefing/audio")
 async def morning_briefing_audio(lang: str = "en", user=Depends(get_current_user), t=Depends(current_tenant)):
     """Mira speaks the greeting aloud (OpenAI TTS, shimmer voice). lang: en | hi."""
@@ -2380,9 +2406,9 @@ async def morning_briefing_audio(lang: str = "en", user=Depends(get_current_user
     ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
     today_str = ist.strftime("%Y-%m-%d")
     cache_key = (t["id"], user["id"], lang)
-    cached = _TTS_CACHE.get(cache_key)
-    if cached and cached[0] == today_str:
-        return cached[1]
+    hit = await _tts_cache_get(cache_key, today_str)
+    if hit:
+        return hit
     text, ask_restock = await _build_greeting_text(user, t, ist, today_str, lang)
     try:
         tts = OpenAITextToSpeech(api_key=key)
@@ -2390,9 +2416,7 @@ async def morning_briefing_audio(lang: str = "en", user=Depends(get_current_user
     except Exception as e:
         raise HTTPException(400, f"Voice generation failed: {e}")
     payload = {"audio_b64": audio_b64, "text": text, "ask_restock": ask_restock, "lang": lang}
-    if len(_TTS_CACHE) > 2000 or (cached and cached[0] != today_str):
-        _TTS_CACHE.clear()
-    _TTS_CACHE[cache_key] = (today_str, payload)
+    await _tts_cache_put(cache_key, today_str, payload)
     return payload
 
 
@@ -2461,9 +2485,9 @@ async def evening_briefing_audio(lang: str = "en", user=Depends(get_current_user
     ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
     today_str = ist.strftime("%Y-%m-%d")
     cache_key = (t["id"], user["id"], lang, "eve")
-    cached = _TTS_CACHE.get(cache_key)
-    if cached and cached[0] == today_str:
-        return cached[1]
+    hit = await _tts_cache_get(cache_key, today_str)
+    if hit:
+        return hit
     text = await _build_evening_text(user, t, ist, lang)
     try:
         tts = OpenAITextToSpeech(api_key=key)
@@ -2471,9 +2495,7 @@ async def evening_briefing_audio(lang: str = "en", user=Depends(get_current_user
     except Exception as e:
         raise HTTPException(400, f"Voice generation failed: {e}")
     payload = {"audio_b64": audio_b64, "text": text, "ask_restock": False, "lang": lang}
-    if len(_TTS_CACHE) > 2000 or (cached and cached[0] != today_str):
-        _TTS_CACHE.clear()
-    _TTS_CACHE[cache_key] = (today_str, payload)
+    await _tts_cache_put(cache_key, today_str, payload)
     return payload
 
 
@@ -3480,6 +3502,8 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
     if start and end:
         flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
+    reviews = await db.reviews.find(flt, {"_id": 0, "rating": 1}).to_list(2000)
+    avg_rating = round(sum(r.get("rating", 0) for r in reviews) / len(reviews), 1) if reviews else None
     by_mode = {}
     by_branch = {}
     total_revenue = 0.0
@@ -3492,6 +3516,8 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None, u
     return {
         "total_invoices": len(invs),
         "total_revenue": round(total_revenue, 2),
+        "avg_rating": avg_rating,
+        "review_count": len(reviews),
         "by_payment_mode": [{"mode": k, "amount": round(v, 2)} for k, v in by_mode.items()],
         "by_branch": sorted(
             [{"branch": k, "revenue": round(v["revenue"], 2), "invoices": v["invoices"]} for k, v in by_branch.items()],
@@ -6186,6 +6212,10 @@ async def on_startup():
     await _raw_db.appointments.create_index([("tenant_id", 1), ("scheduled_at", 1)])
     await _raw_db.invoices.create_index([("tenant_id", 1), ("created_at", -1)])
     await db.login_attempts.create_index("identifier")
+    await _raw_db.revoked_tokens.create_index("jti", unique=True)
+    await _raw_db.revoked_tokens.create_index("expires_at", expireAfterSeconds=0)
+    await _raw_db.tts_cache.create_index("key", unique=True)
+    await _raw_db.tts_cache.create_index("created_at", expireAfterSeconds=172800)
 
     # One-time migration: booking-created leads (0 visits, never completed a service)
     # move out of CRM until their appointment is marked completed.
@@ -6957,152 +6987,8 @@ async def owner_chat_reply(thread_id: str, body: ChatSendIn, user=Depends(requir
     return await _append_chat_message(thread_id, "owner", body.message.strip())
 
 
-# ---------------- Sales Mira: landing-page product chat + tenant inquiries ----------------
-_SALES_SESSIONS: dict = {}
-
-_SALES_SYSTEM_PROMPT = (
-    "You are Mira, the friendly AI sales assistant on the Miracurl Salon Suite website "
-    "(miracurlunisexsaloon.com). You help salon owners understand the product and choose a plan. "
-    "PRODUCT KNOWLEDGE — Miracurl is an all-in-one salon management suite built for Indian salons: "
-    "• Appointments & 24/7 online booking page (each salon gets its own /book link + QR poster) "
-    "• POS billing with GST invoices, thermal-printer receipts with Google-review QR codes, packages, memberships "
-    "• Customer CRM with loyalty points, birthday tracking + automatic birthday emails, WhatsApp confirmations "
-    "• Staff management: geo-fenced attendance check-in/out, PDF salary slips, commission tracking, leave approval workflow "
-    "• Cross-salon Staff Registry: free Aadhaar-verified staff history verification "
-    "• Inventory with low-stock alerts and one-click vendor restock emails "
-    "• AI tools: Mira voice briefings (English + Hindi), AI logo & poster studio, AI review replies, business reports emailed weekly & monthly "
-    "• Multi-branch support, PWA mobile apps, Reviews→₹credits, Refer & Earn. "
-    "PRICING (INR, no per-booking fees or commissions): Free Trial ₹0 for 7 days (all features, up to 50 customers, no credit card); "
-    "6-Month Plan ₹12,000; Annual Plan ₹20,000 (save ₹4,000); Multi-Branch (5+ branches) ₹45,000 for 6 months or ₹70,000 per year. "
-    "SIGNUP: 'Start free trial' button on the site → live in under 90 seconds. "
-    "CONTACT: WhatsApp +91 82170 72523. "
-    "RULES: Only discuss Miracurl — politely decline unrelated topics. Never invent features or prices. "
-    "Be warm, concise (2-4 short sentences), use ₹ for money. Plain text only — no markdown, no asterisks, no bullet lists. Always nudge toward the free trial. "
-    "The visitor's contact details are already saved — our team will reach out; you don't need to ask for them again."
-)
-
-
-class SalesChatStartIn(BaseModel):
-    name: str = Field(..., min_length=2, max_length=80)
-    email: str = Field(..., max_length=120)
-    phone: str = Field(..., max_length=20)
-
-    @field_validator("email")
-    @classmethod
-    def _v_email(cls, v):
-        v = (v or "").strip().lower()
-        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]{2,}", v):
-            raise ValueError("Enter a valid email address")
-        return v
-
-    @field_validator("phone")
-    @classmethod
-    def _v_phone(cls, v):
-        digits = re.sub(r"\D", "", v or "")
-        if len(digits) < 10:
-            raise ValueError("Enter a valid phone number")
-        return digits
-
-
-class SalesChatMsgIn(BaseModel):
-    inquiry_id: str = Field(..., min_length=8, max_length=64)
-    message: str = Field(..., min_length=1, max_length=1000)
-
-
-@api.post("/public/sales-chat/start")
-async def sales_chat_start(body: SalesChatStartIn, request: Request):
-    public_rate_limit(request, "sales-start", limit=5, window_sec=600)
-    now = datetime.now(timezone.utc).isoformat()
-    first = body.name.strip().split()[0].title()
-    greeting = (f"Lovely to meet you, {first} ✦ I'm Mira — I know everything about Miracurl Salon Suite. "
-                f"Ask me about features, pricing, the free trial, or how salons like yours use it day-to-day!")
-    doc = {
-        "id": str(uuid.uuid4()), "name": body.name.strip(), "email": body.email,
-        "phone": body.phone, "status": "new", "source": "landing_chat",
-        "messages": [{"role": "assistant", "content": greeting, "at": now}],
-        "created_at": now, "last_message_at": now,
-    }
-    await _raw_db.tenant_inquiries.insert_one(doc)
-    return {"inquiry_id": doc["id"], "reply": greeting}
-
-
-async def _send_lead_alert(inq: dict, question: str):
-    """Fire-and-forget hot-lead alert to HQ the moment a prospect asks their first question."""
-    hq = os.environ.get("HQ_EMAIL")
-    if not hq:
-        return
-    try:
-        status = await _send_email(
-            [hq],
-            f"🔥 Hot lead: {inq.get('name', 'A prospect')} is asking about Miracurl right now",
-            _lead_alert_email_html(inq, question))
-        if not status.get("sent"):
-            logging.warning(f"lead alert email failed: {status.get('error')}")
-    except Exception as e:
-        logging.error(f"lead alert error: {e}")
-
-
-@api.post("/public/sales-chat/message")
-async def sales_chat_message(body: SalesChatMsgIn, request: Request):
-    public_rate_limit(request, "sales-msg", limit=30, window_sec=600)
-    inq = await _raw_db.tenant_inquiries.find_one(
-        {"id": body.inquiry_id}, {"_id": 0, "id": 1, "name": 1, "email": 1, "phone": 1, "alerted": 1})
-    if not inq:
-        raise HTTPException(404, "Chat session not found — please start again")
-    key = os.environ.get("EMERGENT_LLM_KEY")
-    if not key:
-        raise HTTPException(500, "AI key not configured")
-    chat = _SALES_SESSIONS.get(body.inquiry_id)
-    if chat is None:
-        chat = LlmChat(
-            api_key=key, session_id=f"sales-{body.inquiry_id}",
-            system_message=_SALES_SYSTEM_PROMPT + f" The visitor's name is {inq.get('name', 'there')}.",
-        ).with_model("openai", "gpt-5.4")
-        _SALES_SESSIONS[body.inquiry_id] = chat
-        if len(_SALES_SESSIONS) > 300:
-            _SALES_SESSIONS.pop(next(iter(_SALES_SESSIONS)))
-    try:
-        resp = await chat.send_message(UserMessage(text=body.message))
-        reply = (resp or "").strip() or "I didn't quite catch that — could you rephrase?"
-    except Exception as e:
-        logging.error(f"sales chat LLM error: {e}")
-        raise HTTPException(400, "Mira is momentarily unavailable — please try again in a minute")
-    now = datetime.now(timezone.utc).isoformat()
-    await _raw_db.tenant_inquiries.update_one(
-        {"id": body.inquiry_id},
-        {"$push": {"messages": {"$each": [
-            {"role": "user", "content": body.message, "at": now},
-            {"role": "assistant", "content": reply, "at": now}]}},
-         "$set": {"last_message_at": now}})
-    if not inq.get("alerted"):
-        await _raw_db.tenant_inquiries.update_one({"id": body.inquiry_id}, {"$set": {"alerted": True}})
-        asyncio.create_task(_send_lead_alert(inq, body.message))
-    return {"reply": reply}
-
-
-class InquiryStatusIn(BaseModel):
-    status: str = Field(..., pattern=r"^(new|contacted|converted)$")
-
-
-@api.get("/super-admin/inquiries")
-async def list_tenant_inquiries(user=Depends(require_super_admin)):
-    items = await _raw_db.tenant_inquiries.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
-    return {"items": items, "new_count": sum(1 for i in items if i.get("status") == "new")}
-
-
-@api.patch("/super-admin/inquiries/{iid}")
-async def update_tenant_inquiry(iid: str, body: InquiryStatusIn, user=Depends(require_super_admin)):
-    res = await _raw_db.tenant_inquiries.update_one({"id": iid}, {"$set": {"status": body.status}})
-    if res.matched_count == 0:
-        raise HTTPException(404, "Inquiry not found")
-    return {"ok": True, "status": body.status}
-
-
-@api.delete("/super-admin/inquiries/{iid}")
-async def delete_tenant_inquiry(iid: str, user=Depends(require_super_admin)):
-    await _raw_db.tenant_inquiries.delete_one({"id": iid})
-    _SALES_SESSIONS.pop(iid, None)
-    return {"ok": True}
+from routes.sales import router as sales_router  # Sales Mira chat + tenant inquiries
+api.include_router(sales_router)
 
 
 # ---------------- Cross-Salon Staff History Registry (public verification) ----------------
@@ -7110,15 +6996,18 @@ _REG_BADGE_ORDER = ["NEW", "GOOD", "EXCELLENT", "EXTRAORDINARY"]
 _REG_REASONS = {"", "Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Transferred", "Other"}
 
 def _aadhaar_fp(num: str) -> str:
-    pepper = os.environ["REGISTRY_PEPPER"]
+    pepper = os.environ.get("REGISTRY_PEPPER") or jwt_secret()
     return hashlib.sha256(f"aadhaar:{num}:{pepper}".encode()).hexdigest()
 
 def _aadhaar_fps(num: str) -> list:
-    """Current fp + legacy fp (pre-migration pepper) for backwards-compatible lookups."""
+    """Current fp + legacy fps (pre-migration peppers) for backwards-compatible lookups."""
     fps = [_aadhaar_fp(num)]
-    legacy = os.environ.get("REGISTRY_PEPPER_LEGACY")
-    if legacy:
-        fps.append(hashlib.sha256(f"aadhaar:{num}:{legacy}".encode()).hexdigest())
+    for legacy in (os.environ.get("REGISTRY_PEPPER_LEGACY"), jwt_secret()):
+        if not legacy:
+            continue
+        fp = hashlib.sha256(f"aadhaar:{num}:{legacy}".encode()).hexdigest()
+        if fp not in fps:
+            fps.append(fp)
     return fps
 
 async def _registry_find_by_aadhaar(num: str, projection: dict, limit: int = 5) -> list:
@@ -7127,7 +7016,7 @@ async def _registry_find_by_aadhaar(num: str, projection: dict, limit: int = 5) 
     rows = await _raw_db.registry_employees.find({"aadhaar_hash": {"$in": fps}}, projection).to_list(limit)
     if rows and len(fps) > 1:
         await _raw_db.registry_employees.update_many(
-            {"aadhaar_hash": fps[1]}, {"$set": {"aadhaar_hash": fps[0]}})
+            {"aadhaar_hash": {"$in": fps[1:]}}, {"$set": {"aadhaar_hash": fps[0]}})
     return rows
 
 def is_safe_public_url(url: str) -> bool:

@@ -586,3 +586,11 @@ NOTE: preview-generated poster URLs use APP_PUBLIC_URL (prod domain) — correct
 - _lead_alert_email_html (email_service.py): "🔥 Hot Lead — Live Right Now" luxe email to HQ_EMAIL with prospect name/email/phone, their first question, and Call / WhatsApp (pre-filled wa.me) / Open HQ Inquiries buttons.
 - server.py: _send_lead_alert fired via asyncio.create_task on the FIRST user message of a sales chat (alerted flag on tenant_inquiries prevents duplicates; doesn't delay Mira's reply).
 - Also: sales prompt now enforces plain text (no markdown asterisks in widget). VERIFIED: alert sent (no failure logs), alerted flag set, second message doesn't re-alert, markdown gone.
+
+## Update — Jul 7, 2026 (part 59) — Lead→Tenant convert + backlog cleared (ALL VERIFIED)
+1. LEAD → TENANT CONVERT: green "Convert" button on each inquiry (InquiriesPanel onConvert) — marks status converted, jumps to Tenants tab and opens "Onboard a New Salon" modal pre-filled (slug from name, salon name, owner name/email/phone). Screenshot-verified.
+2. DEFAULT CONFIG (no prod env vars needed): email banner URLs now have baked-in CDN defaults in email_service.py (DEFAULT_WELCOME/MONTHLY/WEEKLY/BIRTHDAY_IMAGE); _aadhaar_fp falls back to jwt_secret() when REGISTRY_PEPPER unset, _aadhaar_fps always includes jwt_secret legacy fp → production works with ZERO new env vars (verified: jwt-pepper-hashed record found + lazily upgraded).
+3. TTS CACHE IN MONGO: _tts_cache_get/_tts_cache_put two-tier (memory + _raw_db.tts_cache, unique key index + 48h TTL) for morning & evening Mira — survives restarts, saves LLM credits.
+4. LOGOUT TOKEN REVOCATION (per integration playbook): jti claim added to access+refresh tokens (security.py); logout revokes presented jtis into revoked_tokens (TTL index expires_at); get_current_user + /auth/refresh reject revoked jtis. Per-device only. VERIFIED: replayed cookie post-logout → 401. Old tokens without jti still work (back-compat).
+5. ROUTER SPLIT (phase 1): /app/backend/routes/sales.py (APIRouter) now owns sales chat + inquiries endpoints; server.py slimmed via api.include_router(sales_router). Pattern established for future extraction.
+6. AVG RATING ON REPORTS: /api/reports/sales returns avg_rating + review_count (date-filtered); Reports.jsx 4-card grid with gold star card. Verified: 3.5★ from 2 reviews.

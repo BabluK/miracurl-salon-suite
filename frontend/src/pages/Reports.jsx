@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
-import { IndianRupee, FileText, Users, Percent, MapPin } from "lucide-react";
+import { IndianRupee, FileText, Users, Percent, MapPin, Star } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
@@ -48,7 +48,7 @@ export default function Reports() {
 
       {!data ? <div className="text-slate-500">Loading...</div> : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <div className="card-light" data-testid="report-total-revenue">
               <div className="label-light">Period Revenue</div>
               <div className="font-playfair text-4xl mt-2 text-sky-600 flex items-center"><IndianRupee className="w-7 h-7" />{data.total_revenue.toLocaleString("en-IN")}</div>
@@ -58,6 +58,13 @@ export default function Reports() {
               <div className="label-light">Total Invoices</div>
               <div className="font-playfair text-4xl mt-2">{data.total_invoices}</div>
               <div className="text-xs text-slate-500 mt-2">avg {inr(data.total_invoices ? data.total_revenue / data.total_invoices : 0)} per bill</div>
+            </div>
+            <div className="card-light" data-testid="report-avg-rating">
+              <div className="label-light">Avg Rating</div>
+              <div className="font-playfair text-4xl mt-2 text-amber-500 flex items-center gap-2">
+                {data.avg_rating != null ? <>{data.avg_rating}<Star className="w-7 h-7 fill-amber-400 text-amber-400" /></> : "—"}
+              </div>
+              <div className="text-xs text-slate-500 mt-2">{data.review_count || 0} review{data.review_count === 1 ? "" : "s"} in period</div>
             </div>
             <div className="card-light">
               <div className="label-light">Payment Mix</div>

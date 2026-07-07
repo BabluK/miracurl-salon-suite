@@ -5,6 +5,13 @@ import logging
 import os
 from urllib.parse import quote
 
+# Default banner art (AI-generated, hosted on Emergent CDN) — env vars override.
+_IMG_BASE = "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images"
+DEFAULT_WELCOME_IMAGE = f"{_IMG_BASE}/d7946ff142f21cc316f0fe02df6fbae156c88cb6a8d04c2b4977b9aa72f665ab.png"
+DEFAULT_MONTHLY_IMAGE = f"{_IMG_BASE}/9c02e11fae1a50a02cdaf0b705f3055c472d92ae26ef59182584566d0cf10f27.png"
+DEFAULT_WEEKLY_IMAGE = f"{_IMG_BASE}/75b0ac704a7cf3e1d5dd8787d16566485a3bd3007f4e3f2128874e46dcd0bd1e.png"
+DEFAULT_BIRTHDAY_IMAGE = f"{_IMG_BASE}/f565f36e70da377dab4e70c377842044c3474a2dbb0e85fa040ee4abb328157e.png"
+
 import resend
 
 
@@ -75,7 +82,7 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_
 
 
 def _monthly_report_html(t: dict, month_label: str, stats: dict) -> str:
-    img = os.environ.get("MONTHLY_REPORT_IMAGE_URL", "")
+    img = os.environ.get("MONTHLY_REPORT_IMAGE_URL") or DEFAULT_MONTHLY_IMAGE
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Monthly Business Report" width="600" '
                f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
@@ -170,7 +177,7 @@ def _monthly_report_html(t: dict, month_label: str, stats: dict) -> str:
 
 
 def _weekly_report_html(t: dict, week_label: str, stats: dict, tip: str = "") -> str:
-    img = os.environ.get("WEEKLY_REPORT_IMAGE_URL", "")
+    img = os.environ.get("WEEKLY_REPORT_IMAGE_URL") or DEFAULT_WEEKLY_IMAGE
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Weekly Business Snapshot" width="600" '
                f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
@@ -269,7 +276,7 @@ def _weekly_report_html(t: dict, week_label: str, stats: dict, tip: str = "") ->
 
 
 def _birthday_email_html(t: dict, cust_name: str, offer_text: str, booking_url: str) -> str:
-    img = os.environ.get("BIRTHDAY_IMAGE_URL", "")
+    img = os.environ.get("BIRTHDAY_IMAGE_URL") or DEFAULT_BIRTHDAY_IMAGE
     img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Happy Birthday" width="600" '
                f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
     offer_block = (

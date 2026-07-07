@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Phone, MessageCircle, CalendarPlus, Trash2, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { Phone, MessageCircle, CalendarPlus, Trash2, ChevronDown, ChevronUp, Users, UserPlus } from "lucide-react";
 
 const STATUS_STYLE = {
   new: "bg-rose-50 text-rose-700 border-rose-200",
@@ -17,7 +17,7 @@ function gcalLink(i) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Miracurl demo — ${i.name}`)}&add=${encodeURIComponent(i.email)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(`Demo call with ${i.name} (${i.phone}). Inquiry from the Miracurl website chat.`)}`;
 }
 
-export function InquiriesPanel({ onNewCount }) {
+export function InquiriesPanel({ onNewCount, onConvert }) {
   const [items, setItems] = useState([]);
   const [expanded, setExpanded] = useState(null);
 
@@ -82,6 +82,13 @@ export function InquiriesPanel({ onNewCount }) {
                   <option value="converted">🟢 Converted</option>
                 </select>
                 <div className="flex items-center gap-1.5">
+                  {i.status !== "converted" && (
+                    <button onClick={() => { setStatus(i, "converted"); onConvert?.(i); }} title="Convert to tenant — opens a pre-filled New Salon form"
+                      data-testid={`inquiry-convert-${i.id}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-500">
+                      <UserPlus className="w-3.5 h-3.5" /> Convert
+                    </button>
+                  )}
                   <a href={`tel:+91${i.phone}`} title="Call" data-testid={`inquiry-call-${i.id}`}
                     className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-sky-50 hover:text-sky-600"><Phone className="w-4 h-4" /></a>
                   <a href={`https://wa.me/91${i.phone}?text=${encodeURIComponent(`Hi ${i.name.split(" ")[0]}! This is the Miracurl team — thanks for your interest in our salon suite. When's a good time for a quick demo?`)}`}

@@ -87,6 +87,14 @@ export default function SuperAdmin() {
     setOpen(true);
   }
 
+  function convertLead(inq) {
+    const slug = inq.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
+    setForm({ slug, name: `${inq.name}'s Salon`, owner_email: inq.email, owner_name: inq.name, location: "", phone: inq.phone, salon_email: inq.email, owner_phone: inq.phone, plan: "starter" });
+    setTab("tenants");
+    setOpen(true);
+    toast.info(`Lead "${inq.name}" pre-filled — review details and create the salon ✦`);
+  }
+
   async function save(e) {
     e.preventDefault();
     setBusy(true);
@@ -254,7 +262,7 @@ export default function SuperAdmin() {
             revenue: <RevenuePanel />,
             ai: <AiInsightsPanel />,
             inbox: <HqInbox onUnreadChange={setHqUnread} />,
-            inquiries: <InquiriesPanel onNewCount={setInquiryNew} />,
+            inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
             engineer: <EngineerPanel />,
             onboarding: <OnboardingStudio tenants={tenants} />,
           };
