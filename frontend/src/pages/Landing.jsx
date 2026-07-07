@@ -65,7 +65,7 @@ export default function Landing() {
             <a href="#features" data-testid="nav-features-link" className="hidden sm:block text-white/70 hover:text-white transition-colors">Features</a>
             <a href="#pricing" data-testid="nav-pricing-link" className="hidden sm:block text-white/70 hover:text-white transition-colors">Pricing</a>
             <Link to="/staff-registry" data-testid="landing-verify-staff" className="hidden md:block text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Verify Staff — Free</Link>
-            <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign in</Link>
+            <Link to="/login" className="hidden sm:block text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign in</Link>
             <Link to="/signup-salon" data-testid="landing-cta-nav"
                   className="px-4 py-2 rounded-full bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white text-xs sm:text-sm font-semibold hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(217,70,239,0.6)] transition-transform">
               Start free trial
