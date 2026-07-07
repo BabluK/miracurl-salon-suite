@@ -5279,9 +5279,30 @@ def _tenant_partner_card(t: dict, agg: Optional[dict]) -> dict:
         "rating": round(float(agg["avg"]), 1) if agg else None,
         "reviews_count": int(agg["n"]) if agg else 0,
         "blurb": t.get("partner_blurb") or "",
+        "owner_review": t.get("partner_review") or None,
         "featured": bool(t.get("partner_featured")),
         "slug": t.get("slug") or "", "since": (t.get("created_at") or "")[:10],
     }
+
+
+class PartnerReviewIn(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    text: str = Field("", max_length=500)
+
+
+@api.get("/partner-review")
+async def get_partner_review(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """The salon owner's own rating/review of the Miracurl platform."""
+    return t.get("partner_review") or {}
+
+
+@api.put("/partner-review")
+async def save_partner_review(body: PartnerReviewIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    doc = {"rating": int(body.rating), "text": body.text.strip(),
+           "author": user.get("name") or t.get("owner_name") or t.get("name") or "Owner",
+           "updated_at": datetime.now(timezone.utc).isoformat()}
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"partner_review": doc}})
+    return doc
 
 
 @api.get("/public/partners")
@@ -5292,7 +5313,7 @@ async def public_partners(request: Request):
     tenants = await _raw_db.tenants.find(
         {"status": {"$in": ["active", "trial"]}},
         {"_id": 0, "id": 1, "name": 1, "logo_url": 1, "location": 1, "slug": 1,
-         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1},
+         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1, "partner_review": 1},
     ).to_list(300)
     out = [_tenant_partner_card(t, by_tid.get(t["id"]))
            for t in tenants if t.get("partner_visible") is not False]
@@ -5323,7 +5344,7 @@ async def super_partners(user=Depends(require_super_admin)):
     tenants = await _raw_db.tenants.find(
         {"status": {"$in": ["active", "trial"]}},
         {"_id": 0, "id": 1, "name": 1, "logo_url": 1, "location": 1, "slug": 1,
-         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1},
+         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1, "partner_review": 1},
     ).to_list(300)
     cards = []
     for t in tenants:

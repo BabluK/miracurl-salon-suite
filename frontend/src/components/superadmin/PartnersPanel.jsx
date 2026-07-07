@@ -63,6 +63,11 @@ export function PartnersPanel() {
               <div className="flex-1 min-w-[180px]">
                 <div className="text-sm font-medium text-slate-800">{t.name}</div>
                 <div className="text-[11px] text-slate-400">{t.city || "—"} · since {t.since}</div>
+                {t.owner_review?.rating && (
+                  <div className="text-[11px] text-emerald-700 mt-0.5" data-testid={`owner-review-inline-${t.id}`}>
+                    Owner rated Miracurl {t.owner_review.rating}★{t.owner_review.text ? ` — "${t.owner_review.text.slice(0, 80)}${t.owner_review.text.length > 80 ? "…" : ""}"` : ""}
+                  </div>
+                )}
               </div>
               <Rating rating={t.rating} count={t.reviews_count} />
               <input data-testid={`partner-blurb-${t.id}`} value={blurbs[t.id] ?? ""} maxLength={400}

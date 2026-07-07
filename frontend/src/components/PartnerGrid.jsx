@@ -37,6 +37,19 @@ export function PartnerGrid({ partners, compact = false }) {
               <span className="text-[11px] text-white/30">Newly onboarded</span>
             )}
           </div>
+          {p.owner_review?.rating && (
+            <div className="mt-3 border-l-2 border-emerald-400/40 pl-3" data-testid={`owner-review-${p.id}`}>
+              <span className="inline-flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map(s => (
+                  <Star key={`s${s}`} className={`w-3 h-3 ${p.owner_review.rating >= s ? "text-emerald-300 fill-emerald-300" : "text-white/15"}`} />
+                ))}
+                <span className="text-[10px] text-white/40 ml-1.5">owner on Miracurl</span>
+              </span>
+              {!compact && p.owner_review.text && (
+                <p className="text-xs text-white/60 leading-relaxed mt-1.5">"{p.owner_review.text}"</p>
+              )}
+            </div>
+          )}
           {!compact && p.blurb && (
             <p className="text-xs text-white/60 leading-relaxed mt-3 border-l-2 border-amber-400/40 pl-3">"{p.blurb}"</p>
           )}

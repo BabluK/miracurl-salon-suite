@@ -3,14 +3,9 @@ import { useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { usePlayer } from "@/context/PlayerContext";
-import { Music, Timer, Sunrise, Coffee, Flame, PartyPopper, Plus, Trash2, Youtube, ListMusic, Play } from "lucide-react";
+import { MUSIC_CHANNELS, playPayload } from "@/constants/musicChannels";
+import { Music, Timer, Plus, Trash2, Youtube, ListMusic, Play } from "lucide-react";
 
-const CHANNELS = [
-  { id: "bhakti", label: "Morning Bhakti", desc: "Devotional bhajans to open the day on a divine note", yt: "ZD72mEhB6TE", spotify: "1osTTfhMyThJE1AqNRjZSw", icon: Sunrise, tint: "bg-amber-100 text-amber-700 border-amber-200" },
-  { id: "chill", label: "Bollywood & Chill", desc: "24/7 lofi Bollywood mashups for a calm salon vibe", yt: "6SMpIcjJ17M", spotify: "37i9dQZF1DWX76Z8XDsZzF", icon: Coffee, tint: "bg-sky-100 text-sky-700 border-sky-200" },
-  { id: "hits", label: "Hot Hits Hindi", desc: "Live stream of the best Hindi chartbusters", yt: "IYuhfdw8_yc", spotify: "37i9dQZF1DX0XUfTFmNBRM", icon: Flame, tint: "bg-rose-100 text-rose-700 border-rose-200" },
-  { id: "party", label: "Party / Dance", desc: "High-energy jukebox for busy weekend hours", yt: "CbPZ0ittAxg", spotify: "4nNVfQ9eWidZXkBKZN5li4", icon: PartyPopper, tint: "bg-violet-100 text-violet-700 border-violet-200" },
-];
 const TIMER_CHOICES = [15, 30, 60];
 
 export default function Entertainment() {
@@ -25,16 +20,12 @@ export default function Entertainment() {
   useEffect(() => { loadCustom(); }, []);
 
   function playBuiltIn(c, src = source) {
-    player.play({
-      id: c.id, label: c.label, kind: src,
-      media_type: src === "youtube" ? "video" : "playlist",
-      media_id: src === "youtube" ? c.yt : c.spotify,
-    });
+    player.play(playPayload(c, src));
   }
 
   useEffect(() => {
     const want = params.get("play");
-    const c = CHANNELS.find(x => x.id === want);
+    const c = MUSIC_CHANNELS.find(x => x.id === want);
     if (c) {
       playBuiltIn(c, "youtube");
       const m = parseInt(params.get("timer"), 10);
@@ -103,8 +94,8 @@ export default function Entertainment() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-          {CHANNELS.map(c => {
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+          {MUSIC_CHANNELS.map(c => {
             const Icon = c.icon;
             const on = nowPlaying?.id === c.id;
             return (

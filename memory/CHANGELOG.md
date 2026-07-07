@@ -653,3 +653,10 @@ DEFERRED (backlog): email_service monthly/weekly HTML refactor, AppLayout/SuperA
 3. TRUSTED PARTNERS: GET /api/public/partners (active/trial tenants auto-listed w/ live avg rating from reviews + manual partners; featured first). Super-admin: GET /super-admin/partners, PUT /partners/tenant/{tid} {visible,featured,blurb}, POST/DELETE /partners/manual. UI: SuperAdmin "Partners" tab (PartnersPanel.jsx), Landing TrustedPartnersSection (compact grid + view-all link), public /partners page (Partners.jsx + shared PartnerGrid.jsx).
 - NOTE: testing agent re-added /partners route to App.js (lost in a parallel-edit race — watch for this pattern on multi-edit batches to the same file).
 - Answered user: YouTube/Spotify account linking not possible in embeds (Google blocks iframe sign-in; Spotify full songs when browser logged in) — custom links approach chosen instead.
+
+## Update — Jul 7, 2026 (part 67) — Owner platform reviews + 6 music channels + Dashboard music bar + Partner CTA (self-tested: curl + screenshots + pytest 17 passed)
+1. OWNER REVIEW OF MIRACURL: GET/PUT /api/partner-review (tenant admin) → tenant.partner_review {rating,text,author}. Settings → RateMiracurlCard (star picker + text). Auto-flows to Super-Admin PartnersPanel (inline) + public PartnerGrid cards (emerald stars "owner on Miracurl" + quote).
+2. MUSIC CHANNELS now 6, moved to shared src/constants/musicChannels.js (+playPayload): bhakti ZD72mEhB6TE, nineties -sbKzeFczbw (90's Bollywood, yt-only), chill 6SMpIcjJ17M, hits IYuhfdw8_yc, party CbPZ0ittAxg, hollywood t5eEz41JbYo (+ Spotify 37i9dQZF1DXcBWIGoYBM5M).
+3. DASHBOARD QuickMusicBar.jsx — one-tap channel chips playing via floating player + link to Entertainment.
+4. BECOME-A-PARTNER CTA on /partners (become-partner-btn) dispatches window event 'open-sales-chat'; SalesChatWidget listens + now mounted on Partners page → feeds sales-lead funnel.
+5. CRITICAL LEARNING: YouTube label-music embeds show "Video unavailable" when autoplay=1 is in the URL; removed autoplay from buildEmbedSrc — videos load with play button, one tap plays (only true live radios tolerate autoplay). Verify embeds WITH the exact final URL params.

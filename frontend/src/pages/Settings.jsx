@@ -14,6 +14,7 @@ import { BirthdayCard } from "@/components/settings/BirthdayCard";
 import { AttendanceFinesCard } from "@/components/settings/AttendanceFinesCard";
 import { SmsPacksCard } from "@/components/settings/SmsPacksCard";
 import { SecurityPinCard } from "@/components/settings/SecurityPinCard";
+import { RateMiracurlCard } from "@/components/settings/RateMiracurlCard";
 
 export default function Settings() {
   return (
@@ -43,6 +44,8 @@ export default function Settings() {
         <SecurityPinCard />
 
         <SmsPacksCard />
+
+        <RateMiracurlCard />
 
         <div className="mt-6">
           <VendorsCard />

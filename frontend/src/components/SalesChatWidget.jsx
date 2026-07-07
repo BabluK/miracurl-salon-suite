@@ -22,6 +22,12 @@ export default function SalesChatWidget() {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, open]);
 
+  useEffect(() => {
+    const h = () => setOpen(true);
+    window.addEventListener("open-sales-chat", h);
+    return () => window.removeEventListener("open-sales-chat", h);
+  }, []);
+
   function persist(next) {
     setSession(next);
     try { localStorage.setItem(STORE_KEY, JSON.stringify(next)); } catch { /* private mode */ }

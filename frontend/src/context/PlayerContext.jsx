@@ -7,10 +7,12 @@ export function buildEmbedSrc(ch) {
   if (ch.kind === "spotify") {
     return `https://open.spotify.com/embed/${ch.media_type || "playlist"}/${ch.media_id}?utm_source=generator`;
   }
+  // No autoplay: YouTube blocks autoplaying embeds of label music ("Video unavailable").
+  // One tap on the mini-player starts playback reliably for every video.
   if ((ch.media_type || "video") === "playlist") {
-    return `https://www.youtube.com/embed/videoseries?list=${ch.media_id}&autoplay=1&rel=0`;
+    return `https://www.youtube.com/embed/videoseries?list=${ch.media_id}&rel=0`;
   }
-  return `https://www.youtube.com/embed/${ch.media_id}?autoplay=1&rel=0`;
+  return `https://www.youtube.com/embed/${ch.media_id}?rel=0`;
 }
 
 // Global music state: the floating player keeps playing across every page.
