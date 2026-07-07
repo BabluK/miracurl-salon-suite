@@ -78,9 +78,7 @@ class TestProductCommission:
         from server import _compute_salary_for_month, _current_tenant_id
 
         # Resolve tenant + a real staff + a real product
-        tenant = requests.utils
         # Fetch tenant + first staff + first product via admin session
-        me = admin_sess.get(f"{API}/auth/me").json()
         r = admin_sess.get(f"{API}/staff")
         assert r.status_code == 200, r.text
         staff_list = r.json()

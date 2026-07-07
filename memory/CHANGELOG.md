@@ -678,3 +678,8 @@ DEFERRED (backlog): email_service monthly/weekly HTML refactor, AppLayout/SuperA
 8. TEST SUITE REHAB: 186→500 passing. Fixed stale creds (creds.py everywhere), cookie-auth contract, Owner-PIN headers, plan prices (12000/20000), GST-on steady state (iter19 cleanup restores ENABLED 18%), registry name-verifier contract, randomized booking slots, saturation/rate-limit skips, shared event loop (iter51), Razorpay live-key tolerance, modernized SEC-001/002/003 contracts in backend_test. Purged 135 TEST appointments/153 customers/112 invoices from preview DB.
 NOTE: 3 tests are parallel-race flaky only (pass serially): insufficient_stock, full_booking_flow, late_fines_settings.
 NOTE: Twilio trial daily 50-msg cap can be burned by full-suite runs (invoice tests attempt SMS to fake numbers; points auto-refund).
+
+## Update — Jul 7 (part 70) — Code-review findings applied
+1. VERIFIED CLEAN (stale report items): backend undefined vars → pylint E0601/E0602/E0606 = 10/10, ruff F821 = 0. Frontend → eslint (172 files): 0 exhaustive-deps warnings, 0 empty catches (fixed in earlier session). localStorage audit: no tokens/secrets — only UI prefs (remember-email opt-in, branch name, language, dismissed flags); auth is httpOnly cookies.
+2. FIXED: 3 unused test vars (F841). create_invoice complexity 26→~10: extracted _resolve_billing_context + _apply_post_invoice_effects in routes/appointments_pos.py (48 billing tests pass).
+3. DEFERRED (backlog, unchanged): email_service HTML builder split, AppLayout/SuperAdmin/BookingChatWidget component splits (need full UI regression), incremental type hints (new modules are typed).

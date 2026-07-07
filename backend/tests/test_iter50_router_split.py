@@ -65,7 +65,7 @@ class TestAuth:
         # replay old cookies in a fresh session
         s2 = requests.Session()
         s2.cookies = cookies_snapshot
-        me2 = s2.get(f"{API}/auth/me")
+        s2.get(f"{API}/auth/me")
         # after logout cookies were deleted on client so replay uses the old token but tokens themselves may still be valid (no server blacklist). Accept either 200 or 401 but flag.
         # For refactor-only test: main check is logout returns success and /me after cookie deletion (same session) is 401.
         me3 = s.get(f"{API}/auth/me")

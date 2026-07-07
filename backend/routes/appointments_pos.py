@@ -200,6 +200,52 @@ async def invoice_pdf(inv_id: str, user=Depends(get_current_user), t=Depends(cur
     )
 
 
+async def _resolve_billing_context(body: InvoiceIn, cust: dict) -> dict:
+    """Gather tenant/tax/branch/membership/coupon/stock/loyalty inputs for billing."""
+    tid = _current_tenant_id.get()
+    tenant_doc = await db.tenants.find_one({"id": tid}, {"_id": 0}) if tid else None
+    # Tax is ONLY applied when the tenant has opted-in by configuring GST settings.
+    tax_pct = float(tenant_doc.get("tax_pct") or 0) if (tenant_doc and tenant_doc.get("tax_enabled")) else 0.0
+    branch = None
+    if body.branch_id:
+        branch = next((b for b in (tenant_doc or {}).get("branches", []) if b.get("id") == body.branch_id), None)
+    membership = await _active_membership(cust["id"])
+    coupon = await _validate_coupon(body.coupon_code)
+    if coupon and not await _consume_coupon(coupon):
+        raise HTTPException(400, "This coupon has reached its usage limit")
+    needed = await _check_stock_or_400(body.items)
+    loyalty_rules = _loyalty_rules(tenant_doc)
+    totals = _compute_invoice_totals(
+        body.items, cust, body.discount, tax_pct,
+        membership_pct=float(membership["discount_pct"]) if membership else 0.0,
+        coupon=coupon, redeem_points=body.redeem_points, loyalty_rules=loyalty_rules)
+    return {"tenant_doc": tenant_doc, "branch": branch, "coupon": coupon,
+            "needed": needed, "loyalty_rules": loyalty_rules, "totals": totals}
+
+
+async def _apply_post_invoice_effects(cust: dict, totals: dict, loyalty_rules: dict, needed: dict) -> int:
+    """Customer stats + loyalty points + deferred referral reward + stock decrement. Returns points earned."""
+    points_earned = int(int(totals["total"] // 100) * float(loyalty_rules.get("earn_per_100") or 0))
+    cust_inc = {"total_spent": totals["total"], "visits": 1,
+                "loyalty_points": points_earned - totals["points_used"]}
+    if totals["referral_credit_used"] > 0:
+        cust_inc["referral_credit"] = -totals["referral_credit_used"]
+    await db.customers.update_one({"id": cust["id"]}, {"$inc": cust_inc})
+
+    # SEC-001: release the referrer's reward only after the referred guest actually pays.
+    if cust.get("referral_pending") and cust.get("referred_by"):
+        await db.customers.update_one({"id": cust["id"]}, {"$unset": {"referral_pending": ""}})
+        referrer = await db.customers.find_one(
+            {"id": cust["referred_by"]}, {"_id": 0, "id": 1, "referral_credit": 1})
+        if referrer and float(referrer.get("referral_credit") or 0) < MAX_CUSTOMER_CREDIT:
+            await db.customers.update_one(
+                {"id": referrer["id"]}, {"$inc": {"referral_credit": REFERRAL_REWARD_REFERRER}})
+
+    for pid, qty in needed.items():
+        await db.products.update_one({"id": pid}, {"$inc": {"stock": -qty}})
+    return points_earned
+
+
 @router.post("/invoices")
 async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
@@ -208,27 +254,8 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
 
     await _validate_package_redeem_items(body.items, cust)
-
-    # Tax is ONLY applied when the tenant has opted-in by configuring GST settings.
-    tid = _current_tenant_id.get()
-    tenant_doc = await db.tenants.find_one({"id": tid}, {"_id": 0}) if tid else None
-    effective_tax_pct = float(tenant_doc.get("tax_pct") or 0) if (tenant_doc and tenant_doc.get("tax_enabled")) else 0.0
-
-    # Branch tagging — enables per-branch collection reports
-    branch = None
-    if body.branch_id:
-        branch = next((b for b in (tenant_doc or {}).get("branches", []) if b.get("id") == body.branch_id), None)
-
-    membership = await _active_membership(cust["id"])
-    coupon = await _validate_coupon(body.coupon_code)
-    if coupon and not await _consume_coupon(coupon):
-        raise HTTPException(400, "This coupon has reached its usage limit")
-    needed = await _check_stock_or_400(body.items)
-    loyalty_rules = _loyalty_rules(tenant_doc)
-    totals = _compute_invoice_totals(
-        body.items, cust, body.discount, effective_tax_pct,
-        membership_pct=float(membership["discount_pct"]) if membership else 0.0,
-        coupon=coupon, redeem_points=body.redeem_points, loyalty_rules=loyalty_rules)
+    ctx = await _resolve_billing_context(body, cust)
+    totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]
 
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),
@@ -247,27 +274,9 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     inv["points_used"] = totals["points_used"]
     await db.invoices.insert_one(inv)
 
-    # Update customer stats, consume credits/points, award loyalty (5 pts per ₹100)
-    points_earned = int(int(totals["total"] // 100) * float(loyalty_rules.get("earn_per_100") or 0))
-    cust_inc = {"total_spent": totals["total"], "visits": 1,
-                "loyalty_points": points_earned - totals["points_used"]}
-    if totals["referral_credit_used"] > 0:
-        cust_inc["referral_credit"] = -totals["referral_credit_used"]
-    await db.customers.update_one({"id": cust["id"]}, {"$inc": cust_inc})
-
-    # SEC-001: release the referrer's reward only after the referred guest actually pays.
-    if cust.get("referral_pending") and cust.get("referred_by"):
-        await db.customers.update_one({"id": cust["id"]}, {"$unset": {"referral_pending": ""}})
-        referrer = await db.customers.find_one(
-            {"id": cust["referred_by"]}, {"_id": 0, "id": 1, "referral_credit": 1})
-        if referrer and float(referrer.get("referral_credit") or 0) < MAX_CUSTOMER_CREDIT:
-            await db.customers.update_one(
-                {"id": referrer["id"]}, {"$inc": {"referral_credit": REFERRAL_REWARD_REFERRER}})
-
+    points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"])
     await _process_benefit_items(inv, cust)
 
-    for pid, qty in needed.items():
-        await db.products.update_one({"id": pid}, {"$inc": {"stock": -qty}})
     inv["points_earned"] = points_earned
-    inv["receipts"] = await _send_billing_receipts(inv, cust, tenant_doc, points_earned)
+    inv["receipts"] = await _send_billing_receipts(inv, cust, ctx["tenant_doc"], points_earned)
     return _clean(inv)
