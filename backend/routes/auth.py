@@ -18,7 +18,7 @@ from security import (
     JWT_ALG, jwt_secret, hash_pw, verify_pw, make_access, make_refresh,
     set_auth_cookies, get_current_user, require_tenant_admin, current_tenant,
     public_rate_limit, revoke_token_jtis, _reject_if_revoked,
-    _reject_if_token_predates_password_change,
+    _reject_if_token_predates_password_change, client_ip,
 )
 
 router = APIRouter()
@@ -220,7 +220,7 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
 @router.post("/auth/login")
 async def login(body: LoginIn, request: Request, response: Response):
     email = body.email.lower()
-    ident = f"{request.client.host}:{email}"
+    ident = f"{client_ip(request)}:{email}"
     rec = await db.login_attempts.find_one({"identifier": ident})
     now = datetime.now(timezone.utc)
     if rec and rec.get("count", 0) >= 5:

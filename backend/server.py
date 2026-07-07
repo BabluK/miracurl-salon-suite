@@ -14,7 +14,7 @@ import hmac
 import asyncio
 import base64
 import html as html_lib
-from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html, _lead_alert_email_html
+from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html, _lead_alert_email_html, _platform_digest_html
 from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf, _render_invoice_pdf
 import hashlib
 import logging
@@ -1212,15 +1212,25 @@ def _late_penalty_for(staff: dict, checkin_ist: datetime) -> tuple:
     return late_min, round(blocks * LATE_FINE_PER_5MIN, 2)
 
 
+# OT policy: every completed 30-min block past shift end earns ₹50 by default.
+OT_BLOCK_MINUTES = 30
+OT_BLOCK_PAY = 50.0
+PRODUCT_COMMISSION_PCT = 2.0  # % of product price credited to the selling staff's salary
+
+
 def _overtime_for(staff: dict, checkout_ist: datetime) -> tuple:
-    """(overtime_hours, overtime_pay ₹) for time worked past shift_end."""
-    rate = float(staff.get("overtime_rate") or 0)
+    """(overtime_hours, overtime_pay ₹) for time worked past shift_end.
+    Paid per completed 30-min block: ₹50 default, or staff's hourly overtime_rate/2 if set."""
     h, m = _parse_hhmm(staff.get("shift_end"), "21:00")
     end = checkout_ist.replace(hour=h, minute=m, second=0, microsecond=0)
     if checkout_ist <= end:
         return 0.0, 0.0
-    hours = round((checkout_ist - end).total_seconds() / 3600, 2)
-    return hours, round(hours * rate, 2)
+    secs = (checkout_ist - end).total_seconds()
+    hours = round(secs / 3600, 2)
+    blocks = int(secs // (OT_BLOCK_MINUTES * 60))
+    rate = float(staff.get("overtime_rate") or 0)
+    per_block = rate / 2 if rate > 0 else OT_BLOCK_PAY
+    return hours, round(blocks * per_block, 2)
 
 
 def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -1506,10 +1516,9 @@ async def attendance_by_staff(sid: str, month: Optional[str] = None,
     }
 
 
-def _staff_invoice_earnings(invs: list, staff_id: str) -> tuple:
-    """(gross, service_gross, service_count) attributable to one staff member."""
-    gross = service_gross = 0.0
-    service_count = 0
+def _staff_invoice_earnings(invs: list, staff_id: str) -> dict:
+    """Earnings attributable to one staff member, split by item type."""
+    out = {"gross": 0.0, "service_gross": 0.0, "service_count": 0, "product_gross": 0.0, "product_count": 0}
     for inv in invs:
         inv_staff = inv.get("staff_id")
         for it in inv.get("items", []):
@@ -1518,11 +1527,14 @@ def _staff_invoice_earnings(invs: list, staff_id: str) -> tuple:
                 continue
             qty = int(it.get("qty") or 1)
             line_total = qty * float(it.get("price") or 0)
-            gross += line_total
+            out["gross"] += line_total
             if it.get("type") == "service":
-                service_gross += line_total
-                service_count += qty
-    return gross, service_gross, service_count
+                out["service_gross"] += line_total
+                out["service_count"] += qty
+            elif it.get("type") == "product":
+                out["product_gross"] += line_total
+                out["product_count"] += qty
+    return out
 
 
 def _attendance_month_totals(recs: list) -> dict:
@@ -1547,8 +1559,12 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         {"_id": 0},
     ).to_list(5000)
     pct = float(staff.get("commission_pct") or 0)
-    gross, service_gross, service_count = _staff_invoice_earnings(invs, staff["id"])
+    earn = _staff_invoice_earnings(invs, staff["id"])
+    gross, service_gross, service_count = earn["gross"], earn["service_gross"], earn["service_count"]
     commission = round(service_gross * pct / 100, 2)
+    # Product sales commission (default 2% of product price; tenant can override)
+    product_pct = float(tenant.get("product_commission_pct") or PRODUCT_COMMISSION_PCT)
+    product_commission = round(earn["product_gross"] * product_pct / 100, 2)
     # Attendance
     att_start = f"{year:04d}-{month:02d}-01"
     att_end = f"{year:04d}-{month:02d}-{end_day:02d}"
@@ -1562,7 +1578,7 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
     advance_total = round(sum(float(a.get("amount") or 0) for a in adv_rows), 2)
     base = float(staff.get("monthly_base_salary") or 0)
     deductions_total = round(att["late_penalty_total"] + advance_total, 2)
-    total = round(base + commission + att["overtime_total"] - deductions_total, 2)
+    total = round(base + commission + product_commission + att["overtime_total"] - deductions_total, 2)
     return {
         "period": f"{year:04d}-{month:02d}",
         "period_label": datetime(year, month, 1).strftime("%B %Y"),
@@ -1580,6 +1596,10 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         "service_gross": round(service_gross, 2),
         "service_count": service_count,
         "commission_amount": commission,
+        "product_gross": round(earn["product_gross"], 2),
+        "product_count": earn["product_count"],
+        "product_commission_pct": round(product_pct, 2),
+        "product_commission_amount": product_commission,
         **att,
         "advance_total": advance_total,
         "deductions_total": deductions_total,
@@ -5138,6 +5158,41 @@ async def _monthly_report_scheduler():
         await asyncio.sleep(3600)
 
 
+async def _run_platform_digest() -> dict:
+    """Monday HQ email: platform pulse — salons, leads, expiring trials, open tickets, revenue."""
+    hq = os.environ.get("HQ_EMAIL")
+    if not hq:
+        return {"sent": 0, "error": "HQ_EMAIL not set"}
+    now = datetime.now(timezone.utc)
+    week_ago = (now - timedelta(days=7)).isoformat()
+    week_ahead = (now + timedelta(days=7)).isoformat()
+    tenants = await _raw_db.tenants.find({}, {"_id": 0, "name": 1, "status": 1, "trial_ends_at": 1}).to_list(500)
+    expiring = [{"name": t["name"], "ends": str(t.get("trial_ends_at", ""))[:10]}
+                for t in tenants if t.get("status") == "trial" and week_ago < str(t.get("trial_ends_at", "")) < week_ahead]
+    leads = await _raw_db.tenant_inquiries.find(
+        {"created_at": {"$gte": week_ago}}, {"_id": 0, "name": 1, "phone": 1}).to_list(50)
+    invs = await _raw_db.invoices.find(
+        {"paid": True, "created_at": {"$gte": week_ago[:10]}}, {"_id": 0, "total": 1}).to_list(5000)
+    ist = now + timedelta(hours=5, minutes=30)
+    stats = {
+        "week_label": f"Week of {ist.strftime('%d %b %Y')}",
+        "active_tenants": sum(1 for t in tenants if t.get("status") == "active"),
+        "trial_tenants": sum(1 for t in tenants if t.get("status") == "trial"),
+        "new_leads": len(leads),
+        "recent_leads": leads,
+        "open_tickets": await _raw_db.dev_tickets.count_documents({"status": {"$nin": ["done", "closed"]}}),
+        "platform_revenue": round(sum(float(i.get("total") or 0) for i in invs), 2),
+        "expiring_trials": expiring,
+    }
+    status = await _send_email([hq], f"✦ Platform Health Digest — {stats['week_label']}", _platform_digest_html(stats))
+    return {"sent": 1 if status.get("sent") else 0, "error": status.get("error"), "stats_summary": {k: v for k, v in stats.items() if k not in ("recent_leads", "expiring_trials")}}
+
+
+@api.post("/super-admin/send-platform-digest")
+async def send_platform_digest(user=Depends(require_super_admin)):
+    return await _run_platform_digest()
+
+
 async def _weekly_report_scheduler():
     """Every Monday (after 09:00 IST) auto-email each active salon owner last
     week's business snapshot. Idempotent via system_flags."""
@@ -5149,10 +5204,12 @@ async def _weekly_report_scheduler():
                 flag = await _raw_db.system_flags.find_one({"key": "weekly_report_auto"})
                 if not flag or flag.get("value") != period:
                     out = await _run_weekly_reports(None)
+                    digest = await _run_platform_digest()
                     await _raw_db.system_flags.update_one(
                         {"key": "weekly_report_auto"},
                         {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
-                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0),
+                                  "digest_sent": digest.get("sent", 0)}},
                         upsert=True)
                     logging.info(f"Auto weekly reports for week of {period}: sent={out.get('sent')} failed={out.get('failed')}")
         except Exception as e:

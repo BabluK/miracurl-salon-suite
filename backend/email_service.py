@@ -353,3 +353,59 @@ def _lead_alert_email_html(inq: dict, question: str) -> str:
 </td></tr>
 </table>
 </td></tr></table>"""
+
+
+def _platform_digest_html(stats: dict) -> str:
+    def _stat(label, value, color="#2b2b33"):
+        return (f'<td style="background:#faf6ec;border:1px solid #ecdfc0;border-radius:12px;padding:14px 8px;text-align:center">'
+                f'<div style="font-size:10px;color:#a08a4b;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif">{label}</div>'
+                f'<div style="font-size:20px;color:{color};font-weight:bold;margin-top:5px;font-family:Georgia,serif">{value}</div></td>')
+
+    trials = ""
+    for t in stats.get("expiring_trials", []):
+        trials += (f'<tr><td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">⏳ {html_lib.escape(t["name"])}</td>'
+                   f'<td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#b45309;font-size:12px;text-align:right;font-family:Arial,sans-serif">expires {t["ends"]}</td></tr>')
+    trials_block = (f'<tr><td style="padding:6px 36px 4px"><h3 style="font-size:13px;color:#a08a4b;margin:14px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">⏳ Trials expiring this week</h3>'
+                    f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{trials}</table></td></tr>') if trials else ""
+
+    leads = ""
+    for l in stats.get("recent_leads", [])[:5]:
+        leads += (f'<tr><td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">🔥 {html_lib.escape(l["name"])}</td>'
+                  f'<td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#55555f;font-size:12px;text-align:right;font-family:Arial,sans-serif">{html_lib.escape(l["phone"])}</td></tr>')
+    leads_block = (f'<tr><td style="padding:6px 36px 4px"><h3 style="font-size:13px;color:#a08a4b;margin:14px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">🔥 New leads (last 7 days)</h3>'
+                   f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{leads}</table></td></tr>') if leads else ""
+
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 40px rgba(212,175,55,.25)">
+<tr><td style="background:linear-gradient(135deg,#17171f,#26202b);padding:24px 36px;text-align:center">
+  <div style="color:#e6c66e;font-size:12px;letter-spacing:4px;text-transform:uppercase">✦ &nbsp;Platform Health Digest&nbsp; ✦</div>
+  <div style="color:#ffffff;font-size:24px;margin-top:8px">Miracurl HQ</div>
+  <div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">{stats['week_label']}</div>
+</td></tr>
+<tr><td style="padding:24px 36px 4px">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr>
+    {_stat("Active Salons", stats['active_tenants'], "#15803d")}
+    <td style="width:8px"></td>
+    {_stat("On Trial", stats['trial_tenants'], "#b45309")}
+    <td style="width:8px"></td>
+    {_stat("New Leads", stats['new_leads'], "#be185d")}
+    <td style="width:8px"></td>
+    {_stat("Open Tickets", stats['open_tickets'], "#1d4ed8")}
+  </tr></table>
+</td></tr>
+<tr><td style="padding:16px 36px 4px;text-align:center">
+  <div style="font-size:11px;color:#a08a4b;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">Platform collection last week (all salons)</div>
+  <div style="font-size:32px;color:#1c1c24;font-weight:bold;margin-top:6px">&#8377;{stats['platform_revenue']:,.0f}</div>
+</td></tr>
+{trials_block}
+{leads_block}
+<tr><td style="padding:16px 36px 24px;text-align:center">
+  <p style="margin:0;font-size:13px;color:#55555f;font-family:Arial,sans-serif;line-height:1.6">Your platform pulse, every Monday — from Mira with ♥</p>
+</td></tr>
+<tr><td style="background:#17171f;padding:18px 36px;text-align:center">
+  <div style="color:#e6c66e;font-size:15px">✦ Miracurl HQ ✦</div>
+</td></tr>
+</table>
+</td></tr></table>"""

@@ -160,9 +160,17 @@ async def require_admin(user=Depends(get_current_user)):
 
 # ---- In-memory rate limit for public booking ----
 _RATE_BUCKET: dict = {}
+
+def client_ip(request: Request) -> str:
+    """Real client IP behind the ingress (first hop of X-Forwarded-For), else socket peer."""
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "anon"
+
 def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, window_sec: int = 600):
     """Allow `limit` requests per IP per `window_sec` seconds."""
-    ip = request.client.host if request.client else "anon"
+    ip = client_ip(request)
     key = f"{ip}:{key_suffix}"
     now = datetime.now(timezone.utc).timestamp()
     bucket = [t for t in _RATE_BUCKET.get(key, []) if now - t < window_sec]

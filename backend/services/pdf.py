@@ -407,6 +407,9 @@ def _render_salary_slip_pdf(slip: dict) -> bytes:
     line("Monthly base salary", f"Rs. {slip['monthly_base_salary']:.2f}")
     pct_txt = f" ({slip['commission_pct']}%)" if slip['commission_pct'] else ""
     line(f"Service commission{pct_txt}", f"Rs. {slip['commission_amount']:.2f}")
+    if slip.get("product_commission_amount"):
+        line(f"Product sales commission ({slip.get('product_commission_pct', 2)}% of Rs. {slip.get('product_gross', 0):.0f})",
+             f"Rs. {slip['product_commission_amount']:.2f}")
     if slip.get("overtime_total"):
         line(f"Overtime ({slip.get('overtime_hours_total', 0)}h past shift end)", f"Rs. {slip['overtime_total']:.2f}")
     if slip.get("late_penalty_total") or slip.get("advance_total"):

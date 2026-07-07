@@ -1,141 +1,129 @@
 {
-  "theme": "dark",
-  "archetype": "5 (Luxury)",
-  "vibe": "Premium, Effortless, Intelligent, Luxurious",
-  "global_rules": {
+  "project_name": "Miracurl Salon Suite SaaS",
+  "theme": {
+    "mode": "dark",
+    "archetype": "Archetype 5: Luxury",
+    "rationale": "For premium salon owners in India, the product must feel cinematic, high-end, and cutting-edge. Dark mode with fuchsia and gold accents establishes authority and elegance.",
     "colors": {
-      "background": "#0a0a0a",
-      "surface": "#141414",
-      "surface_glass": "rgba(20, 20, 20, 0.6)",
-      "primary_gold": "#D4AF37",
-      "primary_gold_hover": "#F3E5AB",
-      "text_main": "#F8F8F8",
+      "background": "#0A0A0A",
+      "surface": "rgba(255, 255, 255, 0.03)",
+      "surface_hover": "rgba(255, 255, 255, 0.06)",
+      "border": "rgba(255, 255, 255, 0.08)",
+      "border_glow": "rgba(217, 70, 239, 0.3)",
+      "primary": "#D946EF",
+      "primary_hover": "#C026D3",
+      "secondary": "#EAB308",
+      "text_main": "#FFFFFF",
       "text_muted": "#A3A3A3",
-      "ai_glow": "rgba(212, 175, 55, 0.4)"
-    },
-    "typography": {
-      "headings": "Playfair Display, serif",
-      "body": "Outfit, sans-serif",
-      "weights": {
-        "heading_bold": "700",
-        "body_regular": "300",
-        "body_medium": "400"
-      },
-      "tracking": {
-        "headings": "tracking-tight",
-        "labels": "tracking-[0.2em] uppercase"
-      }
-    },
-    "spacing": {
-      "generous_padding": "p-6 md:p-8 lg:p-12",
-      "section_gap": "gap-12 md:gap-24"
-    },
-    "testing": {
-      "requirement": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case."
+      "text_inverse": "#000000"
     }
   },
-  "component_strategy": {
-    "surfaces": {
-      "glassmorphism": "backdrop-blur-xl bg-white/5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
-      "cards": "bg-[#141414] border border-white/5 rounded-2xl overflow-hidden"
+  "typography": {
+    "headings": {
+      "family": "Playfair Display",
+      "style": "serif, elegant, high-contrast, tracking-tight",
+      "weights": ["400", "600", "700"]
     },
-    "buttons": {
-      "primary_gold": "bg-[#D4AF37] text-black font-semibold rounded-full px-8 py-4 hover:bg-[#F3E5AB] transition-all duration-300",
-      "ai_action": "bg-white/10 text-white border border-white/20 backdrop-blur-md rounded-full px-8 py-4 flex items-center gap-3 hover:bg-white/20 hover:border-[#D4AF37]/50 hover:shadow-[0_0_20px_rgba(212,175,55,0.2)] transition-all duration-300"
+    "body": {
+      "family": "Outfit",
+      "style": "sans-serif, geometric, clean",
+      "weights": ["300", "400", "500"]
     },
-    "animations": {
-      "ai_pulse": "animate-pulse shadow-[0_0_15px_rgba(212,175,55,0.3)]",
-      "hover_lift": "hover:-translate-y-1 hover:shadow-xl transition-transform duration-300"
+    "labels": {
+      "family": "Outfit",
+      "style": "uppercase, tracking-[0.2em], text-xs"
     }
   },
   "layout_sections": [
     {
-      "name": "Navigation & Header",
-      "layout": "Fixed top, z-50, crystal glassmorphism (backdrop-blur-xl bg-[#0a0a0a]/70 border-b border-white/10).",
-      "content": "Salon Logo (Playfair), simple links (Gallery, Staff), and a 'Book' CTA.",
-      "test_id": "header-nav"
+      "name": "Header",
+      "type": "navigation",
+      "style": "Sticky Crystal Glass. backdrop-blur-xl bg-black/60 with a 1px border-white/10 bottom edge. Links must be text-white/70 hover:text-white. Primary CTA on right.",
+      "test_ids": ["nav-features-link", "nav-pricing-link", "nav-login-link", "nav-start-trial-btn"]
     },
     {
-      "name": "Hero & AI Prominence",
-      "layout": "min-h-[80vh] flex flex-col justify-center items-center text-center px-4 relative overflow-hidden. Use a dark luxury interior background image with a heavy bg-black/60 overlay to ensure text contrast.",
-      "content": "H1 (Playfair, text-5xl md:text-6xl tracking-tight text-white): 'Effortless Beauty, Reimagined.' Subtitle (Outfit, text-muted, text-lg md:text-xl): 'Book your signature look in seconds.'",
-      "actions": "Two primary buttons side-by-side: 1. 'Book Appointment' (Gold solid button, opens 6-step wizard). 2. 'Let Mira AI Book for You' (Glass button with gold icon/glow, triggers the floating AI widget).",
-      "test_ids": ["hero-section", "btn-book-wizard", "btn-book-ai"]
+      "name": "Hero",
+      "type": "cinematic_center",
+      "style": "Immersive and wide. A massive Playfair H1. The background must feature an AI-generated luxury salon image heavily masked with a radial dark gradient (bg-black/80 to bg-black/40) so the text remains highly readable.",
+      "components": [
+        "H1: text-5xl md:text-7xl Playfair Display. Text: 'The Gold Standard for Modern Salons ✦'",
+        "Subtitle: text-lg md:text-xl Outfit text-neutral-400. 'Appointments, POS, CRM, and AI in one premium suite.'",
+        "CTA Group: Primary fuchsia button, Secondary outline button."
+      ],
+      "ai_image_prompt": "Wide-angle photograph of a modern luxury salon interior, black and gold aesthetic, deep obsidian tones, subtle fuchsia neon underlighting, cinematic depth of field, high-end architectural photography, 16:9 aspect ratio.",
+      "test_ids": ["hero-start-trial-btn", "hero-learn-more-btn"]
     },
     {
-      "name": "6-Step Booking Wizard (The Core Engine)",
-      "layout": "Bento-style card in the center of the page (max-w-3xl mx-auto) or a dedicated sticky bottom sheet for mobile. Uses dark surface cards (#141414) with subtle 1px border-white/10.",
-      "content": "Step indicator (1 to 6) using sleek progress bars. Clean list views for Services and Staff selection. Date/Time uses a customized Shadcn Calendar (dark mode).",
-      "test_ids": ["booking-wizard", "wizard-step-indicator", "wizard-next-btn"]
+      "name": "Features",
+      "type": "bento_grid",
+      "style": "The 'Tetris' Grid (Mode A). Generous padding (p-8 to p-12). Cards have bg-white/5, backdrop-blur-md, border-white/10.",
+      "components": [
+        {
+          "span": "col-span-1 md:col-span-8 row-span-2",
+          "title": "Mira AI ✦",
+          "description": "Voice Briefings & Poster Studio.",
+          "visual": "AI Image",
+          "ai_image_prompt": "A sleek dark smartphone floating against a pitch black background, emitting a glowing fuchsia AI voice wave graphic and abstract geometric shapes, premium 3D render style, cinematic lighting."
+        },
+        {
+          "span": "col-span-1 md:col-span-4 row-span-1",
+          "title": "Smart POS",
+          "description": "GST Billing & Inventory.",
+          "visual": "AI Image",
+          "ai_image_prompt": "Minimalist black thermal receipt printer outputting a crisp white receipt, subtle gold glowing edge illumination, dark obsidian background, top-down cinematic angle."
+        },
+        {
+          "span": "col-span-1 md:col-span-4 row-span-1",
+          "title": "Staff Registry",
+          "description": "Aadhaar-Verified & Geo-fenced."
+        },
+        {
+          "span": "col-span-1 md:col-span-12",
+          "title": "24/7 Online Booking",
+          "description": "PWA Apps & Loyalty."
+        }
+      ]
     },
     {
-      "name": "Staff Registry (Verified Stylists)",
-      "layout": "Horizontal scroll / Carousel on mobile, 3-column grid on desktop.",
-      "content": "Stylist cards: Portrait image, Name (Playfair), Title (Outfit), and a glowing 'Verified' badge (Gold/White glass pill with a checkmark icon).",
-      "test_ids": ["staff-registry-section", "staff-card", "verified-badge"]
+      "name": "Social Proof",
+      "type": "editorial_ribbon",
+      "style": "Horizontal marquee or grid of elegant testimonial cards. Low contrast borders. Real Indian salon owner portraits.",
+      "test_ids": ["testimonial-card-1", "testimonial-card-2"]
     },
     {
-      "name": "Gallery Showcase",
-      "layout": "Masonry grid or a dense bento grid. gap-4, rounded-xl images. Max height constraints on mobile to prevent infinite scrolling.",
-      "content": "High-quality salon work (hair models). On hover/tap, slight scale-up. Provide a 'View All' glass button.",
-      "test_ids": ["gallery-section", "gallery-image-item"]
+      "name": "Pricing",
+      "type": "grid",
+      "style": "3 columns. Middle column (Annual) must use the 'Tracing Beam' glow border effect (border-fuchsia-500/50 shadow-[0_0_30px_rgba(217,70,239,0.15)]).",
+      "test_ids": ["pricing-trial-btn", "pricing-6mo-btn", "pricing-annual-btn"]
     },
     {
-      "name": "Refer & Earn Banner",
-      "layout": "Full-width section with a glassmorphic container (backdrop-blur-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30) inside a wrapper with generous padding.",
-      "content": "Text: 'Share the luxury. Get rewarded.' CTA: 'Get Your Code'. Gold glowing accents.",
-      "test_ids": ["refer-earn-banner", "btn-get-code"]
-    },
-    {
-      "name": "Floating AI Chat Widget (Mira & Owner)",
-      "layout": "Fixed bottom-right. Prominent glowing orb or elegant glass button.",
-      "content": "On click, opens a panel with two Tabs (Shadcn Tabs): 'Mira AI' (Voice wave visualizer, chat interface) and 'Owner' (Standard message interface). The widget must pulse softly to invite interaction.",
-      "test_ids": ["floating-chat-widget", "tab-mira-ai", "tab-owner-chat"]
+      "name": "Floating Widget",
+      "type": "fixed_bottom_right",
+      "style": "Ask Mira ✦. Must remain in bottom-right. Fuchsia gradient background, glowing drop shadow. Rounded-full.",
+      "test_ids": ["ask-mira-widget-btn"]
     },
     {
       "name": "Footer",
-      "layout": "py-20 bg-[#050505] border-t border-white/5",
-      "content": "Salon Name, Address, Instagram/WhatsApp icons, 'Powered by Miracurl'.",
-      "test_ids": ["footer", "social-links"]
+      "type": "massive_typography",
+      "style": "py-24. Top border white/10. Include massive 'MIRACURL' text in Playfair Display (text-[10vw]) with gold ✦."
     }
   ],
-  "media_urls": {
-    "hero_background": {
-      "url": "https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-      "description": "Contemporary and sophisticated salon interior with stylish lighting"
+  "image_urls": [
+    {
+      "category": "testimonial_portrait_1",
+      "url": "https://images.pexels.com/photos/17163945/pexels-photo-17163945.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Indian salon owner smiling"
     },
-    "gallery_images": [
-      {
-        "url": "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwxfHxiZWF1dGlmdWwlMjBoYWlyJTIwbW9kZWwlMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODIwOTgxOTJ8MA&ixlib=rb-4.1.0&q=85",
-        "description": "blonde woman portrait"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1611451444023-7fe9d86fe1d0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwzfHxiZWF1dGlmdWwlMjBoYWlyJTIwbW9kZWwlMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODIwOTgxOTJ8MA&ixlib=rb-4.1.0&q=85",
-        "description": "woman in white shirt portrait"
-      },
-      {
-        "url": "https://images.unsplash.com/photo-1535579710123-3c0f261c474e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwyfHxiZWF1dGlmdWwlMjBoYWlyJTIwbW9kZWwlMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODIwOTgxOTJ8MA&ixlib=rb-4.1.0&q=85",
-        "description": "woman dark hair model"
-      }
-    ],
-    "staff_portraits": [
-      {
-        "url": "https://images.pexels.com/photos/26759527/pexels-photo-26759527.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        "description": "Professional hair stylist organizing tools"
-      },
-      {
-        "url": "https://images.pexels.com/photos/3993455/pexels-photo-3993455.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        "description": "Female hairstylist portrait"
-      }
-    ]
+    {
+      "category": "testimonial_portrait_2",
+      "url": "https://images.pexels.com/photos/8834025/pexels-photo-8834025.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Confident female hairdresser"
+    }
+  ],
+  "interaction_guidelines": {
+    "hover_states": "All buttons must lift (-translate-y-1) and gain a soft shadow on hover. Bento cards must slightly lighten (bg-white/10) on hover.",
+    "animations": "Use Framer Motion for scroll-triggered fade-up on bento grid items. Stagger children by 0.1s.",
+    "accessibility": "Ensure text contrast over images. Use aria-hidden on purely decorative AI images. All interactive elements MUST have data-testid attributes."
   },
-  "implementation_instructions": [
-    "Files are .js/.jsx, so use standard React imports and PropTypes if necessary (no TypeScript types).",
-    "Tailwind configuration must extend the #0a0a0a background and #D4AF37 primary colors.",
-    "Do NOT use pure #000000 for backgrounds; stick to the tinted #0a0a0a (obsidian) for depth.",
-    "Headings must use Playfair Display. Install it via Google Fonts if not present.",
-    "Body text must use Outfit font.",
-    "For the floating AI chat widget, ensure the z-index is maximum (z-[100]) so it sits above the 6-step wizard.",
-    "Add 'data-testid' to all buttons, input fields, and major section wrappers."
-  ]
+  "instructions_to_main_agent": "1. Replace the plain white layout with this Dark Luxe theme. 2. Implement the bento grid for features as specified. 3. Use the AI Image Prompts provided in the JSON to generate images using your AI image generation tool, and place them inside the hero and bento cards. 4. Maintain the floating 'Ask Mira ✦' widget. 5. Apply the specific typography (Playfair + Outfit)."
 }
