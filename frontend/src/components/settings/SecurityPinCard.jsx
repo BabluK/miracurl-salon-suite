@@ -6,7 +6,7 @@ import { KeyRound, Save, Info } from "lucide-react";
 const inputCls = "mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm font-mono tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-sky-200";
 
 export function SecurityPinCard() {
-  const [isSet, setIsSet] = useState(false);
+  const [isSet, setIsSet] = useState(null); // null = loading
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [saving, setSaving] = useState(false);
@@ -40,8 +40,8 @@ export function SecurityPinCard() {
             Many staff share this admin login for billing. Set a secret PIN that only <b>you</b> know — it will be asked before anyone can add/edit/delete staff, change salaries, give advances or waive fines. It also lets you switch branches instantly (others need your OTP).
           </p>
         </div>
-        <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded font-semibold ${isSet ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`} data-testid="pin-status-badge">
-          {isSet ? "PIN active" : "Not set"}
+        <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded font-semibold ${isSet === null ? "bg-slate-50 text-slate-400 border border-slate-200" : isSet ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`} data-testid="pin-status-badge">
+          {isSet === null ? "Checking…" : isSet ? "PIN active" : "Not set"}
         </span>
       </div>
 

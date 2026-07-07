@@ -1,5 +1,4 @@
 import api from "./api";
-import { toast } from "sonner";
 
 let cachedPin = null;
 
@@ -15,14 +14,17 @@ async function withPin(method, url, data) {
   } catch (e) {
     if (e.response?.status === 403 && e.response?.data?.detail === "OWNER_PIN_REQUIRED") {
       const pin = window.prompt("🔒 Owner Security PIN required for this action:");
-      if (!pin) throw e;
+      if (!pin) {
+        e.response.data.detail = "Owner PIN required — action cancelled";
+        throw e;
+      }
       cachedPin = pin.trim();
       try {
         return await call(method, url, data);
       } catch (e2) {
         if (e2.response?.status === 403 && e2.response?.data?.detail === "OWNER_PIN_REQUIRED") {
           cachedPin = null;
-          toast.error("Incorrect PIN — action blocked");
+          e2.response.data.detail = "Incorrect Owner PIN — action blocked";
         }
         throw e2;
       }

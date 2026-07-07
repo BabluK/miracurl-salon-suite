@@ -6,6 +6,7 @@
 ## P1
 - DONE Jul 7: Birthday emails, Sales Mira landing chat + HQ Inquiries, weekly AI tip
 - DONE Jul 7 (iter52): Entertainment portal, POS email receipts (Resend), SMS receipts + sms_points (Twilio-ready), super-admin SMS crediting, admin-configurable late check-in fines
+- DONE Jul 7 (iter53): SMS packs via Razorpay (self-serve), Owner Security PIN (staff-write guard), Branch-switch OTP/PIN approval
 - Automatic birthday emails to guests (daily scheduler + Resend, reuse luxe template style)
 - DONE Jul 6: Weekly Monday mini-report emails (auto scheduler + HQ button)
 - Razorpay webhook secret setup in production (user action, guide in test_credentials.md)
