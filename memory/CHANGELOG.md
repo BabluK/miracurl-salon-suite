@@ -633,3 +633,7 @@ Audit verdict: CONDITIONAL PASS → all findings fixed:
 6. Token refresh now also rejects users with disabled:true (routes/auth.py).
 - Tests: /app/test_reports/iteration_54.json + /app/backend/tests/test_iter54_sec_regression.py (reusable security regression suite).
 - Remaining audit note (accepted risk): /api/files/{id} serves uploads by UUID (images only); sequential STF codes still exist but are no longer enumerable without names.
+
+## Update — Jul 7, 2026 (part 64) — Super-Admin SMS visibility (self-tested: curl + screenshot)
+1. Tenants table: dedicated "SMS" column — balance number (amber <20) + "+ Add" credit button (sms-balance-{tid}, sms-points-{tid}); removed old tiny icon from actions.
+2. GET /api/super-admin/sms-credits (last 100 from sms_credit_log, tenant names joined) + SmsCreditLog.jsx collapsible history panel under tenants table (source badge razorpay/manual, amount, credited_by). Manual credits now store source:"manual".

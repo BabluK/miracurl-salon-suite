@@ -5202,10 +5202,22 @@ async def credit_sms_points(tid: str, body: SmsPointsIn, user=Depends(require_su
         raise HTTPException(404, "Tenant not found")
     await db.tenants.update_one({"id": tid}, {"$inc": {"sms_points": int(body.points)}})
     await _raw_db.sms_credit_log.insert_one({
-        "id": str(uuid.uuid4()), "tenant_id": tid, "points": int(body.points),
+        "id": str(uuid.uuid4()), "tenant_id": tid, "points": int(body.points), "source": "manual",
         "credited_by": user.get("email"), "at": datetime.now(timezone.utc).isoformat()})
     fresh = await db.tenants.find_one({"id": tid}, {"_id": 0, "sms_points": 1})
     return {"ok": True, "sms_points": int((fresh or {}).get("sms_points") or 0)}
+
+
+@api.get("/super-admin/sms-credits")
+async def sms_credit_history(user=Depends(require_super_admin)):
+    """Every SMS point credit — manual (HQ) and razorpay (tenant self-purchase)."""
+    rows = await _raw_db.sms_credit_log.find({}, {"_id": 0}).sort("at", -1).to_list(100)
+    tids = list({r.get("tenant_id") for r in rows if r.get("tenant_id")})
+    ts = await db.tenants.find({"id": {"$in": tids}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+    names = {t["id"]: t["name"] for t in ts}
+    for r in rows:
+        r["tenant_name"] = names.get(r.get("tenant_id"), "—")
+    return rows
 
 
 @api.delete("/super-admin/tenants/{tid}")

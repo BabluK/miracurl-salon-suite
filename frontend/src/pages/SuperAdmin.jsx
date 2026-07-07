@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, MessageSquare } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
+import { SmsCreditLog } from "@/components/superadmin/SmsCreditLog";
 import { setActAsSalon } from "@/lib/api";
 import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
 import EngineerPanel from "@/components/EngineerPanel";
@@ -352,7 +353,7 @@ export default function SuperAdmin() {
         {/* Tenant list */}
         <div className="card-light p-0 overflow-hidden">
           <table className="luxe-table-light">
-            <thead><tr><th>Salon</th><th>Slug</th><th>Owner</th><th>Plan</th><th>Status</th><th>Health</th><th>Booking Link</th><th></th></tr></thead>
+            <thead><tr><th>Salon</th><th>Slug</th><th>Owner</th><th>Plan</th><th>Status</th><th>Health</th><th>SMS</th><th>Booking Link</th><th></th></tr></thead>
             <tbody>
               {filteredTenants.map(t => (
                 <tr key={t.id} data-testid={`tenant-row-${t.id}`}>
@@ -370,6 +371,13 @@ export default function SuperAdmin() {
                   </td>
                   <td><HealthBadge t={t} /><RenewalNudge t={t} /></td>
                   <td>
+                    <div className="flex items-center gap-1.5">
+                      <span data-testid={`sms-balance-${t.id}`} className={`text-xs font-bold ${(t.sms_points || 0) < 20 ? "text-amber-600" : "text-emerald-700"}`}>{t.sms_points || 0}</span>
+                      <button data-testid={`sms-points-${t.id}`} onClick={() => creditSms(t)} title="Credit SMS points"
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition">+ Add</button>
+                    </div>
+                  </td>
+                  <td>
                     <a href={publicBookingUrl(t.slug)} target="_blank" rel="noreferrer" className="text-xs text-sky-600 hover:underline flex items-center gap-1" data-testid={`booking-link-${t.id}`}>
                       <ExternalLink className="w-3 h-3" /> /book/{t.slug}
                     </a>
@@ -378,21 +386,19 @@ export default function SuperAdmin() {
                     <div className="flex items-center gap-1 justify-end">
                       <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
                       <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
-                      <button data-testid={`sms-points-${t.id}`} onClick={() => creditSms(t)} title={`SMS points: ${t.sms_points || 0} — click to credit more`} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded relative">
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-emerald-100 text-emerald-700 rounded-full px-1 min-w-[14px] text-center leading-[14px]">{t.sms_points || 0}</span>
-                      </button>
                       <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />
                       <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {tenants.length === 0 && <tr><td colSpan="8" className="text-center text-slate-500 py-12">No tenants yet. Add your first salon!</td></tr>}
-              {tenants.length > 0 && filteredTenants.length === 0 && <tr><td colSpan="8" className="text-center text-slate-400 py-10">No {statusFilter} salons.</td></tr>}
+              {tenants.length === 0 && <tr><td colSpan="9" className="text-center text-slate-500 py-12">No tenants yet. Add your first salon!</td></tr>}
+              {tenants.length > 0 && filteredTenants.length === 0 && <tr><td colSpan="9" className="text-center text-slate-400 py-10">No {statusFilter} salons.</td></tr>}
             </tbody>
           </table>
         </div>
+
+        <SmsCreditLog />
           </>
         )}
       </main>
