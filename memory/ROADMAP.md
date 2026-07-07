@@ -7,7 +7,9 @@
 - Razorpay webhook secret setup in production (user action, guide in test_credentials.md)
 
 ## P2
-- Continue router split: extract auth, reports, registry, super-admin from server.py into routes/ (sales.py done Jul 7)
+- DONE Jul 7 (iter50): router split — auth, reports, registry, super_admin, sales in routes/ + shared models.py (server.py ~5980 lines)
+- Further split candidates: appointments/invoices/POS, staff/attendance, razorpay/subscriptions, brand studio
+- Brute-force lockout: key by X-Forwarded-For real client IP (currently per-pod IP behind ingress) — tester iter50
 - DONE Jul 7: TTS Mongo cache, logout jti revocation, avg rating on Reports, Lead→Tenant convert, zero-env-var prod defaults
 
 ## Recently completed (Jul 6, 2026)

@@ -594,3 +594,14 @@ NOTE: preview-generated poster URLs use APP_PUBLIC_URL (prod domain) — correct
 4. LOGOUT TOKEN REVOCATION (per integration playbook): jti claim added to access+refresh tokens (security.py); logout revokes presented jtis into revoked_tokens (TTL index expires_at); get_current_user + /auth/refresh reject revoked jtis. Per-device only. VERIFIED: replayed cookie post-logout → 401. Old tokens without jti still work (back-compat).
 5. ROUTER SPLIT (phase 1): /app/backend/routes/sales.py (APIRouter) now owns sales chat + inquiries endpoints; server.py slimmed via api.include_router(sales_router). Pattern established for future extraction.
 6. AVG RATING ON REPORTS: /api/reports/sales returns avg_rating + review_count (date-filtered); Reports.jsx 4-card grid with gold star card. Verified: 3.5★ from 2 reviews.
+
+## Update — Jul 7, 2026 (part 60) — Router split phase 2 (iteration_50: 31/31 backend + frontend 100%)
+- server.py 7426 → ~5980 lines. New modules (all behavior-preserving, regression-tested):
+  • routes/auth.py — register, login (brute-force lockout), logout (jti revoke), refresh, forgot/reset, staff attach/pending, public salon signup (+ exports TRIAL_DAYS, AFFILIATE_REWARD_INR)
+  • routes/reports.py — staff-performance, dashboard, daily, sales (avg_rating), staff-commission, reviews/blast-targets (FIXED latent bug: missing asyncio import would have 500'd /reports/dashboard)
+  • routes/registry.py — full staff registry incl. public search + PDF badge (+ exports _aadhaar_fp, _safe_fetch_image_bytes used by server.py)
+  • routes/super_admin.py — HQ profile, photo upload, ai-chat, system/health, dev-tickets + AI triage, engineer-chat
+  • models.py — shared Tenant model
+- Testing agent iteration_50: 31/31 pytest PASS + frontend flows green, no 500s. Test suite saved at /app/backend/tests/test_iter50_router_split.py (needs REACT_APP_BACKEND_URL env).
+- Fixed MorningBriefing option-children warning; restored super-admin profile name after tester modified it.
+- Tester hardening suggestion logged: brute-force lockout counts per pod IP behind multi-replica ingress (use X-Forwarded-For) — added to roadmap.

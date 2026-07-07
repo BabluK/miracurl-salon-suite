@@ -263,7 +263,7 @@ export function MorningBriefing() {
                   {brief.vendors.length > 0 && (
                     <select data-testid="briefing-vendor-select" value={vendorId} onChange={e => setVendorId(e.target.value)}
                       className="text-xs px-2 py-2 rounded-lg border border-slate-200 bg-white text-slate-700">
-                      {brief.vendors.map(v => <option key={v.id} value={v.id}>{v.name} ({v.email})</option>)}
+                      {brief.vendors.map(v => <option key={v.id} value={v.id}>{`${v.name} (${v.email})`}</option>)}
                     </select>
                   )}
                   <button data-testid="briefing-send-mail-btn" onClick={doSendMail} disabled={sending || !brief.vendors.length}
