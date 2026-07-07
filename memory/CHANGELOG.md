@@ -660,3 +660,9 @@ DEFERRED (backlog): email_service monthly/weekly HTML refactor, AppLayout/SuperA
 3. DASHBOARD QuickMusicBar.jsx — one-tap channel chips playing via floating player + link to Entertainment.
 4. BECOME-A-PARTNER CTA on /partners (become-partner-btn) dispatches window event 'open-sales-chat'; SalesChatWidget listens + now mounted on Partners page → feeds sales-lead funnel.
 5. CRITICAL LEARNING: YouTube label-music embeds show "Video unavailable" when autoplay=1 is in the URL; removed autoplay from buildEmbedSrc — videos load with play button, one tap plays (only true live radios tolerate autoplay). Verify embeds WITH the exact final URL params.
+
+## Update — Jun (part 68) — Twilio LIVE in preview (self-tested: curl e2e, SMS delivered)
+1. Twilio trial creds added to backend/.env (SID AC9f2f...bbc7). Account had NO sender number — provisioned free trial number +14246557277 via Twilio API (IncomingPhoneNumbers POST).
+2. E2E verified: POST /api/invoices → SMS "delivered" to +918217072523 (verified salon number), sms_points 87→86, refund-on-fail logic intact. Test invoice/customer cleaned from DB.
+3. TRIAL LIMITS: SMS only to verified numbers (+918217072523 currently); messages prefixed "Sent from your Twilio trial account". Personal number 7406869271 NOT verified in Twilio console yet.
+4. User confirmed future switch to MSG91 — swap lives entirely in sms_service.py (send_sms signature stays same).

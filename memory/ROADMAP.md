@@ -1,7 +1,8 @@
 # Miracurl — Roadmap / Backlog
 
-## P0 (user action)
-- Add Twilio credentials to backend/.env (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER) + restart backend → SMS receipts go live (flow already built, gracefully skipping)
+## P0
+- DONE Jun (part 68): Twilio creds live in preview .env, trial number +14246557277 provisioned, SMS e2e delivered. Pending user action: add same 3 env vars to PRODUCTION deployment env; verify more recipient numbers in Twilio console (trial limit).
+- MSG91 swap (user will provide keys post-DLT): replace sms_service.py internals only.
 
 ## P1
 - Code-review deferred refactors: email_service template split, AppLayout/SuperAdmin/StaffPortal component splits, routes service-layer extraction, type hints (routes/services)
