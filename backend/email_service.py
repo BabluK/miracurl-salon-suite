@@ -3,6 +3,7 @@ import asyncio
 import html as html_lib
 import logging
 import os
+from urllib.parse import quote
 
 import resend
 
@@ -300,6 +301,48 @@ def _birthday_email_html(t: dict, cust_name: str, offer_text: str, booking_url: 
 <tr><td style="background:#17171f;padding:20px 36px;text-align:center">
   <div style="color:#e6c66e;font-size:16px">✦ {html_lib.escape(t.get('name') or 'Miracurl')} ✦</div>
   <div style="color:#5d5766;font-size:11px;margin-top:8px;font-family:Arial,sans-serif">Sent with ♥ by Mira — your salon's AI assistant</div>
+</td></tr>
+</table>
+</td></tr></table>"""
+
+
+def _lead_alert_email_html(inq: dict, question: str) -> str:
+    app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurlunisexsaloon.com")
+    phone = inq.get("phone", "")
+    wa_msg = f"Hi {inq.get('name', '').split(' ')[0]}! This is the Miracurl team — saw you exploring our salon suite. Happy to answer anything or set up a quick demo!"
+    q_block = (f'<tr><td style="padding:6px 36px 4px">'
+               f'<div style="font-size:11px;color:#a08a4b;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">They just asked</div>'
+               f'<div style="background:#faf6ec;border:1px solid #ecdfc0;border-radius:12px;padding:14px 18px;margin-top:8px;font-size:15px;color:#2b2b33;font-family:Georgia,serif">"{html_lib.escape(question[:300])}"</div>'
+               f'</td></tr>') if question else ""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 40px rgba(212,175,55,.25)">
+<tr><td style="background:linear-gradient(135deg,#3a1520,#26202b);padding:24px 36px;text-align:center">
+  <div style="color:#fb7185;font-size:12px;letter-spacing:4px;text-transform:uppercase">🔥 &nbsp;Hot Lead — Live Right Now&nbsp; 🔥</div>
+  <div style="color:#ffffff;font-size:26px;margin-top:8px">{html_lib.escape(inq.get('name', ''))}</div>
+  <div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">is chatting with Sales Mira on your website</div>
+</td></tr>
+<tr><td style="padding:24px 36px 8px">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">
+    <tr><td style="padding:16px 22px;font-size:14px;color:#2b2b33;line-height:2;font-family:Arial,sans-serif">
+      📧 <b>Email:</b> {html_lib.escape(inq.get('email', ''))}<br/>
+      📞 <b>Phone:</b> +91 {html_lib.escape(phone)}
+    </td></tr>
+  </table>
+</td></tr>
+{q_block}
+<tr><td style="padding:20px 36px 8px;text-align:center">
+  <a href="tel:+91{phone}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:13px;padding:12px 28px;border-radius:999px;display:inline-block;margin:4px">📞 Call Now</a>
+  <a href="https://wa.me/91{phone}?text={quote(wa_msg)}" style="background:#0d3321;color:#4ade80;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:13px;padding:12px 28px;border-radius:999px;display:inline-block;margin:4px">💬 WhatsApp</a>
+  <a href="{app_url}/super-admin" style="background:#17171f;color:#e6c66e;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:13px;padding:12px 28px;border-radius:999px;display:inline-block;margin:4px">✦ Open HQ Inquiries</a>
+</td></tr>
+<tr><td style="padding:8px 36px 22px;text-align:center">
+  <p style="margin:0;font-size:12px;color:#8a8a94;font-family:Arial,sans-serif">Strike while they're on the site — leads answered within 5 minutes convert best ✦</p>
+</td></tr>
+<tr><td style="background:#17171f;padding:18px 36px;text-align:center">
+  <div style="color:#e6c66e;font-size:15px">✦ Miracurl HQ ✦</div>
+  <div style="color:#5d5766;font-size:11px;margin-top:6px;font-family:Arial,sans-serif">Sent instantly by Mira — your AI sales assistant</div>
 </td></tr>
 </table>
 </td></tr></table>"""

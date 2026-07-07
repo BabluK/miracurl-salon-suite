@@ -14,7 +14,7 @@ import hmac
 import asyncio
 import base64
 import html as html_lib
-from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html
+from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html, _lead_alert_email_html
 from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf, _render_invoice_pdf
 import hashlib
 import logging
@@ -6977,7 +6977,7 @@ _SALES_SYSTEM_PROMPT = (
     "SIGNUP: 'Start free trial' button on the site → live in under 90 seconds. "
     "CONTACT: WhatsApp +91 82170 72523. "
     "RULES: Only discuss Miracurl — politely decline unrelated topics. Never invent features or prices. "
-    "Be warm, concise (2-4 short sentences), use ₹ for money. Always nudge toward the free trial. "
+    "Be warm, concise (2-4 short sentences), use ₹ for money. Plain text only — no markdown, no asterisks, no bullet lists. Always nudge toward the free trial. "
     "The visitor's contact details are already saved — our team will reach out; you don't need to ask for them again."
 )
 
@@ -7026,10 +7026,27 @@ async def sales_chat_start(body: SalesChatStartIn, request: Request):
     return {"inquiry_id": doc["id"], "reply": greeting}
 
 
+async def _send_lead_alert(inq: dict, question: str):
+    """Fire-and-forget hot-lead alert to HQ the moment a prospect asks their first question."""
+    hq = os.environ.get("HQ_EMAIL")
+    if not hq:
+        return
+    try:
+        status = await _send_email(
+            [hq],
+            f"🔥 Hot lead: {inq.get('name', 'A prospect')} is asking about Miracurl right now",
+            _lead_alert_email_html(inq, question))
+        if not status.get("sent"):
+            logging.warning(f"lead alert email failed: {status.get('error')}")
+    except Exception as e:
+        logging.error(f"lead alert error: {e}")
+
+
 @api.post("/public/sales-chat/message")
 async def sales_chat_message(body: SalesChatMsgIn, request: Request):
     public_rate_limit(request, "sales-msg", limit=30, window_sec=600)
-    inq = await _raw_db.tenant_inquiries.find_one({"id": body.inquiry_id}, {"_id": 0, "id": 1, "name": 1})
+    inq = await _raw_db.tenant_inquiries.find_one(
+        {"id": body.inquiry_id}, {"_id": 0, "id": 1, "name": 1, "email": 1, "phone": 1, "alerted": 1})
     if not inq:
         raise HTTPException(404, "Chat session not found — please start again")
     key = os.environ.get("EMERGENT_LLM_KEY")
@@ -7057,6 +7074,9 @@ async def sales_chat_message(body: SalesChatMsgIn, request: Request):
             {"role": "user", "content": body.message, "at": now},
             {"role": "assistant", "content": reply, "at": now}]}},
          "$set": {"last_message_at": now}})
+    if not inq.get("alerted"):
+        await _raw_db.tenant_inquiries.update_one({"id": body.inquiry_id}, {"$set": {"alerted": True}})
+        asyncio.create_task(_send_lead_alert(inq, body.message))
     return {"reply": reply}
 
 

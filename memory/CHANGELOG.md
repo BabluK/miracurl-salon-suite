@@ -581,3 +581,8 @@ NOTE: preview-generated poster URLs use APP_PUBLIC_URL (prod domain) — correct
 3. TENANT INQUIRIES HQ TAB: GET /api/super-admin/inquiries {items,new_count}, PATCH status (new/contacted/converted), DELETE. SuperAdmin.jsx new "Inquiries" tab w/ red new-count badge; InquiriesPanel.jsx: rows w/ contact info, status dropdown, actions tel:/wa.me/Google-Calendar-template-invite (pre-filled demo event w/ prospect email as guest), expandable chat transcript. VERIFIED via screenshot + API.
 4. WEEKLY AI TIP: _weekly_tip (gpt-5.4-mini one-sentence tip from week numbers, _rule_based_tip fallback) → dark gold "Mira's tip for this week" block in weekly email. VERIFIED: weekly report sent w/ no fallback warnings.
 5. PRODUCTION ENV TODO on redeploy: BIRTHDAY_IMAGE_URL (+ earlier WEEKLY/MONTHLY_REPORT_IMAGE_URL, REGISTRY_PEPPER pair).
+
+## Update — Jul 7, 2026 (part 58) — Instant hot-lead alerts (VERIFIED)
+- _lead_alert_email_html (email_service.py): "🔥 Hot Lead — Live Right Now" luxe email to HQ_EMAIL with prospect name/email/phone, their first question, and Call / WhatsApp (pre-filled wa.me) / Open HQ Inquiries buttons.
+- server.py: _send_lead_alert fired via asyncio.create_task on the FIRST user message of a sales chat (alerted flag on tenant_inquiries prevents duplicates; doesn't delay Mira's reply).
+- Also: sales prompt now enforces plain text (no markdown asterisks in widget). VERIFIED: alert sent (no failure logs), alerted flag set, second message doesn't re-alert, markdown gone.
