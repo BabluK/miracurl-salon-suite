@@ -1,0 +1,42 @@
+{
+  "summary": "Iter 51 — Batch feature regression: Dark Luxe landing page, product commission (2%), OT (₹50/30-min block), GST 18%, platform digest email, XFF-based lockout, sales chat, core pages. BACKEND: 11/11 pytest PASS (/app/backend/tests/test_iter51_batch_features.py). Verified: (1) _overtime_for math — 22:10 checkout = ₹100 (2 blocks), 21:20 = ₹0, custom rate ₹200/hr @ 22:30 = ₹300. (2) Product commission via direct-import _compute_salary_for_month with tenant context set — product_commission_pct=2.0, product_commission_amount == 2% * product_gross confirmed on real invoice (₹500 × 2 = ₹1000 product line → ₹20 commission line-item). (3) GET /api/settings/tax returns tax_enabled=true, tax_pct=18. Invoice creation applies 18% of (subtotal - discount) as tax. (4) POST /api/super-admin/send-platform-digest returns {sent:1} — one real email sent to HQ_EMAIL=miracurlunisexsaloon@gmail.com. (5) X-Forwarded-For lockout: 5-6 bad attempts from IP-A locks (IP-A:email) → 423; first attempt from IP-B for same email → 401 (proves per-real-IP keying now works — previously (iter50) needed 15 attempts due to pod-IP counter). (6) Sales chat start + one AI reply + delete inquiry OK. (7) /reports/dashboard 200 with today_revenue, /reports/sales has avg_rating, /super-admin/overview 200. FRONTEND (Playwright): landing-page renders on 1920×4000 desktop AND 390×844 mobile with 0px horizontal overflow, 0 broken images. All bento cards (mira-ai, smart-pos, staff-registry, online-booking, 6 small tiles), 2 testimonial cards with portraits, 4 pricing cards (Free trial ₹0, 6-Month ₹12k, Annual ₹20k with 'Best Value' glow badge, Multi-Branch ₹70k), giant footer MIRACURL text, floating 'Ask Mira ✦' widget opens lead form. Admin login → /dashboard renders; /reports shows Avg Rating card + Branch Performance; /settings shows both Tax/GST card (GST enabled, 18%) and Birthday Wishes card. Super admin login → /super-admin overview loads.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Landing header (mobile 390×844)", "issues": ["Top-nav 'Sign in' link visually overlaps 'Start free trial' pill button — 'Sign in' text bleeds under/behind the pink CTA at 390px width. Consider hiding 'Sign in' below sm: breakpoint (it's already inside a hamburger-less bar) or reducing the CTA padding. Screenshot: /app/test_reports/landing_mobile.png."]},
+      {"screen": "Landing (test-id naming)", "issues": ["Task description referenced 'plan-monthly' but actual pricing cards are plan-free_trial (₹0/7 days), plan-half_year (₹12k), plan-annual (₹20k · Best value glow), plan-multibranch (₹70k). Frontend is correct — problem statement wording is stale."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter51_batch_features.py",
+    "/app/test_reports/pytest/iter51_results.xml"
+  ],
+  "action_items": [
+    "(Design polish, mobile) Landing header on 390px: hide 'Sign in' text link or move it inside a compact icon so it no longer overlaps the 'Start free trial' pill CTA.",
+    "(Docs) Update problem-statement / test-id list — pricing cards are free_trial / half_year / annual / multibranch (no 'monthly' or 'quarter')."
+  ],
+  "critical_code_review_comments": [
+    "server.py _overtime_for (L1221-1233) — clean: blocks = int(secs // 1800), per_block = rate/2 if rate>0 else 50. Verified across 3 boundary cases. Good.",
+    "server.py _compute_salary_for_month (L1551-1609) reads tenant.product_commission_pct with fallback PRODUCT_COMMISSION_PCT=2.0 (L1218). Rounding is done independently on service_commission and product_commission before summing — matches slip layout. LGTM.",
+    "security.py client_ip (L164-169) correctly reads first hop of x-forwarded-for; falls back to request.client.host. routes/auth.py L223 uses this for ident — lockout is now per real client IP, confirmed by test (IP-A locks, IP-B stays at 401). Resolves the iter50 flag about pod-IP counter.",
+    "server.py _run_platform_digest (L5161) — no _id leakage (all finds project _id:0). Sends via _send_email; returns sent counter. Endpoint requires super_admin — good.",
+    "server.py invoice create (L2772-2830) applies tax only when tenant.tax_enabled=true — verified. tax_pct param on InvoiceIn defaults to 18 but is ignored in favor of tenant config (correct).",
+    "server.py still ~6079 lines — refactor pressure remains (already flagged in iter50).",
+    "server.py L44/5242/5313 — three @app.on_event('startup'/'shutdown') handlers throw DeprecationWarning; migrate to lifespan handlers.",
+    "server.py L423 — Query(..., regex=...) deprecated; use pattern=."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter51_batch_features.py (NEW — 11 pytest cases)"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (landing desktop+mobile, sales chat widget open, admin login→dashboard→reports→settings, super admin login→overview)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (tenant miracurl-marathahalli); super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "Created and DELETED: 1 paid product invoice (₹1000, tenant miracurl-marathahalli) + salary computation ran on it (cleanup via direct motor delete of invoices.id); 1 tax-verification invoice (cleanup + reverse customer $inc); 1 sales-chat inquiry (deleted via /api/super-admin/inquiries/{id}); login_attempts rows for fake lockout emails purged via pymongo. NO product/customer stock left dangling; NO real revenue affected. 1 real HQ email was sent for platform digest (as intended).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_iter51_batch_features.py. Requires REACT_APP_BACKEND_URL env. Notes: (a) motor bound to event loop — do direct-mongo cleanup INSIDE the same asyncio.run() as the async work being tested, OR use pymongo sync for pure cleanup. (b) X-Forwarded-For lockout now works with 5-6 attempts (was ~15 pre-fix). (c) Tenant context for direct-import server helpers: import server._current_tenant_id and .set(tenant_doc['id']). (d) Invoice tax_pct param on InvoiceIn is overridden by tenant.tax_enabled/tax_pct at server.py L2784 — assert against tenant config, not payload. (e) Landing has plan-free_trial / plan-half_year / plan-annual / plan-multibranch; sales-chat panel testid = sales-chat-panel; hero images load from Unsplash+other CDNs, no broken."
+}
