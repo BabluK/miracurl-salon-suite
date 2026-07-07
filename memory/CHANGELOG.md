@@ -605,3 +605,12 @@ NOTE: preview-generated poster URLs use APP_PUBLIC_URL (prod domain) — correct
 - Testing agent iteration_50: 31/31 pytest PASS + frontend flows green, no 500s. Test suite saved at /app/backend/tests/test_iter50_router_split.py (needs REACT_APP_BACKEND_URL env).
 - Fixed MorningBriefing option-children warning; restored super-admin profile name after tester modified it.
 - Tester hardening suggestion logged: brute-force lockout counts per pod IP behind multi-replica ingress (use X-Forwarded-For) — added to roadmap.
+
+## Update — Jul 7, 2026 (part 61) — Entertainment + Billing receipts + SMS points + Late-fine control (iteration_52: backend 7/7, frontend 100%)
+1. ENTERTAINMENT PORTAL (/entertainment, AdminOnly): 4 mood channels (Morning Bhakti, Bollywood & Chill, Hot Hits Hindi, Party/Dance) with YouTube + Spotify embeds, listening timer (15/30/60m/non-stop, auto-pauses with toast), nav item nav-entertainment. Reads ?play= & ?timer= query params for auto-start.
+2. MIRA BHAKTI PROMPT: morning TTS greeting (en+hi) now suggests "Bhakti songs for 30 mins"; MorningBriefing card shows mira-bhakti-suggestion panel with Play-now link → /entertainment?play=bhakti&timer=30 (hidden in evening).
+3. EMAIL RECEIPTS (FREE): create_invoice → _send_billing_receipts → receipt_email.py Luxe HTML receipt (logo, itemized, discounts/membership/coupon/points, GST line, points-earned banner) via Resend to cust.email. Verified sent=true to delivered@resend.dev.
+4. SMS RECEIPTS (Twilio, sms_service.py): 1 SMS = 1 tenant sms_point; atomic $gte:1 deduct, refund on send failure; graceful skip (error=not_configured) until TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER are set in backend/.env. POS shows receipt toasts + points-left / recharge warning.
+5. SMS POINTS RECHARGE: POST /api/super-admin/tenants/{tid}/sms-points (super-admin only, audit log sms_credit_log); SuperAdmin tenants table has per-row MessageSquare button with live balance badge (sms-points-{tid}), window.prompt to credit.
+6. LATE CHECK-IN FINES (admin-controlled): GET/PUT /api/settings/late-fines {grace_minutes, fine_5, fine_10, fine_15, fine_30} stored on tenant.late_fines; _late_penalty_for is now tenant-aware tiered (≤5/≤10/≤15/>15min past grace). Settings page → AttendanceFinesCard (rose theme).
+- Tests: /app/test_reports/iteration_52.json + /app/backend/tests/test_iter52_batch_features.py. Non-issues: Spotify embed internal RangeError (3rd-party); reported span-in-option warning not found in codebase (false positive).

@@ -1,7 +1,11 @@
 # Miracurl — Roadmap / Backlog
 
+## P0 (user action)
+- Add Twilio credentials to backend/.env (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER) + restart backend → SMS receipts go live (flow already built, gracefully skipping)
+
 ## P1
 - DONE Jul 7: Birthday emails, Sales Mira landing chat + HQ Inquiries, weekly AI tip
+- DONE Jul 7 (iter52): Entertainment portal, POS email receipts (Resend), SMS receipts + sms_points (Twilio-ready), super-admin SMS crediting, admin-configurable late check-in fines
 - Automatic birthday emails to guests (daily scheduler + Resend, reuse luxe template style)
 - DONE Jul 6: Weekly Monday mini-report emails (auto scheduler + HQ button)
 - Razorpay webhook secret setup in production (user action, guide in test_credentials.md)
