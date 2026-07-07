@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import log from "@/lib/log";
 import api, { formatApiError, setTenantSlug, detectTenantSlug } from "@/lib/api";
 
 const AuthContext = createContext(null);
@@ -9,7 +10,7 @@ async function fetchCurrentTenant() {
     const { data } = await api.get("/tenants/current");
     return data;
   } catch (e) {
-    console.warn("[auth] tenant fetch failed:", e?.message || e);
+    log.warn("[auth] tenant fetch failed:", e?.message || e);
     return null;
   }
 }
@@ -55,7 +56,7 @@ export function AuthProvider({ children }) {
       } catch (e) {
         if (!cancelled) {
           if (e?.response?.status && e.response.status !== 401) {
-            console.warn("[auth] /auth/me failed:", e?.message || e);
+            log.warn("[auth] /auth/me failed:", e?.message || e);
           }
           setUser(false);
         }
@@ -101,7 +102,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try { await api.post("/auth/logout"); }
-    catch (e) { console.warn("[auth] logout failed:", e?.message || e); }
+    catch (e) { log.warn("[auth] logout failed:", e?.message || e); }
     clearTenantStorage();
     setUser(false);
     setTenant(null);
@@ -124,7 +125,7 @@ export function AuthProvider({ children }) {
       setUser(data);
       return data;
     } catch (e) {
-      console.warn("[auth] refresh failed:", e?.message || e);
+      log.warn("[auth] refresh failed:", e?.message || e);
       return null;
     }
   }, []);

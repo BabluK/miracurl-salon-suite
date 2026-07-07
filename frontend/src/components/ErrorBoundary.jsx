@@ -1,4 +1,5 @@
 import { Component } from "react";
+import log from "@/lib/log";
 
 /**
  * ErrorBoundary — top-level safety net.
@@ -16,14 +17,14 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    console.error("[ErrorBoundary] caught:", error, info?.componentStack);
+    log.error("[ErrorBoundary] caught:", error, info?.componentStack);
   }
 
   handleReload = () => {
     try {
       window.location.reload();
     } catch (e) {
-      console.warn("[ErrorBoundary] reload failed:", e);
+      log.warn("[ErrorBoundary] reload failed:", e);
     }
   };
 
@@ -31,7 +32,7 @@ export default class ErrorBoundary extends Component {
     try {
       window.location.assign("/dashboard");
     } catch (e) {
-      console.warn("[ErrorBoundary] navigation failed:", e);
+      log.warn("[ErrorBoundary] navigation failed:", e);
     }
   };
 

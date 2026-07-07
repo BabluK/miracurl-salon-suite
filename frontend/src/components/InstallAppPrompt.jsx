@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import log from "@/lib/log";
 import { Download, X, Share, Smartphone } from "lucide-react";
 
 const RESHOW_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // dismissed banners return after 3 days
@@ -52,7 +53,7 @@ export default function InstallAppPrompt({ variant = "customer" }) {
     try {
       const at = parseInt(localStorage.getItem(dismissKey) || "0", 10);
       recentlyDismissed = at > 0 && Date.now() - at < RESHOW_AFTER_MS;
-    } catch (e) { console.warn("[InstallAppPrompt]", e); }
+    } catch (e) { log.warn("[InstallAppPrompt]", e); }
 
     const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
 
@@ -81,7 +82,7 @@ export default function InstallAppPrompt({ variant = "customer" }) {
   }, [dismissKey]);
 
   function dismiss() {
-    try { localStorage.setItem(dismissKey, String(Date.now())); } catch (e) { console.warn(e); }
+    try { localStorage.setItem(dismissKey, String(Date.now())); } catch (e) { log.warn(e); }
     setVisible(false);
   }
 

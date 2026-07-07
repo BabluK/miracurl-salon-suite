@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@/index.css";
 import App from "@/App";
+import log from "@/lib/log";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,7 +51,7 @@ if ("serviceWorker" in navigator && window.location.protocol === "https:") {
           });
         });
       })
-      .catch((err) => console.warn("[PWA] SW registration failed:", err));
+      .catch((err) => log.warn("[PWA] SW registration failed:", err));
 
     // When a NEW SW replaces an old one, reload once so the UI runs the
     // latest bundle. Skip the very first install (no prior controller) —

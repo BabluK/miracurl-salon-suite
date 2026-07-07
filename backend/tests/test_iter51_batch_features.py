@@ -1,13 +1,14 @@
 """Iter 51 — Landing dark-luxe + salary/OT + GST + platform digest + XFF lockout regression."""
 import os
 import sys
-import time
 import uuid
 import asyncio
 from datetime import datetime, timezone
 
 import pytest
 import requests
+
+from creds import password_for
 
 # Make backend importable for unit tests on private helpers
 sys.path.insert(0, "/app/backend")
@@ -16,11 +17,11 @@ BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASSWORD = "q6QY@tn3p#9DtL"
+ADMIN_PASSWORD = password_for("admin@miracurl.com")
 TENANT_SLUG = "miracurl-marathahalli"
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASSWORD = "og9T@41Es#OQb6"
+SUPER_PASSWORD = password_for("super@miracurl.com")
 
 
 # ---------- Fixtures ----------
@@ -69,7 +70,6 @@ class TestProductCommission:
         """Create a paid invoice with a product line, run _compute_salary_for_month,
         assert product_commission_amount == 2% of product_gross, then delete invoice."""
         from server import _compute_salary_for_month, _current_tenant_id
-        from database import _raw_db, db
 
         # Resolve tenant + a real staff + a real product
         tenant = requests.utils

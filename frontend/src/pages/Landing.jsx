@@ -198,7 +198,7 @@ export default function Landing() {
           {TESTIMONIALS.map((t, i) => (
             <figure key={t.name} data-testid={`testimonial-card-${i + 1}`}
                     className="rounded-3xl bg-white/[0.03] border border-white/10 p-8 hover:bg-white/[0.06] transition-colors">
-              <div className="flex gap-1 text-amber-300">{[...Array(5)].map((_, s) => <Star key={s} className="w-4 h-4 fill-amber-300" />)}</div>
+              <div className="flex gap-1 text-amber-300">{["s1", "s2", "s3", "s4", "s5"].map(s => <Star key={s} className="w-4 h-4 fill-amber-300" />)}</div>
               <blockquote className="font-playfair text-xl md:text-2xl leading-relaxed mt-4 text-white/90">"{t.quote}"</blockquote>
               <figcaption className="flex items-center gap-3 mt-6">
                 <img src={t.img} alt={t.name} className="w-11 h-11 rounded-full object-cover border border-white/20" />

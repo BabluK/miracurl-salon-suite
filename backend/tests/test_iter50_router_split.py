@@ -1,20 +1,21 @@
 """Iter 50 — Router-split regression tests (auth, reports, registry, super_admin, sales)."""
 import os
-import io
 import uuid
 import time
 import pytest
 import requests
 
+from creds import password_for
+
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASSWORD = "q6QY@tn3p#9DtL"
+ADMIN_PASSWORD = password_for("admin@miracurl.com")
 TENANT_SLUG = "miracurl-marathahalli"
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASSWORD = "og9T@41Es#OQb6"
+SUPER_PASSWORD = password_for("super@miracurl.com")
 
 
 # ---------- Fixtures ----------

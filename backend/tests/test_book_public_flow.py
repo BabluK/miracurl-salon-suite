@@ -8,7 +8,6 @@ Covers:
 - Registry PDF (fetched at most ONCE due to 10/10min rate limit)
 """
 import os
-import time
 import datetime as dt
 import requests
 import pytest

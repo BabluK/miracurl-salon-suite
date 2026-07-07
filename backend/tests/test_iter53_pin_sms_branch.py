@@ -4,15 +4,16 @@
 expecting success (a bad sig MUST return 400 — that IS the pass condition).
 """
 import os
-import time
 import pytest
 import requests
+
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = password_for("admin@miracurl.com")
 OWNER_PIN = "4321"
 
 

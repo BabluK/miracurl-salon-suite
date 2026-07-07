@@ -216,7 +216,7 @@ class TestRazorpaySecurity:
         assert j["ok"] is True
         assert j["plan"] == "half_year", f"SEC-002 BROKEN: server accepted client plan → {j}"
         # end_date ~ 183 days out
-        from datetime import datetime, timezone, date
+        from datetime import datetime, timezone
         end_d = datetime.fromisoformat(j["end_date"]).date()
         delta = (end_d - datetime.now(timezone.utc).date()).days
         assert 180 <= delta <= 186, f"end_date delta {delta} not in expected 183-day window"

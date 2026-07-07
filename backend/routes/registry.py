@@ -190,6 +190,20 @@ def _registry_badge(total_years: float, avg_rating) -> str:
         idx -= 1
     return _REG_BADGE_ORDER[idx]
 
+def _hire_verdict(emps: list, badge: str, avg_rating, total_years: float) -> tuple:
+    """(verdict, note) for the public verify page — red / green / amber."""
+    red_reasons = [e.get("reason_for_leaving") for e in emps
+                   if e.get("reason_for_leaving") in ("Terminated", "Absconded")]
+    if red_reasons or badge == "BAD" or (avg_rating is not None and avg_rating < 2.5):
+        cause = "/".join(sorted(set(red_reasons))) if red_reasons else "very low ratings"
+        return "red", f"Caution — past record shows {cause}. Verify carefully before hiring."
+    if (avg_rating is not None and avg_rating >= 4) or badge in ("Excellent", "Extraordinary"):
+        return "green", "Strong record — well-rated with clean employment history. Recommended."
+    if avg_rating is None and total_years < 1:
+        return "amber", "Limited history — new to the registry, no ratings yet. Take references."
+    return "amber", "Average record — acceptable history, review ratings and reasons before hiring."
+
+
 async def _registry_profile(emp: dict, current_only: bool = False, redact: bool = False, show_aadhaar: bool = True) -> dict:
     emps = await _raw_db.registry_employments.find(
         {"employee_id": emp["id"]}, {"_id": 0}).sort("from_date", -1).to_list(100)
@@ -201,17 +215,7 @@ async def _registry_profile(emp: dict, current_only: bool = False, redact: bool 
     if current_only:
         emps = [e for e in emps if not e.get("to_date")]
     badge = _registry_badge(total_years, avg_rating)
-    # Hire-worthiness verdict for the public verify page
-    red_reasons = [e.get("reason_for_leaving") for e in emps if e.get("reason_for_leaving") in ("Terminated", "Absconded")]
-    if red_reasons or badge == "BAD" or (avg_rating is not None and avg_rating < 2.5):
-        verdict, verdict_note = "red", "Caution — past record shows " + (
-            f"{'/'.join(sorted(set(red_reasons)))}" if red_reasons else "very low ratings") + ". Verify carefully before hiring."
-    elif (avg_rating is not None and avg_rating >= 4) or badge in ("Excellent", "Extraordinary"):
-        verdict, verdict_note = "green", "Strong record — well-rated with clean employment history. Recommended."
-    elif avg_rating is None and total_years < 1:
-        verdict, verdict_note = "amber", "Limited history — new to the registry, no ratings yet. Take references."
-    else:
-        verdict, verdict_note = "amber", "Average record — acceptable history, review ratings and reasons before hiring."
+    verdict, verdict_note = _hire_verdict(emps, badge, avg_rating, total_years)
     # `redact` hides direct-contact PII on public / low-trust paths (SEC-001):
     # employment history + verdict stay visible; home addresses & contacts do not.
     phone = emp.get("phone") or ""

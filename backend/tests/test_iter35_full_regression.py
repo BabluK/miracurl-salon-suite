@@ -6,7 +6,6 @@ public discovery APIs.
 """
 import io
 import os
-import re
 import time
 import uuid
 import pytest

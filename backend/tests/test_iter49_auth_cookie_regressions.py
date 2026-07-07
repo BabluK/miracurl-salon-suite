@@ -10,19 +10,20 @@
 """
 import io
 import os
-import time
 import uuid
 import pytest
 import requests
+
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 API = f"{BASE_URL}/api"
 TENANT = "miracurl-marathahalli"
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = password_for("admin@miracurl.com")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = password_for("super@miracurl.com")
 
 
 # ---------- helpers ----------

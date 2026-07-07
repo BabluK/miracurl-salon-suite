@@ -637,3 +637,12 @@ Audit verdict: CONDITIONAL PASS → all findings fixed:
 ## Update — Jul 7, 2026 (part 64) — Super-Admin SMS visibility (self-tested: curl + screenshot)
 1. Tenants table: dedicated "SMS" column — balance number (amber <20) + "+ Add" credit button (sms-balance-{tid}, sms-points-{tid}); removed old tiny icon from actions.
 2. GET /api/super-admin/sms-credits (last 100 from sms_credit_log, tenant names joined) + SmsCreditLog.jsx collapsible history panel under tenants table (source badge razorpay/manual, amount, credited_by). Manual credits now store source:"manual".
+
+## Update — Jul 7, 2026 (part 65) — Code review fixes (self-tested: pytest 32 passed + UI screenshot)
+APPLIED:
+1. Test secrets removed from 11 test files → tests/creds.py loader (env TEST_PASSWORD_<USER> → test_credentials.md parse).
+2. Central dev-only logger src/lib/log.js; swapped 20 console.* calls across 9 files (index.js prod kill-switch kept).
+3. Index-as-key fixed: Landing stars, InquiriesPanel transcript, SalesChatWidget messages.
+4. Complexity refactors: receipt_email.py split (_money_row/_items_rows/_totals_rows/_points_banner); BranchSwitcher (complexity 41) split → BranchSwitchModal.jsx (PinTab/OtpTab subcomponents); registry _registry_profile verdict extracted → _hire_verdict().
+FALSE POSITIVES (documented, no change): "30 undefined Python vars" (ruff F821 clean), "143 missing hook deps" (eslint exhaustive-deps clean — analyzer counted module imports/globals), "auth tokens in localStorage" (auth is HTTPOnly cookies; localStorage only holds remember-me email, branch name, referral slug — non-sensitive), "empty catch blocks" (all have intentional /* noop */ comments for best-effort ops).
+DEFERRED (backlog): email_service monthly/weekly HTML refactor, AppLayout/SuperAdmin/StaffPortal component splits, routes complexity extraction (auth signup, super stats, reports), bulk Python type hints — high regression risk, tracked in ROADMAP.

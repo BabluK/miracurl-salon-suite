@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import log from "@/lib/log";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { User, Lock, Eye, EyeOff } from "lucide-react";
@@ -31,7 +32,7 @@ export default function Login() {
         setRemember(true);
       }
     } catch (e) {
-      console.warn("[Login] localStorage read failed:", e);
+      log.warn("[Login] localStorage read failed:", e);
     }
   }, []);
 
@@ -54,7 +55,7 @@ export default function Login() {
         if (remember) localStorage.setItem(REMEMBER_KEY, email);
         else localStorage.removeItem(REMEMBER_KEY);
       } catch (err2) {
-        console.warn("[Login] localStorage write failed:", err2);
+        log.warn("[Login] localStorage write failed:", err2);
       }
       toast.success("Welcome back ✦");
       nav("/dashboard");

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import log from "@/lib/log";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff } from "lucide-react";
@@ -49,7 +50,7 @@ export default function SignupSalon() {
         localStorage.setItem("miracurl_ref", ref);
       }
     } catch (err) {
-      console.warn("Referral param parse failed:", err);
+      log.warn("Referral param parse failed:", err);
     }
   }, []);
 

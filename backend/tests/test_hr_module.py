@@ -1,13 +1,14 @@
 """HR module backend tests: shifts, geo-fence, advances, aadhaar, salary slip, auto-checkout."""
 import os
 import datetime as dt
-from datetime import timezone, timedelta
 import pytest
 import requests
 
+from creds import password_for
+
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = password_for("admin@miracurl.com")
 STAFF_EMAIL = "priya.staff@miracurl.com"
 STAFF_PASS = "Priya@Miracurl123"
 PRIYA_ID = "3cdf66d1-ea58-4605-a4d7-333330a96e8a"

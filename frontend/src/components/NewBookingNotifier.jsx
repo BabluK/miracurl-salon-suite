@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import log from "@/lib/log";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Bell } from "lucide-react";
@@ -50,7 +51,7 @@ function playChime() {
     // Close the context a bit later so the tail plays out cleanly
     setTimeout(() => ctx.close?.(), 600);
   } catch (e) {
-    console.warn("[NewBookingNotifier] chime failed:", e);
+    log.warn("[NewBookingNotifier] chime failed:", e);
   }
 }
 
@@ -76,7 +77,7 @@ function showOsNotification(b) {
       n.close();
     };
   } catch (e) {
-    console.warn("[NewBookingNotifier] OS notification failed:", e);
+    log.warn("[NewBookingNotifier] OS notification failed:", e);
   }
 }
 
@@ -130,7 +131,7 @@ export function useNewBookingNotifier({ enabled }) {
       }
     } catch (e) {
       // Silent — polling errors shouldn't spam. Just log for dev.
-      console.debug("[NewBookingNotifier] poll error:", e?.response?.status);
+      log.debug("[NewBookingNotifier] poll error:", e?.response?.status);
     }
   }, []);
 
@@ -176,7 +177,7 @@ export function useNewBookingNotifier({ enabled }) {
         playChime();
       }
     } catch (e) {
-      console.warn("[NewBookingNotifier] permission request failed:", e);
+      log.warn("[NewBookingNotifier] permission request failed:", e);
     }
   }, []);
 

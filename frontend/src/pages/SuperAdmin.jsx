@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import log from "@/lib/log";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -520,7 +521,7 @@ function TempPasswordShareModal({ creds, onClose }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
-      console.warn("clipboard failed:", e);
+      log.warn("clipboard failed:", e);
     }
   }
 

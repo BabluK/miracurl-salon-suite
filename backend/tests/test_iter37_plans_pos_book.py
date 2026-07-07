@@ -1,5 +1,7 @@
 """Iter37 backend spot checks: coupons/packages/memberships CRUD, public availability/coupon-check, invoice with coupon."""
-import os, requests, pytest
+import os
+import requests
+import pytest
 
 BASE = (os.environ.get('REACT_APP_BACKEND_URL') or 'https://hair-hub-system.preview.emergentagent.com').rstrip('/')
 SLUG = "miracurl-marathahalli"

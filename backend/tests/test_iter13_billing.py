@@ -12,7 +12,7 @@ Covers:
 - 400 on unknown plan
 """
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 import pytest
 import requests

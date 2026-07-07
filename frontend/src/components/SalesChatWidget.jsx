@@ -101,7 +101,7 @@ export default function SalesChatWidget() {
             <>
               <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50/70" data-testid="sales-chat-messages">
                 {messages.map((m, i) => (
-                  <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div key={`m${i}-${m.role}`} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                       m.role === "user" ? "bg-fuchsia-600 text-white rounded-br-sm" : "bg-white border border-slate-200 text-slate-700 rounded-bl-sm"}`}>
                       {m.content}

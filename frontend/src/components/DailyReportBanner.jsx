@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import log from "@/lib/log";
 import api from "@/lib/api";
 import { Sunrise, CreditCard, Banknote, Smartphone, Users, Receipt, X, ChevronDown, ChevronUp, Trophy } from "lucide-react";
 
@@ -32,7 +33,7 @@ export default function DailyReportBanner({ ownerName }) {
     } catch (e) {
       // Safari private mode / Storage full — treat as not dismissed. Log so devs
       // can spot the fallback in prod DevTools without hurting the user experience.
-      console.warn("[DailyReportBanner] localStorage read failed:", e);
+      log.warn("[DailyReportBanner] localStorage read failed:", e);
     }
   }, [report]);
 
@@ -42,7 +43,7 @@ export default function DailyReportBanner({ ownerName }) {
     try {
       localStorage.setItem(DISMISS_KEY_PREFIX + report.date, "1");
     } catch (e) {
-      console.warn("[DailyReportBanner] localStorage write failed — banner will reappear next visit:", e);
+      log.warn("[DailyReportBanner] localStorage write failed — banner will reappear next visit:", e);
     }
     setDismissed(true);
   };

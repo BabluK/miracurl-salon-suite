@@ -7,15 +7,17 @@
 import os
 import time
 import requests
+
+from creds import password_for
 from datetime import datetime, timezone, timedelta
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = password_for("admin@miracurl.com")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = password_for("super@miracurl.com")
 TENANT_ID = "83ab97b6-b481-4172-afd7-53a46c93317d"  # miracurl-marathahalli
 
 

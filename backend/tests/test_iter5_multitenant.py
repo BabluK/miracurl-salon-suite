@@ -11,9 +11,7 @@ Coverage:
 - /api/tenants/current returns user's tenant
 """
 import os
-import re
 import uuid
-import time
 import requests
 import pytest
 

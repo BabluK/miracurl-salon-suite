@@ -13,13 +13,15 @@ import time
 import uuid
 import pytest
 import requests
+
+from creds import password_for
 from pymongo import MongoClient
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = password_for("admin@miracurl.com")
 STAFF_EMAIL = "priya.staff@miracurl.com"
 STAFF_PW = "Priya@Miracurl123"
 OWNER_PIN = "4321"
@@ -145,7 +147,6 @@ class TestReferralDeferral:
                     or db.customers.find_one({"tenant_id": TENANT_ID, "phone": phone[3:]}))
         if not new_cust:
             # Debug — find any customer created in last 60s
-            import datetime
             recent = list(db.customers.find(
                 {"tenant_id": TENANT_ID, "name": cname}
             ).limit(3))

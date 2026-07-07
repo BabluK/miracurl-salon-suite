@@ -107,7 +107,7 @@ export function InquiriesPanel({ onNewCount, onConvert }) {
               {expanded === i.id && (
                 <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3 space-y-2 max-h-72 overflow-y-auto" data-testid={`inquiry-transcript-${i.id}`}>
                   {(i.messages || []).map((m, idx) => (
-                    <div key={idx} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div key={`${i.id}-m${idx}-${m.role}`} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[80%] px-3 py-1.5 rounded-xl text-xs leading-relaxed ${
                         m.role === "user" ? "bg-fuchsia-600 text-white" : "bg-white border border-slate-200 text-slate-600"}`}>
                         {m.content}

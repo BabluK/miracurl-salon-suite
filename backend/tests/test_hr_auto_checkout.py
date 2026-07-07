@@ -3,8 +3,9 @@ import os
 import uuid
 import datetime as dt
 from datetime import timezone, timedelta
-import pytest
 import requests
+
+from creds import password_for
 from pymongo import MongoClient
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
@@ -12,7 +13,7 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "miracurl_db")
 TENANT_ID = "83ab97b6-b481-4172-afd7-53a46c93317d"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = password_for("admin@miracurl.com")
 
 
 def test_auto_checkout_stale_attendance():
