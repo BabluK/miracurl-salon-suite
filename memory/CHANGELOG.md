@@ -812,3 +812,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 4. Frontend: SocialConnectionsCard in Settings (connect/disconnect/page-picker/status toasts), MiraCalendar component (plan/approve/edit/skip-with-restore/post-now), MiraStudio tabs (AI Agents | Content Calendar), PostNowButton on social results when connected, GReviewRow (live Google reviews + AI reply drafts) when google connected.
 5. Tested: iteration_57 — 26/26 backend + all frontend flows pass (incl. tenant isolation, bogus-state redirect, publish guards). make lint green.
 6. MSG91: told user where to get Authkey (control.msg91.com → Settings → Authkeys) + DLT prerequisites. Still waiting for key.
+
+## Update — Jul 8 (part 90) — MSG91 SMS provider integrated (authkey verified)
+1. Rewrote sms_service.py as dual-provider: SMS_PROVIDER env selects msg91 (Flow API v5, needs MSG91_AUTHKEY+MSG91_SENDER_ID+MSG91_FLOW_ID; template must contain ##message## var) with Twilio fallback. send_sms(to, body) signature unchanged — zero caller changes.
+2. .env: MSG91_AUTHKEY=<set, verified live against control.msg91.com — returns success>, MSG91_SENDER_ID/MSG91_FLOW_ID empty (awaiting user DLT approval), SMS_PROVIDER=twilio for now. To switch: fill sender+flow, set SMS_PROVIDER=msg91, restart backend.
+3. Gave user full step-by-step guides for Meta App ID/Secret (FB page + IG business link + developers.facebook.com app + redirect URIs for preview & prod) and Google OAuth Client ID/Secret + GBP API access application (2wk approval).
+4. Awaiting from user: Meta App ID+Secret, Google Client ID+Secret, MSG91 Sender ID+Flow ID.
