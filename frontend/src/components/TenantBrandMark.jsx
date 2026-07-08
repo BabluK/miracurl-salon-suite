@@ -15,32 +15,27 @@ export default function TenantBrandMark({ tenant }) {
     ? (tenant.logo_url.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${tenant.logo_url}` : tenant.logo_url)
     : "";
 
-  // Split multi-word salon names so the layout stays balanced. We keep the
-  // whole name visible but let the first word feel prominent.
-  const firstWord = name ? name.split(" ")[0] : "MIRA";
-  const restWords = name ? name.split(" ").slice(1).join(" ") : "CURL";
-
   const subtitle = location || "Salon Suite";
 
   return (
-    <div className="inline-flex items-center gap-3 select-none" data-testid="tenant-brand-mark">
+    <div className="inline-flex items-center gap-3 select-none relative" data-testid="tenant-brand-mark">
+      <span className="tenant-sparkle" style={{ top: "-4px", left: "30px" }}>✦</span>
+      <span className="tenant-sparkle" style={{ bottom: "-2px", left: "2px", animationDelay: "0.9s" }}>✦</span>
+      <span className="tenant-sparkle" style={{ top: "2px", right: "6px", animationDelay: "1.8s" }}>✦</span>
       {logo ? (
-        <img src={logo} alt={name || "Salon logo"} data-testid="tenant-logo-img" className="w-9 h-9 rounded-xl object-cover shadow-lg flex-shrink-0 border border-white/15" />
+        <img src={logo} alt={name || "Salon logo"} data-testid="tenant-logo-img" className="tenant-logo-glow w-9 h-9 rounded-xl object-cover flex-shrink-0 border border-white/15" />
       ) : (
-        <div className="brand-pill w-9 h-9 rounded-xl flex items-center justify-center shadow-lg relative overflow-hidden flex-shrink-0">
+        <div className="brand-pill tenant-logo-glow w-9 h-9 rounded-xl flex items-center justify-center relative overflow-hidden flex-shrink-0">
           <Scissors className="w-4 h-4 text-white brand-scissors relative z-10" />
         </div>
       )}
       <div className="leading-tight min-w-0 flex-1">
-        <div className="font-playfair text-sm sm:text-[15px] tracking-tight text-white break-words" title={name || "Miracurl"}>
+        <div className="font-playfair text-sm sm:text-[15px] tracking-tight break-words" title={name || "Miracurl"}>
           {name ? (
-            <>
-              <span className="text-white">{firstWord}</span>
-              {restWords && <span className="brand-curl"> {restWords}</span>}
-            </>
+            <span className="tenant-name-shimmer">{name}</span>
           ) : (
             <>
-              <span className="text-white">MIRA</span>
+              <span className="tenant-name-shimmer">MIRA</span>
               <span className="brand-curl">CURL</span>
             </>
           )}

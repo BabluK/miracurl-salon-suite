@@ -772,3 +772,16 @@ REFACTORED (payment-critical, behavior-verified):
 2. rzp_webhook (cx14 → linear): extracted _wh_parse_verified_event (HMAC verify+parse), _wh_payment_failed, _wh_refund. (Self-inflicted decorator mixup during edit — caught by lint gate, fixed.)
 DEFERRED (unchanged rationale): component splits, TS migration, test type hints, hook dep counts; rzp_verify/public_signup_salon (security-critical, already partially extracted).
 Regression: revenue output identical, billing 13 + razorpay-touching suites 43 passed, make lint green.
+
+## Update — Jul 8 (part 84) — Brand sparkle + staff transfer between branches
+1. TenantBrandMark (sidebar, ALL tenants): gold shimmer sweep over salon name (bg-clip:text animation), pulsing golden glow on logo, 3 staggered twinkling ✦ sparkles; prefers-reduced-motion safe. CSS in index.css (tenant-name-shimmer / tenant-logo-glow / tenant-sparkle).
+2. NEW POST /staff/{sid}/transfer {target_tenant_id} (server.py, near create-login): moves staff profile (tenant_id, clears branch tag, stamps transferred_from/at) + their portal LOGIN user to another salon of the SAME owner (tenant_ids check; super_admin exempt; self-transfer 400; foreign salon 403). History (attendance/invoices) stays with old branch by design.
+3. StaffFormModal: "Transfer to another salon" section (edit mode + owner has 2+ salons) — fuchsia select of other branches + confirm dialog; Staff.jsx onTransferred reload.
+Tested: curl full cycle (Priya+login MH→WF: staff lists + PUBLIC booking portals /public/staff/{slug} follow instantly, login_moved:true, restored back; foreign 403), UI screenshots (transfer section options correct, sparkle brand mark rendering).
+
+## Update — Jul 8 (part 85) — Rate-limit / brute-force IP spoofing hardened (security audit follow-up)
+1. VULN: client_ip() trusted X-Forwarded-For[0] (leftmost) — fully client-controllable. Attacker rotated fake XFF per request to get a fresh rate-limit/brute-force bucket every time → bypassed public booking limits AND login lockout.
+2. FIX: security.py client_ip now takes the entry at (len - TRUSTED_PROXY_COUNT) — the hop appended by our OWN trusted proxies, ignoring everything left (attacker junk). idx<0 guard → parts[0].
+3. Verified Emergent infra = 3 trusted hops (Cloudflare→LB→ingress); real client IP is always what CF appends regardless of injected header. Default TRUSTED_PROXY_COUNT=3, env-overridable.
+Tested: unit (spoof/legit/multi-hop → correct IP), live curl (injected 6.6.6.6 ignored), brute-force with rotating XFF now LOCKS at attempt 6 (was: never). 37 security/auth tests pass. make lint green.
+NOTE: test_book_public_flow::test_full_booking_flow fails on customer_referral_code=None — PRE-EXISTING (fails identically on git stash), unrelated to this change.

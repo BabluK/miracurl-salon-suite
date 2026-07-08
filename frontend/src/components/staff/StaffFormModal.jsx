@@ -1,7 +1,30 @@
-import { X, IndianRupee } from "lucide-react";
+import { useState } from "react";
+import { X, IndianRupee, ArrowRightLeft, Loader2 } from "lucide-react";
 import ImageUploader from "@/components/ImageUploader";
+import { useAuth } from "@/context/AuthContext";
+import api from "@/lib/api";
+import { toast } from "sonner";
 
-export function StaffFormModal({ editing, form, setForm, branches, onClose, onSubmit, onPhotoUploaded }) {
+export function StaffFormModal({ editing, form, setForm, branches, onClose, onSubmit, onPhotoUploaded, onTransferred }) {
+  const { user } = useAuth();
+  const otherSalons = (user?.salons || []).filter(s => s.id !== user?.tenant_id);
+  const [transferTo, setTransferTo] = useState("");
+  const [transferring, setTransferring] = useState(false);
+
+  async function doTransfer() {
+    const target = otherSalons.find(s => s.id === transferTo);
+    if (!target) { toast.error("Pick the salon to transfer to"); return; }
+    if (!window.confirm(`Transfer ${form.name || "this staff"} to "${target.name}"?\n\nTheir full profile, portal login and booking visibility move to that branch. They will no longer appear in this salon's booking portal or staff list.`)) return;
+    setTransferring(true);
+    try {
+      const { data } = await api.post(`/staff/${editing.id}/transfer`, { target_tenant_id: transferTo });
+      toast.success(`${data.staff} transferred to ${data.transferred_to.name} ✦`);
+      onTransferred?.();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Transfer failed");
+    } finally { setTransferring(false); }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3" onClick={onClose}>
       <div className="card-light w-full max-w-lg max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -57,6 +80,22 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
                   {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
                 </select>
                 <p className="text-[10px] text-slate-400 mt-1">Staff gets this branch tag & must check in at THIS branch&apos;s GPS location</p>
+              </div>
+            )}
+            {editing && otherSalons.length > 0 && (
+              <div className="rounded-lg border border-fuchsia-200 bg-fuchsia-50/50 p-2.5" data-testid="staff-transfer-section">
+                <label className="label-light block mb-1 text-fuchsia-700 font-semibold">Transfer to another salon</label>
+                <div className="flex gap-2">
+                  <select data-testid="staff-transfer-select" className="input-light flex-1" value={transferTo} onChange={e => setTransferTo(e.target.value)}>
+                    <option value="">Choose salon…</option>
+                    {otherSalons.map(s => <option key={s.id} value={s.id}>{s.name}{s.location ? ` — ${s.location}` : ""}</option>)}
+                  </select>
+                  <button type="button" data-testid="staff-transfer-btn" onClick={doTransfer} disabled={transferring || !transferTo}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-fuchsia-500 hover:bg-fuchsia-600 text-white text-xs font-semibold disabled:opacity-50 shrink-0">
+                    {transferring ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRightLeft className="w-3.5 h-3.5" />} Transfer
+                  </button>
+                </div>
+                <p className="text-[10px] text-fuchsia-600/80 mt-1">Moves their full profile + portal login + client booking visibility to that branch. History stays here.</p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">

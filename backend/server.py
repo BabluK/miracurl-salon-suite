@@ -1074,6 +1074,40 @@ def _generate_temp_password() -> str:
     return f"{secrets.choice(_words)}-{secrets.choice(_words)}-{secrets.token_urlsafe(8)}"
 
 
+class StaffTransferIn(BaseModel):
+    target_tenant_id: str
+
+
+@api.post("/staff/{sid}/transfer")
+async def transfer_staff(sid: str, body: StaffTransferIn,
+                         admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Move a staff member (profile + portal login) to another salon the SAME owner controls.
+    Their booking-portal visibility follows automatically; history stays with the old branch."""
+    owned = set(admin.get("tenant_ids") or [])
+    if admin.get("tenant_id"):
+        owned.add(admin["tenant_id"])
+    target_tid = body.target_tenant_id.strip()
+    if target_tid == t["id"]:
+        raise HTTPException(400, "Staff is already in this salon")
+    if admin.get("role") != "super_admin" and target_tid not in owned:
+        raise HTTPException(403, "You can only transfer staff between salons linked to your login")
+    target = await _raw_db.tenants.find_one({"id": target_tid}, {"_id": 0, "id": 1, "name": 1, "slug": 1})
+    if not target:
+        raise HTTPException(404, "Target salon not found")
+    s = await db.staff.find_one({"id": sid}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Staff member not found")
+    await _raw_db.staff.update_one(
+        {"id": sid, "tenant_id": t["id"]},
+        {"$set": {"tenant_id": target_tid, "branch": "",
+                  "transferred_from": t["id"],
+                  "transferred_at": datetime.now(timezone.utc).isoformat()}})
+    if s.get("user_id"):
+        await _raw_db.users.update_one({"id": s["user_id"]}, {"$set": {"tenant_id": target_tid}})
+    return {"ok": True, "staff": s["name"], "transferred_to": target,
+            "login_moved": bool(s.get("user_id"))}
+
+
 @api.post("/staff/{sid}/create-login")
 async def create_staff_login(
     sid: str, body: StaffLoginCreateIn,

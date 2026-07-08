@@ -380,3 +380,43 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   0% { background-position: 200% 0; }
   100% { background-position: -20% 0; }
 }
+
+/* ── Tenant brand sparkle (sidebar salon name + logo, all tenants) ── */
+.tenant-name-shimmer {
+  background: linear-gradient(110deg, #ffffff 30%, #f6e27a 45%, #d4af37 50%, #f6e27a 55%, #ffffff 70%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: tenant-name-sweep 4.5s ease-in-out infinite;
+}
+@keyframes tenant-name-sweep {
+  0%, 25% { background-position: 200% 0; }
+  60%, 100% { background-position: -60% 0; }
+}
+.tenant-logo-glow {
+  position: relative;
+  animation: tenant-logo-pulse 3.6s ease-in-out infinite;
+}
+@keyframes tenant-logo-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(212, 175, 55, 0.25); }
+  50% { box-shadow: 0 0 16px rgba(212, 175, 55, 0.65), 0 0 30px rgba(212, 175, 55, 0.18); }
+}
+.tenant-sparkle {
+  position: absolute;
+  color: #f6e27a;
+  font-size: 9px;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0;
+  animation: tenant-sparkle-twinkle 2.8s ease-in-out infinite;
+  text-shadow: 0 0 6px rgba(246, 226, 122, 0.9);
+}
+@keyframes tenant-sparkle-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(90deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tenant-name-shimmer { animation: none; -webkit-text-fill-color: #fff; }
+  .tenant-logo-glow, .tenant-sparkle { animation: none; }
+}

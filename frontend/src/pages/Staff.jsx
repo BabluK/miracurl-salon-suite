@@ -220,6 +220,7 @@ export default function Staff() {
           onClose={() => setOpen(false)}
           onSubmit={save}
           onPhotoUploaded={photoUploaded}
+          onTransferred={() => { setOpen(false); load(); }}
         />
       )}
 

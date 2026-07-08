@@ -170,11 +170,24 @@ async def require_admin(user=Depends(get_current_user)):
 # ---- In-memory rate limit for public booking ----
 _RATE_BUCKET: dict = {}
 
+_TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "3"))
+
+
 def client_ip(request: Request) -> str:
-    """Real client IP behind the ingress (first hop of X-Forwarded-For), else socket peer."""
+    """Real client IP, spoof-resistant.
+
+    X-Forwarded-For is client-controllable on the LEFT (appended left-to-right by
+    each hop). Only the rightmost `_TRUSTED_PROXY_COUNT` entries — added by our own
+    ingress — can be trusted. We take the entry immediately BEFORE our trusted
+    proxies; anything further left is attacker-supplied and ignored. This stops
+    brute-force / rate-limit evasion via forged X-Forwarded-For headers.
+    """
     xff = request.headers.get("x-forwarded-for", "")
     if xff:
-        return xff.split(",")[0].strip()
+        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        if parts:
+            idx = len(parts) - _TRUSTED_PROXY_COUNT
+            return parts[idx] if idx >= 0 else parts[0]
     return request.client.host if request.client else "anon"
 
 def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, window_sec: int = 600):
