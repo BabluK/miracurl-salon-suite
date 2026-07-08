@@ -804,3 +804,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 3. Replaced window.prompt with a proper topic modal (data-testid mira-topic-modal/input/go/cancel). Data agents (analytics/leadfinder/staff_verify) run instantly without prompt.
 4. Tested: testing agent iteration_56 — 12/12 backend pytest pass (new regression file /app/backend/tests/test_mira_studio.py), all frontend flows pass (nav, orchestrator chat, topic modal, analytics instant run, CONNECT/READY badges). 100% success.
 5. Still mocked/pending: social/whatsapp/google agents show "Connect" badge — real auto-posting needs OAuth (P2 in ROADMAP).
+
+## Update — Jul 8 (part 89) — Social OAuth infra + Mira Content Calendar (iter57, 26/26 tests)
+1. NEW routes/social_connect.py: Meta OAuth (FB dialog → code → long-lived token → pages+IG discovery → page picker), Google Business OAuth (offline refresh tokens, account/location auto-discovery, api_ready flag for pending GBP approval), publish_content() (FB /photos + IG media→poll→publish), Google reviews list/reply + AI draft-reply. Tokens per-tenant in social_connections; state CSRF via oauth_states. Callbacks are public, redirect to /settings?social=*.
+2. NEW routes/mira_calendar.py: POST /mira-studio/calendar/plan (LLM plans 7 days w/ Indian festivals), GET/PUT/DELETE items, POST /{id}/publish (gen image + auto-post; guard 400 if not connected). Replan preserves approved items.
+3. env: META_APP_ID, META_APP_SECRET, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET added (EMPTY — user must create Meta dev app + Google Cloud OAuth client; GBP API also needs Google approval ~2wks). UI degrades gracefully: "Setup required" amber states, disabled Connect buttons.
+4. Frontend: SocialConnectionsCard in Settings (connect/disconnect/page-picker/status toasts), MiraCalendar component (plan/approve/edit/skip-with-restore/post-now), MiraStudio tabs (AI Agents | Content Calendar), PostNowButton on social results when connected, GReviewRow (live Google reviews + AI reply drafts) when google connected.
+5. Tested: iteration_57 — 26/26 backend + all frontend flows pass (incl. tenant isolation, bogus-state redirect, publish guards). make lint green.
+6. MSG91: told user where to get Authkey (control.msg91.com → Settings → Authkeys) + DLT prerequisites. Still waiting for key.

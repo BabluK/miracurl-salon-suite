@@ -43,11 +43,6 @@ export const MiraCalendar = ({ canPost }) => {
     } finally { setBusyId(""); }
   };
 
-  const remove = async (id) => {
-    await api.delete(`/mira-studio/calendar/${id}`);
-    load();
-  };
-
   const publish = async (id) => {
     setBusyId(id);
     try {
@@ -117,6 +112,10 @@ export const MiraCalendar = ({ canPost }) => {
                   <button data-testid={`calendar-approve-${it.id}`} onClick={() => update(it.id, { status: "approved" }, "Approved ✦")} disabled={busyId === it.id}
                     className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-medium inline-flex items-center gap-1 disabled:opacity-50"><Check className="w-3 h-3" /> Approve</button>
                 )}
+                {it.status === "skipped" && (
+                  <button data-testid={`calendar-restore-${it.id}`} onClick={() => update(it.id, { status: "suggested" }, "Restored")} disabled={busyId === it.id}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 font-medium disabled:opacity-50">Restore</button>
+                )}
                 {it.status === "approved" && canPost && (
                   <button data-testid={`calendar-publish-${it.id}`} onClick={() => publish(it.id)} disabled={busyId === it.id}
                     className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white font-medium inline-flex items-center gap-1 disabled:opacity-50">
@@ -126,10 +125,12 @@ export const MiraCalendar = ({ canPost }) => {
                 {it.status === "approved" && !canPost && (
                   <span className="text-[11px] text-amber-600">Connect Instagram/Facebook in Settings to post directly</span>
                 )}
+                {it.status !== "skipped" && <>
                 <button onClick={() => { setEditId(it.id); setEditText(it.caption); }}
                   className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 inline-flex items-center gap-1"><Pencil className="w-3 h-3" /> Edit</button>
-                <button onClick={() => remove(it.id)}
+                <button onClick={() => update(it.id, { status: "skipped" })}
                   className="text-xs px-3 py-1.5 rounded-lg text-slate-400 hover:text-red-500 inline-flex items-center gap-1"><Trash2 className="w-3 h-3" /> Skip</button>
+                </>}
               </div>
             )}
           </div>

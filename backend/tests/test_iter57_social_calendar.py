@@ -3,8 +3,6 @@ Covers untested paths: tenant isolation, invalid status 400, 404s, delete,
 replan behavior, draft-reply LLM, unauthenticated 401s, calendar CRUD guards.
 """
 import os
-import time
-import uuid
 import pytest
 import requests
 
