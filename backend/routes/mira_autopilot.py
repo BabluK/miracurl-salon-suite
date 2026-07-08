@@ -57,6 +57,8 @@ async def update_autopilot(body: AutopilotIn, admin=Depends(require_tenant_admin
         raise HTTPException(400, "Nothing to update")
     if "email_daily_cap" in updates:
         updates["email_daily_cap"] = max(1, min(50, updates["email_daily_cap"]))
+    if "winback_days" in updates:
+        updates["winback_days"] = max(7, min(365, updates["winback_days"]))
     await _raw_db.autopilot_settings.update_one(
         {"tenant_id": t["id"]}, {"$set": updates}, upsert=True)
     return await _settings(t["id"])

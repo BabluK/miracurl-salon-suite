@@ -76,7 +76,7 @@ export default function MiraStudio() {
         <div className="absolute -right-20 -top-20 w-72 h-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
         <div className="relative">
           <h1 className="font-playfair text-3xl flex items-center gap-2"><Sparkles className="w-7 h-7 text-fuchsia-300" /> Mira Studio</h1>
-          <p className="text-white/60 text-sm mt-1">Your AI marketing team — 12 specialist agents, one command box. Just tell Mira what you want.</p>
+          <p className="text-white/60 text-sm mt-1">Your AI marketing team — 11 specialist agents on auto-pilot. Just tell Mira what you want.</p>
           <div className="mt-4 flex gap-2">
             <input
               data-testid="mira-studio-input"
