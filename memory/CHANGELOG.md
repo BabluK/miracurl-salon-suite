@@ -752,3 +752,9 @@ NOTE: user is seeing PRODUCTION — needs republish to get parts 78-79 fixes liv
 ## Update — Jul 8 (part 80) — Manual plan change in EditTenantModal
 1. New "Plan & subscription" section in super-admin EditTenantModal: current plan badge (amber trial / emerald paid) + valid-till date, single-branch plan dropdown (from GET /super-admin/plans, branches==1 only), optional payment ref, "Activate plan" → POST /super-admin/subscriptions (existing endpoint: replaces active sub, records payment, updates tenant plan/status/end).
 Tested: e2e screenshot flow — TEST tenant TRIAL → ANNUAL valid till 2027-07-08.
+
+## Update — Jul 8 (part 81) — Mira TTS cache persisted (public voice chat)
+1. Briefing TTS was already two-tier cached (memory + Mongo tts_cache, 48h TTL) — verified, no change needed.
+2. NEW _tts_cached_speech(text, voice, speed): sha256 content-hash cache in tts_cache (key "speech:<hash>") — identical spoken replies generated ONCE, TTL refreshed on hit so popular clips stay alive. Re-added hashlib import (was removed as unused in part 78).
+3. /public/ai-voice/{slug} now uses it (was generating fresh TTS on EVERY Mira voice reply = per-call OpenAI cost).
+Tested live: first call 2.33s (generated, 95KB b64), second call 0.001s from Mongo, identical audio, doc persisted.

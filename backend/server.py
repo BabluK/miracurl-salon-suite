@@ -10,6 +10,7 @@ import csv
 import math
 import uuid
 import hmac
+import hashlib
 import asyncio
 import base64
 import html as html_lib
@@ -2361,6 +2362,25 @@ async def _tts_cache_put(cache_key: tuple, today_str: str, payload: dict):
         {"key": ":".join(cache_key)},
         {"$set": {"date": today_str, "payload": payload, "created_at": datetime.now(timezone.utc)}},
         upsert=True)
+
+
+async def _tts_cached_speech(speech_text: str, *, voice: str = "shimmer", speed: float = 1.0) -> str:
+    """Content-hash TTS cache in Mongo: identical spoken text is generated ONCE,
+    then replayed free. TTL refresh on hit keeps popular clips alive."""
+    from emergentintegrations.llm.openai import OpenAITextToSpeech
+    h = hashlib.sha256(f"{voice}|{speed}|{speech_text}".encode()).hexdigest()
+    key = f"speech:{h}"
+    now = datetime.now(timezone.utc)
+    doc = await _raw_db.tts_cache.find_one({"key": key}, {"_id": 0, "payload": 1})
+    if doc:
+        await _raw_db.tts_cache.update_one({"key": key}, {"$set": {"created_at": now}})
+        return doc["payload"]["audio_b64"]
+    tts = OpenAITextToSpeech(api_key=os.environ["EMERGENT_LLM_KEY"])
+    audio_b64 = await tts.generate_speech_base64(text=speech_text, model="tts-1", voice=voice, speed=speed)
+    await _raw_db.tts_cache.update_one(
+        {"key": key},
+        {"$set": {"payload": {"audio_b64": audio_b64}, "created_at": now}}, upsert=True)
+    return audio_b64
 
 
 @api.get("/reports/morning-briefing/audio")
@@ -5386,7 +5406,7 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
 
 @api.post("/public/ai-voice/{slug}")
 async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(...), session_id: str = Form(..., min_length=8, max_length=64)):
-    from emergentintegrations.llm.openai import OpenAISpeechToText, OpenAITextToSpeech
+    from emergentintegrations.llm.openai import OpenAISpeechToText
     t = await resolve_tenant_from_slug(slug)
     public_rate_limit(request, key_suffix=f"aivoice:{slug}", limit=30, window_sec=600)
     key = os.environ.get("EMERGENT_LLM_KEY")
@@ -5415,9 +5435,8 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
     reply, booking, booking_error = await _public_ai_reply(t, session_id, transcript)
     audio_b64 = None
     try:
-        tts = OpenAITextToSpeech(api_key=key)
         speech_text = re.sub(r"\*\*|✨|💖|💆‍♀️|✅|⚠️|📞|🙏", "", reply)[:4000]
-        audio_b64 = await tts.generate_speech_base64(text=speech_text, model="tts-1", voice="shimmer", speed=1.0)
+        audio_b64 = await _tts_cached_speech(speech_text, voice="shimmer", speed=1.0)
     except Exception as e:
         logging.getLogger("public_ai").error(f"tts error: {e}")
     return {"transcript": transcript, "reply": reply, "booking": booking,
