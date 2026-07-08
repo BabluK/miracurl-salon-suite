@@ -206,22 +206,39 @@ function NewSubscriptionModal({ tenants, plans, onClose, onCreated }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [tenantId, setTenantId] = useState(tenants[0]?.id || "");
   const [plan, setPlan] = useState("half_year");
+  const [branchIds, setBranchIds] = useState([]);
   const [paymentRef, setPaymentRef] = useState("");
   const [paidAt, setPaidAt] = useState(today);
   const [startDate, setStartDate] = useState(today);
   const [busy, setBusy] = useState(false);
 
   const selectedPlan = plans.find(p => p.key === plan);
+  const requiredBranches = selectedPlan?.branches || 1;
+  const isMultiBranch = requiredBranches > 1;
+  const extraNeeded = requiredBranches - 1; // primary salon counts as one branch
+  const otherTenants = tenants.filter(t => t.id !== tenantId);
+
+  function toggleBranch(id) {
+    setBranchIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  const branchCountOk = !isMultiBranch ||
+    (requiredBranches >= 5 ? branchIds.length >= extraNeeded : branchIds.length === extraNeeded);
 
   async function save(e) {
     e.preventDefault();
     if (!tenantId) { toast.error("Select a salon"); return; }
     if (!paymentRef.trim()) { toast.error("Enter the Paytm transaction reference"); return; }
+    if (isMultiBranch && !branchCountOk) {
+      toast.error(`Pick ${requiredBranches >= 5 ? "at least" : "exactly"} ${extraNeeded} more branch${extraNeeded === 1 ? "" : "es"} for this plan`);
+      return;
+    }
     setBusy(true);
     try {
       await api.post("/super-admin/subscriptions", {
         tenant_id: tenantId, plan, payment_ref: paymentRef.trim(),
         paid_at: paidAt, start_date: startDate,
+        ...(isMultiBranch ? { branch_tenant_ids: [tenantId, ...branchIds.filter(id => id !== tenantId)] } : {}),
       });
       onCreated();
     } catch (err) {
@@ -264,11 +281,31 @@ function NewSubscriptionModal({ tenants, plans, onClose, onCreated }) {
               >
                 <div className="text-xs uppercase tracking-wider text-slate-500">{p.label}</div>
                 <div className="text-lg font-semibold text-slate-800 mt-1">₹{p.price.toLocaleString("en-IN")}</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">{p.duration_days} days</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">{p.duration_days} days{(p.branches || 1) > 1 ? ` · ${p.branches}${p.branches >= 5 ? "+" : ""} branches` : ""}</div>
               </button>
             ))}
           </div>
         </div>
+
+        {isMultiBranch && (
+          <div className="p-3 rounded-lg bg-fuchsia-50 border border-fuchsia-200" data-testid="new-sub-branch-selector">
+            <p className="text-xs font-semibold text-fuchsia-800">
+              Pick {requiredBranches >= 5 ? `at least ${extraNeeded}` : extraNeeded} more branch{extraNeeded === 1 ? "" : "es"} covered by this plan
+              <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full border ${branchCountOk ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-amber-100 text-amber-700 border-amber-200"}`}>
+                {1 + branchIds.length}/{requiredBranches}{requiredBranches >= 5 ? "+" : ""}
+              </span>
+            </p>
+            <div className="mt-2 max-h-36 overflow-y-auto space-y-1">
+              {otherTenants.map(t => (
+                <label key={t.id} data-testid={`new-sub-branch-${t.slug}`} className="flex items-center gap-2 text-sm text-slate-700 px-2 py-1.5 rounded hover:bg-white cursor-pointer">
+                  <input type="checkbox" checked={branchIds.includes(t.id)} onChange={() => toggleBranch(t.id)} className="w-4 h-4 accent-fuchsia-600" />
+                  <span className="truncate">{t.name}</span>
+                  <span className="text-[10px] text-slate-400 truncate">({t.slug})</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <div>

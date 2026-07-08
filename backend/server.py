@@ -848,6 +848,48 @@ async def switch_salon(body: SalonSwitchIn, user=Depends(get_current_user), t=De
     return {"ok": True, "active_salon": target}
 
 
+@api.get("/auth/my-salons/overview")
+async def my_salons_overview(user=Depends(get_current_user)):
+    """Multi-salon owners: today's collections compared across all their salons."""
+    ids = set(user.get("tenant_ids") or [])
+    if user.get("tenant_id"):
+        ids.add(user["tenant_id"])
+    if len(ids) < 2:
+        raise HTTPException(400, "Only one salon is linked to your login")
+    ist = timezone(timedelta(hours=5, minutes=30))
+    now_ist = datetime.now(ist)
+    day_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
+    month_start = now_ist.replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
+    today_ist = now_ist.date().isoformat()
+    salons = []
+    for tid in ids:
+        t = await _raw_db.tenants.find_one(
+            {"id": tid}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "location": 1, "logo_url": 1})
+        if not t:
+            continue
+        inv_today = await _raw_db.invoices.find(
+            {"tenant_id": tid, "created_at": {"$gte": day_start}}, {"_id": 0, "total": 1}).to_list(5000)
+        inv_month = await _raw_db.invoices.find(
+            {"tenant_id": tid, "created_at": {"$gte": month_start}}, {"_id": 0, "total": 1}).to_list(50000)
+        appts_today = await _raw_db.appointments.count_documents(
+            {"tenant_id": tid, "scheduled_at": {"$regex": f"^{today_ist}"}, "status": {"$ne": "cancelled"}})
+        salons.append({
+            **t,
+            "today": round(sum(float(i.get("total") or 0) for i in inv_today), 2),
+            "invoices_today": len(inv_today),
+            "month": round(sum(float(i.get("total") or 0) for i in inv_month), 2),
+            "appointments_today": appts_today,
+            "active": tid == user.get("tenant_id"),
+        })
+    salons.sort(key=lambda x: -x["today"])
+    return {
+        "date": today_ist,
+        "salons": salons,
+        "total_today": round(sum(s["today"] for s in salons), 2),
+        "total_month": round(sum(s["month"] for s in salons), 2),
+    }
+
+
 @api.get("/branch-switch/pending")
 async def branch_switch_pending(user=Depends(require_tenant_admin)):
     now_iso = datetime.now(timezone.utc).isoformat()

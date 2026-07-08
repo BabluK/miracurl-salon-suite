@@ -63,10 +63,17 @@ class TestPlansCatalog:
         by_key = {p["key"]: p for p in plans}
         assert by_key["half_year"]["price"] == 12000.0
         assert by_key["half_year"]["duration_days"] == 183
-        assert by_key["half_year"]["label"] == "6-Month Plan"
+        assert by_key["half_year"]["label"] == "6-Month Plan (1 branch)"
+        assert by_key["half_year"]["branches"] == 1
+        assert by_key["two_branch_annual"]["price"] == 40000.0
+        assert by_key["two_branch_half"]["price"] == 24000.0
+        assert by_key["three_branch_annual"]["price"] == 60000.0
+        assert by_key["three_branch_half"]["price"] == 36000.0
+        assert by_key["two_branch_annual"]["branches"] == 2
+        assert by_key["three_branch_annual"]["branches"] == 3
         assert by_key["annual"]["price"] == 20000.0
         assert by_key["annual"]["duration_days"] == 365
-        assert by_key["annual"]["label"] == "Annual Plan"
+        assert by_key["annual"]["label"] == "Annual Plan (1 branch)"
 
     def test_plans_forbidden_for_tenant_admin(self, admin_headers):
         r = requests.get(f"{API}/super-admin/plans", headers=admin_headers)

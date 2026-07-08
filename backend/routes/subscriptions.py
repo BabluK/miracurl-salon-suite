@@ -24,10 +24,14 @@ router = APIRouter()
 # (e.g., from a Paytm UPI transfer) by the super-admin. Each payment generates a
 # bill record; daily / monthly revenue can be aggregated by GET /revenue.
 PLAN_CATALOG = {
-    "half_year": {"label": "6-Month Plan", "price": 12000.0, "duration_days": 183},
-    "annual":    {"label": "Annual Plan",  "price": 20000.0, "duration_days": 365},
-    "multi_branch_half":   {"label": "Multi-Branch 6-Month (5+ branches)", "price": 45000.0, "duration_days": 183},
-    "multi_branch_annual": {"label": "Multi-Branch Annual (5+ branches)",  "price": 70000.0, "duration_days": 365},
+    "half_year": {"label": "6-Month Plan (1 branch)", "price": 12000.0, "duration_days": 183, "branches": 1},
+    "annual":    {"label": "Annual Plan (1 branch)",  "price": 20000.0, "duration_days": 365, "branches": 1},
+    "two_branch_half":     {"label": "2-Branch 6-Month", "price": 24000.0, "duration_days": 183, "branches": 2},
+    "two_branch_annual":   {"label": "2-Branch Annual",  "price": 40000.0, "duration_days": 365, "branches": 2},
+    "three_branch_half":   {"label": "3-Branch 6-Month", "price": 36000.0, "duration_days": 183, "branches": 3},
+    "three_branch_annual": {"label": "3-Branch Annual",  "price": 60000.0, "duration_days": 365, "branches": 3},
+    "multi_branch_half":   {"label": "Multi-Branch 6-Month (5+ branches)", "price": 45000.0, "duration_days": 183, "branches": 5},
+    "multi_branch_annual": {"label": "Multi-Branch Annual (5+ branches)",  "price": 70000.0, "duration_days": 365, "branches": 5},
 }
 
 
@@ -63,6 +67,7 @@ class SubscriptionPayment(BaseModel):
 class SubscriptionIn(BaseModel):
     tenant_id: str
     plan: str
+    branch_tenant_ids: Optional[list] = None  # multi-branch plans: all covered branches
     start_date: Optional[str] = None  # default = today
     payment_method: str = "paytm"
     payment_ref: Optional[str] = None
@@ -80,6 +85,66 @@ def _plan_or_400(plan: str) -> dict:
     if not p:
         raise HTTPException(400, f"Unknown plan '{plan}'. Valid: {list(PLAN_CATALOG)}")
     return p
+
+
+def _owned_tenant_ids(user: dict) -> set:
+    ids = set(user.get("tenant_ids") or [])
+    if user.get("tenant_id"):
+        ids.add(user["tenant_id"])
+    return ids
+
+
+def _validate_branch_selection(plan_info: dict, branch_ids: list, owned: set) -> list:
+    """For multi-branch plans the owner picks WHICH branches the plan covers.
+    Returns the validated list of tenant ids the subscription applies to."""
+    n = int(plan_info.get("branches") or 1)
+    if n <= 1:
+        return []
+    if not branch_ids:
+        raise HTTPException(400, f"'{plan_info['label']}' covers {n} branches — select which branches it applies to.")
+    branch_ids = list(dict.fromkeys(branch_ids))
+    if n < 5 and len(branch_ids) != n:
+        raise HTTPException(400, f"'{plan_info['label']}' requires exactly {n} branches — you selected {len(branch_ids)}.")
+    if n >= 5 and len(branch_ids) < n:
+        raise HTTPException(400, f"'{plan_info['label']}' requires at least {n} branches — you selected {len(branch_ids)}.")
+    not_owned = [b for b in branch_ids if b not in owned]
+    if not_owned:
+        raise HTTPException(403, "One or more selected branches are not linked to your login.")
+    return branch_ids
+
+
+async def _apply_subscription_to_tenants(tenant_ids: list, plan_key: str, plan_info: dict,
+                                         payment_method: str, payment_ref: Optional[str],
+                                         notes: Optional[str], start: Optional[datetime] = None) -> list:
+    """Create/replace an active subscription on every tenant in the group.
+    Per-branch sub price = plan price / branch count (keeps MRR stats correct)."""
+    now = start or datetime.now(timezone.utc)
+    end_dt = now + timedelta(days=plan_info["duration_days"])
+    per_branch_price = round(float(plan_info["price"]) / len(tenant_ids), 2)
+    group_id = str(uuid.uuid4()) if len(tenant_ids) > 1 else None
+    subs = []
+    for tid in tenant_ids:
+        await db.subscriptions.update_many(
+            {"tenant_id": tid, "status": "active"},
+            {"$set": {"status": "cancelled", "cancelled_at": datetime.now(timezone.utc).isoformat(),
+                      "cancelled_reason": "superseded by new subscription"}})
+        sub = Subscription(
+            tenant_id=tid, plan=plan_key, price=per_branch_price,
+            start_date=now.date().isoformat(), end_date=end_dt.date().isoformat(),
+            status="active", payment_method=payment_method, payment_ref=payment_ref,
+            notes=notes).model_dump()
+        if group_id:
+            sub["branch_group_id"] = group_id
+            sub["branch_group_tenants"] = tenant_ids
+        await db.subscriptions.insert_one(sub)
+        await db.tenants.update_one(
+            {"id": tid},
+            {"$set": {"plan": plan_key, "status": "active",
+                      "subscription_end_date": sub["end_date"],
+                      "current_subscription_id": sub["id"]}})
+        sub.pop("_id", None)
+        subs.append(sub)
+    return subs
 
 
 @router.get("/super-admin/plans")
@@ -106,7 +171,8 @@ async def list_subscriptions(user=Depends(require_super_admin)):
 
 @router.post("/super-admin/subscriptions")
 async def create_subscription(body: SubscriptionIn, user=Depends(require_super_admin)):
-    """Create a subscription for a tenant + record the corresponding payment in one shot."""
+    """Create a subscription for a tenant + record the corresponding payment in one shot.
+    Multi-branch plans accept branch_tenant_ids and apply the plan to every branch."""
     tenant = await db.tenants.find_one({"id": body.tenant_id}, {"_id": 0})
     if not tenant:
         raise HTTPException(404, "Tenant not found")
@@ -118,27 +184,25 @@ async def create_subscription(body: SubscriptionIn, user=Depends(require_super_a
         start_dt = datetime.fromisoformat(start)
     except Exception as e:
         raise HTTPException(400, "Invalid start_date — use YYYY-MM-DD") from e
-    end_dt = start_dt + timedelta(days=plan_info["duration_days"])
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
 
-    # Auto-cancel any existing active subscription for the same tenant
-    await db.subscriptions.update_many(
-        {"tenant_id": body.tenant_id, "status": "active"},
-        {"$set": {"status": "cancelled", "cancelled_at": datetime.now(timezone.utc).isoformat(),
-                  "cancelled_reason": "superseded by new subscription"}},
-    )
+    target_tids = [body.tenant_id]
+    if int(plan_info.get("branches") or 1) > 1:
+        picked = list(dict.fromkeys(body.branch_tenant_ids or [body.tenant_id]))
+        if body.tenant_id not in picked:
+            picked.insert(0, body.tenant_id)
+        found = await db.tenants.count_documents({"id": {"$in": picked}})
+        if found != len(picked):
+            raise HTTPException(404, "One or more selected branch tenants do not exist")
+        # Super-admin can group any tenants — skip ownership check, keep count check.
+        target_tids = _validate_branch_selection(plan_info, picked, set(picked))
 
-    sub = Subscription(
-        tenant_id=body.tenant_id,
-        plan=body.plan,
-        price=plan_info["price"],
-        start_date=start_dt.date().isoformat(),
-        end_date=end_dt.date().isoformat(),
-        status="active",
+    subs = await _apply_subscription_to_tenants(
+        target_tids, body.plan, plan_info,
         payment_method=body.payment_method or "paytm",
-        payment_ref=body.payment_ref,
-        notes=body.notes,
-    ).model_dump()
-    await db.subscriptions.insert_one(sub)
+        payment_ref=body.payment_ref, notes=body.notes, start=start_dt)
+    sub = subs[0]
 
     pay = SubscriptionPayment(
         subscription_id=sub["id"],
@@ -152,17 +216,8 @@ async def create_subscription(body: SubscriptionIn, user=Depends(require_super_a
     ).model_dump()
     await db.subscription_payments.insert_one(pay)
 
-    # Reflect on tenant for quick-access UI
-    await db.tenants.update_one(
-        {"id": body.tenant_id},
-        {"$set": {"plan": body.plan, "status": "active",
-                  "subscription_end_date": sub["end_date"],
-                  "current_subscription_id": sub["id"]}},
-    )
-
-    sub.pop("_id", None)
     pay.pop("_id", None)
-    return {"subscription": sub, "payment": pay}
+    return {"subscription": sub, "subscriptions": subs, "payment": pay, "branches": len(target_tids)}
 
 
 class SubscriptionExtendIn(BaseModel):
@@ -213,6 +268,7 @@ def _rzp_client() -> Optional[_razorpay.Client]:
 
 class RzpOrderIn(BaseModel):
     plan: str  # key from PLAN_CATALOG (e.g. "6_months", "1_year")
+    branch_tenant_ids: Optional[list] = None  # multi-branch plans: which branches the plan covers
 
 
 class RzpVerifyIn(BaseModel):
@@ -244,6 +300,10 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         raise HTTPException(503, "Razorpay is not configured. Contact support.")
     plan = _plan_or_400(body.plan)
 
+    branch_ids = _validate_branch_selection(plan, body.branch_tenant_ids or [], _owned_tenant_ids(user))
+    if branch_ids and t["id"] not in branch_ids:
+        raise HTTPException(400, "The salon you're paying from must be one of the selected branches.")
+
     credits = float(t.get("affiliate_credits") or 0)
     price = float(plan["price"])
     payable = max(price - credits, 1)  # Razorpay min amount is ₹1 (100 paise)
@@ -268,6 +328,7 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         "razorpay_order_id": order["id"],
         "tenant_id": t["id"],
         "plan": body.plan,
+        "branch_tenant_ids": branch_ids or None,
         "amount": payable,
         "credits_applied": credits_used,
         "status": "created",
@@ -401,27 +462,15 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
     server_plan = pending_doc["plan"]
     plan_info = _plan_or_400(server_plan)
     today_iso = now.date().isoformat()
-    end_dt = now + timedelta(days=plan_info["duration_days"])
 
-    # Auto-cancel any existing active subscription for the same tenant
-    await db.subscriptions.update_many(
-        {"tenant_id": t["id"], "status": "active"},
-        {"$set": {"status": "cancelled", "cancelled_at": now.isoformat(),
-                  "cancelled_reason": "superseded by Razorpay renewal"}},
-    )
-
-    sub = Subscription(
-        tenant_id=t["id"],
-        plan=server_plan,
-        price=plan_info["price"],
-        start_date=now.date().isoformat(),
-        end_date=end_dt.date().isoformat(),
-        status="active",
-        payment_method="razorpay",
-        payment_ref=body.razorpay_payment_id,
+    # Multi-branch plans: apply to every branch the owner picked at checkout.
+    target_tids = pending_doc.get("branch_tenant_ids") or [t["id"]]
+    subs = await _apply_subscription_to_tenants(
+        target_tids, server_plan, plan_info,
+        payment_method="razorpay", payment_ref=body.razorpay_payment_id,
         notes=f"Razorpay order {body.razorpay_order_id}; credits applied ₹{pending_doc.get('credits_applied',0)}",
-    ).model_dump()
-    await db.subscriptions.insert_one(sub)
+        start=now)
+    sub = next((s for s in subs if s["tenant_id"] == t["id"]), subs[0])
 
     pay = SubscriptionPayment(
         subscription_id=sub["id"],
@@ -441,13 +490,6 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
             {"$inc": {"affiliate_credits": -float(pending_doc["credits_applied"])}},
         )
 
-    await db.tenants.update_one(
-        {"id": t["id"]},
-        {"$set": {"plan": server_plan, "status": "active",
-                  "subscription_end_date": sub["end_date"],
-                  "current_subscription_id": sub["id"]}},
-    )
-
     # Anti-farming: release any PENDING affiliate reward now that this salon paid.
     pending_ref = await db.affiliate_referrals.find_one({"referred_tenant_id": t["id"], "status": "pending"})
     if pending_ref:
@@ -460,7 +502,8 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
             {"$set": {"status": "credited", "credited_at": today_iso}},
         )
 
-    return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"], "plan": server_plan}
+    return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"],
+            "plan": server_plan, "branches": len(target_tids)}
 
 
 @router.post("/billing/razorpay/webhook")

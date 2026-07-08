@@ -692,3 +692,14 @@ NOTE: Twilio trial daily 50-msg cap can be burned by full-suite runs (invoice te
 5. Frontend: SalonSwitcher.jsx in AppLayout header (admins only, shows when 2+ salons) with PIN modal; switch reloads to /dashboard.
 6. Demo data: second salon "miracurl-whitefield" tagged to admin@miracurl.com (count ×2) for user to try.
 Tested: curl e2e (tag, login salons list, PIN-gated switch, me scoping, foreign-tenant 403, counts) + screenshot of switcher dropdown.
+
+## Update — Jul 7 (part 72) — Multi-branch pricing tiers + "All My Salons" combined revenue
+1. PLAN_CATALOG: every plan now has "branches" (1/2/3/5). 2-branch: 24k/6mo, 40k/yr. 3-branch: 36k/6mo, 60k/yr (user-approved pricing).
+2. routes/subscriptions.py helpers: _owned_tenant_ids, _validate_branch_selection (exact N for 2/3-branch, ≥5 for multi; ownership check 403), _apply_subscription_to_tenants (per-branch price = total/N so MRR stats stay correct; branch_group_id + branch_group_tenants link the group).
+3. POST /billing/razorpay/order accepts branch_tenant_ids (owner PICKS which branches; paying salon must be included). Stored on pending doc; /verify applies subscription to ALL selected branches (server-side plan/branches, SEC-002 intact).
+4. POST /super-admin/subscriptions accepts branch_tenant_ids for multi-branch plans (skips ownership check — super-admin can group any tenants). Single payment record of full amount; response {subscription, subscriptions[], branches}.
+5. RazorpayCard.jsx: plans filtered by owned-salon count (2-branch hidden unless ≥2 salons etc), fuchsia "Covers N branches" badge, branch-picker checkboxes (paying salon locked, N/N counter), branch_tenant_ids sent on order.
+6. BillingPanel.jsx NewSubscriptionModal: multi-branch plan → extra-branch multi-select with count pill.
+7. NEW MySalonsOverview.jsx on Dashboard (owners with 2+ salons): dark card, combined today total + this-month total + per-branch cards (today ₹, bills, appts, active badge). Uses existing GET /auth/my-salons/overview.
+8. Branch isolation (user re-confirmed requirement): already enforced by TenantCollection scoping — staff/transactions/bookings follow the active tenant_id on switch. No change needed.
+Tested: curl (config branches, wrong-count 400, foreign-branch 403, super-admin 2-branch create → 2 subs @20k group-linked + 40k payment + both tenants active to 2027-07-07, subscription-status), screenshots (dashboard overview card, settings plan filter + branch picker), pytest test_iter13_billing 13/13 serial (updated stale label asserts; parallel failures = known xdist flake).

@@ -33,7 +33,7 @@ const PLANS = [
     items: ["Unlimited customers", "Unlimited bookings", "Per-stylist commission", "WhatsApp support", "All features"] },
   { key: "annual", title: "Annual Plan", price: "₹20,000", per: "for 1 year — save ₹4,000", cta: "Best value", primary: true,
     items: ["Everything in 6-Month", "12 months access", "Priority support", "Custom branding next year"] },
-  { key: "multi_branch", title: "Multi-Branch (5+)", price: "₹70,000", per: "per year · ₹45,000 / 6 months", cta: "For salon chains", primary: false,
+  { key: "multi_branch", title: "Multi-Branch", price: "from ₹40,000", per: "2 branches ₹40k/yr (₹24k/6mo) · 3 branches ₹60k/yr (₹36k/6mo) · 5+ ₹70k/yr", cta: "For salon chains", primary: false,
     items: ["Everything in Annual", "5+ branches, one account", "Branch-wise reports", "Dedicated onboarding"] },
 ];
 

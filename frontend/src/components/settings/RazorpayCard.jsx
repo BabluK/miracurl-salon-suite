@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { CreditCard, Check, Sparkles, Loader2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { CreditCard, Check, Sparkles, Loader2, Store } from "lucide-react";
 
 function loadRazorpayScript() {
   return new Promise(resolve => {
@@ -15,10 +16,15 @@ function loadRazorpayScript() {
 }
 
 export function RazorpayCard() {
+  const { user } = useAuth();
   const [cfg, setCfg] = useState(null);
   const [selected, setSelected] = useState("half_year");
   const [busy, setBusy] = useState(false);
   const [tenant, setTenant] = useState(null);
+  const [branchIds, setBranchIds] = useState([]);
+
+  const salons = user?.salons || [];
+  const ownedCount = Math.max(salons.length, 1);
 
   useEffect(() => {
     api.get("/billing/razorpay/config").then(r => {
@@ -31,15 +37,48 @@ export function RazorpayCard() {
   if (!cfg) return null;
   if (!cfg.enabled) return null;
 
-  const chosen = cfg.plans.find(p => p.key === selected) || cfg.plans[0];
+  const visiblePlans = (cfg.plans || []).filter(p => (p.branches || 1) === 1 || ownedCount >= (p.branches || 1));
+  const chosen = visiblePlans.find(p => p.key === selected) || visiblePlans[0];
+  const needBranches = (chosen?.branches || 1) > 1;
+  const requiredBranches = chosen?.branches || 1;
+
+  function pickPlan(key) {
+    setSelected(key);
+    const p = visiblePlans.find(x => x.key === key);
+    if ((p?.branches || 1) > 1) {
+      // Pre-select the current salon + next branches up to the plan size
+      const ids = [user?.tenant_id, ...salons.map(s => s.id).filter(id => id !== user?.tenant_id)]
+        .filter(Boolean).slice(0, p.branches);
+      setBranchIds(ids);
+    } else {
+      setBranchIds([]);
+    }
+  }
+
+  function toggleBranch(id) {
+    if (id === user?.tenant_id) return; // paying salon must stay selected
+    setBranchIds(prev => prev.includes(id)
+      ? prev.filter(x => x !== id)
+      : (prev.length < requiredBranches || requiredBranches >= 5 ? [...prev, id] : prev));
+  }
+
+  const branchCountOk = !needBranches ||
+    (requiredBranches >= 5 ? branchIds.length >= requiredBranches : branchIds.length === requiredBranches);
 
   async function pay() {
     if (!chosen) return;
+    if (needBranches && !branchCountOk) {
+      toast.error(`Select ${requiredBranches >= 5 ? "at least" : "exactly"} ${requiredBranches} branches for this plan`);
+      return;
+    }
     setBusy(true);
     try {
       const ok = await loadRazorpayScript();
       if (!ok) { toast.error("Couldn't load Razorpay — check your internet"); return; }
-      const { data: order } = await api.post("/billing/razorpay/order", { plan: chosen.key });
+      const { data: order } = await api.post("/billing/razorpay/order", {
+        plan: chosen.key,
+        ...(needBranches ? { branch_tenant_ids: branchIds } : {}),
+      });
       const options = {
         key: order.key_id,
         amount: order.amount,
@@ -100,12 +139,12 @@ export function RazorpayCard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
-        {cfg.plans.map(p => (
+        {visiblePlans.map(p => (
           <button
             key={p.key}
             type="button"
             data-testid={`plan-${p.key}`}
-            onClick={() => setSelected(p.key)}
+            onClick={() => pickPlan(p.key)}
             className={`text-left p-4 rounded-xl border-2 transition ${
               selected === p.key
                 ? "border-indigo-500 bg-indigo-50/50"
@@ -120,6 +159,11 @@ export function RazorpayCard() {
               {selected === p.key && <Check className="w-5 h-5 text-indigo-600" />}
             </div>
             <div className="mt-3 text-2xl font-bold text-slate-900">₹{Number(p.price).toLocaleString("en-IN")}</div>
+            {(p.branches || 1) > 1 && (
+              <div className="mt-1 text-[11px] text-fuchsia-600 font-medium flex items-center gap-1">
+                <Store className="w-3 h-3" /> Covers {p.branches}{p.branches >= 5 ? "+" : ""} branches · bulk saving
+              </div>
+            )}
             {p.key === "annual" && (
               <div className="mt-1 text-[11px] text-emerald-600 font-medium flex items-center gap-1">
                 <Sparkles className="w-3 h-3" /> Best value · one payment, whole year sorted
@@ -128,6 +172,34 @@ export function RazorpayCard() {
           </button>
         ))}
       </div>
+
+      {needBranches && salons.length > 1 && (
+        <div className="mt-4 p-4 rounded-xl bg-fuchsia-50/60 border border-fuchsia-200" data-testid="branch-selector">
+          <p className="text-xs font-semibold text-fuchsia-800 flex items-center gap-1.5">
+            <Store className="w-3.5 h-3.5" />
+            Pick {requiredBranches >= 5 ? `at least ${requiredBranches}` : requiredBranches} branches this plan covers
+            <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full border ${branchCountOk ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-amber-100 text-amber-700 border-amber-200"}`}>
+              {branchIds.length}/{requiredBranches} selected
+            </span>
+          </p>
+          <div className="mt-2.5 space-y-1.5">
+            {salons.map(s => {
+              const checked = branchIds.includes(s.id);
+              const isPayer = s.id === user?.tenant_id;
+              return (
+                <label key={s.id} data-testid={`branch-pick-${s.slug}`}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer text-sm ${checked ? "bg-white border-fuchsia-300" : "bg-white/50 border-slate-200"} ${isPayer ? "opacity-90" : ""}`}>
+                  <input type="checkbox" checked={checked} disabled={isPayer} onChange={() => toggleBranch(s.id)}
+                    className="w-4 h-4 accent-fuchsia-600" />
+                  <span className="font-medium text-slate-800 truncate">{s.name}</span>
+                  <span className="text-[10px] text-slate-400 truncate">{s.location || s.slug}</span>
+                  {isPayer && <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 uppercase tracking-wider shrink-0">This salon</span>}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-5 gap-3">
         <div className="text-xs text-slate-500">
