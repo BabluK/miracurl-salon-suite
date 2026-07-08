@@ -4704,50 +4704,67 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_monthly_report_scheduler())
     asyncio.get_event_loop().create_task(_weekly_report_scheduler())
     asyncio.get_event_loop().create_task(_birthday_scheduler())
-    await db.users.create_index("email", unique=True)
-    await db.tenants.create_index("slug", unique=True)
-    # Drop legacy single-field unique sku index if present (multi-tenancy needs composite)
-    try:
-        existing_indexes = await _raw_db.products.index_information()
-        if "sku_1" in existing_indexes:
-            await _raw_db.products.drop_index("sku_1")
-            logging.info("Dropped legacy products.sku_1 unique index")
-    except Exception as e:
-        logging.warning(f"Could not drop legacy index: {e}")
-    await _raw_db.customers.create_index([("tenant_id", 1), ("phone", 1)])
-    await _raw_db.services.create_index([("tenant_id", 1), ("category", 1)])
-    await _raw_db.products.create_index([("tenant_id", 1), ("sku", 1)], unique=True)
-    await _raw_db.appointments.create_index([("tenant_id", 1), ("scheduled_at", 1)])
-    await _raw_db.invoices.create_index([("tenant_id", 1), ("created_at", -1)])
-    await db.login_attempts.create_index("identifier")
-    await _raw_db.revoked_tokens.create_index("jti", unique=True)
-    await _raw_db.revoked_tokens.create_index("expires_at", expireAfterSeconds=0)
-    await _raw_db.tts_cache.create_index("key", unique=True)
-    await _raw_db.tts_cache.create_index("created_at", expireAfterSeconds=172800)
 
-    # One-time migration: booking-created leads (0 visits, never completed a service)
-    # move out of CRM until their appointment is marked completed.
-    if not await _raw_db.meta.find_one({"key": "crm_pending_migration_v1"}):
-        res = await _raw_db.customers.update_many(
-            {"visits": {"$in": [0, None]}, "total_spent": {"$in": [0, 0.0, None]},
-             "crm_status": {"$exists": False},
-             "id": {"$in": await _raw_db.appointments.distinct(
-                 "customer_id", {"status": {"$nin": ["completed"]}})}},
-            {"$set": {"crm_status": "pending"}},
-        )
-        await _raw_db.meta.insert_one({"key": "crm_pending_migration_v1", "modified": res.modified_count,
-                                       "at": datetime.now(timezone.utc).isoformat()})
-        logging.info(f"CRM pending migration: {res.modified_count} lead customers hidden until service completion")
-    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=3600)
+    async def _ensure_indexes():
+        await db.users.create_index("email", unique=True)
+        await db.tenants.create_index("slug", unique=True)
+        # Drop legacy single-field unique sku index if present (multi-tenancy needs composite)
+        try:
+            existing_indexes = await _raw_db.products.index_information()
+            if "sku_1" in existing_indexes:
+                await _raw_db.products.drop_index("sku_1")
+                logging.info("Dropped legacy products.sku_1 unique index")
+        except Exception as e:
+            logging.warning(f"Could not drop legacy index: {e}")
+        await _raw_db.customers.create_index([("tenant_id", 1), ("phone", 1)])
+        await _raw_db.services.create_index([("tenant_id", 1), ("category", 1)])
+        await _raw_db.products.create_index([("tenant_id", 1), ("sku", 1)], unique=True)
+        await _raw_db.appointments.create_index([("tenant_id", 1), ("scheduled_at", 1)])
+        await _raw_db.invoices.create_index([("tenant_id", 1), ("created_at", -1)])
+        await db.login_attempts.create_index("identifier")
+        await _raw_db.revoked_tokens.create_index("jti", unique=True)
+        await _raw_db.revoked_tokens.create_index("expires_at", expireAfterSeconds=0)
+        await _raw_db.tts_cache.create_index("key", unique=True)
+        await _raw_db.tts_cache.create_index("created_at", expireAfterSeconds=172800)
+        await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=3600)
 
-    default_tenant = await seed_default_tenant()
-    await backfill_tenant_ids(default_tenant["id"])
-    await seed_super_admin()
-    await seed_admin()
-    # Set context to default tenant for seed_data inserts
-    _current_tenant_id.set(default_tenant["id"])
-    await seed_data()
-    _current_tenant_id.set(None)
+    async def _run_migrations():
+        # One-time migration: booking-created leads (0 visits, never completed a service)
+        # move out of CRM until their appointment is marked completed.
+        if not await _raw_db.meta.find_one({"key": "crm_pending_migration_v1"}):
+            res = await _raw_db.customers.update_many(
+                {"visits": {"$in": [0, None]}, "total_spent": {"$in": [0, 0.0, None]},
+                 "crm_status": {"$exists": False},
+                 "id": {"$in": await _raw_db.appointments.distinct(
+                     "customer_id", {"status": {"$nin": ["completed"]}})}},
+                {"$set": {"crm_status": "pending"}},
+            )
+            await _raw_db.meta.insert_one({"key": "crm_pending_migration_v1", "modified": res.modified_count,
+                                           "at": datetime.now(timezone.utc).isoformat()})
+            logging.info(f"CRM pending migration: {res.modified_count} lead customers hidden until service completion")
+
+    async def _run_seeds():
+        default_tenant = await seed_default_tenant()
+        await backfill_tenant_ids(default_tenant["id"])
+        await seed_super_admin()
+        await seed_admin()
+        # Set context to default tenant for seed_data inserts
+        _current_tenant_id.set(default_tenant["id"])
+        await seed_data()
+        _current_tenant_id.set(None)
+
+    async def _db_prep():
+        # Runs in the BACKGROUND so the pod passes its readiness probe immediately.
+        # Any single failure (e.g. index option conflicts / duplicate keys on the
+        # production Atlas data) is logged and skipped instead of crash-looping the pod.
+        for name, step in (("indexes", _ensure_indexes), ("migrations", _run_migrations), ("seeds", _run_seeds)):
+            try:
+                await step()
+                logging.info("startup db-prep step '%s' done", name)
+            except Exception as e:  # noqa: BLE001 — deployment resilience
+                logging.getLogger("startup").error("db-prep step '%s' failed (non-fatal): %s", name, e)
+
+    asyncio.create_task(_db_prep())
 
     # Auto monthly business reports — emailed to every owner on the 1st (9 AM IST onwards).
     async def _monthly_report_loop():
@@ -5536,15 +5553,16 @@ api.include_router(subscriptions_router)
 
 app.include_router(api)
 
+_cors_env = os.environ.get(
+    "CORS_ORIGINS",
+    "https://miracurlunisexsaloon.com,https://miracurl.com,https://hair-hub-system.preview.emergentagent.com",
+).strip()
+_cors_origins = (["*"] if _cors_env == "*" or not _cors_env
+                 else [o.strip() for o in _cors_env.split(",") if o.strip()])
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=[
-        o.strip() for o in os.environ.get(
-            "CORS_ORIGINS",
-            "https://miracurlunisexsaloon.com,https://miracurl.com,https://hair-hub-system.preview.emergentagent.com",
-        ).split(",") if o.strip() and o.strip() != "*"
-    ],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
