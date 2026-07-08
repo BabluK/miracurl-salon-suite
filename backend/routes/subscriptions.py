@@ -506,6 +506,44 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
             "plan": server_plan, "branches": len(target_tids)}
 
 
+async def _wh_payment_failed(order_id: str, payment: dict, logger) -> None:
+    await db.subscription_payments.update_one(
+        {"razorpay_order_id": order_id},
+        {"$set": {"status": "failed", "failed_at": datetime.now(timezone.utc).isoformat(),
+                  "failure_reason": payment.get("error_description", "")}},
+    )
+    logger.warning("Payment failed for order %s: %s", order_id, payment.get("error_description"))
+
+
+async def _wh_refund(order_id: str, refund: dict, logger) -> None:
+    pay = await db.subscription_payments.find_one({"razorpay_order_id": order_id})
+    if not pay:
+        return
+    await db.subscription_payments.update_one(
+        {"razorpay_order_id": order_id},
+        {"$set": {"status": "refunded", "refunded_at": datetime.now(timezone.utc).isoformat(),
+                  "refund_amount_inr": (refund.get("amount") or 0) / 100.0}},
+    )
+    # Revoke the tenant's active plan so they can't keep using paid features on a refunded sub.
+    tenant_id = pay.get("tenant_id")
+    if tenant_id:
+        await _raw_db.tenants.update_one(
+            {"id": tenant_id},
+            {"$set": {"status": "trial", "subscription_end_date": None}},
+        )
+        logger.warning("Refunded subscription for tenant %s (order %s)", tenant_id, order_id)
+
+
+def _wh_parse_verified_event(payload: bytes, sig: str) -> dict:
+    expected = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, sig):
+        raise HTTPException(400, "Invalid webhook signature")
+    try:
+        return json.loads(payload.decode("utf-8"))
+    except json.JSONDecodeError:
+        raise HTTPException(400, "Invalid JSON payload") from None
+
+
 @router.post("/billing/razorpay/webhook")
 async def rzp_webhook(request: Request):
     """Razorpay-initiated status callbacks. Verifies the HMAC-SHA256 signature
@@ -527,16 +565,7 @@ async def rzp_webhook(request: Request):
             "Webhook received but RAZORPAY_WEBHOOK_SECRET is not configured — event skipped. "
             "Set the secret (see test_credentials.md guide) so refunds revoke plans automatically.")
         return {"skipped": True}
-    payload = await request.body()
-    sig = request.headers.get("x-razorpay-signature", "")
-    expected = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode(), payload, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, sig):
-        raise HTTPException(400, "Invalid webhook signature")
-
-    try:
-        event = json.loads(payload.decode("utf-8"))
-    except json.JSONDecodeError:
-        raise HTTPException(400, "Invalid JSON payload") from None
+    event = _wh_parse_verified_event(await request.body(), request.headers.get("x-razorpay-signature", ""))
 
     event_type = event.get("event", "unknown")
     logger = logging.getLogger("razorpay")
@@ -555,29 +584,9 @@ async def rzp_webhook(request: Request):
     order_id = payment.get("order_id") or refund.get("order_id")
 
     if event_type == "payment.failed" and order_id:
-        await db.subscription_payments.update_one(
-            {"razorpay_order_id": order_id},
-            {"$set": {"status": "failed", "failed_at": datetime.now(timezone.utc).isoformat(),
-                      "failure_reason": payment.get("error_description", "")}},
-        )
-        logger.warning("Payment failed for order %s: %s", order_id, payment.get("error_description"))
-
+        await _wh_payment_failed(order_id, payment, logger)
     elif event_type in ("refund.created", "refund.processed") and order_id:
-        pay = await db.subscription_payments.find_one({"razorpay_order_id": order_id})
-        if pay:
-            tenant_id = pay.get("tenant_id")
-            await db.subscription_payments.update_one(
-                {"razorpay_order_id": order_id},
-                {"$set": {"status": "refunded", "refunded_at": datetime.now(timezone.utc).isoformat(),
-                          "refund_amount_inr": (refund.get("amount") or 0) / 100.0}},
-            )
-            # Revoke the tenant's active plan so they can't keep using paid features on a refunded sub.
-            if tenant_id:
-                await _raw_db.tenants.update_one(
-                    {"id": tenant_id},
-                    {"$set": {"status": "trial", "subscription_end_date": None}},
-                )
-                logger.warning("Refunded subscription for tenant %s (order %s)", tenant_id, order_id)
+        await _wh_refund(order_id, refund, logger)
 
     return {"ok": True, "event": event_type}
 
@@ -692,35 +701,26 @@ async def cancel_subscription(sid: str, body: SubscriptionCancelIn, user=Depends
     return {"ok": True}
 
 
-@router.get("/super-admin/subscriptions/revenue")
-async def subscription_revenue(user=Depends(require_super_admin)):
-    """Returns SaaS revenue stats: today, this month, last 30 days trend, plan distribution,
-    MRR / ARR, churn, average subscription length, top 5 revenue tenants.
-    """
-    now = datetime.now(timezone.utc)
+def _revenue_totals(pays: list, now: datetime) -> dict:
     today_iso = now.date().isoformat()
     month_prefix = now.strftime("%Y-%m")
-    pays = await db.subscription_payments.find(
-        {"$or": [{"kind": {"$exists": False}}, {"kind": {"$ne": "razorpay_pending"}}]},
-        {"_id": 0},
-    ).to_list(5000)
-    today_total = sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(today_iso))
-    month_total = sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(month_prefix))
-    all_time = sum(p["amount"] for p in pays)
+    return {
+        "today": round(sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(today_iso)), 2),
+        "this_month": round(sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(month_prefix)), 2),
+        "all_time": round(sum(p["amount"] for p in pays), 2),
+    }
 
-    # 30-day trend
-    by_day: dict = {}
-    for offset in range(29, -1, -1):
-        d = (now - timedelta(days=offset)).date().isoformat()
-        by_day[d] = 0.0
+
+def _revenue_trend_30d(pays: list, now: datetime) -> list:
+    by_day = {(now - timedelta(days=offset)).date().isoformat(): 0.0 for offset in range(29, -1, -1)}
     for p in pays:
         d = (p.get("paid_at") or "")[:10]
         if d in by_day:
             by_day[d] += p["amount"]
-    trend = [{"date": d, "amount": round(v, 2)} for d, v in by_day.items()]
+    return [{"date": d, "amount": round(v, 2)} for d, v in by_day.items()]
 
-    # Active subs + plan distribution + MRR/ARR
-    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(2000)
+
+def _mrr_and_plan_distribution(subs: list) -> tuple[float, list]:
     plan_counts: dict = {}
     mrr = 0.0
     for s in subs:
@@ -729,20 +729,20 @@ async def subscription_revenue(user=Depends(require_super_admin)):
         plan_days = PLAN_CATALOG.get(s["plan"], {}).get("duration_days", 30) or 30
         plan_price = float(s.get("price") or PLAN_CATALOG.get(s["plan"], {}).get("price") or 0)
         mrr += plan_price * (30.0 / plan_days)
-    arr = mrr * 12.0
     plan_dist = [{"plan": k, "label": PLAN_CATALOG.get(k, {}).get("label", k), "count": v}
                  for k, v in plan_counts.items()]
+    return mrr, plan_dist
 
-    # Churn (last 30 days): cancelled / (active + cancelled_in_window)
+
+async def _churn_30d(now: datetime, active_count: int) -> tuple[int, float]:
     win_start = (now - timedelta(days=30)).isoformat()
-    cancelled_30d = await db.subscriptions.count_documents({
-        "status": "cancelled",
-        "cancelled_at": {"$gte": win_start},
-    })
-    denom = len(subs) + cancelled_30d
-    churn_rate = round(100.0 * cancelled_30d / denom, 2) if denom else 0.0
+    cancelled = await db.subscriptions.count_documents(
+        {"status": "cancelled", "cancelled_at": {"$gte": win_start}})
+    denom = active_count + cancelled
+    return cancelled, (round(100.0 * cancelled / denom, 2) if denom else 0.0)
 
-    # Avg subscription lifetime (days) — over cancelled ones
+
+async def _avg_subscription_lifetime() -> Optional[float]:
     cancelled_all = await db.subscriptions.find(
         {"status": "cancelled", "cancelled_at": {"$exists": True}, "start_date": {"$exists": True}},
         {"_id": 0, "start_date": 1, "cancelled_at": 1},
@@ -755,39 +755,51 @@ async def subscription_revenue(user=Depends(require_super_admin)):
             lifetimes.append((cd - sd).days)
         except (ValueError, TypeError, KeyError):
             continue
-    avg_lifetime_days = round(sum(lifetimes) / len(lifetimes), 1) if lifetimes else None
+    return round(sum(lifetimes) / len(lifetimes), 1) if lifetimes else None
 
-    # Top 5 tenants by all-time revenue
+
+async def _top_revenue_tenants(pays: list, limit: int = 5) -> list:
     tenant_totals: dict = {}
     for p in pays:
         tid = p.get("tenant_id")
-        if not tid:
-            continue
-        tenant_totals[tid] = tenant_totals.get(tid, 0.0) + float(p["amount"])
-    top_ids = sorted(tenant_totals, key=tenant_totals.get, reverse=True)[:5]
-    tenant_lookup = {t["id"]: t for t in await db.tenants.find(
+        if tid:
+            tenant_totals[tid] = tenant_totals.get(tid, 0.0) + float(p["amount"])
+    top_ids = sorted(tenant_totals, key=tenant_totals.get, reverse=True)[:limit]
+    lookup = {t["id"]: t for t in await db.tenants.find(
         {"id": {"$in": top_ids}}, {"_id": 0, "id": 1, "slug": 1, "name": 1}
     ).to_list(len(top_ids) or 1)}
-    top_tenants = [{
+    return [{
         "tenant_id": tid,
-        "slug": tenant_lookup.get(tid, {}).get("slug", "—"),
-        "name": tenant_lookup.get(tid, {}).get("name", "—"),
+        "slug": lookup.get(tid, {}).get("slug", "—"),
+        "name": lookup.get(tid, {}).get("name", "—"),
         "total_paid": round(tenant_totals[tid], 2),
     } for tid in top_ids]
 
+
+@router.get("/super-admin/subscriptions/revenue")
+async def subscription_revenue(user=Depends(require_super_admin)):
+    """Returns SaaS revenue stats: today, this month, last 30 days trend, plan distribution,
+    MRR / ARR, churn, average subscription length, top 5 revenue tenants.
+    """
+    now = datetime.now(timezone.utc)
+    pays = await db.subscription_payments.find(
+        {"$or": [{"kind": {"$exists": False}}, {"kind": {"$ne": "razorpay_pending"}}]},
+        {"_id": 0},
+    ).to_list(5000)
+    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(2000)
+    mrr, plan_dist = _mrr_and_plan_distribution(subs)
+    cancelled_30d, churn_rate = await _churn_30d(now, len(subs))
     return {
-        "today": round(today_total, 2),
-        "this_month": round(month_total, 2),
-        "all_time": round(all_time, 2),
+        **_revenue_totals(pays, now),
         "active_subscriptions": len(subs),
         "cancelled_30d": cancelled_30d,
         "churn_pct": churn_rate,
         "mrr": round(mrr, 2),
-        "arr": round(arr, 2),
-        "avg_lifetime_days": avg_lifetime_days,
-        "trend_30d": trend,
+        "arr": round(mrr * 12.0, 2),
+        "avg_lifetime_days": await _avg_subscription_lifetime(),
+        "trend_30d": _revenue_trend_30d(pays, now),
         "plan_distribution": plan_dist,
-        "top_tenants": top_tenants,
+        "top_tenants": await _top_revenue_tenants(pays),
     }
 
 

@@ -764,3 +764,11 @@ Tested live: first call 2.33s (generated, 95KB b64), second call 0.001s from Mon
 2. FIX frontend: SalonSwitcher.doSwitch now setTenantSlug + localStorage.setItem with the NEW branch slug before reload.
 3. FIX backend (self-heals stale prod clients): security.py _apply_tenant_context — if header slug mismatches active tenant BUT belongs to a salon in user.tenant_ids, silently use the ACTIVE tenant instead of 403. Foreign tenants still 403 (verified).
 Tested: curl matrix (stale owned slug → 200 dashboard/poster + tenants/current returns ACTIVE branch; foreign slug → 403), UI e2e switch (no error toast, localStorage updated), 67 security/multitenant/pin tests passed.
+
+## Update — Jul 8 (part 83) — Code review round 4 applied
+STALE/FALSE-POSITIVE (re-verified): undefined vars (make lint fully green), hook deps (eslint 0), localStorage (httpOnly cookie auth; prefs only), empty catches (intentional+commented), "is vs ==" claims at server.py:503/621/1543+, pdf.py:90/593, backend_test.py — ALL are `is None` / `is not None`, the CORRECT idiom (report's own prior guidance allows it).
+REFACTORED (payment-critical, behavior-verified):
+1. subscription_revenue (cx25, 95 lines → ~20-line orchestrator): extracted _revenue_totals, _revenue_trend_30d, _mrr_and_plan_distribution, _churn_30d, _avg_subscription_lifetime, _top_revenue_tenants. OUTPUT DIFF: byte-identical before/after.
+2. rzp_webhook (cx14 → linear): extracted _wh_parse_verified_event (HMAC verify+parse), _wh_payment_failed, _wh_refund. (Self-inflicted decorator mixup during edit — caught by lint gate, fixed.)
+DEFERRED (unchanged rationale): component splits, TS migration, test type hints, hook dep counts; rzp_verify/public_signup_salon (security-critical, already partially extracted).
+Regression: revenue output identical, billing 13 + razorpay-touching suites 43 passed, make lint green.
