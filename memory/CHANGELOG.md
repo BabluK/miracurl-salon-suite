@@ -703,3 +703,9 @@ Tested: curl e2e (tag, login salons list, PIN-gated switch, me scoping, foreign-
 7. NEW MySalonsOverview.jsx on Dashboard (owners with 2+ salons): dark card, combined today total + this-month total + per-branch cards (today ₹, bills, appts, active badge). Uses existing GET /auth/my-salons/overview.
 8. Branch isolation (user re-confirmed requirement): already enforced by TenantCollection scoping — staff/transactions/bookings follow the active tenant_id on switch. No change needed.
 Tested: curl (config branches, wrong-count 400, foreign-branch 403, super-admin 2-branch create → 2 subs @20k group-linked + 40k payment + both tenants active to 2027-07-07, subscription-status), screenshots (dashboard overview card, settings plan filter + branch picker), pytest test_iter13_billing 13/13 serial (updated stale label asserts; parallel failures = known xdist flake).
+
+## Update — Jul 8 (part 73) — Group Dashboard PIN lock
+1. User named the multi-salon combined view "Group Dashboard"; must be PIN-locked, re-locks on refresh (no session persistence).
+2. GET /auth/my-salons/overview (server.py): now role-gated (admin/super_admin only) + requires header X-Owner-Pin matching the ACTIVE salon's security_pin_hash (reuses _pin_attempt_guard lockout). No PIN set → open (matches switch-salon convention). 403 "OWNER_PIN_REQUIRED" signals frontend to open the PIN modal.
+3. MySalonsOverview.jsx rewritten: locked dark banner + "Unlock Group Dashboard" button → PIN modal → unlocked view with EyeOff re-lock button; state-only (locks on refresh/navigation).
+Tested: curl (no-pin 403, wrong-pin 403, pin 4321 → data), screenshot e2e (unlock flow + refresh re-lock).

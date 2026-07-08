@@ -1,22 +1,88 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
-import { Store, IndianRupee, Receipt } from "lucide-react";
+import { toast } from "sonner";
+import { Store, IndianRupee, Receipt, Lock, KeyRound, EyeOff, Loader2 } from "lucide-react";
 
 const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
-// Multi-salon owners: today's collection per branch + combined total.
+// Group Dashboard — multi-salon owners see combined collections across all branches.
+// PIN-locked: unlocks with the Owner PIN and re-locks on refresh/navigation.
 export default function MySalonsOverview() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+
   const multi = (user?.salons || []).length > 1;
+  const isOwner = user?.role === "admin" || user?.role === "super_admin";
+  if (!multi || !isOwner) return null;
 
-  useEffect(() => {
-    if (!multi) return;
-    api.get("/auth/my-salons/overview").then(r => setData(r.data)).catch(() => {});
-  }, [multi]);
+  async function unlock(pinValue) {
+    setBusy(true);
+    try {
+      const { data: d } = await api.get("/auth/my-salons/overview",
+        pinValue ? { headers: { "X-Owner-Pin": pinValue } } : {});
+      setData(d);
+      setPinOpen(false);
+      setPin("");
+      toast.success("Group Dashboard unlocked ✦");
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      if (detail === "OWNER_PIN_REQUIRED") setPinOpen(true);
+      else toast.error(typeof detail === "string" ? detail : "Couldn't unlock Group Dashboard");
+    } finally { setBusy(false); }
+  }
 
-  if (!multi || !data) return null;
+  if (!data) {
+    return (
+      <>
+        <div className="bg-slate-900 rounded-2xl p-5 text-white relative overflow-hidden" data-testid="group-dashboard-locked">
+          <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-fuchsia-500/20 blur-3xl pointer-events-none" />
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.25em] text-fuchsia-300 font-semibold flex items-center gap-1.5">
+                <Store className="w-3.5 h-3.5" /> Group Dashboard
+              </div>
+              <p className="text-sm text-white/70 mt-1 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-amber-300" />
+                Combined collections across all {user.salons.length} of your salons — Owner PIN required.
+              </p>
+            </div>
+            <button data-testid="group-dashboard-unlock-btn" disabled={busy} onClick={() => unlock()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white text-sm font-semibold hover:from-fuchsia-600 hover:to-pink-700 disabled:opacity-60 shrink-0">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              {busy ? "Unlocking…" : "Unlock Group Dashboard"}
+            </button>
+          </div>
+        </div>
+
+        {pinOpen && (
+          <div className="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-4" data-testid="group-dashboard-pin-modal">
+            <div className="bg-white rounded-2xl p-5 w-full max-w-xs shadow-2xl">
+              <p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-amber-500" /> Owner PIN required
+              </p>
+              <p className="text-[11px] text-slate-500 mt-1">Enter your Owner Security PIN to view the Group Dashboard.</p>
+              <input autoFocus data-testid="group-dashboard-pin-input" type="password" inputMode="numeric" maxLength={6} value={pin}
+                onChange={e => setPin(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && pin && unlock(pin)}
+                className="mt-3 w-full px-3 py-2 rounded-lg border border-slate-200 text-center text-lg tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-amber-200" />
+              <div className="flex gap-2 mt-3">
+                <button data-testid="group-dashboard-pin-cancel" onClick={() => { setPinOpen(false); setPin(""); }}
+                  className="flex-1 py-2 rounded-lg text-xs text-slate-500 border border-slate-200">Cancel</button>
+                <button data-testid="group-dashboard-pin-confirm" disabled={!pin || busy} onClick={() => unlock(pin)}
+                  className="flex-1 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold disabled:opacity-50">
+                  {busy ? "Checking…" : "Unlock"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="bg-slate-900 rounded-2xl p-5 text-white relative overflow-hidden" data-testid="my-salons-overview">
@@ -24,15 +90,22 @@ export default function MySalonsOverview() {
       <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.25em] text-fuchsia-300 font-semibold flex items-center gap-1.5">
-            <Store className="w-3.5 h-3.5" /> All My Salons · Today
+            <Store className="w-3.5 h-3.5" /> Group Dashboard · Today
           </div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-3xl font-bold" data-testid="my-salons-total-today">{inr(data.total_today)}</span>
             <span className="text-xs text-white/60">combined collection · {data.date}</span>
           </div>
         </div>
-        <div className="text-right text-xs text-white/60">
-          This month: <span className="text-white font-semibold" data-testid="my-salons-total-month">{inr(data.total_month)}</span>
+        <div className="flex items-center gap-3">
+          <div className="text-right text-xs text-white/60">
+            This month: <span className="text-white font-semibold" data-testid="my-salons-total-month">{inr(data.total_month)}</span>
+          </div>
+          <button data-testid="group-dashboard-lock-btn" onClick={() => setData(null)}
+            title="Lock Group Dashboard"
+            className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20">
+            <EyeOff className="w-4 h-4" />
+          </button>
         </div>
       </div>
       <div className="relative mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

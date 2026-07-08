@@ -849,13 +849,26 @@ async def switch_salon(body: SalonSwitchIn, user=Depends(get_current_user), t=De
 
 
 @api.get("/auth/my-salons/overview")
-async def my_salons_overview(user=Depends(get_current_user)):
-    """Multi-salon owners: today's collections compared across all their salons."""
+async def my_salons_overview(request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Group Dashboard (multi-salon owners): today's collections across all salons.
+    Locked behind the Owner PIN of the currently active salon (header X-Owner-Pin)."""
+    if user.get("role") not in ("admin", "super_admin"):
+        raise HTTPException(403, "Only the owner/admin can view the Group Dashboard")
     ids = set(user.get("tenant_ids") or [])
     if user.get("tenant_id"):
         ids.add(user["tenant_id"])
     if len(ids) < 2:
         raise HTTPException(400, "Only one salon is linked to your login")
+    ph = (t or {}).get("security_pin_hash")
+    if ph:
+        pin = request.headers.get("X-Owner-Pin", "")
+        if not pin:
+            raise HTTPException(403, "OWNER_PIN_REQUIRED")
+        await _pin_attempt_guard(t["id"])
+        if not verify_pw(pin, ph):
+            await _pin_attempt_fail(t["id"])
+            raise HTTPException(403, "Incorrect PIN")
+        await _pin_attempt_clear(t["id"])
     ist = timezone(timedelta(hours=5, minutes=30))
     now_ist = datetime.now(ist)
     day_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
