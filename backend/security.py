@@ -89,6 +89,12 @@ async def _apply_tenant_context(request: Request, user: dict) -> None:
         if not t:
             raise HTTPException(404, f"Tenant '{slug}' not found")
         if user.get("role") != "super_admin" and user.get("tenant_id") != t["id"]:
+            # Multi-salon owners: a stale slug header from BEFORE a branch switch
+            # points at another salon they own — self-heal to the active salon
+            # instead of 403ing the whole app.
+            if t["id"] in (user.get("tenant_ids") or []):
+                _current_tenant_id.set(user["tenant_id"])
+                return
             raise HTTPException(403, "Cross-tenant access denied")
         if (user.get("role") == "super_admin" and request.method == "DELETE"
                 and not request.url.path.startswith("/api/super-admin")):

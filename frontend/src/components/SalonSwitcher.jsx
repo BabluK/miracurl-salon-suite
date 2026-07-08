@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import api from "@/lib/api";
+import api, { setTenantSlug } from "@/lib/api";
 import { toast } from "sonner";
 import { Store, ChevronDown, KeyRound } from "lucide-react";
 import {
@@ -22,6 +22,12 @@ export default function SalonSwitcher() {
     setBusy(true);
     try {
       const { data } = await api.post("/auth/switch-salon", { tenant_id: tenantId, pin: pinValue || undefined });
+      // Point the tenant-slug header at the NEW branch before reload,
+      // otherwise every request 403s with "Cross-tenant access denied".
+      if (data.active_salon?.slug) {
+        setTenantSlug(data.active_salon.slug);
+        localStorage.setItem("miracurl_tenant", data.active_salon.slug);
+      }
       toast.success(`Switched to ${data.active_salon?.name || "salon"} ✦`);
       window.location.href = "/dashboard";
     } catch (e) {

@@ -758,3 +758,9 @@ Tested: e2e screenshot flow — TEST tenant TRIAL → ANNUAL valid till 2027-07-
 2. NEW _tts_cached_speech(text, voice, speed): sha256 content-hash cache in tts_cache (key "speech:<hash>") — identical spoken replies generated ONCE, TTL refreshed on hit so popular clips stay alive. Re-added hashlib import (was removed as unused in part 78).
 3. /public/ai-voice/{slug} now uses it (was generating fresh TTS on EVERY Mira voice reply = per-call OpenAI cost).
 Tested live: first call 2.33s (generated, 95KB b64), second call 0.001s from Mongo, identical audio, doc persisted.
+
+## Update — Jul 8 (part 82) — Branch-switch 403 + poster failure fixed (same root cause)
+1. ROOT CAUSE: frontend persists tenant slug (localStorage miracurl_tenant → X-Tenant-Slug header on EVERY request). switch-salon updates users.tenant_id but the stored slug stayed on the OLD branch → _apply_tenant_context 403 "Cross-tenant access denied" → dashboard toast + QR poster preview failure.
+2. FIX frontend: SalonSwitcher.doSwitch now setTenantSlug + localStorage.setItem with the NEW branch slug before reload.
+3. FIX backend (self-heals stale prod clients): security.py _apply_tenant_context — if header slug mismatches active tenant BUT belongs to a salon in user.tenant_ids, silently use the ACTIVE tenant instead of 403. Foreign tenants still 403 (verified).
+Tested: curl matrix (stale owned slug → 200 dashboard/poster + tenants/current returns ACTIVE branch; foreign slug → 403), UI e2e switch (no error toast, localStorage updated), 67 security/multitenant/pin tests passed.
