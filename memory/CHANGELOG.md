@@ -748,3 +748,7 @@ Regression: 186 tests passed serially (billing 13, registry 19, multitenant+iter
 1. BUG (user): SalonSwitcher dropdown "not visible properly" — ROOT CAUSE: app had NO shadcn CSS variables/token colors (no :root vars, no popover/border/etc in tailwind config) → bg-popover etc compiled to nothing → ALL shadcn dropdowns transparent. Fixed: added full light-theme :root token block to index.css + token colors to tailwind.config.js (additive, zero regression to custom classes). Also SalonSwitcher redesigned: w-[300px], solid white panel, bold dark names w/ wrap, ACTIVE pill, location line, wider trigger on sm+.
 2. BUG (user): super-admin EditTenantModal top clipped, couldn't scroll to Tenant ID. Fixed: modal restructured to flex-col max-h-[88vh] with PINNED header (title + tap-to-copy fuchsia Tenant ID card) + independently scrollable body. Verified: ID stays visible with body scrolled to bottom (desktop 861px + mobile 390px).
 NOTE: user is seeing PRODUCTION — needs republish to get parts 78-79 fixes live.
+
+## Update — Jul 8 (part 80) — Manual plan change in EditTenantModal
+1. New "Plan & subscription" section in super-admin EditTenantModal: current plan badge (amber trial / emerald paid) + valid-till date, single-branch plan dropdown (from GET /super-admin/plans, branches==1 only), optional payment ref, "Activate plan" → POST /super-admin/subscriptions (existing endpoint: replaces active sub, records payment, updates tenant plan/status/end).
+Tested: e2e screenshot flow — TEST tenant TRIAL → ANNUAL valid till 2027-07-08.

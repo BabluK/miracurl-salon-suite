@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { X, Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerprint } from "lucide-react";
+import { X, Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerprint, CreditCard } from "lucide-react";
 
 const inputCls = "mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200";
 
@@ -37,10 +37,36 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
   const [linked, setLinked] = useState(null);
   const [linkId, setLinkId] = useState("");
   const [linking, setLinking] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [newPlan, setNewPlan] = useState("");
+  const [planRef, setPlanRef] = useState("");
+  const [planBusy, setPlanBusy] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState({ plan: tenant.plan, end: tenant.subscription_end_date });
 
   const loadLinked = () => api.get(`/super-admin/tenants/${tenant.id}/linked-branches`)
     .then(r => setLinked(r.data)).catch(() => {});
-  useEffect(() => { loadLinked(); }, [tenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    loadLinked();
+    api.get("/super-admin/plans").then(r => setPlans((r.data.plans || r.data || []).filter(p => (p.branches || 1) === 1))).catch(() => {});
+  }, [tenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function changePlan() {
+    if (!newPlan) { toast.error("Pick a plan first"); return; }
+    const label = plans.find(p => p.key === newPlan)?.label || newPlan;
+    if (!window.confirm(`Activate "${label}" for ${tenant.name}?\n\nThis replaces the current plan (${currentPlan.plan || "trial"}) and records the payment.`)) return;
+    setPlanBusy(true);
+    try {
+      const { data } = await api.post("/super-admin/subscriptions", {
+        tenant_id: tenant.id, plan: newPlan,
+        payment_ref: planRef.trim() || "manual-plan-change",
+      });
+      setCurrentPlan({ plan: data.subscription.plan, end: data.subscription.end_date });
+      setNewPlan(""); setPlanRef("");
+      toast.success(`Plan changed — active till ${data.subscription.end_date} ✦`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Couldn't change plan");
+    } finally { setPlanBusy(false); }
+  }
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -150,6 +176,33 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save changes
           </button>
         </form>
+
+        {/* Plan change */}
+        <div className="border-t border-slate-100 pt-4">
+          <div className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5 text-emerald-500" /> Plan &amp; subscription</div>
+          <div className="flex items-center gap-2 text-sm mb-2.5" data-testid="current-plan-row">
+            <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold border ${currentPlan.plan === "trial" || !currentPlan.plan ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+              {currentPlan.plan || "trial"}
+            </span>
+            {currentPlan.end && <span className="text-[11px] text-slate-500">valid till {currentPlan.end}</span>}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <select data-testid="change-plan-select" value={newPlan} onChange={e => setNewPlan(e.target.value)}
+              className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200">
+              <option value="">Change plan to…</option>
+              {plans.map(p => <option key={p.key} value={p.key}>{p.label} — ₹{Number(p.price).toLocaleString("en-IN")}</option>)}
+            </select>
+            <input data-testid="change-plan-ref" value={planRef} onChange={e => setPlanRef(e.target.value)}
+              placeholder="Payment ref (optional)"
+              className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+          </div>
+          <button type="button" data-testid="change-plan-btn" onClick={changePlan} disabled={planBusy || !newPlan}
+            className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-semibold disabled:opacity-50">
+            {planBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+            {planBusy ? "Activating…" : "Activate plan"}
+          </button>
+          <p className="text-[10px] text-slate-400 mt-1.5">Instantly upgrades trial → paid. Replaces any current subscription and records the payment against this salon.</p>
+        </div>
 
         {/* Credentials reset */}
         <div className="border-t border-slate-100 pt-4">
