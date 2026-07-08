@@ -102,24 +102,29 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg m-auto p-6 space-y-5" onClick={e => e.stopPropagation()} data-testid="edit-tenant-modal">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-800">Edit — {tenant.name}</h3>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700" data-testid="edit-tenant-close"><X className="w-5 h-5" /></button>
+    <div className="fixed inset-0 z-50 flex bg-slate-900/50 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg m-auto flex flex-col max-h-[88vh] overflow-hidden" onClick={e => e.stopPropagation()} data-testid="edit-tenant-modal">
+        {/* Pinned header — always visible, never scrolls away */}
+        <div className="p-4 sm:p-5 pb-3 border-b border-slate-100 space-y-3 shrink-0 bg-white">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base sm:text-lg font-semibold text-slate-800 truncate pr-2">Edit — {tenant.name}</h3>
+            <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 shrink-0" data-testid="edit-tenant-close"><X className="w-5 h-5" /></button>
+          </div>
+          {/* Unique Tenant ID — whole row is tap-to-copy */}
+          <button type="button" onClick={() => copyText(tenant.id, "Tenant ID")}
+            className="w-full flex items-center gap-2 bg-fuchsia-50/60 hover:bg-fuchsia-50 border border-fuchsia-200 rounded-lg px-3 py-2 text-left cursor-pointer"
+            data-testid="tenant-id-row" title="Tap to copy Tenant ID">
+            <Fingerprint className="w-4 h-4 text-fuchsia-500 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wider text-fuchsia-500 font-semibold">Unique Tenant ID — tap to copy</div>
+              <div className="font-mono text-xs text-slate-700 break-all" data-testid="tenant-id-value">{tenant.id}</div>
+            </div>
+            <span className="p-1.5 text-fuchsia-600 bg-white border border-fuchsia-200 rounded shrink-0" data-testid="copy-tenant-id"><Copy className="w-4 h-4" /></span>
+          </button>
         </div>
 
-        {/* Unique Tenant ID — whole row is tap-to-copy */}
-        <button type="button" onClick={() => copyText(tenant.id, "Tenant ID")}
-          className="w-full flex items-center gap-2 bg-slate-50 hover:bg-sky-50 border border-slate-200 rounded-lg px-3 py-2 text-left cursor-pointer"
-          data-testid="tenant-id-row" title="Tap to copy Tenant ID">
-          <Fingerprint className="w-4 h-4 text-fuchsia-500 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Unique Tenant ID — tap to copy</div>
-            <div className="font-mono text-xs text-slate-700 break-all" data-testid="tenant-id-value">{tenant.id}</div>
-          </div>
-          <span className="p-1.5 text-sky-600 bg-sky-50 rounded shrink-0" data-testid="copy-tenant-id"><Copy className="w-4 h-4" /></span>
-        </button>
+        {/* Scrollable body */}
+        <div className="p-4 sm:p-5 space-y-5 overflow-y-auto">
 
         {/* Details form */}
         <form onSubmit={save} className="space-y-3">
@@ -198,6 +203,7 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
             </button>
           </div>
           <p className="text-[10px] text-slate-400 mt-1.5">Works even if the two salons were registered with different emails — the branch joins THIS owner&apos;s login and appears in their salon switcher.</p>
+        </div>
         </div>
       </div>
     </div>
