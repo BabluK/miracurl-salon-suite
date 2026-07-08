@@ -3,7 +3,7 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 
 from database import db
 from security import get_current_user, require_admin, require_tenant_admin

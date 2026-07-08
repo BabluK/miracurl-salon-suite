@@ -5,7 +5,7 @@ from io import BytesIO
 import os
 import urllib.request
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
 OUT = "/app/frontend/public/og-image.png"
 W, H = 1200, 630

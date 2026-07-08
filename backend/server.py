@@ -7,19 +7,16 @@ import os
 import re
 import io
 import csv
-import json
 import math
 import uuid
 import hmac
 import asyncio
 import base64
 import html as html_lib
-from email_service import _send_email, _welcome_email_html, _credentials_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html, _lead_alert_email_html, _platform_digest_html
-from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf
-import hashlib
+from email_service import _send_email, _welcome_email_html, _credentials_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html, _platform_digest_html
+from services.pdf import _render_salary_slip_pdf, _render_resume_pdf
 import logging
 import secrets
-import jwt
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 
@@ -249,7 +246,7 @@ class ReviewModerateIn(BaseModel):
 
 
 from routes.auth import (  # noqa: E402 — auth module (routes/auth.py)
-    router as auth_router, AFFILIATE_REWARD_INR, TRIAL_DAYS,
+    router as auth_router, AFFILIATE_REWARD_INR,
 )
 api.include_router(auth_router)
 
