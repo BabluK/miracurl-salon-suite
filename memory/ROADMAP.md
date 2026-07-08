@@ -3,6 +3,7 @@
 ## P0
 - DONE Jun (part 68): Twilio creds live in preview .env, trial number +14246557277 provisioned, SMS e2e delivered. Pending user action: add same 3 env vars to PRODUCTION deployment env; verify more recipient numbers in Twilio console (trial limit).
 - MSG91 swap (user will provide keys post-DLT): replace sms_service.py internals only.
+- Mira Studio OAuth: connect Instagram/Facebook (Meta Graph API), Google Business Profile, WhatsApp Business — turns "Connect" agents into auto-posting "Ready" agents. (Studio UI + drafts DONE Jul 8, iter56.)
 
 ## P1
 - Code-review deferred refactors: email_service template split, AppLayout/SuperAdmin/StaffPortal component splits, routes service-layer extraction, type hints (routes/services)

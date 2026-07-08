@@ -797,3 +797,10 @@ Tested: curl (seed 5-fail lockout → locked_now:1, clear → 0), UI screenshot 
 2. NEW DELETE /super-admin/tenants/{tid}/permanent?confirm=<slug> (server.py): HARD delete. Wipes all 26 tenant-scoped collections (customers, invoices, appointments, staff, subscriptions, sms_pack_payments, pin_attempts, partner_overrides…) by tenant_id, plus owner users (single-salon → deleted; multi-salon/super_admin → unlink branch + reassign active tenant_id). Requires exact slug in ?confirm= (400 otherwise). Logs warning w/ record counts. Existing soft delete (cancel) unchanged.
 3. Frontend SuperAdmin: 2nd trash button per row (bold, red-fill hover) → prompt requiring typed slug → permanentDeleteTenant → toast with records removed.
 Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete removes {customers:1,users:1,tenants:1} → tenant gone from list + owner login 401. make lint green.
+
+## Update — Jul 8 (part 88) — Mira Social Studio COMPLETE (backend + frontend, tested)
+1. Backend routes/mira_studio.py (built prev session): 12-agent registry, Orchestrator (LLM intent routing), social/generate (multi-platform posts + gpt-image-1 promo image), text agents (content/seo/sales/video/email), data agents (analytics/leads/staff-verification), connection status via social_connections collection.
+2. THIS SESSION: Added missing route in App.js (nav link existed but route was never registered — page was unreachable). Route: /mira-studio, OwnerOnly.
+3. Replaced window.prompt with a proper topic modal (data-testid mira-topic-modal/input/go/cancel). Data agents (analytics/leadfinder/staff_verify) run instantly without prompt.
+4. Tested: testing agent iteration_56 — 12/12 backend pytest pass (new regression file /app/backend/tests/test_mira_studio.py), all frontend flows pass (nav, orchestrator chat, topic modal, analytics instant run, CONNECT/READY badges). 100% success.
+5. Still mocked/pending: social/whatsapp/google agents show "Connect" badge — real auto-posting needs OAuth (P2 in ROADMAP).
