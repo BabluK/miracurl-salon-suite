@@ -250,22 +250,26 @@ async def mark_wa_sent(body: WaSentIn, admin=Depends(require_tenant_admin), t=De
 
 
 # ── Scheduler ───────────────────────────────────────────────────────────────
+async def _run_enabled_tenants():
+    async for cfg in _raw_db.autopilot_settings.find({"enabled": True}):
+        t = await _raw_db.tenants.find_one({"id": cfg["tenant_id"]}, {"_id": 0})
+        if not t or t.get("status") == "deleted":
+            continue
+        try:
+            out = await run_autopilot_for_tenant(t)
+            if not out.get("skipped"):
+                log.info("autopilot ran for %s: %s", t.get("slug"), out)
+        except Exception as e:
+            log.error("autopilot tenant %s failed: %s", cfg["tenant_id"], e)
+
+
 async def autopilot_scheduler():
     """Daily (after 10:00 IST) run for every tenant with autopilot enabled. Idempotent per date."""
     while True:
         try:
             ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
             if ist_now.hour >= 10:
-                async for cfg in _raw_db.autopilot_settings.find({"enabled": True}):
-                    t = await _raw_db.tenants.find_one({"id": cfg["tenant_id"]}, {"_id": 0})
-                    if not t or t.get("status") == "deleted":
-                        continue
-                    try:
-                        out = await run_autopilot_for_tenant(t)
-                        if not out.get("skipped"):
-                            log.info("autopilot ran for %s: %s", t.get("slug"), out)
-                    except Exception as e:
-                        log.error("autopilot tenant %s failed: %s", cfg["tenant_id"], e)
+                await _run_enabled_tenants()
         except Exception as e:
             log.error("autopilot scheduler error: %s", e)
         await asyncio.sleep(1800)

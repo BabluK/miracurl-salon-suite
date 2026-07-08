@@ -28,6 +28,12 @@ These keep being re-flagged. Verified stale on Jul 8, 2026 — re-verify with `m
    builds; lib/log.js is a dev-gated logger. This is the cleanup, not the violation.
 8. **"Expensive operations in render (MiraStudio:114 etc.)"** — `.filter()` over ≤12-item static arrays;
    memoization would cost more than it saves.
+9. **"localStorage: TrialReminder/BookingChatWidget/branch.js"** — dismissed-banner timestamps, an
+   anonymous chat session id, and the tenant slug. None are secrets; auth remains HTTPOnly cookies.
+10. **"Nested ternaries / 9-dep hooks / oversized components"** — style preferences on stable,
+   tested components. Splitting AppLayout/SuperAdmin/POS/BookingChatWidget is deliberately deferred
+   to a dedicated refactor pass with full regression (see ROADMAP) — not done piecemeal after
+   every scanner run.
 
 ## Legitimately fixed from past reports
 - email_service report HTML builders → shared template helpers (part 77)
@@ -36,6 +42,7 @@ These keep being re-flagged. Verified stale on Jul 8, 2026 — re-verify with `m
 - 9 unused imports caught by make lint's first run (part 78)
 - MiraStudio index-as-key on data rows → stable keys (phone/name for leads & staff,
   value-prefixed keys for AI string lists) (part 91)
+- mira_autopilot autopilot_scheduler 5-level nesting → extracted _run_enabled_tenants() (part 92)
 
 ## Deliberately DEFERRED (need a dedicated UI regression pass)
 - Large component splits (AppLayout, POS, SuperAdmin, MorningBriefing, BookingChatWidget)
