@@ -722,3 +722,10 @@ Tested: computed color rgb(30,41,59), screenshot shows typed text + placeholders
 4. Frontend: EditTenantModal.jsx (superadmin/) — copyable Tenant ID banner, details form, amber "Reset password & email new credentials" w/ temp-pw reveal+copy, linked-branch list w/ unlink + link-by-ID input. Pencil button per tenant row in SuperAdmin.jsx.
 5. INCIDENT: parallel search_replace calls on server.py raced → corrupted line 5562 + lost TenantUpdateIn edit. Fixed both. LESSON: never edit the same file with parallel tool calls.
 Tested: curl (edit fields, email-clash 400, owner email change → login works with NEW email + temp pw + must_change_password + both salons attached, link/unlink/self-link/bad-id, Resend email sent:True), modal screenshot.
+
+## Update — Jul 8 (part 76) — Production deployment failure fixed
+1. ROOT CAUSE (readiness timeout): @app.on_event startup ran heavy AWAITED DB work (unique+TTL index creation, migrations, seeding) with NO error handling — on production Atlas any index-option conflict/duplicate key crashes the pod → CrashLoop → "deployment failed to become ready". Preview DB was compatible so it never showed locally.
+2. FIX: db-prep moved to background asyncio task (_db_prep) with per-step try/except (indexes/migrations/seeds) — pod passes readiness instantly, failures log as non-fatal.
+3. FIX (deployment_agent BLOCKER): CORS wildcard bug — CORS_ORIGINS="*" was filtered out leaving allow_origins=[] which blocks everything. Now '*' → ["*"] (Starlette echoes origin when credentials=True).
+4. Quoted TWILIO_PHONE_NUMBER in backend/.env (leading + parse risk).
+Deployment agent re-check: status warn (cosmetic env quoting only) — READY TO DEPLOY. Verified: instant startup, db-prep steps logged done, /api/ 200, login e2e 200.
