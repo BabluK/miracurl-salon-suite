@@ -24,25 +24,44 @@ export default function ImageUploader({ value, onChange, onUploaded, kind = "mis
 
   const preview = value || fallback || "";
 
+  async function compressIfNeeded(file) {
+    if (file.size <= 1024 * 1024 || file.type === "image/gif") return file;
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bmp.width * scale);
+      canvas.height = Math.round(bmp.height * scale);
+      canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.85));
+      if (blob && blob.size < file.size) {
+        return new File([blob], file.name.replace(/\.\w+$/i, "") + ".jpg", { type: "image/jpeg" });
+      }
+    } catch { /* canvas unsupported — fall back to original file */ }
+    return file;
+  }
+
   async function handleFile(e) {
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
-    if (!/^image\/(jpe?g|png|gif|webp)$/i.test(file.type)) {
+    if (!/^image\/(jpe?g|png|gif|webp|heic|heif)$/i.test(file.type)) {
       toast.error("Only JPG, PNG, GIF or WebP images are allowed");
-      return;
-    }
-    if (file.size > 3 * 1024 * 1024) {
-      toast.error("Image too large — please pick one under 3MB");
       return;
     }
     setUploading(true);
     try {
+      file = await compressIfNeeded(file);
+      if (file.size > 3 * 1024 * 1024) {
+        toast.error("Image too large — please pick one under 3MB");
+        return;
+      }
       const fd = new FormData();
       fd.append("file", file);
       const { data } = await api.post(`/uploads/image?kind=${kind}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       onChange(data.url);
+      onUploaded?.(data.url);
       toast.success("Image uploaded ✦");
     } catch (err) {
       const detail = err?.response?.data?.detail || err?.message || "Upload failed";
@@ -103,7 +122,7 @@ export default function ImageUploader({ value, onChange, onUploaded, kind = "mis
             data-testid={`image-uploader-btn-${kind}`}
           >
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            {uploading ? "Uploading…" : "Choose from laptop"}
+            {uploading ? "Uploading…" : "Upload photo"}
           </button>
           <p className="text-[11px] text-slate-500 mt-1.5">
             JPG, PNG, WebP · under 3MB ·{" "}
