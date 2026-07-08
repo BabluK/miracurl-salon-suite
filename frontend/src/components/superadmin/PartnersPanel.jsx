@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Handshake, Star, Eye, EyeOff, Plus, Trash2, Save, Lock, LockOpen } from "lucide-react";
+import { Handshake, Star, Eye, EyeOff, Plus, Trash2, Save, Lock, LockOpen, Upload, Loader2, ImageIcon } from "lucide-react";
 
-const inputCls = "px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200";
+const inputCls = "px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200";
 
 function Rating({ rating, count }) {
   if (rating == null) return <span className="text-[11px] text-slate-400">No reviews yet</span>;
@@ -18,6 +18,24 @@ export function PartnersPanel() {
   const [data, setData] = useState({ tenants: [], manual: [] });
   const [blurbs, setBlurbs] = useState({});
   const [form, setForm] = useState({ name: "", logo_url: "", city: "", blurb: "", rating: "" });
+  const [uploading, setUploading] = useState(false);
+  const logoFileRef = useRef(null);
+
+  async function uploadLogo(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data: up } = await api.post("/super-admin/uploads/photo", fd);
+      setForm(f => ({ ...f, logo_url: up.url }));
+      toast.success("Logo uploaded ✦");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Logo upload failed");
+    } finally { setUploading(false); }
+  }
 
   const load = () => api.get("/super-admin/partners").then(r => {
     setData(r.data);
@@ -116,8 +134,23 @@ export function PartnersPanel() {
             <input data-testid="manual-partner-city" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="e.g. Bengaluru" className={inputCls} />
           </div>
           <div className="flex flex-col">
-            <label className="text-[10px] text-slate-400 mb-0.5 ml-1">Logo image URL</label>
-            <input data-testid="manual-partner-logo" value={form.logo_url} onChange={e => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…/logo.png" className={inputCls} />
+            <label className="text-[10px] text-slate-400 mb-0.5 ml-1">Logo — upload or paste URL</label>
+            <div className="flex items-center gap-1.5">
+              <input data-testid="manual-partner-logo" value={form.logo_url} onChange={e => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…/logo.png" className={`${inputCls} flex-1 min-w-0`} />
+              <input ref={logoFileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" onChange={uploadLogo} data-testid="manual-partner-logo-file" />
+              <button type="button" data-testid="manual-partner-logo-upload-btn" disabled={uploading}
+                onClick={() => logoFileRef.current?.click()}
+                title="Upload logo image (JPG/PNG/WebP)"
+                className="p-2 rounded-lg border border-violet-200 bg-violet-50 text-violet-600 hover:bg-violet-100 disabled:opacity-60 shrink-0">
+                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              </button>
+              {form.logo_url ? (
+                <img src={form.logo_url} alt="logo preview" data-testid="manual-partner-logo-preview"
+                  className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0" />
+              ) : (
+                <span className="w-9 h-9 rounded-lg border border-dashed border-slate-200 flex items-center justify-center text-slate-300 shrink-0"><ImageIcon className="w-4 h-4" /></span>
+              )}
+            </div>
           </div>
           <div className="flex flex-col">
             <label className="text-[10px] text-slate-400 mb-0.5 ml-1">Rating (0–5)</label>

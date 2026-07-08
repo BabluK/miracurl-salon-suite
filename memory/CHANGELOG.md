@@ -709,3 +709,8 @@ Tested: curl (config branches, wrong-count 400, foreign-branch 403, super-admin 
 2. GET /auth/my-salons/overview (server.py): now role-gated (admin/super_admin only) + requires header X-Owner-Pin matching the ACTIVE salon's security_pin_hash (reuses _pin_attempt_guard lockout). No PIN set → open (matches switch-salon convention). 403 "OWNER_PIN_REQUIRED" signals frontend to open the PIN modal.
 3. MySalonsOverview.jsx rewritten: locked dark banner + "Unlock Group Dashboard" button → PIN modal → unlocked view with EyeOff re-lock button; state-only (locks on refresh/navigation).
 Tested: curl (no-pin 403, wrong-pin 403, pin 4321 → data), screenshot e2e (unlock flow + refresh re-lock).
+
+## Update — Jul 8 (part 74) — Partners panel invisible text + logo upload
+1. BUG (user report "can't type"): PartnersPanel inputCls had bg-white but NO text color → inherited white from dark HQ theme = white-on-white invisible typing (typing actually worked, computed color rgb(255,255,255)). Fixed: text-slate-800 + placeholder:text-slate-400.
+2. FEATURE: Manual partner logo upload button (Upload icon) next to URL field → POST /super-admin/uploads/photo (existing endpoint, object storage) → fills logo_url + 36px live preview thumb. URL paste still supported.
+Tested: computed color rgb(30,41,59), screenshot shows typed text + placeholders, curl upload → {url:/api/files/..}, manual partner create/delete cleanup.
