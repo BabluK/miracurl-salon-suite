@@ -221,7 +221,7 @@ function ResultView({ result, conns = {}, onRegen }) {
 
       {r.type === "seo" && r.result && (
         <div className="space-y-3">
-          <Block label="Keywords" copyText={(r.result.keywords || []).join(", ")}><div className="flex flex-wrap gap-1.5">{(r.result.keywords || []).map((k, i) => <span key={i} className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">{k}</span>)}</div></Block>
+          <Block label="Keywords" copyText={(r.result.keywords || []).join(", ")}><div className="flex flex-wrap gap-1.5">{(r.result.keywords || []).map((k, i) => <span key={`${k}-${i}`} className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">{k}</span>)}</div></Block>
           <Block label="Meta description" copyText={r.result.meta_description}><p className="text-sm text-slate-700">{r.result.meta_description}</p></Block>
           <Block label="Google Business post" copyText={r.result.gmb_post}><p className="text-sm text-slate-700 whitespace-pre-line">{r.result.gmb_post}</p></Block>
         </div>
@@ -230,7 +230,7 @@ function ResultView({ result, conns = {}, onRegen }) {
       {r.type === "video" && r.result && (
         <Block label="Reel script" copyText={`Hook: ${r.result.hook}\n\n${(r.result.script || []).join("\n")}\n\nCaption: ${r.result.caption}`}>
           <p className="text-sm font-semibold text-slate-800">🎬 {r.result.hook}</p>
-          <ol className="text-sm text-slate-700 mt-2 space-y-1 list-decimal list-inside">{(r.result.script || []).map((s, i) => <li key={i}>{s}</li>)}</ol>
+          <ol className="text-sm text-slate-700 mt-2 space-y-1 list-decimal list-inside">{(r.result.script || []).map((s, i) => <li key={`${i}-${s.slice(0, 24)}`}>{s}</li>)}</ol>
           <p className="text-xs text-slate-500 mt-2">🎵 {r.result.audio_idea}</p>
           <p className="text-sm text-fuchsia-600 mt-1">{r.result.caption}</p>
         </Block>
@@ -248,7 +248,7 @@ function ResultView({ result, conns = {}, onRegen }) {
         <Block label="Sales script" copyText={r.result.pitch}>
           <p className="text-sm text-slate-700">{r.result.pitch}</p>
           <p className="text-xs uppercase tracking-wider text-slate-400 mt-3 mb-1">Upsells</p>
-          <ul className="text-sm text-slate-700 list-disc list-inside">{(r.result.upsells || []).map((u, i) => <li key={i}>{u}</li>)}</ul>
+          <ul className="text-sm text-slate-700 list-disc list-inside">{(r.result.upsells || []).map((u, i) => <li key={`${u.slice(0, 24)}-${i}`}>{u}</li>)}</ul>
         </Block>
       )}
 
@@ -265,8 +265,8 @@ function ResultView({ result, conns = {}, onRegen }) {
       {r.type === "leads" && (
         <Block label={`Win-back leads (${r.count})`}>
           <div className="space-y-1.5 max-h-80 overflow-y-auto">
-            {(r.winback_leads || []).map((l, i) => (
-              <div key={i} className="flex items-center justify-between text-sm border-b border-slate-100 py-1.5">
+            {(r.winback_leads || []).map((l) => (
+              <div key={l.phone || l.name} className="flex items-center justify-between text-sm border-b border-slate-100 py-1.5">
                 <span className="text-slate-700">{l.name} <span className="text-xs text-slate-400">· {l.days_since}d ago</span></span>
                 <a href={`https://wa.me/91${(l.phone || "").replace(/\D/g, "").slice(-10)}`} target="_blank" rel="noreferrer" className="text-xs text-emerald-600 font-medium">WhatsApp →</a>
               </div>
@@ -278,8 +278,8 @@ function ResultView({ result, conns = {}, onRegen }) {
 
       {r.type === "staff" && (
         <Block label={`Staff verification (${r.verified}/${r.total} in registry)`}>
-          <div className="space-y-1.5">{(r.staff || []).map((s, i) => (
-            <div key={i} className="flex items-center justify-between text-sm border-b border-slate-100 py-1.5">
+          <div className="space-y-1.5">{(r.staff || []).map((s) => (
+            <div key={s.phone || s.name} className="flex items-center justify-between text-sm border-b border-slate-100 py-1.5">
               <span className="text-slate-700">{s.name}</span>
               {s.in_registry ? <span className="text-xs text-emerald-600">✓ Verified ({s.registry_code})</span> : <span className="text-xs text-amber-600">Not in registry</span>}
             </div>))}</div>
