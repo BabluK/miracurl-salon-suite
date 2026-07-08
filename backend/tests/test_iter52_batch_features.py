@@ -72,7 +72,7 @@ class TestSmsPointsCredit:
         r = s.post(f"{API}/super-admin/tenants/{TENANT_ID}/sms-points", json={"points": 7})
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d.get("ok") is True
+        assert d.get("ok")
         assert isinstance(d.get("sms_points"), int)
         assert d["sms_points"] >= before + 7
 
@@ -144,11 +144,11 @@ class TestBillingReceipts:
         assert rec.get("email"), f"email missing: {rec}"
         if rec["email"].get("sent") is not True and any(w in str(rec["email"].get("error", "")).lower() for w in ("quota", "too many", "rate")):
             pytest.skip(f"Resend quota/rate limited: {rec['email']}")
-        assert rec["email"].get("sent") is True, f"email.sent expected True: {rec['email']}"
+        assert rec["email"].get("sent"), f"email.sent expected True: {rec['email']}"
 
         # SMS should be skipped with not_configured (Twilio not set), point refunded
         assert rec.get("sms"), f"sms missing: {rec}"
-        assert rec["sms"].get("sent") is False
+        assert not rec["sms"].get("sent")
         err = rec["sms"].get("error", "")
         # Twilio may be unconfigured (not_configured) or configured-but-undeliverable for the
         # fake test number (trial verification / daily cap). Either way checkout must not break.
@@ -173,7 +173,7 @@ class TestBillingReceipts:
         inv = self._create_invoice(s, cust, svc)
         rec = inv.get("receipts") or {}
         assert rec.get("email"), f"email missing: {rec}"
-        assert rec["email"].get("sent") is False
+        assert not rec["email"].get("sent")
         assert rec["email"].get("error") == "no_email", f"expected no_email got {rec['email']}"
 
 

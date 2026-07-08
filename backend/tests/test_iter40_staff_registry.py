@@ -59,7 +59,7 @@ class TestEmployeeCreation:
         r = mira.post(f"{BASE}/api/registry/employees", json=payload, timeout=15)
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data["ok"] is True
+        assert data["ok"]
         assert re.match(r"^STF-\d{5}$", data["staff_code"])
         _created_employees.append({"id": data["id"], "code": data["staff_code"], "aadhaar": aad, "phone": payload["phone"]})
 
@@ -228,7 +228,7 @@ class TestPublicRegistry:
         assert p["staff_code"] == "STF-00001"
         assert p["aadhaar_masked"].startswith("XXXX-XXXX-")
         # aadhaar must NOT be full
-        assert "aadhaar" not in p or (isinstance(p.get("aadhaar"), (str, type(None))) is False)
+        assert "aadhaar" not in p or (not isinstance(p.get("aadhaar"), (str, type(None))))
         for k in p.keys():
             assert k != "aadhaar_hash"
         assert p.get("badge") in ("NEW", "GOOD", "EXCELLENT", "EXTRAORDINARY", "BAD")

@@ -729,3 +729,12 @@ Tested: curl (edit fields, email-clash 400, owner email change → login works w
 3. FIX (deployment_agent BLOCKER): CORS wildcard bug — CORS_ORIGINS="*" was filtered out leaving allow_origins=[] which blocks everything. Now '*' → ["*"] (Starlette echoes origin when credentials=True).
 4. Quoted TWILIO_PHONE_NUMBER in backend/.env (leading + parse risk).
 Deployment agent re-check: status warn (cosmetic env quoting only) — READY TO DEPLOY. Verified: instant startup, db-prep steps logged done, /api/ 200, login e2e 200.
+
+## Update — Jul 8 (part 77) — Code review round 3 applied
+VERIFIED STALE/FALSE-POSITIVE (evidence): #1 undefined vars → pylint E0601/E0602/E0606 10/10 + ruff F821 clean. #2 hook deps → eslint exhaustive-deps 0 warnings (report's tool flags module imports like `api` as deps — invalid). #3 localStorage "auth tokens" → auth is httpOnly cookies; Login stores opt-in remember-email only, branch.js stores branch NAME, rest are UI prefs. #4 "empty catches" → all cited are intentional `catch { /* comment */ }` graceful degradation (private-mode localStorage, disconnected printer, invalid session); Login already logs.
+FIXED:
+1. email_service.py refactor (deferred backlog): _monthly_report_html (cx20→~5) & _weekly_report_html (cx21→~5) rebuilt on shared module helpers: _img_header_row, _growth_chip, _bar_chart_block, _stat_card, _rank_rows, _ranked_section, _report_header/_footer/_hero, _REPORT_SHELL, _weekly_highlights_block, _weekly_tip_block. Behavior verified by assertion script (growth up/down/none, chart skip-week5, escaping, empty stats).
+2. routes/registry.py: _registry_profile PII branches → _registry_pii_fields (SEC-001 redaction preserved).
+3. Tests: `is True/False` → truthy asserts (ruff E712 --fix, 51 fixed); stale test_duplicate_owner_email_rejected rewritten as test_duplicate_owner_email_links_multi_salon (multi-salon contract from part 71).
+DEFERRED (need dedicated UI regression pass): #6 component splits (AppLayout/POS/SuperAdmin/MorningBriefing), #7 hook dep counts, #9 nested ternaries (246+), #10 TypeScript migration; rzp_verify/public_signup_salon left as-is (security-critical linear flows, already partially extracted).
+Regression: 186 tests passed serially (billing 13, registry 19, multitenant+iter7 40, +8 sed-touched suites 114).

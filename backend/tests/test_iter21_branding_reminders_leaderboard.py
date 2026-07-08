@@ -63,7 +63,7 @@ class TestBranding:
         }
         r = requests.put(f"{BASE_URL}/api/settings/branding", headers=admin_h, json=payload, timeout=15)
         assert r.status_code == 200, r.text
-        assert r.json().get("ok") is True
+        assert r.json().get("ok")
         # verify persistence
         g = requests.get(f"{BASE_URL}/api/settings/branding", headers=admin_h, timeout=15).json()
         assert g["google_review_url"] == payload["google_review_url"]
@@ -144,7 +144,7 @@ class TestReminders:
         row = ours[0]
         for k in ("appointment_id", "customer_name", "customer_phone", "scheduled_at", "reminded"):
             assert k in row, f"missing {k} in reminder row"
-        assert row["reminded"] is False
+        assert not row["reminded"]
         assert row["customer_phone"]
 
     def test_mark_sent_flips_reminded(self, admin_h):
@@ -160,7 +160,7 @@ class TestReminders:
         ours = [i for i in g["items"] if i["appointment_id"] == TestReminders.APPT_ID]
         # row may either disappear (filtered) or show reminded:true — accept both
         if ours:
-            assert ours[0]["reminded"] is True
+            assert ours[0]["reminded"]
 
     def test_mark_sent_bogus_id_404(self, admin_h):
         r = requests.post(

@@ -154,7 +154,7 @@ class TestPartners:
         pub = requests.get(f"{API}/public/partners").json()
         match = next((p for p in pub if p.get("id") == tid), None)
         assert match, "tenant missing"
-        assert match.get("featured") is True
+        assert match.get("featured")
         assert match.get("blurb") == "Great partner"
         # Sort: featured first
         first_featured_idx = next((i for i, p in enumerate(pub) if p.get("featured")), None)

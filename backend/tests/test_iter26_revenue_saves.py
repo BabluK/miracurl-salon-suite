@@ -148,7 +148,7 @@ class TestSettingsTax:
         assert r.status_code == 200, r.text
         g2 = requests.get(f"{BASE_URL}/api/settings/tax", headers=_auth(admin_token), timeout=15)
         d = g2.json()
-        assert d["tax_enabled"] is True
+        assert d["tax_enabled"]
         assert d["gst_number"] == "29ABCDE1234F1Z5"
 
         # Turn OFF
@@ -156,7 +156,7 @@ class TestSettingsTax:
                           json={"tax_enabled": False}, headers=_auth(admin_token), timeout=15)
         assert r2.status_code == 200
         g3 = requests.get(f"{BASE_URL}/api/settings/tax", headers=_auth(admin_token), timeout=15)
-        assert g3.json()["tax_enabled"] is False
+        assert not g3.json()["tax_enabled"]
         # Restore
         requests.put(f"{BASE_URL}/api/settings/tax", json=orig,
                      headers=_auth(admin_token), timeout=15)

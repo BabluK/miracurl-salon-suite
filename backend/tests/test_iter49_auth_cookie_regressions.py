@@ -124,7 +124,7 @@ class TestMiraBriefings:
         body = r.json()
         assert body.get("audio_b64") and len(body["audio_b64"]) > 100
         assert body.get("text")
-        assert body.get("ask_restock") is False
+        assert not body.get("ask_restock")
         assert body.get("lang") == "en"
 
     def test_evening_briefing_audio_hi(self, admin_session):

@@ -260,7 +260,7 @@ class TestPublicBooking:
         assert isinstance(data, list) and len(data) >= 1
         # only active services
         for s in data:
-            assert s.get("active", True) is True
+            assert s.get("active", True)
             assert "id" in s and "price" in s
 
     def test_public_staff_no_auth(self):
@@ -702,12 +702,12 @@ class TestIter4ReviewHappyPath:
             pytest.skip("public review rate-limited")
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data["ok"] is True
+        assert data["ok"]
         assert data["reward"] is not None
         assert data["reward"]["code"].startswith("THANKS-")
         assert data["reward"]["credit"] == 50.0
         assert data["review"]["rating"] == 5
-        assert data["review"]["public"] is True
+        assert data["review"]["public"]
 
         # verify credit incremented
         cust_after = admin_session_iter3.get(f"{API}/customers/{customer_id}").json()
@@ -739,7 +739,7 @@ class TestIter4Review3Star:
         data = r.json()
         assert data["reward"] is None
         assert data["review"]["rating"] == 3
-        assert data["review"]["public"] is False
+        assert not data["review"]["public"]
 
         cust_after = admin_session_iter3.get(f"{API}/customers/{customer_id}").json()
         assert cust_after.get("referral_credit", 0) == credit_before
@@ -777,14 +777,14 @@ class TestIter4ReviewInfo:
         data = r.json()
         assert "customer_name" in data
         assert "service_names" in data and isinstance(data["service_names"], list)
-        assert data["already_submitted"] is False
+        assert not data["already_submitted"]
         assert data["existing_rating"] is None
 
         # submit a 4★ review and verify already_submitted flips
         requests.post(f"{API}/public/review/{appt_id}", json={"rating": 4})
         r2 = requests.get(f"{API}/public/review-info/{appt_id}")
         d2 = r2.json()
-        assert d2["already_submitted"] is True
+        assert d2["already_submitted"]
         assert d2["existing_rating"] == 4
 
         admin_session_iter3.delete(f"{API}/customers/{customer_id}")
@@ -811,7 +811,7 @@ class TestIter4FeaturedReviews:
         assert isinstance(rows, list)
         for row in rows:
             assert row["rating"] >= 4
-            assert row.get("public", True) is True
+            assert row.get("public", True)
             # PII fields stripped
             assert "customer_id" not in row
             assert "appointment_id" not in row
@@ -840,7 +840,7 @@ class TestIter4ReviewModeration:
         # toggle public=False
         m = admin_session_iter3.put(f"{API}/reviews/{rid}/moderate", json={"public": False})
         assert m.status_code == 200, m.text
-        assert m.json()["public"] is False
+        assert not m.json()["public"]
 
         # delete
         d = admin_session_iter3.delete(f"{API}/reviews/{rid}")

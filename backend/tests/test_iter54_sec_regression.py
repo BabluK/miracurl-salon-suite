@@ -260,7 +260,7 @@ class TestPinLockout:
         r8 = admin_sess.post(f"{API}/branch-switch/owner-pin",
                              json={"pin": OWNER_PIN}, timeout=10)
         assert r8.status_code == 200, f"post-cleanup correct pin failed: {r8.status_code} {r8.text}"
-        assert r8.json().get("ok") is True
+        assert r8.json().get("ok")
 
 
 # ============ REGRESSION OWNER PIN staff flows (no lockout counting) ============
@@ -316,7 +316,7 @@ class TestMiscRegression:
         r = admin_sess.get(f"{API}/sms-packs", timeout=10)
         assert r.status_code == 200
         d = r.json()
-        assert d.get("enabled") is True
+        assert d.get("enabled")
         assert "packs" in d
 
     def test_entertainment(self, admin_sess):

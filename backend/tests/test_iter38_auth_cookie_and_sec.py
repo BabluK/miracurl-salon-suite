@@ -164,7 +164,7 @@ class TestSec002CouponCap:
         d = r.json()
         # Valid response shape may vary; presence must indicate valid
         valid = d.get("valid")
-        assert valid is True or valid is None and (d.get("value") or d.get("discount_value"))
+        assert valid or valid is None and (d.get("value") or d.get("discount_value"))
 
     def test_consume_then_second_use_rejected(self, admin_session, coupon):
         # First consumption: bump used_count via direct coupons update path is not exposed,
@@ -186,7 +186,7 @@ class TestSec002CouponCap:
         r3 = requests.get(f"{BASE}/api/public/coupon-check/{SLUG}/{code}", timeout=15)
         if r3.status_code == 200:
             body = r3.json()
-            assert body.get("valid") is False, f"Exhausted coupon must be invalid: {body}"
+            assert not body.get("valid"), f"Exhausted coupon must be invalid: {body}"
         else:
             assert r3.status_code in (400, 404), r3.text
 

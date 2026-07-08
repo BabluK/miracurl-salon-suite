@@ -210,7 +210,7 @@ class TestBookingCRMLifecycle:
                          json={"status": "completed"}, headers=admin_headers, timeout=20)
         assert r.status_code == 200, r.text[:300]
         j = r.json()
-        assert j.get("crm_updated") is True
+        assert j.get("crm_updated")
         # Now the customer must appear in CRM
         c = requests.get(f"{API}/customers", headers=admin_headers,
                          params={"q": booking_context["name"]}, timeout=15)

@@ -59,14 +59,14 @@ def test_public_coupon_check_valid():
     r = requests.get(f"{BASE}/api/public/coupon-check/{SLUG}/TESTQA20")
     assert r.status_code == 200, r.text
     d = r.json()
-    assert d.get("valid") is True
+    assert d.get("valid")
     assert d.get("value") == 20 or d.get("discount_value") == 20 or "coupon" in d
 
 def test_public_coupon_check_invalid():
     r = requests.get(f"{BASE}/api/public/coupon-check/{SLUG}/WRONGCODE")
     # either 404 or valid:false
     if r.status_code == 200:
-        assert r.json().get("valid") is False
+        assert not r.json().get("valid")
     else:
         assert r.status_code in (400, 404)
 

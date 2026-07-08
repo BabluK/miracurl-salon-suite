@@ -68,7 +68,7 @@ class TestIter29BrandingAndValidators:
                          json=payload, timeout=15)
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d.get("ok") is True
+        assert d.get("ok")
         assert d["whatsapp_number"] == "919123456789"  # digits-only normalize
         assert d["phone"] == "+91 98765 43210"
 

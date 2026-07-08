@@ -216,7 +216,7 @@ class TestSuperAdmin:
         r = super_sess.get(f"{API}/super-admin/system/health")
         assert r.status_code == 200, r.text
         j = r.json()
-        assert j.get("db_ok") is True
+        assert j.get("db_ok")
 
     def test_dev_tickets_list(self, super_sess):
         r = super_sess.get(f"{API}/super-admin/dev-tickets")

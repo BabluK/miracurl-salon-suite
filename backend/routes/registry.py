@@ -204,6 +204,19 @@ def _hire_verdict(emps: list, badge: str, avg_rating, total_years: float) -> tup
     return "amber", "Average record — acceptable history, review ratings and reasons before hiring."
 
 
+def _registry_pii_fields(emp: dict, redact: bool, show_aadhaar: bool) -> dict:
+    """`redact` hides direct-contact PII on public / low-trust paths (SEC-001):
+    employment history + verdict stay visible; home addresses & contacts do not."""
+    phone = emp.get("phone") or ""
+    return {
+        "email": "" if redact else (emp.get("email") or ""),
+        "phone": (f"XXXXXX{phone[-4:]}" if phone else "") if redact else phone,
+        "aadhaar_masked": f"XXXX-XXXX-{emp.get('aadhaar_last4', '')}" if show_aadhaar else "XXXX-XXXX-XXXX",
+        "permanent_address": "" if redact else (emp.get("permanent_address") or ""),
+        "current_address": "" if redact else (emp.get("current_address") or ""),
+    }
+
+
 async def _registry_profile(emp: dict, current_only: bool = False, redact: bool = False, show_aadhaar: bool = True) -> dict:
     emps = await _raw_db.registry_employments.find(
         {"employee_id": emp["id"]}, {"_id": 0}).sort("from_date", -1).to_list(100)
@@ -216,18 +229,11 @@ async def _registry_profile(emp: dict, current_only: bool = False, redact: bool 
         emps = [e for e in emps if not e.get("to_date")]
     badge = _registry_badge(total_years, avg_rating)
     verdict, verdict_note = _hire_verdict(emps, badge, avg_rating, total_years)
-    # `redact` hides direct-contact PII on public / low-trust paths (SEC-001):
-    # employment history + verdict stay visible; home addresses & contacts do not.
-    phone = emp.get("phone") or ""
     return {
         "history_scope": "current" if current_only else "full",
         "id": emp["id"], "staff_code": emp["staff_code"], "name": emp["name"],
         "photo_url": emp.get("photo_url") or "",
-        "email": "" if redact else (emp.get("email") or ""),
-        "phone": (f"XXXXXX{phone[-4:]}" if phone else "") if redact else phone,
-        "aadhaar_masked": f"XXXX-XXXX-{emp.get('aadhaar_last4', '')}" if show_aadhaar else "XXXX-XXXX-XXXX",
-        "permanent_address": "" if redact else (emp.get("permanent_address") or ""),
-        "current_address": "" if redact else (emp.get("current_address") or ""),
+        **_registry_pii_fields(emp, redact, show_aadhaar),
         "city": emp.get("city") or "",
         "total_years": round(total_years, 1), "avg_rating": avg_rating,
         "badge": badge,

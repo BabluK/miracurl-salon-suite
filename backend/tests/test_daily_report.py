@@ -97,7 +97,7 @@ class TestDailyReport:
         )
         assert r.status_code == 200
         data = r.json()
-        assert data["is_empty"] is True
+        assert data["is_empty"]
         assert data["revenue"]["total"] == 0
         assert data["invoices"] == 0
 

@@ -105,198 +105,174 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_
 </td></tr></table>"""
 
 
-def _monthly_report_html(t: dict, month_label: str, stats: dict) -> str:
-    img = os.environ.get("MONTHLY_REPORT_IMAGE_URL") or DEFAULT_MONTHLY_IMAGE
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
-    img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Monthly Business Report" width="600" '
-               f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
+def _img_header_row(url: str, alt: str) -> str:
+    if not url:
+        return ""
+    return (f'<tr><td style="padding:0"><img src="{url}" alt="{alt}" width="600" '
+            f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>')
 
-    prev = float(stats.get("prev_revenue") or 0)
-    growth_chip = ""
-    if prev > 0:
-        pct = (stats["revenue"] - prev) / prev * 100
-        up = pct >= 0
-        growth_chip = (f'<span style="display:inline-block;margin-top:10px;background:{"#0d3321" if up else "#3a1520"};'
-                       f'color:{"#4ade80" if up else "#fb7185"};font-family:Arial,sans-serif;font-size:12px;font-weight:bold;'
-                       f'padding:5px 16px;border-radius:999px">{"▲" if up else "▼"} {abs(pct):.0f}% vs previous month</span>')
 
-    weekly = stats.get("weekly") or []
-    max_w = max(weekly) if weekly and max(weekly) > 0 else 0
-    week_labels = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"]
+def _growth_chip(current: float, prev: float, compare_label: str) -> str:
+    if prev <= 0:
+        return ""
+    pct = (current - prev) / prev * 100
+    up = pct >= 0
+    return (f'<span style="display:inline-block;margin-top:10px;background:{"#0d3321" if up else "#3a1520"};'
+            f'color:{"#4ade80" if up else "#fb7185"};font-family:Arial,sans-serif;font-size:12px;font-weight:bold;'
+            f'padding:5px 16px;border-radius:999px">{"▲" if up else "▼"} {abs(pct):.0f}% vs {compare_label}</span>')
+
+
+def _bar_chart_block(values: list, labels: list, title: str, *, label_w: int, bar_h: int, row_pad: int,
+                     skip_last_if_zero: bool = False) -> str:
+    max_v = max(values) if values and max(values) > 0 else 0
+    if not max_v:
+        return ""
     bars = ""
-    for idx, val in enumerate(weekly):
-        if idx == 4 and val == 0:
+    for idx, val in enumerate(values[:len(labels)]):
+        if skip_last_if_zero and idx == len(labels) - 1 and val == 0:
             continue
-        pct_w = int(val / max_w * 100) if max_w else 0
+        pct_w = int(val / max_v * 100)
         bars += (
-            f'<tr><td style="padding:4px 0;width:64px;font-size:11px;color:#8a8a94;font-family:Arial,sans-serif">{week_labels[idx]}</td>'
-            f'<td style="padding:4px 0"><table cellpadding="0" cellspacing="0" width="100%"><tr>'
-            f'<td style="width:{max(pct_w, 2)}%;background:linear-gradient(90deg,#d4af37,#e6c66e);border-radius:4px;height:16px;font-size:1px">&nbsp;</td>'
+            f'<tr><td style="padding:{row_pad}px 0;width:{label_w}px;font-size:11px;color:#8a8a94;font-family:Arial,sans-serif">{labels[idx]}</td>'
+            f'<td style="padding:{row_pad}px 0"><table cellpadding="0" cellspacing="0" width="100%"><tr>'
+            f'<td style="width:{max(pct_w, 2)}%;background:linear-gradient(90deg,#d4af37,#e6c66e);border-radius:4px;height:{bar_h}px;font-size:1px">&nbsp;</td>'
             f'<td style="padding-left:8px;font-size:12px;color:#2b2b33;font-family:Arial,sans-serif;white-space:nowrap"><b>&#8377;{val:,.0f}</b></td>'
             f'<td width="100%"></td></tr></table></td></tr>')
-    chart_block = (f'<tr><td style="padding:6px 36px 4px">'
-                   f'<h3 style="font-size:13px;color:#a08a4b;margin:14px 0 10px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">📊 Weekly collection</h3>'
-                   f'<table width="100%" cellpadding="0" cellspacing="0">{bars}</table></td></tr>') if max_w else ""
+    return (f'<tr><td style="padding:6px 36px 4px">'
+            f'<h3 style="font-size:13px;color:#a08a4b;margin:14px 0 10px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">{title}</h3>'
+            f'<table width="100%" cellpadding="0" cellspacing="0">{bars}</table></td></tr>')
 
-    def _stat_card(label, value):
-        return (f'<td style="background:#faf6ec;border:1px solid #ecdfc0;border-radius:12px;padding:16px 10px;text-align:center">'
-                f'<div style="font-size:10px;color:#a08a4b;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif">{label}</div>'
-                f'<div style="font-size:21px;color:#2b2b33;font-weight:bold;margin-top:5px;font-family:Georgia,serif">{value}</div></td>')
 
-    def _rank_rows(pairs):
-        medals = ["🥇", "🥈", "🥉"]
-        return "".join(
-            f'<tr><td style="padding:9px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">{medals[i] if i < 3 else ""} {html_lib.escape(str(name))}</td>'
-            f'<td style="padding:9px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;text-align:right;font-family:Arial,sans-serif"><b>&#8377;{rev:,.0f}</b></td></tr>'
-            for i, (name, rev) in enumerate(pairs))
+def _stat_card(label: str, value, *, pad: str = "16px 10px", size: int = 21) -> str:
+    return (f'<td style="background:#faf6ec;border:1px solid #ecdfc0;border-radius:12px;padding:{pad};text-align:center">'
+            f'<div style="font-size:10px;color:#a08a4b;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif">{label}</div>'
+            f'<div style="font-size:{size}px;color:#2b2b33;font-weight:bold;margin-top:5px;font-family:Georgia,serif">{value}</div></td>')
 
-    svc_rows = _rank_rows(stats["top_services"])
-    staff_rows = _rank_rows(stats["top_staff"])
-    svc_block = (f'<h3 style="font-size:13px;color:#a08a4b;margin:18px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">🏆 Top services</h3>'
-                 f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{svc_rows}</table>') if svc_rows else ""
-    staff_block = (f'<h3 style="font-size:13px;color:#a08a4b;margin:18px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">⭐ Star team members</h3>'
-                   f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{staff_rows}</table>') if staff_rows else ""
 
-    return f"""
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 40px rgba(212,175,55,.25)">
-{img_row}
-<tr><td style="background:linear-gradient(135deg,#17171f,#26202b);padding:26px 36px;text-align:center">
-  <div style="color:#e6c66e;font-size:12px;letter-spacing:4px;text-transform:uppercase">✦ &nbsp;Monthly Business Report&nbsp; ✦</div>
-  <div style="color:#ffffff;font-size:26px;margin-top:8px">{html_lib.escape(t['name'])}</div>
-  <div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">{month_label}</div>
-</td></tr>
-<tr><td style="padding:28px 36px 4px;text-align:center">
-  <div style="font-size:11px;color:#a08a4b;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">Total Collection</div>
-  <div style="font-size:40px;color:#1c1c24;font-weight:bold;margin-top:6px">&#8377;{stats['revenue']:,.0f}</div>
-  {growth_chip}
-</td></tr>
-<tr><td style="padding:20px 36px 4px">
-  <table width="100%" cellpadding="0" cellspacing="0"><tr>
-    {_stat_card("Bills", stats['invoices'])}
-    <td style="width:10px"></td>
-    {_stat_card("Avg Bill", f"&#8377;{stats['avg_bill']:,.0f}")}
-    <td style="width:10px"></td>
-    {_stat_card("New Guests", stats['new_customers'])}
-    <td style="width:10px"></td>
-    {_stat_card("Appointments", stats['appointments'])}
-  </tr></table>
-</td></tr>
-{chart_block}
-<tr><td style="padding:4px 36px 8px">
-  {svc_block}
-  {staff_block}
-</td></tr>
-<tr><td style="padding:18px 36px 26px;text-align:center">
-  <p style="margin:0;font-size:13px;color:#55555f;font-family:Arial,sans-serif;line-height:1.6">Keep shining! Mira crunched these numbers so you can plan next month with confidence ✦</p>
-</td></tr>
-<tr><td style="background:#17171f;padding:22px 36px;text-align:center">
-  <div style="color:#e6c66e;font-size:16px">✦ Miracurl ✦</div>
-  <div style="color:#8f8798;font-size:12px;margin-top:6px;font-family:Arial,sans-serif">Questions? Just reply to this email · {hq_email}</div>
-  <div style="color:#5d5766;font-size:11px;margin-top:10px;font-family:Arial,sans-serif">Sent with ♥ by Mira — your salon's AI assistant</div>
-</td></tr>
-</table>
-</td></tr></table>"""
+def _rank_rows(pairs: list) -> str:
+    medals = ["🥇", "🥈", "🥉"]
+    return "".join(
+        f'<tr><td style="padding:9px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">{medals[i] if i < 3 else ""} {html_lib.escape(str(name))}</td>'
+        f'<td style="padding:9px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;text-align:right;font-family:Arial,sans-serif"><b>&#8377;{rev:,.0f}</b></td></tr>'
+        for i, (name, rev) in enumerate(pairs))
+
+
+def _ranked_section(title: str, rows: str) -> str:
+    if not rows:
+        return ""
+    return (f'<h3 style="font-size:13px;color:#a08a4b;margin:18px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">{title}</h3>'
+            f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{rows}</table>')
+
+
+def _report_header(title: str, salon_name: str, sub_label: str, *, pad: str, name_size: int) -> str:
+    return (f'<tr><td style="background:linear-gradient(135deg,#17171f,#26202b);padding:{pad};text-align:center">'
+            f'<div style="color:#e6c66e;font-size:12px;letter-spacing:4px;text-transform:uppercase">✦ &nbsp;{title}&nbsp; ✦</div>'
+            f'<div style="color:#ffffff;font-size:{name_size}px;margin-top:8px">{html_lib.escape(salon_name)}</div>'
+            f'<div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">{sub_label}</div></td></tr>')
+
+
+def _report_footer(hq_email: str, *, pad: str = "22px 36px") -> str:
+    return (f'<tr><td style="background:#17171f;padding:{pad};text-align:center">'
+            f'<div style="color:#e6c66e;font-size:16px">✦ Miracurl ✦</div>'
+            f'<div style="color:#8f8798;font-size:12px;margin-top:6px;font-family:Arial,sans-serif">Questions? Just reply to this email · {hq_email}</div>'
+            f'<div style="color:#5d5766;font-size:11px;margin-top:10px;font-family:Arial,sans-serif">Sent with ♥ by Mira — your salon\'s AI assistant</div></td></tr>')
+
+
+def _report_hero(caption: str, amount: float, chip: str, *, pad: str, size: int) -> str:
+    return (f'<tr><td style="padding:{pad};text-align:center">'
+            f'<div style="font-size:11px;color:#a08a4b;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">{caption}</div>'
+            f'<div style="font-size:{size}px;color:#1c1c24;font-weight:bold;margin-top:6px">&#8377;{amount:,.0f}</div>'
+            f'{chip}</td></tr>')
+
+
+_REPORT_SHELL = ('<table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">'
+                 '<tr><td align="center">'
+                 '<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;'
+                 "font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 40px rgba(212,175,55,.25)\">"
+                 '{body}</table></td></tr></table>')
+
+
+def _monthly_report_html(t: dict, month_label: str, stats: dict) -> str:
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    chip = _growth_chip(stats["revenue"], float(stats.get("prev_revenue") or 0), "previous month")
+    chart = _bar_chart_block(stats.get("weekly") or [], ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"],
+                             "📊 Weekly collection", label_w=64, bar_h=16, row_pad=4, skip_last_if_zero=True)
+    cards = ('<td style="width:10px"></td>'.join([
+        _stat_card("Bills", stats["invoices"]),
+        _stat_card("Avg Bill", f"&#8377;{stats['avg_bill']:,.0f}"),
+        _stat_card("New Guests", stats["new_customers"]),
+        _stat_card("Appointments", stats["appointments"]),
+    ]))
+    body = (
+        _img_header_row(os.environ.get("MONTHLY_REPORT_IMAGE_URL") or DEFAULT_MONTHLY_IMAGE, "Monthly Business Report")
+        + _report_header("Monthly Business Report", t["name"], month_label, pad="26px 36px", name_size=26)
+        + _report_hero("Total Collection", stats["revenue"], chip, pad="28px 36px 4px", size=40)
+        + f'<tr><td style="padding:20px 36px 4px"><table width="100%" cellpadding="0" cellspacing="0"><tr>{cards}</tr></table></td></tr>'
+        + chart
+        + ('<tr><td style="padding:4px 36px 8px">'
+           + _ranked_section("🏆 Top services", _rank_rows(stats["top_services"]))
+           + _ranked_section("⭐ Star team members", _rank_rows(stats["top_staff"]))
+           + "</td></tr>")
+        + ('<tr><td style="padding:18px 36px 26px;text-align:center">'
+           '<p style="margin:0;font-size:13px;color:#55555f;font-family:Arial,sans-serif;line-height:1.6">'
+           "Keep shining! Mira crunched these numbers so you can plan next month with confidence ✦</p></td></tr>")
+        + _report_footer(hq_email)
+    )
+    return _REPORT_SHELL.format(body=body)
+
+
+def _weekly_highlights_block(stats: dict) -> str:
+    top_svc = stats["top_services"][0] if stats.get("top_services") else None
+    top_stf = stats["top_staff"][0] if stats.get("top_staff") else None
+    if not (top_svc or top_stf):
+        return ""
+    rows = ""
+    if top_svc:
+        rows += (f'<tr><td style="padding:9px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">🏆 Top service: <b>{html_lib.escape(str(top_svc[0]))}</b></td>'
+                 f'<td style="padding:9px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;text-align:right;font-family:Arial,sans-serif"><b>&#8377;{top_svc[1]:,.0f}</b></td></tr>')
+    if top_stf:
+        rows += (f'<tr><td style="padding:9px 16px;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">⭐ Star of the week: <b>{html_lib.escape(str(top_stf[0]))}</b></td>'
+                 f'<td style="padding:9px 16px;color:#2b2b33;font-size:13px;text-align:right;font-family:Arial,sans-serif"><b>&#8377;{top_stf[1]:,.0f}</b></td></tr>')
+    return (f'<tr><td style="padding:4px 36px 8px">'
+            f'<h3 style="font-size:13px;color:#a08a4b;margin:14px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">✨ Highlights</h3>'
+            f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{rows}</table></td></tr>')
+
+
+def _weekly_tip_block(tip: str) -> str:
+    if not tip:
+        return ""
+    return (f'<tr><td style="padding:4px 36px 8px">'
+            f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#17171f;border-radius:12px">'
+            f'<tr><td style="padding:16px 22px">'
+            f'<div style="font-size:11px;color:#e6c66e;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">💡 Mira\'s tip for this week</div>'
+            f'<div style="font-size:14px;color:#f0ead6;margin-top:8px;line-height:1.6;font-family:Georgia,serif">{html_lib.escape(tip)}</div>'
+            f'</td></tr></table></td></tr>')
 
 
 def _weekly_report_html(t: dict, week_label: str, stats: dict, tip: str = "") -> str:
-    img = os.environ.get("WEEKLY_REPORT_IMAGE_URL") or DEFAULT_WEEKLY_IMAGE
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
-    img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Weekly Business Snapshot" width="600" '
-               f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
-
-    prev = float(stats.get("prev_revenue") or 0)
-    growth_chip = ""
-    if prev > 0:
-        pct = (stats["revenue"] - prev) / prev * 100
-        up = pct >= 0
-        growth_chip = (f'<span style="display:inline-block;margin-top:10px;background:{"#0d3321" if up else "#3a1520"};'
-                       f'color:{"#4ade80" if up else "#fb7185"};font-family:Arial,sans-serif;font-size:12px;font-weight:bold;'
-                       f'padding:5px 16px;border-radius:999px">{"▲" if up else "▼"} {abs(pct):.0f}% vs last week</span>')
-
-    daily = stats.get("daily") or []
-    max_d = max(daily) if daily and max(daily) > 0 else 0
-    day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    bars = ""
-    for idx, val in enumerate(daily[:7]):
-        pct_w = int(val / max_d * 100) if max_d else 0
-        bars += (
-            f'<tr><td style="padding:3px 0;width:44px;font-size:11px;color:#8a8a94;font-family:Arial,sans-serif">{day_labels[idx]}</td>'
-            f'<td style="padding:3px 0"><table cellpadding="0" cellspacing="0" width="100%"><tr>'
-            f'<td style="width:{max(pct_w, 2)}%;background:linear-gradient(90deg,#d4af37,#e6c66e);border-radius:4px;height:14px;font-size:1px">&nbsp;</td>'
-            f'<td style="padding-left:8px;font-size:12px;color:#2b2b33;font-family:Arial,sans-serif;white-space:nowrap"><b>&#8377;{val:,.0f}</b></td>'
-            f'<td width="100%"></td></tr></table></td></tr>')
-    chart_block = (f'<tr><td style="padding:6px 36px 4px">'
-                   f'<h3 style="font-size:13px;color:#a08a4b;margin:14px 0 10px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">📊 Day by day</h3>'
-                   f'<table width="100%" cellpadding="0" cellspacing="0">{bars}</table></td></tr>') if max_d else ""
-
-    def _stat_card(label, value):
-        return (f'<td style="background:#faf6ec;border:1px solid #ecdfc0;border-radius:12px;padding:14px 8px;text-align:center">'
-                f'<div style="font-size:10px;color:#a08a4b;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif">{label}</div>'
-                f'<div style="font-size:19px;color:#2b2b33;font-weight:bold;margin-top:5px;font-family:Georgia,serif">{value}</div></td>')
-
-    top_svc = stats["top_services"][0] if stats.get("top_services") else None
-    top_stf = stats["top_staff"][0] if stats.get("top_staff") else None
-    highlights = ""
-    if top_svc or top_stf:
-        rows = ""
-        if top_svc:
-            rows += (f'<tr><td style="padding:9px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">🏆 Top service: <b>{html_lib.escape(str(top_svc[0]))}</b></td>'
-                     f'<td style="padding:9px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;text-align:right;font-family:Arial,sans-serif"><b>&#8377;{top_svc[1]:,.0f}</b></td></tr>')
-        if top_stf:
-            rows += (f'<tr><td style="padding:9px 16px;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">⭐ Star of the week: <b>{html_lib.escape(str(top_stf[0]))}</b></td>'
-                     f'<td style="padding:9px 16px;color:#2b2b33;font-size:13px;text-align:right;font-family:Arial,sans-serif"><b>&#8377;{top_stf[1]:,.0f}</b></td></tr>')
-        highlights = (f'<tr><td style="padding:4px 36px 8px">'
-                      f'<h3 style="font-size:13px;color:#a08a4b;margin:14px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">✨ Highlights</h3>'
-                      f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{rows}</table></td></tr>')
-
-    tip_block = ""
-    if tip:
-        tip_block = (f'<tr><td style="padding:4px 36px 8px">'
-                     f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#17171f;border-radius:12px">'
-                     f'<tr><td style="padding:16px 22px">'
-                     f'<div style="font-size:11px;color:#e6c66e;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">💡 Mira\'s tip for this week</div>'
-                     f'<div style="font-size:14px;color:#f0ead6;margin-top:8px;line-height:1.6;font-family:Georgia,serif">{html_lib.escape(tip)}</div>'
-                     f'</td></tr></table></td></tr>')
-
-    return f"""
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 40px rgba(212,175,55,.25)">
-{img_row}
-<tr><td style="background:linear-gradient(135deg,#17171f,#26202b);padding:24px 36px;text-align:center">
-  <div style="color:#e6c66e;font-size:12px;letter-spacing:4px;text-transform:uppercase">✦ &nbsp;Weekly Business Snapshot&nbsp; ✦</div>
-  <div style="color:#ffffff;font-size:24px;margin-top:8px">{html_lib.escape(t['name'])}</div>
-  <div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">{week_label}</div>
-</td></tr>
-<tr><td style="padding:26px 36px 4px;text-align:center">
-  <div style="font-size:11px;color:#a08a4b;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">Week's Collection</div>
-  <div style="font-size:36px;color:#1c1c24;font-weight:bold;margin-top:6px">&#8377;{stats['revenue']:,.0f}</div>
-  {growth_chip}
-</td></tr>
-<tr><td style="padding:18px 36px 4px">
-  <table width="100%" cellpadding="0" cellspacing="0"><tr>
-    {_stat_card("Bills", stats['invoices'])}
-    <td style="width:10px"></td>
-    {_stat_card("Avg Bill", f"&#8377;{stats['avg_bill']:,.0f}")}
-    <td style="width:10px"></td>
-    {_stat_card("New Guests", stats['new_customers'])}
-  </tr></table>
-</td></tr>
-{chart_block}
-{highlights}
-{tip_block}
-<tr><td style="padding:14px 36px 24px;text-align:center">
-  <p style="margin:0;font-size:13px;color:#55555f;font-family:Arial,sans-serif;line-height:1.6">A fresh week begins today — Mira wishes you a full appointment book ✦</p>
-</td></tr>
-<tr><td style="background:#17171f;padding:20px 36px;text-align:center">
-  <div style="color:#e6c66e;font-size:16px">✦ Miracurl ✦</div>
-  <div style="color:#8f8798;font-size:12px;margin-top:6px;font-family:Arial,sans-serif">Questions? Just reply to this email · {hq_email}</div>
-  <div style="color:#5d5766;font-size:11px;margin-top:10px;font-family:Arial,sans-serif">Sent with ♥ by Mira — your salon's AI assistant</div>
-</td></tr>
-</table>
-</td></tr></table>"""
+    chip = _growth_chip(stats["revenue"], float(stats.get("prev_revenue") or 0), "last week")
+    chart = _bar_chart_block(stats.get("daily") or [], ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                             "📊 Day by day", label_w=44, bar_h=14, row_pad=3)
+    cards = ('<td style="width:10px"></td>'.join([
+        _stat_card("Bills", stats["invoices"], pad="14px 8px", size=19),
+        _stat_card("Avg Bill", f"&#8377;{stats['avg_bill']:,.0f}", pad="14px 8px", size=19),
+        _stat_card("New Guests", stats["new_customers"], pad="14px 8px", size=19),
+    ]))
+    body = (
+        _img_header_row(os.environ.get("WEEKLY_REPORT_IMAGE_URL") or DEFAULT_WEEKLY_IMAGE, "Weekly Business Snapshot")
+        + _report_header("Weekly Business Snapshot", t["name"], week_label, pad="24px 36px", name_size=24)
+        + _report_hero("Week's Collection", stats["revenue"], chip, pad="26px 36px 4px", size=36)
+        + f'<tr><td style="padding:18px 36px 4px"><table width="100%" cellpadding="0" cellspacing="0"><tr>{cards}</tr></table></td></tr>'
+        + chart
+        + _weekly_highlights_block(stats)
+        + _weekly_tip_block(tip)
+        + ('<tr><td style="padding:14px 36px 24px;text-align:center">'
+           '<p style="margin:0;font-size:13px;color:#55555f;font-family:Arial,sans-serif;line-height:1.6">'
+           "A fresh week begins today — Mira wishes you a full appointment book ✦</p></td></tr>")
+        + _report_footer(hq_email, pad="20px 36px")
+    )
+    return _REPORT_SHELL.format(body=body)
 
 
 def _birthday_email_html(t: dict, cust_name: str, offer_text: str, booking_url: str) -> str:

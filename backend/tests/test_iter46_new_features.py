@@ -63,8 +63,8 @@ class TestSystemHealth:
         for k in ("api_ok", "db_ok", "db_latency_ms", "uptime_seconds",
                   "tenants", "users", "invoices", "open_tickets"):
             assert k in d, f"missing key: {k}"
-        assert d["api_ok"] is True
-        assert d["db_ok"] is True
+        assert d["api_ok"]
+        assert d["db_ok"]
         assert isinstance(d["tenants"], int) and d["tenants"] >= 1
         assert isinstance(d["users"], int) and d["users"] >= 1
         assert isinstance(d["uptime_seconds"], int) and d["uptime_seconds"] >= 0

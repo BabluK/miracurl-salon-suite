@@ -139,12 +139,15 @@ class TestTenantCRUD:
         r = requests.post(f"{API}/super-admin/tenants", headers=_headers(super_token), json=payload)
         assert r.status_code == 400, r.text
 
-    def test_duplicate_owner_email_rejected(self, super_token, new_tenant):
+    def test_duplicate_owner_email_links_multi_salon(self, super_token, new_tenant):
+        # Multi-salon ownership: reusing an OWNER email tags the new salon to that login.
         payload = dict(new_tenant["payload"])
         payload["slug"] = f"unique-{uuid.uuid4().hex[:6]}"
-        # same owner_email reused
         r = requests.post(f"{API}/super-admin/tenants", headers=_headers(super_token), json=payload)
-        assert r.status_code == 400, r.text
+        assert r.status_code == 200, r.text
+        out = r.json()
+        assert out.get("linked_existing_owner")
+        assert out.get("owner_salon_count", 0) >= 2
 
     def test_invalid_slug_rejected(self, super_token):
         payload = {

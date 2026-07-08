@@ -110,7 +110,7 @@ class TestManagerRBAC:
         r = s.post(f"{API}/whatsapp-requests", json=payload, timeout=15)
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d["ok"] is True
+        assert d["ok"]
         assert d["status"] == "pending"
 
 
@@ -139,7 +139,7 @@ class TestAdminWhatsAppApprovals:
         r = s.post(f"{API}/whatsapp-requests/{rid}/approve", timeout=15)
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d["ok"] is True
+        assert d["ok"]
         assert "wa_url" in d and d["wa_url"].startswith("https://wa.me/")
         assert "TEST%20approve%20message" in d["wa_url"] or "TEST+approve" in d["wa_url"] or "approve" in d["wa_url"]
 
@@ -160,7 +160,7 @@ class TestAdminWhatsAppApprovals:
         s, _ = admin_session
         r = s.post(f"{API}/whatsapp-requests/{rid}/reject", timeout=15)
         assert r.status_code == 200
-        assert r.json()["ok"] is True
+        assert r.json()["ok"]
 
         listing = s.get(f"{API}/whatsapp-requests?status=pending", timeout=15).json()
         assert not any(x["id"] == rid for x in listing)
@@ -198,7 +198,7 @@ class TestAppointmentConfirm:
         r = s.put(f"{API}/appointments/{aid}/status", json={"status": "confirmed"}, timeout=15)
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d.get("wa_request_created") is True, d
+        assert d.get("wa_request_created"), d
         assert d.get("whatsapp_url") in (None, ""), d
 
     def test_admin_confirm_returns_whatsapp_url(self, admin_session):

@@ -162,7 +162,7 @@ class TestGSTRegression:
         r = admin_sess.get(f"{API}/settings/tax")
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d.get("tax_enabled") is True, f"tax_enabled: {d}"
+        assert d.get("tax_enabled"), f"tax_enabled: {d}"
         assert float(d.get("tax_pct") or 0) == 18.0, f"tax_pct: {d}"
 
     def test_invoice_applies_18pct_tax(self, admin_sess):

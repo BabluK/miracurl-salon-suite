@@ -36,7 +36,7 @@ class TestTaxSettings:
         r = requests.get(f"{BASE_URL}/api/settings/tax", headers=admin_headers, timeout=15)
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data["tax_enabled"] is False
+        assert not data["tax_enabled"]
         assert data["tax_pct"] == 0
         assert "gst_number" in data
         assert "gst_legal_name" in data
@@ -58,7 +58,7 @@ class TestTaxSettings:
                                "gst_legal_name": "Miracurl Salon", "tax_pct": 18}, timeout=15)
         assert r.status_code == 200, r.text
         g = requests.get(f"{BASE_URL}/api/settings/tax", headers=admin_headers, timeout=15).json()
-        assert g["tax_enabled"] is True
+        assert g["tax_enabled"]
         assert g["gst_number"] == "29ABCDE1234F1Z5"
         assert g["gst_legal_name"] == "Miracurl Salon"
         assert float(g["tax_pct"]) == 18.0
@@ -126,7 +126,7 @@ class TestCleanup:
                                "gst_legal_name": "Miracurl Salon", "tax_pct": 18}, timeout=15)
         assert r.status_code == 200, r.text
         g = requests.get(f"{BASE_URL}/api/settings/tax", headers=admin_headers, timeout=15).json()
-        assert g["tax_enabled"] is True
+        assert g["tax_enabled"]
         assert g["tax_pct"] == 18
 
 

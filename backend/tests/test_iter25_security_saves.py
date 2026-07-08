@@ -109,7 +109,7 @@ class TestSaveFlows:
         assert r.status_code == 200, r.text
         # verify persisted
         g = requests.get(f"{API}/settings/tax", headers=_h(admin_token), timeout=15).json()
-        assert g["tax_enabled"] is False
+        assert not g["tax_enabled"]
 
     def test_customer_create_and_update(self, admin_token):
         payload = {"name": "TEST_iter25_customer", "phone": "+91 99999 25001"}
@@ -218,7 +218,7 @@ class TestRazorpaySecurity:
         )
         assert r.status_code == 200, f"verify failed: {r.status_code} {r.text}"
         j = r.json()
-        assert j["ok"] is True
+        assert j["ok"]
         assert j["plan"] == "half_year", f"SEC-002 BROKEN: server accepted client plan → {j}"
         # end_date ~ 183 days out
         from datetime import datetime, timezone

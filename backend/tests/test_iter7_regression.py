@@ -99,7 +99,7 @@ class TestPublicBookingRefactor:
         # Contract: appointment + summary.customer_referral_code (auto-assigned for new customer)
         assert "appointment" in d
         assert "summary" in d
-        assert d.get("is_new_customer") is True
+        assert d.get("is_new_customer")
         assert d["summary"].get("customer_referral_code"), "New customer must get an auto-referral code"
         appt = d["appointment"]
         assert appt["customer_name"] == body["customer_name"]

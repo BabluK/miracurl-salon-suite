@@ -51,7 +51,7 @@ def test_auto_checkout_stale_attendance():
         updated = coll.find_one({"id": aid})
         assert updated is not None
         assert updated.get("check_out_at") is not None, f"check_out_at not set: {updated}"
-        assert updated.get("auto_checked_out") is True, f"auto_checked_out flag not set: {updated}"
+        assert updated.get("auto_checked_out"), f"auto_checked_out flag not set: {updated}"
         assert abs(float(updated.get("hours_worked", 0)) - 12.0) < 0.01, f"hours_worked expected 12, got {updated.get('hours_worked')}"
     finally:
         coll.delete_one({"id": aid})

@@ -30,7 +30,7 @@ def admin_sess():
 def test_security_pin_status_set(admin_sess):
     r = admin_sess.get(f"{API}/settings/security-pin", timeout=10)
     assert r.status_code == 200
-    assert r.json().get("set") is True
+    assert r.json().get("set")
 
 
 def test_security_pin_change_without_current_forbidden(admin_sess):
@@ -46,10 +46,10 @@ def test_security_pin_change_with_current_ok_keep_same(admin_sess):
         timeout=10,
     )
     assert r.status_code == 200
-    assert r.json().get("ok") is True
+    assert r.json().get("ok")
     # Verify still set
     r2 = admin_sess.get(f"{API}/settings/security-pin", timeout=10)
-    assert r2.json().get("set") is True
+    assert r2.json().get("set")
 
 
 # ---------------- Owner PIN guard on staff endpoints ----------------
@@ -119,7 +119,7 @@ def test_sms_packs_catalog(admin_sess):
     r = admin_sess.get(f"{API}/sms-packs", timeout=10)
     assert r.status_code == 200
     data = r.json()
-    assert data.get("enabled") is True
+    assert data.get("enabled")
     keys = {p["key"] for p in data["packs"]}
     assert {"pack_199", "pack_499", "pack_999"}.issubset(keys)
     for p in data["packs"]:
@@ -189,7 +189,7 @@ def test_branch_switch_wrong_otp_then_right_then_replay(admin_sess, switch_reque
     r2 = admin_sess.post(f"{API}/branch-switch/verify",
                          json={"request_id": switch_request, "otp": real_otp}, timeout=10)
     assert r2.status_code == 200
-    assert r2.json().get("ok") is True
+    assert r2.json().get("ok")
     # Replay
     r3 = admin_sess.post(f"{API}/branch-switch/verify",
                          json={"request_id": switch_request, "otp": real_otp}, timeout=10)
@@ -198,7 +198,7 @@ def test_branch_switch_wrong_otp_then_right_then_replay(admin_sess, switch_reque
 
 def test_branch_switch_owner_pin_right_wrong(admin_sess):
     r = admin_sess.post(f"{API}/branch-switch/owner-pin", json={"pin": OWNER_PIN}, timeout=10)
-    assert r.status_code == 200 and r.json().get("ok") is True
+    assert r.status_code == 200 and r.json().get("ok")
     r2 = admin_sess.post(f"{API}/branch-switch/owner-pin", json={"pin": "0000"}, timeout=10)
     assert r2.status_code == 403
 
