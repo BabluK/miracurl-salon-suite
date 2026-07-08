@@ -5648,6 +5648,12 @@ api.include_router(appointments_pos_router)
 from routes.mira_studio import router as mira_studio_router  # noqa: E402 — multi-agent marketing suite
 api.include_router(mira_studio_router)
 
+from routes.social_connect import router as social_connect_router  # noqa: E402 — Meta/Google OAuth + publishing
+api.include_router(social_connect_router)
+
+from routes.mira_calendar import router as mira_calendar_router  # noqa: E402 — AI content calendar
+api.include_router(mira_calendar_router)
+
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 api.include_router(subscriptions_router)
 

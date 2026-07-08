@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import {
-  Sparkles, Send, Loader2, Copy, Image as ImageIcon, Link2, RefreshCw, Wand2,
+  Sparkles, Send, Loader2, Copy, Image as ImageIcon, Link2, RefreshCw, Wand2, Bot, CalendarDays,
 } from "lucide-react";
+import { MiraCalendar } from "@/components/MiraCalendar";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const abs = (u) => (u && u.startsWith("/api/") ? `${BACKEND}${u}` : u);
@@ -18,6 +19,7 @@ export default function MiraStudio() {
   const [reply, setReply] = useState("");
   const [pendingAgent, setPendingAgent] = useState(null);
   const [topicInput, setTopicInput] = useState("");
+  const [tab, setTab] = useState("agents");
   const endRef = useRef(null);
   const DATA_AGENTS = ["analytics", "leadfinder", "staff_verify"];
 
@@ -41,8 +43,11 @@ export default function MiraStudio() {
         const { data } = await api.get("/mira-studio/leads"); setResult({ type: "leads", ...data });
       } else if (agent === "staff_verify") {
         const { data } = await api.get("/mira-studio/staff-verification"); setResult({ type: "staff", ...data });
+      } else if (agent === "google" && conns.google_business) {
+        const { data } = await api.get("/social/google/reviews");
+        setResult({ type: "greviews", ...data });
       } else if (agent === "whatsapp" || agent === "google") {
-        const { data } = await api.post("/mira-studio/generate", { agent: agent === "google" ? "content" : "content", topic });
+        const { data } = await api.post("/mira-studio/generate", { agent: "content", topic });
         setResult({ type: "draft", agent, ...data });
       }
     } catch (e) {
@@ -89,13 +94,28 @@ export default function MiraStudio() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-2" data-testid="mira-studio-tabs">
+        <button data-testid="mira-tab-agents" onClick={() => setTab("agents")}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 ${tab === "agents" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-fuchsia-300"}`}>
+          <Bot className="w-4 h-4" /> AI Agents
+        </button>
+        <button data-testid="mira-tab-calendar" onClick={() => setTab("calendar")}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 ${tab === "calendar" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-fuchsia-300"}`}>
+          <CalendarDays className="w-4 h-4" /> Content Calendar
+        </button>
+      </div>
+
+      {tab === "calendar" && <MiraCalendar canPost={!!(conns.instagram || conns.facebook)} />}
+
+      {tab === "agents" && <>
       {/* Agent grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-testid="mira-agent-grid">
         {agents.filter(a => a.key !== "orchestrator").map(a => (
           <button key={a.key} data-testid={`agent-${a.key}`}
             disabled={busy}
             onClick={() => {
-              if (DATA_AGENTS.includes(a.key)) { setResult(null); setReply(""); runAgent(a.key, ""); }
+              if (DATA_AGENTS.includes(a.key) || (a.key === "google" && conns.google_business)) { setResult(null); setReply(""); runAgent(a.key, ""); }
               else { setPendingAgent(a); setTopicInput(msg || ""); }
             }}
             className="text-left bg-white rounded-xl border border-slate-200 p-3.5 hover:border-fuchsia-300 hover:shadow-md transition disabled:opacity-60">
@@ -141,7 +161,8 @@ export default function MiraStudio() {
         </div>
       )}
 
-      {result && <ResultView result={result} onRegen={() => runAgent(result.type === "social" ? "social" : result.agent || result.type, result.topic)} />}
+      {result && <ResultView result={result} conns={conns} onRegen={() => runAgent(result.type === "social" ? "social" : result.agent || result.type, result.topic)} />}
+      </>}
       <div ref={endRef} />
     </div>
   );
@@ -159,7 +180,7 @@ function Block({ label, children, copyText }) {
   );
 }
 
-function ResultView({ result, onRegen }) {
+function ResultView({ result, conns = {}, onRegen }) {
   const r = result;
   return (
     <div className="space-y-3" data-testid="mira-result">
@@ -185,6 +206,7 @@ function ResultView({ result, onRegen }) {
                 <a href={abs(r.image_url)} download target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-fuchsia-600"><ImageIcon className="w-3.5 h-3.5" /> Download image</a>
               </div>
             ) : <div className="bg-slate-50 rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-400 text-sm">No image generated</div>}
+            {(conns.instagram || conns.facebook) && r.image_url && <PostNowButton result={r} conns={conns} />}
           </div>
         </div>
       )}
@@ -264,6 +286,15 @@ function ResultView({ result, onRegen }) {
         </Block>
       )}
 
+      {r.type === "greviews" && (
+        <Block label={`Google reviews (${(r.reviews || []).length}${r.average_rating ? ` · avg ${r.average_rating}★` : ""})`}>
+          <div className="space-y-3 max-h-[32rem] overflow-y-auto">
+            {(r.reviews || []).map((rev) => <GReviewRow key={rev.review_id} review={rev} />)}
+            {(!r.reviews || r.reviews.length === 0) && <p className="text-sm text-slate-400 py-4 text-center">No reviews found yet ✦</p>}
+          </div>
+        </Block>
+      )}
+
       {r.type === "draft" && r.result && (
         <>
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-center gap-2">
@@ -273,6 +304,97 @@ function ResultView({ result, onRegen }) {
             <p className="text-sm text-slate-700 whitespace-pre-line">{r.result.body || r.result.title}</p>
           </Block>
         </>
+      )}
+    </div>
+  );
+}
+
+function PostNowButton({ result, conns }) {
+  const [posting, setPosting] = useState(false);
+  const [done, setDone] = useState(false);
+  const platforms = ["instagram", "facebook"].filter(p => conns[p]);
+
+  const post = async () => {
+    const p = result.posts || {};
+    const src = p.instagram || p.facebook || Object.values(p)[0] || {};
+    const caption = `${src.caption || ""}\n\n${(src.hashtags || []).join(" ")}`.trim();
+    setPosting(true);
+    try {
+      const { data } = await api.post("/social/publish", { caption, image_url: result.image_url, platforms });
+      const ok = Object.entries(data.results).filter(([, v]) => v.ok).map(([k]) => k);
+      const fail = Object.entries(data.results).filter(([, v]) => !v.ok);
+      if (ok.length) { toast.success(`Posted to ${ok.join(" + ")} 🎉`); setDone(true); }
+      fail.forEach(([k, v]) => toast.error(`${k}: ${v.error?.slice(0, 120) || "failed"}`));
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Publish failed");
+    } finally { setPosting(false); }
+  };
+
+  return (
+    <button data-testid="mira-post-now" onClick={post} disabled={posting || done}
+      className="mt-3 w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center justify-center gap-2">
+      {posting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+      {done ? "Posted ✓" : posting ? "Posting…" : `Post to ${platforms.map(pl => pl === "instagram" ? "Instagram" : "Facebook").join(" + ")}`}
+    </button>
+  );
+}
+
+function GReviewRow({ review }) {
+  const [draft, setDraft] = useState(review.reply || "");
+  const [drafting, setDrafting] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(!!review.reply);
+  const [open, setOpen] = useState(false);
+
+  const aiDraft = async () => {
+    setDrafting(true);
+    try {
+      const { data } = await api.post("/social/google/draft-reply", {
+        reviewer: review.reviewer, rating: review.rating, comment: review.comment || "",
+      });
+      setDraft(data.draft); setOpen(true);
+    } catch { toast.error("Couldn't draft a reply"); }
+    finally { setDrafting(false); }
+  };
+
+  const sendReply = async () => {
+    setSending(true);
+    try {
+      await api.post("/social/google/reviews/reply", { review_id: review.review_id, comment: draft });
+      toast.success("Reply posted to Google ✦"); setSent(true); setOpen(false);
+    } catch (e) { toast.error(e.response?.data?.detail || "Reply failed"); }
+    finally { setSending(false); }
+  };
+
+  return (
+    <div className="border-b border-slate-100 pb-3" data-testid={`greview-${review.review_id}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-slate-800">{review.reviewer}</span>
+        <span className="text-xs text-amber-500">{"★".repeat(review.rating)}{"☆".repeat(Math.max(0, 5 - review.rating))}</span>
+        {sent && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Replied</span>}
+      </div>
+      {review.comment && <p className="text-sm text-slate-600 mt-1">{review.comment}</p>}
+      {sent && !open && review.reply && <p className="text-xs text-slate-400 mt-1 italic">You: {review.reply}</p>}
+      {open ? (
+        <div className="mt-2">
+          <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={3}
+            className="w-full text-sm border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
+          <div className="flex gap-2 mt-1.5">
+            <button onClick={sendReply} disabled={sending || !draft.trim()}
+              className="text-xs px-3 py-1.5 rounded-lg bg-fuchsia-600 text-white font-medium disabled:opacity-50 inline-flex items-center gap-1">
+              {sending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Post reply
+            </button>
+            <button onClick={() => setOpen(false)} className="text-xs px-3 py-1.5 rounded-lg text-slate-500">Cancel</button>
+          </div>
+        </div>
+      ) : !sent && (
+        <div className="flex gap-2 mt-2">
+          <button onClick={aiDraft} disabled={drafting}
+            className="text-xs px-3 py-1.5 rounded-lg bg-slate-900 text-white inline-flex items-center gap-1 disabled:opacity-50">
+            {drafting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Mira, draft a reply
+          </button>
+          <button onClick={() => setOpen(true)} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500">Write my own</button>
+        </div>
       )}
     </div>
   );

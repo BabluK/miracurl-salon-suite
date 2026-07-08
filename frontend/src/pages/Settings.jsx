@@ -15,6 +15,7 @@ import { AttendanceFinesCard } from "@/components/settings/AttendanceFinesCard";
 import { SmsPacksCard } from "@/components/settings/SmsPacksCard";
 import { SecurityPinCard } from "@/components/settings/SecurityPinCard";
 import { RateMiracurlCard } from "@/components/settings/RateMiracurlCard";
+import { SocialConnectionsCard } from "@/components/settings/SocialConnectionsCard";
 
 export default function Settings() {
   return (
@@ -42,6 +43,8 @@ export default function Settings() {
         <AttendanceFinesCard />
 
         <SecurityPinCard />
+
+        <SocialConnectionsCard />
 
         <SmsPacksCard />
 

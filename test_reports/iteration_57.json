@@ -1,0 +1,23 @@
+{
+  "summary": "Iter 57 — Social OAuth infra + Mira Content Calendar. Backend 26/26 tests passed (auth guards, OAuth not-configured 400s, callback bogus-state 307 redirects to /settings?social=*_error, publish empty-caption 400, publish not-connected returns per-platform 'not connected' errors, Google reviews 400 not-connected, Google draft-reply LLM returns warm draft, calendar CRUD with invalid-status 400 / wrong-id 404 / update+delete, publish guard 400 without connections, tenant isolation between miracurl vs elegance — cross-tenant PUT returns 404 and no ID leakage, replan preserves approved items). Frontend critical flows pass: Settings social-connections-card renders Instagram+Facebook and Google Business rows, both show amber 'Setup required' text and DISABLED connect buttons; Mira Studio tabs work, agent grid renders 11 cards (regression OK), topic modal opens/closes; Content Calendar shows planned items, Plan-my-week button visible, Approve flips chip to APPROVED, 'Connect Instagram/Facebook in Settings to post directly' note shows on approved-without-connection items, inline Edit → textarea → Save persists caption, Skip removes the item.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter57_social_calendar.py",
+    "/app/test_reports/pytest/iter57.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MiraCalendar 'Skip' button calls DELETE which permanently removes the item — a soft PUT {status:'skipped'} update (backend already supports 'skipped' status and STATUS_STYLE.skipped strikethrough style is defined) would preserve audit history and let owners un-skip. The current styling for 'skipped' is unreachable dead code.",
+    "SocialConnectionsCard: OAuth-return toast is fired in a mount-only useEffect. If the OAuth callback redirects to /settings and the user was already on /settings via SPA nav (unlikely but possible), the toast won't fire. Minor edge case.",
+    "In mira_calendar.plan_week, `_raw_db.content_calendar.delete_many({..., 'status':'suggested'})` correctly preserves approved/skipped/posted — verified by test_replan_preserves_approved. Good."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "100% (all requested checks passed)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (miracurl-marathahalli); owner@elegance.com / Owner@123 (elegance-koramangala)",
+  "seed_data_creation": "During UI testing: one calendar item deleted via Skip, one caption edited to 'TESTEDITCAP-xyz789', one 'suggested' item approved. Backend tests approve/restore items in place. Replan test regenerated calendar via LLM while preserving approved items.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All new iter57 features verified. Real Meta/Google OAuth end-to-end flows can't be tested until META_APP_ID/GOOGLE_OAUTH_CLIENT_ID envs are set. If added later, cover /social/meta/select-page and callback happy-path with mocked httpx. Note: Agent card selector is [data-testid='agent-{key}'] (not agent-card-{key}).",
+  "rca of the issue": "N/A — no bugs found."
+}
