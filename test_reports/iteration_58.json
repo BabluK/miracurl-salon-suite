@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 58 — Mira Auto-Pilot full test (backend + frontend). All 9 pytest backend cases pass; all UI testids present, master toggle ON with ACTIVE badge, sub-toggles/cap input/run-now/today/copy-post/history/wa-lead buttons render, off→on toggle shows 'Auto-Pilot paused' toast, regressions on Agents (11 cards) and Calendar (manual-share buttons) intact. Autopilot left enabled:true for miracurl tenant as requested.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mira Studio header", "issues": ["Sub-header says '12 specialist agents' but grid renders 11 (pre-existing; count/text mismatch — cosmetic)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter58_autopilot.py",
+    "/app/test_reports/pytest/iter58.xml"
+  ],
+  "action_items": [
+    "Optional: update Mira Studio subheader to say '11 specialist agents' to match rendered grid (or add the 12th card if missing)."
+  ],
+  "critical_code_review_comments": [
+    "mira_autopilot.py: `_send_email` failure path silently skips insert into lead_outreach — good; but no cooldown record for failed sends means retry storms possible. Consider logging failed sends too.",
+    "run_autopilot_for_tenant: force-rerun on same-day still calls LLM only when no approved calendar item exists — good idempotency. Wa_queue is fully replaced on re-run — leads marked 'sent' in previous run keep their outreach cooldown but the queue rebuilds — expected.",
+    "AutopilotIn: `email_daily_cap` clamps to [1,50] but no clamp on `winback_days` — a user could set 0 or huge value; consider bounds (7..365).",
+    "Scheduler runs every 30 min after 10 IST; relies on autopilot_log idempotency to skip. Fine, but no per-tenant cadence check for timezone-non-IST tenants (future concern)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (slug miracurl-marathahalli); owner@elegance.com / Owner@123 (slug elegance-koramangala)",
+  "seed_data_creation": "None (used TEST_iter52 win-back leads pre-seeded by main agent).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest file /app/backend/tests/test_iter58_autopilot.py covers all autopilot endpoints including auth, cap-clamp, empty-PUT-400, activity, run-now idempotency (no duplicate calendar for today), wa-sent removal, tenant isolation. Login UI requires slow typing (delay=20) or type() — regular fill() sometimes fails due to react-hook-form controlled inputs; use data-testid='login-email-input' / 'login-password-input' / 'login-submit-btn'. Meta/Google not connected so posted_live stays false — cannot test live auto-publish path.",
+  "rca of the issue": "No unresolved bugs."
+}

@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import {
-  Sparkles, Send, Loader2, Copy, Image as ImageIcon, Link2, RefreshCw, Wand2, Bot, CalendarDays,
+  Sparkles, Send, Loader2, Copy, Image as ImageIcon, Link2, RefreshCw, Wand2, Bot, CalendarDays, Rocket,
 } from "lucide-react";
 import { MiraCalendar } from "@/components/MiraCalendar";
+import { MiraAutopilot } from "@/components/MiraAutopilot";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const abs = (u) => (u && u.startsWith("/api/") ? `${BACKEND}${u}` : u);
@@ -100,12 +101,17 @@ export default function MiraStudio() {
           className={`px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 ${tab === "agents" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-fuchsia-300"}`}>
           <Bot className="w-4 h-4" /> AI Agents
         </button>
+        <button data-testid="mira-tab-autopilot" onClick={() => setTab("autopilot")}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 ${tab === "autopilot" ? "bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-fuchsia-300"}`}>
+          <Rocket className="w-4 h-4" /> Auto-Pilot
+        </button>
         <button data-testid="mira-tab-calendar" onClick={() => setTab("calendar")}
           className={`px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 ${tab === "calendar" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-fuchsia-300"}`}>
           <CalendarDays className="w-4 h-4" /> Content Calendar
         </button>
       </div>
 
+      {tab === "autopilot" && <MiraAutopilot />}
       {tab === "calendar" && <MiraCalendar canPost={!!(conns.instagram || conns.facebook)} />}
 
       {tab === "agents" && <>
@@ -207,6 +213,7 @@ function ResultView({ result, conns = {}, onRegen }) {
               </div>
             ) : <div className="bg-slate-50 rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-400 text-sm">No image generated</div>}
             {(conns.instagram || conns.facebook) && r.image_url && <PostNowButton result={r} conns={conns} />}
+            <ManualShareRow result={r} />
           </div>
         </div>
       )}
@@ -336,6 +343,34 @@ function PostNowButton({ result, conns }) {
       {posting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
       {done ? "Posted ✓" : posting ? "Posting…" : `Post to ${platforms.map(pl => pl === "instagram" ? "Instagram" : "Facebook").join(" + ")}`}
     </button>
+  );
+}
+
+function ManualShareRow({ result }) {
+  const p = result.posts || {};
+  const cap = (plat) => {
+    const src = p[plat] || p.instagram || Object.values(p)[0] || {};
+    return `${src.caption || ""}\n\n${(src.hashtags || []).join(" ")}`.trim();
+  };
+  const openAfterCopy = (plat, url) => {
+    copy(cap(plat));
+    window.open(url, "_blank", "noopener");
+  };
+  return (
+    <div className="mt-3 bg-slate-50 rounded-xl border border-slate-200 p-3" data-testid="manual-share-row">
+      <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Post manually — caption copies automatically ✦</p>
+      <div className="flex flex-wrap gap-2">
+        <button data-testid="manual-share-instagram" onClick={() => openAfterCopy("instagram", "https://www.instagram.com/")}
+          className="text-xs px-3 py-2 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white font-medium">Instagram ↗</button>
+        <button data-testid="manual-share-facebook" onClick={() => openAfterCopy("facebook", "https://www.facebook.com/")}
+          className="text-xs px-3 py-2 rounded-lg bg-blue-600 text-white font-medium">Facebook ↗</button>
+        <button data-testid="manual-share-google" onClick={() => openAfterCopy("google", "https://business.google.com/posts")}
+          className="text-xs px-3 py-2 rounded-lg bg-slate-900 text-white font-medium">Google Business ↗</button>
+        <button data-testid="manual-share-whatsapp" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(cap("instagram"))}`, "_blank", "noopener")}
+          className="text-xs px-3 py-2 rounded-lg bg-emerald-600 text-white font-medium">WhatsApp Status ↗</button>
+      </div>
+      <p className="text-[10px] text-slate-400 mt-2">1. Tap a platform (caption is copied) → 2. Download the image above → 3. Paste &amp; post in the new tab.</p>
+    </div>
   );
 }
 

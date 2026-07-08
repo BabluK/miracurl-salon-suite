@@ -123,7 +123,14 @@ export const MiraCalendar = ({ canPost }) => {
                   </button>
                 )}
                 {it.status === "approved" && !canPost && (
-                  <span className="text-[11px] text-amber-600">Connect Instagram/Facebook in Settings to post directly</span>
+                  <>
+                    <button data-testid={`calendar-manual-ig-${it.id}`}
+                      onClick={() => { navigator.clipboard?.writeText(`${it.caption}\n\n${(it.hashtags || []).join(" ")}`); toast.success("Caption copied — paste it in Instagram ✦"); window.open("https://www.instagram.com/", "_blank", "noopener"); }}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white font-medium">Post on Instagram ↗</button>
+                    <button data-testid={`calendar-manual-fb-${it.id}`}
+                      onClick={() => { navigator.clipboard?.writeText(`${it.caption}\n\n${(it.hashtags || []).join(" ")}`); toast.success("Caption copied — paste it in Facebook ✦"); window.open("https://www.facebook.com/", "_blank", "noopener"); }}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium">Facebook ↗</button>
+                  </>
                 )}
                 {it.status !== "skipped" && <>
                 <button onClick={() => { setEditId(it.id); setEditText(it.caption); }}
