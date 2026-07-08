@@ -6,7 +6,23 @@ import { X, Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerpri
 const inputCls = "mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200";
 
 function copyText(text, label) {
-  navigator.clipboard?.writeText(text).then(() => toast.success(`${label} copied`)).catch(() => toast.error("Couldn't copy"));
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(() => toast.success(`${label} copied`)).catch(() => toast.error("Couldn't copy — long-press the text to copy manually"));
+    return;
+  }
+  // Fallback for older mobile browsers
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    toast.success(`${label} copied`);
+  } catch {
+    toast.error("Couldn't copy — long-press the text to copy manually");
+  }
+  document.body.removeChild(ta);
 }
 
 export function EditTenantModal({ tenant, onClose, onSaved }) {
@@ -86,23 +102,24 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8 p-6 space-y-5" onClick={e => e.stopPropagation()} data-testid="edit-tenant-modal">
+    <div className="fixed inset-0 z-50 flex bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg m-auto p-6 space-y-5" onClick={e => e.stopPropagation()} data-testid="edit-tenant-modal">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-800">Edit — {tenant.name}</h3>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700" data-testid="edit-tenant-close"><X className="w-5 h-5" /></button>
         </div>
 
-        {/* Unique Tenant ID */}
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2" data-testid="tenant-id-row">
+        {/* Unique Tenant ID — whole row is tap-to-copy */}
+        <button type="button" onClick={() => copyText(tenant.id, "Tenant ID")}
+          className="w-full flex items-center gap-2 bg-slate-50 hover:bg-sky-50 border border-slate-200 rounded-lg px-3 py-2 text-left cursor-pointer"
+          data-testid="tenant-id-row" title="Tap to copy Tenant ID">
           <Fingerprint className="w-4 h-4 text-fuchsia-500 shrink-0" />
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Unique Tenant ID (use this to link branches)</div>
-            <div className="font-mono text-xs text-slate-700 truncate" data-testid="tenant-id-value">{tenant.id}</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Unique Tenant ID — tap to copy</div>
+            <div className="font-mono text-xs text-slate-700 break-all" data-testid="tenant-id-value">{tenant.id}</div>
           </div>
-          <button type="button" data-testid="copy-tenant-id" onClick={() => copyText(tenant.id, "Tenant ID")}
-            className="p-1.5 text-sky-600 hover:bg-sky-50 rounded shrink-0" title="Copy Tenant ID"><Copy className="w-4 h-4" /></button>
-        </div>
+          <span className="p-1.5 text-sky-600 bg-sky-50 rounded shrink-0" data-testid="copy-tenant-id"><Copy className="w-4 h-4" /></span>
+        </button>
 
         {/* Details form */}
         <form onSubmit={save} className="space-y-3">
