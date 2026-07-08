@@ -738,3 +738,8 @@ FIXED:
 3. Tests: `is True/False` → truthy asserts (ruff E712 --fix, 51 fixed); stale test_duplicate_owner_email_rejected rewritten as test_duplicate_owner_email_links_multi_salon (multi-salon contract from part 71).
 DEFERRED (need dedicated UI regression pass): #6 component splits (AppLayout/POS/SuperAdmin/MorningBriefing), #7 hook dep counts, #9 nested ternaries (246+), #10 TypeScript migration; rzp_verify/public_signup_salon left as-is (security-critical linear flows, already partially extracted).
 Regression: 186 tests passed serially (billing 13, registry 19, multitenant+iter7 40, +8 sed-touched suites 114).
+
+## Update — Jul 8 (part 78) — make lint + EditTenantModal mobile fix
+1. NEW /app/Makefile: `make lint` (ruff backend F,E7,E9 / ruff tests / pylint undefined-vars / eslint) + `make test`. First run caught 9 unused imports (server.py, routes/reports.py, super_admin.py, scripts) — fixed via ruff --fix. All green.
+2. Production validated read-only after Publish 64: api root/frontend/public partners/manifest all 200; landing screenshot OK.
+3. BUG (user, mobile): EditTenantModal top clipped on phones (flex items-center + tall modal = unreachable top). Fixed: container plain flex + child m-auto pattern. Tenant ID card now full-width TAP-TO-COPY button, ID break-all (no truncation), clipboard fallback (execCommand) for old mobile browsers. Verified 390px viewport.
