@@ -14,7 +14,7 @@ import hmac
 import asyncio
 import base64
 import html as html_lib
-from email_service import _send_email, _welcome_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html, _lead_alert_email_html, _platform_digest_html
+from email_service import _send_email, _welcome_email_html, _credentials_email_html, _monthly_report_html, _weekly_report_html, _birthday_email_html, _lead_alert_email_html, _platform_digest_html
 from services.pdf import _render_salary_slip_pdf, _build_registry_pdf, _render_resume_pdf
 import hashlib
 import logging
@@ -105,6 +105,11 @@ class TenantUpdateIn(BaseModel):
     google_review_url: Optional[str] = None
     plan: Optional[str] = None
     status: Optional[str] = None
+    salon_email: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    owner_name: Optional[str] = None
+    owner_email: Optional[str] = None
+    owner_phone: Optional[str] = None
 
 async def resolve_tenant_from_slug(slug: str) -> dict:
     """For PUBLIC endpoints that take slug in the URL path."""
@@ -4051,11 +4056,126 @@ async def get_tenant(tid: str, user=Depends(require_super_admin)):
 
 @api.put("/super-admin/tenants/{tid}")
 async def update_tenant(tid: str, body: TenantUpdateIn, user=Depends(require_super_admin)):
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
     upd = {k: v for k, v in body.model_dump().items() if v is not None}
     if not upd:
         raise HTTPException(400, "No fields to update")
+    for f in ("owner_email", "salon_email"):
+        if f in upd:
+            upd[f] = upd[f].strip().lower()
+
+    old_email = (t.get("owner_email") or "").lower()
+    if upd.get("owner_email") and upd["owner_email"] != old_email:
+        new_email = upd["owner_email"]
+        if await db.users.find_one({"email": new_email}):
+            raise HTTPException(400, "That email is already used by another login — pick a different one.")
+        owner = await db.users.find_one({"email": old_email, "role": "admin"})
+        if owner:
+            await db.users.update_one({"id": owner["id"]}, {"$set": {"email": new_email}})
+            # Keep every salon of this owner consistent (multi-salon logins share one email)
+            await db.tenants.update_many({"owner_email": old_email}, {"$set": {"owner_email": new_email}})
+
     await db.tenants.update_one({"id": tid}, {"$set": upd})
     return await db.tenants.find_one({"id": tid}, {"_id": 0})
+
+
+@api.post("/super-admin/tenants/{tid}/resend-credentials")
+async def resend_owner_credentials(tid: str, user=Depends(require_super_admin)):
+    """Reset the owner's password to a fresh temp one and email the new credentials.
+    Owner must change it on first login. Affects ALL salons sharing this login."""
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    owner_email = (t.get("owner_email") or "").lower()
+    owner = await db.users.find_one({"email": owner_email, "role": "admin"})
+    if not owner:
+        raise HTTPException(404, "No owner (admin) login found for this salon's owner email")
+    temp_pw = _generate_temp_password()
+    await db.users.update_one({"id": owner["id"]}, {"$set": {
+        "password_hash": hash_pw(temp_pw), "must_change_password": True, "disabled": False,
+        "password_changed_at": datetime.now(timezone.utc).isoformat()}})
+    recipients = [owner_email]
+    if t.get("salon_email") and t["salon_email"].lower() not in recipients:
+        recipients.append(t["salon_email"].lower())
+    email_status = await _send_email(
+        recipients, f"🔑 Your new Miracurl login credentials — {t['name']}",
+        _credentials_email_html(t["name"], owner_email, temp_pw))
+    owned = set(owner.get("tenant_ids") or [])
+    if owner.get("tenant_id"):
+        owned.add(owner["tenant_id"])
+    return {"ok": True, "temp_password": temp_pw, "owner_email": owner_email,
+            "email_recipients": recipients, "email_status": email_status,
+            "affects_salons": max(len(owned), 1)}
+
+
+class BranchLinkIn(BaseModel):
+    branch_tenant_id: str
+
+
+@api.post("/super-admin/tenants/{tid}/link-branch")
+async def link_branch(tid: str, body: BranchLinkIn, user=Depends(require_super_admin)):
+    """Link ANOTHER salon (by its unique Tenant ID) to THIS salon's owner login.
+    Works even when the two salons were created with different owner emails."""
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1, "name": 1, "owner_email": 1})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    bid = body.branch_tenant_id.strip()
+    if bid == tid:
+        raise HTTPException(400, "A salon can't be linked to itself")
+    branch = await db.tenants.find_one({"id": bid}, {"_id": 0, "id": 1, "name": 1, "slug": 1})
+    if not branch:
+        raise HTTPException(404, f"No salon found with Tenant ID '{bid}' — double-check the ID")
+    owner = await db.users.find_one({"email": (t.get("owner_email") or "").lower(), "role": "admin"})
+    if not owner:
+        raise HTTPException(404, "No owner (admin) login found for this salon")
+    owned = set(owner.get("tenant_ids") or [])
+    if owner.get("tenant_id"):
+        owned.add(owner["tenant_id"])
+    if bid in owned:
+        raise HTTPException(400, f"'{branch['name']}' is already linked to this owner")
+    await db.users.update_one({"id": owner["id"]}, {"$addToSet": {"tenant_ids": bid}})
+    if not owner.get("tenant_ids"):  # ensure primary is also in the array for consistency
+        await db.users.update_one({"id": owner["id"]}, {"$addToSet": {"tenant_ids": owner.get("tenant_id")}})
+    return {"ok": True, "linked": {"id": branch["id"], "name": branch["name"], "slug": branch["slug"]},
+            "owner_email": owner["email"], "total_salons": len(owned) + 1}
+
+
+@api.post("/super-admin/tenants/{tid}/unlink-branch")
+async def unlink_branch(tid: str, body: BranchLinkIn, user=Depends(require_super_admin)):
+    """Remove a linked branch from this salon's owner login (cannot remove the active salon)."""
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1, "owner_email": 1})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    owner = await db.users.find_one({"email": (t.get("owner_email") or "").lower(), "role": "admin"})
+    if not owner:
+        raise HTTPException(404, "No owner (admin) login found for this salon")
+    bid = body.branch_tenant_id.strip()
+    if bid == owner.get("tenant_id"):
+        raise HTTPException(400, "Can't unlink the owner's currently active salon — switch their active salon first")
+    await db.users.update_one({"id": owner["id"]}, {"$pull": {"tenant_ids": bid}})
+    return {"ok": True, "unlinked": bid}
+
+
+@api.get("/super-admin/tenants/{tid}/linked-branches")
+async def linked_branches(tid: str, user=Depends(require_super_admin)):
+    """All salons linked to this salon's owner login (for the edit modal)."""
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1, "owner_email": 1})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    owner = await db.users.find_one({"email": (t.get("owner_email") or "").lower(), "role": "admin"})
+    if not owner:
+        return {"owner_found": False, "salons": []}
+    owned = set(owner.get("tenant_ids") or [])
+    if owner.get("tenant_id"):
+        owned.add(owner["tenant_id"])
+    salons = await db.tenants.find(
+        {"id": {"$in": list(owned)}},
+        {"_id": 0, "id": 1, "name": 1, "slug": 1, "location": 1, "status": 1}).sort("name", 1).to_list(20)
+    for s in salons:
+        s["active_for_owner"] = s["id"] == owner.get("tenant_id")
+    return {"owner_found": True, "owner_email": owner["email"], "salons": salons}
 
 
 # ---------------- Trusted Partners (public profile of the platform) ----------------

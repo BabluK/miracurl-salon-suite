@@ -37,6 +37,30 @@ async def _send_email(to: list, subject: str, html: str, attachments: list | Non
         return {"sent": False, "error": str(e)[:300]}
 
 
+def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> str:
+    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/login"
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px">
+        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Updated login credentials</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        <p>Hello,</p>
+        <p>Your login credentials for <b>{salon_name}</b> were reset by Miracurl HQ. Use these to sign in — you'll be asked to set a new password on first login.</p>
+        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:15px">
+          👤 <b>Login email:</b> {owner_email}<br/><br/>
+          🔑 <b>Temp password:</b> <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:3px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{temp_pw}</span>
+        </div>
+        <p style="text-align:center;margin:24px 0">
+          <a href="{login_url}" style="background:#1c1c22;color:#d4af37;text-decoration:none;padding:12px 34px;border-radius:999px;font-weight:bold">Log in now →</a>
+        </p>
+        <p style="font-size:12px;color:#888">If you did not request this change, contact Miracurl HQ immediately at {hq_email}.</p>
+      </div>
+    </div>"""
+
+
 def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "") -> str:
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/login"
     img = poster_url or os.environ.get("WELCOME_IMAGE_URL", "")
@@ -369,9 +393,9 @@ def _platform_digest_html(stats: dict) -> str:
                     f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{trials}</table></td></tr>') if trials else ""
 
     leads = ""
-    for l in stats.get("recent_leads", [])[:5]:
-        leads += (f'<tr><td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">🔥 {html_lib.escape(l["name"])}</td>'
-                  f'<td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#55555f;font-size:12px;text-align:right;font-family:Arial,sans-serif">{html_lib.escape(l["phone"])}</td></tr>')
+    for ld in stats.get("recent_leads", [])[:5]:
+        leads += (f'<tr><td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">🔥 {html_lib.escape(ld["name"])}</td>'
+                  f'<td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#55555f;font-size:12px;text-align:right;font-family:Arial,sans-serif">{html_lib.escape(ld["phone"])}</td></tr>')
     leads_block = (f'<tr><td style="padding:6px 36px 4px"><h3 style="font-size:13px;color:#a08a4b;margin:14px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">🔥 New leads (last 7 days)</h3>'
                    f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{leads}</table></td></tr>') if leads else ""
 

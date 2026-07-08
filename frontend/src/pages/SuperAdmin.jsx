@@ -3,12 +3,13 @@ import log from "@/lib/log";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
 import { SmsCreditLog } from "@/components/superadmin/SmsCreditLog";
 import { PartnersPanel } from "@/components/superadmin/PartnersPanel";
+import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
 import { Handshake } from "lucide-react";
 import { setActAsSalon } from "@/lib/api";
 import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
@@ -61,6 +62,7 @@ export default function SuperAdmin() {
     } finally { setSendingWeekly(false); }
   }
   const [open, setOpen] = useState(false);
+  const [editFor, setEditFor] = useState(null); // tenant being edited
   const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [tab, setTab] = useState("tenants"); // tenants | billing
   const [statusFilter, setStatusFilter] = useState("all");
@@ -411,6 +413,7 @@ export default function SuperAdmin() {
                   <td>
                     <div className="flex items-center gap-1 justify-end">
                       <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
+                      <button data-testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit salon details, credentials & branch links" className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>
                       <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
                       <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />
                       <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -503,6 +506,14 @@ export default function SuperAdmin() {
           tenant={importFor}
           onClose={() => setImportFor(null)}
           onDone={load}
+        />
+      )}
+
+      {editFor && (
+        <EditTenantModal
+          tenant={editFor}
+          onClose={() => setEditFor(null)}
+          onSaved={async () => { setEditFor(null); await load(); }}
         />
       )}
 
