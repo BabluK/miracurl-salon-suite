@@ -5645,6 +5645,9 @@ api.include_router(registry_router)
 from routes.appointments_pos import router as appointments_pos_router  # noqa: E402
 api.include_router(appointments_pos_router)
 
+from routes.mira_studio import router as mira_studio_router  # noqa: E402 — multi-agent marketing suite
+api.include_router(mira_studio_router)
+
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 api.include_router(subscriptions_router)
 

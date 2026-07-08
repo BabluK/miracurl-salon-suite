@@ -24,6 +24,7 @@ import SignupSalon from "@/pages/SignupSalon";
 import Landing from "@/pages/Landing";
 import Settings from "@/pages/Settings";
 import Assistant from "@/pages/Assistant";
+import MiraStudio from "@/pages/MiraStudio";
 import ReferEarn from "@/pages/ReferEarn";
 import StaffPortal from "@/pages/StaffPortal";
 import StaffBankDetails from "@/pages/StaffBankDetails";
@@ -147,6 +148,7 @@ export default function App() {
               <Route path="refer" element={<OwnerOnly><ReferEarn /></OwnerOnly>} />
               <Route path="reports" element={<OwnerOnly><Reports /></OwnerOnly>} />
               <Route path="assistant" element={<OwnerOnly><Assistant /></OwnerOnly>} />
+              <Route path="mira-studio" element={<OwnerOnly><MiraStudio /></OwnerOnly>} />
               <Route path="gallery" element={<OwnerOnly><Gallery /></OwnerOnly>} />
               <Route path="entertainment" element={<AdminOnly><Entertainment /></AdminOnly>} />
               <Route path="messages" element={<OwnerOnly><Messages /></OwnerOnly>} />
