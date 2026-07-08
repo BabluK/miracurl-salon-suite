@@ -168,9 +168,24 @@ export default function SuperAdmin() {
   }
 
   async function deleteTenant(t) {
-    if (!window.confirm(`Cancel subscription for ${t.name}? Their account will be disabled.`)) return;
+    if (!window.confirm(`Cancel subscription for ${t.name}? Their account will be disabled (data kept — reversible via Reactivate).`)) return;
     try { await api.delete(`/super-admin/tenants/${t.id}`); toast.success("Tenant cancelled"); load(); }
     catch (err) { toast.error("Delete failed"); }
+  }
+
+  async function permanentDeleteTenant(t) {
+    const typed = window.prompt(
+      `⚠️ PERMANENT DELETE — "${t.name}"\n\nThis erases the salon and ALL its data (customers, invoices, staff, bookings, logins). This CANNOT be undone.\n\nType the salon's slug to confirm:\n${t.slug}`);
+    if (typed === null) return;
+    if (typed.trim() !== t.slug) { toast.error("Slug didn't match — deletion cancelled"); return; }
+    try {
+      const { data } = await api.delete(`/super-admin/tenants/${t.id}/permanent?confirm=${encodeURIComponent(t.slug)}`);
+      const n = Object.values(data.records_removed || {}).reduce((a, b) => a + b, 0);
+      toast.success(`"${data.deleted_salon}" permanently deleted (${n} records removed)`);
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Permanent delete failed");
+    }
   }
 
   async function creditSms(t) {
@@ -424,6 +439,7 @@ export default function SuperAdmin() {
                       <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
                       <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />
                       <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button data-testid={`permanent-delete-tenant-${t.id}`} onClick={() => permanentDeleteTenant(t)} title="Permanently delete (erase all data — irreversible)" className="p-1.5 text-slate-400 hover:text-white hover:bg-red-600 rounded"><Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
                     </div>
                   </td>
                 </tr>

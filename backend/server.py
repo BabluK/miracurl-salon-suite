@@ -4371,6 +4371,55 @@ async def delete_tenant(tid: str, user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+# Every tenant-scoped collection — kept in sync with TenantCollection usage in database.py
+_TENANT_SCOPED_COLLECTIONS = [
+    "advances", "appointments", "attendance", "branch_switch_requests", "chat_messages",
+    "chat_threads", "coupons", "customer_memberships", "customer_packages", "customers",
+    "entertainment_playlists", "feedback", "gallery", "invoices", "leave_requests",
+    "memberships", "packages", "products", "reviews", "services", "sms_pack_payments",
+    "staff", "staff_resumes", "vendors", "whatsapp_requests",
+    # non-TenantCollection but tenant-keyed
+    "subscriptions", "subscription_payments", "pin_attempts", "partner_overrides",
+]
+
+
+@api.delete("/super-admin/tenants/{tid}/permanent")
+async def permanent_delete_tenant(tid: str, request: Request, user=Depends(require_super_admin)):
+    """HARD delete: wipes the salon and ALL its data (customers, invoices, staff, bookings,
+    subscriptions, logins…). Irreversible. Requires ?confirm=<exact slug> to prevent mistakes.
+    Intended for removing test/demo salons."""
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    confirm = request.query_params.get("confirm", "")
+    if confirm != t.get("slug"):
+        raise HTTPException(400, f"Type the salon's exact slug '{t.get('slug')}' to confirm permanent deletion.")
+
+    deleted: dict = {}
+    for coll in _TENANT_SCOPED_COLLECTIONS:
+        res = await _raw_db[coll].delete_many({"tenant_id": tid})
+        if res.deleted_count:
+            deleted[coll] = res.deleted_count
+
+    # Users: remove logins whose ONLY salon is this one; unlink it from multi-salon owners.
+    async for u in _raw_db.users.find({"$or": [{"tenant_id": tid}, {"tenant_ids": tid}]}, {"_id": 0, "id": 1, "tenant_id": 1, "tenant_ids": 1, "role": 1}):
+        others = [x for x in (u.get("tenant_ids") or []) if x != tid]
+        if u.get("role") == "super_admin" or (u.get("tenant_id") and u["tenant_id"] != tid) or others:
+            # Multi-salon owner / super-admin: just unlink this branch, keep the login.
+            new_active = u["tenant_id"] if (u.get("tenant_id") and u["tenant_id"] != tid) else (others[0] if others else None)
+            await _raw_db.users.update_one({"id": u["id"]},
+                {"$pull": {"tenant_ids": tid}, "$set": {"tenant_id": new_active}})
+        else:
+            await _raw_db.users.delete_one({"id": u["id"]})
+            deleted["users"] = deleted.get("users", 0) + 1
+
+    await _raw_db.tenants.delete_one({"id": tid})
+    deleted["tenants"] = 1
+    logging.getLogger("super_admin").warning(
+        "PERMANENT DELETE tenant %s (%s) by %s — %s", tid, t.get("slug"), user["email"], deleted)
+    return {"ok": True, "deleted_salon": t.get("name"), "records_removed": deleted}
+
+
 @api.post("/super-admin/tenants/{tid}/reactivate")
 async def reactivate_tenant(tid: str, user=Depends(require_super_admin)):
     """Re-onboard a cancelled salon: restore access (7-day grace trial), issue a

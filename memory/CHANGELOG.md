@@ -791,3 +791,9 @@ NOTE: test_book_public_flow::test_full_booking_flow fails on customer_referral_c
 2. NEW GET /super-admin/security/login-attempts: parses login_attempts (identifier "ip:email") → recent failed activity, locked_now count, policy. POST /super-admin/security/clear-lockout {identifier} for manual unlock (genuine owner forgot password).
 3. NEW SecurityCard.jsx + "Security" tab in SuperAdmin HQ: dark card, policy summary + locked-now count, per-row IP/email/fail-count/time-ago, red highlight + Unlock button for active locks, "watched" for expired, refresh.
 Tested: curl (seed 5-fail lockout → locked_now:1, clear → 0), UI screenshot (locked hacker@evil.com w/ Unlock + watched rows). make lint green. Test lockouts cleaned.
+
+## Update — Jul 8 (part 87) — Permanent tenant delete (test-salon cleanup)
+1. Clarified to user: preview & production are SEPARATE databases; test tenants don't cross over. "abhi/kolhapur" was created on prod.
+2. NEW DELETE /super-admin/tenants/{tid}/permanent?confirm=<slug> (server.py): HARD delete. Wipes all 26 tenant-scoped collections (customers, invoices, appointments, staff, subscriptions, sms_pack_payments, pin_attempts, partner_overrides…) by tenant_id, plus owner users (single-salon → deleted; multi-salon/super_admin → unlink branch + reassign active tenant_id). Requires exact slug in ?confirm= (400 otherwise). Logs warning w/ record counts. Existing soft delete (cancel) unchanged.
+3. Frontend SuperAdmin: 2nd trash button per row (bold, red-fill hover) → prompt requiring typed slug → permanentDeleteTenant → toast with records removed.
+Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete removes {customers:1,users:1,tenants:1} → tenant gone from list + owner login 401. make lint green.
