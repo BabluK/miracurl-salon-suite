@@ -9,8 +9,9 @@ import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
 import { SmsCreditLog } from "@/components/superadmin/SmsCreditLog";
 import { PartnersPanel } from "@/components/superadmin/PartnersPanel";
+import { SecurityCard } from "@/components/superadmin/SecurityCard";
 import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
-import { Handshake } from "lucide-react";
+import { Handshake, ShieldAlert } from "lucide-react";
 import { setActAsSalon } from "@/lib/api";
 import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
 import EngineerPanel from "@/components/EngineerPanel";
@@ -280,6 +281,11 @@ export default function SuperAdmin() {
             onClick={() => setTab("onboarding")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "onboarding" ? "border-fuchsia-500 text-fuchsia-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           ><Sparkles className="w-4 h-4" /> Onboarding Image</button>
+          <button
+            data-testid="super-tab-security"
+            onClick={() => setTab("security")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "security" ? "border-red-500 text-red-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><ShieldAlert className="w-4 h-4" /> Security</button>
         </div>
 
         {(() => {
@@ -293,6 +299,7 @@ export default function SuperAdmin() {
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
             engineer: <EngineerPanel />,
             onboarding: <OnboardingStudio tenants={tenants} />,
+            security: <SecurityCard />,
           };
           return panels[tab];
         })() || (

@@ -785,3 +785,9 @@ Tested: curl full cycle (Priya+login MH→WF: staff lists + PUBLIC booking porta
 3. Verified Emergent infra = 3 trusted hops (Cloudflare→LB→ingress); real client IP is always what CF appends regardless of injected header. Default TRUSTED_PROXY_COUNT=3, env-overridable.
 Tested: unit (spoof/legit/multi-hop → correct IP), live curl (injected 6.6.6.6 ignored), brute-force with rotating XFF now LOCKS at attempt 6 (was: never). 37 security/auth tests pass. make lint green.
 NOTE: test_book_public_flow::test_full_booking_flow fails on customer_referral_code=None — PRE-EXISTING (fails identically on git stash), unrelated to this change.
+
+## Update — Jul 8 (part 86) — HQ Security card (login-attempt visibility)
+1. Lockout policy (platform-wide, all tenants): 5 failed attempts per account+IP → 15-min lock (routes/auth.py). Reset on success.
+2. NEW GET /super-admin/security/login-attempts: parses login_attempts (identifier "ip:email") → recent failed activity, locked_now count, policy. POST /super-admin/security/clear-lockout {identifier} for manual unlock (genuine owner forgot password).
+3. NEW SecurityCard.jsx + "Security" tab in SuperAdmin HQ: dark card, policy summary + locked-now count, per-row IP/email/fail-count/time-ago, red highlight + Unlock button for active locks, "watched" for expired, refresh.
+Tested: curl (seed 5-fail lockout → locked_now:1, clear → 0), UI screenshot (locked hacker@evil.com w/ Unlock + watched rows). make lint green. Test lockouts cleaned.

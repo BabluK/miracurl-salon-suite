@@ -37,6 +37,45 @@ class SuperProfileIn(BaseModel):
         return v
 
 
+@router.get("/super-admin/security/login-attempts")
+async def security_login_attempts(user=Depends(require_super_admin)):
+    """Recent failed-login activity across the platform (for the HQ Security card).
+    Lockout policy: 5 failed attempts on the same account+IP → 15-minute lock.
+    identifier is stored as 'ip:email'."""
+    now = datetime.now(timezone.utc)
+    rows = await _raw_db.login_attempts.find({}, {"_id": 0}).sort("last_attempt", -1).to_list(100)
+    out = []
+    locked_now = 0
+    for r in rows:
+        ident = r.get("identifier", "")
+        ip, _, email = ident.partition(":")
+        locked_until = r.get("locked_until")
+        is_locked = bool(locked_until and r.get("count", 0) >= 5
+                         and datetime.fromisoformat(locked_until) > now)
+        if is_locked:
+            locked_now += 1
+        out.append({
+            "identifier": ident,
+            "ip": ip or "—", "email": email or ident,
+            "count": r.get("count", 0),
+            "last_attempt": r.get("last_attempt"),
+            "locked_until": locked_until if is_locked else None,
+            "locked": is_locked,
+        })
+    return {"policy": {"max_attempts": 5, "lock_minutes": 15},
+            "locked_now": locked_now, "total_tracked": len(out), "attempts": out}
+
+
+@router.post("/super-admin/security/clear-lockout")
+async def security_clear_lockout(body: dict, user=Depends(require_super_admin)):
+    """Manually clear a lockout (e.g. a genuine owner who forgot their password)."""
+    ident = (body or {}).get("identifier", "").strip()
+    if not ident:
+        raise HTTPException(400, "identifier required")
+    r = await _raw_db.login_attempts.delete_one({"identifier": ident})
+    return {"ok": True, "cleared": r.deleted_count}
+
+
 @router.put("/super-admin/profile")
 async def update_super_profile(body: SuperProfileIn, user=Depends(require_super_admin)):
     await db.users.update_one(
