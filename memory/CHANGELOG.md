@@ -843,3 +843,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 
 ## Jul 9, 2026
 - Dashboard Background Animation (user request): added `DashboardAurora` component — 3 flowing aurora ribbons (gold/rose/sky, blurred radial gradients) + 22 twinkling drifting sparkles. Scoped to main Dashboard page only (per user choice). Pure CSS keyframes in index.css (`dash-flow-*`, `dash-sparkle-twinkle`), respects prefers-reduced-motion, pointer-events-none, -z-10 with `isolate` on dashboard root. Verified via authenticated screenshot (layer + 22 sparkles present, no layout breakage).
+
+## Jul 9, 2026 (branding)
+- New Rose-Gold "curl swirl" brand logo (AI-generated, user-approved). Assets: /app/frontend/public/brand/miracurl-rosegold-{icon,full}.png (chroma-keyed to true transparency).
+- BrandMark.jsx rewritten: swirl icon image (float + sparkle) replaces scissors pill; sub-label now "AI Salon Suite" with gradient AI tag; CURL wordmark shimmer recolored rose-gold.
+- Login page rebranded rose-gold: blobs, button gradient (rose→pink→amber), rose input fields/links, "✦ AI Powered Salon Suite ✦" tagline, gold sparkles.
+- Favicon + all PWA icons regenerated: consumer (cream bg), admin (dark bg), maskable 60% safe-zone, apple-touch-icon, favicon.svg (embedded PNG). All verified 200.

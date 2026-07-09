@@ -156,14 +156,14 @@ export default function Login() {
                     checked={remember}
                     onChange={(e) => setRemember(e.target.checked)}
                     data-testid="login-remember-checkbox"
-                    className="w-4 h-4 rounded border-slate-300 text-sky-500 focus:ring-sky-300"
+                    className="w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-300"
                   />
                   Remember my email
                 </label>
                 <button
                   type="button"
                   onClick={() => { setMode("forgot"); setErr(""); }}
-                  className="text-sm text-sky-500 hover:text-sky-600 underline-offset-4 hover:underline transition"
+                  className="text-sm text-rose-500 hover:text-rose-600 underline-offset-4 hover:underline transition"
                   data-testid="forgot-password-link"
                 >
                   Forgot Password
@@ -193,14 +193,14 @@ export default function Login() {
               </a>
               <span className="block mt-2 text-xs text-slate-400">
                 Already work at a salon?{" "}
-                <button onClick={() => { setMode("signup"); setErr(""); }} className="text-sky-500 hover:text-sky-600 font-medium" data-testid="show-signup-btn">
+                <button onClick={() => { setMode("signup"); setErr(""); }} className="text-rose-500 hover:text-rose-600 font-medium" data-testid="show-signup-btn">
                   Create a staff account
                 </button>
               </span>
             </p>
           ) : (
             <p className="text-center text-sm text-slate-500 mt-8">
-              <button onClick={() => { setMode("login"); setErr(""); }} className="text-sky-500 hover:text-sky-600 font-medium" data-testid="back-to-login-btn">
+              <button onClick={() => { setMode("login"); setErr(""); }} className="text-rose-500 hover:text-rose-600 font-medium" data-testid="back-to-login-btn">
                 ← Back to sign in
               </button>
             </p>
