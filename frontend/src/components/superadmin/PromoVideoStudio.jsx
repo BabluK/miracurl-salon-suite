@@ -11,6 +11,8 @@ export const PromoVideoStudio = () => {
   const [mode, setMode] = useState("feature_tour");
   const [focus, setFocus] = useState("Staff Verification Portal — hire trusted, verified staff");
   const [language, setLanguage] = useState("en");
+  const [size, setSize] = useState("reel");
+  const [express, setExpress] = useState(true);
   const [job, setJob] = useState(null);
   const [videos, setVideos] = useState([]);
   const pollRef = useRef(null);
@@ -20,7 +22,7 @@ export const PromoVideoStudio = () => {
 
   const generate = async () => {
     try {
-      const { data } = await api.post("/super/promo-video", { photo_url: photo || null, mode, focus, language });
+      const { data } = await api.post("/super/promo-video", { photo_url: photo || null, mode, focus, language, size, express });
       setJob({ id: data.job_id, status: "generating", progress: "Mira is writing the script…" });
       pollRef.current = setInterval(async () => {
         const { data: st } = await api.get(`/super/promo-video/${data.job_id}`);
@@ -44,7 +46,7 @@ export const PromoVideoStudio = () => {
         <div className="w-10 h-10 rounded-xl bg-slate-900 text-amber-300 flex items-center justify-center"><Clapperboard className="w-5 h-5" /></div>
         <div>
           <h2 className="text-lg font-semibold text-slate-800">Promo Video Studio</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Mira generates an HD Instagram reel (1080×1920) promoting Miracurl Suite — script, voiceover, visuals & captions. Download & post to get software leads.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Mira generates an HD promo video with your logo — script, voiceover, visuals & captions. Pick size & speed, download and post to get software leads.</p>
         </div>
       </div>
 
@@ -71,6 +73,29 @@ export const PromoVideoStudio = () => {
           <input value={focus} onChange={e => setFocus(e.target.value)} data-testid="promo-focus-input"
             className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
           </>}
+          <p className="text-xs font-semibold text-slate-600 mt-4 mb-1.5">Video size</p>
+          <div className="flex gap-2">
+            {[["reel", "Reel 9:16", "Instagram / Shorts"], ["square", "Square 1:1", "Feed post"], ["landscape", "Wide 16:9", "YouTube / site"]].map(([id, label, hint]) => (
+              <button key={id} data-testid={`promo-size-${id}`} onClick={() => setSize(id)}
+                className={`text-xs px-3 py-2 rounded-xl border font-medium text-left ${size === id ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
+                <span className="block">{label}</span>
+                <span className="block text-[10px] opacity-70">{hint}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs font-semibold text-slate-600 mt-4 mb-1.5">Speed</p>
+          <div className="flex gap-2">
+            <button data-testid="promo-speed-express" onClick={() => setExpress(true)}
+              className={`text-xs px-3 py-2 rounded-xl border font-medium text-left ${express ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-500"}`}>
+              <span className="block">⚡ Express — ~1 min</span>
+              <span className="block text-[10px] opacity-70">Real app screenshots</span>
+            </button>
+            <button data-testid="promo-speed-ai" onClick={() => setExpress(false)}
+              className={`text-xs px-3 py-2 rounded-xl border font-medium text-left ${!express ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
+              <span className="block">✨ AI Scenes — 2–4 min</span>
+              <span className="block text-[10px] opacity-70">HD AI-generated visuals</span>
+            </button>
+          </div>
           <div className="flex items-center gap-3 mt-3">
             <select value={language} onChange={e => setLanguage(e.target.value)} data-testid="promo-lang-select"
               className="text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 min-w-[160px]">
@@ -86,7 +111,10 @@ export const PromoVideoStudio = () => {
           {busy && (
             <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4" data-testid="promo-progress">
               <p className="text-sm text-slate-700 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-fuchsia-500" /> {job.progress}</p>
-              <p className="text-[11px] text-slate-400 mt-1">Takes 2–4 minutes — script → voiceover → 4 HD scenes → render.</p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {express ? "Express takes ~1 minute — script → voiceover → render." : "Takes 2–4 minutes — script → voiceover → HD AI scenes → render."}
+                {" "}We'll also email you when it's ready — safe to close this tab. 📧
+              </p>
             </div>
           )}
         </div>

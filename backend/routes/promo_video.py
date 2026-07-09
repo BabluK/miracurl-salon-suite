@@ -32,6 +32,7 @@ log = logging.getLogger("promo_video")
 
 APP_NAME = os.environ.get("APP_NAME", "miracurl")
 W, H, FPS = 1080, 1920, 25
+SIZES = {"reel": (1080, 1920), "square": (1080, 1080), "landscape": (1920, 1080)}
 FONT_PATH = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
 
 
@@ -48,6 +49,8 @@ class PromoIn(BaseModel):
     mode: str = "feature_tour"  # feature_tour | custom
     focus: str = "staff verification portal"
     language: str = "en"
+    size: str = "reel"  # reel (9:16) | square (1:1) | landscape (16:9)
+    express: bool = False  # True = real app screenshots (fast), False = AI-generated scenes
 
 
 @router.post("/super/promo-video")
@@ -99,6 +102,21 @@ async def _generate(job_id: str, body: PromoIn):
         log.exception("promo video failed")
         await _raw_db.promo_videos.update_one(
             {"id": job_id}, {"$set": {"status": "failed", "error": str(e)[:300]}})
+        await _notify_email(
+            "Promo reel generation failed ⚠️",
+            f"<p>Mira couldn't finish your promo reel.</p><p><b>Error:</b> {str(e)[:300]}</p>"
+            "<p>Open Super Admin → Promo Video and click Generate again.</p>")
+
+
+async def _notify_email(subject: str, html: str):
+    hq = os.environ.get("HQ_EMAIL", "")
+    if not hq:
+        return
+    try:
+        from email_service import _send_email
+        await _send_email([hq], subject, html)
+    except Exception as e:
+        log.error("promo email notify failed: %s", e)
 
 
 MIRA_INTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_intro.png")
@@ -145,17 +163,19 @@ async def _run_pipeline(job_id: str, body: PromoIn):
     if not voiceover or len(scenes) < 2:
         raise RuntimeError("Script generation failed — try again")
 
-    await _progress(job_id, "Mira is recording the voiceover…")
-    from emergentintegrations.llm.openai import OpenAITextToSpeech
-    tts = OpenAITextToSpeech(api_key=os.environ["EMERGENT_LLM_KEY"])
-    audio_b64 = await tts.generate_speech_base64(text=voiceover, model="tts-1", voice="shimmer", speed=1.0)
-    audio_bytes = base64.b64decode(audio_b64)
+    await _progress(job_id, "Recording voiceover + creating scenes in parallel…")
 
-    await _progress(job_id, "Creating HD scenes with AI…")
-    images, captions = await _build_scenes(body, scenes)
+    async def _tts() -> bytes:
+        from emergentintegrations.llm.openai import OpenAITextToSpeech
+        tts = OpenAITextToSpeech(api_key=os.environ["EMERGENT_LLM_KEY"])
+        b64 = await tts.generate_speech_base64(text=voiceover, model="tts-1", voice="shimmer", speed=1.0)
+        return base64.b64decode(b64)
 
+    audio_bytes, (images, captions, fits) = await asyncio.gather(_tts(), _build_scenes(body, scenes))
+
+    vw, vh = SIZES.get(body.size, SIZES["reel"])
     await _progress(job_id, "Rendering the HD video (ffmpeg)…")
-    video_bytes = await asyncio.to_thread(_render_video, images, captions, audio_bytes)
+    video_bytes = await asyncio.to_thread(_render_video, images, captions, fits, audio_bytes, vw, vh)
 
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/superadmin/promo-videos/{fid}.mp4"
@@ -169,18 +189,30 @@ async def _run_pipeline(job_id: str, body: PromoIn):
     await _raw_db.promo_videos.update_one({"id": job_id}, {"$set": {
         "status": "done", "progress": "Ready!", "video_url": f"/api/files/{fid}",
         "voiceover": voiceover, "size_mb": round(len(video_bytes) / 1048576, 1)}})
+    site = os.environ.get("APP_PUBLIC_URL", "")
+    await _notify_email(
+        "Your promo reel is ready 🎬",
+        f"<p>Mira finished your promo video ({body.size}, {round(len(video_bytes)/1048576,1)} MB).</p>"
+        f"<p><a href='{site}/api/files/{fid}'>Download the MP4</a> or open Super Admin → Promo Video.</p>"
+        "<p>Post it on Instagram to attract new salon leads! ✦</p>")
 
 
-async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[str]]:
-    """Mira opens and closes every reel; owner photo (if any) is scene 2; AI scenes fill the middle."""
+BROCHURE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "brochure")
+EXPRESS_SHOTS = ["dashboard.png", "pos.png", "staff.png", "mira.png"]
+
+
+async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[str], list[bool]]:
+    """Mira opens and closes every reel; owner photo (if any) is scene 2.
+    Express mode fills the middle with real app screenshots (fast); otherwise AI scenes are generated in parallel."""
     from routes.mira_studio import _key
-    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     images: list[bytes] = []
     captions: list[str] = []
+    fits: list[bool] = []
 
     with open(MIRA_INTRO, "rb") as f:
         images.append(f.read())
     captions.append("Meet Mira - Your Salon AI")
+    fits.append(False)
 
     if body.photo_url:
         fid = body.photo_url.rstrip("/").split("/")[-1]
@@ -189,26 +221,46 @@ async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[
             data, _ = _get_object(up["storage_path"])
             images.append(data)
             captions.append(scenes[0].get("caption", "") if scenes else "")
+            fits.append(False)
 
-    gen = OpenAIImageGeneration(api_key=_key())
-    ai_budget = 3 if body.mode == "feature_tour" else 2
-    for s in scenes[:ai_budget]:
-        prompt = (f"{s.get('image_prompt', 'modern premium salon interior')}. Vertical 9:16 cinematic promo shot, "
-                  "premium beauty-tech aesthetic, rich lighting. NO text, NO letters, NO logos, no distorted faces.")
-        try:
-            out = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
-            if out:
-                images.append(out[0])
-                captions.append(s.get("caption", ""))
-        except Exception as e:
-            log.error("scene image failed: %s", e)
+    if body.express:
+        for i, fname in enumerate(EXPRESS_SHOTS):
+            path = os.path.join(BROCHURE_DIR, fname)
+            if not os.path.exists(path):
+                continue
+            with open(path, "rb") as f:
+                images.append(f.read())
+            captions.append(scenes[i].get("caption", "") if i < len(scenes) else "")
+            fits.append(True)
+    else:
+        from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+        gen = OpenAIImageGeneration(api_key=_key())
+        ai_budget = 3 if body.mode == "feature_tour" else 2
+
+        async def _one_scene(s: dict):
+            prompt = (f"{s.get('image_prompt', 'modern premium salon interior')}. Vertical 9:16 cinematic promo shot, "
+                      "premium beauty-tech aesthetic, rich lighting. NO text, NO letters, NO logos, no distorted faces.")
+            try:
+                out = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+                return (out[0] if out else None, s.get("caption", ""))
+            except Exception as e:
+                log.error("scene image failed: %s", e)
+                return (None, "")
+
+        results = await asyncio.gather(*[_one_scene(s) for s in scenes[:ai_budget]])
+        for img, cap in results:
+            if img:
+                images.append(img)
+                captions.append(cap)
+                fits.append(False)
 
     with open(MIRA_OUTRO, "rb") as f:
         outro = f.read()
     images.append(_add_partner_qr(outro))
     captions.append("Get Miracurl Salon Suite")
+    fits.append(False)
     captions = [c.replace("✦", "").replace("—", "-").strip() for c in captions]
-    return images, captions
+    return images, captions, fits
 
 
 def _add_partner_qr(img_bytes: bytes) -> bytes:
@@ -242,33 +294,43 @@ def _add_partner_qr(img_bytes: bytes) -> bytes:
     return buf.getvalue()
 
 
-def _caption_frame(img_bytes: bytes, caption: str) -> bytes:
+def _caption_frame(img_bytes: bytes, caption: str, w: int = W, h: int = H, fit: bool = False) -> bytes:
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-    scale = max(W / img.width, H / img.height)
-    img = img.resize((round(img.width * scale), round(img.height * scale)))
-    left, top = (img.width - W) // 2, (img.height - H) // 2
-    img = img.crop((left, top, left + W, top + H))
-    logo = _brand_logo(150)
+    if fit:
+        # letterbox app screenshots on a dark canvas instead of cropping them
+        canvas = Image.new("RGB", (w, h), (16, 13, 22))
+        maxw, maxh = w - 90, int(h * 0.62)
+        r = min(maxw / img.width, maxh / img.height)
+        img = img.resize((round(img.width * r), round(img.height * r)))
+        canvas.paste(img, ((w - img.width) // 2, (h - img.height) // 2 - int(h * 0.05)))
+        img = canvas
+    else:
+        scale = max(w / img.width, h / img.height)
+        img = img.resize((round(img.width * scale), round(img.height * scale)))
+        left, top = (img.width - w) // 2, (img.height - h) // 2
+        img = img.crop((left, top, left + w, top + h))
+    logo = _brand_logo(max(110, int(w * 0.14)))
     if logo:
         img = img.convert("RGBA")
-        img.paste(logo, (W - logo.width - 44, 48), logo)
+        img.paste(logo, (w - logo.width - 44, 48), logo)
         img = img.convert("RGB")
     if caption.strip():
         overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
         d = ImageDraw.Draw(overlay)
+        fsize = max(42, int(w * 0.0685))
         try:
-            font = ImageFont.truetype(FONT_PATH, 74)
+            font = ImageFont.truetype(FONT_PATH, fsize)
         except OSError:
             font = ImageFont.load_default()
-        lines = textwrap.wrap(caption.strip(), width=18)[:3]
-        line_h = 92
+        lines = textwrap.wrap(caption.strip(), width=max(14, int(w / 60)))[:3]
+        line_h = fsize + 18
         block_h = line_h * len(lines) + 70
-        y0 = H - block_h - 220
-        d.rectangle([(0, y0), (W, y0 + block_h)], fill=(12, 12, 18, 175))
+        y0 = h - block_h - int(h * 0.115)
+        d.rectangle([(0, y0), (w, y0 + block_h)], fill=(12, 12, 18, 175))
         y = y0 + 36
         for ln in lines:
             tw = d.textlength(ln, font=font)
-            d.text(((W - tw) / 2, y), ln, font=font, fill=(232, 195, 127, 255))
+            d.text(((w - tw) / 2, y), ln, font=font, fill=(232, 195, 127, 255))
             y += line_h
         img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
     buf = io.BytesIO()
@@ -284,7 +346,8 @@ def _audio_duration(ff: str, audio_path: str) -> float:
     return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
 
 
-def _render_video(images: list[bytes], captions: list[str], audio_bytes: bytes) -> bytes:
+def _render_video(images: list[bytes], captions: list[str], fits: list[bool], audio_bytes: bytes,
+                  w: int = W, h: int = H) -> bytes:
     ff = _ffmpeg()
     workdir = f"/tmp/promo_{uuid.uuid4().hex}"
     os.makedirs(workdir, exist_ok=True)
@@ -298,13 +361,14 @@ def _render_video(images: list[bytes], captions: list[str], audio_bytes: bytes) 
 
         seg_paths = []
         for i, img in enumerate(images):
-            framed = _caption_frame(img, captions[i] if i < len(captions) else "")
+            framed = _caption_frame(img, captions[i] if i < len(captions) else "", w, h,
+                                    fit=fits[i] if i < len(fits) else False)
             img_path = os.path.join(workdir, f"s{i}.jpg")
             with open(img_path, "wb") as f:
                 f.write(framed)
             seg = os.path.join(workdir, f"seg{i}.mp4")
             vf = (f"zoompan=z='min(zoom+0.0009,1.12)':d={frames}:"
-                  f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps={FPS}")
+                  f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={w}x{h}:fps={FPS}")
             subprocess.run([ff, "-y", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
                             "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", seg],
                            capture_output=True, check=True)
