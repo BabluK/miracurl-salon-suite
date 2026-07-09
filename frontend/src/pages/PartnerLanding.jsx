@@ -113,6 +113,29 @@ export default function PartnerLanding() {
           </div>
         </div>
 
+        {/* Security & trust section */}
+        <div className="mt-14" data-testid="partner-security-section">
+          <h2 className="text-lg font-bold text-white text-center">Security you can trust</h2>
+          <p className="text-white/50 text-sm text-center mt-1">Your salon's data is your business — we treat it that way.</p>
+          <div className="grid sm:grid-cols-3 gap-4 mt-6 max-w-4xl mx-auto">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
+              <ShieldCheck className="w-6 h-6 text-emerald-300 mx-auto" />
+              <p className="text-sm font-semibold text-white mt-2">Independently audited</p>
+              <p className="text-xs text-white/50 mt-1">Passed two independent application security audits — no exploitable issues found.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
+              <Users className="w-6 h-6 text-amber-300 mx-auto" />
+              <p className="text-sm font-semibold text-white mt-2">Per-salon data isolation</p>
+              <p className="text-xs text-white/50 mt-1">Every salon's customers, invoices and staff live in a strictly isolated space. No cross-access, ever.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-center">
+              <Sparkles className="w-6 h-6 text-sky-300 mx-auto" />
+              <p className="text-sm font-semibold text-white mt-2">Bank-grade sessions</p>
+              <p className="text-xs text-white/50 mt-1">HTTPS everywhere with secure HTTPOnly cookie sessions — tokens are never exposed to the browser.</p>
+            </div>
+          </div>
+        </div>
+
         <footer className="text-center text-white/30 text-xs mt-16 pb-6">© Miracurl Salon Suite — Beauty · Care · You</footer>
       </div>
     </div>

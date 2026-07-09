@@ -31,7 +31,7 @@ router = APIRouter()
 log = logging.getLogger("promo_video")
 
 APP_NAME = os.environ.get("APP_NAME", "miracurl")
-W, H, FPS = 1080, 1920, 25
+W, H, FPS = 1080, 1920, 20
 SIZES = {"reel": (1080, 1920), "square": (1080, 1080), "landscape": (1920, 1080)}
 FONT_PATH = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
 
@@ -190,8 +190,13 @@ async def _run_pipeline(job_id: str, body: PromoIn):
 
     vw, vh = SIZES.get(body.size, SIZES["reel"])
     await _progress(job_id, "Rendering the HD video (ffmpeg)…")
+    loop = asyncio.get_running_loop()
+
+    def _beat(msg: str):
+        asyncio.run_coroutine_threadsafe(_progress(job_id, msg), loop)
+
     video_bytes = await asyncio.wait_for(
-        asyncio.to_thread(_render_video, images, captions, fits, audio_bytes, vw, vh), timeout=420)
+        asyncio.to_thread(_render_video, images, captions, fits, audio_bytes, vw, vh, _beat), timeout=1500)
 
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/superadmin/promo-videos/{fid}.mp4"
@@ -385,18 +390,18 @@ def _run_ff(cmd: list, step: str):
 
 
 def _render_video(images: list[bytes], captions: list[str], fits: list[bool], audio_bytes: bytes,
-                  w: int = W, h: int = H) -> bytes:
+                  w: int = W, h: int = H, beat=None) -> bytes:
     try:
-        return _render_video_at(images, captions, fits, audio_bytes, w, h)
+        return _render_video_at(images, captions, fits, audio_bytes, w, h, beat)
     except RuntimeError as e:
         # low-memory safe mode: retry once at ~66% resolution (helps constrained prod containers)
         log.warning("full-res render failed (%s) — retrying in safe mode", e)
         sw, sh = (w * 2 // 3) & ~1, (h * 2 // 3) & ~1
-        return _render_video_at(images, captions, fits, audio_bytes, sw, sh)
+        return _render_video_at(images, captions, fits, audio_bytes, sw, sh, beat)
 
 
 def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool], audio_bytes: bytes,
-                     w: int, h: int) -> bytes:
+                     w: int, h: int, beat=None) -> bytes:
     ff = _ffmpeg()
     workdir = f"/tmp/promo_{uuid.uuid4().hex}"
     os.makedirs(workdir, exist_ok=True)
@@ -410,6 +415,8 @@ def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool],
 
         seg_paths = []
         for i, img in enumerate(images):
+            if beat:
+                beat(f"Rendering scene {i + 1}/{len(images)}…")
             framed = _caption_frame(img, captions[i] if i < len(captions) else "", w, h,
                                     fit=fits[i] if i < len(fits) else False)
             img_path = os.path.join(workdir, f"s{i}.jpg")
@@ -419,10 +426,12 @@ def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool],
             vf = (f"zoompan=z='min(zoom+0.0009,1.12)':d={frames}:"
                   f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={w}x{h}:fps={FPS}")
             _run_ff([ff, "-y", "-threads", "2", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
-                     "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", seg],
+                     "-c:v", "libx264", "-preset", "veryfast", "-crf", "27", "-pix_fmt", "yuv420p", seg],
                     f"segment {i}")
             seg_paths.append(seg)
 
+        if beat:
+            beat("Merging scenes with Mira's voiceover…")
         concat_list = os.path.join(workdir, "list.txt")
         with open(concat_list, "w") as f:
             f.writelines(f"file '{p}'\n" for p in seg_paths)
