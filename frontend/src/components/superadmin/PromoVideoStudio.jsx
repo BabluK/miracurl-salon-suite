@@ -8,6 +8,7 @@ const BASE = process.env.REACT_APP_BACKEND_URL;
 
 export const PromoVideoStudio = () => {
   const [photo, setPhoto] = useState("");
+  const [mode, setMode] = useState("feature_tour");
   const [focus, setFocus] = useState("Staff Verification Portal — hire trusted, verified staff");
   const [language, setLanguage] = useState("en");
   const [job, setJob] = useState(null);
@@ -19,7 +20,7 @@ export const PromoVideoStudio = () => {
 
   const generate = async () => {
     try {
-      const { data } = await api.post("/super/promo-video", { photo_url: photo || null, focus, language });
+      const { data } = await api.post("/super/promo-video", { photo_url: photo || null, mode, focus, language });
       setJob({ id: data.job_id, status: "generating", progress: "Mira is writing the script…" });
       pollRef.current = setInterval(async () => {
         const { data: st } = await api.get(`/super/promo-video/${data.job_id}`);
@@ -49,11 +50,27 @@ export const PromoVideoStudio = () => {
 
       <div className="grid md:grid-cols-2 gap-4 mt-5">
         <div>
-          <p className="text-xs font-semibold text-slate-600 mb-1.5">Your photo / salon photo (optional — becomes the opening scene)</p>
+          <p className="text-xs font-semibold text-slate-600 mb-1.5">Video type</p>
+          <div className="flex gap-2 mb-4">
+            <button data-testid="promo-mode-tour" onClick={() => setMode("feature_tour")}
+              className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "feature_tour" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
+              ✦ Mira presents — full feature tour
+            </button>
+            <button data-testid="promo-mode-custom" onClick={() => setMode("custom")}
+              className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "custom" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
+              Custom focus
+            </button>
+          </div>
+          {mode === "feature_tour" && (
+            <p className="text-[11px] text-slate-400 -mt-2 mb-3">Mira appears as the host, introduces herself in her own voice, and tours every feature — bookings, POS, CRM, Staff Verification Portal, AI marketing &amp; more. No photo needed.</p>
+          )}
+          <p className="text-xs font-semibold text-slate-600 mb-1.5">Your photo / salon photo (optional — becomes scene 2)</p>
           <ImageUploader value={photo} onChange={setPhoto} kind="promo" />
+          {mode === "custom" && <>
           <p className="text-xs font-semibold text-slate-600 mt-4 mb-1.5">What should the video focus on?</p>
           <input value={focus} onChange={e => setFocus(e.target.value)} data-testid="promo-focus-input"
             className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
+          </>}
           <div className="flex items-center gap-3 mt-3">
             <select value={language} onChange={e => setLanguage(e.target.value)} data-testid="promo-lang-select"
               className="text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 min-w-[160px]">

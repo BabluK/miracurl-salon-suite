@@ -45,6 +45,7 @@ def _ffmpeg() -> str:
 
 class PromoIn(BaseModel):
     photo_url: str | None = None
+    mode: str = "feature_tour"  # feature_tour | custom
     focus: str = "staff verification portal"
     language: str = "en"
 
@@ -88,15 +89,30 @@ async def _generate(job_id: str, body: PromoIn):
             {"id": job_id}, {"$set": {"status": "failed", "error": str(e)[:300]}})
 
 
+MIRA_INTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_intro.png")
+MIRA_OUTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_outro.png")
+
+ALL_FEATURES = ("online bookings, POS billing with GST receipts, customer CRM with loyalty points & birthday offers, "
+                "the Staff Verification Portal (hire trusted background-verified staff), Mira the AI marketing agent "
+                "(auto-creates daily Instagram posts, win-back emails & WhatsApp offers on autopilot), "
+                "SMS & email receipts, business reports, and multi-branch management")
+
+
 async def _run_pipeline(job_id: str, body: PromoIn):
     lang_note = "Write in Hindi (Devanagari)." if body.language == "hi" else "Write in simple, energetic English."
-    script = await _ask_json(
-        "You are writing a 35-second Instagram reel voiceover promoting 'Miracurl Salon Suite' — an all-in-one "
-        "salon management software (bookings, POS billing, AI marketing agent, WhatsApp/SMS, and its STAR feature: "
-        f"the Staff Verification Portal, a trusted registry that helps every salon owner hire verified, "
-        f"background-checked staff with one search). Main focus: {body.focus}. {lang_note}",
-        'Return JSON: {"voiceover":"<~85 words, spoken style, hook first, end with call to action>",'
-        '"scenes":[{"caption":"<max 6 words>","image_prompt":"<visual for this scene, salon/software themed>"} x4]}')
+    if body.mode == "feature_tour":
+        sys = ("You ARE Mira — the golden AI assistant of 'Miracurl Salon Suite'. Write a 45-second Instagram reel "
+               f"voiceover in FIRST PERSON where you introduce yourself ('Hi, I'm Mira!') and tour ALL the software's "
+               f"features: {ALL_FEATURES}. Spotlight the Staff Verification Portal. {lang_note}")
+        user = ('Return JSON: {"voiceover":"<~110 words, spoken style, warm confident female AI host, hook first, '
+                'end with a call to action to get Miracurl Salon Suite>",'
+                '"scenes":[{"caption":"<max 6 words>","image_prompt":"<visual, salon/software themed>"} x4]}')
+    else:
+        sys = ("You are writing a 35-second Instagram reel voiceover promoting 'Miracurl Salon Suite' — an all-in-one "
+               f"salon management software ({ALL_FEATURES}). Main focus: {body.focus}. {lang_note}")
+        user = ('Return JSON: {"voiceover":"<~85 words, spoken style, hook first, end with call to action>",'
+                '"scenes":[{"caption":"<max 6 words>","image_prompt":"<visual for this scene, salon/software themed>"} x4]}')
+    script = await _ask_json(sys, user)
     voiceover = (script.get("voiceover") or "").strip()
     scenes = (script.get("scenes") or [])[:4]
     if not voiceover or len(scenes) < 2:
@@ -108,11 +124,11 @@ async def _run_pipeline(job_id: str, body: PromoIn):
     audio_b64 = await tts.generate_speech_base64(text=voiceover, model="tts-1", voice="shimmer", speed=1.0)
     audio_bytes = base64.b64decode(audio_b64)
 
-    await _progress(job_id, f"Creating {len(scenes)} HD scenes with AI…")
-    images = await _collect_scene_images(body.photo_url, scenes)
+    await _progress(job_id, "Creating HD scenes with AI…")
+    images, captions = await _build_scenes(body, scenes)
 
     await _progress(job_id, "Rendering the HD video (ffmpeg)…")
-    video_bytes = await asyncio.to_thread(_render_video, images, [s.get("caption", "") for s in scenes], audio_bytes)
+    video_bytes = await asyncio.to_thread(_render_video, images, captions, audio_bytes)
 
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/superadmin/promo-videos/{fid}.mp4"
@@ -128,30 +144,43 @@ async def _run_pipeline(job_id: str, body: PromoIn):
         "voiceover": voiceover, "size_mb": round(len(video_bytes) / 1048576, 1)}})
 
 
-async def _collect_scene_images(photo_url: str | None, scenes: list) -> list[bytes]:
+async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[str]]:
+    """Mira opens and closes every reel; owner photo (if any) is scene 2; AI scenes fill the middle."""
     from routes.mira_studio import _key
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-    gen = OpenAIImageGeneration(api_key=_key())
     images: list[bytes] = []
-    if photo_url:
-        fid = photo_url.rstrip("/").split("/")[-1]
+    captions: list[str] = []
+
+    with open(MIRA_INTRO, "rb") as f:
+        images.append(f.read())
+    captions.append("Meet Mira - Your Salon AI")
+
+    if body.photo_url:
+        fid = body.photo_url.rstrip("/").split("/")[-1]
         up = await _raw_db.uploads.find_one({"id": fid}, {"_id": 0})
         if up:
             data, _ = _get_object(up["storage_path"])
             images.append(data)
-    need = len(scenes) - len(images)
-    for s in scenes[len(images):len(images) + need]:
+            captions.append(scenes[0].get("caption", "") if scenes else "")
+
+    gen = OpenAIImageGeneration(api_key=_key())
+    ai_budget = 3 if body.mode == "feature_tour" else 2
+    for s in scenes[:ai_budget]:
         prompt = (f"{s.get('image_prompt', 'modern premium salon interior')}. Vertical 9:16 cinematic promo shot, "
                   "premium beauty-tech aesthetic, rich lighting. NO text, NO letters, NO logos, no distorted faces.")
         try:
             out = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
             if out:
                 images.append(out[0])
+                captions.append(s.get("caption", ""))
         except Exception as e:
             log.error("scene image failed: %s", e)
-    if not images:
-        raise RuntimeError("No scene images could be generated")
-    return images
+
+    with open(MIRA_OUTRO, "rb") as f:
+        images.append(f.read())
+    captions.append("Get Miracurl Salon Suite")
+    captions = [c.replace("✦", "").replace("—", "-").strip() for c in captions]
+    return images, captions
 
 
 def _caption_frame(img_bytes: bytes, caption: str) -> bytes:

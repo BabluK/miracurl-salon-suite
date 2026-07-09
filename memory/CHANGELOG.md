@@ -825,3 +825,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 3. NEW Super-Admin "Promo Video" tab (routes/promo_video.py + PromoVideoStudio.jsx): generates HD 1080x1920 Instagram reel — LLM script (Staff Verification Portal focus), OpenAI TTS shimmer voiceover (en/hi), 4 gpt-image-1 scenes (+optional owner photo as opening), PIL gold caption bands, ffmpeg Ken-Burns render (imageio-ffmpeg static binary in requirements.txt for prod). Async job flow (promo_videos collection, poll status). TESTED end-to-end: 26s video, 2.7MB, h264+aac faststart, frame verified visually.
 4. Meta keys added & validated (app 2823458498027077 — token exchange OK); Google keys added earlier; both Connect buttons live in preview. User still to: register Meta redirect URIs, connect accounts on prod after deploy.
 5. User env note: production still on old deploy — user must Deploy to get all of this + env keys.
+
+## Update — Jul 9 (part 94) — "Mira presents" feature-tour videos + test leads + WA formatting
+1. Promo Video Studio: new mode "feature_tour" (default) — Mira HERSELF hosts the reel: first-person voiceover ("Hi, I'm Mira!") touring ALL features. Fixed HD presenter scenes generated from her actual avatar (frontend/public/mira-bot.png) via Gemini image edit → /app/backend/assets/mira_intro.png & mira_outro.png. Mira opens+closes every video; owner photo optional (scene 2); 2-3 AI middle scenes. TESTED: 44s video verified frame-by-frame. Caption font fix (✦ → removed, FreeSansBold lacks glyph).
+2. WhatsApp win-back messages now use rich formatting (*bold*, _italics_, line-per-line, booking link auto-appended).
+3. Resend rate-limit fix: 0.6s pacing between sends in autopilot + campaign loops (was silently dropping 3rd+ email — "Too many requests").
+4. Test leads added for user (bablukumar.cs14@gmail.com, im.miracurl@gmail.com, atul.katiyar18@outlook.com — all 3 emails SENT & verified; WhatsApp lead 7406869271 queued in Auto-Pilot with designed message).
+5. requirements.txt updated (imageio-ffmpeg for production ffmpeg).
