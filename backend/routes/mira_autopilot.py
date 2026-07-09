@@ -172,8 +172,9 @@ async def _run_lead_machine(t: dict, cfg: dict) -> tuple[int, list[dict]]:
         f"You are Mira, writing a warm win-back offer for '{t.get('name')}', a premium Indian salon. "
         "Use {name} as a placeholder for the guest's first name.",
         'Write a short win-back email (we miss you + a compelling 20% comeback offer, 3 short paragraphs, '
-        'warm & personal, use {name}). Also a WhatsApp version (2 lines, emojis, use {name}). '
-        'Return JSON: {"subject":"<subject with {name}>","email_body":"<paragraphs separated by newlines>","whatsapp":"<short msg>"}')
+        'warm & personal, use {name}). Also a WhatsApp version — use WhatsApp formatting: *bold* for the '
+        'offer, _italics_ for warmth, tasteful emojis, 4-5 short lines each on its own line, use {name}. '
+        'Return JSON: {"subject":"<subject with {name}>","email_body":"<paragraphs separated by newlines>","whatsapp":"<formatted msg with line breaks>"}')
     subject_t = tpl.get("subject") or "We miss you at {name}'s favourite salon ✦"
     body_t = tpl.get("email_body") or "Dear {name}, we miss you! Enjoy 20% off your next visit."
     wa_t = tpl.get("whatsapp") or "Hi {name}! We miss you at the salon — enjoy 20% off your comeback visit ✦"
@@ -184,6 +185,7 @@ async def _run_lead_machine(t: dict, cfg: dict) -> tuple[int, list[dict]]:
     for lead in leads:
         first = (lead["name"] or "Guest").split()[0]
         if lead["email"] and sent < cfg["email_daily_cap"]:
+            await asyncio.sleep(0.6)  # Resend rate limit: 2 req/s
             res = await _send_email([lead["email"]],
                                     subject_t.replace("{name}", first),
                                     marketing_email_html(t.get("name", "Our Salon"),
@@ -195,9 +197,10 @@ async def _run_lead_machine(t: dict, cfg: dict) -> tuple[int, list[dict]]:
                     "name": lead["name"], "channel": "email", "to": lead["email"],
                     "last_visit": lead["last_visit"], "created_at": now})
         elif lead["phone"] and len(wa_queue) < 20:
+            wa_msg = f"{wa_t.replace('{name}', first)}\n\n📅 *Book now:* {book_url}"
             wa_queue.append({"customer_id": lead["id"], "name": lead["name"], "phone": lead["phone"],
                              "last_visit": lead["last_visit"],
-                             "message": wa_t.replace("{name}", first)})
+                             "message": wa_msg})
     return sent, wa_queue
 
 

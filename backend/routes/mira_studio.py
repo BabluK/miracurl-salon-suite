@@ -10,6 +10,7 @@ tenant connects the relevant account — real publishing is gated on OAuth/API a
 import os
 import uuid
 import json
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 
@@ -295,6 +296,7 @@ async def campaign_send(body: CampaignSendIn, admin=Depends(require_tenant_admin
         first = (r["name"] or "Guest").split()[0]
         html = marketing_email_html(t.get("name", "Our Salon"),
                                     clean_body.replace("{name}", first), cta_url)
+        await asyncio.sleep(0.6)  # Resend rate limit: 2 req/s
         res = await _send_email([r["email"]], body.subject.replace("{name}", first), html)
         if res.get("sent"):
             sent += 1
