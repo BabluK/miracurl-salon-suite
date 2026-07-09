@@ -890,17 +890,22 @@ async def my_salons_overview(request: Request, user=Depends(get_current_user), t
             {"id": tid}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "location": 1, "logo_url": 1})
         if not t:
             continue
-        inv_today = await _raw_db.invoices.find(
-            {"tenant_id": tid, "created_at": {"$gte": day_start}}, {"_id": 0, "total": 1}).to_list(5000)
-        inv_month = await _raw_db.invoices.find(
-            {"tenant_id": tid, "created_at": {"$gte": month_start}}, {"_id": 0, "total": 1}).to_list(50000)
+        async def _inv_sum(since: str) -> tuple[float, int]:
+            row = await _raw_db.invoices.aggregate([
+                {"$match": {"tenant_id": tid, "created_at": {"$gte": since}}},
+                {"$group": {"_id": None, "total": {"$sum": {"$toDouble": {"$ifNull": ["$total", 0]}}},
+                            "n": {"$sum": 1}}}]).to_list(1)
+            return (round(row[0]["total"], 2), row[0]["n"]) if row else (0.0, 0)
+
+        today_total, today_count = await _inv_sum(day_start)
+        month_total, _ = await _inv_sum(month_start)
         appts_today = await _raw_db.appointments.count_documents(
             {"tenant_id": tid, "scheduled_at": {"$regex": f"^{today_ist}"}, "status": {"$ne": "cancelled"}})
         salons.append({
             **t,
-            "today": round(sum(float(i.get("total") or 0) for i in inv_today), 2),
-            "invoices_today": len(inv_today),
-            "month": round(sum(float(i.get("total") or 0) for i in inv_month), 2),
+            "today": today_total,
+            "invoices_today": today_count,
+            "month": month_total,
             "appointments_today": appts_today,
             "active": tid == user.get("tenant_id"),
         })
