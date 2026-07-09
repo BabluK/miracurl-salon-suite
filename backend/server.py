@@ -5685,6 +5685,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Gzip large JSON responses — 8-10x smaller payloads = much faster on mobile networks
+from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
+app.add_middleware(GZipMiddleware, minimum_size=1500)
+
 
 # ---------------- Security Headers (SEC-P3) ----------------
 # Adds the standard defensive HTTP headers on every API response so a browser

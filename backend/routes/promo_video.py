@@ -77,11 +77,10 @@ async def promo_video_status(job_id: str, admin=Depends(require_super_admin)):
         from datetime import timedelta
         last_beat = datetime.fromisoformat(doc.get("updated_at") or doc["created_at"])
         if datetime.now(timezone.utc) - last_beat > timedelta(minutes=STALE_MINUTES):
-            await _raw_db.promo_videos.update_one({"id": job_id}, {"$set": {
-                "status": "failed",
-                "error": "Generation was interrupted (server restart or timeout). Please click Generate again."}})
+            msg = "Generation was interrupted (server restart or timeout). Please click Generate again."
+            await _fail_job(job_id, msg)
             doc["status"] = "failed"
-            doc["error"] = "Generation was interrupted (server restart or timeout). Please click Generate again."
+            doc["error"] = msg
     return doc
 
 
@@ -100,14 +99,20 @@ async def _progress(job_id: str, msg: str):
 async def _generate(job_id: str, body: PromoIn):
     try:
         await _run_pipeline(job_id, body)
+    except asyncio.TimeoutError:
+        await _fail_job(job_id, "A generation step timed out. Please click Generate again.")
     except Exception as e:
         log.exception("promo video failed")
-        await _raw_db.promo_videos.update_one(
-            {"id": job_id}, {"$set": {"status": "failed", "error": str(e)[:300]}})
-        await _notify_email(
-            "Promo reel generation failed ⚠️",
-            f"<p>Mira couldn't finish your promo reel.</p><p><b>Error:</b> {str(e)[:300]}</p>"
-            "<p>Open Super Admin → Promo Video and click Generate again.</p>")
+        await _fail_job(job_id, str(e)[:300])
+
+
+async def _fail_job(job_id: str, error: str):
+    await _raw_db.promo_videos.update_one(
+        {"id": job_id}, {"$set": {"status": "failed", "error": error}})
+    await _notify_email(
+        "Promo reel generation failed ⚠️",
+        f"<p>Mira couldn't finish your promo reel.</p><p><b>Error:</b> {error}</p>"
+        "<p>Open Super Admin → Promo Video and click Generate again.</p>")
 
 
 async def _notify_email(subject: str, html: str):
@@ -159,7 +164,7 @@ async def _run_pipeline(job_id: str, body: PromoIn):
                f"salon management software ({ALL_FEATURES}). Main focus: {body.focus}. {lang_note}")
         user = ('Return JSON: {"voiceover":"<~85 words, spoken style, hook first, end with call to action>",'
                 '"scenes":[{"caption":"<max 6 words>","image_prompt":"<visual for this scene, salon/software themed>"} x4]}')
-    script = await _ask_json(sys, user)
+    script = await asyncio.wait_for(_ask_json(sys, user), timeout=120)
     voiceover = (script.get("voiceover") or "").strip()
     scenes = (script.get("scenes") or [])[:4]
     if not voiceover or len(scenes) < 2:
@@ -173,11 +178,13 @@ async def _run_pipeline(job_id: str, body: PromoIn):
         b64 = await tts.generate_speech_base64(text=voiceover, model="tts-1", voice="shimmer", speed=1.0)
         return base64.b64decode(b64)
 
-    audio_bytes, (images, captions, fits) = await asyncio.gather(_tts(), _build_scenes(body, scenes))
+    audio_bytes, (images, captions, fits) = await asyncio.wait_for(
+        asyncio.gather(_tts(), _build_scenes(body, scenes)), timeout=360)
 
     vw, vh = SIZES.get(body.size, SIZES["reel"])
     await _progress(job_id, "Rendering the HD video (ffmpeg)…")
-    video_bytes = await asyncio.to_thread(_render_video, images, captions, fits, audio_bytes, vw, vh)
+    video_bytes = await asyncio.wait_for(
+        asyncio.to_thread(_render_video, images, captions, fits, audio_bytes, vw, vh), timeout=420)
 
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/superadmin/promo-videos/{fid}.mp4"
@@ -361,8 +368,26 @@ def _audio_duration(ff: str, audio_path: str) -> float:
     return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
 
 
+def _run_ff(cmd: list, step: str):
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    if p.returncode != 0:
+        tail = (p.stderr or "").strip()[-400:]
+        raise RuntimeError(f"ffmpeg {step} failed (exit {p.returncode}): {tail}")
+
+
 def _render_video(images: list[bytes], captions: list[str], fits: list[bool], audio_bytes: bytes,
                   w: int = W, h: int = H) -> bytes:
+    try:
+        return _render_video_at(images, captions, fits, audio_bytes, w, h)
+    except RuntimeError as e:
+        # low-memory safe mode: retry once at ~66% resolution (helps constrained prod containers)
+        log.warning("full-res render failed (%s) — retrying in safe mode", e)
+        sw, sh = (w * 2 // 3) & ~1, (h * 2 // 3) & ~1
+        return _render_video_at(images, captions, fits, audio_bytes, sw, sh)
+
+
+def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool], audio_bytes: bytes,
+                     w: int, h: int) -> bytes:
     ff = _ffmpeg()
     workdir = f"/tmp/promo_{uuid.uuid4().hex}"
     os.makedirs(workdir, exist_ok=True)
@@ -384,19 +409,18 @@ def _render_video(images: list[bytes], captions: list[str], fits: list[bool], au
             seg = os.path.join(workdir, f"seg{i}.mp4")
             vf = (f"zoompan=z='min(zoom+0.0009,1.12)':d={frames}:"
                   f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={w}x{h}:fps={FPS}")
-            subprocess.run([ff, "-y", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
-                            "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", seg],
-                           capture_output=True, check=True)
+            _run_ff([ff, "-y", "-threads", "2", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
+                     "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", seg],
+                    f"segment {i}")
             seg_paths.append(seg)
 
         concat_list = os.path.join(workdir, "list.txt")
         with open(concat_list, "w") as f:
             f.writelines(f"file '{p}'\n" for p in seg_paths)
         final = os.path.join(workdir, "final.mp4")
-        subprocess.run([ff, "-y", "-f", "concat", "-safe", "0", "-i", concat_list,
-                        "-i", audio_path, "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
-                        "-shortest", "-movflags", "+faststart", final],
-                       capture_output=True, check=True)
+        _run_ff([ff, "-y", "-threads", "2", "-f", "concat", "-safe", "0", "-i", concat_list,
+                 "-i", audio_path, "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
+                 "-shortest", "-movflags", "+faststart", final], "concat")
         with open(final, "rb") as f:
             return f.read()
     finally:
