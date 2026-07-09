@@ -21,7 +21,9 @@ import { PromoVideoStudio } from "@/components/superadmin/PromoVideoStudio";
 import { SuperNotifBell, StatusActionButton } from "@/components/superadmin/SuperNotifBell";
 import { InquiriesPanel } from "@/components/superadmin/InquiriesPanel";
 import { BrandKitPanel } from "@/components/superadmin/BrandKitPanel";
-import { Palette } from "lucide-react";
+import { PlatformLoadPanel } from "@/components/superadmin/PlatformLoadPanel";
+import { DatabasePanel } from "@/components/superadmin/DatabasePanel";
+import { Palette, Activity, Database } from "lucide-react";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -260,6 +262,8 @@ export default function SuperAdmin() {
               { id: "onboarding", label: "Onboarding Image", icon: Sparkles },
               { id: "promo", label: "Promo Video", icon: Clapperboard },
               { id: "brandkit", label: "Brand Kit", icon: Palette },
+              { id: "load", label: "Platform Load", icon: Activity },
+              { id: "database", label: "Database", icon: Database },
               { id: "security", label: "Security", icon: ShieldAlert },
             ].map(item => (
               <button key={item.id} data-testid={`super-tab-${item.id}`} onClick={() => setTab(item.id)}
@@ -286,6 +290,8 @@ export default function SuperAdmin() {
             onboarding: <OnboardingStudio tenants={tenants} />,
             promo: <PromoVideoStudio />,
             brandkit: <BrandKitPanel />,
+            load: <PlatformLoadPanel />,
+            database: <DatabasePanel />,
             security: <SecurityCard />,
           };
           return panels[tab];

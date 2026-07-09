@@ -5661,6 +5661,8 @@ api.include_router(mira_autopilot_router)
 
 from routes.promo_video import router as promo_video_router, weekly_promo_scheduler  # noqa: E402 — super-admin promo reel generator
 api.include_router(promo_video_router)
+from routes.platform_tools import router as platform_tools_router  # noqa: E402 — super-admin load metrics + DB browser
+api.include_router(platform_tools_router)
 
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 api.include_router(subscriptions_router)
