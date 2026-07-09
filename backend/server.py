@@ -339,14 +339,21 @@ _MAX_UPLOAD_BYTES = 3 * 1024 * 1024  # 3MB — plenty for a Retina thumbnail
 @api.post("/uploads/image")
 async def upload_image(
     file: UploadFile = File(...),
-    kind: str = Query("misc", regex=r"^(staff|service|product|misc|hero)$"),
-    user=Depends(require_tenant_admin),
-    t=Depends(current_tenant),
+    kind: str = Query("misc", regex=r"^(staff|service|product|misc|hero|promo)$"),
+    user=Depends(get_current_user),
 ):
-    """Accept a laptop/phone image upload from a salon admin. Stored in Emergent
-    object storage under a tenant-scoped path so cross-tenant leakage is
-    impossible. Returns a URL the frontend can save into a service/staff/product
-    image_url field."""
+    """Accept a laptop/phone image upload. Salon admins store under their tenant
+    path (cross-tenant leakage impossible); super admins (no tenant) store under
+    the superadmin path (e.g. promo video photos)."""
+    if user.get("role") == "super_admin":
+        tenant_id = "superadmin"
+    elif user.get("role") == "admin":
+        from security import _current_tenant_id
+        tenant_id = _current_tenant_id.get()
+        if not tenant_id:
+            raise HTTPException(400, "No tenant context. Pass X-Tenant-Slug header or use a tenant-scoped login.")
+    else:
+        raise HTTPException(403, "Admin role required")
     ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "bin"
     if ext not in _MIME:
         raise HTTPException(400, "Only JPG, PNG, GIF or WebP images are allowed")
@@ -357,14 +364,14 @@ async def upload_image(
         raise HTTPException(400, "Empty file")
     validate_image_bytes(ext, data)
     file_id = str(uuid.uuid4())
-    storage_path = f"{APP_NAME}/tenants/{t['id']}/{kind}/{file_id}.{ext}"
+    storage_path = f"{APP_NAME}/tenants/{tenant_id}/{kind}/{file_id}.{ext}"
     try:
         result = _put_object(storage_path, data, _MIME[ext])
     except requests.HTTPError as e:
         raise HTTPException(400, f"Storage upload failed: {e}") from e
     doc = {
         "id": file_id,
-        "tenant_id": t["id"],
+        "tenant_id": tenant_id,
         "kind": kind,
         "storage_path": result.get("path", storage_path),
         "original_filename": file.filename or f"{file_id}.{ext}",
