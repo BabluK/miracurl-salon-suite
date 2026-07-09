@@ -840,3 +840,6 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 4. Auto-Pilot post card: Download image + Copy caption+#tags + hashtags display + step helper.
 5. Weekly Monday auto-reel scheduler (promo_video.weekly_promo_scheduler, week_key idempotent) → hq_messages notification.
 6. Tested: iteration_59 — 12/12 backend, 100% frontend. Emails verified to user's real gmail (thank-you PDF + ICS invite for Bablu Kumar lead).
+
+## Jul 9, 2026
+- Dashboard Background Animation (user request): added `DashboardAurora` component — 3 flowing aurora ribbons (gold/rose/sky, blurred radial gradients) + 22 twinkling drifting sparkles. Scoped to main Dashboard page only (per user choice). Pure CSS keyframes in index.css (`dash-flow-*`, `dash-sparkle-twinkle`), respects prefers-reduced-motion, pointer-events-none, -z-10 with `isolate` on dashboard root. Verified via authenticated screenshot (layer + 22 sparkles present, no layout breakage).

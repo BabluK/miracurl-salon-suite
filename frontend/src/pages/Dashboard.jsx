@@ -13,6 +13,7 @@ import { BranchSwitchApprovals } from "@/components/BranchSwitchApprovals";
 import { QuickMusicBar } from "@/components/QuickMusicBar";
 import { LogoStudio } from "@/components/LogoStudio";
 import MySalonsOverview from "@/components/MySalonsOverview";
+import { DashboardAurora } from "@/components/DashboardAurora";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
 const CHART_TOOLTIP_STYLE = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' };
@@ -94,8 +95,8 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
-
+    <div className="app-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
+      <DashboardAurora />
       <RenewalBanner sub={subStatus} />
       {isOwner && <MySalonsOverview />}
       {isOwner && <MorningBriefing />}

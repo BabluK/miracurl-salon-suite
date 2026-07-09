@@ -332,6 +332,78 @@ select:-webkit-autofill {
 .sparkle-twinkle { animation: sparkle-twinkle 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .sparkle-twinkle { animation: none; } }
 
+/* Dashboard-only aurora ribbons + sparkles (Mira alive background) */
+.dash-aurora-ribbon {
+  position: absolute;
+  width: 60vw;
+  height: 60vw;
+  min-width: 480px;
+  min-height: 480px;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.55;
+  will-change: transform;
+}
+.dash-aurora-gold {
+  top: -25%;
+  right: -12%;
+  background: radial-gradient(circle at 40% 40%, rgba(212, 175, 55, 0.30), transparent 65%);
+  animation: dash-flow-a 22s ease-in-out infinite alternate;
+}
+.dash-aurora-rose {
+  bottom: -30%;
+  left: -15%;
+  background: radial-gradient(circle at 55% 45%, rgba(236, 72, 153, 0.20), transparent 65%);
+  animation: dash-flow-b 28s ease-in-out infinite alternate;
+}
+.dash-aurora-sky {
+  top: 30%;
+  left: 30%;
+  background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.18), transparent 65%);
+  animation: dash-flow-c 34s ease-in-out infinite alternate;
+}
+@keyframes dash-flow-a {
+  0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+  50%  { transform: translate(-10%, 14%) scale(1.15) rotate(12deg); }
+  100% { transform: translate(6%, -8%) scale(0.95) rotate(-8deg); }
+}
+@keyframes dash-flow-b {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(14%, -12%) scale(1.2); }
+  100% { transform: translate(-6%, 6%) scale(0.9); }
+}
+@keyframes dash-flow-c {
+  0%   { transform: translate(0, 0) scale(0.9); }
+  50%  { transform: translate(-16%, 10%) scale(1.1); }
+  100% { transform: translate(12%, -14%) scale(1); }
+}
+.dash-sparkle {
+  position: absolute;
+  border-radius: 9999px;
+  opacity: 0;
+  animation-name: dash-sparkle-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+.dash-sparkle-gold {
+  background: #d4af37;
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.9), 0 0 18px rgba(212, 175, 55, 0.4);
+}
+.dash-sparkle-rose {
+  background: #f472b6;
+  box-shadow: 0 0 8px rgba(244, 114, 182, 0.8), 0 0 18px rgba(244, 114, 182, 0.35);
+}
+@keyframes dash-sparkle-twinkle {
+  0%, 100% { opacity: 0; transform: translateY(0) scale(0.5); }
+  40%      { opacity: 0.9; transform: translateY(-14px) scale(1.15); }
+  70%      { opacity: 0.35; transform: translateY(-24px) scale(0.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dash-aurora-ribbon, .dash-sparkle { animation: none; }
+  .dash-sparkle { opacity: 0.4; }
+}
+
 @keyframes mesh-drift {
   0%   { background-position: 0% 0%, 100% 100%, 50% 50%, 0 0; }
   50%  { background-position: 60% 30%, 40% 60%, 30% 70%, 0 0; }

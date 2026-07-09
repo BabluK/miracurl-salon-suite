@@ -177,10 +177,42 @@ async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[
             log.error("scene image failed: %s", e)
 
     with open(MIRA_OUTRO, "rb") as f:
-        images.append(f.read())
+        outro = f.read()
+    images.append(_add_partner_qr(outro))
     captions.append("Get Miracurl Salon Suite")
     captions = [c.replace("✦", "").replace("—", "-").strip() for c in captions]
     return images, captions
+
+
+def _add_partner_qr(img_bytes: bytes) -> bytes:
+    """Bottom-left QR to the /partner demo page on the closing frame."""
+    import io
+    import qrcode
+    url = f"{os.environ.get('APP_PUBLIC_URL', '')}/partner"
+    qr = qrcode.QRCode(box_size=10, border=2)
+    qr.add_data(url)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="#1c1c22", back_color="white").convert("RGB").resize((300, 300))
+    base = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    scale = base.width / 1024
+    size = int(300 * scale)
+    qr_img = qr_img.resize((size, size))
+    pad = int(36 * scale)
+    card = Image.new("RGB", (size + pad, size + pad + int(54 * scale)), "white")
+    card.paste(qr_img, (pad // 2, pad // 2))
+    d = ImageDraw.Draw(card)
+    try:
+        font = ImageFont.truetype(FONT_PATH, int(30 * scale))
+    except OSError:
+        font = ImageFont.load_default()
+    label = "Scan for FREE demo"
+    tw = d.textlength(label, font=font)
+    d.text(((card.width - tw) / 2, size + pad // 2 + int(8 * scale)), label, font=font, fill=(28, 28, 34))
+    x, y = int(40 * scale), base.height - card.height - int(140 * scale)
+    base.paste(card, (x, y))
+    buf = io.BytesIO()
+    base.save(buf, format="JPEG", quality=92)
+    return buf.getvalue()
 
 
 def _caption_frame(img_bytes: bytes, caption: str) -> bytes:
