@@ -62,11 +62,23 @@ async def create_promo_video(body: PromoIn, admin=Depends(require_super_admin)):
     return {"job_id": job_id}
 
 
+STALE_MINUTES = 12
+
+
 @router.get("/super/promo-video/{job_id}")
 async def promo_video_status(job_id: str, admin=Depends(require_super_admin)):
     doc = await _raw_db.promo_videos.find_one({"id": job_id}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Job not found")
+    if doc.get("status") == "generating":
+        from datetime import timedelta
+        started = datetime.fromisoformat(doc["created_at"])
+        if datetime.now(timezone.utc) - started > timedelta(minutes=STALE_MINUTES):
+            await _raw_db.promo_videos.update_one({"id": job_id}, {"$set": {
+                "status": "failed",
+                "error": "Generation was interrupted (server restart or timeout). Please click Generate again."}})
+            doc["status"] = "failed"
+            doc["error"] = "Generation was interrupted (server restart or timeout). Please click Generate again."
     return doc
 
 
@@ -315,6 +327,14 @@ def _render_video(images: list[bytes], captions: list[str], audio_bytes: bytes) 
 async def weekly_promo_scheduler():
     """Every Monday (>=09:00 IST) auto-generate a fresh feature-tour reel and notify HQ inbox."""
     from datetime import timedelta
+    # A restart (deploy/reload) kills in-flight jobs — mark orphans failed so the UI never spins forever.
+    try:
+        await _raw_db.promo_videos.update_many(
+            {"status": "generating"},
+            {"$set": {"status": "failed",
+                      "error": "Generation was interrupted by a server restart. Please click Generate again."}})
+    except Exception as e:
+        log.error("stale promo cleanup failed: %s", e)
     while True:
         try:
             ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
