@@ -18,7 +18,7 @@ import subprocess
 import textwrap
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from PIL import Image, ImageDraw, ImageFont
 
@@ -54,11 +54,14 @@ class PromoIn(BaseModel):
 
 
 @router.post("/super/promo-video")
-async def create_promo_video(body: PromoIn, admin=Depends(require_super_admin)):
+async def create_promo_video(body: PromoIn, request: Request, admin=Depends(require_super_admin)):
     job_id = str(uuid.uuid4())
+    proto = request.headers.get("x-forwarded-proto", "https")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    base_url = f"{proto}://{host}" if host else os.environ.get("APP_PUBLIC_URL", "")
     await _raw_db.promo_videos.insert_one({
         "id": job_id, "status": "generating", "progress": "Mira is writing the script…",
-        "focus": body.focus, "video_url": "", "error": "",
+        "focus": body.focus, "video_url": "", "error": "", "base_url": base_url,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     asyncio.create_task(_generate(job_id, body))
@@ -198,7 +201,8 @@ async def _run_pipeline(job_id: str, body: PromoIn):
     await _raw_db.promo_videos.update_one({"id": job_id}, {"$set": {
         "status": "done", "progress": "Ready!", "video_url": f"/api/files/{fid}",
         "voiceover": voiceover, "size_mb": round(len(video_bytes) / 1048576, 1)}})
-    site = os.environ.get("APP_PUBLIC_URL", "")
+    job_doc = await _raw_db.promo_videos.find_one({"id": job_id}, {"_id": 0, "base_url": 1})
+    site = (job_doc or {}).get("base_url") or os.environ.get("APP_PUBLIC_URL", "")
     await _notify_email(
         "Your promo reel is ready 🎬",
         f"<p>Mira finished your promo video ({body.size}, {round(len(video_bytes)/1048576,1)} MB).</p>"

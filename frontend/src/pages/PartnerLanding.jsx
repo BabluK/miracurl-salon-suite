@@ -1,7 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Sparkles, CalendarCheck, ShieldCheck, Bot, Receipt, Users, TrendingUp, Loader2, CheckCircle2 } from "lucide-react";
+import { Sparkles, CalendarCheck, ShieldCheck, Bot, Receipt, Users, TrendingUp, Loader2, CheckCircle2, Zap } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -51,6 +51,14 @@ export default function PartnerLanding() {
               Run your salon on <span className="text-amber-300">autopilot</span> — with Mira, your AI teammate
             </h1>
             <p className="text-white/60 mt-4 text-base">Bookings, billing, verified staff hiring and daily AI marketing — everything one salon needs, in one suite. Trusted by growing salons across India.</p>
+            <div className="flex flex-wrap gap-2.5 mt-5" data-testid="partner-trust-badges">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-emerald-400/10 border border-emerald-300/30 text-emerald-300">
+                <Zap className="w-3 h-3" /> Loads in under a second — even on 3G
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-amber-300/10 border border-amber-300/30 text-amber-300">
+                <ShieldCheck className="w-3 h-3" /> Bank-grade security · Independently audited
+              </span>
+            </div>
             <div className="grid sm:grid-cols-2 gap-4 mt-8">
               {FEATURES.map(f => (
                 <div key={f.title} className="bg-white/5 border border-white/10 rounded-2xl p-4">
