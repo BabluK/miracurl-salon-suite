@@ -849,3 +849,4 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - BrandMark.jsx rewritten: swirl icon image (float + sparkle) replaces scissors pill; sub-label now "AI Salon Suite" with gradient AI tag; CURL wordmark shimmer recolored rose-gold.
 - Login page rebranded rose-gold: blobs, button gradient (rose→pink→amber), rose input fields/links, "✦ AI Powered Salon Suite ✦" tagline, gold sparkles.
 - Favicon + all PWA icons regenerated: consumer (cream bg), admin (dark bg), maskable 60% safe-zone, apple-touch-icon, favicon.svg (embedded PNG). All verified 200.
+- Super Admin: header Crown replaced with rose-gold swirl logo; new "Brand Kit" sidebar tab (BrandKitPanel.jsx) — 6 logo asset cards with download buttons, Brand Kit PDF download, color palette & usage notes. Assets served from /brand/ (relative, works in preview & prod).

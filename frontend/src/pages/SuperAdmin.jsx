@@ -20,6 +20,8 @@ import { OnboardingStudio } from "@/components/superadmin/OnboardingStudio";
 import { PromoVideoStudio } from "@/components/superadmin/PromoVideoStudio";
 import { SuperNotifBell, StatusActionButton } from "@/components/superadmin/SuperNotifBell";
 import { InquiriesPanel } from "@/components/superadmin/InquiriesPanel";
+import { BrandKitPanel } from "@/components/superadmin/BrandKitPanel";
+import { Palette } from "lucide-react";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -213,8 +215,8 @@ export default function SuperAdmin() {
       <header className="border-b border-indigo-900/40 bg-gradient-to-r from-slate-950 via-indigo-950 to-violet-950 sticky top-0 z-40 shadow-lg shadow-indigo-950/20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
-              <Crown className="w-5 h-5 text-slate-900" />
+            <div className="relative w-11 h-11 rounded-full bg-[#fdf7f2] flex items-center justify-center shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/60">
+              <img src="/brand/miracurl-rosegold-icon.png" alt="Miracurl" className="w-8 h-8 object-contain" draggable="false" />
               <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse" title="Systems online" />
             </div>
             <div>
@@ -257,6 +259,7 @@ export default function SuperAdmin() {
               { id: "engineer", label: "AI Engineer", icon: Wrench },
               { id: "onboarding", label: "Onboarding Image", icon: Sparkles },
               { id: "promo", label: "Promo Video", icon: Clapperboard },
+              { id: "brandkit", label: "Brand Kit", icon: Palette },
               { id: "security", label: "Security", icon: ShieldAlert },
             ].map(item => (
               <button key={item.id} data-testid={`super-tab-${item.id}`} onClick={() => setTab(item.id)}
@@ -282,6 +285,7 @@ export default function SuperAdmin() {
             engineer: <EngineerPanel />,
             onboarding: <OnboardingStudio tenants={tenants} />,
             promo: <PromoVideoStudio />,
+            brandkit: <BrandKitPanel />,
             security: <SecurityCard />,
           };
           return panels[tab];
