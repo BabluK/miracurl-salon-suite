@@ -75,8 +75,8 @@ async def promo_video_status(job_id: str, admin=Depends(require_super_admin)):
         raise HTTPException(404, "Job not found")
     if doc.get("status") == "generating":
         from datetime import timedelta
-        started = datetime.fromisoformat(doc["created_at"])
-        if datetime.now(timezone.utc) - started > timedelta(minutes=STALE_MINUTES):
+        last_beat = datetime.fromisoformat(doc.get("updated_at") or doc["created_at"])
+        if datetime.now(timezone.utc) - last_beat > timedelta(minutes=STALE_MINUTES):
             await _raw_db.promo_videos.update_one({"id": job_id}, {"$set": {
                 "status": "failed",
                 "error": "Generation was interrupted (server restart or timeout). Please click Generate again."}})
@@ -92,7 +92,9 @@ async def promo_video_list(admin=Depends(require_super_admin)):
 
 
 async def _progress(job_id: str, msg: str):
-    await _raw_db.promo_videos.update_one({"id": job_id}, {"$set": {"progress": msg}})
+    await _raw_db.promo_videos.update_one(
+        {"id": job_id},
+        {"$set": {"progress": msg, "updated_at": datetime.now(timezone.utc).isoformat()}})
 
 
 async def _generate(job_id: str, body: PromoIn):
@@ -404,10 +406,15 @@ def _render_video(images: list[bytes], captions: list[str], fits: list[bool], au
 async def weekly_promo_scheduler():
     """Every Monday (>=09:00 IST) auto-generate a fresh feature-tour reel and notify HQ inbox."""
     from datetime import timedelta
-    # A restart (deploy/reload) kills in-flight jobs — mark orphans failed so the UI never spins forever.
+    # A restart (deploy/reload) kills in-flight jobs — but in multi-worker production a
+    # NEW worker starting must not kill healthy jobs on other workers, so only fail
+    # jobs whose last heartbeat is older than the stale window.
     try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=STALE_MINUTES)).isoformat()
         await _raw_db.promo_videos.update_many(
-            {"status": "generating"},
+            {"status": "generating",
+             "$or": [{"updated_at": {"$lt": cutoff}},
+                     {"updated_at": {"$exists": False}, "created_at": {"$lt": cutoff}}]},
             {"$set": {"status": "failed",
                       "error": "Generation was interrupted by a server restart. Please click Generate again."}})
     except Exception as e:
