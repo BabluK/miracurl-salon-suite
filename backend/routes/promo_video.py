@@ -59,7 +59,8 @@ async def create_promo_video(body: PromoIn, request: Request, admin=Depends(requ
     job_id = str(uuid.uuid4())
     proto = request.headers.get("x-forwarded-proto", "https")
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    base_url = f"{proto}://{host}" if host else os.environ.get("APP_PUBLIC_URL", "")
+    trusted = host.endswith(".emergentagent.com") or host in os.environ.get("APP_PUBLIC_URL", "")
+    base_url = f"{proto}://{host}" if (host and trusted) else os.environ.get("APP_PUBLIC_URL", "")
     await _raw_db.promo_videos.insert_one({
         "id": job_id, "status": "generating", "progress": "Mira is writing the script…",
         "focus": body.focus, "video_url": "", "error": "", "base_url": base_url,

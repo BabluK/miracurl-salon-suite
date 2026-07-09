@@ -138,7 +138,8 @@ async def meta_oauth_callback(request: Request, code: str = "", state: str = "",
             pages_resp.raise_for_status()
             pages_raw = pages_resp.json().get("data", [])
     except Exception as e:
-        log.error("meta oauth failed: %s", e)
+        # scrub: httpx errors embed the full request URL, which can carry an access token
+        log.error("meta oauth failed: %s", type(e).__name__ + ": " + str(e).split("?")[0][:200])
         return RedirectResponse("/settings?social=meta_error")
 
     pages = [{
