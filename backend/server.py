@@ -4805,6 +4805,7 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_weekly_report_scheduler())
     asyncio.get_event_loop().create_task(_birthday_scheduler())
     asyncio.get_event_loop().create_task(autopilot_scheduler())
+    asyncio.get_event_loop().create_task(weekly_promo_scheduler())
 
     async def _ensure_indexes():
         await db.users.create_index("email", unique=True)
@@ -5658,7 +5659,7 @@ api.include_router(mira_calendar_router)
 from routes.mira_autopilot import router as mira_autopilot_router, autopilot_scheduler  # noqa: E402 — autonomous daily marketing
 api.include_router(mira_autopilot_router)
 
-from routes.promo_video import router as promo_video_router  # noqa: E402 — super-admin promo reel generator
+from routes.promo_video import router as promo_video_router, weekly_promo_scheduler  # noqa: E402 — super-admin promo reel generator
 api.include_router(promo_video_router)
 
 from routes.subscriptions import router as subscriptions_router  # noqa: E402

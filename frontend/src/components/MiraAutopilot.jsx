@@ -101,14 +101,35 @@ export const MiraAutopilot = () => {
           </div>
 
           {today.post?.caption && (
-            <div className="mt-3 flex gap-3 items-start bg-slate-50 rounded-xl p-3">
-              {today.post.image_url && <img src={today.post.image_url} alt="today's post" className="w-24 h-24 rounded-lg object-cover" />}
-              <div className="flex-1">
+            <div className="mt-3 flex flex-wrap gap-3 items-start bg-slate-50 rounded-xl p-3">
+              {today.post.image_url && (
+                <a href={today.post.image_url} target="_blank" rel="noreferrer" title="Open full image">
+                  <img src={today.post.image_url} alt="today's post" className="w-28 h-28 rounded-lg object-cover" />
+                </a>
+              )}
+              <div className="flex-1 min-w-[220px]">
                 <p className="text-xs font-semibold text-slate-700">{today.post.topic}</p>
-                <p className="text-xs text-slate-600 mt-1 line-clamp-3 whitespace-pre-line">{today.post.caption}</p>
-                <button data-testid="autopilot-copy-post"
-                  onClick={() => { navigator.clipboard?.writeText(`${today.post.caption}\n\n${(today.post.hashtags || []).join(" ")}`); toast.success("Caption copied ✦"); window.open("https://www.instagram.com/", "_blank", "noopener"); }}
-                  className="mt-2 text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white font-medium">Copy &amp; open Instagram ↗</button>
+                <p className="text-xs text-slate-600 mt-1 whitespace-pre-line">{today.post.caption}</p>
+                {today.post.hashtags?.length > 0 && (
+                  <p className="text-xs text-fuchsia-600 mt-1.5 font-medium" data-testid="autopilot-hashtags">{today.post.hashtags.join(" ")}</p>
+                )}
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {today.post.image_url && (
+                    <a data-testid="autopilot-download-image" href={today.post.image_url} download="miracurl-post.png" target="_blank" rel="noreferrer"
+                      className="text-xs px-3 py-1.5 rounded-lg bg-slate-900 text-white font-medium inline-flex items-center gap-1.5">
+                      ⬇ Download image
+                    </a>
+                  )}
+                  <button data-testid="autopilot-copy-caption"
+                    onClick={() => { navigator.clipboard?.writeText(`${today.post.caption}\n\n${(today.post.hashtags || []).join(" ")}`); toast.success("Caption + hashtags copied ✦"); }}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 font-medium">
+                    Copy caption + #tags
+                  </button>
+                  <button data-testid="autopilot-copy-post"
+                    onClick={() => { navigator.clipboard?.writeText(`${today.post.caption}\n\n${(today.post.hashtags || []).join(" ")}`); toast.success("Caption copied — now pick the downloaded image in Instagram ✦"); window.open("https://www.instagram.com/", "_blank", "noopener"); }}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white font-medium">Open Instagram ↗</button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2">1. Download image → 2. Open Instagram → ➕ New post → pick the image → 3. Paste caption → Share ✦</p>
               </div>
             </div>
           )}

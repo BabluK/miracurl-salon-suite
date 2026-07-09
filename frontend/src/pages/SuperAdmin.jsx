@@ -241,73 +241,34 @@ export default function SuperAdmin() {
         {/* Super-admin profile */}
         <SuperProfileCard />
 
-        {/* Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-200">
-          <button
-            data-testid="super-tab-tenants"
-            onClick={() => setTab("tenants")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${tab === "tenants" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          >Tenants</button>
-          <button
-            data-testid="super-tab-billing"
-            onClick={() => setTab("billing")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "billing" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><Receipt className="w-4 h-4" /> Billing & Subscriptions</button>
-          <button
-            data-testid="super-tab-partners"
-            onClick={() => setTab("partners")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "partners" ? "border-emerald-500 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><Handshake className="w-4 h-4" /> Partners</button>
-          <button
-            data-testid="super-tab-leaderboard"
-            onClick={() => setTab("leaderboard")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "leaderboard" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><Trophy className="w-4 h-4" /> Top Referrers</button>
-          <button
-            data-testid="super-tab-revenue"
-            onClick={() => setTab("revenue")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "revenue" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><TrendingUp className="w-4 h-4" /> Revenue</button>
-          <button
-            data-testid="super-tab-ai"
-            onClick={() => setTab("ai")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "ai" ? "border-sky-500 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><Sparkles className="w-4 h-4" /> AI Insights</button>
-          <button
-            data-testid="super-tab-inquiries"
-            onClick={() => setTab("inquiries")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "inquiries" ? "border-rose-500 text-rose-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><Users className="w-4 h-4" /> Inquiries
-            {inquiryNew > 0 && <span data-testid="inquiries-new-badge" className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{inquiryNew}</span>}
-          </button>
-          <button
-            data-testid="super-tab-inbox"
-            onClick={() => setTab("inbox")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "inbox" ? "border-violet-500 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><Inbox className="w-4 h-4" /> HQ Inbox
-            {hqUnread > 0 && <span data-testid="hq-unread-badge" className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{hqUnread}</span>}
-          </button>
-          <button
-            data-testid="super-tab-engineer"
-            onClick={() => setTab("engineer")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "engineer" ? "border-emerald-500 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><Wrench className="w-4 h-4" /> AI Engineer</button>
-          <button
-            data-testid="super-tab-onboarding"
-            onClick={() => setTab("onboarding")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "onboarding" ? "border-fuchsia-500 text-fuchsia-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><Sparkles className="w-4 h-4" /> Onboarding Image</button>
-          <button
-            data-testid="super-tab-promo"
-            onClick={() => setTab("promo")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "promo" ? "border-amber-500 text-amber-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><Clapperboard className="w-4 h-4" /> Promo Video</button>
-          <button
-            data-testid="super-tab-security"
-            onClick={() => setTab("security")}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "security" ? "border-red-500 text-red-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
-          ><ShieldAlert className="w-4 h-4" /> Security</button>
-        </div>
+        {/* Sidebar + content */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <aside className="w-full lg:w-56 shrink-0 lg:sticky lg:top-6">
+          <nav data-testid="super-sidebar" className="flex lg:flex-col gap-1 overflow-x-auto bg-white border border-slate-200 rounded-2xl p-2">
+            {[
+              { id: "tenants", label: "Tenants", icon: Building2 },
+              { id: "billing", label: "Billing & Subscriptions", icon: Receipt },
+              { id: "partners", label: "Partners", icon: Handshake },
+              { id: "leaderboard", label: "Top Referrers", icon: Trophy },
+              { id: "revenue", label: "Revenue", icon: TrendingUp },
+              { id: "ai", label: "AI Insights", icon: Sparkles },
+              { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
+              { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread },
+              { id: "engineer", label: "AI Engineer", icon: Wrench },
+              { id: "onboarding", label: "Onboarding Image", icon: Sparkles },
+              { id: "promo", label: "Promo Video", icon: Clapperboard },
+              { id: "security", label: "Security", icon: ShieldAlert },
+            ].map(item => (
+              <button key={item.id} data-testid={`super-tab-${item.id}`} onClick={() => setTab(item.id)}
+                className={`shrink-0 lg:w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>
+                <item.icon className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">{item.label}</span>
+                {item.badge > 0 && <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{item.badge}</span>}
+              </button>
+            ))}
+          </nav>
+        </aside>
+        <div className="flex-1 min-w-0 w-full space-y-6">
 
         {(() => {
           const panels = {
@@ -460,6 +421,8 @@ export default function SuperAdmin() {
         <SmsCreditLog />
           </>
         )}
+        </div>
+        </div>
       </main>
 
       {open && (

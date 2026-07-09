@@ -18,6 +18,7 @@ import Reports from "@/pages/Reports";
 import Reviews from "@/pages/Reviews";
 import OffersStudio from "@/pages/OffersStudio";
 import BookPublic from "@/pages/BookPublic";
+import PartnerLanding from "@/pages/PartnerLanding";
 import ReviewPublic from "@/pages/ReviewPublic";
 import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
@@ -122,6 +123,7 @@ export default function App() {
           <PlayerProvider>
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
+            <Route path="/partner" element={<PartnerLanding />} />
             <Route path="/staff-registry" element={<RegistryPublic />} />
             <Route path="/partners" element={<Partners />} />
             <Route path="/book" element={<SalonFinder />} />

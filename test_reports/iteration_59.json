@@ -1,0 +1,35 @@
+{
+  "summary": "Iter 59 — Partner landing page + Super-Admin follow-up (Thank-You PDF + Meet invite) + left-sidebar Super-Admin refactor. Backend: 12/12 pytest cases pass (validation 422, super-admin auth gating, list persistence, thank-you PDF email + status contacted, meet-invite ICS email + status meeting_scheduled + 'IST' when-string, invalid date 400/422, non-existent iid 404, IP rate-limit 429 after 5+/10min). Frontend: /partner renders 6 dark feature cards + WHITE form card with dark readable text (bg rgb(255,255,255) color rgb(30,41,59) — bug-fix verified). Super-Admin left sidebar (data-testid=super-sidebar) contains exactly 12 items (Tenants/Billing/Partners/Top Referrers/Revenue/AI Insights/Leads & Inquiries/HQ Inbox/AI Engineer/Onboarding Image/Promo Video/Security), Leads badge=9, HQ Inbox badge=1, no overlap. Leads & Inquiries panel shows TEST_iter59 Buddy with 'Partner page lead' + 'TEST_iter59 Salon' + 'Prefers: Weekday evenings' + 'Brochure sent' + 'Meet: 2026-07-15 15:30 IST' badges; Thank-You+PDF flips to 'Resend PDF'; Meet invite opens invite-form-{id} with invite-send. Regression clicks on Tenants/Billing/Revenue/Security/HQ Inbox — no crashes. Tenant Auto-Pilot card shows autopilot-hashtags, autopilot-copy-caption and Open Instagram button. Weekly promo scheduler imports/starts cleanly (server.py wires weekly_promo_scheduler + autopilot_scheduler; startup logs clean).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mira Studio / Auto-Pilot today card", "issues": ["'autopilot-download-image' link is only rendered when today.post.image_url is truthy. For the current miracurl-marathahalli tenant today's post has no image_url so the Download-image button is not shown (Copy caption + Open Instagram are visible). Not a UI bug — data state — but confirm image generation is expected to populate image_url daily."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter59_partner_leads.py",
+    "/app/test_reports/pytest/iter59.xml"
+  ],
+  "action_items": [
+    "Optional: ensure autopilot daily post always attaches an image_url (or hide the 'Download image → …' helper line when no image is available).",
+    "Optional cosmetic (from prior iter): Mira Studio sub-header still says '11 specialist agents' — matches rendered grid; leave as is."
+  ],
+  "critical_code_review_comments": [
+    "sales.py partner_inquiry: public_rate_limit runs AFTER Pydantic validation — good (invalid submissions don't consume quota). Rate limit is per-IP 5/10min; in a shared preview env this can lock out legitimate testers. Consider allowing a bypass header or IP allow-list for QA.",
+    "send_thankyou / send_invite: attaches a 4-page brochure PDF (~4MB) — Resend accepts, but repeatedly resending will be heavy; consider a cooldown (e.g., 1 send / 5 min per inquiry) similar to autopilot.",
+    "MeetInviteIn.date/time uses strict min/max length rather than pattern — a malformed same-length string (e.g. '07-15-2026') falls through to the strptime guard which correctly returns 400. Consider a regex validator for earlier/clearer 422.",
+    "_build_ics: escaping of description is limited to '\\n' → '\\\\n' but does not escape commas/semicolons per RFC 5545 — some calendars may render '\\,' oddly if meet_link contains those. Low risk.",
+    "InquiriesPanel: the 'Resend PDF' label swap is derived from thankyou_sent_at — correct; but hitting Resend PDF again does re-attach the full PDF each time (see cooldown suggestion above).",
+    "SuperAdmin sidebar: 12 items in a single scrollable nav — accessible; nav has data-testid super-sidebar and children super-tab-{id}. Review request text mentioned 'super-nav-*' — actual is 'super-tab-*' (documentation nit, tests pass)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 ; admin@miracurl.com / q6QY@tn3p#9DtL (slug miracurl-marathahalli)",
+  "seed_data_creation": "Created 1 valid TEST_iter59 partner inquiry (delivered@resend.dev) + ~4-5 further TEST_iter59 rl* rate-limit probe inquiries. Real emails sent: 2 (1 thank-you PDF + 1 meet invite ICS) to delivered@resend.dev — well under the 3-email budget.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test /app/backend/tests/test_iter59_partner_leads.py covers all 3 new endpoints incl. auth-gating, rate-limit, and Create→GET persistence for status transitions (contacted / meeting_scheduled). Rate-limit is per-IP 5/10min AFTER Pydantic validation — invalid payload tests don't count. The test file is idempotent: it will pytest.skip the valid-POST case if the IP is currently rate-limited, and reuses any pre-existing TEST_iter59 lead to exercise follow-ups. Login UI: prefer press_sequentially(delay=25) for tenant admin (fill() sometimes fails on react-hook-form-controlled inputs). Super-admin tab testids are super-tab-{id} (NOT super-nav-{id}).",
+  "rca of the issue": "No bugs — all requested features work end-to-end."
+}
