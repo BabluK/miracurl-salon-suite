@@ -198,7 +198,7 @@ table.luxe-table-light { width: 100%; border-collapse: collapse; }
   animation: brand-snip 4.5s ease-in-out infinite;
 }
 .brand-curl {
-  background: linear-gradient(90deg, #f43f5e 0%, #ec4899 35%, #d946ef 70%, #f43f5e 100%);
+  background: linear-gradient(90deg, #e8918f 0%, #d4af37 35%, #e8a0a8 70%, #d4af37 100%);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -206,6 +206,19 @@ table.luxe-table-light { width: 100%; border-collapse: collapse; }
   animation: brand-shimmer 3.4s linear infinite;
 }
 .brand-mark { animation: brand-fade-in 0.6s ease-out both; }
+.brand-orb { animation: brand-orb-float 4s ease-in-out infinite; }
+.brand-orb-spark { animation: sparkle-twinkle 2.4s ease-in-out infinite; }
+.brand-ai-tag {
+  background: linear-gradient(90deg, #d4af37, #e8918f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 700;
+}
+@keyframes brand-orb-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(3deg); }
+}
 
 @keyframes brand-snip {
   0%, 84%, 100% { transform: rotate(0deg); }
@@ -236,7 +249,7 @@ table.luxe-table-light { width: 100%; border-collapse: collapse; }
 }
 .animate-slide-up { animation: pwa-slide-up 320ms cubic-bezier(0.16, 1, 0.3, 1); }
 @media (prefers-reduced-motion: reduce) {
-  .brand-pill, .brand-scissors, .brand-curl, .brand-mark, .animate-slide-up { animation: none !important; }
+  .brand-pill, .brand-scissors, .brand-curl, .brand-mark, .brand-orb, .brand-orb-spark, .animate-slide-up { animation: none !important; }
 }
 
 /* ============ Hide 'Made with Emergent' platform badge ============ */

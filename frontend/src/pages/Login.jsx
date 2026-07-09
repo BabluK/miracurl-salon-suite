@@ -69,11 +69,17 @@ export default function Login() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-white" data-testid="login-page">
-      {/* Decorative gradient blobs — bottom-right & bottom-left, Respark style */}
+      {/* Decorative rose-gold gradient blobs — matching the brand logo */}
       <div className="pointer-events-none absolute -right-32 -bottom-32 w-[640px] h-[640px] rounded-full opacity-90"
-           style={{ background: "radial-gradient(circle at 30% 30%, #ec4899 0%, #d946ef 35%, #6366f1 70%, transparent 100%)" }} />
+           style={{ background: "radial-gradient(circle at 30% 30%, #e8918f 0%, #d4af37 40%, #ec4899 75%, transparent 100%)" }} />
       <div className="pointer-events-none absolute -left-40 -bottom-44 w-[520px] h-[520px] rounded-full opacity-80"
-           style={{ background: "radial-gradient(circle at 60% 40%, #818cf8 0%, #a78bfa 40%, #ec4899 80%, transparent 100%)" }} />
+           style={{ background: "radial-gradient(circle at 60% 40%, #f5d78e 0%, #e8a0a8 45%, #d4af37 80%, transparent 100%)" }} />
+      {/* AI sparkles drifting over the page */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        {[["12%","18%","0s"],["85%","12%","1.2s"],["70%","30%","2.1s"],["20%","65%","0.7s"],["90%","55%","1.8s"],["45%","10%","2.6s"],["8%","42%","3.2s"],["60%","75%","1.5s"]].map(([l,t,d]) => (
+          <span key={l+t} className="dash-sparkle dash-sparkle-gold" style={{ left: l, top: t, width: 5, height: 5, animationDelay: d, animationDuration: "4s" }} />
+        ))}
+      </div>
 
       {/* Brand mark — top-left */}
       <div className="relative z-10 px-8 pt-6 sm:px-14 sm:pt-10">
@@ -90,6 +96,9 @@ export default function Login() {
           <h1 className="text-center text-3xl sm:text-[2rem] font-semibold text-slate-800 tracking-tight" data-testid="login-heading">
             {heading}
           </h1>
+          <p className="text-center text-[11px] uppercase tracking-[0.25em] mt-2 font-semibold" data-testid="login-ai-tagline">
+            <span className="brand-ai-tag">✦ AI Powered Salon Suite ✦</span>
+          </p>
 
           <form onSubmit={submit} className="mt-10 space-y-6">
             {mode === "signup" && (
@@ -167,8 +176,8 @@ export default function Login() {
               disabled={busy}
               data-testid="login-submit-btn"
               className="w-full py-3.5 rounded-xl text-white font-medium text-base
-                         bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-600 hover:to-blue-600
-                         shadow-[0_8px_20px_-6px_rgba(59,130,246,0.6)]
+                         bg-gradient-to-r from-rose-400 via-pink-500 to-amber-500 hover:from-rose-500 hover:via-pink-600 hover:to-amber-600
+                         shadow-[0_8px_20px_-6px_rgba(232,145,143,0.65)]
                          disabled:opacity-60 disabled:cursor-not-allowed
                          transition-all active:scale-[0.98]"
             >
@@ -207,8 +216,8 @@ function Field({ label, icon: Icon, testid, value, onChange, type = "text", plac
     <div>
       <label className="block text-sm text-slate-600 mb-2">{label}</label>
       <div className="relative">
-        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-sky-100 flex items-center justify-center">
-          <Icon className="w-3.5 h-3.5 text-sky-500" />
+        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-rose-50 flex items-center justify-center">
+          <Icon className="w-3.5 h-3.5 text-rose-400" />
         </div>
         <input
           data-testid={testid}
@@ -217,9 +226,9 @@ function Field({ label, icon: Icon, testid, value, onChange, type = "text", plac
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           required={required}
-          className="w-full pl-14 pr-12 py-3.5 rounded-xl bg-sky-50/70 border border-sky-100
+          className="w-full pl-14 pr-12 py-3.5 rounded-xl bg-rose-50/60 border border-rose-100
                      text-slate-800 placeholder:text-slate-400 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-sky-300 focus:bg-white focus:border-sky-300
+                     focus:outline-none focus:ring-2 focus:ring-rose-200 focus:bg-white focus:border-rose-300
                      transition-all"
         />
         {trailing && (
