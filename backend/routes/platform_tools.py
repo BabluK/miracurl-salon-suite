@@ -105,12 +105,14 @@ async def db_docs(coll: str, skip: int = 0, limit: int = 20, q: str = "",
         raise HTTPException(404, "Collection not found")
     limit = max(1, min(limit, 50))
     flt = {}
-    if q.strip():
-        rx = {"$regex": q.strip(), "$options": "i"}
+    q = q.strip()[:60]
+    if q:
+        import re as _re
+        rx = {"$regex": _re.escape(q), "$options": "i"}
         flt = {"$or": [{"id": rx}, {"name": rx}, {"email": rx}, {"phone": rx},
                        {"tenant_id": rx}, {"slug": rx}, {"status": rx}]}
-    total = await _raw_db[coll].count_documents(flt)
-    docs = await _raw_db[coll].find(flt).sort("_id", -1).skip(skip).limit(limit).to_list(limit)
+    total = await _raw_db[coll].count_documents(flt, maxTimeMS=4000)
+    docs = await _raw_db[coll].find(flt).sort("_id", -1).skip(skip).limit(limit).max_time_ms(4000).to_list(limit)
     return {"total": total, "docs": [_jsonable(d) for d in docs]}
 
 
