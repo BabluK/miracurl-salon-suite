@@ -49,3 +49,32 @@ These keep being re-flagged. Verified stale on Jul 8, 2026 — re-verify with `m
 - Nested ternary cleanup (246+ instances)
 - TypeScript migration / test type hints
 - rzp_verify & public_signup_salon further splitting (security-critical linear flows)
+
+## Scanner report — Jul 9, 2026 (verified item by item)
+**Fixed:**
+1. Circular import mira_autopilot ↔ mira_studio — module-level imports in mira_autopilot
+   converted to function-level lazy imports (both edges now lazy; import test passes).
+2. promo_video `_build_scenes` (complexity 18) → split into `_owner_photo_scene`,
+   `_express_scenes`, `_ai_scenes` + thin composer.
+3. mira_autopilot `_create_daily_post` (complexity 14) → split into `_ensure_today_post`
+   + `_publish_post_live` + thin composer.
+
+**Verified FALSE POSITIVES (do not "fix"):**
+4. "Hardcoded secret social_connect.py:30" — that line is `GOOGLE_SCOPE =
+   "https://www.googleapis.com/auth/business.manage"`, a public OAuth scope URL.
+   All real credentials come from env (`_meta_creds` / `_google_creds`).
+5. "34 possibly undefined variables" — pyflakes 3.4 across routes/, services/ and all
+   top-level backend modules reports ZERO undefined names.
+6. "Login.jsx stores auth tokens in localStorage" — it stores the *email only* for
+   "Remember my email" (REMEMBER_KEY). Auth is HTTPOnly-cookie JWT. branch.js stores a
+   branch display preference; MorningBriefing stores dismissed-banner flags. None are secrets.
+7. "Missing hook dependencies: api, URLSearchParams, localStorage, encodeURIComponent…" —
+   module imports and browser globals are stable identities and do NOT belong in dependency
+   arrays (per React docs). Adding them is a no-op; the flagged names prove scanner noise.
+8. "Empty catch blocks" — every flagged catch carries an intent comment
+   (`/* private mode */`, `/* session already invalid */`, `/* non-admin */`, `/* noop */`)
+   for expected, non-actionable failures (Safari private-mode localStorage, best-effort logout).
+
+**Still deliberately deferred** (dedicated regression pass, see ROADMAP):
+large component splits (SuperAdmin/AppLayout/StaffPortal/MorningBriefing), nested ternaries,
+public_signup_salon & registry/receipt_email decomposition (security-critical linear flows).

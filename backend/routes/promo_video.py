@@ -201,10 +201,50 @@ BROCHURE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets"
 EXPRESS_SHOTS = ["dashboard.png", "pos.png", "staff.png", "mira.png"]
 
 
-async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[str], list[bool]]:
-    """Mira opens and closes every reel; owner photo (if any) is scene 2.
-    Express mode fills the middle with real app screenshots (fast); otherwise AI scenes are generated in parallel."""
+async def _owner_photo_scene(body: PromoIn, scenes: list) -> tuple[bytes, str] | None:
+    fid = body.photo_url.rstrip("/").split("/")[-1]
+    up = await _raw_db.uploads.find_one({"id": fid}, {"_id": 0})
+    if not up:
+        return None
+    data, _ = _get_object(up["storage_path"])
+    return data, (scenes[0].get("caption", "") if scenes else "")
+
+
+def _express_scenes(scenes: list) -> list[tuple[bytes, str]]:
+    """Real app screenshots — no AI generation, renders in seconds."""
+    out = []
+    for i, fname in enumerate(EXPRESS_SHOTS):
+        path = os.path.join(BROCHURE_DIR, fname)
+        if not os.path.exists(path):
+            continue
+        with open(path, "rb") as f:
+            out.append((f.read(), scenes[i].get("caption", "") if i < len(scenes) else ""))
+    return out
+
+
+async def _ai_scenes(body: PromoIn, scenes: list) -> list[tuple[bytes, str]]:
+    """HD AI visuals, generated in parallel."""
     from routes.mira_studio import _key
+    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    gen = OpenAIImageGeneration(api_key=_key())
+    ai_budget = 3 if body.mode == "feature_tour" else 2
+
+    async def _one_scene(s: dict):
+        prompt = (f"{s.get('image_prompt', 'modern premium salon interior')}. Vertical 9:16 cinematic promo shot, "
+                  "premium beauty-tech aesthetic, rich lighting. NO text, NO letters, NO logos, no distorted faces.")
+        try:
+            out = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+            return (out[0] if out else None, s.get("caption", ""))
+        except Exception as e:
+            log.error("scene image failed: %s", e)
+            return (None, "")
+
+    results = await asyncio.gather(*[_one_scene(s) for s in scenes[:ai_budget]])
+    return [(img, cap) for img, cap in results if img]
+
+
+async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[str], list[bool]]:
+    """Mira opens and closes every reel; owner photo (if any) is scene 2; middle is express or AI."""
     images: list[bytes] = []
     captions: list[str] = []
     fits: list[bool] = []
@@ -215,44 +255,17 @@ async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[
     fits.append(False)
 
     if body.photo_url:
-        fid = body.photo_url.rstrip("/").split("/")[-1]
-        up = await _raw_db.uploads.find_one({"id": fid}, {"_id": 0})
-        if up:
-            data, _ = _get_object(up["storage_path"])
-            images.append(data)
-            captions.append(scenes[0].get("caption", "") if scenes else "")
+        photo = await _owner_photo_scene(body, scenes)
+        if photo:
+            images.append(photo[0])
+            captions.append(photo[1])
             fits.append(False)
 
-    if body.express:
-        for i, fname in enumerate(EXPRESS_SHOTS):
-            path = os.path.join(BROCHURE_DIR, fname)
-            if not os.path.exists(path):
-                continue
-            with open(path, "rb") as f:
-                images.append(f.read())
-            captions.append(scenes[i].get("caption", "") if i < len(scenes) else "")
-            fits.append(True)
-    else:
-        from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-        gen = OpenAIImageGeneration(api_key=_key())
-        ai_budget = 3 if body.mode == "feature_tour" else 2
-
-        async def _one_scene(s: dict):
-            prompt = (f"{s.get('image_prompt', 'modern premium salon interior')}. Vertical 9:16 cinematic promo shot, "
-                      "premium beauty-tech aesthetic, rich lighting. NO text, NO letters, NO logos, no distorted faces.")
-            try:
-                out = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
-                return (out[0] if out else None, s.get("caption", ""))
-            except Exception as e:
-                log.error("scene image failed: %s", e)
-                return (None, "")
-
-        results = await asyncio.gather(*[_one_scene(s) for s in scenes[:ai_budget]])
-        for img, cap in results:
-            if img:
-                images.append(img)
-                captions.append(cap)
-                fits.append(False)
+    middle = _express_scenes(scenes) if body.express else await _ai_scenes(body, scenes)
+    for img, cap in middle:
+        images.append(img)
+        captions.append(cap)
+        fits.append(body.express)
 
     with open(MIRA_OUTRO, "rb") as f:
         outro = f.read()

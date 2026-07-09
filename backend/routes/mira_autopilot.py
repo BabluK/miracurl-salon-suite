@@ -20,9 +20,10 @@ from pydantic import BaseModel
 
 from database import _raw_db
 from security import require_tenant_admin, current_tenant
-from routes.mira_studio import _ask_json, _gen_image
-from routes.social_connect import publish_content, _conn
 from email_service import _send_email, marketing_email_html
+
+# NOTE: routes.mira_studio / routes.social_connect are imported lazily inside
+# functions to avoid a circular import (mira_studio also imports from this module).
 
 router = APIRouter()
 log = logging.getLogger("mira_autopilot")
@@ -96,6 +97,7 @@ async def run_autopilot_for_tenant(t: dict, force: bool = False) -> dict:
         return {"skipped": "already ran today", **{k: existing.get(k) for k in ("post_created", "posted_live", "emails_sent", "wa_leads")}}
 
     summary = {"post_created": False, "posted_live": False, "emails_sent": 0, "wa_leads": 0, "errors": []}
+    from routes.social_connect import _conn
     conn = await _conn(tid)
     connected = [p for p in ("instagram", "facebook") if conn.get(p)]
 
@@ -125,46 +127,59 @@ async def run_autopilot_for_tenant(t: dict, force: bool = False) -> dict:
     return summary
 
 
-async def _create_daily_post(t: dict, today: str, connected: list[str]) -> dict:
+async def _ensure_today_post(t: dict, today: str) -> dict:
+    """Return today's calendar post, creating one via LLM + image gen if missing."""
+    from routes.mira_studio import _ask_json, _gen_image
     existing = await _raw_db.content_calendar.find_one(
         {"tenant_id": t["id"], "date": today, "status": {"$in": ["approved", "posted"]}}, {"_id": 0})
-    item = existing
-    if not item:
-        plan = await _ask_json(
-            f"You are Mira, marketing agent for '{t.get('name')}', a premium Indian unisex salon. "
-            f"Today is {today} — check for real Indian festivals or international days on this date.",
-            'Create ONE Instagram post for today. Return JSON: {"post_type":"offer|festival|tip|spotlight",'
-            '"topic":"<short>","caption":"<ready-to-post, with emojis>","hashtags":["#..."]}')
-        if not plan.get("caption"):
-            raise RuntimeError("LLM returned no caption")
-        image_url = await _gen_image(
-            f"Professional Instagram promo image for an Indian premium salon about '{plan.get('topic')}'. "
-            "Cinematic lighting, luxury beauty aesthetic, square. NO text, NO letters, NO logos.", t, "autopilot")
-        item = {"id": str(uuid.uuid4()), "tenant_id": t["id"], "date": today,
-                "post_type": plan.get("post_type", "post"), "platform": "instagram",
-                "topic": plan.get("topic", ""), "caption": plan.get("caption", ""),
-                "hashtags": plan.get("hashtags") or [], "status": "approved",
-                "image_url": image_url or "", "auto": True,
-                "created_at": datetime.now(timezone.utc).isoformat()}
-        await _raw_db.content_calendar.insert_one({**item})
-        item.pop("_id", None)
+    if existing:
+        return existing
+    plan = await _ask_json(
+        f"You are Mira, marketing agent for '{t.get('name')}', a premium Indian unisex salon. "
+        f"Today is {today} — check for real Indian festivals or international days on this date.",
+        'Create ONE Instagram post for today. Return JSON: {"post_type":"offer|festival|tip|spotlight",'
+        '"topic":"<short>","caption":"<ready-to-post, with emojis>","hashtags":["#..."]}')
+    if not plan.get("caption"):
+        raise RuntimeError("LLM returned no caption")
+    image_url = await _gen_image(
+        f"Professional Instagram promo image for an Indian premium salon about '{plan.get('topic')}'. "
+        "Cinematic lighting, luxury beauty aesthetic, square. NO text, NO letters, NO logos.", t, "autopilot")
+    item = {"id": str(uuid.uuid4()), "tenant_id": t["id"], "date": today,
+            "post_type": plan.get("post_type", "post"), "platform": "instagram",
+            "topic": plan.get("topic", ""), "caption": plan.get("caption", ""),
+            "hashtags": plan.get("hashtags") or [], "status": "approved",
+            "image_url": image_url or "", "auto": True,
+            "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.content_calendar.insert_one({**item})
+    item.pop("_id", None)
+    return item
 
+
+async def _publish_post_live(t: dict, item: dict, connected: list[str]) -> bool:
+    """Push the post to the connected Meta pages; returns True if any platform accepted it."""
+    from routes.social_connect import publish_content
+    base = os.environ.get("APP_PUBLIC_URL", "")
+    image_abs = item["image_url"] if item["image_url"].startswith("http") else f"{base}{item['image_url']}"
+    caption = f"{item['caption']}\n\n{' '.join(item.get('hashtags') or [])}".strip()
+    results = await publish_content(t["id"], caption, image_abs, connected)
+    posted = any(r.get("ok") for r in results.values())
+    await _raw_db.content_calendar.update_one(
+        {"id": item["id"], "tenant_id": t["id"]},
+        {"$set": {"status": "posted" if posted else "approved", "publish_results": results,
+                  "posted_at": datetime.now(timezone.utc).isoformat() if posted else None}})
+    return posted
+
+
+async def _create_daily_post(t: dict, today: str, connected: list[str]) -> dict:
+    item = await _ensure_today_post(t, today)
     out = {"post_created": True, "posted_live": False, "post": {k: item.get(k) for k in ("id", "topic", "caption", "hashtags", "image_url")}}
     if connected and item.get("image_url") and item.get("status") != "posted":
-        base = os.environ.get("APP_PUBLIC_URL", "")
-        image_abs = item["image_url"] if item["image_url"].startswith("http") else f"{base}{item['image_url']}"
-        caption = f"{item['caption']}\n\n{' '.join(item.get('hashtags') or [])}".strip()
-        results = await publish_content(t["id"], caption, image_abs, connected)
-        posted = any(r.get("ok") for r in results.values())
-        out["posted_live"] = posted
-        await _raw_db.content_calendar.update_one(
-            {"id": item["id"], "tenant_id": t["id"]},
-            {"$set": {"status": "posted" if posted else "approved", "publish_results": results,
-                      "posted_at": datetime.now(timezone.utc).isoformat() if posted else None}})
+        out["posted_live"] = await _publish_post_live(t, item, connected)
     return out
 
 
 async def _run_lead_machine(t: dict, cfg: dict) -> tuple[int, list[dict]]:
+    from routes.mira_studio import _ask_json
     leads = await _find_winback_leads(t["id"], cfg["winback_days"])
     if not leads:
         return 0, []
