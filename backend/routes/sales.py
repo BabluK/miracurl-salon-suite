@@ -215,6 +215,9 @@ async def inquiry_send_thankyou(iid: str, user=Depends(require_super_admin)):
         raise HTTPException(404, "Inquiry not found")
     if not inq.get("email"):
         raise HTTPException(400, "This lead has no email address")
+    last = inq.get("thankyou_sent_at")
+    if last and (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds() < 300:
+        raise HTTPException(429, "Brochure was sent moments ago — wait a few minutes before resending")
     first = inq["name"].split()[0].title()
     hq_email = os.environ.get("HQ_EMAIL", "")
     hq_phone = os.environ.get("HQ_PHONE", "")

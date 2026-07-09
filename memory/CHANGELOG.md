@@ -832,3 +832,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 3. Resend rate-limit fix: 0.6s pacing between sends in autopilot + campaign loops (was silently dropping 3rd+ email — "Too many requests").
 4. Test leads added for user (bablukumar.cs14@gmail.com, im.miracurl@gmail.com, atul.katiyar18@outlook.com — all 3 emails SENT & verified; WhatsApp lead 7406869271 queued in Auto-Pilot with designed message).
 5. requirements.txt updated (imageio-ffmpeg for production ffmpeg).
+
+## Update — Jul 9 (part 95) — Software Leads Inbox + sidebar + follow-up suite (iter59, 100%)
+1. PUBLIC /partner landing page (PartnerLanding.jsx): dark luxe hero + Mira, 6 feature cards, demo-request form (name/phone/email/salon/preferred_time/message) → POST /api/public/partner-inquiry (rate-limit 5/10min/IP) → tenant_inquiries with source partner_page + lead alert email. White-input fix for dark global styles.
+2. Super Admin Leads & Inquiries follow-up: 'Thank-You + PDF' (branded email + 4-page brochure PDF from services/brochure.py — real app screenshots in /app/backend/assets/brochure/, Mira cover, features+contact page, lru_cached; 5-min resend cooldown) and 'Meet invite' inline form (date/time IST + meet link → email w/ RFC5545 .ics attachment, status meeting_scheduled + meeting object). Lead cards show source/salon/preferred-time/brochure-sent/meeting badges.
+3. Super Admin layout: overlapping top tabs → LEFT SIDEBAR (12 items, badges, lg:sticky, mobile horizontal scroll).
+4. Auto-Pilot post card: Download image + Copy caption+#tags + hashtags display + step helper.
+5. Weekly Monday auto-reel scheduler (promo_video.weekly_promo_scheduler, week_key idempotent) → hq_messages notification.
+6. Tested: iteration_59 — 12/12 backend, 100% frontend. Emails verified to user's real gmail (thank-you PDF + ICS invite for Bablu Kumar lead).

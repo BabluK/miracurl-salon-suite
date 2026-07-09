@@ -129,7 +129,7 @@ export const MiraAutopilot = () => {
                     onClick={() => { navigator.clipboard?.writeText(`${today.post.caption}\n\n${(today.post.hashtags || []).join(" ")}`); toast.success("Caption copied — now pick the downloaded image in Instagram ✦"); window.open("https://www.instagram.com/", "_blank", "noopener"); }}
                     className="text-xs px-3 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white font-medium">Open Instagram ↗</button>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-2">1. Download image → 2. Open Instagram → ➕ New post → pick the image → 3. Paste caption → Share ✦</p>
+                {today.post.image_url && <p className="text-[10px] text-slate-400 mt-2">1. Download image → 2. Open Instagram → ➕ New post → pick the image → 3. Paste caption → Share ✦</p>}
               </div>
             </div>
           )}

@@ -5,7 +5,6 @@ from getting rate-limited before the rate-limit test finishes, we run submission
 LAST in the file (pytest-collect order).
 """
 import os
-import re
 import time
 import uuid
 import requests
