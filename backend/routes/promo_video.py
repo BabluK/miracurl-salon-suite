@@ -467,12 +467,22 @@ async def weekly_promo_scheduler():
                     await _run_pipeline(job_id, PromoIn(mode="feature_tour"))
                     done = await _raw_db.promo_videos.find_one({"id": job_id}, {"_id": 0})
                     if done and done.get("status") == "done":
+                        poster_note = ""
+                        try:
+                            from routes.promo_image import generate_poster_core
+                            poster = await generate_poster_core(
+                                "This week's Miracurl Salon Suite promo — all features, one app", "square")
+                            poster_note = " A matching poster is also ready in Super Admin → AI Posters."
+                            log.info("weekly poster generated: %s", poster.get("id"))
+                        except Exception as pe:
+                            log.error("weekly poster failed: %s", pe)
                         await _raw_db.hq_messages.insert_one({
                             "id": str(uuid.uuid4()), "tenant_id": "superadmin",
                             "tenant_name": "Mira Auto-Pilot", "from_email": "mira@miracurl",
                             "subject": "Your fresh weekly promo reel is ready 🎬",
                             "message": "Mira generated this week's feature-tour reel. Download it from "
-                                       "Super Admin → Promo Video and post it on Instagram to attract new salon leads!",
+                                       "Super Admin → Promo Video and post it on Instagram to attract new salon leads!"
+                                       + poster_note,
                             "attachments": [], "read": False,
                             "created_at": datetime.now(timezone.utc).isoformat()})
         except Exception as e:

@@ -868,3 +868,5 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Sparking speed badge: badge-glow + badge-zap keyframes on partner page badge.
 - NetSpeedIndicator.jsx: pings /api/ every 30s, colored wifi icon + ms (green<400/amber<1200/red/offline) in AppLayout header (all admin dashboards) + SuperAdmin header. Verified live (890ms amber).
 - Deploy-failure investigation: deployment_agent scan = deployment-ready, Cloud Build failure was transient (retryable). Fixed the one WARN: /auth/my-salons/overview now uses $group aggregation instead of fetching up to 50k invoice docs per tenant (verified: month total 239127.64 via aggregation, X-Owner-Pin flow intact).
+- Weekly Monday auto-generation now also creates a matching square poster (generate_poster_core extracted in promo_image.py, called from weekly_promo_scheduler after reel success; HQ inbox note mentions poster). Endpoint refactored to use the shared core; posters list verified.
+- Publish 90 (110a409) succeeded — production now on latest build.

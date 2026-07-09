@@ -29,12 +29,16 @@ class PosterIn(BaseModel):
 
 @router.post("/super/promo-image")
 async def create_poster(body: PosterIn, request: Request, admin=Depends(require_super_admin)):
+    return await generate_poster_core(body.topic, body.size)
+
+
+async def generate_poster_core(topic: str, size: str = "square") -> dict:
     from routes.mira_studio import _ask_json, _key
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
 
     copy_task = _ask_json(
         f"You write punchy Instagram ad copy for 'Miracurl Salon Suite' — an all-in-one AI salon software "
-        f"({ALL_FEATURES}). Topic for this poster: {body.topic}.",
+        f"({ALL_FEATURES}). Topic for this poster: {topic}.",
         'Return JSON: {"headline":"<max 5 words, powerful>","subline":"<max 10 words about the software>",'
         '"image_prompt":"<lush cinematic salon/beauty-tech visual for the background, NO text in image>"}')
 
@@ -49,7 +53,7 @@ async def create_poster(body: PosterIn, request: Request, admin=Depends(require_
     if not imgs:
         raise RuntimeError("Image generation returned nothing — try again")
 
-    tw, th = {"square": (1024, 1024), "story": (1024, 1536), "wide": (1536, 1024)}.get(body.size, (1024, 1024))
+    tw, th = {"square": (1024, 1024), "story": (1024, 1536), "wide": (1536, 1024)}.get(size, (1024, 1024))
     final = await asyncio.to_thread(_compose_poster, imgs[0], copy.get("headline", ""), copy.get("subline", ""), tw, th)
 
     fid = str(uuid.uuid4())
@@ -61,7 +65,7 @@ async def create_poster(body: PosterIn, request: Request, admin=Depends(require_
         "content_type": "image/jpeg", "size": len(final), "uploaded_by": "poster_studio",
         "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
     doc = {"id": fid, "url": f"/api/files/{fid}", "headline": copy.get("headline", ""),
-           "subline": copy.get("subline", ""), "topic": body.topic, "poster_size": body.size,
+           "subline": copy.get("subline", ""), "topic": topic, "poster_size": size,
            "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.promo_images.insert_one({**doc})
     doc.pop("_id", None)
