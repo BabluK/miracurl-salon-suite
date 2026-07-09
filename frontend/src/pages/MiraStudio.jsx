@@ -243,13 +243,7 @@ function ResultView({ result, conns = {}, onRegen }) {
         </Block>
       )}
 
-      {r.type === "email" && r.result && (
-        <Block label="Email campaign" copyText={`Subject: ${r.result.subject}\n\n${r.result.body}`}>
-          <p className="text-sm"><b>Subject:</b> {r.result.subject}</p>
-          <p className="text-xs text-slate-400">{r.result.preview_text}</p>
-          <p className="text-sm text-slate-700 whitespace-pre-line mt-2">{r.result.body}</p>
-        </Block>
-      )}
+      {r.type === "email" && r.result && <EmailCampaignPanel result={r.result} />}
 
       {r.type === "sales" && r.result && (
         <Block label="Sales script" copyText={r.result.pitch}>
@@ -313,6 +307,59 @@ function ResultView({ result, conns = {}, onRegen }) {
         </>
       )}
     </div>
+  );
+}
+
+function EmailCampaignPanel({ result }) {
+  const [html, setHtml] = useState("");
+  const [audience, setAudience] = useState("all");
+  const [sending, setSending] = useState(false);
+  const [done, setDone] = useState(null);
+
+  useEffect(() => {
+    api.post("/mira-studio/email-campaign/preview", { body: result.body })
+      .then(r => setHtml(r.data.html)).catch(() => {});
+  }, [result.body]);
+
+  const send = async () => {
+    if (!window.confirm(`Send this campaign to ${audience === "all" ? "ALL customers with an email" : "lapsed guests (45+ days)"}? Mira sends from your salon's email.`)) return;
+    setSending(true);
+    try {
+      const { data } = await api.post("/mira-studio/email-campaign/send", {
+        subject: result.subject, body: result.body, audience,
+      });
+      setDone(data);
+      if (data.sent > 0) toast.success(`Campaign sent to ${data.sent} guests 🎉`);
+      else toast.info(data.note || "No eligible recipients right now");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Send failed");
+    } finally { setSending(false); }
+  };
+
+  return (
+    <Block label="Email campaign" copyText={`Subject: ${result.subject}\n\n${result.body}`}>
+      <p className="text-sm"><b>Subject:</b> {result.subject}</p>
+      {result.preview_text && <p className="text-xs text-slate-400">{result.preview_text}</p>}
+      {html ? (
+        <iframe title="email preview" srcDoc={html} sandbox="" data-testid="email-preview-iframe"
+          className="w-full h-80 mt-3 rounded-xl border border-slate-200 bg-white" />
+      ) : (
+        <p className="text-sm text-slate-700 whitespace-pre-line mt-2">{result.body}</p>
+      )}
+      <div className="flex flex-wrap items-center gap-2 mt-3 bg-slate-50 rounded-xl p-3 border border-slate-200">
+        <select value={audience} onChange={e => setAudience(e.target.value)} data-testid="campaign-audience-select"
+          className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white">
+          <option value="all">All customers with email</option>
+          <option value="winback">Lapsed guests (45+ days)</option>
+        </select>
+        <button data-testid="campaign-send-btn" onClick={send} disabled={sending || done?.sent > 0}
+          className="text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white font-semibold disabled:opacity-60 inline-flex items-center gap-1.5">
+          {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+          {done?.sent > 0 ? `Sent to ${done.sent} ✓` : sending ? "Sending…" : "Send campaign ✦"}
+        </button>
+        <span className="text-[10px] text-slate-400">Sends from your salon email · 7-day repeat protection · max 100/run</span>
+      </div>
+    </Block>
   );
 }
 

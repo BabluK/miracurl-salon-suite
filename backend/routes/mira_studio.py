@@ -11,7 +11,7 @@ import os
 import uuid
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
@@ -234,7 +234,76 @@ async def text_agent(body: TextAgentIn, admin=Depends(require_tenant_admin), t=D
         out = await _ask_json(sys, f"Topic: {topic}. Return JSON: {{\"subject\":\"...\",\"preview_text\":\"...\",\"body\":\"<friendly email, plain text with line breaks>\",\"cta\":\"...\"}}")
     else:
         raise HTTPException(400, f"'{body.agent}' is not a text agent")
-    return {"agent": body.agent, "topic": topic, "result": out}
+    return {"agent": body.agent, "topic": topic, "result": _clean_newlines(out)}
+
+
+def _clean_newlines(obj):
+    """LLMs sometimes emit literal backslash-n sequences inside JSON strings."""
+    if isinstance(obj, str):
+        return obj.replace("\\n", "\n")
+    if isinstance(obj, list):
+        return [_clean_newlines(v) for v in obj]
+    if isinstance(obj, dict):
+        return {k: _clean_newlines(v) for k, v in obj.items()}
+    return obj
+
+
+# ── Email campaigns (branded template + real sending via Resend) ────────────
+class CampaignPreviewIn(BaseModel):
+    body: str
+
+
+@router.post("/mira-studio/email-campaign/preview")
+async def campaign_preview(body: CampaignPreviewIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from email_service import marketing_email_html
+    cta_url = f"{os.environ.get('APP_PUBLIC_URL', '')}/book/{t.get('slug', '')}"
+    return {"html": marketing_email_html(t.get("name", "Our Salon"), _clean_newlines(body.body), cta_url)}
+
+
+class CampaignSendIn(BaseModel):
+    subject: str
+    body: str
+    audience: str = "all"  # all | winback
+
+
+@router.post("/mira-studio/email-campaign/send")
+async def campaign_send(body: CampaignSendIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from email_service import marketing_email_html, _send_email
+    from routes.mira_autopilot import _find_winback_leads
+    if not body.subject.strip() or not body.body.strip():
+        raise HTTPException(400, "Subject and body are required")
+    if body.audience == "winback":
+        recipients = [{"id": lead["id"], "name": lead["name"], "email": lead["email"]}
+                      for lead in await _find_winback_leads(t["id"], 45) if lead["email"]]
+    else:
+        recipients = [{"id": c["id"], "name": c.get("name", "Guest"), "email": c["email"].strip()}
+                      async for c in _raw_db.customers.find(
+                          {"tenant_id": t["id"], "email": {"$nin": [None, ""]}}, {"_id": 0})]
+    cooldown = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    recent = {r["customer_id"] for r in await _raw_db.lead_outreach.find(
+        {"tenant_id": t["id"], "channel": "campaign", "created_at": {"$gte": cooldown}},
+        {"customer_id": 1}).to_list(5000)}
+    recipients = [r for r in recipients if r["id"] not in recent][:100]
+    if not recipients:
+        return {"sent": 0, "skipped": 0, "note": "No eligible recipients (all contacted within 7 days or no emails on file)"}
+
+    cta_url = f"{os.environ.get('APP_PUBLIC_URL', '')}/book/{t.get('slug', '')}"
+    clean_body = _clean_newlines(body.body)
+    sent, failed = 0, 0
+    now = datetime.now(timezone.utc).isoformat()
+    for r in recipients:
+        first = (r["name"] or "Guest").split()[0]
+        html = marketing_email_html(t.get("name", "Our Salon"),
+                                    clean_body.replace("{name}", first), cta_url)
+        res = await _send_email([r["email"]], body.subject.replace("{name}", first), html)
+        if res.get("sent"):
+            sent += 1
+            await _raw_db.lead_outreach.insert_one({
+                "id": str(uuid.uuid4()), "tenant_id": t["id"], "customer_id": r["id"],
+                "name": r["name"], "channel": "campaign", "to": r["email"], "created_at": now})
+        else:
+            failed += 1
+    return {"sent": sent, "failed": failed, "audience": body.audience}
 
 
 # ── Data agents (from the salon's own data) ─────────────────────────────────

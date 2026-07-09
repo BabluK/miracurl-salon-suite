@@ -22,7 +22,7 @@ from database import _raw_db
 from security import require_tenant_admin, current_tenant
 from routes.mira_studio import _ask_json, _gen_image
 from routes.social_connect import publish_content, _conn
-from email_service import _send_email
+from email_service import _send_email, marketing_email_html
 
 router = APIRouter()
 log = logging.getLogger("mira_autopilot")
@@ -84,19 +84,6 @@ async def _find_winback_leads(tid: str, days: int) -> list[dict]:
                           "email": (c.get("email") or "").strip(), "last_visit": last[:10]})
     leads.sort(key=lambda x: x["last_visit"])
     return leads
-
-
-def _offer_email_html(salon: str, body_text: str, cta_url: str) -> str:
-    paras = "".join(f'<p style="font-size:14px;color:#333;line-height:1.7;margin:0 0 12px">{p}</p>'
-                    for p in body_text.split("\n") if p.strip())
-    return f"""
-    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
-      <div style="background:#1c1c22;padding:24px 30px"><span style="color:#e8c37f;font-size:20px;letter-spacing:1px">{salon}</span></div>
-      <div style="padding:28px 30px">{paras}
-        <a href="{cta_url}" style="display:inline-block;margin-top:8px;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:12px 26px;border-radius:10px;font-size:14px">Book your visit ✦</a>
-        <p style="font-size:11px;color:#999;margin-top:22px">You're receiving this because you visited {salon}. Reply STOP to opt out.</p>
-      </div>
-    </div>"""
 
 
 # ── The daily cycle ─────────────────────────────────────────────────────────
@@ -199,8 +186,8 @@ async def _run_lead_machine(t: dict, cfg: dict) -> tuple[int, list[dict]]:
         if lead["email"] and sent < cfg["email_daily_cap"]:
             res = await _send_email([lead["email"]],
                                     subject_t.replace("{name}", first),
-                                    _offer_email_html(t.get("name", "Our Salon"),
-                                                      body_t.replace("{name}", first), book_url))
+                                    marketing_email_html(t.get("name", "Our Salon"),
+                                                         body_t.replace("{name}", first), book_url))
             if res.get("sent"):
                 sent += 1
                 await _raw_db.lead_outreach.insert_one({

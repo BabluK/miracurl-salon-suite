@@ -5658,6 +5658,9 @@ api.include_router(mira_calendar_router)
 from routes.mira_autopilot import router as mira_autopilot_router, autopilot_scheduler  # noqa: E402 — autonomous daily marketing
 api.include_router(mira_autopilot_router)
 
+from routes.promo_video import router as promo_video_router  # noqa: E402 — super-admin promo reel generator
+api.include_router(promo_video_router)
+
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 api.include_router(subscriptions_router)
 

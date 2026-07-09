@@ -15,6 +15,24 @@ DEFAULT_BIRTHDAY_IMAGE = f"{_IMG_BASE}/f565f36e70da377dab4e70c377842044c3474a2db
 import resend
 
 
+def marketing_email_html(salon: str, body_text: str, cta_url: str, cta_label: str = "Book your visit ✦") -> str:
+    """Branded luxe template for Mira marketing/campaign emails (matches onboarding style)."""
+    paras = "".join(f'<p style="font-size:14px;color:#333;line-height:1.75;margin:0 0 14px">{html_lib.escape(p)}</p>'
+                    for p in body_text.split("\n") if p.strip())
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px">
+        <span style="color:#e8c37f;font-size:21px;letter-spacing:1.5px">{html_lib.escape(salon)}</span>
+        <div style="color:#8a8a92;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:4px">Beauty · Care · You</div>
+      </div>
+      <div style="padding:30px">{paras}
+        <a href="{cta_url}" style="display:inline-block;margin-top:10px;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px;letter-spacing:0.5px">{cta_label}</a>
+        <p style="font-size:11px;color:#999;margin-top:26px;border-top:1px solid #eee;padding-top:14px">
+          You're receiving this because you're a valued guest of {html_lib.escape(salon)}. Reply STOP to opt out.</p>
+      </div>
+    </div>"""
+
+
 async def _send_email(to: list, subject: str, html: str, attachments: list | None = None) -> dict:
     key = os.environ.get("RESEND_API_KEY")
     if not key:

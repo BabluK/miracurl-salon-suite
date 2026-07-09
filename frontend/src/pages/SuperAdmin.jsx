@@ -3,7 +3,7 @@ import log from "@/lib/log";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
@@ -17,6 +17,7 @@ import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox }
 import EngineerPanel from "@/components/EngineerPanel";
 import { LeaderboardPanel, RevenuePanel } from "@/components/superadmin/LeaderboardRevenue";
 import { OnboardingStudio } from "@/components/superadmin/OnboardingStudio";
+import { PromoVideoStudio } from "@/components/superadmin/PromoVideoStudio";
 import { SuperNotifBell, StatusActionButton } from "@/components/superadmin/SuperNotifBell";
 import { InquiriesPanel } from "@/components/superadmin/InquiriesPanel";
 
@@ -297,6 +298,11 @@ export default function SuperAdmin() {
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "onboarding" ? "border-fuchsia-500 text-fuchsia-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
           ><Sparkles className="w-4 h-4" /> Onboarding Image</button>
           <button
+            data-testid="super-tab-promo"
+            onClick={() => setTab("promo")}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "promo" ? "border-amber-500 text-amber-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          ><Clapperboard className="w-4 h-4" /> Promo Video</button>
+          <button
             data-testid="super-tab-security"
             onClick={() => setTab("security")}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition flex items-center gap-2 ${tab === "security" ? "border-red-500 text-red-700" : "border-transparent text-slate-500 hover:text-slate-700"}`}
@@ -314,6 +320,7 @@ export default function SuperAdmin() {
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
             engineer: <EngineerPanel />,
             onboarding: <OnboardingStudio tenants={tenants} />,
+            promo: <PromoVideoStudio />,
             security: <SecurityCard />,
           };
           return panels[tab];
