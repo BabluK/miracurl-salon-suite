@@ -417,6 +417,22 @@ select:-webkit-autofill {
   .dash-sparkle { opacity: 0.4; }
 }
 
+/* Sparking badge (partner page speed badge) */
+.badge-spark {
+  position: relative;
+  animation: badge-glow 2.4s ease-in-out infinite;
+}
+.badge-spark-icon { animation: badge-zap 1.6s ease-in-out infinite; }
+@keyframes badge-glow {
+  0%, 100% { box-shadow: 0 0 0 rgba(52, 211, 153, 0); }
+  50% { box-shadow: 0 0 14px rgba(52, 211, 153, 0.45); }
+}
+@keyframes badge-zap {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  45% { opacity: 0.55; transform: scale(0.88); }
+  60% { opacity: 1; transform: scale(1.18); }
+}
+
 @keyframes mesh-drift {
   0%   { background-position: 0% 0%, 100% 100%, 50% 50%, 0 0; }
   50%  { background-position: 60% 30%, 40% 60%, 30% 70%, 0 0; }

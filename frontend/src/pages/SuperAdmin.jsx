@@ -23,7 +23,9 @@ import { InquiriesPanel } from "@/components/superadmin/InquiriesPanel";
 import { BrandKitPanel } from "@/components/superadmin/BrandKitPanel";
 import { PlatformLoadPanel } from "@/components/superadmin/PlatformLoadPanel";
 import { DatabasePanel } from "@/components/superadmin/DatabasePanel";
-import { Palette, Activity, Database } from "lucide-react";
+import { PromoImageStudio } from "@/components/superadmin/PromoImageStudio";
+import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
+import { Palette, Activity, Database, ImagePlus } from "lucide-react";
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -232,6 +234,7 @@ export default function SuperAdmin() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <NetSpeedIndicator />
             <SuperNotifBell tenants={tenants} hqUnread={hqUnread} onGoInbox={() => setTab("inbox")} />
             <span className="text-xs text-white/50 hidden sm:inline">{user?.email}</span>
             <button data-testid="super-logout-btn" onClick={async () => { await logout(); nav("/login"); }} className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-white/80 hover:bg-white/20 transition">
@@ -262,6 +265,7 @@ export default function SuperAdmin() {
               { id: "onboarding", label: "Onboarding Image", icon: Sparkles },
               { id: "promo", label: "Promo Video", icon: Clapperboard },
               { id: "brandkit", label: "Brand Kit", icon: Palette },
+              { id: "posters", label: "AI Posters", icon: ImagePlus },
               { id: "load", label: "Platform Load", icon: Activity },
               { id: "database", label: "Database", icon: Database },
               { id: "security", label: "Security", icon: ShieldAlert },
@@ -290,6 +294,7 @@ export default function SuperAdmin() {
             onboarding: <OnboardingStudio tenants={tenants} />,
             promo: <PromoVideoStudio />,
             brandkit: <BrandKitPanel />,
+            posters: <PromoImageStudio />,
             load: <PlatformLoadPanel />,
             database: <DatabasePanel />,
             security: <SecurityCard />,

@@ -8,6 +8,7 @@ const BASE = process.env.REACT_APP_BACKEND_URL;
 
 export const PromoVideoStudio = () => {
   const [photo, setPhoto] = useState("");
+  const [greeting, setGreeting] = useState("");
   const [mode, setMode] = useState("feature_tour");
   const [focus, setFocus] = useState("Staff Verification Portal — hire trusted, verified staff");
   const [language, setLanguage] = useState("en");
@@ -22,7 +23,7 @@ export const PromoVideoStudio = () => {
 
   const generate = async () => {
     try {
-      const { data } = await api.post("/super/promo-video", { photo_url: photo || null, mode, focus, language, size, express });
+      const { data } = await api.post("/super/promo-video", { photo_url: photo || null, mode, focus, language, size, express, greeting });
       setJob({ id: data.job_id, status: "generating", progress: "Mira is writing the script…" });
       pollRef.current = setInterval(async () => {
         const { data: st } = await api.get(`/super/promo-video/${data.job_id}`);
@@ -68,6 +69,12 @@ export const PromoVideoStudio = () => {
           )}
           <p className="text-xs font-semibold text-slate-600 mb-1.5">Your photo / salon photo (optional — becomes scene 2)</p>
           <ImageUploader value={photo} onChange={setPhoto} kind="promo" />
+          {photo && <>
+            <p className="text-xs font-semibold text-slate-600 mt-3 mb-1.5">Greeting line (Mira introduces you in the voiceover)</p>
+            <input value={greeting} onChange={e => setGreeting(e.target.value)} data-testid="promo-greeting-input"
+              placeholder='e.g. "Meet Bablu, founder of Miracurl"'
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
+          </>}
           {mode === "custom" && <>
           <p className="text-xs font-semibold text-slate-600 mt-4 mb-1.5">What should the video focus on?</p>
           <input value={focus} onChange={e => setFocus(e.target.value)} data-testid="promo-focus-input"

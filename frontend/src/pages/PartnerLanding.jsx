@@ -52,8 +52,8 @@ export default function PartnerLanding() {
             </h1>
             <p className="text-white/60 mt-4 text-base">Bookings, billing, verified staff hiring and daily AI marketing — everything one salon needs, in one suite. Trusted by growing salons across India.</p>
             <div className="flex flex-wrap gap-2.5 mt-5" data-testid="partner-trust-badges">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-emerald-400/10 border border-emerald-300/30 text-emerald-300">
-                <Zap className="w-3 h-3" /> Loads in under a second — even on 3G
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-emerald-400/10 border border-emerald-300/30 text-emerald-300 badge-spark">
+                <Zap className="w-3 h-3 badge-spark-icon" /> Loads in under a second — even on 3G
               </span>
               <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-amber-300/10 border border-amber-300/30 text-amber-300">
                 <ShieldCheck className="w-3 h-3" /> Bank-grade security · Independently audited

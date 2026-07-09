@@ -51,6 +51,7 @@ class PromoIn(BaseModel):
     language: str = "en"
     size: str = "reel"  # reel (9:16) | square (1:1) | landscape (16:9)
     express: bool = False  # True = real app screenshots (fast), False = AI-generated scenes
+    greeting: str = ""  # optional founder intro, e.g. "Meet Bablu, founder of Miracurl"
 
 
 @router.post("/super/promo-video")
@@ -155,16 +156,18 @@ ALL_FEATURES = ("online bookings, POS billing with GST receipts, customer CRM wi
 
 async def _run_pipeline(job_id: str, body: PromoIn):
     lang_note = "Write in Hindi (Devanagari)." if body.language == "hi" else "Write in simple, energetic English."
+    greet_note = (f" Early in the voiceover, warmly introduce the founder with: '{body.greeting.strip()}'."
+                  if body.greeting.strip() else "")
     if body.mode == "feature_tour":
         sys = ("You ARE Mira — the golden AI assistant of 'Miracurl Salon Suite'. Write a 45-second Instagram reel "
                f"voiceover in FIRST PERSON where you introduce yourself ('Hi, I'm Mira!') and tour ALL the software's "
-               f"features: {ALL_FEATURES}. Spotlight the Staff Verification Portal. {lang_note}")
+               f"features: {ALL_FEATURES}. Spotlight the Staff Verification Portal.{greet_note} {lang_note}")
         user = ('Return JSON: {"voiceover":"<~110 words, spoken style, warm confident female AI host, hook first, '
                 'end with a call to action to get Miracurl Salon Suite>",'
                 '"scenes":[{"caption":"<max 6 words>","image_prompt":"<visual, salon/software themed>"} x4]}')
     else:
         sys = ("You are writing a 35-second Instagram reel voiceover promoting 'Miracurl Salon Suite' — an all-in-one "
-               f"salon management software ({ALL_FEATURES}). Main focus: {body.focus}. {lang_note}")
+               f"salon management software ({ALL_FEATURES}). Main focus: {body.focus}.{greet_note} {lang_note}")
         user = ('Return JSON: {"voiceover":"<~85 words, spoken style, hook first, end with call to action>",'
                 '"scenes":[{"caption":"<max 6 words>","image_prompt":"<visual for this scene, salon/software themed>"} x4]}')
     script = await asyncio.wait_for(_ask_json(sys, user), timeout=120)
@@ -220,7 +223,8 @@ async def _owner_photo_scene(body: PromoIn, scenes: list) -> tuple[bytes, str] |
     if not up:
         return None
     data, _ = _get_object(up["storage_path"])
-    return data, (scenes[0].get("caption", "") if scenes else "")
+    caption = body.greeting.strip()[:44] or (scenes[0].get("caption", "") if scenes else "")
+    return data, caption
 
 
 def _express_scenes(scenes: list) -> list[tuple[bytes, str]]:
