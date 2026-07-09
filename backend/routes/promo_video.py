@@ -435,6 +435,57 @@ def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool],
         shutil.rmtree(workdir, ignore_errors=True)
 
 
+async def _hq_social_tenant() -> str | None:
+    """Tenant whose Meta connection HQ uses for auto-posting: env slug, else HQ owner's tenant, else the single connected tenant."""
+    slug = os.environ.get("HQ_SOCIAL_TENANT_SLUG", "").strip()
+    if slug:
+        t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
+        if t:
+            return t["id"]
+    hq = os.environ.get("HQ_EMAIL", "")
+    if hq:
+        t = await _raw_db.tenants.find_one({"owner_email": hq}, {"_id": 0, "id": 1})
+        if t:
+            return t["id"]
+    conns = await _raw_db.social_connections.find(
+        {"$or": [{"instagram": {"$ne": None}}, {"facebook": {"$ne": None}}]},
+        {"_id": 0, "tenant_id": 1}).to_list(2)
+    return conns[0]["tenant_id"] if len(conns) == 1 else None
+
+
+async def _auto_post_weekly(reel_doc: dict, poster: dict | None) -> str:
+    """Best-effort auto-post of the weekly reel + poster to the HQ Instagram/Facebook."""
+    from routes.social_connect import publish_content, publish_video, _conn
+    tid = await _hq_social_tenant()
+    if not tid:
+        return " (Auto-post skipped: no Meta account found — set HQ_SOCIAL_TENANT_SLUG or connect in Mira Social Studio.)"
+    conn = await _conn(tid)
+    if not conn.get("instagram") and not conn.get("facebook"):
+        return " (Auto-post skipped: Instagram/Facebook not connected for the HQ salon.)"
+    site = os.environ.get("APP_PUBLIC_URL", "")
+    caption = ("Run your salon on autopilot with Miracurl Salon Suite ✦ Bookings, GST billing, "
+               f"verified staff & AI marketing — one app. Get your free demo → {site}/partner "
+               "#salonsoftware #salonmanagement #beautybusiness #miracurl")
+    notes = []
+    try:
+        if poster and poster.get("url"):
+            r = await publish_content(tid, caption, f"{site}{poster['url']}", ["instagram", "facebook"])
+            ok = [p for p, v in r.items() if v.get("ok")]
+            notes.append(f"poster posted to {', '.join(ok)}" if ok else "poster post failed")
+    except Exception as e:
+        log.error("weekly poster auto-post failed: %s", e)
+        notes.append("poster post failed")
+    try:
+        if reel_doc.get("video_url"):
+            r = await publish_video(tid, caption, f"{site}{reel_doc['video_url']}", ["instagram", "facebook"])
+            ok = [p for p, v in r.items() if v.get("ok")]
+            notes.append(f"reel posted to {', '.join(ok)}" if ok else "reel post failed")
+    except Exception as e:
+        log.error("weekly reel auto-post failed: %s", e)
+        notes.append("reel post failed")
+    return f" Auto-post: {'; '.join(notes)}." if notes else ""
+
+
 async def weekly_promo_scheduler():
     """Every Monday (>=09:00 IST) auto-generate a fresh feature-tour reel and notify HQ inbox."""
     from datetime import timedelta
@@ -468,6 +519,7 @@ async def weekly_promo_scheduler():
                     done = await _raw_db.promo_videos.find_one({"id": job_id}, {"_id": 0})
                     if done and done.get("status") == "done":
                         poster_note = ""
+                        poster = None
                         try:
                             from routes.promo_image import generate_poster_core
                             poster = await generate_poster_core(
@@ -476,6 +528,7 @@ async def weekly_promo_scheduler():
                             log.info("weekly poster generated: %s", poster.get("id"))
                         except Exception as pe:
                             log.error("weekly poster failed: %s", pe)
+                        poster_note += await _auto_post_weekly(done, poster)
                         await _raw_db.hq_messages.insert_one({
                             "id": str(uuid.uuid4()), "tenant_id": "superadmin",
                             "tenant_name": "Mira Auto-Pilot", "from_email": "mira@miracurl",

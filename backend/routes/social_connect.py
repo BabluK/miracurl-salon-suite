@@ -402,6 +402,53 @@ async def _publish_instagram(http: httpx.AsyncClient, ig: dict, caption: str, im
     return {"ok": True, "media_id": pub.json().get("id")}
 
 
+async def publish_video(tid: str, caption: str, video_abs_url: str, platforms: list[str]) -> dict:
+    """Publish a video as an Instagram Reel and/or Facebook Page video."""
+    doc = await _conn(tid)
+    fb, ig = doc.get("facebook"), doc.get("instagram")
+    results = {}
+    async with httpx.AsyncClient(timeout=120) as http:
+        if "instagram" in platforms:
+            if not ig:
+                results["instagram"] = {"ok": False, "error": "Instagram account not connected"}
+            else:
+                token = ig["page_token"]
+                create = await http.post(f"{GRAPH}/{ig['ig_user_id']}/media", data={
+                    "media_type": "REELS", "video_url": video_abs_url, "caption": caption,
+                    "share_to_feed": "true", "access_token": token})
+                if create.status_code != 200:
+                    results["instagram"] = {"ok": False, "error": create.text[:300]}
+                else:
+                    cid = create.json().get("id")
+                    state = ""
+                    for _ in range(60):  # reels can take a few minutes to process
+                        st = await http.get(f"{GRAPH}/{cid}", params={"fields": "status_code", "access_token": token})
+                        state = st.json().get("status_code", "") if st.status_code == 200 else ""
+                        if state in ("FINISHED", "ERROR"):
+                            break
+                        await asyncio.sleep(5)
+                    if state != "FINISHED":
+                        results["instagram"] = {"ok": False, "error": f"Reel processing did not finish (status: {state or 'unknown'})"}
+                    else:
+                        pub = await http.post(f"{GRAPH}/{ig['ig_user_id']}/media_publish", data={
+                            "creation_id": cid, "access_token": token})
+                        results["instagram"] = ({"ok": True, "media_id": pub.json().get("id")} if pub.status_code == 200
+                                                else {"ok": False, "error": pub.text[:300]})
+        if "facebook" in platforms:
+            if not fb:
+                results["facebook"] = {"ok": False, "error": "Facebook Page not connected"}
+            else:
+                resp = await http.post(f"{GRAPH}/{fb['page_id']}/videos", data={
+                    "file_url": video_abs_url, "description": caption, "access_token": fb["page_token"]})
+                results["facebook"] = ({"ok": True, "post_id": resp.json().get("id")} if resp.status_code == 200
+                                       else {"ok": False, "error": resp.text[:300]})
+    await _raw_db.social_posts.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": tid, "caption": caption, "video_url": video_abs_url,
+        "platforms": platforms, "results": results, "kind": "video",
+        "created_at": datetime.now(timezone.utc).isoformat()})
+    return results
+
+
 class PublishIn(BaseModel):
     caption: str
     image_url: str
