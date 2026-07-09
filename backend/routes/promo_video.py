@@ -91,6 +91,21 @@ async def _generate(job_id: str, body: PromoIn):
 
 MIRA_INTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_intro.png")
 MIRA_OUTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_outro.png")
+BRAND_LOGO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "brand_logo.png")
+
+_logo_cache: list = []
+
+
+def _brand_logo(width: int) -> Image.Image | None:
+    """Rose-gold swirl logo resized once per render size (RGBA for alpha paste)."""
+    if not os.path.exists(BRAND_LOGO):
+        return None
+    if not _logo_cache or _logo_cache[0].width != width:
+        im = Image.open(BRAND_LOGO).convert("RGBA")
+        im.thumbnail((width, width), Image.LANCZOS)
+        _logo_cache.clear()
+        _logo_cache.append(im)
+    return _logo_cache[0]
 
 ALL_FEATURES = ("online bookings, POS billing with GST receipts, customer CRM with loyalty points & birthday offers, "
                 "the Staff Verification Portal (hire trusted background-verified staff), Mira the AI marketing agent "
@@ -221,6 +236,11 @@ def _caption_frame(img_bytes: bytes, caption: str) -> bytes:
     img = img.resize((round(img.width * scale), round(img.height * scale)))
     left, top = (img.width - W) // 2, (img.height - H) // 2
     img = img.crop((left, top, left + W, top + H))
+    logo = _brand_logo(150)
+    if logo:
+        img = img.convert("RGBA")
+        img.paste(logo, (W - logo.width - 44, 48), logo)
+        img = img.convert("RGB")
     if caption.strip():
         overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
         d = ImageDraw.Draw(overlay)

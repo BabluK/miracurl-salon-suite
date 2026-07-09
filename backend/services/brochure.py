@@ -36,9 +36,18 @@ def build_brochure_pdf() -> bytes:
     hq_phone = os.environ.get("HQ_PHONE", "")
     site = os.environ.get("APP_PUBLIC_URL", "")
 
+    logo_path = os.path.join(ASSETS, "brand_logo.png")
+    logo = ImageReader(logo_path) if os.path.exists(logo_path) else None
+
+    def _logo_header(size=30, x=40, y=None):
+        if logo:
+            c.drawImage(logo, x, (y if y is not None else h - 46), size, size, mask="auto")
+
     # ── Cover ──
     c.setFillColorRGB(*DARK)
     c.rect(0, 0, w, h, fill=1, stroke=0)
+    if logo:
+        c.drawImage(logo, w / 2 - 34, h - 52, 68, 68, mask="auto")
     mira = os.path.join(ASSETS, "mira_intro.png")
     if os.path.exists(mira):
         img = ImageReader(mira)
@@ -48,10 +57,10 @@ def build_brochure_pdf() -> bytes:
         c.drawImage(img, (w - dw) / 2, h - dh - 150, dw, dh, mask="auto")
     c.setFillColorRGB(*GOLD)
     c.setFont("Helvetica-Bold", 30)
-    c.drawCentredString(w / 2, h - 70, "Miracurl Salon Suite")
+    c.drawCentredString(w / 2, h - 90, "Miracurl Salon Suite")
     c.setFont("Helvetica", 13)
     c.setFillColorRGB(0.85, 0.85, 0.88)
-    c.drawCentredString(w / 2, h - 95, "The all-in-one software that runs your salon — with Mira, your AI teammate")
+    c.drawCentredString(w / 2, h - 113, "The all-in-one software that runs your salon — with Mira, your AI teammate")
     c.setFont("Helvetica-Bold", 15)
     c.setFillColorRGB(*GOLD)
     c.drawCentredString(w / 2, 105, "Thank you for reaching out!")
@@ -66,9 +75,10 @@ def build_brochure_pdf() -> bytes:
         c.rect(0, 0, w, h, fill=1, stroke=0)
         c.setFillColorRGB(*DARK)
         c.rect(0, h - 56, w, 56, fill=1, stroke=0)
+        _logo_header()
         c.setFillColorRGB(*GOLD)
         c.setFont("Helvetica-Bold", 15)
-        c.drawString(40, h - 36, "Inside the app")
+        c.drawString(80, h - 36, "Inside the app")
         y = h - 90
         for fname, caption in SHOTS[page_start:page_start + 2]:
             path = os.path.join(ASSETS, "brochure", fname)
@@ -90,9 +100,10 @@ def build_brochure_pdf() -> bytes:
     c.rect(0, 0, w, h, fill=1, stroke=0)
     c.setFillColorRGB(*DARK)
     c.rect(0, h - 56, w, 56, fill=1, stroke=0)
+    _logo_header()
     c.setFillColorRGB(*GOLD)
     c.setFont("Helvetica-Bold", 15)
-    c.drawString(40, h - 36, "Everything your salon needs")
+    c.drawString(80, h - 36, "Everything your salon needs")
     y = h - 100
     for title, desc in FEATURES:
         c.setFillColorRGB(*GOLD)
@@ -106,6 +117,8 @@ def build_brochure_pdf() -> bytes:
         y -= 52
     c.setFillColorRGB(*DARK)
     c.roundRect(40, 60, w - 80, 110, 14, fill=1, stroke=0)
+    if logo:
+        c.drawImage(logo, w - 130, 92, 56, 56, mask="auto")
     c.setFillColorRGB(*GOLD)
     c.setFont("Helvetica-Bold", 14)
     c.drawString(60, 138, "Let's grow your salon together — Miracurl Family")
