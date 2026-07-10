@@ -2,7 +2,7 @@
 // Lets the super-admin sell 6-month / 12-month plans to salon tenants,
 // record Paytm payments manually, see revenue stats, and cancel subscriptions.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { IndianRupee, TrendingUp, Calendar, X, Plus, Ban, CheckCircle2, Receipt, AlertTriangle, CalendarPlus } from "lucide-react";
+import { IndianRupee, TrendingUp, Calendar, X, Plus, Ban, CheckCircle2, Receipt, AlertTriangle, CalendarPlus, Pencil } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -168,6 +168,9 @@ export default function BillingPanel({ tenants }) {
         </div>
       </div>
 
+      {/* Plan catalog editor */}
+      <PlanCatalogEditor plans={plans} onSaved={load} />
+
       {openNew && (
         <NewSubscriptionModal
           tenants={tenants}
@@ -176,6 +179,69 @@ export default function BillingPanel({ tenants }) {
           onCreated={async () => { setOpenNew(false); await load(); toast.success("Subscription created"); }}
         />
       )}
+    </div>
+  );
+}
+
+function PlanCatalogEditor({ plans, onSaved }) {
+  const [edits, setEdits] = useState({}); // key -> {price, label}
+  const [savingKey, setSavingKey] = useState(null);
+
+  const val = (p, field) => edits[p.key]?.[field] ?? (field === "price" ? p.price : p.label);
+  const setVal = (key, field, v) => setEdits(e => ({ ...e, [key]: { ...e[key], [field]: v } }));
+  const dirty = (p) => edits[p.key] && (String(val(p, "price")) !== String(p.price) || val(p, "label") !== p.label);
+
+  async function save(p) {
+    const price = parseFloat(val(p, "price"));
+    const label = String(val(p, "label") || "").trim();
+    if (!price || price <= 0) { toast.error("Enter a valid price"); return; }
+    if (label.length < 2) { toast.error("Enter a valid plan name"); return; }
+    if (!window.confirm(`Update "${label}" to ₹${price.toLocaleString("en-IN")}?\n\nNew subscriptions & renewals will use this price. Existing active subscriptions are not affected.`)) return;
+    setSavingKey(p.key);
+    try {
+      await api.put(`/super-admin/plans/${p.key}`, { price, label });
+      toast.success(`${label} updated ✦ ₹${price.toLocaleString("en-IN")}`);
+      setEdits(e => { const n = { ...e }; delete n[p.key]; return n; });
+      await onSaved();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't update plan");
+    } finally { setSavingKey(null); }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm" data-testid="plan-catalog-editor">
+      <div className="px-5 py-4 border-b border-slate-200">
+        <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2"><Pencil className="w-4 h-4 text-sky-600" /> Plan Catalog — Edit Prices</h3>
+        <p className="text-xs text-slate-500 mt-0.5">Changes apply to all NEW subscriptions and renewals platform-wide (Razorpay checkout included). Running subscriptions keep their original price.</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="luxe-table-light">
+          <thead><tr><th>Plan Name</th><th>Duration</th><th>Branches</th><th>Price (₹)</th><th></th></tr></thead>
+          <tbody>
+            {plans.map(p => (
+              <tr key={p.key} data-testid={`plan-row-${p.key}`}>
+                <td>
+                  <input data-testid={`plan-label-${p.key}`} className="input-light w-full min-w-[180px] text-sm" value={val(p, "label")}
+                    onChange={e => setVal(p.key, "label", e.target.value)} />
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">{p.key}</div>
+                </td>
+                <td className="text-xs text-slate-600">{p.duration_days >= 300 ? "12 months" : "6 months"}</td>
+                <td className="text-xs text-slate-600">{p.branches}</td>
+                <td>
+                  <input data-testid={`plan-price-${p.key}`} type="number" min="0" step="500" className="input-light w-28 text-sm font-semibold"
+                    value={val(p, "price")} onChange={e => setVal(p.key, "price", e.target.value)} />
+                </td>
+                <td className="text-right">
+                  <button data-testid={`plan-save-${p.key}`} onClick={() => save(p)} disabled={!dirty(p) || savingKey === p.key}
+                    className="text-xs px-3 py-1.5 rounded-md bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
+                    {savingKey === p.key ? "Saving…" : "Save"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

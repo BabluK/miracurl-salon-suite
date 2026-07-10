@@ -888,3 +888,6 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - ID card PDFs now carry a "SCAN TO VERIFY" QR (bottom-right, next to the barcode) linking to the public registry: `{APP_PUBLIC_URL}/staff-registry?q=<phone>` (staff-code+name fallback when no phone). Renderer: QrCodeWidget in `_render_id_card_pdf` (`services/pdf.py`); URL built by `_verify_qr_url` in `routes/id_cards.py`.
 - `RegistryPublic.jsx` supports deep-links: `?q=&name=` auto-runs the search on load.
 - Verified: QR decoded via pyzbar to correct URLs on both salon & HQ cards; deep-link screenshot shows auto-search + HQ badge.
+
+## Iter 62 (10 Jul 2026) — Editable Plan Catalog
+- New "Plan Catalog — Edit Prices" card in Super Admin → Billing & Subscriptions (`PlanCatalogEditor` in BillingPanel.jsx). All 8 plans: editable name + price, per-row Save (enabled only when changed), confirm dialog. Uses existing `PUT /api/super-admin/plans/{key}` (DB `plan_overrides`, survives restart). New prices apply to new subscriptions/renewals incl. Razorpay; running subs unaffected. Curl-verified (edit 12000→13000→restore) + UI screenshot verified.
