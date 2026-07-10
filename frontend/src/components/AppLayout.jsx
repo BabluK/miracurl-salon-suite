@@ -63,6 +63,32 @@ const NAV_MANAGER = [
 
 export default function AppLayout() {
   const { user, tenant, logout } = useAuth();
+
+  // Remote cache purge: when super admin clears a salon's cache, every device
+  // of that salon gets a one-time full cache wipe + reload on next app open.
+  useEffect(() => {
+    if (!tenant?.slug) return;
+    api.get("/public/cache-version").then(async ({ data }) => {
+      const v = data?.v || "";
+      const key = "mira_cache_v";
+      const stored = localStorage.getItem(key);
+      if (!v) return;
+      if (stored === null) { localStorage.setItem(key, v); return; }
+      if (stored === v) return;
+      try {
+        if ("serviceWorker" in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+        if (window.caches) {
+          const keys = await window.caches.keys();
+          await Promise.all(keys.map(k => window.caches.delete(k)));
+        }
+      } catch { /* best effort */ }
+      localStorage.setItem(key, v);
+      window.location.reload();
+    }).catch(() => {});
+  }, [tenant?.slug]);
   const nav = useNavigate();
   const loc = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);

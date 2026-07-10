@@ -2,7 +2,7 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-10.6"
+BUILD = "2026-07-10.7"
 
 RELEASES = [
     {
@@ -23,6 +23,7 @@ RELEASES = [
             "Promo Video: new 'AI Booking demo' video — live walkthrough of Mira booking a Botox appointment (service, time, name) on the real app",
             "AI Posters: delete button next to download; website demo carousel refreshed with current app screens incl. Mira booking",
             "Website: partner testimonials are now real & editable from Super Admin → Partners",
+            "Super Admin: new Diagnose tool per salon — see DB health, heavy data & stuck jobs, then 'Clear cache & auto-fix' remotely wipes the salon's device cache on next open",
         ],
     },
     {

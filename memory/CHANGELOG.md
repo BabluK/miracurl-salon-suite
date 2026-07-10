@@ -922,3 +922,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - **Demo carousel refreshed**: frontend/public/demo/*.jpeg recaptured from CURRENT app (dashboard, pos, appointments, mira booking page with chat open). Playwright chromium installed locally for captures.
 - **AI Booking demo video mode** (`mode: "booking_demo"`): 6 real booking-flow screenshots in backend/assets/booking_demo (hero, Mira chat x2 booking Botox, Botox service selected, time picked, details with name Priya) + Mira intro/outro; always fast still-render; new UI button promo-mode-booking. E2E verified: 29s reel with voiceover in ~10s generation. Botox Hair Treatment service (₹3500, Skin) added to miracurl-marathahalli.
 - **AI Posters**: Delete button per poster (endpoint existed). Cleaned 44 TEST review names/comments in DB (public page now shows realistic reviews).
+
+## Iter 67 (10 Jul 2026) — Tenant Diagnose & remote cache clear (build 2026-07-10.7)
+- routes/diagnostics.py: GET /api/super/tenants/{tid}/diagnostics (db ping, per-collection counts w/ thresholds→issues, stuck flyer jobs, last activity, uploads MB) + POST /clear-cache (deletes stale oauth_states, fails stuck flyer jobs, purges 90d+ public_ai_messages, sets tenants.cache_reset_at) + public GET /api/public/cache-version (X-Tenant-Slug).
+- DiagnoseTenantModal.jsx + Stethoscope button per tenant row in SuperAdmin.jsx (diagnose-tenant-{id}).
+- AppLayout.jsx: on load compares /public/cache-version vs localStorage mira_cache_v — on change unregisters service workers, clears CacheStorage, reloads once (remote device cache purge).
+- All curl + UI verified. Wired earlier-pending testimonials (TestimonialsEditor into PartnersPanel, Landing fetches /public/testimonials — verified live).

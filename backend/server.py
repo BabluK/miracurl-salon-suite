@@ -5687,6 +5687,8 @@ from routes.releases import router as releases_router  # noqa: E402 — deployme
 api.include_router(releases_router)
 from routes.testimonials import router as testimonials_router  # noqa: E402 — website testimonials
 api.include_router(testimonials_router)
+from routes.diagnostics import router as diagnostics_router  # noqa: E402 — tenant diagnostics & cache clearing
+api.include_router(diagnostics_router)
 
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 api.include_router(subscriptions_router)
