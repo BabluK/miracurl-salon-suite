@@ -9,13 +9,18 @@ export default function WhatsNewModal() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    api.get("/whats-new").then(({ data }) => {
-      if (!data?.build || !data.highlights?.length) return;
+    let cancelled = false;
+    const show = ({ data }) => {
+      if (cancelled || !data?.build || !data.highlights?.length) return;
       if (localStorage.getItem(SEEN_KEY) === data.build) return;
       setData(data);
-      const t = setTimeout(() => setOpen(true), 1200);
-      return () => clearTimeout(t);
-    }).catch(() => {});
+      setTimeout(() => { if (!cancelled) setOpen(true); }, 1200);
+    };
+    // one retry — tenant context can attach a moment after login
+    api.get("/whats-new").then(show).catch(() => {
+      setTimeout(() => { if (!cancelled) api.get("/whats-new").then(show).catch(() => {}); }, 3000);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   if (!open || !data) return null;

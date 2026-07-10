@@ -6,6 +6,11 @@
 - Mira Studio OAuth: infra COMPLETE (Jul 8, iter57) — waiting on USER to supply META_APP_ID/META_APP_SECRET (developers.facebook.com app) and GOOGLE_OAUTH_CLIENT_ID/SECRET (+ GBP API approval). Once pasted in backend/.env, Connect buttons go live. Then test real end-to-end posting + /social/meta/select-page happy path.
 
 ## P1
+- "What's New ✨" popup — DONE Jul 10 (iter69)
+- Automated renewal reminders 15/7/1 (email + WA links) — DONE Jul 10 (iter69)
+- Referral rewards tracking (super admin + owner status) — DONE Jul 10 (iter69)
+- Mira Day-Smart Offers (weekday-aware AI offers + flyer) — DONE Jul 10 (iter70)
+- AI CCTV Analytics (vision snapshots: waiting/empty chairs/queue/idle staff) — DONE Jul 10 (iter70). Pending user action: mount a tablet & run /cctv-capture, or port-forward Hikvision DVR for ISAPI snapshot URL mode.
 - Code-review deferred refactors: email_service template split, AppLayout/SuperAdmin/StaffPortal component splits, routes service-layer extraction, type hints (routes/services)
 - DONE Jul 7: Birthday emails, Sales Mira landing chat + HQ Inquiries, weekly AI tip
 - DONE Jul 7 (iter52): Entertainment portal, POS email receipts (Resend), SMS receipts + sms_points (Twilio-ready), super-admin SMS crediting, admin-configurable late check-in fines

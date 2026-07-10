@@ -133,7 +133,7 @@ export default function CctvAnalytics() {
               Analyze every
               <select value={cfg.interval_min} onChange={e => setCfg({ ...cfg, interval_min: +e.target.value })}
                 className="bg-black/40 border border-white/10 rounded-md px-2 py-1.5 text-sm" data-testid="cctv-interval-select">
-                {[2, 3, 5, 10, 15, 30].map(m => <option key={m} value={m}>{m} min</option>)}
+                {[2, 3, 5, 10, 15, 30].map(m => <option key={m} value={m}>{`${m} min`}</option>)}
               </select>
             </label>
             <label className="text-xs text-white/60 flex items-center gap-2 cursor-pointer">

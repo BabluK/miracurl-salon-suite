@@ -100,7 +100,7 @@ export default function CctvCapture() {
         <div className="flex items-center justify-center gap-3">
           <select value={interval_} onChange={e => setInterval_(+e.target.value)} disabled={running}
             className="bg-white/10 border border-white/20 rounded-md px-3 py-2 text-sm" data-testid="capture-interval-select">
-            {[2, 3, 5, 10].map(m => <option key={m} value={m} className="text-black">every {m} min</option>)}
+            {[2, 3, 5, 10].map(m => <option key={m} value={m} className="text-black">{`every ${m} min`}</option>)}
           </select>
           {running ? (
             <button onClick={stop} data-testid="capture-stop-btn"
