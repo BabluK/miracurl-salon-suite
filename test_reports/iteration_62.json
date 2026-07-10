@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 62 — Verified 5 new features end-to-end. Backend pytest: 17/17 passed (What's New, Renewals auto-reminders + idempotency + log, Referrals list w/ stats, Day Offers today/suggest/suggest-another, CCTV config/analyze-frame/latest, security rejects). Frontend playwright: What's New modal shows 3 highlights, no HQ-internal leaks, Got it dismisses, localStorage 'mira_whats_new_build'=2026-07-11.1, modal does NOT reappear on reload. Mira Day Offer card shows 'Locked for today' with Download poster + Share caption (real service names: Gold Facial, Bridal Makeup, Hair Cut - Women). AI CCTV page renders 4 stat cards, last-frame image, hourly trend, camera-connection setup with device/URL mode toggle (URL mode reveals URL+username+password inputs & Hik-Connect note), Save settings works. /cctv-capture page renders. /refer shows seeded 'Test Referred Salon' with 'Pending first payment' chip. Super admin > Top Referrers tab shows Renewals due table, 'Automated reminders — ON' card (Run check now → 'Checked 1 due tenants — 0 email(s) sent, 1 already reminded' toast, idempotent), D-7 log entry with email-sent + WhatsApp link, Referral tracking section with 1 total / 1 pending / 0 credited chips and the seeded referral row.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "CCTV Analytics", "issues": ["Two console hydration warnings: '<span> cannot be a child of <option>' — non-blocking but should be fixed in cctv-interval-select"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter62_new_features.py",
+    "/app/test_reports/pytest/iter62.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: fix <span>-in-<option> hydration warning in cctv-interval-select (CctvAnalytics.jsx)"
+  ],
+  "critical_code_review_comments": [
+    "WhatsNewModal fires api.get('/whats-new') on mount with silent .catch(() => {}) — if tenant slug isn't set yet in api client, the first call returns 401 and modal is silently skipped. On my first attempt with a 3s post-login wait, /whats-new returned 401 (visible in browser console) and the modal never appeared. A 5s wait fixed it. Consider making WhatsNewModal wait for tenant context / retry once on 401.",
+    "releases.py: _INTERNAL_PREFIXES filter is a startswith tuple check — correct and clean.",
+    "subscriptions.run_renewal_reminders is properly idempotent via (tenant_id, end_date, day_mark) uniqueness (verified — 2nd run returned skipped=1).",
+    "super-admin/affiliates/referrals joins tenant names correctly, stats math is accurate (pending=1, credited_inr=0 for seeded record). Includes referrer_name enrichment.",
+    "day_offers/today + /suggest both return already_accepted=True when today's offer is accepted — good UX.",
+    "cctv/analyze-frame accepts image_b64 key; /latest returns observation+trend+last_frame_b64 as expected. Empty state fallback (data-testid=cctv-empty) coexists with real state — only one renders based on obs presence."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter62_new_features.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug: miracurl-marathahalli); super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "None — did not create new referrals, day-offers, or CCTV observations. CCTV config was PUT to {mode:'device', interval_min:10} then reset via UI to device mode via Save. No expensive image gen triggered (avoided /day-offers/accept). Analyze-frame used a synthetic abstract-pattern JPEG (~89KB) — vision AI correctly reported it as not-a-salon-frame with all counts=0.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login pattern (react-hook-form): click + press_sequentially on login-email-input/password-input. After login, wait >=5s before checking WhatsNewModal — modal has internal 1200ms delay AFTER API returns, and /whats-new can 401 if tenant slug isn't populated yet. To force modal: page.evaluate('() => localStorage.removeItem(mira_whats_new_build)') then reload. CCTV field names: interval_min (not interval_seconds). Affiliate referrals response uses referred_salon_name (not referred_name). Day-offer 'accepted' state persists per IST day — /day-offers/suggest returns already_accepted=true and includes the full offer with flyer_url. Do NOT call /day-offers/accept (expensive image gen).",
+  "rca of the issue": "No bugs — all 12 review items verified pass. Note for main agent: WhatsNewModal silent .catch may mask 401s if tenant context loads late; consider a retry."
+}

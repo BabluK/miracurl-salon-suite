@@ -4833,6 +4833,17 @@ async def _birthday_scheduler():
         await asyncio.sleep(1800)
 
 
+async def _cctv_poll_scheduler():
+    """Every 2 min, poll enabled snapshot-URL cameras (business hours, per-tenant interval)."""
+    from routes.cctv import poll_cctv_once
+    while True:
+        try:
+            await poll_cctv_once()
+        except Exception as e:
+            logging.error(f"cctv poll scheduler error: {e}")
+        await asyncio.sleep(120)
+
+
 async def _renewal_reminder_scheduler():
     """Daily (after 10:00 IST) auto-email renewal reminders 15/7/1 days before
     subscription/trial expiry. Idempotent via system_flags + per-reminder log."""
@@ -4860,6 +4871,7 @@ async def _renewal_reminder_scheduler():
 @app.on_event("startup")
 async def on_startup():
     asyncio.get_event_loop().create_task(_renewal_reminder_scheduler())
+    asyncio.get_event_loop().create_task(_cctv_poll_scheduler())
     asyncio.get_event_loop().create_task(_monthly_report_scheduler())
     asyncio.get_event_loop().create_task(_weekly_report_scheduler())
     asyncio.get_event_loop().create_task(_birthday_scheduler())
@@ -5737,6 +5749,12 @@ api.include_router(diagnostics_router)
 
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 api.include_router(subscriptions_router)
+
+from routes.day_offers import router as day_offers_router  # noqa: E402
+api.include_router(day_offers_router)
+
+from routes.cctv import router as cctv_router  # noqa: E402
+api.include_router(cctv_router)
 
 
 
