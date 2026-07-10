@@ -122,6 +122,11 @@ export default function RegistryPublic() {
                   <span className={`text-xs uppercase tracking-wider font-semibold px-3 py-1 rounded-full border ${BADGE_DARK[profile.badge]}`} data-testid="public-registry-badge">
                     {BADGE_LABEL[profile.badge] || profile.badge}
                   </span>
+                  {profile.hq_verified && (
+                    <span data-testid="public-hq-verified-badge" className="inline-flex items-center gap-1 text-xs uppercase tracking-wider font-bold px-3 py-1 rounded-full bg-gradient-to-r from-amber-400/20 to-yellow-300/10 text-amber-300 border border-amber-400/50">
+                      ✦ HQ Verified
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   {profile.avg_rating != null ? (
@@ -174,6 +179,9 @@ export default function RegistryPublic() {
                         <Building2 className="w-4 h-4 text-violet-300" />
                         <span className="font-semibold text-sm">{e.salon_name}</span>
                         <span className="text-xs text-slate-400">— {e.designation}</span>
+                        {e.hq_verified && (
+                          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/40">✦ HQ Verified</span>
+                        )}
                         {!e.to_date ? (
                           <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 px-2 py-0.5 rounded-full">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Currently Working

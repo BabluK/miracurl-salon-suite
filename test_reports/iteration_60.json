@@ -1,0 +1,38 @@
+{
+  "summary": "Iter 60 — HQ Staff Verification (super admin) + Mark-Left flow (salon admin) + Public HQ badge + EditTenantModal plan-change + Promo/Posters regression. Backend: 4/4 pytest cases pass (non-super forbidden 401/403, HQ POST returns STF- code + list joins staff details + DELETE 200/404, MarkLeft create employee+employment → 422 for 'Working' reason → 200 with to_date → 400 on repeat → 404 for other-tenant, public /public/registry/search?q=9898989811 returns hq_verified:true both at profile and employment level). Frontend: Super admin sidebar tab super-tab-verify-staff renders VerifiedStaffPanel (data-testid=verified-staff-panel), form (vstaff-*-input) submits → row count 1→2 → delete row 2→1 confirmed. super-tab-promo tab renders without crash and lists 10 download + 10 delete controls for existing videos. super-tab-posters renders without crash. Tenants → edit-tenant-{id} opens EditTenantModal with PLAN & SUBSCRIPTION section: change-plan-select + change-plan-btn + current-plan-row testids all present. Public /staff-registry with q=9898989811 → gold ✦ HQ VERIFIED badge (public-hq-verified-badge) shown next to reputation badge AND on the employment row (Style Hub Indiranagar). Salon admin → /registry → expanded 98 cards, found registry-mark-left-{empId}, opened mark-left-modal, selected 'Resigned' + rating 4 + comment, confirm removed the mark-left btn from active roster and registry-past-staff-section remains at bottom with pastList.length>0.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login page", "issues": ["Email input requires .click() + press_sequentially — plain .fill() or DOM value setter is silently reset (react-hook-form-controlled). Not user-visible but tripped test automation; consider a native attribute autocomplete='email' + non-controlled fallback for robustness."]},
+      {"screen": "VerifiedStaffPanel row", "issues": ["The '✦ HQ Verified' badge in the super-admin list is a plain inline span without a data-testid (only StaffRegistry.jsx has hq-verified-chip). Minor: add data-testid='hq-verified-badge' for future automated verification."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter60_hq_verify_and_markleft.py",
+    "/app/test_reports/pytest/iter60.xml"
+  ],
+  "action_items": [
+    "Optional: add data-testid='hq-verified-badge' inside VerifiedStaffPanel row for parity with StaffRegistry chip.",
+    "Optional: give login form inputs stable name/id attributes so keyboard-based auto-fills work without focus tricks."
+  ],
+  "critical_code_review_comments": [
+    "registry.py hq_add_verified_staff: STF sequence is `count_documents({}) + 1` with a while-loop to avoid collisions — safe but O(N) each call; acceptable at current scale.",
+    "registry.py registry_mark_left correctly enforces tenant_id ownership (404 for other tenants) and blocks re-close (400) — matches PRD.",
+    "MarkLeftIn._v_reason rejects 'Working' at Pydantic layer → 422, before hitting DB. Good.",
+    "RegistryPublic.jsx displays hq_verified badge based on server response — no client-side spoofing possible since backend sets hq_verified=True only via super-admin POST.",
+    "EditTenantModal exposes change-plan-select + change-plan-btn testids and shows current-plan-row — plan change UI is testable but not exercised end-to-end here to avoid mutating a real tenant's active subscription.",
+    "Promo tab: existing videos correctly expose download/delete controls (no new-generation trigger fired)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter60_hq_verify_and_markleft.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 ; admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug: miracurl-marathahalli, PIN 4321)",
+  "seed_data_creation": "Created + deleted 1 HQ-verified TEST_iter60 record via UI and 1 via API. Created 1 TEST_iter60 employee + open employment then marked-left. Public search consumed ~3-4 of the 10/10min rate-limit quota; last successful search returned Ravi Kumar STF-00098 with hq_verified.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test /app/backend/tests/test_iter60_hq_verify_and_markleft.py runs green and is idempotent (uses time-based unique phone/aadhaar, cleans up its own HQ record). Public search rate-limit is 10/10min per IP — the test skips if 429. Frontend gotchas: (1) login inputs need locator.click() + press_sequentially, NOT .fill(); (2) salon admin's staff-registry lives at /registry (NOT /dashboard/registry or /staff-registry — the latter is the public portal); (3) mark-left button is only rendered inside expanded cards under Currently-Working employments, so iterate registry-expand-* until you find registry-mark-left-*. Plan-change section testids: change-plan-select, change-plan-btn, current-plan-row.",
+  "rca of the issue": "No bugs — all requested iter-60 features (HQ verified staff, mark-left with past-staff section, public HQ badge, plan-change modal) work end-to-end. Promo/Posters tabs render without regressions."
+}

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 
 from database import _raw_db
-from security import jwt_secret, require_tenant_admin, current_tenant, public_rate_limit
+from security import jwt_secret, require_tenant_admin, require_super_admin, current_tenant, public_rate_limit
 from services.pdf import _build_registry_pdf
 
 router = APIRouter()
@@ -229,6 +229,7 @@ async def _registry_profile(emp: dict, current_only: bool = False, redact: bool 
         emps = [e for e in emps if not e.get("to_date")]
     badge = _registry_badge(total_years, avg_rating)
     verdict, verdict_note = _hire_verdict(emps, badge, avg_rating, total_years)
+    hq_verified = any(e.get("hq_verified") for e in emps)
     return {
         "history_scope": "current" if current_only else "full",
         "id": emp["id"], "staff_code": emp["staff_code"], "name": emp["name"],
@@ -236,11 +237,83 @@ async def _registry_profile(emp: dict, current_only: bool = False, redact: bool 
         **_registry_pii_fields(emp, redact, show_aadhaar),
         "city": emp.get("city") or "",
         "total_years": round(total_years, 1), "avg_rating": avg_rating,
-        "badge": badge,
+        "badge": badge, "hq_verified": hq_verified,
         "hire_verdict": verdict, "hire_verdict_note": verdict_note,
         "employments": emps, "created_at": emp.get("created_at"),
         "created_by_tenant": emp.get("created_by_tenant", ""),
     }
+
+
+class HQStaffIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    phone: str = Field(..., min_length=10, max_length=14)
+    aadhaar: str = Field("", max_length=12)
+    photo_url: str = Field("", max_length=500)
+    salon_name: str = Field(..., min_length=2, max_length=120)
+    role: str = Field("", max_length=60)
+    years_worked: float = Field(1.0, ge=0, le=50)
+    owner_comment: str = Field("", max_length=400)
+    city: str = Field("", max_length=80)
+
+
+@router.post("/super/registry/staff")
+async def hq_add_verified_staff(body: HQStaffIn, admin=Depends(require_super_admin)):
+    """HQ field-verification: super-admin records a salon's trusted long-term staff
+    (collected in person from the owner) so they appear on the public portal with an HQ badge."""
+    phone = re.sub(r"\D", "", body.phone)
+    aadhaar = re.sub(r"\D", "", body.aadhaar)
+    if aadhaar and len(aadhaar) != 12:
+        raise HTTPException(400, "Aadhaar must be 12 digits (or leave it empty)")
+    emp = None
+    if aadhaar:
+        emp = await _raw_db.registry_employees.find_one({"aadhaar_hash": _aadhaar_fp(aadhaar)}, {"_id": 0})
+    if not emp:
+        emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{phone[-10:]}$"}}, {"_id": 0})
+    if not emp:
+        seq = await _raw_db.registry_employees.count_documents({}) + 1
+        code = f"STF-{seq:05d}"
+        while await _raw_db.registry_employees.find_one({"staff_code": code}):
+            seq += 1
+            code = f"STF-{seq:05d}"
+        emp = {
+            "id": str(uuid.uuid4()), "staff_code": code, "name": body.name.strip(),
+            "aadhaar_last4": aadhaar[-4:] if aadhaar else "",
+            "aadhaar_hash": _aadhaar_fp(aadhaar) if aadhaar else "",
+            "permanent_address": "", "current_address": "", "city": body.city.strip(),
+            "email": "", "phone": phone, "photo_url": body.photo_url.strip(),
+            "created_by_tenant": "hq", "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await _raw_db.registry_employees.insert_one({**emp})
+    from_year = datetime.now(timezone.utc).year - max(0, int(body.years_worked))
+    rec = {
+        "id": str(uuid.uuid4()), "employee_id": emp["id"], "tenant_id": "hq",
+        "salon_name": body.salon_name.strip(), "designation": body.role.strip() or "Stylist",
+        "skills": [], "from_date": f"{from_year}-01-01", "to_date": None,
+        "rating": None, "reason_for_leaving": "Working",
+        "comment": body.owner_comment.strip(), "hq_verified": True,
+        "created_by": admin["id"], "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _raw_db.registry_employments.insert_one(rec)
+    return {"ok": True, "staff_code": emp["staff_code"], "employee_id": emp["id"]}
+
+
+@router.get("/super/registry/staff")
+async def hq_list_verified_staff(admin=Depends(require_super_admin)):
+    rows = await _raw_db.registry_employments.find(
+        {"hq_verified": True}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    out = []
+    for r in rows:
+        emp = await _raw_db.registry_employees.find_one({"id": r["employee_id"]}, {"_id": 0, "name": 1, "staff_code": 1, "phone": 1, "photo_url": 1})
+        out.append({**r, "staff": emp or {}})
+    return {"records": out}
+
+
+@router.delete("/super/registry/staff/{rid}")
+async def hq_delete_verified_staff(rid: str, admin=Depends(require_super_admin)):
+    res = await _raw_db.registry_employments.delete_one({"id": rid, "hq_verified": True})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Record not found")
+    return {"ok": True}
 
 @router.post("/registry/employees")
 async def registry_create_employee(body: RegistryEmployeeIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
@@ -383,6 +456,49 @@ async def registry_update_employment(rid: str, body: RegistryEmploymentIn, admin
     if res.matched_count == 0:
         raise HTTPException(404, "Employment record not found (you can only edit your own salon's records)")
     return {"ok": True}
+
+class MarkLeftIn(BaseModel):
+    reason_for_leaving: str = Field("Resigned", max_length=40)
+    to_date: Optional[str] = None
+    rating: Optional[float] = Field(None, ge=1, le=5)
+    comment: str = Field("", max_length=1000)
+
+    @field_validator("reason_for_leaving")
+    @classmethod
+    def _v_reason(cls, v):
+        if v not in _REG_REASONS or v in ("", "Working"):
+            raise ValueError("Invalid reason")
+        return v
+
+    @field_validator("to_date")
+    @classmethod
+    def _v_to(cls, v):
+        if v in (None, ""):
+            return None
+        return _reg_date_ok(v)
+
+
+@router.put("/registry/employments/{rid}/mark-left")
+async def registry_mark_left(rid: str, body: MarkLeftIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Salon owner marks a staff member as having left: closes the open employment record.
+    The staff disappears from the active roster but stays on the public portal."""
+    rec = await _raw_db.registry_employments.find_one({"id": rid, "tenant_id": t["id"]}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Employment record not found (you can only update your own salon's records)")
+    if rec.get("to_date"):
+        raise HTTPException(400, "This staff is already marked as left")
+    patch = {
+        "to_date": body.to_date or datetime.now(timezone.utc).date().isoformat(),
+        "reason_for_leaving": body.reason_for_leaving,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if body.rating is not None:
+        patch["rating"] = body.rating
+    if body.comment.strip():
+        patch["comment"] = body.comment.strip()
+    await _raw_db.registry_employments.update_one({"id": rid}, {"$set": patch})
+    return {"ok": True, "to_date": patch["to_date"]}
+
 
 @router.delete("/registry/employments/{rid}")
 async def registry_delete_employment(rid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):

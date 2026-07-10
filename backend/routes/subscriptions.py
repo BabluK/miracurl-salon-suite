@@ -152,6 +152,41 @@ async def list_plans(user=Depends(require_super_admin)):
     return [{"key": k, **v} for k, v in PLAN_CATALOG.items()]
 
 
+class PlanUpdateIn(BaseModel):
+    price: float
+    label: Optional[str] = None
+    duration_days: Optional[int] = None
+    branches: Optional[int] = None
+
+
+async def load_plan_overrides():
+    """Merge DB price overrides into the in-memory catalog (called at startup)."""
+    async for o in _raw_db.plan_overrides.find({}, {"_id": 0}):
+        if o.get("key") in PLAN_CATALOG:
+            PLAN_CATALOG[o["key"]].update({k: o[k] for k in ("price", "label", "duration_days", "branches") if o.get(k) is not None})
+
+
+@router.put("/super-admin/plans/{key}")
+async def update_plan(key: str, body: PlanUpdateIn, user=Depends(require_super_admin)):
+    if key not in PLAN_CATALOG:
+        raise HTTPException(404, f"Unknown plan '{key}'")
+    if body.price <= 0:
+        raise HTTPException(400, "Price must be positive")
+    patch = {"price": float(body.price)}
+    if body.label:
+        patch["label"] = body.label.strip()[:80]
+    if body.duration_days:
+        patch["duration_days"] = max(1, int(body.duration_days))
+    if body.branches:
+        patch["branches"] = max(1, int(body.branches))
+    PLAN_CATALOG[key].update(patch)
+    await _raw_db.plan_overrides.update_one(
+        {"key": key}, {"$set": {"key": key, **patch,
+                                "updated_by": user.get("email", ""),
+                                "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    return {"key": key, **PLAN_CATALOG[key]}
+
+
 @router.get("/super-admin/subscriptions")
 async def list_subscriptions(user=Depends(require_super_admin)):
     """List all subscriptions across tenants, latest first, joined with tenant name."""

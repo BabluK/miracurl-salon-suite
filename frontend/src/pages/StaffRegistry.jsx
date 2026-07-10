@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import {
   ShieldCheck, Plus, Search, X, Copy, ExternalLink, Star,
-  Building2, Pencil, Trash2, ChevronDown, ChevronUp, FileDown,
+  Building2, Pencil, Trash2, ChevronDown, ChevronUp, FileDown, UserMinus,
 } from "lucide-react";
 import { API } from "@/lib/api";
 import { RegisterEmployeeModal, EditEmployeeModal, EmploymentRecordModal } from "@/components/staff/RegistryModals";
@@ -28,6 +28,14 @@ function BadgeChip({ badge, rating }) {
   );
 }
 
+export function HqChip() {
+  return (
+    <span data-testid="hq-verified-chip" className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-yellow-50 text-amber-700 border border-amber-300">
+      ✦ HQ Verified
+    </span>
+  );
+}
+
 export default function StaffRegistry() {
   const { tenant } = useAuth();
   const [list, setList] = useState([]);
@@ -42,6 +50,8 @@ export default function StaffRegistry() {
   const [expanded, setExpanded] = useState(null);
   const [saving, setSaving] = useState(false);
   const [transferOn, setTransferOn] = useState(true);
+  const [leftModal, setLeftModal] = useState(null); // employment record being closed
+  const [leftForm, setLeftForm] = useState({ reason_for_leaving: "Resigned", rating: "", comment: "" });
 
   const openElsewhere = empModal && !empModal.editing
     ? (empModal.employee.employments || []).find(e => !e.to_date && e.tenant_id !== tenant?.id)
@@ -136,6 +146,34 @@ export default function StaffRegistry() {
     catch (err) { toast.error(formatApiError(err.response?.data?.detail) || "Delete failed"); }
   }
 
+  function startMarkLeft(emp) {
+    setLeftModal(emp);
+    setLeftForm({ reason_for_leaving: "Resigned", rating: "", comment: "" });
+  }
+
+  async function confirmMarkLeft(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.put(`/registry/employments/${leftModal.id}/mark-left`, {
+        reason_for_leaving: leftForm.reason_for_leaving,
+        rating: leftForm.rating ? parseFloat(leftForm.rating) : null,
+        comment: leftForm.comment.trim(),
+      });
+      toast.success("Marked as left — moved to Past Staff (still visible on the public portal)");
+      setLeftModal(null); load(q);
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't mark as left");
+    } finally { setSaving(false); }
+  }
+
+  const isPastHere = (p) => {
+    const mine = (p.employments || []).filter(e => e.tenant_id === tenant?.id);
+    return mine.length > 0 && mine.every(e => e.to_date);
+  };
+  const activeList = q ? list : list.filter(p => !isPastHere(p));
+  const pastList = q ? [] : list.filter(isPastHere);
+
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="staff-registry-page">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -180,7 +218,7 @@ export default function StaffRegistry() {
               {q ? "No staff found — check the ID or phone number." : "No employees registered yet — click “Register Employee” to add your first staff."}
             </div>
           )}
-          {list.map(p => (
+          {(() => { const card = (p) => (
             <div key={p.id} className="card-light" data-testid={`registry-emp-${p.staff_code}`}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <img src={p.photo_url || "https://ui-avatars.com/api/?background=ede9fe&color=6d28d9&name=" + encodeURIComponent(p.name)} alt={p.name} className="w-14 h-14 rounded-full object-cover border-2 border-violet-200" />
@@ -189,6 +227,7 @@ export default function StaffRegistry() {
                     <span className="font-semibold">{p.name}</span>
                     <span className="text-xs font-mono bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">{p.staff_code}</span>
                     <BadgeChip badge={p.badge} rating={p.avg_rating} />
+                    {p.hq_verified && <HqChip />}
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
                     +{p.phone} {p.email && `· ${p.email}`} · {p.aadhaar_masked} · <b>{p.total_years} yrs</b> total service {p.city && `· ${p.city}`}
@@ -240,6 +279,12 @@ export default function StaffRegistry() {
                       </div>
                       {emp.tenant_id === tenant?.id && (
                         <div className="flex items-center gap-1 shrink-0">
+                          {!emp.to_date && (
+                            <button onClick={() => startMarkLeft(emp)} title="Mark as left salon" data-testid={`registry-mark-left-${emp.id}`}
+                              className="text-[11px] px-2 py-1 rounded-md border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 inline-flex items-center gap-1">
+                              <UserMinus className="w-3 h-3" /> Mark Left
+                            </button>
+                          )}
                           <button onClick={() => startEmployment(p, emp)} className="p-1.5 text-slate-500 hover:text-sky-600" data-testid={`registry-edit-record-${emp.id}`}><Pencil className="w-3.5 h-3.5" /></button>
                           <button onClick={() => removeEmployment(emp.id)} className="p-1.5 text-slate-500 hover:text-red-500" data-testid={`registry-del-record-${emp.id}`}><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
@@ -249,7 +294,17 @@ export default function StaffRegistry() {
                 </div>
               )}
             </div>
-          ))}
+          ); return (<>
+            {activeList.map(card)}
+            {pastList.length > 0 && (
+              <div className="pt-2 space-y-3" data-testid="registry-past-staff-section">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold pt-2 border-t border-slate-200">
+                  <UserMinus className="w-3.5 h-3.5" /> Past Staff — left your salon ({pastList.length})
+                </div>
+                {pastList.map(card)}
+              </div>
+            )}
+          </>); })()}
         </div>
       )}
 
@@ -277,6 +332,41 @@ export default function StaffRegistry() {
           tenant={tenant} openElsewhere={openElsewhere}
           transferOn={transferOn} setTransferOn={setTransferOn}
         />
+      )}
+      {/* Mark-as-left modal */}
+      {leftModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setLeftModal(null)}>
+          <form onSubmit={confirmMarkLeft} className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()} data-testid="mark-left-modal">
+            <h3 className="font-playfair text-xl flex items-center gap-2"><UserMinus className="w-5 h-5 text-amber-600" /> Mark as Left Salon</h3>
+            <p className="text-xs text-slate-500">
+              This closes the record at <b>{leftModal.salon_name}</b>. The staff moves to your <b>Past Staff</b> list but their history stays visible on the public verification portal.
+            </p>
+            <div>
+              <label className="label-light block mb-1">Reason for leaving</label>
+              <select data-testid="mark-left-reason" className="input-light w-full" value={leftForm.reason_for_leaving}
+                onChange={e => setLeftForm(f => ({ ...f, reason_for_leaving: e.target.value }))}>
+                {["Resigned", "Terminated", "Absconded", "Contract Ended", "Transferred", "Other"].map(r => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label-light block mb-1">Rating (1–5, optional)</label>
+              <input data-testid="mark-left-rating" type="number" min="1" max="5" step="0.5" className="input-light w-full" value={leftForm.rating}
+                onChange={e => setLeftForm(f => ({ ...f, rating: e.target.value }))} placeholder="e.g. 4.5" />
+            </div>
+            <div>
+              <label className="label-light block mb-1">Comment (optional)</label>
+              <textarea data-testid="mark-left-comment" rows={2} className="input-light w-full" value={leftForm.comment}
+                onChange={e => setLeftForm(f => ({ ...f, comment: e.target.value }))} placeholder="Great worker — left for higher studies." />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={() => setLeftModal(null)} className="btn-slate flex-1">Cancel</button>
+              <button data-testid="mark-left-confirm-btn" type="submit" disabled={saving}
+                className="flex-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold py-2 disabled:opacity-50">
+                {saving ? "Saving…" : "Mark as Left"}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

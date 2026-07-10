@@ -24,6 +24,8 @@ import { BrandKitPanel } from "@/components/superadmin/BrandKitPanel";
 import { PlatformLoadPanel } from "@/components/superadmin/PlatformLoadPanel";
 import { DatabasePanel } from "@/components/superadmin/DatabasePanel";
 import { PromoImageStudio } from "@/components/superadmin/PromoImageStudio";
+import { VerifiedStaffPanel } from "@/components/superadmin/VerifiedStaffPanel";
+import { BadgeCheck } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
 import { Palette, Activity, Database, ImagePlus } from "lucide-react";
 
@@ -266,6 +268,7 @@ export default function SuperAdmin() {
               { id: "promo", label: "Promo Video", icon: Clapperboard },
               { id: "brandkit", label: "Brand Kit", icon: Palette },
               { id: "posters", label: "AI Posters", icon: ImagePlus },
+              { id: "verify-staff", label: "Staff Verification", icon: BadgeCheck },
               { id: "load", label: "Platform Load", icon: Activity },
               { id: "database", label: "Database", icon: Database },
               { id: "security", label: "Security", icon: ShieldAlert },
@@ -295,6 +298,7 @@ export default function SuperAdmin() {
             promo: <PromoVideoStudio />,
             brandkit: <BrandKitPanel />,
             posters: <PromoImageStudio />,
+            "verify-staff": <VerifiedStaffPanel />,
             load: <PlatformLoadPanel />,
             database: <DatabasePanel />,
             security: <SecurityCard />,
