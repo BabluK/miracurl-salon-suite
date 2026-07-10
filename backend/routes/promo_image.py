@@ -6,7 +6,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel
 
@@ -25,14 +25,25 @@ SIZES = {"square": "1024x1024", "story": "1024x1536", "wide": "1536x1024"}
 class PosterIn(BaseModel):
     topic: str = "The complete Miracurl Salon Suite — everything a salon needs, powered by AI"
     size: str = "square"  # square | story | wide
+    contact: str = ""  # e.g. "+91 98765 43210 · hello@miracurl.com"
 
 
 @router.post("/super/promo-image")
 async def create_poster(body: PosterIn, request: Request, admin=Depends(require_super_admin)):
-    return await generate_poster_core(body.topic, body.size)
+    return await generate_poster_core(body.topic, body.size, body.contact)
 
 
-async def generate_poster_core(topic: str, size: str = "square") -> dict:
+@router.delete("/super/promo-image/{pid}")
+async def delete_poster(pid: str, admin=Depends(require_super_admin)):
+    doc = await _raw_db.promo_images.find_one({"id": pid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Poster not found")
+    await _raw_db.uploads.delete_one({"id": pid})
+    await _raw_db.promo_images.delete_one({"id": pid})
+    return {"deleted": 1}
+
+
+async def generate_poster_core(topic: str, size: str = "square", contact: str = "") -> dict:
     from routes.mira_studio import _ask_json, _key
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
 
@@ -55,7 +66,7 @@ async def generate_poster_core(topic: str, size: str = "square") -> dict:
         raise RuntimeError("Image generation returned nothing — try again")
 
     tw, th = {"square": (1024, 1024), "story": (1024, 1536), "wide": (1536, 1024)}.get(size, (1024, 1024))
-    final = await asyncio.to_thread(_compose_poster, imgs[0], copy.get("headline", ""), copy.get("subline", ""), tw, th)
+    final = await asyncio.to_thread(_compose_poster, imgs[0], copy.get("headline", ""), copy.get("subline", ""), tw, th, contact)
 
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/superadmin/promo-images/{fid}.jpg"
@@ -78,7 +89,7 @@ async def list_posters(admin=Depends(require_super_admin)):
     return {"posters": await _raw_db.promo_images.find({}, {"_id": 0}).sort("created_at", -1).to_list(12)}
 
 
-def _compose_poster(img_bytes: bytes, headline: str, subline: str, tw: int, th: int) -> bytes:
+def _compose_poster(img_bytes: bytes, headline: str, subline: str, tw: int, th: int, contact: str = "") -> bytes:
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     scale = max(tw / img.width, th / img.height)
     img = img.resize((round(img.width * scale), round(img.height * scale)))
@@ -144,7 +155,7 @@ def _compose_poster(img_bytes: bytes, headline: str, subline: str, tw: int, th: 
     sub_font = _fit_font(sub_text, int(w * 0.030), w - 2 * margin)
     feat_font = _fit_font(feat_text, int(w * 0.026), w - 2 * margin)
     url_font = _font(int(w * 0.024))
-    y = h - int(h * 0.235)
+    y = h - int(h * 0.27)
     if hl_text:
         d.text((margin, y), hl_text, font=hl_font, fill=(232, 195, 127, 255))
         y += int(w * 0.058) + 16
@@ -152,6 +163,11 @@ def _compose_poster(img_bytes: bytes, headline: str, subline: str, tw: int, th: 
         d.text((margin, y), sub_text, font=sub_font, fill=(255, 255, 255, 235))
         y += int(w * 0.030) + 14
     d.text((margin, y), feat_text, font=feat_font, fill=(226, 178, 148, 235))
+    y += int(w * 0.026) + 14
+    if contact.strip():
+        contact_text = f"Inquiry: {contact.strip()[:70]}"
+        contact_font = _fit_font(contact_text, int(w * 0.026), w - 2 * margin)
+        d.text((margin, y), contact_text, font=contact_font, fill=(255, 255, 255, 220))
     d.text((margin, h - int(w * 0.024) - 30), "miracurlunisexsaloon.com/partner",
            font=url_font, fill=(210, 175, 130, 220))
 

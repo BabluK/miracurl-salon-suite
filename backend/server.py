@@ -5677,6 +5677,8 @@ from routes.platform_tools import router as platform_tools_router  # noqa: E402 
 api.include_router(platform_tools_router)
 from routes.promo_image import router as promo_image_router  # noqa: E402 — super-admin AI poster studio
 api.include_router(promo_image_router)
+from routes.offer_flyer import router as offer_flyer_router  # noqa: E402 — tenant AI flyer studio
+api.include_router(offer_flyer_router)
 
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 api.include_router(subscriptions_router)

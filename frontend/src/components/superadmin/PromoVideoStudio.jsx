@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
-import { Clapperboard, Loader2, Download, Sparkles } from "lucide-react";
+import { Clapperboard, Loader2, Download, Sparkles, Trash2 } from "lucide-react";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -141,9 +141,15 @@ export const PromoVideoStudio = () => {
               <p className="text-xs font-semibold text-slate-600 mb-2">Previous reels</p>
               <div className="space-y-2 max-h-[420px] overflow-y-auto">
                 {videos.map(v => (
-                  <div key={v.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-                    <span className="text-xs text-slate-600">{(v.created_at || "").slice(0, 10)} · {v.focus?.slice(0, 34)} · {v.size_mb} MB</span>
-                    <a href={`${BASE}${v.video_url}`} download className="text-xs font-semibold text-fuchsia-600 inline-flex items-center gap-1"><Download className="w-3 h-3" /> Download</a>
+                  <div key={v.id} className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                    <span className="text-xs text-slate-600 min-w-0 truncate">{(v.created_at || "").slice(0, 10)} · {v.focus?.slice(0, 30)} · {v.size_mb} MB</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a href={`${BASE}${v.video_url}`} download className="text-xs font-semibold text-fuchsia-600 inline-flex items-center gap-1" data-testid={`video-download-${v.id}`}><Download className="w-3 h-3" /> Download</a>
+                      <button onClick={() => delVideo(v.id)} data-testid={`video-delete-${v.id}`}
+                        className="w-6 h-6 rounded-md bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center" title="Delete video">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

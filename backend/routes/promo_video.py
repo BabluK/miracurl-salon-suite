@@ -95,6 +95,18 @@ async def promo_video_list(admin=Depends(require_super_admin)):
         {"status": "done"}, {"_id": 0}).sort("created_at", -1).to_list(10)}
 
 
+@router.delete("/super/promo-video/{job_id}")
+async def promo_video_delete(job_id: str, admin=Depends(require_super_admin)):
+    doc = await _raw_db.promo_videos.find_one({"id": job_id}, {"_id": 0, "video_url": 1})
+    if not doc:
+        raise HTTPException(404, "Video not found")
+    fid = (doc.get("video_url") or "").rstrip("/").split("/")[-1]
+    if fid:
+        await _raw_db.uploads.delete_one({"id": fid})
+    await _raw_db.promo_videos.delete_one({"id": job_id})
+    return {"deleted": 1}
+
+
 async def _progress(job_id: str, msg: str):
     await _raw_db.promo_videos.update_one(
         {"id": job_id},
@@ -114,21 +126,6 @@ async def _generate(job_id: str, body: PromoIn):
 async def _fail_job(job_id: str, error: str):
     await _raw_db.promo_videos.update_one(
         {"id": job_id}, {"$set": {"status": "failed", "error": error}})
-    await _notify_email(
-        "Promo reel generation failed ⚠️",
-        f"<p>Mira couldn't finish your promo reel.</p><p><b>Error:</b> {error}</p>"
-        "<p>Open Super Admin → Promo Video and click Generate again.</p>")
-
-
-async def _notify_email(subject: str, html: str):
-    hq = os.environ.get("HQ_EMAIL", "")
-    if not hq:
-        return
-    try:
-        from email_service import _send_email
-        await _send_email([hq], subject, html)
-    except Exception as e:
-        log.error("promo email notify failed: %s", e)
 
 
 MIRA_INTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_intro.png")
@@ -210,13 +207,6 @@ async def _run_pipeline(job_id: str, body: PromoIn):
     await _raw_db.promo_videos.update_one({"id": job_id}, {"$set": {
         "status": "done", "progress": "Ready!", "video_url": f"/api/files/{fid}",
         "voiceover": voiceover, "size_mb": round(len(video_bytes) / 1048576, 1)}})
-    job_doc = await _raw_db.promo_videos.find_one({"id": job_id}, {"_id": 0, "base_url": 1})
-    site = (job_doc or {}).get("base_url") or os.environ.get("APP_PUBLIC_URL", "")
-    await _notify_email(
-        "Your promo reel is ready 🎬",
-        f"<p>Mira finished your promo video ({body.size}, {round(len(video_bytes)/1048576,1)} MB).</p>"
-        f"<p><a href='{site}/api/files/{fid}'>Download the MP4</a> or open Super Admin → Promo Video.</p>"
-        "<p>Post it on Instagram to attract new salon leads! ✦</p>")
 
 
 BROCHURE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "brochure")

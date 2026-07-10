@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Download, Palette, Sparkles, Plus, X } from "lucide-react";
+import { AIFlyerStudio } from "@/components/AIFlyerStudio";
 
 const MIRA_HEADLINE = "MEET MIRA — AI BEAUTY EXPERT";
 const MIRA_DETAILS = "Consult Mira AI, our 24/7 beauty & hair expert. Share your skin tone and dream hair colour — get personalised suggestions, and Mira books your appointment with our in-salon experts to bring the look to life.";
@@ -453,6 +454,10 @@ export default function OffersStudio() {
         <div className="card-light flex items-center justify-center p-4" data-testid="poster-preview">
           <canvas ref={canvasRef} className="max-w-full rounded-xl shadow-lg" style={{ maxHeight: "70vh" }} />
         </div>
+      </div>
+
+      <div className="mt-6">
+        <AIFlyerStudio />
       </div>
     </div>
   );
