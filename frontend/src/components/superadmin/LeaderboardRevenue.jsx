@@ -8,6 +8,9 @@ export function LeaderboardPanel() {
   const [data, setData] = useState({ items: [], reward_per_signup: 1000 });
   const [loading, setLoading] = useState(true);
   const [renewals, setRenewals] = useState({ items: [], count: 0 });
+  const [autoLog, setAutoLog] = useState([]);
+  const [refTrack, setRefTrack] = useState(null);
+  const [running, setRunning] = useState(false);
   useEffect(() => {
     api.get("/super-admin/affiliates/leaderboard")
       .then(r => setData(r.data))
@@ -15,9 +18,24 @@ export function LeaderboardPanel() {
       .finally(() => setLoading(false));
     api.get("/super-admin/renewals/queue?window_days=10")
       .then(r => setRenewals(r.data)).catch(() => {});
+    api.get("/super-admin/renewals/reminder-log")
+      .then(r => setAutoLog(r.data.items || [])).catch(() => {});
+    api.get("/super-admin/affiliates/referrals")
+      .then(r => setRefTrack(r.data)).catch(() => {});
   }, []);
   const items = data.items || [];
   const medal = (i) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`;
+
+  const runAutoNow = async () => {
+    setRunning(true);
+    try {
+      const { data: out } = await api.post("/super-admin/renewals/run-auto-reminders");
+      toast.success(`Checked ${out.checked} due tenants — ${out.sent} email(s) sent, ${out.skipped} already reminded`);
+      const r = await api.get("/super-admin/renewals/reminder-log");
+      setAutoLog(r.data.items || []);
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't run reminders"); }
+    finally { setRunning(false); }
+  };
 
   const markReminded = async (tid) => {
     try {
@@ -114,6 +132,52 @@ export function LeaderboardPanel() {
         </div>
       )}
 
+      {/* ─── Automated 15/7/1 reminders ─── */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm" data-testid="auto-reminders-card">
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs">⚡</span>
+              Automated reminders — ON
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Every day after 10 AM IST, owners whose subscription or trial ends in exactly <b>15, 7 or 1 day(s)</b> automatically get a branded renewal email with a Razorpay pay link. Each reminder is sent only once.
+            </p>
+          </div>
+          <button
+            onClick={runAutoNow}
+            disabled={running}
+            data-testid="run-auto-reminders-btn"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold disabled:opacity-50"
+          >
+            {running ? "Running…" : "Run check now"}
+          </button>
+        </div>
+        {autoLog.length > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-2">Recent auto-reminders</div>
+            <div className="space-y-1.5" data-testid="auto-reminder-log">
+              {autoLog.slice(0, 8).map(l => (
+                <div key={l.id} className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
+                  <span className={`px-1.5 py-0.5 rounded font-mono font-semibold ${l.days_mark === 1 ? "bg-rose-100 text-rose-700" : l.days_mark === 7 ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>D-{l.days_mark}</span>
+                  <span className="font-medium text-slate-800">{l.tenant_name || l.slug}</span>
+                  <span className={l.email_sent ? "text-emerald-600" : "text-rose-500"} title={l.email_error || ""}>
+                    {l.email_sent ? "✓ email sent" : `✗ email failed`}
+                  </span>
+                  <span className="text-slate-400">{new Date(l.at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                  {l.wa_link && (
+                    <a href={l.wa_link} target="_blank" rel="noopener noreferrer"
+                       className="text-emerald-600 hover:text-emerald-700 font-semibold" data-testid={`auto-log-wa-${l.slug}`}>
+                      WhatsApp →
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* ─── Top Referrers ─── */}
       <div className="pt-4">
         <h1 className="font-playfair text-3xl flex items-center gap-3">
@@ -160,6 +224,56 @@ export function LeaderboardPanel() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ─── Referral tracking ─── */}
+      {refTrack && refTrack.items?.length > 0 && (
+        <div className="pt-2" data-testid="referral-tracking-section">
+          <h2 className="font-playfair text-2xl flex items-center gap-3">
+            <span className="w-8 h-8 rounded-lg bg-rose-100 text-rose-500 flex items-center justify-center">
+              <Gift className="w-4 h-4" />
+            </span>
+            Referral tracking
+          </h2>
+          <div className="flex flex-wrap gap-2 mt-3 mb-4">
+            <span className="text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-medium">{refTrack.stats.total} total</span>
+            <span className="text-xs px-3 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">{refTrack.stats.pending} pending payment</span>
+            <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">{refTrack.stats.credited} credited · ₹{Number(refTrack.stats.credited_inr).toLocaleString("en-IN")}</span>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Referred salon</th>
+                  <th className="px-4 py-3 text-left font-medium">Referred by</th>
+                  <th className="px-4 py-3 text-left font-medium">Date</th>
+                  <th className="px-4 py-3 text-right font-medium">Reward</th>
+                </tr>
+              </thead>
+              <tbody>
+                {refTrack.items.slice(0, 30).map(r => (
+                  <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/50" data-testid={`referral-row-${r.referred_slug}`}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-slate-800">{r.referred_salon_name || r.referred_slug}</div>
+                      <div className="text-xs text-slate-500 font-mono">{r.referred_slug}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{r.referrer_name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">
+                      {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {r.status === "pending" ? (
+                        <span className="inline-block text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium" title="Credited once this salon makes its first subscription payment">⏳ pending payment</span>
+                      ) : (
+                        <span className="inline-block text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">✓ ₹{Number(r.credit_amount || 0).toLocaleString("en-IN")} credited</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

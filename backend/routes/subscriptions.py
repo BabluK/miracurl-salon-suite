@@ -722,6 +722,84 @@ async def mark_renewal_reminded(tid: str, user=Depends(require_super_admin)):
     return {"ok": True, "reminded_at": now}
 
 
+# ---------------- Automated renewal reminders (15 / 7 / 1 days before expiry) ----------------
+RENEWAL_REMINDER_DAYS = (15, 7, 1)
+
+
+def _renewal_wa_link(t: dict, days: int, end_date: str, source: str) -> Optional[str]:
+    num = "".join(ch for ch in (t.get("whatsapp_number") or t.get("phone") or "") if ch.isdigit())
+    if not num:
+        return None
+    line = "*ends tomorrow*" if days == 1 else f"ends in *{days} days*"
+    from urllib.parse import quote
+    text = (f"Hi {t.get('name', '')} ✦ A friendly reminder from Miracurl — your {source} {line} ({end_date}). "
+            f"Renew directly inside your dashboard → Settings → Subscription → Pay via Razorpay (UPI/card). "
+            f"Reply here if you need any help. — Team Miracurl")
+    return f"https://wa.me/{num}?text={quote(text)}"
+
+
+async def run_renewal_reminders() -> dict:
+    """Auto-email every tenant whose subscription/trial ends in exactly 15, 7 or 1 days.
+    Idempotent per (tenant, end_date, days_mark). Also prepares a WhatsApp deep link
+    per reminder for the Super Admin queue. Used by the daily scheduler AND 'Run now'."""
+    from email_service import _send_email, renewal_reminder_email_html
+    now_iso = datetime.now(timezone.utc).isoformat()
+    tenants = await db.tenants.find({"status": {"$ne": "cancelled"}}, {"_id": 0}).to_list(5000)
+    checked, sent, skipped, failed = 0, 0, 0, 0
+    items = []
+    for t in tenants:
+        end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
+        days = _days_until(end)
+        if days not in RENEWAL_REMINDER_DAYS:
+            continue
+        checked += 1
+        end_str = str(end)[:10]
+        already = await _raw_db.renewal_reminder_log.find_one(
+            {"tenant_id": t["id"], "end_date": end_str, "days_mark": days})
+        if already:
+            skipped += 1
+            continue
+        source = "subscription" if t.get("subscription_end_date") else "trial"
+        plan_info = PLAN_CATALOG.get(t.get("plan") or "", {})
+        email_status = {"sent": False, "error": "no owner_email on tenant"}
+        if t.get("owner_email"):
+            email_status = await _send_email(
+                [t["owner_email"]],
+                f"⏳ Your Miracurl {source} ends in {days} day{'s' if days != 1 else ''} — renew in 2 minutes",
+                renewal_reminder_email_html(
+                    t.get("name") or t["slug"], days, end_str,
+                    plan_info.get("label") or (t.get("plan") or "Trial"),
+                    float(plan_info.get("price") or 0),
+                    float(t.get("affiliate_credits") or 0)))
+        log = {
+            "id": str(uuid.uuid4()), "tenant_id": t["id"], "slug": t["slug"],
+            "tenant_name": t.get("name"), "days_mark": days, "end_date": end_str,
+            "source": source, "email_to": t.get("owner_email"),
+            "email_sent": bool(email_status.get("sent")),
+            "email_error": email_status.get("error"),
+            "wa_link": _renewal_wa_link(t, days, end_str, source),
+            "at": now_iso,
+        }
+        await _raw_db.renewal_reminder_log.insert_one(log)
+        log.pop("_id", None)
+        items.append(log)
+        sent += 1 if log["email_sent"] else 0
+        failed += 0 if log["email_sent"] else 1
+    return {"checked": checked, "sent": sent, "skipped": skipped, "failed": failed, "items": items}
+
+
+@router.post("/super-admin/renewals/run-auto-reminders")
+async def run_auto_reminders_now(user=Depends(require_super_admin)):
+    """Manually trigger the 15/7/1-day reminder sweep (same logic as the daily scheduler)."""
+    return await run_renewal_reminders()
+
+
+@router.get("/super-admin/renewals/reminder-log")
+async def renewal_reminder_log(user=Depends(require_super_admin)):
+    rows = await _raw_db.renewal_reminder_log.find({}, {"_id": 0}).sort("at", -1).to_list(100)
+    return {"items": rows}
+
+
 @router.post("/super-admin/subscriptions/{sid}/cancel")
 async def cancel_subscription(sid: str, body: SubscriptionCancelIn, user=Depends(require_super_admin)):
     sub = await db.subscriptions.find_one({"id": sid}, {"_id": 0})

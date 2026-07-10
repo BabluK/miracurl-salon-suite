@@ -23,6 +23,23 @@ export default function MiraStudio() {
   const [tab, setTab] = useState("agents");
   const endRef = useRef(null);
   const DATA_AGENTS = ["analytics", "leadfinder", "staff_verify"];
+  const CONNECT_MAP = {
+    social: { provider: "meta", label: "Connect Instagram & Facebook" },
+    whatsapp: { provider: "meta", label: "Connect Meta (WhatsApp Business)" },
+    google: { provider: "google", label: "Connect Google Business Profile" },
+  };
+
+  async function startConnect(agentKey) {
+    const m = CONNECT_MAP[agentKey];
+    if (!m) return;
+    try {
+      const { data } = await api.get(`/social/${m.provider}/oauth/start`);
+      window.location.href = data.auth_url;
+    } catch (e) {
+      const d = e.response?.data?.detail;
+      toast.error(typeof d === "string" ? d : `${m.provider === "meta" ? "Meta" : "Google"} connection isn't configured yet — API keys needed`);
+    }
+  }
 
   useEffect(() => {
     api.get("/mira-studio/agents").then(r => { setAgents(r.data.agents); setConns(r.data.connections); }).catch(() => {});
@@ -144,6 +161,18 @@ export default function MiraStudio() {
           <div className="bg-white rounded-2xl p-5 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
             <p className="font-semibold text-slate-800 flex items-center gap-2"><span className="text-2xl">{pendingAgent.emoji}</span> {pendingAgent.name}</p>
             <p className="text-xs text-slate-500 mt-1">{pendingAgent.desc}</p>
+            {pendingAgent.status === "connect_account" && CONNECT_MAP[pendingAgent.key] && (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3" data-testid="mira-connect-box">
+                <p className="text-xs text-amber-800 font-semibold">⚡ Account not connected</p>
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  Connect your account so Mira can actually <b>post & reply for you automatically</b>. Without connecting, she can only draft content for you to copy-paste.
+                </p>
+                <button data-testid="mira-connect-btn" onClick={() => startConnect(pendingAgent.key)}
+                  className="mt-2 w-full px-3 py-2 rounded-lg bg-slate-900 text-amber-300 text-xs font-bold hover:bg-slate-800 inline-flex items-center justify-center gap-1.5">
+                  🔗 {CONNECT_MAP[pendingAgent.key].label}
+                </button>
+              </div>
+            )}
             <input
               autoFocus
               data-testid="mira-topic-input"

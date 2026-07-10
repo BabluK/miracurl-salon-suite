@@ -2,9 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-10.9"
+BUILD = "2026-07-11.1"
 
 RELEASES = [
+    {
+        "date": "2026-07-11",
+        "changes": [
+            "What's New ✨ popup — after every update, salon owners see the latest features once, with a WhatsApp share button",
+            "Renewal reminders on auto-pilot — owners get a branded email 15, 7 and 1 day(s) before their subscription/trial ends, with a direct Razorpay renew link",
+            "Refer & Earn: referral list now shows reward status — pending until the referred salon makes its first payment, then ₹1,000 credited",
+            "Super Admin: renewals queue shows the automated email log with one-tap WhatsApp follow-ups + a 'Run check now' button",
+            "Super Admin: full Referral Tracking table — every referred salon, who referred it, date and credit status",
+        ],
+    },
     {
         "date": "2026-07-10",
         "changes": [

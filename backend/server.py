@@ -3638,6 +3638,26 @@ async def affiliate_leaderboard(user=Depends(require_super_admin), limit: int = 
     return {"items": rows, "reward_per_signup": AFFILIATE_REWARD_INR}
 
 
+@api.get("/super-admin/affiliates/referrals")
+async def affiliate_referrals_list(user=Depends(require_super_admin)):
+    """Every refer-a-salon signup with its reward status (pending until first payment)."""
+    rows = await db.affiliate_referrals.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
+    rids = list({r.get("referrer_tenant_id") for r in rows if r.get("referrer_tenant_id")})
+    tmap = {t["id"]: t["name"] for t in await db.tenants.find(
+        {"id": {"$in": rids}}, {"_id": 0, "id": 1, "name": 1}).to_list(len(rids) or 1)}
+    pending = credited_inr = 0
+    for r in rows:
+        r["referrer_name"] = tmap.get(r.get("referrer_tenant_id"), r.get("referrer_slug", "—"))
+        r.setdefault("status", "credited")  # legacy referrals were credited instantly
+        if r["status"] == "pending":
+            pending += 1
+        else:
+            credited_inr += float(r.get("credit_amount") or 0)
+    return {"items": rows, "reward_per_signup": AFFILIATE_REWARD_INR,
+            "stats": {"total": len(rows), "pending": pending,
+                      "credited": len(rows) - pending, "credited_inr": round(credited_inr, 2)}}
+
+
 @api.get("/super-admin/hq-messages")
 async def hq_messages(user=Depends(require_super_admin)):
     items = await _raw_db.hq_messages.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
@@ -4813,8 +4833,33 @@ async def _birthday_scheduler():
         await asyncio.sleep(1800)
 
 
+async def _renewal_reminder_scheduler():
+    """Daily (after 10:00 IST) auto-email renewal reminders 15/7/1 days before
+    subscription/trial expiry. Idempotent via system_flags + per-reminder log."""
+    from routes.subscriptions import run_renewal_reminders
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.hour >= 10:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "renewal_reminder_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await run_renewal_reminders()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "renewal_reminder_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    if out.get("sent") or out.get("failed"):
+                        logging.info(f"Auto renewal reminders {period}: sent={out.get('sent')} failed={out.get('failed')}")
+        except Exception as e:
+            logging.error(f"renewal reminder scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 @app.on_event("startup")
 async def on_startup():
+    asyncio.get_event_loop().create_task(_renewal_reminder_scheduler())
     asyncio.get_event_loop().create_task(_monthly_report_scheduler())
     asyncio.get_event_loop().create_task(_weekly_report_scheduler())
     asyncio.get_event_loop().create_task(_birthday_scheduler())

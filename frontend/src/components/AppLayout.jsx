@@ -19,6 +19,7 @@ import MiraFab from "./MiraFab";
 import TrialReminder from "./TrialReminder";
 import ActAsBanner from "./ActAsBanner";
 import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
+import WhatsNewModal from "./WhatsNewModal";
 import { NetSpeedIndicator } from "./NetSpeedIndicator";
 
 const NAV_ADMIN = [
@@ -299,6 +300,9 @@ export default function AppLayout() {
 
       {/* Once-a-day polite trial expiry reminder for owners */}
       {user?.role === "admin" && <TrialReminder />}
+
+      {/* Post-deployment "What's New ✨" highlights for owners — shown once per build */}
+      {user?.role === "admin" && <WhatsNewModal />}
     </div>
   );
 }

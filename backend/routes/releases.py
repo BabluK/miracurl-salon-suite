@@ -5,10 +5,21 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from database import _raw_db
-from security import require_super_admin
+from security import require_super_admin, require_tenant_admin
 from release_notes import RELEASES, BUILD
 
 router = APIRouter()
+
+# Items with these prefixes are HQ-internal and hidden from salon owners' "What's New" popup.
+_INTERNAL_PREFIXES = ("Super Admin:", "Deployments:", "Platform:", "Miracurl Team:")
+
+
+@router.get("/whats-new")
+async def whats_new(user=Depends(require_tenant_admin)):
+    """Owner-facing highlights of the latest deployment — powers the 'What's New ✨' popup."""
+    latest = RELEASES[0]
+    highlights = [c for c in latest["changes"] if not c.startswith(_INTERNAL_PREFIXES)][:8]
+    return {"build": BUILD, "date": latest["date"], "highlights": highlights}
 
 
 @router.get("/super/version")

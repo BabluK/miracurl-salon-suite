@@ -79,6 +79,41 @@ def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> 
     </div>"""
 
 
+def renewal_reminder_email_html(salon_name: str, days_left: int, end_date: str,
+                                plan_label: str, price: float, credits: float) -> str:
+    """15/7/1-day subscription renewal reminder with in-app Razorpay pay CTA."""
+    renew_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/settings"
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    when = "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>"
+    credit_row = (f'<p style="margin:12px 0 0;font-size:13px;color:#1f7a4d;font-family:Arial,sans-serif">'
+                  f'🎁 You have <b>₹{credits:,.0f}</b> referral credits — they\'ll be auto-applied as a discount at checkout.</p>') if credits > 0 else ""
+    price_row = f' · ₹{price:,.0f}' if price else ""
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px">
+        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Subscription renewal reminder</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        <p style="font-family:Arial,sans-serif;font-size:14px">Namaste <b>{html_lib.escape(salon_name)}</b>,</p>
+        <p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7">
+          A friendly heads-up — your Miracurl subscription {when} (on <b>{end_date}</b>).
+          Renew now so your bookings, billing and Mira AI keep running without a pause.</p>
+        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:14px;font-family:Arial,sans-serif">
+          📋 <b>Current plan:</b> {html_lib.escape(plan_label)}{price_row}<br/><br/>
+          📅 <b>Valid till:</b> {end_date}
+        </div>
+        {credit_row}
+        <p style="text-align:center;margin:24px 0">
+          <a href="{renew_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:13px 38px;border-radius:999px;font-weight:bold;font-family:Arial,sans-serif;font-size:14px">✦ &nbsp;Renew now — pay via UPI / card&nbsp; ✦</a>
+        </p>
+        <p style="font-size:12px;color:#888;text-align:center;font-family:Arial,sans-serif">Log in → Settings → Subscription → Pay securely via Razorpay.</p>
+        <p style="font-size:12px;color:#888;font-family:Arial,sans-serif;border-top:1px solid #eee;padding-top:14px;margin-top:22px">
+          Facing an issue or need more time? Just reply to this email or write to {hq_email} — we're happy to help.</p>
+      </div>
+    </div>"""
+
+
 def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "") -> str:
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/login"
     img = poster_url or os.environ.get("WELCOME_IMAGE_URL", "")

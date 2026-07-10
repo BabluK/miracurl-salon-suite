@@ -172,7 +172,11 @@ export default function ReferEarn() {
                     {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}
                   </div>
                 </div>
-                <div className="text-xs text-gold font-semibold whitespace-nowrap">+₹{reward}</div>
+                {r.status === "pending" ? (
+                  <div className="text-[11px] text-white/50 border border-white/15 rounded-full px-2.5 py-1 whitespace-nowrap" title="Credited after their first subscription payment">⏳ Pending first payment</div>
+                ) : (
+                  <div className="text-xs text-gold font-semibold whitespace-nowrap">+₹{reward} credited</div>
+                )}
               </div>
             ))}
           </div>
