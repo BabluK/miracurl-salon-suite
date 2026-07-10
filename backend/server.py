@@ -5683,6 +5683,8 @@ from routes.offer_flyer import router as offer_flyer_router  # noqa: E402 — te
 api.include_router(offer_flyer_router)
 from routes.id_cards import router as id_cards_router  # noqa: E402 — employee ID card PDFs
 api.include_router(id_cards_router)
+from routes.releases import router as releases_router  # noqa: E402 — deployment history
+api.include_router(releases_router)
 
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 api.include_router(subscriptions_router)

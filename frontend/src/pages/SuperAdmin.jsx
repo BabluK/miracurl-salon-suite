@@ -26,7 +26,8 @@ import { DatabasePanel } from "@/components/superadmin/DatabasePanel";
 import { PromoImageStudio } from "@/components/superadmin/PromoImageStudio";
 import { VerifiedStaffPanel } from "@/components/superadmin/VerifiedStaffPanel";
 import { MiracurlTeamPanel } from "@/components/superadmin/MiracurlTeamPanel";
-import { BadgeCheck } from "lucide-react";
+import { DeploymentHistoryPanel } from "@/components/superadmin/DeploymentHistoryPanel";
+import { BadgeCheck, Rocket } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
 import { Palette, Activity, Database, ImagePlus } from "lucide-react";
 
@@ -271,6 +272,7 @@ export default function SuperAdmin() {
               { id: "posters", label: "AI Posters", icon: ImagePlus },
               { id: "verify-staff", label: "Staff Verification", icon: BadgeCheck },
               { id: "team", label: "Miracurl Team", icon: Crown },
+              { id: "deployments", label: "Deployments", icon: Rocket },
               { id: "load", label: "Platform Load", icon: Activity },
               { id: "database", label: "Database", icon: Database },
               { id: "security", label: "Security", icon: ShieldAlert },
@@ -302,6 +304,7 @@ export default function SuperAdmin() {
             posters: <PromoImageStudio />,
             "verify-staff": <VerifiedStaffPanel />,
             team: <MiracurlTeamPanel />,
+            deployments: <DeploymentHistoryPanel />,
             load: <PlatformLoadPanel />,
             database: <DatabasePanel />,
             security: <SecurityCard />,

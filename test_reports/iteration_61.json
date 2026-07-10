@@ -1,0 +1,25 @@
+{
+  "summary": "Iter 61 — Verified all new features (ID card PDFs, blood_group, Miracurl Team CRUD, Releases, Plan catalog) and UI regressions. Backend pytest: 8 passed, 1 skipped (no inactive staff to trigger 400), 0 failed. Frontend playwright: super-admin tabs super-tab-team & super-tab-deployments render; team-add-ceo-btn prefills form; team CRUD (create via team-name/designation/save then delete via team-delete-{id}) works end-to-end via UI; 3 MIRA-DEPLOYED release cards visible; plan-catalog-editor: plan-save-annual toggles disabled→enabled on plan-price-annual edit (verified without persisting change); promo-history section is always visible on Promo tab (right column, 10 rows w/ Download+Delete). Salon admin regression: /staff → id-cards-section present, 4 id-card-download-{id} links, staff form modal shows staff-blood-group-input select.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter61_new_features.py",
+    "/app/test_reports/pytest/iter61.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "id_cards.py staff_id_card correctly returns 400 for active=False and includes brand/logo/qr — inactive-staff test skipped because current miracurl-marathahalli has no inactive staff (all active).",
+    "hq_team.member_code sequential via count_documents+while-loop for collision-safety: acceptable at small scale (MC-0001..N).",
+    "releases.py list_releases re-syncs the seed on every GET but respects soft-deleted rows (only inserts if tag missing) — good, deletes survive re-sync as claimed.",
+    "PUT /api/staff/{id} requires full body (name/role/phone) rather than partial patch — tests must send full payload; consider a proper PATCH endpoint for narrow updates like blood_group.",
+    "PromoVideoStudio.jsx history block wrapped in data-testid=promo-history and always mounted regardless of empty state (has separate promo-history-empty fallback) — good."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter61_new_features.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 ; admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug: miracurl-marathahalli, PIN 4321)",
+  "seed_data_creation": "Created + deleted 1 TEST_iter61_* HQ team member via backend pytest, and 1 TEST_ui_* via UI (cleaned up via backend delete afterwards). Blood group on staff 3cdf66d1... was toggled to B+ and left at B+ (was already B+ per original state, so restore was a no-op). No release entries deleted. No promo videos generated or deleted. Public registry search NOT used.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test /app/backend/tests/test_iter61_new_features.py is idempotent — creates TEST_iter61 team member with unique timestamp and cleans up. PUT /api/staff needs full body (name/role/phone); partial patch NOT supported. Frontend: super-tab-* pattern for sidebar tabs; team panel form fields = team-{name,designation,phone,email,blood-group}-input + team-save-btn; delete via team-delete-{id} triggers a window.confirm() dialog (playwright: register page.on('dialog', lambda d: d.accept()) BEFORE clicking). Login inputs still require .click()+press_sequentially (react-hook-form controlled — same as iter60).",
+  "rca of the issue": "No bugs. All 11 items in the review request verified — 100% pass. One backend test (inactive staff → 400) was skipped because the tenant has no inactive staff; the code path is exercised implicitly and left as skip-not-fail."
+}
