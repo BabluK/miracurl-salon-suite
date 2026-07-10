@@ -241,8 +241,8 @@ export function LeaderboardPanel() {
             <span className="text-xs px-3 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">{refTrack.stats.pending} pending payment</span>
             <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">{refTrack.stats.credited} credited · ₹{Number(refTrack.stats.credited_inr).toLocaleString("en-IN")}</span>
           </div>
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Referred salon</th>

@@ -955,3 +955,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - SEC-002 MED enumeration: /public/jobs/{rid}/apply — public_rate_limit 6/hr/IP, requires name matching registry (_name_matches token match), uniform generic 200 for unknown/mismatch/duplicate (no signals). JobsBoard.jsx apply modal now asks name + phone.
 - P3s: forgot-password rate limit 5/hr/IP; hiring candidate search re.escape($regex); CORS never wildcard+credentials; public chat poll/send require ?k=session_key when thread has one (BookingChatWidget sends it; legacy keyless threads still work).
 - Verified: metadata/localhost URL → 400, generic apply responses, 429 on 5th+ attempt, chat 403 without key, cookie login still works.
+
+## Iter 73 (10 Jul 2026) — Super Admin mobile responsiveness fix
+- User report: Super Admin dashboard unusable on iOS/Android. Root cause: fixed-width header (badge+NetSpeed+Sign Out forced >390px width → whole-page horizontal overflow/clipping).
+- Fix in SuperAdmin.jsx: responsive header (px-3, smaller logo/title, Super Admin badge hidden <sm, NetSpeed hidden <md, Sign Out icon-only <sm, email hidden <lg), main px-3 on mobile, root overflow-x-hidden. Referral tracking table wrapped in overflow-x-auto (min-w-560px).
+- Verified via 390x844 viewport: scrollWidth 390 = innerWidth (no overflow) on tenants + hiring tabs.

@@ -226,42 +226,42 @@ export default function SuperAdmin() {
   const filteredTenants = statusFilter === "all" ? tenants : tenants.filter(t => t.status === statusFilter);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-sky-50/70 to-violet-100/60 text-slate-800" data-testid="super-admin-page">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-sky-50/70 to-violet-100/60 text-slate-800" data-testid="super-admin-page">
       {/* Header */}
       <header className="border-b border-indigo-900/40 bg-gradient-to-r from-slate-950 via-indigo-950 to-violet-950 sticky top-0 z-40 shadow-lg shadow-indigo-950/20">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative w-11 h-11 rounded-full bg-[#fdf7f2] flex items-center justify-center shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/60">
-              <img src="/brand/miracurl-rosegold-icon.png" alt="Miracurl" className="w-8 h-8 object-contain" draggable="false" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="relative w-9 h-9 sm:w-11 sm:h-11 shrink-0 rounded-full bg-[#fdf7f2] flex items-center justify-center shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/60">
+              <img src="/brand/miracurl-rosegold-icon.png" alt="Miracurl" className="w-7 h-7 sm:w-8 sm:h-8 object-contain" draggable="false" />
               <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse" title="Systems online" />
             </div>
-            <div>
-              <div className="font-playfair text-xl text-white flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="font-playfair text-base sm:text-xl text-white flex items-center gap-2 whitespace-nowrap">
                 Miracurl HQ
-                <span data-testid="super-admin-badge" className="super-badge inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.18em] uppercase px-2.5 py-1 rounded-full text-slate-900">
+                <span data-testid="super-admin-badge" className="super-badge hidden sm:inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.18em] uppercase px-2.5 py-1 rounded-full text-slate-900 whitespace-nowrap">
                   <Sparkles className="w-3 h-3" /> Super Admin
                 </span>
               </div>
-              <div className="text-[10px] tracking-[0.25em] uppercase text-amber-300/80">Command Console · AI-Powered</div>
+              <div className="text-[9px] sm:text-[10px] tracking-[0.2em] sm:tracking-[0.25em] uppercase text-amber-300/80 truncate">Command Console · AI-Powered</div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <NetSpeedIndicator />
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <div className="hidden md:block"><NetSpeedIndicator /></div>
             <SuperNotifBell tenants={tenants} hqUnread={hqUnread} onGoInbox={() => setTab("inbox")} />
-            <span className="text-xs text-white/50 hidden sm:inline">{user?.email}</span>
-            <button data-testid="super-logout-btn" onClick={async () => { await logout(); nav("/login"); }} className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-white/80 hover:bg-white/20 transition">
-              <LogOut className="w-3 h-3" /> Sign Out
+            <span className="text-xs text-white/50 hidden lg:inline">{user?.email}</span>
+            <button data-testid="super-logout-btn" onClick={async () => { await logout(); nav("/login"); }} className="flex items-center gap-2 text-xs px-2.5 sm:px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-white/80 hover:bg-white/20 transition">
+              <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-10 space-y-6 pb-24">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-10 space-y-5 sm:space-y-6 pb-24">
         {/* Super-admin profile */}
         <SuperProfileCard />
 
         {/* Sidebar + content */}
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 items-start">
         <aside className="w-full lg:w-56 shrink-0 lg:sticky lg:top-6">
           <nav data-testid="super-sidebar" className="flex lg:flex-col gap-1 overflow-x-auto bg-white border border-slate-200 rounded-2xl p-2">
             {[
