@@ -2,17 +2,21 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-11.1"
+BUILD = "2026-07-11.2"
 
 RELEASES = [
     {
         "date": "2026-07-11",
         "changes": [
+            "Hire Staff 🧑‍💼 — post a hiring request from your dashboard and Miracurl HQ finds you verified candidates, schedules trials and updates you at every step",
+            "Public Jobs board (/jobs) — HQ-verified professionals apply for open positions with their registered number; salon identity stays private until shortlisting",
+            "Flash offers ⚡ — when AI CCTV spots chairs sitting empty, Mira alerts you on the Dashboard and designs a 2-hour flash offer with poster + WhatsApp caption in one tap",
             "What's New ✨ popup — after every update, salon owners see the latest features once, with a WhatsApp share button",
             "Renewal reminders on auto-pilot — owners get a branded email 15, 7 and 1 day(s) before their subscription/trial ends, with a direct Razorpay renew link",
             "Refer & Earn: referral list now shows reward status — pending until the referred salon makes its first payment, then ₹1,000 credited",
-            "Super Admin: renewals queue shows the automated email log with one-tap WhatsApp follow-ups + a 'Run check now' button",
-            "Super Admin: full Referral Tracking table — every referred salon, who referred it, date and credit status",
+            "Mira Day-Smart Offers — ask Mira for today's offer: weekday-aware (fills chairs Mon-Thu, upsells Fri-Sun), built from your real service catalog, downloadable poster",
+            "AI CCTV Analytics — waiting customers, empty chairs, queue length & idle staff read from camera frames every few minutes, with hourly trends",
+            "Super Admin: Hiring tab (middleman pipeline: applied → shortlisted → trial → hired), renewals auto-email log with WhatsApp follow-ups, full Referral Tracking table",
         ],
     },
     {

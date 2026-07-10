@@ -6,6 +6,8 @@
 - Mira Studio OAuth: infra COMPLETE (Jul 8, iter57) — waiting on USER to supply META_APP_ID/META_APP_SECRET (developers.facebook.com app) and GOOGLE_OAUTH_CLIENT_ID/SECRET (+ GBP API approval). Once pasted in backend/.env, Connect buttons go live. Then test real end-to-end posting + /social/meta/select-page happy path.
 
 ## P1
+- Staff Hiring Marketplace (owner requests → HQ middleman → verified staff apply → trials) — DONE Jul 10 (iter71)
+- CCTV → Flash Offers (empty chairs trigger 2-hour Mira flash deal) — DONE Jul 10 (iter71)
 - "What's New ✨" popup — DONE Jul 10 (iter69)
 - Automated renewal reminders 15/7/1 (email + WA links) — DONE Jul 10 (iter69)
 - Referral rewards tracking (super admin + owner status) — DONE Jul 10 (iter69)
