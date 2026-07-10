@@ -213,7 +213,8 @@ async def _run_pipeline(job_id: str, body: PromoIn):
         asyncio.run_coroutine_threadsafe(_progress(job_id, msg), loop)
 
     video_bytes = await asyncio.wait_for(
-        asyncio.to_thread(_render_video, images, captions, fits, audio_bytes, vw, vh, _beat), timeout=1500)
+        asyncio.to_thread(_render_video, images, captions, fits, audio_bytes, vw, vh, _beat,
+                          not body.express), timeout=1500)
 
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/superadmin/promo-videos/{fid}.mp4"
@@ -400,18 +401,18 @@ def _run_ff(cmd: list, step: str):
 
 
 def _render_video(images: list[bytes], captions: list[str], fits: list[bool], audio_bytes: bytes,
-                  w: int = W, h: int = H, beat=None) -> bytes:
+                  w: int = W, h: int = H, beat=None, motion: bool = True) -> bytes:
     try:
-        return _render_video_at(images, captions, fits, audio_bytes, w, h, beat)
+        return _render_video_at(images, captions, fits, audio_bytes, w, h, beat, motion)
     except RuntimeError as e:
         # low-memory safe mode: retry once at ~66% resolution (helps constrained prod containers)
         log.warning("full-res render failed (%s) — retrying in safe mode", e)
         sw, sh = (w * 2 // 3) & ~1, (h * 2 // 3) & ~1
-        return _render_video_at(images, captions, fits, audio_bytes, sw, sh, beat)
+        return _render_video_at(images, captions, fits, audio_bytes, sw, sh, beat, motion)
 
 
 def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool], audio_bytes: bytes,
-                     w: int, h: int, beat=None) -> bytes:
+                     w: int, h: int, beat=None, motion: bool = True) -> bytes:
     ff = _ffmpeg()
     workdir = f"/tmp/promo_{uuid.uuid4().hex}"
     os.makedirs(workdir, exist_ok=True)
@@ -433,11 +434,18 @@ def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool],
             with open(img_path, "wb") as f:
                 f.write(framed)
             seg = os.path.join(workdir, f"seg{i}.mp4")
-            vf = (f"zoompan=z='min(zoom+0.0009,1.12)':d={frames}:"
-                  f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={w}x{h}:fps={FPS}")
-            _run_ff([ff, "-y", "-threads", "2", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
-                     "-c:v", "libx264", "-preset", "veryfast", "-crf", "27", "-pix_fmt", "yuv420p", seg],
-                    f"segment {i}")
+            if motion:
+                vf = (f"zoompan=z='min(zoom+0.0009,1.12)':d={frames}:"
+                      f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={w}x{h}:fps={FPS}")
+                _run_ff([ff, "-y", "-threads", "2", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
+                         "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p", seg],
+                        f"segment {i}")
+            else:
+                # Express mode: still-image segments — encodes in seconds even on weak prod CPUs
+                _run_ff([ff, "-y", "-threads", "2", "-loop", "1", "-framerate", str(FPS), "-i", img_path,
+                         "-t", f"{per:.2f}", "-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage",
+                         "-crf", "27", "-pix_fmt", "yuv420p", seg],
+                        f"segment {i}")
             seg_paths.append(seg)
 
         if beat:

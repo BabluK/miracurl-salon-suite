@@ -891,3 +891,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 
 ## Iter 62 (10 Jul 2026) — Editable Plan Catalog
 - New "Plan Catalog — Edit Prices" card in Super Admin → Billing & Subscriptions (`PlanCatalogEditor` in BillingPanel.jsx). All 8 plans: editable name + price, per-row Save (enabled only when changed), confirm dialog. Uses existing `PUT /api/super-admin/plans/{key}` (DB `plan_overrides`, survives restart). New prices apply to new subscriptions/renewals incl. Razorpay; running subs unaffected. Curl-verified (edit 12000→13000→restore) + UI screenshot verified.
+
+## Iter 63 (10 Jul 2026) — Miracurl Team + Promo speed fix
+- **Miracurl Team section** (Super Admin sidebar, Crown icon): CRUD for HQ's own team (`hq_team` collection, `/api/super/team*` in id_cards.py) with "Add myself as CEO" prefill, photo upload, blood group. Rose-gold Miracurl ID cards (`MC-0001` codes, QR → company site, accent param + qr_label added to `_render_id_card_pdf`). Clarified Staff Verification copy (for salons NOT on the software).
+- **Promo video production timeout fix**: Express mode now renders still-image segments (`-loop 1 -tune stillimage -preset ultrafast`) instead of zoompan — E2E generation verified at **22s** in preview (was minutes; prod was timing out at 4min+/scene). AI-scenes mode keeps zoompan but ultrafast/crf28. `motion` param threaded through `_render_video(_at)`.
+- Earlier same day: promo heartbeat every 45s (no false "interrupted"), started/finished/duration timestamps in job + live elapsed UI, fixed undefined `delVideo` crash.

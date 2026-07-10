@@ -2,8 +2,11 @@
 import asyncio
 import os
 import re
+import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel, Field
 
 from database import _raw_db, db
 from security import require_tenant_admin, require_super_admin, current_tenant
@@ -110,3 +113,77 @@ async def hq_id_card(eid: str, admin=Depends(require_super_admin)):
     }
     pdf_bytes = await asyncio.to_thread(_render_id_card_pdf, data)
     return _card_response(pdf_bytes, emp["name"])
+
+
+# ---------------- Miracurl HQ team (super-admin's own staff + CEO) ----------------
+ROSE_GOLD = (0.72, 0.43, 0.40)
+
+
+class TeamMemberIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    designation: str = Field(..., min_length=2, max_length=80)
+    phone: str = Field("", max_length=16)
+    email: str = Field("", max_length=120)
+    blood_group: str = Field("", max_length=4)
+    photo_url: str = Field("", max_length=500)
+
+
+@router.get("/super/team")
+async def team_list(admin=Depends(require_super_admin)):
+    return {"members": await _raw_db.hq_team.find({}, {"_id": 0}).sort("created_at", 1).to_list(100)}
+
+
+@router.post("/super/team")
+async def team_add(body: TeamMemberIn, admin=Depends(require_super_admin)):
+    seq = await _raw_db.hq_team.count_documents({}) + 1
+    code = f"MC-{seq:04d}"
+    while await _raw_db.hq_team.find_one({"member_code": code}):
+        seq += 1
+        code = f"MC-{seq:04d}"
+    doc = {"id": str(uuid.uuid4()), "member_code": code, **body.model_dump(),
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.hq_team.insert_one({**doc})
+    return doc
+
+
+@router.put("/super/team/{tid}")
+async def team_update(tid: str, body: TeamMemberIn, admin=Depends(require_super_admin)):
+    res = await _raw_db.hq_team.update_one({"id": tid}, {"$set": body.model_dump()})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Team member not found")
+    return {"ok": True}
+
+
+@router.delete("/super/team/{tid}")
+async def team_delete(tid: str, admin=Depends(require_super_admin)):
+    res = await _raw_db.hq_team.delete_one({"id": tid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Team member not found")
+    return {"ok": True}
+
+
+@router.get("/super/team/{tid}/id-card.pdf")
+async def team_id_card(tid: str, admin=Depends(require_super_admin)):
+    m = await _raw_db.hq_team.find_one({"id": tid}, {"_id": 0})
+    if not m:
+        raise HTTPException(404, "Team member not found")
+    photo = await _img_bytes(m.get("photo_url"))
+    try:
+        with open(_MIRACURL_LOGO, "rb") as f:
+            logo = f.read()
+    except Exception:
+        logo = None
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurlunisexsaloon.com").rstrip("/")
+    data = {
+        "name": m["name"], "role": m.get("designation") or "Team",
+        "id_number": m["member_code"],
+        "email": (m.get("email") or "").strip() or None,
+        "phone": (m.get("phone") or "").strip() or None,
+        "blood_group": (m.get("blood_group") or "").strip() or None,
+        "photo_bytes": photo, "logo_bytes": logo,
+        "brand_name": "Miracurl", "website": _site_host(),
+        "qr_url": base, "qr_label": "SCAN - MIRACURL",
+        "accent": ROSE_GOLD,
+    }
+    pdf_bytes = await asyncio.to_thread(_render_id_card_pdf, data)
+    return _card_response(pdf_bytes, m["name"])

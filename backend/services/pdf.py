@@ -681,7 +681,7 @@ def _render_id_card_pdf(d: dict) -> bytes:
     buf = io.BytesIO()
     c = _canvas.Canvas(buf, pagesize=(W, H))
     NAVY = (0.08, 0.12, 0.30)
-    ORANGE = (0.96, 0.62, 0.10)
+    ORANGE = tuple(d.get("accent") or (0.96, 0.62, 0.10))
     INK = (0.15, 0.17, 0.22)
 
     c.setFillColorRGB(1, 1, 1)
@@ -816,7 +816,7 @@ def _render_id_card_pdf(d: dict) -> bytes:
         renderPDF.draw(dr, c, W - 52, 32)
         c.setFillColorRGB(*INK)
         c.setFont("Helvetica", 4.2)
-        c.drawCentredString(W - 34, 29.5, "SCAN TO VERIFY")
+        c.drawCentredString(W - 34, 29.5, d.get("qr_label") or "SCAN TO VERIFY")
     else:
         bc.drawOn(c, (W - bc.width) / 2, 34)
 

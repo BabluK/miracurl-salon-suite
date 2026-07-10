@@ -50,8 +50,9 @@ export const VerifiedStaffPanel = () => {
       <div>
         <h1 className="font-playfair text-3xl flex items-center gap-2"><BadgeCheck className="w-7 h-7 text-amber-500" /> Staff Verification</h1>
         <p className="text-slate-500 text-sm mt-1">
-          Add a salon&apos;s staff after verifying them in person. The record appears on the public registry with a
-          gold <b className="text-amber-600">✦ HQ Verified</b> badge — any salon can look them up before hiring.
+          For staff of salons <b>not using your software</b> — visit the owner, verify them in person, and record them here.
+          They appear on the public registry with a gold <b className="text-amber-600">✦ HQ Verified</b> badge so any salon can check them before hiring.
+          Your own team has its own section: <b>Miracurl Team</b>.
         </p>
       </div>
 
