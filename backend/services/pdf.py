@@ -734,8 +734,8 @@ def _render_id_card_pdf(d: dict) -> bytes:
         c.drawString(x0, ly, brand)
 
     # Circular photo with orange ring (overlapping the diagonal)
-    pr = 32
-    pcx, pcy = W / 2, H - 122.0
+    pr = 30
+    pcx, pcy = W / 2, H - 118.0
     c.setFillColorRGB(1, 1, 1)
     c.circle(pcx, pcy, pr + 4, fill=1, stroke=0)
     c.setStrokeColorRGB(*ORANGE)
@@ -765,7 +765,7 @@ def _render_id_card_pdf(d: dict) -> bytes:
         c.drawCentredString(pcx, pcy - 7, initials)
 
     # Name
-    y = pcy - pr - 20
+    y = pcy - pr - 18
     name = (d.get("name") or "").upper()
     size = 14.0
     while c.stringWidth(name, "Helvetica-Bold", size) > W - 20 and size > 8:
@@ -775,7 +775,7 @@ def _render_id_card_pdf(d: dict) -> bytes:
     c.drawCentredString(W / 2, y, name)
 
     # Role pill
-    y -= 17
+    y -= 15
     role = d.get("role") or ""
     if role:
         rw = min(c.stringWidth(role, "Helvetica-Bold", 7.5) + 18, W - 24)
@@ -786,7 +786,7 @@ def _render_id_card_pdf(d: dict) -> bytes:
         c.drawCentredString(W / 2, y, role)
 
     # Detail lines
-    y -= 17
+    y -= 15
     c.setFont("Helvetica", 7.5)
     for label, val in (("ID No", d.get("id_number")), ("Email", d.get("email")),
                        ("Phone", d.get("phone")), ("Blood", d.get("blood_group"))):
@@ -794,14 +794,31 @@ def _render_id_card_pdf(d: dict) -> bytes:
             continue
         c.setFillColorRGB(*INK)
         c.drawCentredString(W / 2, y, f"{label} : {val}")
-        y -= 11
+        y -= 10.5
 
-    # Barcode of the ID number
+    # Barcode of the ID number (+ optional verification QR on the right)
+    qr_url = d.get("qr_url") or ""
     bcv = (d.get("id_number") or "ID").replace(" ", "")
-    bc = code128.Code128(bcv, barHeight=14, barWidth=0.6, humanReadable=False)
-    if bc.width > W - 44:
-        bc = code128.Code128(bcv, barHeight=14, barWidth=0.6 * (W - 44) / bc.width, humanReadable=False)
-    bc.drawOn(c, (W - bc.width) / 2, 34)
+    max_bw = (W - 72) if qr_url else (W - 44)
+    bc = code128.Code128(bcv, barHeight=14, barWidth=0.55, humanReadable=False)
+    if bc.width > max_bw:
+        bc = code128.Code128(bcv, barHeight=14, barWidth=0.55 * max_bw / bc.width, humanReadable=False)
+    if qr_url:
+        from reportlab.graphics.barcode.qr import QrCodeWidget
+        from reportlab.graphics.shapes import Drawing
+        from reportlab.graphics import renderPDF
+        bc.drawOn(c, 16 + (max_bw - bc.width) / 2, 40)
+        qsize = 36
+        qw = QrCodeWidget(qr_url, barLevel="M")
+        b = qw.getBounds()
+        dr = Drawing(qsize, qsize, transform=[qsize / (b[2] - b[0]), 0, 0, qsize / (b[3] - b[1]), 0, 0])
+        dr.add(qw)
+        renderPDF.draw(dr, c, W - 52, 32)
+        c.setFillColorRGB(*INK)
+        c.setFont("Helvetica", 4.2)
+        c.drawCentredString(W - 34, 29.5, "SCAN TO VERIFY")
+    else:
+        bc.drawOn(c, (W - bc.width) / 2, 34)
 
     # Website strip
     site = d.get("website") or ""

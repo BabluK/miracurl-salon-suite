@@ -21,6 +21,18 @@ def _site_host() -> str:
     return re.sub(r"^https?://", "", url).rstrip("/")
 
 
+def _verify_qr_url(phone: str, staff_code: str = "", name: str = "") -> str:
+    """Public registry deep-link: phone lookup needs no verifier; staff-code fallback carries the badge name."""
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurlunisexsaloon.com").rstrip("/")
+    digits = re.sub(r"\D", "", phone or "")
+    if len(digits) >= 10:
+        return f"{base}/staff-registry?q={digits[-10:]}"
+    if staff_code:
+        first = (name or "").split()[0] if name else ""
+        return f"{base}/staff-registry?q={staff_code}&name={first}"
+    return f"{base}/staff-registry"
+
+
 async def _img_bytes(url: str, tenant_id=None):
     url = (url or "").strip()
     if not url:
@@ -63,6 +75,7 @@ async def staff_id_card(sid: str, admin=Depends(require_tenant_admin), t=Depends
         "photo_bytes": photo, "logo_bytes": logo,
         "brand_name": t.get("name") or "Salon",
         "website": f"{_site_host()}/book/{t.get('slug', '')}",
+        "qr_url": _verify_qr_url(s.get("phone") or ""),
     }
     pdf_bytes = await asyncio.to_thread(_render_id_card_pdf, data)
     return _card_response(pdf_bytes, s["name"])
@@ -93,6 +106,7 @@ async def hq_id_card(eid: str, admin=Depends(require_super_admin)):
         "photo_bytes": photo, "logo_bytes": logo,
         "brand_name": "Miracurl",
         "website": f"{_site_host()}/staff-registry",
+        "qr_url": _verify_qr_url(emp.get("phone") or "", emp.get("staff_code") or "", emp.get("name") or ""),
     }
     pdf_bytes = await asyncio.to_thread(_render_id_card_pdf, data)
     return _card_response(pdf_bytes, emp["name"])

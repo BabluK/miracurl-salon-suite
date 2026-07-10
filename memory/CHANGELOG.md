@@ -883,3 +883,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - **Subscription plan change**: confirmed already live via EditTenantModal → POST /super-admin/subscriptions (testids change-plan-select/btn).
 - **Employee ID Cards (Iter 61)**: New `routes/id_cards.py` + `_render_id_card_pdf` in `services/pdf.py` (navy+orange badge design per user screenshot: logo, circular photo w/ orange ring, name, role pill, ID no, email/phone, blood group, Code128 barcode, website strip). Salon: `GET /api/id-cards/staff/{sid}/pdf` (tenant logo + booking link, active staff only) with "Employee ID Cards" section on Staff page. Super admin: `GET /api/super/id-cards/{eid}/pdf` (Miracurl logo only, per user choice) with ID Card button per verified record. Added optional `blood_group` field to Staff model + form (select A+/A-/…/O-). Miracurl logo copied to `/app/backend/assets/miracurl-logo.png`.
 - Testing: iteration_60.json — 100% backend + frontend pass. ID cards curl-verified + PDF visually verified (fitz render) + blood group persistence verified.
+
+## Iter 61b (10 Jul 2026) — QR verification on ID cards
+- ID card PDFs now carry a "SCAN TO VERIFY" QR (bottom-right, next to the barcode) linking to the public registry: `{APP_PUBLIC_URL}/staff-registry?q=<phone>` (staff-code+name fallback when no phone). Renderer: QrCodeWidget in `_render_id_card_pdf` (`services/pdf.py`); URL built by `_verify_qr_url` in `routes/id_cards.py`.
+- `RegistryPublic.jsx` supports deep-links: `?q=&name=` auto-runs the search on load.
+- Verified: QR decoded via pyzbar to correct URLs on both salon & HQ cards; deep-link screenshot shows auto-search + HQ badge.

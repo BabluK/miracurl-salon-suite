@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api, { API } from "@/lib/api";
 import { Search, ShieldCheck, Star, Building2, FileDown, Phone, Mail, MapPin, Fingerprint } from "lucide-react";
 
@@ -23,12 +23,10 @@ export default function RegistryPublic() {
   const [loading, setLoading] = useState(false);
   const isStaffId = /^stf-?\d*/i.test(q.trim());
 
-  async function search(e) {
-    e.preventDefault();
-    if (!q.trim()) return;
+  async function runSearch(qv, nv) {
     setLoading(true); setError(""); setProfile(null);
     try {
-      const { data } = await api.get(`/public/registry/search?q=${encodeURIComponent(q.trim())}&name=${encodeURIComponent(name.trim())}`);
+      const { data } = await api.get(`/public/registry/search?q=${encodeURIComponent(qv.trim())}&name=${encodeURIComponent((nv || "").trim())}`);
       setProfile(data);
     } catch (err) {
       const detail = err.response?.data?.detail;
@@ -38,6 +36,23 @@ export default function RegistryPublic() {
             : "Search failed — please try again in a moment.");
     } finally { setLoading(false); }
   }
+
+  async function search(e) {
+    e.preventDefault();
+    if (!q.trim()) return;
+    runSearch(q, name);
+  }
+
+  // Deep-link support (?q=<phone|STF-id>&name=…) — used by the ID-card QR code.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const qq = (sp.get("q") || "").trim();
+    if (qq) {
+      setQ(qq);
+      setName(sp.get("name") || "");
+      runSearch(qq, sp.get("name") || "");
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen bg-[#0b0b0e] text-slate-100" data-testid="registry-public-page">
