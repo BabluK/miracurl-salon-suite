@@ -911,3 +911,14 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Root cause of AI Scenes dying on prod: full-HD zoompan render saturated the small prod CPU → liveness probe failed → container restart mid-job ("Generation was interrupted"). Express survived because it's light.
 - Fix: ALL modes render at 2/3 resolution (720x1280 reel); ffmpeg runs under `nice -n 15` with `-threads 1` so the API process stays responsive (no probe-failure restarts). E2E verified: AI-scenes reel done in <1 min in preview.
 - BUILD bumped to 2026-07-10.4 (user must Deploy).
+
+## Iter 65 (10 Jul 2026) — Live public pricing (build 2026-07-10.5)
+- New public endpoint `GET /api/public/plans` (subscriptions.py) exposing effective PLAN_CATALOG (with overrides).
+- Landing.jsx pricing section now fetches live prices: half_year & annual cards show catalog prices, annual "save ₹X" auto-computed (2×half − annual), multi-branch "from ₹X" + per-line built from 2/3/5-branch prices. Static values remain as fallback if fetch fails.
+- Verified: PUT annual 22000 → public page showed ₹22,000 / save ₹2,000; restored to 20000. BUILD bumped to 2026-07-10.5.
+
+## Iter 66 (10 Jul 2026) — Booking demo video + poster delete + real testimonials (build 2026-07-10.6)
+- **Testimonials**: routes/testimonials.py (public GET /api/public/testimonials + super CRUD, seeded with the 2 real partners) + TestimonialsEditor.jsx (needs mounting in PartnersPanel + Landing wiring — VERIFY: Landing may still use static TESTIMONIALS; editor component created but check if imported into PartnersPanel).
+- **Demo carousel refreshed**: frontend/public/demo/*.jpeg recaptured from CURRENT app (dashboard, pos, appointments, mira booking page with chat open). Playwright chromium installed locally for captures.
+- **AI Booking demo video mode** (`mode: "booking_demo"`): 6 real booking-flow screenshots in backend/assets/booking_demo (hero, Mira chat x2 booking Botox, Botox service selected, time picked, details with name Priya) + Mira intro/outro; always fast still-render; new UI button promo-mode-booking. E2E verified: 29s reel with voiceover in ~10s generation. Botox Hair Treatment service (₹3500, Skin) added to miracurl-marathahalli.
+- **AI Posters**: Delete button per poster (endpoint existed). Cleaned 44 TEST review names/comments in DB (public page now shows realistic reviews).

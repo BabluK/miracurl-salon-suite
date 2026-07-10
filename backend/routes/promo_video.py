@@ -177,7 +177,17 @@ async def _run_pipeline(job_id: str, body: PromoIn):
     lang_note = "Write in Hindi (Devanagari)." if body.language == "hi" else "Write in simple, energetic English."
     greet_note = (f" Early in the voiceover, warmly introduce the founder with: '{body.greeting.strip()}'."
                   if body.greeting.strip() else "")
-    if body.mode == "feature_tour":
+    if body.mode == "booking_demo":
+        sys = ("You ARE Mira — the golden AI booking assistant of 'Miracurl Salon Suite'. Write a 40-second Instagram "
+               "reel voiceover in FIRST PERSON narrating a LIVE demo of a real booking through you: a customer opens "
+               "the salon's booking page at night, chats with you, asks for a Botox treatment tomorrow at 4 PM, "
+               "gives her name Priya — and you confirm it instantly. No phone calls, no waiting, the salon earns "
+               f"while the owner sleeps.{greet_note} {lang_note}")
+        user = ('Return JSON: {"voiceover":"<~95 words, spoken style, warm confident female AI host, hook first, '
+                'end with a call to action for salon owners to get Miracurl Salon Suite>",'
+                '"scenes":[{"caption":"<max 6 words>"} x6] — captions in order: booking page, customer asks Mira, '
+                'Mira confirms, service selected, time picked, name entered & booked}')
+    elif body.mode == "feature_tour":
         sys = ("You ARE Mira — the golden AI assistant of 'Miracurl Salon Suite'. Write a 45-second Instagram reel "
                f"voiceover in FIRST PERSON where you introduce yourself ('Hi, I'm Mira!') and tour ALL the software's "
                f"features: {ALL_FEATURES}. Spotlight the Staff Verification Portal.{greet_note} {lang_note}")
@@ -191,7 +201,7 @@ async def _run_pipeline(job_id: str, body: PromoIn):
                 '"scenes":[{"caption":"<max 6 words>","image_prompt":"<visual for this scene, salon/software themed>"} x4]}')
     script = await asyncio.wait_for(_ask_json(sys, user), timeout=120)
     voiceover = (script.get("voiceover") or "").strip()
-    scenes = (script.get("scenes") or [])[:4]
+    scenes = (script.get("scenes") or [])[:6 if body.mode == "booking_demo" else 4]
     if not voiceover or len(scenes) < 2:
         raise RuntimeError("Script generation failed — try again")
 
@@ -218,7 +228,7 @@ async def _run_pipeline(job_id: str, body: PromoIn):
 
     video_bytes = await asyncio.wait_for(
         asyncio.to_thread(_render_video, images, captions, fits, audio_bytes, vw, vh, _beat,
-                          not body.express), timeout=1500)
+                          not (body.express or body.mode == "booking_demo")), timeout=1500)
 
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/superadmin/promo-videos/{fid}.mp4"
@@ -236,6 +246,24 @@ async def _run_pipeline(job_id: str, body: PromoIn):
 
 BROCHURE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "brochure")
 EXPRESS_SHOTS = ["dashboard.png", "pos.png", "staff.png", "mira.png"]
+BOOKING_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "booking_demo")
+BOOKING_SHOTS = ["hero.jpeg", "chat1.jpeg", "chat2.jpeg", "services.jpeg", "time.jpeg", "details.jpeg"]
+BOOKING_CAPTIONS = ["Your salon, open 24/7", "Just tell Mira what you need", "Mira confirms in seconds",
+                    "Botox treatment - selected", "Pick the perfect time", "Name in - booked!"]
+
+
+def _booking_scenes(scenes: list) -> list[tuple[bytes, str]]:
+    """Live booking-flow screenshots (Mira books a Botox appointment) — no AI generation."""
+    out = []
+    for i, fname in enumerate(BOOKING_SHOTS):
+        path = os.path.join(BOOKING_DIR, fname)
+        if not os.path.exists(path):
+            continue
+        cap = (scenes[i].get("caption", "") if i < len(scenes) else "") or (
+            BOOKING_CAPTIONS[i] if i < len(BOOKING_CAPTIONS) else "")
+        with open(path, "rb") as f:
+            out.append((f.read(), cap))
+    return out
 
 
 async def _owner_photo_scene(body: PromoIn, scenes: list) -> tuple[bytes, str] | None:
@@ -299,11 +327,15 @@ async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[
             captions.append(photo[1])
             fits.append(False)
 
-    middle = _express_scenes(scenes) if body.express else await _ai_scenes(body, scenes)
+    if body.mode == "booking_demo":
+        middle = _booking_scenes(scenes)
+    else:
+        middle = _express_scenes(scenes) if body.express else await _ai_scenes(body, scenes)
+    fit_middle = body.express or body.mode == "booking_demo"
     for img, cap in middle:
         images.append(img)
         captions.append(cap)
-        fits.append(body.express)
+        fits.append(fit_middle)
 
     with open(MIRA_OUTRO, "rb") as f:
         outro = f.read()

@@ -37,6 +37,25 @@ const PLANS = [
     items: ["Everything in Annual", "5+ branches, one account", "Branch-wise reports", "Dedicated onboarding"] },
 ];
 
+const fmtINR = (n) => "₹" + Number(n).toLocaleString("en-IN");
+const kINR = (n) => "₹" + Math.round(n / 1000) + "k";
+
+function buildPlans(c) {
+  if (!c) return PLANS;
+  const hy = c.half_year?.price, an = c.annual?.price;
+  const b2a = c.two_branch_annual?.price, b2h = c.two_branch_half?.price;
+  const b3a = c.three_branch_annual?.price, b3h = c.three_branch_half?.price, b5a = c.multi_branch_annual?.price;
+  return PLANS.map(p => {
+    if (p.key === "half_year" && hy) return { ...p, price: fmtINR(hy) };
+    if (p.key === "annual" && an) return { ...p, price: fmtINR(an), per: hy && hy * 2 > an ? `for 1 year — save ${fmtINR(hy * 2 - an)}` : "for 1 year" };
+    if (p.key === "multi_branch" && b2a) return {
+      ...p, price: `from ${fmtINR(b2a)}`,
+      per: `2 branches ${kINR(b2a)}/yr (${kINR(b2h)}/6mo) · 3 branches ${kINR(b3a)}/yr (${kINR(b3h)}/6mo) · 5+ ${kINR(b5a)}/yr`,
+    };
+    return p;
+  });
+}
+
 const TESTIMONIALS = [
   { name: "Kavita R.", role: "Owner · Bangalore", img: "https://images.pexels.com/photos/17163945/pexels-photo-17163945.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=160&w=160",
     quote: "Bookings doubled in a month. Mira answers my clients at midnight while I sleep." },
@@ -73,6 +92,21 @@ function TrustedPartnersSection() {
 
 export default function Landing() {
   const [refSlug, setRefSlug] = useState(null);
+  const [catalog, setCatalog] = useState(null);
+  const [liveTestimonials, setLiveTestimonials] = useState([]);
+  const plans = buildPlans(catalog);
+  const testimonials = liveTestimonials.length > 0
+    ? liveTestimonials.map(t => ({
+        name: t.owner_name,
+        role: `${t.salon_name}${t.city ? ` · ${t.city}` : ""}`,
+        img: t.photo_url || `https://ui-avatars.com/api/?background=1c1917&color=fbbf24&name=${encodeURIComponent(t.owner_name)}`,
+        quote: t.quote,
+      }))
+    : TESTIMONIALS;
+  useEffect(() => {
+    api.get("/public/plans").then(r => setCatalog(r.data)).catch(() => {});
+    api.get("/public/testimonials").then(r => setLiveTestimonials(r.data.testimonials || [])).catch(() => {});
+  }, []);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = (params.get("ref") || "").trim().toLowerCase();
@@ -220,7 +254,7 @@ export default function Landing() {
       <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-24">
         <Label className="text-amber-300">Salon owners on Miracurl</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
-          {TESTIMONIALS.map((t, i) => (
+          {testimonials.map((t, i) => (
             <figure key={t.name} data-testid={`testimonial-card-${i + 1}`}
                     className="rounded-3xl bg-white/[0.03] border border-white/10 p-8 hover:bg-white/[0.06] transition-colors">
               <div className="flex gap-1 text-amber-300">{["s1", "s2", "s3", "s4", "s5"].map(s => <Star key={s} className="w-4 h-4 fill-amber-300" />)}</div>
@@ -248,7 +282,7 @@ export default function Landing() {
           <p className="text-neutral-500 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Pay once, use everything.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {PLANS.map(p => (
+          {plans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
                  className={`rounded-3xl p-7 relative bg-white/[0.03] border transition-colors ${p.primary
                    ? "border-fuchsia-500/50 shadow-[0_0_40px_rgba(217,70,239,0.18)]"

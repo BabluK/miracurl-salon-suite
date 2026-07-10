@@ -76,6 +76,10 @@ export const PromoVideoStudio = () => {
               className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "feature_tour" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
               ✦ Mira presents — full feature tour
             </button>
+            <button data-testid="promo-mode-booking" onClick={() => setMode("booking_demo")}
+              className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "booking_demo" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
+              🎬 AI Booking demo (live app)
+            </button>
             <button data-testid="promo-mode-custom" onClick={() => setMode("custom")}
               className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "custom" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
               Custom focus
@@ -83,6 +87,9 @@ export const PromoVideoStudio = () => {
           </div>
           {mode === "feature_tour" && (
             <p className="text-[11px] text-slate-400 -mt-2 mb-3">Mira appears as the host, introduces herself in her own voice, and tours every feature — bookings, POS, CRM, Staff Verification Portal, AI marketing &amp; more. No photo needed.</p>
+          )}
+          {mode === "booking_demo" && (
+            <p className="text-[11px] text-slate-400 -mt-2 mb-3">A live walkthrough of the real booking page: a customer asks Mira for a <b>Botox treatment</b>, picks the time, gives her name — booked in seconds. Uses real app screens, renders fast on any server.</p>
           )}
           <p className="text-xs font-semibold text-slate-600 mb-1.5">Your photo / salon photo (optional — becomes scene 2)</p>
           <ImageUploader value={photo} onChange={setPhoto} kind="promo" />

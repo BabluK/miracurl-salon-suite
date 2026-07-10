@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Handshake, Star, Eye, EyeOff, Plus, Trash2, Save, Lock, LockOpen, Upload, Loader2, ImageIcon } from "lucide-react";
+import { TestimonialsEditor } from "@/components/superadmin/TestimonialsEditor";
 
 const inputCls = "px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200";
 
@@ -177,6 +178,7 @@ export function PartnersPanel() {
           ))}
         </div>
       </div>
+      <TestimonialsEditor />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-10.4"
+BUILD = "2026-07-10.6"
 
 RELEASES = [
     {
@@ -19,6 +19,10 @@ RELEASES = [
             "Deployments: this deployment history section, with server build status (compare live vs preview)",
             "Promo Video: Express now renders all scenes in a single ultra-light ffmpeg pass at social-friendly resolution — built for slow production CPUs",
             "Promo Video: AI Scenes mode fixed on the live server — renders at social resolution with low CPU priority so the server stays healthy mid-render",
+            "Pricing: the public website pricing section now shows live prices from the plan catalog — edit a price in Billing and the website updates instantly",
+            "Promo Video: new 'AI Booking demo' video — live walkthrough of Mira booking a Botox appointment (service, time, name) on the real app",
+            "AI Posters: delete button next to download; website demo carousel refreshed with current app screens incl. Mira booking",
+            "Website: partner testimonials are now real & editable from Super Admin → Partners",
         ],
     },
     {

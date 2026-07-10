@@ -147,6 +147,13 @@ async def _apply_subscription_to_tenants(tenant_ids: list, plan_key: str, plan_i
     return subs
 
 
+@router.get("/public/plans")
+async def public_plans():
+    """Live plan catalog for the public pricing page — reflects super-admin price edits."""
+    return {k: {"label": v["label"], "price": v["price"], "duration_days": v["duration_days"],
+                "branches": v["branches"]} for k, v in PLAN_CATALOG.items()}
+
+
 @router.get("/super-admin/plans")
 async def list_plans(user=Depends(require_super_admin)):
     return [{"key": k, **v} for k, v in PLAN_CATALOG.items()]
