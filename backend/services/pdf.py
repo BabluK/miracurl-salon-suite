@@ -668,3 +668,163 @@ def _build_registry_pdf(p: dict, fetch_image) -> bytes:
     c.drawString(44, 30, "Badge is auto-computed from verified service duration and salon-owner ratings. Aadhaar is never stored or shown in full. For reference only.")
     c.save()
     return buf.getvalue()
+
+
+def _render_id_card_pdf(d: dict) -> bytes:
+    """Portrait employee ID card (navy + orange badge design). Expects resolved
+    photo_bytes / logo_bytes so it stays free of network concerns."""
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas as _canvas
+    from reportlab.graphics.barcode import code128
+
+    W, H = 180, 288
+    buf = io.BytesIO()
+    c = _canvas.Canvas(buf, pagesize=(W, H))
+    NAVY = (0.08, 0.12, 0.30)
+    ORANGE = (0.96, 0.62, 0.10)
+    INK = (0.15, 0.17, 0.22)
+
+    c.setFillColorRGB(1, 1, 1)
+    c.rect(0, 0, W, H, fill=1, stroke=0)
+
+    # Navy header with a diagonal bottom edge
+    p = c.beginPath()
+    p.moveTo(0, H); p.lineTo(W, H); p.lineTo(W, H - 100); p.lineTo(0, H - 62); p.close()
+    c.setFillColorRGB(*NAVY)
+    c.drawPath(p, fill=1, stroke=0)
+    # Orange stripes parallel to the diagonal
+    p = c.beginPath()
+    p.moveTo(0, H - 66); p.lineTo(84, H - 84); p.lineTo(84, H - 90); p.lineTo(0, H - 72); p.close()
+    c.setFillColorRGB(*ORANGE)
+    c.drawPath(p, fill=1, stroke=0)
+    p = c.beginPath()
+    p.moveTo(W, H - 104); p.lineTo(W - 60, H - 88); p.lineTo(W - 60, H - 82); p.lineTo(W, H - 98); p.close()
+    c.drawPath(p, fill=1, stroke=0)
+    # White slashes top-left + hole punch
+    c.setStrokeColorRGB(1, 1, 1)
+    c.setLineWidth(1.4)
+    c.line(6, H - 4, 40, H - 20)
+    c.line(2, H - 12, 26, H - 23)
+    c.setFillColorRGB(0.25, 0.28, 0.36)
+    c.circle(W / 2, H - 10, 3.6, fill=1, stroke=0)
+
+    # Logo + brand name centered in the navy band
+    brand = (d.get("brand_name") or "").upper()
+    bsize = 9.0
+    while brand and c.stringWidth(brand, "Helvetica-Bold", bsize) > W - 60 and bsize > 5.5:
+        bsize -= 0.5
+    bw = c.stringWidth(brand, "Helvetica-Bold", bsize) if brand else 0
+    logo_img = None
+    if d.get("logo_bytes"):
+        try:
+            logo_img = ImageReader(io.BytesIO(d["logo_bytes"]))
+        except Exception:
+            logo_img = None
+    lw = 18 if logo_img else 0
+    x0 = (W - (lw + (5 if logo_img and brand else 0) + bw)) / 2
+    ly = H - 46
+    if logo_img:
+        iw, ih = logo_img.getSize()
+        sc = 18.0 / max(iw, ih)
+        c.drawImage(logo_img, x0, ly - 5, width=iw * sc, height=ih * sc, mask="auto")
+        x0 += lw + 5
+    if brand:
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont("Helvetica-Bold", bsize)
+        c.drawString(x0, ly, brand)
+
+    # Circular photo with orange ring (overlapping the diagonal)
+    pr = 32
+    pcx, pcy = W / 2, H - 122.0
+    c.setFillColorRGB(1, 1, 1)
+    c.circle(pcx, pcy, pr + 4, fill=1, stroke=0)
+    c.setStrokeColorRGB(*ORANGE)
+    c.setLineWidth(3)
+    c.circle(pcx, pcy, pr + 2, fill=0, stroke=1)
+    drew = False
+    if d.get("photo_bytes"):
+        try:
+            img = ImageReader(io.BytesIO(d["photo_bytes"]))
+            iw, ih = img.getSize()
+            sc = (2.0 * pr) / min(iw, ih)
+            c.saveState()
+            clip = c.beginPath()
+            clip.circle(pcx, pcy, pr)
+            c.clipPath(clip, stroke=0, fill=0)
+            c.drawImage(img, pcx - iw * sc / 2, pcy - ih * sc / 2, width=iw * sc, height=ih * sc, mask="auto")
+            c.restoreState()
+            drew = True
+        except Exception:
+            drew = False
+    if not drew:
+        c.setFillColorRGB(0.90, 0.92, 0.97)
+        c.circle(pcx, pcy, pr, fill=1, stroke=0)
+        initials = "".join(w[0] for w in (d.get("name") or "?").split()[:2]).upper()
+        c.setFillColorRGB(*NAVY)
+        c.setFont("Helvetica-Bold", 20)
+        c.drawCentredString(pcx, pcy - 7, initials)
+
+    # Name
+    y = pcy - pr - 20
+    name = (d.get("name") or "").upper()
+    size = 14.0
+    while c.stringWidth(name, "Helvetica-Bold", size) > W - 20 and size > 8:
+        size -= 0.5
+    c.setFillColorRGB(*NAVY)
+    c.setFont("Helvetica-Bold", size)
+    c.drawCentredString(W / 2, y, name)
+
+    # Role pill
+    y -= 17
+    role = d.get("role") or ""
+    if role:
+        rw = min(c.stringWidth(role, "Helvetica-Bold", 7.5) + 18, W - 24)
+        c.setFillColorRGB(*NAVY)
+        c.roundRect((W - rw) / 2, y - 4, rw, 13, 6.5, fill=1, stroke=0)
+        c.setFillColorRGB(0.99, 0.78, 0.18)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawCentredString(W / 2, y, role)
+
+    # Detail lines
+    y -= 17
+    c.setFont("Helvetica", 7.5)
+    for label, val in (("ID No", d.get("id_number")), ("Email", d.get("email")),
+                       ("Phone", d.get("phone")), ("Blood", d.get("blood_group"))):
+        if not val:
+            continue
+        c.setFillColorRGB(*INK)
+        c.drawCentredString(W / 2, y, f"{label} : {val}")
+        y -= 11
+
+    # Barcode of the ID number
+    bcv = (d.get("id_number") or "ID").replace(" ", "")
+    bc = code128.Code128(bcv, barHeight=14, barWidth=0.6, humanReadable=False)
+    if bc.width > W - 44:
+        bc = code128.Code128(bcv, barHeight=14, barWidth=0.6 * (W - 44) / bc.width, humanReadable=False)
+    bc.drawOn(c, (W - bc.width) / 2, 34)
+
+    # Website strip
+    site = d.get("website") or ""
+    if site:
+        sw = W - 44
+        c.setFillColorRGB(*ORANGE)
+        c.roundRect(22, 14, sw, 14, 3, fill=1, stroke=0)
+        s = 7.0
+        while c.stringWidth(site, "Helvetica-Bold", s) > sw - 10 and s > 4.5:
+            s -= 0.5
+        c.setFillColorRGB(*NAVY)
+        c.setFont("Helvetica-Bold", s)
+        c.drawCentredString(W / 2, 18.5, site)
+
+    # Bottom corner accents
+    for pts, col in ((((0, 0), (24, 0), (0, 20)), NAVY),
+                     (((12, 0), (34, 0), (30, 12)), ORANGE),
+                     (((W, 0), (W - 22, 0), (W, 16)), ORANGE)):
+        p = c.beginPath()
+        p.moveTo(*pts[0]); p.lineTo(*pts[1]); p.lineTo(*pts[2]); p.close()
+        c.setFillColorRGB(*col)
+        c.drawPath(p, fill=1, stroke=0)
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()

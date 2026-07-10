@@ -38,7 +38,16 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
             <div><label className="label-light block mb-1">Role</label><input required className="input-light" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} placeholder="Senior Stylist" /></div>
             <div><label className="label-light block mb-1">Phone *</label><input data-testid="staff-phone-input" required className="input-light" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
           </div>
-          <div><label className="label-light block mb-1">Email</label><input type="email" className="input-light" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label className="label-light block mb-1">Email</label><input type="email" className="input-light" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+            <div>
+              <label className="label-light block mb-1">Blood Group</label>
+              <select data-testid="staff-blood-group-input" className="input-light" value={form.blood_group || ""} onChange={e => setForm({ ...form, blood_group: e.target.value })}>
+                <option value="">— Not set —</option>
+                {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(b => <option key={b}>{b}</option>)}
+              </select>
+            </div>
+          </div>
           <div><label className="label-light block mb-1">Specialties (comma separated)</label><input className="input-light" value={form.specialties} onChange={e => setForm({ ...form, specialties: e.target.value })} placeholder="Hair, Color, Makeup" /></div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>

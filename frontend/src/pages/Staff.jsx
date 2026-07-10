@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import api, { formatApiError } from "@/lib/api";
+import api, { formatApiError, API } from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
-import { Plus, Landmark } from "lucide-react";
+import { Plus, Landmark, CreditCard, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { ManagersSection } from "@/components/ManagersSection";
 import { useAuth } from "@/context/AuthContext";
@@ -14,7 +14,7 @@ import { LeaveApprovalsPanel } from "@/components/staff/LeaveApprovalsPanel";
 const EMPTY_FORM = {
   name: "", role: "Stylist", phone: "", email: "", specialties: "",
   commission_pct: 10, monthly_base_salary: 0, salary_visible: true,
-  image_url: "", active: true,
+  image_url: "", active: true, blood_group: "",
   shift_start: "10:00", shift_end: "21:00", overtime_rate: 0,
   max_advance: 0, notice_period_days: 30, serving_notice: false,
   last_working_day: "", aadhaar: "", branch: "",
@@ -174,6 +174,31 @@ export default function Staff() {
           <div className="col-span-full text-center py-12 text-slate-400">No staff yet — click &ldquo;Add Staff&rdquo; to get started.</div>
         )}
       </div>
+
+      {list.some(s => s.active) && (
+        <div className="card-light" data-testid="id-cards-section">
+          <div className="flex items-center gap-2 mb-1">
+            <CreditCard className="w-4 h-4 text-sky-600" />
+            <h3 className="font-playfair text-xl">Employee ID Cards</h3>
+          </div>
+          <p className="text-xs text-slate-400 mb-4">Print-ready ID card PDFs for everyone currently working — with photo, role, blood group and a scannable barcode. Tip: set each staff&apos;s blood group in their profile so it prints on the card.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {list.filter(s => s.active).map(s => (
+              <div key={s.id} className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5" data-testid={`id-card-row-${s.id}`}>
+                <img src={s.image_url || `https://ui-avatars.com/api/?background=e0e7ff&color=3730a3&name=${encodeURIComponent(s.name)}`} alt="" className="w-9 h-9 rounded-full object-cover border border-slate-200" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{s.name}</div>
+                  <div className="text-[11px] text-slate-500 truncate">{s.role}{s.blood_group ? ` · ${s.blood_group}` : ""}</div>
+                </div>
+                <a href={`${API}/id-cards/staff/${s.id}/pdf`} target="_blank" rel="noreferrer" data-testid={`id-card-download-${s.id}`}
+                  className="text-xs py-1.5 px-3 rounded-md bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 inline-flex items-center gap-1 shrink-0">
+                  <FileDown className="w-3 h-3" /> ID Card
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <LeaveApprovalsPanel />
 

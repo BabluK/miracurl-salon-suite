@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
+import { API } from "@/lib/api";
 import { toast } from "sonner";
-import { BadgeCheck, Plus, Trash2, Building2 } from "lucide-react";
+import { BadgeCheck, Plus, Trash2, Building2, FileDown } from "lucide-react";
 
 const EMPTY = { name: "", phone: "", aadhaar: "", salon_name: "", role: "", years_worked: "1", city: "", owner_comment: "", photo_url: "" };
 
@@ -119,6 +120,10 @@ export const VerifiedStaffPanel = () => {
                     {r.staff?.phone && <span> · +{r.staff.phone}</span>}
                   </div>
                 </div>
+                <a href={`${API}/super/id-cards/${r.employee_id}/pdf`} target="_blank" rel="noreferrer" data-testid={`vstaff-idcard-${r.id}`}
+                  className="text-xs py-1.5 px-3 rounded-md bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 inline-flex items-center gap-1 shrink-0" title="Download Miracurl ID card PDF">
+                  <FileDown className="w-3 h-3" /> ID Card
+                </a>
                 <button data-testid={`vstaff-delete-${r.id}`} onClick={() => remove(r)} className="p-1.5 text-slate-400 hover:text-red-500" title="Remove verified record">
                   <Trash2 className="w-4 h-4" />
                 </button>
