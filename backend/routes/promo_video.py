@@ -207,9 +207,9 @@ async def _run_pipeline(job_id: str, body: PromoIn):
         asyncio.gather(_tts(), _build_scenes(body, scenes)), timeout=360)
 
     vw, vh = SIZES.get(body.size, SIZES["reel"])
-    if body.express:
-        # lighter resolution for weak production CPUs — still crisp for social
-        vw, vh = (vw * 2 // 3) & ~1, (vh * 2 // 3) & ~1
+    # ~2/3 resolution for ALL modes: still crisp for social, but light enough that the
+    # production container's CPU is not saturated (which triggers restarts mid-render)
+    vw, vh = (vw * 2 // 3) & ~1, (vh * 2 // 3) & ~1
     await _progress(job_id, "Rendering the HD video (ffmpeg)…")
     loop = asyncio.get_running_loop()
 
@@ -398,7 +398,9 @@ def _audio_duration(ff: str, audio_path: str) -> float:
 
 
 def _run_ff(cmd: list, step: str):
-    p = subprocess.run(cmd, capture_output=True, text=True)
+    # low CPU priority + single thread so a long render never starves the API process
+    # (a starved API fails the platform liveness probe → container restart → dead job)
+    p = subprocess.run(["nice", "-n", "15"] + cmd, capture_output=True, text=True)
     if p.returncode != 0:
         tail = (p.stderr or "").strip()[-400:]
         raise RuntimeError(f"ffmpeg {step} failed (exit {p.returncode}): {tail}")
@@ -446,7 +448,7 @@ def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool],
             with open(listfile, "w") as f:
                 f.write("".join(lines))
             final = os.path.join(workdir, "final.mp4")
-            _run_ff([ff, "-y", "-threads", "2", "-f", "concat", "-safe", "0", "-i", listfile,
+            _run_ff([ff, "-y", "-threads", "1", "-f", "concat", "-safe", "0", "-i", listfile,
                      "-i", audio_path, "-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage",
                      "-crf", "27", "-r", str(FPS), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
                      "-shortest", "-movflags", "+faststart", final], "slideshow")
@@ -468,7 +470,7 @@ def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool],
             seg = os.path.join(workdir, f"seg{i}.mp4")
             vf = (f"zoompan=z='min(zoom+0.0009,1.12)':d={frames}:"
                   f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={w}x{h}:fps={FPS}")
-            _run_ff([ff, "-y", "-threads", "2", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
+            _run_ff([ff, "-y", "-threads", "1", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
                      "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p", seg],
                     f"segment {i}")
             last_scene_secs = int(_time.time() - t_scene)
@@ -480,7 +482,7 @@ def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool],
         with open(concat_list, "w") as f:
             f.writelines(f"file '{p}'\n" for p in seg_paths)
         final = os.path.join(workdir, "final.mp4")
-        _run_ff([ff, "-y", "-threads", "2", "-f", "concat", "-safe", "0", "-i", concat_list,
+        _run_ff([ff, "-y", "-threads", "1", "-f", "concat", "-safe", "0", "-i", concat_list,
                  "-i", audio_path, "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
                  "-shortest", "-movflags", "+faststart", final], "concat")
         with open(final, "rb") as f:

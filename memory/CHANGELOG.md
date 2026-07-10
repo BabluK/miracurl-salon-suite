@@ -906,3 +906,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - `BUILD = "2026-07-10.3"` constant in release_notes.py + `GET /api/super/version`. Deployments panel shows a dark "This server is running: <tag> · build <BUILD>" banner + "On this server" badge on the matching release card → user can compare live vs preview builds. IMPORTANT: bump BUILD on every deploy-worthy change.
 - Express promo render rewritten as ONE ffmpeg concat-slideshow pass (still frames, ultrafast, stillimage tune) at 2/3 resolution (720x1280 reel) — E2E verified 19s in preview. AI-scenes mode keeps zoompan and now reports per-scene seconds in progress text ("scene 1 took Ns") for prod CPU diagnosis.
 - Production analysis: user's screenshots prove prod HAS the new build (tabs visible) — remaining slowness is weak prod CPU; this build minimizes CPU work.
+
+## Iter 64b (10 Jul 2026) — AI Scenes production fix (build 2026-07-10.4)
+- Root cause of AI Scenes dying on prod: full-HD zoompan render saturated the small prod CPU → liveness probe failed → container restart mid-job ("Generation was interrupted"). Express survived because it's light.
+- Fix: ALL modes render at 2/3 resolution (720x1280 reel); ffmpeg runs under `nice -n 15` with `-threads 1` so the API process stays responsive (no probe-failure restarts). E2E verified: AI-scenes reel done in <1 min in preview.
+- BUILD bumped to 2026-07-10.4 (user must Deploy).
