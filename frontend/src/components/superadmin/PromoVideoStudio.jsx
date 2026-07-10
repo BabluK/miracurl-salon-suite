@@ -16,6 +16,7 @@ export const PromoVideoStudio = () => {
   const [express, setExpress] = useState(true);
   const [job, setJob] = useState(null);
   const [videos, setVideos] = useState([]);
+  const [now, setNow] = useState(Date.now());
   const pollRef = useRef(null);
 
   const loadHistory = () => api.get("/super/promo-videos").then(r => setVideos(r.data.videos)).catch(() => {});
@@ -40,6 +41,22 @@ export const PromoVideoStudio = () => {
   };
 
   const busy = job?.status === "generating";
+
+  useEffect(() => {
+    if (!busy) return undefined;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [busy]);
+
+  const fmtDur = (s) => `${Math.floor(s / 60)}m ${String(Math.floor(s % 60)).padStart(2, "0")}s`;
+  const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
+  const elapsedSec = job?.created_at ? Math.max(0, (now - new Date(job.created_at).getTime()) / 1000) : 0;
+
+  async function delVideo(id) {
+    if (!window.confirm("Delete this video permanently?")) return;
+    try { await api.delete(`/super/promo-video/${id}`); toast.success("Video deleted"); loadHistory(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6" data-testid="promo-video-studio">
@@ -118,10 +135,20 @@ export const PromoVideoStudio = () => {
           {busy && (
             <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4" data-testid="promo-progress">
               <p className="text-sm text-slate-700 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-fuchsia-500" /> {job.progress}</p>
-              <p className="text-[11px] text-slate-400 mt-1">
-                {express ? "Express takes ~1 minute — script → voiceover → render." : "Takes 2–4 minutes — script → voiceover → HD AI scenes → render."}
-                {" "}We'll also email you when it's ready — safe to close this tab. 📧
+              <p className="text-xs font-semibold text-slate-600 mt-2" data-testid="promo-elapsed">
+                🕐 Started at {fmtTime(job.created_at)} · running for {fmtDur(elapsedSec)}
               </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {express ? "Express usually takes ~1 minute — script → voiceover → render." : "Usually takes 2–4 minutes — script → voiceover → HD AI scenes → render."}
+                {" "}Safe to leave this tab open — the finished video also appears under &ldquo;Previous reels&rdquo;.
+              </p>
+            </div>
+          )}
+          {job?.status === "failed" && (
+            <div className="mt-4 bg-rose-50 border border-rose-200 rounded-xl p-4" data-testid="promo-failed">
+              <p className="text-sm font-semibold text-rose-700">Generation failed{job.duration_sec ? ` after ${fmtDur(job.duration_sec)}` : ""}</p>
+              <p className="text-xs text-rose-600 mt-1">{job.error}</p>
+              <p className="text-[11px] text-slate-500 mt-2">Tip: <b>⚡ Express mode</b> is the most reliable on the live server — it skips heavy AI scene generation. Click &ldquo;Generate reel&rdquo; to retry.</p>
             </div>
           )}
         </div>
@@ -130,6 +157,9 @@ export const PromoVideoStudio = () => {
           {job?.status === "done" && (
             <div className="bg-slate-900 rounded-2xl p-4" data-testid="promo-result">
               <video src={`${BASE}${job.video_url}`} controls className="w-full max-h-[420px] rounded-xl mx-auto" />
+              <p className="text-xs text-emerald-300 mt-2 font-semibold" data-testid="promo-finished-time">
+                ✅ Finished at {fmtTime(job.finished_at)}{job.duration_sec ? ` — took ${fmtDur(job.duration_sec)}` : ""}
+              </p>
               <a href={`${BASE}${job.video_url}`} download="miracurl-promo-reel.mp4" data-testid="promo-download-btn"
                 className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-400 text-slate-900 text-sm font-bold">
                 <Download className="w-4 h-4" /> Download MP4 ({job.size_mb} MB) — post it on Instagram!
@@ -142,7 +172,9 @@ export const PromoVideoStudio = () => {
               <div className="space-y-2 max-h-[420px] overflow-y-auto">
                 {videos.map(v => (
                   <div key={v.id} className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-                    <span className="text-xs text-slate-600 min-w-0 truncate">{(v.created_at || "").slice(0, 10)} · {v.focus?.slice(0, 30)} · {v.size_mb} MB</span>
+                    <span className="text-xs text-slate-600 min-w-0 truncate">
+                      {(v.created_at || "").slice(0, 16).replace("T", " ")} · {v.size_mb} MB{v.duration_sec ? ` · made in ${Math.floor(v.duration_sec / 60)}m ${v.duration_sec % 60}s` : ""}
+                    </span>
                     <div className="flex items-center gap-2 shrink-0">
                       <a href={`${BASE}${v.video_url}`} download className="text-xs font-semibold text-fuchsia-600 inline-flex items-center gap-1" data-testid={`video-download-${v.id}`}><Download className="w-3 h-3" /> Download</a>
                       <button onClick={() => delVideo(v.id)} data-testid={`video-delete-${v.id}`}

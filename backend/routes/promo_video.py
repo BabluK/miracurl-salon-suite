@@ -113,7 +113,20 @@ async def _progress(job_id: str, msg: str):
         {"$set": {"progress": msg, "updated_at": datetime.now(timezone.utc).isoformat()}})
 
 
+async def _heartbeat(job_id: str):
+    """Keeps updated_at fresh while ANY pipeline stage runs — so the stale-job
+    detector only fires when the process truly died (deploy/restart/OOM),
+    never because one stage was slow on a busy production node."""
+    while True:
+        await asyncio.sleep(45)
+        await _raw_db.promo_videos.update_one(
+            {"id": job_id, "status": "generating"},
+            {"$set": {"updated_at": datetime.now(timezone.utc).isoformat()}})
+
+
 async def _generate(job_id: str, body: PromoIn):
+    hb = asyncio.create_task(_heartbeat(job_id))
+    t0 = datetime.now(timezone.utc)
     try:
         await _run_pipeline(job_id, body)
     except asyncio.TimeoutError:
@@ -121,6 +134,13 @@ async def _generate(job_id: str, body: PromoIn):
     except Exception as e:
         log.exception("promo video failed")
         await _fail_job(job_id, str(e)[:300])
+    finally:
+        hb.cancel()
+        end = datetime.now(timezone.utc)
+        await _raw_db.promo_videos.update_one(
+            {"id": job_id},
+            {"$set": {"finished_at": end.isoformat(),
+                      "duration_sec": int((end - t0).total_seconds())}})
 
 
 async def _fail_job(job_id: str, error: str):
