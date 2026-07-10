@@ -928,3 +928,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - DiagnoseTenantModal.jsx + Stethoscope button per tenant row in SuperAdmin.jsx (diagnose-tenant-{id}).
 - AppLayout.jsx: on load compares /public/cache-version vs localStorage mira_cache_v — on change unregisters service workers, clears CacheStorage, reloads once (remote device cache purge).
 - All curl + UI verified. Wired earlier-pending testimonials (TestimonialsEditor into PartnersPanel, Landing fetches /public/testimonials — verified live).
+
+## Iter 68 (10 Jul 2026) — Onboarding Image templates + overflow fix (build 2026-07-10.9)
+- Fixed name overflow: `fitFont()` auto-shrinks the salon-name font until the longest (hyphenated) word fits — verified with a very long single-word name.
+- 4 templates in OnboardingStudio.jsx (rewritten): Classic Center, Royal Frame (double border + ❖ corners), Modern Bold (left-aligned, feature bullets), Golden Badge (badge circle + ribbon). Template picker UI (onboard-template-{id}); AI background reused across templates.
+- Earlier in session: tenants table Actions column pinned sticky-right + overflow-x-auto (was clipped by overflow-hidden — the "missing stethoscope" bug), build 2026-07-10.8.
