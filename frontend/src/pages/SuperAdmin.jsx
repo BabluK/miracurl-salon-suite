@@ -383,9 +383,9 @@ export default function SuperAdmin() {
         </div>
 
         {/* Tenant list */}
-        <div className="card-light p-0 overflow-hidden">
+        <div className="card-light p-0 overflow-x-auto">
           <table className="luxe-table-light">
-            <thead><tr><th>Salon</th><th>Slug</th><th>Owner</th><th>Plan</th><th>Status</th><th>Health</th><th>SMS</th><th>Booking Link</th><th></th></tr></thead>
+            <thead><tr><th>Salon</th><th>Slug</th><th>Owner</th><th>Plan</th><th>Status</th><th>Health</th><th>SMS</th><th>Booking Link</th><th className="sticky right-0 bg-white z-10 text-right shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">Actions</th></tr></thead>
             <tbody>
               {filteredTenants.map(t => (
                 <tr key={t.id} data-testid={`tenant-row-${t.id}`}>
@@ -427,7 +427,7 @@ export default function SuperAdmin() {
                       <ExternalLink className="w-3 h-3" /> /book/{t.slug}
                     </a>
                   </td>
-                  <td>
+                  <td className="sticky right-0 bg-white z-10 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
                     <div className="flex items-center gap-1 justify-end">
                       <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
                       <button data-testid={`diagnose-tenant-${t.id}`} onClick={() => setDiagFor(t)} title="Diagnose — find why this salon feels slow & clear their cache" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Stethoscope className="w-3.5 h-3.5" /></button>
