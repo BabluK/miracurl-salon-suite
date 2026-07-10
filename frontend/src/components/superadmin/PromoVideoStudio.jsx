@@ -166,9 +166,14 @@ export const PromoVideoStudio = () => {
               </a>
             </div>
           )}
-          {!job?.video_url && videos.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-slate-600 mb-2">Previous reels</p>
+          {!job?.video_url && (
+            <div data-testid="promo-history">
+              <p className="text-xs font-semibold text-slate-600 mb-2">Previous reels — download history</p>
+              {videos.length === 0 ? (
+                <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-6 text-center text-xs text-slate-400" data-testid="promo-history-empty">
+                  No finished videos yet.<br />Every reel that completes successfully appears here with a Download button — even after you close this page.
+                </div>
+              ) : (
               <div className="space-y-2 max-h-[420px] overflow-y-auto">
                 {videos.map(v => (
                   <div key={v.id} className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
@@ -185,6 +190,7 @@ export const PromoVideoStudio = () => {
                   </div>
                 ))}
               </div>
+              )}
             </div>
           )}
         </div>
