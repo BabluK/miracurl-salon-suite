@@ -10,6 +10,7 @@ export default function JobsBoard() {
   const [jobs, setJobs] = useState(null);
   const [applyJob, setApplyJob] = useState(null);
   const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState("");
 
@@ -20,7 +21,7 @@ export default function JobsBoard() {
   const apply = async () => {
     setSending(true);
     try {
-      const { data } = await api.post(`/public/jobs/${applyJob.id}/apply`, { phone });
+      const { data } = await api.post(`/public/jobs/${applyJob.id}/apply`, { phone, name });
       setDone(data.message);
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Couldn't apply");
@@ -59,7 +60,7 @@ export default function JobsBoard() {
                   <span className="text-amber-300">{URGENCY_LABEL[j.urgency]}</span>
                 </div>
               </div>
-              <button onClick={() => { setApplyJob(j); setDone(""); setPhone(""); }} data-testid={`job-apply-${j.id}`}
+              <button onClick={() => { setApplyJob(j); setDone(""); setPhone(""); setName(""); }} data-testid={`job-apply-${j.id}`}
                 className="px-4 py-2 rounded-full bg-gradient-to-r from-gold to-blush text-bg-base text-sm font-semibold hover:opacity-90">
                 Apply
               </button>
@@ -88,10 +89,12 @@ export default function JobsBoard() {
             ) : (
               <>
                 <div className="font-playfair text-xl">Apply — {applyJob.role}</div>
-                <p className="text-xs text-white/50 mt-1.5">Enter the mobile number registered in the Miracurl staff registry. We verify it instantly.</p>
+                <p className="text-xs text-white/50 mt-1.5">Enter your name and the mobile number registered in the Miracurl staff registry.</p>
+                <input value={name} onChange={e => setName(e.target.value)} placeholder="Your full name (as registered)"
+                  className="mt-4 w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm" data-testid="job-apply-name" />
                 <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="10-digit registered mobile"
-                  inputMode="numeric" className="mt-4 w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm" data-testid="job-apply-phone" />
-                <button onClick={apply} disabled={sending || phone.replace(/\D/g, "").length < 10} data-testid="job-apply-submit"
+                  inputMode="numeric" className="mt-3 w-full bg-black/40 border border-white/10 rounded-md px-3 py-2.5 text-sm" data-testid="job-apply-phone" />
+                <button onClick={apply} disabled={sending || phone.replace(/\D/g, "").length < 10 || name.trim().length < 2} data-testid="job-apply-submit"
                   className="mt-4 w-full py-2.5 rounded-full bg-gradient-to-r from-gold to-blush text-bg-base text-sm font-semibold hover:opacity-90 disabled:opacity-50">
                   {sending ? "Verifying…" : "Verify & apply ✦"}
                 </button>

@@ -301,7 +301,9 @@ async def refresh_token(request: Request, response: Response):
         raise HTTPException(401, "Invalid refresh token")
 
 @router.post("/auth/forgot-password")
-async def forgot(body: ForgotIn):
+async def forgot(body: ForgotIn, request: Request):
+    from security import public_rate_limit
+    public_rate_limit(request, key_suffix="forgotpw", limit=5, window_sec=3600)
     email = body.email.lower()
     user = await db.users.find_one({"email": email})
     if user:

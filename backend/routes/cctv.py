@@ -74,8 +74,11 @@ class CctvConfigIn(BaseModel):
 async def put_config(body: CctvConfigIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     if body.mode not in ("device", "snapshot_url"):
         raise HTTPException(400, "mode must be 'device' or 'snapshot_url'")
-    if body.mode == "snapshot_url" and body.enabled and not body.snapshot_url.startswith(("http://", "https://")):
-        raise HTTPException(400, "Enter a valid http(s) snapshot URL for your DVR/camera")
+    if body.mode == "snapshot_url" and body.snapshot_url:
+        from routes.registry import is_safe_public_url
+        if not is_safe_public_url(body.snapshot_url):
+            raise HTTPException(400, "Snapshot URL must be a public internet http(s) address "
+                                     "(private/internal network addresses are not allowed)")
     patch = body.model_dump()
     if patch["password"] == "••••••":  # unchanged
         patch.pop("password")
@@ -169,10 +172,14 @@ async def analyze_frame(body: FrameIn, user=Depends(require_tenant_admin), t=Dep
 
 
 async def _fetch_snapshot(cfg: dict) -> str:
-    """GET the DVR/camera snapshot URL (Hikvision ISAPI uses HTTP Digest auth). Returns base64 JPEG."""
+    """GET the DVR/camera snapshot URL (Hikvision ISAPI uses HTTP Digest auth). Returns base64 JPEG.
+    SEC-001: URL re-validated against private/internal hosts at fetch time; TLS verified; no redirects."""
+    from routes.registry import is_safe_public_url
+    if not is_safe_public_url(cfg.get("snapshot_url") or ""):
+        raise HTTPException(400, "Snapshot URL is not a safe public address — update it in settings")
     auth = httpx.DigestAuth(cfg.get("username") or "", cfg.get("password") or "") \
         if cfg.get("username") else None
-    async with httpx.AsyncClient(timeout=20, verify=False) as client:
+    async with httpx.AsyncClient(timeout=20, follow_redirects=False) as client:
         r = await client.get(cfg["snapshot_url"], auth=auth)
         if r.status_code == 401 and auth:  # some DVRs use Basic
             r = await client.get(cfg["snapshot_url"], auth=(cfg["username"], cfg["password"]))

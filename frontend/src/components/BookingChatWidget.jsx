@@ -217,7 +217,8 @@ function OwnerTab({ slug }) {
 
   const poll = useCallback(async (threadId) => {
     try {
-      const { data } = await axios.get(`${BACKEND_URL}/api/public/chat/${slug}/${threadId}`);
+      const k = localStorage.getItem(`salon_chat_key_${slug}`) || "";
+      const { data } = await axios.get(`${BACKEND_URL}/api/public/chat/${slug}/${threadId}?k=${encodeURIComponent(k)}`);
       setMsgs(data.messages);
     } catch { /* thread gone */ }
   }, [slug]);
@@ -257,7 +258,8 @@ function OwnerTab({ slug }) {
     setInput("");
     setBusy(true);
     try {
-      const { data } = await axios.post(`${BACKEND_URL}/api/public/chat/${slug}/${identity.thread_id}/send`, { message: text });
+      const k = localStorage.getItem(`salon_chat_key_${slug}`) || "";
+      const { data } = await axios.post(`${BACKEND_URL}/api/public/chat/${slug}/${identity.thread_id}/send?k=${encodeURIComponent(k)}`, { message: text });
       setMsgs(m => [...m, data]);
     } catch { /* noop */ } finally { setBusy(false); }
   }

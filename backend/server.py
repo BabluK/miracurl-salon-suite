@@ -5662,20 +5662,25 @@ async def public_chat_start(slug: str, body: ChatStartIn, request: Request):
     return {"thread_id": th["id"], "customer_name": th["customer_name"], "messages": msgs}
 
 @api.get("/public/chat/{slug}/{thread_id}")
-async def public_chat_poll(slug: str, thread_id: str):
+async def public_chat_poll(slug: str, thread_id: str, k: str = ""):
     await resolve_tenant_from_slug(slug)
     th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0})
     if not th:
         raise HTTPException(404, "Chat not found")
+    # SEC: thread id alone is a capability URL — require the device session_key when the thread has one
+    if th.get("session_key") and th["session_key"] != k:
+        raise HTTPException(403, "This chat belongs to another device")
     await db.chat_threads.update_one({"id": thread_id}, {"$set": {"unread_customer": 0}})
     msgs = await db.chat_messages.find({"thread_id": thread_id}, {"_id": 0}).sort("created_at", 1).to_list(200)
     return {"messages": msgs}
 
 @api.post("/public/chat/{slug}/{thread_id}/send")
-async def public_chat_send(slug: str, thread_id: str, body: ChatSendIn, request: Request):
+async def public_chat_send(slug: str, thread_id: str, body: ChatSendIn, request: Request, k: str = ""):
     await resolve_tenant_from_slug(slug)
     public_rate_limit(request, key_suffix=f"chatsend:{slug}", limit=30, window_sec=600)
     th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0})
+    if th and th.get("session_key") and th["session_key"] != k:
+        raise HTTPException(403, "This chat belongs to another device")
     if not th:
         raise HTTPException(404, "Chat not found")
     return await _append_chat_message(thread_id, "customer", body.message.strip())
@@ -5769,9 +5774,11 @@ _cors_env = os.environ.get(
 ).strip()
 _cors_origins = (["*"] if _cors_env == "*" or not _cors_env
                  else [o.strip() for o in _cors_env.split(",") if o.strip()])
+# SEC: never combine wildcard origins with credentials (cookie theft vector)
+_cors_credentials = _cors_origins != ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
+    allow_credentials=_cors_credentials,
     allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],

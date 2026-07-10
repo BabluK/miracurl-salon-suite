@@ -4,12 +4,12 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 
 from database import db, _raw_db
-from security import require_super_admin, require_tenant_admin, current_tenant
+from security import require_super_admin, require_tenant_admin, current_tenant, public_rate_limit
 
 router = APIRouter()
 
@@ -94,11 +94,24 @@ async def public_jobs():
 
 class JobApplyIn(BaseModel):
     phone: str = Field(..., min_length=10, max_length=15)
+    name: str = Field(..., min_length=2, max_length=80)
+
+
+_GENERIC_APPLY_MSG = ("Application received ✦ If your number is in the Miracurl verified registry, "
+                      "HQ will call you to schedule a trial.")
+
+
+def _name_matches(given: str, registered: str) -> bool:
+    reg_tokens = {w for w in re.split(r"\s+", (registered or "").lower()) if len(w) >= 3}
+    return any(w in reg_tokens for w in re.split(r"\s+", (given or "").lower()) if len(w) >= 3)
 
 
 @router.post("/public/jobs/{rid}/apply")
-async def apply_job(rid: str, body: JobApplyIn):
-    """Only staff already in the HQ-verified registry can apply — verified by registered phone."""
+async def apply_job(rid: str, body: JobApplyIn, request: Request):
+    """Only staff already in the HQ-verified registry can apply — verified by registered
+    phone + matching name. SEC-002: rate-limited and always returns a generic response so
+    registry membership can't be enumerated."""
+    public_rate_limit(request, key_suffix="jobapply", limit=6, window_sec=3600)
     req = await _raw_db.hiring_requests.find_one({"id": rid, "status": "open"}, {"_id": 0})
     if not req:
         raise HTTPException(404, "This position is no longer open")
@@ -110,11 +123,11 @@ async def apply_job(rid: str, body: JobApplyIn):
         if _norm_phone(e.get("phone", "")) == phone:
             emp = e
             break
-    if not emp:
-        raise HTTPException(403, "This number isn't in the Miracurl verified staff registry. "
-                                 "Ask your salon owner to register you first.")
+    # Unknown phone, name mismatch, or duplicate → same generic 200 (no enumeration signal)
+    if not emp or not _name_matches(body.name, emp.get("name", "")):
+        return {"ok": True, "message": _GENERIC_APPLY_MSG}
     if await _raw_db.job_applications.find_one({"request_id": rid, "employee_id": emp["id"]}):
-        raise HTTPException(409, "You've already applied for this position — HQ will contact you.")
+        return {"ok": True, "message": _GENERIC_APPLY_MSG}
     latest_emp = await _raw_db.registry_employments.find_one(
         {"employee_id": emp["id"]}, {"_id": 0, "designation": 1, "skills": 1},
         sort=[("created_at", -1)])
@@ -128,7 +141,7 @@ async def apply_job(rid: str, body: JobApplyIn):
         "created_at": _now(), "updated_at": _now(),
     }
     await _raw_db.job_applications.insert_one({**app_doc})
-    return {"ok": True, "message": f"Applied as {emp.get('name')} — Miracurl HQ will call you to schedule a trial."}
+    return {"ok": True, "message": _GENERIC_APPLY_MSG}
 
 
 # ───────────────────────── Super Admin (HQ middleman) ─────────────────────────
@@ -156,8 +169,8 @@ async def mark_seen(user=Depends(require_super_admin)):
 @router.get("/super-admin/hiring/candidates")
 async def search_candidates(q: str = "", user=Depends(require_super_admin)):
     """Search the verified registry for candidates to propose to a salon."""
-    flt = {"$or": [{"name": {"$regex": q, "$options": "i"}},
-                   {"city": {"$regex": q, "$options": "i"}}]} if q.strip() else {}
+    flt = {"$or": [{"name": {"$regex": re.escape(q), "$options": "i"}},
+                   {"city": {"$regex": re.escape(q), "$options": "i"}}]} if q.strip() else {}
     emps = await _raw_db.registry_employees.find(flt, {"_id": 0}).sort("created_at", -1).to_list(20)
     out = []
     for e in emps:
