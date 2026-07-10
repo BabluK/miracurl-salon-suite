@@ -78,3 +78,19 @@ These keep being re-flagged. Verified stale on Jul 8, 2026 — re-verify with `m
 **Still deliberately deferred** (dedicated regression pass, see ROADMAP):
 large component splits (SuperAdmin/AppLayout/StaffPortal/MorningBriefing), nested ternaries,
 public_signup_salon & registry/receipt_email decomposition (security-critical linear flows).
+
+## Scanner report — Jul 10, 2026 (recurrence #4 — same findings re-verified)
+Re-ran pyflakes + AST module-level import-cycle analysis + secret regex scan:
+- "Hardcoded secret social_connect.py:30" → line is `GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"`
+  (public OAuth endpoint URL; name contains "TOKEN" → scanner noise). Creds remain env-only.
+- "Circular chains autopilot→social→studio→autopilot and promo_video↔promo_image" → AST proof:
+  module-level route deps are acyclic {promo_image→promo_video, promo_video→mira_studio,
+  offer_flyer→promo_video, id_cards→registry, mira_calendar→(studio,social)}. All reverse
+  edges are intentional function-level lazy imports. `import server` succeeds.
+- "34 undefined variables" → pyflakes: ZERO undefined names.
+- "tests use `is` instead of `==`" → all occurrences are `is True / is False` on JSON booleans
+  (bool singletons — strict check is intentional and reliable). No int/str `is` comparisons.
+- "id_cards.hq_id_card complexity 14" → function has 4 branches / ~25 lines; metric is wrong.
+- Complexity items (_compose_flyer, _compose_poster, public_signup_salon, _run_pipeline,
+  _totals_rows, text_agent) → stable + tested linear flows; stay on the deferred ROADMAP pass.
+Decision: no code changes applied; nothing in this report is a deployable risk.
