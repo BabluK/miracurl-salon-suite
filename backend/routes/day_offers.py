@@ -55,7 +55,7 @@ async def _catalog_context(t: dict) -> dict:
     }
 
 
-async def _suggest_offer(t: dict, retry_hint: str = "") -> dict:
+async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily") -> dict:
     from routes.mira_studio import _ask_json
     now = _today_ist()
     day_idx = now.weekday()
@@ -64,19 +64,27 @@ async def _suggest_offer(t: dict, retry_hint: str = "") -> dict:
     tops = ", ".join(f"{n} ({c} sold)" for n, c in ctx["top_services"]) or "no sales data yet"
     slows = ", ".join(ctx["slow_services"]) or "none"
     wk = ctx["weekday_invoices"]
+    strategy = DAY_STRATEGY[day_idx]
+    validity = "TODAY only, valid today"
+    if kind == "flash":
+        strategy = ("🔴 FLASH SITUATION: CCTV shows several chairs sitting EMPTY right now. "
+                    "Design an aggressive limited-time flash offer valid for the NEXT 2 HOURS ONLY "
+                    "(25-40% off or an irresistible instant combo) to pull walk-ins immediately. "
+                    "Copy must feel urgent — 'next 2 hours', 'walk in now'.")
+        validity = "the NEXT 2 HOURS only"
     prompt = (
-        f"Salon: {t.get('name')}. Today is {now.strftime('%A, %d %B %Y')}.\n"
-        f"Day strategy: {DAY_STRATEGY[day_idx]}\n"
+        f"Salon: {t.get('name')}. Today is {now.strftime('%A, %d %B %Y')}, time {now.strftime('%I:%M %p')} IST.\n"
+        f"Day strategy: {strategy}\n"
         f"Last-60-days bills per weekday (Mon..Sun): {wk}\n"
         f"Best sellers: {tops}\nSlow-moving services: {slows}\n"
         f"SERVICE CATALOG (real prices — never invent services):\n{catalog}\n"
         f"{retry_hint}\n"
-        "Design ONE irresistible offer for TODAY only, valid today. Pick 1-3 REAL services from the catalog. "
+        f"Design ONE irresistible offer valid {validity}. Pick 1-3 REAL services from the catalog. "
         "Compute offer prices from the real prices using your chosen discount. "
         'Return JSON: {"title":"<catchy 4-7 word offer name>","offer_text":"<one punchy line, e.g. Flat 25% OFF ...>",'
         '"discount_pct":<int 0-40>,"services":[{"name":"<exact catalog name>","original_price":<num>,"offer_price":<num>}],'
-        '"reasoning":"<2-3 sentences: why THIS offer for THIS day, mention footfall pattern>",'
-        '"whatsapp_caption":"<ready-to-post WhatsApp/Instagram caption with emojis, mention valid today only>"}')
+        '"reasoning":"<2-3 sentences: why THIS offer for THIS moment, mention footfall pattern>",'
+        '"whatsapp_caption":"<ready-to-post WhatsApp/Instagram caption with emojis, mention the validity window>"}')
     system = ("You are Mira, an expert salon revenue strategist for Indian salons. You know Fri-Sat-Sun are busy "
               "and Mon-Thu are lean, and you design day-smart offers that maximise chair occupancy AND margin.")
     data = await _ask_json(system, prompt)
@@ -84,7 +92,7 @@ async def _suggest_offer(t: dict, retry_hint: str = "") -> dict:
         raise HTTPException(400, "Mira returned an unexpected offer format — try again")
     doc = {
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "date": now.date().isoformat(),
-        "day_name": now.strftime("%A"),
+        "day_name": now.strftime("%A"), "kind": kind,
         "title": str(data["title"])[:80], "offer_text": str(data.get("offer_text") or "")[:140],
         "discount_pct": int(data.get("discount_pct") or 0),
         "services": [{"name": str(s.get("name", ""))[:60],
@@ -95,7 +103,7 @@ async def _suggest_offer(t: dict, retry_hint: str = "") -> dict:
         "whatsapp_caption": str(data.get("whatsapp_caption") or "")[:600],
         "status": "suggested", "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    await _raw_db.day_offers.delete_many({"tenant_id": t["id"], "date": doc["date"], "status": "suggested"})
+    await _raw_db.day_offers.delete_many({"tenant_id": t["id"], "date": doc["date"], "status": "suggested", "kind": kind})
     await _raw_db.day_offers.insert_one({**doc})
     return doc
 
@@ -104,11 +112,11 @@ async def _suggest_offer(t: dict, retry_hint: str = "") -> dict:
 async def today_offer(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     today = _today_ist().date().isoformat()
     accepted = await _raw_db.day_offers.find_one(
-        {"tenant_id": t["id"], "date": today, "status": "accepted"}, {"_id": 0})
+        {"tenant_id": t["id"], "date": today, "status": "accepted", "kind": {"$ne": "flash"}}, {"_id": 0})
     if accepted:
         return {"offer": accepted}
     suggested = await _raw_db.day_offers.find_one(
-        {"tenant_id": t["id"], "date": today, "status": "suggested"}, {"_id": 0})
+        {"tenant_id": t["id"], "date": today, "status": "suggested", "kind": {"$ne": "flash"}}, {"_id": 0})
     return {"offer": suggested}
 
 
@@ -116,7 +124,7 @@ async def today_offer(user=Depends(require_tenant_admin), t=Depends(current_tena
 async def suggest_offer(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     today = _today_ist().date().isoformat()
     accepted = await _raw_db.day_offers.find_one(
-        {"tenant_id": t["id"], "date": today, "status": "accepted"}, {"_id": 0})
+        {"tenant_id": t["id"], "date": today, "status": "accepted", "kind": {"$ne": "flash"}}, {"_id": 0})
     if accepted:
         return {"offer": accepted, "already_accepted": True}
     return {"offer": await _suggest_offer(t)}
@@ -151,4 +159,33 @@ async def accept_offer(body: AcceptIn, user=Depends(require_tenant_admin), t=Dep
     patch = {"status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat(),
              "flyer_id": flyer["id"], "flyer_url": flyer["url"]}
     await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
+    if doc.get("kind") == "flash":
+        await _raw_db.flash_alerts.update_one(
+            {"tenant_id": t["id"], "date": doc["date"]}, {"$set": {"status": "accepted"}})
     return {"offer": {**doc, **patch}}
+
+
+# ───────── CCTV-triggered flash offers (empty chairs → 2-hour flash deal) ─────────
+
+@router.get("/day-offers/flash-alert")
+async def flash_alert(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Today's CCTV empty-chair alert (if any) + the flash offer built from it."""
+    today = _today_ist().date().isoformat()
+    alert = await _raw_db.flash_alerts.find_one({"tenant_id": t["id"], "date": today}, {"_id": 0})
+    offer = await _raw_db.day_offers.find_one(
+        {"tenant_id": t["id"], "date": today, "kind": "flash"}, {"_id": 0},
+        sort=[("created_at", -1)]) if alert else None
+    return {"alert": alert, "offer": offer}
+
+
+@router.post("/day-offers/flash-suggest")
+async def flash_suggest(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    today = _today_ist().date().isoformat()
+    alert = await _raw_db.flash_alerts.find_one({"tenant_id": t["id"], "date": today}, {"_id": 0})
+    if not alert:
+        raise HTTPException(404, "No empty-chair alert today — flash offers unlock when CCTV spots idle chairs")
+    offer = await _suggest_offer(
+        t, retry_hint=f"CCTV currently sees {alert.get('empty_chairs')} empty chairs.", kind="flash")
+    await _raw_db.flash_alerts.update_one(
+        {"tenant_id": t["id"], "date": today}, {"$set": {"status": "suggested"}})
+    return {"offer": offer}

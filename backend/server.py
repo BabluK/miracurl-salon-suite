@@ -5756,6 +5756,9 @@ api.include_router(day_offers_router)
 from routes.cctv import router as cctv_router  # noqa: E402
 api.include_router(cctv_router)
 
+from routes.hiring import router as hiring_router  # noqa: E402
+api.include_router(hiring_router)
+
 
 
 app.include_router(api)

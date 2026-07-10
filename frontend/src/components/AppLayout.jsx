@@ -5,7 +5,7 @@ import {
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
   Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot,
   Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck, Megaphone,
-  Landmark, FileText, Music, Sparkles, Cctv
+  Landmark, FileText, Music, Sparkles, Cctv, Briefcase
 } from "lucide-react";
 import { FloatingPlayer } from "@/components/FloatingPlayer";
 import BranchSwitcher from "./BranchSwitcher";
@@ -37,6 +37,7 @@ const NAV_ADMIN = [
   { to: "/offers-studio", label: "Offer Maker", icon: Megaphone, testid: "nav-offers-studio" },
   { to: "/mira-studio", label: "Mira Studio", icon: Sparkles, testid: "nav-mira-studio" },
   { to: "/cctv", label: "AI CCTV", icon: Cctv, testid: "nav-cctv" },
+  { to: "/hire", label: "Hire Staff", icon: Briefcase, testid: "nav-hire" },
   { to: "/refer", label: "Refer & Earn", icon: Gift, testid: "nav-refer" },
   { to: "/reports", label: "Reports", icon: BarChart3, testid: "nav-reports" },
   { to: "/messages", label: "Messages", icon: MessageSquare, testid: "nav-messages" },

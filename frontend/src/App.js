@@ -41,6 +41,8 @@ import Messages from "@/pages/Messages";
 import Plans from "@/pages/Plans";
 import CctvAnalytics from "@/pages/CctvAnalytics";
 import CctvCapture from "@/pages/CctvCapture";
+import HireStaff from "@/pages/HireStaff";
+import JobsBoard from "@/pages/JobsBoard";
 import StaffRegistry from "@/pages/StaffRegistry";
 import RegistryPublic from "@/pages/RegistryPublic";
 import Partners from "@/pages/Partners";
@@ -158,9 +160,11 @@ export default function App() {
               <Route path="messages" element={<OwnerOnly><Messages /></OwnerOnly>} />
               <Route path="plans" element={<OwnerOnly><Plans /></OwnerOnly>} />
               <Route path="cctv" element={<OwnerOnly><CctvAnalytics /></OwnerOnly>} />
+              <Route path="hire" element={<OwnerOnly><HireStaff /></OwnerOnly>} />
               <Route path="settings" element={<OwnerOnly><Settings /></OwnerOnly>} />
             </Route>
             <Route path="/cctv-capture" element={<Protected><OwnerOnly><CctvCapture /></OwnerOnly></Protected>} />
+            <Route path="/jobs" element={<JobsBoard />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </PlayerProvider>

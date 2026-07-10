@@ -1,0 +1,41 @@
+{
+  "summary": "Iter 63: Staff Hiring Marketplace + CCTV Flash Offer end-to-end tested. All 19 backend pytest cases pass; salon-admin, public /jobs, and super-admin frontend flows all pass. No blocking issues found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter63_hiring_flash.py",
+    "/app/test_reports/pytest/iter63.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "hiring.py: registry-employee phone lookup is a full-scan async-for loop over registry_employees; fine at current volume but should use a normalized-phone indexed field for scale.",
+    "hiring.py my_requests() N+1: one job_applications.find per request; acceptable up to ~50 requests but consider $lookup aggregation.",
+    "JobsBoard modal: wrong-phone toast (sonner) works, but no inline error inside modal — user sees toast only. Consider persistent inline error for accessibility.",
+    "Field-wrapped inputs on Login: data-testid is on <input>, so type() works but page.fill() also works — no bug, just noting testing quirk observed."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter63_hiring_flash.py (new)"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% (all critical flows)"},
+  "test_credentials": "loaded from /app/memory/test_credentials.md (admin@miracurl.com, super@miracurl.com); registry phone 9998887777 (Ravi Test Kumar)",
+  "seed_data_creation": "Backend test creates a fresh hiring request per session (role TEST_Beautician_<uuid>) and marks Ravi Test Kumar hired → parent closes. UI test also created a hiring request via the modal (default role) and applied via /jobs. Non-destructive to existing Hair Stylist + Ravi trial_scheduled row and today's daily/flash offers.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests are in /app/backend/tests/test_iter63_hiring_flash.py. IMPORTANT: TestPublicJobsAndHQ class must remain a SINGLE class — xdist loadscope pins its tests to one worker so the module-scoped fresh_request_id fixture stays consistent across public/jobs apply → HQ overview → trial → hire flow. Splitting them across classes causes cross-worker fixture drift (initially observed: TestHQ ran on gw0 while apply happened on gw1's fresh id). Flash offer flow: /api/day-offers/flash-alert returns {alert:{status:'suggested'}, offer:{kind:'flash', ...}}; /api/day-offers/today returns {offer:{kind:'daily', status:'accepted', title:'Weekend Indulgence Package', ...}}. Do NOT call /api/day-offers/accept or /api/cctv/analyze-frame — image gen/vision LLM costs.",
+  "verified_flows": {
+    "backend_hiring_owner": "create/list/close, curation privacy (only status != 'applied' in candidates)",
+    "backend_public_jobs": "list hides salon name, apply 200/403/409/404",
+    "backend_hq": "overview + applications embedded, mark-seen zeroes, candidate search, propose (+ 409 duplicate), trial schedule, hire closes parent request, salon-admin rejected",
+    "backend_flash_offer": "flash-alert exists with kind=flash suggested; today returns daily/accepted (never flash); flash-suggest regenerates",
+    "frontend_salon_admin": "login → dashboard flash-offer-alert + flash-offer-suggestion + accept-btn visible with real content ('2-Hour Flash Hair & Glow', 30% OFF); nav-hire → hire-staff-page shows Hair Stylist + Ravi Test Kumar + trial 2026; hire-new-request-btn → hire-form-modal → submit → toast 'Hiring request sent to Miracurl HQ'",
+    "frontend_public_jobs": "/jobs loads jobs-board-page, all cards show 'Verified partner salon' (no Miracurl leak); wrong phone 9000000001 → 403 network + toast error; 9998887777 → 200 → job-apply-success 'Application received!'",
+    "frontend_super_admin": "super-tab-hiring badge shown; hiring-panel lists requests with salon names visible; shortlist/hired/applied/trial_scheduled chips; hiring-trial-btn opens hiring-trial-form; date+time+notes+save works → WhatsApp button (hiring-wa-*) appears for trial_scheduled; hiring-candidate-search 'ravi' returned 7 candidates with Propose buttons"
+  }
+}

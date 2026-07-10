@@ -121,7 +121,38 @@ async def _record_observation(tenant_id: str, image_b64: str, source: str) -> di
         frame_patch["last_frame_b64"] = image_b64
     await _raw_db.cctv_config.update_one(
         {"tenant_id": tenant_id}, {"$set": frame_patch}, upsert=True)
+    try:
+        await _maybe_flash_alert(tenant_id, obs)
+    except Exception as e:
+        log.warning(f"flash alert check failed: {e}")
     return obs
+
+
+FLASH_MIN_EMPTY = 3
+
+
+async def _maybe_flash_alert(tenant_id: str, obs: dict) -> None:
+    """If chairs sit empty across 2+ frames within 90 min (business hours), raise ONE
+    flash-offer alert per day — Mira turns it into a limited-time offer on the Dashboard."""
+    if obs.get("chairs_empty", 0) < FLASH_MIN_EMPTY:
+        return
+    ist_now = datetime.now(timezone.utc) + IST
+    today = ist_now.date().isoformat()
+    if await _raw_db.flash_alerts.find_one({"tenant_id": tenant_id, "date": today}):
+        return
+    cfg = await _get_cfg(tenant_id)
+    if not (int(cfg.get("business_start", 9)) <= ist_now.hour < int(cfg.get("business_end", 21))):
+        return
+    since = (datetime.now(timezone.utc) - timedelta(minutes=90)).isoformat()
+    prev = await _raw_db.cctv_observations.find_one(
+        {"tenant_id": tenant_id, "at": {"$gte": since}, "id": {"$ne": obs["id"]},
+         "chairs_empty": {"$gte": FLASH_MIN_EMPTY}}, {"_id": 0, "id": 1})
+    if not prev:
+        return
+    await _raw_db.flash_alerts.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": tenant_id, "date": today,
+        "empty_chairs": obs["chairs_empty"], "status": "pending",
+        "triggered_at": datetime.now(timezone.utc).isoformat()})
 
 
 class FrameIn(BaseModel):

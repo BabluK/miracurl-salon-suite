@@ -28,7 +28,9 @@ import { VerifiedStaffPanel } from "@/components/superadmin/VerifiedStaffPanel";
 import { MiracurlTeamPanel } from "@/components/superadmin/MiracurlTeamPanel";
 import { DeploymentHistoryPanel } from "@/components/superadmin/DeploymentHistoryPanel";
 import { DiagnoseTenantModal } from "@/components/superadmin/DiagnoseTenantModal";
+import { HiringPanel } from "@/components/superadmin/HiringPanel";
 import { BadgeCheck, Rocket } from "lucide-react";
+import { Briefcase } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
 import { Palette, Activity, Database, ImagePlus } from "lucide-react";
 
@@ -51,6 +53,10 @@ export default function SuperAdmin() {
   const [tenants, setTenants] = useState([]);
   const [hqUnread, setHqUnread] = useState(0);
   const [inquiryNew, setInquiryNew] = useState(0);
+  const [hiringNew, setHiringNew] = useState(0);
+  useEffect(() => {
+    api.get("/super-admin/hiring").then(r => setHiringNew(r.data.new_applications)).catch(() => {});
+  }, []);
   const [sendingReports, setSendingReports] = useState(false);
   const [sendingWeekly, setSendingWeekly] = useState(false);
 
@@ -266,6 +272,7 @@ export default function SuperAdmin() {
               { id: "revenue", label: "Revenue", icon: TrendingUp },
               { id: "ai", label: "AI Insights", icon: Sparkles },
               { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
+              { id: "hiring", label: "Hiring", icon: Briefcase, badge: hiringNew },
               { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread },
               { id: "engineer", label: "AI Engineer", icon: Wrench },
               { id: "onboarding", label: "Onboarding Image", icon: Sparkles },
@@ -299,6 +306,7 @@ export default function SuperAdmin() {
             ai: <AiInsightsPanel />,
             inbox: <HqInbox onUnreadChange={setHqUnread} />,
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
+            hiring: <HiringPanel onNewCount={setHiringNew} />,
             engineer: <EngineerPanel />,
             onboarding: <OnboardingStudio tenants={tenants} />,
             promo: <PromoVideoStudio />,
