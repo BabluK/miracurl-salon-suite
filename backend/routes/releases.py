@@ -6,9 +6,18 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from database import _raw_db
 from security import require_super_admin
-from release_notes import RELEASES
+from release_notes import RELEASES, BUILD
 
 router = APIRouter()
+
+
+@router.get("/super/version")
+async def server_version(admin=Depends(require_super_admin)):
+    return {
+        "build": BUILD,
+        "latest_tag": f"MIRA-DEPLOYED-{RELEASES[0]['date']}",
+        "server_time": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @router.get("/super/releases")

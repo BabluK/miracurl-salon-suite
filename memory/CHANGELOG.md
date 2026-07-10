@@ -901,3 +901,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Super Admin sidebar tab "Deployments" (Rocket icon): release cards tagged MIRA-DEPLOYED-<date> with change bullets and per-entry delete (soft delete — survives re-sync). Data ships with the code in `/app/backend/release_notes.py` (append entries on deploy-worthy changes), synced to `deploy_releases` collection via `routes/releases.py` (GET/DELETE /api/super/releases). Hint shown when >10 entries.
 - Promo history panel now ALWAYS visible with empty-state message (production confusion fix).
 - Testing: iteration_61.json — 100% backend + frontend pass across ID cards, blood group, Miracurl Team CRUD, releases, plan editor, promo history, regressions. NOTE for future agents: keep release_notes.py updated with each deployment-worthy change.
+
+## Iter 64 (10 Jul 2026) — Build status + ultra-light Express render
+- `BUILD = "2026-07-10.3"` constant in release_notes.py + `GET /api/super/version`. Deployments panel shows a dark "This server is running: <tag> · build <BUILD>" banner + "On this server" badge on the matching release card → user can compare live vs preview builds. IMPORTANT: bump BUILD on every deploy-worthy change.
+- Express promo render rewritten as ONE ffmpeg concat-slideshow pass (still frames, ultrafast, stillimage tune) at 2/3 resolution (720x1280 reel) — E2E verified 19s in preview. AI-scenes mode keeps zoompan and now reports per-scene seconds in progress text ("scene 1 took Ns") for prod CPU diagnosis.
+- Production analysis: user's screenshots prove prod HAS the new build (tabs visible) — remaining slowness is weak prod CPU; this build minimizes CPU work.

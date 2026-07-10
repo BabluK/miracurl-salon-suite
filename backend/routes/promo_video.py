@@ -16,6 +16,7 @@ import asyncio
 import logging
 import subprocess
 import textwrap
+import time as _time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, Request
@@ -206,6 +207,9 @@ async def _run_pipeline(job_id: str, body: PromoIn):
         asyncio.gather(_tts(), _build_scenes(body, scenes)), timeout=360)
 
     vw, vh = SIZES.get(body.size, SIZES["reel"])
+    if body.express:
+        # lighter resolution for weak production CPUs — still crisp for social
+        vw, vh = (vw * 2 // 3) & ~1, (vh * 2 // 3) & ~1
     await _progress(job_id, "Rendering the HD video (ffmpeg)…")
     loop = asyncio.get_running_loop()
 
@@ -424,28 +428,50 @@ def _render_video_at(images: list[bytes], captions: list[str], fits: list[bool],
         per = total / len(images)
         frames = int(per * FPS)
 
+        if not motion:
+            # Express: ONE ffmpeg pass over still frames — minimal CPU, no per-scene subprocesses
+            if beat:
+                beat(f"Rendering all {len(images)} scenes in one fast pass…")
+            lines = []
+            img_path = None
+            for i, img in enumerate(images):
+                framed = _caption_frame(img, captions[i] if i < len(captions) else "", w, h,
+                                        fit=fits[i] if i < len(fits) else False)
+                img_path = os.path.join(workdir, f"s{i}.jpg")
+                with open(img_path, "wb") as f:
+                    f.write(framed)
+                lines.append(f"file '{img_path}'\nduration {per:.2f}\n")
+            lines.append(f"file '{img_path}'\n")
+            listfile = os.path.join(workdir, "slides.txt")
+            with open(listfile, "w") as f:
+                f.write("".join(lines))
+            final = os.path.join(workdir, "final.mp4")
+            _run_ff([ff, "-y", "-threads", "2", "-f", "concat", "-safe", "0", "-i", listfile,
+                     "-i", audio_path, "-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage",
+                     "-crf", "27", "-r", str(FPS), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
+                     "-shortest", "-movflags", "+faststart", final], "slideshow")
+            with open(final, "rb") as f:
+                return f.read()
+
         seg_paths = []
+        last_scene_secs = None
         for i, img in enumerate(images):
             if beat:
-                beat(f"Rendering scene {i + 1}/{len(images)}…")
+                extra = f" (scene {i} took {last_scene_secs}s)" if last_scene_secs is not None else ""
+                beat(f"Rendering scene {i + 1}/{len(images)}…{extra}")
+            t_scene = _time.time()
             framed = _caption_frame(img, captions[i] if i < len(captions) else "", w, h,
                                     fit=fits[i] if i < len(fits) else False)
             img_path = os.path.join(workdir, f"s{i}.jpg")
             with open(img_path, "wb") as f:
                 f.write(framed)
             seg = os.path.join(workdir, f"seg{i}.mp4")
-            if motion:
-                vf = (f"zoompan=z='min(zoom+0.0009,1.12)':d={frames}:"
-                      f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={w}x{h}:fps={FPS}")
-                _run_ff([ff, "-y", "-threads", "2", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
-                         "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p", seg],
-                        f"segment {i}")
-            else:
-                # Express mode: still-image segments — encodes in seconds even on weak prod CPUs
-                _run_ff([ff, "-y", "-threads", "2", "-loop", "1", "-framerate", str(FPS), "-i", img_path,
-                         "-t", f"{per:.2f}", "-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage",
-                         "-crf", "27", "-pix_fmt", "yuv420p", seg],
-                        f"segment {i}")
+            vf = (f"zoompan=z='min(zoom+0.0009,1.12)':d={frames}:"
+                  f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={w}x{h}:fps={FPS}")
+            _run_ff([ff, "-y", "-threads", "2", "-i", img_path, "-vf", vf, "-t", f"{per:.2f}",
+                     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p", seg],
+                    f"segment {i}")
+            last_scene_secs = int(_time.time() - t_scene)
             seg_paths.append(seg)
 
         if beat:

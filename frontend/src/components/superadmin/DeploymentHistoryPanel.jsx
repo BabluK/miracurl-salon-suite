@@ -5,13 +5,15 @@ import { Rocket, Trash2, CheckCircle2 } from "lucide-react";
 
 export const DeploymentHistoryPanel = () => {
   const [releases, setReleases] = useState([]);
+  const [version, setVersion] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/super/releases");
-      setReleases(data.releases || []);
+      const [r, v] = await Promise.all([api.get("/super/releases"), api.get("/super/version")]);
+      setReleases(r.data.releases || []);
+      setVersion(v.data);
     } catch { toast.error("Couldn't load deployment history"); }
     finally { setLoading(false); }
   }, []);
@@ -33,6 +35,17 @@ export const DeploymentHistoryPanel = () => {
         </p>
       </div>
 
+      {version && (
+        <div className="bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4" data-testid="server-build-banner">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold">This server is running</p>
+          <p className="text-emerald-300 font-mono font-bold text-lg mt-1" data-testid="server-build-value">{version.latest_tag} · build {version.build}</p>
+          <p className="text-[11px] text-slate-400 mt-1.5">
+            Open this same tab on your <b className="text-slate-300">live site</b> and on the <b className="text-slate-300">preview</b> — if the build numbers differ,
+            the live site is behind: click <b className="text-amber-300">Deploy</b> to push the newer build.
+          </p>
+        </div>
+      )}
+
       {loading ? <div className="text-slate-400 py-8 text-center">Loading…</div> : releases.length === 0 ? (
         <div className="card-light text-center py-10 text-slate-400 text-sm" data-testid="releases-empty">No deployment records yet.</div>
       ) : (
@@ -50,6 +63,11 @@ export const DeploymentHistoryPanel = () => {
                     <Rocket className="w-3 h-3" /> {r.tag}
                   </span>
                   <span className="text-xs text-slate-400">{new Date(r.date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span>
+                  {version && r.tag === version.latest_tag && (
+                    <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300" data-testid={`release-current-${r.id}`}>
+                      <CheckCircle2 className="w-3 h-3" /> On this server
+                    </span>
+                  )}
                 </div>
                 <button data-testid={`release-delete-${r.id}`} onClick={() => remove(r)}
                   className="p-1.5 text-slate-400 hover:text-red-500 shrink-0" title="Delete this entry">

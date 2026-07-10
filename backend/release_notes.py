@@ -1,5 +1,8 @@
 """Release notes shipped with every deployment — shown in Super Admin → Deployments.
-Append a new entry (or extend the latest date) whenever a deploy-worthy change lands."""
+Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
+Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
+
+BUILD = "2026-07-10.3"
 
 RELEASES = [
     {
@@ -13,7 +16,8 @@ RELEASES = [
             "Staff Registry: salon owners can mark staff as 'Left salon' — moves to Past Staff, stays publicly verifiable",
             "Employee ID Cards: print-ready PDF cards for salon staff & verified staff, with blood group, barcode and a SCAN-TO-VERIFY QR code",
             "Billing: subscription plan catalog is now editable — change plan names & prices any time",
-            "Deployments: this deployment history section",
+            "Deployments: this deployment history section, with server build status (compare live vs preview)",
+            "Promo Video: Express now renders all scenes in a single ultra-light ffmpeg pass at social-friendly resolution — built for slow production CPUs",
         ],
     },
     {
