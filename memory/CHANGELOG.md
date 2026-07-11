@@ -1028,3 +1028,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - New PlatformOrbitMap.jsx + "Platform Map" tab in Super Admin: 12 module nodes on 2 counter-rotating orbit rings around Miracurl HQ hub (CSS: .orbit-* in index.css; carrier rotate → arm translate → node counter-rotate keeps labels upright). Clickable nodes jump to tabs. Screenshot-verified: 12 nodes render.
 - Super3DBackdrop boosted (user couldn't see it): stronger orbs (opacity .85, multiply blend), brighter rings w/ glow, bigger sparkles w/ drop-shadow. NOTE: user's production is on build .2 — must Deploy.
 - Google Rich Results test PASSED on miracurl-suite.com (1 valid item). Build 2026-07-11.7.
+
+## Iter 86 (11 Jul 2026) — CRITICAL: production deploy failure root-caused & fixed
+- Deploy failed ("pod never ready"): /app/backend/release_notes.py was CORRUPTED — a truncated duplicate of the last release block after the closing `]` → SyntaxError at import → backend crash-looped. (Preview backend also went 502 after hot-reload picked it up.)
+- Symptom chain explained: user's "mobile login overlap/black screen" = frontend stuck on dark auth-loading screen because /api/auth/me hung (backend down).
+- Fixed: removed corrupted lines; verified import, compileall on whole backend, auth/me 401 in 0.26s, mobile /login and /book render clean at 390px.
+- deployment_agent re-run: PASS. User must click Deploy again.
+- LESSON: always `python -m compileall` backend before telling user to deploy.
