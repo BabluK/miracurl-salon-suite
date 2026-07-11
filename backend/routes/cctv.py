@@ -169,22 +169,44 @@ async def analyze_frame(body: FrameIn, user=Depends(require_tenant_admin), t=Dep
     return {"observation": await _record_observation(t["id"], b64, "device")}
 
 
+def _peer_is_public(stream) -> bool:
+    """Validate the ACTUAL connected peer IP (defeats DNS-rebinding TOCTOU) — SEC-001."""
+    import ipaddress
+    try:
+        addr = stream.get_extra_info("server_addr")
+        peer = ipaddress.ip_address(addr[0])
+    except Exception:
+        return False
+    return not (peer.is_private or peer.is_loopback or peer.is_link_local
+                or peer.is_reserved or peer.is_multicast or peer.is_unspecified)
+
+
+async def _checked_get(client: httpx.AsyncClient, url: str, auth):
+    """GET with peer-IP re-validation at connect time; fails closed if the peer can't be verified."""
+    async with client.stream("GET", url, auth=auth) as r:
+        stream = r.extensions.get("network_stream")
+        if stream is None or not _peer_is_public(stream):
+            raise HTTPException(400, "Snapshot URL is not a safe public address — update it in settings")
+        content = await r.aread()
+    return r, content
+
+
 async def _fetch_snapshot(cfg: dict) -> str:
     """GET the DVR/camera snapshot URL (Hikvision ISAPI uses HTTP Digest auth). Returns base64 JPEG.
-    SEC-001: URL re-validated against private/internal hosts at fetch time; TLS verified; no redirects."""
+    SEC-001: URL validated pre-flight AND the connected peer IP re-validated at fetch time; no redirects."""
     from routes.registry import is_safe_public_url
     if not is_safe_public_url(cfg.get("snapshot_url") or ""):
         raise HTTPException(400, "Snapshot URL is not a safe public address — update it in settings")
     auth = httpx.DigestAuth(cfg.get("username") or "", cfg.get("password") or "") \
         if cfg.get("username") else None
     async with httpx.AsyncClient(timeout=20, follow_redirects=False) as client:
-        r = await client.get(cfg["snapshot_url"], auth=auth)
+        r, content = await _checked_get(client, cfg["snapshot_url"], auth)
         if r.status_code == 401 and auth:  # some DVRs use Basic
-            r = await client.get(cfg["snapshot_url"], auth=(cfg["username"], cfg["password"]))
+            r, content = await _checked_get(client, cfg["snapshot_url"], (cfg["username"], cfg["password"]))
         r.raise_for_status()
         if not r.headers.get("content-type", "").startswith("image"):
             raise HTTPException(400, f"URL did not return an image (got {r.headers.get('content-type')})")
-        return base64.b64encode(r.content).decode()
+        return base64.b64encode(content).decode()
 
 
 @router.post("/cctv/test-snapshot")

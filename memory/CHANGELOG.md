@@ -1011,3 +1011,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - FALSE POSITIVES re-verified: social_connect.py:30 "secret" is a Google OAuth scope URL; pyflakes reports ZERO undefined names.
 - DEFERRED again: server.py further split (risky churn), type hints in test files (low value).
 - Regression: signup+referral e2e (test tenant cleaned), HQ ID card PDF 200, mira agents/autopilot endpoints, flyer/receipt/digest pure-function tests all pass. Build bumped to 2026-07-11.4.
+
+## Iter 83 (11 Jul 2026) — Security audit round 2 (verdict: CONDITIONAL PASS → all findings fixed)
+- SEC-001 MEDIUM (SSRF via DNS rebinding, routes/cctv.py): _fetch_snapshot now streams via _checked_get and re-validates the ACTUAL connected peer IP (private/loopback/link-local/reserved/multicast blocked, fail-closed). Verified: 127.0.0.1/169.254.169.254/10.x blocked pre-flight, localtest.me (resolves to 127.0.0.1) blocked at connect time, legit public image fetch works.
+- P3 (routes/auth.py): register now stores requested_tenant_slug (unverified hint from X-Tenant-Slug); /tenants/staff/pending scoped to {slug or None} — cross-tenant email harvesting blocked (verified e2e with 2 tenants).
+- P3 (email_service.py): _credentials_email_html escapes salon_name/owner_email/temp_pw.
+- P3 (subscriptions.py webhook secret): already logs loud warning when unset — USER ACTION: set RAZORPAY_WEBHOOK_SECRET in production so refunds auto-revoke plans.
+- Audit confirmed still in place: tenant auto-scoping, JWT/cookie hardening, Razorpay signature + server-side pricing, rate limits, no wildcard CORS. Build bumped to 2026-07-11.5.

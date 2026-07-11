@@ -41,7 +41,7 @@ class ResetIn(BaseModel):
     new_password: str
 
 @router.post("/auth/register")
-async def register(body: RegisterIn, response: Response):
+async def register(body: RegisterIn, request: Request, response: Response):
     """Public staff registration.
 
     SECURITY (SEC-001 fix): the caller-controlled X-Tenant-Slug header is
@@ -61,6 +61,9 @@ async def register(body: RegisterIn, response: Response):
         "role": "staff",
         "tenant_id": None,
         "status": "pending",  # awaiting admin attach
+        # Unverified HINT of which salon they meant to join — used ONLY to scope
+        # the owner's pending list (privacy), never for authorization.
+        "requested_tenant_slug": (request.headers.get("X-Tenant-Slug") or "").strip().lower() or None,
         "password_hash": hash_pw(body.password),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -98,11 +101,14 @@ async def attach_staff(user_id: str, body: StaffAttachIn, admin=Depends(require_
 
 
 @router.get("/tenants/staff/pending")
-async def list_pending_staff(_admin=Depends(require_tenant_admin)):
+async def list_pending_staff(_admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Show self-registered users awaiting admin attach so an owner can accept
-    only the people they recognise (email must match the person's real address)."""
+    only the people they recognise (email must match the person's real address).
+    SEC hardening: scoped to users who registered for THIS salon (or gave no hint),
+    so one owner can't harvest sign-up emails intended for other salons."""
     pending = await db.users.find(
-        {"tenant_id": None, "status": "pending"},
+        {"tenant_id": None, "status": "pending",
+         "requested_tenant_slug": {"$in": [t["slug"], None]}},
         {"_id": 0, "id": 1, "email": 1, "name": 1, "created_at": 1},
     ).sort("created_at", -1).to_list(50)
     return {"pending": pending}

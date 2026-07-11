@@ -56,6 +56,9 @@ async def _send_email(to: list, subject: str, html: str, attachments: list | Non
 
 
 def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> str:
+    salon_name, owner_email, temp_pw = (html_lib.escape(salon_name or ""),
+                                        html_lib.escape(owner_email or ""),
+                                        html_lib.escape(temp_pw or ""))
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     return f"""
