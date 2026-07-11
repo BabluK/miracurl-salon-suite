@@ -68,10 +68,3 @@ RELEASES = [
         ],
     },
 ]
-ss the app — new logo, favicon and downloadable Brand Kit PDF",
-            "Dashboard aurora background animations",
-            "Fixed promo video 'stuck forever' bug with automatic stale-job recovery",
-            "Passed 2 security audits — security trust badges added to the /partner landing page",
-        ],
-    },
-]
