@@ -192,17 +192,27 @@ async def _candidate_profiles(emps: list) -> list:
     emp_rows = await _raw_db.registry_employments.find(
         {"employee_id": {"$in": ids}}, {"_id": 0}).sort("from_date", -1).to_list(2000)
     latest: dict = {}
+    all_by_emp: dict = {}
     for r in emp_rows:
         latest.setdefault(r["employee_id"], r)  # first seen = most recent from_date
+        all_by_emp.setdefault(r["employee_id"], []).append(r)
     out = []
     for e in emps:
         le = latest.get(e["id"]) or {}
         active = bool(le) and not (le.get("to_date") or "").strip()
+        history = all_by_emp.get(e["id"], [])
+        ratings = [float(r["rating"]) for r in history if r.get("rating")]
+        last_review = next(
+            ({"salon_name": r.get("salon_name") or "", "rating": float(r["rating"]),
+              "comment": (r.get("comment") or "")[:140]}
+             for r in history if r.get("rating") and (r.get("comment") or "").strip()), None)
         out.append({
             "employee_id": e["id"], "name": e.get("name"), "phone": e.get("phone"),
             "city": e.get("city") or "", "designation": le.get("designation") or "",
             "employment_status": "active" if active else "left",
             "salon_name": le.get("salon_name") or "", "salon_tenant_id": le.get("tenant_id") or "",
+            "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
+            "ratings_count": len(ratings), "last_review": last_review,
         })
     return out
 

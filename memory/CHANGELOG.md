@@ -966,3 +966,7 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Candidate picker upgrade (GET /super-admin/hiring/candidates): params role/status(all|left|active)/request_id. Employment status derived from latest registry_employment (empty to_date = active). request_id excludes the requesting salon's OWN active staff; propose endpoint also blocks them (400). Returns distinct roles for dropdown.
 - HiringPanel ProposeBox: role dropdown + All/Available(left)/Working chips + status badges (green "✓ Available · left X" / amber "Active @ X").
 - Verified via curl: PIN gate (wrong 0000→403, 4321→200), open-request delete blocked, own-staff exclusion, role/status filters. UI smoke passed.
+
+## Iter 75 (11 Jul 2026) — Domain prep + candidate ratings
+- Added https://miracurl-suite.com to default CORS_ORIGINS (user bought new domain; Emergent supports 1 custom domain per deployment — user advised replace or 2nd deployment slot; APP_PUBLIC_URL env change pending if they switch primary domain).
+- Propose list now shows ⭐ avg rating (+count) and latest review snippet per candidate (computed in _candidate_profiles from registry_employments rating/comment). Verified: Ravi Test Kumar ⭐4.5 (2) w/ review.

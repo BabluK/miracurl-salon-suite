@@ -137,13 +137,23 @@ function ProposeBox({ requestId, onDone }) {
             <div className="min-w-0">
               <span className="font-medium text-slate-800">{c.name}</span>
               <span className="text-xs text-slate-500"> · {c.designation || "—"} · {c.city}</span>
-              <div className="mt-0.5">
+              {c.avg_rating != null && (
+                <span className="ml-2 text-[11px] font-semibold text-amber-600" title={`${c.ratings_count} rating(s) from past salons`}>
+                  ⭐ {c.avg_rating}
+                </span>
+              )}
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                 {c.employment_status === "left" ? (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">✓ Available{c.salon_name && ` · left ${c.salon_name}`}</span>
                 ) : (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">Active @ {c.salon_name || "a salon"}</span>
                 )}
               </div>
+              {c.last_review && (
+                <div className="text-[11px] text-slate-400 italic mt-0.5 truncate max-w-md" title={c.last_review.comment}>
+                  "{c.last_review.comment}" — {c.last_review.salon_name} (⭐{c.last_review.rating})
+                </div>
+              )}
             </div>
             <button onClick={() => propose(c.employee_id)} className="text-xs px-2.5 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 shrink-0" data-testid={`hiring-propose-${c.employee_id}`}>
               Propose
