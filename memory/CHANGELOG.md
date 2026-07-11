@@ -992,3 +992,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
   * day_offers.py: _build_offer_prompt + _offer_doc extracted from _suggest_offer.
 - Regression-tested via curl: candidate search+filters+ratings, public candidate profile, public jobs, cctv latest, day-offer suggest (fresh LLM call OK).
 - DEFERRED to roadmap (older stable code, risky to churn): id_cards/receipt_email/auth/mira_studio complexity, server.py split (76 imports), type-hint coverage 24%→80%.
+
+## Iter 80 (11 Jul 2026) — SEO pass for miracurl-suite.com
+- Added /robots.txt (public pages allowed, app/admin routes disallowed, sitemap ref) and /sitemap.xml (8 public URLs: landing, signup, book, jobs, staff-registry, partner(s), login).
+- Added JSON-LD SoftwareApplication + Organization structured data to index.html (price ₹10,000 offer, logo).
+- Verified serving on preview. User must Deploy + submit sitemap in Google Search Console.

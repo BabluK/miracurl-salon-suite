@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /super-admin
+Disallow: /settings
+Disallow: /pos
+Disallow: /billing
+Disallow: /customers
+Disallow: /staff
+Disallow: /reports
+Disallow: /inventory
+Disallow: /mira-studio
+Disallow: /cctv
+Disallow: /hire
+Disallow: /candidate/
+Disallow: /review/
+
+Sitemap: https://miracurl-suite.com/sitemap.xml
