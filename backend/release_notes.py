@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-11.5"
-BUILD_TIME = "11 Jul 2026, 7:15 PM IST"
+BUILD = "2026-07-11.6"
+BUILD_TIME = "11 Jul 2026, 7:38 PM IST"
 
 RELEASES = [
     {
@@ -15,6 +15,7 @@ RELEASES = [
             "Platform: SEO pass — robots.txt, sitemap.xml (now including every salon's public page) and structured data for Google",
             "Platform: code-quality pass — Mira AI helpers extracted to a shared module (circular import eliminated), and 5 oversized functions (flyer composer, HQ ID card, receipt totals, salon signup, HQ digest email) refactored into small, testable units",
             "Platform: security audit round 2 — CCTV snapshot fetch now re-validates the connected IP (blocks DNS-rebinding SSRF), pending staff sign-ups are scoped per salon, and credential emails are HTML-escaped",
+            "Platform: website — new neon 3D 'software flow' timeline on the landing page: the 7-step Miracurl journey from signup to auto-pilot revenue, with glowing animated cards",
             "Hire Staff 🧑‍💼 — post a hiring request from your dashboard and Miracurl HQ finds you verified candidates, schedules trials and updates you at every step",
             "Public Jobs board (/jobs) — HQ-verified professionals apply for open positions with their registered number; salon identity stays private until shortlisting",
             "Flash offers ⚡ — when AI CCTV spots chairs sitting empty, Mira alerts you on the Dashboard and designs a 2-hour flash offer with poster + WhatsApp caption in one tap",

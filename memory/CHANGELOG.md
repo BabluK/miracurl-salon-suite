@@ -1018,3 +1018,7 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - P3 (email_service.py): _credentials_email_html escapes salon_name/owner_email/temp_pw.
 - P3 (subscriptions.py webhook secret): already logs loud warning when unset — USER ACTION: set RAZORPAY_WEBHOOK_SECRET in production so refunds auto-revoke plans.
 - Audit confirmed still in place: tenant auto-scoping, JWT/cookie hardening, Razorpay signature + server-side pricing, rate limits, no wildcard CORS. Build bumped to 2026-07-11.5.
+
+## Iter 84 (11 Jul 2026) — Neon 3D software-flow timeline on landing page
+- New SoftwareFlowSection.jsx (7 steps: signup → services/staff → go live → Mira bookings → POS → marketing auto-pilot → revenue), styled after user's reference image: neon-bordered glass cards, per-step accent colors, glowing center spine + pulsing dots, staggered 3D entrance (IntersectionObserver) and hover tilt. CSS in index.css (.flow-*). Inserted between Features and Testimonials in Landing.jsx.
+- Screenshot-verified: all 7 steps render with glow + spine. Build 2026-07-11.6.

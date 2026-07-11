@@ -538,18 +538,48 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 }
 .super-3d-scene { perspective: 900px; pointer-events: none; }
 .orb3d {
-  position: absolute; border-radius: 9999px; filter: blur(38px); opacity: 0.5;
+  position: absolute; border-radius: 9999px; filter: blur(30px); opacity: 0.85; mix-blend-mode: multiply;
   animation: orbFloat 14s ease-in-out infinite; will-change: transform;
 }
 .ring3d {
-  position: absolute; border-radius: 9999px; border: 1.5px solid rgba(251, 191, 36, 0.35);
+  position: absolute; border-radius: 9999px; border: 2.5px solid rgba(139, 92, 246, 0.55);
+  box-shadow: 0 0 22px rgba(139, 92, 246, 0.25), inset 0 0 22px rgba(139, 92, 246, 0.15);
   animation: ringSpin3d 22s linear infinite; will-change: transform;
 }
 .sparkle-dot {
   position: absolute; width: 6px; height: 6px; pointer-events: none;
-  background: radial-gradient(circle, #fef3c7 0%, #fbbf24 45%, transparent 70%);
+  background: radial-gradient(circle, #fff7d6 0%, #f59e0b 55%, transparent 75%);
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.9));
   clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
   animation: sparkleTwinkle 3s ease-in-out infinite; will-change: transform, opacity;
 }
 .tilt-3d { transform-style: preserve-3d; transition: transform 0.35s ease, box-shadow 0.35s ease; }
 .tilt-3d:hover { transform: perspective(800px) rotateX(3deg) rotateY(-4deg) translateY(-4px); box-shadow: 0 24px 48px -18px rgba(79, 70, 229, 0.35); }
+
+/* ── Neon software-flow timeline (landing) ─────────────────────── */
+.flow-timeline { perspective: 1000px; }
+.flow-spine {
+  position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(34,211,238,.5), rgba(232,121,249,.5), rgba(251,191,36,.5), rgba(52,211,153,.5), rgba(212,175,55,.6));
+  filter: drop-shadow(0 0 6px rgba(167,139,250,.5));
+}
+.flow-spine-dot {
+  position: absolute; left: 50%; top: -14px; width: 8px; height: 8px; border-radius: 999px;
+  transform: translateX(-50%); z-index: 2; animation: flowDotPulse 2.4s ease-in-out infinite;
+}
+.flow-card {
+  position: relative; z-index: 1; background: rgba(13, 13, 19, 0.92);
+  backdrop-filter: blur(8px);
+  transition: transform .35s ease, box-shadow .35s ease;
+  transform-style: preserve-3d;
+}
+.flow-card:hover { transform: translateY(-4px) rotateX(4deg) scale(1.015); }
+.flow-in { animation: flowRise .7s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes flowRise {
+  from { opacity: 0; transform: translateY(34px) rotateX(-14deg); }
+  to   { opacity: 1; transform: translateY(0) rotateX(0); }
+}
+@keyframes flowDotPulse {
+  0%, 100% { opacity: .55; transform: translateX(-50%) scale(1); }
+  50%      { opacity: 1;  transform: translateX(-50%) scale(1.5); }
+}

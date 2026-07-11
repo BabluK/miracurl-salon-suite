@@ -6,6 +6,7 @@ import SalesChatWidget from "@/components/SalesChatWidget";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { DemoCarousel } from "@/components/DemoCarousel";
 import { PartnerGrid } from "@/components/PartnerGrid";
+import { SoftwareFlowSection } from "@/components/SoftwareFlowSection";
 import api from "@/lib/api";
 
 const IMG = {
@@ -249,6 +250,9 @@ export default function Landing() {
           })}
         </div>
       </section>
+
+      {/* Software flow — neon 3D timeline */}
+      <SoftwareFlowSection />
 
       {/* Testimonials — editorial */}
       <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-24">
