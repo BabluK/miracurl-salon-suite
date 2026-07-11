@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
+import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
-import { Briefcase, Plus, X, Users, CalendarClock, Phone } from "lucide-react";
+import { Briefcase, Plus, X, Users, CalendarClock, Phone, Trash2 } from "lucide-react";
 
 const ROLES = ["Hair Stylist", "Beautician", "Nail Artist", "Makeup Artist", "Massage Therapist", "Barber", "Receptionist", "Salon Manager", "Other"];
 const URGENCY = [
@@ -41,6 +42,15 @@ export default function HireStaff() {
     try { await api.post(`/hiring/requests/${rid}/close`); load(); } catch { toast.error("Couldn't close"); }
   };
 
+  const deleteReq = async (r) => {
+    if (!window.confirm(`Delete the closed "${r.role}" request permanently? Its applications are removed too.`)) return;
+    try {
+      await pinApi.delete(`/hiring/requests/${r.id}`);
+      toast.success("Request deleted");
+      load();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail) || "Couldn't delete"); }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6" data-testid="hire-staff-page">
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -76,9 +86,13 @@ export default function HireStaff() {
               <span className={`text-[11px] px-2.5 py-1 rounded-full ${r.status === "open" ? "bg-emerald-500/20 text-emerald-300" : "bg-white/10 text-white/40"}`}>
                 {r.status}
               </span>
-              {r.status === "open" && (
+              {r.status === "open" ? (
                 <button onClick={() => closeReq(r.id)} className="p-1.5 rounded-md hover:bg-white/10 text-white/40 hover:text-white" data-testid={`hire-close-${r.id}`} title="Close request">
                   <X className="w-4 h-4" />
+                </button>
+              ) : (
+                <button onClick={() => deleteReq(r)} className="p-1.5 rounded-md hover:bg-rose-500/20 text-white/40 hover:text-rose-400" data-testid={`hire-delete-${r.id}`} title="Delete (Owner PIN)">
+                  <Trash2 className="w-4 h-4" />
                 </button>
               )}
             </div>

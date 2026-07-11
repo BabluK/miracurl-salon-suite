@@ -68,12 +68,32 @@ async def my_requests(user=Depends(require_tenant_admin), t=Depends(current_tena
     return {"requests": reqs}
 
 
+async def _owner_pin_dep(request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from server import require_owner_pin  # runtime import (server loads routes at startup)
+    await require_owner_pin(request, user, t)
+    return True
+
+
 @router.post("/hiring/requests/{rid}/close")
 async def close_request(rid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     res = await _raw_db.hiring_requests.update_one(
         {"id": rid, "tenant_id": t["id"]}, {"$set": {"status": "closed", "closed_at": _now()}})
     if res.matched_count == 0:
         raise HTTPException(404, "Request not found")
+    return {"ok": True}
+
+
+@router.delete("/hiring/requests/{rid}")
+async def delete_request(rid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant),
+                         _pin=Depends(_owner_pin_dep)):
+    """Owner deletes a CLOSED hiring request (and its applications). Owner PIN protected."""
+    req = await _raw_db.hiring_requests.find_one({"id": rid, "tenant_id": t["id"]}, {"_id": 0})
+    if not req:
+        raise HTTPException(404, "Request not found")
+    if req["status"] != "closed":
+        raise HTTPException(400, "Close the request first — only closed requests can be deleted")
+    await _raw_db.hiring_requests.delete_one({"id": rid})
+    await _raw_db.job_applications.delete_many({"request_id": rid})
     return {"ok": True}
 
 
@@ -166,21 +186,49 @@ async def mark_seen(user=Depends(require_super_admin)):
     return {"ok": True}
 
 
-@router.get("/super-admin/hiring/candidates")
-async def search_candidates(q: str = "", user=Depends(require_super_admin)):
-    """Search the verified registry for candidates to propose to a salon."""
-    flt = {"$or": [{"name": {"$regex": re.escape(q), "$options": "i"}},
-                   {"city": {"$regex": re.escape(q), "$options": "i"}}]} if q.strip() else {}
-    emps = await _raw_db.registry_employees.find(flt, {"_id": 0}).sort("created_at", -1).to_list(20)
+async def _candidate_profiles(emps: list) -> list:
+    """Attach latest employment (role, salon, active/left) to each registry employee."""
+    ids = [e["id"] for e in emps]
+    emp_rows = await _raw_db.registry_employments.find(
+        {"employee_id": {"$in": ids}}, {"_id": 0}).sort("from_date", -1).to_list(2000)
+    latest: dict = {}
+    for r in emp_rows:
+        latest.setdefault(r["employee_id"], r)  # first seen = most recent from_date
     out = []
     for e in emps:
-        latest = await _raw_db.registry_employments.find_one(
-            {"employee_id": e["id"]}, {"_id": 0, "designation": 1, "salon_name": 1},
-            sort=[("created_at", -1)])
-        out.append({"employee_id": e["id"], "name": e.get("name"), "phone": e.get("phone"),
-                    "city": e.get("city") or "", "designation": (latest or {}).get("designation") or "",
-                    "last_salon": (latest or {}).get("salon_name") or ""})
-    return {"candidates": out}
+        le = latest.get(e["id"]) or {}
+        active = bool(le) and not (le.get("to_date") or "").strip()
+        out.append({
+            "employee_id": e["id"], "name": e.get("name"), "phone": e.get("phone"),
+            "city": e.get("city") or "", "designation": le.get("designation") or "",
+            "employment_status": "active" if active else "left",
+            "salon_name": le.get("salon_name") or "", "salon_tenant_id": le.get("tenant_id") or "",
+        })
+    return out
+
+
+@router.get("/super-admin/hiring/candidates")
+async def search_candidates(q: str = "", role: str = "", status: str = "all",
+                            request_id: str = "", user=Depends(require_super_admin)):
+    """Search the verified registry by name/city, filter by role + active/left status.
+    When request_id is given, the requesting salon's OWN active staff are excluded."""
+    flt = {"$or": [{"name": {"$regex": re.escape(q), "$options": "i"}},
+                   {"city": {"$regex": re.escape(q), "$options": "i"}}]} if q.strip() else {}
+    emps = await _raw_db.registry_employees.find(flt, {"_id": 0}).sort("created_at", -1).to_list(300)
+    cands = await _candidate_profiles(emps)
+    exclude_tid = ""
+    if request_id:
+        req = await _raw_db.hiring_requests.find_one({"id": request_id}, {"_id": 0, "tenant_id": 1})
+        exclude_tid = (req or {}).get("tenant_id", "")
+    if exclude_tid:
+        cands = [c for c in cands if not (c["employment_status"] == "active" and c["salon_tenant_id"] == exclude_tid)]
+    if role.strip():
+        rq = role.strip().lower()
+        cands = [c for c in cands if rq in c["designation"].lower()]
+    if status in ("active", "left"):
+        cands = [c for c in cands if c["employment_status"] == status]
+    roles = sorted({r for r in await _raw_db.registry_employments.distinct("designation") if r})
+    return {"candidates": cands[:40], "roles": roles}
 
 
 class ProposeIn(BaseModel):
@@ -198,6 +246,9 @@ async def propose_candidate(body: ProposeIn, user=Depends(require_super_admin)):
         raise HTTPException(404, "Candidate not found in registry")
     if await _raw_db.job_applications.find_one({"request_id": body.request_id, "employee_id": emp["id"]}):
         raise HTTPException(409, "This candidate is already attached to the request")
+    profile = (await _candidate_profiles([emp]))[0]
+    if profile["employment_status"] == "active" and profile["salon_tenant_id"] == req["tenant_id"]:
+        raise HTTPException(400, "This person is the salon's own ACTIVE staff — pick someone else")
     latest = await _raw_db.registry_employments.find_one(
         {"employee_id": emp["id"]}, {"_id": 0, "designation": 1}, sort=[("created_at", -1)])
     doc = {

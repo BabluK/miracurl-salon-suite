@@ -960,3 +960,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - User report: Super Admin dashboard unusable on iOS/Android. Root cause: fixed-width header (badge+NetSpeed+Sign Out forced >390px width → whole-page horizontal overflow/clipping).
 - Fix in SuperAdmin.jsx: responsive header (px-3, smaller logo/title, Super Admin badge hidden <sm, NetSpeed hidden <md, Sign Out icon-only <sm, email hidden <lg), main px-3 on mobile, root overflow-x-hidden. Referral tracking table wrapped in overflow-x-auto (min-w-560px).
 - Verified via 390x844 viewport: scrollWidth 390 = innerWidth (no overflow) on tenants + hiring tabs.
+
+## Iter 74 (11 Jul 2026) — Hiring marketplace refinements
+- DELETE /hiring/requests/{rid}: owner can delete CLOSED requests only, guarded by Owner Security PIN (reuses server.require_owner_pin via runtime import + pinApi/X-Owner-Pin on frontend). Trash button replaces X on closed requests in HireStaff.jsx.
+- Candidate picker upgrade (GET /super-admin/hiring/candidates): params role/status(all|left|active)/request_id. Employment status derived from latest registry_employment (empty to_date = active). request_id excludes the requesting salon's OWN active staff; propose endpoint also blocks them (400). Returns distinct roles for dropdown.
+- HiringPanel ProposeBox: role dropdown + All/Available(left)/Working chips + status badges (green "✓ Available · left X" / amber "Active @ X").
+- Verified via curl: PIN gate (wrong 0000→403, 4321→200), open-request delete blocked, own-staff exclusion, role/status filters. UI smoke passed.

@@ -89,13 +89,18 @@ function RequestCard({ r, onChange, closedView }) {
 
 function ProposeBox({ requestId, onDone }) {
   const [q, setQ] = useState("");
+  const [role, setRole] = useState("");
+  const [status, setStatus] = useState("all");
   const [results, setResults] = useState([]);
+  const [roles, setRoles] = useState([]);
   useEffect(() => {
     const t = setTimeout(() => {
-      api.get(`/super-admin/hiring/candidates?q=${encodeURIComponent(q)}`).then(r => setResults(r.data.candidates)).catch(() => {});
+      api.get(`/super-admin/hiring/candidates?q=${encodeURIComponent(q)}&role=${encodeURIComponent(role)}&status=${status}&request_id=${requestId}`)
+        .then(r => { setResults(r.data.candidates); setRoles(r.data.roles || []); })
+        .catch(() => {});
     }, 300);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, role, status, requestId]);
   const propose = async (eid) => {
     try {
       await api.post("/super-admin/hiring/propose", { request_id: requestId, employee_id: eid });
@@ -105,19 +110,42 @@ function ProposeBox({ requestId, onDone }) {
   };
   return (
     <div className="mt-3 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3" data-testid="hiring-propose-box">
-      <div className="flex items-center gap-2">
-        <Search className="w-4 h-4 text-slate-400" />
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search verified registry by name or city…"
-          className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-2 text-sm" data-testid="hiring-candidate-search" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search registry by name or city…"
+            className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-2 text-sm" data-testid="hiring-candidate-search" />
+        </div>
+        <select value={role} onChange={e => setRole(e.target.value)}
+          className="bg-white border border-slate-200 rounded-md px-2 py-2 text-xs" data-testid="hiring-role-filter">
+          <option value="">All roles</option>
+          {roles.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <div className="flex gap-1">
+          {[["all", "All"], ["left", "Available (left)"], ["active", "Working"]].map(([k, l]) => (
+            <button key={k} onClick={() => setStatus(k)} data-testid={`hiring-status-${k}`}
+              className={`text-[11px] px-2.5 py-1.5 rounded-full border transition ${status === k ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="mt-2 max-h-48 overflow-y-auto divide-y divide-slate-100">
+      <p className="text-[11px] text-slate-400 mt-2">This salon's own active staff are hidden automatically — propose people who left other salons or are open to move.</p>
+      <div className="mt-2 max-h-56 overflow-y-auto divide-y divide-slate-100">
         {results.map(c => (
-          <div key={c.employee_id} className="flex items-center justify-between py-2 text-sm">
-            <div>
+          <div key={c.employee_id} className="flex items-center justify-between gap-2 py-2 text-sm flex-wrap">
+            <div className="min-w-0">
               <span className="font-medium text-slate-800">{c.name}</span>
-              <span className="text-xs text-slate-500"> · {c.designation || "—"} · {c.city} {c.last_salon && `· ex-${c.last_salon}`}</span>
+              <span className="text-xs text-slate-500"> · {c.designation || "—"} · {c.city}</span>
+              <div className="mt-0.5">
+                {c.employment_status === "left" ? (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">✓ Available{c.salon_name && ` · left ${c.salon_name}`}</span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">Active @ {c.salon_name || "a salon"}</span>
+                )}
+              </div>
             </div>
-            <button onClick={() => propose(c.employee_id)} className="text-xs px-2.5 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700" data-testid={`hiring-propose-${c.employee_id}`}>
+            <button onClick={() => propose(c.employee_id)} className="text-xs px-2.5 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 shrink-0" data-testid={`hiring-propose-${c.employee_id}`}>
               Propose
             </button>
           </div>
