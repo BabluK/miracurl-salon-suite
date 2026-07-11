@@ -3,18 +3,16 @@ Two connection modes:
   device       — a salon tablet/phone runs the capture page and uploads a frame every few minutes
   snapshot_url — we poll an internet-reachable DVR/camera snapshot URL (e.g. Hikvision ISAPI)
 Frames are analyzed one-at-a-time (no video streaming — keeps the weak production CPU safe)."""
-import asyncio
 import base64
 import logging
 import uuid
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from database import db, _raw_db
+from database import _raw_db
 from security import require_tenant_admin, current_tenant
 
 router = APIRouter()

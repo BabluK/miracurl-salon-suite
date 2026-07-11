@@ -128,6 +128,28 @@ def _name_matches(given: str, registered: str) -> bool:
     return any(w in reg_tokens for w in re.split(r"\s+", (given or "").lower()) if len(w) >= 3)
 
 
+async def _find_registry_by_phone(phone: str):
+    async for e in _raw_db.registry_employees.find({}, {"_id": 0}):
+        if _norm_phone(e.get("phone", "")) == phone:
+            return e
+    return None
+
+
+async def _create_application(rid: str, req: dict, emp: dict) -> None:
+    latest_emp = await _raw_db.registry_employments.find_one(
+        {"employee_id": emp["id"]}, {"_id": 0, "designation": 1, "skills": 1},
+        sort=[("created_at", -1)])
+    await _raw_db.job_applications.insert_one({
+        "id": str(uuid.uuid4()), "request_id": rid, "tenant_id": req["tenant_id"],
+        "employee_id": emp["id"], "candidate_name": emp.get("name"),
+        "candidate_phone": emp.get("phone"), "candidate_city": emp.get("city") or "",
+        "candidate_designation": (latest_emp or {}).get("designation") or "",
+        "candidate_skills": (latest_emp or {}).get("skills") or "",
+        "status": "applied", "source": "applied", "seen_by_hq": False,
+        "created_at": _now(), "updated_at": _now(),
+    })
+
+
 @router.post("/public/jobs/{rid}/apply")
 async def apply_job(rid: str, body: JobApplyIn, request: Request):
     """Only staff already in the HQ-verified registry can apply — verified by registered
@@ -140,29 +162,11 @@ async def apply_job(rid: str, body: JobApplyIn, request: Request):
     phone = _norm_phone(body.phone)
     if len(phone) != 10:
         raise HTTPException(400, "Enter your 10-digit registered mobile number")
-    emp = None
-    async for e in _raw_db.registry_employees.find({}, {"_id": 0}):
-        if _norm_phone(e.get("phone", "")) == phone:
-            emp = e
-            break
+    emp = await _find_registry_by_phone(phone)
     # Unknown phone, name mismatch, or duplicate → same generic 200 (no enumeration signal)
-    if not emp or not _name_matches(body.name, emp.get("name", "")):
-        return {"ok": True, "message": _GENERIC_APPLY_MSG}
-    if await _raw_db.job_applications.find_one({"request_id": rid, "employee_id": emp["id"]}):
-        return {"ok": True, "message": _GENERIC_APPLY_MSG}
-    latest_emp = await _raw_db.registry_employments.find_one(
-        {"employee_id": emp["id"]}, {"_id": 0, "designation": 1, "skills": 1},
-        sort=[("created_at", -1)])
-    app_doc = {
-        "id": str(uuid.uuid4()), "request_id": rid, "tenant_id": req["tenant_id"],
-        "employee_id": emp["id"], "candidate_name": emp.get("name"),
-        "candidate_phone": emp.get("phone"), "candidate_city": emp.get("city") or "",
-        "candidate_designation": (latest_emp or {}).get("designation") or "",
-        "candidate_skills": (latest_emp or {}).get("skills") or "",
-        "status": "applied", "source": "applied", "seen_by_hq": False,
-        "created_at": _now(), "updated_at": _now(),
-    }
-    await _raw_db.job_applications.insert_one({**app_doc})
+    if emp and _name_matches(body.name, emp.get("name", "")) \
+            and not await _raw_db.job_applications.find_one({"request_id": rid, "employee_id": emp["id"]}):
+        await _create_application(rid, req, emp)
     return {"ok": True, "message": _GENERIC_APPLY_MSG}
 
 
@@ -188,35 +192,50 @@ async def mark_seen(user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+def _rating_summary(history: list) -> dict:
+    """avg rating / count / latest written review from a candidate's employment history."""
+    ratings = [float(h["rating"]) for h in history if h.get("rating")]
+    last_review = next(
+        ({"salon_name": h.get("salon_name") or "", "rating": float(h["rating"]),
+          "comment": (h.get("comment") or "")[:140]}
+         for h in history if h.get("rating") and (h.get("comment") or "").strip()), None)
+    return {"avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
+            "ratings_count": len(ratings), "last_review": last_review}
+
+
+def _profile_from(e: dict, history: list) -> dict:
+    """history is sorted newest-first; empty to_date on the latest row = currently active."""
+    le = history[0] if history else {}
+    active = bool(le) and not (le.get("to_date") or "").strip()
+    return {
+        "employee_id": e["id"], "name": e.get("name"), "phone": e.get("phone"),
+        "city": e.get("city") or "", "designation": le.get("designation") or "",
+        "employment_status": "active" if active else "left",
+        "salon_name": le.get("salon_name") or "", "salon_tenant_id": le.get("tenant_id") or "",
+        **_rating_summary(history),
+    }
+
+
 async def _candidate_profiles(emps: list) -> list:
-    """Attach latest employment (role, salon, active/left) to each registry employee."""
     ids = [e["id"] for e in emps]
     emp_rows = await _raw_db.registry_employments.find(
         {"employee_id": {"$in": ids}}, {"_id": 0}).sort("from_date", -1).to_list(2000)
-    latest: dict = {}
-    all_by_emp: dict = {}
+    by_emp: dict = {}
     for r in emp_rows:
-        latest.setdefault(r["employee_id"], r)  # first seen = most recent from_date
-        all_by_emp.setdefault(r["employee_id"], []).append(r)
-    out = []
-    for e in emps:
-        le = latest.get(e["id"]) or {}
-        active = bool(le) and not (le.get("to_date") or "").strip()
-        history = all_by_emp.get(e["id"], [])
-        ratings = [float(r["rating"]) for r in history if r.get("rating")]
-        last_review = next(
-            ({"salon_name": r.get("salon_name") or "", "rating": float(r["rating"]),
-              "comment": (r.get("comment") or "")[:140]}
-             for r in history if r.get("rating") and (r.get("comment") or "").strip()), None)
-        out.append({
-            "employee_id": e["id"], "name": e.get("name"), "phone": e.get("phone"),
-            "city": e.get("city") or "", "designation": le.get("designation") or "",
-            "employment_status": "active" if active else "left",
-            "salon_name": le.get("salon_name") or "", "salon_tenant_id": le.get("tenant_id") or "",
-            "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
-            "ratings_count": len(ratings), "last_review": last_review,
-        })
-    return out
+        by_emp.setdefault(r["employee_id"], []).append(r)
+    return [_profile_from(e, by_emp.get(e["id"], [])) for e in emps]
+
+
+def _filter_candidates(cands: list, role: str, status: str, exclude_tid: str) -> list:
+    if exclude_tid:
+        cands = [c for c in cands
+                 if not (c["employment_status"] == "active" and c["salon_tenant_id"] == exclude_tid)]
+    if role.strip():
+        rq = role.strip().lower()
+        cands = [c for c in cands if rq in c["designation"].lower()]
+    if status in ("active", "left"):
+        cands = [c for c in cands if c["employment_status"] == status]
+    return cands
 
 
 @router.get("/super-admin/hiring/candidates")
@@ -232,13 +251,7 @@ async def search_candidates(q: str = "", role: str = "", status: str = "all",
     if request_id:
         req = await _raw_db.hiring_requests.find_one({"id": request_id}, {"_id": 0, "tenant_id": 1})
         exclude_tid = (req or {}).get("tenant_id", "")
-    if exclude_tid:
-        cands = [c for c in cands if not (c["employment_status"] == "active" and c["salon_tenant_id"] == exclude_tid)]
-    if role.strip():
-        rq = role.strip().lower()
-        cands = [c for c in cands if rq in c["designation"].lower()]
-    if status in ("active", "left"):
-        cands = [c for c in cands if c["employment_status"] == status]
+    cands = _filter_candidates(cands, role, status, exclude_tid)
     roles = sorted({r for r in await _raw_db.registry_employments.distinct("designation") if r})
     return {"candidates": cands[:40], "roles": roles}
 
@@ -364,6 +377,13 @@ async def share_link(aid: str, user=Depends(require_super_admin)):
     return {"url": url, "wa_link": wa_link}
 
 
+def _serialize_history(history: list) -> list:
+    return [{"salon_name": h.get("salon_name") or "", "designation": h.get("designation") or "",
+             "from_date": h.get("from_date") or "", "to_date": h.get("to_date") or "",
+             "rating": h.get("rating"), "comment": (h.get("comment") or "")[:200],
+             "skills": h.get("skills") or []} for h in history]
+
+
 @router.get("/public/candidate/{token}")
 async def public_candidate(token: str):
     """Owner-facing profile behind an unguessable token. No phone/ID numbers exposed."""
@@ -373,18 +393,14 @@ async def public_candidate(token: str):
     emp = await _raw_db.registry_employees.find_one({"id": app_doc["employee_id"]}, {"_id": 0}) or {}
     history = await _raw_db.registry_employments.find(
         {"employee_id": app_doc["employee_id"]}, {"_id": 0}).sort("from_date", -1).to_list(20)
-    ratings = [float(h["rating"]) for h in history if h.get("rating")]
     req = await _raw_db.hiring_requests.find_one({"id": app_doc["request_id"]}, {"_id": 0}) or {}
+    summary = _rating_summary(history)
     return {
         "candidate_name": app_doc.get("candidate_name"), "city": emp.get("city") or "",
         "designation": app_doc.get("candidate_designation") or "",
         "hq_verified": any(h.get("hq_verified") for h in history),
-        "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
-        "ratings_count": len(ratings),
-        "history": [{"salon_name": h.get("salon_name") or "", "designation": h.get("designation") or "",
-                     "from_date": h.get("from_date") or "", "to_date": h.get("to_date") or "",
-                     "rating": h.get("rating"), "comment": (h.get("comment") or "")[:200],
-                     "skills": h.get("skills") or []} for h in history],
+        "avg_rating": summary["avg_rating"], "ratings_count": summary["ratings_count"],
+        "history": _serialize_history(history),
         "role": req.get("role") or "", "status": app_doc.get("status"),
         "trial_date": app_doc.get("trial_date"), "trial_time": app_doc.get("trial_time"),
         "trial_notes": app_doc.get("trial_notes"),

@@ -55,16 +55,11 @@ async def _catalog_context(t: dict) -> dict:
     }
 
 
-async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily") -> dict:
-    from routes.mira_studio import _ask_json
-    now = _today_ist()
-    day_idx = now.weekday()
-    ctx = await _catalog_context(t)
+def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint: str) -> str:
     catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in ctx["services"][:30])
     tops = ", ".join(f"{n} ({c} sold)" for n, c in ctx["top_services"]) or "no sales data yet"
     slows = ", ".join(ctx["slow_services"]) or "none"
-    wk = ctx["weekday_invoices"]
-    strategy = DAY_STRATEGY[day_idx]
+    strategy = DAY_STRATEGY[now.weekday()]
     validity = "TODAY only, valid today"
     if kind == "flash":
         strategy = ("🔴 FLASH SITUATION: CCTV shows several chairs sitting EMPTY right now. "
@@ -72,10 +67,10 @@ async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily") -> 
                     "(25-40% off or an irresistible instant combo) to pull walk-ins immediately. "
                     "Copy must feel urgent — 'next 2 hours', 'walk in now'.")
         validity = "the NEXT 2 HOURS only"
-    prompt = (
+    return (
         f"Salon: {t.get('name')}. Today is {now.strftime('%A, %d %B %Y')}, time {now.strftime('%I:%M %p')} IST.\n"
         f"Day strategy: {strategy}\n"
-        f"Last-60-days bills per weekday (Mon..Sun): {wk}\n"
+        f"Last-60-days bills per weekday (Mon..Sun): {ctx['weekday_invoices']}\n"
         f"Best sellers: {tops}\nSlow-moving services: {slows}\n"
         f"SERVICE CATALOG (real prices — never invent services):\n{catalog}\n"
         f"{retry_hint}\n"
@@ -85,12 +80,12 @@ async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily") -> 
         '"discount_pct":<int 0-40>,"services":[{"name":"<exact catalog name>","original_price":<num>,"offer_price":<num>}],'
         '"reasoning":"<2-3 sentences: why THIS offer for THIS moment, mention footfall pattern>",'
         '"whatsapp_caption":"<ready-to-post WhatsApp/Instagram caption with emojis, mention the validity window>"}')
-    system = ("You are Mira, an expert salon revenue strategist for Indian salons. You know Fri-Sat-Sun are busy "
-              "and Mon-Thu are lean, and you design day-smart offers that maximise chair occupancy AND margin.")
-    data = await _ask_json(system, prompt)
+
+
+def _offer_doc(t: dict, data: dict, now: datetime, kind: str) -> dict:
     if not data.get("title") or not isinstance(data.get("services"), list):
         raise HTTPException(400, "Mira returned an unexpected offer format — try again")
-    doc = {
+    return {
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "date": now.date().isoformat(),
         "day_name": now.strftime("%A"), "kind": kind,
         "title": str(data["title"])[:80], "offer_text": str(data.get("offer_text") or "")[:140],
@@ -103,6 +98,16 @@ async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily") -> 
         "whatsapp_caption": str(data.get("whatsapp_caption") or "")[:600],
         "status": "suggested", "created_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily") -> dict:
+    from routes.mira_studio import _ask_json
+    now = _today_ist()
+    ctx = await _catalog_context(t)
+    system = ("You are Mira, an expert salon revenue strategist for Indian salons. You know Fri-Sat-Sun are busy "
+              "and Mon-Thu are lean, and you design day-smart offers that maximise chair occupancy AND margin.")
+    data = await _ask_json(system, _build_offer_prompt(t, ctx, now, kind, retry_hint))
+    doc = _offer_doc(t, data, now, kind)
     await _raw_db.day_offers.delete_many({"tenant_id": t["id"], "date": doc["date"], "status": "suggested", "kind": kind})
     await _raw_db.day_offers.insert_one({**doc})
     return doc

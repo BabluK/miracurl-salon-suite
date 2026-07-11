@@ -984,3 +984,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - miracurl-suite.com linked (user edited Lovable DNS: 2x A @ Emergent IPs + CNAME www) & deployed; prod build 2026-07-11.2 == preview. Live checks passed (landing/login/jobs/pricing API/SSL www).
 - Replaced ALL remaining miracurlunisexsaloon.com references: fallbacks in server.py/email_service.py/id_cards.py, og:url/og:image/twitter:image in index.html, build_og_image.py.
 - NOT changed: SENDER_EMAIL=noreply@miracurlunisexsaloon.com (Resend verified on old domain — switching requires verifying miracurl-suite.com in Resend + DNS records in Lovable first).
+
+## Iter 79 (11 Jul 2026) — Code review fixes applied
+- FALSE POSITIVES verified & documented: "hardcoded secret" social_connect.py:30 is a Google OAuth scope URL (creds via env); "circular imports" are intentional lazy in-function imports (no import-time cycle, server boots clean); "36 undefined variables" — pyflakes full sweep found ZERO undefined names.
+- Real fixes: removed unused imports in cctv.py (asyncio/Optional/db). Refactored high-complexity functions with behavior-preserving extractions:
+  * hiring.py: _rating_summary, _profile_from, _filter_candidates, _find_registry_by_phone, _create_application, _serialize_history (candidates search, apply_job, public_candidate now thin).
+  * day_offers.py: _build_offer_prompt + _offer_doc extracted from _suggest_offer.
+- Regression-tested via curl: candidate search+filters+ratings, public candidate profile, public jobs, cctv latest, day-offer suggest (fresh LLM call OK).
+- DEFERRED to roadmap (older stable code, risky to churn): id_cards/receipt_email/auth/mira_studio complexity, server.py split (76 imports), type-hint coverage 24%→80%.
