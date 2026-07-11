@@ -99,17 +99,15 @@ async def delete_flyer(fid: str, user=Depends(require_tenant_admin), t=Depends(c
     return {"deleted": 1}
 
 
-def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict) -> bytes:
+def _flyer_canvas(img_bytes: bytes, tpl: dict) -> Image.Image:
+    """Cover-crop the AI background to 1024x1280 and lay a left scrim for text legibility."""
     W, H = 1024, 1280
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     scale = max(W / img.width, H / img.height)
     img = img.resize((round(img.width * scale), round(img.height * scale)))
     left, top = (img.width - W) // 2, (img.height - H) // 2
     img = img.crop((left, top, left + W, top + H)).convert("RGBA")
-    d = ImageDraw.Draw(img)
-    accent, text_col = tpl["accent"], tpl["text"]
 
-    # left scrim so text is always readable regardless of the AI background
     scrim = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     sd = ImageDraw.Draw(scrim)
     dark = tpl["text"] == (255, 255, 255)
@@ -117,9 +115,11 @@ def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict) -> bytes
     for x in range(int(W * 0.62)):
         alpha = int(215 * (1 - x / (W * 0.62)))
         sd.line([(x, 0), (x, H)], fill=(*base, alpha))
-    img = Image.alpha_composite(img, scrim)
-    d = ImageDraw.Draw(img)
+    return Image.alpha_composite(img, scrim)
 
+
+def _make_fitter(d: ImageDraw.ImageDraw):
+    """Returns fit(text, start_size, max_width) -> font that fits within max_width."""
     def _font(sz):
         try:
             return ImageFont.truetype(FONT_PATH, sz)
@@ -131,8 +131,13 @@ def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict) -> bytes
         while sz > 16 and d.textlength(text, font=_font(sz)) > maxw:
             sz -= 3
         return _font(sz)
+    return _fit
 
-    m, maxw = 56, int(W * 0.56)
+
+def _draw_flyer_copy(d: ImageDraw.ImageDraw, body: FlyerIn, tpl: dict, t: dict) -> None:
+    _fit = _make_fitter(d)
+    accent, text_col = tpl["accent"], tpl["text"]
+    m, maxw = 56, int(1024 * 0.56)
     y = 72
     salon = (t.get("name") or "Your Salon").upper()
     d.text((m, y), salon, font=_fit(salon, 40, maxw), fill=(*accent, 255))
@@ -159,9 +164,11 @@ def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict) -> bytes
         vu = f"Valid until {body.valid_until.strip()[:24]}"
         d.text((m, y), vu, font=_fit(vu, 26, maxw), fill=(*text_col, 190))
 
-    # contact bar
-    bar_h = 92
-    d.rectangle([0, H - bar_h, W, H], fill=(*accent, 255))
+
+def _draw_contact_bar(d: ImageDraw.ImageDraw, tpl: dict, t: dict) -> None:
+    W, H, m, bar_h = 1024, 1280, 56, 92
+    _fit = _make_fitter(d)
+    d.rectangle([0, H - bar_h, W, H], fill=(*tpl["accent"], 255))
     dark_txt = (25, 20, 15)
     phone = t.get("phone") or t.get("contact_phone") or ""
     addr = (t.get("address") or "")[:52]
@@ -173,6 +180,12 @@ def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict) -> bytes
         book = f"Book online: {site}/book/{slug}"
         d.text((m, H - bar_h + 54), book, font=_fit(book, 24, W - 2 * m), fill=(*dark_txt, 220))
 
+
+def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict) -> bytes:
+    img = _flyer_canvas(img_bytes, tpl)
+    d = ImageDraw.Draw(img)
+    _draw_flyer_copy(d, body, tpl, t)
+    _draw_contact_bar(d, tpl, t)
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG", quality=90)
     return buf.getvalue()

@@ -132,15 +132,7 @@ class SalonSignupIn(BaseModel):
 AFFILIATE_REWARD_INR = 1000.0  # ₹ credited to the referrer for each verified signup
 
 
-@router.post("/public/signup-salon")
-async def public_signup_salon(body: SalonSignupIn, request: Request, response: Response):
-    public_rate_limit(request, key_suffix="signup", limit=4, window_sec=900)
-
-    email = body.owner_email.lower()
-    if await db.users.find_one({"email": email}):
-        raise HTTPException(400, "An account with this email already exists")
-
-    # Resolve a unique slug
+async def _resolve_unique_slug(body: SalonSignupIn) -> str:
     base_slug = body.slug.strip().lower() if body.slug else slugify(body.salon_name)
     if not _SLUG_RE.match(base_slug):
         raise HTTPException(400, "Slug must be lowercase letters, digits or hyphens (3–40 chars)")
@@ -151,18 +143,48 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
         candidate = f"{base_slug}-{suffix}"
         if suffix > 50:
             raise HTTPException(400, "Couldn't generate a unique slug — try a different salon name")
+    return candidate
 
+
+async def _resolve_referrer(ref: Optional[str], candidate: str) -> Optional[dict]:
+    """Refer-a-salon program — silently ignore invalid/self-ref to keep signup smooth."""
+    if not ref:
+        return None
+    ref_slug = ref.strip().lower()
+    if not ref_slug or ref_slug == candidate:
+        return None
+    return await db.tenants.find_one(
+        {"slug": ref_slug, "status": {"$in": ["trial", "active"]}},
+        {"_id": 0, "id": 1, "slug": 1, "owner_email": 1, "name": 1},
+    )
+
+
+async def _record_pending_referral(referrer: dict, tenant: dict) -> None:
+    """Reward is granted only after the referred salon completes a real payment (anti-farming)."""
+    await db.affiliate_referrals.insert_one({
+        "id": str(uuid.uuid4()),
+        "referrer_tenant_id": referrer["id"],
+        "referrer_slug": referrer["slug"],
+        "referred_tenant_id": tenant["id"],
+        "referred_slug": tenant["slug"],
+        "referred_salon_name": tenant["name"],
+        "credit_amount": AFFILIATE_REWARD_INR,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@router.post("/public/signup-salon")
+async def public_signup_salon(body: SalonSignupIn, request: Request, response: Response):
+    public_rate_limit(request, key_suffix="signup", limit=4, window_sec=900)
+
+    email = body.owner_email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(400, "An account with this email already exists")
+
+    candidate = await _resolve_unique_slug(body)
     trial_end = (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).date().isoformat()
-
-    # Resolve referrer (Refer-a-salon program) — silently ignore invalid/self-ref to keep signup smooth
-    referrer = None
-    if body.ref:
-        ref_slug = body.ref.strip().lower()
-        if ref_slug and ref_slug != candidate:
-            referrer = await db.tenants.find_one(
-                {"slug": ref_slug, "status": {"$in": ["trial", "active"]}},
-                {"_id": 0, "id": 1, "slug": 1, "owner_email": 1, "name": 1},
-            )
+    referrer = await _resolve_referrer(body.ref, candidate)
 
     tenant = Tenant(
         slug=candidate,
@@ -188,20 +210,8 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     }
     await db.users.insert_one(owner)
 
-    # Record the referral as PENDING — the ₹1,000 reward is granted only after
-    # the referred salon completes a real subscription payment (anti-farming).
     if referrer:
-        await db.affiliate_referrals.insert_one({
-            "id": str(uuid.uuid4()),
-            "referrer_tenant_id": referrer["id"],
-            "referrer_slug": referrer["slug"],
-            "referred_tenant_id": tenant["id"],
-            "referred_slug": tenant["slug"],
-            "referred_salon_name": tenant["name"],
-            "credit_amount": AFFILIATE_REWARD_INR,
-            "status": "pending",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
+        await _record_pending_referral(referrer, tenant)
 
     access = make_access(owner["id"], email)
     refresh = make_refresh(owner["id"])

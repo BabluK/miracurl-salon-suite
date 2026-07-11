@@ -36,19 +36,26 @@ def _items_rows(inv: dict) -> str:
     return rows
 
 
-def _totals_rows(inv: dict) -> str:
+def _deduction_rows(inv: dict) -> str:
+    """Green minus-rows: discounts, membership, coupon, loyalty points."""
     green = "#0a8f5b"
-    totals = _money_row("Subtotal", float(inv.get("subtotal") or 0))
+    rows = ""
     if float(inv.get("discount") or 0) > 0:
-        totals += _money_row("Discount", float(inv["discount"]), sign="&minus; ", color=green)
+        rows += _money_row("Discount", float(inv["discount"]), sign="&minus; ", color=green)
     if float(inv.get("membership_discount") or 0) > 0:
-        totals += _money_row("Membership benefit", float(inv["membership_discount"]), sign="&minus; ", color=green)
+        rows += _money_row("Membership benefit", float(inv["membership_discount"]), sign="&minus; ", color=green)
     if float(inv.get("coupon_discount") or 0) > 0:
         code = html_lib.escape(inv.get("coupon_code") or "")
-        totals += _money_row(f"Coupon {code}", float(inv["coupon_discount"]), sign="&minus; ", color=green)
+        rows += _money_row(f"Coupon {code}", float(inv["coupon_discount"]), sign="&minus; ", color=green)
     if int(inv.get("points_used") or 0) > 0:
-        totals += _money_row(f"Loyalty points redeemed ({int(inv['points_used'])} pts)",
-                             float(inv["points_used"]), sign="&minus; ", color=green)
+        rows += _money_row(f"Loyalty points redeemed ({int(inv['points_used'])} pts)",
+                           float(inv["points_used"]), sign="&minus; ", color=green)
+    return rows
+
+
+def _totals_rows(inv: dict) -> str:
+    totals = _money_row("Subtotal", float(inv.get("subtotal") or 0))
+    totals += _deduction_rows(inv)
     if float(inv.get("tax") or 0) > 0:
         totals += _money_row("GST", float(inv["tax"]))
     totals += _money_row("Total Paid", float(inv.get("total") or 0), color=INK, bold=True)

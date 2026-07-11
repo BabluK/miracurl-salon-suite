@@ -345,7 +345,7 @@ class DraftReplyIn(BaseModel):
 
 @router.post("/social/google/draft-reply")
 async def google_draft_reply(body: DraftReplyIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    from routes.mira_studio import _ask
+    from routes.mira_common import _ask
     reply = await _ask(
         f"You reply to Google reviews for '{t.get('name')}', a premium Indian salon. Write ONE warm, personal, "
         "professional reply (2-3 sentences). Thank by name, address specifics, invite them back. "

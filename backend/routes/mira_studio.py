@@ -16,11 +16,10 @@ from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 from database import _raw_db
 from security import require_tenant_admin, current_tenant
-from services.storage import _put_object, APP_NAME
+from routes.mira_common import _ask, _ask_json, _gen_image
 
 router = APIRouter()
 log = logging.getLogger("mira_studio")
@@ -58,61 +57,6 @@ AGENTS = [
      "desc": "Upsell scripts, package pitches and objection handling for your team.", "needs_connection": False},
 ]
 _AGENT_KEYS = {a["key"] for a in AGENTS}
-
-
-def _key():
-    k = os.environ.get("EMERGENT_LLM_KEY")
-    if not k:
-        raise HTTPException(500, "AI key not configured")
-    return k
-
-
-async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session: str = "") -> str:
-    chat = LlmChat(
-        api_key=_key(),
-        session_id=session or f"mira-studio-{uuid.uuid4().hex[:10]}",
-        system_message=system,
-    ).with_model("openai", model)
-    resp = await chat.send_message(UserMessage(text=prompt))
-    return (resp or "").strip()
-
-
-async def _ask_json(system: str, prompt: str) -> dict:
-    raw = await _ask(system + " Reply with ONLY valid minified JSON, no markdown, no prose.", prompt)
-    raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        start, end = raw.find("{"), raw.rfind("}")
-        if start >= 0 and end > start:
-            return json.loads(raw[start:end + 1])
-        raise HTTPException(400, "AI returned an unexpected format — please try again")
-
-
-async def _gen_image(prompt: str, t: dict, kind: str) -> str:
-    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-    gen = OpenAIImageGeneration(api_key=_key())
-    try:
-        images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
-    except Exception as e:
-        log.error("image gen failed: %s", e)
-        return ""
-    if not images:
-        return ""
-    fid = str(uuid.uuid4())
-    path = f"{APP_NAME}/{t['id']}/mira-studio/{kind}/{fid}.png"
-    try:
-        result = _put_object(path, images[0], "image/png")
-    except Exception as e:
-        log.error("storage failed: %s", e)
-        return ""
-    await _raw_db.uploads.insert_one({
-        "id": fid, "tenant_id": t["id"], "kind": f"mira_studio_{kind}",
-        "storage_path": result.get("path", path), "original_filename": f"{fid}.png",
-        "content_type": "image/png", "size": len(images[0]), "uploaded_by": "mira_studio",
-        "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    return f"/api/files/{fid}"
 
 
 # ── Connection status ──────────────────────────────────────────────────────
@@ -270,7 +214,7 @@ class CampaignSendIn(BaseModel):
 @router.post("/mira-studio/email-campaign/send")
 async def campaign_send(body: CampaignSendIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from email_service import marketing_email_html, _send_email
-    from routes.mira_autopilot import _find_winback_leads
+    from routes.mira_autopilot import _find_winback_leads  # runtime import: autopilot pulls email_service at module load
     if not body.subject.strip() or not body.body.strip():
         raise HTTPException(400, "Subject and body are required")
     if body.audience == "winback":

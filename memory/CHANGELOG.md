@@ -1004,3 +1004,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Added /salon/:slug route in App.js → SalonPublic.jsx (dark luxe SEO page: name, avg rating, services by category, reviews, Book Now → /book/{slug}). Backend: GET /api/public/salon-page/{slug}, GET /api/public/sitemap-salons.xml.
 - Testing agent iteration_64: 100% backend (5/5 pytest) + 100% frontend incl. regression on Tenants/Billing/Inbox/Hiring tabs.
 - Deferred idea (tester note): POST mark-seen endpoint so notifications badge clears from the panel itself (currently clears when source panels are opened).
+
+## Iter 82 (11 Jul 2026) — Code review round 2: circular import properly eliminated + complexity refactors
+- NEW routes/mira_common.py: _key/_ask/_ask_json/_gen_image moved out of mira_studio. mira_autopilot & social_connect now import from mira_common (top-level, no lazy imports needed). mira_studio → mira_autopilot import chain is now acyclic.
+- Refactored (behavior-preserving, radon verified): _compose_flyer 18→1 (helpers _flyer_canvas/_draw_flyer_copy/_draw_contact_bar/_make_fitter), hq_id_card 14→3, _totals_rows 14→5, public_signup_salon 11→4, _platform_digest_html →3.
+- FALSE POSITIVES re-verified: social_connect.py:30 "secret" is a Google OAuth scope URL; pyflakes reports ZERO undefined names.
+- DEFERRED again: server.py further split (risky churn), type hints in test files (low value).
+- Regression: signup+referral e2e (test tenant cleaned), HQ ID card PDF 200, mira agents/autopilot endpoints, flyer/receipt/digest pure-function tests all pass. Build bumped to 2026-07-11.4.

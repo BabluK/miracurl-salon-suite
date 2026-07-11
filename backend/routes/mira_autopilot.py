@@ -21,9 +21,8 @@ from pydantic import BaseModel
 from database import _raw_db
 from security import require_tenant_admin, current_tenant
 from email_service import _send_email, marketing_email_html
-
-# NOTE: routes.mira_studio / routes.social_connect are imported lazily inside
-# functions to avoid a circular import (mira_studio also imports from this module).
+from routes.mira_common import _ask_json, _gen_image
+from routes.social_connect import _conn, publish_content
 
 router = APIRouter()
 log = logging.getLogger("mira_autopilot")
@@ -97,7 +96,6 @@ async def run_autopilot_for_tenant(t: dict, force: bool = False) -> dict:
         return {"skipped": "already ran today", **{k: existing.get(k) for k in ("post_created", "posted_live", "emails_sent", "wa_leads")}}
 
     summary = {"post_created": False, "posted_live": False, "emails_sent": 0, "wa_leads": 0, "errors": []}
-    from routes.social_connect import _conn
     conn = await _conn(tid)
     connected = [p for p in ("instagram", "facebook") if conn.get(p)]
 
@@ -129,7 +127,6 @@ async def run_autopilot_for_tenant(t: dict, force: bool = False) -> dict:
 
 async def _ensure_today_post(t: dict, today: str) -> dict:
     """Return today's calendar post, creating one via LLM + image gen if missing."""
-    from routes.mira_studio import _ask_json, _gen_image
     existing = await _raw_db.content_calendar.find_one(
         {"tenant_id": t["id"], "date": today, "status": {"$in": ["approved", "posted"]}}, {"_id": 0})
     if existing:
@@ -157,7 +154,6 @@ async def _ensure_today_post(t: dict, today: str) -> dict:
 
 async def _publish_post_live(t: dict, item: dict, connected: list[str]) -> bool:
     """Push the post to the connected Meta pages; returns True if any platform accepted it."""
-    from routes.social_connect import publish_content
     base = os.environ.get("APP_PUBLIC_URL", "")
     image_abs = item["image_url"] if item["image_url"].startswith("http") else f"{base}{item['image_url']}"
     caption = f"{item['caption']}\n\n{' '.join(item.get('hashtags') or [])}".strip()
@@ -179,7 +175,6 @@ async def _create_daily_post(t: dict, today: str, connected: list[str]) -> dict:
 
 
 async def _run_lead_machine(t: dict, cfg: dict) -> tuple[int, list[dict]]:
-    from routes.mira_studio import _ask_json
     leads = await _find_winback_leads(t["id"], cfg["winback_days"])
     if not leads:
         return 0, []

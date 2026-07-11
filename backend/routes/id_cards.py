@@ -84,6 +84,29 @@ async def staff_id_card(sid: str, admin=Depends(require_tenant_admin), t=Depends
     return _card_response(pdf_bytes, s["name"])
 
 
+def _miracurl_logo_bytes() -> bytes | None:
+    try:
+        with open(_MIRACURL_LOGO, "rb") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def _hq_card_data(emp: dict, rec: dict, photo, logo) -> dict:
+    email = (emp.get("email") or "").strip()
+    return {
+        "name": emp["name"], "role": rec.get("designation") or "Stylist",
+        "id_number": emp["staff_code"],
+        "email": email or None,
+        "phone": None if email else (emp.get("phone") or None),
+        "blood_group": None,
+        "photo_bytes": photo, "logo_bytes": logo,
+        "brand_name": "Miracurl",
+        "website": f"{_site_host()}/staff-registry",
+        "qr_url": _verify_qr_url(emp.get("phone") or "", emp.get("staff_code") or "", emp.get("name") or ""),
+    }
+
+
 @router.get("/super/id-cards/{eid}/pdf")
 async def hq_id_card(eid: str, admin=Depends(require_super_admin)):
     emp = await _raw_db.registry_employees.find_one({"id": eid}, {"_id": 0, "aadhaar_hash": 0})
@@ -94,23 +117,7 @@ async def hq_id_card(eid: str, admin=Depends(require_super_admin)):
     if not rec:
         raise HTTPException(404, "No HQ-verified record for this staff")
     photo = await _img_bytes(emp.get("photo_url"))
-    logo = None
-    try:
-        with open(_MIRACURL_LOGO, "rb") as f:
-            logo = f.read()
-    except Exception:
-        logo = None
-    data = {
-        "name": emp["name"], "role": rec.get("designation") or "Stylist",
-        "id_number": emp["staff_code"],
-        "email": (emp.get("email") or "").strip() or None,
-        "phone": None if (emp.get("email") or "").strip() else (emp.get("phone") or None),
-        "blood_group": None,
-        "photo_bytes": photo, "logo_bytes": logo,
-        "brand_name": "Miracurl",
-        "website": f"{_site_host()}/staff-registry",
-        "qr_url": _verify_qr_url(emp.get("phone") or "", emp.get("staff_code") or "", emp.get("name") or ""),
-    }
+    data = _hq_card_data(emp, rec, photo, _miracurl_logo_bytes())
     pdf_bytes = await asyncio.to_thread(_render_id_card_pdf, data)
     return _card_response(pdf_bytes, emp["name"])
 

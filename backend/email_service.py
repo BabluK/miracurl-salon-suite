@@ -408,25 +408,30 @@ def _lead_alert_email_html(inq: dict, question: str) -> str:
 </td></tr></table>"""
 
 
+def _digest_section(title: str, rows: str) -> str:
+    if not rows:
+        return ""
+    return (f'<tr><td style="padding:6px 36px 4px"><h3 style="font-size:13px;color:#a08a4b;margin:14px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">{title}</h3>'
+            f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{rows}</table></td></tr>')
+
+
+def _digest_row(left: str, right: str, right_color: str = "#55555f") -> str:
+    return (f'<tr><td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">{left}</td>'
+            f'<td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:{right_color};font-size:12px;text-align:right;font-family:Arial,sans-serif">{right}</td></tr>')
+
+
 def _platform_digest_html(stats: dict) -> str:
     def _stat(label, value, color="#2b2b33"):
         return (f'<td style="background:#faf6ec;border:1px solid #ecdfc0;border-radius:12px;padding:14px 8px;text-align:center">'
                 f'<div style="font-size:10px;color:#a08a4b;text-transform:uppercase;letter-spacing:2px;font-family:Arial,sans-serif">{label}</div>'
                 f'<div style="font-size:20px;color:{color};font-weight:bold;margin-top:5px;font-family:Georgia,serif">{value}</div></td>')
 
-    trials = ""
-    for t in stats.get("expiring_trials", []):
-        trials += (f'<tr><td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">⏳ {html_lib.escape(t["name"])}</td>'
-                   f'<td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#b45309;font-size:12px;text-align:right;font-family:Arial,sans-serif">expires {t["ends"]}</td></tr>')
-    trials_block = (f'<tr><td style="padding:6px 36px 4px"><h3 style="font-size:13px;color:#a08a4b;margin:14px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">⏳ Trials expiring this week</h3>'
-                    f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{trials}</table></td></tr>') if trials else ""
-
-    leads = ""
-    for ld in stats.get("recent_leads", [])[:5]:
-        leads += (f'<tr><td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:13px;font-family:Arial,sans-serif">🔥 {html_lib.escape(ld["name"])}</td>'
-                  f'<td style="padding:8px 16px;border-bottom:1px solid #f1e8d8;color:#55555f;font-size:12px;text-align:right;font-family:Arial,sans-serif">{html_lib.escape(ld["phone"])}</td></tr>')
-    leads_block = (f'<tr><td style="padding:6px 36px 4px"><h3 style="font-size:13px;color:#a08a4b;margin:14px 0 8px;font-family:Arial,sans-serif;letter-spacing:2px;text-transform:uppercase">🔥 New leads (last 7 days)</h3>'
-                   f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{leads}</table></td></tr>') if leads else ""
+    trials = "".join(_digest_row(f'⏳ {html_lib.escape(t["name"])}', f'expires {t["ends"]}', "#b45309")
+                     for t in stats.get("expiring_trials", []))
+    leads = "".join(_digest_row(f'🔥 {html_lib.escape(ld["name"])}', html_lib.escape(ld["phone"]))
+                    for ld in stats.get("recent_leads", [])[:5])
+    trials_block = _digest_section("⏳ Trials expiring this week", trials)
+    leads_block = _digest_section("🔥 New leads (last 7 days)", leads)
 
     return f"""
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
