@@ -12,6 +12,7 @@ import { setTenantSlug, formatApiError } from "@/lib/api";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const TOASTER_OPTIONS = { style: { background: "#fff", color: "#0f172a", border: "1px solid rgba(14,165,233,0.2)" } };
 const STEP_LABELS = ["Salon", "Owner", "Location", "Confirm"];
+const kFmt = (n) => (n >= 1000 && n % 1000 === 0 ? `₹${n / 1000}K` : `₹${Number(n).toLocaleString("en-IN")}`);
 
 function slugify(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
@@ -24,6 +25,10 @@ export default function SignupSalon() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [catalog, setCatalog] = useState(null);
+  useEffect(() => {
+    axios.get(`${BACKEND_URL}/api/public/plans`).then(r => setCatalog(r.data)).catch(() => {});
+  }, []);
   const [form, setForm] = useState({
     salon_name: "",
     slug: "",
@@ -156,7 +161,7 @@ export default function SignupSalon() {
             <LocationStep form={form} update={update} />
           )}
           {step === 3 && (
-            <ReviewStep form={form} previewUrl={previewUrl} />
+            <ReviewStep form={form} previewUrl={previewUrl} catalog={catalog} />
           )}
 
           {err && (
@@ -202,8 +207,8 @@ export default function SignupSalon() {
           {[
             { v: "₹0", l: "Trial cost" },
             { v: "7 days", l: "Free trial" },
-            { v: "₹10K", l: "6-month plan" },
-            { v: "₹20K", l: "Annual plan" },
+            { v: catalog?.half_year?.price ? kFmt(catalog.half_year.price) : "—", l: "6-month plan" },
+            { v: catalog?.annual?.price ? kFmt(catalog.annual.price) : "—", l: "Annual plan" },
           ].map(c => (
             <div key={c.l} className="bg-white/70 backdrop-blur-sm rounded-lg border border-slate-200 px-3 py-3">
               <div className="text-lg font-bold text-slate-800">{c.v}</div>
@@ -334,7 +339,7 @@ function LocationStep({ form, update }) {
   );
 }
 
-function ReviewStep({ form, previewUrl }) {
+function ReviewStep({ form, previewUrl, catalog }) {
   const rows = [
     { label: "Salon", value: form.salon_name },
     { label: "Booking URL", value: previewUrl, mono: true },
@@ -358,7 +363,7 @@ function ReviewStep({ form, previewUrl }) {
       </div>
       <div className="text-xs text-slate-500 flex items-start gap-2">
         <Sparkles className="w-3.5 h-3.5 text-sky-500 mt-0.5 flex-shrink-0" />
-        <span>After your trial, choose ₹10,000 / 6 months or ₹20,000 / 1 year. We&apos;ll send payment instructions via WhatsApp before the trial expires.</span>
+        <span>After your trial, choose {catalog?.half_year?.price ? `₹${Number(catalog.half_year.price).toLocaleString("en-IN")}` : "a 6-month"} / 6 months or {catalog?.annual?.price ? `₹${Number(catalog.annual.price).toLocaleString("en-IN")}` : "an annual"} / 1 year. We&apos;ll send payment instructions via WhatsApp before the trial expires.</span>
       </div>
     </div>
   );

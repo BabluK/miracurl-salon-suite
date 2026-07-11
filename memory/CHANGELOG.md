@@ -1022,3 +1022,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 ## Iter 84 (11 Jul 2026) — Neon 3D software-flow timeline on landing page
 - New SoftwareFlowSection.jsx (7 steps: signup → services/staff → go live → Mira bookings → POS → marketing auto-pilot → revenue), styled after user's reference image: neon-bordered glass cards, per-step accent colors, glowing center spine + pulsing dots, staggered 3D entrance (IntersectionObserver) and hover tilt. CSS in index.css (.flow-*). Inserted between Features and Testimonials in Landing.jsx.
 - Screenshot-verified: all 7 steps render with glow + spine. Build 2026-07-11.6.
+
+## Iter 85 (11 Jul 2026) — Live signup pricing + Super Admin orbital Platform Map + backdrop boost
+- SignupSalon.jsx: pricing chips & confirm-step sentence now fetch /api/public/plans (was hardcoded ₹10K/₹20K; catalog says ₹12K half-year). Verified via screenshot: shows ₹12K live.
+- New PlatformOrbitMap.jsx + "Platform Map" tab in Super Admin: 12 module nodes on 2 counter-rotating orbit rings around Miracurl HQ hub (CSS: .orbit-* in index.css; carrier rotate → arm translate → node counter-rotate keeps labels upright). Clickable nodes jump to tabs. Screenshot-verified: 12 nodes render.
+- Super3DBackdrop boosted (user couldn't see it): stronger orbs (opacity .85, multiply blend), brighter rings w/ glow, bigger sparkles w/ drop-shadow. NOTE: user's production is on build .2 — must Deploy.
+- Google Rich Results test PASSED on miracurl-suite.com (1 valid item). Build 2026-07-11.7.

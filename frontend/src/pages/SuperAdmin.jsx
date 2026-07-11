@@ -31,7 +31,8 @@ import { DiagnoseTenantModal } from "@/components/superadmin/DiagnoseTenantModal
 import { HiringPanel } from "@/components/superadmin/HiringPanel";
 import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
 import { Super3DBackdrop } from "@/components/superadmin/Super3DBackdrop";
-import { BellRing } from "lucide-react";
+import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
+import { BellRing, Orbit } from "lucide-react";
 import { BadgeCheck, Rocket } from "lucide-react";
 import { Briefcase } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
@@ -274,6 +275,7 @@ export default function SuperAdmin() {
             {[
               { id: "tenants", label: "Tenants", icon: Building2 },
               { id: "notifications", label: "Notifications", icon: BellRing, badge: notifFeed?.unread || 0 },
+              { id: "platform-map", label: "Platform Map", icon: Orbit },
               { id: "billing", label: "Billing & Subscriptions", icon: Receipt },
               { id: "partners", label: "Partners", icon: Handshake },
               { id: "leaderboard", label: "Top Referrers", icon: Trophy },
@@ -308,6 +310,7 @@ export default function SuperAdmin() {
         {(() => {
           const panels = {
             notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} />,
+            "platform-map": <PlatformOrbitMap onGoTab={setTab} />,
             billing: <BillingPanel tenants={tenants} />,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,

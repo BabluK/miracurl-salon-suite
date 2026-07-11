@@ -583,3 +583,50 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   0%, 100% { opacity: .55; transform: translateX(-50%) scale(1); }
   50%      { opacity: 1;  transform: translateX(-50%) scale(1.5); }
 }
+
+/* ── Super Admin: orbiting platform map ─────────────────────── */
+.orbit-stage { position: relative; width: min(560px, 92vw); height: min(560px, 92vw); }
+.orbit-hub {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 118px; height: 118px; border-radius: 9999px; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 35% 30%, #2a2438, #14121c 70%);
+  border: 1.5px solid rgba(212, 175, 55, 0.5);
+  box-shadow: 0 0 40px rgba(212, 175, 55, 0.25), inset 0 0 30px rgba(212, 175, 55, 0.08);
+  animation: hubPulse 4s ease-in-out infinite;
+}
+@keyframes hubPulse {
+  0%, 100% { box-shadow: 0 0 30px rgba(212,175,55,.2), inset 0 0 30px rgba(212,175,55,.08); }
+  50%      { box-shadow: 0 0 55px rgba(212,175,55,.45), inset 0 0 30px rgba(212,175,55,.15); }
+}
+.orbit-ring {
+  position: absolute; left: 50%; top: 50%; border-radius: 9999px;
+  transform: translate(-50%, -50%); border: 1px dashed rgba(148, 163, 184, 0.25);
+}
+.orbit-ring-1 { width: 66%; height: 66%; }
+.orbit-ring-2 { width: 96%; height: 96%; border-color: rgba(148, 163, 184, 0.18); }
+.orbit-carrier {
+  position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 2;
+  animation: orbitSpin 40s linear infinite;
+}
+.orbit-inner { animation-duration: 28s; animation-direction: reverse; }
+.orbit-arm {
+  position: absolute; top: 0; left: 0;
+  transform: translate(-50%, -50%) translateY(calc(min(560px, 92vw) * -0.46));
+}
+.orbit-inner .orbit-arm { transform: translate(-50%, -50%) translateY(calc(min(560px, 92vw) * -0.30)); }
+/* counter-rotate the node about its own centre so labels stay upright */
+.orbit-carrier .orbit-node { animation: orbitCounter 40s linear infinite; }
+.orbit-inner .orbit-node { animation-duration: 28s; animation-direction: reverse; }
+@keyframes orbitSpin  { from { transform: rotate(var(--angle)); } to { transform: rotate(calc(var(--angle) + 360deg)); } }
+@keyframes orbitCounter { from { rotate: calc(-1 * var(--angle)); } to { rotate: calc(-360deg - var(--angle)); } }
+.orbit-node {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 12px; border-radius: 14px; border: 1px solid;
+  background: rgba(13, 13, 20, 0.94); backdrop-filter: blur(6px);
+  transition: scale .25s ease, box-shadow .25s ease;
+}
+.orbit-node:hover { scale: 1.15; z-index: 5; }
+@media (prefers-reduced-motion: reduce) {
+  .orbit-carrier, .orbit-carrier .orbit-node { animation: none; }
+}
