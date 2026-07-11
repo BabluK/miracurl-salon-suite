@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Briefcase, Search, Send, UserPlus, CalendarClock } from "lucide-react";
+import { Briefcase, Search, Send, UserPlus, CalendarClock, Share2 } from "lucide-react";
 
 const STATUS_CHIP = {
   applied: "bg-slate-100 text-slate-600",
@@ -177,6 +177,14 @@ function ApplicationRow({ a, onChange }) {
       onChange();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update"); }
   };
+  const shareProfile = async () => {
+    try {
+      const { data } = await api.post(`/super-admin/hiring/applications/${a.id}/share-link`);
+      try { await navigator.clipboard.writeText(data.url); } catch { /* clipboard blocked */ }
+      if (data.wa_link) window.open(data.wa_link, "_blank", "noopener,noreferrer");
+      toast.success("Profile link copied" + (data.wa_link ? " — WhatsApp opened" : ""));
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't create link"); }
+  };
   const waLink = () => {
     const num = (a.candidate_phone || "").replace(/\D/g, "");
     const text = `Hi ${a.candidate_name} ✦ Miracurl HQ here. Your salon trial is scheduled on ${a.trial_date} at ${a.trial_time}. ${a.trial_notes || ""} Reply to confirm. — Team Miracurl`;
@@ -192,6 +200,12 @@ function ApplicationRow({ a, onChange }) {
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${STATUS_CHIP[a.status]}`}>{a.status.replace("_", " ")}</span>
+          {a.owner_confirmed && <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold" data-testid={`hiring-owner-confirmed-${a.id}`}>✓ owner confirmed</span>}
+          {["shortlisted", "trial_scheduled"].includes(a.status) && (
+            <button onClick={shareProfile} className="text-xs px-2 py-1 rounded-md bg-violet-600 text-white hover:bg-violet-700 inline-flex items-center gap-1" data-testid={`hiring-share-${a.id}`} title="Share verified profile with the salon owner">
+              <Share2 className="w-3 h-3" /> Share
+            </button>
+          )}
           {a.status === "applied" && (
             <button onClick={() => patch({ status: "shortlisted" })} className="text-xs px-2 py-1 rounded-md bg-sky-600 text-white hover:bg-sky-700" data-testid={`hiring-shortlist-${a.id}`}>Shortlist</button>
           )}

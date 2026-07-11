@@ -371,7 +371,7 @@ async def engineer_chat(body: SuperAiChatIn, user=Depends(require_super_admin)):
         api_key=key, session_id=f"{sid}-{uuid.uuid4().hex[:8]}",
         system_message=(
             "You are 'Hub Engineer' — the 24/7 AI system engineer who watches over hair-hub-system (Miracurl), "
-            "a FastAPI + MongoDB + React multi-tenant salon SaaS deployed at miracurlunisexsaloon.com. "
+            "a FastAPI + MongoDB + React multi-tenant salon SaaS deployed at miracurl-suite.com. "
             "You diagnose issues, plan enhancements, and maintain the dev-ticket queue for the platform owner.\n"
             "IMPORTANT HONESTY RULE: you analyse and prepare fixes/specs, but code changes are implemented in the "
             "Emergent workspace and go live when the owner clicks Redeploy — never claim you already changed production.\n"

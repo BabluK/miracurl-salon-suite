@@ -43,6 +43,7 @@ import CctvAnalytics from "@/pages/CctvAnalytics";
 import CctvCapture from "@/pages/CctvCapture";
 import HireStaff from "@/pages/HireStaff";
 import JobsBoard from "@/pages/JobsBoard";
+import CandidateProfile from "@/pages/CandidateProfile";
 import StaffRegistry from "@/pages/StaffRegistry";
 import RegistryPublic from "@/pages/RegistryPublic";
 import Partners from "@/pages/Partners";
@@ -165,6 +166,7 @@ export default function App() {
             </Route>
             <Route path="/cctv-capture" element={<Protected><OwnerOnly><CctvCapture /></OwnerOnly></Protected>} />
             <Route path="/jobs" element={<JobsBoard />} />
+            <Route path="/candidate/:token" element={<CandidateProfile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </PlayerProvider>

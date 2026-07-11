@@ -970,3 +970,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 ## Iter 75 (11 Jul 2026) — Domain prep + candidate ratings
 - Added https://miracurl-suite.com to default CORS_ORIGINS (user bought new domain; Emergent supports 1 custom domain per deployment — user advised replace or 2nd deployment slot; APP_PUBLIC_URL env change pending if they switch primary domain).
 - Propose list now shows ⭐ avg rating (+count) and latest review snippet per candidate (computed in _candidate_profiles from registry_employments rating/comment). Verified: Ravi Test Kumar ⭐4.5 (2) w/ review.
+
+## Iter 76 (11 Jul 2026) — Primary domain switch + shareable candidate profiles
+- Primary domain → https://miracurl-suite.com: backend/.env APP_PUBLIC_URL updated (email links, QR, pay links now use it); api.js wildcard subdomains include .miracurl-suite.com; promo watermark + AI prompts updated. Old domains kept in CORS.
+- Shareable candidate profile: POST /super-admin/hiring/applications/{aid}/share-link (share_token capability URL + prefilled WA msg to salon owner), GET /public/candidate/{token} (name/city/role/avg rating/HQ-verified/work history — NO phone/ID exposed), POST .../confirm-trial (rate-limited; sets owner_confirmed, resets seen_by_hq). Frontend: /candidate/:token page (CandidateProfile.jsx, dark luxe, one-tap confirm), Share button (violet) + "✓ owner confirmed" chip in HiringPanel.
+- Verified: share link, WA text, profile (no phone leak), confirm flow, 404 bad token, page renders confirmed state.

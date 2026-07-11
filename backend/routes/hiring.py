@@ -1,6 +1,8 @@
 """Staff Hiring Marketplace — salon owners post hiring requests, HQ curates as middleman,
 HQ-verified registry staff apply from a public jobs board (salon name hidden until shortlisted)."""
+import os
 import re
+import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -299,3 +301,72 @@ async def update_application(aid: str, body: AppUpdateIn, user=Depends(require_s
             {"id": app_doc["request_id"]}, {"$set": {"status": "closed", "closed_at": _now(),
                                                      "closed_reason": "hired"}})
     return {**app_doc, **patch}
+
+
+# ─────────── Shareable candidate profile (HQ → salon owner via WhatsApp) ───────────
+
+@router.post("/super-admin/hiring/applications/{aid}/share-link")
+async def share_link(aid: str, user=Depends(require_super_admin)):
+    """Capability URL: verified work history + ratings, with one-tap trial confirm for the owner."""
+    app_doc = await _raw_db.job_applications.find_one({"id": aid}, {"_id": 0})
+    if not app_doc:
+        raise HTTPException(404, "Application not found")
+    token = app_doc.get("share_token")
+    if not token:
+        token = secrets.token_urlsafe(18)
+        await _raw_db.job_applications.update_one({"id": aid}, {"$set": {"share_token": token}})
+    url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/candidate/{token}"
+    req = await _raw_db.hiring_requests.find_one({"id": app_doc["request_id"]}, {"_id": 0}) or {}
+    tenant = await db.tenants.find_one({"id": req.get("tenant_id", "")},
+                                       {"_id": 0, "whatsapp_number": 1, "phone": 1, "name": 1}) or {}
+    num = re.sub(r"\D", "", tenant.get("whatsapp_number") or tenant.get("phone") or "")
+    wa_link = None
+    if num:
+        from urllib.parse import quote
+        trial = (f" Trial proposed: {app_doc.get('trial_date')} at {app_doc.get('trial_time')}."
+                 if app_doc.get("trial_date") else "")
+        text = (f"Hi {tenant.get('name', '')} ✦ Miracurl HQ here. For your *{req.get('role', 'staff')}* opening, "
+                f"we shortlisted *{app_doc.get('candidate_name')}* ({app_doc.get('candidate_designation') or 'verified professional'})."
+                f"{trial} See their verified work history & ratings, and confirm in one tap: {url}")
+        wa_link = f"https://wa.me/{'91' + num if len(num) == 10 else num}?text={quote(text)}"
+    return {"url": url, "wa_link": wa_link}
+
+
+@router.get("/public/candidate/{token}")
+async def public_candidate(token: str):
+    """Owner-facing profile behind an unguessable token. No phone/ID numbers exposed."""
+    app_doc = await _raw_db.job_applications.find_one({"share_token": token}, {"_id": 0})
+    if not app_doc:
+        raise HTTPException(404, "Profile link expired or invalid")
+    emp = await _raw_db.registry_employees.find_one({"id": app_doc["employee_id"]}, {"_id": 0}) or {}
+    history = await _raw_db.registry_employments.find(
+        {"employee_id": app_doc["employee_id"]}, {"_id": 0}).sort("from_date", -1).to_list(20)
+    ratings = [float(h["rating"]) for h in history if h.get("rating")]
+    req = await _raw_db.hiring_requests.find_one({"id": app_doc["request_id"]}, {"_id": 0}) or {}
+    return {
+        "candidate_name": app_doc.get("candidate_name"), "city": emp.get("city") or "",
+        "designation": app_doc.get("candidate_designation") or "",
+        "hq_verified": any(h.get("hq_verified") for h in history),
+        "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
+        "ratings_count": len(ratings),
+        "history": [{"salon_name": h.get("salon_name") or "", "designation": h.get("designation") or "",
+                     "from_date": h.get("from_date") or "", "to_date": h.get("to_date") or "",
+                     "rating": h.get("rating"), "comment": (h.get("comment") or "")[:200],
+                     "skills": h.get("skills") or []} for h in history],
+        "role": req.get("role") or "", "status": app_doc.get("status"),
+        "trial_date": app_doc.get("trial_date"), "trial_time": app_doc.get("trial_time"),
+        "trial_notes": app_doc.get("trial_notes"),
+        "owner_confirmed": bool(app_doc.get("owner_confirmed")),
+    }
+
+
+@router.post("/public/candidate/{token}/confirm-trial")
+async def confirm_trial(token: str, request: Request):
+    public_rate_limit(request, key_suffix="candconfirm", limit=20, window_sec=3600)
+    app_doc = await _raw_db.job_applications.find_one({"share_token": token}, {"_id": 0})
+    if not app_doc:
+        raise HTTPException(404, "Profile link expired or invalid")
+    await _raw_db.job_applications.update_one(
+        {"id": app_doc["id"]},
+        {"$set": {"owner_confirmed": True, "owner_confirmed_at": _now(), "seen_by_hq": False}})
+    return {"ok": True, "message": "Confirmed! Miracurl HQ will finalise the trial with the candidate."}

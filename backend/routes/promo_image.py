@@ -168,7 +168,7 @@ def _compose_poster(img_bytes: bytes, headline: str, subline: str, tw: int, th: 
         contact_text = f"Inquiry: {contact.strip()[:70]}"
         contact_font = _fit_font(contact_text, int(w * 0.026), w - 2 * margin)
         d.text((margin, y), contact_text, font=contact_font, fill=(255, 255, 255, 220))
-    d.text((margin, h - int(w * 0.024) - 30), "miracurlunisexsaloon.com/partner",
+    d.text((margin, h - int(w * 0.024) - 30), "miracurl-suite.com/partner",
            font=url_font, fill=(210, 175, 130, 220))
 
     buf = io.BytesIO()

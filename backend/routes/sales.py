@@ -20,7 +20,7 @@ _SALES_SESSIONS: dict = {}
 
 _SALES_SYSTEM_PROMPT = (
     "You are Mira, the friendly AI sales assistant on the Miracurl Salon Suite website "
-    "(miracurlunisexsaloon.com). You help salon owners understand the product and choose a plan. "
+    "(miracurl-suite.com). You help salon owners understand the product and choose a plan. "
     "PRODUCT KNOWLEDGE — Miracurl is an all-in-one salon management suite built for Indian salons: "
     "• Appointments & 24/7 online booking page (each salon gets its own /book link + QR poster) "
     "• POS billing with GST invoices, thermal-printer receipts with Google-review QR codes, packages, memberships "
