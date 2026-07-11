@@ -300,7 +300,39 @@ async def update_application(aid: str, body: AppUpdateIn, user=Depends(require_s
         await _raw_db.hiring_requests.update_one(
             {"id": app_doc["request_id"]}, {"$set": {"status": "closed", "closed_at": _now(),
                                                      "closed_reason": "hired"}})
+        req = await _raw_db.hiring_requests.find_one({"id": app_doc["request_id"]}, {"_id": 0}) or {}
+        if not await _raw_db.placement_fees.find_one({"application_id": aid}):
+            await _raw_db.placement_fees.insert_one({
+                "id": str(uuid.uuid4()), "application_id": aid, "request_id": app_doc["request_id"],
+                "tenant_id": req.get("tenant_id", ""), "salon_name": req.get("salon_name", ""),
+                "slug": req.get("slug", ""), "candidate_name": app_doc.get("candidate_name"),
+                "role": req.get("role", ""), "amount": PLACEMENT_FEE_INR,
+                "status": "due", "created_at": _now()})
     return {**app_doc, **patch}
+
+
+# ─────────── Placement fees (HQ charges ₹1,000 per successful hire) ───────────
+PLACEMENT_FEE_INR = 1000.0
+
+
+@router.get("/super-admin/hiring/placement-fees")
+async def placement_fees(user=Depends(require_super_admin)):
+    rows = await _raw_db.placement_fees.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
+    month = datetime.now(timezone.utc).strftime("%Y-%m")
+    return {"items": rows, "fee_per_hire": PLACEMENT_FEE_INR, "totals": {
+        "due": round(sum(r["amount"] for r in rows if r["status"] == "due"), 2),
+        "paid": round(sum(r["amount"] for r in rows if r["status"] == "paid"), 2),
+        "this_month": round(sum(r["amount"] for r in rows if r["created_at"][:7] == month), 2),
+        "hires": len(rows)}}
+
+
+@router.post("/super-admin/hiring/placement-fees/{fid}/mark-paid")
+async def mark_fee_paid(fid: str, user=Depends(require_super_admin)):
+    res = await _raw_db.placement_fees.update_one(
+        {"id": fid, "status": "due"}, {"$set": {"status": "paid", "paid_at": _now()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Fee not found or already paid")
+    return {"ok": True}
 
 
 # ─────────── Shareable candidate profile (HQ → salon owner via WhatsApp) ───────────

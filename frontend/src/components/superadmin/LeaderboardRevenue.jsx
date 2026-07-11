@@ -284,11 +284,14 @@ export function LeaderboardPanel() {
 export function RevenuePanel() {
   const [rev, setRev] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fees, setFees] = useState(null);
+  const loadFees = () => api.get("/super-admin/hiring/placement-fees").then(r => setFees(r.data)).catch(() => {});
   useEffect(() => {
     api.get("/super-admin/subscriptions/revenue")
       .then(r => setRev(r.data))
       .catch(e => toast.error(e.response?.data?.detail || "Couldn't load revenue"))
       .finally(() => setLoading(false));
+    loadFees();
   }, []);
 
   if (loading) return <div className="text-slate-500 text-sm">Loading revenue metrics…</div>;
@@ -347,6 +350,41 @@ export function RevenuePanel() {
       </div>
 
       {/* 30-day trend bar chart */}
+      {fees && fees.items.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm" data-testid="placement-fees-card">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <h3 className="text-sm font-semibold text-slate-800">🤝 Hiring placement fees <span className="font-normal text-slate-400">· ₹{Number(fees.fee_per_hire).toLocaleString("en-IN")} per hire</span></h3>
+            <div className="flex gap-2 text-xs">
+              <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">Due ₹{Number(fees.totals.due).toLocaleString("en-IN")}</span>
+              <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">Collected ₹{Number(fees.totals.paid).toLocaleString("en-IN")}</span>
+              <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">{fees.totals.hires} hire{fees.totals.hires === 1 ? "" : "s"} · this month ₹{Number(fees.totals.this_month).toLocaleString("en-IN")}</span>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {fees.items.slice(0, 12).map(f => (
+              <div key={f.id} className="flex items-center justify-between gap-3 py-2 text-sm flex-wrap" data-testid={`placement-fee-${f.id}`}>
+                <div>
+                  <span className="font-medium text-slate-800">{f.candidate_name}</span>
+                  <span className="text-xs text-slate-500"> · {f.role} → {f.salon_name}</span>
+                  <span className="text-xs text-slate-400"> · {new Date(f.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-700">₹{Number(f.amount).toLocaleString("en-IN")}</span>
+                  {f.status === "due" ? (
+                    <button onClick={async () => { try { await api.post(`/super-admin/hiring/placement-fees/${f.id}/mark-paid`); toast.success("Marked paid"); loadFees(); } catch { toast.error("Couldn't update"); } }}
+                      className="text-xs px-2.5 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700" data-testid={`fee-mark-paid-${f.id}`}>
+                      Mark paid ✓
+                    </button>
+                  ) : (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">paid</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800 mb-4">Last 30 days · daily revenue</h3>
         <div className="flex items-end gap-1 h-40" data-testid="revenue-trend-chart">

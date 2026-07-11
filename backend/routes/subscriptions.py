@@ -87,6 +87,12 @@ def _plan_or_400(plan: str) -> dict:
     return p
 
 
+async def _fresh_plan_or_400(plan: str) -> dict:
+    """Same as _plan_or_400 but merges DB price overrides first (multi-worker safe)."""
+    await load_plan_overrides()
+    return _plan_or_400(plan)
+
+
 def _owned_tenant_ids(user: dict) -> set:
     ids = set(user.get("tenant_ids") or [])
     if user.get("tenant_id"):
@@ -149,13 +155,16 @@ async def _apply_subscription_to_tenants(tenant_ids: list, plan_key: str, plan_i
 
 @router.get("/public/plans")
 async def public_plans():
-    """Live plan catalog for the public pricing page — reflects super-admin price edits."""
+    """Live plan catalog for the public pricing page — reflects super-admin price edits.
+    Overrides re-read from DB on every call so edits show instantly on ALL workers."""
+    await load_plan_overrides()
     return {k: {"label": v["label"], "price": v["price"], "duration_days": v["duration_days"],
                 "branches": v["branches"]} for k, v in PLAN_CATALOG.items()}
 
 
 @router.get("/super-admin/plans")
 async def list_plans(user=Depends(require_super_admin)):
+    await load_plan_overrides()
     return [{"key": k, **v} for k, v in PLAN_CATALOG.items()]
 
 
@@ -219,7 +228,7 @@ async def create_subscription(body: SubscriptionIn, user=Depends(require_super_a
     if not tenant:
         raise HTTPException(404, "Tenant not found")
 
-    plan_info = _plan_or_400(body.plan)
+    plan_info = await _fresh_plan_or_400(body.plan)
     today_iso = datetime.now(timezone.utc).date().isoformat()
     start = body.start_date or today_iso
     try:
@@ -340,7 +349,7 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
     rzp = _rzp_client()
     if not rzp:
         raise HTTPException(503, "Razorpay is not configured. Contact support.")
-    plan = _plan_or_400(body.plan)
+    plan = await _fresh_plan_or_400(body.plan)
 
     branch_ids = _validate_branch_selection(plan, body.branch_tenant_ids or [], _owned_tenant_ids(user))
     if branch_ids and t["id"] not in branch_ids:
@@ -502,7 +511,7 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
 
     # Use the SERVER-recorded plan, never the client's — SEC-002 fix.
     server_plan = pending_doc["plan"]
-    plan_info = _plan_or_400(server_plan)
+    plan_info = await _fresh_plan_or_400(server_plan)
     today_iso = now.date().isoformat()
 
     # Multi-branch plans: apply to every branch the owner picked at checkout.
