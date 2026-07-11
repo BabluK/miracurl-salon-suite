@@ -997,3 +997,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Added /robots.txt (public pages allowed, app/admin routes disallowed, sitemap ref) and /sitemap.xml (8 public URLs: landing, signup, book, jobs, staff-registry, partner(s), login).
 - Added JSON-LD SoftwareApplication + Organization structured data to index.html (price ₹10,000 offer, logo).
 - Verified serving on preview. User must Deploy + submit sitemap in Google Search Console.
+
+## Iter 81 (11 Jul 2026) — Super Admin Notifications + 3D backdrop + public salon SEO pages (wired & tested)
+- Wired NotificationsPanel into SuperAdmin.jsx: new sidebar tab "Notifications" (BellRing icon, unread badge), feed fetched from GET /api/super-admin/notifications in load(). Panel filters: all/hiring/inbox/lead/renewal/signup; item click jumps to source tab.
+- Wired Super3DBackdrop (orbs + rings + 10 sparkles, pointer-events:none, z-0) at SuperAdmin root; main content raised to z-10.
+- Added /salon/:slug route in App.js → SalonPublic.jsx (dark luxe SEO page: name, avg rating, services by category, reviews, Book Now → /book/{slug}). Backend: GET /api/public/salon-page/{slug}, GET /api/public/sitemap-salons.xml.
+- Testing agent iteration_64: 100% backend (5/5 pytest) + 100% frontend incl. regression on Tenants/Billing/Inbox/Hiring tabs.
+- Deferred idea (tester note): POST mark-seen endpoint so notifications badge clears from the panel itself (currently clears when source panels are opened).
