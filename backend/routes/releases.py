@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from database import _raw_db
 from security import require_super_admin, require_tenant_admin
-from release_notes import RELEASES, BUILD
+from release_notes import RELEASES, BUILD, BUILD_TIME
 
 router = APIRouter()
 
@@ -26,6 +26,7 @@ async def whats_new(user=Depends(require_tenant_admin)):
 async def server_version(admin=Depends(require_super_admin)):
     return {
         "build": BUILD,
+        "build_time": BUILD_TIME,
         "latest_tag": f"MIRA-DEPLOYED-{RELEASES[0]['date']}",
         "server_time": datetime.now(timezone.utc).isoformat(),
     }

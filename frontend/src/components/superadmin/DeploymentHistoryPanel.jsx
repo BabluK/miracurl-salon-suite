@@ -39,6 +39,7 @@ export const DeploymentHistoryPanel = () => {
         <div className="bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4" data-testid="server-build-banner">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold">This server is running</p>
           <p className="text-emerald-300 font-mono font-bold text-lg mt-1" data-testid="server-build-value">{version.latest_tag} · build {version.build}</p>
+          {version.build_time && <p className="text-slate-400 text-xs mt-0.5 font-mono" data-testid="server-build-time">built {version.build_time}</p>}
           <p className="text-[11px] text-slate-400 mt-1.5">
             Open this same tab on your <b className="text-slate-300">live site</b> and on the <b className="text-slate-300">preview</b> — if the build numbers differ,
             the live site is behind: click <b className="text-amber-300">Deploy</b> to push the newer build.
