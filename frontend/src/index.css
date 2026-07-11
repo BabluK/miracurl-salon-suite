@@ -521,3 +521,35 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   .tenant-name-shimmer { animation: none; -webkit-text-fill-color: #fff; }
   .tenant-logo-glow, .tenant-sparkle { animation: none; }
 }
+
+/* ─── Super Admin 3D + sparkle FX ─── */
+@keyframes orbFloat {
+  0%, 100% { transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1); }
+  33% { transform: translate3d(30px, -25px, 40px) rotateX(12deg) rotateY(18deg) scale(1.08); }
+  66% { transform: translate3d(-20px, 18px, -30px) rotateX(-10deg) rotateY(-14deg) scale(0.94); }
+}
+@keyframes sparkleTwinkle {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(180deg); }
+}
+@keyframes ringSpin3d {
+  0% { transform: rotateX(65deg) rotateZ(0deg); }
+  100% { transform: rotateX(65deg) rotateZ(360deg); }
+}
+.super-3d-scene { perspective: 900px; pointer-events: none; }
+.orb3d {
+  position: absolute; border-radius: 9999px; filter: blur(38px); opacity: 0.5;
+  animation: orbFloat 14s ease-in-out infinite; will-change: transform;
+}
+.ring3d {
+  position: absolute; border-radius: 9999px; border: 1.5px solid rgba(251, 191, 36, 0.35);
+  animation: ringSpin3d 22s linear infinite; will-change: transform;
+}
+.sparkle-dot {
+  position: absolute; width: 6px; height: 6px; pointer-events: none;
+  background: radial-gradient(circle, #fef3c7 0%, #fbbf24 45%, transparent 70%);
+  clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
+  animation: sparkleTwinkle 3s ease-in-out infinite; will-change: transform, opacity;
+}
+.tilt-3d { transform-style: preserve-3d; transition: transform 0.35s ease, box-shadow 0.35s ease; }
+.tilt-3d:hover { transform: perspective(800px) rotateX(3deg) rotateY(-4deg) translateY(-4px); box-shadow: 0 24px 48px -18px rgba(79, 70, 229, 0.35); }

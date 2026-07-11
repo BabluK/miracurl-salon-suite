@@ -16,3 +16,4 @@ Disallow: /candidate/
 Disallow: /review/
 
 Sitemap: https://miracurl-suite.com/sitemap.xml
+Sitemap: https://miracurl-suite.com/api/public/sitemap-salons.xml

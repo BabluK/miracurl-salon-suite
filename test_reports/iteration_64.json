@@ -1,0 +1,29 @@
+{
+  "summary": "Iter 64 — Super Admin Notifications panel + 3D sparkle backdrop + public /salon/:slug SEO page all verified end-to-end. All 5 backend pytest cases pass; full super-admin UI flow + salon public page + booking navigation pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": [
+    {"screen": "Super Admin header (top-right)", "issues": ["Sonner toast 'Welcome back ✦' briefly overlaps the 'Sign Out' button on landing; non-blocking, disappears in ~4s"]}
+  ]},
+  "test_report_links": [
+    "/app/backend/tests/test_iter64_notifications_public.py",
+    "/app/test_reports/pytest/iter64.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "hq_notifications.py _tenant_items: iterates all tenants in memory to check created_at & renewal window — fine at current scale, but for >5k tenants push both filters into the Mongo query.",
+    "NotificationsPanel: items don't call an API to mark-as-read on click; feed relies on backend seen_by_hq flags updated by other panels. The unread badge (66) will stay high until user opens hiring/inbox/inquiries panels. Consider adding POST /api/super-admin/notifications/mark-seen if this becomes noisy.",
+    "Super3DBackdrop uses z-index:0 with position:fixed inset-0. main content is z-10 which is correct — but the sticky header (z-40) already covers it. Non-issue."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter64_notifications_public.py (new)"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (all 3 features + regression)"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None. Read-only verification using existing tenants/notifications data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend endpoints under test: GET /api/super-admin/notifications (super-auth), GET /api/public/salon-page/{slug} (no auth), GET /api/public/sitemap-salons.xml (no auth). Frontend test-ids: super-3d-backdrop, super-tab-notifications, notifications-panel, notif-filter-{all|hiring|inbox|lead|renewal|signup}, notif-item-<id>, salon-public-page, salon-name, salon-book-now-btn. On the preview env there are ~80 notification items and unread=66 across hiring/inbox/lead/renewal/signup. Backdrop confirmed with pointer-events:none, z-index:0, 10 .sparkle-dot children. Login inputs are inside a Field wrapper — use `press_sequentially` (not `fill`) via locators for reliability.",
+  "verified_flows": {
+    "backend": "GET /api/super-admin/notifications 401 without cookie, 200 with cookie {items:[80], unread:66}, item shape has id/type/icon/title/tab/unread; GET /api/public/salon-page/miracurl-marathahalli 200 with name/slug/avg_rating/reviews_count/services[]/reviews[]/book_url=/book/miracurl-marathahalli, no _id leak; unknown slug → 404; sitemap XML valid urlset with /salon/ entries.",
+    "frontend_super_admin": "Login → /super-admin. super-3d-backdrop rendered with 10 sparkles, pointer-events:none, z-index:0 (does NOT block clicks). super-tab-notifications sidebar item shows badge '66'. Clicking opens notifications-panel with all 6 filter chips and 80 items. Clicking a notif item navigates to its parent tab (leaves notifications-panel). Regression: super-tab-tenants shows super-new-tenant-btn, super-tab-billing/inbox/hiring all render without React error boundary.",
+    "frontend_public": "https://hair-hub-system.preview.emergentagent.com/salon/miracurl-marathahalli loads without login; salon-name = 'Miracurl Unisex Family Salon'; salon-book-now-btn href = /book/miracurl-marathahalli and click navigates to public booking page."
+  }
+}

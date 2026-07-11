@@ -29,6 +29,9 @@ import { MiracurlTeamPanel } from "@/components/superadmin/MiracurlTeamPanel";
 import { DeploymentHistoryPanel } from "@/components/superadmin/DeploymentHistoryPanel";
 import { DiagnoseTenantModal } from "@/components/superadmin/DiagnoseTenantModal";
 import { HiringPanel } from "@/components/superadmin/HiringPanel";
+import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
+import { Super3DBackdrop } from "@/components/superadmin/Super3DBackdrop";
+import { BellRing } from "lucide-react";
 import { BadgeCheck, Rocket } from "lucide-react";
 import { Briefcase } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
@@ -85,6 +88,7 @@ export default function SuperAdmin() {
   const [diagFor, setDiagFor] = useState(null); // tenant being diagnosed
   const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [tab, setTab] = useState("tenants"); // tenants | billing
+  const [notifFeed, setNotifFeed] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
@@ -93,16 +97,18 @@ export default function SuperAdmin() {
   });
 
   const load = useCallback(async () => {
-    const [o, t, hq, inq] = await Promise.all([
+    const [o, t, hq, inq, nf] = await Promise.all([
       api.get("/super-admin/overview"),
       api.get("/super-admin/tenants"),
       api.get("/super-admin/hq-messages").catch(() => ({ data: { unread: 0 } })),
       api.get("/super-admin/inquiries").catch(() => ({ data: { new_count: 0 } })),
+      api.get("/super-admin/notifications").catch(() => ({ data: { items: [], unread: 0 } })),
     ]);
     setOverview(o.data);
     setTenants(t.data);
     setHqUnread(hq.data.unread || 0);
     setInquiryNew(inq.data.new_count || 0);
+    setNotifFeed(nf.data);
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -227,6 +233,7 @@ export default function SuperAdmin() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-sky-50/70 to-violet-100/60 text-slate-800" data-testid="super-admin-page">
+      <Super3DBackdrop />
       {/* Header */}
       <header className="border-b border-indigo-900/40 bg-gradient-to-r from-slate-950 via-indigo-950 to-violet-950 sticky top-0 z-40 shadow-lg shadow-indigo-950/20">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
@@ -256,7 +263,7 @@ export default function SuperAdmin() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-10 space-y-5 sm:space-y-6 pb-24">
+      <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-10 space-y-5 sm:space-y-6 pb-24">
         {/* Super-admin profile */}
         <SuperProfileCard />
 
@@ -266,6 +273,7 @@ export default function SuperAdmin() {
           <nav data-testid="super-sidebar" className="flex lg:flex-col gap-1 overflow-x-auto bg-white border border-slate-200 rounded-2xl p-2">
             {[
               { id: "tenants", label: "Tenants", icon: Building2 },
+              { id: "notifications", label: "Notifications", icon: BellRing, badge: notifFeed?.unread || 0 },
               { id: "billing", label: "Billing & Subscriptions", icon: Receipt },
               { id: "partners", label: "Partners", icon: Handshake },
               { id: "leaderboard", label: "Top Referrers", icon: Trophy },
@@ -299,6 +307,7 @@ export default function SuperAdmin() {
 
         {(() => {
           const panels = {
+            notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} />,
             billing: <BillingPanel tenants={tenants} />,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,

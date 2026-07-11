@@ -1,0 +1,131 @@
+"""HQ unified notifications + public per-salon SEO pages."""
+import os
+from datetime import datetime, timezone, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
+
+from database import db, _raw_db
+from security import require_super_admin
+
+router = APIRouter()
+
+
+def _days_left(end) -> int:
+    if not end:
+        return 9999
+    try:
+        return (datetime.fromisoformat(str(end)[:10]).date() - datetime.now(timezone.utc).date()).days
+    except ValueError:
+        return 9999
+
+
+async def _hiring_items(since: str) -> list:
+    items = []
+    apps = await _raw_db.job_applications.find(
+        {"created_at": {"$gte": since}}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    for a in apps:
+        items.append({"id": f"app-{a['id']}", "type": "hiring", "icon": "💼",
+                      "title": f"New job application — {a.get('candidate_name')}",
+                      "body": f"{a.get('candidate_designation') or 'Professional'} · status {a.get('status')}",
+                      "at": a["created_at"], "tab": "hiring", "unread": not a.get("seen_by_hq")})
+    confirms = await _raw_db.job_applications.find(
+        {"owner_confirmed": True, "owner_confirmed_at": {"$gte": since}}, {"_id": 0}).to_list(30)
+    for a in confirms:
+        items.append({"id": f"conf-{a['id']}", "type": "hiring", "icon": "🤝",
+                      "title": f"Owner confirmed trial — {a.get('candidate_name')}",
+                      "body": f"Trial {a.get('trial_date') or ''} {a.get('trial_time') or ''}",
+                      "at": a["owner_confirmed_at"], "tab": "hiring", "unread": not a.get("seen_by_hq")})
+    return items
+
+
+async def _message_items(since: str) -> list:
+    items = []
+    msgs = await _raw_db.hq_messages.find(
+        {"created_at": {"$gte": since}}, {"_id": 0}).sort("created_at", -1).to_list(40)
+    for m in msgs:
+        items.append({"id": f"msg-{m.get('id')}", "type": "inbox", "icon": "📩",
+                      "title": f"Message from {m.get('salon_name') or m.get('from_email') or 'salon owner'}",
+                      "body": (m.get("message") or m.get("text") or "")[:100],
+                      "at": m.get("created_at"), "tab": "inbox", "unread": not m.get("read")})
+    leads = await _raw_db.tenant_inquiries.find(
+        {"created_at": {"$gte": since}}, {"_id": 0}).sort("created_at", -1).to_list(40)
+    for q in leads:
+        items.append({"id": f"lead-{q.get('id')}", "type": "lead", "icon": "🧲",
+                      "title": f"New software lead — {q.get('salon_name') or q.get('name') or 'unknown'}",
+                      "body": (q.get("message") or q.get("phone") or "")[:100],
+                      "at": q.get("created_at"), "tab": "inquiries",
+                      "unread": q.get("status", "new") == "new"})
+    return items
+
+
+async def _tenant_items(since: str) -> list:
+    items = []
+    tenants = await db.tenants.find({}, {"_id": 0}).to_list(2000)
+    for t in tenants:
+        if (t.get("created_at") or "") >= since:
+            items.append({"id": f"tnt-{t['id']}", "type": "signup", "icon": "🎉",
+                          "title": f"New salon onboarded — {t.get('name')}",
+                          "body": f"{t.get('slug')} · plan {t.get('plan') or 'trial'}",
+                          "at": t["created_at"], "tab": "tenants", "unread": False})
+        if t.get("status") in ("active", "trial"):
+            days = _days_left(t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at"))
+            if -30 <= days <= 7:
+                label = f"expires in {days}d" if days >= 0 else f"EXPIRED {-days}d ago"
+                items.append({"id": f"ren-{t['id']}", "type": "renewal", "icon": "⏳",
+                              "title": f"{t.get('name')} — {t.get('status')} {label}",
+                              "body": "Open renewals queue to follow up",
+                              "at": datetime.now(timezone.utc).isoformat(), "tab": "leaderboard",
+                              "unread": days <= 3})
+    return items
+
+
+@router.get("/super-admin/notifications")
+async def hq_notifications(user=Depends(require_super_admin)):
+    """Everything the super admin should know about, in one feed (last 30 days)."""
+    since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    items = (await _hiring_items(since)) + (await _message_items(since)) + (await _tenant_items(since))
+    items.sort(key=lambda x: x.get("at") or "", reverse=True)
+    unread = sum(1 for i in items if i.get("unread"))
+    return {"items": items[:80], "unread": unread}
+
+
+# ─────────── Public per-salon SEO pages ───────────
+
+@router.get("/public/salon-page/{slug}")
+async def public_salon_page(slug: str):
+    t = await db.tenants.find_one({"slug": slug, "status": {"$in": ["active", "trial"]}}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    from database import _current_tenant_id
+    tok = _current_tenant_id.set(t["id"])
+    try:
+        services = await db.services.find({}, {"_id": 0, "name": 1, "price": 1, "category": 1,
+                                               "duration_min": 1}).sort("price", -1).to_list(24)
+        reviews = await db.reviews.find({"public": True}, {"_id": 0, "customer_name": 1, "rating": 1,
+                                                           "comment": 1, "created_at": 1}
+                                        ).sort("created_at", -1).to_list(200)
+    finally:
+        _current_tenant_id.reset(tok)
+    ratings = [float(r["rating"]) for r in reviews if r.get("rating")]
+    return {
+        "name": t.get("name"), "slug": slug, "location": t.get("location") or "",
+        "phone": t.get("phone") or "", "about": t.get("about") or "",
+        "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
+        "reviews_count": len(ratings),
+        "services": services,
+        "reviews": [r for r in reviews if (r.get("comment") or "").strip()][:6],
+        "book_url": f"/book/{slug}",
+    }
+
+
+@router.get("/public/sitemap-salons.xml")
+async def sitemap_salons():
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
+    tenants = await db.tenants.find({"status": {"$in": ["active", "trial"]}}, {"_id": 0, "slug": 1}).to_list(2000)
+    urls = "\n".join(
+        f"  <url><loc>{base}/salon/{t['slug']}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>"
+        for t in tenants)
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + "\n</urlset>")
+    return Response(content=xml, media_type="application/xml")

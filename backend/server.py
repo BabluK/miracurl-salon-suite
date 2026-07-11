@@ -5764,6 +5764,9 @@ api.include_router(cctv_router)
 from routes.hiring import router as hiring_router  # noqa: E402
 api.include_router(hiring_router)
 
+from routes.hq_notifications import router as hq_notifications_router  # noqa: E402
+api.include_router(hq_notifications_router)
+
 
 
 app.include_router(api)
