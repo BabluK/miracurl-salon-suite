@@ -1035,3 +1035,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Fixed: removed corrupted lines; verified import, compileall on whole backend, auth/me 401 in 0.26s, mobile /login and /book render clean at 390px.
 - deployment_agent re-run: PASS. User must click Deploy again.
 - LESSON: always `python -m compileall` backend before telling user to deploy.
+
+## Iter 87 (11 Jul 2026) — Resend domain migration COMPLETE
+- Guided user through Resend DNS for miracurl-suite.com (records live in Lovable DNS panel; user initially added to wrong domain miracurlunisexsaloon.com on IONOS-style panel). All 4 records Verified (DKIM/MX/SPF/DMARC).
+- SENDER_EMAIL switched to noreply@miracurl-suite.com in backend/.env; backend restarted; REAL test email sent successfully (id bbce02a8) to miracurlunisexsaloon@gmail.com.
+- User must Deploy so production picks up new SENDER_EMAIL.
