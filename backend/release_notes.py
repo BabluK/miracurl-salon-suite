@@ -2,12 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-11.2"
+BUILD = "2026-07-11.3"
 
 RELEASES = [
     {
         "date": "2026-07-11",
         "changes": [
+            "Your salon now has its own public web page ✨ — share miracurl-suite.com/salon/your-salon-name with clients: your services & prices, star rating and best reviews, plus a Book Now button. Google can find and rank it too",
+            "Super Admin: Notifications center — every hiring update, owner message, software lead, renewal alert and new signup in one filterable feed, with a jump-to-section on click",
+            "Super Admin: the HQ console got a subtle 3D animated backdrop — floating orbs, rings and sparkles",
+            "Platform: SEO pass — robots.txt, sitemap.xml (now including every salon's public page) and structured data for Google",
             "Hire Staff 🧑‍💼 — post a hiring request from your dashboard and Miracurl HQ finds you verified candidates, schedules trials and updates you at every step",
             "Public Jobs board (/jobs) — HQ-verified professionals apply for open positions with their registered number; salon identity stays private until shortlisting",
             "Flash offers ⚡ — when AI CCTV spots chairs sitting empty, Mira alerts you on the Dashboard and designs a 2-hour flash offer with poster + WhatsApp caption in one tap",
