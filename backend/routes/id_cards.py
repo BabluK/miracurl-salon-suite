@@ -20,13 +20,13 @@ _MIRACURL_LOGO = os.path.join(os.path.dirname(__file__), "..", "assets", "miracu
 
 
 def _site_host() -> str:
-    url = os.environ.get("APP_PUBLIC_URL", "https://miracurlunisexsaloon.com")
+    url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     return re.sub(r"^https?://", "", url).rstrip("/")
 
 
 def _verify_qr_url(phone: str, staff_code: str = "", name: str = "") -> str:
     """Public registry deep-link: phone lookup needs no verifier; staff-code fallback carries the badge name."""
-    base = os.environ.get("APP_PUBLIC_URL", "https://miracurlunisexsaloon.com").rstrip("/")
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
     digits = re.sub(r"\D", "", phone or "")
     if len(digits) >= 10:
         return f"{base}/staff-registry?q={digits[-10:]}"
@@ -173,7 +173,7 @@ async def team_id_card(tid: str, admin=Depends(require_super_admin)):
             logo = f.read()
     except Exception:
         logo = None
-    base = os.environ.get("APP_PUBLIC_URL", "https://miracurlunisexsaloon.com").rstrip("/")
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
     data = {
         "name": m["name"], "role": m.get("designation") or "Team",
         "id_number": m["member_code"],

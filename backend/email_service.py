@@ -39,7 +39,7 @@ async def _send_email(to: list, subject: str, html: str, attachments: list | Non
         return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
     sender = os.environ.get("SENDER_EMAIL")
     if not sender:
-        return {"sent": False, "error": "Email not configured (SENDER_EMAIL missing — set it to an address on your verified Resend domain, e.g. noreply@miracurlunisexsaloon.com)"}
+        return {"sent": False, "error": "Email not configured (SENDER_EMAIL missing — set it to an address on your verified Resend domain, e.g. noreply@miracurl-suite.com)"}
     resend.api_key = key
     params = {
         "from": f"Miracurl <{sender}>",
@@ -56,7 +56,7 @@ async def _send_email(to: list, subject: str, html: str, attachments: list | Non
 
 
 def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> str:
-    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/login"
+    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
@@ -82,7 +82,7 @@ def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> 
 def renewal_reminder_email_html(salon_name: str, days_left: int, end_date: str,
                                 plan_label: str, price: float, credits: float) -> str:
     """15/7/1-day subscription renewal reminder with in-app Razorpay pay CTA."""
-    renew_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/settings"
+    renew_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/settings"
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     when = "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>"
     credit_row = (f'<p style="margin:12px 0 0;font-size:13px;color:#1f7a4d;font-family:Arial,sans-serif">'
@@ -115,7 +115,7 @@ def renewal_reminder_email_html(salon_name: str, days_left: int, end_date: str,
 
 
 def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "") -> str:
-    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/login"
+    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     img = poster_url or os.environ.get("WELCOME_IMAGE_URL", "")
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Welcome to Miracurl" width="600" '
@@ -367,7 +367,7 @@ def _birthday_email_html(t: dict, cust_name: str, offer_text: str, booking_url: 
 
 
 def _lead_alert_email_html(inq: dict, question: str) -> str:
-    app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurlunisexsaloon.com")
+    app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     phone = inq.get("phone", "")
     wa_msg = f"Hi {inq.get('name', '').split(' ')[0]}! This is the Miracurl team — saw you exploring our salon suite. Happy to answer anything or set up a quick demo!"
     q_block = (f'<tr><td style="padding:6px 36px 4px">'

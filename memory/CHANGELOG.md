@@ -979,3 +979,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 ## Iter 77 (11 Jul 2026) — Public pricing staleness fix + placement fee tracker
 - BUG: super-admin plan price edits not reflecting on public portal. Root cause: /public/plans served in-memory PLAN_CATALOG — stale on other workers/production until restart. Fix: load_plan_overrides() (DB merge) called on every read of /public/plans, /super-admin/plans AND before Razorpay order create/verify (_fresh_plan_or_400). Verified: edit→instant reflection. NOTE: user must Deploy for production.
 - Placement fees: on PATCH status=hired → placement_fees doc ₹1000 (idempotent per application). GET /super-admin/hiring/placement-fees (items+totals due/paid/this_month/hires), POST .../mark-paid. Revenue tab card "🤝 Hiring placement fees" with totals chips + Mark paid. Verified e2e.
+
+## Iter 78 (11 Jul 2026) — Domain live + full old-domain sweep
+- miracurl-suite.com linked (user edited Lovable DNS: 2x A @ Emergent IPs + CNAME www) & deployed; prod build 2026-07-11.2 == preview. Live checks passed (landing/login/jobs/pricing API/SSL www).
+- Replaced ALL remaining miracurlunisexsaloon.com references: fallbacks in server.py/email_service.py/id_cards.py, og:url/og:image/twitter:image in index.html, build_og_image.py.
+- NOT changed: SENDER_EMAIL=noreply@miracurlunisexsaloon.com (Resend verified on old domain — switching requires verifying miracurl-suite.com in Resend + DNS records in Lovable first).

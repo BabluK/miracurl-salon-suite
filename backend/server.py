@@ -2199,7 +2199,7 @@ async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
     mmdd = ist.strftime("%m-%d")
     flt = {"id": tenant_id} if tenant_id else {"status": {"$in": ["active", "trial"]}}
     tenants = await _raw_db.tenants.find(flt, {"_id": 0}).to_list(500)
-    app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurlunisexsaloon.com")
+    app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     results = []
     for t in tenants:
         if not tenant_id and t.get("birthday_emails_enabled") is False:
@@ -3958,7 +3958,7 @@ async def _generate_onboarding_poster(t: dict) -> str:
             "size": len(images[0]), "uploaded_by": "system", "is_deleted": False,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
-        url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurlunisexsaloon.com')}/api/files/{file_id}"
+        url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/api/files/{file_id}"
         await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"welcome_poster_url": url}})
         return url
     except Exception as e:
@@ -5770,7 +5770,7 @@ app.include_router(api)
 
 _cors_env = os.environ.get(
     "CORS_ORIGINS",
-    "https://miracurlunisexsaloon.com,https://miracurl.com,https://miracurl-suite.com,https://hair-hub-system.preview.emergentagent.com",
+    "https://miracurl-suite.com,https://miracurl.com,https://miracurl-suite.com,https://hair-hub-system.preview.emergentagent.com",
 ).strip()
 _cors_origins = (["*"] if _cors_env == "*" or not _cors_env
                  else [o.strip() for o in _cors_env.split(",") if o.strip()])
