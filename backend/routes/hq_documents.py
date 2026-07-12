@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from email_service import _send_email
-from security import require_super_admin
+from security import public_rate_limit, require_super_admin
 
 router = APIRouter()
 
@@ -621,7 +621,8 @@ _PIXEL_PNG = base64.b64decode(
 
 
 @router.get("/public/demo-track/{iid}/open.png")
-async def demo_track_open(iid: str):
+async def demo_track_open(iid: str, request: Request):
+    public_rate_limit(request, "demo-open", limit=60, window_sec=600)
     await _raw_db.demo_invites.update_one(
         {"id": iid, "opened_at": None},
         {"$set": {"opened_at": datetime.now(timezone.utc).isoformat(), "seen_by_hq_open": False}})
@@ -630,7 +631,8 @@ async def demo_track_open(iid: str):
 
 
 @router.get("/public/demo-track/{iid}/click")
-async def demo_track_click(iid: str):
+async def demo_track_click(iid: str, request: Request):
+    public_rate_limit(request, "demo-click", limit=30, window_sec=600)
     now_iso = datetime.now(timezone.utc).isoformat()
     await _raw_db.demo_invites.update_one(
         {"id": iid, "opened_at": None}, {"$set": {"opened_at": now_iso, "seen_by_hq_open": False}})

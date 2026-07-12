@@ -1106,3 +1106,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - hq_notifications.py: _demo_items in feed — 🔥 "Demo requested" / 👀 "Demo invite opened", type "demo", tab lead-email, unread via seen flags. NotificationsPanel: "📬 Demo invites" filter chip.
 - DemoCampaign.jsx: funnel strip (Invited/Opened/Demo requested/Converted), 👀 Opened chip, "Demo requested 🔥" status chip, mark-seen on tab open.
 - E2E: send→pixel 200→click 302 mailto→status demo_requested→🔥 notif unread→UI screenshots. Test data cleaned.
+
+## Iter 98 (12 Jul 2026) — Security audit #3 (PASS) + P3 hardening
+- security_audit_agent full audit: PASS, no critical/high/medium. New demo-campaign/tracking features verified safe (escaping, authz, uuid4 non-enumerable, no open redirect); prior fixes (SSRF, JWT, payments, CORS, Aadhaar hashing) intact.
+- Fixed P3s: CSV formula injection neutralized in /super-admin/subscriptions/export.csv (_safe prefixes ' on =+-@); public_rate_limit added to demo-track open.png (60/10min) & click (30/10min).
+- Deferred P3s (design decisions): global cap on public sales-chat LLM usage; OTP step for employee-portal reset (currently phone+Aadhaar, rate-limited).

@@ -962,20 +962,25 @@ async def export_subscription_payments_csv(user=Depends(require_super_admin)):
     ).to_list(len(tids) or 1)}
     buf = io.StringIO()
     w = csv.writer(buf)
+
+    def _safe(v):
+        s = str(v or "")
+        return f"'{s}" if s[:1] in ("=", "+", "-", "@") else s
+
     w.writerow(["paid_at", "tenant_slug", "tenant_name", "owner_email",
                 "amount_inr", "method", "txn_ref", "subscription_id", "notes"])
     for p in pays:
         t = t_map.get(p.get("tenant_id"), {})
         w.writerow([
             p.get("paid_at", ""),
-            t.get("slug", ""),
-            t.get("name", ""),
-            t.get("owner_email", ""),
+            _safe(t.get("slug", "")),
+            _safe(t.get("name", "")),
+            _safe(t.get("owner_email", "")),
             f"{float(p.get('amount') or 0):.2f}",
-            p.get("method", ""),
-            p.get("txn_ref", ""),
+            _safe(p.get("method", "")),
+            _safe(p.get("txn_ref", "")),
             p.get("subscription_id", ""),
-            (p.get("notes") or "").replace("\n", " "),
+            _safe((p.get("notes") or "").replace("\n", " ")),
         ])
     return Response(
         content=buf.getvalue(),
