@@ -166,6 +166,7 @@ export function DemoCampaign() {
                   <span className="text-slate-400 truncate hidden sm:inline">{inv.email}</span>
                   <span className="text-[10px] text-slate-400 shrink-0">{(inv.first_sent_at || "").slice(0, 10)}</span>
                   {inv.opened && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-600 text-[10px] font-semibold" title={`Opened ${(inv.opened_at || "").slice(0, 16).replace("T", " ")}`}>👀 Opened</span>}
+                  {inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold" title={`Phone: ${inv.preferred_slot.phone || "—"}`}>📅 {inv.preferred_slot.date} {inv.preferred_slot.time}</span>}
                   <span className={`ml-auto shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${chip[1]}`}>{chip[0]}</span>
                   {inv.status !== "converted" && (
                     <button onClick={() => markReplied(inv)} data-testid={`demo-invite-mark-replied-${inv.email}`}

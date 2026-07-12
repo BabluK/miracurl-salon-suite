@@ -49,6 +49,7 @@ import RegistryPublic from "@/pages/RegistryPublic";
 import Partners from "@/pages/Partners";
 import SalonPublic from "@/pages/SalonPublic";
 import EmployeePortal from "@/pages/EmployeePortal";
+import DemoSlot from "@/pages/DemoSlot";
 import { PlayerProvider } from "@/context/PlayerContext";
 import Entertainment from "@/pages/Entertainment";
 
@@ -132,6 +133,7 @@ export default function App() {
             <Route path="/book/:slug" element={<BookPublic />} />
             <Route path="/salon/:slug" element={<SalonPublic />} />
             <Route path="/employee" element={<EmployeePortal />} />
+            <Route path="/demo-slot/:iid" element={<DemoSlot />} />
             <Route path="/partner" element={<PartnerLanding />} />
             <Route path="/staff-registry" element={<RegistryPublic />} />
             <Route path="/partners" element={<Partners />} />

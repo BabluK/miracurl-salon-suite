@@ -1111,3 +1111,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - security_audit_agent full audit: PASS, no critical/high/medium. New demo-campaign/tracking features verified safe (escaping, authz, uuid4 non-enumerable, no open redirect); prior fixes (SSRF, JWT, payments, CORS, Aadhaar hashing) intact.
 - Fixed P3s: CSV formula injection neutralized in /super-admin/subscriptions/export.csv (_safe prefixes ' on =+-@); public_rate_limit added to demo-track open.png (60/10min) & click (30/10min).
 - Deferred P3s (design decisions): global cap on public sales-chat LLM usage; OTP step for employee-portal reset (currently phone+Aadhaar, rate-limited).
+
+## Iter 99 (12 Jul 2026) — Demo slot picker + Google Calendar invites
+- Public luxe scheduling page /demo-slot/{iid} (DemoSlot.jsx, dark gold theme): next-7-days date chips, 8 IST time slots (DEMO_SLOT_TIMES), optional phone, success state w/ Google Calendar button. Route in App.js.
+- Email CTA click now 302s to /demo-slot/{iid} (was mailto) using stored track_base.
+- Endpoints: GET /public/demo-slot/{iid} (info+dates+times, rate-limited 30/10min), POST /public/demo-slot/{iid} (validates date≤30d + slot whitelist, 10/10min) → saves preferred_slot, sets demo_requested/responded, sends TWO emails: prospect confirmation (luxe, gcal render link + .ics METHOD:REQUEST attachment w/ 30-min alarm) and HQ alert email w/ slot+phone+gcal link.
+- IST→UTC slot conversion (_slot_utc); status priority fixed: demo_requested above replied; notif body shows booked slot; DemoCampaign row shows 📅 date/time chip (phone in tooltip).
+- E2E: send→click 302→info→book→emails sent→invites show slot→notif "Booked ... IST"; UI picker flow tested via browser (select date/time/phone→confirm→success+gcal). Test data cleaned.

@@ -639,11 +639,12 @@ async def demo_track_click(iid: str, request: Request):
     await _raw_db.demo_invites.update_one(
         {"id": iid, "demo_requested_at": None},
         {"$set": {"demo_requested_at": now_iso, "seen_by_hq_req": False}})
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
-    mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
-              f"&body=Hi%20Miracurl%20team%2C%0A%0AI%27d%20love%20a%20demo%20of%20the%20Miracurl%20Salon%20Suite."
-              f"%0AMy%20preferred%20time%3A%20%0AMy%20salon%3A%20%0APhone%3A%20%0A%0AThank%20you!")
-    return RedirectResponse(mailto, status_code=302)
+    inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0, "track_base": 1})
+    base = (inv or {}).get("track_base") or os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    if not base and host:
+        base = f"https://{host}"
+    return RedirectResponse(f"{base}/demo-slot/{iid}", status_code=302)
 
 
 @router.post("/super-admin/demo-campaign/mark-seen")
@@ -661,10 +662,10 @@ async def demo_invites(user=Depends(require_super_admin)):
     for i in items:
         if i["email"] in tenant_emails:
             i["status"] = "converted"
-        elif i.get("responded"):
-            i["status"] = "replied"
         elif i.get("demo_requested_at"):
             i["status"] = "demo_requested"
+        elif i.get("responded"):
+            i["status"] = "replied"
         elif i.get("reminder_sent_at"):
             i["status"] = "reminded"
         else:
@@ -686,3 +687,161 @@ async def demo_invite_mark_replied(iid: str, user=Depends(require_super_admin)):
 @router.post("/super-admin/demo-campaign/followups/run")
 async def demo_followups_run(user=Depends(require_super_admin)):
     return await run_demo_followups()
+
+
+# ── Demo slot scheduling ─────────────────────────────────────────────────────
+
+DEMO_SLOT_TIMES = ["11:00", "12:00", "13:00", "15:00", "16:00", "17:00", "18:00", "19:00"]
+
+
+def _slot_utc(date_str: str, time_str: str):
+    from datetime import timedelta
+    ist_start = datetime.fromisoformat(f"{date_str}T{time_str}:00")
+    return ist_start - timedelta(hours=5, minutes=30)
+
+
+def _gcal_link(date_str: str, time_str: str) -> str:
+    from datetime import timedelta
+    from urllib.parse import urlencode
+    start = _slot_utc(date_str, time_str)
+    end = start + timedelta(minutes=30)
+    fmt = "%Y%m%dT%H%M%SZ"
+    return "https://calendar.google.com/calendar/render?" + urlencode({
+        "action": "TEMPLATE",
+        "text": "Miracurl Suite — Live Demo (20 min)",
+        "dates": f"{start.strftime(fmt)}/{end.strftime(fmt)}",
+        "details": "Your personalised walkthrough of the Miracurl Salon Suite — bookings, POS, staff and the 12-agent AI team. The Miracurl team will call/connect at this time.",
+        "location": "Online / phone call",
+    })
+
+
+def _slot_ics(date_str: str, time_str: str, attendee_email: str) -> str:
+    from datetime import timedelta
+    start = _slot_utc(date_str, time_str)
+    end = start + timedelta(minutes=30)
+    fmt = "%Y%m%dT%H%M%SZ"
+    hq = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    return ("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Miracurl Suite//Demo//EN\r\nMETHOD:REQUEST\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uuid.uuid4()}@miracurl-suite.com\r\n"
+            f"DTSTAMP:{datetime.now(timezone.utc).strftime(fmt)}\r\n"
+            f"DTSTART:{start.strftime(fmt)}\r\nDTEND:{end.strftime(fmt)}\r\n"
+            "SUMMARY:Miracurl Suite — Live Demo (20 min)\r\n"
+            "DESCRIPTION:Your personalised walkthrough of the Miracurl Salon Suite.\r\n"
+            f"ORGANIZER;CN=Miracurl Team:mailto:{hq}\r\n"
+            f"ATTENDEE;CN=Prospect;RSVP=TRUE:mailto:{attendee_email}\r\n"
+            "STATUS:CONFIRMED\r\nBEGIN:VALARM\r\nTRIGGER:-PT30M\r\nACTION:DISPLAY\r\n"
+            "DESCRIPTION:Miracurl demo in 30 minutes\r\nEND:VALARM\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n")
+
+
+def _slot_confirm_email_html(name: str, date_str: str, time_str: str, gcal: str, hq_email: str) -> str:
+    nm = html_lib.escape(name or "").strip()
+    greeting = f"Dear {nm}," if nm else "Dear Salon Owner,"
+    pretty = datetime.fromisoformat(date_str).strftime("%A, %d %B %Y")
+    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
+  <tr><td style="background:#15151b;padding:30px 36px 26px">
+    <div style="font-family:Georgia,serif;font-size:24px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    <div style="height:2px;width:56px;background:#d4af37;margin-top:12px"></div>
+    <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:20px;margin-top:14px;line-height:1.45">
+      Your demo is booked — we can't wait to meet you ✦</div>
+  </td></tr>
+  <tr><td style="padding:28px 36px 8px">
+    <p style="font-size:15px;color:#33333b;line-height:1.7;margin:0 0 14px">{greeting}</p>
+    <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0">
+      Thank you for choosing a time — it's in our diary. Here are your demo details:</p>
+  </td></tr>
+  <tr><td style="padding:14px 36px 6px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf8ec;border:1px solid #ecdcae;border-radius:14px">
+      <tr><td style="padding:20px 24px">
+        <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold">YOUR DEMO SLOT</div>
+        <div style="font-family:Georgia,serif;font-size:22px;color:#1d1d24;margin-top:8px">{pretty}</div>
+        <div style="font-size:16px;color:#55555f;margin-top:4px"><b>{time_str} IST</b> · 20 minutes · online / phone</div>
+      </td></tr>
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding:22px 36px 6px">
+    <a href="{gcal}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+       text-decoration:none;padding:14px 38px;border-radius:999px;letter-spacing:.4px">📅 Add to Google Calendar</a>
+    <div style="font-size:12px;color:#8f8798;margin-top:10px">A calendar invite (.ics) is also attached — open it to add the demo to any calendar app.</div>
+  </td></tr>
+  <tr><td style="padding:18px 36px 28px">
+    <p style="font-size:13.5px;color:#55555f;line-height:1.7;margin:0 0 12px">
+      Our team will reach out at your chosen time. Need to change the slot? Simply reply to this email — no trouble at all.</p>
+    <p style="font-size:14px;color:#33333b;line-height:1.7;margin:0">Warm regards,<br>
+      <b style="font-family:Georgia,serif">The Miracurl Team</b><br>
+      <span style="font-size:12px;color:#8f8798">miracurl-suite.com · {html_lib.escape(hq_email)}</span></p>
+  </td></tr>
+  <tr><td style="background:#15151b;padding:14px 36px;text-align:center">
+    <div style="color:#6d675c;font-size:11px">© Miracurl Suite — see you at the demo ✦</div>
+  </td></tr>
+</table>
+</td></tr></table></body></html>"""
+
+
+class DemoSlotIn(BaseModel):
+    date: str = Field(..., max_length=10)
+    time: str = Field(..., max_length=5)
+    phone: str = Field(default="", max_length=20)
+
+
+@router.get("/public/demo-slot/{iid}")
+async def demo_slot_info(iid: str, request: Request):
+    public_rate_limit(request, "demo-slot-info", limit=30, window_sec=600)
+    inv = await _raw_db.demo_invites.find_one(
+        {"id": iid}, {"_id": 0, "name": 1, "salon_name": 1, "preferred_slot": 1})
+    if not inv:
+        raise HTTPException(404, "Invite not found")
+    from datetime import timedelta
+    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+    days = [(today + timedelta(days=d)).isoformat() for d in range(1, 8)]
+    return {"name": inv.get("name", ""), "salon_name": inv.get("salon_name", ""),
+            "scheduled": inv.get("preferred_slot"), "dates": days, "times": DEMO_SLOT_TIMES}
+
+
+@router.post("/public/demo-slot/{iid}")
+async def demo_slot_book(iid: str, body: DemoSlotIn, request: Request):
+    public_rate_limit(request, "demo-slot-book", limit=10, window_sec=600)
+    inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Invite not found")
+    from datetime import timedelta
+    try:
+        d = datetime.fromisoformat(body.date).date()
+    except ValueError:
+        raise HTTPException(400, "Invalid date")
+    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+    if not (today <= d <= today + timedelta(days=30)):
+        raise HTTPException(400, "Pick a date within the next 30 days")
+    if body.time not in DEMO_SLOT_TIMES:
+        raise HTTPException(400, "Invalid time slot")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    slot = {"date": body.date, "time": body.time, "phone": body.phone.strip(), "booked_at": now_iso}
+    await _raw_db.demo_invites.update_one(
+        {"id": iid},
+        {"$set": {"preferred_slot": slot, "demo_requested_at": inv.get("demo_requested_at") or now_iso,
+                  "opened_at": inv.get("opened_at") or now_iso,
+                  "seen_by_hq_req": False, "responded": True}})
+
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    gcal = _gcal_link(body.date, body.time)
+    ics = _slot_ics(body.date, body.time, inv["email"])
+    ics_att = [{"filename": "miracurl-demo.ics", "content": base64.b64encode(ics.encode()).decode()}]
+    await _send_email([inv["email"]],
+                      f"Your Miracurl demo is booked — {body.date} at {body.time} IST ✦",
+                      _slot_confirm_email_html(inv.get("name", ""), body.date, body.time, gcal, hq_email),
+                      attachments=ics_att, reply_to=hq_email)
+    pretty = datetime.fromisoformat(body.date).strftime("%a, %d %b %Y")
+    await _send_email([hq_email],
+                      f"🔥 Demo booked: {inv.get('name') or inv['email']} — {pretty} {body.time} IST",
+                      f"""<div style="font-family:Arial,sans-serif;font-size:14px;color:#33333b;line-height:1.7">
+<p><b>{html_lib.escape(inv.get('name') or '')}</b> ({html_lib.escape(inv['email'])}) just booked a demo slot.</p>
+<p>📅 <b>{pretty} at {body.time} IST</b> · 20 min<br>
+📞 Phone: {html_lib.escape(body.phone.strip() or '—')}<br>
+🏠 Salon: {html_lib.escape(inv.get('salon_name') or '—')}</p>
+<p><a href="{gcal}">Add to your Google Calendar</a> — the prospect received a confirmation with the same invite.</p></div>""",
+                      attachments=ics_att)
+    return {"ok": True, "gcal": gcal, "slot": slot}

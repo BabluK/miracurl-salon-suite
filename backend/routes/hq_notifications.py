@@ -89,9 +89,12 @@ async def _demo_items(since: str) -> list:
         who = r.get("name") or r.get("email")
         salon = f" ({r['salon_name']})" if r.get("salon_name") else ""
         if r.get("demo_requested_at"):
+            slot = r.get("preferred_slot") or {}
+            when = f"Booked {slot['date']} at {slot['time']} IST — add it to your calendar!" if slot.get("date") else \
+                f"{r.get('email')} clicked 'Request my demo time' — call them!"
             items.append({"id": f"demoreq-{r['id']}", "type": "demo", "icon": "🔥",
                           "title": f"Demo requested — {who}{salon}",
-                          "body": f"{r.get('email')} clicked 'Request my demo time' — call them!",
+                          "body": when,
                           "at": r["demo_requested_at"], "tab": "lead-email",
                           "unread": not r.get("seen_by_hq_req", True)})
         elif r.get("opened_at"):
