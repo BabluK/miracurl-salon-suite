@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from database import _raw_db
 from security import require_super_admin
 from services.storage import _put_object
-from routes.promo_video import _brand_logo, FONT_PATH, ALL_FEATURES, BROCHURE_DIR
+from routes.promo_common import _brand_logo, FONT_PATH, ALL_FEATURES, BROCHURE_DIR
 
 router = APIRouter()
 log = logging.getLogger("promo_image")
@@ -89,48 +89,51 @@ async def list_posters(admin=Depends(require_super_admin)):
     return {"posters": await _raw_db.promo_images.find({}, {"_id": 0}).sort("created_at", -1).to_list(12)}
 
 
-def _compose_poster(img_bytes: bytes, headline: str, subline: str, tw: int, th: int, contact: str = "") -> bytes:
+def _poster_canvas(img_bytes: bytes, tw: int, th: int) -> Image.Image:
+    """Cover-crop the AI background and lay a dark gradient band over the bottom half."""
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     scale = max(tw / img.width, th / img.height)
     img = img.resize((round(img.width * scale), round(img.height * scale)))
     left, top = (img.width - tw) // 2, (img.height - th) // 2
     img = img.crop((left, top, left + tw, top + th))
     w, h = img.size
-
-    # dark gradient band over the bottom 45% for the screenshot + text
     overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(overlay)
     band_top = int(h * 0.30)
     for y in range(band_top, h):
         alpha = int(215 * (y - band_top) / (h - band_top))
         d.line([(0, y), (w, y)], fill=(10, 8, 14, alpha))
-    img = Image.alpha_composite(img.convert("RGBA"), overlay)
-    d = ImageDraw.Draw(img)
+    return Image.alpha_composite(img.convert("RGBA"), overlay)
 
-    # real app screenshot card — the software IS the subject
+
+def _paste_screenshot_card(img: Image.Image) -> Image.Image:
+    """Real app screenshot card with gold glow — the software IS the subject."""
     shot_path = os.path.join(BROCHURE_DIR, "dashboard.png")
-    if os.path.exists(shot_path):
-        shot = Image.open(shot_path).convert("RGBA")
-        sw = int(w * 0.78)
-        sh = int(shot.height * sw / shot.width)
-        max_sh = int(h * 0.40)
-        if sh > max_sh:
-            sh = max_sh
-            sw = int(shot.width * sh / shot.height)
-        shot = shot.resize((sw, sh))
-        mask = Image.new("L", (sw, sh), 0)
-        ImageDraw.Draw(mask).rounded_rectangle([0, 0, sw, sh], radius=int(sw * 0.03), fill=255)
-        sx, sy = (w - sw) // 2, int(h * 0.16)
-        glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        ImageDraw.Draw(glow).rounded_rectangle(
-            [sx - 8, sy - 8, sx + sw + 8, sy + sh + 8], radius=int(sw * 0.035), fill=(212, 175, 55, 90))
-        img = Image.alpha_composite(img, glow)
-        img.paste(shot, (sx, sy), mask)
-        d = ImageDraw.Draw(img)
+    if not os.path.exists(shot_path):
+        return img
+    w, h = img.size
+    shot = Image.open(shot_path).convert("RGBA")
+    sw = int(w * 0.78)
+    sh = int(shot.height * sw / shot.width)
+    max_sh = int(h * 0.40)
+    if sh > max_sh:
+        sh = max_sh
+        sw = int(shot.width * sh / shot.height)
+    shot = shot.resize((sw, sh))
+    mask = Image.new("L", (sw, sh), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, sw, sh], radius=int(sw * 0.03), fill=255)
+    sx, sy = (w - sw) // 2, int(h * 0.16)
+    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).rounded_rectangle(
+        [sx - 8, sy - 8, sx + sw + 8, sy + sh + 8], radius=int(sw * 0.035), fill=(212, 175, 55, 90))
+    img = Image.alpha_composite(img, glow)
+    img.paste(shot, (sx, sy), mask)
+    return img
 
-    logo = _brand_logo(max(120, int(w * 0.15)))
-    if logo:
-        img.paste(logo, (w - logo.width - 36, 36), logo)
+
+def _draw_poster_text(img: Image.Image, headline: str, subline: str, contact: str) -> None:
+    w, h = img.size
+    d = ImageDraw.Draw(img)
 
     def _font(sz):
         try:
@@ -151,26 +154,29 @@ def _compose_poster(img_bytes: bytes, headline: str, subline: str, tw: int, th: 
     hl_text = headline.strip()[:40]
     sub_text = subline.strip()[:70]
     feat_text = "Bookings · POS & GST Billing · Verified Staff · AI Marketing"
-    hl_font = _fit_font(hl_text, int(w * 0.058), w - 2 * margin)
-    sub_font = _fit_font(sub_text, int(w * 0.030), w - 2 * margin)
-    feat_font = _fit_font(feat_text, int(w * 0.026), w - 2 * margin)
-    url_font = _font(int(w * 0.024))
     y = h - int(h * 0.27)
     if hl_text:
-        d.text((margin, y), hl_text, font=hl_font, fill=(232, 195, 127, 255))
+        d.text((margin, y), hl_text, font=_fit_font(hl_text, int(w * 0.058), w - 2 * margin), fill=(232, 195, 127, 255))
         y += int(w * 0.058) + 16
     if sub_text:
-        d.text((margin, y), sub_text, font=sub_font, fill=(255, 255, 255, 235))
+        d.text((margin, y), sub_text, font=_fit_font(sub_text, int(w * 0.030), w - 2 * margin), fill=(255, 255, 255, 235))
         y += int(w * 0.030) + 14
-    d.text((margin, y), feat_text, font=feat_font, fill=(226, 178, 148, 235))
+    d.text((margin, y), feat_text, font=_fit_font(feat_text, int(w * 0.026), w - 2 * margin), fill=(226, 178, 148, 235))
     y += int(w * 0.026) + 14
     if contact.strip():
         contact_text = f"Inquiry: {contact.strip()[:70]}"
-        contact_font = _fit_font(contact_text, int(w * 0.026), w - 2 * margin)
-        d.text((margin, y), contact_text, font=contact_font, fill=(255, 255, 255, 220))
+        d.text((margin, y), contact_text, font=_fit_font(contact_text, int(w * 0.026), w - 2 * margin), fill=(255, 255, 255, 220))
     d.text((margin, h - int(w * 0.024) - 30), "miracurl-suite.com/partner",
-           font=url_font, fill=(210, 175, 130, 220))
+           font=_font(int(w * 0.024)), fill=(210, 175, 130, 220))
 
+
+def _compose_poster(img_bytes: bytes, headline: str, subline: str, tw: int, th: int, contact: str = "") -> bytes:
+    img = _poster_canvas(img_bytes, tw, th)
+    img = _paste_screenshot_card(img)
+    logo = _brand_logo(max(120, int(img.width * 0.15)))
+    if logo:
+        img.paste(logo, (img.width - logo.width - 36, 36), logo)
+    _draw_poster_text(img, headline, subline, contact)
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG", quality=90)
     return buf.getvalue()

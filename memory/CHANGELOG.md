@@ -1061,3 +1061,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - hq_notifications.py: _fee_items in feed ("Candidate hired — proceed with payment ..."); mark-seen also clears placement_fees.seen_by_hq.
 - employee_portal.py: GET/PUT /employee/resume + GET /employee/resume/pdf (reportlab, verified history auto-included, %PDF 200). EmployeePortal.jsx ResumeBuilder card (save + download blob). HiringPanel.jsx PlacementFees section (fee editor, send link, mark paid).
 - All test data cleaned; fee reset to ₹1000 default. Build 2026-07-12.3.
+
+## Iter 91 (12 Jul 2026) — Code review round 3 + Razorpay webhook auto-mark-paid
+- NEW routes/promo_common.py (FONT_PATH, BRAND_LOGO, _brand_logo, ALL_FEATURES, BROCHURE_DIR) — promo_video/promo_image/offer_flyer all import from it; promo circular import eliminated.
+- Refactors (radon verified): _compose_poster 11→2 (helpers _poster_canvas/_paste_screenshot_card/_draw_poster_text), _resume_pdf 16→~7 (_ResumeWriter class + _resume_header), auto_mark_hired_on_staff_attach 13→ lower (_match_open_application), text_agent if/elif chain → _TEXT_AGENTS dict table (live-tested with real LLM call).
+- FALSE POSITIVES re-verified AGAIN (3rd review): pyflakes 0 undefined names; social_connect.py:30 is OAuth scope URL constants.
+- DEFERRED: _run_pipeline refactor (fragile CPU-heavy video code), server.py split, test-file type hints.
+- NEW: payment_link.paid webhook handler (_wh_placement_fee_paid) auto-marks placement fees paid (reference_id/notes.fee_id) — unit-tested with simulated event. Requires RAZORPAY_WEBHOOK_SECRET set in production + tick "payment_link.paid" event in Razorpay webhook config.
+- All verified: poster compose, 40-row multipage resume PDF, webhook auto-paid, mira text agent live. Build 2026-07-12.4.

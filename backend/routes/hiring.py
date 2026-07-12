@@ -397,6 +397,14 @@ async def _record_hire(app_doc: dict) -> dict:
     return fee
 
 
+def _match_open_application(apps: list, user_doc: dict, email_by_emp: dict) -> Optional[dict]:
+    email = (user_doc.get("email") or "").strip().lower()
+    match = next((a for a in apps if email and email_by_emp.get(a["employee_id"]) == email), None)
+    if match:
+        return match
+    return next((a for a in apps if _name_matches(user_doc.get("name") or "", a.get("candidate_name") or "")), None)
+
+
 async def auto_mark_hired_on_staff_attach(tenant: dict, user_doc: dict) -> Optional[dict]:
     """Called when a salon owner creates/attaches staff login credentials. If the new staff
     matches an open hiring application for this salon, auto-mark it hired so HQ gets
@@ -406,13 +414,10 @@ async def auto_mark_hired_on_staff_attach(tenant: dict, user_doc: dict) -> Optio
         {"_id": 0}).to_list(100)
     if not apps:
         return None
-    email = (user_doc.get("email") or "").strip().lower()
     regs = await _raw_db.registry_employees.find(
         {"id": {"$in": [a["employee_id"] for a in apps]}}, {"_id": 0, "id": 1, "email": 1}).to_list(200)
     email_by_emp = {r["id"]: (r.get("email") or "").strip().lower() for r in regs}
-    match = next((a for a in apps if email and email_by_emp.get(a["employee_id"]) == email), None)
-    if not match:
-        match = next((a for a in apps if _name_matches(user_doc.get("name") or "", a.get("candidate_name") or "")), None)
+    match = _match_open_application(apps, user_doc, email_by_emp)
     if not match:
         return None
     await _raw_db.job_applications.update_one(

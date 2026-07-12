@@ -638,8 +638,25 @@ async def rzp_webhook(request: Request):
         await _wh_payment_failed(order_id, payment, logger)
     elif event_type in ("refund.created", "refund.processed") and order_id:
         await _wh_refund(order_id, refund, logger)
+    elif event_type == "payment_link.paid":
+        await _wh_placement_fee_paid(event, logger)
 
     return {"ok": True, "event": event_type}
+
+
+async def _wh_placement_fee_paid(event: dict, logger) -> None:
+    """Placement fee payment link paid → auto-mark the fee as paid (no manual step)."""
+    pl = (event.get("payload") or {}).get("payment_link", {}).get("entity", {})
+    fee_id = (pl.get("notes") or {}).get("fee_id") or pl.get("reference_id") or ""
+    if not fee_id:
+        return
+    res = await _raw_db.placement_fees.update_one(
+        {"id": fee_id, "status": {"$ne": "paid"}},
+        {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat(),
+                  "paid_via": "razorpay_payment_link",
+                  "razorpay_payment_link_id": pl.get("id", "")}})
+    if res.modified_count:
+        logger.info("placement fee %s auto-marked paid via payment link", fee_id)
 
 
 # ---------------- Renewal reminders ----------------

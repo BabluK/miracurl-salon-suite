@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from database import _raw_db
 from security import require_tenant_admin, current_tenant
 from services.storage import _put_object
-from routes.promo_video import FONT_PATH
+from routes.promo_common import FONT_PATH
 
 router = APIRouter()
 log = logging.getLogger("offer_flyer")

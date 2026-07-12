@@ -223,20 +223,59 @@ async def save_resume(body: ResumeIn, acct=Depends(current_employee)):
     return {"ok": True}
 
 
-def _resume_pdf(emp: dict, resume: dict, history: list) -> bytes:
-    import io
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas as rl_canvas
+class _ResumeWriter:
+    """Thin cursor-tracking wrapper around a reportlab canvas."""
+    GOLD, INK, GREY = (0.72, 0.6, 0.25), (0.12, 0.12, 0.14), (0.45, 0.45, 0.5)
 
-    buf = io.BytesIO()
-    c = rl_canvas.Canvas(buf, pagesize=A4)
-    W, H = A4
-    gold, ink, grey = (0.72, 0.6, 0.25), (0.12, 0.12, 0.14), (0.45, 0.45, 0.5)
+    def __init__(self, c, W, H, mm):
+        self.c, self.W, self.H, self.mm = c, W, H, mm
+        self.y = H - 52 * mm
 
-    c.setFillColorRGB(*ink)
+    def _page_break(self, floor=25):
+        if self.y < floor * self.mm:
+            self.c.showPage()
+            self.y = self.H - 25 * self.mm
+
+    def section(self, title):
+        c, mm = self.c, self.mm
+        self._page_break(35)
+        c.setFillColorRGB(*self.GOLD)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(20 * mm, self.y, title.upper())
+        c.setStrokeColorRGB(*self.GOLD)
+        c.setLineWidth(0.7)
+        c.line(20 * mm, self.y - 2 * mm, self.W - 20 * mm, self.y - 2 * mm)
+        self.y -= 8 * mm
+
+    def para(self, text, size=10, leading=5.2):
+        import textwrap
+        c, mm = self.c, self.mm
+        c.setFillColorRGB(*self.INK)
+        c.setFont("Helvetica", size)
+        for line in textwrap.wrap(text, 95):
+            self._page_break()
+            c.drawString(20 * mm, self.y, line)
+            self.y -= leading * mm
+        self.y -= 2 * mm
+
+    def job_row(self, r):
+        c, mm = self.c, self.mm
+        self._page_break(30)
+        c.setFillColorRGB(*self.INK)
+        c.setFont("Helvetica-Bold", 10.5)
+        c.drawString(20 * mm, self.y, f"{r['designation']} — {r['salon']}")
+        c.setFillColorRGB(*self.GREY)
+        c.setFont("Helvetica", 9)
+        verified = "  ✔ HQ Verified" if r.get("hq_verified") else ""
+        c.drawRightString(self.W - 20 * mm, self.y,
+                          f"{r.get('from_date') or ''} → {r.get('to_date') or 'Present'}{verified}")
+        self.y -= 6 * mm
+
+
+def _resume_header(c, W, H, mm, emp):
+    c.setFillColorRGB(*_ResumeWriter.INK)
     c.rect(0, H - 42 * mm, W, 42 * mm, stroke=0, fill=1)
-    c.setFillColorRGB(*gold)
+    c.setFillColorRGB(*_ResumeWriter.GOLD)
     c.setFont("Helvetica-Bold", 24)
     c.drawString(20 * mm, H - 22 * mm, emp.get("name") or "—")
     c.setFillColorRGB(0.92, 0.92, 0.92)
@@ -246,58 +285,38 @@ def _resume_pdf(emp: dict, resume: dict, history: list) -> bytes:
     c.setFont("Helvetica-Oblique", 9)
     c.drawString(20 * mm, H - 35 * mm, f"Miracurl Verified Registry · Staff code {emp.get('staff_code', '')}")
 
-    y = H - 52 * mm
 
-    def section(title):
-        nonlocal y
-        c.setFillColorRGB(*gold)
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(20 * mm, y, title.upper())
-        c.setStrokeColorRGB(*gold)
-        c.setLineWidth(0.7)
-        c.line(20 * mm, y - 2 * mm, W - 20 * mm, y - 2 * mm)
-        y -= 8 * mm
+def _resume_pdf(emp: dict, resume: dict, history: list) -> bytes:
+    import io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas as rl_canvas
 
-    def para(text, size=10, leading=5.2):
-        nonlocal y
-        c.setFillColorRGB(*ink)
-        c.setFont("Helvetica", size)
-        import textwrap
-        for line in textwrap.wrap(text, 95):
-            if y < 25 * mm:
-                c.showPage(); y = H - 25 * mm
-            c.drawString(20 * mm, y, line)
-            y -= leading * mm
-        y -= 2 * mm
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    W, H = A4
+    _resume_header(c, W, H, mm, emp)
+    w = _ResumeWriter(c, W, H, mm)
 
     if resume.get("summary"):
-        section("Profile")
-        para(resume["summary"])
+        w.section("Profile")
+        w.para(resume["summary"])
     if resume.get("skills"):
-        section("Skills")
-        para(" · ".join(s.strip() for s in resume["skills"].split(",") if s.strip()))
-    section("Experience")
+        w.section("Skills")
+        w.para(" · ".join(s.strip() for s in resume["skills"].split(",") if s.strip()))
+    w.section("Experience")
     for r in history:
-        if y < 30 * mm:
-            c.showPage(); y = H - 25 * mm
-        c.setFillColorRGB(*ink)
-        c.setFont("Helvetica-Bold", 10.5)
-        c.drawString(20 * mm, y, f"{r['designation']} — {r['salon']}")
-        c.setFillColorRGB(*grey)
-        c.setFont("Helvetica", 9)
-        verified = "  ✔ HQ Verified" if r.get("hq_verified") else ""
-        c.drawRightString(W - 20 * mm, y, f"{r.get('from_date') or ''} → {r.get('to_date') or 'Present'}{verified}")
-        y -= 6 * mm
+        w.job_row(r)
     if resume.get("extra_experience"):
-        para(resume["extra_experience"], size=9.5)
+        w.para(resume["extra_experience"], size=9.5)
     if resume.get("education"):
-        section("Education")
-        para(resume["education"])
+        w.section("Education")
+        w.para(resume["education"])
     if resume.get("languages"):
-        section("Languages")
-        para(resume["languages"])
+        w.section("Languages")
+        w.para(resume["languages"])
 
-    c.setFillColorRGB(*grey)
+    c.setFillColorRGB(*_ResumeWriter.GREY)
     c.setFont("Helvetica-Oblique", 8)
     c.drawCentredString(W / 2, 14 * mm, "Generated by Miracurl Employee Portal · miracurl-suite.com/staff-registry")
     c.save()

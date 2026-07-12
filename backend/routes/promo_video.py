@@ -34,7 +34,7 @@ log = logging.getLogger("promo_video")
 APP_NAME = os.environ.get("APP_NAME", "miracurl")
 W, H, FPS = 1080, 1920, 20
 SIZES = {"reel": (1080, 1920), "square": (1080, 1080), "landscape": (1920, 1080)}
-FONT_PATH = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
+from routes.promo_common import FONT_PATH, _brand_logo, ALL_FEATURES, BROCHURE_DIR  # noqa: E402
 
 
 def _ffmpeg() -> str:
@@ -151,26 +151,6 @@ async def _fail_job(job_id: str, error: str):
 
 MIRA_INTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_intro.png")
 MIRA_OUTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_outro.png")
-BRAND_LOGO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "brand_logo.png")
-
-_logo_cache: list = []
-
-
-def _brand_logo(width: int) -> Image.Image | None:
-    """Rose-gold swirl logo resized once per render size (RGBA for alpha paste)."""
-    if not os.path.exists(BRAND_LOGO):
-        return None
-    if not _logo_cache or _logo_cache[0].width != width:
-        im = Image.open(BRAND_LOGO).convert("RGBA")
-        im.thumbnail((width, width), Image.LANCZOS)
-        _logo_cache.clear()
-        _logo_cache.append(im)
-    return _logo_cache[0]
-
-ALL_FEATURES = ("online bookings, POS billing with GST receipts, customer CRM with loyalty points & birthday offers, "
-                "the Staff Verification Portal (hire trusted background-verified staff), Mira the AI marketing agent "
-                "(auto-creates daily Instagram posts, win-back emails & WhatsApp offers on autopilot), "
-                "SMS & email receipts, business reports, and multi-branch management")
 
 
 async def _run_pipeline(job_id: str, body: PromoIn):
@@ -244,7 +224,6 @@ async def _run_pipeline(job_id: str, body: PromoIn):
         "voiceover": voiceover, "size_mb": round(len(video_bytes) / 1048576, 1)}})
 
 
-BROCHURE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "brochure")
 EXPRESS_SHOTS = ["dashboard.png", "pos.png", "staff.png", "mira.png"]
 BOOKING_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "booking_demo")
 BOOKING_SHOTS = ["hero.jpeg", "chat1.jpeg", "chat2.jpeg", "services.jpeg", "time.jpeg", "details.jpeg"]

@@ -157,28 +157,35 @@ class TextAgentIn(BaseModel):
     topic: str
 
 
+_TEXT_AGENTS = {
+    "content": (
+        "Content Writer for '{name}', a premium Indian salon in {loc}. Write warm, brand-voice content.",
+        '{{"title":"...","body":"<3-5 short paragraphs>","cta":"..."}}'),
+    "sales": (
+        "Sales Agent for '{name}'. Write practical upsell/package pitch scripts staff can say aloud.",
+        '{{"pitch":"<what staff says>","upsells":["..."],"objection_handling":[{{"objection":"...","response":"..."}}]}}'),
+    "seo": (
+        "Local SEO Agent for '{name}' in {loc}. Optimise for 'salon near me' style local search.",
+        '{{"keywords":["..."],"meta_description":"<155 chars>","gmb_post":"...","tips":["..."]}}'),
+    "video": (
+        "Video Creator Agent for '{name}'. Design short vertical reels for beauty services.",
+        '{{"hook":"<first 3s line>","script":["<scene 1>","..."],"shot_list":["..."],"caption":"...","audio_idea":"..."}}'),
+    "email": (
+        "Email Marketing Agent for '{name}', a salon in {loc}. Write engaging campaign emails.",
+        '{{"subject":"...","preview_text":"...","body":"<friendly email, plain text with line breaks>","cta":"..."}}'),
+}
+
+
 @router.post("/mira-studio/generate")
 async def text_agent(body: TextAgentIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     name = t.get("name", "our salon")
     loc = t.get("location") or "your city"
     topic = body.topic.strip()
-    if body.agent == "content":
-        sys = f"Content Writer for '{name}', a premium Indian salon in {loc}. Write warm, brand-voice content."
-        out = await _ask_json(sys, f"Topic: {topic}. Return JSON: {{\"title\":\"...\",\"body\":\"<3-5 short paragraphs>\",\"cta\":\"...\"}}")
-    elif body.agent == "sales":
-        sys = f"Sales Agent for '{name}'. Write practical upsell/package pitch scripts staff can say aloud."
-        out = await _ask_json(sys, f"Topic: {topic}. Return JSON: {{\"pitch\":\"<what staff says>\",\"upsells\":[\"...\"],\"objection_handling\":[{{\"objection\":\"...\",\"response\":\"...\"}}]}}")
-    elif body.agent == "seo":
-        sys = f"Local SEO Agent for '{name}' in {loc}. Optimise for 'salon near me' style local search."
-        out = await _ask_json(sys, f"Topic: {topic}. Return JSON: {{\"keywords\":[\"...\"],\"meta_description\":\"<155 chars>\",\"gmb_post\":\"...\",\"tips\":[\"...\"]}}")
-    elif body.agent == "video":
-        sys = f"Video Creator Agent for '{name}'. Design short vertical reels for beauty services."
-        out = await _ask_json(sys, f"Topic: {topic}. Return JSON: {{\"hook\":\"<first 3s line>\",\"script\":[\"<scene 1>\",\"...\"],\"shot_list\":[\"...\"],\"caption\":\"...\",\"audio_idea\":\"...\"}}")
-    elif body.agent == "email":
-        sys = f"Email Marketing Agent for '{name}', a salon in {loc}. Write engaging campaign emails."
-        out = await _ask_json(sys, f"Topic: {topic}. Return JSON: {{\"subject\":\"...\",\"preview_text\":\"...\",\"body\":\"<friendly email, plain text with line breaks>\",\"cta\":\"...\"}}")
-    else:
+    if body.agent not in _TEXT_AGENTS:
         raise HTTPException(400, f"'{body.agent}' is not a text agent")
+    sys_tpl, shape = _TEXT_AGENTS[body.agent]
+    out = await _ask_json(sys_tpl.format(name=name, loc=loc),
+                          f"Topic: {topic}. Return JSON: {shape.format()}")
     return {"agent": body.agent, "topic": topic, "result": _clean_newlines(out)}
 
 
