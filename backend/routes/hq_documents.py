@@ -85,6 +85,14 @@ DOCS = {
         "subtitle": "Every module of the all-in-one salon platform",
         "description": "A share-ready overview of the entire Miracurl Suite for prospective salons and partners.",
         "sections": [
+            ("Your 12-Agent AI Team", [
+                "AI Orchestrator — the central brain coordinating every agent below.",
+                "Social Media, Video Creator & Content Writer Agents — daily posts, promo videos, captions and offers, generated automatically.",
+                "WhatsApp & Email Marketing Agents — booking confirmations, birthday offers, win-back campaigns and business digests.",
+                "Lead Finder & Sales Agents — capture enquiries from your public page and answer prospects 24/7.",
+                "SEO & Google Business Agents — Google-indexed salon page plus automatic review replies.",
+                "Staff Verification & Analytics Agents — Aadhaar-verified registry, QR ID cards, weekly and monthly reports.",
+            ]),
             ("Run the Salon", [
                 "Appointments & Online Bookings — 24/7 public booking page per salon, with Mira the AI receptionist.",
                 "Smart POS & GST Billing — fast counter billing, e-receipts by email/SMS, coupons, memberships and loyalty points.",
@@ -291,6 +299,46 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
           <div style="font-size:12.5px;color:#6c6c78;line-height:1.55;margin-top:4px">{desc}</div>
         </td>"""
 
+    agents = [
+        ("🧠", "AI Orchestrator", "the central brain coordinating every agent"),
+        ("📱", "Social Media Agent", "daily posts &amp; flyers, on autopilot"),
+        ("🎥", "Video Creator Agent", "promo videos generated for you"),
+        ("💬", "WhatsApp Agent", "confirmations, win-backs &amp; campaigns"),
+        ("📧", "Email Marketing Agent", "birthday offers &amp; lapsed-client nudges"),
+        ("🔍", "Lead Finder Agent", "captures &amp; qualifies new enquiries"),
+        ("🌐", "SEO Agent", "your Google-indexed public salon page"),
+        ("⭐", "Google Business Agent", "review replies, automatically"),
+        ("👥", "Staff Verification Agent", "Aadhaar-verified registry &amp; ID cards"),
+        ("📊", "Analytics Agent", "weekly &amp; monthly business digests"),
+        ("💼", "Sales Agent", "answers your customers 24/7"),
+        ("📝", "Content Writer Agent", "offers, captions &amp; descriptions"),
+    ]
+    agent_rows = ""
+    for i in range(0, len(agents), 2):
+        cells = ""
+        for icon, title, desc in agents[i:i + 2]:
+            cells += f"""
+            <td width="50%" valign="top" style="padding:7px 12px">
+              <div style="font-size:13px;color:#f4f1e8"><span style="font-size:15px">{icon}</span>
+                <b style="font-family:Georgia,serif;letter-spacing:.3px">&nbsp;{title}</b></div>
+              <div style="font-size:11.5px;color:#a49d8e;line-height:1.5;margin-top:2px;padding-left:24px">{desc}</div>
+            </td>"""
+        agent_rows += f"<tr>{cells}</tr>"
+    agents_block = f"""
+  <tr><td style="padding:10px 24px 6px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#15151b;border-radius:14px">
+      <tr><td style="padding:20px 14px 6px 24px">
+        <div style="font-size:11px;letter-spacing:2px;color:#d4af37;font-weight:bold">MEET YOUR AI TEAM</div>
+        <div style="font-family:Georgia,serif;font-size:17px;color:#f4f1e8;margin-top:5px">
+          12 specialist AI agents, working for your salon around the clock</div>
+      </td></tr>
+      {agent_rows}
+      <tr><td colspan="2" style="padding:8px 24px 18px">
+        <div style="font-size:11.5px;color:#8f8798;line-height:1.5">Each agent quietly handles its own job — you simply run your salon, and Mira runs the rest.</div>
+      </td></tr>
+    </table>
+  </td></tr>"""
+
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
 <tr><td align="center">
@@ -324,6 +372,7 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
           {_module("🔐", "Secure &amp; Multi-branch", "Bank-grade security, per-salon data isolation, and every branch under one account.")}</tr>
     </table>
   </td></tr>
+  {agents_block}
   <tr><td align="center" style="padding:26px 36px 8px">
     <a href="{mailto}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
        text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">Request my demo time ✦</a>
@@ -452,7 +501,8 @@ def _reminder_email_html(recipient_name: str, salon_name: str, hq_email: str) ->
       A few days ago we sent you an invitation to see the <b>Miracurl Salon Suite</b> — and we completely
       understand how busy things get{salon_ref}. This is just one friendly nudge, and we promise it's the only one.</p>
     <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0 0 14px">
-      The demo is <b>20 minutes</b>, at any time you choose — bookings, billing, staff and AI marketing,
+      The demo is <b>20 minutes</b>, at any time you choose — bookings, billing, staff and a team of
+      <b>12 specialist AI agents</b> (social posts, promo videos, WhatsApp, review replies and more)
       all in one calm dashboard. Salons like yours typically save <b>2 hours a day</b> after switching.</p>
     <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0">
       If now isn't the right moment, no reply is needed at all — we'll leave you in peace.
