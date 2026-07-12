@@ -118,6 +118,15 @@ export default function SuperAdmin() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const demoHot = (notifFeed?.items || []).filter(i => i.type === "demo" && i.unread).length;
+  useEffect(() => {
+    if (tab !== "lead-email") return;
+    const t = setTimeout(() => {
+      api.get("/super-admin/notifications").then(r => setNotifFeed(r.data)).catch(() => {});
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [tab]);
+
   const [createdCreds, setCreatedCreds] = useState(null);
 
   function startNew() {
@@ -286,7 +295,7 @@ export default function SuperAdmin() {
               { id: "leaderboard", label: "Top Referrers", icon: Trophy },
               { id: "revenue", label: "Revenue", icon: TrendingUp },
               { id: "docs", label: "Documents", icon: FileText },
-              { id: "lead-email", label: "Lead Gen Email", icon: Mail },
+              { id: "lead-email", label: "Lead Gen Email", icon: Mail, badge: demoHot, hot: demoHot > 0 },
               { id: "ai", label: "AI Insights", icon: Sparkles },
               { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
               { id: "hiring", label: "Hiring", icon: Briefcase, badge: hiringNew },
@@ -304,10 +313,16 @@ export default function SuperAdmin() {
               { id: "security", label: "Security", icon: ShieldAlert },
             ].map(item => (
               <button key={item.id} data-testid={`super-tab-${item.id}`} onClick={() => setTab(item.id)}
-                className={`shrink-0 lg:w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>
-                <item.icon className="w-4 h-4 shrink-0" />
+                className={`shrink-0 lg:w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-slate-900 text-white" : item.hot ? "text-amber-600 bg-amber-50 animate-pulse hover:bg-amber-100" : "text-slate-600 hover:bg-slate-100"}`}>
+                <item.icon className={`w-4 h-4 shrink-0 ${item.hot && tab !== item.id ? "text-amber-500" : ""}`} />
                 <span className="whitespace-nowrap">{item.label}</span>
-                {item.badge > 0 && <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{item.badge}</span>}
+                {item.hot && <span className="text-xs" aria-hidden>🔥</span>}
+                {item.badge > 0 && (
+                  <span className={`ml-auto relative min-w-[18px] h-[18px] px-1 rounded-full ${item.hot ? "bg-amber-500" : "bg-rose-500"} text-white text-[10px] font-bold inline-flex items-center justify-center`}>
+                    {item.hot && <span className="absolute inset-0 rounded-full bg-amber-400 animate-ping opacity-70" aria-hidden />}
+                    <span className="relative">{item.badge}</span>
+                  </span>
+                )}
               </button>
             ))}
           </nav>

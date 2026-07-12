@@ -139,8 +139,11 @@ async def public_salon_page(slug: str):
     try:
         services = await db.services.find({}, {"_id": 0, "name": 1, "price": 1, "category": 1,
                                                "duration_min": 1}).sort("price", -1).to_list(24)
-        reviews = await db.reviews.find({"public": True}, {"_id": 0, "customer_name": 1, "rating": 1,
-                                                           "comment": 1, "created_at": 1}
+        reviews = await db.reviews.find({"public": True,
+                                         "$nor": [{"customer_name": {"$regex": "^TEST", "$options": "i"}},
+                                                  {"comment": {"$regex": "^TEST", "$options": "i"}}]},
+                                        {"_id": 0, "customer_name": 1, "rating": 1,
+                                         "comment": 1, "created_at": 1}
                                         ).sort("created_at", -1).to_list(200)
     finally:
         _current_tenant_id.reset(tok)
@@ -148,6 +151,7 @@ async def public_salon_page(slug: str):
     return {
         "name": t.get("name"), "slug": slug, "location": t.get("location") or "",
         "phone": t.get("phone") or "", "about": t.get("about") or "",
+        "gallery": [p["url"] for p in (t.get("gallery") or [])][:6],
         "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
         "reviews_count": len(ratings),
         "services": services,

@@ -5,6 +5,7 @@ import { ContactHQSection } from "@/components/ContactHQSection";
 import { QrPosterCard } from "@/components/settings/QrPosterCard";
 import { ProfileCompletenessCard } from "@/components/settings/ProfileCompletenessCard";
 import { BrandingCard } from "@/components/settings/BrandingCard";
+import { GalleryCard } from "@/components/settings/GalleryCard";
 import { TaxCard } from "@/components/settings/TaxCard";
 import { LoyaltyCard } from "@/components/settings/LoyaltyCard";
 import { AffiliateCard } from "@/components/settings/AffiliateCard";
@@ -37,6 +38,8 @@ export default function Settings() {
         <ContactHQSection />
 
         <BrandingCard />
+
+        <GalleryCard />
 
         <TaxCard />
 

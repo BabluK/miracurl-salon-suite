@@ -2119,6 +2119,59 @@ async def staff_upload_photo(file: UploadFile = File(...), s=Depends(_current_st
     return {"url": public_url}
 
 
+# ---------------- Salon photo gallery (public salon page) ----------------
+_GALLERY_MAX = 6
+
+
+@api.get("/salon/gallery")
+async def salon_gallery(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    doc = await _raw_db.tenants.find_one({"id": t["id"]}, {"_id": 0, "gallery": 1})
+    return {"photos": (doc or {}).get("gallery") or [], "max": _GALLERY_MAX}
+
+
+@api.post("/salon/gallery")
+async def salon_gallery_upload(file: UploadFile = File(...), user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    doc = await _raw_db.tenants.find_one({"id": t["id"]}, {"_id": 0, "gallery": 1})
+    photos = (doc or {}).get("gallery") or []
+    if len(photos) >= _GALLERY_MAX:
+        raise HTTPException(400, f"Gallery is full — max {_GALLERY_MAX} photos. Remove one first.")
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "bin"
+    if ext not in _MIME:
+        raise HTTPException(400, "Only JPG, PNG, GIF or WebP images are allowed")
+    data = await file.read()
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"Image too large — max {_MAX_UPLOAD_BYTES // (1024*1024)}MB")
+    if not data:
+        raise HTTPException(400, "Empty file")
+    validate_image_bytes(ext, data)
+    file_id = str(uuid.uuid4())
+    storage_path = f"{APP_NAME}/tenants/{t['id']}/gallery/{file_id}.{ext}"
+    try:
+        result = _put_object(storage_path, data, _MIME[ext])
+    except requests.HTTPError as e:
+        raise HTTPException(400, f"Storage upload failed: {e}") from e
+    await _raw_db.uploads.insert_one({
+        "id": file_id, "tenant_id": t["id"], "kind": "gallery",
+        "storage_path": result.get("path", storage_path),
+        "original_filename": file.filename or f"{file_id}.{ext}",
+        "content_type": _MIME[ext], "size": len(data),
+        "uploaded_by": user["id"], "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    photo = {"id": file_id, "url": f"/api/files/{file_id}"}
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$push": {"gallery": photo}})
+    return photo
+
+
+@api.delete("/salon/gallery/{fid}")
+async def salon_gallery_delete(fid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await _raw_db.tenants.update_one({"id": t["id"]}, {"$pull": {"gallery": {"id": fid}}})
+    if res.modified_count == 0:
+        raise HTTPException(404, "Photo not found")
+    await _raw_db.uploads.update_one({"id": fid, "tenant_id": t["id"]}, {"$set": {"is_deleted": True}})
+    return {"ok": True}
+
+
 # ---------------- Vendors & morning briefing ----------------
 class VendorIn(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
@@ -2911,11 +2964,15 @@ async def public_review(token: str, body: ReviewIn, request: Request):
         } if reward_code else None,
     }
 
+_TEST_REVIEW_FILTER = {"$nor": [{"customer_name": {"$regex": "^TEST", "$options": "i"}},
+                                {"comment": {"$regex": "^TEST", "$options": "i"}}]}
+
+
 @api.get("/public/reviews/featured/{slug}")
 async def public_featured_reviews(slug: str, limit: int = 6):
     await resolve_tenant_from_slug(slug)
     docs = await db.reviews.find(
-        {"public": True, "rating": {"$gte": 4}},
+        {"public": True, "rating": {"$gte": 4}, **_TEST_REVIEW_FILTER},
         {"_id": 0, "customer_id": 0, "appointment_id": 0, "staff_id": 0, "reward_code": 0}
     ).sort("created_at", -1).to_list(limit)
     return docs

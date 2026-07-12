@@ -141,6 +141,28 @@ export default function SalonPublic() {
           </div>
         </motion.section>
 
+        {/* Gallery — photo strip */}
+        {s.gallery?.length > 0 && (
+          <motion.section {...fadeUp(0.04)} className="relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border border-amber-300/20 shadow-[0_0_40px_-12px_rgba(251,191,36,.35)] p-6 sm:p-8" data-testid="salon-gallery-section">
+            <Sparkle className="top-4 right-[8%]" delay={0.6} size="text-sm" />
+            <div className="flex items-center gap-4 mb-5">
+              <span className="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-amber-300"><Sparkles className="w-5 h-5" /></span>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold tracking-[0.2em] uppercase text-amber-300">Inside the salon</h2>
+                <p className="text-xs text-white/40 mt-0.5">A little look before you visit</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {s.gallery.map((url, i) => (
+                <div key={i} className={`rounded-2xl overflow-hidden border border-white/10 ${i === 0 ? "col-span-2 row-span-2 sm:col-span-1" : ""}`}>
+                  <img src={`${process.env.REACT_APP_BACKEND_URL}${url}`} alt={`${s.name} photo ${i + 1}`} loading="lazy"
+                    className="w-full h-full object-cover aspect-square hover:scale-105 transition-transform duration-500" />
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
         {/* Reviews — neon section card */}
         {s.reviews.length > 0 && (
           <motion.section {...fadeUp(0.08)} className={`relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border ${GLOWS[1].ring} ${GLOWS[1].shadow} p-6 sm:p-8`}>
