@@ -497,7 +497,16 @@ async def registry_mark_left(rid: str, body: MarkLeftIn, admin=Depends(require_t
     if body.comment.strip():
         patch["comment"] = body.comment.strip()
     await _raw_db.registry_employments.update_one({"id": rid}, {"$set": patch})
-    return {"ok": True, "to_date": patch["to_date"]}
+    # Block the ex-staff's salon app login: disable any user account in this tenant
+    # that matches the registry employee's email (they keep the separate Employee Portal).
+    emp = await _raw_db.registry_employees.find_one({"id": rec.get("employee_id")}, {"_id": 0, "email": 1})
+    disabled_login = False
+    if emp and (emp.get("email") or "").strip():
+        res = await _raw_db.users.update_one(
+            {"tenant_id": t["id"], "email": emp["email"].strip().lower(), "role": {"$ne": "admin"}},
+            {"$set": {"disabled": True}})
+        disabled_login = res.modified_count > 0
+    return {"ok": True, "to_date": patch["to_date"], "login_disabled": disabled_login}
 
 
 @router.delete("/registry/employments/{rid}")

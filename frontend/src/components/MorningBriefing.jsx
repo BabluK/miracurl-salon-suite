@@ -16,6 +16,7 @@ export function MorningBriefing() {
   const [voiceState, setVoiceState] = useState("idle"); // idle | loading | blocked | playing | listening
   const [lang, setLang] = useState(() => localStorage.getItem("mira_lang") || "en");
   const recRef = useRef(null);
+  const audioRef = useRef(null);
   const briefRef = useRef(null);
   const vendorIdRef = useRef("");
 
@@ -82,6 +83,7 @@ export function MorningBriefing() {
       const endpoint = isEvening ? "/reports/evening-briefing/audio" : "/reports/morning-briefing/audio";
       const { data } = await api.get(`${endpoint}?lang=${useLang}`);
       const audio = new Audio(`data:audio/mp3;base64,${data.audio_b64}`);
+      audioRef.current = audio;
       audio.onended = () => {
         if (data.ask_restock) startListening(useLang);
         else setVoiceState("idle");
@@ -94,6 +96,13 @@ export function MorningBriefing() {
       if (manual) toast.error("Couldn't play the greeting");
     }
   }
+
+  // Stop Mira's voice + mic the moment this component unmounts (e.g. on logout)
+  useEffect(() => () => {
+    try { audioRef.current?.pause(); audioRef.current = null; } catch { /* gone */ }
+    try { recRef.current?.abort?.(); recRef.current?.stop?.(); } catch { /* gone */ }
+    try { window.speechSynthesis?.cancel(); } catch { /* n/a */ }
+  }, []);
 
   useEffect(() => {
     if (localStorage.getItem(todayKey)) { setDismissed(true); return; }

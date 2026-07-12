@@ -1,0 +1,42 @@
+{
+  "summary": "Iter 65 — Employee Self-Service Portal tested. Backend 8/8 pytest cases pass (register unregistered→404, reset wrong→403, reset correct→200 (restored), login+me+patch+logout, mark-left disables matching user account & login now returns 403, admin login+public salon+winback regression pass). Frontend BLOCKER: EmployeePortal AuthForms & ProfileEditor use a stale-closure setState pattern that drops keystrokes at normal typing speed — the phone/aadhaar/city inputs remain empty (or lose data) so real users cannot log in / register / edit the city field through the UI.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "EmployeePortal.jsx – AuthForms & ProfileEditor",
+        "issue": "Stale-closure setState drops keystrokes. `const set = (k) => (e) => setF({ ...f, [k]: e.target.value })` closes over the render-time `f`; with React 18 auto-batching, rapid keystrokes on the phone / aadhaar / city inputs collapse to the last event using STALE f, so most typed characters vanish. Verified: keyboard.type('9812345670', delay=40ms) on emp-phone-input leaves input value=''; only super-slow typing (>=300ms between chars) sometimes sticks. Password input (type=password) happens to work only because it is typed last and receives one long e.target.value from the DOM in one shot. Screenshot showed 'Please fill out this field' HTML5 required-error on phone even after fully typing it. The exact same broken pattern is used in ProfileEditor (line 79) — city/name/email/current_address updates also lose keystrokes.",
+        "selector": "[data-testid=\"emp-phone-input\"], [data-testid=\"emp-aadhaar-input\"], [data-testid=\"emp-profile-city\"] etc.",
+        "priority": "HIGH — real users cannot log in / register / reset password / edit profile through the UI"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter65_employee_portal.py",
+    "/app/test_reports/pytest/iter65.xml"
+  ],
+  "action_items": [
+    "In /app/frontend/src/pages/EmployeePortal.jsx AuthForms (line ~22) change `setF({ ...f, [k]: e.target.value })` to functional form: `setF(prev => ({ ...prev, [k]: e.target.value }))` — one-line fix.",
+    "Apply the same fix to ProfileEditor onChange (line 92): `onChange={e => setF(prev => ({ ...prev, [k]: e.target.value }))}`.",
+    "After fix, re-run UI test — the mark-left → salon-login-disabled flow, register-unregistered toast, edit-city persistence and logout have all been verified server-side and only need the input fix to become end-to-end verifiable in the browser."
+  ],
+  "critical_code_review_comments": [
+    "EmployeePortal.jsx line 22 & 92 – classic React stale-closure with object spread. This is the exact anti-pattern React docs warn against; switch to functional updater form.",
+    "AuthForms tab buttons (line 49) have no type='button'. They are outside the <form>, so HTML doesn't submit, but adding type='button' is safer against future refactors that might move them inside the form.",
+    "current_employee helper: 401 for a missing/invalid cookie is fine, but on every page load the portal fires GET /employee/me and logs 4x 401 console errors before rendering the auth card. Consider silencing (use axios interceptor or a first-load probe with `?probe=1`).",
+    "registry_mark_left (routes/registry.py:504) only matches users by lower-cased email + tenant + role!=admin. If an admin@ email happens to also be a staff (unlikely) the disable would skip; behavior is intentional per spec.",
+    "employee_portal._find_registry_emp_by_phone (line 60) does a full-collection scan — O(N) with growth. Add an index on registry_employees.phone (last-10-digit prefix) or store normalized_phone."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter65_employee_portal.py (new — 3 test classes, 8 cases)"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "0% (login form broken — cannot type phone number)"},
+  "test_credentials": "Salon admin: admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug: miracurl-marathahalli). Employee portal: 9812345670 / NewPass@123 (Aadhaar 123412341234, staff_code MC-TEST-01). Password left restored to NewPass@123 as instructed.",
+  "seed_data_creation": "Created + cleaned up transient records in mark-left test: 1 registry_employees (unique aadhaar), 1 registry_employments, 1 users doc (tenant miracurl-marathahalli, role staff, disabled toggle verified). All rows deleted at end of test.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend curl of /api/employee/* and /api/registry/employments/{rid}/mark-left already fully covered by /app/backend/tests/test_iter65_employee_portal.py (uses direct MongoDB write via MONGO_URL/DB_NAME to insert the staff user because there is no public endpoint that creates a salon-login user with a password). After the main agent fixes the setState stale-closure in EmployeePortal.jsx (line 22, line 92), the frontend flow — register unregistered phone 9812345671 (should toast 'not registered'), login 9812345670/NewPass@123 → dashboard with MC-TEST-01 + 'HQ Verified' badge + /jobs link, edit city + save + reload persistence, logout → auth card — should all pass end-to-end with normal-speed page.fill(). Login form input 'emp-phone-input' is a plain text input (not a Field wrapper). The Register tab correctly reveals emp-aadhaar-input.",
+  "rca of the issue": "EmployeePortal.jsx defines `const set = (k) => (e) => setF({ ...f, [k]: e.target.value })` at render time; the closure captures `f`. React 18 batches updates for events dispatched outside React's synthetic event pipeline (or when the event loop dispatches multiple keystrokes before commit). Because each keystroke's setF re-uses the same stale `f`, only the last handler's result survives. For the phone/aadhaar inputs, the DOM value briefly shows the typed characters before the controlled input reasserts the empty state on next commit. Reproduction: page.keyboard.type('9812345670', delay=40) → input value remains ''. Fix: change to functional setState `setF(prev => ({ ...prev, [k]: e.target.value }))` — this is the same anti-pattern React docs warn about (https://react.dev/reference/react/useState#ive-updated-the-state-but-logging-gives-me-the-old-value)."
+}
