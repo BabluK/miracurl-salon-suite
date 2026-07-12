@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Mail, Send, Plus, X, Building2, Sparkles, History, BellRing, CheckCircle2 } from "lucide-react";
+import { Mail, Send, Plus, X, Sparkles, History, BellRing, CheckCircle2 } from "lucide-react";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export function DemoCampaign() {
-  const [pool, setPool] = useState({ tenants: [], leads: [] });
+  const [pool, setPool] = useState({ leads: [] });
   const [selected, setSelected] = useState({});
   const [manual, setManual] = useState("");
   const [note, setNote] = useState("");
@@ -43,8 +43,8 @@ export function DemoCampaign() {
       const r = await api.post("/super-admin/demo-campaign/send", { recipients: list, note });
       toast.success(`Demo invite sent to ${r.data.sent} owner${r.data.sent === 1 ? "" : "s"}${r.data.failed ? ` · ${r.data.failed} failed` : ""}`);
       if (r.data.failed) {
-        const bad = r.data.results.filter(x => !x.sent).map(x => x.email).join(", ");
-        toast.error(`Failed: ${bad}`);
+        const bad = r.data.results.filter(x => !x.sent).map(x => `${x.email}${x.error ? ` — ${x.error}` : ""}`).join(", ");
+        toast.error(bad);
       }
       setSelected({}); setNote("");
       loadHistory();
@@ -92,13 +92,10 @@ export function DemoCampaign() {
     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-5" data-testid="demo-campaign-card">
       <div>
         <h3 className="font-semibold text-slate-800 flex items-center gap-2"><Mail className="w-4 h-4 text-amber-500" /> Demo invite campaign</h3>
-        <p className="text-xs text-slate-500 mt-1">Send a beautifully designed, polite invitation explaining the Miracurl Suite — all 4 policy PDFs attached. Replies come straight to your HQ inbox.</p>
+        <p className="text-xs text-slate-500 mt-1">For salons <b>not yet on Miracurl</b> — send a beautifully designed, polite invitation explaining the suite and your 12-agent AI team, all 4 policy PDFs attached. Existing partners are excluded automatically. Replies come straight to your HQ inbox.</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <Group title="Leads & Inquiries" icon={Sparkles} rows={pool.leads} kind="lead" />
-        <Group title="Existing salon owners" icon={Building2} rows={pool.tenants} kind="tenant" />
-      </div>
+      <Group title="Prospects — Leads & Inquiries" icon={Sparkles} rows={pool.leads} kind="lead" />
 
       <div className="flex gap-2">
         <input value={manual} onChange={e => setManual(e.target.value)} onKeyDown={e => e.key === "Enter" && addManual()}

@@ -1087,3 +1087,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - server.py: _demo_followup_scheduler daily after 10:00 IST, idempotent via system_flags key demo_followup_auto, registered in on_startup.
 - DemoCampaign.jsx: "Invitees & follow-ups" tracker w/ status chips, mark-replied toggle, "Send due reminders now" button. Input styling fixed (!bg-white).
 - E2E tested: send→backdate 6d→run (1 reminder sent via real Resend)→idempotent 2nd run 0→converted auto-skip→mark-replied toggle→UI screenshot. Test data cleaned.
+
+## Iter 95 (12 Jul 2026) — Demo campaign: prospects-only + AI agent team in email/PDF
+- Recipients endpoint now returns ONLY leads (tenant_inquiries) minus any email already in tenants.owner_email; "Existing salon owners" group removed from UI (campaign is strictly for salons NOT on Miracurl).
+- Send endpoint hard-guard: recipient email matching a tenant owner_email → skipped with "Already a Miracurl partner — skipped" (surfaced in toast with reason).
+- _demo_email_html: new dark "MEET YOUR AI TEAM" section — 12 agents (Orchestrator, Social, Video, WhatsApp, Email, Lead Finder, SEO, Google Business, Staff Verification, Analytics, Sales, Content Writer). Suite Overview PDF got matching "Your 12-Agent AI Team" section (emoji-free for reportlab). Reminder email mentions 12 agents.
+- Verified: recipients keys=[leads], partner send blocked, email render screenshot, live send OK. Test data cleaned.

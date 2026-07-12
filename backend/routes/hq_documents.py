@@ -417,18 +417,15 @@ class DemoCampaignIn(BaseModel):
 
 @router.get("/super-admin/demo-campaign/recipients")
 async def demo_campaign_recipients(user=Depends(require_super_admin)):
-    tenants = await _raw_db.tenants.find(
-        {"owner_email": {"$exists": True, "$ne": ""}},
-        {"_id": 0, "name": 1, "owner_email": 1, "status": 1}).to_list(500)
+    """Prospect pool only — existing tenants (already partners) are excluded."""
+    tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
     leads = await _raw_db.tenant_inquiries.find(
         {"email": {"$exists": True, "$ne": ""}},
         {"_id": 0, "name": 1, "email": 1, "salon_name": 1, "status": 1}).sort("created_at", -1).to_list(500)
     return {
-        "tenants": [{"name": t.get("name", ""), "email": t["owner_email"], "status": t.get("status", "")}
-                    for t in tenants],
         "leads": [{"name": l.get("name", ""), "email": l["email"],
                    "salon_name": l.get("salon_name", ""), "status": l.get("status", "")}
-                  for l in leads],
+                  for l in leads if l["email"].lower() not in tenant_emails],
     }
 
 
@@ -446,9 +443,13 @@ async def demo_campaign_send(body: DemoCampaignIn, user=Depends(require_super_ad
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     subject = body.subject.strip() or "A warm invitation — see your salon run beautifully with Miracurl ✦"
     attachments = await asyncio.to_thread(_all_doc_attachments)
+    tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
 
     results = []
     for em, name, salon in targets:
+        if em in tenant_emails:
+            results.append({"email": em, "sent": False, "error": "Already a Miracurl partner — skipped"})
+            continue
         html = _demo_email_html(name, salon, body.note, hq_email)
         status = await _send_email([em], subject, html, attachments=attachments, reply_to=hq_email)
         results.append({"email": em, "sent": status.get("sent", False), "error": status.get("error")})
