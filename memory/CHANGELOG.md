@@ -1074,3 +1074,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - routes/hq_documents.py registered in server.py. Endpoints: GET /super-admin/documents (list 4 docs), GET /super-admin/documents/{key}/pdf (reportlab, curl-verified 200 %PDF), GET /super-admin/earnings (6-month subscriptions+placement fees series; FIXED: excludes status created/failed unpaid Razorpay orders — was inflating revenue by Rs.1.16L).
 - SuperAdmin.jsx: new "Documents" sidebar tab (DocsPanel, 4 PDF cards: onboarding policy, hiring policy, suite overview, T&C). Revenue tab now shows PlatformEarnings stacked bar chart (subscriptions=ink, placement fees=gold) above existing RevenuePanel SaaS metrics.
 - Verified via screenshot: both tabs render, chart shows Rs.18.14L subs + Rs.1K fees. Self-tested (small wiring task).
+
+## Iter 93 (12 Jul 2026) — Demo invite campaign + welcome-email brochure
+- hq_documents.py: GET /super-admin/demo-campaign/recipients (143 tenants + 11 leads pools), POST /super-admin/demo-campaign/send (per-recipient personalized luxe HTML email, all 4 policy PDFs attached base64, reply_to=HQ_EMAIL, dedupe + email validation, campaign logged in demo_campaigns), GET /super-admin/demo-campaign/history.
+- _demo_email_html(): dark-ink/gold branded invite — polite copy, 6-module suite explainer grid, optional personal-note highlight box, gold "Request my demo time" mailto CTA, attachments callout. Design screenshot-verified.
+- email_service._send_email: new reply_to param (Resend reply_to list).
+- server.py tenant creation: welcome email now auto-attaches Suite Overview PDF (suite_overview_attachment(), fails soft).
+- DemoCampaign.jsx inside DocsPanel: checkbox pickers for Leads/Tenants, manual email chips, note textarea, send + recent-campaign history. E2E: real send to delivered@resend.dev OK (sent:1, failed:0).

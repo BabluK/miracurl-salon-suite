@@ -4029,10 +4029,17 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
         recipients.append(t["salon_email"])
     # Every onboarded salon gets its own unique AI-generated welcome poster.
     poster_url = await _generate_onboarding_poster(t)
+    from routes.hq_documents import suite_overview_attachment
+    try:
+        welcome_attachments = [await asyncio.to_thread(suite_overview_attachment)]
+    except Exception as e:
+        logging.warning(f"suite overview attachment failed: {e}")
+        welcome_attachments = None
     email_status = await _send_email(
         recipients,
         "Welcome to Miracurl — your salon account is ready ✦",
-        _welcome_email_html(t["name"], body.owner_email.lower(), temp_pw, poster_url))
+        _welcome_email_html(t["name"], body.owner_email.lower(), temp_pw, poster_url),
+        attachments=welcome_attachments)
     # Return the temp password ONCE so super-admin can copy/share it. Never
     # stored in cleartext or retrievable again — a lost password requires a
     # /forgot flow just like any user.

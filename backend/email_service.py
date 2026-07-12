@@ -33,7 +33,8 @@ def marketing_email_html(salon: str, body_text: str, cta_url: str, cta_label: st
     </div>"""
 
 
-async def _send_email(to: list, subject: str, html: str, attachments: list | None = None) -> dict:
+async def _send_email(to: list, subject: str, html: str, attachments: list | None = None,
+                      reply_to: str | None = None) -> dict:
     key = os.environ.get("RESEND_API_KEY")
     if not key:
         return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
@@ -45,6 +46,8 @@ async def _send_email(to: list, subject: str, html: str, attachments: list | Non
         "from": f"Miracurl <{sender}>",
         "to": to, "subject": subject, "html": html,
     }
+    if reply_to:
+        params["reply_to"] = [reply_to]
     if attachments:
         params["attachments"] = attachments
     try:

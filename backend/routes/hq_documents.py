@@ -1,12 +1,19 @@
 """HQ Documents Center — policy/overview PDFs generated on demand, plus combined platform earnings."""
 import asyncio
+import base64
 import calendar
+import html as html_lib
+import os
+import re
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
 from database import _raw_db
+from email_service import _send_email
 from security import require_super_admin
 
 router = APIRouter()
@@ -244,3 +251,170 @@ async def platform_earnings(user=Depends(require_super_admin)):
                        "placement_fees": round(sum(fees.values()), 2),
                        "combined": round(sum(subs.values()) + sum(fees.values()), 2),
                        "placement_fees_due": round(due_fees, 2)}}
+
+
+def suite_overview_attachment() -> dict:
+    """Resend attachment dict for the Suite Overview PDF (welcome-email brochure)."""
+    pdf = _doc_pdf(DOCS["suite_overview"])
+    return {"filename": "miracurl-suite-overview.pdf",
+            "content": base64.b64encode(pdf).decode()}
+
+
+def _all_doc_attachments() -> list:
+    return [{"filename": f"miracurl-{k.replace('_', '-')}.pdf",
+             "content": base64.b64encode(_doc_pdf(d)).decode()}
+            for k, d in DOCS.items()]
+
+
+def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str) -> str:
+    name = html_lib.escape(recipient_name or "").strip()
+    salon = html_lib.escape(salon_name or "").strip()
+    greeting = f"Dear {name}," if name else "Dear Salon Owner,"
+    salon_line = f" at <b>{salon}</b>" if salon else ""
+    note_block = ""
+    if note.strip():
+        note_block = f"""
+        <tr><td style="padding:0 36px 22px">
+          <div style="background:#fdf8ec;border:1px solid #ecdcae;border-radius:12px;padding:16px 20px;font-size:14px;color:#5d5340;line-height:1.6">
+            {html_lib.escape(note.strip())}
+          </div>
+        </td></tr>"""
+    mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
+              f"&body=Hi%20Miracurl%20team%2C%0A%0AI%27d%20love%20a%20demo%20of%20the%20Miracurl%20Salon%20Suite."
+              f"%0AMy%20preferred%20time%3A%20%0AMy%20salon%3A%20%0APhone%3A%20%0A%0AThank%20you!")
+
+    def _module(icon, title, desc):
+        return f"""
+        <td width="50%" valign="top" style="padding:10px 12px">
+          <div style="font-size:22px;line-height:1">{icon}</div>
+          <div style="font-family:Georgia,serif;font-size:15px;color:#1d1d24;margin-top:6px;font-weight:bold">{title}</div>
+          <div style="font-size:12.5px;color:#6c6c78;line-height:1.55;margin-top:4px">{desc}</div>
+        </td>"""
+
+    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
+<tr><td align="center">
+<table role="presentation" width="620" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
+  <tr><td style="background:#15151b;padding:34px 36px 30px">
+    <div style="font-family:Georgia,serif;font-size:26px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    <div style="color:#b9b2a3;font-size:12px;letter-spacing:2.5px;margin-top:5px">THE ALL-IN-ONE SALON SUITE</div>
+    <div style="height:2px;width:64px;background:#d4af37;margin-top:16px"></div>
+    <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:21px;margin-top:18px;line-height:1.4">
+      An invitation to see your salon,<br>run beautifully.</div>
+  </td></tr>
+  <tr><td style="padding:30px 36px 8px">
+    <p style="font-size:15px;color:#33333b;line-height:1.7;margin:0 0 14px">{greeting}</p>
+    <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0 0 14px">
+      We hope this message finds you and your team{salon_line} doing wonderfully.
+      We're writing with a warm invitation — no obligation at all — to see a short, personalised demo of the
+      <b>Miracurl Salon Suite</b>, the all-in-one platform trusted by growing salons to manage bookings,
+      billing, staff and marketing from a single elegant dashboard.</p>
+    <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0">
+      We know your day is busy, so the demo takes just <b>20 minutes</b>, at a time of your choosing —
+      and you're free to simply watch, ask questions, or explore at your own pace.</p>
+  </td></tr>
+  {note_block}
+  <tr><td style="padding:8px 24px 4px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>{_module("📅", "Appointments &amp; 24/7 Online Booking", "Your own public booking page with Mira, the AI receptionist — customers book even while you sleep.")}
+          {_module("🧾", "Smart POS &amp; GST Billing", "Fast counter billing, e-receipts by email &amp; SMS, coupons, memberships and loyalty points.")}</tr>
+      <tr>{_module("✨", "Mira AI Marketing Studio", "Daily social posts, promo videos, flash offers and win-back campaigns — created for you, automatically.")}
+          {_module("👥", "Verified Staff &amp; Hiring", "Aadhaar-verified staff registry, QR ID cards and a curated hiring marketplace when you need talent.")}</tr>
+      <tr>{_module("📊", "Reports &amp; Weekly Digests", "Revenue analytics, staff leaderboards and business summaries delivered to your inbox.")}
+          {_module("🔐", "Secure &amp; Multi-branch", "Bank-grade security, per-salon data isolation, and every branch under one account.")}</tr>
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding:26px 36px 8px">
+    <a href="{mailto}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+       text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">Request my demo time ✦</a>
+    <div style="font-size:12px;color:#8f8798;margin-top:12px">Or simply reply to this email with a day &amp; time that suits you — we'll fit around your schedule.</div>
+  </td></tr>
+  <tr><td style="padding:22px 36px 6px">
+    <div style="background:#f7f6f2;border-radius:12px;padding:16px 20px">
+      <div style="font-size:12px;letter-spacing:1.5px;color:#9a8f6d;font-weight:bold">📎 ATTACHED FOR YOU</div>
+      <div style="font-size:13px;color:#55555f;line-height:1.7;margin-top:6px">
+        Complete Suite Overview &nbsp;·&nbsp; Onboarding Policy &nbsp;·&nbsp; Hiring Policy &nbsp;·&nbsp; Terms &amp; Conditions —
+        everything you need to review at leisure, before we ever speak.</div>
+    </div>
+  </td></tr>
+  <tr><td style="padding:20px 36px 30px">
+    <p style="font-size:14px;color:#55555f;line-height:1.7;margin:0">
+      Thank you so much for your time — we'd be honoured to show you what Miracurl can do for your salon.</p>
+    <p style="font-size:14px;color:#33333b;line-height:1.7;margin:12px 0 0">Warm regards,<br>
+      <b style="font-family:Georgia,serif">The Miracurl Team</b><br>
+      <span style="font-size:12px;color:#8f8798">miracurl-suite.com · {html_lib.escape(hq_email)}</span></p>
+  </td></tr>
+  <tr><td style="background:#15151b;padding:16px 36px;text-align:center">
+    <div style="color:#6d675c;font-size:11px">© Miracurl Suite — sent with care from Miracurl HQ. If this isn't relevant, simply ignore this email.</div>
+  </td></tr>
+</table>
+</td></tr></table></body></html>"""
+
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class DemoRecipient(BaseModel):
+    email: str = Field(..., max_length=120)
+    name: str = Field(default="", max_length=80)
+    salon_name: str = Field(default="", max_length=100)
+
+
+class DemoCampaignIn(BaseModel):
+    recipients: list[DemoRecipient] = Field(..., min_length=1, max_length=100)
+    note: str = Field(default="", max_length=600)
+    subject: str = Field(default="", max_length=140)
+
+
+@router.get("/super-admin/demo-campaign/recipients")
+async def demo_campaign_recipients(user=Depends(require_super_admin)):
+    tenants = await _raw_db.tenants.find(
+        {"owner_email": {"$exists": True, "$ne": ""}},
+        {"_id": 0, "name": 1, "owner_email": 1, "status": 1}).to_list(500)
+    leads = await _raw_db.tenant_inquiries.find(
+        {"email": {"$exists": True, "$ne": ""}},
+        {"_id": 0, "name": 1, "email": 1, "salon_name": 1, "status": 1}).sort("created_at", -1).to_list(500)
+    return {
+        "tenants": [{"name": t.get("name", ""), "email": t["owner_email"], "status": t.get("status", "")}
+                    for t in tenants],
+        "leads": [{"name": l.get("name", ""), "email": l["email"],
+                   "salon_name": l.get("salon_name", ""), "status": l.get("status", "")}
+                  for l in leads],
+    }
+
+
+@router.post("/super-admin/demo-campaign/send")
+async def demo_campaign_send(body: DemoCampaignIn, user=Depends(require_super_admin)):
+    seen, targets = set(), []
+    for r in body.recipients:
+        em = r.email.strip().lower()
+        if not _EMAIL_RE.match(em):
+            raise HTTPException(400, f"Invalid email address: {r.email}")
+        if em not in seen:
+            seen.add(em)
+            targets.append((em, r.name.strip(), r.salon_name.strip()))
+
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    subject = body.subject.strip() or "A warm invitation — see your salon run beautifully with Miracurl ✦"
+    attachments = await asyncio.to_thread(_all_doc_attachments)
+
+    results = []
+    for em, name, salon in targets:
+        html = _demo_email_html(name, salon, body.note, hq_email)
+        status = await _send_email([em], subject, html, attachments=attachments, reply_to=hq_email)
+        results.append({"email": em, "sent": status.get("sent", False), "error": status.get("error")})
+
+    sent_count = sum(1 for r in results if r["sent"])
+    await _raw_db.demo_campaigns.insert_one({
+        "id": str(uuid.uuid4()), "sent_by": user.get("email", ""),
+        "subject": subject, "note": body.note,
+        "recipient_count": len(results), "sent_count": sent_count,
+        "results": results, "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"sent": sent_count, "failed": len(results) - sent_count, "results": results}
+
+
+@router.get("/super-admin/demo-campaign/history")
+async def demo_campaign_history(user=Depends(require_super_admin)):
+    items = await _raw_db.demo_campaigns.find({}, {"_id": 0, "results": 0}).sort("created_at", -1).to_list(20)
+    return {"campaigns": items}

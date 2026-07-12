@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api, { API } from "@/lib/api";
 import { toast } from "sonner";
 import { FileText, Download, BookOpenCheck, ScrollText, Layers, ShieldCheck } from "lucide-react";
+import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
 
 const ICONS = { onboarding_policy: BookOpenCheck, hiring_policy: ShieldCheck, suite_overview: Layers, terms_conditions: ScrollText };
 
@@ -54,6 +55,7 @@ export function DocsPanel() {
           );
         })}
       </div>
+      <DemoCampaign />
     </div>
   );
 }
