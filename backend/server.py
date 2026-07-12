@@ -4875,9 +4875,34 @@ async def _renewal_reminder_scheduler():
         await asyncio.sleep(1800)
 
 
+async def _demo_followup_scheduler():
+    """Daily (after 10:00 IST) one-time gentle reminder to demo invitees who
+    haven't replied within 5 days. Idempotent via system_flags."""
+    from routes.hq_documents import run_demo_followups
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.hour >= 10:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "demo_followup_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await run_demo_followups()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "demo_followup_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    if out.get("sent") or out.get("failed"):
+                        logging.info(f"Demo follow-up nudges {period}: {out}")
+        except Exception as e:
+            logging.error(f"demo followup scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 @app.on_event("startup")
 async def on_startup():
     asyncio.get_event_loop().create_task(_renewal_reminder_scheduler())
+    asyncio.get_event_loop().create_task(_demo_followup_scheduler())
     asyncio.get_event_loop().create_task(_cctv_poll_scheduler())
     asyncio.get_event_loop().create_task(_monthly_report_scheduler())
     asyncio.get_event_loop().create_task(_weekly_report_scheduler())

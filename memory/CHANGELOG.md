@@ -1081,3 +1081,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - email_service._send_email: new reply_to param (Resend reply_to list).
 - server.py tenant creation: welcome email now auto-attaches Suite Overview PDF (suite_overview_attachment(), fails soft).
 - DemoCampaign.jsx inside DocsPanel: checkbox pickers for Leads/Tenants, manual email chips, note textarea, send + recent-campaign history. E2E: real send to delivered@resend.dev OK (sent:1, failed:0).
+
+## Iter 94 (12 Jul 2026) — Demo follow-up nudge (one gentle reminder after 5 days)
+- hq_documents.py: demo_campaign_send now upserts demo_invites per recipient {email,name,salon_name,first_sent_at,reminder_sent_at,responded}. run_demo_followups(): 5+ days, no reply, not yet reminded, skips+auto-marks converted (email in tenants.owner_email) → sends _reminder_email_html (short luxe "gentle nudge, only one" email, suite-overview PDF attached, reply_to HQ). Endpoints: GET invites (status: awaiting/reminded/replied/converted), POST invites/{id}/mark-replied (toggle), POST followups/run (manual).
+- server.py: _demo_followup_scheduler daily after 10:00 IST, idempotent via system_flags key demo_followup_auto, registered in on_startup.
+- DemoCampaign.jsx: "Invitees & follow-ups" tracker w/ status chips, mark-replied toggle, "Send due reminders now" button. Input styling fixed (!bg-white).
+- E2E tested: send→backdate 6d→run (1 reminder sent via real Resend)→idempotent 2nd run 0→converted auto-skip→mark-replied toggle→UI screenshot. Test data cleaned.

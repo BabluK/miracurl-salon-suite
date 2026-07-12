@@ -403,6 +403,14 @@ async def demo_campaign_send(body: DemoCampaignIn, user=Depends(require_super_ad
         html = _demo_email_html(name, salon, body.note, hq_email)
         status = await _send_email([em], subject, html, attachments=attachments, reply_to=hq_email)
         results.append({"email": em, "sent": status.get("sent", False), "error": status.get("error")})
+        if status.get("sent"):
+            now_iso = datetime.now(timezone.utc).isoformat()
+            await _raw_db.demo_invites.update_one(
+                {"email": em},
+                {"$set": {"name": name, "salon_name": salon, "first_sent_at": now_iso,
+                          "reminder_sent_at": None, "responded": False},
+                 "$setOnInsert": {"id": str(uuid.uuid4()), "email": em}},
+                upsert=True)
 
     sent_count = sum(1 for r in results if r["sent"])
     await _raw_db.demo_campaigns.insert_one({
@@ -418,3 +426,112 @@ async def demo_campaign_send(body: DemoCampaignIn, user=Depends(require_super_ad
 async def demo_campaign_history(user=Depends(require_super_admin)):
     items = await _raw_db.demo_campaigns.find({}, {"_id": 0, "results": 0}).sort("created_at", -1).to_list(20)
     return {"campaigns": items}
+
+
+def _reminder_email_html(recipient_name: str, salon_name: str, hq_email: str) -> str:
+    name = html_lib.escape(recipient_name or "").strip()
+    salon = html_lib.escape(salon_name or "").strip()
+    greeting = f"Dear {name}," if name else "Dear Salon Owner,"
+    salon_ref = f" at {salon}" if salon else ""
+    mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
+              f"&body=Hi%20Miracurl%20team%2C%0A%0AYes%2C%20I%27d%20like%20a%20demo."
+              f"%0AMy%20preferred%20time%3A%20%0APhone%3A%20%0A%0AThank%20you!")
+    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
+  <tr><td style="background:#15151b;padding:28px 36px 24px">
+    <div style="font-family:Georgia,serif;font-size:24px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    <div style="height:2px;width:56px;background:#d4af37;margin-top:12px"></div>
+    <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:19px;margin-top:14px;line-height:1.45">
+      Just a gentle note — your demo seat is still open ✦</div>
+  </td></tr>
+  <tr><td style="padding:28px 36px 10px">
+    <p style="font-size:15px;color:#33333b;line-height:1.7;margin:0 0 14px">{greeting}</p>
+    <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0 0 14px">
+      A few days ago we sent you an invitation to see the <b>Miracurl Salon Suite</b> — and we completely
+      understand how busy things get{salon_ref}. This is just one friendly nudge, and we promise it's the only one.</p>
+    <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0 0 14px">
+      The demo is <b>20 minutes</b>, at any time you choose — bookings, billing, staff and AI marketing,
+      all in one calm dashboard. Salons like yours typically save <b>2 hours a day</b> after switching.</p>
+    <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0">
+      If now isn't the right moment, no reply is needed at all — we'll leave you in peace.
+      But if you're curious, we'd love to show you around.</p>
+  </td></tr>
+  <tr><td align="center" style="padding:24px 36px 10px">
+    <a href="{mailto}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+       text-decoration:none;padding:14px 40px;border-radius:999px;letter-spacing:.4px">Yes, book my 20-minute demo ✦</a>
+    <div style="font-size:12px;color:#8f8798;margin-top:12px">Or simply reply to this email with a day &amp; time that suits you.</div>
+  </td></tr>
+  <tr><td style="padding:18px 36px 28px">
+    <p style="font-size:14px;color:#33333b;line-height:1.7;margin:0">Warm regards,<br>
+      <b style="font-family:Georgia,serif">The Miracurl Team</b><br>
+      <span style="font-size:12px;color:#8f8798">miracurl-suite.com · {html_lib.escape(hq_email)}</span></p>
+  </td></tr>
+  <tr><td style="background:#15151b;padding:14px 36px;text-align:center">
+    <div style="color:#6d675c;font-size:11px">© Miracurl Suite — this is our one and only reminder. Ignore to opt out.</div>
+  </td></tr>
+</table>
+</td></tr></table></body></html>"""
+
+
+FOLLOWUP_AFTER_DAYS = 5
+
+
+async def run_demo_followups() -> dict:
+    """One gentle reminder per invitee, 5+ days after the invite, unless replied/converted."""
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
+    attachment = await asyncio.to_thread(suite_overview_attachment)
+    sent = failed = skipped = 0
+    async for inv in _raw_db.demo_invites.find(
+            {"responded": False, "reminder_sent_at": None, "first_sent_at": {"$lte": cutoff}}, {"_id": 0}):
+        if inv["email"] in tenant_emails:
+            await _raw_db.demo_invites.update_one(
+                {"id": inv["id"]}, {"$set": {"responded": True, "converted": True}})
+            skipped += 1
+            continue
+        html = _reminder_email_html(inv.get("name", ""), inv.get("salon_name", ""), hq_email)
+        status = await _send_email([inv["email"]],
+                                   "A gentle reminder — your Miracurl demo seat is still open ✦",
+                                   html, attachments=[attachment], reply_to=hq_email)
+        if status.get("sent"):
+            sent += 1
+            await _raw_db.demo_invites.update_one(
+                {"id": inv["id"]}, {"$set": {"reminder_sent_at": datetime.now(timezone.utc).isoformat()}})
+        else:
+            failed += 1
+    return {"sent": sent, "failed": failed, "converted_skipped": skipped}
+
+
+@router.get("/super-admin/demo-campaign/invites")
+async def demo_invites(user=Depends(require_super_admin)):
+    tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
+    items = await _raw_db.demo_invites.find({}, {"_id": 0}).sort("first_sent_at", -1).to_list(200)
+    for i in items:
+        if i["email"] in tenant_emails:
+            i["status"] = "converted"
+        elif i.get("responded"):
+            i["status"] = "replied"
+        elif i.get("reminder_sent_at"):
+            i["status"] = "reminded"
+        else:
+            i["status"] = "awaiting"
+    return {"invites": items, "followup_after_days": FOLLOWUP_AFTER_DAYS}
+
+
+@router.post("/super-admin/demo-campaign/invites/{iid}/mark-replied")
+async def demo_invite_mark_replied(iid: str, user=Depends(require_super_admin)):
+    inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0, "responded": 1})
+    if not inv:
+        raise HTTPException(404, "Invite not found")
+    new_val = not inv.get("responded", False)
+    await _raw_db.demo_invites.update_one({"id": iid}, {"$set": {"responded": new_val}})
+    return {"responded": new_val}
+
+
+@router.post("/super-admin/demo-campaign/followups/run")
+async def demo_followups_run(user=Depends(require_super_admin)):
+    return await run_demo_followups()
