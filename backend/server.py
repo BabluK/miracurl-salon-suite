@@ -5773,6 +5773,9 @@ api.include_router(winback_router)
 from routes.employee_portal import router as employee_portal_router  # noqa: E402
 api.include_router(employee_portal_router)
 
+from routes.hq_documents import router as hq_documents_router  # noqa: E402
+api.include_router(hq_documents_router)
+
 
 
 app.include_router(api)

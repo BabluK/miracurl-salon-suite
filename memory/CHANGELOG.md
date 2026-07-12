@@ -1069,3 +1069,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - DEFERRED: _run_pipeline refactor (fragile CPU-heavy video code), server.py split, test-file type hints.
 - NEW: payment_link.paid webhook handler (_wh_placement_fee_paid) auto-marks placement fees paid (reference_id/notes.fee_id) — unit-tested with simulated event. Requires RAZORPAY_WEBHOOK_SECRET set in production + tick "payment_link.paid" event in Razorpay webhook config.
 - All verified: poster compose, 40-row multipage resume PDF, webhook auto-paid, mira text agent live. Build 2026-07-12.4.
+
+## Iter 92 (12 Jul 2026) — DocsPanel + PlatformEarnings wired into Super Admin
+- routes/hq_documents.py registered in server.py. Endpoints: GET /super-admin/documents (list 4 docs), GET /super-admin/documents/{key}/pdf (reportlab, curl-verified 200 %PDF), GET /super-admin/earnings (6-month subscriptions+placement fees series; FIXED: excludes status created/failed unpaid Razorpay orders — was inflating revenue by Rs.1.16L).
+- SuperAdmin.jsx: new "Documents" sidebar tab (DocsPanel, 4 PDF cards: onboarding policy, hiring policy, suite overview, T&C). Revenue tab now shows PlatformEarnings stacked bar chart (subscriptions=ink, placement fees=gold) above existing RevenuePanel SaaS metrics.
+- Verified via screenshot: both tabs render, chart shows Rs.18.14L subs + Rs.1K fees. Self-tested (small wiring task).

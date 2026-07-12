@@ -32,6 +32,9 @@ import { HiringPanel } from "@/components/superadmin/HiringPanel";
 import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
 import { Super3DBackdrop } from "@/components/superadmin/Super3DBackdrop";
 import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
+import { DocsPanel } from "@/components/superadmin/DocsPanel";
+import { PlatformEarnings } from "@/components/superadmin/PlatformEarnings";
+import { FileText } from "lucide-react";
 import { BellRing, Orbit } from "lucide-react";
 import { BadgeCheck, Rocket } from "lucide-react";
 import { Briefcase } from "lucide-react";
@@ -280,6 +283,7 @@ export default function SuperAdmin() {
               { id: "partners", label: "Partners", icon: Handshake },
               { id: "leaderboard", label: "Top Referrers", icon: Trophy },
               { id: "revenue", label: "Revenue", icon: TrendingUp },
+              { id: "docs", label: "Documents", icon: FileText },
               { id: "ai", label: "AI Insights", icon: Sparkles },
               { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
               { id: "hiring", label: "Hiring", icon: Briefcase, badge: hiringNew },
@@ -314,7 +318,8 @@ export default function SuperAdmin() {
             billing: <BillingPanel tenants={tenants} />,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,
-            revenue: <RevenuePanel />,
+            revenue: <div className="space-y-6"><PlatformEarnings /><RevenuePanel /></div>,
+            docs: <DocsPanel />,
             ai: <AiInsightsPanel />,
             inbox: <HqInbox onUnreadChange={setHqUnread} />,
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
