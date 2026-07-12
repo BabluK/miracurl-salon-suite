@@ -5767,6 +5767,9 @@ api.include_router(hiring_router)
 from routes.hq_notifications import router as hq_notifications_router  # noqa: E402
 api.include_router(hq_notifications_router)
 
+from routes.winback import router as winback_router  # noqa: E402
+api.include_router(winback_router)
+
 
 
 app.include_router(api)

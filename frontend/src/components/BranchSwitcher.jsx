@@ -50,13 +50,13 @@ export const BranchSwitcher = () => {
 
   return (
     <>
-      <div className="flex items-center gap-1.5" data-testid="branch-switcher">
+      <div className="flex items-center gap-1.5 flex-shrink-0" data-testid="branch-switcher">
         <GitBranch className="w-3.5 h-3.5 text-white/40 hidden sm:block" />
         <select
           data-testid="branch-switcher-select"
           value={value}
           onChange={e => requestSwitch(e.target.value)}
-          className="bg-white/5 border border-white/10 rounded-full px-3 py-1 text-xs text-white/80 max-w-[150px] focus:outline-none"
+          className="bg-white/5 border border-white/10 rounded-full px-2 sm:px-3 py-1 text-xs text-white/80 w-[64px] sm:w-auto sm:max-w-[150px] focus:outline-none"
           title="Switch branch — owner approval required"
         >
           <option value="">All branches</option>

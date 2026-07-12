@@ -200,7 +200,7 @@ export default function AppLayout() {
       </aside>
 
       {/* Main column */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
+      <div className="flex-1 lg:ml-64 flex flex-col min-w-0 overflow-x-clip">
         {/* Top bar */}
         <header
           className="sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between bg-gradient-to-r from-[#0A0A0A] via-[#151210] to-[#0A0A0A] backdrop-blur-xl border-b border-gold/20"
@@ -222,21 +222,23 @@ export default function AppLayout() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-            <NetSpeedIndicator />
+          <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
+            <div className="hidden sm:block"><NetSpeedIndicator /></div>
             <div className="hidden md:flex items-center px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 tracking-wider">{today}</div>
             {isAdmin ? <SalonSwitcher /> : null}
             {(isAdmin || user?.role === "manager") ? <BranchSwitcher /> : null}
             {isAdmin ? (
-              <NotifBell
-                unread={notifier.unread}
-                permission={notifier.permission}
-                requestPermission={notifier.requestPermission}
-                clearUnread={notifier.clearUnread}
-                onNavigate={nav}
-              />
+              <div className="flex-shrink-0">
+                <NotifBell
+                  unread={notifier.unread}
+                  permission={notifier.permission}
+                  requestPermission={notifier.requestPermission}
+                  clearUnread={notifier.clearUnread}
+                  onNavigate={nav}
+                />
+              </div>
             ) : null}
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
                 className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md hover:bg-white/5 transition"

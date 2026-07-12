@@ -2,10 +2,17 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-11.7"
-BUILD_TIME = "11 Jul 2026, 7:48 PM IST"
+BUILD = "2026-07-12.1"
+BUILD_TIME = "12 Jul 2026, 11:05 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-12",
+        "changes": [
+            "Win them back 💌 — your dashboard now shows customers who haven't visited in 45+ days, with a one-tap WhatsApp nudge (pre-written message + 15% off) and a 30-day snooze",
+            "Mobile fix — the app header no longer overflows on phones: compact branch selector, icon-only salon switcher, and horizontal-scroll protection across every page",
+        ],
+    },
     {
         "date": "2026-07-11",
         "changes": [

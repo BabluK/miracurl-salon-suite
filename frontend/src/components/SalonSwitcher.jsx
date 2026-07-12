@@ -44,7 +44,7 @@ export default function SalonSwitcher() {
           <button data-testid="salon-switcher-btn"
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50">
             <Store className="w-3.5 h-3.5 text-fuchsia-500" />
-            <span className="max-w-[110px] sm:max-w-[220px] truncate">{active?.name || "My salons"}</span>
+            <span className="hidden sm:inline max-w-[220px] truncate">{active?.name || "My salons"}</span>
             <span className="text-[9px] px-1 rounded bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-200">{salons.length}</span>
             <ChevronDown className="w-3 h-3 text-slate-400" />
           </button>

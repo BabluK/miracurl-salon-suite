@@ -1040,3 +1040,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Guided user through Resend DNS for miracurl-suite.com (records live in Lovable DNS panel; user initially added to wrong domain miracurlunisexsaloon.com on IONOS-style panel). All 4 records Verified (DKIM/MX/SPF/DMARC).
 - SENDER_EMAIL switched to noreply@miracurl-suite.com in backend/.env; backend restarted; REAL test email sent successfully (id bbce02a8) to miracurlunisexsaloon@gmail.com.
 - User must Deploy so production picks up new SENDER_EMAIL.
+
+## Iter 88 (12 Jul 2026) — Win-back nudges + mobile header overflow fix
+- NEW routes/winback.py: GET /api/winback/nudges (reuses _find_winback_leads, 45d threshold, 30d lead_outreach cooldown, prewritten WhatsApp msg) + POST /{cid}/ack (contacted|dismissed). Curl-tested: list/dismiss/cooldown/400 validation.
+- NEW WinbackNudges.jsx card on owner Dashboard (wa.me deep link, dismiss X, testids winback-*). Screenshot-verified with real data.
+- MOBILE FIX (user-reported overlap on Android/iOS): header cluster was 147px wider than 360px viewport. Fixes: AppLayout right cluster flex-shrink-0→min-w-0 + NetSpeed hidden on xs; main column overflow-x-clip (app-wide guard, keeps sticky working — do NOT use overflow-x-hidden); BranchSwitcher select w-[64px] on xs + container flex-shrink-0; SalonSwitcher icon-only on xs (name hidden sm:inline); bell+profile flex-shrink-0. Verified: overflow 0px, no element overlap, profile right=360.
+- Build 2026-07-12.1.
