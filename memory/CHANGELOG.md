@@ -1054,3 +1054,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Mira voice bug: MorningBriefing audioRef + unmount cleanup (pause audio, abort SpeechRecognition, cancel speechSynthesis) — voice stops on logout.
 - E2E verified via screenshot after fix: type→login→dashboard. Build 2026-07-12.2.
 - Tester notes (future): registry_employees phone lookup is O(N) scan — consider normalized_phone field+index when registry grows; silence initial 401 console noise on /employee/me probe.
+
+## Iter 90 (12 Jul 2026) — Hiring payment automation + configurable fee + Resume builder
+- hiring.py: PLACEMENT fee now configurable (platform_settings key placement_fee; PUT /super-admin/hiring/placement-fee). _record_hire() helper: closes request, creates fee w/ configured amount, generates REAL Razorpay payment_link (client.payment_link.create, tested: https://rzp.io/rzp/...) and emails owner via Resend. POST /super-admin/hiring/placement-fees/{fid}/send-link to (re)send.
+- auto_mark_hired_on_staff_attach(): hook in auth.attach_staff — when owner creates staff credentials matching an open application (registry email match, fallback _name_matches) → auto status=hired + fee + owner email + HQ notification. E2E curl-tested full chain (request→apply→register→attach→marketplace_hire response).
+- hq_notifications.py: _fee_items in feed ("Candidate hired — proceed with payment ..."); mark-seen also clears placement_fees.seen_by_hq.
+- employee_portal.py: GET/PUT /employee/resume + GET /employee/resume/pdf (reportlab, verified history auto-included, %PDF 200). EmployeePortal.jsx ResumeBuilder card (save + download blob). HiringPanel.jsx PlacementFees section (fee editor, send link, mark paid).
+- All test data cleaned; fee reset to ₹1000 default. Build 2026-07-12.3.

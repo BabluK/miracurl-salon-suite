@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-12.2"
-BUILD_TIME = "12 Jul 2026, 11:40 AM IST"
+BUILD = "2026-07-12.3"
+BUILD_TIME = "12 Jul 2026, 12:15 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-12",
         "changes": [
+            "Hiring payments, automated 💰 — when a hired candidate's login is created, HQ is notified instantly and the salon owner receives a Razorpay payment link for the placement fee (amount now configurable by HQ)",
+            "My Resume builder 📄 — Employee Portal staff fill their skills & experience once and download a polished PDF resume, with their verified Miracurl history included automatically",
             "Employee Portal 🧑‍💼 — registry-verified staff can now self-register at /employee with their mobile + Aadhaar, manage their profile, see employment history and apply to openings at any Miracurl salon. Unregistered numbers are guided to contact the Admin team",
             "Marking a staff member as 'Left' now instantly blocks their salon app login (they keep access to the Employee Portal)",
             "Fixed: Mira's voice now stops speaking the moment you log out",

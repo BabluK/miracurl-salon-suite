@@ -84,10 +84,20 @@ async def _tenant_items(since: str) -> list:
 async def hq_notifications(user=Depends(require_super_admin)):
     """Everything the super admin should know about, in one feed (last 30 days)."""
     since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-    items = (await _hiring_items(since)) + (await _message_items(since)) + (await _tenant_items(since))
+    items = (await _hiring_items(since)) + (await _message_items(since)) + (await _tenant_items(since)) + (await _fee_items(since))
     items.sort(key=lambda x: x.get("at") or "", reverse=True)
     unread = sum(1 for i in items if i.get("unread"))
     return {"items": items[:80], "unread": unread}
+
+
+async def _fee_items(since: str) -> list:
+    rows = await _raw_db.placement_fees.find(
+        {"created_at": {"$gte": since}}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return [{"id": f"fee-{r['id']}", "type": "hiring", "icon": "💰",
+             "title": f"Candidate hired — proceed with payment: {r.get('candidate_name') or 'Candidate'} at {r.get('salon_name') or 'salon'} (₹{r.get('amount', 0):,.0f} {'due' if r.get('status') == 'due' else 'paid ✓'})",
+             "at": r["created_at"], "tab": "hiring",
+             "unread": r.get("status") == "due" and not r.get("seen_by_hq")}
+            for r in rows]
 
 
 # ─────────── Public per-salon SEO pages ───────────

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Briefcase, Search, Send, UserPlus, CalendarClock, Share2 } from "lucide-react";
+import { Briefcase, Search, Send, UserPlus, CalendarClock, Share2, IndianRupee } from "lucide-react";
 
 const STATUS_CHIP = {
   applied: "bg-slate-100 text-slate-600",
@@ -50,6 +50,71 @@ export function HiringPanel({ onNewCount }) {
           <div className="mt-3 space-y-3">{closed.map(r => <RequestCard key={r.id} r={r} onChange={load} closedView />)}</div>
         </details>
       )}
+      <PlacementFees />
+    </div>
+  );
+}
+
+function PlacementFees() {
+  const [data, setData] = useState(null);
+  const [feeInput, setFeeInput] = useState("");
+  const load = useCallback(() => {
+    api.get("/super-admin/hiring/placement-fees").then(r => { setData(r.data); setFeeInput(String(r.data.fee_per_hire)); }).catch(() => {});
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  if (!data) return null;
+
+  const saveFee = async () => {
+    const amt = parseFloat(feeInput);
+    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
+    try { await api.put("/super-admin/hiring/placement-fee", { amount: amt }); toast.success(`Placement fee set to ₹${amt.toLocaleString("en-IN")}`); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Couldn't save"); }
+  };
+  const sendLink = async (f) => {
+    try {
+      const { data: r } = await api.post(`/super-admin/hiring/placement-fees/${f.id}/send-link`);
+      toast.success(r.emailed_to ? `Payment link emailed to ${r.emailed_to}` : "Link generated (no owner email on file)");
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send link"); }
+  };
+  const markPaid = async (f) => {
+    try { await api.post(`/super-admin/hiring/placement-fees/${f.id}/mark-paid`); toast.success("Marked paid"); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Couldn't update"); }
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm" data-testid="placement-fees-section">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
+        <div>
+          <h3 className="font-semibold text-slate-800 flex items-center gap-2"><IndianRupee className="w-4 h-4 text-emerald-600" /> Placement fees</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Due ₹{Math.round(data.totals.due).toLocaleString("en-IN")} · Paid ₹{Math.round(data.totals.paid).toLocaleString("en-IN")} · {data.totals.hires} hires</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Fee per hire ₹</span>
+          <input value={feeInput} onChange={e => setFeeInput(e.target.value)} inputMode="decimal"
+            className="w-24 border border-slate-200 rounded-md px-2 py-1.5 text-sm" data-testid="placement-fee-amount-input" />
+          <button onClick={saveFee} className="text-xs px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-700" data-testid="placement-fee-save-btn">Save</button>
+        </div>
+      </div>
+      {data.items.length === 0 && <p className="text-xs text-slate-400 mt-3">No hires yet — fees appear here automatically when a candidate is hired.</p>}
+      <div className="divide-y divide-slate-100 mt-2">
+        {data.items.slice(0, 12).map(f => (
+          <div key={f.id} className="py-2.5 flex items-center gap-3 flex-wrap" data-testid={`placement-fee-${f.id}`}>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-slate-800 truncate"><b>{f.candidate_name || "Candidate"}</b> → {f.salon_name} <span className="text-slate-400">· {f.role}</span></p>
+              <p className="text-[11px] text-slate-400">{(f.created_at || "").slice(0, 10)}{f.payment_link ? " · link ready" : ""}</p>
+            </div>
+            <span className="text-sm font-semibold text-slate-700">₹{Math.round(f.amount).toLocaleString("en-IN")}</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${f.status === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>{f.status}</span>
+            {f.status === "due" && (
+              <>
+                <button onClick={() => sendLink(f)} className="text-xs px-2.5 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700" data-testid={`fee-send-link-${f.id}`}>Send payment link</button>
+                <button onClick={() => markPaid(f)} className="text-xs px-2.5 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" data-testid={`fee-mark-paid-${f.id}`}>Mark paid</button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

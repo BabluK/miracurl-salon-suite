@@ -1,5 +1,7 @@
 """Staff Hiring Marketplace — salon owners post hiring requests, HQ curates as middleman,
 HQ-verified registry staff apply from a public jobs board (salon name hidden until shortlisted)."""
+import asyncio
+import logging
 import os
 import re
 import secrets
@@ -13,6 +15,7 @@ from typing import Optional
 from database import db, _raw_db
 from security import require_super_admin, require_tenant_admin, current_tenant, public_rate_limit
 
+log = logging.getLogger("hiring")
 router = APIRouter()
 
 URGENCY = ("immediate", "two_weeks", "flexible")
@@ -189,6 +192,7 @@ async def hq_overview(user=Depends(require_super_admin)):
 @router.post("/super-admin/hiring/mark-seen")
 async def mark_seen(user=Depends(require_super_admin)):
     await _raw_db.job_applications.update_many({"seen_by_hq": False}, {"$set": {"seen_by_hq": True}})
+    await _raw_db.placement_fees.update_many({"seen_by_hq": False}, {"$set": {"seen_by_hq": True}})
     return {"ok": True}
 
 
@@ -310,29 +314,151 @@ async def update_application(aid: str, body: AppUpdateIn, user=Depends(require_s
         patch["status"] = body.status
     await _raw_db.job_applications.update_one({"id": aid}, {"$set": patch})
     if patch.get("status") == "hired":
-        await _raw_db.hiring_requests.update_one(
-            {"id": app_doc["request_id"]}, {"$set": {"status": "closed", "closed_at": _now(),
-                                                     "closed_reason": "hired"}})
-        req = await _raw_db.hiring_requests.find_one({"id": app_doc["request_id"]}, {"_id": 0}) or {}
-        if not await _raw_db.placement_fees.find_one({"application_id": aid}):
-            await _raw_db.placement_fees.insert_one({
-                "id": str(uuid.uuid4()), "application_id": aid, "request_id": app_doc["request_id"],
-                "tenant_id": req.get("tenant_id", ""), "salon_name": req.get("salon_name", ""),
-                "slug": req.get("slug", ""), "candidate_name": app_doc.get("candidate_name"),
-                "role": req.get("role", ""), "amount": PLACEMENT_FEE_INR,
-                "status": "due", "created_at": _now()})
+        await _record_hire({**app_doc, **patch})
     return {**app_doc, **patch}
 
 
-# ─────────── Placement fees (HQ charges ₹1,000 per successful hire) ───────────
-PLACEMENT_FEE_INR = 1000.0
+# ─────────── Placement fees (HQ charges a configurable fee per successful hire) ───────────
+PLACEMENT_FEE_INR = 1000.0  # default — Super Admin can change it
+
+
+async def _placement_fee_amount() -> float:
+    doc = await _raw_db.platform_settings.find_one({"key": "placement_fee"}, {"_id": 0})
+    try:
+        return float(doc["amount"]) if doc else PLACEMENT_FEE_INR
+    except (KeyError, TypeError, ValueError):
+        return PLACEMENT_FEE_INR
+
+
+def _make_payment_link(amount: float, ref_id: str, salon_name: str, candidate: str, owner_email: str) -> str:
+    kid, ks = os.environ.get("RAZORPAY_KEY_ID"), os.environ.get("RAZORPAY_KEY_SECRET")
+    if not kid or not ks:
+        return ""
+    try:
+        import razorpay
+        client = razorpay.Client(auth=(kid, ks))
+        pl = client.payment_link.create({
+            "amount": int(round(amount * 100)), "currency": "INR",
+            "reference_id": ref_id[:40],
+            "description": f"Miracurl placement fee — {candidate} hired at {salon_name}"[:250],
+            "customer": {"email": owner_email or ""},
+            "notify": {"email": False, "sms": False},
+            "notes": {"type": "placement_fee", "fee_id": ref_id},
+        })
+        return pl.get("short_url", "")
+    except Exception as e:
+        log.error("payment link failed: %s", e)
+        return ""
+
+
+async def _email_fee_to_owner(fee: dict, owner_email: str) -> None:
+    if not owner_email:
+        return
+    import html as _h
+    from email_service import _send_email
+    cand, salon = _h.escape(fee.get("candidate_name") or "your new hire"), _h.escape(fee.get("salon_name") or "your salon")
+    amt = f"₹{fee['amount']:,.0f}"
+    pay_block = (f'<p style="margin:18px 0"><a href="{fee["payment_link"]}" style="background:#111;color:#f5d78e;padding:12px 26px;border-radius:999px;text-decoration:none;font-weight:bold">Pay {amt} now</a></p>'
+                 if fee.get("payment_link") else "<p>Our team will share the payment details with you shortly.</p>")
+    html = (f'<div style="font-family:Georgia,serif;max-width:520px;margin:auto;padding:26px;border:1px solid #eee;border-radius:14px">'
+            f'<h2 style="margin:0 0 8px">Congratulations on your new hire! 🎉</h2>'
+            f'<p><b>{cand}</b> has been hired at <b>{salon}</b> through the Miracurl Hiring Marketplace.</p>'
+            f'<p>As per the marketplace terms, a one-time placement fee of <b>{amt}</b> is now due.</p>'
+            f'{pay_block}'
+            f'<p style="font-size:12px;color:#888">Questions? Just reply to this email — Miracurl HQ</p></div>')
+    try:
+        await _send_email(owner_email, f"Placement fee {amt} — {cand} hired 🎉", html)
+    except Exception as e:
+        log.error("fee email failed: %s", e)
+
+
+async def _record_hire(app_doc: dict) -> dict:
+    """Close the request, create the placement fee (configured amount), generate a Razorpay
+    payment link and email it to the salon owner. Idempotent per application."""
+    await _raw_db.hiring_requests.update_one(
+        {"id": app_doc["request_id"]},
+        {"$set": {"status": "closed", "closed_at": _now(), "closed_reason": "hired"}})
+    existing = await _raw_db.placement_fees.find_one({"application_id": app_doc["id"]}, {"_id": 0})
+    if existing:
+        return existing
+    req = await _raw_db.hiring_requests.find_one({"id": app_doc["request_id"]}, {"_id": 0}) or {}
+    tenant = await db.tenants.find_one({"id": req.get("tenant_id", "")},
+                                       {"_id": 0, "name": 1, "owner_email": 1, "slug": 1}) or {}
+    amount = await _placement_fee_amount()
+    fee = {"id": str(uuid.uuid4()), "application_id": app_doc["id"], "request_id": app_doc["request_id"],
+           "tenant_id": req.get("tenant_id", ""), "salon_name": req.get("salon_name") or tenant.get("name", ""),
+           "slug": req.get("slug") or tenant.get("slug", ""), "candidate_name": app_doc.get("candidate_name"),
+           "role": req.get("role", ""), "amount": amount, "status": "due",
+           "payment_link": "", "seen_by_hq": False, "created_at": _now()}
+    fee["payment_link"] = await asyncio.to_thread(
+        _make_payment_link, amount, fee["id"], fee["salon_name"], fee["candidate_name"] or "", tenant.get("owner_email", ""))
+    await _raw_db.placement_fees.insert_one({**fee})
+    await _email_fee_to_owner(fee, tenant.get("owner_email", ""))
+    return fee
+
+
+async def auto_mark_hired_on_staff_attach(tenant: dict, user_doc: dict) -> Optional[dict]:
+    """Called when a salon owner creates/attaches staff login credentials. If the new staff
+    matches an open hiring application for this salon, auto-mark it hired so HQ gets
+    notified and the placement fee + payment link go out."""
+    apps = await _raw_db.job_applications.find(
+        {"tenant_id": tenant["id"], "status": {"$in": ["applied", "shortlisted", "trial_scheduled"]}},
+        {"_id": 0}).to_list(100)
+    if not apps:
+        return None
+    email = (user_doc.get("email") or "").strip().lower()
+    regs = await _raw_db.registry_employees.find(
+        {"id": {"$in": [a["employee_id"] for a in apps]}}, {"_id": 0, "id": 1, "email": 1}).to_list(200)
+    email_by_emp = {r["id"]: (r.get("email") or "").strip().lower() for r in regs}
+    match = next((a for a in apps if email and email_by_emp.get(a["employee_id"]) == email), None)
+    if not match:
+        match = next((a for a in apps if _name_matches(user_doc.get("name") or "", a.get("candidate_name") or "")), None)
+    if not match:
+        return None
+    await _raw_db.job_applications.update_one(
+        {"id": match["id"]},
+        {"$set": {"status": "hired", "updated_at": _now(), "hired_via": "staff_credentials_created"}})
+    fee = await _record_hire(match)
+    return {"application_id": match["id"], "candidate": match.get("candidate_name"), "fee": fee.get("amount")}
+
+
+class FeeAmountIn(BaseModel):
+    amount: float = Field(..., gt=0, le=100000)
+
+
+@router.put("/super-admin/hiring/placement-fee")
+async def set_placement_fee(body: FeeAmountIn, user=Depends(require_super_admin)):
+    await _raw_db.platform_settings.update_one(
+        {"key": "placement_fee"},
+        {"$set": {"amount": round(body.amount, 2), "updated_at": _now()}}, upsert=True)
+    return {"ok": True, "amount": round(body.amount, 2)}
+
+
+@router.post("/super-admin/hiring/placement-fees/{fid}/send-link")
+async def send_fee_link(fid: str, user=Depends(require_super_admin)):
+    fee = await _raw_db.placement_fees.find_one({"id": fid}, {"_id": 0})
+    if not fee:
+        raise HTTPException(404, "Fee not found")
+    if fee.get("status") == "paid":
+        raise HTTPException(400, "This fee is already paid")
+    tenant = await db.tenants.find_one({"id": fee.get("tenant_id", "")}, {"_id": 0, "owner_email": 1}) or {}
+    if not fee.get("payment_link"):
+        link = await asyncio.to_thread(
+            _make_payment_link, fee["amount"], fee["id"], fee.get("salon_name", ""),
+            fee.get("candidate_name") or "", tenant.get("owner_email", ""))
+        if link:
+            fee["payment_link"] = link
+            await _raw_db.placement_fees.update_one({"id": fid}, {"$set": {"payment_link": link}})
+    await _email_fee_to_owner(fee, tenant.get("owner_email", ""))
+    return {"ok": True, "payment_link": fee.get("payment_link", ""),
+            "emailed_to": tenant.get("owner_email", "") or None}
 
 
 @router.get("/super-admin/hiring/placement-fees")
 async def placement_fees(user=Depends(require_super_admin)):
     rows = await _raw_db.placement_fees.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
     month = datetime.now(timezone.utc).strftime("%Y-%m")
-    return {"items": rows, "fee_per_hire": PLACEMENT_FEE_INR, "totals": {
+    return {"items": rows, "fee_per_hire": await _placement_fee_amount(), "totals": {
         "due": round(sum(r["amount"] for r in rows if r["status"] == "due"), 2),
         "paid": round(sum(r["amount"] for r in rows if r["status"] == "paid"), 2),
         "this_month": round(sum(r["amount"] for r in rows if r["created_at"][:7] == month), 2),

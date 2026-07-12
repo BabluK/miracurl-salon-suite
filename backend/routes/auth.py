@@ -97,7 +97,15 @@ async def attach_staff(user_id: str, body: StaffAttachIn, admin=Depends(require_
                   "attached_at": datetime.now(timezone.utc).isoformat(),
                   "attached_by": admin["id"]}},
     )
-    return {"ok": True}
+    # Hiring marketplace hook: if this new staff matches an open application for this
+    # salon, auto-mark it hired → HQ notified + placement fee & payment link emailed.
+    hired = None
+    try:
+        from routes.hiring import auto_mark_hired_on_staff_attach
+        hired = await auto_mark_hired_on_staff_attach(t, target)
+    except Exception as e:
+        logging.getLogger("auth").error("auto-hire hook failed: %s", e)
+    return {"ok": True, "marketplace_hire": hired}
 
 
 @router.get("/tenants/staff/pending")

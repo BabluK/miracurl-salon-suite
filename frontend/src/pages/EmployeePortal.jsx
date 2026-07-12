@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { BadgeCheck, Briefcase, LogOut, Pencil, ShieldCheck, UserRound } from "lucide-react";
+import { BadgeCheck, Briefcase, FileText, LogOut, Pencil, ShieldCheck, UserRound } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const http = axios.create({ baseURL: API, withCredentials: true });
@@ -100,6 +100,54 @@ function ProfileEditor({ me, onSaved }) {
   );
 }
 
+function ResumeBuilder() {
+  const [f, setF] = useState({ summary: "", skills: "", education: "", languages: "", extra_experience: "" });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { http.get("/employee/resume").then(r => setF(prev => ({ ...prev, ...r.data }))).catch(() => {}); }, []);
+  const upd = (k) => (e) => setF(prev => ({ ...prev, [k]: e.target.value }));
+
+  const save = async () => {
+    setBusy(true);
+    try { await http.put("/employee/resume", f); toast.success("Resume saved"); }
+    catch (e) { toast.error(errMsg(e)); }
+    setBusy(false);
+  };
+  const download = async () => {
+    try {
+      const res = await fetch(`${API}/employee/resume/pdf`, { credentials: "include" });
+      if (!res.ok) throw new Error("Could not generate PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "my-miracurl-resume.pdf"; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Resume PDF downloaded");
+    } catch (e) { toast.error(e.message); }
+  };
+
+  return (
+    <div data-testid="emp-resume-builder">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <h3 className="text-white font-semibold text-sm flex items-center gap-2"><FileText className="w-4 h-4 text-amber-300" /> My Resume</h3>
+        <div className="flex gap-2">
+          <button onClick={save} disabled={busy} data-testid="emp-resume-save-btn"
+            className="px-4 py-2 rounded-lg bg-white/10 border border-white/15 text-white text-xs font-semibold hover:bg-white/15 disabled:opacity-50">{busy ? "Saving…" : "Save"}</button>
+          <button onClick={download} data-testid="emp-resume-download-btn"
+            className="px-4 py-2 rounded-lg bg-amber-400 text-black text-xs font-semibold hover:opacity-90">Download PDF</button>
+        </div>
+      </div>
+      <p className="text-[11px] text-white/40 mb-3">Your verified employment history is added to the PDF automatically — fill the rest once and download anytime.</p>
+      <div className="space-y-3">
+        <textarea data-testid="emp-resume-summary" className={`${inputCls} min-h-[70px]`} placeholder="Profile summary — e.g. Senior hair stylist with 6 years in bridal & color work…" value={f.summary} onChange={upd("summary")} maxLength={600} />
+        <input data-testid="emp-resume-skills" className={inputCls} placeholder="Skills (comma separated) — e.g. Balayage, Bridal makeup, Keratin" value={f.skills} onChange={upd("skills")} maxLength={300} />
+        <input data-testid="emp-resume-education" className={inputCls} placeholder="Education / certifications" value={f.education} onChange={upd("education")} maxLength={300} />
+        <input data-testid="emp-resume-languages" className={inputCls} placeholder="Languages — e.g. Kannada, Hindi, English" value={f.languages} onChange={upd("languages")} maxLength={200} />
+        <textarea data-testid="emp-resume-extra" className={`${inputCls} min-h-[60px]`} placeholder="Other experience (before Miracurl salons, freelance work…)" value={f.extra_experience} onChange={upd("extra_experience")} maxLength={800} />
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({ me, reload, onLogout }) {
   const p = me.profile;
   const [editing, setEditing] = useState(false);
@@ -134,6 +182,10 @@ function Dashboard({ me, reload, onLogout }) {
         </div>
         <Link to="/jobs" data-testid="emp-view-jobs-btn"
           className="px-5 py-2.5 rounded-full bg-amber-400 text-black text-sm font-semibold hover:opacity-90">Browse jobs →</Link>
+      </div>
+
+      <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6" data-testid="emp-resume-card">
+        <ResumeBuilder />
       </div>
 
       <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6">
