@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Mail, Send, Plus, X, Sparkles, History, BellRing, CheckCircle2 } from "lucide-react";
+import { Mail, Send, Plus, X, Sparkles, History, BellRing, CheckCircle2, Trash2, RotateCw } from "lucide-react";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -14,6 +14,7 @@ export function DemoCampaign() {
   const [history, setHistory] = useState([]);
   const [invites, setInvites] = useState([]);
   const [nudging, setNudging] = useState(false);
+  const [showAllInvites, setShowAllInvites] = useState(false);
 
   const loadHistory = () => api.get("/super-admin/demo-campaign/history").then(r => setHistory(r.data.campaigns)).catch(() => {});
   const loadInvites = () => api.get("/super-admin/demo-campaign/invites").then(r => setInvites(r.data.invites)).catch(() => {});
@@ -70,6 +71,23 @@ export function DemoCampaign() {
       await api.post(`/super-admin/demo-campaign/invites/${inv.id}/mark-replied`);
       loadInvites();
     } catch { toast.error("Couldn't update"); }
+  };
+
+  const deleteInvite = async (inv) => {
+    if (!window.confirm(`Delete invite record for ${inv.email}?`)) return;
+    try {
+      await api.delete(`/super-admin/demo-campaign/invites/${inv.id}`);
+      setInvites(l => l.filter(x => x.id !== inv.id));
+      toast.success("Invite record deleted");
+    } catch { toast.error("Couldn't delete"); }
+  };
+
+  const resendInvite = async (inv) => {
+    try {
+      await api.post(`/super-admin/demo-campaign/invites/${inv.id}/resend`);
+      toast.success(`Invite re-sent to ${inv.email} ✦`);
+      loadInvites();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't resend"); }
   };
 
   const Group = ({ title, icon: I, rows, kind }) => (
@@ -151,8 +169,8 @@ export function DemoCampaign() {
             </button>
           </div>
           <p className="text-[11px] text-slate-400">One gentle reminder is sent automatically 5 days after the invite, unless you mark them as replied. Only ever one nudge per invitee.</p>
-          <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
-            {invites.map(inv => {
+          <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+            {(showAllInvites ? invites : invites.slice(0, 10)).map(inv => {
               const chip = {
                 awaiting: ["Awaiting reply", "bg-slate-100 text-slate-500"],
                 reminded: ["Reminder sent", "bg-amber-100 text-amber-700"],
@@ -168,6 +186,14 @@ export function DemoCampaign() {
                   {inv.opened && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-600 text-[10px] font-semibold" title={`Opened ${(inv.opened_at || "").slice(0, 16).replace("T", " ")}`}>👀 Opened</span>}
                   {inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold" title={`Phone: ${inv.preferred_slot.phone || "—"}`}>📅 {inv.preferred_slot.date} {inv.preferred_slot.time}</span>}
                   <span className={`ml-auto shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${chip[1]}`}>{chip[0]}</span>
+                  {inv.resend_suggested && (
+                    <button onClick={() => resendInvite(inv)} data-testid={`demo-invite-resend-${inv.email}`}
+                      title="Not opened in 5+ days — re-send the invite"
+                      className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500 text-white text-[10px] font-semibold hover:bg-sky-600">
+                      <RotateCw className="w-3 h-3" /> Re-send
+                    </button>
+                  )}
+                  {inv.stale_no_reply && <span className="shrink-0 text-[9px] text-slate-400 italic hidden md:inline">seen, no reply</span>}
                   {inv.status !== "converted" && (
                     <button onClick={() => markReplied(inv)} data-testid={`demo-invite-mark-replied-${inv.email}`}
                       title={inv.responded ? "Mark as not replied" : "Mark as replied (stops the nudge)"}
@@ -175,10 +201,21 @@ export function DemoCampaign() {
                       <CheckCircle2 className="w-4 h-4" />
                     </button>
                   )}
+                  <button onClick={() => deleteInvite(inv)} data-testid={`demo-invite-delete-${inv.email}`}
+                    title="Delete this invite record"
+                    className="shrink-0 text-slate-300 hover:text-rose-500">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               );
             })}
           </div>
+          {invites.length > 10 && (
+            <button onClick={() => setShowAllInvites(v => !v)} data-testid="demo-invites-show-all"
+              className="text-[11px] text-slate-400 hover:text-slate-600 underline">
+              {showAllInvites ? "Show latest 10 only" : `Show all ${invites.length} invitees`}
+            </button>
+          )}
         </div>
       )}
 

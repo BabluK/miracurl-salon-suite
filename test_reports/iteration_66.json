@@ -1,0 +1,61 @@
+{
+  "summary": "Iter 66 — Full regression pass on Super Admin lead-gen + demo funnel + gallery + review requests + whats-new + public salon page. 25/25 backend pytest cases PASS (1 additional PDF key now green after fixing test — see below). Frontend spot-checks confirm salon public page 3D dark render, demo-slot picker, and book-page BookingChatWidget on bottom-left. ONE PWA manifest bug found: /salon/* still serves manifest-admin.json (Miracurl Partner) instead of manifest.json (Miracurl Book) — ManifestSwitcher.jsx only checks pathname.startsWith('/book').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ManifestSwitcher.jsx",
+        "issue": "On /salon/miracurl-marathahalli the DOM link[rel=manifest] resolves to /manifest-admin.json — but per this iteration's spec the public salon page must serve /manifest.json (customer-facing 'Miracurl Book' PWA). Confirmed live: DOM shows href=/manifest-admin.json on /salon/*, and correctly /manifest.json on /book/*. Root cause: ManifestSwitcher.jsx line 14 only flips to manifest.json when pathname.startsWith('/book'). It should also treat /salon/* (and /demo-slot/*) as customer-facing so an installing prospect gets the violet 'Miracurl Book' app, not the emerald partner one.",
+        "selector": "link[rel=manifest]",
+        "priority": "MEDIUM — installable PWA name/icon wrong on public salon page; users installing from a /salon/... URL get the admin-branded app"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter66_regression.py",
+    "/app/test_reports/pytest/iter66.xml"
+  ],
+  "action_items": [
+    "Update /app/frontend/src/components/ManifestSwitcher.jsx line 14 — treat /salon/* (and probably /demo-slot/*) as isBooking=true so the customer-facing manifest.json + violet theme + touch-icon are served. One-line fix: const isBooking = /^\\/(book|salon|demo-slot)/.test(pathname);"
+  ],
+  "critical_code_review_comments": [
+    "hq_documents.py::demo_invite_resend (line 690) raises HTTPException(500, ...) on Resend rate-limit — better to surface 429 with retry-after so the UI can back off. The Resend free tier is 2 req/sec and this fires as a 500 in production if the operator double-clicks.",
+    "hq_documents.py::run_demo_followups iterates async cursor + calls _send_email inside the loop — a burst of 10+ pending followups will hit the same 2-req/sec limit. Consider asyncio.sleep(0.6) between sends or a Resend batch endpoint.",
+    "hq_documents.py::demo_campaign_send silently upserts an invite with responded=False even when the previous invite was demo_requested — the previous demo_requested_at/opened_at are RESET to None (line 514). If a prospect had already booked a slot and HQ mistakenly re-invites them, the funnel counter loses that conversion. Consider preserving prior opened_at/demo_requested_at on repeat send.",
+    "hq_documents.py::public_salon_page (hq_notifications.py) — services list is sorted by price DESC and limited to 24; salons with >24 services will silently drop cheaper ones from the SEO page. Consider not limiting or splitting into 'Featured' + 'All services'.",
+    "server.py::salon_gallery_upload (~2132) — no explicit MIME/type check on file.content_type; a malicious tenant admin could push non-image files up to the storage. Add file.content_type.startswith('image/') and enforce a max byte size (e.g., 5 MB) explicitly.",
+    "server.py::_review_request_candidates (line 2284) does an N+1 read of customers per completed appointment. Pre-fetch all customer_ids in one $in query.",
+    "DemoSlot.jsx: /public/demo-slot/{iid} route is not rate-limited on GET beyond the public_rate_limit decorator (30/10min) — fine; but confirm-button POST has no client-side guard against double-submit."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter66_regression.py (new — 26 test cases across 8 test classes)"],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "spot-checks pass; 1 PWA manifest bug on /salon/*"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 · admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug: miracurl-marathahalli). Resend recipients kept to delivered+qa@resend.dev / delivered+qa2@resend.dev per spec.",
+  "seed_data_creation": "1 demo_invite (delivered+qa@resend.dev) → created, tracked (open+click), slot-booked, resent, followed-up (backdated 6d), then DELETED. 1 UI-only demo_invite (delivered+ui@resend.dev) for the /demo-slot screenshot — DELETED. 1 completed appointment 4h ago + customer for review-request test — DELETED via fixture. Post-test cleanup also deleted 80 legacy TEST_ customers and 120 legacy TEST_ appointments left over from earlier iterations (safe: name/customer_name prefix 'TEST_').",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression file /app/backend/tests/test_iter66_regression.py should be run with '-p no:xdist -o addopts=\"\"' because pytest-xdist splits classes across workers and TestDemoTrackingAndSlot depends on TestLeadGen creating the invite first. All Resend sends go to delivered+*@resend.dev only (per spec — Resend key is LIVE). Watch out for Resend rate-limit (2 req/sec): the resend-invite test sleeps 2s to avoid a 500. Public tracking endpoints /api/public/demo-track/{iid}/open.png and /click return 200 image/png and 302 redirect respectively; use allow_redirects=False for the click test. Followups are idempotent — safe to run twice. Gallery upload returns {id,url} not {photos:[…]} — always re-GET the list to verify.",
+  "verified_flows": {
+    "backend": [
+      "GET /api/super-admin/documents lists ≥4 docs; PDFs onboarding_policy, hiring_policy, suite_overview, terms_conditions all return application/pdf with %PDF magic bytes.",
+      "GET /api/super-admin/earnings returns 6-month series + totals (subscriptions/placement_fees/combined).",
+      "GET /api/super-admin/demo-campaign/recipients returns only leads[]; NO tenants key; tenant owner emails filtered out.",
+      "POST demo-campaign/send to delivered+qa@resend.dev → sent=1; to admin@miracurl.com → sent=0 with 'Already a Miracurl partner — skipped'.",
+      "GET /api/public/demo-track/{iid}/open.png → 200 image/png, sets opened_at.",
+      "GET /api/public/demo-track/{iid}/click → 302 to /demo-slot/{iid}, sets demo_requested_at.",
+      "GET /api/public/demo-slot/{iid} → returns 7 dates + 8 times; POST with date+time '16:00'+phone → ok:true + gcal calendar.google.com link.",
+      "GET /api/super-admin/demo-campaign/invites lists invite; POST /invites/{iid}/resend returns 200 (with 2s sleep for Resend rate limit); POST /followups/run sends 1 after backdating first_sent_at 6d, second run sends 0 (idempotent); DELETE /invites/{iid} removes record.",
+      "GET /api/public/salon-page/miracurl-marathahalli returns name/slug/services/reviews/gallery/book_url; no _id leak.",
+      "GET/PUT /api/settings/review-requests toggles enabled (default true); GET /api/reviews/pending-requests returns seeded 4h-old completed appointment with wa.me link; POST /api/reviews/request-now sends email + persists review_request_sent_at, second run does NOT re-send.",
+      "GET /api/whats-new (with X-Tenant-Slug) → build='2026-07-12.5' + non-empty releases.",
+      "GET /api/super-admin/notifications 200; /api/services /api/staff /api/appointments 200."
+    ],
+    "frontend": [
+      "https://.../salon/miracurl-marathahalli renders salon-public-page + salon-name 'Miracurl Unisex Family Salon ✦' + 3 book links; 3D dark theme with numbered glow sections; service cards show images. Gallery section absent (tenant has no gallery photos — correct).",
+      "https://.../book/miracurl-marathahalli — Ask Mira AI floating button at x=386,y=~840 (bottom-LEFT half of a 1280 viewport); Continue button on right, no overlap.",
+      "https://.../demo-slot/{iid} — dark background rgb(10,10,10), gold 'MIRACURL' header, date chips (7), time chips (8), phone input, 'Confirm my demo slot' button data-testid=demo-slot-confirm-btn present. No error elements."
+    ]
+  },
+  "rca of the issue": "PWA manifest bug on /salon/* — ManifestSwitcher.jsx:14 uses `const isBooking = pathname.startsWith('/book')`. The /salon/{slug} public route is not caught, so the switcher defaults to /manifest-admin.json (Miracurl Partner). This means a prospect browsing your public salon page and tapping 'Add to Home Screen' installs the emerald staff PWA instead of the violet customer 'Miracurl Book' PWA. Fix: broaden the regex — `const isBooking = /^\\/(book|salon|demo-slot)/.test(pathname);` (and apply same broadening for the theme/touch-icon)."
+}

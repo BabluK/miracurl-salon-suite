@@ -1134,3 +1134,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - server.py: _run_review_requests — for active/trial tenants (skip review_requests_enabled=False), completed appointments 3-48h old w/o review & w/o review_request_sent_at marker → luxe ⭐ email (gold stars, "Rate my visit ✦" → {APP_PUBLIC_URL}/review/{appt_id}, reward teaser). _review_request_scheduler every 30 min (idempotent via marker). Endpoints: GET/PUT /settings/review-requests (toggle, default ON), GET /reviews/pending-requests (candidates + prefilled wa.me links), POST /reviews/request-now.
 - ReviewRequestsCard on Reviews page: auto toggle, pending list w/ one-tap WhatsApp buttons + "Email all now".
 - E2E: seeded completed appt 4h old → pending shows w/ wa.me → request-now sent 1 → 2nd run 0 (idempotent) → UI card+toggle verified. Test data cleaned.
+
+## Iter 103 (12 Jul 2026) — 3D salon upgrades, invite list mgmt, Mira widget left, service pics
+- SalonPublic 3D+ (layout unchanged): salon-shimmer animated gradient title, rotating conic salon-halo behind Book CTA, 3 drifting perspective salon-rings in hero, Tilt3D mouse-tilt wrapper (perspective 1100px, max 4deg) on all 4 section cards; keyframes in index.css w/ prefers-reduced-motion off-switch.
+- Services on salon page now booking-style cards WITH photos (image_url + unsplash fallback, right image strip w/ gradient fade, hover zoom); public_salon_page projects image_url.
+- BookingChatWidget "Ask Mira AI" moved bottom-LEFT (button + panel) — was overlapping Continue on right.
+- Invite list mgmt: shows latest 10 + "Show all N" toggle; per-row DELETE (confirm) via DELETE invites/{iid}; RE-SEND button (sky) when resend_suggested (not opened, 5+ days, awaiting/reminded) via POST invites/{iid}/resend (fresh tracking ids reset, resend_count); "seen, no reply" italic label when stale_no_reply (opened 5+ days, no reply). FIXED: earlier edit duplicated JSX block breaking build — truncated file + re-applied cleanly.
+- Verified via screenshots: 10 rows + show-all + 1 resend + 10 delete btns; mira x=72 (left); service pics grid.

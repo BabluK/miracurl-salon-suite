@@ -324,7 +324,7 @@ export const BookingChatWidget = ({ slug }) => {
         <button
           data-testid="booking-chat-fab"
           onClick={() => setOpen(true)}
-          className="fixed bottom-40 sm:bottom-6 right-4 z-50 flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-gold text-bg-base shadow-gold-glow font-semibold text-sm hover:scale-105 transition-transform"
+          className="fixed bottom-40 sm:bottom-6 left-4 z-50 flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-gold text-bg-base shadow-gold-glow font-semibold text-sm hover:scale-105 transition-transform"
         >
           <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-60" />
@@ -340,7 +340,7 @@ export const BookingChatWidget = ({ slug }) => {
       {open && (
         <div
           data-testid="booking-chat-panel"
-          className="fixed z-50 inset-x-3 bottom-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[380px] h-[70vh] sm:h-[560px] max-h-[85vh] bg-[#121212] border border-gold/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          className="fixed z-50 inset-x-3 bottom-3 sm:inset-x-auto sm:left-6 sm:bottom-6 sm:w-[380px] h-[70vh] sm:h-[560px] max-h-[85vh] bg-[#121212] border border-gold/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-gradient-to-r from-gold/15 to-transparent">
             <div className="flex items-center gap-2">

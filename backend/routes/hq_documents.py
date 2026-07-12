@@ -657,8 +657,10 @@ async def demo_campaign_mark_seen(user=Depends(require_super_admin)):
 
 @router.get("/super-admin/demo-campaign/invites")
 async def demo_invites(user=Depends(require_super_admin)):
+    from datetime import timedelta
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
     items = await _raw_db.demo_invites.find({}, {"_id": 0}).sort("first_sent_at", -1).to_list(200)
+    stale_cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
     for i in items:
         if i["email"] in tenant_emails:
             i["status"] = "converted"
@@ -671,7 +673,47 @@ async def demo_invites(user=Depends(require_super_admin)):
         else:
             i["status"] = "awaiting"
         i["opened"] = bool(i.get("opened_at"))
+        stale = (i.get("first_sent_at") or "") <= stale_cutoff
+        i["resend_suggested"] = (i["status"] in ("awaiting", "reminded") and not i["opened"] and stale)
+        i["stale_no_reply"] = (i["status"] in ("awaiting", "reminded") and i["opened"] and stale)
     return {"invites": items, "followup_after_days": FOLLOWUP_AFTER_DAYS}
+
+
+@router.delete("/super-admin/demo-campaign/invites/{iid}")
+async def demo_invite_delete(iid: str, user=Depends(require_super_admin)):
+    res = await _raw_db.demo_invites.delete_one({"id": iid})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Invite not found")
+    return {"ok": True}
+
+
+@router.post("/super-admin/demo-campaign/invites/{iid}/resend")
+async def demo_invite_resend(iid: str, request: Request, user=Depends(require_super_admin)):
+    inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Invite not found")
+    if inv["email"] in set(await _raw_db.tenants.distinct("owner_email")):
+        raise HTTPException(400, "Already a Miracurl partner")
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    plans = await _live_plans()
+    attachments = await asyncio.to_thread(_all_doc_attachments)
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    track_base = f"https://{host}" if host else (inv.get("track_base") or "")
+    html = _demo_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", hq_email,
+                            plans=plans, track_base=track_base, invite_id=iid)
+    status = await _send_email([inv["email"]],
+                               "A warm invitation — see your salon run beautifully with Miracurl ✦",
+                               html, attachments=attachments, reply_to=hq_email)
+    if not status.get("sent"):
+        raise HTTPException(500, status.get("error") or "Send failed")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await _raw_db.demo_invites.update_one(
+        {"id": iid},
+        {"$set": {"first_sent_at": now_iso, "reminder_sent_at": None, "responded": False,
+                  "opened_at": None, "demo_requested_at": None, "track_base": track_base,
+                  "seen_by_hq_open": True, "seen_by_hq_req": True,
+                  "resent_at": now_iso, "resend_count": (inv.get("resend_count") or 0) + 1}})
+    return {"ok": True}
 
 
 @router.post("/super-admin/demo-campaign/invites/{iid}/mark-replied")

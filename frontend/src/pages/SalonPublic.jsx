@@ -26,6 +26,24 @@ function Sparkle({ className, delay = 0, size = "text-base" }) {
   );
 }
 
+function Tilt3D({ children, className = "", max = 7 }) {
+  const [t, setT] = useState({ x: 0, y: 0 });
+  return (
+    <div className={`salon-tilt ${className}`}
+      style={{ transform: `perspective(1100px) rotateX(${t.x}deg) rotateY(${t.y}deg)` }}
+      onMouseMove={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        setT({
+          x: -((e.clientY - r.top) / r.height - 0.5) * max,
+          y: ((e.clientX - r.left) / r.width - 0.5) * max,
+        });
+      }}
+      onMouseLeave={() => setT({ x: 0, y: 0 })}>
+      {children}
+    </div>
+  );
+}
+
 export default function SalonPublic() {
   const { slug } = useParams();
   const [s, setS] = useState(null);
@@ -58,11 +76,14 @@ export default function SalonPublic() {
 
       {/* Hero */}
       <section className="relative pt-28 pb-16 px-4">
-        {/* floating 3D glow orbs */}
-        <div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* floating 3D glow orbs + depth rings */}
+        <div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden" style={{ perspective: "900px" }}>
           <div className="absolute -top-20 -left-24 w-96 h-96 rounded-full bg-violet-600/25 blur-[110px]" style={{ animation: "brand-orb-float 9s ease-in-out infinite" }} />
           <div className="absolute top-32 -right-28 w-[26rem] h-[26rem] rounded-full bg-pink-500/20 blur-[120px]" style={{ animation: "brand-orb-float 11s ease-in-out 1.2s infinite" }} />
           <div className="absolute bottom-0 left-1/3 w-80 h-80 rounded-full bg-cyan-500/15 blur-[100px]" style={{ animation: "brand-orb-float 13s ease-in-out 2s infinite" }} />
+          <div className="salon-ring w-[34rem] h-[34rem] -top-24 left-1/2 -translate-x-1/2" />
+          <div className="salon-ring w-[46rem] h-[46rem] -top-36 left-1/2 -translate-x-1/2" style={{ animationDelay: "1.5s", borderColor: "rgba(167,139,250,.14)" }} />
+          <div className="salon-ring w-[58rem] h-[58rem] -top-48 left-1/2 -translate-x-1/2" style={{ animationDelay: "3s", borderColor: "rgba(244,114,182,.10)" }} />
         </div>
 
         <div className="relative max-w-4xl mx-auto text-center">
@@ -80,7 +101,7 @@ export default function SalonPublic() {
           <motion.h1 {...fadeUp(0.12)} data-testid="salon-name"
             className="mt-6 font-playfair text-4xl sm:text-5xl lg:text-6xl leading-tight">
             <span className="text-white">{s.name.split(" ").slice(0, Math.ceil(s.name.split(" ").length / 2)).join(" ")} </span>
-            <span className="bg-gradient-to-r from-gold via-amber-200 to-blush bg-clip-text text-transparent">
+            <span className="salon-shimmer bg-gradient-to-r from-gold via-amber-100 to-blush bg-clip-text text-transparent">
               {s.name.split(" ").slice(Math.ceil(s.name.split(" ").length / 2)).join(" ")}
             </span>
             <span className="text-blush"> ✦</span>
@@ -98,11 +119,14 @@ export default function SalonPublic() {
           </motion.div>
 
           <motion.div {...fadeUp(0.36)} className="mt-9">
-            <Link to={s.book_url} data-testid="salon-book-now-btn"
-              className="group relative inline-flex items-center gap-2 px-10 py-4 rounded-full bg-gradient-to-r from-gold to-blush text-bg-base font-bold text-sm shadow-gold-glow hover:scale-[1.03] transition-transform">
-              <CalendarCheck className="w-5 h-5" /> Book an appointment
-              <span aria-hidden className="absolute -top-1.5 -right-1 text-blush" style={{ animation: "sparkle-twinkle 2.2s ease-in-out infinite" }}>✦</span>
-            </Link>
+            <span className="relative inline-block">
+              <span aria-hidden className="salon-halo" />
+              <Link to={s.book_url} data-testid="salon-book-now-btn"
+                className="group relative inline-flex items-center gap-2 px-10 py-4 rounded-full bg-gradient-to-r from-gold to-blush text-bg-base font-bold text-sm shadow-gold-glow hover:scale-[1.03] transition-transform">
+                <CalendarCheck className="w-5 h-5" /> Book an appointment
+                <span aria-hidden className="absolute -top-1.5 -right-1 text-blush" style={{ animation: "sparkle-twinkle 2.2s ease-in-out infinite" }}>✦</span>
+              </Link>
+            </span>
             <p className="mt-3 text-[11px] text-white/35">Takes 30 seconds · instant confirmation · no app needed</p>
           </motion.div>
         </div>
@@ -113,7 +137,9 @@ export default function SalonPublic() {
         <div aria-hidden className="absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-cyan-400/25 via-violet-400/25 to-pink-400/25 hidden sm:block" />
 
         {/* Services — neon section card */}
-        <motion.section {...fadeUp(0)} className={`relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border ${GLOWS[0].ring} ${GLOWS[0].shadow} p-6 sm:p-8`}>
+        <motion.div {...fadeUp(0)}>
+        <Tilt3D max={4}>
+        <section className={`relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border ${GLOWS[0].ring} ${GLOWS[0].shadow} p-6 sm:p-8`}>
           <span aria-hidden className={`absolute -left-1 top-10 w-2 h-2 rounded-full ${GLOWS[0].dot}`} style={{ animation: "sparkle-twinkle 3s ease-in-out infinite" }} />
           <div className="flex items-center gap-4 mb-6">
             <span className={`w-11 h-11 rounded-full border ${GLOWS[0].ring} flex items-center justify-center font-playfair ${GLOWS[0].text}`}>1</span>
@@ -127,23 +153,34 @@ export default function SalonPublic() {
             {cats.map(cat => (
               <div key={cat}>
                 <div className="text-[10px] uppercase tracking-[0.25em] text-white/35 mb-3">{cat}</div>
-                <div className="grid sm:grid-cols-2 gap-2">
+                <div className="grid sm:grid-cols-2 gap-3">
                   {s.services.filter(x => (x.category || "Services") === cat).map((sv, i) => (
                     <div key={i}
-                      className="group flex items-center justify-between bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm hover:border-cyan-400/40 hover:bg-white/[0.06] hover:-translate-y-0.5 transition-all duration-300">
-                      <span>{sv.name}{sv.duration_min ? <span className="text-white/35 text-xs"> · {sv.duration_min} min</span> : null}</span>
-                      <span className="text-gold font-semibold">₹{Math.round(sv.price)}</span>
+                      className="group relative flex items-stretch overflow-hidden bg-white/[0.03] border border-white/10 rounded-2xl text-sm hover:border-cyan-400/40 hover:bg-white/[0.06] hover:-translate-y-0.5 transition-all duration-300">
+                      <div className="flex-1 min-w-0 px-4 py-3.5 flex flex-col justify-center gap-1">
+                        <span className="font-medium truncate">{sv.name}</span>
+                        <span className="text-white/35 text-xs">{sv.duration_min ? `${sv.duration_min} min · ` : ""}<span className="text-gold font-semibold text-sm">₹{Math.round(sv.price)}</span></span>
+                      </div>
+                      <div className="w-24 sm:w-28 relative shrink-0">
+                        <img src={sv.image_url || "https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400"} alt="" loading="lazy"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#0e0e12] via-[#0e0e12]/40 to-transparent" />
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             ))}
           </div>
-        </motion.section>
+        </section>
+        </Tilt3D>
+        </motion.div>
 
         {/* Gallery — photo strip */}
         {s.gallery?.length > 0 && (
-          <motion.section {...fadeUp(0.04)} className="relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border border-amber-300/20 shadow-[0_0_40px_-12px_rgba(251,191,36,.35)] p-6 sm:p-8" data-testid="salon-gallery-section">
+          <motion.div {...fadeUp(0.04)}>
+          <Tilt3D max={4}>
+          <section className="relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border border-amber-300/20 shadow-[0_0_40px_-12px_rgba(251,191,36,.35)] p-6 sm:p-8" data-testid="salon-gallery-section">
             <Sparkle className="top-4 right-[8%]" delay={0.6} size="text-sm" />
             <div className="flex items-center gap-4 mb-5">
               <span className="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-amber-300"><Sparkles className="w-5 h-5" /></span>
@@ -160,12 +197,16 @@ export default function SalonPublic() {
                 </div>
               ))}
             </div>
-          </motion.section>
+          </section>
+          </Tilt3D>
+          </motion.div>
         )}
 
         {/* Reviews — neon section card */}
         {s.reviews.length > 0 && (
-          <motion.section {...fadeUp(0.08)} className={`relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border ${GLOWS[1].ring} ${GLOWS[1].shadow} p-6 sm:p-8`}>
+          <motion.div {...fadeUp(0.08)}>
+          <Tilt3D max={4}>
+          <section className={`relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border ${GLOWS[1].ring} ${GLOWS[1].shadow} p-6 sm:p-8`}>
             <span aria-hidden className={`absolute -right-1 top-10 w-2 h-2 rounded-full ${GLOWS[1].dot}`} style={{ animation: "sparkle-twinkle 3s ease-in-out .8s infinite" }} />
             <div className="flex items-center gap-4 mb-6">
               <span className={`w-11 h-11 rounded-full border ${GLOWS[1].ring} flex items-center justify-center font-playfair ${GLOWS[1].text}`}>2</span>
@@ -186,11 +227,15 @@ export default function SalonPublic() {
                 </div>
               ))}
             </div>
-          </motion.section>
+          </section>
+          </Tilt3D>
+          </motion.div>
         )}
 
         {/* Book CTA — neon section card */}
-        <motion.section {...fadeUp(0.08)} className={`relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border ${GLOWS[2].ring} ${GLOWS[2].shadow} p-8 sm:p-10 text-center overflow-hidden`}>
+        <motion.div {...fadeUp(0.08)}>
+        <Tilt3D max={4}>
+        <section className={`relative rounded-3xl bg-[#0e0e12]/90 backdrop-blur border ${GLOWS[2].ring} ${GLOWS[2].shadow} p-8 sm:p-10 text-center overflow-hidden`}>
           <div aria-hidden className="absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-pink-500/15 blur-[80px]" />
           <Sparkle className="top-6 left-[14%]" delay={0.4} />
           <Sparkle className="bottom-8 right-[12%]" delay={1.4} size="text-sm" />
@@ -204,7 +249,9 @@ export default function SalonPublic() {
             </Link>
             <p className="mt-4 text-[11px] text-white/30 inline-flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-violet-300" /> Get the <b className="text-violet-300">Miracurl Book</b> app for faster rebooking & reminders</p>
           </div>
-        </motion.section>
+        </section>
+        </Tilt3D>
+        </motion.div>
 
         <p className="text-center text-[10px] text-white/25 pt-2">Powered by <a href="/" className="underline hover:text-gold">Miracurl Salon Suite</a></p>
       </main>

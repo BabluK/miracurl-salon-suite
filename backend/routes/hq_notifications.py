@@ -138,7 +138,7 @@ async def public_salon_page(slug: str):
     tok = _current_tenant_id.set(t["id"])
     try:
         services = await db.services.find({}, {"_id": 0, "name": 1, "price": 1, "category": 1,
-                                               "duration_min": 1}).sort("price", -1).to_list(24)
+                                               "duration_min": 1, "image_url": 1}).sort("price", -1).to_list(24)
         reviews = await db.reviews.find({"public": True,
                                          "$nor": [{"customer_name": {"$regex": "^TEST", "$options": "i"}},
                                                   {"comment": {"$regex": "^TEST", "$options": "i"}}]},
