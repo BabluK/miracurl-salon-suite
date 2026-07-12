@@ -1046,3 +1046,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - NEW WinbackNudges.jsx card on owner Dashboard (wa.me deep link, dismiss X, testids winback-*). Screenshot-verified with real data.
 - MOBILE FIX (user-reported overlap on Android/iOS): header cluster was 147px wider than 360px viewport. Fixes: AppLayout right cluster flex-shrink-0→min-w-0 + NetSpeed hidden on xs; main column overflow-x-clip (app-wide guard, keeps sticky working — do NOT use overflow-x-hidden); BranchSwitcher select w-[64px] on xs + container flex-shrink-0; SalonSwitcher icon-only on xs (name hidden sm:inline); bell+profile flex-shrink-0. Verified: overflow 0px, no element overlap, profile right=360.
 - Build 2026-07-12.1.
+
+## Iter 89 (12 Jul 2026) — Employee Self-Service Portal + mark-left login block + Mira voice fix
+- NEW routes/employee_portal.py: register (phone MUST be in registry_employees AND full Aadhaar must match aadhaar_hash via _aadhaar_fps; else "not registered with us" msg), login (phone+pw, brute-force lockout), reset-password (phone+Aadhaar recheck), me (profile+employment history, no aadhaar_hash leak), PATCH me (name/email/city/address), logout. Separate emp_token HTTPOnly cookie (type emp_access, 12h).
+- registry_mark_left now sets disabled=true on matching tenant user (email match, role!=admin) → salon login 403. Tested by testing agent (iteration_65: backend 8/8).
+- NEW EmployeePortal.jsx at /employee (dark luxe, login/register/reset tabs, dashboard w/ profile editor, employment history + HQ Verified badges, Browse jobs → /jobs). FIXED stale-closure setState bug found by tester (functional updater form).
+- Mira voice bug: MorningBriefing audioRef + unmount cleanup (pause audio, abort SpeechRecognition, cancel speechSynthesis) — voice stops on logout.
+- E2E verified via screenshot after fix: type→login→dashboard. Build 2026-07-12.2.
+- Tester notes (future): registry_employees phone lookup is O(N) scan — consider normalized_phone field+index when registry grows; silence initial 401 console noise on /employee/me probe.

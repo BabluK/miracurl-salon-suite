@@ -19,7 +19,7 @@ function AuthForms({ onAuthed }) {
   const [mode, setMode] = useState("login"); // login | register | reset
   const [f, setF] = useState({ phone: "", aadhaar: "", password: "" });
   const [busy, setBusy] = useState(false);
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const set = (k) => (e) => setF(prev => ({ ...prev, [k]: e.target.value }));
 
   const submit = async (e) => {
     e.preventDefault();
@@ -46,7 +46,7 @@ function AuthForms({ onAuthed }) {
     <div className="w-full max-w-md mx-auto bg-white/[0.04] border border-white/10 rounded-2xl p-6 sm:p-8 backdrop-blur-md" data-testid="employee-auth-card">
       <div className="flex rounded-full bg-white/5 border border-white/10 p-1 mb-6 text-xs">
         {[["login", "Login"], ["register", "Register"], ["reset", "Reset Password"]].map(([m, l]) => (
-          <button key={m} onClick={() => setMode(m)} data-testid={`emp-tab-${m}`}
+          <button key={m} type="button" onClick={() => setMode(m)} data-testid={`emp-tab-${m}`}
             className={`flex-1 py-2 rounded-full transition ${mode === m ? "bg-amber-400 text-black font-semibold" : "text-white/60"}`}>{l}</button>
         ))}
       </div>
@@ -89,7 +89,7 @@ function ProfileEditor({ me, onSaved }) {
       {[["name", "Full name"], ["email", "Email"], ["city", "City"], ["current_address", "Current address"]].map(([k, l]) => (
         <div key={k}>
           <label className="text-[10px] uppercase tracking-widest text-white/40">{l}</label>
-          <input data-testid={`emp-profile-${k}`} className={inputCls} value={f[k]} onChange={e => setF({ ...f, [k]: e.target.value })} />
+          <input data-testid={`emp-profile-${k}`} className={inputCls} value={f[k]} onChange={e => setF(prev => ({ ...prev, [k]: e.target.value }))} />
         </div>
       ))}
       <button onClick={save} disabled={busy} data-testid="emp-profile-save-btn"
