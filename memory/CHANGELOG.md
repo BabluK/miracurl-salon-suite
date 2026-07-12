@@ -1141,3 +1141,7 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - BookingChatWidget "Ask Mira AI" moved bottom-LEFT (button + panel) — was overlapping Continue on right.
 - Invite list mgmt: shows latest 10 + "Show all N" toggle; per-row DELETE (confirm) via DELETE invites/{iid}; RE-SEND button (sky) when resend_suggested (not opened, 5+ days, awaiting/reminded) via POST invites/{iid}/resend (fresh tracking ids reset, resend_count); "seen, no reply" italic label when stale_no_reply (opened 5+ days, no reply). FIXED: earlier edit duplicated JSX block breaking build — truncated file + re-applied cleanly.
 - Verified via screenshots: 10 rows + show-all + 1 resend + 10 delete btns; mira x=72 (left); service pics grid.
+
+## Iter 104 (12 Jul 2026) — Full regression PASS + real manifest bug fixed
+- testing_agent regression (iteration_66.json): 25/25 backend PASS (docs PDFs, earnings, lead-gen send+partner block, tracking pixel/click, demo slot booking, invite delete/resend/limit, follow-up idempotency, gallery CRUD, review requests, whats-new, tenant flows). Frontend spot-checks pass (3D salon page, slot picker, Mira widget bottom-left).
+- BUG FOUND & FIXED: ManifestSwitcher.jsx (React) was overriding the index.html manifest fix — only checked /book. Now /book, /salon, /demo-slot, /review all get Miracurl Book manifest (verified: salon→manifest.json, book→manifest.json, login→manifest-admin.json). This was the REAL cause of user's "already downloaded" complaint persisting.

@@ -11,7 +11,7 @@ export default function ManifestSwitcher() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    const isBooking = pathname.startsWith("/book");
+    const isBooking = ["/book", "/salon", "/demo-slot", "/review"].some((p) => pathname.startsWith(p));
     const href = isBooking ? "/manifest.json" : "/manifest-admin.json";
     const title = isBooking ? "Miracurl Book" : "Miracurl Partner";
     const theme = isBooking ? "#8B5CF6" : "#059669";
