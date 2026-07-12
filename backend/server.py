@@ -26,7 +26,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
 from pydantic import BaseModel, Field, EmailStr, field_validator
 import requests
-from urllib.parse import urlparse as urlparse
+from urllib.parse import quote, urlparse as urlparse
 
 from database import (  # noqa: F401 — shared DB foundation
     client, _raw_db, db, _current_tenant_id, _clean,
@@ -2243,6 +2243,119 @@ async def set_birthday_offer(body: BirthdayOfferIn, user=Depends(require_tenant_
         {"id": t["id"]},
         {"$set": {"birthday_emails_enabled": body.enabled, "birthday_offer_text": body.offer_text.strip()}})
     return {"enabled": body.enabled, "offer_text": body.offer_text.strip()}
+
+
+# ---------------- Post-visit "Rate your visit" review requests ----------------
+_REVIEW_REQ_DELAY_H = 3
+_REVIEW_REQ_WINDOW_H = 48
+
+
+def _review_request_email_html(salon_name: str, customer_name: str, review_url: str) -> str:
+    import html as _h
+    nm = _h.escape(customer_name or "there")
+    sn = _h.escape(salon_name or "your salon")
+    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
+<tr><td align="center">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
+  <tr><td style="background:#15151b;padding:26px 32px 22px;text-align:center">
+    <div style="font-family:Georgia,serif;font-size:20px;letter-spacing:3px;color:#d4af37">{sn.upper()}</div>
+    <div style="font-size:26px;margin-top:14px;letter-spacing:6px">⭐⭐⭐⭐⭐</div>
+    <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:20px;margin-top:10px">How was your visit, {nm}?</div>
+  </td></tr>
+  <tr><td style="padding:26px 32px 8px;text-align:center">
+    <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0">
+      Thank you for visiting us today — it was a pleasure having you.
+      Would you take <b>20 seconds</b> to rate your experience? It means the world to our team.</p>
+  </td></tr>
+  <tr><td align="center" style="padding:20px 32px 8px">
+    <a href="{review_url}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+       text-decoration:none;padding:14px 40px;border-radius:999px;letter-spacing:.4px">Rate my visit ✦</a>
+    <div style="font-size:11px;color:#8f8798;margin-top:10px">Leave a 4★+ review and a small thank-you reward may be waiting for you 🎁</div>
+  </td></tr>
+  <tr><td style="padding:16px 32px 26px;text-align:center">
+    <p style="font-size:13px;color:#33333b;margin:0">With gratitude,<br><b style="font-family:Georgia,serif">{sn}</b></p>
+  </td></tr>
+</table>
+<div style="font-size:10px;color:#a9a294;margin-top:10px">Powered by Miracurl Suite</div>
+</td></tr></table></body></html>"""
+
+
+async def _review_request_candidates(tenant_id: str):
+    now = datetime.now(timezone.utc)
+    lo = (now - timedelta(hours=_REVIEW_REQ_WINDOW_H)).isoformat()
+    hi = (now - timedelta(hours=_REVIEW_REQ_DELAY_H)).isoformat()
+    appts = await _raw_db.appointments.find(
+        {"tenant_id": tenant_id, "status": "completed",
+         "scheduled_at": {"$gte": lo, "$lte": hi},
+         "review_request_sent_at": {"$exists": False}},
+        {"_id": 0, "id": 1, "customer_id": 1, "customer_name": 1, "scheduled_at": 1}).to_list(200)
+    out = []
+    for a in appts:
+        if await _raw_db.reviews.find_one({"appointment_id": a["id"]}, {"_id": 1}):
+            continue
+        c = await _raw_db.customers.find_one(
+            {"tenant_id": tenant_id, "id": a.get("customer_id")}, {"_id": 0, "email": 1, "phone": 1})
+        out.append({**a, "email": (c or {}).get("email") or "", "phone": (c or {}).get("phone") or ""})
+    return out
+
+
+async def _run_review_requests(tenant_id: Optional[str] = None) -> dict:
+    flt = {"id": tenant_id} if tenant_id else {"status": {"$in": ["active", "trial"]}}
+    tenants = await _raw_db.tenants.find(flt, {"_id": 0, "id": 1, "name": 1, "review_requests_enabled": 1}).to_list(500)
+    app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    sent = failed = 0
+    for t in tenants:
+        if t.get("review_requests_enabled") is False:
+            continue
+        for a in await _review_request_candidates(t["id"]):
+            if not a["email"]:
+                continue
+            status = await _send_email(
+                [a["email"]],
+                f"⭐ How was your visit to {t.get('name', 'the salon')}?",
+                _review_request_email_html(t.get("name", ""), a.get("customer_name", ""),
+                                           f"{app_url}/review/{a['id']}"))
+            if status.get("sent"):
+                sent += 1
+                await _raw_db.appointments.update_one(
+                    {"id": a["id"]},
+                    {"$set": {"review_request_sent_at": datetime.now(timezone.utc).isoformat()}})
+            else:
+                failed += 1
+    return {"sent": sent, "failed": failed}
+
+
+@api.get("/settings/review-requests")
+async def get_review_requests_setting(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return {"enabled": t.get("review_requests_enabled", True), "delay_hours": _REVIEW_REQ_DELAY_H}
+
+
+@api.put("/settings/review-requests")
+async def set_review_requests_setting(body: dict, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    enabled = bool(body.get("enabled", True))
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"review_requests_enabled": enabled}})
+    return {"enabled": enabled}
+
+
+@api.get("/reviews/pending-requests")
+async def reviews_pending_requests(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Completed visits (last 48h) still without a review — for one-tap WhatsApp asks."""
+    app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    items = []
+    for a in await _review_request_candidates(t["id"]):
+        url = f"{app_url}/review/{a['id']}"
+        msg = (f"Hi {a.get('customer_name', '')}! Thank you for visiting {t.get('name', 'us')} 💇 "
+               f"We'd love to hear how it went — it takes 20 seconds: {url}")
+        items.append({"appointment_id": a["id"], "customer_name": a.get("customer_name", ""),
+                      "scheduled_at": a.get("scheduled_at"), "email": a["email"], "phone": a["phone"],
+                      "wa_link": f"https://wa.me/{re.sub(r'[^0-9]', '', a['phone'])}?text={quote(msg)}" if a["phone"] else None})
+    return {"items": items}
+
+
+@api.post("/reviews/request-now")
+async def reviews_request_now(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return await _run_review_requests(t["id"])
 
 
 async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
@@ -4932,6 +5045,19 @@ async def _renewal_reminder_scheduler():
         await asyncio.sleep(1800)
 
 
+async def _review_request_scheduler():
+    """Every 30 min: email 'Rate your visit' to customers ~3h after completed
+    appointments. Idempotent via review_request_sent_at marker on appointments."""
+    while True:
+        try:
+            out = await _run_review_requests()
+            if out.get("sent") or out.get("failed"):
+                logging.info(f"Review requests: {out}")
+        except Exception as e:
+            logging.error(f"review request scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 async def _demo_followup_scheduler():
     """Daily (after 10:00 IST) one-time gentle reminder to demo invitees who
     haven't replied within 5 days. Idempotent via system_flags."""
@@ -4960,6 +5086,7 @@ async def _demo_followup_scheduler():
 async def on_startup():
     asyncio.get_event_loop().create_task(_renewal_reminder_scheduler())
     asyncio.get_event_loop().create_task(_demo_followup_scheduler())
+    asyncio.get_event_loop().create_task(_review_request_scheduler())
     asyncio.get_event_loop().create_task(_cctv_poll_scheduler())
     asyncio.get_event_loop().create_task(_monthly_report_scheduler())
     asyncio.get_event_loop().create_task(_weekly_report_scheduler())

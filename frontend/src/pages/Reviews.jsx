@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
 import { Star, Eye, EyeOff, Trash2, MessageSquare, Sparkles, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { ReviewRequestsCard } from "@/components/ReviewRequestsCard";
 
 function AiReplyBox({ r, onSaved }) {
   const [draft, setDraft] = useState(r.owner_reply || "");
@@ -123,6 +124,8 @@ export default function Reviews() {
         <h1 className="font-playfair text-3xl">Customer Reviews</h1>
         <p className="text-slate-500 text-sm mt-1">Moderate what shows up on your public booking page.</p>
       </div>
+
+      <ReviewRequestsCard />
 
       {/* Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
