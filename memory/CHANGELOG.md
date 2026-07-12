@@ -1093,3 +1093,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Send endpoint hard-guard: recipient email matching a tenant owner_email → skipped with "Already a Miracurl partner — skipped" (surfaced in toast with reason).
 - _demo_email_html: new dark "MEET YOUR AI TEAM" section — 12 agents (Orchestrator, Social, Video, WhatsApp, Email, Lead Finder, SEO, Google Business, Staff Verification, Analytics, Sales, Content Writer). Suite Overview PDF got matching "Your 12-Agent AI Team" section (emoji-free for reportlab). Reminder email mentions 12 agents.
 - Verified: recipients keys=[leads], partner send blocked, email render screenshot, live send OK. Test data cleaned.
+
+## Iter 96 (12 Jul 2026) — Lead Gen Email section + pricing & brochure in demo mail
+- NEW Super Admin sidebar tab "Lead Gen Email" (id lead-email) — DemoCampaign moved out of Documents tab into its own panel.
+- Demo email: "SIMPLE, HONEST PRICING" block w/ LIVE 1-branch plans from PLAN_CATALOG/load_plan_overrides (price, months, ≈/month; multi-branch note), 7-day trial callout.
+- Attachments now include miracurl-salon-brochure.pdf (build_brochure_pdf — real app screenshots, ~4.3MB, lru_cached, fails soft).
+- Verified: send 1/1 with 5 attachments to delivered+prospect@resend.dev, pricing/AI-team email render screenshot, lead-email tab UI, campaign removed from docs tab. Test data cleaned.

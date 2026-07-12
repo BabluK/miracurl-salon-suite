@@ -33,6 +33,8 @@ import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
 import { Super3DBackdrop } from "@/components/superadmin/Super3DBackdrop";
 import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
 import { DocsPanel } from "@/components/superadmin/DocsPanel";
+import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
+import { Mail } from "lucide-react";
 import { PlatformEarnings } from "@/components/superadmin/PlatformEarnings";
 import { FileText } from "lucide-react";
 import { BellRing, Orbit } from "lucide-react";
@@ -284,6 +286,7 @@ export default function SuperAdmin() {
               { id: "leaderboard", label: "Top Referrers", icon: Trophy },
               { id: "revenue", label: "Revenue", icon: TrendingUp },
               { id: "docs", label: "Documents", icon: FileText },
+              { id: "lead-email", label: "Lead Gen Email", icon: Mail },
               { id: "ai", label: "AI Insights", icon: Sparkles },
               { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
               { id: "hiring", label: "Hiring", icon: Briefcase, badge: hiringNew },
@@ -320,6 +323,15 @@ export default function SuperAdmin() {
             leaderboard: <LeaderboardPanel />,
             revenue: <div className="space-y-6"><PlatformEarnings /><RevenuePanel /></div>,
             docs: <DocsPanel />,
+            "lead-email": (
+              <div className="space-y-6" data-testid="lead-email-panel">
+                <div>
+                  <h1 className="font-playfair text-3xl flex items-center gap-3"><Mail className="w-7 h-7 text-amber-500" /> Lead Generation Email</h1>
+                  <p className="text-slate-500 text-sm mt-1">Invite prospective salons to a demo — suite details, pricing and all brochures attached.</p>
+                </div>
+                <DemoCampaign />
+              </div>
+            ),
             ai: <AiInsightsPanel />,
             inbox: <HqInbox onUnreadChange={setHqUnread} />,
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,

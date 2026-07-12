@@ -269,12 +269,28 @@ def suite_overview_attachment() -> dict:
 
 
 def _all_doc_attachments() -> list:
-    return [{"filename": f"miracurl-{k.replace('_', '-')}.pdf",
-             "content": base64.b64encode(_doc_pdf(d)).decode()}
-            for k, d in DOCS.items()]
+    from services.brochure import build_brochure_pdf
+    items = [{"filename": f"miracurl-{k.replace('_', '-')}.pdf",
+              "content": base64.b64encode(_doc_pdf(d)).decode()}
+             for k, d in DOCS.items()]
+    try:
+        items.append({"filename": "miracurl-salon-brochure.pdf",
+                      "content": base64.b64encode(build_brochure_pdf()).decode()})
+    except Exception:
+        pass
+    return items
 
 
-def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str) -> str:
+async def _live_plans() -> list:
+    from routes.subscriptions import load_plan_overrides, PLAN_CATALOG
+    try:
+        await load_plan_overrides()
+        return [{"key": k, **v} for k, v in PLAN_CATALOG.items()]
+    except Exception:
+        return []
+
+
+def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str, plans: list | None = None) -> str:
     name = html_lib.escape(recipient_name or "").strip()
     salon = html_lib.escape(salon_name or "").strip()
     greeting = f"Dear {name}," if name else "Dear Salon Owner,"
@@ -339,6 +355,31 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
     </table>
   </td></tr>"""
 
+    pricing_block = ""
+    if plans:
+        show = [p for p in plans if (p.get("branches") or 1) == 1] or plans[:2]
+        rows = ""
+        for p in show:
+            months = max(1, round((p.get("duration_days") or 30) / 30))
+            per_mo = (p.get("price") or 0) / months
+            rows += f"""
+        <tr>
+          <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>{html_lib.escape(str(p.get('label', '')))}</b>
+            <div style="font-size:11px;color:#9a948a">{months} month{'s' if months > 1 else ''} · up to {p.get('branches', 1)} branch{'es' if (p.get('branches') or 1) > 1 else ''}</div></td>
+          <td align="right" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:15px;color:#1d1d24"><b>₹{round(p.get('price') or 0):,}</b>
+            <div style="font-size:11px;color:#9a948a">≈ ₹{round(per_mo):,}/month</div></td>
+        </tr>"""
+        pricing_block = f"""
+  <tr><td style="padding:14px 36px 4px">
+    <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold">SIMPLE, HONEST PRICING</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;background:#fdfcf8;border:1px solid #eee9dc;border-radius:12px;overflow:hidden">
+      <tr><td colspan="2" style="padding:12px 16px;font-size:12.5px;color:#55555f;line-height:1.6">
+        Start with a <b>7-day free trial</b> — no card, no commitment. Then choose the plan that fits:</td></tr>
+      {rows}
+      <tr><td colspan="2" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:11px;color:#9a948a">All features included in every plan — POS, bookings, CRM and the full 12-agent AI team. Multi-branch plans also available — ask us in the demo.</td></tr>
+    </table>
+  </td></tr>"""
+
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
 <tr><td align="center">
@@ -373,6 +414,7 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
     </table>
   </td></tr>
   {agents_block}
+  {pricing_block}
   <tr><td align="center" style="padding:26px 36px 8px">
     <a href="{mailto}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
        text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">Request my demo time ✦</a>
@@ -382,7 +424,7 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
     <div style="background:#f7f6f2;border-radius:12px;padding:16px 20px">
       <div style="font-size:12px;letter-spacing:1.5px;color:#9a8f6d;font-weight:bold">📎 ATTACHED FOR YOU</div>
       <div style="font-size:13px;color:#55555f;line-height:1.7;margin-top:6px">
-        Complete Suite Overview &nbsp;·&nbsp; Onboarding Policy &nbsp;·&nbsp; Hiring Policy &nbsp;·&nbsp; Terms &amp; Conditions —
+        Complete Suite Overview &nbsp;·&nbsp; Sales Brochure with real app screenshots &nbsp;·&nbsp; Onboarding Policy &nbsp;·&nbsp; Hiring Policy &nbsp;·&nbsp; Terms &amp; Conditions —
         everything you need to review at leisure, before we ever speak.</div>
     </div>
   </td></tr>
@@ -444,13 +486,14 @@ async def demo_campaign_send(body: DemoCampaignIn, user=Depends(require_super_ad
     subject = body.subject.strip() or "A warm invitation — see your salon run beautifully with Miracurl ✦"
     attachments = await asyncio.to_thread(_all_doc_attachments)
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
+    plans = await _live_plans()
 
     results = []
     for em, name, salon in targets:
         if em in tenant_emails:
             results.append({"email": em, "sent": False, "error": "Already a Miracurl partner — skipped"})
             continue
-        html = _demo_email_html(name, salon, body.note, hq_email)
+        html = _demo_email_html(name, salon, body.note, hq_email, plans=plans)
         status = await _send_email([em], subject, html, attachments=attachments, reply_to=hq_email)
         results.append({"email": em, "sent": status.get("sent", False), "error": status.get("error")})
         if status.get("sent"):
