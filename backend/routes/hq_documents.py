@@ -8,8 +8,8 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, Field
 
 from database import _raw_db
@@ -290,7 +290,8 @@ async def _live_plans() -> list:
         return []
 
 
-def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str, plans: list | None = None) -> str:
+def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str,
+                     plans: list | None = None, track_base: str = "", invite_id: str = "") -> str:
     name = html_lib.escape(recipient_name or "").strip()
     salon = html_lib.escape(salon_name or "").strip()
     greeting = f"Dear {name}," if name else "Dear Salon Owner,"
@@ -306,6 +307,9 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
     mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
               f"&body=Hi%20Miracurl%20team%2C%0A%0AI%27d%20love%20a%20demo%20of%20the%20Miracurl%20Salon%20Suite."
               f"%0AMy%20preferred%20time%3A%20%0AMy%20salon%3A%20%0APhone%3A%20%0A%0AThank%20you!")
+    cta_href = f"{track_base}/api/public/demo-track/{invite_id}/click" if (track_base and invite_id) else mailto
+    pixel = (f'<img src="{track_base}/api/public/demo-track/{invite_id}/open.png" width="1" height="1" '
+             f'style="display:block;width:1px;height:1px;border:0" alt="">') if (track_base and invite_id) else ""
 
     def _module(icon, title, desc):
         return f"""
@@ -416,7 +420,7 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
   {agents_block}
   {pricing_block}
   <tr><td align="center" style="padding:26px 36px 8px">
-    <a href="{mailto}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+    <a href="{cta_href}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
        text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">Request my demo time ✦</a>
     <div style="font-size:12px;color:#8f8798;margin-top:12px">Or simply reply to this email with a day &amp; time that suits you — we'll fit around your schedule.</div>
   </td></tr>
@@ -439,7 +443,7 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
     <div style="color:#6d675c;font-size:11px">© Miracurl Suite — sent with care from Miracurl HQ. If this isn't relevant, simply ignore this email.</div>
   </td></tr>
 </table>
-</td></tr></table></body></html>"""
+</td></tr></table>{pixel}</body></html>"""
 
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -472,7 +476,7 @@ async def demo_campaign_recipients(user=Depends(require_super_admin)):
 
 
 @router.post("/super-admin/demo-campaign/send")
-async def demo_campaign_send(body: DemoCampaignIn, user=Depends(require_super_admin)):
+async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depends(require_super_admin)):
     seen, targets = set(), []
     for r in body.recipients:
         em = r.email.strip().lower()
@@ -487,22 +491,28 @@ async def demo_campaign_send(body: DemoCampaignIn, user=Depends(require_super_ad
     attachments = await asyncio.to_thread(_all_doc_attachments)
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
     plans = await _live_plans()
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    track_base = f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
 
     results = []
     for em, name, salon in targets:
         if em in tenant_emails:
             results.append({"email": em, "sent": False, "error": "Already a Miracurl partner — skipped"})
             continue
-        html = _demo_email_html(name, salon, body.note, hq_email, plans=plans)
+        existing = await _raw_db.demo_invites.find_one({"email": em}, {"_id": 0, "id": 1})
+        iid = existing["id"] if existing else str(uuid.uuid4())
+        html = _demo_email_html(name, salon, body.note, hq_email, plans=plans,
+                                track_base=track_base, invite_id=iid)
         status = await _send_email([em], subject, html, attachments=attachments, reply_to=hq_email)
         results.append({"email": em, "sent": status.get("sent", False), "error": status.get("error")})
         if status.get("sent"):
             now_iso = datetime.now(timezone.utc).isoformat()
             await _raw_db.demo_invites.update_one(
                 {"email": em},
-                {"$set": {"name": name, "salon_name": salon, "first_sent_at": now_iso,
-                          "reminder_sent_at": None, "responded": False},
-                 "$setOnInsert": {"id": str(uuid.uuid4()), "email": em}},
+                {"$set": {"id": iid, "name": name, "salon_name": salon, "first_sent_at": now_iso,
+                          "reminder_sent_at": None, "responded": False, "track_base": track_base,
+                          "opened_at": None, "demo_requested_at": None,
+                          "seen_by_hq_open": True, "seen_by_hq_req": True}},
                 upsert=True)
 
     sent_count = sum(1 for r in results if r["sent"])
@@ -521,7 +531,8 @@ async def demo_campaign_history(user=Depends(require_super_admin)):
     return {"campaigns": items}
 
 
-def _reminder_email_html(recipient_name: str, salon_name: str, hq_email: str) -> str:
+def _reminder_email_html(recipient_name: str, salon_name: str, hq_email: str,
+                         track_base: str = "", invite_id: str = "") -> str:
     name = html_lib.escape(recipient_name or "").strip()
     salon = html_lib.escape(salon_name or "").strip()
     greeting = f"Dear {name}," if name else "Dear Salon Owner,"
@@ -529,6 +540,9 @@ def _reminder_email_html(recipient_name: str, salon_name: str, hq_email: str) ->
     mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
               f"&body=Hi%20Miracurl%20team%2C%0A%0AYes%2C%20I%27d%20like%20a%20demo."
               f"%0AMy%20preferred%20time%3A%20%0APhone%3A%20%0A%0AThank%20you!")
+    cta_href = f"{track_base}/api/public/demo-track/{invite_id}/click" if (track_base and invite_id) else mailto
+    pixel = (f'<img src="{track_base}/api/public/demo-track/{invite_id}/open.png" width="1" height="1" '
+             f'style="display:block;width:1px;height:1px;border:0" alt="">') if (track_base and invite_id) else ""
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
 <tr><td align="center">
@@ -553,7 +567,7 @@ def _reminder_email_html(recipient_name: str, salon_name: str, hq_email: str) ->
       But if you're curious, we'd love to show you around.</p>
   </td></tr>
   <tr><td align="center" style="padding:24px 36px 10px">
-    <a href="{mailto}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+    <a href="{cta_href}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
        text-decoration:none;padding:14px 40px;border-radius:999px;letter-spacing:.4px">Yes, book my 20-minute demo ✦</a>
     <div style="font-size:12px;color:#8f8798;margin-top:12px">Or simply reply to this email with a day &amp; time that suits you.</div>
   </td></tr>
@@ -566,7 +580,7 @@ def _reminder_email_html(recipient_name: str, salon_name: str, hq_email: str) ->
     <div style="color:#6d675c;font-size:11px">© Miracurl Suite — this is our one and only reminder. Ignore to opt out.</div>
   </td></tr>
 </table>
-</td></tr></table></body></html>"""
+</td></tr></table>{pixel}</body></html>"""
 
 
 FOLLOWUP_AFTER_DAYS = 5
@@ -587,7 +601,9 @@ async def run_demo_followups() -> dict:
                 {"id": inv["id"]}, {"$set": {"responded": True, "converted": True}})
             skipped += 1
             continue
-        html = _reminder_email_html(inv.get("name", ""), inv.get("salon_name", ""), hq_email)
+        html = _reminder_email_html(inv.get("name", ""), inv.get("salon_name", ""), hq_email,
+                                    track_base=inv.get("track_base") or os.environ.get("APP_PUBLIC_URL", "").rstrip("/"),
+                                    invite_id=inv["id"])
         status = await _send_email([inv["email"]],
                                    "A gentle reminder — your Miracurl demo seat is still open ✦",
                                    html, attachments=[attachment], reply_to=hq_email)
@@ -600,6 +616,42 @@ async def run_demo_followups() -> dict:
     return {"sent": sent, "failed": failed, "converted_skipped": skipped}
 
 
+_PIXEL_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")
+
+
+@router.get("/public/demo-track/{iid}/open.png")
+async def demo_track_open(iid: str):
+    await _raw_db.demo_invites.update_one(
+        {"id": iid, "opened_at": None},
+        {"$set": {"opened_at": datetime.now(timezone.utc).isoformat(), "seen_by_hq_open": False}})
+    return Response(content=_PIXEL_PNG, media_type="image/png",
+                    headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
+
+
+@router.get("/public/demo-track/{iid}/click")
+async def demo_track_click(iid: str):
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await _raw_db.demo_invites.update_one(
+        {"id": iid, "opened_at": None}, {"$set": {"opened_at": now_iso, "seen_by_hq_open": False}})
+    await _raw_db.demo_invites.update_one(
+        {"id": iid, "demo_requested_at": None},
+        {"$set": {"demo_requested_at": now_iso, "seen_by_hq_req": False}})
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
+              f"&body=Hi%20Miracurl%20team%2C%0A%0AI%27d%20love%20a%20demo%20of%20the%20Miracurl%20Salon%20Suite."
+              f"%0AMy%20preferred%20time%3A%20%0AMy%20salon%3A%20%0APhone%3A%20%0A%0AThank%20you!")
+    return RedirectResponse(mailto, status_code=302)
+
+
+@router.post("/super-admin/demo-campaign/mark-seen")
+async def demo_campaign_mark_seen(user=Depends(require_super_admin)):
+    await _raw_db.demo_invites.update_many(
+        {"$or": [{"seen_by_hq_open": False}, {"seen_by_hq_req": False}]},
+        {"$set": {"seen_by_hq_open": True, "seen_by_hq_req": True}})
+    return {"ok": True}
+
+
 @router.get("/super-admin/demo-campaign/invites")
 async def demo_invites(user=Depends(require_super_admin)):
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
@@ -609,10 +661,13 @@ async def demo_invites(user=Depends(require_super_admin)):
             i["status"] = "converted"
         elif i.get("responded"):
             i["status"] = "replied"
+        elif i.get("demo_requested_at"):
+            i["status"] = "demo_requested"
         elif i.get("reminder_sent_at"):
             i["status"] = "reminded"
         else:
             i["status"] = "awaiting"
+        i["opened"] = bool(i.get("opened_at"))
     return {"invites": items, "followup_after_days": FOLLOWUP_AFTER_DAYS}
 
 

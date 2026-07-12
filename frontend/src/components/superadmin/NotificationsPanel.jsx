@@ -3,7 +3,7 @@ import { BellRing } from "lucide-react";
 
 const TYPES = [
   ["all", "All"], ["hiring", "💼 Hiring"], ["inbox", "📩 Messages"],
-  ["lead", "🧲 Leads"], ["renewal", "⏳ Renewals"], ["signup", "🎉 Signups"],
+  ["lead", "🧲 Leads"], ["demo", "📬 Demo invites"], ["renewal", "⏳ Renewals"], ["signup", "🎉 Signups"],
 ];
 
 export function NotificationsPanel({ feed, onGoTab }) {

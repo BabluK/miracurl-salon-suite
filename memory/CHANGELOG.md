@@ -1099,3 +1099,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Demo email: "SIMPLE, HONEST PRICING" block w/ LIVE 1-branch plans from PLAN_CATALOG/load_plan_overrides (price, months, ≈/month; multi-branch note), 7-day trial callout.
 - Attachments now include miracurl-salon-brochure.pdf (build_brochure_pdf — real app screenshots, ~4.3MB, lru_cached, fails soft).
 - Verified: send 1/1 with 5 attachments to delivered+prospect@resend.dev, pricing/AI-team email render screenshot, lead-email tab UI, campaign removed from docs tab. Test data cleaned.
+
+## Iter 97 (12 Jul 2026) — Demo email open/click tracking + HQ notifications + funnel
+- hq_documents.py: invite id generated BEFORE send; emails embed 1x1 pixel GET /public/demo-track/{iid}/open.png (sets opened_at) and CTA now points to GET /public/demo-track/{iid}/click (sets demo_requested_at + opened_at, 302 → mailto HQ). track_base from x-forwarded-host (stored on invite; reminders reuse it). Both invite + reminder emails tracked.
+- Invites endpoint: status tier demo_requested (converted > replied > demo_requested > reminded > awaiting) + opened bool. POST /super-admin/demo-campaign/mark-seen clears seen_by_hq_open/req.
+- hq_notifications.py: _demo_items in feed — 🔥 "Demo requested" / 👀 "Demo invite opened", type "demo", tab lead-email, unread via seen flags. NotificationsPanel: "📬 Demo invites" filter chip.
+- DemoCampaign.jsx: funnel strip (Invited/Opened/Demo requested/Converted), 👀 Opened chip, "Demo requested 🔥" status chip, mark-seen on tab open.
+- E2E: send→pixel 200→click 302 mailto→status demo_requested→🔥 notif unread→UI screenshots. Test data cleaned.

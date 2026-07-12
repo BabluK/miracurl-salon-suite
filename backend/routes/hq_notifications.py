@@ -80,11 +80,35 @@ async def _tenant_items(since: str) -> list:
     return items
 
 
+async def _demo_items(since: str) -> list:
+    items = []
+    rows = await _raw_db.demo_invites.find(
+        {"$or": [{"opened_at": {"$gte": since}}, {"demo_requested_at": {"$gte": since}}]},
+        {"_id": 0}).to_list(100)
+    for r in rows:
+        who = r.get("name") or r.get("email")
+        salon = f" ({r['salon_name']})" if r.get("salon_name") else ""
+        if r.get("demo_requested_at"):
+            items.append({"id": f"demoreq-{r['id']}", "type": "demo", "icon": "🔥",
+                          "title": f"Demo requested — {who}{salon}",
+                          "body": f"{r.get('email')} clicked 'Request my demo time' — call them!",
+                          "at": r["demo_requested_at"], "tab": "lead-email",
+                          "unread": not r.get("seen_by_hq_req", True)})
+        elif r.get("opened_at"):
+            items.append({"id": f"demoopen-{r['id']}", "type": "demo", "icon": "👀",
+                          "title": f"Demo invite opened — {who}{salon}",
+                          "body": f"{r.get('email')} opened your invitation email",
+                          "at": r["opened_at"], "tab": "lead-email",
+                          "unread": not r.get("seen_by_hq_open", True)})
+    return items
+
+
 @router.get("/super-admin/notifications")
 async def hq_notifications(user=Depends(require_super_admin)):
     """Everything the super admin should know about, in one feed (last 30 days)."""
     since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-    items = (await _hiring_items(since)) + (await _message_items(since)) + (await _tenant_items(since)) + (await _fee_items(since))
+    items = ((await _hiring_items(since)) + (await _message_items(since)) + (await _tenant_items(since))
+             + (await _fee_items(since)) + (await _demo_items(since)))
     items.sort(key=lambda x: x.get("at") or "", reverse=True)
     unread = sum(1 for i in items if i.get("unread"))
     return {"items": items[:80], "unread": unread}

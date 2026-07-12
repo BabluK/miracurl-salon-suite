@@ -21,6 +21,7 @@ export function DemoCampaign() {
     api.get("/super-admin/demo-campaign/recipients").then(r => setPool(r.data)).catch(() => toast.error("Couldn't load recipients"));
     loadHistory();
     loadInvites();
+    api.post("/super-admin/demo-campaign/mark-seen").catch(() => {});
   }, []);
 
   const toggle = (r) => setSelected(s => {
@@ -129,6 +130,19 @@ export function DemoCampaign() {
 
       {invites.length > 0 && (
         <div className="border-t border-slate-100 pt-3 space-y-2" data-testid="demo-followup-section">
+          <div className="grid grid-cols-4 gap-2" data-testid="demo-funnel-strip">
+            {[
+              ["Invited", invites.length, "text-slate-700"],
+              ["Opened", invites.filter(i => i.opened).length, "text-sky-600"],
+              ["Demo requested", invites.filter(i => i.demo_requested_at).length, "text-amber-600"],
+              ["Converted", invites.filter(i => i.status === "converted").length, "text-emerald-600"],
+            ].map(([label, n, color]) => (
+              <div key={label} className="bg-slate-50 rounded-xl px-3 py-2 text-center">
+                <div className={`text-lg font-bold ${color}`}>{n}</div>
+                <div className="text-[10px] text-slate-400 uppercase tracking-wide">{label}</div>
+              </div>
+            ))}
+          </div>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-[11px] font-semibold tracking-wide text-slate-400 uppercase flex items-center gap-1.5"><BellRing className="w-3.5 h-3.5" /> Invitees & follow-ups</p>
             <button onClick={runNudges} disabled={nudging} data-testid="demo-run-nudges-btn"
@@ -142,6 +156,7 @@ export function DemoCampaign() {
               const chip = {
                 awaiting: ["Awaiting reply", "bg-slate-100 text-slate-500"],
                 reminded: ["Reminder sent", "bg-amber-100 text-amber-700"],
+                demo_requested: ["Demo requested 🔥", "bg-amber-500 text-white"],
                 replied: ["Replied ✓", "bg-emerald-100 text-emerald-700"],
                 converted: ["Converted 🎉", "bg-emerald-600 text-white"],
               }[inv.status] || ["—", "bg-slate-100 text-slate-500"];
@@ -150,6 +165,7 @@ export function DemoCampaign() {
                   <span className="font-medium text-slate-700 truncate">{inv.name || inv.email}</span>
                   <span className="text-slate-400 truncate hidden sm:inline">{inv.email}</span>
                   <span className="text-[10px] text-slate-400 shrink-0">{(inv.first_sent_at || "").slice(0, 10)}</span>
+                  {inv.opened && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-600 text-[10px] font-semibold" title={`Opened ${(inv.opened_at || "").slice(0, 16).replace("T", " ")}`}>👀 Opened</span>}
                   <span className={`ml-auto shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${chip[1]}`}>{chip[0]}</span>
                   {inv.status !== "converted" && (
                     <button onClick={() => markReplied(inv)} data-testid={`demo-invite-mark-replied-${inv.email}`}
