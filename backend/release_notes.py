@@ -2,19 +2,26 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-12.4"
-BUILD_TIME = "12 Jul 2026, 1:10 PM IST"
+BUILD = "2026-07-12.5"
+BUILD_TIME = "12 Jul 2026, 5:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-12",
         "changes": [
+            "Your public salon page got a glow-up ✨ — 3D floating lights, sparkles and neon service cards. Share miracurl-suite.com/salon/your-salon-name and impress every client before they even walk in",
+            "Two apps, clearly split 📱 — customers installing from your booking/salon page now get the violet 'Miracurl Book' app; your business dashboard stays the emerald 'Miracurl Partner' app",
             "Hiring payments, automated 💰 — when a hired candidate's login is created, HQ is notified instantly and the salon owner receives a Razorpay payment link for the placement fee (amount now configurable by HQ)",
             "My Resume builder 📄 — Employee Portal staff fill their skills & experience once and download a polished PDF resume, with their verified Miracurl history included automatically",
-            "Employee Portal 🧑‍💼 — registry-verified staff can now self-register at /employee with their mobile + Aadhaar, manage their profile, see employment history and apply to openings at any Miracurl salon. Unregistered numbers are guided to contact the Admin team",
+            "Employee Portal 🧑‍💼 — registry-verified staff can now self-register at /employee with their mobile + Aadhaar, manage their profile, see employment history and apply to openings at any Miracurl salon",
+            "Win them back 💌 — your dashboard now shows customers who haven't visited in 45+ days, with a one-tap WhatsApp nudge (pre-written message + 15% off) and a 30-day snooze",
+            "Super Admin: Lead Gen Email 📬 — invite prospect salons to a demo with a designed email (12-agent AI team, live pricing, brochure + policy PDFs attached), open/click tracking, funnel stats and one automatic 5-day follow-up nudge",
+            "Super Admin: Demo scheduler 📅 — prospects pick their preferred slot on a branded page; both sides get Google Calendar invites, and HQ gets a 🔥 notification + email",
+            "Super Admin: Documents Center — download & share the tenant onboarding pack (Onboarding Policy, Hiring Policy, Suite Overview, T&C) as branded PDFs; the Suite Overview brochure now auto-attaches to every welcome email",
+            "Super Admin: Platform Earnings chart — subscriptions + placement fees combined, last 6 months, with dues indicator",
+            "Platform: security audit round 3 passed ✅ — CSV export hardening and rate-limited public tracking endpoints",
             "Marking a staff member as 'Left' now instantly blocks their salon app login (they keep access to the Employee Portal)",
             "Fixed: Mira's voice now stops speaking the moment you log out",
-            "Win them back 💌 — your dashboard now shows customers who haven't visited in 45+ days, with a one-tap WhatsApp nudge (pre-written message + 15% off) and a 30-day snooze",
             "Mobile fix — the app header no longer overflows on phones: compact branch selector, icon-only salon switcher, and horizontal-scroll protection across every page",
         ],
     },

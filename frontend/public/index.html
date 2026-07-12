@@ -16,7 +16,8 @@
              gets the CORRECT app: /book/* → "Miracurl Book", else "Miracurl Partner". -->
         <script>
           (function () {
-            var b = window.location.pathname.indexOf("/book") === 0;
+            var p = window.location.pathname;
+            var b = p.indexOf("/book") === 0 || p.indexOf("/salon") === 0 || p.indexOf("/demo-slot") === 0 || p.indexOf("/review") === 0;
             document.write(
               '<link rel="manifest" href="' + (b ? "/manifest.json" : "/manifest-admin.json") + '">' +
               '<link rel="apple-touch-icon" href="' + (b ? "/icon-192.png" : "/icon-admin-192.png") + '">' +
