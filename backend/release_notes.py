@@ -2,10 +2,29 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-12.5"
-BUILD_TIME = "12 Jul 2026, 5:30 PM IST"
+BUILD = "2026-07-13.1"
+BUILD_TIME = "13 Jul 2026, 6:45 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-13",
+        "changes": [
+            "You control the offer 🎛️ — pick the exact discount % (5-50%) and the service tier (Premium: Color, Keratin, Botox / Budget crowd-pullers) before asking Mira; she calculates prices from YOUR choice",
+            "Mira auto-rhythm 🧠 — left on 'Mira picks'? She reads your footfall: budget crowd-pullers when visits drop, premium high-margin deals on lean weekdays",
+            "One tap = 3 platforms 🚀 — accepting a Day Offer (or publishing a Package) now auto-posts to Google Business, Instagram AND Facebook, with the flyer image",
+            "Change offer & New poster — locked today's offer by mistake? Tap 'Change offer' to regenerate, or 'New poster' for a fresh flyer design without changing the offer",
+            "Mira Package Builder 🎁 — one tap creates a Men's / Women's / Family package from your real menu, with your % and a validity window (3/4/7/15/30 days); expired packages vanish from the booking page automatically",
+            "Your booking page sells more 💸 — signature packages & today's offer are now bookable in one tap, with a live 'Ends in 6h 32m' countdown and a wallet-balance checker for guests",
+            "Prepaid Wallet / Membership 💳 — sell top-up plans (pay ₹5,000 → get ₹6,000 credit), track balances per customer, and bill against 'Salon Wallet' at the POS",
+            "Birthday & Anniversary auto-offers 🎂 — wishes go out automatically with your gift offer; the dashboard shows today's celebrations with one-tap WhatsApp & SMS",
+            "Staff targets & leaderboard 🏆 — set a monthly target + % per stylist; hit the target and the commission on their full business lands in the salary slip automatically",
+            "Rate-your-visit funnel ⭐ — happy guests (4-5★) get a Mira-written Google review to paste in one tap; unhappy guests (1-3★) go to a PIN-locked private Complaints panel — never to Google",
+            "Post History 📊 — new tab in Mira Studio showing every auto-post with its Instagram/Facebook likes & comments, so you know which offers pull customers",
+            "Fixed: flyer posters on the live server had tiny text and broken ₹ symbols — fonts are now bundled with the app",
+            "Fixed: public offer banner showed ₹0 as the original price",
+            "Security hardening 🛡️ — daily AI usage quotas & durable rate limits on public endpoints, encrypted social-media tokens, and pinned OAuth redirect hosts",
+        ],
+    },
     {
         "date": "2026-07-12",
         "changes": [
