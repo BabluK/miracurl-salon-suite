@@ -47,11 +47,27 @@ async def _catalog_context(t: dict) -> dict:
     ranked = sorted(svc_counts.items(), key=lambda x: -x[1])
     sold_names = set(svc_counts)
     slow = [s["name"] for s in services if s["name"] not in sold_names][:8]
+    eng_posts = await _raw_db.social_posts.find(
+        {"tenant_id": t["id"], "engagement": {"$exists": True}},
+        {"_id": 0, "caption": 1, "engagement": 1}).to_list(100)
+    svc_eng: dict = {}
+    for p in eng_posts:
+        cap = (p.get("caption") or "").lower()
+        score = 0
+        for plat in ("instagram", "facebook"):
+            e = (p.get("engagement") or {}).get(plat) or {}
+            score += int(e.get("likes") or 0) + int(e.get("comments") or 0) * 2 + int(e.get("shares") or 0) * 3
+        if not score:
+            continue
+        for s in services:
+            if s["name"].lower() in cap:
+                svc_eng[s["name"]] = svc_eng.get(s["name"], 0) + score
     return {
         "services": services,
         "top_services": ranked[:8],
         "slow_services": slow or [n for n, _ in ranked[-5:]],
         "weekday_invoices": weekday_counts,
+        "engagement": sorted(svc_eng.items(), key=lambda x: -x[1])[:8],
     }
 
 
@@ -60,6 +76,9 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint
     tops = ", ".join(f"{n} ({c} sold)" for n, c in ctx["top_services"]) or "no sales data yet"
     slows = ", ".join(ctx["slow_services"]) or "none"
     strategy = DAY_STRATEGY[now.weekday()]
+    eng = ", ".join(f"{n} ({c} pts)" for n, c in ctx.get("engagement", []))
+    eng_line = (f"AUDIENCE INSIGHTS — services ranked by likes/comments on this salon's past social posts: {eng}. "
+                "When choices are equal, prefer high-engagement services — the audience loves them.\n") if eng else ""
     pct_rule = '"discount_pct":<int 0-40>'
     if forced_pct:
         strategy = (f"IMPORTANT — the salon OWNER has fixed today's discount at exactly {forced_pct}%. "
@@ -78,6 +97,7 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint
         f"Day strategy: {strategy}\n"
         f"Last-60-days bills per weekday (Mon..Sun): {ctx['weekday_invoices']}\n"
         f"Best sellers: {tops}\nSlow-moving services: {slows}\n"
+        f"{eng_line}"
         f"SERVICE CATALOG (real prices — never invent services):\n{catalog}\n"
         f"{retry_hint}\n"
         f"Design ONE irresistible offer valid {validity}. Pick 1-3 REAL services from the catalog. "

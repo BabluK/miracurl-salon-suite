@@ -5980,6 +5980,8 @@ from routes.promo_image import router as promo_image_router  # noqa: E402 — su
 api.include_router(promo_image_router)
 from routes.offer_flyer import router as offer_flyer_router  # noqa: E402 — tenant AI flyer studio
 api.include_router(offer_flyer_router)
+from routes.packages import router as packages_router  # noqa: E402 — Mira men/women packages
+api.include_router(packages_router)
 from routes.id_cards import router as id_cards_router  # noqa: E402 — employee ID card PDFs
 api.include_router(id_cards_router)
 from routes.releases import router as releases_router  # noqa: E402 — deployment history

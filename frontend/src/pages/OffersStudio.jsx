@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Download, Palette, Sparkles, Plus, X } from "lucide-react";
 import { AIFlyerStudio } from "@/components/AIFlyerStudio";
+import { MiraPackagesCard } from "@/components/MiraPackagesCard";
 
 const MIRA_HEADLINE = "MEET MIRA — AI BEAUTY EXPERT";
 const MIRA_DETAILS = "Consult Mira AI, our 24/7 beauty & hair expert. Share your skin tone and dream hair colour — get personalised suggestions, and Mira books your appointment with our in-salon experts to bring the look to life.";
@@ -377,6 +378,8 @@ export default function OffersStudio() {
         <h1 className="font-playfair text-2xl sm:text-3xl flex items-center gap-2"><Sparkles className="w-6 h-6 text-violet-500" /> Offer Maker</h1>
         <p className="text-slate-500 text-sm mt-1">120 seasonal templates — your logo, location & number auto-placed. Download ready-to-post images for Instagram, Facebook & WhatsApp status.</p>
       </div>
+
+      <MiraPackagesCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Controls */}
