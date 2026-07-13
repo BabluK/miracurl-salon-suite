@@ -55,6 +55,7 @@ export default function BookPublic() {
   const [step, setStep] = useState(0);
   const [salon, setSalon] = useState(null);
   const [services, setServices] = useState([]);
+  const [dayOffer, setDayOffer] = useState(null);
   const [staff, setStaff] = useState([]);
   const [featured, setFeatured] = useState([]);
   const [gallery, setGallery] = useState([]);
@@ -80,6 +81,7 @@ export default function BookPublic() {
   useEffect(() => {
     PUBLIC.get(`/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon({ error: true }));
     PUBLIC.get(`/services/${slug}`).then(r => setServices(r.data)).catch(() => setServices([]));
+    PUBLIC.get(`/day-offer/${slug}`).then(r => setDayOffer(r.data.offer)).catch(() => {});
     PUBLIC.get(`/staff/${slug}`).then(r => setStaff(r.data)).catch(() => setStaff([]));
     PUBLIC.get(`/reviews/featured/${slug}`).then(r => setFeatured(r.data)).catch(() => setFeatured([]));
     PUBLIC.get(`/gallery/${slug}`).then(r => setGallery(r.data)).catch(() => setGallery([]));
@@ -235,6 +237,31 @@ export default function BookPublic() {
       </header>
 
       <main id="booking-wizard" className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+        {step === 0 && dayOffer && (
+          <div className="relative overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-r from-gold/15 via-blush/10 to-transparent p-5 mb-8" data-testid="day-offer-banner">
+            <span aria-hidden className="absolute -top-1 right-6 text-gold" style={{ animation: "sparkle-twinkle 2.4s ease-in-out infinite" }}>✦</span>
+            <span aria-hidden className="absolute bottom-2 right-24 text-blush text-xs" style={{ animation: "sparkle-twinkle 2.4s ease-in-out 1s infinite" }}>✦</span>
+            <div className="flex items-start gap-3 flex-wrap">
+              <span className="px-3 py-1 rounded-full bg-gold text-bg-base text-[10px] font-bold uppercase tracking-widest shrink-0">
+                {dayOffer.kind === "flash" ? "⚡ Flash offer" : `✨ ${dayOffer.day_name || "Today"}'s offer`}
+              </span>
+              <div className="min-w-0">
+                <h3 className="font-playfair text-lg text-gold leading-snug">{dayOffer.title}</h3>
+                <p className="text-xs text-white/60 mt-1">{dayOffer.offer_text}</p>
+                {dayOffer.services?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {dayOffer.services.map((sv, i) => (
+                      <span key={i} className="text-[11px] bg-white/5 border border-gold/25 rounded-full px-2.5 py-1">
+                        {sv.name} <s className="text-white/35">₹{Math.round(sv.price)}</s> <b className="text-gold">₹{Math.round(sv.offer_price)}</b>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-white/35 mt-2">Today only — mention this offer at the salon or book below.</p>
+              </div>
+            </div>
+          </div>
+        )}
         {step === 0 && <FeaturedReviews featured={featured} />}
         {step < 5 && <Stepper step={step} />}
 

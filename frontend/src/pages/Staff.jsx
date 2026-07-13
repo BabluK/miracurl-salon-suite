@@ -15,7 +15,7 @@ const EMPTY_FORM = {
   name: "", role: "Stylist", phone: "", email: "", specialties: "",
   commission_pct: 10, monthly_base_salary: 0, salary_visible: true,
   image_url: "", active: true, blood_group: "",
-  shift_start: "10:00", shift_end: "21:00", overtime_rate: 0,
+  shift_start: "10:00", shift_end: "21:00", overtime_rate: 0, week_off_day: "",
   max_advance: 0, notice_period_days: 30, serving_notice: false,
   last_working_day: "", aadhaar: "", branch: "",
 };
@@ -60,6 +60,7 @@ export default function Staff() {
       salary_visible: s.salary_visible !== false,
       shift_start: s.shift_start || "10:00",
       shift_end: s.shift_end || "21:00",
+      week_off_day: s.week_off_day || "",
       overtime_rate: s.overtime_rate ?? 0,
       max_advance: s.max_advance ?? 0,
       notice_period_days: s.notice_period_days ?? 30,

@@ -119,6 +119,19 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
                 <p className="text-[10px] text-slate-400 mt-1">Work after this earns overtime</p>
               </div>
             </div>
+            <div>
+              <label className="label-light block mb-1">Weekly off day</label>
+              <select data-testid="staff-week-off-select" className="input-light" value={form.week_off_day || ""}
+                onChange={e => setForm({ ...form, week_off_day: e.target.value })}>
+                <option value="">No fixed week off</option>
+                <option value="monday">Monday</option>
+                <option value="tuesday">Tuesday</option>
+                <option value="wednesday">Wednesday</option>
+                <option value="thursday">Thursday</option>
+                <option value="friday">Friday</option>
+              </select>
+              <p className="text-[10px] text-slate-400 mt-1">Staff sees this in their Employee Portal</p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label-light block mb-1">Overtime ₹/hr</label>

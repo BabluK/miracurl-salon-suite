@@ -269,7 +269,7 @@ def _express_scenes(scenes: list) -> list[tuple[bytes, str]]:
 
 async def _ai_scenes(body: PromoIn, scenes: list) -> list[tuple[bytes, str]]:
     """HD AI visuals, generated in parallel."""
-    from routes.mira_studio import _key
+    from routes.mira_common import _key
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     gen = OpenAIImageGeneration(api_key=_key())
     ai_budget = 3 if body.mode == "feature_tour" else 2

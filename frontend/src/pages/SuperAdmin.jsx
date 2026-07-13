@@ -15,7 +15,7 @@ import { Handshake, ShieldAlert } from "lucide-react";
 import { setActAsSalon } from "@/lib/api";
 import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
 import EngineerPanel from "@/components/EngineerPanel";
-import { LeaderboardPanel, RevenuePanel } from "@/components/superadmin/LeaderboardRevenue";
+import { LeaderboardPanel, RevenuePanel, HiringEarningsReview } from "@/components/superadmin/LeaderboardRevenue";
 import { OnboardingStudio } from "@/components/superadmin/OnboardingStudio";
 import { PromoVideoStudio } from "@/components/superadmin/PromoVideoStudio";
 import { SuperNotifBell, StatusActionButton } from "@/components/superadmin/SuperNotifBell";
@@ -336,7 +336,7 @@ export default function SuperAdmin() {
             billing: <BillingPanel tenants={tenants} />,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,
-            revenue: <div className="space-y-6"><PlatformEarnings /><RevenuePanel /></div>,
+            revenue: <div className="space-y-6"><PlatformEarnings /><HiringEarningsReview /><RevenuePanel /></div>,
             docs: <DocsPanel />,
             "lead-email": (
               <div className="space-y-6" data-testid="lead-email-panel">

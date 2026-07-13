@@ -91,7 +91,7 @@ async def _analyze_b64(image_b64: str) -> dict:
     """Send one frame to Gemini Flash (vision) and parse the JSON analysis."""
     import json
     from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
-    from routes.mira_studio import _key
+    from routes.mira_common import _key
     chat = LlmChat(
         api_key=_key(), session_id=f"cctv-{uuid.uuid4().hex[:10]}",
         system_message=VISION_SYSTEM,

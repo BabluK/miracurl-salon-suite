@@ -169,6 +169,7 @@ class Staff(BaseModel):
     # Shift, penalties & compliance
     shift_start: str = "10:00"           # HH:MM IST — 10 min grace, then late fine
     shift_end: str = "21:00"             # HH:MM IST — work past this earns overtime
+    week_off_day: Optional[str] = None   # monday..friday — weekly off assigned by admin
     overtime_rate: float = 0.0           # ₹ per hour after shift_end
     max_advance: float = 0.0             # ₹ cap admin allows as monthly advance
     notice_period_days: int = 30
@@ -193,6 +194,7 @@ class StaffIn(BaseModel):
     salary_visible: bool = True
     shift_start: str = "10:00"
     shift_end: str = "21:00"
+    week_off_day: Optional[str] = None
     overtime_rate: float = 0.0
     max_advance: float = 0.0
     notice_period_days: int = 30

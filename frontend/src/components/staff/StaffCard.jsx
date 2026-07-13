@@ -20,6 +20,7 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
         <div className="flex items-center gap-2 justify-center text-sky-600"><Percent className="w-3 h-3" /> {s.commission_pct}% commission</div>
         <div className="flex items-center gap-2 justify-center text-slate-500" data-testid={`shift-chip-${s.id}`}>
           <Clock className="w-3 h-3" /> {s.shift_start || "10:00"}–{s.shift_end || "21:00"}
+          {s.week_off_day && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[9px] font-semibold uppercase">off: {s.week_off_day.slice(0, 3)}</span>}
           {Number(s.overtime_rate) > 0 && <span className="text-violet-600">· OT ₹{s.overtime_rate}/hr</span>}
         </div>
         {s.branch && (

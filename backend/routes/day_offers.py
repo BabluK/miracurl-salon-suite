@@ -160,9 +160,14 @@ async def accept_offer(body: AcceptIn, user=Depends(require_tenant_admin), t=Dep
         offer_text=doc["offer_text"],
         services=[f"{s['name']} ₹{s['offer_price']:.0f}" for s in doc["services"]],
         valid_until=f"Today only · {doc['day_name']}")
-    flyer = await create_flyer(flyer_body, user=user, t=t)
+    try:
+        flyer = await create_flyer(flyer_body, user=user, t=t)
+        flyer_id, flyer_url = flyer["id"], flyer["url"]
+    except Exception as e:
+        logging.getLogger("day_offers").warning(f"flyer generation failed, accepting without flyer: {e}")
+        flyer_id, flyer_url = None, None
     patch = {"status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat(),
-             "flyer_id": flyer["id"], "flyer_url": flyer["url"]}
+             "flyer_id": flyer_id, "flyer_url": flyer_url}
     await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
     if doc.get("kind") == "flash":
         await _raw_db.flash_alerts.update_one(
@@ -194,3 +199,23 @@ async def flash_suggest(user=Depends(require_tenant_admin), t=Depends(current_te
     await _raw_db.flash_alerts.update_one(
         {"tenant_id": t["id"], "date": today}, {"$set": {"status": "suggested"}})
     return {"offer": offer}
+
+
+@router.get("/public/day-offer/{slug}")
+async def public_day_offer(slug: str):
+    """Today's accepted Offer of the Day for the booking page banner (no auth)."""
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    today = _today_ist().date().isoformat()
+    doc = await _raw_db.day_offers.find_one(
+        {"tenant_id": t["id"], "date": today, "status": "accepted"}, {"_id": 0},
+        sort=[("accepted_at", -1)])
+    if not doc:
+        return {"offer": None}
+    return {"offer": {
+        "title": doc.get("title"), "offer_text": doc.get("offer_text"),
+        "day_name": doc.get("day_name"), "kind": doc.get("kind", "day"),
+        "services": [{"name": s.get("name"), "price": s.get("price"),
+                      "offer_price": s.get("offer_price")} for s in (doc.get("services") or [])],
+    }}

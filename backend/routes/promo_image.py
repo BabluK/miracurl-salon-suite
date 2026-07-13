@@ -44,7 +44,7 @@ async def delete_poster(pid: str, admin=Depends(require_super_admin)):
 
 
 async def generate_poster_core(topic: str, size: str = "square", contact: str = "") -> dict:
-    from routes.mira_studio import _ask_json, _key
+    from routes.mira_common import _ask_json, _key
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
 
     copy_task = _ask_json(

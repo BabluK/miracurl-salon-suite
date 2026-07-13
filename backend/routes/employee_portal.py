@@ -168,7 +168,20 @@ async def employee_me(acct=Depends(current_employee)):
                         "designation": r.get("designation") or "Stylist",
                         "from_date": r.get("from_date"), "to_date": r.get("to_date"),
                         "hq_verified": bool(r.get("hq_verified"))})
-    return {"profile": emp, "employments": history, "member_since": acct.get("created_at")}
+    return {"profile": emp, "employments": history, "member_since": acct.get("created_at"),
+            "week_off_day": await _current_week_off(emp)}
+
+
+async def _current_week_off(emp: dict) -> str | None:
+    """Week-off day from the active staff record matching this employee's phone."""
+    phone = _norm_phone(emp.get("phone") or "")
+    if not phone:
+        return None
+    async for s in _raw_db.staff.find({"active": True, "week_off_day": {"$nin": [None, ""]}},
+                                      {"_id": 0, "phone": 1, "week_off_day": 1}):
+        if _norm_phone(s.get("phone") or "") == phone:
+            return s["week_off_day"]
+    return None
 
 
 class ProfileIn(BaseModel):

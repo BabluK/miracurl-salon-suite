@@ -175,6 +175,16 @@ function Dashboard({ me, reload, onLogout }) {
         {editing && <div className="mt-6 pt-6 border-t border-white/10"><ProfileEditor me={me} onSaved={() => { setEditing(false); reload(); }} /></div>}
       </div>
 
+      {me.week_off_day && (
+        <div className="bg-white/[0.04] border border-violet-400/30 rounded-2xl p-5 flex items-center gap-4" data-testid="emp-week-off-card">
+          <span className="w-11 h-11 rounded-2xl bg-violet-400/15 border border-violet-400/30 flex items-center justify-center text-violet-300 text-lg">🌴</span>
+          <div>
+            <h3 className="text-white font-semibold text-sm">Your weekly off day</h3>
+            <p className="text-xs text-white/50 mt-0.5">Assigned by your salon admin — enjoy your <b className="text-violet-300 capitalize">{me.week_off_day}</b> every week ✦</p>
+          </div>
+        </div>
+      )}
+
       <div className="bg-gradient-to-r from-amber-400/15 to-rose-300/10 border border-amber-400/30 rounded-2xl p-6 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h3 className="text-white font-semibold flex items-center gap-2"><Briefcase className="w-4 h-4 text-amber-300" /> Current openings</h3>

@@ -56,7 +56,7 @@ class FlyerIn(BaseModel):
 async def create_flyer(body: FlyerIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     if body.template not in TEMPLATES:
         raise HTTPException(400, "Unknown template")
-    from routes.mira_studio import _key
+    from routes.mira_common import _key
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     tpl = TEMPLATES[body.template]
     gen = OpenAIImageGeneration(api_key=_key())
