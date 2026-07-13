@@ -14,6 +14,7 @@ export const MiraPackagesCard = () => {
   const [pkg, setPkg] = useState(null);
   const [busy, setBusy] = useState("");
   const [pct, setPct] = useState("");
+  const [validDays, setValidDays] = useState("7");
 
   useEffect(() => {
     api.get("/mira-packages").then(r => setPkg(r.data.packages[0] || null)).catch(() => {});
@@ -22,7 +23,11 @@ export const MiraPackagesCard = () => {
   const suggest = async (audience) => {
     setBusy(audience);
     try {
-      const { data } = await api.post("/mira-packages/suggest", { audience, ...(pct ? { discount_pct: Number(pct) } : {}) });
+      const { data } = await api.post("/mira-packages/suggest", {
+        audience,
+        ...(pct ? { discount_pct: Number(pct) } : {}),
+        ...(validDays ? { valid_days: Number(validDays) } : {}),
+      });
       setPkg(data.package);
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Mira couldn't design that — try again");
@@ -59,11 +64,18 @@ export const MiraPackagesCard = () => {
             <div className="font-playfair text-lg leading-tight">AI packages for Men & Women ✦</div>
           </div>
         </div>
-        <select value={pct} onChange={(e) => setPct(e.target.value)} data-testid="package-pct-select"
-          className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-fuchsia-300/50 [&>option]:bg-[#17141c]">
-          <option value="">Mira decides %</option>
-          {[10, 15, 20, 25, 30, 35, 40, 50].map(p => <option key={p} value={p}>{p}% off</option>)}
-        </select>
+        <div className="flex items-center gap-2">
+          <select value={validDays} onChange={(e) => setValidDays(e.target.value)} data-testid="package-validity-select"
+            className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-fuchsia-300/50 [&>option]:bg-[#17141c]">
+            <option value="">No time limit</option>
+            {[3, 4, 7, 15, 30].map(d => <option key={d} value={d}>Valid {d} days</option>)}
+          </select>
+          <select value={pct} onChange={(e) => setPct(e.target.value)} data-testid="package-pct-select"
+            className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-fuchsia-300/50 [&>option]:bg-[#17141c]">
+            <option value="">Mira decides %</option>
+            {[10, 15, 20, 25, 30, 35, 40, 50].map(p => <option key={p} value={p}>{p}% off</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -81,6 +93,11 @@ export const MiraPackagesCard = () => {
             <div>
               <div className="font-playfair text-xl text-fuchsia-200">{pkg.name}</div>
               <div className="text-sm text-white/85 mt-0.5">{pkg.tagline}</div>
+              {(pkg.expires_at || pkg.valid_days) && (
+                <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/10 border border-red-400/30 text-red-300" data-testid="package-validity-badge">
+                  ⏳ {pkg.expires_at ? `Valid till ${new Date(pkg.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : `Valid ${pkg.valid_days} days from publish`}
+                </div>
+              )}
             </div>
             <div className="text-right">
               <div className="text-xs text-white/45 line-through">Worth ₹{Math.round(pkg.total_value)}</div>

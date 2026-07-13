@@ -265,6 +265,29 @@ async def unlock_offer(user=Depends(require_tenant_admin), t=Depends(current_ten
     return {"ok": True}
 
 
+@router.post("/day-offers/regenerate-flyer")
+async def regenerate_flyer(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Fresh poster design for today's accepted offer — the offer itself doesn't change."""
+    import random
+    today = _today_ist().date().isoformat()
+    doc = await _raw_db.day_offers.find_one(
+        {"tenant_id": t["id"], "date": today, "status": "accepted", "kind": {"$ne": "flash"}}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "No accepted offer today")
+    from routes.offer_flyer import FlyerIn, create_flyer, TEMPLATES
+    choices = [k for k in TEMPLATES if k != doc.get("flyer_template")] or list(TEMPLATES)
+    template = random.choice(choices)
+    flyer = await create_flyer(FlyerIn(
+        template=template,
+        headline=doc["title"],
+        offer_text=doc["offer_text"],
+        services=[f"{s['name']} ₹{s['offer_price']:.0f}" for s in doc["services"]],
+        valid_until=f"Today only · {doc['day_name']}"), user=user, t=t)
+    patch = {"flyer_id": flyer["id"], "flyer_url": flyer["url"], "flyer_template": template}
+    await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
+    return {"offer": {**doc, **patch}}
+
+
 class AcceptIn(BaseModel):
     offer_id: str
     template: str = "dark_glam"

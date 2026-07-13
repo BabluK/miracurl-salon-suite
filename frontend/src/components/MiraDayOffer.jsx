@@ -5,7 +5,7 @@ import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Zap } from "lucide-r
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
-function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, testPrefix }) {
+function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, testPrefix }) {
   const accepted = offer.status === "accepted";
   const shareWA = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(offer.whatsapp_caption || offer.offer_text)}`, "_blank", "noopener,noreferrer");
@@ -73,6 +73,13 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, testPrefix }) 
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#25D366]/15 border border-[#25D366]/40 text-[#4be588] text-sm font-medium hover:bg-[#25D366]/25">
               <Send className="w-4 h-4" /> Share caption
             </button>
+            {onReflyer && (
+              <button onClick={onReflyer} disabled={!!busy} data-testid={`${testPrefix}-reflyer-btn`}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-amber-300/30 text-amber-200/80 text-sm hover:bg-white/10 disabled:opacity-50">
+                <Sparkles className={`w-4 h-4 ${busy === "reflyer" ? "animate-spin" : ""}`} />
+                {busy === "reflyer" ? "Designing (~1 min)…" : "New poster"}
+              </button>
+            )}
             {onUnlock && (
               <button onClick={onUnlock} disabled={!!busy} data-testid={`${testPrefix}-unlock-btn`}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/15 text-white/70 text-sm hover:bg-white/10 disabled:opacity-50">
@@ -124,6 +131,10 @@ export function MiraDayOffer() {
       } else if (action === "flash-suggest") {
         const { data } = await api.post("/day-offers/flash-suggest");
         setFlash(f => ({ ...f, offer: data.offer }));
+      } else if (action === "reflyer") {
+        const { data } = await api.post("/day-offers/regenerate-flyer");
+        setOffer(data.offer);
+        toast.success("Fresh poster ready 🎨");
       } else if (action === "unlock") {
         if (!window.confirm("Discard today's locked offer and ask Mira for a new one?")) { setBusy(""); return; }
         await api.post("/day-offers/unlock");
@@ -201,7 +212,7 @@ export function MiraDayOffer() {
         </div>
       </div>
 
-      {offer && <OfferBlock offer={offer} busy={busy} onAccept={() => run("accept")} onAnother={offer.status !== "accepted" ? () => run("another") : null} onUnlock={offer.status === "accepted" ? () => run("unlock") : null} testPrefix="day-offer" />}
+      {offer && <OfferBlock offer={offer} busy={busy} onAccept={() => run("accept")} onAnother={offer.status !== "accepted" ? () => run("another") : null} onUnlock={offer.status === "accepted" ? () => run("unlock") : null} onReflyer={offer.status === "accepted" ? () => run("reflyer") : null} testPrefix="day-offer" />}
     </div>
   );
 }

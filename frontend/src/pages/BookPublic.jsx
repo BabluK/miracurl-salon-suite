@@ -352,6 +352,11 @@ export default function BookPublic() {
                       <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/5 border border-white/15 text-white/50">
                         {p.audience === "men" ? "For Men" : p.audience === "women" ? "For Women" : "Family"}
                       </span>
+                      {p.expires_at && (
+                        <span className="ml-1.5 text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-red-500/10 border border-red-400/30 text-red-300">
+                          ⏳ Till {new Date(p.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </span>
+                      )}
                       <h3 className="font-playfair text-lg text-blush leading-snug mt-1.5">{p.name}</h3>
                       <p className="text-xs text-white/55 mt-0.5">{p.tagline}</p>
                     </div>

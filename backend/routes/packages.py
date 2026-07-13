@@ -1,7 +1,7 @@
 """Mira Packages — AI-designed Men/Women service bundles with one-tap Google post + WhatsApp share."""
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -22,6 +22,7 @@ AUDIENCE_HINT = {
 class SuggestIn(BaseModel):
     audience: str = "women"
     discount_pct: int | None = None
+    valid_days: int | None = None
 
 
 @router.post("/mira-packages/suggest")
@@ -74,6 +75,7 @@ async def suggest_package(body: SuggestIn, user=Depends(require_tenant_admin), t
         "total_value": total, "package_price": price,
         "discount_pct": round((1 - price / total) * 100) if total > 0 and 0 < price < total else (pct or 0),
         "caption": str(data.get("caption") or "")[:900],
+        "valid_days": body.valid_days if body.valid_days in (3, 4, 7, 15, 30) else None,
         "status": "draft", "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await _raw_db.mira_packages.insert_one({**doc})
@@ -95,13 +97,16 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
         return {"package": doc}
     from routes.offer_flyer import FlyerIn, create_flyer
     audience_label = {"men": "For Men", "women": "For Women", "family": "For the Family"}[doc["audience"]]
+    valid_days = doc.get("valid_days")
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=valid_days)).isoformat() if valid_days else None
+    valid_text = f"Valid for {valid_days} days only" if valid_days else "Limited period package"
     try:
         flyer = await create_flyer(FlyerIn(
             template=body.template,
             headline=doc["name"],
             offer_text=f"{audience_label} · Worth ₹{doc['total_value']:.0f} — now ₹{doc['package_price']:.0f}",
             services=[f"{s['name']} ₹{s['price']:.0f}" for s in doc["services"]],
-            valid_until="Limited period package"), user=user, t=t)
+            valid_until=valid_text), user=user, t=t)
         flyer_id, flyer_url = flyer["id"], flyer["url"]
     except Exception as e:
         log.warning(f"package flyer generation failed: {e}")
@@ -120,6 +125,7 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
         log.warning(f"package social post failed: {e}")
         google_post = google_post or {"ok": False, "error": str(e)[:200]}
     patch = {"status": "published", "published_at": datetime.now(timezone.utc).isoformat(),
+             "expires_at": expires_at,
              "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post, "meta_post": meta_post}
     await _raw_db.mira_packages.update_one({"id": doc["id"]}, {"$set": patch})
     return {"package": {**doc, **patch}}
@@ -139,7 +145,8 @@ async def public_packages(slug: str):
     if not t:
         raise HTTPException(404, "Salon not found")
     docs = await _raw_db.mira_packages.find(
-        {"tenant_id": t["id"], "status": "published"},
+        {"tenant_id": t["id"], "status": "published",
+         "$or": [{"expires_at": None}, {"expires_at": {"$gte": datetime.now(timezone.utc).isoformat()}}]},
         {"_id": 0, "id": 1, "name": 1, "tagline": 1, "audience": 1, "services": 1,
-         "total_value": 1, "package_price": 1, "discount_pct": 1}).sort("published_at", -1).to_list(4)
+         "total_value": 1, "package_price": 1, "discount_pct": 1, "expires_at": 1}).sort("published_at", -1).to_list(4)
     return {"packages": docs}
