@@ -40,6 +40,23 @@ function Stepper({ step }) {
   );
 }
 
+function OfferCountdown({ endsAt }) {
+  const [left, setLeft] = useState(() => new Date(endsAt) - Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setLeft(new Date(endsAt) - Date.now()), 30000);
+    return () => clearInterval(t);
+  }, [endsAt]);
+  if (!endsAt || left <= 0) return null;
+  const h = Math.floor(left / 3600000);
+  const m = Math.floor((left % 3600000) / 60000);
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-400/40 text-red-300 text-[11px] font-bold" data-testid="offer-countdown">
+      <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+      Ends in {h > 0 ? `${h}h ` : ""}{m}m
+    </span>
+  );
+}
+
 function describeBookingError(err) {
   const detail = err.response?.data?.detail;
   if (typeof detail === "string") return detail;
@@ -257,6 +274,7 @@ export default function BookPublic() {
               <span className="px-3 py-1 rounded-full bg-gold text-bg-base text-[10px] font-bold uppercase tracking-widest shrink-0">
                 {dayOffer.kind === "flash" ? "⚡ Flash offer" : `✨ ${dayOffer.day_name || "Today"}'s offer`}
               </span>
+              {dayOffer.ends_at && <OfferCountdown endsAt={dayOffer.ends_at} />}
               <div className="min-w-0">
                 <h3 className="font-playfair text-lg text-gold leading-snug">{dayOffer.title}</h3>
                 <p className="text-xs text-white/60 mt-1">{dayOffer.offer_text}</p>

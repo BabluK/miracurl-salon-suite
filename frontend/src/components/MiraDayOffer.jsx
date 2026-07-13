@@ -100,6 +100,7 @@ export function MiraDayOffer() {
   const [flash, setFlash] = useState({ alert: null, offer: null });
   const [busy, setBusy] = useState("");
   const [pct, setPct] = useState("");
+  const [tier, setTier] = useState("");
 
   useEffect(() => {
     api.get("/day-offers/today").then(r => setOffer(r.data.offer)).catch(() => {});
@@ -125,7 +126,7 @@ export function MiraDayOffer() {
         toast.success("Offer unlocked — ask Mira for a fresh one");
       } else {
         const path = action === "another" ? "/day-offers/suggest-another" : "/day-offers/suggest";
-        const { data } = await api.post(path, pct ? { discount_pct: Number(pct) } : {});
+        const { data } = await api.post(path, { ...(pct ? { discount_pct: Number(pct) } : {}), ...(tier ? { tier } : {}) });
         setOffer(data.offer);
       }
     } catch (e) {
@@ -171,11 +172,19 @@ export function MiraDayOffer() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {(!offer || offer.status !== "accepted") && (
-            <select value={pct} onChange={(e) => setPct(e.target.value)} data-testid="day-offer-pct-select"
-              className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
-              <option value="">Mira decides %</option>
-              {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map(p => <option key={p} value={p}>{p}% off</option>)}
-            </select>
+            <>
+              <select value={tier} onChange={(e) => setTier(e.target.value)} data-testid="day-offer-tier-select"
+                className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
+                <option value="">Mira picks services</option>
+                <option value="premium">Premium (Color, Keratin, Botox…)</option>
+                <option value="budget">Budget-friendly services</option>
+              </select>
+              <select value={pct} onChange={(e) => setPct(e.target.value)} data-testid="day-offer-pct-select"
+                className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
+                <option value="">Mira decides %</option>
+                {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map(p => <option key={p} value={p}>{p}% off</option>)}
+              </select>
+            </>
           )}
           {!offer && (
             <button onClick={() => run("suggest")} disabled={!!busy} data-testid="day-offer-ask-btn"
