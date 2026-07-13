@@ -56,6 +56,7 @@ export default function BookPublic() {
   const [salon, setSalon] = useState(null);
   const [services, setServices] = useState([]);
   const [dayOffer, setDayOffer] = useState(null);
+  const [packages, setPackages] = useState([]);
   const [staff, setStaff] = useState([]);
   const [featured, setFeatured] = useState([]);
   const [gallery, setGallery] = useState([]);
@@ -82,6 +83,7 @@ export default function BookPublic() {
     PUBLIC.get(`/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon({ error: true }));
     PUBLIC.get(`/services/${slug}`).then(r => setServices(r.data)).catch(() => setServices([]));
     PUBLIC.get(`/day-offer/${slug}`).then(r => setDayOffer(r.data.offer)).catch(() => {});
+    PUBLIC.get(`/packages/${slug}`).then(r => setPackages(r.data.packages)).catch(() => {});
     PUBLIC.get(`/staff/${slug}`).then(r => setStaff(r.data)).catch(() => setStaff([]));
     PUBLIC.get(`/reviews/featured/${slug}`).then(r => setFeatured(r.data)).catch(() => setFeatured([]));
     PUBLIC.get(`/gallery/${slug}`).then(r => setGallery(r.data)).catch(() => setGallery([]));
@@ -103,6 +105,16 @@ export default function BookPublic() {
     id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]),
     [],
   );
+
+  const pickByNames = useCallback((names, label) => {
+    const wanted = names.map(n => (n || "").toLowerCase().trim());
+    const matched = services.filter(s => wanted.includes(s.name.toLowerCase().trim()));
+    if (matched.length === 0) { toast.error("These services aren't bookable online right now"); return; }
+    setPicked(p => [...new Set([...p, ...matched.map(s => s.id)])]);
+    const skipped = names.length - matched.length;
+    toast.success(`${label} added — ${matched.length} service${matched.length > 1 ? "s" : ""} selected ✦${skipped > 0 ? ` (${skipped} available in-salon only)` : ""}`);
+    document.getElementById("booking-wizard")?.scrollIntoView({ behavior: "smooth" });
+  }, [services]);
 
   const handleFormChange = useCallback(next => {
     setReferralCheck(prev => (next.referral_code !== form.referral_code ? null : prev));
@@ -258,7 +270,48 @@ export default function BookPublic() {
                   </div>
                 )}
                 <p className="text-[10px] text-white/35 mt-2">Today only — mention this offer at the salon or book below.</p>
+                <button data-testid="day-offer-book-btn"
+                  onClick={() => pickByNames((dayOffer.services || []).map(sv => sv.name), "Today's offer")}
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gold text-bg-base text-xs font-bold hover:opacity-90">
+                  Book this offer →
+                </button>
               </div>
+            </div>
+          </div>
+        )}
+        {step === 0 && packages.length > 0 && (
+          <div className="mb-8" data-testid="packages-section">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-3">✦ Signature packages</div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {packages.map(p => (
+                <div key={p.id} className="relative overflow-hidden rounded-2xl border border-blush/30 bg-gradient-to-br from-blush/10 to-transparent p-5" data-testid="package-public-card">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/5 border border-white/15 text-white/50">
+                        {p.audience === "men" ? "For Men" : p.audience === "women" ? "For Women" : "Family"}
+                      </span>
+                      <h3 className="font-playfair text-lg text-blush leading-snug mt-1.5">{p.name}</h3>
+                      <p className="text-xs text-white/55 mt-0.5">{p.tagline}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-[11px] text-white/35 line-through">₹{Math.round(p.total_value)}</div>
+                      <div className="text-xl font-bold text-gold">₹{Math.round(p.package_price)}</div>
+                      {p.discount_pct > 0 && <div className="text-[10px] text-emerald-300">{p.discount_pct}% off</div>}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {(p.services || []).map((sv, i) => (
+                      <span key={i} className="text-[11px] bg-white/5 border border-white/10 rounded-full px-2.5 py-1">{sv.name}</span>
+                    ))}
+                  </div>
+                  <button data-testid="package-book-btn"
+                    onClick={() => pickByNames((p.services || []).map(sv => sv.name), p.name)}
+                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-blush to-gold text-bg-base text-xs font-bold hover:opacity-90">
+                    Book this package →
+                  </button>
+                  <p className="text-[10px] text-white/30 mt-2">Package price honoured at the salon ✦</p>
+                </div>
+              ))}
             </div>
           </div>
         )}

@@ -110,3 +110,16 @@ async def list_packages(user=Depends(require_tenant_admin), t=Depends(current_te
     docs = await _raw_db.mira_packages.find(
         {"tenant_id": t["id"]}, {"_id": 0}).sort("created_at", -1).to_list(10)
     return {"packages": docs}
+
+
+@router.get("/public/packages/{slug}")
+async def public_packages(slug: str):
+    """Published Mira packages for the public booking page (no auth)."""
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    docs = await _raw_db.mira_packages.find(
+        {"tenant_id": t["id"], "status": "published"},
+        {"_id": 0, "id": 1, "name": 1, "tagline": 1, "audience": 1, "services": 1,
+         "total_value": 1, "package_price": 1, "discount_pct": 1}).sort("published_at", -1).to_list(4)
+    return {"packages": docs}
