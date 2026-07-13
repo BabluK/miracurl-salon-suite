@@ -38,6 +38,16 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, testPrefix }) 
             <div className="inline-flex items-center gap-1.5 text-emerald-300 text-sm font-medium px-1">
               <CheckCircle2 className="w-4 h-4" /> Locked in
             </div>
+            {offer.google_post?.ok && (
+              <div className="inline-flex items-center gap-1.5 text-sky-300 text-sm font-medium px-1" data-testid={`${testPrefix}-google-posted`}>
+                <CheckCircle2 className="w-4 h-4" /> Posted on Google
+              </div>
+            )}
+            {offer.google_post && !offer.google_post.ok && (
+              <div className="inline-flex items-center text-white/40 text-xs px-1" title={offer.google_post.error} data-testid={`${testPrefix}-google-skipped`}>
+                Google post skipped — {String(offer.google_post.error || "").slice(0, 60)}
+              </div>
+            )}
             {offer.flyer_url && (
               <a href={`${BACKEND}${offer.flyer_url}`} download target="_blank" rel="noopener noreferrer" data-testid={`${testPrefix}-download-btn`}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-300 to-rose-200 text-[#17141c] text-sm font-semibold hover:opacity-90">

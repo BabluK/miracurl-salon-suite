@@ -3,7 +3,7 @@ import logging
 import uuid
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from database import db, _raw_db
@@ -173,8 +173,8 @@ class AcceptIn(BaseModel):
 
 
 @router.post("/day-offers/accept")
-async def accept_offer(body: AcceptIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Owner said YES — lock the offer for today and generate a downloadable flyer."""
+async def accept_offer(body: AcceptIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner said YES — lock the offer for today, generate a flyer and auto-post to Google Business."""
     doc = await _raw_db.day_offers.find_one({"id": body.offer_id, "tenant_id": t["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Offer suggestion not found — ask Mira again")
@@ -193,8 +193,18 @@ async def accept_offer(body: AcceptIn, user=Depends(require_tenant_admin), t=Dep
     except Exception as e:
         logging.getLogger("day_offers").warning(f"flyer generation failed, accepting without flyer: {e}")
         flyer_id, flyer_url = None, None
+    google_post = None
+    try:
+        from routes.social_connect import publish_google_post, _base
+        lines = "\n".join(f"• {s['name']}: ₹{s['offer_price']:.0f} (was ₹{s['original_price']:.0f})" for s in doc["services"])
+        summary = f"{doc['title']}\n{doc['offer_text']}\n{lines}\nValid TODAY only — walk in or book now!"
+        image_abs = f"{_base(request)}{flyer_url}" if flyer_url else None
+        google_post = await publish_google_post(t["id"], summary, image_abs, offer_title=doc["title"])
+    except Exception as e:
+        logging.getLogger("day_offers").warning(f"google auto-post failed: {e}")
+        google_post = {"ok": False, "error": str(e)[:200]}
     patch = {"status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat(),
-             "flyer_id": flyer_id, "flyer_url": flyer_url}
+             "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post}
     await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
     if doc.get("kind") == "flash":
         await _raw_db.flash_alerts.update_one(

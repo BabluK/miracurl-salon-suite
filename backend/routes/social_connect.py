@@ -356,6 +356,40 @@ async def google_draft_reply(body: DraftReplyIn, admin=Depends(require_tenant_ad
     return {"draft": reply}
 
 
+# ── Google Business local posts ─────────────────────────────────────────────
+async def publish_google_post(tid: str, summary: str, image_abs_url: str | None = None,
+                              offer_title: str | None = None) -> dict:
+    """Best-effort: publish an OFFER post on the tenant's Google Business Profile."""
+    try:
+        token, gb = await _google_token(tid)
+    except HTTPException as e:
+        return {"ok": False, "error": str(e.detail)}
+    if not gb.get("location_name"):
+        return {"ok": False, "error": "Google Business location not ready — API approval pending"}
+    today = datetime.now(timezone.utc).date()
+    d = {"year": today.year, "month": today.month, "day": today.day}
+    post = {
+        "languageCode": "en", "summary": summary[:1500], "topicType": "OFFER",
+        "event": {"title": (offer_title or "Today's Offer")[:58],
+                  "schedule": {"startDate": d, "endDate": d}},
+    }
+    if image_abs_url:
+        post["media"] = [{"mediaFormat": "PHOTO", "sourceUrl": image_abs_url}]
+    async with httpx.AsyncClient(timeout=60) as http:
+        resp = await http.post(f"{GBP_V4}/{gb['location_name']}/localPosts",
+                               json=post, headers={"Authorization": f"Bearer {token}"})
+    if resp.status_code != 200:
+        log.error("google local post failed: %s", resp.text[:500])
+        result = {"ok": False, "error": resp.text[:200]}
+    else:
+        result = {"ok": True, "post_name": resp.json().get("name")}
+    await _raw_db.social_posts.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": tid, "caption": summary, "image_url": image_abs_url,
+        "platforms": ["google"], "results": {"google": result}, "kind": "google_offer",
+        "created_at": datetime.now(timezone.utc).isoformat()})
+    return result
+
+
 # ── Publishing (Instagram + Facebook) ───────────────────────────────────────
 async def publish_content(tid: str, caption: str, image_abs_url: str, platforms: list[str]) -> dict:
     doc = await _conn(tid)
