@@ -47,10 +47,12 @@ export default function Staff() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [tempCred, setTempCred] = useState(null); // {name, email, temp_password, phone}
   const [advanceFor, setAdvanceFor] = useState(null); // staff for advance modal
+  const [lbKey, setLbKey] = useState(0);
 
   const load = useCallback(async () => {
     const { data } = await api.get("/staff");
     setList(data);
+    setLbKey(k => k + 1);
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -205,7 +207,7 @@ export default function Staff() {
         </div>
       )}
 
-      <StaffLeaderboard />
+      <StaffLeaderboard refreshKey={lbKey} />
 
       <LeaveApprovalsPanel />
 

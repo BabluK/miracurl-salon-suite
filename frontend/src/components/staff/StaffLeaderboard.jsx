@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { Trophy, Target, CheckCircle2 } from "lucide-react";
 
-export const StaffLeaderboard = () => {
+export const StaffLeaderboard = ({ refreshKey = 0 }) => {
   const [data, setData] = useState(null);
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   useEffect(() => {
     api.get(`/staff/leaderboard?month=${month}`).then(r => setData(r.data)).catch(() => setData({ rows: [] }));
-  }, [month]);
+  }, [month, refreshKey]);
 
   const medals = ["🥇", "🥈", "🥉"];
 
