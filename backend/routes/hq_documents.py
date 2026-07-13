@@ -669,6 +669,18 @@ async def demo_campaign_mark_seen(user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+def _invite_status(i: dict, tenant_emails: set) -> str:
+    if i["email"] in tenant_emails:
+        return "converted"
+    if i.get("demo_requested_at"):
+        return "demo_requested"
+    if i.get("responded"):
+        return "replied"
+    if i.get("reminder_sent_at"):
+        return "reminded"
+    return "awaiting"
+
+
 @router.get("/super-admin/demo-campaign/invites")
 async def demo_invites(user=Depends(require_super_admin)):
     from datetime import timedelta
@@ -676,16 +688,7 @@ async def demo_invites(user=Depends(require_super_admin)):
     items = await _raw_db.demo_invites.find({}, {"_id": 0}).sort("first_sent_at", -1).to_list(200)
     stale_cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
     for i in items:
-        if i["email"] in tenant_emails:
-            i["status"] = "converted"
-        elif i.get("demo_requested_at"):
-            i["status"] = "demo_requested"
-        elif i.get("responded"):
-            i["status"] = "replied"
-        elif i.get("reminder_sent_at"):
-            i["status"] = "reminded"
-        else:
-            i["status"] = "awaiting"
+        i["status"] = _invite_status(i, tenant_emails)
         i["opened"] = bool(i.get("opened_at"))
         stale = (i.get("first_sent_at") or "") <= stale_cutoff
         i["resend_suggested"] = (i["status"] in ("awaiting", "reminded") and not i["opened"] and stale)

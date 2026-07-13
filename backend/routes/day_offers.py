@@ -1,6 +1,7 @@
 """Mira Day-Smart Offers — weekday-aware AI offer suggestions with one-tap flyer download."""
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -28,12 +29,8 @@ def _today_ist() -> datetime:
     return datetime.now(timezone.utc) + IST
 
 
-async def _catalog_context(t: dict) -> dict:
-    services = await db.services.find(
-        {"active": {"$ne": False}}, {"_id": 0, "name": 1, "price": 1, "category": 1}).sort("price", -1).to_list(40)
-    since = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
-    invoices = await db.invoices.find(
-        {"created_at": {"$gte": since}}, {"_id": 0, "items": 1, "created_at": 1}).to_list(3000)
+def _invoice_stats(invoices: list) -> dict:
+    """Service sales counts, weekday footfall and 7-day trend from recent invoices."""
     svc_counts: dict = {}
     weekday_counts = [0] * 7
     last7, prev7 = 0, 0
@@ -52,14 +49,13 @@ async def _catalog_context(t: dict) -> dict:
         for it in inv.get("items") or []:
             if it.get("type") == "service":
                 svc_counts[it["name"]] = svc_counts.get(it["name"], 0) + int(it.get("qty") or 1)
-    ranked = sorted(svc_counts.items(), key=lambda x: -x[1])
-    sold_names = set(svc_counts)
-    slow = [s["name"] for s in services if s["name"] not in sold_names][:8]
-    eng_posts = await _raw_db.social_posts.find(
-        {"tenant_id": t["id"], "engagement": {"$exists": True}},
-        {"_id": 0, "caption": 1, "engagement": 1}).to_list(100)
+    return {"svc_counts": svc_counts, "weekday_counts": weekday_counts, "last7": last7, "prev7": prev7}
+
+
+def _engagement_scores(posts: list, services: list) -> dict:
+    """Per-service social engagement score (likes + 2×comments + 3×shares) from past posts."""
     svc_eng: dict = {}
-    for p in eng_posts:
+    for p in posts:
         cap = (p.get("caption") or "").lower()
         score = 0
         for plat in ("instagram", "facebook"):
@@ -70,12 +66,28 @@ async def _catalog_context(t: dict) -> dict:
         for s in services:
             if s["name"].lower() in cap:
                 svc_eng[s["name"]] = svc_eng.get(s["name"], 0) + score
+    return svc_eng
+
+
+async def _catalog_context(t: dict) -> dict:
+    services = await db.services.find(
+        {"active": {"$ne": False}}, {"_id": 0, "name": 1, "price": 1, "category": 1}).sort("price", -1).to_list(40)
+    since = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+    invoices = await db.invoices.find(
+        {"created_at": {"$gte": since}}, {"_id": 0, "items": 1, "created_at": 1}).to_list(3000)
+    stats = _invoice_stats(invoices)
+    ranked = sorted(stats["svc_counts"].items(), key=lambda x: -x[1])
+    slow = [s["name"] for s in services if s["name"] not in stats["svc_counts"]][:8]
+    eng_posts = await _raw_db.social_posts.find(
+        {"tenant_id": t["id"], "engagement": {"$exists": True}},
+        {"_id": 0, "caption": 1, "engagement": 1}).to_list(100)
+    svc_eng = _engagement_scores(eng_posts, services)
     return {
         "services": services,
         "top_services": ranked[:8],
         "slow_services": slow or [n for n, _ in ranked[-5:]],
-        "weekday_invoices": weekday_counts,
-        "last7": last7, "prev7": prev7,
+        "weekday_invoices": stats["weekday_counts"],
+        "last7": stats["last7"], "prev7": stats["prev7"],
         "engagement": sorted(svc_eng.items(), key=lambda x: -x[1])[:8],
     }
 
@@ -96,9 +108,30 @@ def _auto_tier(ctx: dict, now: datetime) -> tuple[str | None, str]:
     return None, ""
 
 
-def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint: str,
-                        forced_pct: int | None = None, tier: str | None = None,
-                        auto_reason: str = "") -> str:
+@dataclass
+class OfferOpts:
+    kind: str = "daily"
+    retry_hint: str = ""
+    forced_pct: int | None = None
+    tier: str | None = None
+    auto_reason: str = ""
+
+
+def _tier_line(opts: OfferOpts) -> str:
+    if opts.tier not in ("premium", "budget"):
+        return ""
+    who = "MIRA'S AUTO-STRATEGY" if opts.auto_reason else "OWNER'S CHOICE"
+    why = f" Why: {opts.auto_reason}. Weave this into your reasoning." if opts.auto_reason else ""
+    if opts.tier == "premium":
+        return (f"{who} — build today's offer ONLY from HIGH-TICKET premium services "
+                "(the most expensive items in the catalog, e.g. Hair Color, Keratin, Botox, Hydra/Gold Facial). "
+                f"Pick 1-3 of the priciest relevant services — high margin matters today.{why}\n")
+    return (f"{who} — build today's offer ONLY from BUDGET-FRIENDLY services "
+            "(lower-priced items well below the catalog's top prices, e.g. haircut, threading, basic facial, "
+            f"basic mani-pedi). The goal is affordable walk-in volume, not big tickets.{why}\n")
+
+
+def _build_offer_prompt(t: dict, ctx: dict, now: datetime, opts: OfferOpts) -> str:
     catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in ctx["services"][:30])
     tops = ", ".join(f"{n} ({c} sold)" for n, c in ctx["top_services"]) or "no sales data yet"
     slows = ", ".join(ctx["slow_services"]) or "none"
@@ -107,25 +140,13 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint
     eng_line = (f"AUDIENCE INSIGHTS — services ranked by likes/comments on this salon's past social posts: {eng}. "
                 "When choices are equal, prefer high-engagement services — the audience loves them.\n") if eng else ""
     pct_rule = '"discount_pct":<int 0-40>'
-    if forced_pct:
-        strategy = (f"IMPORTANT — the salon OWNER has fixed today's discount at exactly {forced_pct}%. "
-                    f"You MUST apply exactly {forced_pct}% off. Your job is only to pick WHICH 1-3 services "
-                    f"benefit most from a {forced_pct}% discount today. (Day context: {strategy})")
-        pct_rule = f'"discount_pct":{forced_pct}'
-    tier_line = ""
-    who = "MIRA'S AUTO-STRATEGY" if auto_reason else "OWNER'S CHOICE"
-    if tier == "premium":
-        tier_line = (f"{who} — build today's offer ONLY from HIGH-TICKET premium services "
-                     "(the most expensive items in the catalog, e.g. Hair Color, Keratin, Botox, Hydra/Gold Facial). "
-                     "Pick 1-3 of the priciest relevant services — high margin matters today."
-                     f"{' Why: ' + auto_reason + '. Weave this into your reasoning.' if auto_reason else ''}\n")
-    elif tier == "budget":
-        tier_line = (f"{who} — build today's offer ONLY from BUDGET-FRIENDLY services "
-                     "(lower-priced items well below the catalog's top prices, e.g. haircut, threading, basic facial, "
-                     "basic mani-pedi). The goal is affordable walk-in volume, not big tickets."
-                     f"{' Why: ' + auto_reason + '. Weave this into your reasoning.' if auto_reason else ''}\n")
+    if opts.forced_pct:
+        strategy = (f"IMPORTANT — the salon OWNER has fixed today's discount at exactly {opts.forced_pct}%. "
+                    f"You MUST apply exactly {opts.forced_pct}% off. Your job is only to pick WHICH 1-3 services "
+                    f"benefit most from a {opts.forced_pct}% discount today. (Day context: {strategy})")
+        pct_rule = f'"discount_pct":{opts.forced_pct}'
     validity = "TODAY only, valid today"
-    if kind == "flash":
+    if opts.kind == "flash":
         strategy = ("🔴 FLASH SITUATION: CCTV shows several chairs sitting EMPTY right now. "
                     "Design an aggressive limited-time flash offer valid for the NEXT 2 HOURS ONLY "
                     "(25-40% off or an irresistible instant combo) to pull walk-ins immediately. "
@@ -134,12 +155,12 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint
     return (
         f"Salon: {t.get('name')}. Today is {now.strftime('%A, %d %B %Y')}, time {now.strftime('%I:%M %p')} IST.\n"
         f"Day strategy: {strategy}\n"
-        f"{tier_line}"
+        f"{_tier_line(opts)}"
         f"Last-60-days bills per weekday (Mon..Sun): {ctx['weekday_invoices']}\n"
         f"Best sellers: {tops}\nSlow-moving services: {slows}\n"
         f"{eng_line}"
         f"SERVICE CATALOG (real prices — never invent services):\n{catalog}\n"
-        f"{retry_hint}\n"
+        f"{opts.retry_hint}\n"
         f"Design ONE irresistible offer valid {validity}. Pick 1-3 REAL services from the catalog. "
         "Compute offer prices from the real prices using your chosen discount. "
         'Return JSON: {"title":"<catchy 4-7 word offer name>","offer_text":"<one punchy line, e.g. Flat 25% OFF ...>",'
@@ -176,9 +197,10 @@ async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily",
     auto_reason = ""
     if tier is None and kind == "daily":
         tier, auto_reason = _auto_tier(ctx, now)
+    opts = OfferOpts(kind=kind, retry_hint=retry_hint, forced_pct=forced_pct, tier=tier, auto_reason=auto_reason)
     system = ("You are Mira, an expert salon revenue strategist for Indian salons. You know Fri-Sat-Sun are busy "
               "and Mon-Thu are lean, and you design day-smart offers that maximise chair occupancy AND margin.")
-    data = await _ask_json(system, _build_offer_prompt(t, ctx, now, kind, retry_hint, forced_pct, tier, auto_reason))
+    data = await _ask_json(system, _build_offer_prompt(t, ctx, now, opts))
     if forced_pct:
         data["discount_pct"] = forced_pct
     doc = _offer_doc(t, data, now, kind)

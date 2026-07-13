@@ -200,6 +200,20 @@ async def invoice_pdf(inv_id: str, user=Depends(get_current_user), t=Depends(cur
     )
 
 
+def _check_wallet_balance(cust: dict, total: float):
+    bal = float(cust.get("wallet_balance") or 0)
+    if bal < total:
+        raise HTTPException(400, f"Insufficient wallet balance — ₹{bal:.0f} available, bill is ₹{total:.0f}")
+
+
+async def _record_wallet_redeem(cust: dict, inv: dict):
+    await db.customers.update_one({"id": cust["id"]}, {"$inc": {"wallet_balance": -inv["total"]}})
+    await db.wallet_txns.insert_one({
+        "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
+        "type": "redeem", "credit": -inv["total"], "label": f"Bill {inv['invoice_no']}",
+        "invoice_id": inv["id"], "created_at": datetime.now(timezone.utc).isoformat()})
+
+
 async def _resolve_billing_context(body: InvoiceIn, cust: dict) -> dict:
     """Gather tenant/tax/branch/membership/coupon/stock/loyalty inputs for billing."""
     tid = _current_tenant_id.get()
@@ -258,9 +272,7 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]
 
     if body.payment_mode == "salon_wallet":
-        wallet_bal = float(cust.get("wallet_balance") or 0)
-        if wallet_bal < totals["total"]:
-            raise HTTPException(400, f"Insufficient wallet balance — ₹{wallet_bal:.0f} available, bill is ₹{totals['total']:.0f}")
+        _check_wallet_balance(cust, totals["total"])
 
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),
@@ -280,11 +292,7 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     await db.invoices.insert_one(inv)
 
     if body.payment_mode == "salon_wallet":
-        await db.customers.update_one({"id": cust["id"]}, {"$inc": {"wallet_balance": -totals["total"]}})
-        await db.wallet_txns.insert_one({
-            "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
-            "type": "redeem", "credit": -totals["total"], "label": f"Bill {inv['invoice_no']}",
-            "invoice_id": inv["id"], "created_at": datetime.now(timezone.utc).isoformat()})
+        await _record_wallet_redeem(cust, inv)
 
     points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"])
     await _process_benefit_items(inv, cust)
