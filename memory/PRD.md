@@ -165,3 +165,8 @@ Frontend:
 
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
+
+## 2026-07-13 — Session updates
+- Day Offer: owner can now force a discount % ("Mira decides %" dropdown, 5-50%) — passed to /day-offers/suggest & suggest-another as {discount_pct}; AI must use exactly that %.
+- Day Offer: "Change offer" (unlock) button on accepted offers → POST /api/day-offers/unlock deletes today's daily offer so owner can regenerate (fixes stuck titles e.g. "Spa" wording on production).
+- Google OAuth redirect_uri_mismatch: Settings → Connected Accounts now shows exact copyable Authorized redirect URI (from /api/social/connections: google_redirect_uri). User must add it in Google Cloud Console → Credentials (separately for preview & production domains).

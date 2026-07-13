@@ -55,11 +55,17 @@ async def _catalog_context(t: dict) -> dict:
     }
 
 
-def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint: str) -> str:
+def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint: str, forced_pct: int | None = None) -> str:
     catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in ctx["services"][:30])
     tops = ", ".join(f"{n} ({c} sold)" for n, c in ctx["top_services"]) or "no sales data yet"
     slows = ", ".join(ctx["slow_services"]) or "none"
     strategy = DAY_STRATEGY[now.weekday()]
+    pct_rule = '"discount_pct":<int 0-40>'
+    if forced_pct:
+        strategy = (f"IMPORTANT — the salon OWNER has fixed today's discount at exactly {forced_pct}%. "
+                    f"You MUST apply exactly {forced_pct}% off. Your job is only to pick WHICH 1-3 services "
+                    f"benefit most from a {forced_pct}% discount today. (Day context: {strategy})")
+        pct_rule = f'"discount_pct":{forced_pct}'
     validity = "TODAY only, valid today"
     if kind == "flash":
         strategy = ("🔴 FLASH SITUATION: CCTV shows several chairs sitting EMPTY right now. "
@@ -100,13 +106,15 @@ def _offer_doc(t: dict, data: dict, now: datetime, kind: str) -> dict:
     }
 
 
-async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily") -> dict:
+async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily", forced_pct: int | None = None) -> dict:
     from routes.mira_studio import _ask_json
     now = _today_ist()
     ctx = await _catalog_context(t)
     system = ("You are Mira, an expert salon revenue strategist for Indian salons. You know Fri-Sat-Sun are busy "
               "and Mon-Thu are lean, and you design day-smart offers that maximise chair occupancy AND margin.")
-    data = await _ask_json(system, _build_offer_prompt(t, ctx, now, kind, retry_hint))
+    data = await _ask_json(system, _build_offer_prompt(t, ctx, now, kind, retry_hint, forced_pct))
+    if forced_pct:
+        data["discount_pct"] = forced_pct
     doc = _offer_doc(t, data, now, kind)
     await _raw_db.day_offers.delete_many({"tenant_id": t["id"], "date": doc["date"], "status": "suggested", "kind": kind})
     await _raw_db.day_offers.insert_one({**doc})
@@ -125,19 +133,38 @@ async def today_offer(user=Depends(require_tenant_admin), t=Depends(current_tena
     return {"offer": suggested}
 
 
+class SuggestIn(BaseModel):
+    discount_pct: int | None = None
+
+
+def _clean_pct(v: int | None) -> int | None:
+    return max(1, min(70, int(v))) if v else None
+
+
 @router.post("/day-offers/suggest")
-async def suggest_offer(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def suggest_offer(body: SuggestIn = SuggestIn(), user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     today = _today_ist().date().isoformat()
     accepted = await _raw_db.day_offers.find_one(
         {"tenant_id": t["id"], "date": today, "status": "accepted", "kind": {"$ne": "flash"}}, {"_id": 0})
     if accepted:
         return {"offer": accepted, "already_accepted": True}
-    return {"offer": await _suggest_offer(t)}
+    return {"offer": await _suggest_offer(t, forced_pct=_clean_pct(body.discount_pct))}
 
 
 @router.post("/day-offers/suggest-another")
-async def suggest_another(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    return {"offer": await _suggest_offer(t, retry_hint="Give a DIFFERENT idea than before — vary the services or offer style.")}
+async def suggest_another(body: SuggestIn = SuggestIn(), user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return {"offer": await _suggest_offer(
+        t, retry_hint="Give a DIFFERENT idea than before — vary the services or offer style.",
+        forced_pct=_clean_pct(body.discount_pct))}
+
+
+@router.post("/day-offers/unlock")
+async def unlock_offer(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner changed their mind — discard today's accepted daily offer so a new one can be generated."""
+    today = _today_ist().date().isoformat()
+    await _raw_db.day_offers.delete_many(
+        {"tenant_id": t["id"], "date": today, "kind": {"$ne": "flash"}})
+    return {"ok": True}
 
 
 class AcceptIn(BaseModel):

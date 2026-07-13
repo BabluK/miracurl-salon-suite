@@ -5,7 +5,7 @@ import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Zap } from "lucide-r
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
-function OfferBlock({ offer, busy, onAccept, onAnother, testPrefix }) {
+function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, testPrefix }) {
   const accepted = offer.status === "accepted";
   const shareWA = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(offer.whatsapp_caption || offer.offer_text)}`, "_blank", "noopener,noreferrer");
@@ -48,6 +48,12 @@ function OfferBlock({ offer, busy, onAccept, onAnother, testPrefix }) {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#25D366]/15 border border-[#25D366]/40 text-[#4be588] text-sm font-medium hover:bg-[#25D366]/25">
               <Send className="w-4 h-4" /> Share caption
             </button>
+            {onUnlock && (
+              <button onClick={onUnlock} disabled={!!busy} data-testid={`${testPrefix}-unlock-btn`}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/15 text-white/70 text-sm hover:bg-white/10 disabled:opacity-50">
+                <RefreshCw className={`w-4 h-4 ${busy === "unlock" ? "animate-spin" : ""}`} /> Change offer
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -73,6 +79,7 @@ export function MiraDayOffer() {
   const [offer, setOffer] = useState(null);
   const [flash, setFlash] = useState({ alert: null, offer: null });
   const [busy, setBusy] = useState("");
+  const [pct, setPct] = useState("");
 
   useEffect(() => {
     api.get("/day-offers/today").then(r => setOffer(r.data.offer)).catch(() => {});
@@ -91,9 +98,14 @@ export function MiraDayOffer() {
       } else if (action === "flash-suggest") {
         const { data } = await api.post("/day-offers/flash-suggest");
         setFlash(f => ({ ...f, offer: data.offer }));
+      } else if (action === "unlock") {
+        if (!window.confirm("Discard today's locked offer and ask Mira for a new one?")) { setBusy(""); return; }
+        await api.post("/day-offers/unlock");
+        setOffer(null);
+        toast.success("Offer unlocked — ask Mira for a fresh one");
       } else {
         const path = action === "another" ? "/day-offers/suggest-another" : "/day-offers/suggest";
-        const { data } = await api.post(path, {});
+        const { data } = await api.post(path, pct ? { discount_pct: Number(pct) } : {});
         setOffer(data.offer);
       }
     } catch (e) {
@@ -137,16 +149,25 @@ export function MiraDayOffer() {
             <div className="font-playfair text-lg leading-tight">It's {dayName} — {["Friday", "Saturday", "Sunday"].includes(dayName) ? "busy day, let's upsell ✦" : "let's fill those chairs ✦"}</div>
           </div>
         </div>
-        {!offer && (
-          <button onClick={() => run("suggest")} disabled={!!busy} data-testid="day-offer-ask-btn"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-300 to-rose-200 text-[#17141c] text-sm font-semibold hover:opacity-90 disabled:opacity-50">
-            {busy === "suggest" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            {busy === "suggest" ? "Mira is thinking…" : "Ask Mira for today's offer"}
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {(!offer || offer.status !== "accepted") && (
+            <select value={pct} onChange={(e) => setPct(e.target.value)} data-testid="day-offer-pct-select"
+              className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
+              <option value="">Mira decides %</option>
+              {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map(p => <option key={p} value={p}>{p}% off</option>)}
+            </select>
+          )}
+          {!offer && (
+            <button onClick={() => run("suggest")} disabled={!!busy} data-testid="day-offer-ask-btn"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-300 to-rose-200 text-[#17141c] text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+              {busy === "suggest" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {busy === "suggest" ? "Mira is thinking…" : "Ask Mira for today's offer"}
+            </button>
+          )}
+        </div>
       </div>
 
-      {offer && <OfferBlock offer={offer} busy={busy} onAccept={() => run("accept")} onAnother={offer.status !== "accepted" ? () => run("another") : null} testPrefix="day-offer" />}
+      {offer && <OfferBlock offer={offer} busy={busy} onAccept={() => run("accept")} onAnother={offer.status !== "accepted" ? () => run("another") : null} onUnlock={offer.status === "accepted" ? () => run("unlock") : null} testPrefix="day-offer" />}
     </div>
   );
 }

@@ -3249,10 +3249,15 @@ async def _resolve_staff(staff_id: Optional[str], scheduled_at: Optional[str] = 
     if staff_id:
         s = await db.staff.find_one({"id": staff_id, "active": True}, {"_id": 0})
         if s:
+            if scheduled_at and (s.get("week_off_day") or "").lower() == _weekday_of(scheduled_at):
+                raise HTTPException(409, f"{s['name']} is on weekly off that day — please pick another day or choose a different stylist.")
             if scheduled_at and await _staff_busy(s["id"], scheduled_at, duration_min):
                 raise HTTPException(409, f"{s['name']} is already booked at that time — please pick another time or choose a different stylist.")
             return s
     candidates = await db.staff.find({"active": True}, {"_id": 0}).to_list(50)
+    if scheduled_at:
+        wd = _weekday_of(scheduled_at)
+        candidates = [c for c in candidates if (c.get("week_off_day") or "").lower() != wd] or candidates
     if not candidates:
         raise HTTPException(400, "No stylist available")
     if not scheduled_at:
@@ -5525,18 +5530,32 @@ async def public_coupon_check(slug: str, code: str, request: Request):
     c = await _validate_coupon(code)
     return {"valid": True, "code": c["code"], "type": c["type"], "value": c["value"]}
 
+_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+def _weekday_of(date_str: str) -> str:
+    return _WEEKDAYS[datetime.fromisoformat(date_str[:10]).weekday()]
+
+
 @api.get("/public/availability/{slug}")
 async def public_availability(slug: str, date: str, staff_id: Optional[str] = None):
     await resolve_tenant_from_slug(slug)
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
         raise HTTPException(400, "date must be YYYY-MM-DD")
+    weekday = _weekday_of(date)
     # Stylist-level: a specific stylist has capacity 1; "Any" uses full staff count.
     appt_q = {"scheduled_at": {"$regex": f"^{date}"}, "status": {"$nin": ["cancelled", "no_show"]}}
     if staff_id:
+        s = await db.staff.find_one({"id": staff_id}, {"_id": 0, "week_off_day": 1, "name": 1})
+        if s and (s.get("week_off_day") or "").lower() == weekday:
+            return {"date": date, "staff_count": 0, "week_off": True,
+                    "message": f"{s.get('name', 'This stylist')} is on weekly off on {weekday.capitalize()}s — pick another day or stylist.",
+                    "slots": {hhmm: False for hhmm in _SLOT_TIMES}}
         appt_q["staff_id"] = staff_id
         capacity = 1
     else:
-        capacity = await db.staff.count_documents({"active": True}) or 1
+        capacity = await db.staff.count_documents(
+            {"active": True, "week_off_day": {"$ne": weekday}}) or 1
     appts = await db.appointments.find(appt_q, {"_id": 0, "scheduled_at": 1, "duration_min": 1}).to_list(500)
     parsed = []
     for a in appts:

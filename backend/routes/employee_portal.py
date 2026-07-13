@@ -168,20 +168,25 @@ async def employee_me(acct=Depends(current_employee)):
                         "designation": r.get("designation") or "Stylist",
                         "from_date": r.get("from_date"), "to_date": r.get("to_date"),
                         "hq_verified": bool(r.get("hq_verified"))})
+    staff_info = await _current_staff_info(emp)
     return {"profile": emp, "employments": history, "member_since": acct.get("created_at"),
-            "week_off_day": await _current_week_off(emp)}
+            "week_off_day": staff_info.get("week_off_day"),
+            "shift_start": staff_info.get("shift_start"),
+            "shift_end": staff_info.get("shift_end"),
+            "staff_name": staff_info.get("name")}
 
 
-async def _current_week_off(emp: dict) -> str | None:
-    """Week-off day from the active staff record matching this employee's phone."""
+async def _current_staff_info(emp: dict) -> dict:
+    """Week-off + shift from the active staff record matching this employee's phone."""
     phone = _norm_phone(emp.get("phone") or "")
     if not phone:
-        return None
-    async for s in _raw_db.staff.find({"active": True, "week_off_day": {"$nin": [None, ""]}},
-                                      {"_id": 0, "phone": 1, "week_off_day": 1}):
+        return {}
+    async for s in _raw_db.staff.find({"active": True},
+                                      {"_id": 0, "phone": 1, "week_off_day": 1,
+                                       "shift_start": 1, "shift_end": 1, "name": 1}):
         if _norm_phone(s.get("phone") or "") == phone:
-            return s["week_off_day"]
-    return None
+            return s
+    return {}
 
 
 class ProfileIn(BaseModel):

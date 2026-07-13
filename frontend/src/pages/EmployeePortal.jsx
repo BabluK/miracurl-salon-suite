@@ -148,6 +148,39 @@ function ResumeBuilder() {
   );
 }
 
+function GreetingBadge({ me }) {
+  const nowIST = new Date(Date.now() + (330 + new Date().getTimezoneOffset()) * 60000);
+  const h = nowIST.getHours();
+  const greet = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  const first = (me.staff_name || me.profile?.name || "").split(" ")[0];
+  const weekday = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][nowIST.getDay()];
+  const isOff = (me.week_off_day || "").toLowerCase() === weekday;
+
+  let reminder = null;
+  if (me.shift_start && !isOff) {
+    const [sh, sm] = me.shift_start.split(":").map(Number);
+    const mins = sh * 60 + sm - (h * 60 + nowIST.getMinutes());
+    if (mins > 0 && mins <= 15) {
+      reminder = { cls: "bg-amber-400/15 border-amber-400/40 text-amber-300", text: `⏰ Your shift starts in ${mins} min (${me.shift_start}) — kindly be on time and avoid the late-fine deduction` };
+    } else if (mins <= 0 && mins > -60) {
+      reminder = { cls: "bg-rose-400/15 border-rose-400/40 text-rose-300", text: `⏰ You're running late — shift started at ${me.shift_start}. Please check in ASAP to minimise the late fine` };
+    }
+  }
+  return (
+    <div className="text-right" data-testid="emp-greeting">
+      <p className="text-sm text-white/80">
+        <span className="text-amber-300 font-semibold">{greet}{first ? `, ${first}` : ""}!</span>{" "}
+        {isOff ? <>It's your weekly off — enjoy your day 🌴</> : <>Have a wonderful day ✦</>}
+      </p>
+      {reminder && (
+        <p className={`mt-1.5 text-[11px] px-3 py-1.5 rounded-lg border inline-block ${reminder.cls}`} data-testid="emp-shift-reminder">
+          {reminder.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Dashboard({ me, reload, onLogout }) {
   const p = me.profile;
   const [editing, setEditing] = useState(false);
@@ -165,11 +198,14 @@ function Dashboard({ me, reload, onLogout }) {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setEditing(!editing)} data-testid="emp-edit-toggle-btn"
-              className="px-3 py-2 rounded-lg border border-white/15 text-white/70 text-xs flex items-center gap-1.5 hover:bg-white/5"><Pencil className="w-3.5 h-3.5" /> {editing ? "Close" : "Edit details"}</button>
-            <button onClick={onLogout} data-testid="emp-logout-btn"
-              className="px-3 py-2 rounded-lg border border-white/15 text-white/70 text-xs flex items-center gap-1.5 hover:bg-white/5"><LogOut className="w-3.5 h-3.5" /> Logout</button>
+          <div className="flex flex-col items-end gap-2">
+            <GreetingBadge me={me} />
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(!editing)} data-testid="emp-edit-toggle-btn"
+                className="px-3 py-2 rounded-lg border border-white/15 text-white/70 text-xs flex items-center gap-1.5 hover:bg-white/5"><Pencil className="w-3.5 h-3.5" /> {editing ? "Close" : "Edit details"}</button>
+              <button onClick={onLogout} data-testid="emp-logout-btn"
+                className="px-3 py-2 rounded-lg border border-white/15 text-white/70 text-xs flex items-center gap-1.5 hover:bg-white/5"><LogOut className="w-3.5 h-3.5" /> Logout</button>
+            </div>
           </div>
         </div>
         {editing && <div className="mt-6 pt-6 border-t border-white/10"><ProfileEditor me={me} onSaved={() => { setEditing(false); reload(); }} /></div>}

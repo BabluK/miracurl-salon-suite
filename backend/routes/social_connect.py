@@ -67,7 +67,7 @@ async def _pop_state(state: str, provider: str) -> dict | None:
 
 # ── Status ──────────────────────────────────────────────────────────────────
 @router.get("/social/connections")
-async def connections_status(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def connections_status(request: Request, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     meta_id, meta_secret = _meta_creds()
     g_id, g_secret = _google_creds()
     doc = await _conn(t["id"])
@@ -77,6 +77,8 @@ async def connections_status(admin=Depends(require_tenant_admin), t=Depends(curr
     return {
         "meta_configured": bool(meta_id and meta_secret),
         "google_configured": bool(g_id and g_secret),
+        "google_redirect_uri": f"{_base(request)}/api/social/google/oauth/callback",
+        "meta_redirect_uri": f"{_base(request)}/api/social/meta/oauth/callback",
         "facebook": {"page_id": fb["page_id"], "page_name": fb.get("page_name")} if fb else None,
         "instagram": {"ig_user_id": ig["ig_user_id"], "username": ig.get("username")} if ig else None,
         "google_business": {
