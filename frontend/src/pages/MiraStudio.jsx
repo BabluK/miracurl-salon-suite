@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import {
-  Sparkles, Send, Loader2, Copy, Image as ImageIcon, Link2, RefreshCw, Wand2, Bot, CalendarDays, Rocket,
+  Sparkles, Send, Loader2, Copy, Image as ImageIcon, Link2, RefreshCw, Wand2, Bot, CalendarDays, Rocket, History,
 } from "lucide-react";
 import { MiraCalendar } from "@/components/MiraCalendar";
 import { MiraAutopilot } from "@/components/MiraAutopilot";
+import { SocialHistoryPanel } from "@/components/SocialHistoryPanel";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const abs = (u) => (u && u.startsWith("/api/") ? `${BACKEND}${u}` : u);
@@ -126,10 +127,15 @@ export default function MiraStudio() {
           className={`px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 ${tab === "calendar" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-fuchsia-300"}`}>
           <CalendarDays className="w-4 h-4" /> Content Calendar
         </button>
+        <button data-testid="mira-tab-history" onClick={() => setTab("history")}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-1.5 ${tab === "history" ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-fuchsia-300"}`}>
+          <History className="w-4 h-4" /> Post History
+        </button>
       </div>
 
       {tab === "autopilot" && <MiraAutopilot />}
       {tab === "calendar" && <MiraCalendar canPost={!!(conns.instagram || conns.facebook)} />}
+      {tab === "history" && <SocialHistoryPanel />}
 
       {tab === "agents" && <>
       {/* Agent grid */}

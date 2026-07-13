@@ -356,6 +356,48 @@ async def google_draft_reply(body: DraftReplyIn, admin=Depends(require_tenant_ad
     return {"draft": reply}
 
 
+# ── Post history + engagement ───────────────────────────────────────────────
+@router.get("/social/history")
+async def social_history(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    posts = await _raw_db.social_posts.find(
+        {"tenant_id": t["id"]}, {"_id": 0}).sort("created_at", -1).to_list(30)
+    doc = await _conn(t["id"])
+    fb, ig = doc.get("facebook"), doc.get("instagram")
+    now = datetime.now(timezone.utc).timestamp()
+    async with httpx.AsyncClient(timeout=20) as http:
+        for p in posts:
+            if (p.get("engagement") or {}).get("fetched_at", 0) > now - 3600:
+                continue
+            r = p.get("results") or {}
+            fb_id = (r.get("facebook") or {}).get("post_id")
+            ig_id = (r.get("instagram") or {}).get("media_id")
+            new_eng = {}
+            try:
+                if fb_id and fb:
+                    resp = await http.get(f"{GRAPH}/{fb_id}", params={
+                        "fields": "likes.summary(true),comments.summary(true),shares",
+                        "access_token": fb["page_token"]})
+                    if resp.status_code == 200:
+                        d = resp.json()
+                        new_eng["facebook"] = {
+                            "likes": ((d.get("likes") or {}).get("summary") or {}).get("total_count", 0),
+                            "comments": ((d.get("comments") or {}).get("summary") or {}).get("total_count", 0),
+                            "shares": (d.get("shares") or {}).get("count", 0)}
+                if ig_id and ig:
+                    resp = await http.get(f"{GRAPH}/{ig_id}", params={
+                        "fields": "like_count,comments_count", "access_token": ig["page_token"]})
+                    if resp.status_code == 200:
+                        d = resp.json()
+                        new_eng["instagram"] = {"likes": d.get("like_count", 0), "comments": d.get("comments_count", 0)}
+            except Exception as e:
+                log.warning("engagement fetch failed for post %s: %s", p.get("id"), e)
+            if new_eng:
+                new_eng["fetched_at"] = now
+                p["engagement"] = new_eng
+                await _raw_db.social_posts.update_one({"id": p["id"]}, {"$set": {"engagement": new_eng}})
+    return {"posts": posts}
+
+
 # ── Google Business local posts ─────────────────────────────────────────────
 async def publish_google_post(tid: str, summary: str, image_abs_url: str | None = None,
                               offer_title: str | None = None) -> dict:
