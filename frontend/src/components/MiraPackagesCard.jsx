@@ -89,6 +89,11 @@ export const MiraPackagesCard = () => {
 
       {pkg && (
         <div className="mt-4 bg-black/25 border border-white/10 rounded-xl p-4" data-testid="package-result">
+          {pkg.auto_suggested && !published && (
+            <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-fuchsia-400/10 border border-fuchsia-300/40 text-fuchsia-200" data-testid="package-auto-suggested-badge">
+              <Sparkles className="w-3 h-3" /> Mira&apos;s Monday suggestion — approve &amp; publish when ready ✦
+            </div>
+          )}
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <div className="font-playfair text-xl text-fuchsia-200">{pkg.name}</div>

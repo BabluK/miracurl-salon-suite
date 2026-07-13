@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-13.1"
-BUILD_TIME = "13 Jul 2026, 6:45 PM IST"
+BUILD = "2026-07-13.2"
+BUILD_TIME = "13 Jul 2026, 7:15 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-13",
         "changes": [
+            "Monday auto-package suggester 📅 — when your package expires, Mira drafts a fresh one every Monday (audience rotates Men → Women → Family) and emails you; you approve & publish when ready — nothing goes live without your OK",
             "You control the offer 🎛️ — pick the exact discount % (5-50%) and the service tier (Premium: Color, Keratin, Botox / Budget crowd-pullers) before asking Mira; she calculates prices from YOUR choice",
             "Mira auto-rhythm 🧠 — left on 'Mira picks'? She reads your footfall: budget crowd-pullers when visits drop, premium high-margin deals on lean weekdays",
             "One tap = 3 platforms 🚀 — accepting a Day Offer (or publishing a Package) now auto-posts to Google Business, Instagram AND Facebook, with the flyer image",

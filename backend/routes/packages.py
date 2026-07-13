@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from database import _raw_db
-from security import require_tenant_admin, current_tenant
+from security import require_tenant_admin, current_tenant, require_super_admin
 
 router = APIRouter()
 log = logging.getLogger("packages")
@@ -25,24 +25,21 @@ class SuggestIn(BaseModel):
     valid_days: int | None = None
 
 
-@router.post("/mira-packages/suggest")
-async def suggest_package(body: SuggestIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def _generate_package(t: dict, audience: str, pct: int | None = None,
+                            valid_days: int | None = None, auto_reason: str | None = None) -> dict:
+    """Core Mira package generation — used by the suggest endpoint AND the Monday auto-scheduler."""
     from routes.mira_studio import _ask_json
     from routes.day_offers import _catalog_context
-    from security import ai_daily_quota
-    if body.audience not in AUDIENCE_HINT:
-        raise HTTPException(400, "audience must be men, women or family")
-    await ai_daily_quota(t["id"], "admin_ai_suggest", 80)
     ctx = await _catalog_context(t)
     catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in ctx["services"][:30])
     eng = ", ".join(f"{n} ({c} pts)" for n, c in ctx.get("engagement", []))
-    pct = max(5, min(60, int(body.discount_pct))) if body.discount_pct else None
+    pct = max(5, min(60, int(pct))) if pct else None
     pct_line = (f"The owner has FIXED the package discount at exactly {pct}% off the combined value — package_price must be exactly {pct}% less."
                 if pct else "Choose a compelling package discount (15-30% off the combined value).")
     data = await _ask_json(
         "You are Mira, an expert salon revenue strategist for Indian salons. You design irresistible service "
         "packages that feel premium yet great value.",
-        f"Salon: {t.get('name')}. Design ONE service package {AUDIENCE_HINT[body.audience]}\n"
+        f"Salon: {t.get('name')}. Design ONE service package {AUDIENCE_HINT[audience]}\n"
         f"{'AUDIENCE INSIGHTS — services ranked by social engagement: ' + eng + chr(10) if eng else ''}"
         f"SERVICE CATALOG (real prices — never invent services):\n{catalog}\n"
         f"Pick 3-5 REAL services. {pct_line}\n"
@@ -68,17 +65,30 @@ async def suggest_package(body: SuggestIn, user=Depends(require_tenant_admin), t
     elif not (0 < price < total):
         price = round(total * 0.8)
     doc = {
-        "id": str(uuid.uuid4()), "tenant_id": t["id"], "audience": body.audience,
+        "id": str(uuid.uuid4()), "tenant_id": t["id"], "audience": audience,
         "name": str(data["name"])[:80], "tagline": str(data.get("tagline") or "")[:140],
         "services": [{"name": str(s.get("name", ""))[:60], "price": float(s.get("price") or 0)}
                      for s in data["services"][:5]],
         "total_value": total, "package_price": price,
         "discount_pct": round((1 - price / total) * 100) if total > 0 and 0 < price < total else (pct or 0),
         "caption": str(data.get("caption") or "")[:900],
-        "valid_days": body.valid_days if body.valid_days in (3, 4, 7, 15, 30) else None,
+        "valid_days": valid_days if valid_days in (3, 4, 7, 15, 30) else None,
         "status": "draft", "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    if auto_reason:
+        doc["auto_suggested"] = True
+        doc["auto_reason"] = auto_reason
     await _raw_db.mira_packages.insert_one({**doc})
+    return doc
+
+
+@router.post("/mira-packages/suggest")
+async def suggest_package(body: SuggestIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from security import ai_daily_quota
+    if body.audience not in AUDIENCE_HINT:
+        raise HTTPException(400, "audience must be men, women or family")
+    await ai_daily_quota(t["id"], "admin_ai_suggest", 80)
+    doc = await _generate_package(t, body.audience, pct=body.discount_pct, valid_days=body.valid_days)
     return {"package": doc}
 
 
@@ -129,6 +139,61 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
              "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post, "meta_post": meta_post}
     await _raw_db.mira_packages.update_one({"id": doc["id"]}, {"$set": patch})
     return {"package": {**doc, **patch}}
+
+
+_AUDIENCE_ROTATION = {"men": "women", "women": "family", "family": "men"}
+
+
+async def run_monday_package_suggestions() -> dict:
+    """Monday auto-suggester: when a tenant's last package has expired, Mira drafts a fresh
+    suggestion (owner approves before publish) and emails the owner. Used by the weekly scheduler."""
+    from email_service import _send_email
+    now_iso = datetime.now(timezone.utc).isoformat()
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    tenants = await _raw_db.tenants.find({"status": {"$in": ["active", "trial"]}}, {"_id": 0}).to_list(500)
+    results = []
+    for t in tenants:
+        try:
+            last = await _raw_db.mira_packages.find(
+                {"tenant_id": t["id"]}, {"_id": 0}).sort("created_at", -1).to_list(1)
+            last = last[0] if last else None
+            if not last:
+                continue  # tenant never used packages — don't push unsolicited suggestions
+            if last.get("created_at", "") >= week_ago:
+                continue  # a fresh package already exists this week
+            if last["status"] == "published" and (not last.get("expires_at") or last["expires_at"] > now_iso):
+                continue  # last package is still live
+            audience = _AUDIENCE_ROTATION.get(last.get("audience"), "women")
+            doc = await _generate_package(
+                t, audience, valid_days=last.get("valid_days") or 7,
+                auto_reason="Your previous package ended — Mira designed a fresh one to keep bookings coming")
+            recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
+            if recipients:
+                items = "".join(f"<li>{s['name']} — ₹{s['price']:.0f}</li>" for s in doc["services"])
+                await _send_email(
+                    recipients,
+                    f"✦ Mira designed a fresh package for {t.get('name')} — approve to publish",
+                    f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
+                    f"<h2 style='margin:0 0 6px'>{doc['name']}</h2>"
+                    f"<p style='color:#666;margin:0 0 12px'>{doc['tagline']}</p>"
+                    f"<ul style='color:#444'>{items}</ul>"
+                    f"<p><b>Worth ₹{doc['total_value']:.0f} → package price ₹{doc['package_price']:.0f} "
+                    f"({doc['discount_pct']}% off)</b></p>"
+                    f"<p style='color:#666'>Your previous package expired, so Mira drafted this fresh suggestion. "
+                    f"Open your Miracurl dashboard → <b>Offers Studio</b> and tap <b>Publish</b> to create the poster "
+                    f"and post it on Google, Instagram &amp; Facebook.</p></div>")
+            results.append({"tenant": t["name"], "ok": True, "package": doc["name"], "audience": audience})
+        except Exception as e:  # noqa: BLE001 — one tenant must not block the rest
+            log.warning(f"monday package suggestion failed for {t.get('name')}: {e}")
+            results.append({"tenant": t.get("name"), "ok": False, "error": str(e)[:150]})
+    ok = sum(1 for r in results if r.get("ok"))
+    return {"suggested": ok, "failed": len(results) - ok, "results": results}
+
+
+@router.post("/super-admin/run-package-suggestions")
+async def trigger_package_suggestions(user=Depends(require_super_admin)):
+    """Manual trigger for the Monday auto-package suggester (super-admin testing)."""
+    return await run_monday_package_suggestions()
 
 
 @router.get("/mira-packages")

@@ -220,3 +220,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Day Offer "New poster": POST /api/day-offers/regenerate-flyer regenerates flyer with a different random template (stores flyer_template) without changing the offer; "New poster" button on accepted offer card. Verified.
 - FIXED during work: MiraPackagesCard.jsx corruption (duplicate JSX tail after edit) — trimmed; esbuild syntax check passed.
 - What's New modal "not showing" explained: modal appears once per BUILD (localStorage). BUILD was stuck at 2026-07-12.5. Appended 2026-07-13 release entry (all session features) + bumped BUILD to 2026-07-13.1 in release_notes.py. IMPORTANT PROCESS NOTE: append a RELEASES entry + bump BUILD whenever deploy-worthy features land, or users never see the popup.
+
+## 2026-07-13 — Monday Auto-Package Suggester (approval mode)
+- routes/packages.py: suggest logic refactored into _generate_package(t, audience, pct, valid_days, auto_reason) — reused by endpoint + scheduler. run_monday_package_suggestions(): for each active/trial tenant with a previous package that is expired (and no package created in last 7 days), drafts a fresh package (audience rotates men→women→family, keeps last valid_days or 7), sets auto_suggested+auto_reason, emails owner (approve in Offers Studio). Suggestion-only per user choice — NEVER auto-publishes.
+- server.py: _weekly_package_scheduler() — Monday ≥10:00 IST, idempotent via system_flags key "weekly_package_auto", added to on_startup.
+- Manual trigger for testing: POST /api/super-admin/run-package-suggestions (super-admin only).
+- MiraPackagesCard.jsx: "Mira's Monday suggestion" badge (data-testid package-auto-suggested-badge) on auto-suggested drafts.
+- Verified: draft created for expired-package tenant, idempotent re-run (0 suggested), live/fresh packages skipped, badge visible in UI.
+- BUILD bumped to 2026-07-13.2 in release_notes.py.

@@ -5185,8 +5185,33 @@ async def _demo_followup_scheduler():
         await asyncio.sleep(1800)
 
 
+async def _weekly_package_scheduler():
+    """Every Monday (after 10:00 IST) Mira auto-drafts a fresh package suggestion for tenants
+    whose last package expired — owner approves before publish. Idempotent via system_flags."""
+    from routes.packages import run_monday_package_suggestions
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.weekday() == 0 and ist_now.hour >= 10:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "weekly_package_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await run_monday_package_suggestions()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "weekly_package_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "suggested": out.get("suggested", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    if out.get("suggested") or out.get("failed"):
+                        logging.info(f"Monday auto-package suggestions {period}: {out}")
+        except Exception as e:
+            logging.error(f"weekly package scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 @app.on_event("startup")
 async def on_startup():
+    asyncio.get_event_loop().create_task(_weekly_package_scheduler())
     asyncio.get_event_loop().create_task(_renewal_reminder_scheduler())
     asyncio.get_event_loop().create_task(_demo_followup_scheduler())
     asyncio.get_event_loop().create_task(_review_request_scheduler())
