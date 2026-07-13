@@ -128,6 +128,8 @@ def _offer_doc(t: dict, data: dict, now: datetime, kind: str) -> dict:
 
 async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily", forced_pct: int | None = None) -> dict:
     from routes.mira_studio import _ask_json
+    from security import ai_daily_quota
+    await ai_daily_quota(t["id"], "admin_ai_suggest", 80)
     now = _today_ist()
     ctx = await _catalog_context(t)
     system = ("You are Mira, an expert salon revenue strategist for Indian salons. You know Fri-Sat-Sun are busy "

@@ -179,3 +179,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Services: new bookable_online flag (Service/ServiceIn models) — public services endpoint filters {"active": True, "bookable_online": {"$ne": False}}. Services page has per-card "Online booking" toggle + checkbox in edit form. Mira catalog now uses active services only.
 - Packages now also auto-post to Instagram + Facebook on publish (meta_post stored, per-platform badges in MiraPackagesCard) — so offers AND packages hit Google + IG + FB + public booking page.
 - Package validation guard: AI-suggested services are matched against the real catalog (case-insensitive); invented services dropped, price recomputed from real totals (forced pct honoured); <2 valid services → 400 retry.
+
+## 2026-07-13 — Security hardening (post-audit)
+- Security audit run (CONDITIONAL PASS): tenant isolation, authz, token exposure all clean. Fixed items:
+  - durable_rate_limit() + ai_daily_quota() in security.py (Mongo-backed: rate_limits w/ TTL index, ai_quotas). Applied: public ai-chat (400/day/tenant), ai-voice (150/day), admin AI suggests day-offers+packages (80/day, kind=admin_ai_suggest).
+  - OAuth tokens encrypted at rest (Fernet, TOKEN_ENC_KEY in backend/.env, "enc:" prefix, legacy plaintext passthrough). Enc at write points (meta callback, _page_selection, google callback, _google_token refresh), dec in _conn(). Preview DB migrated (0 docs had tokens).
+  - _base() host pinning: ALLOWED_PUBLIC_HOSTS env allowlist (preview + miracurl-suite.com + www) — forged X-Forwarded-Host falls back to first allowed host.
+  - NOTE: production deploy ships backend/.env — TOKEN_ENC_KEY & ALLOWED_PUBLIC_HOSTS included automatically.

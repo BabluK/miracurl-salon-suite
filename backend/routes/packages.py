@@ -28,8 +28,10 @@ class SuggestIn(BaseModel):
 async def suggest_package(body: SuggestIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from routes.mira_studio import _ask_json
     from routes.day_offers import _catalog_context
+    from security import ai_daily_quota
     if body.audience not in AUDIENCE_HINT:
         raise HTTPException(400, "audience must be men, women or family")
+    await ai_daily_quota(t["id"], "admin_ai_suggest", 80)
     ctx = await _catalog_context(t)
     catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in ctx["services"][:30])
     eng = ", ".join(f"{n} ({c} pts)" for n, c in ctx.get("engagement", []))

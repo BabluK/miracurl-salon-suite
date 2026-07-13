@@ -43,13 +43,56 @@ def _google_creds():
     return os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""), os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
 
 
+# ── Token encryption at rest (Fernet, legacy plaintext passthrough) ─────────
+_fernet = None
+
+def _f():
+    global _fernet
+    if _fernet is None:
+        from cryptography.fernet import Fernet
+        _fernet = Fernet(os.environ["TOKEN_ENC_KEY"].encode())
+    return _fernet
+
+def _enc(v):
+    return f"enc:{_f().encrypt(v.encode()).decode()}" if v else v
+
+def _dec(v):
+    if isinstance(v, str) and v.startswith("enc:"):
+        try:
+            return _f().decrypt(v[4:].encode()).decode()
+        except Exception:
+            return v
+    return v
+
+def _enc_gb(gb: dict) -> dict:
+    return {**gb, "access_token": _enc(gb.get("access_token")), "refresh_token": _enc(gb.get("refresh_token"))}
+
+
+_ALLOWED_HOSTS = [h.strip().lower() for h in os.environ.get("ALLOWED_PUBLIC_HOSTS", "").split(",") if h.strip()]
+
 def _base(request: Request) -> str:
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    host = (request.headers.get("x-forwarded-host") or request.headers.get("host", "")).split(":")[0].lower()
+    if _ALLOWED_HOSTS and host not in _ALLOWED_HOSTS:
+        host = _ALLOWED_HOSTS[0]
     return f"https://{host}"
 
 
 async def _conn(tid: str) -> dict:
-    return await _raw_db.social_connections.find_one({"tenant_id": tid}, {"_id": 0}) or {}
+    doc = await _raw_db.social_connections.find_one({"tenant_id": tid}, {"_id": 0}) or {}
+    for k in ("facebook", "instagram"):
+        if doc.get(k) and doc[k].get("page_token"):
+            doc[k]["page_token"] = _dec(doc[k]["page_token"])
+    if doc.get("meta_user_token"):
+        doc["meta_user_token"] = _dec(doc["meta_user_token"])
+    for p in doc.get("meta_pages") or []:
+        if p.get("page_token"):
+            p["page_token"] = _dec(p["page_token"])
+    gb = doc.get("google_business")
+    if gb:
+        for k in ("access_token", "refresh_token"):
+            if gb.get(k):
+                gb[k] = _dec(gb[k])
+    return doc
 
 
 async def _new_state(tid: str, provider: str) -> str:
@@ -161,10 +204,10 @@ async def meta_oauth_callback(request: Request, code: str = "", state: str = "",
 
 
 def _page_selection(page: dict) -> dict:
-    sel = {"facebook": {"page_id": page["id"], "page_name": page.get("name"), "page_token": page.get("page_token")}}
+    sel = {"facebook": {"page_id": page["id"], "page_name": page.get("name"), "page_token": _enc(page.get("page_token"))}}
     if page.get("ig_id"):
         sel["instagram"] = {"ig_user_id": page["ig_id"], "username": page.get("ig_username"),
-                            "page_token": page.get("page_token")}
+                            "page_token": _enc(page.get("page_token"))}
     return sel
 
 
@@ -290,7 +333,7 @@ async def _google_token(tid: str) -> tuple[str, dict]:
     td = resp.json()
     gb["access_token"] = td["access_token"]
     gb["expires_at"] = now + td.get("expires_in", 3600)
-    await _raw_db.social_connections.update_one({"tenant_id": tid}, {"$set": {"google_business": gb}})
+    await _raw_db.social_connections.update_one({"tenant_id": tid}, {"$set": {"google_business": _enc_gb(gb)}})
     return gb["access_token"], gb
 
 
@@ -541,3 +584,4 @@ async def publish_post(body: PublishIn, request: Request, admin=Depends(require_
     image_abs = body.image_url if body.image_url.startswith("http") else f"{_base(request)}{body.image_url}"
     results = await publish_content(t["id"], body.caption.strip(), image_abs, body.platforms)
     return {"results": results}
+

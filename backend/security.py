@@ -6,7 +6,8 @@ import bcrypt
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from fastapi import HTTPException, Depends, Request, Response
-from database import db, _current_tenant_id, _super_admin_ok
+from pymongo import ReturnDocument
+from database import db, _current_tenant_id, _super_admin_ok, _raw_db
 
 # ---------------- JWT helpers ----------------
 JWT_ALG = "HS256"
@@ -200,6 +201,34 @@ def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, wi
         raise HTTPException(429, "Too many requests. Please wait a few minutes and try again.")
     bucket.append(now)
     _RATE_BUCKET[key] = bucket
+
+
+_rl_index_ready = False
+
+async def durable_rate_limit(request: Request, key_suffix: str, limit: int, window_sec: int):
+    """Mongo-backed fixed-window rate limit — survives restarts and is shared across workers."""
+    global _rl_index_ready
+    if not _rl_index_ready:
+        await _raw_db.rate_limits.create_index("expire_at", expireAfterSeconds=0)
+        _rl_index_ready = True
+    now = datetime.now(timezone.utc)
+    bucket_key = f"{client_ip(request)}:{key_suffix}:{int(now.timestamp()) // window_sec}"
+    doc = await _raw_db.rate_limits.find_one_and_update(
+        {"_id": bucket_key},
+        {"$inc": {"n": 1}, "$setOnInsert": {"expire_at": now + timedelta(seconds=window_sec * 2)}},
+        upsert=True, return_document=ReturnDocument.AFTER)
+    if doc["n"] > limit:
+        raise HTTPException(429, "Too many requests. Please wait a few minutes and try again.")
+
+
+async def ai_daily_quota(tenant_id: str, kind: str, limit: int):
+    """Per-tenant daily cap on paid-AI calls (LLM / speech). Durable in Mongo."""
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    doc = await _raw_db.ai_quotas.find_one_and_update(
+        {"_id": f"{tenant_id}:{kind}:{day}"}, {"$inc": {"n": 1}},
+        upsert=True, return_document=ReturnDocument.AFTER)
+    if doc["n"] > limit:
+        raise HTTPException(429, "Today's AI assistant limit has been reached — please try again tomorrow or contact the salon directly.")
 
 
 

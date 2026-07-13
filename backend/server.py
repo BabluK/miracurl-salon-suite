@@ -49,7 +49,7 @@ async def _boot_storage():
 from security import (  # noqa: F401 — auth & tenancy guards
     JWT_ALG, jwt_secret, hash_pw, verify_pw, make_access, make_refresh,
     _reject_if_token_predates_password_change, set_auth_cookies,
-    get_current_user, require_admin, public_rate_limit,
+    get_current_user, require_admin, public_rate_limit, durable_rate_limit, ai_daily_quota,
     require_super_admin, require_tenant_admin, current_tenant,
     revoke_token_jtis, _reject_if_revoked,
 )
@@ -5797,6 +5797,8 @@ async def _public_ai_reply(t, session_id: str, message: str):
 async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
     t = await resolve_tenant_from_slug(slug)
     public_rate_limit(request, key_suffix=f"aichat:{slug}", limit=40, window_sec=600)
+    await durable_rate_limit(request, f"aichat:{slug}", limit=40, window_sec=600)
+    await ai_daily_quota(t["id"], "public_ai_chat", 400)
     reply, booking, booking_error = await _public_ai_reply(t, body.session_id, body.message)
     return {"reply": reply, "booking": booking, "booking_error": booking_error}
 
@@ -5805,6 +5807,8 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
     from emergentintegrations.llm.openai import OpenAISpeechToText
     t = await resolve_tenant_from_slug(slug)
     public_rate_limit(request, key_suffix=f"aivoice:{slug}", limit=30, window_sec=600)
+    await durable_rate_limit(request, f"aivoice:{slug}", limit=30, window_sec=600)
+    await ai_daily_quota(t["id"], "public_ai_voice", 150)
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         raise HTTPException(500, "AI key not configured")
