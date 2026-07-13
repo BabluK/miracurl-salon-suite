@@ -290,53 +290,47 @@ async def _live_plans() -> list:
         return []
 
 
-def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str,
-                     plans: list | None = None, track_base: str = "", invite_id: str = "") -> str:
-    name = html_lib.escape(recipient_name or "").strip()
-    salon = html_lib.escape(salon_name or "").strip()
-    greeting = f"Dear {name}," if name else "Dear Salon Owner,"
-    salon_line = f" at <b>{salon}</b>" if salon else ""
-    note_block = ""
-    if note.strip():
-        note_block = f"""
+def _demo_note_block(note: str) -> str:
+    if not note.strip():
+        return ""
+    return f"""
         <tr><td style="padding:0 36px 22px">
           <div style="background:#fdf8ec;border:1px solid #ecdcae;border-radius:12px;padding:16px 20px;font-size:14px;color:#5d5340;line-height:1.6">
             {html_lib.escape(note.strip())}
           </div>
         </td></tr>"""
-    mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
-              f"&body=Hi%20Miracurl%20team%2C%0A%0AI%27d%20love%20a%20demo%20of%20the%20Miracurl%20Salon%20Suite."
-              f"%0AMy%20preferred%20time%3A%20%0AMy%20salon%3A%20%0APhone%3A%20%0A%0AThank%20you!")
-    cta_href = f"{track_base}/api/public/demo-track/{invite_id}/click" if (track_base and invite_id) else mailto
-    pixel = (f'<img src="{track_base}/api/public/demo-track/{invite_id}/open.png" width="1" height="1" '
-             f'style="display:block;width:1px;height:1px;border:0" alt="">') if (track_base and invite_id) else ""
 
-    def _module(icon, title, desc):
-        return f"""
+
+def _demo_module(icon, title, desc):
+    return f"""
         <td width="50%" valign="top" style="padding:10px 12px">
           <div style="font-size:22px;line-height:1">{icon}</div>
           <div style="font-family:Georgia,serif;font-size:15px;color:#1d1d24;margin-top:6px;font-weight:bold">{title}</div>
           <div style="font-size:12.5px;color:#6c6c78;line-height:1.55;margin-top:4px">{desc}</div>
         </td>"""
 
-    agents = [
-        ("🧠", "AI Orchestrator", "the central brain coordinating every agent"),
-        ("📱", "Social Media Agent", "daily posts &amp; flyers, on autopilot"),
-        ("🎥", "Video Creator Agent", "promo videos generated for you"),
-        ("💬", "WhatsApp Agent", "confirmations, win-backs &amp; campaigns"),
-        ("📧", "Email Marketing Agent", "birthday offers &amp; lapsed-client nudges"),
-        ("🔍", "Lead Finder Agent", "captures &amp; qualifies new enquiries"),
-        ("🌐", "SEO Agent", "your Google-indexed public salon page"),
-        ("⭐", "Google Business Agent", "review replies, automatically"),
-        ("👥", "Staff Verification Agent", "Aadhaar-verified registry &amp; ID cards"),
-        ("📊", "Analytics Agent", "weekly &amp; monthly business digests"),
-        ("💼", "Sales Agent", "answers your customers 24/7"),
-        ("📝", "Content Writer Agent", "offers, captions &amp; descriptions"),
-    ]
+
+_DEMO_AGENTS = [
+    ("🧠", "AI Orchestrator", "the central brain coordinating every agent"),
+    ("📱", "Social Media Agent", "daily posts &amp; flyers, on autopilot"),
+    ("🎥", "Video Creator Agent", "promo videos generated for you"),
+    ("💬", "WhatsApp Agent", "confirmations, win-backs &amp; campaigns"),
+    ("📧", "Email Marketing Agent", "birthday offers &amp; lapsed-client nudges"),
+    ("🔍", "Lead Finder Agent", "captures &amp; qualifies new enquiries"),
+    ("🌐", "SEO Agent", "your Google-indexed public salon page"),
+    ("⭐", "Google Business Agent", "review replies, automatically"),
+    ("👥", "Staff Verification Agent", "Aadhaar-verified registry &amp; ID cards"),
+    ("📊", "Analytics Agent", "weekly &amp; monthly business digests"),
+    ("💼", "Sales Agent", "answers your customers 24/7"),
+    ("📝", "Content Writer Agent", "offers, captions &amp; descriptions"),
+]
+
+
+def _demo_agents_block() -> str:
     agent_rows = ""
-    for i in range(0, len(agents), 2):
+    for i in range(0, len(_DEMO_AGENTS), 2):
         cells = ""
-        for icon, title, desc in agents[i:i + 2]:
+        for icon, title, desc in _DEMO_AGENTS[i:i + 2]:
             cells += f"""
             <td width="50%" valign="top" style="padding:7px 12px">
               <div style="font-size:13px;color:#f4f1e8"><span style="font-size:15px">{icon}</span>
@@ -344,7 +338,7 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
               <div style="font-size:11.5px;color:#a49d8e;line-height:1.5;margin-top:2px;padding-left:24px">{desc}</div>
             </td>"""
         agent_rows += f"<tr>{cells}</tr>"
-    agents_block = f"""
+    return f"""
   <tr><td style="padding:10px 24px 6px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#15151b;border-radius:14px">
       <tr><td style="padding:20px 14px 6px 24px">
@@ -359,21 +353,23 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
     </table>
   </td></tr>"""
 
-    pricing_block = ""
-    if plans:
-        show = [p for p in plans if (p.get("branches") or 1) == 1] or plans[:2]
-        rows = ""
-        for p in show:
-            months = max(1, round((p.get("duration_days") or 30) / 30))
-            per_mo = (p.get("price") or 0) / months
-            rows += f"""
+
+def _demo_pricing_block(plans: list | None) -> str:
+    if not plans:
+        return ""
+    show = [p for p in plans if (p.get("branches") or 1) == 1] or plans[:2]
+    rows = ""
+    for p in show:
+        months = max(1, round((p.get("duration_days") or 30) / 30))
+        per_mo = (p.get("price") or 0) / months
+        rows += f"""
         <tr>
           <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>{html_lib.escape(str(p.get('label', '')))}</b>
             <div style="font-size:11px;color:#9a948a">{months} month{'s' if months > 1 else ''} · up to {p.get('branches', 1)} branch{'es' if (p.get('branches') or 1) > 1 else ''}</div></td>
           <td align="right" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:15px;color:#1d1d24"><b>₹{round(p.get('price') or 0):,}</b>
             <div style="font-size:11px;color:#9a948a">≈ ₹{round(per_mo):,}/month</div></td>
         </tr>"""
-        pricing_block = f"""
+    return f"""
   <tr><td style="padding:14px 36px 4px">
     <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold">SIMPLE, HONEST PRICING</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;background:#fdfcf8;border:1px solid #eee9dc;border-radius:12px;overflow:hidden">
@@ -383,6 +379,24 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
       <tr><td colspan="2" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:11px;color:#9a948a">All features included in every plan — POS, bookings, CRM and the full 12-agent AI team. Multi-branch plans also available — ask us in the demo.</td></tr>
     </table>
   </td></tr>"""
+
+
+def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str,
+                     plans: list | None = None, track_base: str = "", invite_id: str = "") -> str:
+    name = html_lib.escape(recipient_name or "").strip()
+    salon = html_lib.escape(salon_name or "").strip()
+    greeting = f"Dear {name}," if name else "Dear Salon Owner,"
+    salon_line = f" at <b>{salon}</b>" if salon else ""
+    note_block = _demo_note_block(note)
+    mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
+              f"&body=Hi%20Miracurl%20team%2C%0A%0AI%27d%20love%20a%20demo%20of%20the%20Miracurl%20Salon%20Suite."
+              f"%0AMy%20preferred%20time%3A%20%0AMy%20salon%3A%20%0APhone%3A%20%0A%0AThank%20you!")
+    cta_href = f"{track_base}/api/public/demo-track/{invite_id}/click" if (track_base and invite_id) else mailto
+    pixel = (f'<img src="{track_base}/api/public/demo-track/{invite_id}/open.png" width="1" height="1" '
+             f'style="display:block;width:1px;height:1px;border:0" alt="">') if (track_base and invite_id) else ""
+    _module = _demo_module
+    agents_block = _demo_agents_block()
+    pricing_block = _demo_pricing_block(plans)
 
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">

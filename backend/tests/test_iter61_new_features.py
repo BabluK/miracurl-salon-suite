@@ -43,7 +43,7 @@ def test_staff_id_card_inactive_400(salon_sess):
     # find any inactive staff
     lst = salon_sess.get(f"{BASE}/api/staff").json()
     staff = lst.get("staff") if isinstance(lst, dict) else lst
-    inactive = [s for s in staff if s.get("active") is False]
+    inactive = [s for s in staff if s.get("active") == False]
     if not inactive:
         pytest.skip("No inactive staff available")
     r = salon_sess.get(f"{BASE}/api/id-cards/staff/{inactive[0]['id']}/pdf")

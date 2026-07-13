@@ -172,7 +172,7 @@ class TestDemoTrackingAndSlot:
                           json={"date": date0, "time": "16:00", "phone": "9998887777"})
         assert r.status_code == 200, r.text[:200]
         d = r.json()
-        assert d["ok"] is True
+        assert d["ok"] == True
         assert "gcal" in d and "calendar.google.com" in d["gcal"]
 
     def test_invites_list(self, super_sess, db):
@@ -273,13 +273,13 @@ class TestReviewRequests:
         r = admin_sess.get(f"{BASE}/api/settings/review-requests")
         assert r.status_code == 200
         d = r.json()
-        assert d["enabled"] is True
+        assert d["enabled"] == True
 
     def test_toggle(self, admin_sess):
         r = admin_sess.put(f"{BASE}/api/settings/review-requests", json={"enabled": False})
-        assert r.status_code == 200 and r.json()["enabled"] is False
+        assert r.status_code == 200 and r.json()["enabled"] == False
         r2 = admin_sess.put(f"{BASE}/api/settings/review-requests", json={"enabled": True})
-        assert r2.status_code == 200 and r2.json()["enabled"] is True
+        assert r2.status_code == 200 and r2.json()["enabled"] == True
 
     def test_pending_and_send(self, admin_sess, db):
         # Seed customer + completed appointment 4h ago

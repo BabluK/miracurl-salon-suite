@@ -97,7 +97,7 @@ def test_partner_inquiry_valid_ok(anon, super_sess):
         assert any("iter59" in (x.get("name") or "") for x in items), "no prior TEST_iter59 lead and rate limited"
         pytest.skip("Rate-limited; existing TEST_iter59 lead reused for follow-up tests")
     assert r.status_code == 200, f"{r.status_code} {r.text}"
-    assert r.json().get("ok") is True
+    assert r.json().get("ok") == True
 
 
 def test_inquiry_appears_in_super_admin_list(super_sess):
@@ -122,7 +122,7 @@ def test_send_thankyou_sends_and_updates(super_sess):
     assert iid
     r = super_sess.post(f"{BASE}/api/super-admin/inquiries/{iid}/send-thankyou", timeout=60)
     assert r.status_code == 200, f"{r.status_code} {r.text}"
-    assert r.json().get("ok") is True
+    assert r.json().get("ok") == True
     # verify persistence
     lst = super_sess.get(f"{BASE}/api/super-admin/inquiries", timeout=15).json()
     items = lst.get("items", lst) if isinstance(lst, dict) else lst
@@ -156,7 +156,7 @@ def test_send_invite_ok_and_meeting_scheduled(super_sess):
     r = super_sess.post(f"{BASE}/api/super-admin/inquiries/{iid}/send-invite", json=payload, timeout=60)
     assert r.status_code == 200, f"{r.status_code} {r.text}"
     j = r.json()
-    assert j.get("ok") is True
+    assert j.get("ok") == True
     assert "when" in j and "IST" in j["when"]
     lst = super_sess.get(f"{BASE}/api/super-admin/inquiries", timeout=15).json()
     items = lst.get("items", lst) if isinstance(lst, dict) else lst

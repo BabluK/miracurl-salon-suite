@@ -186,3 +186,13 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
   - OAuth tokens encrypted at rest (Fernet, TOKEN_ENC_KEY in backend/.env, "enc:" prefix, legacy plaintext passthrough). Enc at write points (meta callback, _page_selection, google callback, _google_token refresh), dec in _conn(). Preview DB migrated (0 docs had tokens).
   - _base() host pinning: ALLOWED_PUBLIC_HOSTS env allowlist (preview + miracurl-suite.com + www) — forged X-Forwarded-Host falls back to first allowed host.
   - NOTE: production deploy ships backend/.env — TOKEN_ENC_KEY & ALLOWED_PUBLIC_HOSTS included automatically.
+
+## 2026-07-13 — Code review fixes
+- Circular import fixed: require_owner_pin + _pin_attempt_guard/fail/clear moved from server.py to security.py; hiring.py imports from security (deleted runtime-import wrapper _owner_pin_dep).
+- day_offers.py bug: pct_rule was built but not injected into the AI prompt — now the JSON schema line uses it (forced discount flows to model).
+- Removed unused security imports from server.py import block.
+- tests/: replaced `is True/False/<num>` literal comparisons with `==` (18 fixes).
+- hq_documents.py: _demo_email_html split into _demo_note_block/_demo_module/_demo_agents_block/_demo_pricing_block (+_DEMO_AGENTS const).
+- FALSE POSITIVE: "hardcoded secret" at social_connect.py:30 is the Google OAuth scope URL, not a secret.
+- DEFERRED: server.py split (84 imports / 6000 lines) — planned refactor backlog item.
+- INCIDENT: server.py got truncated mid-session during edits; restored via `git checkout HEAD -- backend/server.py` then re-applied changes. If server.py syntax errors appear near EOF, check truncation first.

@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from database import db, _raw_db
-from security import require_super_admin, require_tenant_admin, current_tenant, public_rate_limit
+from security import require_super_admin, require_tenant_admin, current_tenant, require_owner_pin, public_rate_limit
 
 log = logging.getLogger("hiring")
 router = APIRouter()
@@ -73,12 +73,6 @@ async def my_requests(user=Depends(require_tenant_admin), t=Depends(current_tena
     return {"requests": reqs}
 
 
-async def _owner_pin_dep(request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    from server import require_owner_pin  # runtime import (server loads routes at startup)
-    await require_owner_pin(request, user, t)
-    return True
-
-
 @router.post("/hiring/requests/{rid}/close")
 async def close_request(rid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     res = await _raw_db.hiring_requests.update_one(
@@ -90,7 +84,7 @@ async def close_request(rid: str, user=Depends(require_tenant_admin), t=Depends(
 
 @router.delete("/hiring/requests/{rid}")
 async def delete_request(rid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant),
-                         _pin=Depends(_owner_pin_dep)):
+                         _pin=Depends(require_owner_pin)):
     """Owner deletes a CLOSED hiring request (and its applications). Owner PIN protected."""
     req = await _raw_db.hiring_requests.find_one({"id": rid, "tenant_id": t["id"]}, {"_id": 0})
     if not req:

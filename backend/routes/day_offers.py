@@ -103,7 +103,7 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint
         f"Design ONE irresistible offer valid {validity}. Pick 1-3 REAL services from the catalog. "
         "Compute offer prices from the real prices using your chosen discount. "
         'Return JSON: {"title":"<catchy 4-7 word offer name>","offer_text":"<one punchy line, e.g. Flat 25% OFF ...>",'
-        '"discount_pct":<int 0-40>,"services":[{"name":"<exact catalog name>","original_price":<num>,"offer_price":<num>}],'
+        f'{pct_rule},"services":[{{"name":"<exact catalog name>","original_price":<num>,"offer_price":<num>}}],'
         '"reasoning":"<2-3 sentences: why THIS offer for THIS moment, mention footfall pattern>",'
         '"whatsapp_caption":"<ready-to-post WhatsApp/Instagram caption with emojis, mention the validity window>"}')
 

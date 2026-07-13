@@ -129,7 +129,7 @@ class TestDayOffers:
         r = admin_session.post(f"{BASE}/api/day-offers/suggest", json={})
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data.get("already_accepted") is True, f"expected already_accepted=True, got {data}"
+        assert data.get("already_accepted") == True, f"expected already_accepted=True, got {data}"
         offer = data.get("offer") or data
         assert offer.get("title"), f"missing title: {data}"
         assert offer.get("services") or offer.get("service_names"), f"missing services: {data}"

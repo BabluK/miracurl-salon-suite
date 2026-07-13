@@ -180,7 +180,7 @@ class TestMarkLeftDisablesLogin:
                   headers={"X-Owner-Pin": "4321"})
         assert r.status_code == 200, r.text
         body = r.json()
-        assert body.get("login_disabled") is True, f"expected login_disabled=True, got {body}"
+        assert body.get("login_disabled") == True, f"expected login_disabled=True, got {body}"
 
         # staff login now blocked
         login_s2 = requests.Session()

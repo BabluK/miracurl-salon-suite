@@ -47,11 +47,10 @@ async def _boot_storage():
         logging.getLogger("storage").warning("Storage init deferred: %s", e)
 
 from security import (  # noqa: F401 — auth & tenancy guards
-    JWT_ALG, jwt_secret, hash_pw, verify_pw, make_access, make_refresh,
-    _reject_if_token_predates_password_change, set_auth_cookies,
+    hash_pw, verify_pw,
     get_current_user, require_admin, public_rate_limit, durable_rate_limit, ai_daily_quota,
-    require_super_admin, require_tenant_admin, current_tenant,
-    revoke_token_jtis, _reject_if_revoked,
+    require_super_admin, require_tenant_admin, current_tenant, require_owner_pin,
+    _pin_attempt_guard, _pin_attempt_fail, _pin_attempt_clear,
 )
 
 # ---------------- Models ----------------
@@ -695,47 +694,6 @@ async def set_security_pin(body: SecurityPinIn, user=Depends(require_tenant_admi
         await _pin_attempt_clear(t["id"])
     await db.tenants.update_one({"id": t["id"]}, {"$set": {"security_pin_hash": hash_pw(body.new_pin)}})
     return {"ok": True, "set": True}
-
-
-async def _pin_attempt_guard(tid: str):
-    rec = await _raw_db.pin_attempts.find_one({"tenant_id": tid})
-    if rec and rec.get("count", 0) >= 5:
-        lu = rec.get("locked_until")
-        if lu and datetime.fromisoformat(lu) > datetime.now(timezone.utc):
-            raise HTTPException(423, "Too many wrong PIN attempts — locked for 15 minutes.")
-
-
-async def _pin_attempt_fail(tid: str):
-    now = datetime.now(timezone.utc)
-    await _raw_db.pin_attempts.update_one(
-        {"tenant_id": tid},
-        {"$inc": {"count": 1},
-         "$set": {"last_attempt": now.isoformat(),
-                  "locked_until": (now + timedelta(minutes=15)).isoformat()}},
-        upsert=True)
-
-
-async def _pin_attempt_clear(tid: str):
-    await _raw_db.pin_attempts.delete_one({"tenant_id": tid})
-
-
-async def require_owner_pin(request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Guards sensitive staff/salary writes on the shared admin login.
-    No-op until the owner sets a Security PIN in Settings. 5 wrong tries = 15-min lockout."""
-    if user.get("role") == "super_admin":
-        return True
-    ph = (t or {}).get("security_pin_hash")
-    if not ph:
-        return True
-    pin = request.headers.get("X-Owner-Pin") or ""
-    if not pin:
-        raise HTTPException(403, "OWNER_PIN_REQUIRED")
-    await _pin_attempt_guard(t["id"])
-    if not verify_pw(pin, ph):
-        await _pin_attempt_fail(t["id"])
-        raise HTTPException(403, "OWNER_PIN_REQUIRED")
-    await _pin_attempt_clear(t["id"])
-    return True
 
 
 class BranchSwitchRequestIn(BaseModel):

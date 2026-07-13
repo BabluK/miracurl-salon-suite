@@ -43,7 +43,7 @@ def test_get_settings(admin_sess):
     d = r.json()
     for k in ("enabled", "daily_post", "winback_emails", "email_daily_cap", "winback_days"):
         assert k in d
-    assert d["enabled"] is True  # main agent enabled it
+    assert d["enabled"] == True  # main agent enabled it
 
 
 def test_put_empty_returns_400(admin_sess):
@@ -86,8 +86,8 @@ def test_run_now_reuses_today_calendar(admin_sess):
     r = admin_sess.post(f"{BASE}/api/mira-studio/autopilot/run-now", timeout=180)
     assert r.status_code == 200, r.text[:300]
     d = r.json()
-    assert d.get("post_created") is True
-    assert d.get("posted_live") is False  # no Meta connection
+    assert d.get("post_created") == True
+    assert d.get("posted_live") == False  # no Meta connection
     assert "emails_sent" in d and "wa_leads" in d
     assert isinstance(d.get("errors", []), list)
 
@@ -125,7 +125,7 @@ def test_tenant_isolation_elegance(eleg_sess):
     r = eleg_sess.get(f"{BASE}/api/mira-studio/autopilot", timeout=15)
     assert r.status_code == 200
     d = r.json()
-    assert d["enabled"] is False  # default off for elegance
+    assert d["enabled"] == False  # default off for elegance
     r2 = eleg_sess.get(f"{BASE}/api/mira-studio/autopilot/activity", timeout=15)
     assert r2.status_code == 200
     d2 = r2.json()
@@ -137,4 +137,4 @@ def test_tenant_isolation_elegance(eleg_sess):
 def test_zzz_leave_enabled(admin_sess):
     admin_sess.put(f"{BASE}/api/mira-studio/autopilot", json={"enabled": True}, timeout=15)
     r = admin_sess.get(f"{BASE}/api/mira-studio/autopilot", timeout=15)
-    assert r.json()["enabled"] is True
+    assert r.json()["enabled"] == True

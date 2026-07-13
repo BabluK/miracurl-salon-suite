@@ -56,8 +56,8 @@ def test_connections_not_configured(sess_a):
     r = sess_a.get(f"{BASE_URL}/api/social/connections", timeout=15)
     assert r.status_code == 200, r.text[:300]
     d = r.json()
-    assert d["meta_configured"] is False
-    assert d["google_configured"] is False
+    assert d["meta_configured"] == False
+    assert d["google_configured"] == False
     assert d["facebook"] is None
     assert d["instagram"] is None
     assert d["google_business"] is None
@@ -106,9 +106,9 @@ def test_publish_not_connected_returns_errors(sess_a):
                           "platforms": ["instagram", "facebook"]}, timeout=15)
     assert r.status_code == 200, r.text[:300]
     results = r.json()["results"]
-    assert results["facebook"]["ok"] is False
+    assert results["facebook"]["ok"] == False
     assert "not connected" in results["facebook"]["error"].lower()
-    assert results["instagram"]["ok"] is False
+    assert results["instagram"]["ok"] == False
     assert "not connected" in results["instagram"]["error"].lower()
 
 
