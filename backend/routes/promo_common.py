@@ -3,9 +3,17 @@ import os
 
 from PIL import Image
 
-FONT_PATH = "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
-
 _ASSETS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+
+# Bundled font first — production containers may not ship system fonts, and PIL's
+# load_default() fallback is a tiny bitmap font with no ₹ glyph (broken flyers).
+_FONT_CANDIDATES = [
+    os.path.join(_ASSETS, "fonts", "FreeSansBold.ttf"),
+    "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+]
+FONT_PATH = next((p for p in _FONT_CANDIDATES if os.path.exists(p)), _FONT_CANDIDATES[0])
+
 BRAND_LOGO = os.path.join(_ASSETS, "brand_logo.png")
 BROCHURE_DIR = os.path.join(_ASSETS, "brochure")
 

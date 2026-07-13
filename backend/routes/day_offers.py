@@ -166,7 +166,9 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, opts: OfferOpts) -> s
         'Return JSON: {"title":"<catchy 4-7 word offer name>","offer_text":"<one punchy line, e.g. Flat 25% OFF ...>",'
         f'{pct_rule},"services":[{{"name":"<exact catalog name>","original_price":<num>,"offer_price":<num>}}],'
         '"reasoning":"<2-3 sentences: why THIS offer for THIS moment, mention footfall pattern>",'
-        '"whatsapp_caption":"<ready-to-post WhatsApp/Instagram caption with emojis, mention the validity window>"}')
+        '"whatsapp_caption":"<ready-to-post WhatsApp/Instagram caption with emojis, mention the validity window>"}'
+        "\nTITLE RULE: the title may only mention service types actually included in the offer — "
+        "never call it a 'Spa' deal (or any other category) unless that exact type of service is in the list.")
 
 
 def _offer_doc(t: dict, data: dict, now: datetime, kind: str) -> dict:

@@ -40,6 +40,16 @@ function getPosition() {
   });
 }
 
+const MOTIVATION = [
+  "You make people feel beautiful — that's a superpower ✨",
+  "Every client you touch today leaves happier. Keep shining!",
+  "Great stylists don't just cut hair — they lift spirits. That's you 💛",
+  "Your hands create confidence. Make today count!",
+  "Smile — your energy is the first thing every client feels ✦",
+  "Small details, big magic. You've got this today!",
+  "Someone will walk out feeling amazing today — because of you 🌟",
+];
+
 export default function StaffPortal() {
   const [profile, setProfile] = useState(null);
   const [attendance, setAttendance] = useState(null);
@@ -178,9 +188,16 @@ export default function StaffPortal() {
             </label>
           </div>
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">Welcome back</div>
-            <div className="font-playfair text-2xl sm:text-3xl truncate">{profile.name}</div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+              {(() => { const h = new Date().getHours(); return h < 12 ? "☀️ Good morning" : h < 17 ? "🌤 Good afternoon" : "🌙 Good evening"; })()}
+            </div>
+            <div className="font-playfair text-2xl sm:text-3xl truncate" data-testid="staff-portal-greeting">
+              {profile.name?.split(" ")[0]} — have a wonderful day!
+            </div>
             <div className="text-white/60 text-sm mt-1">{profile.role}</div>
+            <div className="text-gold/80 text-xs sm:text-sm mt-2 italic" data-testid="staff-motivation-line">
+              “{MOTIVATION[new Date().getDate() % MOTIVATION.length]}”
+            </div>
           </div>
         </div>
       </div>

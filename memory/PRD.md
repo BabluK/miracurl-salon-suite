@@ -214,3 +214,5 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - hq_documents.py: demo_invites status chain extracted to _invite_status().
 - FALSE POSITIVES documented: social_connect.py:30 "secret" = Google OAuth scope URL; "44 undefined vars" — pyflakes clean; flagged `is` usages are correct `is None` / intentional `is False` tri-state checks; `random` in tests generates appointment times (not security material).
 - DEFERRED (explained to user): server.py split (backlog), bulk type-hint coverage, _demo_email_html further shrink (mostly one HTML literal), platform_earnings/demo_campaign_send refactor (working code, churn risk).
+- FLYER FIX (production-only bug): production container lacks system fonts → PIL fell back to load_default() bitmap font → tiny text + □ instead of ₹. Fixed by bundling /app/backend/assets/fonts/FreeSansBold.ttf (has U+20B9) and FONT_PATH candidate chain in promo_common.py (bundled first). Verified: bundled path resolves, ₹ renders.
+- Day Offer title rule added to prompt: title may only mention service categories actually in the offer (no more "Spa Deal" without spa services).
