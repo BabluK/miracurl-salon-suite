@@ -1,12 +1,13 @@
 """Prepaid wallet / membership: pay X get Y credit, redeem at POS."""
+import re
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from database import db
-from security import require_tenant_admin, current_tenant, get_current_user
+from database import db, _raw_db
+from security import require_tenant_admin, current_tenant, get_current_user, durable_rate_limit, public_rate_limit
 
 router = APIRouter()
 
@@ -81,3 +82,33 @@ async def wallet_of_customer(cid: str, user=Depends(get_current_user)):
         raise HTTPException(404, "Customer not found")
     txns = await db.wallet_txns.find({"customer_id": cid}, {"_id": 0}).sort("created_at", -1).to_list(25)
     return {"name": cust["name"], "balance": round(float(cust.get("wallet_balance") or 0), 2), "txns": txns}
+
+
+class BalanceLookupIn(BaseModel):
+    phone: str = Field(..., min_length=8, max_length=16)
+
+
+def _mask_name(name: str) -> str:
+    first = (name or "").split()[0] if name else ""
+    return f"{first[0]}{'*' * max(1, len(first) - 2)}{first[-1]}" if len(first) > 2 else first
+
+
+@router.post("/public/wallet-balance/{slug}")
+async def public_wallet_balance(slug: str, body: BalanceLookupIn, request: Request):
+    """Guest checks their own wallet credit on the booking page. Heavily rate-limited
+    and returns a masked name — no other personal data."""
+    public_rate_limit(request, key_suffix="wallet-lookup", limit=5, window_sec=600)
+    await durable_rate_limit(request, "wallet-lookup", limit=5, window_sec=600)
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    digits = re.sub(r"[^0-9]", "", body.phone)[-10:]
+    if len(digits) < 8:
+        raise HTTPException(400, "Enter a valid phone number")
+    cust = await _raw_db.customers.find_one(
+        {"tenant_id": t["id"], "phone": {"$regex": f"{digits}$"}},
+        {"_id": 0, "name": 1, "wallet_balance": 1})
+    if not cust:
+        return {"found": False}
+    return {"found": True, "name": _mask_name(cust.get("name", "")),
+            "balance": round(float(cust.get("wallet_balance") or 0), 2)}

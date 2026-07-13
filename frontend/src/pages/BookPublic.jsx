@@ -40,6 +40,49 @@ function Stepper({ step }) {
   );
 }
 
+function WalletCheck({ slug }) {
+  const [phone, setPhone] = useState("");
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const check = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const { data } = await PUBLIC.post(`/wallet-balance/${slug}`, { phone });
+      setResult(data);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Try again in a few minutes");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="mb-8 rounded-2xl border border-emerald-400/25 bg-emerald-400/5 p-4" data-testid="wallet-check-widget">
+      {result?.found ? (
+        <div className="flex items-center justify-between flex-wrap gap-2" data-testid="wallet-check-result">
+          <div>
+            <div className="text-sm text-emerald-300 font-semibold">Hi {result.name}! You have <span className="text-gold font-bold">₹{Math.round(result.balance).toLocaleString("en-IN")}</span> salon credit 💸</div>
+            <div className="text-[11px] text-white/40 mt-0.5">Book below — your wallet applies when you pay at the salon ✦</div>
+          </div>
+          <button onClick={() => setResult(null)} className="text-[11px] text-white/40 underline">check another</button>
+        </div>
+      ) : (
+        <form onSubmit={check} className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-white/60 font-medium shrink-0">💳 Have a wallet with us?</span>
+          <input value={phone} onChange={e => setPhone(e.target.value)} type="tel" required minLength={8}
+            placeholder="Your phone number" data-testid="wallet-check-phone-input"
+            className="flex-1 min-w-[160px] bg-white/5 border border-white/15 rounded-full px-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-300/50" />
+          <button type="submit" disabled={busy} data-testid="wallet-check-btn"
+            className="px-4 py-2 rounded-full bg-emerald-400/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold hover:bg-emerald-400/30 disabled:opacity-50">
+            {busy ? "Checking…" : "Check balance"}
+          </button>
+          {result && !result.found && <span className="text-[11px] text-white/40 w-full" data-testid="wallet-check-notfound">No wallet found for that number — ask about our top-up plans on your next visit!</span>}
+        </form>
+      )}
+    </div>
+  );
+}
+
 function OfferCountdown({ endsAt }) {
   const [left, setLeft] = useState(() => new Date(endsAt) - Date.now());
   useEffect(() => {
@@ -297,6 +340,7 @@ export default function BookPublic() {
             </div>
           </div>
         )}
+        {step === 0 && <WalletCheck slug={slug} />}
         {step === 0 && packages.length > 0 && (
           <div className="mb-8" data-testid="packages-section">
             <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-3">✦ Signature packages</div>
