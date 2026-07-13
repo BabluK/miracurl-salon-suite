@@ -66,6 +66,20 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
               />
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label-light block mb-1 inline-flex items-center gap-1">🎯 Monthly target (₹)</label>
+              <input data-testid="staff-target-input" type="number" step="1000" min="0" className="input-light"
+                value={form.monthly_target} onChange={e => setForm({ ...form, monthly_target: e.target.value })} placeholder="e.g. 100000" />
+              <p className="text-[10px] text-slate-400 mt-1">Business goal for the month (services + products)</p>
+            </div>
+            <div>
+              <label className="label-light block mb-1">Target commission %</label>
+              <input data-testid="staff-target-pct-input" type="number" step="0.5" min="0" max="50" className="input-light"
+                value={form.target_commission_pct} onChange={e => setForm({ ...form, target_commission_pct: e.target.value })} placeholder="e.g. 5" />
+              <p className="text-[10px] text-slate-400 mt-1">On hitting target — % of FULL business auto-added to salary</p>
+            </div>
+          </div>
           <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer select-none">
             <input
               data-testid="staff-salary-visible-toggle"

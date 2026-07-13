@@ -4,6 +4,7 @@ export const PAY_LABELS = {
   card: "Card",
   upi: "GPay",
   wallet: "Phone Pay",
+  salon_wallet: "Salon Wallet",
 };
 
 export function payLabel(mode) {

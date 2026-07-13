@@ -257,6 +257,11 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     ctx = await _resolve_billing_context(body, cust)
     totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]
 
+    if body.payment_mode == "salon_wallet":
+        wallet_bal = float(cust.get("wallet_balance") or 0)
+        if wallet_bal < totals["total"]:
+            raise HTTPException(400, f"Insufficient wallet balance — ₹{wallet_bal:.0f} available, bill is ₹{totals['total']:.0f}")
+
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),
         customer_id=cust["id"], customer_name=cust["name"],
@@ -273,6 +278,13 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     inv["coupon_discount"] = totals["coupon_discount"]
     inv["points_used"] = totals["points_used"]
     await db.invoices.insert_one(inv)
+
+    if body.payment_mode == "salon_wallet":
+        await db.customers.update_one({"id": cust["id"]}, {"$inc": {"wallet_balance": -totals["total"]}})
+        await db.wallet_txns.insert_one({
+            "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
+            "type": "redeem", "credit": -totals["total"], "label": f"Bill {inv['invoice_no']}",
+            "invoice_id": inv["id"], "created_at": datetime.now(timezone.utc).isoformat()})
 
     points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"])
     await _process_benefit_items(inv, cust)

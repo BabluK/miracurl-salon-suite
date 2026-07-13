@@ -3,7 +3,7 @@ import { PAY_LABELS } from "@/components/pos/payLabels";
 
 const PAYMENT_MODES = Object.entries(PAY_LABELS).map(([k, label]) => ({ k, label }));
 
-export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment, onClear, onCheckout }) {
+export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment, onClear, onCheckout, walletBalance }) {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -37,6 +37,11 @@ export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment,
               </button>
             ))}
           </div>
+          {payment === "salon_wallet" && (
+            <div className="mt-2 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5" data-testid="pos-wallet-balance">
+              Wallet balance: ₹{Number(walletBalance || 0).toLocaleString("en-IN")}
+            </div>
+          )}
         </div>
       </div>
 

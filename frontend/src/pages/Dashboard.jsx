@@ -6,6 +6,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, 
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
 import DailyReportBanner from "@/components/DailyReportBanner";
+import { CelebrationsCard } from "@/components/CelebrationsCard";
 import { MorningBriefing } from "@/components/MorningBriefing";
 import { getSelectedBranch } from "@/lib/branch";
 import { WhatsAppApprovals } from "@/components/WhatsAppApprovals";
@@ -103,6 +104,7 @@ export default function Dashboard() {
       {isOwner && <MySalonsOverview />}
       {isOwner && <MorningBriefing />}
       {isOwner && <MiraDayOffer />}
+      <CelebrationsCard />
       {isOwner && <WinbackNudges />}
       {isOwner && <DailyReportBanner ownerName={user?.name} />}
       {isOwner && <WhatsAppApprovals />}

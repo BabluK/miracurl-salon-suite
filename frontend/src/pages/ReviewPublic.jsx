@@ -19,6 +19,9 @@ export default function ReviewPublic() {
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(null);
   const [error, setError] = useState("");
+  const [disService, setDisService] = useState("");
+  const [draft, setDraft] = useState(null);
+  const [draftBusy, setDraftBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -41,12 +44,29 @@ export default function ReviewPublic() {
     if (rating === 0) { toast.error("Please tap a star to rate"); return; }
     setBusy(true);
     try {
-      const { data } = await PUBLIC.post(`/review/${token}`, { rating, comment: comment.trim() || null });
+      const { data } = await PUBLIC.post(`/review/${token}`, {
+        rating, comment: comment.trim() || null,
+        disappointed_service: rating <= 3 ? (disService || null) : null,
+      });
       setSubmitted(data);
       toast.success("Thank you for your feedback!");
+      if (rating >= 4) {
+        setDraftBusy(true);
+        PUBLIC.post(`/review-draft/${token}`, { rating })
+          .then(r => setDraft(r.data))
+          .catch(() => {})
+          .finally(() => setDraftBusy(false));
+      }
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't submit");
     } finally { setBusy(false); }
+  }
+
+  async function copyAndOpenGoogle() {
+    const url = draft?.google_review_url || salon?.google_review_url;
+    try { await navigator.clipboard.writeText(draft.text); toast.success("Review copied — just paste it on Google ✦"); }
+    catch { toast.error("Couldn't copy — long-press the text to copy"); }
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
   }
 
   const brandName = info?.salon_name || salon?.name || "Our Salon";
@@ -125,6 +145,18 @@ export default function ReviewPublic() {
                   {rating > 0 && {1:"Sorry to hear that 😔",2:"We'll do better",3:"Thanks for the feedback",4:"So glad you enjoyed it",5:"You made our day! ✦"}[rating]}
                 </p>
 
+                {rating > 0 && rating <= 3 && (
+                  <div className="mt-6 p-4 rounded-md bg-white/5 border border-white/10" data-testid="review-low-rating-block">
+                    <label className="label-luxe block mb-2">Which service disappointed you?</label>
+                    <select data-testid="review-disappointed-select" className="input-luxe" value={disService} onChange={e => setDisService(e.target.value)}>
+                      <option value="">Choose a service (optional)</option>
+                      {(info.service_names || []).map(s => <option key={s} value={s}>{s}</option>)}
+                      <option value="Overall experience">Overall experience</option>
+                    </select>
+                    <p className="text-[10px] text-ink-muted mt-2">Your feedback goes privately to the salon owner — it is never published anywhere.</p>
+                  </div>
+                )}
+
                 <div className="mt-6">
                   <label className="label-luxe block mb-2">Tell us more (optional)</label>
                   <textarea
@@ -133,7 +165,7 @@ export default function ReviewPublic() {
                     className="input-luxe"
                     value={comment}
                     onChange={e => setComment(e.target.value)}
-                    placeholder={rating >= 4 ? "What did you love most about your visit?" : "How can we improve?"}
+                    placeholder={rating >= 4 ? "What did you love most about your visit?" : "Tell us what went wrong — the owner reads every word"}
                     maxLength={600}
                   />
                   <div className="text-[10px] text-ink-muted text-right mt-1">{comment.length}/600</div>
@@ -199,8 +231,37 @@ export default function ReviewPublic() {
               </div>
             )}
 
+            {/* Mira-written Google review — one-tap copy & paste for 4★+ */}
+            {submitted.review.rating >= 4 && (draftBusy || draft) && (
+              <div className="card-luxe mt-6 text-left" data-testid="mira-review-draft">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">✨</span>
+                  <h3 className="font-playfair text-xl">Mira wrote your Google review</h3>
+                </div>
+                {draftBusy ? (
+                  <p className="text-sm text-ink-secondary animate-pulse py-4">Mira is writing a review based on your visit…</p>
+                ) : (
+                  <>
+                    <textarea data-testid="mira-draft-text" rows="4" className="input-luxe text-sm" value={draft.text}
+                      onChange={e => setDraft({ ...draft, text: e.target.value })} maxLength={600} />
+                    <p className="text-[10px] text-ink-muted mt-1">Edit it if you like — it&apos;s your review.</p>
+                    <button data-testid="copy-open-google-btn" onClick={copyAndOpenGoogle}
+                      className="btn-gold w-full mt-3 flex items-center justify-center gap-2 text-sm">
+                      <Copy className="w-3.5 h-3.5" /> Copy &amp; Open Google — just paste ✦
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {submitted.review.rating <= 3 && (
+              <div className="card-luxe mt-6 text-left bg-white/5" data-testid="complaint-ack">
+                <p className="text-sm text-ink-secondary">💌 Your feedback has gone <b className="text-gold">directly to the salon owner</b> — not published anywhere. They take this personally and will make it right.</p>
+              </div>
+            )}
+
             {/* Google Review CTA — most prominent for 4★+ */}
-            {salon?.google_review_url && submitted.review.rating >= 4 && (
+            {salon?.google_review_url && submitted.review.rating >= 4 && !draft && !draftBusy && (
               <div className="card-luxe mt-6 text-left relative overflow-hidden" data-testid="google-review-cta">
                 <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-gold/5 blur-2xl pointer-events-none" />
                 <div className="relative">

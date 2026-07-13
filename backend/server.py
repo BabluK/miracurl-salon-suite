@@ -176,6 +176,8 @@ class Staff(BaseModel):
     notice_period_days: int = 30
     serving_notice: bool = False
     notice_start_date: Optional[str] = None
+    monthly_target: float = 0.0
+    target_commission_pct: float = 0.0
     last_working_day: Optional[str] = None
     aadhaar_last4: Optional[str] = None  # only last 4 shown; full number never stored
     aadhaar_hash: Optional[str] = None
@@ -201,6 +203,8 @@ class StaffIn(BaseModel):
     notice_period_days: int = 30
     serving_notice: bool = False
     notice_start_date: Optional[str] = None
+    monthly_target: float = 0.0
+    target_commission_pct: float = 0.0
     last_working_day: Optional[str] = None
     aadhaar: Optional[str] = None        # write-only: hashed server-side
     branch: Optional[str] = None
@@ -246,6 +250,7 @@ class Review(BaseModel):
 class ReviewIn(BaseModel):
     rating: int = Field(..., ge=1, le=5)
     comment: Optional[str] = Field(None, max_length=600)
+    disappointed_service: Optional[str] = Field(None, max_length=120)
 
 class ReviewModerateIn(BaseModel):
     public: bool
@@ -1830,6 +1835,12 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
     # Product sales commission (default 2% of product price; tenant can override)
     product_pct = float(tenant.get("product_commission_pct") or PRODUCT_COMMISSION_PCT)
     product_commission = round(earn["product_gross"] * product_pct / 100, 2)
+    # Monthly target bonus: if staff's FULL business crosses the admin-set target,
+    # the target % applies on the entire business amount (owner's chosen scheme).
+    monthly_target = float(staff.get("monthly_target") or 0)
+    target_pct = float(staff.get("target_commission_pct") or 0)
+    target_achieved = monthly_target > 0 and gross >= monthly_target
+    target_bonus = round(gross * target_pct / 100, 2) if (target_achieved and target_pct > 0) else 0.0
     # Attendance
     att_start = f"{year:04d}-{month:02d}-01"
     att_end = f"{year:04d}-{month:02d}-{end_day:02d}"
@@ -1843,7 +1854,7 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
     advance_total = round(sum(float(a.get("amount") or 0) for a in adv_rows), 2)
     base = float(staff.get("monthly_base_salary") or 0)
     deductions_total = round(att["late_penalty_total"] + advance_total, 2)
-    total = round(base + commission + product_commission + att["overtime_total"] - deductions_total, 2)
+    total = round(base + commission + product_commission + target_bonus + att["overtime_total"] - deductions_total, 2)
     return {
         "period": f"{year:04d}-{month:02d}",
         "period_label": datetime(year, month, 1).strftime("%B %Y"),
@@ -1865,6 +1876,10 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         "product_count": earn["product_count"],
         "product_commission_pct": round(product_pct, 2),
         "product_commission_amount": product_commission,
+        "monthly_target": round(monthly_target, 2),
+        "target_commission_pct": round(target_pct, 2),
+        "target_achieved": target_achieved,
+        "target_bonus": target_bonus,
         **att,
         "advance_total": advance_total,
         "deductions_total": deductions_total,
@@ -1885,6 +1900,36 @@ def _parse_month(month: Optional[str]) -> tuple:
             raise HTTPException(400, "month must be YYYY-MM")
         return y, m
     return now.year, now.month
+
+
+@api.get("/staff/leaderboard")
+async def staff_leaderboard(month: Optional[str] = None, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Monthly business per staff, ranked — with target achievement & auto-bonus."""
+    from calendar import monthrange
+    y, m = _parse_month(month)
+    end_day = monthrange(y, m)[1]
+    invs = await db.invoices.find(
+        {"created_at": {"$gte": f"{y:04d}-{m:02d}-01T00:00:00Z", "$lte": f"{y:04d}-{m:02d}-{end_day:02d}T23:59:59Z"}},
+        {"_id": 0, "items": 1, "staff_id": 1}).to_list(5000)
+    rows = []
+    for s in await db.staff.find({"active": {"$ne": False}}, {"_id": 0}).to_list(200):
+        earn = _staff_invoice_earnings(invs, s["id"])
+        target = float(s.get("monthly_target") or 0)
+        pct = float(s.get("target_commission_pct") or 0)
+        achieved = target > 0 and earn["gross"] >= target
+        rows.append({
+            "staff_id": s["id"], "name": s.get("name"), "role": s.get("role"), "image_url": s.get("image_url"),
+            "business": round(earn["gross"], 2), "service_count": earn["service_count"],
+            "product_count": earn["product_count"],
+            "monthly_target": target, "target_commission_pct": pct,
+            "achieved_pct": round(earn["gross"] / target * 100, 1) if target > 0 else None,
+            "target_achieved": achieved,
+            "target_bonus": round(earn["gross"] * pct / 100, 2) if (achieved and pct > 0) else 0.0,
+        })
+    rows.sort(key=lambda r: -r["business"])
+    for i, r in enumerate(rows):
+        r["rank"] = i + 1
+    return {"period": f"{y:04d}-{m:02d}", "rows": rows}
 
 
 @api.get("/staff/me/salary-slip")
@@ -2311,7 +2356,8 @@ async def reviews_pending_requests(user=Depends(require_tenant_admin), t=Depends
                f"We'd love to hear how it went — it takes 20 seconds: {url}")
         items.append({"appointment_id": a["id"], "customer_name": a.get("customer_name", ""),
                       "scheduled_at": a.get("scheduled_at"), "email": a["email"], "phone": a["phone"],
-                      "wa_link": f"https://wa.me/{re.sub(r'[^0-9]', '', a['phone'])}?text={quote(msg)}" if a["phone"] else None})
+                      "wa_link": f"https://wa.me/{re.sub(r'[^0-9]', '', a['phone'])}?text={quote(msg)}" if a["phone"] else None,
+                      "sms_link": f"sms:{a['phone']}?&body={quote(msg)}" if a["phone"] else None})
     return {"items": items}
 
 
@@ -2320,9 +2366,12 @@ async def reviews_request_now(user=Depends(require_tenant_admin), t=Depends(curr
     return await _run_review_requests(t["id"])
 
 
+DEFAULT_BIRTHDAY_OFFER = "Free Hair Spa this week 🎂"
+
+
 async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
-    """Email birthday wishes to every guest whose dob is today (IST). Used by the
-    daily scheduler AND the admin 'send now' button."""
+    """Email birthday + anniversary wishes to guests whose special day is today (IST).
+    Used by the daily scheduler AND the admin 'send now' button."""
     ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
     mmdd = ist.strftime("%m-%d")
     flt = {"id": tenant_id} if tenant_id else {"status": {"$in": ["active", "trial"]}}
@@ -2332,20 +2381,48 @@ async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
     for t in tenants:
         if not tenant_id and t.get("birthday_emails_enabled") is False:
             continue
-        custs = await _raw_db.customers.find(
-            {"tenant_id": t["id"], "dob": {"$regex": f"-{mmdd}$"},
-             "email": {"$exists": True, "$nin": [None, ""]}},
-            {"_id": 0, "name": 1, "email": 1}).to_list(200)
-        for c in custs:
-            status = await _send_email(
-                [c["email"]],
-                f"🎂 Happy Birthday {c['name']} — from {t.get('name', 'your salon')} ✦",
-                _birthday_email_html(t, c["name"], t.get("birthday_offer_text") or "",
-                                     f"{app_url}/book/{t.get('slug', '')}"))
-            results.append({"tenant": t["name"], "customer": c["name"], "email": c["email"],
-                            "sent": status.get("sent", False), "error": status.get("error")})
+        offer = t.get("birthday_offer_text") or DEFAULT_BIRTHDAY_OFFER
+        book_url = f"{app_url}/book/{t.get('slug', '')}"
+        occasions = [
+            ("dob", f"🎂 Happy Birthday {{name}} — from {t.get('name', 'your salon')} ✦"),
+            ("anniversary", f"💞 Happy Anniversary {{name}} — from {t.get('name', 'your salon')} ✦"),
+        ]
+        for field, subject_tpl in occasions:
+            custs = await _raw_db.customers.find(
+                {"tenant_id": t["id"], field: {"$regex": f"-{mmdd}$"},
+                 "email": {"$exists": True, "$nin": [None, ""]}},
+                {"_id": 0, "name": 1, "email": 1}).to_list(200)
+            for c in custs:
+                status = await _send_email(
+                    [c["email"]], subject_tpl.format(name=c["name"]),
+                    _birthday_email_html(t, c["name"], offer, book_url))
+                results.append({"tenant": t["name"], "customer": c["name"], "email": c["email"],
+                                "occasion": field, "sent": status.get("sent", False), "error": status.get("error")})
     sent = sum(1 for r in results if r["sent"])
     return {"date": ist.strftime("%Y-%m-%d"), "sent": sent, "failed": len(results) - sent, "results": results}
+
+
+@api.get("/crm/celebrations-today")
+async def celebrations_today(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Today's birthdays & anniversaries with one-tap WhatsApp / SMS links."""
+    ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    mmdd = ist.strftime("%m-%d")
+    app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    offer = t.get("birthday_offer_text") or DEFAULT_BIRTHDAY_OFFER
+    book_url = f"{app_url}/book/{t.get('slug', '')}"
+    out = {"offer_text": offer, "birthdays": [], "anniversaries": []}
+    for field, key, emoji, word in (("dob", "birthdays", "🎂", "Birthday"), ("anniversary", "anniversaries", "💞", "Anniversary")):
+        custs = await db.customers.find(
+            {field: {"$regex": f"-{mmdd}$"}},
+            {"_id": 0, "id": 1, "name": 1, "phone": 1, "email": 1}).to_list(100)
+        for c in custs:
+            msg = (f"{emoji} Happy {word} {c['name']}! Team {t.get('name', 'your salon')} wishes you a wonderful day. "
+                   f"Our gift to you: {offer} — book here: {book_url}")
+            digits = re.sub(r"[^0-9]", "", c.get("phone") or "")
+            out[key].append({**c,
+                             "wa_link": f"https://wa.me/{digits}?text={quote(msg)}" if digits else None,
+                             "sms_link": f"sms:{c.get('phone')}?&body={quote(msg)}" if digits else None})
+    return out
 
 
 @api.post("/crm/send-birthday-wishes")
@@ -3030,6 +3107,18 @@ async def public_review(token: str, body: ReviewIn, request: Request):
         reward_code=reward_code,
     ).model_dump()
     await db.reviews.insert_one(review)
+
+    if body.rating <= 3:
+        # Low ratings become a PRIVATE complaint for the owner — never published.
+        await db.complaints.insert_one({
+            "id": str(uuid.uuid4()), "appointment_id": token,
+            "customer_id": appt["customer_id"], "customer_name": appt["customer_name"],
+            "customer_phone": appt.get("customer_phone"),
+            "rating": body.rating, "service_names": appt.get("service_names", []),
+            "staff_name": appt.get("staff_name"),
+            "disappointed_service": (body.disappointed_service or "").strip() or None,
+            "message": (body.comment or "").strip() or None,
+            "status": "open", "created_at": datetime.now(timezone.utc).isoformat()})
     return {
         "ok": True,
         "review": _clean(review),
@@ -3038,6 +3127,52 @@ async def public_review(token: str, body: ReviewIn, request: Request):
             "credit": REVIEW_REWARD_CREDIT if reward_code else 0,
         } if reward_code else None,
     }
+
+class ReviewDraftIn(BaseModel):
+    rating: int = Field(..., ge=4, le=5)
+
+
+@api.post("/public/review-draft/{token}")
+async def public_review_draft(token: str, body: ReviewDraftIn, request: Request):
+    """Mira writes a ready-to-paste Google review from the guest's actual visit (4-5★ only)."""
+    public_rate_limit(request, key_suffix="review-draft", limit=6, window_sec=600)
+    await durable_rate_limit(request, "review-draft", limit=6, window_sec=600)
+    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
+    if not appt:
+        raise HTTPException(404, "Invalid review link")
+    tid = appt.get("tenant_id")
+    if tid:
+        _current_tenant_id.set(tid)
+        await ai_daily_quota(tid, "review_draft", 100)
+    t = await _raw_db.tenants.find_one({"id": tid}, {"_id": 0, "name": 1, "location": 1, "google_review_url": 1}) or {}
+    from routes.mira_common import _ask
+    services = ", ".join(appt.get("service_names") or []) or "salon services"
+    stylist = appt.get("staff_name") or ""
+    text = await _ask(
+        "You write short, authentic-sounding Google reviews for happy salon customers. "
+        "Sound like a real person, not marketing. No hashtags. 2-4 sentences. At most one emoji.",
+        f"Customer {appt.get('customer_name', '')} just had {services}"
+        f"{' with stylist ' + stylist if stylist else ''} at {t.get('name', 'the salon')}"
+        f"{' (' + t.get('location', '') + ')' if t.get('location') else ''} and rated it {body.rating} stars. "
+        f"Write the review in first person. Mention the actual service(s) naturally.")
+    return {"text": text.strip().strip('"')[:600], "google_review_url": t.get("google_review_url") or ""}
+
+
+@api.get("/complaints")
+async def list_complaints(user=Depends(require_tenant_admin), t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
+    """PIN-locked: private low-rating complaints for the owner's eyes only."""
+    return await db.complaints.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+
+@api.post("/complaints/{cid}/resolve")
+async def resolve_complaint(cid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
+    res = await db.complaints.update_one(
+        {"id": cid}, {"$set": {"status": "resolved", "resolved_at": datetime.now(timezone.utc).isoformat(),
+                               "resolved_by": user.get("email")}})
+    if not res.matched_count:
+        raise HTTPException(404, "Complaint not found")
+    return {"ok": True}
+
 
 _TEST_REVIEW_FILTER = {"$nor": [{"customer_name": {"$regex": "^TEST", "$options": "i"}},
                                 {"comment": {"$regex": "^TEST", "$options": "i"}}]}
@@ -5947,6 +6082,8 @@ from routes.offer_flyer import router as offer_flyer_router  # noqa: E402 — te
 api.include_router(offer_flyer_router)
 from routes.packages import router as packages_router  # noqa: E402 — Mira men/women packages
 api.include_router(packages_router)
+from routes.wallet import router as wallet_router  # noqa: E402 — prepaid wallet / membership
+api.include_router(wallet_router)
 from routes.id_cards import router as id_cards_router  # noqa: E402 — employee ID card PDFs
 api.include_router(id_cards_router)
 from routes.releases import router as releases_router  # noqa: E402 — deployment history

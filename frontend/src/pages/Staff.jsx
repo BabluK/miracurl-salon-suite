@@ -10,6 +10,7 @@ import { StaffFormModal } from "@/components/staff/StaffFormModal";
 import { AdvanceModal } from "@/components/staff/AdvanceModal";
 import { TempCredModal } from "@/components/staff/TempCredModal";
 import { LeaveApprovalsPanel } from "@/components/staff/LeaveApprovalsPanel";
+import { StaffLeaderboard } from "@/components/staff/StaffLeaderboard";
 
 const EMPTY_FORM = {
   name: "", role: "Stylist", phone: "", email: "", specialties: "",
@@ -18,6 +19,7 @@ const EMPTY_FORM = {
   shift_start: "10:00", shift_end: "21:00", overtime_rate: 0, week_off_day: "",
   max_advance: 0, notice_period_days: 30, serving_notice: false,
   last_working_day: "", aadhaar: "", branch: "",
+  monthly_target: 0, target_commission_pct: 0,
 };
 
 const buildStaffPayload = (form) => ({
@@ -32,6 +34,8 @@ const buildStaffPayload = (form) => ({
   serving_notice: !!form.serving_notice,
   last_working_day: form.last_working_day || null,
   aadhaar: (form.aadhaar || "").trim() || null,
+  monthly_target: parseFloat(form.monthly_target) || 0,
+  target_commission_pct: parseFloat(form.target_commission_pct) || 0,
 });
 
 export default function Staff() {
@@ -200,6 +204,8 @@ export default function Staff() {
           </div>
         </div>
       )}
+
+      <StaffLeaderboard />
 
       <LeaveApprovalsPanel />
 

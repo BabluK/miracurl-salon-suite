@@ -1,13 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
-import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload } from "lucide-react";
+import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { WalletDialog } from "@/components/WalletDialog";
 
 export default function Customers() {
   const [list, setList] = useState([]);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [walletFor, setWalletFor] = useState(null);
   const [form, setForm] = useState({ name: "", phone: "", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" });
 
   const load = useCallback(async () => {
@@ -94,7 +96,7 @@ export default function Customers() {
         <table className="luxe-table-light min-w-[720px]">
           <thead>
             <tr>
-              <th>Customer</th><th>Contact</th><th>Gender</th><th>Visits</th><th>Spent</th><th>Loyalty</th><th></th>
+              <th>Customer</th><th>Contact</th><th>Gender</th><th>Visits</th><th>Spent</th><th>Loyalty</th><th>Wallet</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -122,6 +124,12 @@ export default function Customers() {
                   </span>
                 </td>
                 <td>
+                  <button data-testid={`wallet-customer-${c.id}`} onClick={() => setWalletFor(c)}
+                    className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg hover:bg-emerald-100">
+                    <Wallet className="w-3 h-3" /> ₹{(c.wallet_balance || 0).toLocaleString("en-IN")}
+                  </button>
+                </td>
+                <td>
                   <div className="flex items-center gap-2 justify-end">
                     <button data-testid={`edit-customer-${c.id}`} onClick={() => startEdit(c)} className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-sky-600 transition"><Edit3 className="w-4 h-4" /></button>
                     <button data-testid={`delete-customer-${c.id}`} onClick={() => remove(c.id)} className="p-2 hover:bg-red-500/10 rounded text-slate-500 hover:text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
@@ -130,11 +138,13 @@ export default function Customers() {
               </tr>
             ))}
             {list.length === 0 && (
-              <tr><td colSpan="7" className="text-center text-slate-500 py-12">No customers yet. Add your first one!</td></tr>
+              <tr><td colSpan="8" className="text-center text-slate-500 py-12">No customers yet. Add your first one!</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {walletFor && <WalletDialog customer={walletFor} onClose={() => setWalletFor(null)} onChanged={load} />}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>

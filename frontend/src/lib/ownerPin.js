@@ -34,6 +34,7 @@ function askPin() {
 function call(method, url, data) {
   const headers = cachedPin ? { "X-Owner-Pin": cachedPin } : {};
   if (method === "delete") return api.delete(url, { headers });
+  if (method === "get") return api.get(url, { headers });
   return api[method](url, data, { headers });
 }
 
@@ -63,6 +64,7 @@ async function withPin(method, url, data) {
 }
 
 const pinApi = {
+  get: (url) => withPin("get", url),
   post: (url, data) => withPin("post", url, data),
   put: (url, data) => withPin("put", url, data),
   delete: (url) => withPin("delete", url),

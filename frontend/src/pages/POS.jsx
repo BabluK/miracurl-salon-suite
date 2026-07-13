@@ -291,6 +291,7 @@ export default function POS() {
           <PaymentSection
             orderNotes={orderNotes} setOrderNotes={setOrderNotes}
             payment={payment} setPayment={setPayment}
+            walletBalance={customers.find(c => c.id === customerId)?.wallet_balance || 0}
             onClear={clearAll} onCheckout={checkout}
           />
         </div>

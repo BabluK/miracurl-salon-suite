@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { Star, Eye, EyeOff, Trash2, MessageSquare, Sparkles, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ReviewRequestsCard } from "@/components/ReviewRequestsCard";
+import { ComplaintsPanel } from "@/components/ComplaintsPanel";
 
 function AiReplyBox({ r, onSaved }) {
   const [draft, setDraft] = useState(r.owner_reply || "");
@@ -126,6 +127,8 @@ export default function Reviews() {
       </div>
 
       <ReviewRequestsCard />
+
+      <ComplaintsPanel />
 
       {/* Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

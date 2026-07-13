@@ -106,6 +106,9 @@ class _DB:
     branch_switch_requests = TenantCollection(_raw_db.branch_switch_requests)
     sms_pack_payments = TenantCollection(_raw_db.sms_pack_payments)
     entertainment_playlists = TenantCollection(_raw_db.entertainment_playlists)
+    wallet_plans = TenantCollection(_raw_db.wallet_plans)
+    wallet_txns = TenantCollection(_raw_db.wallet_txns)
+    complaints = TenantCollection(_raw_db.complaints)
 
 db = _DB()
 
