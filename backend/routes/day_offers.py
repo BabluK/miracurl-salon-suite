@@ -193,18 +193,24 @@ async def accept_offer(body: AcceptIn, request: Request, user=Depends(require_te
     except Exception as e:
         logging.getLogger("day_offers").warning(f"flyer generation failed, accepting without flyer: {e}")
         flyer_id, flyer_url = None, None
-    google_post = None
+    google_post, meta_post = None, None
     try:
-        from routes.social_connect import publish_google_post, _base
+        from routes.social_connect import publish_google_post, publish_content, _base
         lines = "\n".join(f"• {s['name']}: ₹{s['offer_price']:.0f} (was ₹{s['original_price']:.0f})" for s in doc["services"])
         summary = f"{doc['title']}\n{doc['offer_text']}\n{lines}\nValid TODAY only — walk in or book now!"
         image_abs = f"{_base(request)}{flyer_url}" if flyer_url else None
         google_post = await publish_google_post(t["id"], summary, image_abs, offer_title=doc["title"])
+        if image_abs:
+            meta_post = await publish_content(
+                t["id"], doc.get("whatsapp_caption") or summary, image_abs, ["instagram", "facebook"])
+        else:
+            meta_post = {"instagram": {"ok": False, "error": "No flyer image"},
+                         "facebook": {"ok": False, "error": "No flyer image"}}
     except Exception as e:
-        logging.getLogger("day_offers").warning(f"google auto-post failed: {e}")
-        google_post = {"ok": False, "error": str(e)[:200]}
+        logging.getLogger("day_offers").warning(f"social auto-post failed: {e}")
+        google_post = google_post or {"ok": False, "error": str(e)[:200]}
     patch = {"status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat(),
-             "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post}
+             "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post, "meta_post": meta_post}
     await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
     if doc.get("kind") == "flash":
         await _raw_db.flash_alerts.update_one(

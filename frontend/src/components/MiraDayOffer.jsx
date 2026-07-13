@@ -43,6 +43,16 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, testPrefix }) 
                 <CheckCircle2 className="w-4 h-4" /> Posted on Google
               </div>
             )}
+            {offer.meta_post?.instagram?.ok && (
+              <div className="inline-flex items-center gap-1.5 text-pink-300 text-sm font-medium px-1" data-testid={`${testPrefix}-ig-posted`}>
+                <CheckCircle2 className="w-4 h-4" /> Instagram
+              </div>
+            )}
+            {offer.meta_post?.facebook?.ok && (
+              <div className="inline-flex items-center gap-1.5 text-blue-300 text-sm font-medium px-1" data-testid={`${testPrefix}-fb-posted`}>
+                <CheckCircle2 className="w-4 h-4" /> Facebook
+              </div>
+            )}
             {offer.google_post && !offer.google_post.ok && (
               <div className="inline-flex items-center text-white/40 text-xs px-1" title={offer.google_post.error} data-testid={`${testPrefix}-google-skipped`}>
                 Google post skipped — {String(offer.google_post.error || "").slice(0, 60)}
