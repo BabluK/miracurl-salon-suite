@@ -62,7 +62,7 @@ DEFAULT_TENANT_SLUG = "miracurl-marathahalli"
 
 from models import (  # noqa: E402 — shared models (models.py)
     Tenant, Customer, Appointment,
-    REVIEW_REWARD_CREDIT, MAX_CUSTOMER_CREDIT,
+    REVIEW_REWARD_CREDITS, MAX_CUSTOMER_CREDIT,
     REFERRAL_REWARD_REFERRER, REFERRAL_REWARD_REFERRED,
 )
 from services.billing import (  # noqa: E402 — shared billing helpers
@@ -3085,14 +3085,15 @@ async def public_review(token: str, body: ReviewIn, request: Request):
         {"_id": 0, "id": 1})
 
     reward_code = None
-    if body.rating >= 4 and invoiced:
+    reward_amt = REVIEW_REWARD_CREDITS.get(body.rating, 0)
+    if reward_amt and invoiced:
         cust_now = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0, "referral_credit": 1})
         current_credit = float((cust_now or {}).get("referral_credit") or 0)
         if current_credit < MAX_CUSTOMER_CREDIT:
             reward_code = f"THANKS-{secrets.token_urlsafe(3).upper().replace('_', 'X').replace('-', 'Y')[:5]}"
             await db.customers.update_one(
                 {"id": appt["customer_id"]},
-                {"$inc": {"referral_credit": REVIEW_REWARD_CREDIT}},
+                {"$inc": {"referral_credit": reward_amt}},
             )
 
     review = Review(
@@ -3124,7 +3125,7 @@ async def public_review(token: str, body: ReviewIn, request: Request):
         "review": _clean(review),
         "reward": {
             "code": reward_code,
-            "credit": REVIEW_REWARD_CREDIT if reward_code else 0,
+            "credit": reward_amt if reward_code else 0,
         } if reward_code else None,
     }
 

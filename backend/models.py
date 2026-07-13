@@ -35,7 +35,7 @@ class Tenant(BaseModel):
 
 
 # ---------------- Credits / rewards constants ----------------
-REVIEW_REWARD_CREDIT = 50.0  # ₹ credit for 4★+ reviews
+REVIEW_REWARD_CREDITS = {4: 20.0, 5: 30.0}  # ₹ credit by rating
 # SEC-002: hard cap on referral/review credits a single customer can accumulate.
 # Prevents automated "sign up as new customer, book, refer myself" farming loops.
 MAX_CUSTOMER_CREDIT = 2000.0

@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-13.2"
-BUILD_TIME = "13 Jul 2026, 7:15 PM IST"
+BUILD = "2026-07-13.3"
+BUILD_TIME = "13 Jul 2026, 7:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-13",
         "changes": [
+            "Smarter review rewards ⭐ — 5★ reviews now earn ₹30 credit, 4★ earn ₹20 (auto-applied on the next visit), with a 'make it 5★ for ₹30' nudge",
+            "Mira pre-writes the review ✍️ — tap 4★ or 5★ and Mira instantly drafts a personal comment from the guest's actual service & stylist; fully editable, and it doubles as their Google review after submit",
             "Monday auto-package suggester 📅 — when your package expires, Mira drafts a fresh one every Monday (audience rotates Men → Women → Family) and emails you; you approve & publish when ready — nothing goes live without your OK",
             "You control the offer 🎛️ — pick the exact discount % (5-50%) and the service tier (Premium: Color, Keratin, Botox / Budget crowd-pullers) before asking Mira; she calculates prices from YOUR choice",
             "Mira auto-rhythm 🧠 — left on 'Mira picks'? She reads your footfall: budget crowd-pullers when visits drop, premium high-margin deals on lean weekdays",

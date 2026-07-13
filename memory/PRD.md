@@ -228,3 +228,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - MiraPackagesCard.jsx: "Mira's Monday suggestion" badge (data-testid package-auto-suggested-badge) on auto-suggested drafts.
 - Verified: draft created for expired-package tenant, idempotent re-run (0 suggested), live/fresh packages skipped, badge visible in UI.
 - BUILD bumped to 2026-07-13.2 in release_notes.py.
+
+## 2026-07-13 — Tiered review rewards + Mira comment prefill
+- models.py: REVIEW_REWARD_CREDIT (flat ₹50) → REVIEW_REWARD_CREDITS = {4: 20.0, 5: 30.0}; server.py public_review uses reward_amt by rating (invoice check + MAX_CUSTOMER_CREDIT cap unchanged).
+- ReviewPublic.jsx: pickRating() — selecting 4/5★ calls /public/review-draft/{token} and prefills the comment box with Mira's service-specific draft (cached per rating, never overwrites user-typed text, "✨ Written by Mira" hint). Reward banner now rating-aware: 5★ → ₹30, 4★ → ₹20 + upsell "make it 5★ for ₹30". WA share text uses dynamic credit amount. If comment ≥20 chars, it's reused as the post-submit Google review draft (saves an AI call).
+- Verified E2E: 5★ → credit 30, 4★ → credit 20 (curl), prefill + both banners confirmed via browser. Test data cleaned, credit rolled back.
+- BUILD bumped to 2026-07-13.3.

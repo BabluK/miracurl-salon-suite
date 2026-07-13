@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import { Scissors, Star, Check, IndianRupee, Heart, Copy, Share2, ExternalLink } from "lucide-react";
@@ -22,6 +22,9 @@ export default function ReviewPublic() {
   const [disService, setDisService] = useState("");
   const [draft, setDraft] = useState(null);
   const [draftBusy, setDraftBusy] = useState(false);
+  const [prefillBusy, setPrefillBusy] = useState(false);
+  const prefillCache = useRef({});
+  const autoFilled = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -40,6 +43,24 @@ export default function ReviewPublic() {
     })();
   }, [token]);
 
+  async function pickRating(n) {
+    setRating(n);
+    if (n < 4 || (comment.trim() && !autoFilled.current)) return;
+    if (prefillCache.current[n]) {
+      setComment(prefillCache.current[n]);
+      autoFilled.current = true;
+      return;
+    }
+    setPrefillBusy(true);
+    try {
+      const { data } = await PUBLIC.post(`/review-draft/${token}`, { rating: n });
+      prefillCache.current[n] = data.text;
+      setComment(data.text);
+      autoFilled.current = true;
+    } catch { /* quota/rate-limit — guest just types their own */ }
+    finally { setPrefillBusy(false); }
+  }
+
   async function submit() {
     if (rating === 0) { toast.error("Please tap a star to rate"); return; }
     setBusy(true);
@@ -51,11 +72,15 @@ export default function ReviewPublic() {
       setSubmitted(data);
       toast.success("Thank you for your feedback!");
       if (rating >= 4) {
-        setDraftBusy(true);
-        PUBLIC.post(`/review-draft/${token}`, { rating })
-          .then(r => setDraft(r.data))
-          .catch(() => {})
-          .finally(() => setDraftBusy(false));
+        if (comment.trim().length >= 20) {
+          setDraft({ text: comment.trim(), google_review_url: salon?.google_review_url || "" });
+        } else {
+          setDraftBusy(true);
+          PUBLIC.post(`/review-draft/${token}`, { rating })
+            .then(r => setDraft(r.data))
+            .catch(() => {})
+            .finally(() => setDraftBusy(false));
+        }
       }
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't submit");
@@ -130,7 +155,7 @@ export default function ReviewPublic() {
                       data-testid={`review-star-${n}`}
                       onMouseEnter={() => setHovered(n)}
                       onMouseLeave={() => setHovered(0)}
-                      onClick={() => setRating(n)}
+                      onClick={() => pickRating(n)}
                       className="p-1 transition-transform hover:scale-110"
                     >
                       <Star
@@ -158,22 +183,33 @@ export default function ReviewPublic() {
                 )}
 
                 <div className="mt-6">
-                  <label className="label-luxe block mb-2">Tell us more (optional)</label>
+                  <label className="label-luxe block mb-2">
+                    Tell us more (optional)
+                    {prefillBusy && <span className="text-gold normal-case tracking-normal ml-2 animate-pulse" data-testid="review-prefill-loading">✨ Mira is drafting a review for you…</span>}
+                  </label>
                   <textarea
                     data-testid="review-comment-input"
                     rows="4"
                     className="input-luxe"
                     value={comment}
-                    onChange={e => setComment(e.target.value)}
+                    onChange={e => { setComment(e.target.value); autoFilled.current = false; }}
                     placeholder={rating >= 4 ? "What did you love most about your visit?" : "Tell us what went wrong — the owner reads every word"}
                     maxLength={600}
                   />
-                  <div className="text-[10px] text-ink-muted text-right mt-1">{comment.length}/600</div>
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="text-[10px] text-ink-muted">
+                      {autoFilled.current && comment ? "✨ Written by Mira from your visit — edit it however you like" : ""}
+                    </div>
+                    <div className="text-[10px] text-ink-muted">{comment.length}/600</div>
+                  </div>
                 </div>
 
                 {rating >= 4 && (
-                  <div className="mt-4 p-3 rounded-md bg-gold/5 border border-gold/20 text-xs text-ink-secondary flex items-center gap-2">
-                    <IndianRupee className="w-3 h-3 text-gold" /> Submit a 4★ or 5★ review and we&apos;ll add ₹50 credit to your account, auto-applied on your next visit.
+                  <div className="mt-4 p-3 rounded-md bg-gold/5 border border-gold/20 text-xs text-ink-secondary flex items-center gap-2" data-testid="review-reward-banner">
+                    <IndianRupee className="w-3 h-3 text-gold" />
+                    {rating === 5
+                      ? <>Submit your 5★ review and we&apos;ll add <b className="text-gold">₹30 credit</b> to your account, auto-applied on your next visit.</>
+                      : <>Submit your 4★ review and we&apos;ll add <b className="text-gold">₹20 credit</b> to your account — make it 5★ for ₹30!</>}
                   </div>
                 )}
 
@@ -223,7 +259,7 @@ export default function ReviewPublic() {
                   ><Copy className="w-3 h-3" /> Copy</button>
                 </div>
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`Just had a ${submitted.review.rating}★ experience at ${brandName} ✦ Try them! Use code ${submitted.reward.code} for ₹50 off. Book: ${window.location.origin}/book`)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(`Just had a ${submitted.review.rating}★ experience at ${brandName} ✦ Try them! Use code ${submitted.reward.code} for ₹${submitted.reward.credit} off. Book: ${window.location.origin}/book`)}`}
                   target="_blank" rel="noreferrer"
                   className="btn-gold w-full mt-3 flex items-center justify-center gap-2 text-xs"
                   data-testid="review-share-whatsapp"
