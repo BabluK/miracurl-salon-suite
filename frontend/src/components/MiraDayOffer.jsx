@@ -16,6 +16,11 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, testPrefix }) 
         <div>
           <div className="font-playfair text-xl text-amber-200">{offer.title}</div>
           <div className="text-sm text-white/85 mt-0.5">{offer.offer_text}</div>
+          {offer.tier && (
+            <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 border border-white/15 text-white/60" data-testid={`${testPrefix}-tier-badge`}>
+              {offer.tier === "premium" ? "✦ Premium strategy" : "✦ Crowd-puller"}{offer.tier_auto ? " · Mira's auto-pick" : ""}
+            </div>
+          )}
         </div>
         {offer.discount_pct > 0 && (
           <div className="px-3 py-1.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-200 text-sm font-bold whitespace-nowrap">{offer.discount_pct}% OFF</div>

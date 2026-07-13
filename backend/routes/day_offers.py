@@ -36,9 +36,17 @@ async def _catalog_context(t: dict) -> dict:
         {"created_at": {"$gte": since}}, {"_id": 0, "items": 1, "created_at": 1}).to_list(3000)
     svc_counts: dict = {}
     weekday_counts = [0] * 7
+    last7, prev7 = 0, 0
+    now_utc = datetime.now(timezone.utc)
     for inv in invoices:
         try:
-            weekday_counts[datetime.fromisoformat(inv["created_at"].replace("Z", "+00:00")).weekday()] += 1
+            dt = datetime.fromisoformat(inv["created_at"].replace("Z", "+00:00"))
+            weekday_counts[dt.weekday()] += 1
+            age = (now_utc - dt).days
+            if age < 7:
+                last7 += 1
+            elif age < 14:
+                prev7 += 1
         except (ValueError, KeyError):
             pass
         for it in inv.get("items") or []:
@@ -67,12 +75,30 @@ async def _catalog_context(t: dict) -> dict:
         "top_services": ranked[:8],
         "slow_services": slow or [n for n, _ in ranked[-5:]],
         "weekday_invoices": weekday_counts,
+        "last7": last7, "prev7": prev7,
         "engagement": sorted(svc_eng.items(), key=lambda x: -x[1])[:8],
     }
 
 
+def _auto_tier(ctx: dict, now: datetime) -> tuple[str | None, str]:
+    """Mira's auto-rhythm: budget crowd-pullers when footfall is dropping,
+    premium high-margin offers on historically lean weekdays, free choice otherwise."""
+    last7, prev7 = ctx.get("last7", 0), ctx.get("prev7", 0)
+    if prev7 >= 5 and last7 < prev7 * 0.7:
+        return "budget", (f"footfall is DOWN — only {last7} bills in the last 7 days vs {prev7} the week before; "
+                          "an affordable crowd-puller will bring volume back")
+    wk = ctx.get("weekday_invoices") or [0] * 7
+    if sum(wk) >= 14:
+        avg = sum(wk) / 7
+        if wk[now.weekday()] < avg * 0.8:
+            return "premium", (f"{now.strftime('%A')}s are historically lean here ({wk[now.weekday()]} bills vs "
+                               f"{avg:.0f}/day average) — a deep deal on premium services fills chairs with high-ticket clients")
+    return None, ""
+
+
 def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint: str,
-                        forced_pct: int | None = None, tier: str | None = None) -> str:
+                        forced_pct: int | None = None, tier: str | None = None,
+                        auto_reason: str = "") -> str:
     catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in ctx["services"][:30])
     tops = ", ".join(f"{n} ({c} sold)" for n, c in ctx["top_services"]) or "no sales data yet"
     slows = ", ".join(ctx["slow_services"]) or "none"
@@ -87,14 +113,17 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, kind: str, retry_hint
                     f"benefit most from a {forced_pct}% discount today. (Day context: {strategy})")
         pct_rule = f'"discount_pct":{forced_pct}'
     tier_line = ""
+    who = "MIRA'S AUTO-STRATEGY" if auto_reason else "OWNER'S CHOICE"
     if tier == "premium":
-        tier_line = ("OWNER'S CHOICE — build today's offer ONLY from HIGH-TICKET premium services "
+        tier_line = (f"{who} — build today's offer ONLY from HIGH-TICKET premium services "
                      "(the most expensive items in the catalog, e.g. Hair Color, Keratin, Botox, Hydra/Gold Facial). "
-                     "Pick 1-3 of the priciest relevant services — high margin matters today.\n")
+                     "Pick 1-3 of the priciest relevant services — high margin matters today."
+                     f"{' Why: ' + auto_reason + '. Weave this into your reasoning.' if auto_reason else ''}\n")
     elif tier == "budget":
-        tier_line = ("OWNER'S CHOICE — build today's offer ONLY from BUDGET-FRIENDLY services "
+        tier_line = (f"{who} — build today's offer ONLY from BUDGET-FRIENDLY services "
                      "(lower-priced items well below the catalog's top prices, e.g. haircut, threading, basic facial, "
-                     "basic mani-pedi). The goal is affordable walk-in volume, not big tickets.\n")
+                     "basic mani-pedi). The goal is affordable walk-in volume, not big tickets."
+                     f"{' Why: ' + auto_reason + '. Weave this into your reasoning.' if auto_reason else ''}\n")
     validity = "TODAY only, valid today"
     if kind == "flash":
         strategy = ("🔴 FLASH SITUATION: CCTV shows several chairs sitting EMPTY right now. "
@@ -144,12 +173,18 @@ async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily",
     await ai_daily_quota(t["id"], "admin_ai_suggest", 80)
     now = _today_ist()
     ctx = await _catalog_context(t)
+    auto_reason = ""
+    if tier is None and kind == "daily":
+        tier, auto_reason = _auto_tier(ctx, now)
     system = ("You are Mira, an expert salon revenue strategist for Indian salons. You know Fri-Sat-Sun are busy "
               "and Mon-Thu are lean, and you design day-smart offers that maximise chair occupancy AND margin.")
-    data = await _ask_json(system, _build_offer_prompt(t, ctx, now, kind, retry_hint, forced_pct, tier))
+    data = await _ask_json(system, _build_offer_prompt(t, ctx, now, kind, retry_hint, forced_pct, tier, auto_reason))
     if forced_pct:
         data["discount_pct"] = forced_pct
     doc = _offer_doc(t, data, now, kind)
+    if tier:
+        doc["tier"] = tier
+        doc["tier_auto"] = bool(auto_reason)
     await _raw_db.day_offers.delete_many({"tenant_id": t["id"], "date": doc["date"], "status": "suggested", "kind": kind})
     await _raw_db.day_offers.insert_one({**doc})
     return doc
