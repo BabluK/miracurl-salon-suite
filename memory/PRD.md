@@ -196,3 +196,4 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - FALSE POSITIVE: "hardcoded secret" at social_connect.py:30 is the Google OAuth scope URL, not a secret.
 - DEFERRED: server.py split (84 imports / 6000 lines) — planned refactor backlog item.
 - INCIDENT: server.py got truncated mid-session during edits; restored via `git checkout HEAD -- backend/server.py` then re-applied changes. If server.py syntax errors appear near EOF, check truncation first.
+- Bug fix: public day-offer banner showed ₹0 struck-through prices — /api/public/day-offer/{slug} sent s.get("price") but offer services store "original_price". Fixed mapping; verified on booking page.

@@ -281,6 +281,6 @@ async def public_day_offer(slug: str):
     return {"offer": {
         "title": doc.get("title"), "offer_text": doc.get("offer_text"),
         "day_name": doc.get("day_name"), "kind": doc.get("kind", "day"),
-        "services": [{"name": s.get("name"), "price": s.get("price"),
+        "services": [{"name": s.get("name"), "price": s.get("original_price"),
                       "offer_price": s.get("offer_price")} for s in (doc.get("services") or [])],
     }}
