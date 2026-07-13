@@ -49,8 +49,21 @@ async def suggest_package(body: SuggestIn, user=Depends(require_tenant_admin), t
         '"caption":"<ready-to-post WhatsApp/Google caption with emojis, list services, show total value vs package price, end with book-now nudge>"}')
     if not data.get("name") or not isinstance(data.get("services"), list) or not data["services"]:
         raise HTTPException(400, "Mira returned an unexpected package format — try again")
-    total = float(data.get("total_value") or sum(float(s.get("price") or 0) for s in data["services"]))
+    real = {s["name"].lower().strip(): s for s in ctx["services"]}
+    valid = []
+    for s in data["services"][:6]:
+        m = real.get(str(s.get("name", "")).lower().strip())
+        if m:
+            valid.append({"name": m["name"], "price": float(m["price"])})
+    if len(valid) < 2:
+        raise HTTPException(400, "Mira picked services not on your menu — try again")
+    data["services"] = valid
+    total = sum(s["price"] for s in valid)
     price = float(data.get("package_price") or 0)
+    if pct:
+        price = round(total * (1 - pct / 100))
+    elif not (0 < price < total):
+        price = round(total * 0.8)
     doc = {
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "audience": body.audience,
         "name": str(data["name"])[:80], "tagline": str(data.get("tagline") or "")[:140],
@@ -91,16 +104,21 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
     except Exception as e:
         log.warning(f"package flyer generation failed: {e}")
         flyer_id, flyer_url = None, None
-    google_post = None
+    google_post, meta_post = None, None
     try:
-        from routes.social_connect import publish_google_post, _base
+        from routes.social_connect import publish_google_post, publish_content, _base
         image_abs = f"{_base(request)}{flyer_url}" if flyer_url else None
         google_post = await publish_google_post(t["id"], doc["caption"], image_abs, offer_title=doc["name"])
+        if image_abs:
+            meta_post = await publish_content(t["id"], doc["caption"], image_abs, ["instagram", "facebook"])
+        else:
+            meta_post = {"instagram": {"ok": False, "error": "No poster image"},
+                         "facebook": {"ok": False, "error": "No poster image"}}
     except Exception as e:
-        log.warning(f"package google post failed: {e}")
-        google_post = {"ok": False, "error": str(e)[:200]}
+        log.warning(f"package social post failed: {e}")
+        google_post = google_post or {"ok": False, "error": str(e)[:200]}
     patch = {"status": "published", "published_at": datetime.now(timezone.utc).isoformat(),
-             "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post}
+             "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post, "meta_post": meta_post}
     await _raw_db.mira_packages.update_one({"id": doc["id"]}, {"$set": patch})
     return {"package": {**doc, **patch}}
 

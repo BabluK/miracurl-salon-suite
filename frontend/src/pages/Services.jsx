@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame, Sparkles, Download, Upload } from "lucide-react";
+import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame, Sparkles, Download, Upload, Globe } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 
@@ -12,7 +12,7 @@ export default function Services() {
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", category: "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true });
+  const [form, setForm] = useState({ name: "", category: "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true, bookable_online: true });
   const [newCat, setNewCat] = useState(false);
   const csvRef = useRef(null);
 
@@ -65,6 +65,15 @@ export default function Services() {
     if (!window.confirm("Delete this service?")) return;
     try { await api.delete(`/services/${id}`); toast.success("Deleted"); load(); }
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+  }
+
+  async function toggleOnline(s) {
+    const next = s.bookable_online === false;
+    try {
+      await api.put(`/services/${s.id}`, { ...s, bookable_online: next });
+      setList(l => l.map(x => x.id === s.id ? { ...x, bookable_online: next } : x));
+      toast.success(next ? `${s.name} is now bookable online ✦` : `${s.name} hidden from online booking`);
+    } catch { toast.error("Couldn't update — try again"); }
   }
 
   const byCategory = list.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {});
@@ -136,6 +145,13 @@ export default function Services() {
                       <button data-testid={`delete-service-${s.id}`} onClick={() => remove(s.id)} className="p-1.5 hover:bg-red-500/10 rounded text-slate-500 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
+                  <button data-testid={`toggle-online-${s.id}`} onClick={() => toggleOnline(s)}
+                    className={`mt-3 w-full flex items-center justify-between text-xs px-3 py-1.5 rounded-lg border transition ${s.bookable_online !== false ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                    <span className="flex items-center gap-1.5"><Globe className="w-3 h-3" /> Online booking</span>
+                    <span className={`relative inline-flex h-4 w-7 rounded-full transition ${s.bookable_online !== false ? "bg-emerald-500" : "bg-slate-300"}`}>
+                      <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${s.bookable_online !== false ? "left-3.5" : "left-0.5"}`} />
+                    </span>
+                  </button>
                 </div>
               </div>
             ))}
@@ -194,6 +210,10 @@ export default function Services() {
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.trending} onChange={e => setForm({ ...form, trending: e.target.checked })} />
                 Mark as Trending
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" data-testid="service-bookable-online-checkbox" checked={form.bookable_online !== false} onChange={e => setForm({ ...form, bookable_online: e.target.checked })} />
+                Bookable online (show on public booking page)
               </label>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="btn-slate flex-1">Cancel</button>

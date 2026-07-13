@@ -30,7 +30,7 @@ def _today_ist() -> datetime:
 
 async def _catalog_context(t: dict) -> dict:
     services = await db.services.find(
-        {}, {"_id": 0, "name": 1, "price": 1, "category": 1}).sort("price", -1).to_list(40)
+        {"active": {"$ne": False}}, {"_id": 0, "name": 1, "price": 1, "category": 1}).sort("price", -1).to_list(40)
     since = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
     invoices = await db.invoices.find(
         {"created_at": {"$gte": since}}, {"_id": 0, "items": 1, "created_at": 1}).to_list(3000)

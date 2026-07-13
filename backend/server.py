@@ -139,6 +139,7 @@ class Service(BaseModel):
     image_url: Optional[str] = None
     trending: bool = False
     active: bool = True
+    bookable_online: bool = True
 
 class ServiceIn(BaseModel):
     name: str
@@ -149,6 +150,7 @@ class ServiceIn(BaseModel):
     image_url: Optional[str] = None
     trending: bool = False
     active: bool = True
+    bookable_online: bool = True
 
 class Staff(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -3180,7 +3182,8 @@ async def public_salon_default():
 @api.get("/public/services/{slug}")
 async def public_services(slug: str):
     await resolve_tenant_from_slug(slug)
-    return await db.services.find({"active": True}, {"_id": 0}).sort("category", 1).to_list(500)
+    return await db.services.find(
+        {"active": True, "bookable_online": {"$ne": False}}, {"_id": 0}).sort("category", 1).to_list(500)
 
 @api.get("/public/services")
 async def public_services_default():

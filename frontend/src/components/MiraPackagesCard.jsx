@@ -112,6 +112,16 @@ export const MiraPackagesCard = () => {
                     <CheckCircle2 className="w-4 h-4" /> Posted on Google
                   </div>
                 )}
+                {pkg.meta_post?.instagram?.ok && (
+                  <div className="inline-flex items-center gap-1.5 text-pink-300 text-sm font-medium px-1" data-testid="package-ig-posted">
+                    <CheckCircle2 className="w-4 h-4" /> Instagram
+                  </div>
+                )}
+                {pkg.meta_post?.facebook?.ok && (
+                  <div className="inline-flex items-center gap-1.5 text-blue-300 text-sm font-medium px-1" data-testid="package-fb-posted">
+                    <CheckCircle2 className="w-4 h-4" /> Facebook
+                  </div>
+                )}
                 {pkg.google_post && !pkg.google_post.ok && (
                   <div className="inline-flex items-center text-white/40 text-xs px-1" title={pkg.google_post.error}>
                     Google post skipped — {String(pkg.google_post.error || "").slice(0, 60)}
