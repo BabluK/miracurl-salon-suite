@@ -49,7 +49,7 @@ function WalletCheck({ slug }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const { data } = await PUBLIC.post(`/wallet-balance/${slug}`, { phone });
+      const { data } = await axios.post(`${BACKEND_URL}/api/public/wallet-balance/${slug}`, { phone });
       setResult(data);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Try again in a few minutes");

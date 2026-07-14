@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-14.4"
-BUILD_TIME = "14 Jul 2026, 7:30 PM IST"
+BUILD = "2026-07-14.5"
+BUILD_TIME = "14 Jul 2026, 7:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-14",
         "changes": [
+            "About-Us shop poster 🏪 — new A4 print poster in the Flyer Studio: hero model, your logo, your salon story, 3 circular photos (from your gallery, or Mira creates them) and booking details",
+            "Fixed: 'Have a wallet with us? — Check balance' on the public booking page wasn't responding — it now shows the guest's salon credit instantly",
             "Posters got a designer upgrade 🎨 — your salon LOGO now sits in a gold medallion on every poster, with an elegant script 'Exclusive Offer' flourish, serif headlines, a rotated '% OFF' starburst badge, sweeping ribbon curves and a styled contact bar",
             "Manage live packages 📋 — the Package Builder now shows exactly which packages are LIVE on your booking page (with a live counter), and one tap removes any of them so you can post an updated one",
             "Max 4 packages rule ✋ — your booking page never shows more than 4 packages; publishing a 5th is blocked until you remove one, keeping the page clean and focused",

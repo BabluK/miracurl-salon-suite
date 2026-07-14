@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Wand2, Loader2, Download, Trash2 } from "lucide-react";
+import { Wand2, Loader2, Download, Trash2, Store } from "lucide-react";
 
 const TEMPLATES = [
   ["pink_glam", "Pink Glam", "bg-[#c2185b]", "text-yellow-200"],
@@ -23,6 +23,9 @@ export const AIFlyerStudio = () => {
   const [services, setServices] = useState("Haircut ₹299, Hair Spa ₹599, Facial ₹499");
   const [validUntil, setValidUntil] = useState("");
   const [busy, setBusy] = useState(false);
+  const [aboutBusy, setAboutBusy] = useState(false);
+  const [aboutText, setAboutText] = useState("");
+  const [aboutOffer, setAboutOffer] = useState("Book now and get 20% OFF any service!");
   const [flyers, setFlyers] = useState([]);
 
   const load = () => { api.get("/offers/flyers").then(r => setFlyers(r.data.flyers)).catch(() => {}); };
@@ -39,6 +42,16 @@ export const AIFlyerStudio = () => {
       load();
     } catch (e) { toast.error(e.response?.data?.detail || "Generation failed — try again"); }
     finally { setBusy(false); }
+  };
+
+  const generateAbout = async () => {
+    setAboutBusy(true);
+    try {
+      await api.post("/offers/about-poster", { template, about_text: aboutText, offer_line: aboutOffer }, { timeout: 300000 });
+      toast.success("About-Us poster ready — perfect for shop-front printing! ✦");
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Generation failed — try again"); }
+    finally { setAboutBusy(false); }
   };
 
   const del = async (id) => {
@@ -75,11 +88,29 @@ export const AIFlyerStudio = () => {
           className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
       </div>
 
-      <button onClick={generate} disabled={busy} data-testid="flyer-generate-btn"
+      <button onClick={generate} disabled={busy || aboutBusy} data-testid="flyer-generate-btn"
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white text-sm font-semibold disabled:opacity-50">
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
         {busy ? "Mira is designing… (~30–60s)" : "Generate flyer"}
       </button>
+
+      <div className="border-t border-slate-100 pt-4 space-y-3" data-testid="about-poster-section">
+        <div>
+          <h3 className="text-sm font-semibold flex items-center gap-2"><Store className="w-4 h-4 text-fuchsia-500" /> About-Us Poster · A4 shop-front print</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Hero model + your logo + About Us story + 3 circular photos (from your gallery, or Mira creates them) + booking details. Uses the template selected above.</p>
+        </div>
+        <textarea value={aboutText} onChange={e => setAboutText(e.target.value)} rows={2} maxLength={400} data-testid="about-poster-text-input"
+          placeholder="Your salon story (leave empty and Mira writes a classy default)"
+          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
+        <input value={aboutOffer} onChange={e => setAboutOffer(e.target.value)} maxLength={120} data-testid="about-poster-offer-input"
+          placeholder="Offer line (e.g. Book now and get 20% OFF!)"
+          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
+        <button onClick={generateAbout} disabled={busy || aboutBusy} data-testid="about-poster-generate-btn"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-semibold disabled:opacity-50">
+          {aboutBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Store className="w-4 h-4" />}
+          {aboutBusy ? "Mira is designing your shop poster… (~2 min)" : "Generate About-Us poster (A4)"}
+        </button>
+      </div>
 
       {flyers.length > 0 && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

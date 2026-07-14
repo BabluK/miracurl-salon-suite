@@ -261,3 +261,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - All flyer consumers (day offers accept/reflyer, packages publish, AI Flyer Studio) benefit automatically.
 - Verified: offline composition test + real E2E royal_gold flyer with tenant logo (perfect render, ₹ ok).
 - BUILD bumped to 2026-07-14.4.
+
+## 2026-07-14 — About-Us A4 poster + wallet check bugfix
+- offer_flyer.py: POST /offers/about-poster (AboutPosterIn: template, about_text, offer_line). _compose_about_poster (1240x1754 A4): hero AI image top 820px w/ left scrim + fade, script salon name, offer line on hero, ribbon divider, script "About Us!" + wrapped story (default text if empty), 3 circular insets (tenant gallery first via _load_upload, AI triptych crop fallback), "GET UPTO X% OFF" serif line, contact bar + logo medallion (both now parameterized W/H). Stored in offer_flyers with kind=about_poster (shows in existing grid).
+- AIFlyerStudio.jsx: About-Us Poster section (about-poster-section, -text-input, -offer-input, -generate-btn), 300s axios timeout.
+- BUGFIX (also live on production — needs deploy): WalletCheck in BookPublic.jsx referenced PUBLIC axios instance that lives INSIDE the main component (moved there in an earlier refactor) → ReferenceError → generic "Try again in a few minutes" toast. Fixed with direct axios.post. Verified in browser: "Hi N**m! You have ₹3,500 salon credit".
+- Verified: about poster E2E with real AI hero + gallery/triptych insets; UI section renders; wallet check works.
+- BUILD bumped to 2026-07-14.5.

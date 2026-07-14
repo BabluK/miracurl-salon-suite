@@ -156,7 +156,10 @@ def _font(path: str, sz: int, variation: str | None = None) -> ImageFont.FreeTyp
 
 
 async def _load_logo(t: dict) -> bytes | None:
-    url = t.get("logo_url") or ""
+    return await _load_upload(t.get("logo_url") or "")
+
+
+async def _load_upload(url: str) -> bytes | None:
     if not url.startswith("/api/files/"):
         return None
     up = await _raw_db.uploads.find_one({"id": url.rsplit("/", 1)[-1]}, {"_id": 0, "storage_path": 1})
@@ -165,8 +168,8 @@ async def _load_logo(t: dict) -> bytes | None:
     try:
         data, _ = _get_object(up["storage_path"])
         return data
-    except Exception as e:  # noqa: BLE001 — poster works without logo
-        log.warning(f"logo load failed: {e}")
+    except Exception as e:  # noqa: BLE001 — poster works without the image
+        log.warning(f"upload load failed: {e}")
         return None
 
 
@@ -199,9 +202,9 @@ def _make_fitter(d: ImageDraw.ImageDraw):
     return _fit
 
 
-def _draw_logo_badge(img: Image.Image, d: ImageDraw.ImageDraw, tpl: dict, t: dict, logo_bytes: bytes | None) -> None:
+def _draw_logo_badge(img: Image.Image, d: ImageDraw.ImageDraw, tpl: dict, t: dict, logo_bytes: bytes | None, W: int = 1024) -> None:
     """Round logo medallion top-right — salon logo if uploaded, else an elegant monogram."""
-    cx, cy, r = 1024 - 122, 122, 74
+    cx, cy, r = W - 122, 122, 74
     d.ellipse([cx - r - 5, cy - r - 5, cx + r + 5, cy + r + 5], fill=(*tpl["accent"], 255))
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(252, 250, 246, 255))
     if logo_bytes:
@@ -303,14 +306,14 @@ def _draw_flyer_copy(d: ImageDraw.ImageDraw, body: FlyerIn, tpl: dict, t: dict) 
         d.text((m, y), vu, font=f, fill=(*text_col, 220))
 
 
-def _draw_contact_bar(d: ImageDraw.ImageDraw, tpl: dict, t: dict) -> None:
-    W, H, m, bar_h = 1024, 1280, 56, 116
+def _draw_contact_bar(d: ImageDraw.ImageDraw, tpl: dict, t: dict, W: int = 1024, H: int = 1280, bar_h: int = 116) -> None:
+    m = 56
     _fit = _make_fitter(d)
     d.rectangle([0, H - bar_h, W, H], fill=(*tpl["accent"], 255))
     d.rectangle([0, H - bar_h, W, H - bar_h + 5], fill=(255, 255, 255, 190))
     dark_txt = (25, 20, 15)
     phone = t.get("phone") or t.get("contact_phone") or ""
-    addr = (t.get("address") or "")[:52]
+    addr = (t.get("address") or t.get("location") or "")[:52]
     contact = "   ·   ".join(x for x in [phone, addr] if x) or "Book your appointment today"
     d.text((m, H - bar_h + 22), contact, font=_fit(contact, 32, W - 2 * m, FONT_PATH), fill=(*dark_txt, 255))
     slug = t.get("slug", "")
@@ -329,6 +332,175 @@ def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict, logo_byt
     _draw_flyer_copy(d, body, tpl, t)
     _draw_contact_bar(d, tpl, t)
     _draw_logo_badge(img, d, tpl, t, logo_bytes)
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="JPEG", quality=90)
+    return buf.getvalue()
+
+
+# ───────── About-Us shop-front poster (A4 print) ─────────
+
+class AboutPosterIn(BaseModel):
+    template: str = "pink_glam"
+    about_text: str = ""
+    offer_line: str = "Book now and get 20% OFF any service!"
+
+
+@router.post("/offers/about-poster")
+async def create_about_poster(body: AboutPosterIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """A4 shop-front poster: hero model + salon logo + About Us + 3 circular photo insets + contact bar."""
+    if body.template not in TEMPLATES:
+        raise HTTPException(400, "Unknown template")
+    from routes.mira_common import _key
+    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    tpl = TEMPLATES[body.template]
+    gen = OpenAIImageGeneration(api_key=_key())
+
+    hero_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
+                   "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
+    imgs = await asyncio.wait_for(gen.generate_images(prompt=hero_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+    if not imgs:
+        raise HTTPException(502, "Image generation failed — try again")
+
+    insets = []
+    for g in (t.get("gallery") or [])[:3]:
+        data = await _load_upload(g.get("url", ""))
+        if data:
+            insets.append(data)
+    if len(insets) < 3:
+        trip_prompt = ("Three separate premium salon scenes side by side in one image, equal thirds: "
+                       "1) relaxing facial spa treatment, 2) hairstylist styling glossy hair, 3) elegant manicured hands. "
+                       "Consistent warm luxury lighting. Absolutely NO text, NO letters, NO logos.")
+        try:
+            trips = await asyncio.wait_for(gen.generate_images(prompt=trip_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+            if trips:
+                trip = Image.open(io.BytesIO(trips[0])).convert("RGB")
+                w3 = trip.width // 3
+                for i in range(3 - len(insets)):
+                    part = trip.crop((i * w3, 0, (i + 1) * w3, trip.height))
+                    b = io.BytesIO()
+                    part.save(b, "JPEG", quality=90)
+                    insets.append(b.getvalue())
+        except Exception as e:  # noqa: BLE001 — poster still renders without insets
+            log.warning(f"triptych generation failed: {e}")
+
+    logo_bytes = await _load_logo(t)
+    final = await asyncio.to_thread(_compose_about_poster, imgs[0], insets, body, tpl, t, logo_bytes)
+    fid = str(uuid.uuid4())
+    path = f"{APP_NAME}/tenants/{t['id']}/flyers/{fid}.jpg"
+    result = _put_object(path, final, "image/jpeg")
+    await _raw_db.uploads.insert_one({
+        "id": fid, "tenant_id": t["id"], "kind": "about_poster",
+        "storage_path": result.get("path", path), "original_filename": f"about-poster-{fid}.jpg",
+        "content_type": "image/jpeg", "size": len(final), "uploaded_by": user.get("email", ""),
+        "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
+    doc = {"id": fid, "tenant_id": t["id"], "url": f"/api/files/{fid}", "template": body.template,
+           "headline": "About Us — shop poster", "offer_text": body.offer_line, "kind": "about_poster",
+           "size_kb": round(len(final) / 1024), "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.offer_flyers.insert_one({**doc})
+    doc.pop("_id", None)
+    return doc
+
+
+def _wrap_lines(d: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, maxw: int) -> list[str]:
+    lines, line = [], ""
+    for word in text.split():
+        trial = f"{line} {word}".strip()
+        if d.textlength(trial, font=font) > maxw and line:
+            lines.append(line)
+            line = word
+        else:
+            line = trial
+    if line:
+        lines.append(line)
+    return lines
+
+
+def _circle_inset(img: Image.Image, data: bytes, cx: int, cy: int, r: int, accent: tuple) -> None:
+    try:
+        photo = Image.open(io.BytesIO(data)).convert("RGB")
+    except Exception:  # noqa: BLE001 — skip broken image
+        return
+    side = min(photo.size)
+    photo = photo.crop(((photo.width - side) // 2, (photo.height - side) // 2,
+                        (photo.width + side) // 2, (photo.height + side) // 2)).resize((2 * r, 2 * r))
+    mask = Image.new("L", (2 * r, 2 * r), 0)
+    ImageDraw.Draw(mask).ellipse([0, 0, 2 * r, 2 * r], fill=255)
+    d = ImageDraw.Draw(img)
+    d.ellipse([cx - r - 7, cy - r - 7, cx + r + 7, cy + r + 7], fill=(*accent, 255))
+    img.paste(photo, (cx - r, cy - r), mask)
+
+
+def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPosterIn,
+                          tpl: dict, t: dict, logo_bytes: bytes | None) -> bytes:
+    W, H, hero_h, bar_h, m = 1240, 1754, 820, 130, 72
+    dark_theme = tpl["text"] == (255, 255, 255)
+    panel = (22, 18, 26) if dark_theme else (252, 244, 242)
+    panel_txt = (245, 242, 238) if dark_theme else (55, 40, 45)
+    accent = tpl["accent"]
+
+    img = Image.new("RGBA", (W, H), (*panel, 255))
+    hero = Image.open(io.BytesIO(hero_bytes)).convert("RGB")
+    scale = max(W / hero.width, hero_h / hero.height)
+    hero = hero.resize((round(hero.width * scale), round(hero.height * scale)))
+    hero = hero.crop(((hero.width - W) // 2, (hero.height - hero_h) // 2,
+                      (hero.width + W) // 2, (hero.height + hero_h) // 2)).convert("RGBA")
+    img.paste(hero, (0, 0))
+
+    d = ImageDraw.Draw(img)
+    for x in range(int(W * 0.58)):  # left scrim on hero for text
+        alpha = int(200 * (1 - x / (W * 0.58)))
+        d.line([(x, 0), (x, hero_h)], fill=(12, 10, 16, alpha))
+    for i in range(140):  # fade hero into panel
+        a = int(255 * i / 140)
+        d.line([(0, hero_h - 140 + i), (W, hero_h - 140 + i)], fill=(*panel, a))
+
+    _fit = _make_fitter(d)
+    salon = t.get("name") or "Your Salon"
+    d.text((m, 96), salon, font=_fit(salon, 76, int(W * 0.47), SCRIPT), fill=(*accent, 255))
+    loc = (t.get("location") or "").upper()
+    if loc:
+        d.text((m, 196), loc, font=_font(FONT_PATH, 30), fill=(255, 255, 255, 220))
+    offer = body.offer_line.strip()[:120]
+    if offer:
+        f_off = _font(FONT_PATH, 40)
+        y = hero_h - 420
+        for ln in _wrap_lines(d, offer, f_off, int(W * 0.5))[:3]:
+            d.text((m, y), ln, font=f_off, fill=(255, 255, 255, 245))
+            y += 56
+
+    d.arc([-400, hero_h - 190, W + 400, hero_h + 60], start=193, end=347, fill=(*accent, 240), width=14)
+    d.arc([-400, hero_h - 158, W + 400, hero_h + 92], start=193, end=347, fill=(255, 255, 255, 110), width=6)
+
+    y = hero_h + 10
+    d.text((m, y), "About Us!", font=_font(SCRIPT, 84), fill=(*accent, 255))
+    y += 122
+    about = (body.about_text.strip() or
+             f"At {salon}, beauty is an experience. Our seasoned stylists blend premium products "
+             "with warm, personal care — so every visit leaves you glowing.")[:400]
+    f_about = _font(FONT_PATH, 31)
+    for ln in _wrap_lines(d, about, f_about, W - 2 * m)[:5]:
+        d.text((m, y), ln, font=f_about, fill=(*panel_txt, 245))
+        y += 46
+
+    if insets:
+        r = 150
+        y_c = y + r + 46
+        n = min(3, len(insets))
+        gap = (W - 2 * m - n * 2 * r) // (n + 1)
+        for i in range(n):
+            cx = m + gap * (i + 1) + r * (2 * i + 1)
+            _circle_inset(img, insets[i], cx, y_c, r, accent)
+        y = y_c + r + 40
+
+    mm = re.search(r"(\d{1,2})\s*%", body.offer_line or "")
+    if mm and y < H - bar_h - 130:
+        d = ImageDraw.Draw(img)
+        big = _font(SERIF, 72, "Bold")
+        d.text((m, H - bar_h - 120), f"GET UPTO {mm.group(1)}% OFF", font=big, fill=(*accent, 255))
+
+    d = ImageDraw.Draw(img)
+    _draw_contact_bar(d, tpl, t, W=W, H=H, bar_h=bar_h)
+    _draw_logo_badge(img, d, tpl, t, logo_bytes, W=W)
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG", quality=90)
     return buf.getvalue()
