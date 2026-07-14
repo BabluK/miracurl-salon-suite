@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-14.8"
-BUILD_TIME = "14 Jul 2026, 9:30 PM IST"
+BUILD = "2026-07-14.9"
+BUILD_TIME = "14 Jul 2026, 10:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-14",
         "changes": [
+            "Miracurl Circle ✦ referral program — when a salon joins Miracurl through YOUR booking page, you earn ₹1,000! A PIN-protected Circle bonus wallet on your Dashboard shows earnings, and you get a congratulations email the moment your referral converts",
+            "Leads now carry their source — HQ sees exactly which salon (and owner) referred every demo request, and the demo form greets visitors with 'As seen at [your salon]'",
             "Success Stories page 🌟 — a public marketing page (/success-stories) with live platform stats, salon win stories, real guest reviews and a free-demo request form that lands straight in the HQ Leads inbox",
             "Every booking page now sells for you 💼 — the footer says 'Powered by Miracurl — get this for your salon ✦' and links to the Success Stories page, turning every salon's guests into Miracurl leads",
             "Guest details are now validated ✅ — booking names accept letters only and mobile numbers must be a real 10-digit Indian number (+91 handled automatically), keeping your CRM clean",

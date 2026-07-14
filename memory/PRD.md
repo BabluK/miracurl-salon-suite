@@ -288,3 +288,12 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Verified: stats + demo-request curl (lead appears in /super-admin/inquiries), full page render, form submit success state, footer link visible. Test leads cleaned.
 - User said win-back automation / WhatsApp digest / low-stock alerts NOT required — removed from roadmap.
 - BUILD bumped to 2026-07-14.8.
+
+## 2026-07-14 — Miracurl Circle ✦ referral program (₹1000/converted lead)
+- BookPublic footer link now /success-stories?ref={slug}. SuccessStories.jsx reads ?ref → "As seen at {salon}" chip + read-only "How did you hear about us" in demo form + sends referred_by_slug (source becomes booking_footer).
+- sales.py: DemoRequestIn.referred_by_slug → inquiry.referred_by {tenant_id, slug, salon_name, owner_name (from users), owner_email}. PATCH inquiry → converted triggers _credit_circle_bonus: $inc tenants.circle_bonus_balance +1000 + circle_bonus_history entry + referral_bonus_credited flag (idempotent) + congrats email to owner. GET /circle-bonus/wallet (require_tenant_admin + require_owner_pin) → balance/history.
+- InquiriesPanel.jsx: "✦ Referred by {salon} — {owner}" + "₹1,000 Circle bonus paid" badges.
+- New CircleBonusCard.jsx on Dashboard (owner only): locked → Owner PIN via pinApi → balance + last 5 history rows. testids: circle-bonus-card/-unlock-btn/-balance.
+- Verified E2E: ref chip, lead with referred_by, convert → +1000 (idempotent on re-convert), wallet 403 without PIN / 200 with 4321, Dashboard card unlock shows ₹1,000 + history. Test data reset.
+- Program name chosen: "Miracurl Circle ✦" (alternates offered: Salon Sangam, Miracurl Growth Club).
+- BUILD bumped to 2026-07-14.9.

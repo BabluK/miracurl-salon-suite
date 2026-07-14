@@ -91,6 +91,12 @@ export function InquiriesPanel({ onNewCount, onConvert }) {
                     {i.source === "partner_page" && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200">Partner page lead</span>}
                     {i.salon_name && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">🏠 {i.salon_name}</span>}
                     {i.preferred_time && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">🕐 Prefers: {i.preferred_time}</span>}
+                    {i.referred_by?.salon_name && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300" data-testid={`inquiry-referred-by-${i.id}`}>
+                        ✦ Referred by {i.referred_by.salon_name}{i.referred_by.owner_name ? ` — ${i.referred_by.owner_name}` : ""}
+                      </span>
+                    )}
+                    {i.referral_bonus_credited && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">₹1,000 Circle bonus paid</span>}
                     {i.thankyou_sent_at && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Brochure sent</span>}
                     {i.meeting?.at_ist && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">📅 Meet: {i.meeting.at_ist} IST</span>}
                   </div>

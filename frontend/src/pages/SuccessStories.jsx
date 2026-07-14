@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { Sparkles, Star, CalendarCheck, Users, Store, Send, Loader2, CheckCircle2, Wallet, Megaphone, Bot } from "lucide-react";
@@ -34,6 +34,9 @@ const STORIES = [
 ];
 
 export default function SuccessStories() {
+  const [searchParams] = useSearchParams();
+  const refSlug = searchParams.get("ref") || "";
+  const [refSalon, setRefSalon] = useState(null);
   const [stats, setStats] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [form, setForm] = useState({ name: "", phone: "", email: "", salon_name: "", city: "" });
@@ -43,7 +46,10 @@ export default function SuccessStories() {
   useEffect(() => {
     axios.get(`${BACKEND_URL}/api/public/success-stats`).then(r => setStats(r.data)).catch(() => {});
     axios.get(`${BACKEND_URL}/api/public/reviews/featured?limit=6`).then(r => setReviews(r.data || [])).catch(() => {});
-  }, []);
+    if (refSlug) {
+      axios.get(`${BACKEND_URL}/api/public/salon/${refSlug}`).then(r => setRefSalon(r.data)).catch(() => {});
+    }
+  }, [refSlug]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -53,7 +59,8 @@ export default function SuccessStories() {
     try {
       await axios.post(`${BACKEND_URL}/api/public/demo-request`, {
         ...form, email: form.email.trim() || null, salon_name: form.salon_name.trim() || null,
-        city: form.city.trim() || null, source: "success_stories",
+        city: form.city.trim() || null, source: refSlug ? "booking_footer" : "success_stories",
+        referred_by_slug: refSlug || null,
       });
       setSent(true);
     } catch (err) {
@@ -77,6 +84,13 @@ export default function SuccessStories() {
 
       <header className="px-6 sm:px-12 pt-16 pb-12 max-w-5xl">
         <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-amber-200/80 mb-5"><Sparkles className="w-4 h-4" /> Success stories</div>
+        {refSalon?.name && (
+          <div className="mb-4">
+            <span className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-amber-200/10 border border-amber-200/25 text-amber-200" data-testid="referred-by-chip">
+              ✦ As seen at {refSalon.name}
+            </span>
+          </div>
+        )}
         <h1 className="font-playfair text-4xl sm:text-5xl lg:text-6xl leading-tight">Salons that stopped managing<br />and started <span className="text-amber-200">growing</span>.</h1>
         <p className="text-white/60 mt-5 max-w-2xl text-base">Real numbers from salons running on Miracurl — AI marketing, 24/7 bookings, wallets, reviews and payroll, all in one place.</p>
       </header>
@@ -139,6 +153,11 @@ export default function SuccessStories() {
             <>
               <h3 className="font-playfair text-3xl">See it live for your salon</h3>
               <p className="text-white/55 text-sm mt-2 mb-6">A 20-minute demo, your data, no commitment. Free 14-day trial included.</p>
+              {refSalon?.name && (
+                <div className="mb-4 text-xs text-white/50 bg-black/25 border border-white/10 rounded-xl px-4 py-3" data-testid="demo-form-referred-by">
+                  How did you hear about us: <span className="text-amber-200">{refSalon.name} ✦</span>
+                </div>
+              )}
               <form onSubmit={submit} className="grid sm:grid-cols-2 gap-3">
                 <input data-testid="demo-form-name" required placeholder="Your name *" value={form.name}
                   onChange={e => setForm({ ...form, name: e.target.value.replace(/[^A-Za-z .'-]/g, "") })} maxLength={80}

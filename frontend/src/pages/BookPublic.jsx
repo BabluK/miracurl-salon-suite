@@ -484,7 +484,7 @@ export default function BookPublic() {
         )}
         <div>
           © Miracurl · Crafted with care in Marathahalli ·{" "}
-          <a href="/success-stories" target="_blank" rel="noreferrer" data-testid="powered-by-miracurl-link"
+          <a href={`/success-stories?ref=${slug}`} target="_blank" rel="noreferrer" data-testid="powered-by-miracurl-link"
             className="text-gold/80 hover:text-gold underline underline-offset-2">
             Powered by Miracurl — get this for your salon ✦
           </a>

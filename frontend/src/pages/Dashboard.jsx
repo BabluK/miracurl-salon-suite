@@ -16,6 +16,7 @@ import { LogoStudio } from "@/components/LogoStudio";
 import MySalonsOverview from "@/components/MySalonsOverview";
 import { DashboardAurora } from "@/components/DashboardAurora";
 import { MiraDayOffer } from "@/components/MiraDayOffer";
+import { CircleBonusCard } from "@/components/CircleBonusCard";
 import { WinbackNudges } from "@/components/WinbackNudges";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
@@ -104,6 +105,7 @@ export default function Dashboard() {
       {isOwner && <MySalonsOverview />}
       {isOwner && <MorningBriefing />}
       {isOwner && <MiraDayOffer />}
+      {isOwner && <CircleBonusCard />}
       <CelebrationsCard />
       {isOwner && <WinbackNudges />}
       {isOwner && <DailyReportBanner ownerName={user?.name} />}

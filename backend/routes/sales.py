@@ -13,7 +13,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 from database import _raw_db
-from security import public_rate_limit, require_super_admin
+from security import public_rate_limit, require_super_admin, require_tenant_admin, current_tenant, require_owner_pin
 from email_service import _send_email, _lead_alert_email_html
 
 router = APIRouter()
@@ -80,6 +80,7 @@ class DemoRequestIn(BaseModel):
     salon_name: Optional[str] = Field(None, max_length=100)
     city: Optional[str] = Field(None, max_length=60)
     source: str = Field("success_stories", pattern=r"^(success_stories|booking_footer)$")
+    referred_by_slug: Optional[str] = Field(None, max_length=80)
 
     @field_validator("phone")
     @classmethod
@@ -103,9 +104,60 @@ async def demo_request(body: DemoRequestIn, request: Request):
         "messages": [{"role": "user", "content": question, "at": now}],
         "created_at": now, "last_message_at": now,
     }
+    if body.referred_by_slug:
+        ref_t = await _raw_db.tenants.find_one(
+            {"slug": body.referred_by_slug}, {"_id": 0, "id": 1, "slug": 1, "name": 1, "owner_email": 1})
+        if ref_t:
+            owner = await _raw_db.users.find_one({"email": ref_t.get("owner_email")}, {"_id": 0, "name": 1})
+            doc["referred_by"] = {
+                "tenant_id": ref_t["id"], "slug": ref_t["slug"], "salon_name": ref_t.get("name"),
+                "owner_name": (owner or {}).get("name") or "", "owner_email": ref_t.get("owner_email") or "",
+            }
     await _raw_db.tenant_inquiries.insert_one(doc)
     asyncio.create_task(_send_lead_alert(doc, question))
     return {"ok": True, "message": "Thanks! Our team will reach out within a few hours ✦"}
+
+
+CIRCLE_BONUS_AMOUNT = 1000.0
+
+
+async def _credit_circle_bonus(inq: dict) -> None:
+    """₹1000 Miracurl Circle bonus to the referring salon the moment their lead converts."""
+    ref = inq.get("referred_by") or {}
+    if not ref.get("tenant_id") or inq.get("referral_bonus_credited"):
+        return
+    entry = {
+        "amount": CIRCLE_BONUS_AMOUNT, "lead_name": inq.get("name"),
+        "lead_salon": inq.get("salon_name") or "", "inquiry_id": inq["id"],
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _raw_db.tenants.update_one(
+        {"id": ref["tenant_id"]},
+        {"$inc": {"circle_bonus_balance": CIRCLE_BONUS_AMOUNT}, "$push": {"circle_bonus_history": entry}})
+    await _raw_db.tenant_inquiries.update_one({"id": inq["id"]}, {"$set": {"referral_bonus_credited": True}})
+    if ref.get("owner_email"):
+        try:
+            await _send_email(
+                [ref["owner_email"]],
+                "🎉 You earned ₹1,000 — your Miracurl Circle referral just joined!",
+                f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
+                f"<h2 style='margin:0 0 8px'>₹1,000 Circle bonus credited ✦</h2>"
+                f"<p style='color:#444'>A salon that discovered Miracurl through <b>{ref.get('salon_name')}</b> "
+                f"just came on board. We've added <b>₹{CIRCLE_BONUS_AMOUNT:.0f}</b> to your Miracurl Circle bonus wallet.</p>"
+                f"<p style='color:#666;font-size:13px'>View it on your Dashboard → Miracurl Circle card (Owner PIN required). "
+                f"Keep referring — every salon you bring earns you another ₹1,000!</p></div>")
+        except Exception as e:  # noqa: BLE001 — bonus already credited, email is best-effort
+            logging.warning(f"circle bonus email failed: {e}")
+
+
+@router.get("/circle-bonus/wallet")
+async def circle_bonus_wallet(user=Depends(require_tenant_admin), t=Depends(current_tenant),
+                              _pin=Depends(require_owner_pin)):
+    doc = await _raw_db.tenants.find_one(
+        {"id": t["id"]}, {"_id": 0, "circle_bonus_balance": 1, "circle_bonus_history": 1})
+    history = list(reversed((doc or {}).get("circle_bonus_history") or []))[:20]
+    return {"balance": round(float((doc or {}).get("circle_bonus_balance") or 0), 2),
+            "history": history, "bonus_per_referral": CIRCLE_BONUS_AMOUNT}
 
 
 @router.get("/public/success-stats")
@@ -199,9 +251,12 @@ async def list_tenant_inquiries(user=Depends(require_super_admin)):
 
 @router.patch("/super-admin/inquiries/{iid}")
 async def update_tenant_inquiry(iid: str, body: InquiryStatusIn, user=Depends(require_super_admin)):
-    res = await _raw_db.tenant_inquiries.update_one({"id": iid}, {"$set": {"status": body.status}})
-    if res.matched_count == 0:
+    inq = await _raw_db.tenant_inquiries.find_one({"id": iid}, {"_id": 0})
+    if not inq:
         raise HTTPException(404, "Inquiry not found")
+    await _raw_db.tenant_inquiries.update_one({"id": iid}, {"$set": {"status": body.status}})
+    if body.status == "converted":
+        await _credit_circle_bonus(inq)
     return {"ok": True, "status": body.status}
 
 
