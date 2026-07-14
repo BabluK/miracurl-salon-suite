@@ -2,10 +2,17 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-14.12"
-BUILD_TIME = "14 Jul 2026, 11:45 PM IST"
+BUILD = "2026-07-15.1"
+BUILD_TIME = "15 Jul 2026, 12:15 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-15",
+        "changes": [
+            "Locked out? Reset yourself 🔑 — 'Forgot Password' now emails a secure 1-hour reset link; setting a new password also clears any login lock instantly. Owners can still reset staff passwords from the Staff page",
+            "Late staff auto-alerts ⏰ — 10 minutes after shift start with no check-in, staff get an automatic 'You're running late' email + a red banner and popup in their Staff Portal; owners receive a midday summary of the day's late arrivals",
+        ],
+    },
     {
         "date": "2026-07-14",
         "changes": [

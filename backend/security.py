@@ -198,7 +198,7 @@ def _log_sec_event(kind: str, tenant_id: str = "", ip: str = "", detail: str = "
            "day": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
            "at": datetime.now(timezone.utc).isoformat()}
     try:
-        asyncio.get_running_loop().create_task(_raw_db.security_events.insert_one(doc))
+        asyncio.ensure_future(_raw_db.security_events.insert_one(doc))
     except RuntimeError:
         pass
 

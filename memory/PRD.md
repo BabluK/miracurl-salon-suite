@@ -317,3 +317,12 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - SecurityCard.jsx: "7-day snapshot · all salons" table + by-salon chips above existing failed-login list (testid security-snapshot). Red highlights: failed_login>10, pin_lockout>0, rate_limit>20 amber.
 - Verified: generated real failed-login/PIN-fail/rate-limit events → all counted; UI renders in Security tab.
 - OPEN QUESTION answered to user: no staff "you're late" notification exists yet (only late fines at check-in); proposed auto email + Employee Portal banner at shift_start + grace.
+
+## 2026-07-15 — Password reset delivery + late staff auto-alerts
+- auth.py forgot-password: token now EMAILED via Resend ({APP_PUBLIC_URL}/reset-password?token=...), enumeration-safe. reset-password additionally clears login_attempts lockout for the user's email (regex on identifier suffix).
+- New pages/ResetPassword.jsx at /reset-password (token from query, pw+confirm, success → /login). Login page already had Forgot Password mode. Owner staff-password reset already existed on Staff page (temp password).
+- server.py: LATE_ALERT_GRACE_MIN=10. GET /staff/me/late-status (live check: no check-in today & 10-600 min past shift_start). _run_late_alerts() every 5 min (07-20 IST): window 10-240 min past shift, no check-in, once per staff/day (late_alerts collection) → email staff; ≥12:00 IST → one owner summary email per tenant/day (system_flags late_summary:{tid}) listing late staff w/ live status. All queries via _raw_db (db wrapper is tenant-scoped, breaks in schedulers!). Registered _late_alert_scheduler in on_startup.
+- StaffPortal.jsx: red banner (staff-late-banner) + toast popup on load when late & not checked in.
+- BUGFIX: _log_sec_event used create_task on motor Future → TypeError 500 on failed logins; fixed with asyncio.ensure_future.
+- Verified E2E: reset link page → new password → login OK; late alert run (1 email + owner summary, idempotent re-run 0), late-status endpoint, banner + popup in portal. Staff creds in test_credentials.md.
+- BUILD bumped to 2026-07-15.1.

@@ -5202,6 +5202,105 @@ async def _demo_followup_scheduler():
         await asyncio.sleep(1800)
 
 
+LATE_ALERT_GRACE_MIN = 10
+
+
+@api.get("/staff/me/late-status")
+async def staff_late_status(s=Depends(_current_staff), t=Depends(current_tenant)):
+    """Portal banner check: is this staff member late (10+ min past shift start, not checked in)?"""
+    today = datetime.now(timezone.utc).date().isoformat()
+    att = await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0, "check_in_at": 1})
+    if att and att.get("check_in_at"):
+        return {"late": False, "minutes_late": 0}
+    ist = datetime.now(IST_TZ)
+    h, m = _parse_hhmm(s.get("shift_start"), "10:00")
+    start = ist.replace(hour=h, minute=m, second=0, microsecond=0)
+    mins = int((ist - start).total_seconds() // 60)
+    return {"late": LATE_ALERT_GRACE_MIN <= mins <= 600, "minutes_late": max(mins, 0),
+            "shift_start": s.get("shift_start") or "10:00"}
+
+
+async def _run_late_alerts() -> dict:
+    """10 min after shift start with no check-in → email staff. After 12:00 IST → owner summary."""
+    from email_service import _send_email
+    ist = datetime.now(IST_TZ)
+    today = datetime.now(timezone.utc).date().isoformat()
+    emails_sent = summaries = 0
+    tenants = await _raw_db.tenants.find(
+        {"status": {"$in": ["active", "trial"]}},
+        {"_id": 0, "id": 1, "name": 1, "owner_email": 1, "salon_email": 1}).to_list(500)
+    for t in tenants:
+        staff_list = await _raw_db.staff.find(
+            {"tenant_id": t["id"], "status": {"$nin": ["inactive", "archived"]}},
+            {"_id": 0, "id": 1, "name": 1, "email": 1, "shift_start": 1}).to_list(300)
+        for s in staff_list:
+            h, m = _parse_hhmm(s.get("shift_start"), "10:00")
+            mins = int((ist - ist.replace(hour=h, minute=m, second=0, microsecond=0)).total_seconds() // 60)
+            if not (LATE_ALERT_GRACE_MIN <= mins <= 240):
+                continue
+            att = await _raw_db.attendance.find_one(
+                {"staff_id": s["id"], "date": today, "check_in_at": {"$ne": None}}, {"_id": 0, "id": 1})
+            if att or await _raw_db.late_alerts.find_one({"staff_id": s["id"], "date": today}):
+                continue
+            await _raw_db.late_alerts.insert_one({
+                "id": str(uuid.uuid4()), "tenant_id": t["id"], "staff_id": s["id"],
+                "staff_name": s.get("name"), "date": today, "minutes_late": mins,
+                "at": datetime.now(timezone.utc).isoformat()})
+            if s.get("email"):
+                try:
+                    await _send_email(
+                        [s["email"]],
+                        f"⏰ You're running late — please check in at {t.get('name')}",
+                        f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
+                        f"<h2 style='margin:0 0 8px'>Please hurry — you're getting late ⏰</h2>"
+                        f"<p style='color:#444'>Hi {s.get('name', '')}, your shift at <b>{t.get('name')}</b> "
+                        f"started at <b>{s.get('shift_start') or '10:00'}</b> and you haven't checked in yet "
+                        f"({mins} min late). Please check in from your Staff Portal as soon as you arrive.</p>"
+                        f"<p style='color:#888;font-size:12px'>Checking in on time keeps your attendance clean "
+                        f"and avoids late fines.</p></div>")
+                    emails_sent += 1
+                except Exception as e:
+                    logging.warning(f"late alert email failed for {s.get('name')}: {e}")
+        if ist.hour >= 12:
+            alerts = await _raw_db.late_alerts.find({"tenant_id": t["id"], "date": today}, {"_id": 0}).to_list(100)
+            flag = await _raw_db.system_flags.find_one({"key": f"late_summary:{t['id']}"})
+            if alerts and (not flag or flag.get("value") != today):
+                rows = ""
+                for a in alerts:
+                    att = await _raw_db.attendance.find_one(
+                        {"staff_id": a["staff_id"], "date": today}, {"_id": 0, "check_in_at": 1, "late_minutes": 1})
+                    status = (f"checked in {att.get('late_minutes', 0)} min late"
+                              if att and att.get("check_in_at") else "not checked in yet ⚠️")
+                    rows += f"<li><b>{a.get('staff_name')}</b> — {status}</li>"
+                recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
+                if recipients:
+                    try:
+                        await _send_email(
+                            recipients, f"🌤️ Late arrivals today at {t.get('name')}",
+                            f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
+                            f"<h2 style='margin:0 0 8px'>Today's late arrivals</h2><ul style='color:#444'>{rows}</ul>"
+                            f"<p style='color:#888;font-size:12px'>Each of them already received an automatic "
+                            f"'please hurry' email 10 minutes after their shift start.</p></div>")
+                        summaries += 1
+                    except Exception as e:
+                        logging.warning(f"late summary email failed for {t.get('name')}: {e}")
+                await _raw_db.system_flags.update_one(
+                    {"key": f"late_summary:{t['id']}"}, {"$set": {"value": today}}, upsert=True)
+    return {"late_emails": emails_sent, "owner_summaries": summaries}
+
+
+async def _late_alert_scheduler():
+    while True:
+        try:
+            if 7 <= datetime.now(IST_TZ).hour <= 20:
+                out = await _run_late_alerts()
+                if out.get("late_emails") or out.get("owner_summaries"):
+                    logging.info(f"late alerts run: {out}")
+        except Exception as e:
+            logging.error(f"late alert scheduler error: {e}")
+        await asyncio.sleep(300)
+
+
 async def _weekly_package_scheduler():
     """Every Monday (after 10:00 IST) Mira auto-drafts a fresh package suggestion for tenants
     whose last package expired — owner approves before publish. Idempotent via system_flags."""
@@ -5229,6 +5328,7 @@ async def _weekly_package_scheduler():
 @app.on_event("startup")
 async def on_startup():
     asyncio.get_event_loop().create_task(_weekly_package_scheduler())
+    asyncio.get_event_loop().create_task(_late_alert_scheduler())
     asyncio.get_event_loop().create_task(_renewal_reminder_scheduler())
     asyncio.get_event_loop().create_task(_demo_followup_scheduler())
     asyncio.get_event_loop().create_task(_review_request_scheduler())

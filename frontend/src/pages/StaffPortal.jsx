@@ -57,6 +57,7 @@ export default function StaffPortal() {
   const [slip, setSlip] = useState(null);
   const [slipLoading, setSlipLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [lateInfo, setLateInfo] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -66,6 +67,13 @@ export default function StaffPortal() {
       ]);
       setProfile(p.data);
       setAttendance(a.data);
+      try {
+        const { data } = await api.get("/staff/me/late-status");
+        setLateInfo(data);
+        if (data.late) {
+          toast.error(`⏰ You're running late — please check in! (${data.minutes_late} min past your ${data.shift_start} shift)`, { duration: 8000 });
+        }
+      } catch { /* banner is best-effort */ }
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Failed to load portal");
     }
@@ -168,6 +176,15 @@ export default function StaffPortal() {
 
   return (
     <div className="space-y-6" data-testid="staff-portal">
+      {lateInfo?.late && !checkedIn && (
+        <div className="rounded-2xl bg-red-500/15 border border-red-400/40 px-4 py-3 flex items-center gap-3 animate-pulse" data-testid="staff-late-banner">
+          <span className="text-xl">⏰</span>
+          <div>
+            <div className="text-sm font-semibold text-red-300">You're running late — please check in!</div>
+            <div className="text-xs text-red-200/70">Your shift started at {lateInfo.shift_start} · {lateInfo.minutes_late} min ago. Check in below as soon as you arrive.</div>
+          </div>
+        </div>
+      )}
       {/* Hero */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gold/20 via-blush/10 to-transparent border border-gold/30 p-5 sm:p-8">
         <div className="absolute -top-8 -right-8 w-40 h-40 bg-gold/20 rounded-full blur-3xl" />

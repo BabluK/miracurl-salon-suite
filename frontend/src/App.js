@@ -20,6 +20,7 @@ import OffersStudio from "@/pages/OffersStudio";
 import BookPublic from "@/pages/BookPublic";
 import PartnerLanding from "@/pages/PartnerLanding";
 import SuccessStories from "@/pages/SuccessStories";
+import ResetPassword from "@/pages/ResetPassword";
 import ReviewPublic from "@/pages/ReviewPublic";
 import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
@@ -137,6 +138,7 @@ export default function App() {
             <Route path="/demo-slot/:iid" element={<DemoSlot />} />
             <Route path="/partner" element={<PartnerLanding />} />
             <Route path="/success-stories" element={<SuccessStories />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/staff-registry" element={<RegistryPublic />} />
             <Route path="/partners" element={<Partners />} />
             <Route path="/book" element={<SalonFinder />} />

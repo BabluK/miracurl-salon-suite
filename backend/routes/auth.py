@@ -341,9 +341,23 @@ async def forgot(body: ForgotIn, request: Request):
             "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
             "used": False,
         })
-        # SEC-003 fix: do NOT log the reset token. Delivery must happen via a
-        # side channel (email/SMS) so a compromised log tail can't take over
-        # any account. Kept a redacted log line for ops observability only.
+        reset_link = f"{os.environ.get('APP_PUBLIC_URL', '')}/reset-password?token={token}"
+        try:
+            from email_service import _send_email
+            await _send_email(
+                [email],
+                "Reset your Miracurl password",
+                f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
+                f"<h2 style='margin:0 0 8px'>Password reset ✦</h2>"
+                f"<p style='color:#444'>Tap the button below to set a new password. "
+                f"This link works once and expires in 1 hour.</p>"
+                f"<p style='margin:20px 0'><a href='{reset_link}' "
+                f"style='background:#e11d48;color:#fff;padding:12px 22px;border-radius:24px;"
+                f"text-decoration:none;font-weight:bold'>Set new password</a></p>"
+                f"<p style='color:#888;font-size:12px'>Didn't ask for this? You can safely ignore this email — "
+                f"your password stays unchanged.</p></div>")
+        except Exception as e:
+            logging.error(f"reset email send failed for {email}: {e}")
         logging.info("[Miracurl] Password reset requested for %s (token %d chars)", email, len(token))
     return {"message": "If that email exists, a reset link was sent."}
 
@@ -358,4 +372,8 @@ async def reset(body: ResetIn):
         "password_hash": hash_pw(body.new_password),
         "password_changed_at": datetime.now(timezone.utc).isoformat()}})
     await db.password_reset_tokens.update_one({"token": body.token}, {"$set": {"used": True}})
+    user = await db.users.find_one({"id": rec["user_id"]}, {"_id": 0, "email": 1})
+    if user and user.get("email"):
+        import re as _re
+        await db.login_attempts.delete_many({"identifier": {"$regex": f"{_re.escape(user['email'])}$"}})
     return {"ok": True}
