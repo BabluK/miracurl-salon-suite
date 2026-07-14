@@ -105,7 +105,7 @@ export default function Dashboard() {
       {isOwner && <MySalonsOverview />}
       {isOwner && <MorningBriefing />}
       {isOwner && <MiraDayOffer />}
-      {isOwner && <CircleBonusCard />}
+      {isOwner && <CircleBonusCard slug={tenant?.slug || "miracurl-marathahalli"} />}
       <CelebrationsCard />
       {isOwner && <WinbackNudges />}
       {isOwner && <DailyReportBanner ownerName={user?.name} />}

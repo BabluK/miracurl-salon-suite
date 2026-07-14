@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import api from "@/lib/api";
+import { useState } from "react";
+import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
-import { Gift, Copy, Share2, Wallet } from "lucide-react";
+import { Gift, Copy, Share2, Wallet, Lock, Loader2 } from "lucide-react";
 
 function AffiliateLinkRow({ slug }) {
   const link = `${window.location.origin}/?ref=${slug}`;
@@ -48,10 +48,39 @@ function AffiliateLinkRow({ slug }) {
 
 export function AffiliateCard() {
   const [affiliate, setAffiliate] = useState(null);
-  useEffect(() => {
-    api.get("/settings/affiliate").then(r => setAffiliate(r.data)).catch(() => {});
-  }, []);
-  if (!affiliate) return null;
+  const [busy, setBusy] = useState(false);
+
+  const unlock = async () => {
+    setBusy(true);
+    try {
+      const { data } = await pinApi.get("/settings/affiliate");
+      setAffiliate(data);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't unlock — check your PIN");
+    } finally { setBusy(false); }
+  };
+
+  if (!affiliate) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-affiliate-card">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center">
+              <Gift className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800">Refer & Earn ₹1,000</h2>
+              <p className="text-xs text-slate-500 mt-1">Your referral balance and link are PIN-protected — unlock to view and share.</p>
+            </div>
+          </div>
+          <button onClick={unlock} disabled={busy} data-testid="settings-affiliate-unlock"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 disabled:opacity-50">
+            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />} Unlock with Owner PIN
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-affiliate-card">

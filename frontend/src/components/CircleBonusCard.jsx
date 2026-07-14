@@ -1,11 +1,21 @@
 import { useState } from "react";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
-import { Gem, Lock, Loader2, IndianRupee } from "lucide-react";
+import { Gem, Lock, Loader2, IndianRupee, Share2 } from "lucide-react";
 
-export function CircleBonusCard() {
+export function CircleBonusCard({ slug }) {
   const [wallet, setWallet] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  const shareLink = async () => {
+    const link = `${window.location.origin}/success-stories?ref=${slug}`;
+    const text = `I run my salon on Miracurl Salon Suite — AI offers, 24/7 online bookings, billing & payroll in one app. See how salons grow with it: ${link}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "Miracurl Salon Suite", text, url: link }); return; }
+      catch { /* dismissed — fall through to WhatsApp */ }
+    }
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+  };
 
   const unlock = async () => {
     setBusy(true);
@@ -23,12 +33,18 @@ export function CircleBonusCard() {
         <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
           <Gem className="w-4 h-4 text-amber-600" /> Miracurl Circle ✦ referral bonus
         </div>
-        {!wallet && (
-          <button onClick={unlock} disabled={busy} data-testid="circle-bonus-unlock-btn"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-900 text-amber-50 text-xs font-semibold hover:bg-amber-800 disabled:opacity-50">
-            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />} Unlock with Owner PIN
+        <div className="flex items-center gap-2">
+          <button onClick={shareLink} data-testid="circle-bonus-share-btn"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500">
+            <Share2 className="w-3.5 h-3.5" /> Share & earn ₹1,000
           </button>
-        )}
+          {!wallet && (
+            <button onClick={unlock} disabled={busy} data-testid="circle-bonus-unlock-btn"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-900 text-amber-50 text-xs font-semibold hover:bg-amber-800 disabled:opacity-50">
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />} Unlock with Owner PIN
+            </button>
+          )}
+        </div>
       </div>
       {!wallet ? (
         <p className="text-xs text-amber-800/70 mt-2">

@@ -297,3 +297,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Verified E2E: ref chip, lead with referred_by, convert → +1000 (idempotent on re-convert), wallet 403 without PIN / 200 with 4321, Dashboard card unlock shows ₹1,000 + history. Test data reset.
 - Program name chosen: "Miracurl Circle ✦" (alternates offered: Salon Sangam, Miracurl Growth Club).
 - BUILD bumped to 2026-07-14.9.
+
+## 2026-07-14 — Circle announcement + share + PIN-locked referral amounts
+- release_notes 2026-07-14.10: "📣 Refer a salon, earn ₹1,000 ✦" announcement in What's New popup.
+- CircleBonusCard: "Share & earn ₹1,000" button (circle-bonus-share-btn) — navigator.share / WhatsApp with {origin}/success-stories?ref={slug}; slug passed from Dashboard (tenant?.slug).
+- Settings "Refer & Earn ₹1,000" (AffiliateCard): now PIN-locked — backend GET /settings/affiliate gained require_owner_pin; frontend shows locked state + "Unlock with Owner PIN" (settings-affiliate-unlock) via pinApi.
+- Verified: What's New shows announcement, share button visible, affiliate 403 without PIN / unlocks with 4321 showing balance + referral history.
