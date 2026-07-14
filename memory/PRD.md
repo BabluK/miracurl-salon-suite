@@ -242,3 +242,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - MiraDayOffer auto-suggest: on mount, if /day-offers/today empty → auto POST /day-offers/suggest (once, ref-guarded; suggestion persisted per-day so no repeated AI calls on re-login).
 - Verified: pink_glam poster generated E2E (matches reference: model, ₹ prices, phone + booking link), Dashboard auto-suggestion + style select confirmed via browser. Accept/publish style paths use same create_flyer call (not individually re-tested).
 - BUILD bumped to 2026-07-14.1.
+
+## 2026-07-14 — WA poster share + Offer Maker quick-sets
+- New /app/frontend/src/lib/sharePoster.js: shareWithPoster(imageUrl, caption) — navigator.share with image file (mobile/PWA); desktop fallback downloads poster + opens wa.me with caption + toast. Wired into MiraDayOffer OfferBlock shareWA + MiraPackagesCard shareWA (only when flyer_url exists; else text-only as before).
+- OffersStudio (route /offers-studio, sidebar "Offer Maker"): ServiceOfferRows "Quick % off all" chips (10-50%, sets offer = round(actual*(1-p/100))); Valid-till quick chips 3/4/7/15/30d fill f.validity with en-IN date. testids: service-offer-quickpct-{p}, offer-validity-{d}d, offer-validity-input.
+- Verified via browser: 20% chip → ₹2000→₹1600 + 20% badge; 7d chip → "21 Jul" shown on live poster preview. WA share code path desktop-fallback logic not headless-testable; logic reviewed.
+- BUILD bumped to 2026-07-14.2.

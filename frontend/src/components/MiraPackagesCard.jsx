@@ -3,6 +3,7 @@ import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Loader2, Gift } from "lucide-react";
 import { POSTER_STYLES, randomPosterStyle } from "@/lib/posterStyles";
+import { shareWithPoster } from "@/lib/sharePoster";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const AUDIENCES = [
@@ -48,7 +49,8 @@ export const MiraPackagesCard = () => {
   };
 
   const shareWA = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(pkg.caption)}`, "_blank", "noopener,noreferrer");
+    if (pkg.flyer_url) shareWithPoster(`${BACKEND}${pkg.flyer_url}`, pkg.caption);
+    else window.open(`https://wa.me/?text=${encodeURIComponent(pkg.caption)}`, "_blank", "noopener,noreferrer");
   };
 
   const published = pkg?.status === "published";

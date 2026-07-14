@@ -3,13 +3,16 @@ import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Zap } from "lucide-react";
 import { POSTER_STYLES, randomPosterStyle } from "@/lib/posterStyles";
+import { shareWithPoster } from "@/lib/sharePoster";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
 function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, testPrefix }) {
   const accepted = offer.status === "accepted";
   const shareWA = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(offer.whatsapp_caption || offer.offer_text)}`, "_blank", "noopener,noreferrer");
+    const caption = offer.whatsapp_caption || offer.offer_text;
+    if (offer.flyer_url) shareWithPoster(`${BACKEND}${offer.flyer_url}`, caption);
+    else window.open(`https://wa.me/?text=${encodeURIComponent(caption)}`, "_blank", "noopener,noreferrer");
   };
   return (
     <div className="mt-4 bg-black/25 border border-white/10 rounded-xl p-4" data-testid={`${testPrefix}-suggestion`}>

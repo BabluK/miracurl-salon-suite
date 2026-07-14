@@ -280,6 +280,18 @@ function ServiceOfferRows({ services, rows, setRows }) {
         </button>
       </div>
       {rows.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap" data-testid="service-offer-quickpct-row">
+          <span className="text-[10px] uppercase tracking-wider text-slate-400">Quick % off all:</span>
+          {[10, 15, 20, 25, 30, 40, 50].map(p => (
+            <button key={p} data-testid={`service-offer-quickpct-${p}`}
+              onClick={() => setRows(rows.map(r => ({ ...r, offer: Math.max(0, Math.round(Number(r.actual) * (1 - p / 100))) })))}
+              className="text-[10px] px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:bg-emerald-600 hover:text-white hover:border-emerald-600">
+              {p}%
+            </button>
+          ))}
+        </div>
+      )}
+      {rows.length > 0 && (
         <div className="space-y-2">
           <div className="grid grid-cols-[1fr_76px_76px_64px_24px] gap-2 text-[10px] uppercase tracking-wider text-slate-400 px-1">
             <span>Service</span><span>Actual ₹</span><span>Offer ₹</span><span>Disc.</span><span />
@@ -441,7 +453,17 @@ export default function OffersStudio() {
               <input data-testid="offer-details-input" className="input-light" value={f.offerDetails} onChange={e => setF({ ...f, offerDetails: e.target.value })} placeholder="On all hair & beauty services" maxLength={240} /></div>
             <div className="grid grid-cols-3 gap-3">
               <div><label className="label-light block mb-1">Valid till</label>
-                <input className="input-light" value={f.validity} onChange={e => setF({ ...f, validity: e.target.value })} placeholder="31 Oct" maxLength={20} /></div>
+                <input data-testid="offer-validity-input" className="input-light" value={f.validity} onChange={e => setF({ ...f, validity: e.target.value })} placeholder="31 Oct" maxLength={20} />
+                <div className="flex gap-1 mt-1.5 flex-wrap">
+                  {[3, 4, 7, 15, 30].map(d => (
+                    <button key={d} data-testid={`offer-validity-${d}d`}
+                      onClick={() => setF({ ...f, validity: new Date(Date.now() + d * 864e5).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) })}
+                      className="text-[10px] px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-800 hover:text-white hover:border-slate-800">
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div><label className="label-light block mb-1">Location</label>
                 <input className="input-light" value={f.location} onChange={e => setF({ ...f, location: e.target.value })} maxLength={40} /></div>
               <div><label className="label-light block mb-1">Phone</label>
