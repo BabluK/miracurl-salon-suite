@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-14.7"
-BUILD_TIME = "14 Jul 2026, 9:00 PM IST"
+BUILD = "2026-07-14.8"
+BUILD_TIME = "14 Jul 2026, 9:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-14",
         "changes": [
+            "Success Stories page 🌟 — a public marketing page (/success-stories) with live platform stats, salon win stories, real guest reviews and a free-demo request form that lands straight in the HQ Leads inbox",
+            "Every booking page now sells for you 💼 — the footer says 'Powered by Miracurl — get this for your salon ✦' and links to the Success Stories page, turning every salon's guests into Miracurl leads",
             "Guest details are now validated ✅ — booking names accept letters only and mobile numbers must be a real 10-digit Indian number (+91 handled automatically), keeping your CRM clean",
             "Super Admin: Clean test data 🧹 — a per-salon cleanup tool scans for dummy bookings & customers (test names / invalid numbers), shows a preview, and removes them in one tap",
             "Fixed: the Day / Upcoming / Week buttons on Appointments (and Review filters) turned invisible when hovered — labels now stay readable with a clean white highlight",

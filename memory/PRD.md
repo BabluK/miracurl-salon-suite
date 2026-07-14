@@ -280,3 +280,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - New DummyCleanupModal.jsx (superadmin/), Eraser button per tenant row (clean-dummy-{id}) in SuperAdmin.jsx.
 - Verified: bad name/phone rejected via curl, +91 normalized; purge on throwaway tenant removed 2+2 dummies kept genuine; modal opens with counts in UI.
 - BUILD bumped to 2026-07-14.7.
+
+## 2026-07-14 — Success Stories page + Powered-by lead funnel
+- sales.py: POST /public/demo-request (DemoRequestIn: name/phone/email/salon_name/city/source ∈ success_stories|booking_footer) → tenant_inquiries (shows in Super Admin Leads & Inquiries) + hot-lead email to HQ. GET /public/success-stats (active salons, bookings, customers, avg rating).
+- New pages/SuccessStories.jsx at /success-stories (public route in App.js): hero, live stats band, 4 win-story cards, featured guest reviews strip, demo-request form with same name/phone validation, success state. testids: success-stories-page, stories-stats-band, demo-form-*, demo-request-success.
+- BookPublic.jsx footer: "Powered by Miracurl — get this for your salon ✦" link (powered-by-miracurl-link) → /success-stories (new tab).
+- Verified: stats + demo-request curl (lead appears in /super-admin/inquiries), full page render, form submit success state, footer link visible. Test leads cleaned.
+- User said win-back automation / WhatsApp digest / low-stock alerts NOT required — removed from roadmap.
+- BUILD bumped to 2026-07-14.8.

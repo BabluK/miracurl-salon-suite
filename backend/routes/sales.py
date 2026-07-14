@@ -6,8 +6,10 @@ import re
 import uuid
 from datetime import datetime, timezone
 
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Request, Depends
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 from database import _raw_db
@@ -69,6 +71,53 @@ class SalesChatMsgIn(BaseModel):
 
 class InquiryStatusIn(BaseModel):
     status: str = Field(..., pattern=r"^(new|contacted|converted)$")
+
+
+class DemoRequestIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    phone: str = Field(..., min_length=10, max_length=16)
+    email: Optional[EmailStr] = None
+    salon_name: Optional[str] = Field(None, max_length=100)
+    city: Optional[str] = Field(None, max_length=60)
+    source: str = Field("success_stories", pattern=r"^(success_stories|booking_footer)$")
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v):
+        digits = "".join(c for c in v if c.isdigit())
+        if len(digits) < 10:
+            raise ValueError("Enter a valid phone number")
+        return digits
+
+
+@router.post("/public/demo-request")
+async def demo_request(body: DemoRequestIn, request: Request):
+    public_rate_limit(request, "demo-request", limit=5, window_sec=600)
+    now = datetime.now(timezone.utc).isoformat()
+    detail = " · ".join(x for x in [body.salon_name, body.city] if x)
+    question = f"Requested a demo of Miracurl Salon Suite{f' ({detail})' if detail else ''}"
+    doc = {
+        "id": str(uuid.uuid4()), "name": body.name.strip(), "email": body.email,
+        "phone": body.phone, "salon_name": body.salon_name, "city": body.city,
+        "status": "new", "source": body.source,
+        "messages": [{"role": "user", "content": question, "at": now}],
+        "created_at": now, "last_message_at": now,
+    }
+    await _raw_db.tenant_inquiries.insert_one(doc)
+    asyncio.create_task(_send_lead_alert(doc, question))
+    return {"ok": True, "message": "Thanks! Our team will reach out within a few hours ✦"}
+
+
+@router.get("/public/success-stats")
+async def success_stats():
+    salons = await _raw_db.tenants.count_documents({"status": {"$in": ["active", "trial"]}})
+    bookings = await _raw_db.appointments.count_documents({})
+    customers = await _raw_db.customers.count_documents({})
+    pipe = [{"$match": {"rating": {"$gte": 1}}},
+            {"$group": {"_id": None, "avg": {"$avg": "$rating"}, "n": {"$sum": 1}}}]
+    agg = await _raw_db.reviews.aggregate(pipe).to_list(1)
+    avg = round(agg[0]["avg"], 1) if agg else 5.0
+    return {"salons": salons, "bookings": bookings, "customers": customers, "avg_rating": avg}
 
 
 async def _send_lead_alert(inq: dict, question: str):
