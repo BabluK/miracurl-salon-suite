@@ -272,3 +272,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 ## 2026-07-14 — Appointments tab hover fix
 - Bug: Day/Upcoming/Week toggle (Appointments.jsx) + Reviews filter tabs used `hover:text-white` on a light bg-slate-50 container → label invisible on hover/click ("overlapping" per user). Fixed to `hover:text-slate-900 hover:bg-white`. Verified via hover screenshot. Desktop + mobile layouts confirmed not overlapping.
 - BUILD bumped to 2026-07-14.6.
+
+## 2026-07-14 — Guest validation + Super Admin dummy data cleanup
+- server.py PublicBookingIn: customer_name validator (letters/space/.'- only), customer_phone strict 10-digit [6-9]xxxxxxxxx with +91/0 prefix normalization (was 7-15 digits).
+- BookPublic.jsx submit checks + BookPublic.steps.jsx inputs: name filters non-letters, phone numeric-only maxLength 10.
+- New /app/backend/routes/data_cleanup.py: GET /super-admin/dummy-data/{tenant_id} (preview counts+samples), POST .../purge (deletes dummy appointments+customers+their reviews). Dummy = name matches test|dummy|demo|sample|asdf|qwerty OR phone digits present but not valid 10-digit Indian mobile. Registered in server.py after super_admin_router.
+- New DummyCleanupModal.jsx (superadmin/), Eraser button per tenant row (clean-dummy-{id}) in SuperAdmin.jsx.
+- Verified: bad name/phone rejected via curl, +91 normalized; purge on throwaway tenant removed 2+2 dummies kept genuine; modal opens with counts in UI.
+- BUILD bumped to 2026-07-14.7.

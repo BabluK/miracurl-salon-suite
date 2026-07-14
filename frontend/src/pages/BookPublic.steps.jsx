@@ -266,14 +266,16 @@ export function DetailsStep({ form, onChange, referralCheck, onCheckReferral, co
           <label className="label-luxe block mb-1">Full Name *</label>
           <div className="relative">
             <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
-            <input data-testid="book-name-input" required className="input-luxe pl-10" value={form.name} onChange={e => onChange({ ...form, name: e.target.value })} placeholder="Your name" />
+            <input data-testid="book-name-input" required className="input-luxe pl-10" value={form.name}
+              onChange={e => onChange({ ...form, name: e.target.value.replace(/[^A-Za-z .'-]/g, "") })} placeholder="Your name" maxLength={80} />
           </div>
         </div>
         <div>
           <label className="label-luxe block mb-1">Phone *</label>
           <div className="relative">
             <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
-            <input data-testid="book-phone-input" required className="input-luxe pl-10" value={form.phone} onChange={e => onChange({ ...form, phone: e.target.value })} placeholder="98765 43210" />
+            <input data-testid="book-phone-input" required type="tel" inputMode="numeric" className="input-luxe pl-10" value={form.phone}
+              onChange={e => onChange({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} placeholder="10-digit mobile number" maxLength={10} />
           </div>
         </div>
         <div>

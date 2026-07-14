@@ -3210,12 +3210,24 @@ class PublicBookingIn(BaseModel):
     referral_code: Optional[str] = None
     coupon_code: Optional[str] = None
 
+    @field_validator("customer_name")
+    @classmethod
+    def _name(cls, v):
+        cleaned = v.strip()
+        if not re.fullmatch(r"[A-Za-z][A-Za-z .'\-]{1,79}", cleaned):
+            raise ValueError("Name should contain only letters")
+        return cleaned
+
     @field_validator("customer_phone")
     @classmethod
     def _phone(cls, v):
         cleaned = "".join(c for c in v if c.isdigit())
-        if not re.fullmatch(r"\d{7,15}", cleaned):
-            raise ValueError("Enter a valid phone number (7-15 digits)")
+        if len(cleaned) == 12 and cleaned.startswith("91"):
+            cleaned = cleaned[2:]
+        elif len(cleaned) == 11 and cleaned.startswith("0"):
+            cleaned = cleaned[1:]
+        if not re.fullmatch(r"[6-9]\d{9}", cleaned):
+            raise ValueError("Enter a valid 10-digit mobile number")
         return cleaned
 
     @field_validator("scheduled_at")
@@ -4914,6 +4926,8 @@ async def super_admin_overview(user=Depends(require_super_admin)):
 
 from routes.super_admin import router as super_admin_router  # noqa: E402 — HQ tools (routes/super_admin.py)
 api.include_router(super_admin_router)
+from routes.data_cleanup import router as data_cleanup_router  # noqa: E402 — per-salon dummy data purge
+api.include_router(data_cleanup_router)
 
 async def backfill_tenant_ids(tenant_id: str):
     """Assign tenant_id to legacy records that don't have one."""

@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-14.6"
-BUILD_TIME = "14 Jul 2026, 8:20 PM IST"
+BUILD = "2026-07-14.7"
+BUILD_TIME = "14 Jul 2026, 9:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-14",
         "changes": [
+            "Guest details are now validated ✅ — booking names accept letters only and mobile numbers must be a real 10-digit Indian number (+91 handled automatically), keeping your CRM clean",
+            "Super Admin: Clean test data 🧹 — a per-salon cleanup tool scans for dummy bookings & customers (test names / invalid numbers), shows a preview, and removes them in one tap",
             "Fixed: the Day / Upcoming / Week buttons on Appointments (and Review filters) turned invisible when hovered — labels now stay readable with a clean white highlight",
             "About-Us shop poster 🏪 — new A4 print poster in the Flyer Studio: hero model, your logo, your salon story, 3 circular photos (from your gallery, or Mira creates them) and booking details",
             "Fixed: 'Have a wallet with us? — Check balance' on the public booking page wasn't responding — it now shows the guest's salon credit instantly",

@@ -3,11 +3,12 @@ import log from "@/lib/log";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard, Stethoscope } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard, Stethoscope, Eraser } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import BillingPanel from "./BillingPanel";
 import { SmsCreditLog } from "@/components/superadmin/SmsCreditLog";
+import { DummyCleanupModal } from "@/components/superadmin/DummyCleanupModal";
 import { PartnersPanel } from "@/components/superadmin/PartnersPanel";
 import { SecurityCard } from "@/components/superadmin/SecurityCard";
 import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
@@ -93,6 +94,7 @@ export default function SuperAdmin() {
   const [editFor, setEditFor] = useState(null); // tenant being edited
   const [diagFor, setDiagFor] = useState(null); // tenant being diagnosed
   const [importFor, setImportFor] = useState(null); // tenant being imported into
+  const [cleanFor, setCleanFor] = useState(null); // tenant being cleaned of dummy data
   const [tab, setTab] = useState("tenants"); // tenants | billing
   const [notifFeed, setNotifFeed] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -485,6 +487,7 @@ export default function SuperAdmin() {
                       <button data-testid={`diagnose-tenant-${t.id}`} onClick={() => setDiagFor(t)} title="Diagnose — find why this salon feels slow & clear their cache" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Stethoscope className="w-3.5 h-3.5" /></button>
                       <button data-testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit salon details, credentials & branch links" className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>
                       <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
+                      <button data-testid={`clean-dummy-${t.id}`} onClick={() => setCleanFor(t)} title="Clean test/dummy bookings & customers" className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"><Eraser className="w-3.5 h-3.5" /></button>
                       <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />
                       <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                       <button data-testid={`permanent-delete-tenant-${t.id}`} onClick={() => permanentDeleteTenant(t)} title="Permanently delete (erase all data — irreversible)" className="p-1.5 text-slate-400 hover:text-white hover:bg-red-600 rounded"><Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
@@ -591,6 +594,7 @@ export default function SuperAdmin() {
       )}
 
       {diagFor && <DiagnoseTenantModal tenant={diagFor} onClose={() => setDiagFor(null)} />}
+      {cleanFor && <DummyCleanupModal tenant={cleanFor} onClose={() => setCleanFor(null)} />}
 
       {createdCreds && (
         <TempPasswordShareModal

@@ -186,8 +186,8 @@ export default function BookPublic() {
     if (step === 0 && picked.length === 0) { toast.error("Please pick at least one service"); return; }
     if (step === 2 && !time) { toast.error("Pick a time slot"); return; }
     if (step === 3) {
-      if (!form.name.trim()) { toast.error("Name is required"); return; }
-      if (!/^\d{7,15}$/.test(form.phone.trim())) { toast.error("Enter a valid phone number"); return; }
+      if (!/^[A-Za-z][A-Za-z .'-]{1,}$/.test(form.name.trim())) { toast.error("Name should contain only letters"); return; }
+      if (!/^[6-9]\d{9}$/.test(form.phone.trim())) { toast.error("Enter a valid 10-digit mobile number"); return; }
     }
     setStep(step + 1);
   }
