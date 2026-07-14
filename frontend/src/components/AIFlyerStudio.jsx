@@ -4,6 +4,12 @@ import { toast } from "sonner";
 import { Wand2, Loader2, Download, Trash2 } from "lucide-react";
 
 const TEMPLATES = [
+  ["pink_glam", "Pink Glam", "bg-[#c2185b]", "text-yellow-200"],
+  ["royal_gold", "Royal Gold", "bg-[#1a1408]", "text-amber-300"],
+  ["bridal_blush", "Bridal Blush", "bg-[#f8e3e0]", "text-rose-900"],
+  ["emerald_luxe", "Emerald Luxe", "bg-[#0d3326]", "text-amber-200"],
+  ["mens_edge", "Men's Edge", "bg-[#241d16]", "text-amber-200"],
+  ["festive_sparkle", "Festive Sparkle", "bg-[#5c1010]", "text-yellow-300"],
   ["navy_classic", "Navy Classic", "bg-[#1a2440]", "text-amber-300"],
   ["dark_glam", "Dark Glam", "bg-[#17141c]", "text-amber-200"],
   ["purple_pop", "Purple Pop", "bg-[#5b2ea6]", "text-yellow-300"],
@@ -11,7 +17,7 @@ const TEMPLATES = [
 ];
 
 export const AIFlyerStudio = () => {
-  const [template, setTemplate] = useState("navy_classic");
+  const [template, setTemplate] = useState("pink_glam");
   const [headline, setHeadline] = useState("Festive Special Offer");
   const [offerText, setOfferText] = useState("Get 30% OFF on all services");
   const [services, setServices] = useState("Haircut ₹299, Hair Spa ₹599, Facial ₹499");

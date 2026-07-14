@@ -265,8 +265,12 @@ async def unlock_offer(user=Depends(require_tenant_admin), t=Depends(current_ten
     return {"ok": True}
 
 
+class ReflyerIn(BaseModel):
+    template: str | None = None
+
+
 @router.post("/day-offers/regenerate-flyer")
-async def regenerate_flyer(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def regenerate_flyer(body: ReflyerIn = ReflyerIn(), user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Fresh poster design for today's accepted offer — the offer itself doesn't change."""
     import random
     today = _today_ist().date().isoformat()
@@ -275,8 +279,11 @@ async def regenerate_flyer(user=Depends(require_tenant_admin), t=Depends(current
     if not doc:
         raise HTTPException(404, "No accepted offer today")
     from routes.offer_flyer import FlyerIn, create_flyer, TEMPLATES
-    choices = [k for k in TEMPLATES if k != doc.get("flyer_template")] or list(TEMPLATES)
-    template = random.choice(choices)
+    if body.template and body.template in TEMPLATES:
+        template = body.template
+    else:
+        choices = [k for k in TEMPLATES if k != doc.get("flyer_template")] or list(TEMPLATES)
+        template = random.choice(choices)
     flyer = await create_flyer(FlyerIn(
         template=template,
         headline=doc["title"],

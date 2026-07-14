@@ -234,3 +234,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - ReviewPublic.jsx: pickRating() — selecting 4/5★ calls /public/review-draft/{token} and prefills the comment box with Mira's service-specific draft (cached per rating, never overwrites user-typed text, "✨ Written by Mira" hint). Reward banner now rating-aware: 5★ → ₹30, 4★ → ₹20 + upsell "make it 5★ for ₹30". WA share text uses dynamic credit amount. If comment ≥20 chars, it's reused as the post-submit Google review draft (saves an AI call).
 - Verified E2E: 5★ → credit 30, 4★ → credit 20 (curl), prefill + both banners confirmed via browser. Test data cleaned, credit rolled back.
 - BUILD bumped to 2026-07-13.3.
+
+## 2026-07-14 — Glamour posters + Dashboard auto-suggest
+- offer_flyer.py TEMPLATES: +6 glamour styles (pink_glam like user's reference sample, royal_gold, bridal_blush, emerald_luxe, mens_edge, festive_sparkle) = 10 total. AI model photo (gpt-image-1) + PIL text overlay (salon name, offer, services ₹, contact bar).
+- day_offers.py: regenerate-flyer now accepts optional {template}; frontend passes chosen style or random.
+- New /app/frontend/src/lib/posterStyles.js (POSTER_STYLES + randomPosterStyle). Style selectors added to MiraDayOffer (day-offer-style-select), MiraPackagesCard (package-style-select), AIFlyerStudio (default now pink_glam). Accept/publish pass style || random.
+- MiraDayOffer auto-suggest: on mount, if /day-offers/today empty → auto POST /day-offers/suggest (once, ref-guarded; suggestion persisted per-day so no repeated AI calls on re-login).
+- Verified: pink_glam poster generated E2E (matches reference: model, ₹ prices, phone + booking link), Dashboard auto-suggestion + style select confirmed via browser. Accept/publish style paths use same create_flyer call (not individually re-tested).
+- BUILD bumped to 2026-07-14.1.

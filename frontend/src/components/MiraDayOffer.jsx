@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Zap } from "lucide-react";
+import { POSTER_STYLES, randomPosterStyle } from "@/lib/posterStyles";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
@@ -113,9 +114,21 @@ export function MiraDayOffer() {
   const [busy, setBusy] = useState("");
   const [pct, setPct] = useState("");
   const [tier, setTier] = useState("");
+  const [style, setStyle] = useState("");
+  const autoAsked = useRef(false);
 
   useEffect(() => {
-    api.get("/day-offers/today").then(r => setOffer(r.data.offer)).catch(() => {});
+    api.get("/day-offers/today").then(r => {
+      setOffer(r.data.offer);
+      if (!r.data.offer && !autoAsked.current) {
+        autoAsked.current = true;
+        setBusy("suggest");
+        api.post("/day-offers/suggest", {})
+          .then(res => setOffer(res.data.offer))
+          .catch(() => {})
+          .finally(() => setBusy(""));
+      }
+    }).catch(() => {});
     api.get("/day-offers/flash-alert").then(r => setFlash(r.data)).catch(() => {});
   }, []);
 
@@ -124,7 +137,7 @@ export function MiraDayOffer() {
     try {
       if (action === "accept") {
         const target = isFlash ? flash.offer : offer;
-        const { data } = await api.post("/day-offers/accept", { offer_id: target.id, template: "dark_glam" });
+        const { data } = await api.post("/day-offers/accept", { offer_id: target.id, template: style || randomPosterStyle() });
         if (isFlash) setFlash(f => ({ ...f, offer: data.offer }));
         else setOffer(data.offer);
         toast.success("Offer locked — poster ready! 🎉");
@@ -132,7 +145,7 @@ export function MiraDayOffer() {
         const { data } = await api.post("/day-offers/flash-suggest");
         setFlash(f => ({ ...f, offer: data.offer }));
       } else if (action === "reflyer") {
-        const { data } = await api.post("/day-offers/regenerate-flyer");
+        const { data } = await api.post("/day-offers/regenerate-flyer", { template: style || null });
         setOffer(data.offer);
         toast.success("Fresh poster ready 🎨");
       } else if (action === "unlock") {
@@ -187,6 +200,12 @@ export function MiraDayOffer() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <select value={style} onChange={(e) => setStyle(e.target.value)} data-testid="day-offer-style-select"
+            title="Poster design style"
+            className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
+            <option value="">🎨 Poster style — surprise me</option>
+            {POSTER_STYLES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
           {(!offer || offer.status !== "accepted") && (
             <>
               <select value={tier} onChange={(e) => setTier(e.target.value)} data-testid="day-offer-tier-select"

@@ -21,6 +21,41 @@ log = logging.getLogger("offer_flyer")
 APP_NAME = os.environ.get("APP_NAME", "miracurl")
 
 TEMPLATES = {
+    "pink_glam": {
+        "label": "Pink Glam", "accent": (255, 220, 120), "text": (255, 255, 255),
+        "prompt": "stunning glamorous female model with bold red lips, dramatic smokey eye makeup and long "
+                  "jeweled nails touching her face, hot pink and magenta gradient studio background, "
+                  "high-fashion beauty salon advertisement photography, luxurious and vibrant",
+    },
+    "royal_gold": {
+        "label": "Royal Gold", "accent": (240, 205, 110), "text": (255, 255, 255),
+        "prompt": "regal female model with elegant updo hairstyle and gold jewelry, opulent black and gold "
+                  "background with baroque ornaments and soft candlelight glow, royal luxury salon "
+                  "advertisement, majestic beauty photography",
+    },
+    "bridal_blush": {
+        "label": "Bridal Blush", "accent": (192, 120, 90), "text": (70, 40, 45),
+        "prompt": "beautiful Indian bride with elegant bridal makeup, soft curls and delicate jewelry, "
+                  "dreamy blush pink and ivory background with soft rose petals and bokeh, romantic bridal "
+                  "salon advertisement, soft glowing beauty photography",
+    },
+    "emerald_luxe": {
+        "label": "Emerald Luxe", "accent": (240, 205, 110), "text": (255, 255, 255),
+        "prompt": "sophisticated model with sleek glossy hair, deep emerald green velvet background with "
+                  "golden art-deco accents, premium luxury salon advertisement, rich cinematic beauty photography",
+    },
+    "mens_edge": {
+        "label": "Men's Edge", "accent": (232, 195, 127), "text": (255, 255, 255),
+        "prompt": "handsome well-groomed man with sharp fade haircut and styled beard, moody dark barbershop "
+                  "background with warm rim lighting, premium men's grooming salon advertisement, masculine "
+                  "editorial photography",
+    },
+    "festive_sparkle": {
+        "label": "Festive Sparkle", "accent": (255, 214, 90), "text": (255, 255, 255),
+        "prompt": "joyful model with glamorous party makeup and shimmering hair, festive deep red and gold "
+                  "background with sparkling fireworks bokeh and confetti lights, celebration salon "
+                  "advertisement, festive beauty photography",
+    },
     "navy_classic": {
         "label": "Navy Classic", "accent": (212, 175, 55), "text": (255, 255, 255),
         "prompt": "elegant female model with flowing styled hair, deep navy blue studio background, "

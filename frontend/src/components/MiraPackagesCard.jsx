@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Loader2, Gift } from "lucide-react";
+import { POSTER_STYLES, randomPosterStyle } from "@/lib/posterStyles";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const AUDIENCES = [
@@ -15,6 +16,7 @@ export const MiraPackagesCard = () => {
   const [busy, setBusy] = useState("");
   const [pct, setPct] = useState("");
   const [validDays, setValidDays] = useState("7");
+  const [style, setStyle] = useState("");
 
   useEffect(() => {
     api.get("/mira-packages").then(r => setPkg(r.data.packages[0] || null)).catch(() => {});
@@ -37,7 +39,7 @@ export const MiraPackagesCard = () => {
   const publish = async () => {
     setBusy("publish");
     try {
-      const { data } = await api.post("/mira-packages/publish", { package_id: pkg.id });
+      const { data } = await api.post("/mira-packages/publish", { package_id: pkg.id, template: style || randomPosterStyle() });
       setPkg(data.package);
       toast.success(data.package.google_post?.ok ? "Poster ready & posted on Google 🎉" : "Poster ready — download & share it 🎉");
     } catch (e) {
@@ -65,6 +67,12 @@ export const MiraPackagesCard = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <select value={style} onChange={(e) => setStyle(e.target.value)} data-testid="package-style-select"
+            title="Poster design style"
+            className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-fuchsia-300/50 [&>option]:bg-[#17141c]">
+            <option value="">🎨 Poster style — surprise me</option>
+            {POSTER_STYLES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          </select>
           <select value={validDays} onChange={(e) => setValidDays(e.target.value)} data-testid="package-validity-select"
             className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-fuchsia-300/50 [&>option]:bg-[#17141c]">
             <option value="">No time limit</option>
