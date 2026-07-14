@@ -2,7 +2,9 @@
 import asyncio
 import io
 import logging
+import math
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -12,7 +14,7 @@ from pydantic import BaseModel
 
 from database import _raw_db
 from security import require_tenant_admin, current_tenant
-from services.storage import _put_object
+from services.storage import _put_object, _get_object
 from routes.promo_common import FONT_PATH
 
 router = APIRouter()
@@ -101,7 +103,8 @@ async def create_flyer(body: FlyerIn, user=Depends(require_tenant_admin), t=Depe
     if not imgs:
         raise HTTPException(502, "Image generation failed — try again")
 
-    final = await asyncio.to_thread(_compose_flyer, imgs[0], body, tpl, t)
+    logo_bytes = await _load_logo(t)
+    final = await asyncio.to_thread(_compose_flyer, imgs[0], body, tpl, t, logo_bytes)
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/tenants/{t['id']}/flyers/{fid}.jpg"
     result = _put_object(path, final, "image/jpeg")
@@ -134,6 +137,39 @@ async def delete_flyer(fid: str, user=Depends(require_tenant_admin), t=Depends(c
     return {"deleted": 1}
 
 
+FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "fonts")
+SERIF = os.path.join(FONT_DIR, "PlayfairDisplay-Bold.ttf")
+SCRIPT = os.path.join(FONT_DIR, "GreatVibes-Regular.ttf")
+
+
+def _font(path: str, sz: int, variation: str | None = None) -> ImageFont.FreeTypeFont:
+    try:
+        f = ImageFont.truetype(path, sz)
+        if variation:
+            try:
+                f.set_variation_by_name(variation)
+            except Exception:  # noqa: BLE001 — static fonts have no variations
+                pass
+        return f
+    except OSError:
+        return ImageFont.truetype(FONT_PATH, sz)
+
+
+async def _load_logo(t: dict) -> bytes | None:
+    url = t.get("logo_url") or ""
+    if not url.startswith("/api/files/"):
+        return None
+    up = await _raw_db.uploads.find_one({"id": url.rsplit("/", 1)[-1]}, {"_id": 0, "storage_path": 1})
+    if not up:
+        return None
+    try:
+        data, _ = _get_object(up["storage_path"])
+        return data
+    except Exception as e:  # noqa: BLE001 — poster works without logo
+        log.warning(f"logo load failed: {e}")
+        return None
+
+
 def _flyer_canvas(img_bytes: bytes, tpl: dict) -> Image.Image:
     """Cover-crop the AI background to 1024x1280 and lay a left scrim for text legibility."""
     W, H = 1024, 1280
@@ -154,35 +190,97 @@ def _flyer_canvas(img_bytes: bytes, tpl: dict) -> Image.Image:
 
 
 def _make_fitter(d: ImageDraw.ImageDraw):
-    """Returns fit(text, start_size, max_width) -> font that fits within max_width."""
-    def _font(sz):
-        try:
-            return ImageFont.truetype(FONT_PATH, sz)
-        except OSError:
-            return ImageFont.load_default()
-
-    def _fit(text, start, maxw):
+    """Returns fit(text, start_size, max_width, path, variation) -> font that fits within max_width."""
+    def _fit(text, start, maxw, path=FONT_PATH, variation=None):
         sz = start
-        while sz > 16 and d.textlength(text, font=_font(sz)) > maxw:
+        while sz > 16 and d.textlength(text, font=_font(path, sz, variation)) > maxw:
             sz -= 3
-        return _font(sz)
+        return _font(path, sz, variation)
     return _fit
+
+
+def _draw_logo_badge(img: Image.Image, d: ImageDraw.ImageDraw, tpl: dict, t: dict, logo_bytes: bytes | None) -> None:
+    """Round logo medallion top-right — salon logo if uploaded, else an elegant monogram."""
+    cx, cy, r = 1024 - 122, 122, 74
+    d.ellipse([cx - r - 5, cy - r - 5, cx + r + 5, cy + r + 5], fill=(*tpl["accent"], 255))
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(252, 250, 246, 255))
+    if logo_bytes:
+        try:
+            logo = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
+            side = min(logo.size)
+            logo = logo.crop(((logo.width - side) // 2, (logo.height - side) // 2,
+                              (logo.width + side) // 2, (logo.height + side) // 2))
+            logo = logo.resize((2 * r - 16, 2 * r - 16))
+            mask = Image.new("L", logo.size, 0)
+            ImageDraw.Draw(mask).ellipse([0, 0, logo.width, logo.height], fill=255)
+            img.paste(logo, (cx - logo.width // 2, cy - logo.height // 2), mask)
+            return
+        except Exception as e:  # noqa: BLE001 — fall back to monogram
+            log.warning(f"logo composite failed: {e}")
+    initial = ((t.get("name") or "S").strip() or "S")[0].upper()
+    f = _font(SERIF, 92, "Bold")
+    bb = d.textbbox((0, 0), initial, font=f)
+    d.text((cx - (bb[2] - bb[0]) / 2 - bb[0], cy - (bb[3] - bb[1]) / 2 - bb[1]),
+           initial, font=f, fill=(35, 28, 20, 255))
+
+
+def _draw_pct_badge(img: Image.Image, tpl: dict, offer_text: str) -> None:
+    """Rotated starburst '% OFF' badge, bottom-right above the contact bar."""
+    m = re.search(r"(\d{1,2})\s*%", offer_text or "")
+    if not m:
+        return
+    pct = m.group(1)
+    S = 380
+    badge = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    bd = ImageDraw.Draw(badge)
+    cx = cy = S // 2
+    R, r_in = 168, 138
+    pts = []
+    for i in range(36):
+        rad = R if i % 2 == 0 else r_in
+        ang = math.pi * i / 18
+        pts.append((cx + rad * math.cos(ang), cy + rad * math.sin(ang)))
+    bd.polygon(pts, fill=(*tpl["accent"], 255))
+    bd.ellipse([cx - r_in + 8, cy - r_in + 8, cx + r_in - 8, cy + r_in - 8],
+               outline=(35, 28, 20, 160), width=3)
+    f_big = _font(FONT_PATH, 96)
+    f_small = _font(FONT_PATH, 44)
+    txt = f"{pct}%"
+    bb = bd.textbbox((0, 0), txt, font=f_big)
+    bd.text((cx - (bb[2] - bb[0]) / 2 - bb[0], cy - 62), txt, font=f_big, fill=(35, 28, 20, 255))
+    bb2 = bd.textbbox((0, 0), "OFF", font=f_small)
+    bd.text((cx - (bb2[2] - bb2[0]) / 2 - bb2[0], cy + 42), "OFF", font=f_small, fill=(35, 28, 20, 255))
+    badge = badge.rotate(12, resample=Image.BICUBIC)
+    img.alpha_composite(badge, (1024 - S + 40, 1280 - 116 - S + 30))
+
+
+def _draw_ribbons(d: ImageDraw.ImageDraw, tpl: dict) -> None:
+    """Sweeping decorative ribbon curves above the contact bar (reference-poster style)."""
+    W, H, bar_h = 1024, 1280, 116
+    y0 = H - bar_h
+    d.arc([-360, y0 - 170, W + 360, y0 + 230], start=193, end=347, fill=(*tpl["accent"], 235), width=12)
+    d.arc([-360, y0 - 138, W + 360, y0 + 262], start=193, end=347, fill=(255, 255, 255, 110), width=5)
 
 
 def _draw_flyer_copy(d: ImageDraw.ImageDraw, body: FlyerIn, tpl: dict, t: dict) -> None:
     _fit = _make_fitter(d)
     accent, text_col = tpl["accent"], tpl["text"]
     m, maxw = 56, int(1024 * 0.56)
-    y = 72
+    y = 66
     salon = (t.get("name") or "Your Salon").upper()
-    d.text((m, y), salon, font=_fit(salon, 40, maxw), fill=(*accent, 255))
-    y += 62
-    d.rectangle([m, y, m + 90, y + 4], fill=(*accent, 255))
-    y += 40
+    d.text((m, y), salon, font=_fit(salon, 42, maxw, SERIF, "Bold"), fill=(*accent, 255))
+    y += 64
+    d.rectangle([m, y, m + 110, y + 4], fill=(*accent, 255))
+    d.polygon([(m + 124, y - 4), (m + 134, y + 2), (m + 124, y + 8), (m + 114, y + 2)], fill=(*accent, 255))
+    y += 34
+
+    script = _font(SCRIPT, 58)
+    d.text((m, y), "Exclusive Offer", font=script, fill=(*text_col, 225))
+    y += 82
 
     hl = body.headline.strip()[:36] or "Special Offer"
-    d.text((m, y), hl, font=_fit(hl, 78, maxw), fill=(*text_col, 255))
-    y += 110
+    d.text((m, y), hl, font=_fit(hl, 82, maxw, SERIF, "Bold"), fill=(*text_col, 255))
+    y += 116
 
     offer = body.offer_text.strip()[:60]
     if offer:
@@ -190,37 +288,47 @@ def _draw_flyer_copy(d: ImageDraw.ImageDraw, body: FlyerIn, tpl: dict, t: dict) 
         y += 84
 
     for s in body.services[:5]:
-        line = f"•  {s.strip()[:42]}"
-        d.text((m, y), line, font=_fit(line, 34, maxw), fill=(*text_col, 235))
-        y += 52
+        line = s.strip()[:42]
+        d.ellipse([m, y + 15, m + 10, y + 25], fill=(*accent, 255))
+        d.text((m + 26, y), line, font=_fit(line, 34, maxw - 26), fill=(*text_col, 235))
+        y += 54
 
     if body.valid_until.strip():
-        y += 16
+        y += 18
         vu = f"Valid until {body.valid_until.strip()[:24]}"
-        d.text((m, y), vu, font=_fit(vu, 26, maxw), fill=(*text_col, 190))
+        f = _fit(vu, 27, maxw)
+        bb = d.textbbox((m, y), vu, font=f)
+        d.rounded_rectangle([bb[0] - 14, bb[1] - 9, bb[2] + 14, bb[3] + 9], radius=22,
+                            outline=(*accent, 220), width=2)
+        d.text((m, y), vu, font=f, fill=(*text_col, 220))
 
 
 def _draw_contact_bar(d: ImageDraw.ImageDraw, tpl: dict, t: dict) -> None:
-    W, H, m, bar_h = 1024, 1280, 56, 92
+    W, H, m, bar_h = 1024, 1280, 56, 116
     _fit = _make_fitter(d)
     d.rectangle([0, H - bar_h, W, H], fill=(*tpl["accent"], 255))
+    d.rectangle([0, H - bar_h, W, H - bar_h + 5], fill=(255, 255, 255, 190))
     dark_txt = (25, 20, 15)
     phone = t.get("phone") or t.get("contact_phone") or ""
     addr = (t.get("address") or "")[:52]
     contact = "   ·   ".join(x for x in [phone, addr] if x) or "Book your appointment today"
-    d.text((m, H - bar_h + 16), contact, font=_fit(contact, 28, W - 2 * m), fill=(*dark_txt, 255))
+    d.text((m, H - bar_h + 22), contact, font=_fit(contact, 32, W - 2 * m, FONT_PATH), fill=(*dark_txt, 255))
     slug = t.get("slug", "")
     site = os.environ.get("APP_PUBLIC_URL", "").replace("https://", "")
     if slug and site:
         book = f"Book online: {site}/book/{slug}"
-        d.text((m, H - bar_h + 54), book, font=_fit(book, 24, W - 2 * m), fill=(*dark_txt, 220))
+        d.text((m, H - bar_h + 68), book, font=_fit(book, 26, W - 2 * m, FONT_PATH), fill=(*dark_txt, 225))
 
 
-def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict) -> bytes:
+def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict, logo_bytes: bytes | None = None) -> bytes:
     img = _flyer_canvas(img_bytes, tpl)
+    d = ImageDraw.Draw(img)
+    _draw_ribbons(d, tpl)
+    _draw_pct_badge(img, tpl, f"{body.headline} {body.offer_text}")
     d = ImageDraw.Draw(img)
     _draw_flyer_copy(d, body, tpl, t)
     _draw_contact_bar(d, tpl, t)
+    _draw_logo_badge(img, d, tpl, t, logo_bytes)
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG", quality=90)
     return buf.getvalue()

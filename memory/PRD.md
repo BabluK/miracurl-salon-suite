@@ -254,3 +254,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - MiraPackagesCard.jsx: "Live on your booking page" panel — each live package row (name, audience, ₹, valid-till) with Remove button (confirm dialog), X/4 counter badge (red at limit + hint). testids: live-packages-panel, live-packages-count, live-package-remove-{id}.
 - Verified E2E (curl + browser): 4 live → 5th publish blocked with clear error; unpublish removes from public /public/packages/{slug}; UI remove 3/4→2/4 with toast. Test seeds cleaned.
 - BUILD bumped to 2026-07-14.3.
+
+## 2026-07-14 — Designer poster upgrade (logo + rich elements)
+- Bundled 2 new OFL fonts in /app/backend/assets/fonts: PlayfairDisplay-Bold.ttf (variable; use set_variation_by_name("Bold"); HAS ₹ glyph) + GreatVibes-Regular.ttf (script). FreeSansBold stays for body/prices.
+- offer_flyer.py rewrite of composition: _load_logo(t) reads tenant.logo_url → uploads.storage_path → _get_object; _draw_logo_badge (gold-ring circular medallion top-right, monogram fallback); _draw_pct_badge (rotated starburst, regex % from headline+offer_text); _draw_ribbons (arc sweeps above bar); script "Exclusive Offer" line; Playfair serif salon name + headline; validity in rounded pill; taller 2-tone contact bar. _compose_flyer now takes logo_bytes. create_flyer passes it.
+- All flyer consumers (day offers accept/reflyer, packages publish, AI Flyer Studio) benefit automatically.
+- Verified: offline composition test + real E2E royal_gold flyer with tenant logo (perfect render, ₹ ok).
+- BUILD bumped to 2026-07-14.4.
