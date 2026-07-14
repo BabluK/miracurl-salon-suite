@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Loader2, Gift } from "lucide-react";
+import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Loader2, Gift, Trash2, Radio } from "lucide-react";
 import { POSTER_STYLES, randomPosterStyle } from "@/lib/posterStyles";
 import { shareWithPoster } from "@/lib/sharePoster";
 
@@ -18,10 +18,27 @@ export const MiraPackagesCard = () => {
   const [pct, setPct] = useState("");
   const [validDays, setValidDays] = useState("7");
   const [style, setStyle] = useState("");
+  const [live, setLive] = useState({ packages: [], max_live: 4 });
+
+  const loadLive = () => api.get("/mira-packages/live").then(r => setLive(r.data)).catch(() => {});
 
   useEffect(() => {
     api.get("/mira-packages").then(r => setPkg(r.data.packages[0] || null)).catch(() => {});
+    loadLive();
   }, []);
+
+  const removeLive = async (p) => {
+    if (!window.confirm(`Remove "${p.name}" from your booking page?`)) return;
+    setBusy(`remove-${p.id}`);
+    try {
+      await api.post(`/mira-packages/${p.id}/unpublish`);
+      toast.success("Package removed from booking page");
+      loadLive();
+      if (pkg?.id === p.id) setPkg(null);
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Couldn't remove — try again");
+    } finally { setBusy(""); }
+  };
 
   const suggest = async (audience) => {
     setBusy(audience);
@@ -42,6 +59,7 @@ export const MiraPackagesCard = () => {
     try {
       const { data } = await api.post("/mira-packages/publish", { package_id: pkg.id, template: style || randomPosterStyle() });
       setPkg(data.package);
+      loadLive();
       toast.success(data.package.google_post?.ok ? "Poster ready & posted on Google 🎉" : "Poster ready — download & share it 🎉");
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Couldn't publish — try again");
@@ -175,6 +193,39 @@ export const MiraPackagesCard = () => {
           {published && (
             <p className="text-[11px] text-white/45 mt-2">Tip: download the poster, then open WhatsApp → <b>Status</b> → add the poster with the shared caption ✦</p>
           )}
+        </div>
+      )}
+
+      {live.packages.length > 0 && (
+        <div className="mt-5 border-t border-white/10 pt-4" data-testid="live-packages-panel">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white/85">
+              <Radio className="w-4 h-4 text-emerald-300" /> Live on your booking page
+            </div>
+            <span className={`text-[11px] px-2 py-0.5 rounded-full border ${live.packages.length >= live.max_live ? "bg-red-500/10 border-red-400/40 text-red-300" : "bg-emerald-500/10 border-emerald-400/30 text-emerald-300"}`} data-testid="live-packages-count">
+              {live.packages.length}/{live.max_live} live
+            </span>
+          </div>
+          {live.packages.length >= live.max_live && (
+            <p className="text-[11px] text-red-300/80 mt-1.5">Limit reached — remove a package below to publish a new one.</p>
+          )}
+          <div className="mt-3 space-y-2">
+            {live.packages.map(p => (
+              <div key={p.id} className="flex items-center gap-3 bg-black/25 border border-white/10 rounded-xl px-3 py-2.5" data-testid={`live-package-row-${p.id}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{p.name}</div>
+                  <div className="text-[11px] text-white/50">
+                    {{ men: "Men", women: "Women", family: "Family" }[p.audience] || ""} · ₹{Math.round(p.package_price)}
+                    {p.expires_at && <> · till {new Date(p.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</>}
+                  </div>
+                </div>
+                <button onClick={() => removeLive(p)} disabled={!!busy} data-testid={`live-package-remove-${p.id}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-400/30 text-red-300 text-xs font-medium hover:bg-red-500/20 disabled:opacity-50">
+                  {busy === `remove-${p.id}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Remove
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -97,6 +97,33 @@ class PublishIn(BaseModel):
     template: str = "dark_glam"
 
 
+def _live_filter(tenant_id: str) -> dict:
+    return {"tenant_id": tenant_id, "status": "published",
+            "$or": [{"expires_at": None}, {"expires_at": {"$gte": datetime.now(timezone.utc).isoformat()}}]}
+
+
+MAX_LIVE_PACKAGES = 4
+
+
+@router.get("/mira-packages/live")
+async def live_packages(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Published & non-expired packages currently visible on the public booking page."""
+    docs = await _raw_db.mira_packages.find(
+        _live_filter(t["id"]), {"_id": 0}).sort("published_at", -1).to_list(20)
+    return {"packages": docs, "max_live": MAX_LIVE_PACKAGES}
+
+
+@router.post("/mira-packages/{pid}/unpublish")
+async def unpublish_package(pid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Take a package off the public booking page."""
+    res = await _raw_db.mira_packages.update_one(
+        {"id": pid, "tenant_id": t["id"]},
+        {"$set": {"status": "unpublished", "unpublished_at": datetime.now(timezone.utc).isoformat()}})
+    if not res.matched_count:
+        raise HTTPException(404, "Package not found")
+    return {"ok": True}
+
+
 @router.post("/mira-packages/publish")
 async def publish_package(body: PublishIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Generate a poster and post the package on Google Business. WhatsApp status is shared from the UI."""
@@ -105,6 +132,9 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
         raise HTTPException(404, "Package not found — ask Mira again")
     if doc["status"] == "published" and doc.get("flyer_url"):
         return {"package": doc}
+    live_count = await _raw_db.mira_packages.count_documents(_live_filter(t["id"]))
+    if live_count >= MAX_LIVE_PACKAGES:
+        raise HTTPException(400, f"You already have {MAX_LIVE_PACKAGES} live packages — remove one from the 'Live packages' list first")
     from routes.offer_flyer import FlyerIn, create_flyer
     audience_label = {"men": "For Men", "women": "For Women", "family": "For the Family"}[doc["audience"]]
     valid_days = doc.get("valid_days")

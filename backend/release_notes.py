@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-14.2"
-BUILD_TIME = "14 Jul 2026, 10:15 AM IST"
+BUILD = "2026-07-14.3"
+BUILD_TIME = "14 Jul 2026, 1:15 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-14",
         "changes": [
+            "Manage live packages 📋 — the Package Builder now shows exactly which packages are LIVE on your booking page (with a live counter), and one tap removes any of them so you can post an updated one",
+            "Max 4 packages rule ✋ — your booking page never shows more than 4 packages; publishing a 5th is blocked until you remove one, keeping the page clean and focused",
             "Share the poster, not just words 📲 — 'Share on WhatsApp' now sends the glamour poster WITH the caption (on phones it opens the native share sheet; on desktop the poster downloads and WhatsApp opens ready to paste)",
             "Offer Maker quick-sets ⚡ — one tap applies 10-50% off to ALL selected services, and 3d/4d/7d/15d/30d chips fill the 'Valid till' date automatically",
             "Glamour posters 💗 — 6 stunning new AI poster styles (Pink Glam, Royal Gold, Bridal Blush, Emerald Luxe, Men's Edge, Festive Sparkle) with real model photography, your prices and booking link overlaid pixel-perfect",

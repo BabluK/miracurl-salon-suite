@@ -248,3 +248,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - OffersStudio (route /offers-studio, sidebar "Offer Maker"): ServiceOfferRows "Quick % off all" chips (10-50%, sets offer = round(actual*(1-p/100))); Valid-till quick chips 3/4/7/15/30d fill f.validity with en-IN date. testids: service-offer-quickpct-{p}, offer-validity-{d}d, offer-validity-input.
 - Verified via browser: 20% chip → ₹2000→₹1600 + 20% badge; 7d chip → "21 Jul" shown on live poster preview. WA share code path desktop-fallback logic not headless-testable; logic reviewed.
 - BUILD bumped to 2026-07-14.2.
+
+## 2026-07-14 — Live package management + max-4 cap
+- packages.py: _live_filter() + MAX_LIVE_PACKAGES=4. GET /mira-packages/live (published & non-expired), POST /mira-packages/{pid}/unpublish (status=unpublished → off public page), publish now blocks with 400 when 4 already live.
+- MiraPackagesCard.jsx: "Live on your booking page" panel — each live package row (name, audience, ₹, valid-till) with Remove button (confirm dialog), X/4 counter badge (red at limit + hint). testids: live-packages-panel, live-packages-count, live-package-remove-{id}.
+- Verified E2E (curl + browser): 4 live → 5th publish blocked with clear error; unpublish removes from public /public/packages/{slug}; UI remove 3/4→2/4 with toast. Test seeds cleaned.
+- BUILD bumped to 2026-07-14.3.
