@@ -170,7 +170,7 @@ export default function Reviews() {
             key={t.k}
             data-testid={`reviews-filter-${t.k}`}
             onClick={() => setFilter(t.k)}
-            className={`px-4 py-1.5 text-xs rounded-md transition ${filter === t.k ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}
+            className={`px-4 py-1.5 text-xs rounded-md transition ${filter === t.k ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-slate-900 hover:bg-white"}`}
           >{t.l}</button>
         ))}
       </div>

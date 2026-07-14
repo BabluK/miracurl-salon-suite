@@ -168,13 +168,13 @@ export default function Appointments() {
         <div className="flex items-center gap-3 flex-wrap">
           {/* View toggle */}
           <div className="flex gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100">
-            <button data-testid="appt-view-list" onClick={() => setView("list")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "list" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}>
+            <button data-testid="appt-view-list" onClick={() => setView("list")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "list" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-slate-900 hover:bg-white"}`}>
               <ListIcon className="w-3.5 h-3.5" /> Day
             </button>
-            <button data-testid="appt-view-upcoming" onClick={() => setView("upcoming")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "upcoming" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}>
+            <button data-testid="appt-view-upcoming" onClick={() => setView("upcoming")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "upcoming" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-slate-900 hover:bg-white"}`}>
               <Clock className="w-3.5 h-3.5" /> Upcoming
             </button>
-            <button data-testid="appt-view-week" onClick={() => setView("week")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "week" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-white"}`}>
+            <button data-testid="appt-view-week" onClick={() => setView("week")} className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-1.5 transition ${view === "week" ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-slate-900 hover:bg-white"}`}>
               <LayoutGrid className="w-3.5 h-3.5" /> Week
             </button>
           </div>

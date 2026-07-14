@@ -268,3 +268,7 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - BUGFIX (also live on production — needs deploy): WalletCheck in BookPublic.jsx referenced PUBLIC axios instance that lives INSIDE the main component (moved there in an earlier refactor) → ReferenceError → generic "Try again in a few minutes" toast. Fixed with direct axios.post. Verified in browser: "Hi N**m! You have ₹3,500 salon credit".
 - Verified: about poster E2E with real AI hero + gallery/triptych insets; UI section renders; wallet check works.
 - BUILD bumped to 2026-07-14.5.
+
+## 2026-07-14 — Appointments tab hover fix
+- Bug: Day/Upcoming/Week toggle (Appointments.jsx) + Reviews filter tabs used `hover:text-white` on a light bg-slate-50 container → label invisible on hover/click ("overlapping" per user). Fixed to `hover:text-slate-900 hover:bg-white`. Verified via hover screenshot. Desktop + mobile layouts confirmed not overlapping.
+- BUILD bumped to 2026-07-14.6.
