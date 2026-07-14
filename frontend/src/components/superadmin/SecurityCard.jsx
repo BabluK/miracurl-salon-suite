@@ -14,6 +14,7 @@ const timeAgo = (iso) => {
 
 export function SecurityCard() {
   const [data, setData] = useState(null);
+  const [snap, setSnap] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -21,6 +22,8 @@ export function SecurityCard() {
     try {
       const r = await api.get("/super-admin/security/login-attempts");
       setData(r.data);
+      const s = await api.get("/super-admin/security/snapshot");
+      setSnap(s.data);
     } catch {
       toast.error("Couldn't load security activity");
     } finally { setLoading(false); }
@@ -58,6 +61,50 @@ export function SecurityCard() {
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
+
+      {snap && (
+        <div className="relative mb-4" data-testid="security-snapshot">
+          <div className="text-[10px] uppercase tracking-[0.25em] text-amber-300/80 font-semibold mb-2">7-day snapshot · all salons</div>
+          {snap.days.length === 0 ? (
+            <p className="text-xs text-white/50 bg-white/5 border border-white/10 rounded-xl px-3 py-3">No security events in the last 7 days — all quiet ✦</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="text-white/40 uppercase tracking-wider text-left">
+                    <th className="py-1 pr-2 font-medium">Day</th>
+                    <th className="py-1 pr-2 font-medium">Failed logins</th>
+                    <th className="py-1 pr-2 font-medium">PIN fails</th>
+                    <th className="py-1 pr-2 font-medium">PIN lockouts</th>
+                    <th className="py-1 font-medium">Rate-limit hits</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {snap.days.map(d => (
+                    <tr key={d.day} className="border-t border-white/5 text-white/75">
+                      <td className="py-1.5 pr-2">{new Date(d.day).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
+                      <td className={`py-1.5 pr-2 ${d.failed_login > 10 ? "text-red-300 font-semibold" : ""}`}>{d.failed_login}</td>
+                      <td className="py-1.5 pr-2">{d.pin_fail}</td>
+                      <td className={`py-1.5 pr-2 ${d.pin_lockout > 0 ? "text-red-300 font-semibold" : ""}`}>{d.pin_lockout}</td>
+                      <td className={`py-1.5 ${d.rate_limit > 20 ? "text-amber-300 font-semibold" : ""}`}>{d.rate_limit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {snap.by_salon.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <span className="text-[10px] text-white/40 uppercase tracking-wider self-center">By salon:</span>
+              {snap.by_salon.map(s => (
+                <span key={s.salon} className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/70">
+                  {s.salon} · <b className="text-amber-300">{s.events}</b>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="relative space-y-1.5 max-h-72 overflow-y-auto">
         {attempts.length === 0 && (

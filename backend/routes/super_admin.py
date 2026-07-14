@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urlparse
 
 import requests
@@ -35,6 +35,37 @@ class SuperProfileIn(BaseModel):
         if v and not v.startswith("/api/files/") and urlparse(v).scheme not in ("http", "https"):
             raise ValueError("Invalid photo URL")
         return v
+
+
+@router.get("/super-admin/security/snapshot")
+async def security_snapshot(user=Depends(require_super_admin)):
+    """7-day security snapshot: failed logins, PIN failures/lockouts, rate-limit blocks — per day + per salon."""
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    by_day = await _raw_db.security_events.aggregate([
+        {"$match": {"day": {"$gte": since}}},
+        {"$group": {"_id": {"day": "$day", "kind": "$kind"}, "n": {"$sum": 1}}},
+    ]).to_list(200)
+    days: dict = {}
+    for row in by_day:
+        d = days.setdefault(row["_id"]["day"], {"day": row["_id"]["day"], "failed_login": 0, "pin_fail": 0, "pin_lockout": 0, "rate_limit": 0})
+        d[row["_id"]["kind"]] = row["n"]
+    by_tenant = await _raw_db.security_events.aggregate([
+        {"$match": {"day": {"$gte": since}, "tenant_id": {"$nin": ["", None]}}},
+        {"$group": {"_id": "$tenant_id", "n": {"$sum": 1}}},
+        {"$sort": {"n": -1}}, {"$limit": 8},
+    ]).to_list(8)
+    tenant_rows: dict = {}
+    for row in by_tenant:
+        t = await _raw_db.tenants.find_one(
+            {"$or": [{"id": row["_id"]}, {"slug": row["_id"]}]}, {"_id": 0, "name": 1, "slug": 1})
+        name = (t or {}).get("name") or row["_id"]
+        tenant_rows[name] = tenant_rows.get(name, 0) + row["n"]
+    salon_list = sorted(({"salon": k, "events": v} for k, v in tenant_rows.items()),
+                        key=lambda x: -x["events"])
+    recent = await _raw_db.security_events.find(
+        {"day": {"$gte": since}}, {"_id": 0}).sort("at", -1).to_list(15)
+    return {"days": sorted(days.values(), key=lambda x: x["day"], reverse=True),
+            "by_salon": salon_list, "recent": recent}
 
 
 @router.get("/super-admin/security/login-attempts")

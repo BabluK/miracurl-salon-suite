@@ -1,6 +1,7 @@
 """Auth & tenancy security: JWT, cookies, password hashing, role guards, rate limit."""
 import os
 import uuid
+import asyncio
 import jwt
 import bcrypt
 from datetime import datetime, timezone, timedelta
@@ -191,6 +192,17 @@ def client_ip(request: Request) -> str:
             return parts[idx] if idx >= 0 else parts[0]
     return request.client.host if request.client else "anon"
 
+def _log_sec_event(kind: str, tenant_id: str = "", ip: str = "", detail: str = ""):
+    """Fire-and-forget security event for the HQ snapshot (failed_login/pin_fail/pin_lockout/rate_limit)."""
+    doc = {"kind": kind, "tenant_id": tenant_id or "", "ip": ip, "detail": detail[:120],
+           "day": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+           "at": datetime.now(timezone.utc).isoformat()}
+    try:
+        asyncio.get_running_loop().create_task(_raw_db.security_events.insert_one(doc))
+    except RuntimeError:
+        pass
+
+
 def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, window_sec: int = 600):
     """Allow `limit` requests per IP per `window_sec` seconds."""
     ip = client_ip(request)
@@ -198,6 +210,7 @@ def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, wi
     now = datetime.now(timezone.utc).timestamp()
     bucket = [t for t in _RATE_BUCKET.get(key, []) if now - t < window_sec]
     if len(bucket) >= limit:
+        _log_sec_event("rate_limit", ip=ip, detail=key_suffix)
         raise HTTPException(429, "Too many requests. Please wait a few minutes and try again.")
     bucket.append(now)
     _RATE_BUCKET[key] = bucket
@@ -218,6 +231,7 @@ async def durable_rate_limit(request: Request, key_suffix: str, limit: int, wind
         {"$inc": {"n": 1}, "$setOnInsert": {"expire_at": now + timedelta(seconds=window_sec * 2)}},
         upsert=True, return_document=ReturnDocument.AFTER)
     if doc["n"] > limit:
+        _log_sec_event("rate_limit", ip=client_ip(request), detail=key_suffix)
         raise HTTPException(429, "Too many requests. Please wait a few minutes and try again.")
 
 
@@ -268,12 +282,13 @@ async def _pin_attempt_guard(tid: str):
 
 async def _pin_attempt_fail(tid: str):
     now = datetime.now(timezone.utc)
-    await _raw_db.pin_attempts.update_one(
+    rec = await _raw_db.pin_attempts.find_one_and_update(
         {"tenant_id": tid},
         {"$inc": {"count": 1},
          "$set": {"last_attempt": now.isoformat(),
                   "locked_until": (now + timedelta(minutes=15)).isoformat()}},
-        upsert=True)
+        upsert=True, return_document=ReturnDocument.AFTER)
+    _log_sec_event("pin_lockout" if rec.get("count", 0) >= 5 else "pin_fail", tenant_id=tid)
 
 
 async def _pin_attempt_clear(tid: str):

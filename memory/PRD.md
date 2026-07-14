@@ -310,3 +310,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - SEC-003 circle bonus: atomic claim via update_one({referral_bonus_credited:{$ne:True}}) before $inc; double-convert test → 1000 exactly.
 - Hardening: /public/success-stats rounds bookings/customers to nearest 10 (≥20); /public/sales-chat/message adds platform-wide ai_daily_quota("platform","sales_chat",400); /public/review-info rate-limited 30/10min.
 - All fixes curl/py verified. BUILD bumped to 2026-07-14.11.
+
+## 2026-07-14 — HQ Security Snapshot
+- security.py: _log_sec_event(kind, tenant_id, ip, detail) → security_events collection (fire-and-forget create_task). Hooks: public_rate_limit + durable_rate_limit blocks ("rate_limit"), _pin_attempt_fail ("pin_fail"/"pin_lockout" at ≥5), auth.py failed login ("failed_login" with X-Tenant-Slug + ip + email).
+- super_admin.py: GET /super-admin/security/snapshot — 7-day per-day counts by kind, per-salon totals (id/slug resolved+merged by name), recent 15 events.
+- SecurityCard.jsx: "7-day snapshot · all salons" table + by-salon chips above existing failed-login list (testid security-snapshot). Red highlights: failed_login>10, pin_lockout>0, rate_limit>20 amber.
+- Verified: generated real failed-login/PIN-fail/rate-limit events → all counted; UI renders in Security tab.
+- OPEN QUESTION answered to user: no staff "you're late" notification exists yet (only late fines at check-in); proposed auto email + Employee Portal banner at shift_start + grace.

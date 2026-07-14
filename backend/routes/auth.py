@@ -273,6 +273,9 @@ async def login(body: LoginIn, request: Request, response: Response):
                       "locked_until": (now + timedelta(minutes=15)).isoformat()}},
             upsert=True,
         )
+        from security import _log_sec_event
+        _log_sec_event("failed_login", tenant_id=request.headers.get("X-Tenant-Slug", ""),
+                       ip=client_ip(request), detail=email)
         raise HTTPException(401, "Invalid email or password")
     # SEC / access control: admin can disable a staff account without deleting it.
     # A disabled user MUST NOT get a token, even if the password is correct.
