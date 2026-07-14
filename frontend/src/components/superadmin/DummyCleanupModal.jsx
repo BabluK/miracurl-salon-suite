@@ -33,7 +33,7 @@ export function DummyCleanupModal({ tenant, onClose }) {
           <h2 className="text-lg font-semibold flex items-center gap-2"><Eraser className="w-5 h-5 text-rose-500" /> Clean test data — {tenant.name}</h2>
           <button onClick={onClose} data-testid="dummy-cleanup-close" className="p-1.5 rounded hover:bg-slate-100"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-xs text-slate-500 mt-1">Finds bookings & customers with test/dummy names or invalid (non-10-digit) numbers. Invoices are never touched.</p>
+        <p className="text-xs text-slate-500 mt-1">Finds bookings & customers with test/dummy NAMES (e.g. “Test”, “Dummy”). Customers with wallet money or invoices are never touched.</p>
 
         {!preview ? (
           <div className="flex items-center gap-2 text-sm text-slate-500 py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Scanning…</div>

@@ -303,3 +303,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - CircleBonusCard: "Share & earn ₹1,000" button (circle-bonus-share-btn) — navigator.share / WhatsApp with {origin}/success-stories?ref={slug}; slug passed from Dashboard (tenant?.slug).
 - Settings "Refer & Earn ₹1,000" (AffiliateCard): now PIN-locked — backend GET /settings/affiliate gained require_owner_pin; frontend shows locked state + "Unlock with Owner PIN" (settings-affiliate-unlock) via pinApi.
 - Verified: What's New shows announcement, share button visible, affiliate 403 without PIN / unlocks with 4321 showing balance + referral history.
+
+## 2026-07-14 — Security audit #3 + fixes (verdict: CONDITIONAL PASS → all findings fixed)
+- SEC-001 wallet lookup: exact 10-digit [6-9]xxxxxxxxx required, in-memory+durable limits tightened to 3/10min, NEW per-phone durable cap 6/day (rate_limits _id phone:{digits}:wallet:{day}), response no longer returns name (balance only, frontend updated). NOTE: auditor recommends full OTP verification — planned once MSG91 SMS is approved.
+- SEC-002 data_cleanup: dummy = test-pattern NAME only; customers with wallet_balance>0 or any invoice always excluded; invalid-phone heuristic removed. Verified with 4 edge-case seeds (only pure test-name flagged).
+- SEC-003 circle bonus: atomic claim via update_one({referral_bonus_credited:{$ne:True}}) before $inc; double-convert test → 1000 exactly.
+- Hardening: /public/success-stats rounds bookings/customers to nearest 10 (≥20); /public/sales-chat/message adds platform-wide ai_daily_quota("platform","sales_chat",400); /public/review-info rate-limited 30/10min.
+- All fixes curl/py verified. BUILD bumped to 2026-07-14.11.

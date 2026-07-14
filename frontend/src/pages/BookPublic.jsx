@@ -61,7 +61,7 @@ function WalletCheck({ slug }) {
       {result?.found ? (
         <div className="flex items-center justify-between flex-wrap gap-2" data-testid="wallet-check-result">
           <div>
-            <div className="text-sm text-emerald-300 font-semibold">Hi {result.name}! You have <span className="text-gold font-bold">₹{Math.round(result.balance).toLocaleString("en-IN")}</span> salon credit 💸</div>
+            <div className="text-sm text-emerald-300 font-semibold">You have <span className="text-gold font-bold">₹{Math.round(result.balance).toLocaleString("en-IN")}</span> salon credit 💸</div>
             <div className="text-[11px] text-white/40 mt-0.5">Book below — your wallet applies when you pay at the salon ✦</div>
           </div>
           <button onClick={() => setResult(null)} className="text-[11px] text-white/40 underline">check another</button>

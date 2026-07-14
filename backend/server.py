@@ -3034,8 +3034,9 @@ async def delete_review(rid: str, user=Depends(require_admin)):
     return {"ok": True}
 
 @api.get("/public/review-info/{token}")
-async def public_review_info(token: str):
+async def public_review_info(token: str, request: Request):
     """Token = appointment_id. Returns appointment summary so the customer can confirm."""
+    public_rate_limit(request, key_suffix="review-info", limit=30, window_sec=600)
     # No tenant context — find any appointment globally, then set tenant for follow-up ops
     appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
     if not appt:

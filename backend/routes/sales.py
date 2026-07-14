@@ -124,8 +124,13 @@ CIRCLE_BONUS_AMOUNT = 1000.0
 async def _credit_circle_bonus(inq: dict) -> None:
     """₹1000 Miracurl Circle bonus to the referring salon the moment their lead converts."""
     ref = inq.get("referred_by") or {}
-    if not ref.get("tenant_id") or inq.get("referral_bonus_credited"):
+    if not ref.get("tenant_id"):
         return
+    claim = await _raw_db.tenant_inquiries.update_one(
+        {"id": inq["id"], "referral_bonus_credited": {"$ne": True}},
+        {"$set": {"referral_bonus_credited": True}})
+    if claim.modified_count != 1:
+        return  # already credited (atomic guard against double-convert races)
     entry = {
         "amount": CIRCLE_BONUS_AMOUNT, "lead_name": inq.get("name"),
         "lead_salon": inq.get("salon_name") or "", "inquiry_id": inq["id"],
@@ -134,7 +139,6 @@ async def _credit_circle_bonus(inq: dict) -> None:
     await _raw_db.tenants.update_one(
         {"id": ref["tenant_id"]},
         {"$inc": {"circle_bonus_balance": CIRCLE_BONUS_AMOUNT}, "$push": {"circle_bonus_history": entry}})
-    await _raw_db.tenant_inquiries.update_one({"id": inq["id"]}, {"$set": {"referral_bonus_credited": True}})
     if ref.get("owner_email"):
         try:
             await _send_email(
@@ -169,7 +173,8 @@ async def success_stats():
             {"$group": {"_id": None, "avg": {"$avg": "$rating"}, "n": {"$sum": 1}}}]
     agg = await _raw_db.reviews.aggregate(pipe).to_list(1)
     avg = round(agg[0]["avg"], 1) if agg else 5.0
-    return {"salons": salons, "bookings": bookings, "customers": customers, "avg_rating": avg}
+    rounded = (lambda n: n if n < 20 else (n // 10) * 10)
+    return {"salons": salons, "bookings": rounded(bookings), "customers": rounded(customers), "avg_rating": avg}
 
 
 async def _send_lead_alert(inq: dict, question: str):
@@ -208,6 +213,8 @@ async def sales_chat_start(body: SalesChatStartIn, request: Request):
 @router.post("/public/sales-chat/message")
 async def sales_chat_message(body: SalesChatMsgIn, request: Request):
     public_rate_limit(request, "sales-msg", limit=30, window_sec=600)
+    from security import ai_daily_quota
+    await ai_daily_quota("platform", "sales_chat", 400)
     inq = await _raw_db.tenant_inquiries.find_one(
         {"id": body.inquiry_id}, {"_id": 0, "id": 1, "name": 1, "email": 1, "phone": 1, "alerted": 1})
     if not inq:

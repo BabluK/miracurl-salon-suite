@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-14.10"
-BUILD_TIME = "14 Jul 2026, 10:30 PM IST"
+BUILD = "2026-07-14.11"
+BUILD_TIME = "14 Jul 2026, 11:15 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-14",
         "changes": [
+            "Security hardening 🛡️ — wallet balance check now needs the exact 10-digit number (with tighter limits) and shows only the balance; referral bonus crediting is race-proof; the test-data cleaner never touches customers with wallet money or invoices",
             "📣 Refer a salon, earn ₹1,000 ✦ — know a salon owner? Tap 'Share & earn ₹1,000' on your Dashboard's Miracurl Circle card and WhatsApp them your personal link. The moment they join Miracurl, ₹1,000 lands in your Circle bonus wallet!",
             "Referral amounts are now PIN-protected 🔒 — both the Miracurl Circle wallet and the Refer & Earn section in Settings need your Owner PIN before showing balances",
             "Miracurl Circle ✦ referral program — when a salon joins Miracurl through YOUR booking page, you earn ₹1,000! A PIN-protected Circle bonus wallet on your Dashboard shows earnings, and you get a congratulations email the moment your referral converts",
