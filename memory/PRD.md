@@ -326,3 +326,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - BUGFIX: _log_sec_event used create_task on motor Future → TypeError 500 on failed logins; fixed with asyncio.ensure_future.
 - Verified E2E: reset link page → new password → login OK; late alert run (1 email + owner summary, idempotent re-run 0), late-status endpoint, banner + popup in portal. Staff creds in test_credentials.md.
 - BUILD bumped to 2026-07-15.1.
+
+## 2026-07-15 — Backend monolith split (iter68) + branded email footer
+- REFACTOR: server.py 6300 → 243 lines. 17 new domain modules in /app/backend/routes/: customers, uploads, services_catalog, security_settings, staff_admin, staff_portal (attendance/leave/salary/resume + late alerts), gallery, inventory (vendors+products+restock), tenant_settings, crm (review requests + birthday), briefings (morning/evening TTS), reviews, public_site (public pages + booking + availability), super_admin_ops (tenants CRUD/partners/reports/digest), assistant, offers (packages/memberships/coupons), public_chat (AI advisor + owner chats). Shared: schemas.py (cross-domain Pydantic models + resolve_tenant_from_slug), utils.py (CSV helpers), seeds.py, schedulers.py. server.py = app wiring, router includes (order preserved), startup/shutdown, CORS/security middleware.
+- Parity proven: old vs new apps expose identical 444 (method,path) routes, zero shadowing pairs. tests/test_iter51 imports fixed (server → routes.staff_portal/database).
+- Pre-existing pytest failures (public booking guest, owner-chat suite, TestAuthCookieOnly, referral, stale priya.staff user) confirmed IDENTICAL on the pre-refactor monolith run side-by-side — environmental, NOT regressions.
+- FEATURE: email_service._brand_footer — every outgoing email now ends with "Book Now ✦" button + "Powered by Miracurl · Salon Management Suite". _send_email(book_url=...) lets senders deep-link the tenant booking page; wired for crm review-request + birthday emails (others default to miracurl-suite.com).
+- Testing agent iteration_68: 26/26 backend PASS, frontend smoke clean (admin + super admin). New regression suite: tests/test_refactor_regression.py.
+- BUILD bumped to 2026-07-15.2 (What's New announces footer + refactor).

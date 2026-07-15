@@ -24,9 +24,11 @@
 ## P2
 - DONE Jul 7 (iter50): router split — auth, reports, registry, super_admin, sales in routes/ + shared models.py (server.py ~5980 lines)
 - DONE Jul 7 (part 69): appointments/POS → routes/appointments_pos.py, subscriptions/razorpay/SMS-packs → routes/subscriptions.py, billing helpers → services/billing.py (server.py ~5290 lines)
-- Further split candidates: staff/attendance, public booking, reviews, brand studio
+- DONE Jul 15 (iter68): FULL monolith split — server.py 6300 → 243 lines; 17 new domain modules in routes/ (customers, uploads, services_catalog, security_settings, staff_admin, staff_portal, gallery, inventory, tenant_settings, crm, briefings, reviews, public_site, super_admin_ops, assistant, offers, public_chat) + schemas.py, utils.py, seeds.py, schedulers.py. Route parity verified (444=444, no shadowing). Testing agent 26/26 pass.
+- DONE Jul 15 (iter68): Branded email footer — "Book Now ✦" + "Powered by Miracurl" appended to ALL outgoing emails in email_service._send_email (optional book_url; crm review-request & birthday senders pass tenant booking URL).
 - Brute-force lockout: key by X-Forwarded-For real client IP (currently per-pod IP behind ingress) — tester iter50
 - DONE Jul 7: TTS Mongo cache, logout jti revocation, avg rating on Reports, Lead→Tenant convert, zero-env-var prod defaults
+- Minor (from iter68 testing): 2-3 background 401s in console right after dashboard load (auth-hydration race, non-blocking); `<span>` inside `<option>` React hydration warning in an admin select.
 
 ## Recently completed (Jul 6, 2026)
 - Code Quality report closure, httpOnly-cookie-only auth, Evening Mira, luxe monthly report email, Aadhaar pepper migration
