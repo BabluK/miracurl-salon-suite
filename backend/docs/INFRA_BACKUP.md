@@ -2,7 +2,7 @@
 
 > **Purpose:** you can re-deploy the entire app on any hosting provider using ONLY this file + the code from this repo. Fill in the blanks below privately (never commit real secret values).
 
-**Author:** Bablu K · **GitHub:** https://github.com/BabluK · **Prod URL:** https://miracurlunisexsaloon.com
+**Author:** Bablu K · **GitHub:** https://github.com/BabluK · **Prod URL:** https://miracurl-suite.com
 
 ---
 
@@ -44,7 +44,7 @@ FRONTEND_URL="*"
 
 ```bash
 # Backend base URL — where FastAPI is running
-REACT_APP_BACKEND_URL="https://miracurlunisexsaloon.com"
+REACT_APP_BACKEND_URL="https://miracurl-suite.com"
 ```
 
 ---
@@ -55,7 +55,7 @@ REACT_APP_BACKEND_URL="https://miracurlunisexsaloon.com"
 |---|---|---|
 | Razorpay | Card / UPI / NetBanking checkout | https://dashboard.razorpay.com |
 | MongoDB Atlas (or Emergent-hosted) | Database | Emergent support → connection string, or Atlas dashboard |
-| Custom domain | miracurlunisexsaloon.com | Your registrar (BigRock / GoDaddy / etc.) DNS → point CNAME/A at your host |
+| Custom domain | miracurl-suite.com | Your registrar (BigRock / GoDaddy / etc.) DNS → point CNAME/A at your host |
 | Google Business Profile | SEO + reviews | https://business.google.com — links back via `google_review_url` |
 | Instagram | Public link on booking page | Configure via `/settings` → Salon Profile |
 | WhatsApp | Support + reminders | Any personal number, no API keys needed for tap-to-send |
@@ -95,4 +95,4 @@ yarn build
 
 - Platform / Emergent: `support@emergent.sh` (include your Job ID)
 - Razorpay: https://razorpay.com/support — 24/7 chat inside dashboard
-- Domain registrar: whoever you bought `miracurlunisexsaloon.com` from
+- Domain registrar: whoever you bought `miracurl-suite.com` from

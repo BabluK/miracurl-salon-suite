@@ -148,7 +148,7 @@ def draw_brand(img: Image.Image) -> None:
 
     # ─── Domain (bottom-right corner) ───
     font_url = load_font(22, bold=True)
-    domain = "miracurlunisexsaloon.com"
+    domain = "miracurl-suite.com"
     dw = d.textlength(domain, font=font_url)
     d.text((W - dw - 60, H - 50), domain, font=font_url, fill=(255, 255, 255, 235))
 

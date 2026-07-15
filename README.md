@@ -2,7 +2,7 @@
 
 A multi-tenant SaaS platform for salon & parlour management: online bookings, POS billing, staff HR (geo-fenced attendance, salaries, resumes), AI marketing tools, subscription billing and a Super-Admin command console.
 
-- **Production:** https://miracurlunisexsaloon.com
+- **Production:** https://miracurl-suite.com
 - **Architecture:** React SPA + FastAPI REST API + MongoDB (single repo, `frontend/` + `backend/`)
 
 ---
@@ -210,4 +210,4 @@ yarn start        # http://localhost:3000
 
 ## Deployment
 - Preview/dev runs under supervisord (hot reload on both services).
-- Production is deployed via the Emergent platform to **https://miracurlunisexsaloon.com** — after merging changes, redeploy from the platform to go live.
+- Production is deployed via the Emergent platform to **https://miracurl-suite.com** — after merging changes, redeploy from the platform to go live.

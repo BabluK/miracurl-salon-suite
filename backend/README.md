@@ -2,7 +2,7 @@
 
 > **Multi-tenant SaaS for Indian salons** — online bookings, POS billing, per-stylist commissions, loyalty rewards, WhatsApp reminders, referral program, and Razorpay subscription billing.
 
-🌐 **Live:** [miracurlunisexsaloon.com](https://miracurlunisexsaloon.com)
+🌐 **Live:** [miracurl-suite.com](https://miracurl-suite.com)
 📱 **Support WhatsApp:** +91 82170 72523
 📸 **Instagram:** [@miracurl_unisex_salon](https://www.instagram.com/miracurl_unisex_salon/)
 

@@ -78,7 +78,7 @@ export function formatApiError(detail) {
  */
 export function detectTenantSlug() {
   const host = window.location.hostname.toLowerCase();
-  // production wildcard subdomains: {slug}.miracurlunisexsaloon.com
+  // production wildcard subdomains: {slug}.miracurl-suite.com
   // (also keep legacy .miracurl.com for backwards-compat with earlier branding)
   const wildcardDomains = [".miracurl-suite.com", ".miracurlunisexsaloon.com", ".miracurl.com"];
   for (const d of wildcardDomains) {
