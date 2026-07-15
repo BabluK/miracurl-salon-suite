@@ -408,6 +408,31 @@ async def builder_status(pid: str, request: Request):
     return doc
 
 
+async def _run_refine(pid: str, owner_id: str, prompt: str, category: str, html_src: str):
+    now = lambda: datetime.now(timezone.utc).isoformat()  # noqa: E731
+    try:
+        html = await _ask(
+            "You are the Frontend Agent of Mira AI Studio. You receive an existing HTML website and a change request. "
+            "Apply the change and output ONLY the complete updated single-file HTML. No markdown, no commentary. "
+            "For images: reuse image URLs already present in the document or any image URL explicitly provided "
+            "in the change request — never invent other image URLs.",
+            f"CHANGE REQUEST: {prompt}\n\nCURRENT WEBSITE:\n{html_src}",
+            model="gpt-4o")
+        html = sanitize_html_images(_strip_code_fence(html), category)
+        if not html.lstrip().lower().startswith("<!doctype") or len(html) < 1500:
+            raise ValueError("bad html")
+        await _raw_db.builder_projects.update_one({"id": pid}, {
+            "$set": {"html": html, "status": "live", "refine_result": {"ok": True, "at": now()}},
+            "$inc": {"refines": 1}})
+    except Exception as e:
+        log.error("refine %s failed: %s", pid, e)
+        await _refund(owner_id, COSTS["refine"])
+        await _raw_db.builder_projects.update_one({"id": pid}, {"$set": {
+            "status": "live",
+            "refine_result": {"ok": False, "at": now(),
+                              "error": "Mira couldn't apply that change — credits refunded, try rephrasing"}}})
+
+
 @router.post("/public/mira-builder/refine")
 async def builder_refine(body: RefineIn, request: Request, authorization: str = Header(default="")):
     u = await _studio_user(authorization)
@@ -415,27 +440,16 @@ async def builder_refine(body: RefineIn, request: Request, authorization: str = 
     doc = await _raw_db.builder_projects.find_one({"id": body.project_id, "owner_id": u["id"]}, {"_id": 0})
     if not doc or doc.get("kind") != "website" or not doc.get("html"):
         raise HTTPException(404, "Live website project not found")
+    if doc.get("status") != "live":
+        raise HTTPException(409, "A change is already being applied — wait for it to finish")
     if int(doc.get("refines") or 0) >= MAX_REFINES:
         raise HTTPException(429, "Refine limit reached for this project")
     remaining = await _charge(u["id"], COSTS["refine"])
-    await _raw_db.builder_projects.update_one({"id": doc["id"]}, {"$set": {"status": "refining"}})
-    try:
-        html = await _ask(
-            "You are the Frontend Agent of Mira AI Studio. You receive an existing HTML website and a change request. "
-            "Apply the change and output ONLY the complete updated single-file HTML. No markdown, no commentary. "
-            "If you need any new image, reuse one of the image URLs already present in the document — never invent new image URLs.",
-            f"CHANGE REQUEST: {body.prompt.strip()}\n\nCURRENT WEBSITE:\n{doc['html'][:80000]}",
-            model="gpt-4o")
-        html = sanitize_html_images(_strip_code_fence(html), doc.get("category") or "business")
-        if not html.lstrip().lower().startswith("<!doctype") or len(html) < 1500:
-            raise ValueError("bad html")
-    except Exception:
-        await _refund(u["id"], COSTS["refine"])
-        await _raw_db.builder_projects.update_one({"id": doc["id"]}, {"$set": {"status": "live"}})
-        raise HTTPException(400, "Mira couldn't apply that change — credits refunded, try rephrasing")
-    await _raw_db.builder_projects.update_one({"id": doc["id"]}, {
-        "$set": {"html": html, "status": "live"}, "$inc": {"refines": 1}})
-    return {"ok": True, "live_path": doc["live_path"], "credits": remaining,
+    await _raw_db.builder_projects.update_one(
+        {"id": doc["id"]}, {"$set": {"status": "refining"}, "$unset": {"refine_result": ""}})
+    asyncio.create_task(_run_refine(doc["id"], u["id"], body.prompt.strip(),
+                                    doc.get("category") or "business", doc["html"][:80000]))
+    return {"ok": True, "queued": True, "live_path": doc["live_path"], "credits": remaining,
             "refines_left": MAX_REFINES - int(doc.get("refines") or 0) - 1}
 
 
@@ -577,3 +591,154 @@ async def studio_nudge_user(uid: str, body: NudgeIn, admin=Depends(require_super
         raise HTTPException(502, mail.get("error") or "Email failed to send")
     await _raw_db.studio_users.update_one({"id": uid}, {"$set": {"last_nudged_at": datetime.now(timezone.utc).isoformat()}})
     return {"ok": True, "email_sent": True}
+
+
+# ---------------- Studio: image upload, AI analysis & GitHub export ----------------
+from fastapi import File, UploadFile  # noqa: E402
+import httpx  # noqa: E402
+from services.storage import _put_object  # noqa: E402
+
+_APP_NAME = os.environ.get("APP_NAME", "miracurl")
+_GH_API = "https://api.github.com"
+
+
+@router.post("/public/mira-builder/upload-image")
+async def builder_upload_image(request: Request, file: UploadFile = File(...), authorization: str = Header(default="")):
+    u = await _studio_user(authorization)
+    public_rate_limit(request, "mira-builder-upload", limit=20, window_sec=3600)
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(400, "Only image files are allowed")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Image too large — max 5 MB")
+    fid = str(uuid.uuid4())
+    ext = (file.filename or "img.png").rsplit(".", 1)[-1].lower()[:5] or "png"
+    path = f"{_APP_NAME}/studio-uploads/{u['id']}/{fid}.{ext}"
+    try:
+        result = _put_object(path, data, file.content_type)
+    except Exception as e:
+        log.error("studio upload failed: %s", e)
+        raise HTTPException(502, "Upload failed — try again")
+    await _raw_db.uploads.insert_one({
+        "id": fid, "tenant_id": f"studio:{u['id']}", "kind": "studio_site_image",
+        "storage_path": result.get("path", path), "original_filename": file.filename or f"{fid}.{ext}",
+        "content_type": file.content_type, "size": len(data), "uploaded_by": u["email"],
+        "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"ok": True, "url": f"/api/files/{fid}", "filename": file.filename}
+
+
+class AnalyzeIn(BaseModel):
+    project_id: str
+    kind: str = Field(..., pattern="^(security|review)$")
+
+
+@router.post("/public/mira-builder/analyze")
+async def builder_analyze(body: AnalyzeIn, request: Request, authorization: str = Header(default="")):
+    u = await _studio_user(authorization)
+    public_rate_limit(request, "mira-builder-analyze", limit=10, window_sec=3600)
+    doc = await _raw_db.builder_projects.find_one({"id": body.project_id, "owner_id": u["id"]}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if doc.get("kind") == "website":
+        code = (doc.get("html") or "")[:60000]
+        ctx = "a single-file HTML/Tailwind website"
+    else:
+        code = "\n\n".join(f"=== {f['path']} ===\n{f['content']}" for f in (doc.get("gen_files") or []))[:60000]
+        ctx = "a FastAPI + React business app project"
+    if not code:
+        raise HTTPException(409, "Project has no code yet")
+    if body.kind == "security":
+        sys_p = ("You are the Security Agent of Mira AI Studio. Audit the given code for security issues: "
+                 "XSS, injected scripts, unsafe external resources, exposed secrets, insecure forms, mixed content, "
+                 "missing input validation. Be practical for a small business site.")
+    else:
+        sys_p = ("You are the Code Review Agent of Mira AI Studio. Review the given code for quality: "
+                 "structure, accessibility, SEO basics, performance (image sizes, render blocking), "
+                 "responsive issues, best practices.")
+    try:
+        report = await _ask(
+            sys_p,
+            f"This is {ctx}. Produce a short report with EXACTLY this format:\n"
+            "VERDICT: <one line — e.g. 'PASSED — no critical issues' or 'ATTENTION — 2 issues found'>\n"
+            "Then 3-6 bullet points (each one line, start with ✔ for good findings or ⚠ for issues).\n"
+            "Then one line 'TIP:' with the single most valuable improvement. Plain text only, no markdown headers.\n\n"
+            f"CODE:\n{code}",
+            model="gpt-4o-mini")
+    except Exception as e:
+        log.error("analyze failed: %s", e)
+        raise HTTPException(502, "Analysis failed — try again in a moment")
+    return {"ok": True, "kind": body.kind, "report": report.strip()[:4000]}
+
+
+class GithubExportIn(BaseModel):
+    project_id: str
+    token: str = Field(..., min_length=20, max_length=300)
+    repo_name: str = Field(..., min_length=1, max_length=90)
+    private: bool = True
+
+    @field_validator("repo_name")
+    @classmethod
+    def _clean_repo(cls, v):
+        v = re.sub(r"[^a-zA-Z0-9._-]+", "-", v.strip()).strip("-")
+        if not v:
+            raise ValueError("Invalid repository name")
+        return v
+
+
+def _project_export_files(doc: dict) -> list[dict]:
+    if doc.get("kind") == "website":
+        html = ensure_tailwind(sanitize_html_images(
+            doc.get("html") or "", doc.get("category") or guess_category(doc.get("prompt", ""))))
+        return [{"path": "index.html", "content": html},
+                {"path": "README.md", "content": f"# {doc.get('name', 'My Website')}\n\nBuilt with ✦ Mira AI Studio.\n\nOpen `index.html` in a browser, or drag-drop this folder on Netlify/Vercel to host it."}]
+    return [{"path": f["path"], "content": f["content"]} for f in (doc.get("gen_files") or [])]
+
+
+@router.post("/public/mira-builder/github-export")
+async def builder_github_export(body: GithubExportIn, request: Request, authorization: str = Header(default="")):
+    u = await _studio_user(authorization)
+    public_rate_limit(request, "mira-builder-github", limit=6, window_sec=3600)
+    doc = await _raw_db.builder_projects.find_one({"id": body.project_id, "owner_id": u["id"]}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    files = _project_export_files(doc)
+    if not files:
+        raise HTTPException(409, "Project has no code yet")
+    headers = {"Accept": "application/vnd.github+json", "Authorization": f"Bearer {body.token.strip()}",
+               "X-GitHub-Api-Version": "2022-11-28"}
+    async with httpx.AsyncClient(base_url=_GH_API, headers=headers, timeout=30) as gh:
+        r = await gh.get("/user")
+        if r.status_code != 200:
+            raise HTTPException(400, "GitHub token invalid or expired — create a new token and try again")
+        owner = r.json()["login"]
+        r = await gh.post("/user/repos", json={
+            "name": body.repo_name, "private": body.private,
+            "description": f"{doc.get('name', 'Project')} — built with Mira AI Studio ✦"})
+        if r.status_code == 201:
+            repo = r.json()["name"]
+        elif r.status_code == 422:  # already exists — reuse
+            repo = body.repo_name
+            r2 = await gh.get(f"/repos/{owner}/{repo}")
+            if r2.status_code != 200:
+                raise HTTPException(400, "Repo name already taken but your token can't access it — pick another name")
+        elif r.status_code == 403:
+            raise HTTPException(400, "Token lacks permission to create repos — grant 'Administration' + 'Contents' (write) permissions")
+        else:
+            raise HTTPException(502, "GitHub refused the request — check your token permissions")
+        pushed = []
+        for f in files:
+            import base64 as _b64
+            payload = {"message": f"Add {f['path']} — Mira AI Studio ✦",
+                       "content": _b64.b64encode(f["content"].encode()).decode()}
+            rf = await gh.get(f"/repos/{owner}/{repo}/contents/{f['path']}")
+            if rf.status_code == 200:
+                payload["sha"] = rf.json().get("sha")
+                payload["message"] = f"Update {f['path']} — Mira AI Studio ✦"
+            rp = await gh.put(f"/repos/{owner}/{repo}/contents/{f['path']}", json=payload)
+            if rp.status_code not in (200, 201):
+                raise HTTPException(502, f"Failed pushing {f['path']} — check token 'Contents' write permission")
+            pushed.append(f["path"])
+    repo_url = f"https://github.com/{owner}/{repo}"
+    await _raw_db.builder_projects.update_one({"id": doc["id"]}, {"$set": {"github_repo": repo_url}})
+    return {"ok": True, "repo_url": repo_url, "files_pushed": pushed}
