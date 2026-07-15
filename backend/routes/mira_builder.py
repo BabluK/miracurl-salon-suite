@@ -742,3 +742,19 @@ async def builder_github_export(body: GithubExportIn, request: Request, authoriz
     repo_url = f"https://github.com/{owner}/{repo}"
     await _raw_db.builder_projects.update_one({"id": doc["id"]}, {"$set": {"github_repo": repo_url}})
     return {"ok": True, "repo_url": repo_url, "files_pushed": pushed}
+
+
+@router.get("/public/mira-builder/showcase")
+async def builder_showcase():
+    rows = await _raw_db.builder_projects.find(
+        {"status": "live", "kind": "website", "html": {"$exists": True}},
+        {"_id": 0, "name": 1, "live_path": 1, "category": 1, "created_at": 1},
+    ).sort("created_at", -1).to_list(30)
+    seen, sites = set(), []
+    for r in rows:
+        if r.get("live_path") and r.get("name") not in seen:
+            seen.add(r["name"])
+            sites.append(r)
+        if len(sites) >= 6:
+            break
+    return {"sites": sites}

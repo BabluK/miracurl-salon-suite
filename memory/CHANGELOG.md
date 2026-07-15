@@ -1184,3 +1184,6 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Domain refs updated to miracurl-suite.com (READMEs, INFRA_BACKUP, OG image regenerated). GitHub push directed via Save to GitHub feature.
 - TESTED: iteration_71.json — backend 7/7 pytest + full UI chat flow PASS; main agent spot-checked refine completion bubble ('Change applied — preview updated'). Fixed build-bubble reverting to working during refine. BUILD → 2026-07-15.10.
 - Tester suggestions (backlog): split mira_builder.py (745 lines), 'aud':studio JWT claim, github export audit log, upload ext guard.
+
+## Iter 110 (15 Jul 2026) — "Made with Mira ✦" showcase gallery
+- GET /api/public/mira-builder/showcase — last 6 live websites (deduped by name). Section on /mira.ai landing (mira-showcase): cards w/ browser chrome, scaled live iframe (400%/scale .25) over a verified category-image fallback (CAT_THUMBS map), name + category badge, opens live site. NOTE: loading="lazy" on transformed iframes never loads in Chromium — removed; headless screenshots don't composite OOPIF iframes (blank) but content verified via contentDocument (6.6KB body) + fallback image guarantees visuals. BUILD → 2026-07-15.11.

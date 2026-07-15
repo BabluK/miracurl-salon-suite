@@ -14,6 +14,18 @@ const GOLD = "#D4AF37";
 const GRADIENT = "linear-gradient(135deg, #D81B60 0%, #FF4081 45%, #D4AF37 100%)";
 const HERO_BG = "https://images.unsplash.com/photo-1617351165725-ec1c8ca2bf67?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxkYXJrJTIwbHV4dXJ5JTIwc2Fsb24lMjBpbnRlcmlvcnxlbnwwfHx8fDE3ODQxMDI1Njl8MA&ixlib=rb-4.1.0&q=85";
 
+const CAT_THUMBS = {
+  salon: "photo-1560066984-138dadb4c035", watches: "photo-1523170335258-f5ed11844a49", jewellery: "photo-1515562141207-7a88fb7ce338",
+  clinic: "photo-1629909613654-28e377c37b09", gym: "photo-1534438327276-14e5300c3a48", restaurant: "photo-1517248135467-4c7edcad34c4",
+  cafe: "photo-1495474472287-4d71bcdd2085", photography: "photo-1519741497674-611481863552", fashion: "photo-1441986300917-64674bd600d8",
+  tech: "photo-1498050108023-c5249f4df085", realestate: "photo-1600585154340-be6161a56a0c", education: "photo-1509062522246-3755977927d7",
+  travel: "photo-1488646953014-85cb44e25828", automobile: "photo-1492144534655-ae79c964c9d7", petcare: "photo-1548199973-03cce0bbc87b",
+  flowers: "photo-1490750967868-88aa4486c946", bakery: "photo-1509440159596-0249088772ff", store: "photo-1441984904996-e0b6ba687e04",
+  wedding: "photo-1519225421980-715cb0215aed", music: "photo-1511671782779-c97d3d27a1d4", art: "photo-1513364776144-60967b0f800f",
+  sports: "photo-1461896836934-ffe607ba8211", agriculture: "photo-1500937386664-56d1dfef3854", spa: "photo-1544161515-4ab6ce6db874",
+  business: "photo-1497366216548-37526070297c",
+};
+
 const BUILD_CHIPS = [
   { label: "Website", icon: Globe, kind: "website" },
   { label: "Mobile App", icon: Smartphone, kind: "soon" },
@@ -57,6 +69,7 @@ export default function MiraAIStudio() {
   const [authBusy, setAuthBusy] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
   const [plans, setPlans] = useState({ plans: [], payments_enabled: false });
+  const [showcase, setShowcase] = useState([]);
   const [buying, setBuying] = useState("");
   const [project, setProject] = useState(null);
   const [starting, setStarting] = useState(false);
@@ -79,6 +92,7 @@ export default function MiraAIStudio() {
 
   useEffect(() => { document.title = "Mira AI Studio — build with a prompt ✦"; }, []);
   useEffect(() => { PUBLIC.get("/mira-studio/plans").then(r => setPlans(r.data)).catch(() => {}); }, [PUBLIC]);
+  useEffect(() => { PUBLIC.get("/mira-builder/showcase").then(r => setShowcase(r.data.sites || [])).catch(() => {}); }, [PUBLIC]);
   useEffect(() => {
     if (!token) { setMe(null); return; }
     AUTHED.get("/mira-studio/me").then(r => setMe(r.data)).catch(() => {
@@ -464,6 +478,41 @@ export default function MiraAIStudio() {
               ))}
             </div>
           </section>
+
+          {/* ─── Made with Mira gallery ─── */}
+          {showcase.length > 0 && (
+            <section className="max-w-7xl mx-auto px-5 sm:px-8 pb-16 sm:pb-24" data-testid="mira-showcase">
+              <div className="text-[10px] uppercase tracking-[0.35em] text-white/35 mb-3">Social Proof</div>
+              <h2 className="font-playfair text-3xl sm:text-4xl mb-2">Made with <span className="text-[#D4AF37]">Mira ✦</span></h2>
+              <p className="text-white/45 text-sm mb-10 max-w-md">Real websites, born from one sentence — freshly built by people just like you.</p>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {showcase.map(s => (
+                  <a key={s.live_path} href={`${BACKEND_URL}${s.live_path}`} target="_blank" rel="noreferrer"
+                    data-testid={`showcase-site-${s.live_path.split("/").pop()}`}
+                    className="group rounded-2xl overflow-hidden border border-white/[0.08] bg-[#141012] hover:border-[#D4AF37]/50 hover:shadow-[0_0_30px_rgba(212,175,55,0.12)] transition-[border-color,box-shadow]">
+                    <div className="h-8 bg-[#1a1618] flex items-center gap-1.5 px-3 border-b border-white/5">
+                      <span className="w-2 h-2 rounded-full bg-[#FF4081]/70" /><span className="w-2 h-2 rounded-full bg-[#D4AF37]/70" /><span className="w-2 h-2 rounded-full bg-emerald-400/70" />
+                      <span className="ml-2 text-[9px] text-white/35 font-mono truncate">{s.live_path.replace("/api/site/", "")}.live ✦</span>
+                    </div>
+                    <div className="relative h-44 overflow-hidden bg-white">
+                      <img src={`https://images.unsplash.com/${CAT_THUMBS[s.category] || CAT_THUMBS.business}?w=800&q=70`} alt={s.name}
+                        className="absolute inset-0 w-full h-full object-cover" />
+                      <iframe src={`${BACKEND_URL}${s.live_path}`} title={s.name} tabIndex={-1}
+                        className="pointer-events-none border-0 relative"
+                        style={{ width: "400%", height: "400%", transform: "scale(0.25)", transformOrigin: "top left" }} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-3">
+                        <span className="text-[11px] text-white bg-black/60 backdrop-blur rounded-full px-3 py-1.5 flex items-center gap-1.5">Visit live site <ExternalLink className="w-3 h-3" /></span>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3.5 flex items-center justify-between gap-2">
+                      <div className="text-sm font-medium truncate">{s.name}</div>
+                      <span className="text-[9px] uppercase tracking-widest text-[#F3E5AB] bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-full px-2.5 py-1 shrink-0">{s.category || "business"}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* ─── Pricing strip ─── */}
           <section className="max-w-7xl mx-auto px-5 sm:px-8 pb-24">
