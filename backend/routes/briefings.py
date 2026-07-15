@@ -120,18 +120,20 @@ def _staff_sentence(staff_st: dict, lang: str) -> str:
     return _staff_sentence_hi(ci, ni, ol) if lang == "hi" else _staff_sentence_en(ci, ni, ol)
 
 
-def _notif_sentence(notif: dict, lang: str) -> str:
+def _notif_sentence_hi(notif: dict, names: list) -> str:
+    s = ""
+    if notif["pending_leaves"]:
+        s += f"{len(notif['pending_leaves'])} छुट्टी की अर्ज़ी आपकी मंज़ूरी का इंतज़ार कर रही है — {_joined(names[:3], 'hi')} की तरफ़ से। "
+    if notif["new_bookings_today"]:
+        s += f"आज {notif['new_bookings_today']} नई बुकिंग आई हैं। "
+    if notif["new_reviews_today"]:
+        s += f"और {notif['new_reviews_today']} नया रिव्यू भी मिला है। "
+    return s
+
+
+def _notif_sentence_en(notif: dict, names: list) -> str:
     s = ""
     pend = notif["pending_leaves"]
-    names = [p["staff_name"] for p in pend if p.get("staff_name")]
-    if lang == "hi":
-        if pend:
-            s += f"{len(pend)} छुट्टी की अर्ज़ी आपकी मंज़ूरी का इंतज़ार कर रही है — {_joined(names[:3], 'hi')} की तरफ़ से। "
-        if notif["new_bookings_today"]:
-            s += f"आज {notif['new_bookings_today']} नई बुकिंग आई हैं। "
-        if notif["new_reviews_today"]:
-            s += f"और {notif['new_reviews_today']} नया रिव्यू भी मिला है। "
-        return s
     if pend:
         s += f"You have {len(pend)} leave request{'s' if len(pend) != 1 else ''} waiting for your approval — from {_joined(names[:3], 'en')}. "
     if notif["new_bookings_today"]:
@@ -139,6 +141,11 @@ def _notif_sentence(notif: dict, lang: str) -> str:
     if notif["new_reviews_today"]:
         s += f"And you received {notif['new_reviews_today']} new review{'s' if notif['new_reviews_today'] != 1 else ''}. "
     return s
+
+
+def _notif_sentence(notif: dict, lang: str) -> str:
+    names = [p["staff_name"] for p in notif["pending_leaves"] if p.get("staff_name")]
+    return _notif_sentence_hi(notif, names) if lang == "hi" else _notif_sentence_en(notif, names)
 
 
 def _lowstock_sentence(low_count: int, has_vendor: bool, lang: str) -> str:

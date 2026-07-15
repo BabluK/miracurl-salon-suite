@@ -3,7 +3,6 @@ Uses HTTPOnly cookie auth via /api/auth/login. Non-destructive.
 """
 import base64
 import os
-import re
 from pathlib import Path
 
 import pytest
@@ -129,7 +128,7 @@ class TestDayOffers:
         r = admin_session.post(f"{BASE}/api/day-offers/suggest", json={})
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data.get("already_accepted") == True, f"expected already_accepted=True, got {data}"
+        assert data.get("already_accepted"), f"expected already_accepted=True, got {data}"
         offer = data.get("offer") or data
         assert offer.get("title"), f"missing title: {data}"
         assert offer.get("services") or offer.get("service_names"), f"missing services: {data}"

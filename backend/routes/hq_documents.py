@@ -363,21 +363,23 @@ def _demo_agents_block() -> str:
   </td></tr>"""
 
 
-def _demo_pricing_block(plans: list | None) -> str:
-    if not plans:
-        return ""
-    show = [p for p in plans if (p.get("branches") or 1) == 1] or plans[:2]
-    rows = ""
-    for p in show:
-        months = max(1, round((p.get("duration_days") or 30) / 30))
-        per_mo = (p.get("price") or 0) / months
-        rows += f"""
+def _demo_pricing_row(p: dict) -> str:
+    months = max(1, round((p.get("duration_days") or 30) / 30))
+    per_mo = (p.get("price") or 0) / months
+    return f"""
         <tr>
           <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>{html_lib.escape(str(p.get('label', '')))}</b>
             <div style="font-size:11px;color:#9a948a">{months} month{'s' if months > 1 else ''} · up to {p.get('branches', 1)} branch{'es' if (p.get('branches') or 1) > 1 else ''}</div></td>
           <td align="right" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:15px;color:#1d1d24"><b>₹{round(p.get('price') or 0):,}</b>
             <div style="font-size:11px;color:#9a948a">≈ ₹{round(per_mo):,}/month</div></td>
         </tr>"""
+
+
+def _demo_pricing_block(plans: list | None) -> str:
+    if not plans:
+        return ""
+    show = [p for p in plans if (p.get("branches") or 1) == 1] or plans[:2]
+    rows = "".join(_demo_pricing_row(p) for p in show)
     return f"""
   <tr><td style="padding:14px 36px 4px">
     <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold">SIMPLE, HONEST PRICING</div>
@@ -499,23 +501,46 @@ async def demo_campaign_recipients(user=Depends(require_super_admin)):
         {"email": {"$exists": True, "$ne": ""}},
         {"_id": 0, "name": 1, "email": 1, "salon_name": 1, "status": 1}).sort("created_at", -1).to_list(500)
     return {
-        "leads": [{"name": l.get("name", ""), "email": l["email"],
-                   "salon_name": l.get("salon_name", ""), "status": l.get("status", "")}
-                  for l in leads if l["email"].lower() not in tenant_emails],
+        "leads": [{"name": ld.get("name", ""), "email": ld["email"],
+                   "salon_name": ld.get("salon_name", ""), "status": ld.get("status", "")}
+                  for ld in leads if ld["email"].lower() not in tenant_emails],
     }
 
 
 @router.post("/super-admin/demo-campaign/send")
-async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depends(require_super_admin)):
+def _dedupe_recipients(recipients: list) -> list:
     seen, targets = set(), []
-    for r in body.recipients:
+    for r in recipients:
         em = r.email.strip().lower()
         if not _EMAIL_RE.match(em):
             raise HTTPException(400, f"Invalid email address: {r.email}")
         if em not in seen:
             seen.add(em)
             targets.append((em, r.name.strip(), r.salon_name.strip()))
+    return targets
 
+
+async def _send_demo_invite(em: str, name: str, salon: str, *, body, hq_email, subject,
+                            attachments, plans, track_base) -> dict:
+    existing = await _raw_db.demo_invites.find_one({"email": em}, {"_id": 0, "id": 1})
+    iid = existing["id"] if existing else str(uuid.uuid4())
+    html = _demo_email_html(name, salon, body.note, hq_email, plans=plans,
+                            track_base=track_base, invite_id=iid)
+    status = await _send_email([em], subject, html, attachments=attachments, reply_to=hq_email)
+    if status.get("sent"):
+        now_iso = datetime.now(timezone.utc).isoformat()
+        await _raw_db.demo_invites.update_one(
+            {"email": em},
+            {"$set": {"id": iid, "name": name, "salon_name": salon, "first_sent_at": now_iso,
+                      "reminder_sent_at": None, "responded": False, "track_base": track_base,
+                      "opened_at": None, "demo_requested_at": None,
+                      "seen_by_hq_open": True, "seen_by_hq_req": True}},
+            upsert=True)
+    return {"email": em, "sent": status.get("sent", False), "error": status.get("error")}
+
+
+async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depends(require_super_admin)):
+    targets = _dedupe_recipients(body.recipients)
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     subject = body.subject.strip() or "A warm invitation — see your salon run beautifully with Miracurl ✦"
     attachments = await asyncio.to_thread(_all_doc_attachments)
@@ -529,21 +554,9 @@ async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depend
         if em in tenant_emails:
             results.append({"email": em, "sent": False, "error": "Already a Miracurl partner — skipped"})
             continue
-        existing = await _raw_db.demo_invites.find_one({"email": em}, {"_id": 0, "id": 1})
-        iid = existing["id"] if existing else str(uuid.uuid4())
-        html = _demo_email_html(name, salon, body.note, hq_email, plans=plans,
-                                track_base=track_base, invite_id=iid)
-        status = await _send_email([em], subject, html, attachments=attachments, reply_to=hq_email)
-        results.append({"email": em, "sent": status.get("sent", False), "error": status.get("error")})
-        if status.get("sent"):
-            now_iso = datetime.now(timezone.utc).isoformat()
-            await _raw_db.demo_invites.update_one(
-                {"email": em},
-                {"$set": {"id": iid, "name": name, "salon_name": salon, "first_sent_at": now_iso,
-                          "reminder_sent_at": None, "responded": False, "track_base": track_base,
-                          "opened_at": None, "demo_requested_at": None,
-                          "seen_by_hq_open": True, "seen_by_hq_req": True}},
-                upsert=True)
+        results.append(await _send_demo_invite(
+            em, name, salon, body=body, hq_email=hq_email, subject=subject,
+            attachments=attachments, plans=plans, track_base=track_base))
 
     sent_count = sum(1 for r in results if r["sent"])
     await _raw_db.demo_campaigns.insert_one({

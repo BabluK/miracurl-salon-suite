@@ -1195,3 +1195,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - FIXED during work: stray duplicated tail in AppLayout.jsx (compile error), lock-input contrast, StaffActivities double PIN modal.
 - Manager credential reset: manager@miracurl.com / Manager@1234 (test_credentials.md updated).
 - E2E verified via curl + screenshots: manager full nav w/ locks, lock screen, wrong/right PIN, staff page unlock, admin audit table w/ attempted/denied/unlocked rows. BUILD → 2026-07-15.12.
+
+## Iter 112 (16 Jul 2026) — Code quality report applied
+- FALSE POSITIVES verified & documented: social_connect.py:30 = OAuth URL constants (no secret); "47 undefined variables" = 0 per ruff F821; utils.py:8 `is` claim = actually `in` tuple (F632 clean).
+- REAL FIXES: test_iter70 password now random per-run; tests E712 (23 auto-fixed); random→secrets in test_iter11 + backend_test; 16 unused imports removed; E741/F841 in hq_documents + tests; E731 lambda in mira_builder.
+- COMPLEXITY REFACTORS (behavior-preserving extraction): mira_builder (_plan_website/_generate_site_html/_app_package_files), inventory (_restock_rows/_low_stock_products), briefings (_notif_sentence_hi/en), appointments_pos (_tenant_tax_pct/_find_branch), day_offers (_post_engagement_score), gallery (_validated_gallery_upload), hiring (_candidate_wa_link), hq_documents (_demo_pricing_row/_dedupe_recipients/_send_demo_invite), mira_autopilot (_winback_templates/_send_winback_email).
+- schedulers.py: -> None return hints on all 9 schedulers. Repo ruff errors 109 → 62 (remaining: E402 intentional late imports, E702 compact PDF-drawing style).
+- SKIPPED (documented): further splitting server.py/briefings/gallery imports — modular refactor already done previous session; PDF renderers left intact (high regression risk, not in report).
+- VERIFIED post-refactor: syntax/imports clean, backend restart clean, invoice create 200 (billing context), low-stock-all 200, morning briefing 200, showcase 200, hq hiring apps 200. BUILD → 2026-07-16.1.

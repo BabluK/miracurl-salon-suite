@@ -195,10 +195,10 @@ class TestPublicBookingValidation:
         assert services, "no public services to book"
         svc_id = services[0]["id"]
         # Random future slot within 10:00-20:30 IST — fixed slots saturate across suite runs
-        import random
+        import secrets
         ist_tz = timezone(timedelta(hours=5, minutes=30))
-        when = (datetime.now(ist_tz) + timedelta(days=random.randint(4, 45))).replace(
-            hour=random.randint(10, 20), minute=random.choice((0, 30)), second=0, microsecond=0).isoformat()
+        when = (datetime.now(ist_tz) + timedelta(days=4 + secrets.randbelow(42))).replace(
+            hour=10 + secrets.randbelow(11), minute=secrets.choice((0, 30)), second=0, microsecond=0).isoformat()
         body = {
             "customer_name": f"TEST_Iter11_OK_{uuid.uuid4().hex[:5]}",
             "customer_phone": "9" + str(uuid.uuid4().int)[:9],

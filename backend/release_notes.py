@@ -2,10 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-15.12"
-BUILD_TIME = "15 Jul 2026, 11:30 PM IST"
+BUILD = "2026-07-16.1"
+BUILD_TIME = "16 Jul 2026, 12:30 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-16",
+        "changes": [
+            "Under-the-hood quality & security hardening 🔧 — code health pass across the whole backend: complex functions simplified, test-suite security hygiene (no fixed passwords, crypto-safe randomness), cleaner comparisons and type hints. Nothing changes for you — everything just gets safer and easier to maintain",
+        ],
+    },
     {
         "date": "2026-07-15",
         "changes": [

@@ -1,7 +1,5 @@
 """Iter 66 – Regression pass for Super Admin lead-gen + demo + gallery + reviews + whats-new."""
-import io
 import os
-import re
 import asyncio
 import pytest
 import requests
@@ -99,7 +97,7 @@ class TestLeadGen:
         assert "leads" in data
         assert "tenants" not in data, f"recipients response leaked tenants: keys={list(data.keys())}"
         # tenant owner email must NOT appear in leads
-        emails = {l["email"].lower() for l in data["leads"]}
+        emails = {ld["email"].lower() for ld in data["leads"]}
         assert ADMIN_EMAIL.lower() not in emails, "tenant owner email leaked into leads"
 
     def test_send_to_lead_and_block_partner(self, super_sess, db):
@@ -172,7 +170,7 @@ class TestDemoTrackingAndSlot:
                           json={"date": date0, "time": "16:00", "phone": "9998887777"})
         assert r.status_code == 200, r.text[:200]
         d = r.json()
-        assert d["ok"] == True
+        assert d["ok"]
         assert "gcal" in d and "calendar.google.com" in d["gcal"]
 
     def test_invites_list(self, super_sess, db):
@@ -273,13 +271,13 @@ class TestReviewRequests:
         r = admin_sess.get(f"{BASE}/api/settings/review-requests")
         assert r.status_code == 200
         d = r.json()
-        assert d["enabled"] == True
+        assert d["enabled"]
 
     def test_toggle(self, admin_sess):
         r = admin_sess.put(f"{BASE}/api/settings/review-requests", json={"enabled": False})
-        assert r.status_code == 200 and r.json()["enabled"] == False
+        assert r.status_code == 200 and not r.json()["enabled"]
         r2 = admin_sess.put(f"{BASE}/api/settings/review-requests", json={"enabled": True})
-        assert r2.status_code == 200 and r2.json()["enabled"] == True
+        assert r2.status_code == 200 and r2.json()["enabled"]
 
     def test_pending_and_send(self, admin_sess, db):
         # Seed customer + completed appointment 4h ago
@@ -316,7 +314,7 @@ class TestReviewRequests:
             assert d.get("sent", 0) + d.get("failed", 0) >= 1
             # idempotent: second run should not resend this appointment
             r3 = admin_sess.post(f"{BASE}/api/reviews/request-now")
-            d3 = r3.json()
+            r3.json()
             # appointment marked review_request_sent_at → no longer a candidate
             appt = _run(db.appointments.find_one({"id": appt_id}))
             if d.get("sent", 0) >= 1:

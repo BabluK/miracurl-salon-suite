@@ -476,6 +476,19 @@ async def mark_fee_paid(fid: str, user=Depends(require_super_admin)):
 # ─────────── Shareable candidate profile (HQ → salon owner via WhatsApp) ───────────
 
 @router.post("/super-admin/hiring/applications/{aid}/share-link")
+def _candidate_wa_link(app_doc: dict, req: dict, tenant: dict, url: str) -> str | None:
+    num = re.sub(r"\D", "", tenant.get("whatsapp_number") or tenant.get("phone") or "")
+    if not num:
+        return None
+    from urllib.parse import quote
+    trial = (f" Trial proposed: {app_doc.get('trial_date')} at {app_doc.get('trial_time')}."
+             if app_doc.get("trial_date") else "")
+    text = (f"Hi {tenant.get('name', '')} ✦ Miracurl HQ here. For your *{req.get('role', 'staff')}* opening, "
+            f"we shortlisted *{app_doc.get('candidate_name')}* ({app_doc.get('candidate_designation') or 'verified professional'})."
+            f"{trial} See their verified work history & ratings, and confirm in one tap: {url}")
+    return f"https://wa.me/{'91' + num if len(num) == 10 else num}?text={quote(text)}"
+
+
 async def share_link(aid: str, user=Depends(require_super_admin)):
     """Capability URL: verified work history + ratings, with one-tap trial confirm for the owner."""
     app_doc = await _raw_db.job_applications.find_one({"id": aid}, {"_id": 0})
@@ -489,17 +502,7 @@ async def share_link(aid: str, user=Depends(require_super_admin)):
     req = await _raw_db.hiring_requests.find_one({"id": app_doc["request_id"]}, {"_id": 0}) or {}
     tenant = await db.tenants.find_one({"id": req.get("tenant_id", "")},
                                        {"_id": 0, "whatsapp_number": 1, "phone": 1, "name": 1}) or {}
-    num = re.sub(r"\D", "", tenant.get("whatsapp_number") or tenant.get("phone") or "")
-    wa_link = None
-    if num:
-        from urllib.parse import quote
-        trial = (f" Trial proposed: {app_doc.get('trial_date')} at {app_doc.get('trial_time')}."
-                 if app_doc.get("trial_date") else "")
-        text = (f"Hi {tenant.get('name', '')} ✦ Miracurl HQ here. For your *{req.get('role', 'staff')}* opening, "
-                f"we shortlisted *{app_doc.get('candidate_name')}* ({app_doc.get('candidate_designation') or 'verified professional'})."
-                f"{trial} See their verified work history & ratings, and confirm in one tap: {url}")
-        wa_link = f"https://wa.me/{'91' + num if len(num) == 10 else num}?text={quote(text)}"
-    return {"url": url, "wa_link": wa_link}
+    return {"url": url, "wa_link": _candidate_wa_link(app_doc, req, tenant, url)}
 
 
 def _serialize_history(history: list) -> list:

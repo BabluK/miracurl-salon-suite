@@ -1,5 +1,6 @@
 """Iter60 — HQ staff verification (super-admin) + mark-left flow + public HQ badge."""
-import os, uuid, time
+import os
+import time
 import requests
 import pytest
 
@@ -68,7 +69,7 @@ class TestHQVerify:
         r = super_sess.post(f"{BASE}/api/super/registry/staff", json=payload, timeout=15)
         assert r.status_code == 200, r.text
         j = r.json()
-        assert j.get("ok") == True
+        assert j.get("ok")
         assert j.get("staff_code", "").startswith("STF-")
         code = j["staff_code"]
 
@@ -79,7 +80,7 @@ class TestHQVerify:
         mine = [x for x in recs if x.get("staff", {}).get("staff_code") == code]
         assert len(mine) >= 1
         rid = mine[0]["id"]
-        assert mine[0]["hq_verified"] == True
+        assert mine[0]["hq_verified"]
 
         # Delete
         r = super_sess.delete(f"{BASE}/api/super/registry/staff/{rid}", timeout=15)
@@ -161,5 +162,5 @@ class TestPublicHQBadge:
             pytest.skip("Public search rate limited")
         assert r.status_code == 200, r.text
         j = r.json()
-        assert j.get("hq_verified") == True
+        assert j.get("hq_verified")
         assert any(e.get("hq_verified") for e in j.get("employments", []))

@@ -1,5 +1,6 @@
 """Iter 61 — ID card PDFs, Miracurl Team CRUD, Releases, Plan catalog, blood_group."""
-import os, time
+import os
+import time
 import requests
 import pytest
 
@@ -43,7 +44,7 @@ def test_staff_id_card_inactive_400(salon_sess):
     # find any inactive staff
     lst = salon_sess.get(f"{BASE}/api/staff").json()
     staff = lst.get("staff") if isinstance(lst, dict) else lst
-    inactive = [s for s in staff if s.get("active") == False]
+    inactive = [s for s in staff if not s.get("active")]
     if not inactive:
         pytest.skip("No inactive staff available")
     r = salon_sess.get(f"{BASE}/api/id-cards/staff/{inactive[0]['id']}/pdf")

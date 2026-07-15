@@ -15,14 +15,6 @@ from database import db, _current_tenant_id
 # ============================================================
 DEFAULT_TENANT_SLUG = "miracurl-marathahalli"
 
-from models import (  # noqa: E402 — shared models (models.py)
-    Tenant, Customer, Appointment,
-    REVIEW_REWARD_CREDITS, MAX_CUSTOMER_CREDIT,
-    REFERRAL_REWARD_REFERRER, REFERRAL_REWARD_REFERRED,
-)
-from services.billing import (  # noqa: E402 — shared billing helpers
-    _validate_coupon, _consume_coupon, _coupon_discount, _active_membership, _loyalty_rules,
-)
 
 
 class TenantIn(BaseModel):

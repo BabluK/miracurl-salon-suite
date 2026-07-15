@@ -1,6 +1,6 @@
 """Miracurl Salon Management System - Backend API Tests"""
 import os
-import random
+import secrets
 import pytest
 import requests
 from datetime import datetime, timezone, timedelta
@@ -357,8 +357,8 @@ class TestPublicBooking:
 def _future_iso(days=None, hour_ist=None):
     """Random future ISO datetime within business hours (10:00-20:30 IST).
     Randomized so repeated suite runs don't saturate the same slot."""
-    ist_dt = datetime.now(timezone(timedelta(hours=5, minutes=30))) + timedelta(days=days or random.randint(4, 45))
-    ist_dt = ist_dt.replace(hour=hour_ist or random.randint(10, 20), minute=random.choice((0, 30)), second=0, microsecond=0)
+    ist_dt = datetime.now(timezone(timedelta(hours=5, minutes=30))) + timedelta(days=days or (4 + secrets.randbelow(42)))
+    ist_dt = ist_dt.replace(hour=hour_ist or (10 + secrets.randbelow(11)), minute=secrets.choice((0, 30)), second=0, microsecond=0)
     return ist_dt.isoformat()
 
 

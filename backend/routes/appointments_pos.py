@@ -214,15 +214,23 @@ async def _record_wallet_redeem(cust: dict, inv: dict):
         "invoice_id": inv["id"], "created_at": datetime.now(timezone.utc).isoformat()})
 
 
+def _tenant_tax_pct(tenant_doc: Optional[dict]) -> float:
+    """Tax is ONLY applied when the tenant has opted-in by configuring GST settings."""
+    if tenant_doc and tenant_doc.get("tax_enabled"):
+        return float(tenant_doc.get("tax_pct") or 0)
+    return 0.0
+
+
+def _find_branch(tenant_doc: Optional[dict], branch_id: Optional[str]) -> Optional[dict]:
+    if not branch_id:
+        return None
+    return next((b for b in (tenant_doc or {}).get("branches", []) if b.get("id") == branch_id), None)
+
+
 async def _resolve_billing_context(body: InvoiceIn, cust: dict) -> dict:
     """Gather tenant/tax/branch/membership/coupon/stock/loyalty inputs for billing."""
     tid = _current_tenant_id.get()
     tenant_doc = await db.tenants.find_one({"id": tid}, {"_id": 0}) if tid else None
-    # Tax is ONLY applied when the tenant has opted-in by configuring GST settings.
-    tax_pct = float(tenant_doc.get("tax_pct") or 0) if (tenant_doc and tenant_doc.get("tax_enabled")) else 0.0
-    branch = None
-    if body.branch_id:
-        branch = next((b for b in (tenant_doc or {}).get("branches", []) if b.get("id") == body.branch_id), None)
     membership = await _active_membership(cust["id"])
     coupon = await _validate_coupon(body.coupon_code)
     if coupon and not await _consume_coupon(coupon):
@@ -230,10 +238,10 @@ async def _resolve_billing_context(body: InvoiceIn, cust: dict) -> dict:
     needed = await _check_stock_or_400(body.items)
     loyalty_rules = _loyalty_rules(tenant_doc)
     totals = _compute_invoice_totals(
-        body.items, cust, body.discount, tax_pct,
+        body.items, cust, body.discount, _tenant_tax_pct(tenant_doc),
         membership_pct=float(membership["discount_pct"]) if membership else 0.0,
         coupon=coupon, redeem_points=body.redeem_points, loyalty_rules=loyalty_rules)
-    return {"tenant_doc": tenant_doc, "branch": branch, "coupon": coupon,
+    return {"tenant_doc": tenant_doc, "branch": _find_branch(tenant_doc, body.branch_id), "coupon": coupon,
             "needed": needed, "loyalty_rules": loyalty_rules, "totals": totals}
 
 

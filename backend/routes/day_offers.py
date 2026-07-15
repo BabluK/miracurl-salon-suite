@@ -52,17 +52,22 @@ def _invoice_stats(invoices: list) -> dict:
     return {"svc_counts": svc_counts, "weekday_counts": weekday_counts, "last7": last7, "prev7": prev7}
 
 
+def _post_engagement_score(p: dict) -> int:
+    score = 0
+    for plat in ("instagram", "facebook"):
+        e = (p.get("engagement") or {}).get(plat) or {}
+        score += int(e.get("likes") or 0) + int(e.get("comments") or 0) * 2 + int(e.get("shares") or 0) * 3
+    return score
+
+
 def _engagement_scores(posts: list, services: list) -> dict:
     """Per-service social engagement score (likes + 2×comments + 3×shares) from past posts."""
     svc_eng: dict = {}
     for p in posts:
-        cap = (p.get("caption") or "").lower()
-        score = 0
-        for plat in ("instagram", "facebook"):
-            e = (p.get("engagement") or {}).get(plat) or {}
-            score += int(e.get("likes") or 0) + int(e.get("comments") or 0) * 2 + int(e.get("shares") or 0) * 3
+        score = _post_engagement_score(p)
         if not score:
             continue
+        cap = (p.get("caption") or "").lower()
         for s in services:
             if s["name"].lower() in cap:
                 svc_eng[s["name"]] = svc_eng.get(s["name"], 0) + score

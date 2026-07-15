@@ -96,11 +96,8 @@ async def delete_vendor(vid: str, user=Depends(require_tenant_admin)):
     return {"ok": True}
 
 
-def _restock_email(vendor: dict, items: list, t: dict) -> tuple:
-    img = os.environ.get("RESTOCK_IMAGE_URL", "")
-    img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Restock Alert" width="600" '
-               f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
-    rows = "".join(
+def _restock_rows(items: list) -> str:
+    return "".join(
         f"<tr>"
         f"<td style='padding:12px 16px;border-bottom:1px solid #f1e8d8;color:#2b2b33;font-size:14px'>{p['name']}</td>"
         f"<td style='padding:12px 16px;border-bottom:1px solid #f1e8d8;color:#6b6b75;font-size:13px'>{p.get('brand') or '—'}</td>"
@@ -108,6 +105,13 @@ def _restock_email(vendor: dict, items: list, t: dict) -> tuple:
         f"<td style='padding:12px 16px;border-bottom:1px solid #f1e8d8;text-align:center'>"
         f"<span style='display:inline-block;background:#fdecec;color:#dc2626;font-weight:bold;font-size:13px;padding:3px 12px;border-radius:999px'>{p['stock']} left</span></td></tr>"
         for p in items)
+
+
+def _restock_email(vendor: dict, items: list, t: dict) -> tuple:
+    img = os.environ.get("RESTOCK_IMAGE_URL", "")
+    img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Restock Alert" width="600" '
+               f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
+    rows = _restock_rows(items)
     html = f"""
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
 <tr><td align="center">
@@ -159,16 +163,21 @@ def _vendor_items(low: list, vendor_id: str) -> list:
     return [p for p in low if not p.get("vendor_id")]
 
 
-@router.post("/vendors/send-low-stock")
-async def send_low_stock_email(body: LowStockMailIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    vendor = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0})
-    if not vendor:
-        raise HTTPException(404, "Vendor not found")
+async def _low_stock_products() -> list:
     low = await db.products.find(
         {"stock": {"$lt": LOW_STOCK_LIMIT}}, {"_id": 0, "name": 1, "brand": 1, "stock": 1, "sku": 1, "vendor_id": 1},
     ).sort("stock", 1).to_list(100)
     if not low:
         raise HTTPException(400, "No products are low on stock right now")
+    return low
+
+
+@router.post("/vendors/send-low-stock")
+async def send_low_stock_email(body: LowStockMailIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    vendor = await db.vendors.find_one({"id": body.vendor_id}, {"_id": 0})
+    if not vendor:
+        raise HTTPException(404, "Vendor not found")
+    low = await _low_stock_products()
     items = _vendor_items(low, body.vendor_id)
     if not items:
         raise HTTPException(400, f"No low-stock products are assigned to {vendor['name']} (all are tagged to other vendors)")
@@ -182,11 +191,7 @@ async def send_low_stock_email(body: LowStockMailIn, user=Depends(require_tenant
 @router.post("/vendors/send-low-stock-all")
 async def send_low_stock_all(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Email every vendor only THEIR tagged low-stock products in one click."""
-    low = await db.products.find(
-        {"stock": {"$lt": LOW_STOCK_LIMIT}}, {"_id": 0, "name": 1, "brand": 1, "stock": 1, "sku": 1, "vendor_id": 1},
-    ).sort("stock", 1).to_list(100)
-    if not low:
-        raise HTTPException(400, "No products are low on stock right now")
+    low = await _low_stock_products()
     vendors = await db.vendors.find({}, {"_id": 0}).to_list(100)
     if not vendors:
         raise HTTPException(400, "Add a vendor first")

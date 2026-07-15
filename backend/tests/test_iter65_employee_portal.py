@@ -134,7 +134,7 @@ class TestMarkLeftDisablesLogin:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         udb.users.insert_one(user_doc)
-        created = ("mongo", user_doc)
+        _ = ("mongo", user_doc)
 
         # Create registry employee via /registry/employees
         aad_unique = "1212" + str(uuid.uuid4().int)[:8]
@@ -180,7 +180,7 @@ class TestMarkLeftDisablesLogin:
                   headers={"X-Owner-Pin": "4321"})
         assert r.status_code == 200, r.text
         body = r.json()
-        assert body.get("login_disabled") == True, f"expected login_disabled=True, got {body}"
+        assert body.get("login_disabled"), f"expected login_disabled=True, got {body}"
 
         # staff login now blocked
         login_s2 = requests.Session()

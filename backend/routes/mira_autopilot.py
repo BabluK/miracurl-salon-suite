@@ -174,10 +174,7 @@ async def _create_daily_post(t: dict, today: str, connected: list[str]) -> dict:
     return out
 
 
-async def _run_lead_machine(t: dict, cfg: dict) -> tuple[int, list[dict]]:
-    leads = await _find_winback_leads(t["id"], cfg["winback_days"])
-    if not leads:
-        return 0, []
+async def _winback_templates(t: dict) -> tuple[str, str, str]:
     tpl = await _ask_json(
         f"You are Mira, writing a warm win-back offer for '{t.get('name')}', a premium Indian salon. "
         "Use {name} as a placeholder for the guest's first name.",
@@ -185,27 +182,39 @@ async def _run_lead_machine(t: dict, cfg: dict) -> tuple[int, list[dict]]:
         'warm & personal, use {name}). Also a WhatsApp version — use WhatsApp formatting: *bold* for the '
         'offer, _italics_ for warmth, tasteful emojis, 4-5 short lines each on its own line, use {name}. '
         'Return JSON: {"subject":"<subject with {name}>","email_body":"<paragraphs separated by newlines>","whatsapp":"<formatted msg with line breaks>"}')
-    subject_t = tpl.get("subject") or "We miss you at {name}'s favourite salon ✦"
-    body_t = tpl.get("email_body") or "Dear {name}, we miss you! Enjoy 20% off your next visit."
-    wa_t = tpl.get("whatsapp") or "Hi {name}! We miss you at the salon — enjoy 20% off your comeback visit ✦"
+    return (tpl.get("subject") or "We miss you at {name}'s favourite salon ✦",
+            tpl.get("email_body") or "Dear {name}, we miss you! Enjoy 20% off your next visit.",
+            tpl.get("whatsapp") or "Hi {name}! We miss you at the salon — enjoy 20% off your comeback visit ✦")
+
+
+async def _send_winback_email(t: dict, lead: dict, first: str, subject_t: str, body_t: str, book_url: str) -> bool:
+    await asyncio.sleep(0.6)  # Resend rate limit: 2 req/s
+    res = await _send_email([lead["email"]],
+                            subject_t.replace("{name}", first),
+                            marketing_email_html(t.get("name", "Our Salon"),
+                                                 body_t.replace("{name}", first), book_url))
+    if not res.get("sent"):
+        return False
+    await _raw_db.lead_outreach.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": t["id"], "customer_id": lead["id"],
+        "name": lead["name"], "channel": "email", "to": lead["email"],
+        "last_visit": lead["last_visit"], "created_at": datetime.now(timezone.utc).isoformat()})
+    return True
+
+
+async def _run_lead_machine(t: dict, cfg: dict) -> tuple[int, list[dict]]:
+    leads = await _find_winback_leads(t["id"], cfg["winback_days"])
+    if not leads:
+        return 0, []
+    subject_t, body_t, wa_t = await _winback_templates(t)
     book_url = f"{os.environ.get('APP_PUBLIC_URL', '')}/book/{t.get('slug', '')}"
 
     sent, wa_queue = 0, []
-    now = datetime.now(timezone.utc).isoformat()
     for lead in leads:
         first = (lead["name"] or "Guest").split()[0]
         if lead["email"] and sent < cfg["email_daily_cap"]:
-            await asyncio.sleep(0.6)  # Resend rate limit: 2 req/s
-            res = await _send_email([lead["email"]],
-                                    subject_t.replace("{name}", first),
-                                    marketing_email_html(t.get("name", "Our Salon"),
-                                                         body_t.replace("{name}", first), book_url))
-            if res.get("sent"):
+            if await _send_winback_email(t, lead, first, subject_t, body_t, book_url):
                 sent += 1
-                await _raw_db.lead_outreach.insert_one({
-                    "id": str(uuid.uuid4()), "tenant_id": t["id"], "customer_id": lead["id"],
-                    "name": lead["name"], "channel": "email", "to": lead["email"],
-                    "last_visit": lead["last_visit"], "created_at": now})
         elif lead["phone"] and len(wa_queue) < 20:
             wa_msg = f"{wa_t.replace('{name}', first)}\n\n📅 *Book now:* {book_url}"
             wa_queue.append({"customer_id": lead["id"], "name": lead["name"], "phone": lead["phone"],

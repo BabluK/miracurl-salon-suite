@@ -99,22 +99,49 @@ def _strip_code_fence(raw: str) -> str:
 
 
 # ---------------- Website pipeline ----------------
+async def _plan_website(prompt: str) -> dict:
+    plan = await _ask_json(
+        "You are the Planner Agent of Mira AI Studio, an expert website strategist.",
+        f'Client request: "{prompt}". Plan a stunning one-page business website. Return JSON: '
+        '{"name":"<business name, invent a tasteful one if absent>","tagline":"<punchy line>",'
+        f'"category":"<the ONE best match from: {", ".join(CATEGORIES)}>",'
+        '"palette":{"bg":"<hex>","accent":"<hex>","text":"<hex>"},'
+        '"offerings_label":"<heading fitting the business type — e.g. \'Our Collection\' for a store, \'Our Menu\' for a restaurant, \'Our Services\' for a service business>",'
+        '"sections":["hero","about","offerings","gallery","testimonials","contact"],'
+        '"offerings":[{"name":"x","desc":"<one enticing line>","price":"₹x"}] (4-6 fitting the business — PRODUCTS for a store, DISHES for a restaurant, SERVICES for a service business),'
+        '"vibe":"<3 adjectives>"}')
+    plan["_name"] = str(plan.get("name") or "My Business")[:60]
+    plan["_category"] = plan.get("category") if plan.get("category") in CATEGORIES else "business"
+    return plan
+
+
+async def _generate_site_html(prompt: str, plan: dict) -> str:
+    name, category = plan["_name"], plan["_category"]
+    imgs = image_urls(category)
+    html = await _ask(
+        "You are the Frontend Agent of Mira AI Studio — a world-class web designer & developer. "
+        "You output ONLY a complete, valid, single-file HTML document. No markdown fences, no commentary.",
+        f'Build a COMPLETE production-quality one-page website for: "{prompt}".\n'
+        f"Plan: {plan}\n"
+        "Requirements:\n"
+        "- Single self-contained HTML file. Include Tailwind via <script src=\"https://cdn.tailwindcss.com\"></script> in <head> — it is a SCRIPT tag, NEVER a <link rel=\"stylesheet\">. Plus a <style> block for custom touches (fonts via Google Fonts link, smooth scroll, hover states, keyframe entrance animations).\n"
+        f"- Sections: sticky nav with the business name '{name}' as a styled text logo on the left, cinematic hero with CTA, about, "
+        f"an offerings section titled '{plan.get('offerings_label', 'What We Offer')}' showing each item with its description and price in elegant cards, "
+        "gallery, testimonials (invent 3 realistic Indian names), contact section with phone/address placeholders and a WhatsApp button, elegant footer.\n"
+        f"- IMAGES: use ONLY these verified image URLs (repeat if needed, never invent other URLs): {', '.join(imgs)}\n"
+        "- Every <img> needs a proper alt text and object-cover sizing so nothing looks broken or stretched.\n"
+        "- Mobile responsive, dark-on-light or light-on-dark per the palette, premium typography, generous spacing.\n"
+        "- Footer must include: 'Built with ✦ Mira AI Studio'.\n"
+        "Output the raw HTML only, starting with <!DOCTYPE html>.",
+        model="gpt-4o")
+    return sanitize_html_images(_strip_code_fence(html), category)
+
+
 async def _run_website(pid: str, prompt: str):
     try:
         await _set_step(pid, "Planner Agent", "running", "Understanding your idea")
-        plan = await _ask_json(
-            "You are the Planner Agent of Mira AI Studio, an expert website strategist.",
-            f'Client request: "{prompt}". Plan a stunning one-page business website. Return JSON: '
-            '{"name":"<business name, invent a tasteful one if absent>","tagline":"<punchy line>",'
-            f'"category":"<the ONE best match from: {", ".join(CATEGORIES)}>",'
-            '"palette":{"bg":"<hex>","accent":"<hex>","text":"<hex>"},'
-            '"offerings_label":"<heading fitting the business type — e.g. \'Our Collection\' for a store, \'Our Menu\' for a restaurant, \'Our Services\' for a service business>",'
-            '"sections":["hero","about","offerings","gallery","testimonials","contact"],'
-            '"offerings":[{"name":"x","desc":"<one enticing line>","price":"₹x"}] (4-6 fitting the business — PRODUCTS for a store, DISHES for a restaurant, SERVICES for a service business),'
-            '"vibe":"<3 adjectives>"}')
-        name = str(plan.get("name") or "My Business")[:60]
-        category = plan.get("category") if plan.get("category") in CATEGORIES else "business"
-        imgs = image_urls(category)
+        plan = await _plan_website(prompt)
+        name, category = plan["_name"], plan["_category"]
         slug = _slugify(name)
         await _set_step(pid, "Planner Agent", "done", f"Planned “{name}” — {len(plan.get('sections', []))} sections")
         await _set_step(pid, "Design Agent", "running", f"Vibe: {plan.get('vibe', 'modern & elegant')}")
@@ -122,23 +149,7 @@ async def _run_website(pid: str, prompt: str):
         await _set_step(pid, "Design Agent", "done", f"Palette locked: {plan.get('palette', {}).get('accent', '#d4af37')}")
 
         await _set_step(pid, "Frontend Agent", "running", "Writing HTML, CSS & JS")
-        html = await _ask(
-            "You are the Frontend Agent of Mira AI Studio — a world-class web designer & developer. "
-            "You output ONLY a complete, valid, single-file HTML document. No markdown fences, no commentary.",
-            f'Build a COMPLETE production-quality one-page website for: "{prompt}".\n'
-            f"Plan: {plan}\n"
-            "Requirements:\n"
-            "- Single self-contained HTML file. Include Tailwind via <script src=\"https://cdn.tailwindcss.com\"></script> in <head> — it is a SCRIPT tag, NEVER a <link rel=\"stylesheet\">. Plus a <style> block for custom touches (fonts via Google Fonts link, smooth scroll, hover states, keyframe entrance animations).\n"
-            f"- Sections: sticky nav with the business name '{name}' as a styled text logo on the left, cinematic hero with CTA, about, "
-            f"an offerings section titled '{plan.get('offerings_label', 'What We Offer')}' showing each item with its description and price in elegant cards, "
-            "gallery, testimonials (invent 3 realistic Indian names), contact section with phone/address placeholders and a WhatsApp button, elegant footer.\n"
-            f"- IMAGES: use ONLY these verified image URLs (repeat if needed, never invent other URLs): {', '.join(imgs)}\n"
-            "- Every <img> needs a proper alt text and object-cover sizing so nothing looks broken or stretched.\n"
-            "- Mobile responsive, dark-on-light or light-on-dark per the palette, premium typography, generous spacing.\n"
-            "- Footer must include: 'Built with ✦ Mira AI Studio'.\n"
-            "Output the raw HTML only, starting with <!DOCTYPE html>.",
-            model="gpt-4o")
-        html = sanitize_html_images(_strip_code_fence(html), category)
+        html = await _generate_site_html(prompt, plan)
         await _set_step(pid, "Frontend Agent", "done", f"{len(html) // 1000}KB of code written")
 
         await _set_step(pid, "Testing Agent", "running", "Validating markup & links")
@@ -167,6 +178,34 @@ async def _fail_and_refund(pid: str, e: Exception):
 
 
 # ---------------- Business app pipeline (code generation) ----------------
+_DOCKER_COMPOSE = (
+    'version: "3.9"\nservices:\n  db:\n    image: postgres:16\n    environment:\n'
+    "      POSTGRES_DB: app\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: change-me\n"
+    "    volumes: [pgdata:/var/lib/postgresql/data]\n    ports: [\"5432:5432\"]\n"
+    "  api:\n    build: ./backend\n    environment:\n      DATABASE_URL: postgresql://app:change-me@db:5432/app\n"
+    "      JWT_SECRET: change-me\n    ports: [\"8000:8000\"]\n    depends_on: [db]\n"
+    "  admin:\n    build: ./frontend\n    ports: [\"3000:3000\"]\n    depends_on: [api]\nvolumes:\n  pgdata:\n")
+_DOCKERFILE_API = ("FROM python:3.11-slim\nWORKDIR /app\nCOPY . .\n"
+                   "RUN pip install fastapi uvicorn sqlalchemy psycopg2-binary python-jose passlib[bcrypt] pydantic[email]\n"
+                   "CMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]\n")
+
+
+def _app_package_files(name: str, plan: dict, schema: str, backend: str, frontend: str) -> list[dict]:
+    readme = (f"# {name}\n\nGenerated by **Mira AI Studio** ✦\n\n{plan.get('summary', '')}\n\n"
+              "## Run locally\n```bash\ndocker compose up --build\n```\n"
+              "- API → http://localhost:8000/docs\n- Admin → http://localhost:3000\n- Postgres → localhost:5432\n\n"
+              "## Structure\n- `db/schema.sql` — PostgreSQL schema\n- `backend/main.py` — FastAPI + JWT auth + CRUD\n"
+              "- `frontend/src/App.jsx` — React admin panel\n- `docker-compose.yml` — one-command deployment\n")
+    return [
+        {"path": "README.md", "content": readme},
+        {"path": "docker-compose.yml", "content": _DOCKER_COMPOSE},
+        {"path": "db/schema.sql", "content": schema},
+        {"path": "backend/main.py", "content": backend},
+        {"path": "backend/Dockerfile", "content": _DOCKERFILE_API},
+        {"path": "frontend/src/App.jsx", "content": frontend},
+    ]
+
+
 async def _run_app(pid: str, prompt: str):
     try:
         await _set_step(pid, "Planner Agent", "running", "Designing your system architecture")
@@ -209,27 +248,7 @@ async def _run_app(pid: str, prompt: str):
         await _set_step(pid, "Testing Agent", "done", "Static review passed ✓")
 
         await _set_step(pid, "Packaging Agent", "running", "Writing Docker & docs")
-        docker = (
-            'version: "3.9"\nservices:\n  db:\n    image: postgres:16\n    environment:\n'
-            "      POSTGRES_DB: app\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: change-me\n"
-            "    volumes: [pgdata:/var/lib/postgresql/data]\n    ports: [\"5432:5432\"]\n"
-            "  api:\n    build: ./backend\n    environment:\n      DATABASE_URL: postgresql://app:change-me@db:5432/app\n"
-            "      JWT_SECRET: change-me\n    ports: [\"8000:8000\"]\n    depends_on: [db]\n"
-            "  admin:\n    build: ./frontend\n    ports: [\"3000:3000\"]\n    depends_on: [api]\nvolumes:\n  pgdata:\n")
-        dockerfile_api = "FROM python:3.11-slim\nWORKDIR /app\nCOPY . .\nRUN pip install fastapi uvicorn sqlalchemy psycopg2-binary python-jose passlib[bcrypt] pydantic[email]\nCMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]\n"
-        readme = (f"# {name}\n\nGenerated by **Mira AI Studio** ✦\n\n{plan.get('summary', '')}\n\n"
-                  "## Run locally\n```bash\ndocker compose up --build\n```\n"
-                  "- API → http://localhost:8000/docs\n- Admin → http://localhost:3000\n- Postgres → localhost:5432\n\n"
-                  "## Structure\n- `db/schema.sql` — PostgreSQL schema\n- `backend/main.py` — FastAPI + JWT auth + CRUD\n"
-                  "- `frontend/src/App.jsx` — React admin panel\n- `docker-compose.yml` — one-command deployment\n")
-        files = [
-            {"path": "README.md", "content": readme},
-            {"path": "docker-compose.yml", "content": docker},
-            {"path": "db/schema.sql", "content": schema},
-            {"path": "backend/main.py", "content": backend},
-            {"path": "backend/Dockerfile", "content": dockerfile_api},
-            {"path": "frontend/src/App.jsx", "content": frontend},
-        ]
+        files = _app_package_files(name, plan, schema, backend, frontend)
         await _raw_db.builder_projects.update_one({"id": pid}, {"$set": {
             "status": "code_ready", "name": name, "plan": plan,
             "gen_files": files,
@@ -409,7 +428,8 @@ async def builder_status(pid: str, request: Request):
 
 
 async def _run_refine(pid: str, owner_id: str, prompt: str, category: str, html_src: str):
-    now = lambda: datetime.now(timezone.utc).isoformat()  # noqa: E731
+    def now() -> str:
+        return datetime.now(timezone.utc).isoformat()
     try:
         html = await _ask(
             "You are the Frontend Agent of Mira AI Studio. You receive an existing HTML website and a change request. "

@@ -9,7 +9,7 @@ from routes.crm import _run_birthday_emails, _run_review_requests
 from routes.staff_portal import IST_TZ, _run_late_alerts
 from routes.super_admin_ops import _run_monthly_reports, _run_weekly_reports, _run_platform_digest
 
-async def _monthly_report_scheduler():
+async def _monthly_report_scheduler() -> None:
     """On the 1st of each month (after 09:00 IST) auto-email every active salon
     owner their previous month's business report. Idempotent via system_flags."""
     while True:
@@ -30,7 +30,7 @@ async def _monthly_report_scheduler():
             logging.error(f"monthly report scheduler error: {e}")
         await asyncio.sleep(3600)
 
-async def _weekly_report_scheduler():
+async def _weekly_report_scheduler() -> None:
     """Every Monday (after 09:00 IST) auto-email each active salon owner last
     week's business snapshot. Idempotent via system_flags."""
     while True:
@@ -54,7 +54,7 @@ async def _weekly_report_scheduler():
         await asyncio.sleep(3600)
 
 
-async def _birthday_scheduler():
+async def _birthday_scheduler() -> None:
     """Daily (after 09:00 IST) auto-email birthday wishes to guests. Idempotent via system_flags."""
     while True:
         try:
@@ -76,7 +76,7 @@ async def _birthday_scheduler():
         await asyncio.sleep(1800)
 
 
-async def _cctv_poll_scheduler():
+async def _cctv_poll_scheduler() -> None:
     """Every 2 min, poll enabled snapshot-URL cameras (business hours, per-tenant interval)."""
     from routes.cctv import poll_cctv_once
     while True:
@@ -87,7 +87,7 @@ async def _cctv_poll_scheduler():
         await asyncio.sleep(120)
 
 
-async def _renewal_reminder_scheduler():
+async def _renewal_reminder_scheduler() -> None:
     """Daily (after 10:00 IST) auto-email renewal reminders 15/7/1 days before
     subscription/trial expiry. Idempotent via system_flags + per-reminder log."""
     from routes.subscriptions import run_renewal_reminders
@@ -111,7 +111,7 @@ async def _renewal_reminder_scheduler():
         await asyncio.sleep(1800)
 
 
-async def _review_request_scheduler():
+async def _review_request_scheduler() -> None:
     """Every 30 min: email 'Rate your visit' to customers ~3h after completed
     appointments. Idempotent via review_request_sent_at marker on appointments."""
     while True:
@@ -124,7 +124,7 @@ async def _review_request_scheduler():
         await asyncio.sleep(1800)
 
 
-async def _demo_followup_scheduler():
+async def _demo_followup_scheduler() -> None:
     """Daily (after 10:00 IST) one-time gentle reminder to demo invitees who
     haven't replied within 5 days. Idempotent via system_flags."""
     from routes.hq_documents import run_demo_followups
@@ -148,7 +148,7 @@ async def _demo_followup_scheduler():
         await asyncio.sleep(1800)
 
 
-async def _late_alert_scheduler():
+async def _late_alert_scheduler() -> None:
     while True:
         try:
             if 7 <= datetime.now(IST_TZ).hour <= 20:
@@ -160,7 +160,7 @@ async def _late_alert_scheduler():
         await asyncio.sleep(300)
 
 
-async def _weekly_package_scheduler():
+async def _weekly_package_scheduler() -> None:
     """Every Monday (after 10:00 IST) Mira auto-drafts a fresh package suggestion for tenants
     whose last package expired — owner approves before publish. Idempotent via system_flags."""
     from routes.packages import run_monday_package_suggestions

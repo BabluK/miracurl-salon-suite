@@ -99,7 +99,7 @@ class TestPublicJobsAndHQ:
                           json={"phone": REGISTERED_PHONE})
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data.get("ok") == True
+        assert data.get("ok")
         assert "Ravi" in (data.get("message") or "")
 
     def test_apply_duplicate_409(self, fresh_request_id):

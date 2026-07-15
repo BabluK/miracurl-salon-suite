@@ -49,7 +49,7 @@ def studio_user(client):
     """Register a fresh studio user, return {token, email, password, user}."""
     unique = uuid.uuid4().hex[:8]
     email = f"test_studio_{unique}@example.com"
-    password = "TestPass@123"
+    password = f"Tp@{uuid.uuid4().hex[:10]}"  # random per-run, nothing hardcoded
     payload = {
         "name": "Studio Tester",
         "email": email,
