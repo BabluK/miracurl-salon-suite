@@ -237,7 +237,9 @@ async def _security_headers(request: Request, call_next):
     resp = await call_next(request)
     resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
-    resp.headers.setdefault("X-Frame-Options", "DENY")
+    # Mira Studio generated sites must be embeddable in the studio's own preview iframe
+    frame_policy = "SAMEORIGIN" if request.url.path.startswith("/api/site/") else "DENY"
+    resp.headers.setdefault("X-Frame-Options", frame_policy)
     resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
     return resp
