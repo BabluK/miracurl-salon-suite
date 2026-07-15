@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-15.3"
-BUILD_TIME = "15 Jul 2026, 10:30 AM IST"
+BUILD = "2026-07-15.4"
+BUILD_TIME = "15 Jul 2026, 12:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-15",
         "changes": [
+            "Fully tune Mira's daily offer before posting 🎛️ — swap, remove or add services right on the suggestion card (tap ✕ on a service, or '+ Add / swap service'), and every price updates instantly with your chosen discount",
+            "Package Builder upgrades 🎁 — Mira now picks gender-correct services (men's packages only get men's + unisex services, women's likewise), and a new '✎ Adjust %' under the package price lets you fine-tune the bundle discount with live price recalculation before publishing",
+            "Service Menu redesigned ✨ — no more endless scrolling: instant search, one-tap category chips, and compact rows with quick online-booking toggles make editing your menu effortless",
             "Tune Mira's offer before you post it ✎ — a new 'Adjust %' selector on the Offer of the Day card lets you change the discount and see every service price recalculate instantly; tap 'Yes — use this offer' and the poster, caption and offer text are all rebuilt with YOUR chosen %",
             "Every email now carries your brand ✦ — all outgoing emails (reports, birthday wishes, review requests, alerts) end with a 'Book Now' button and a 'Powered by Miracurl' footer, turning every email into a booking opportunity",
             "Under the hood: engine room reorganised 🔧 — the backend was split from one giant file into 22 clean, domain-focused modules (customers, staff, billing, public booking, schedulers…). Nothing changes on screen, but future features ship faster and safer",
