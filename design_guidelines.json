@@ -1,129 +1,114 @@
 {
-  "project_name": "Miracurl Salon Suite SaaS",
-  "theme": {
-    "mode": "dark",
-    "archetype": "Archetype 5: Luxury",
-    "rationale": "For premium salon owners in India, the product must feel cinematic, high-end, and cutting-edge. Dark mode with fuchsia and gold accents establishes authority and elegance.",
-    "colors": {
-      "background": "#0A0A0A",
-      "surface": "rgba(255, 255, 255, 0.03)",
-      "surface_hover": "rgba(255, 255, 255, 0.06)",
-      "border": "rgba(255, 255, 255, 0.08)",
-      "border_glow": "rgba(217, 70, 239, 0.3)",
-      "primary": "#D946EF",
-      "primary_hover": "#C026D3",
-      "secondary": "#EAB308",
-      "text_main": "#FFFFFF",
-      "text_muted": "#A3A3A3",
-      "text_inverse": "#000000"
-    }
-  },
+  "theme": "dark",
+  "archetype": "Luxury (Premium, Depth, Mystery) blended with High-Tech AI.",
   "typography": {
-    "headings": {
-      "family": "Playfair Display",
-      "style": "serif, elegant, high-contrast, tracking-tight",
-      "weights": ["400", "600", "700"]
+    "fonts": {
+      "headings": "'Cormorant Garamond', serif",
+      "body": "'Outfit', sans-serif",
+      "code": "'JetBrains Mono', monospace"
     },
-    "body": {
-      "family": "Outfit",
-      "style": "sans-serif, geometric, clean",
-      "weights": ["300", "400", "500"]
+    "hierarchy": {
+      "h1": "text-5xl sm:text-6xl tracking-tighter font-medium text-white",
+      "h2": "text-3xl sm:text-4xl tracking-tight font-medium text-white",
+      "h3": "text-xl sm:text-2xl font-medium text-white/90",
+      "body": "text-base leading-relaxed text-white/70",
+      "labels": "text-xs tracking-[0.2em] uppercase text-white/50 font-semibold"
     },
-    "labels": {
-      "family": "Outfit",
-      "style": "uppercase, tracking-[0.2em], text-xs"
+    "pairing_strategy": "The 'Old Money Tech' approach: High-end luxury Serif (Cormorant Garamond) for expressive headlines ('What would you like to build today?'), paired with a sleek, sterile geometric Sans (Outfit) for UI widgets, tech data, and body copy."
+  },
+  "colors": {
+    "palette": {
+      "base": {
+        "background": "#0A0809",
+        "surface": "#141012",
+        "surface_glass": "rgba(20, 16, 18, 0.6)",
+        "border": "rgba(255, 255, 255, 0.08)"
+      },
+      "accents": {
+        "gold": "#D4AF37",
+        "gold_light": "#F3E5AB",
+        "pink_bright": "#FF4081",
+        "pink_deep": "#D81B60",
+        "gradient_primary": "linear-gradient(135deg, #D81B60 0%, #FF4081 50%, #D4AF37 100%)"
+      },
+      "text": {
+        "primary": "#FDFBF7",
+        "secondary": "#A69F9B",
+        "disabled": "rgba(166, 159, 155, 0.4)"
+      }
+    },
+    "rules": [
+      "No pure #000000. Base background is #0A0809 (Obsidian tinted with extreme deep burgundy/brown for a warm luxury feel).",
+      "Gradients are reserved strictly for primary CTA buttons, active state highlights, and magical AI text spans.",
+      "Hover states must shift to a lighter hue of the active state with increased contrast."
+    ]
+  },
+  "visual_enhancers": {
+    "glassmorphism": "The 'Crystal' Variant. Use backdrop-blur-xl with bg-white/5 (Dark Mode). Mandatory 1px delicate inner stroke (border-white/10). shadow-[0_8px_32px_rgba(0,0,0,0.5)].",
+    "borders": "1px solid border-white/5 for default containers. For the AI Prompt Textarea, use a glowing tracing beam effect or a subtle pink/gold gradient border to indicate 'magic'.",
+    "shadows": "Deep ambient shadows. shadow-2xl for modals. Colored glow shadows (shadow-[0_0_30px_rgba(216,27,96,0.2)]) around primary AI input."
+  },
+  "components": {
+    "buttons": {
+      "primary": "Pill-shaped (rounded-full), bg-gradient-to-r from-[#D81B60] via-[#FF4081] to-[#D4AF37], text-white font-medium, hover:opacity-90 hover:shadow-[0_0_20px_rgba(255,64,129,0.4)] transition-all.",
+      "secondary": "Pill-shaped, bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all.",
+      "ghost": "Transparent background, text-white/70 hover:text-white hover:bg-white/5 transition-all."
+    },
+    "tabs": "Segmented pill controls. Outer container rounded-full bg-white/5 p-1. Active tab rounded-full bg-white/10 text-white shadow-sm. Inactive text-white/50.",
+    "inputs": {
+      "prompt_textarea": "Massive padding (p-6), text-lg or xl, glassmorphic background (bg-black/40 backdrop-blur-2xl), 1px border-white/10. Focus ring: 2px solid #D4AF37 or pink-gold gradient. Rounded-2xl to 3xl."
+    },
+    "modals": "Auth & Buy Credits Modals. Heavy backdrop-blur-sm on overlay. Modal surface bg-[#141012] border border-white/10, rounded-3xl."
+  },
+  "grids": {
+    "system": "The Bento Grid Protocol (Universal)",
+    "feature_cards": "Mode A 'Tetris' Grid for the feature comparison area. Wide gap-8. Mix col-span-8 and col-span-4 to create asymmetry.",
+    "workspace": "High Density Grid for the Builder workspace. 3-column layout where Sidebar is col-span-1, Live Preview is col-span-2 or 3."
+  },
+  "layouts": {
+    "page_structure": "Navbar fixed top z-50. Hero section min-h-[80vh] flex flex-col justify-center items-center relative. Then structural sections for tools and deployment.",
+    "spacing": "Generous Spacing. Use p-8, p-12, p-24 for section paddings. Container max-w-7xl mx-auto.",
+    "alignment": "Hero centered for impact. Data/Tools left-aligned for functionality."
+  },
+  "motion": {
+    "animations": {
+      "hover": "transform scale-105 duration-300 ease-out",
+      "entrance": "fade-in, slide-up staggered lists.",
+      "ai_processing": "Pulse and glowing tracing beams on pipeline stages (Planner -> Design -> Frontend -> Testing -> Deployment)."
+    },
+    "rules": "Micro-animations on every interaction. No 'transition-all'. Respect prefers-reduced-motion."
+  },
+  "accessibility": {
+    "contrast": "Ensure text over gradients uses text-shadow or sufficiently dark colors if inverted. Body text vs #141012 must exceed 4.5:1 ratio.",
+    "focus": "focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:outline-none.",
+    "testing": "All interactive elements MUST include data-testid."
+  },
+  "media": {
+    "background_strategy": "Use dark salon photography heavily darkened (bg-black/60 to 80 overlay) as a rich textural background for the Hero. Do not let details clash with the UI.",
+    "image_urls": {
+      "hero_background": {
+        "url": "https://images.unsplash.com/photo-1617351165725-ec1c8ca2bf67?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxkYXJrJTIwbHV4dXJ5JTIwc2Fsb24lMjBpbnRlcmlvcnxlbnwwfHx8fDE3ODQxMDI1Njl8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Dark luxury salon interior. Use as hero background with a heavy radial black gradient overlay (bg-black/80) so only the edges show.",
+        "category": "Hero Background"
+      },
+      "texture_overlay": {
+        "url": "https://images.unsplash.com/photo-1760172287483-02d382f63a6f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGRhcmslMjBnb2xkJTIwbHV4dXJ5JTIwdGV4dHVyZXxlbnwwfHx8fDE3ODQxMDI1Njl8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract dark gold texture. Use inside feature cards as a subtle background pattern with low opacity (10-20%).",
+        "category": "Card Background Pattern"
+      }
     }
   },
-  "layout_sections": [
-    {
-      "name": "Header",
-      "type": "navigation",
-      "style": "Sticky Crystal Glass. backdrop-blur-xl bg-black/60 with a 1px border-white/10 bottom edge. Links must be text-white/70 hover:text-white. Primary CTA on right.",
-      "test_ids": ["nav-features-link", "nav-pricing-link", "nav-login-link", "nav-start-trial-btn"]
-    },
-    {
-      "name": "Hero",
-      "type": "cinematic_center",
-      "style": "Immersive and wide. A massive Playfair H1. The background must feature an AI-generated luxury salon image heavily masked with a radial dark gradient (bg-black/80 to bg-black/40) so the text remains highly readable.",
-      "components": [
-        "H1: text-5xl md:text-7xl Playfair Display. Text: 'The Gold Standard for Modern Salons ✦'",
-        "Subtitle: text-lg md:text-xl Outfit text-neutral-400. 'Appointments, POS, CRM, and AI in one premium suite.'",
-        "CTA Group: Primary fuchsia button, Secondary outline button."
-      ],
-      "ai_image_prompt": "Wide-angle photograph of a modern luxury salon interior, black and gold aesthetic, deep obsidian tones, subtle fuchsia neon underlighting, cinematic depth of field, high-end architectural photography, 16:9 aspect ratio.",
-      "test_ids": ["hero-start-trial-btn", "hero-learn-more-btn"]
-    },
-    {
-      "name": "Features",
-      "type": "bento_grid",
-      "style": "The 'Tetris' Grid (Mode A). Generous padding (p-8 to p-12). Cards have bg-white/5, backdrop-blur-md, border-white/10.",
-      "components": [
-        {
-          "span": "col-span-1 md:col-span-8 row-span-2",
-          "title": "Mira AI ✦",
-          "description": "Voice Briefings & Poster Studio.",
-          "visual": "AI Image",
-          "ai_image_prompt": "A sleek dark smartphone floating against a pitch black background, emitting a glowing fuchsia AI voice wave graphic and abstract geometric shapes, premium 3D render style, cinematic lighting."
-        },
-        {
-          "span": "col-span-1 md:col-span-4 row-span-1",
-          "title": "Smart POS",
-          "description": "GST Billing & Inventory.",
-          "visual": "AI Image",
-          "ai_image_prompt": "Minimalist black thermal receipt printer outputting a crisp white receipt, subtle gold glowing edge illumination, dark obsidian background, top-down cinematic angle."
-        },
-        {
-          "span": "col-span-1 md:col-span-4 row-span-1",
-          "title": "Staff Registry",
-          "description": "Aadhaar-Verified & Geo-fenced."
-        },
-        {
-          "span": "col-span-1 md:col-span-12",
-          "title": "24/7 Online Booking",
-          "description": "PWA Apps & Loyalty."
-        }
-      ]
-    },
-    {
-      "name": "Social Proof",
-      "type": "editorial_ribbon",
-      "style": "Horizontal marquee or grid of elegant testimonial cards. Low contrast borders. Real Indian salon owner portraits.",
-      "test_ids": ["testimonial-card-1", "testimonial-card-2"]
-    },
-    {
-      "name": "Pricing",
-      "type": "grid",
-      "style": "3 columns. Middle column (Annual) must use the 'Tracing Beam' glow border effect (border-fuchsia-500/50 shadow-[0_0_30px_rgba(217,70,239,0.15)]).",
-      "test_ids": ["pricing-trial-btn", "pricing-6mo-btn", "pricing-annual-btn"]
-    },
-    {
-      "name": "Floating Widget",
-      "type": "fixed_bottom_right",
-      "style": "Ask Mira ✦. Must remain in bottom-right. Fuchsia gradient background, glowing drop shadow. Rounded-full.",
-      "test_ids": ["ask-mira-widget-btn"]
-    },
-    {
-      "name": "Footer",
-      "type": "massive_typography",
-      "style": "py-24. Top border white/10. Include massive 'MIRACURL' text in Playfair Display (text-[10vw]) with gold ✦."
-    }
-  ],
-  "image_urls": [
-    {
-      "category": "testimonial_portrait_1",
-      "url": "https://images.pexels.com/photos/17163945/pexels-photo-17163945.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-      "description": "Indian salon owner smiling"
-    },
-    {
-      "category": "testimonial_portrait_2",
-      "url": "https://images.pexels.com/photos/8834025/pexels-photo-8834025.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-      "description": "Confident female hairdresser"
-    }
-  ],
-  "interaction_guidelines": {
-    "hover_states": "All buttons must lift (-translate-y-1) and gain a soft shadow on hover. Bento cards must slightly lighten (bg-white/10) on hover.",
-    "animations": "Use Framer Motion for scroll-triggered fade-up on bento grid items. Stagger children by 0.1s.",
-    "accessibility": "Ensure text contrast over images. Use aria-hidden on purely decorative AI images. All interactive elements MUST have data-testid attributes."
+  "3d_libraries": {
+    "recommendation": "Use framer-motion for UI transitions and react-fast-marquee for subtle 'Live Deployments' feed. TSParticles can be used in the hero background for elegant 'gold dust' floating particles to symbolize AI generation, keeping it extremely subtle."
   },
-  "instructions_to_main_agent": "1. Replace the plain white layout with this Dark Luxe theme. 2. Implement the bento grid for features as specified. 3. Use the AI Image Prompts provided in the JSON to generate images using your AI image generation tool, and place them inside the hero and bento cards. 4. Maintain the floating 'Ask Mira ✦' widget. 5. Apply the specific typography (Playfair + Outfit)."
+  "instructions_to_main_agent": {
+    "directive_1": "You must implement the Mira AI Studio at /mira.ai as a polished, luxury SaaS platform. Incorporate the existing Miracurl brand identity (Gold/Pink-gradient, Serif Headings, Dark Mode) but elevate it for a high-tech AI builder.",
+    "directive_2": "Build out ALL key functionalities: Navbar with credits (e.g., '🪙 50 Credits'), Hero with 'What would you like to build today?' heading, pill-shaped build-type tabs, a massive glowing AI prompt textarea with example chips, and a split workspace (Sidebar menu + Live Preview Iframe + Pipeline Progress).",
+    "directive_3": "Create Auth Modal (Register/Login) and Razorpay Buy Credits Modal with detailed tiers. Add 'data-testid' to every interactive button and input.",
+    "directive_4": "Do NOT use pure #000000 or generic SaaS blue. Use the provided luxury dark palette.",
+    "directive_5": "Never use transparent headers over images without a glassmorphism backdrop filter.",
+    "directive_6": "Implement all icons using lucide-react unless instructed otherwise. Use sonner for toast notifications (e.g., 'Website built successfully!', 'Credits purchased!')."
+  },
+  "GENERAL UI UX DESIGN GUIDELINES": "1. Fusion over Imitation: Break category conventions by bringing salon luxury into a technical AI builder. 2. Emotion First: Make the user feel powerful and premium. 3. Content is King: Every step of the pipeline must tell the story of creation. 4. Zoom in: Use close-ups and heavy contrast. 5. Negative Space: Give the massive prompt area room to breathe. 6. Contrast: Soft pink/gold glows against hard dark matte backgrounds.",
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.\n- Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients\n- Don't make generic centered layouts, simplistic gradients, and uniform styling.\n- Create depth through layered design elements with z-index hierarchy\n- Use glass-morphism effects with backdrop filters (12-24px blur)\n- You MUST NOT apply universal transition. Eg: `transition: all`. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms\n- You MUST NOT center align the app container, ie do not add `.App { text-align: center; }` in the css file. This disrupts the human natural reading flow of text\n- Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style\n- NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons.\n- Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.\n- Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.\n- Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.\n- Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN\n- Prioritize using pre-existing components from src/components/ui when applicable\n- Use sonner for toasts, located in /app/src/components/ui/sonner.tsx"
 }
