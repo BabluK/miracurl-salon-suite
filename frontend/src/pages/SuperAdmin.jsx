@@ -28,6 +28,7 @@ import { PromoImageStudio } from "@/components/superadmin/PromoImageStudio";
 import { VerifiedStaffPanel } from "@/components/superadmin/VerifiedStaffPanel";
 import { MiracurlTeamPanel } from "@/components/superadmin/MiracurlTeamPanel";
 import { DeploymentHistoryPanel } from "@/components/superadmin/DeploymentHistoryPanel";
+import { MiraStudioPanel } from "@/components/superadmin/MiraStudioPanel";
 import { DiagnoseTenantModal } from "@/components/superadmin/DiagnoseTenantModal";
 import { HiringPanel } from "@/components/superadmin/HiringPanel";
 import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
@@ -300,6 +301,7 @@ export default function SuperAdmin() {
               { id: "lead-email", label: "Lead Gen Email", icon: Mail, badge: demoHot, hot: demoHot > 0 },
               { id: "ai", label: "AI Insights", icon: Sparkles },
               { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
+              { id: "mira-studio", label: "Mira Studio Users", icon: Sparkles },
               { id: "hiring", label: "Hiring", icon: Briefcase, badge: hiringNew },
               { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread },
               { id: "engineer", label: "AI Engineer", icon: Wrench },
@@ -352,6 +354,7 @@ export default function SuperAdmin() {
             ai: <AiInsightsPanel />,
             inbox: <HqInbox onUnreadChange={setHqUnread} />,
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
+            "mira-studio": <MiraStudioPanel />,
             hiring: <HiringPanel onNewCount={setHiringNew} />,
             engineer: <EngineerPanel />,
             onboarding: <OnboardingStudio tenants={tenants} />,

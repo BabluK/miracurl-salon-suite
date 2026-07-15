@@ -1171,3 +1171,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Generic content fix: planner returns offerings_label ("Our Collection"/"Our Menu"/"Our Services") + offerings with desc; nav shows business name as text logo.
 - UI: 3-card "Deploy options" panel (studio-deploy-options) in live result — Hosted by Mira / Self-host free / Own domain.
 - E2E verified: fresh watch-store build → category=watches, label="Our Collection", 6/6 images HTTP 200 all watch photos, styled render confirmed via screenshots; refine keeps verified images + script tag. release_notes BUILD → 2026-07-15.8.
+
+## Iter 108 (15 Jul 2026) — Super Admin: Mira Studio credit gifting + win-back emails
+- Backend (mira_builder.py): GET /api/super-admin/studio/users (users + builds count + stats), POST .../users/{uid}/gift (adds credits, logs to studio_credit_gifts, sends branded "A gift for you ✦" email w/ optional admin note), POST .../users/{uid}/nudge (win-back "you're one sentence away, {name} ✦" email — copy adapts: never-built vs returning, credits>=20 → Continue building CTA else Recharge CTA; sets last_nudged_at). All require_super_admin (cookie auth).
+- Frontend: NEW superadmin/MiraStudioPanel.jsx — stats cards (total/never-built/credits outstanding), user table w/ NEVER BUILT badge + nudged date, Gift modal (20/50/100/200 chips + custom + note), Nudge modal (optional personal line). Sidebar tab "mira-studio" (super-tab-mira-studio).
+- E2E verified: gift 30cr → balance 55 + email_sent true (Resend), nudge sent, unauth 401, UI panel + modals via screenshots. release_notes BUILD → 2026-07-15.9.

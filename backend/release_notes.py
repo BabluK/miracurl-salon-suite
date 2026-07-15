@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-15.8"
-BUILD_TIME = "15 Jul 2026, 6:00 PM IST"
+BUILD = "2026-07-15.9"
+BUILD_TIME = "15 Jul 2026, 7:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-15",
         "changes": [
+            "New Super Admin tab: Mira Studio Users 🎁 — see every studio builder with credits & build counts, gift free credits to anyone (they get a beautiful 'A gift for you ✦' email), and send one-tap win-back emails ('Hey Bablu, you're one sentence away ✦') with a recharge link to bring back users who left without building",
             "Mira Studio websites got a quality overhaul 🖼️ — every photo now comes from a verified library matched to your business (watch stores get watches, clinics get clinics!), no more broken images; section headings adapt too ('Our Collection' for stores, 'Our Menu' for restaurants). Even websites you already built get auto-repaired",
             "Studio preview fixed + deploy options added 🚀 — the live preview now loads inside the studio, and every built website shows 3 clear deployment paths: hosted-by-Mira link, free self-hosting (Netlify/Vercel drag-drop), or your own custom domain",
             "Mira AI Studio now on the homepage 🏠 — a golden '✦ Mira AI Studio' link in the top menu plus a stunning 'Built with AI' showcase section with a live animated demo (watch a prompt turn into a website!) so visitors can discover the Studio and grab their 50 free credits",

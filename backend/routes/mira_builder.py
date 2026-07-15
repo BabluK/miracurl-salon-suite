@@ -5,18 +5,20 @@ Pipeline: Planner → Frontend/Backend/Database agents → QA → Deploy. Lead-c
 import asyncio
 import io
 import logging
+import os
 import re
 import uuid
 import zipfile
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from jose import jwt, JWTError
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from database import _raw_db
-from security import public_rate_limit, hash_pw, verify_pw, make_access, jwt_secret, JWT_ALG
+from email_service import _send_email
+from security import public_rate_limit, hash_pw, verify_pw, make_access, jwt_secret, JWT_ALG, require_super_admin
 
 from routes.mira_common import _ask, _ask_json
 from routes.mira_site_images import CATEGORIES, image_urls, sanitize_html_images, ensure_tailwind, guess_category
@@ -467,3 +469,111 @@ async def builder_download(pid: str, request: Request):
     fname = re.sub(r"[^a-zA-Z0-9-]+", "-", doc.get("name") or "mira-project").strip("-").lower() or "mira-project"
     return StreamingResponse(buf, media_type="application/zip",
                              headers={"Content-Disposition": f'attachment; filename="{fname}.zip"'})
+
+
+# ---------------- Super Admin: studio users, credit gifts & win-back nudges ----------------
+class GiftIn(BaseModel):
+    credits: int = Field(..., ge=1, le=1000)
+    note: str = Field("", max_length=300)
+
+
+class NudgeIn(BaseModel):
+    message: str = Field("", max_length=600)
+
+
+def _studio_url() -> str:
+    return f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/mira.ai"
+
+
+def _studio_email_shell(title: str, inner: str, cta_label: str, cta_url: str) -> str:
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#141012;padding:26px 30px">
+        <div style="color:#d4af37;font-size:22px;font-weight:bold">Mira AI Studio ✦</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">{title}</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        {inner}
+        <p style="text-align:center;margin:26px 0 6px">
+          <a href="{cta_url}" style="background:linear-gradient(135deg,#D81B60,#FF4081,#D4AF37);color:#fff;text-decoration:none;padding:13px 36px;border-radius:999px;font-weight:bold">{cta_label}</a>
+        </p>
+        <p style="text-align:center;font-size:11px;color:#999;margin:8px 0 0">Websites &amp; apps, born from a prompt · failed builds auto-refund</p>
+      </div>
+    </div>"""
+
+
+@router.get("/super-admin/studio/users")
+async def studio_users_admin(admin=Depends(require_super_admin)):
+    users = await _raw_db.studio_users.find(
+        {}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(500)
+    counts = {}
+    async for row in _raw_db.builder_projects.aggregate(
+            [{"$group": {"_id": "$owner_id", "n": {"$sum": 1}, "last": {"$max": "$created_at"}}}]):
+        counts[row["_id"]] = row
+    for u in users:
+        c = counts.get(u["id"], {})
+        u["builds"] = c.get("n", 0)
+        u["last_build_at"] = c.get("last") or ""
+    return {"users": users,
+            "stats": {"total": len(users),
+                      "no_builds": sum(1 for u in users if not u["builds"]),
+                      "credits_outstanding": sum(int(u.get("credits") or 0) for u in users)}}
+
+
+@router.post("/super-admin/studio/users/{uid}/gift")
+async def studio_gift_credits(uid: str, body: GiftIn, admin=Depends(require_super_admin)):
+    u = await _raw_db.studio_users.find_one_and_update(
+        {"id": uid}, {"$inc": {"credits": body.credits}},
+        projection={"_id": 0, "password_hash": 0}, return_document=True)
+    if not u:
+        raise HTTPException(404, "Studio user not found")
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.studio_credit_gifts.insert_one({
+        "id": str(uuid.uuid4()), "user_id": uid, "email": u["email"], "credits": body.credits,
+        "note": body.note.strip(), "by": admin.get("email", ""), "at": now})
+    first = (u.get("name") or "there").split()[0]
+    note_html = (f'<div style="background:#faf6ec;border-left:3px solid #d4af37;border-radius:8px;'
+                 f'padding:12px 16px;margin:16px 0;font-style:italic;color:#6b5b2e">“{body.note.strip()}”'
+                 f'<div style="font-size:11px;color:#a0937a;margin-top:6px;font-style:normal">— Team Mira</div></div>') if body.note.strip() else ""
+    inner = (f"<p>Hey <b>{first}</b>,</p>"
+             f"<p>A little gift from us — we've added <b style='color:#b08d3f'>{body.credits} free build credits</b> to your Mira AI Studio account. 🎁</p>"
+             f"{note_html}"
+             f"<p>Your balance is now <b>{int(u['credits'])} credits</b> — enough to bring your next idea to life. "
+             f"Describe it in one sentence and watch Mira build it live.</p>")
+    mail = await _send_email([u["email"]], f"🎁 {body.credits} free Mira Studio credits added for you, {first} ✦",
+                             _studio_email_shell("A gift for you", inner, "Start building ✦", _studio_url()))
+    return {"ok": True, "credits": int(u["credits"]), "email_sent": mail.get("sent", False),
+            "email_error": mail.get("error")}
+
+
+@router.post("/super-admin/studio/users/{uid}/nudge")
+async def studio_nudge_user(uid: str, body: NudgeIn, admin=Depends(require_super_admin)):
+    u = await _raw_db.studio_users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
+    if not u:
+        raise HTTPException(404, "Studio user not found")
+    first = (u.get("name") or "there").split()[0]
+    builds = await _raw_db.builder_projects.count_documents({"owner_id": uid})
+    credits = int(u.get("credits") or 0)
+    custom = (f'<div style="background:#faf6ec;border-left:3px solid #d4af37;border-radius:8px;'
+              f'padding:12px 16px;margin:16px 0;color:#6b5b2e">{body.message.strip()}</div>') if body.message.strip() else ""
+    if builds == 0:
+        opener = (f"<p>Hey <b>{first}</b>,</p>"
+                  f"<p>You signed up for Mira AI Studio but never hit <b>Build</b> — you're literally one sentence away "
+                  f"from a live website. Type something like <i>“build me a website for my store”</i> and Mira's agent "
+                  f"team designs, codes and deploys it in about a minute.</p>")
+    else:
+        opener = (f"<p>Hey <b>{first}</b>,</p>"
+                  f"<p>Loved having you build with Mira AI Studio! Your next idea is one sentence away — "
+                  f"websites go live instantly, and business apps arrive as ready-to-run code.</p>")
+    credit_line = (f"<p>You still have <b style='color:#1f7a4d'>{credits} credits</b> waiting in your account — they never expire.</p>"
+                   if credits >= 20 else
+                   f"<p>You have <b>{credits} credits</b> left — recharge in one tap and keep building. "
+                   f"Failed builds are always auto-refunded.</p>")
+    inner = opener + custom + credit_line
+    cta = "Continue building ✦" if credits >= 20 else "Recharge credits ✦"
+    mail = await _send_email([u["email"]], f"You're one sentence away, {first} ✦",
+                             _studio_email_shell("We saved your spot", inner, cta, _studio_url()))
+    if not mail.get("sent"):
+        raise HTTPException(502, mail.get("error") or "Email failed to send")
+    await _raw_db.studio_users.update_one({"id": uid}, {"$set": {"last_nudged_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "email_sent": True}
