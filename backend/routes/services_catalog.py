@@ -301,3 +301,24 @@ class SecurityPinIn(BaseModel):
     current_pin: Optional[str] = None
 
 
+
+
+# ---------------- Category banner images (one image per category, used on the booking page) ----------------
+class CategoryImageIn(BaseModel):
+    image_url: str = ""
+
+
+@router.get("/service-categories")
+async def list_service_categories(user=Depends(require_admin)):
+    cats = await db.service_categories.find({}, {"_id": 0}).to_list(200)
+    return {c["name"]: c.get("image_url", "") for c in cats}
+
+
+@router.put("/service-categories/{name}")
+async def set_category_image(name: str, body: CategoryImageIn, user=Depends(require_admin)):
+    name = name.strip()[:60]
+    if not name:
+        raise HTTPException(400, "Category name required")
+    await db.service_categories.update_one(
+        {"name": name}, {"$set": {"name": name, "image_url": (body.image_url or "").strip()[:500]}}, upsert=True)
+    return {"ok": True, "name": name, "image_url": (body.image_url or "").strip()[:500]}

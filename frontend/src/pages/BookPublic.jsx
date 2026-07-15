@@ -120,6 +120,7 @@ export default function BookPublic() {
   const [staff, setStaff] = useState([]);
   const [featured, setFeatured] = useState([]);
   const [gallery, setGallery] = useState([]);
+  const [catImages, setCatImages] = useState({});
   const [busy, setBusy] = useState(false);
 
   const [picked, setPicked] = useState([]);
@@ -147,6 +148,7 @@ export default function BookPublic() {
     PUBLIC.get(`/staff/${slug}`).then(r => setStaff(r.data)).catch(() => setStaff([]));
     PUBLIC.get(`/reviews/featured/${slug}`).then(r => setFeatured(r.data)).catch(() => setFeatured([]));
     PUBLIC.get(`/gallery/${slug}`).then(r => setGallery(r.data)).catch(() => setGallery([]));
+    PUBLIC.get(`/service-categories/${slug}`).then(r => setCatImages(r.data || {})).catch(() => {});
   }, [PUBLIC, slug]);
 
   const byCategory = useMemo(() => services.reduce((acc, s) => {
@@ -385,7 +387,7 @@ export default function BookPublic() {
         {step === 0 && <FeaturedReviews featured={featured} />}
         {step < 5 && <Stepper step={step} />}
 
-        {step === 0 && <ServicesStep byCategory={byCategory} picked={picked} onToggle={toggleService} />}
+        {step === 0 && <ServicesStep byCategory={byCategory} picked={picked} onToggle={toggleService} catImages={catImages} />}
         {step === 1 && <StaffStep staff={staff} staffId={staffId} onPick={setStaffId} />}
         {step === 2 && <DateTimeStep date={date} time={time} onDate={setDate} onTime={setTime} availability={availability} />}
         {step === 3 && <DetailsStep form={form} onChange={handleFormChange} referralCheck={referralCheck} onCheckReferral={checkReferral} couponCheck={couponCheck} onCheckCoupon={checkCoupon} />}

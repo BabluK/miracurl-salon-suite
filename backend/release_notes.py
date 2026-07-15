@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-15.4"
-BUILD_TIME = "15 Jul 2026, 12:30 PM IST"
+BUILD = "2026-07-15.5"
+BUILD_TIME = "15 Jul 2026, 2:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-15",
         "changes": [
+            "Your booking page just got smarter 💇 — guests now filter services by Everyone / Women / Men, and Mira's gender tags make sure men only see men's + unisex services (and vice-versa). Faster booking, fewer drop-offs",
+            "One beautiful banner per category 🖼️ — no more uploading a photo for every single service! Each category (Skin, Manicure, Men Hair…) now has an elegant banner on the booking page with services as clean rows beneath. We've pre-loaded gorgeous defaults for all categories — change any of them from Service Menu → Banner",
             "Fully tune Mira's daily offer before posting 🎛️ — swap, remove or add services right on the suggestion card (tap ✕ on a service, or '+ Add / swap service'), and every price updates instantly with your chosen discount",
             "Package Builder upgrades 🎁 — Mira now picks gender-correct services (men's packages only get men's + unisex services, women's likewise), and a new '✎ Adjust %' under the package price lets you fine-tune the bundle discount with live price recalculation before publishing",
             "Service Menu redesigned ✨ — no more endless scrolling: instant search, one-tap category chips, and compact rows with quick online-booking toggles make editing your menu effortless",

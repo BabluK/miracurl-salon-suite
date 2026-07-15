@@ -109,6 +109,7 @@ class _DB:
     wallet_plans = TenantCollection(_raw_db.wallet_plans)
     wallet_txns = TenantCollection(_raw_db.wallet_txns)
     complaints = TenantCollection(_raw_db.complaints)
+    service_categories = TenantCollection(_raw_db.service_categories)
 
 db = _DB()
 

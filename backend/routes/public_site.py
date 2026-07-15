@@ -141,12 +141,23 @@ async def public_salon_default():
 @router.get("/public/services/{slug}")
 async def public_services(slug: str):
     await resolve_tenant_from_slug(slug)
-    return await db.services.find(
+    from routes.packages import _service_gender
+    rows = await db.services.find(
         {"active": True, "bookable_online": {"$ne": False}}, {"_id": 0}).sort("category", 1).to_list(500)
+    for s in rows:
+        s["gender"] = _service_gender(s)
+    return rows
 
 @router.get("/public/services")
 async def public_services_default():
     return await public_services(DEFAULT_TENANT_SLUG)
+
+@router.get("/public/service-categories/{slug}")
+async def public_service_categories(slug: str):
+    """Category → banner image url map (owner-set overrides; frontend has curated defaults)."""
+    await resolve_tenant_from_slug(slug)
+    cats = await db.service_categories.find({}, {"_id": 0}).to_list(200)
+    return {c["name"]: c.get("image_url", "") for c in cats if c.get("image_url")}
 
 @router.get("/public/staff/{slug}")
 async def public_staff(slug: str):

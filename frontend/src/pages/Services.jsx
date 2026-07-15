@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search } from "lucide-react";
+import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
+import { catImage } from "@/lib/categoryImages";
 
 // Must match the booking page category tabs (BookPublic.steps.jsx CATEGORY_ORDER)
 const CATS = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup", "Nails"];
@@ -17,7 +18,19 @@ export default function Services() {
   const [newCat, setNewCat] = useState(false);
   const [activeCat, setActiveCat] = useState("All");
   const [q, setQ] = useState("");
+  const [catImages, setCatImages] = useState({});
+  const [catModal, setCatModal] = useState(null);
+  const [catUrl, setCatUrl] = useState("");
   const csvRef = useRef(null);
+
+  async function saveCatImage() {
+    try {
+      await api.put(`/service-categories/${encodeURIComponent(catModal)}`, { image_url: catUrl });
+      setCatImages(m => ({ ...m, [catModal]: catUrl }));
+      toast.success(catUrl ? "Category banner updated ✦" : "Back to the default banner");
+      setCatModal(null);
+    } catch { toast.error("Couldn't save — try again"); }
+  }
 
   async function exportCsv() {
     try {
@@ -49,7 +62,10 @@ export default function Services() {
   }
 
   const load = useCallback(async () => { const { data } = await api.get("/services"); setList(data); }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    api.get("/service-categories").then(r => setCatImages(r.data || {})).catch(() => {});
+  }, [load]);
 
   function startNew() { setEditing(null); setNewCat(false); setForm({ name: "", category: activeCat !== "All" ? activeCat : "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true }); setOpen(true); }
   function startEdit(s) { setEditing(s); setNewCat(false); setForm({ ...s, price: s.price, duration_min: s.duration_min }); setOpen(true); }
@@ -157,8 +173,14 @@ export default function Services() {
       {Object.keys(filteredByCat).map(cat => (
         <div key={cat} className="card-light p-0 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50/70 border-b border-slate-100">
+            <img src={catImage(cat, catImages)} alt="" className="w-16 h-9 rounded-lg object-cover border border-slate-200" />
             <h3 className="font-playfair text-lg text-sky-700">{cat}</h3>
             <span className="text-[11px] text-slate-400">{filteredByCat[cat].length} services</span>
+            <button data-testid={`set-cat-image-${cat}`} onClick={() => { setCatModal(cat); setCatUrl(catImages[cat] || ""); }}
+              title="One banner image for this whole category — shown on your booking page"
+              className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-slate-400 hover:text-sky-600 px-2.5 py-1.5 rounded-lg hover:bg-sky-50 transition">
+              <ImageIcon className="w-3.5 h-3.5" /> Banner
+            </button>
           </div>
           <div className="divide-y divide-slate-50">
             {filteredByCat[cat].map(s => (
@@ -195,6 +217,26 @@ export default function Services() {
           </div>
         </div>
       ))}
+
+      {catModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setCatModal(null)}>
+          <div className="card-light w-full max-w-md mx-4" onClick={e => e.stopPropagation()} data-testid="cat-image-modal">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-playfair text-xl">{catModal} — category banner</h3>
+              <button onClick={() => setCatModal(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-xs text-slate-500 mb-3">One elegant banner for the whole category — shown on your public booking page. No need to upload a photo for every service ✦</p>
+            <img src={catUrl || catImage(catModal, {})} alt="" className="w-full h-32 rounded-xl object-cover border border-slate-200 mb-3" />
+            <ImageUploader kind="category" value={catUrl} onChange={setCatUrl} fallback={catImage(catModal, {})} />
+            <div className="flex gap-3 pt-4">
+              {catUrl && (
+                <button type="button" data-testid="cat-image-use-default" onClick={() => setCatUrl("")} className="btn-slate flex-1">Use default</button>
+              )}
+              <button type="button" data-testid="cat-image-save" onClick={saveCatImage} className="btn-blue flex-1">Save banner</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>
