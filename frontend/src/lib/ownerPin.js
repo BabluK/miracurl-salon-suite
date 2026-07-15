@@ -1,6 +1,14 @@
 import api from "./api";
 
 let cachedPin = null;
+let pinPromise = null;
+
+function askPinOnce() {
+  if (!pinPromise) {
+    pinPromise = askPin().finally(() => { pinPromise = null; });
+  }
+  return pinPromise;
+}
 
 /* window.prompt is blocked inside installed PWAs / mobile webviews, so we use a
    lightweight DOM dialog that works everywhere. */
@@ -43,7 +51,7 @@ async function withPin(method, url, data) {
     return await call(method, url, data);
   } catch (e) {
     if (e.response?.status === 403 && e.response?.data?.detail === "OWNER_PIN_REQUIRED") {
-      const pin = await askPin();
+      const pin = await askPinOnce();
       if (!pin) {
         e.response.data.detail = "Owner PIN required — action cancelled";
         throw e;

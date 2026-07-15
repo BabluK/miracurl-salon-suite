@@ -1203,3 +1203,13 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - schedulers.py: -> None return hints on all 9 schedulers. Repo ruff errors 109 → 62 (remaining: E402 intentional late imports, E702 compact PDF-drawing style).
 - SKIPPED (documented): further splitting server.py/briefings/gallery imports — modular refactor already done previous session; PDF renderers left intact (high regression risk, not in report).
 - VERIFIED post-refactor: syntax/imports clean, backend restart clean, invoice create 200 (billing context), low-stock-all 200, morning briefing 200, showcase 200, hq hiring apps 200. BUILD → 2026-07-16.1.
+
+## Iter 113 (15 Jul 2026 session) — Mira Social Memory + Manager PIN gates completed
+- NEW: Mira social 3-day memory. Backend mira_studio.py: _social_context(tid) (last-3-day social_posts, per-platform posted_today from successful results only, days_since_last_post from most-recent post); GET /api/mira-studio/social/context → {posted_today, days_since_last_post, nudge, recent}. Nudge fires when never posted or ≥3 days idle.
+- social/generate now injects 3-day post history into the LLM prompt ("do NOT repeat these"), applies _clean_newlines to posts (formatting fix), and returns posted_today filtered to requested platforms.
+- Frontend: new MiraSocialNudge.jsx (fuchsia banner, data-testid mira-social-nudge / mira-nudge-suggest-btn / mira-nudge-dismiss, sessionStorage dismiss) rendered on Dashboard (owners) + MiraStudio agents tab (suggest triggers social agent). MiraStudio ResultView shows amber mira-already-posted-warning ("already posted today on X — post this as well?"); PostNowButton adds per-platform window.confirm on duplicates.
+- mira_common._ask_json: retry-once on malformed LLM JSON (was intermittent 500).
+- FIXED (iteration_72 HIGH bugs): manager Refer&Earn/Reports flows. /settings/affiliate, /reports/staff-commission (+require_owner_pin), /reports/sales, /settings/verify-owner-pin switched require_tenant_admin → require_admin so managers reach the PIN check (403 OWNER_PIN_REQUIRED → pinApi modal). Reports.jsx load() split w/ try/catch + staff-commission via pinApi (no more error overlay). ownerPin.js: askPinOnce() coalesces concurrent PIN prompts (StrictMode double-modal fix).
+- Billing erase stays admin-only (managers blocked even with PIN — destructive op).
+- TESTED: iteration_72 (feature E2E both tenants) + iteration_73 (manager/admin PIN flows 100% pass). Test seed [SIM-TEST] post removed after testing.
+- NOTE: search_replace lesson — parallel edits to the SAME file corrupted mira_studio.py (duplicated tail); same-file edits must be sequential.
