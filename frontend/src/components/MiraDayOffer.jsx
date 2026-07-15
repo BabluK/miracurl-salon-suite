@@ -9,6 +9,12 @@ const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
 function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, testPrefix }) {
   const accepted = offer.status === "accepted";
+  const [adjPct, setAdjPct] = useState("");
+  useEffect(() => setAdjPct(""), [offer.id]);
+  const effPct = adjPct ? Number(adjPct) : (offer.discount_pct || 0);
+  const priceFor = (s) => adjPct
+    ? Math.max(0, Math.round(s.original_price * (1 - Number(adjPct) / 100)))
+    : Math.round(s.offer_price);
   const shareWA = () => {
     const caption = offer.whatsapp_caption || offer.offer_text;
     if (offer.flyer_url) shareWithPoster(`${BACKEND}${offer.flyer_url}`, caption);
@@ -26,19 +32,34 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, tes
             </div>
           )}
         </div>
-        {offer.discount_pct > 0 && (
-          <div className="px-3 py-1.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-200 text-sm font-bold whitespace-nowrap">{offer.discount_pct}% OFF</div>
-        )}
+        <div className="flex items-center gap-2">
+          {!accepted && offer.services?.length > 0 && (
+            <select value={adjPct} onChange={(e) => setAdjPct(e.target.value)} data-testid={`${testPrefix}-adjust-pct`}
+              title="Change the discount — prices update instantly"
+              className="bg-white/5 border border-amber-300/30 text-amber-200/90 text-xs rounded-full px-3 py-1.5 focus:outline-none focus:border-amber-300/60 [&>option]:bg-[#17141c]">
+              <option value="">✎ Adjust %{offer.discount_pct ? ` (Mira: ${offer.discount_pct}%)` : ""}</option>
+              {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70].map(p => <option key={p} value={p}>{p}% off</option>)}
+            </select>
+          )}
+          {effPct > 0 && (
+            <div className="px-3 py-1.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-200 text-sm font-bold whitespace-nowrap" data-testid={`${testPrefix}-pct-badge`}>{effPct}% OFF</div>
+          )}
+        </div>
       </div>
       {offer.services?.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {offer.services.map((s, i) => (
-            <div key={i} className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
+            <div key={i} className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5" data-testid={`${testPrefix}-service-price-${i}`}>
               {s.name} · <span className="line-through text-white/40">₹{Math.round(s.original_price)}</span>{" "}
-              <span className="text-amber-200 font-semibold">₹{Math.round(s.offer_price)}</span>
+              <span className="text-amber-200 font-semibold">₹{priceFor(s)}</span>
             </div>
           ))}
         </div>
+      )}
+      {!accepted && adjPct && (
+        <p className="text-[11px] text-emerald-300/90 mt-2" data-testid={`${testPrefix}-adjust-hint`}>
+          ✓ Prices updated to {adjPct}% off — tap "Yes — use this offer" to lock it in
+        </p>
       )}
       <p className="text-xs text-white/55 mt-3 leading-relaxed"><span className="text-amber-300">Why:</span> {offer.reasoning}</p>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -93,7 +114,7 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, tes
           </>
         ) : (
           <>
-            <button onClick={onAccept} disabled={!!busy} data-testid={`${testPrefix}-accept-btn`}
+            <button onClick={() => onAccept(adjPct ? Number(adjPct) : null)} disabled={!!busy} data-testid={`${testPrefix}-accept-btn`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-300 to-rose-200 text-[#17141c] text-sm font-semibold hover:opacity-90 disabled:opacity-60">
               {busy === "accept" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {busy === "accept" ? "Creating poster (~1 min)…" : "Yes — use this offer ✦"}
@@ -135,12 +156,15 @@ export function MiraDayOffer() {
     api.get("/day-offers/flash-alert").then(r => setFlash(r.data)).catch(() => {});
   }, []);
 
-  const run = async (action, isFlash = false) => {
+  const run = async (action, isFlash = false, pctOverride = null) => {
     setBusy(action);
     try {
       if (action === "accept") {
         const target = isFlash ? flash.offer : offer;
-        const { data } = await api.post("/day-offers/accept", { offer_id: target.id, template: style || randomPosterStyle() });
+        const { data } = await api.post("/day-offers/accept", {
+          offer_id: target.id, template: style || randomPosterStyle(),
+          ...(pctOverride ? { discount_pct: pctOverride } : {}),
+        });
         if (isFlash) setFlash(f => ({ ...f, offer: data.offer }));
         else setOffer(data.offer);
         toast.success("Offer locked — poster ready! 🎉");
@@ -187,7 +211,7 @@ export function MiraDayOffer() {
               </button>
             </div>
           ) : (
-            <OfferBlock offer={flash.offer} busy={busy} onAccept={() => run("accept", true)} testPrefix="flash-offer" />
+            <OfferBlock offer={flash.offer} busy={busy} onAccept={(pct) => run("accept", true, pct)} testPrefix="flash-offer" />
           )}
         </div>
       )}
@@ -234,7 +258,7 @@ export function MiraDayOffer() {
         </div>
       </div>
 
-      {offer && <OfferBlock offer={offer} busy={busy} onAccept={() => run("accept")} onAnother={offer.status !== "accepted" ? () => run("another") : null} onUnlock={offer.status === "accepted" ? () => run("unlock") : null} onReflyer={offer.status === "accepted" ? () => run("reflyer") : null} testPrefix="day-offer" />}
+      {offer && <OfferBlock offer={offer} busy={busy} onAccept={(pct) => run("accept", false, pct)} onAnother={offer.status !== "accepted" ? () => run("another") : null} onUnlock={offer.status === "accepted" ? () => run("unlock") : null} onReflyer={offer.status === "accepted" ? () => run("reflyer") : null} testPrefix="day-offer" />}
     </div>
   );
 }

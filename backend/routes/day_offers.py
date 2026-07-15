@@ -303,6 +303,19 @@ async def regenerate_flyer(body: ReflyerIn = ReflyerIn(), user=Depends(require_t
 class AcceptIn(BaseModel):
     offer_id: str
     template: str = "dark_glam"
+    discount_pct: int | None = None  # owner-adjusted % — prices recalculated server-side
+
+
+def _apply_pct(doc: dict, pct: int) -> dict:
+    """Owner changed the discount % — recompute prices and swap the % in the copy."""
+    old = int(doc.get("discount_pct") or 0)
+    for s in doc.get("services") or []:
+        s["offer_price"] = float(max(0, round(float(s.get("original_price") or 0) * (1 - pct / 100))))
+    doc["discount_pct"] = pct
+    if old and old != pct:
+        for f in ("title", "offer_text", "whatsapp_caption"):
+            doc[f] = (doc.get(f) or "").replace(f"{old}%", f"{pct}%")
+    return doc
 
 
 async def _accept_flyer(doc: dict, template: str, user, t) -> tuple:
@@ -343,9 +356,17 @@ async def accept_offer(body: AcceptIn, request: Request, user=Depends(require_te
         raise HTTPException(404, "Offer suggestion not found — ask Mira again")
     if doc["status"] == "accepted" and doc.get("flyer_url"):
         return {"offer": doc}
+    pct = _clean_pct(body.discount_pct)
+    pct_patch = {}
+    if pct and pct != int(doc.get("discount_pct") or 0):
+        _apply_pct(doc, pct)
+        pct_patch = {"discount_pct": doc["discount_pct"], "services": doc["services"],
+                     "title": doc["title"], "offer_text": doc["offer_text"],
+                     "whatsapp_caption": doc.get("whatsapp_caption", "")}
     flyer_id, flyer_url = await _accept_flyer(doc, body.template, user, t)
     google_post, meta_post = await _auto_post_socials(request, t, doc, flyer_url)
-    patch = {"status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat(),
+    patch = {**pct_patch,
+             "status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat(),
              "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post, "meta_post": meta_post}
     await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
     if doc.get("kind") == "flash":

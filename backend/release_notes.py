@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-15.2"
-BUILD_TIME = "15 Jul 2026, 08:00 AM IST"
+BUILD = "2026-07-15.3"
+BUILD_TIME = "15 Jul 2026, 10:30 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-15",
         "changes": [
+            "Tune Mira's offer before you post it ✎ — a new 'Adjust %' selector on the Offer of the Day card lets you change the discount and see every service price recalculate instantly; tap 'Yes — use this offer' and the poster, caption and offer text are all rebuilt with YOUR chosen %",
             "Every email now carries your brand ✦ — all outgoing emails (reports, birthday wishes, review requests, alerts) end with a 'Book Now' button and a 'Powered by Miracurl' footer, turning every email into a booking opportunity",
             "Under the hood: engine room reorganised 🔧 — the backend was split from one giant file into 22 clean, domain-focused modules (customers, staff, billing, public booking, schedulers…). Nothing changes on screen, but future features ship faster and safer",
             "Locked out? Reset yourself 🔑 — 'Forgot Password' now emails a secure 1-hour reset link; setting a new password also clears any login lock instantly. Owners can still reset staff passwords from the Staff page",
