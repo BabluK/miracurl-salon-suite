@@ -277,7 +277,7 @@ function ResultView({ result, conns = {}, onRegen }) {
         </div>
       )}
 
-      {r.type === "google_post" && <GooglePostResult r={r} />}
+      {r.type === "google_post" && <GooglePostResult key={`${r.topic}-${r.question || ""}`} r={r} />}
 
       {["content"].includes(r.type) && r.result && (
         <Block label="Content" copyText={`${r.result.title}\n\n${r.result.body}\n\n${r.result.cta}`}>
@@ -372,23 +372,26 @@ function ResultView({ result, conns = {}, onRegen }) {
 }
 
 function GooglePostResult({ r }) {
-  const [state, setState] = useState({ posted: r.posted, needs: r.needs_confirmation, result: r.result, busy: false, declined: false });
+  const [posted, setPosted] = useState(!!r.posted);
+  const [needs, setNeeds] = useState(!!r.needs_confirmation);
+  const [pubResult, setPubResult] = useState(r.result || null);
+  const [declined, setDeclined] = useState(false);
+  const [busy, setBusy] = useState(false);
   const draft = r.draft || {};
 
   const postNow = async () => {
-    setState(s => ({ ...s, busy: true }));
+    setBusy(true);
     try {
       const { data } = await api.post("/mira-studio/google/post", {
         topic: r.topic || "offer", caption: draft.caption, offer_title: draft.offer_title,
         image_url: draft.image_url, with_image: false, confirm: true,
       });
-      setState({ posted: data.posted, needs: false, result: data.result, busy: false, declined: false });
+      setPosted(!!data.posted); setNeeds(false); setPubResult(data.result || null);
       if (data.posted) toast.success("Posted to Google Business 🎉");
       else toast.error(data.result?.error?.slice(0, 140) || "Google posting failed — post manually below");
     } catch (e) {
       toast.error(e.response?.data?.detail || "Posting failed");
-      setState(s => ({ ...s, busy: false }));
-    }
+    } finally { setBusy(false); }
   };
 
   const copyAndOpen = () => { copy(draft.caption || ""); window.open("https://business.google.com/posts", "_blank", "noopener"); };
@@ -396,34 +399,39 @@ function GooglePostResult({ r }) {
   return (
     <div className="grid md:grid-cols-2 gap-3" data-testid="mira-google-post-result">
       <div className="space-y-3">
-        {state.needs && !state.declined && (
+        {needs && !declined && !posted && (
           <div data-testid="mira-google-confirm" className="bg-amber-50 border border-amber-300 rounded-xl p-4">
             <p className="text-sm text-amber-900">{r.question}</p>
             <div className="flex gap-2 mt-3">
-              <button data-testid="mira-google-confirm-yes" onClick={postNow} disabled={state.busy}
+              <button data-testid="mira-google-confirm-yes" onClick={postNow} disabled={busy}
                 className="text-xs px-4 py-2 rounded-lg bg-slate-900 text-white font-semibold disabled:opacity-60 inline-flex items-center gap-1.5">
-                {state.busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Yes, post it
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Yes, post it
               </button>
-              <button data-testid="mira-google-confirm-no" onClick={() => setState(s => ({ ...s, declined: true }))}
+              <button data-testid="mira-google-confirm-no" onClick={() => setDeclined(true)}
                 className="text-xs px-4 py-2 rounded-lg border border-slate-300 text-slate-600">No, keep as draft</button>
             </div>
           </div>
         )}
-        {state.posted && (
+        {declined && !posted && (
+          <div data-testid="mira-google-draft-kept" className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
+            👍 Kept as a draft — you can post it manually below whenever you like.
+          </div>
+        )}
+        {posted && (
           <div data-testid="mira-google-posted" className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 text-sm text-emerald-800">
             ✅ Posted to your Google Business Profile ✦
           </div>
         )}
-        {!state.posted && !state.needs && state.result && (
+        {!posted && !needs && !declined && pubResult && (
           <div data-testid="mira-google-post-failed" className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-            ⚡ Couldn't auto-post: {state.result.error || "Google Business not ready"}. Post manually below — the caption copies automatically.
+            ⚡ Couldn't auto-post: {pubResult.error || "Google Business not ready"}. Post manually below — the caption copies automatically.
           </div>
         )}
         <Block label="Google Business offer" copyText={draft.caption}>
           {draft.offer_title && <p className="font-semibold text-slate-800">{draft.offer_title}</p>}
           <p className="text-sm text-slate-700 whitespace-pre-line mt-1">{draft.caption}</p>
         </Block>
-        {!state.posted && (
+        {!posted && (
           <button data-testid="mira-google-manual-post" onClick={copyAndOpen}
             className="w-full text-xs px-3 py-2.5 rounded-xl bg-slate-900 text-white font-semibold">
             Post manually on Google (caption copies) ↗

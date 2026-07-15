@@ -1,0 +1,35 @@
+{
+  "summary": "Retest of iteration_74 GooglePostResult No-path bug after refactor to isolated useState hooks + remount key. NO path and YES path both PASS with natural user click. The iter_74 refactor is effective — the confirm dialog fully unmounts on 'No', draft-kept note appears, and remaining draft/manual-post UI is preserved. Backend was skipped per request.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MiraStudio / Dashboard", "issues": ["Pre-existing hydration warning: '<span> cannot be a child of <option>' inside MiraDayOffer.jsx (line ~280). Not introduced this iteration — flagged again."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "GooglePostResult refactor to individual useState hooks (posted/needs/pubResult/declined/busy) + parent key={topic+question} works correctly — no stale state, no unmount issue on 'No, keep as draft'.",
+    "Fix the MiraDayOffer.jsx <option><span>{...}</span></option> hydration warning (invalid HTML). Non-blocking but present in console every render.",
+    "Bug found while seeding: /api/mira-studio/google/... crashes with `TypeError: fromisoformat: argument must be str` when a social_posts doc has `created_at` stored as a real datetime object instead of ISO string (routes/mira_studio.py line 144 catches only ValueError). Recommend `except (ValueError, TypeError):` OR normalize `created_at` at read (isinstance check). Not user-triggered today because app writes strings, but defensive fix is trivial."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "100% (2/2 flows pass)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (miracurl-marathahalli)",
+  "seed_data_creation": "Inserted 1 social_posts doc {caption:'Morning facial offer [QA-SIM]', platforms:['google'], kind:'google_offer', results.google.ok:true, created_at:<iso today>} for miracurl tenant. DELETED after tests (deleted_count=2 — cleared both today's seed + a leftover; remaining=0).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "IMPORTANT for future automated tests: Playwright's `element.click(force=True)` on the No button did NOT fire React's onClick handler (confirm dialog remained), which is exactly what iteration_74 reported. However Playwright locator `.click()` WITHOUT force=True, and native `HTMLElement.click()` via page.evaluate, both work correctly and the state updates as designed. This is a Playwright synthetic-event quirk on this button, not a real user bug — real users clicking the button work fine. When seeding social_posts docs for confirm-today tests, ALWAYS store `created_at` as an ISO string (not a Python datetime), otherwise routes/mira_studio.py::_social_context crashes with TypeError and the /google/post endpoint returns 500.",
+  "detailed_test_results": {
+    "no_path": {
+      "status": "PASS",
+      "details": "Confirm dialog appeared with 'Hey Salon Admin — we already posted an offer on Google today (\"Morning facial offer [QA-SIM]\")…'. Clicked [data-testid='mira-google-confirm-no'] via natural Playwright click. Post-click DOM: confirm=absent, confirm_visible=false, draft-kept=visible ('👍 Kept as a draft — you can post it manually below whenever you like.'), manual-post button=present, post-result block=present."
+    },
+    "yes_path": {
+      "status": "PASS",
+      "details": "Second request (Ask Mira again) triggered new confirm dialog. Clicked [data-testid='mira-google-confirm-yes']. Post-click DOM: 0 confirm dialogs visible, [data-testid='mira-google-post-failed'] visible with text '⚡ Couldn't auto-post: Google Business account not connected. Post manually below — the caption copies automatically.' (Google Business not connected in preview = expected/PASS)."
+    }
+  }
+}
