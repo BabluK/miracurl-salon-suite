@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
+import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
 import { Gift, Copy, Share2, Users, IndianRupee, CheckCircle2, Sparkles } from "lucide-react";
 import { shareText, openWhatsApp } from "@/lib/share";
@@ -13,7 +14,7 @@ export default function ReferEarn() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await api.get("/settings/affiliate");
+        const { data } = await pinApi.get("/settings/affiliate");
         setData(data);
       } catch (e) {
         toast.error(formatApiError(e.response?.data?.detail) || "Failed to load referral data");

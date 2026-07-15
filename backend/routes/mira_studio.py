@@ -110,6 +110,58 @@ async def orchestrate(body: OrchestrateIn, admin=Depends(require_tenant_admin), 
     }
 
 
+# ── Social memory (last 3 days of posts) ───────────────────────────────────
+def _post_snippet(p: dict) -> str:
+    return (p.get("caption") or "")[:120]
+
+
+async def _social_context(tid: str) -> dict:
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(days=3)).isoformat()
+    recent = await _raw_db.social_posts.find(
+        {"tenant_id": tid, "created_at": {"$gte": cutoff}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(30)
+    today = now.date().isoformat()
+    posted_today = {}
+    for p in recent:
+        if not (p.get("created_at") or "").startswith(today):
+            continue
+        results = p.get("results") or {}
+        for plat in p.get("platforms", []):
+            if (results.get(plat) or {}).get("ok") and plat not in posted_today:
+                posted_today[plat] = _post_snippet(p)
+    last = await _raw_db.social_posts.find_one(
+        {"tenant_id": tid}, {"_id": 0, "created_at": 1}, sort=[("created_at", -1)])
+    days_since = None
+    if last:
+        try:
+            dt = datetime.fromisoformat(last["created_at"])
+            days_since = max(0, (now - dt).days)
+        except ValueError:
+            pass
+    return {"recent": recent, "posted_today": posted_today, "days_since_last_post": days_since}
+
+
+@router.get("/mira-studio/social/context")
+async def social_context(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    ctx = await _social_context(t["id"])
+    days = ctx["days_since_last_post"]
+    nudge = None
+    if days is None:
+        nudge = "Your salon hasn't posted on social media yet — want me to suggest a great first offer?"
+    elif days >= 3:
+        nudge = f"No social activity in {days} days — want me to suggest an offer to keep your salon buzzing?"
+    return {
+        "posted_today": ctx["posted_today"],
+        "days_since_last_post": days,
+        "nudge": nudge,
+        "recent": [{
+            "platforms": p.get("platforms", []), "caption": _post_snippet(p),
+            "created_at": p.get("created_at"), "kind": p.get("kind", "post"),
+        } for p in ctx["recent"]],
+    }
+
+
 # ── Social Media Agent ─────────────────────────────────────────────────────
 class SocialIn(BaseModel):
     topic: str
@@ -131,11 +183,20 @@ async def social_generate(body: SocialIn, admin=Depends(require_tenant_admin), t
         "google": "Google Business post: 1500 char max, informative + keyword-rich for local SEO, end with 'Book now', 0-2 hashtags.",
     }
     want = [p for p in body.platforms if p in plat_rules] or ["instagram"]
+    ctx = await _social_context(t["id"])
+    history = ""
+    if ctx["recent"]:
+        lines = [f"- [{(p.get('created_at') or '')[:10]}] ({', '.join(p.get('platforms', []))}) {_post_snippet(p)}"
+                 for p in ctx["recent"][:10]]
+        history = ("\n\nMemory — posts published in the last 3 days (do NOT repeat these themes, "
+                   "offers or wording; create something clearly fresh and different):\n" + "\n".join(lines))
     schema = ", ".join(f'"{p}":{{"caption":"...","hashtags":["#..."]}}' for p in want)
     posts = await _ask_json(
         sys, f"Topic: {body.topic}. Create posts for these platforms with their rules:\n"
              + "\n".join(f"- {p}: {plat_rules[p]}" for p in want)
+             + history
              + f'\nReturn JSON: {{{schema}}}')
+    posts = _clean_newlines(posts)
     image_url = ""
     if body.with_image:
         styles = {
@@ -148,7 +209,9 @@ async def social_generate(body: SocialIn, admin=Depends(require_tenant_admin), t
                       f"{styles.get(body.image_style, styles['luxury'])}. Square 1:1, premium beauty-brand aesthetic, "
                       f"cinematic lighting. Absolutely NO text, NO letters, NO logos, NO watermarks, no distorted faces.")
         image_url = await _gen_image(img_prompt, t, "social")
-    return {"topic": body.topic, "posts": posts, "image_url": image_url, "platforms": want}
+    posted_today = {p: v for p, v in ctx["posted_today"].items() if p in want}
+    return {"topic": body.topic, "posts": posts, "image_url": image_url,
+            "platforms": want, "posted_today": posted_today}
 
 
 # ── Content Writer / Sales / SEO / Video / Email (text agents) ──────────────

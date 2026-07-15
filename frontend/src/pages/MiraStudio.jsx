@@ -7,6 +7,7 @@ import {
 import { MiraCalendar } from "@/components/MiraCalendar";
 import { MiraAutopilot } from "@/components/MiraAutopilot";
 import { SocialHistoryPanel } from "@/components/SocialHistoryPanel";
+import { MiraSocialNudge } from "@/components/MiraSocialNudge";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const abs = (u) => (u && u.startsWith("/api/") ? `${BACKEND}${u}` : u);
@@ -138,6 +139,11 @@ export default function MiraStudio() {
       {tab === "history" && <SocialHistoryPanel />}
 
       {tab === "agents" && <>
+      <MiraSocialNudge variant="studio" onSuggest={() => {
+        setResult(null);
+        setReply("✨ On it! Crafting a fresh offer to bring guests in…");
+        runAgent("social", "an irresistible limited-time salon offer for today to bring more customers in");
+      }} />
       {/* Agent grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-testid="mira-agent-grid">
         {agents.filter(a => a.key !== "orchestrator").map(a => (
@@ -229,6 +235,14 @@ function ResultView({ result, conns = {}, onRegen }) {
         <h3 className="font-semibold text-slate-700 flex items-center gap-1.5"><Wand2 className="w-4 h-4 text-fuchsia-500" /> {r.topic ? `“${r.topic}”` : "Result"}</h3>
         <button onClick={onRegen} className="text-xs inline-flex items-center gap-1 text-slate-500 hover:text-fuchsia-600" data-testid="mira-regenerate"><RefreshCw className="w-3.5 h-3.5" /> Regenerate</button>
       </div>
+
+      {r.type === "social" && Object.keys(r.posted_today || {}).length > 0 && (
+        <div data-testid="mira-already-posted-warning" className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-sm text-amber-800">
+          <b>Heads up ✦</b> You already posted today on{" "}
+          {Object.entries(r.posted_today).map(([k, v]) => `${k} — “${v.slice(0, 70)}${v.length > 70 ? "…" : ""}”`).join("; ")}.
+          {" "}Do you want to post this as well?
+        </div>
+      )}
 
       {r.type === "social" && (
         <div className="grid md:grid-cols-2 gap-3">
@@ -404,6 +418,8 @@ function PostNowButton({ result, conns }) {
   const platforms = ["instagram", "facebook"].filter(p => conns[p]);
 
   const post = async () => {
+    const dup = platforms.filter(pl => (result.posted_today || {})[pl]);
+    if (dup.length && !window.confirm(`You already posted on ${dup.join(" & ")} today. Post this as well?`)) return;
     const p = result.posts || {};
     const src = p.instagram || p.facebook || Object.values(p)[0] || {};
     const caption = `${src.caption || ""}\n\n${(src.hashtags || []).join(" ")}`.trim();

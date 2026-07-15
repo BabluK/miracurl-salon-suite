@@ -1,0 +1,41 @@
+{
+  "summary": "E2E tested Mira Social Memory feature (backend + frontend) and Owner PIN gates. Backend social/context + social/generate work correctly for both tenants (miracurl posted_today={instagram:'[SIM-TEST]…'}, elegance nudge non-null). Frontend: elegance owner dashboard nudge + suggest button navigation + dismiss (session-persistent) all work. Miracurl admin social agent → topic → LLM generate → amber warning banner with '[SIM-TEST]' instagram caption snippet all render correctly. Admin Reports commission table (2 rows) + PIN-gated commission rate unlock via 4321 all work. Content Writer agent + Post History tab regression PASSED. FOUND BUG: Manager on Refer&Earn page does NOT get the Owner PIN modal — backend /api/settings/affiliate returns 403 with detail='Admin role required' (not 'OWNER_PIN_REQUIRED'), so pinApi interceptor never triggers; the page renders blank. Also Reports page for manager throws uncaught React errors (unrelated 403/404 from summary endpoints).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/mira-studio/social/generate", "issue": "LLM occasionally returns malformed JSON (JSONDecodeError at char 1227) causing 500. _ask_json fallback also fails. Happened once out of 3 attempts; second retry succeeded. Consider tighter JSON extraction / retry-once logic."},
+      {"endpoint": "/api/settings/affiliate", "issue": "For manager role returns 403 detail='Admin role required' instead of 'OWNER_PIN_REQUIRED', so frontend pinApi cannot delegate via PIN — Refer&Earn silently fails for managers."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ReferEarn (manager)", "issue": "No Owner PIN modal appears; page stays blank because pinApi interceptor only matches detail==='OWNER_PIN_REQUIRED' but backend returns 'Admin role required'.", "selector": "[data-testid='owner-pin-modal']", "priority": "HIGH"},
+      {"component": "Reports (manager)", "issue": "Uncaught runtime errors overlay (AxiosError 403) — page fails to render commission table for managers; only errors are shown.", "selector": "[data-testid='commission-card']", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Manager PIN delegation on Refer&Earn / Reports", "issue": "Backend/frontend mismatch — either backend should return OWNER_PIN_REQUIRED for manager, or pinApi should also match 'Admin role required'.", "affected_selectors": ["[data-testid='owner-pin-modal']"]}
+    ],
+    "design_issues": [
+      {"screen": "Dashboard", "issues": ["Multiple blocking overlays on load ('What's New' modal + 'Gentle reminder' trial modal + WhatsApp approvals) hurt first-load UX and can intercept clicks on Mira Social Nudge suggest button until dismissed."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "FIX: Make manager PIN delegation work on Refer&Earn — either backend /api/settings/affiliate should return 403 OWNER_PIN_REQUIRED for manager role (like /api/settings/verify-owner-pin does), OR frontend pinApi interceptor should also match detail=='Admin role required'.",
+    "FIX: Manager Reports page crashes with 'Uncaught runtime errors' overlay from unhandled 403/404 axios errors — wrap Reports data fetches with try/catch to render 'PIN required' state instead of white-screen error.",
+    "IMPROVE: /api/mira-studio/social/generate LLM JSON parse — add one retry when JSONDecodeError happens (LLM output was intermittently broken)."
+  ],
+  "critical_code_review_comments": [
+    "MiraStudio.jsx is 535 lines — could be split into smaller files (ResultView, PostNowButton, GReviewRow modules).",
+    "MiraSocialNudge dismissed state uses sessionStorage — session-scoped works but consider surfacing an in-app 're-enable' if user wants nudges back.",
+    "MANAGER_LOCKED in AppLayout.jsx does not include /refer or /reports — but backend already gates these. The mismatch caused the current bug."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "95%", "frontend": "80%"},
+  "test_credentials": "Used from /app/memory/test_credentials.md (owner@elegance.com, admin@miracurl.com, manager@miracurl.com).",
+  "seed_data_creation": "None — used existing '[SIM-TEST]' seeded post for miracurl-marathahalli (not deleted).",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Mira Social Memory works end-to-end for admins. The one broken flow is manager → Refer & Earn: PIN modal doesn't show because backend returns 'Admin role required' instead of 'OWNER_PIN_REQUIRED'. Same category issue makes manager Reports crash. After main agent fixes either backend detail string OR pinApi matcher, retest both pages with manager@miracurl.com / Manager@1234.",
+  "rca of the issue": "pinApi interceptor (frontend/src/lib/ownerPin.js:45) only intercepts 403 responses where response.data.detail === 'OWNER_PIN_REQUIRED'. Backend /api/settings/affiliate uses a stricter role check that returns 'Admin role required' for managers, so interceptor never fires -> no PIN prompt -> blank page. Reports page similarly has admin-only sub-endpoints that 403 without OWNER_PIN_REQUIRED, tripping an unhandled promise rejection in the React tree (RCA-A). Reproduce: log in as manager@miracurl.com, navigate /refer or /reports."
+}

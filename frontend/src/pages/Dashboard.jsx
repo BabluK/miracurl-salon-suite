@@ -18,6 +18,7 @@ import { DashboardAurora } from "@/components/DashboardAurora";
 import { MiraDayOffer } from "@/components/MiraDayOffer";
 import { CircleBonusCard } from "@/components/CircleBonusCard";
 import { WinbackNudges } from "@/components/WinbackNudges";
+import { MiraSocialNudge } from "@/components/MiraSocialNudge";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
 const CHART_TOOLTIP_STYLE = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' };
@@ -104,6 +105,7 @@ export default function Dashboard() {
       <RenewalBanner sub={subStatus} />
       {isOwner && <MySalonsOverview />}
       {isOwner && <MorningBriefing />}
+      {isOwner && <MiraSocialNudge />}
       {isOwner && <MiraDayOffer />}
       {isOwner && <CircleBonusCard slug={tenant?.slug || "miracurl-marathahalli"} />}
       <CelebrationsCard />

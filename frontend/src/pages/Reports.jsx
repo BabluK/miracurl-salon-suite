@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
-import { IndianRupee, FileText, Users, Percent, MapPin, Star } from "lucide-react";
+import pinApi from "@/lib/ownerPin";
+import { toast } from "sonner";
+import { IndianRupee, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
@@ -14,6 +16,29 @@ export default function Reports() {
   const [data, setData] = useState(null);
   const [commission, setCommission] = useState(null);
   const [pct, setPct] = useState(30);
+  const [rateUnlocked, setRateUnlocked] = useState(() => sessionStorage.getItem("commission_rate_unlock") === "1");
+  const [erasing, setErasing] = useState(false);
+
+  const unlockRate = async () => {
+    try {
+      await pinApi.post("/settings/verify-owner-pin", {});
+      sessionStorage.setItem("commission_rate_unlock", "1");
+      setRateUnlocked(true);
+      toast.success("Commission rate unlocked ✦");
+    } catch (e) { toast.error(e.response?.data?.detail || "Admin PIN required"); }
+  };
+
+  const eraseBilling = async (scope) => {
+    const label = scope === "all" ? "ALL billing data" : "last month's billing data";
+    if (!window.confirm(`Erase ${label}? This permanently deletes those invoices (revenue & commission reports reset). This cannot be undone.`)) return;
+    setErasing(true);
+    try {
+      const { data } = await pinApi.post("/reports/billing-data/erase", { scope });
+      toast.success(`${data.invoices_deleted} invoice(s) erased — fresh setup ready ✦`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Erase failed — Admin PIN required"); }
+    finally { setErasing(false); }
+  };
 
   const load = useCallback(async () => {
     const [a, b] = await Promise.all([
@@ -153,7 +178,7 @@ export default function Reports() {
                 <Users className="w-4 h-4 text-sky-600" />
                 <h3 className="font-playfair text-xl">Per-Stylist Commission</h3>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <label className="text-xs text-slate-500 uppercase tracking-wider">Rate</label>
                 <div className="relative">
                   <input
@@ -163,11 +188,28 @@ export default function Reports() {
                     max="100"
                     step="0.5"
                     value={pct}
+                    disabled={!rateUnlocked}
                     onChange={e => setPct(Math.max(0, Math.min(100, Number(e.target.value || 0))))}
-                    className="text-slate-800 w-20 pl-2 pr-7 py-1.5 rounded-md bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    className="text-slate-800 w-20 pl-2 pr-7 py-1.5 rounded-md bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                   <Percent className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2" />
                 </div>
+                {!rateUnlocked && (
+                  <button onClick={unlockRate} data-testid="commission-rate-unlock-btn" title="Changing the rate needs the Admin PIN"
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100">
+                    <Lock className="w-3 h-3" /> Unlock rate
+                  </button>
+                )}
+                {rateUnlocked && <Unlock className="w-3.5 h-3.5 text-emerald-500" title="Rate unlocked for this session" />}
+                <span className="w-px h-5 bg-slate-200 mx-1" />
+                <button onClick={() => eraseBilling("last_month")} disabled={erasing} data-testid="erase-last-month-btn"
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 disabled:opacity-50">
+                  <Trash2 className="w-3 h-3" /> Erase last month
+                </button>
+                <button onClick={() => eraseBilling("all")} disabled={erasing} data-testid="erase-all-btn"
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-rose-300 bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50">
+                  <Trash2 className="w-3 h-3" /> Erase all data
+                </button>
               </div>
             </div>
 

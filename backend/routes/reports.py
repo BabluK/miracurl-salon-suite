@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from database import db
-from security import get_current_user, require_admin, require_tenant_admin
+from security import get_current_user, require_admin, require_tenant_admin, require_owner_pin
 
 router = APIRouter()
 
@@ -377,3 +377,31 @@ async def reviews_blast_targets(user=Depends(get_current_user)):
         })
     return {"count": len(targets), "targets": targets}
 
+
+
+# ---------------- Owner-PIN protected: verify + billing data erase (fresh setup) ----------------
+from pydantic import BaseModel, Field  # noqa: E402
+
+
+@router.post("/settings/verify-owner-pin", dependencies=[Depends(require_owner_pin)])
+async def verify_owner_pin_only(user=Depends(require_tenant_admin)):
+    """No-op endpoint used by the UI to unlock PIN-gated controls (e.g. commission rate)."""
+    return {"ok": True}
+
+
+class EraseBillingIn(BaseModel):
+    scope: str = Field(..., pattern="^(last_month|all)$")
+
+
+@router.post("/reports/billing-data/erase", dependencies=[Depends(require_owner_pin)])
+async def erase_billing_data(body: EraseBillingIn, user=Depends(require_tenant_admin)):
+    """Owner-only fresh-setup tool: wipe test/old invoices (drives revenue & commission reports)."""
+    flt = {}
+    if body.scope == "last_month":
+        now = datetime.now(timezone.utc)
+        first_this = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_month_end = first_this - timedelta(seconds=1)
+        first_last = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        flt = {"created_at": {"$gte": first_last.isoformat(), "$lt": first_this.isoformat()}}
+    res = await db.invoices.delete_many(flt)
+    return {"ok": True, "scope": body.scope, "invoices_deleted": res.deleted_count}

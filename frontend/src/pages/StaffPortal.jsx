@@ -326,6 +326,27 @@ export default function StaffPortal() {
               <SlipRow label="Days present" value={slip.days_present || 0} />
               <SlipRow label="Hours worked" value={`${slip.total_hours || 0} h`} />
               <SlipRow label="Service gross" value={`₹${(slip.service_gross || 0).toLocaleString("en-IN")}`} sub={`${slip.service_count || 0} service line(s)`} />
+              {(slip.monthly_target || 0) > 0 && (
+                <div className="sm:col-span-2 rounded-lg bg-black/40 border border-white/10 p-3" data-testid="target-progress-card">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-[10px] uppercase tracking-[0.2em] text-white/60">
+                      Monthly target · ₹{(slip.monthly_target || 0).toLocaleString("en-IN")} @ {slip.target_commission_pct || 0}% bonus
+                    </div>
+                    <div className={`text-xs font-semibold ${slip.target_achieved ? "text-emerald-400" : "text-gold"}`}>
+                      {slip.target_achieved ? `Achieved ✦ +₹${(slip.target_bonus || 0).toLocaleString("en-IN")} bonus` : `${Math.min(100, Math.round(((slip.gross_earnings ?? slip.gross ?? 0) / slip.monthly_target) * 100))}%`}
+                    </div>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-white/10 overflow-hidden">
+                    <div className={`h-full rounded-full transition-[width] duration-700 ${slip.target_achieved ? "bg-emerald-400" : "bg-gradient-to-r from-gold to-blush"}`}
+                      style={{ width: `${Math.min(100, ((slip.gross_earnings ?? slip.gross ?? 0) / slip.monthly_target) * 100)}%` }} />
+                  </div>
+                  <div className="text-[11px] text-white/45 mt-1.5">
+                    {slip.target_achieved
+                      ? "Target hit — the bonus is already included in your net payable 🎉"
+                      : `₹${Math.max(0, (slip.monthly_target || 0) - (slip.gross_earnings ?? slip.gross ?? 0)).toLocaleString("en-IN")} more business to unlock a ₹${Math.round(((slip.monthly_target || 0) * (slip.target_commission_pct || 0)) / 100).toLocaleString("en-IN")}+ bonus`}
+                  </div>
+                </div>
+              )}
               <div className="rounded-lg bg-gradient-to-r from-gold/20 to-blush/10 border border-gold/40 p-3">
                 <div className="text-[10px] uppercase tracking-[0.2em] text-white/60 mb-1">Net payable</div>
                 <div className="font-playfair text-2xl text-gold">₹{(slip.net_payable || 0).toLocaleString("en-IN")}</div>
