@@ -477,6 +477,20 @@ export default function MiraAIStudio() {
                     </button>
                   </div>
                 </div>
+                {/* Deploy options */}
+                <div className="grid sm:grid-cols-3 gap-4" data-testid="studio-deploy-options">
+                  {[
+                    { icon: Rocket, title: "Hosted by Mira ✦", desc: "Your site is already live at the URL above — free, always on. Share it anywhere.", accent: "#D4AF37" },
+                    { icon: Download, title: "Self-host free", desc: "Download the code and drag-drop the folder on Netlify or Vercel — live in 30 seconds, zero cost.", accent: "#FF4081" },
+                    { icon: Globe, title: "Your own domain", desc: "Connect www.yourbusiness.com at your host (Netlify/Vercel → Add domain). The code is 100% yours.", accent: "#34d399" },
+                  ].map(o => (
+                    <div key={o.title} className="rounded-2xl border border-white/[0.08] bg-[#141012] p-5">
+                      <o.icon className="w-5 h-5 mb-3" style={{ color: o.accent }} />
+                      <div className="text-sm font-semibold">{o.title}</div>
+                      <div className="text-xs text-white/45 mt-1.5 leading-relaxed">{o.desc}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

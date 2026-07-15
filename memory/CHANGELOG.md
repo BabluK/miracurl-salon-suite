@@ -1162,3 +1162,12 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - NOTE from tester: studio JWTs share jwt_secret with salon SaaS (collections separate, safe today) — consider 'aud':'studio' claim later.
 - Landing.jsx: added "✦ Mira AI Studio" gold pill link in navbar + footer link → /mira.ai (user couldn't find studio from homepage). Verified click navigates.
 - MiraStudioShowcase.jsx (new): "Built with AI" section on Landing (after features, before SoftwareFlowSection) — copy + CTA to /mira.ai + self-contained animated demo (typing prompt → Planner/Design/Code/Test/Deploy pipeline lights up → mock browser site fades in, loops every ~12s). Verified both phases via screenshots. release_notes BUILD → 2026-07-15.7.
+
+## Iter 107 (15 Jul 2026) — Mira Studio quality fixes (user's watch-store site broken on prod)
+- BUG 1 (iframe "refused to connect"): security middleware set X-Frame-Options DENY on ALL /api responses incl. /api/site/{slug} → studio preview iframe blocked. server.py: /api/site/* now SAMEORIGIN, everything else stays DENY. Verified via curl.
+- BUG 2 (broken/irrelevant images): LLM hallucinated Unsplash URLs. NEW routes/mira_site_images.py: 88 verified image IDs across 16 business categories + sanitize_html_images() (replaces any non-verified unsplash URL from category pool) + guess_category() keyword fallback for old projects. Planner now returns "category"; Frontend Agent restricted to verified URLs only.
+- BUG 3 (unstyled pages): LLM emitted tailwind Play CDN as <link rel=stylesheet> instead of <script> → zero styling. ensure_tailwind() normalizes/injects the script tag. Prompt hardened too.
+- KEY: serve_site + download now apply ensure_tailwind+sanitize at SERVE time → user's existing prod site (timeless-elegance-cd28) auto-repairs after redeploy, no rebuild needed.
+- Generic content fix: planner returns offerings_label ("Our Collection"/"Our Menu"/"Our Services") + offerings with desc; nav shows business name as text logo.
+- UI: 3-card "Deploy options" panel (studio-deploy-options) in live result — Hosted by Mira / Self-host free / Own domain.
+- E2E verified: fresh watch-store build → category=watches, label="Our Collection", 6/6 images HTTP 200 all watch photos, styled render confirmed via screenshots; refine keeps verified images + script tag. release_notes BUILD → 2026-07-15.8.

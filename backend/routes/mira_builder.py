@@ -19,6 +19,7 @@ from database import _raw_db
 from security import public_rate_limit, hash_pw, verify_pw, make_access, jwt_secret, JWT_ALG
 
 from routes.mira_common import _ask, _ask_json
+from routes.mira_site_images import CATEGORIES, image_urls, sanitize_html_images, ensure_tailwind, guess_category
 
 router = APIRouter()
 log = logging.getLogger("mira_builder")
@@ -103,11 +104,15 @@ async def _run_website(pid: str, prompt: str):
             "You are the Planner Agent of Mira AI Studio, an expert website strategist.",
             f'Client request: "{prompt}". Plan a stunning one-page business website. Return JSON: '
             '{"name":"<business name, invent a tasteful one if absent>","tagline":"<punchy line>",'
+            f'"category":"<the ONE best match from: {", ".join(CATEGORIES)}>",'
             '"palette":{"bg":"<hex>","accent":"<hex>","text":"<hex>"},'
-            '"sections":["hero","about","services","gallery","testimonials","contact"],'
-            '"services":[{"name":"x","price":"₹x"}] (4-6 fitting the business),'
+            '"offerings_label":"<heading fitting the business type — e.g. \'Our Collection\' for a store, \'Our Menu\' for a restaurant, \'Our Services\' for a service business>",'
+            '"sections":["hero","about","offerings","gallery","testimonials","contact"],'
+            '"offerings":[{"name":"x","desc":"<one enticing line>","price":"₹x"}] (4-6 fitting the business — PRODUCTS for a store, DISHES for a restaurant, SERVICES for a service business),'
             '"vibe":"<3 adjectives>"}')
         name = str(plan.get("name") or "My Business")[:60]
+        category = plan.get("category") if plan.get("category") in CATEGORIES else "business"
+        imgs = image_urls(category)
         slug = _slugify(name)
         await _set_step(pid, "Planner Agent", "done", f"Planned “{name}” — {len(plan.get('sections', []))} sections")
         await _set_step(pid, "Design Agent", "running", f"Vibe: {plan.get('vibe', 'modern & elegant')}")
@@ -121,14 +126,17 @@ async def _run_website(pid: str, prompt: str):
             f'Build a COMPLETE production-quality one-page website for: "{prompt}".\n'
             f"Plan: {plan}\n"
             "Requirements:\n"
-            "- Single self-contained HTML file. Use <script src=\"https://cdn.tailwindcss.com\"></script> plus a <style> block for custom touches (fonts via Google Fonts link, smooth scroll, hover states, keyframe entrance animations).\n"
-            "- Sections: sticky nav, cinematic hero with CTA, about, services with prices, testimonials (invent 3 realistic Indian names), contact section with phone/address placeholders and a WhatsApp button, elegant footer.\n"
-            "- Use royalty-free images from https://images.unsplash.com (real, relevant photo URLs with ?w=1200&q=80).\n"
+            "- Single self-contained HTML file. Include Tailwind via <script src=\"https://cdn.tailwindcss.com\"></script> in <head> — it is a SCRIPT tag, NEVER a <link rel=\"stylesheet\">. Plus a <style> block for custom touches (fonts via Google Fonts link, smooth scroll, hover states, keyframe entrance animations).\n"
+            f"- Sections: sticky nav with the business name '{name}' as a styled text logo on the left, cinematic hero with CTA, about, "
+            f"an offerings section titled '{plan.get('offerings_label', 'What We Offer')}' showing each item with its description and price in elegant cards, "
+            "gallery, testimonials (invent 3 realistic Indian names), contact section with phone/address placeholders and a WhatsApp button, elegant footer.\n"
+            f"- IMAGES: use ONLY these verified image URLs (repeat if needed, never invent other URLs): {', '.join(imgs)}\n"
+            "- Every <img> needs a proper alt text and object-cover sizing so nothing looks broken or stretched.\n"
             "- Mobile responsive, dark-on-light or light-on-dark per the palette, premium typography, generous spacing.\n"
             "- Footer must include: 'Built with ✦ Mira AI Studio'.\n"
             "Output the raw HTML only, starting with <!DOCTYPE html>.",
             model="gpt-4o")
-        html = _strip_code_fence(html)
+        html = sanitize_html_images(_strip_code_fence(html), category)
         await _set_step(pid, "Frontend Agent", "done", f"{len(html) // 1000}KB of code written")
 
         await _set_step(pid, "Testing Agent", "running", "Validating markup & links")
@@ -139,7 +147,7 @@ async def _run_website(pid: str, prompt: str):
 
         await _set_step(pid, "Deployment Agent", "running", "Publishing to your live URL")
         await _raw_db.builder_projects.update_one({"id": pid}, {"$set": {
-            "status": "live", "name": name, "slug": slug, "plan": plan,
+            "status": "live", "name": name, "slug": slug, "plan": plan, "category": category,
             "html": html, "live_path": f"/api/site/{slug}",
             "files": [{"path": "index.html", "size": len(html)}],
             "finished_at": datetime.now(timezone.utc).isoformat()}})
@@ -412,10 +420,11 @@ async def builder_refine(body: RefineIn, request: Request, authorization: str = 
     try:
         html = await _ask(
             "You are the Frontend Agent of Mira AI Studio. You receive an existing HTML website and a change request. "
-            "Apply the change and output ONLY the complete updated single-file HTML. No markdown, no commentary.",
+            "Apply the change and output ONLY the complete updated single-file HTML. No markdown, no commentary. "
+            "If you need any new image, reuse one of the image URLs already present in the document — never invent new image URLs.",
             f"CHANGE REQUEST: {body.prompt.strip()}\n\nCURRENT WEBSITE:\n{doc['html'][:80000]}",
             model="gpt-4o")
-        html = _strip_code_fence(html)
+        html = sanitize_html_images(_strip_code_fence(html), doc.get("category") or "business")
         if not html.lstrip().lower().startswith("<!doctype") or len(html) < 1500:
             raise ValueError("bad html")
     except Exception:
@@ -430,10 +439,14 @@ async def builder_refine(body: RefineIn, request: Request, authorization: str = 
 
 @router.get("/site/{slug}")
 async def serve_site(slug: str):
-    doc = await _raw_db.builder_projects.find_one({"slug": slug, "status": {"$in": ["live", "refining"]}}, {"_id": 0, "html": 1})
+    doc = await _raw_db.builder_projects.find_one(
+        {"slug": slug, "status": {"$in": ["live", "refining"]}},
+        {"_id": 0, "html": 1, "category": 1, "prompt": 1})
     if not doc or not doc.get("html"):
         raise HTTPException(404, "Site not found")
-    return HTMLResponse(content=doc["html"])
+    # Serve-time repair: fixes older sites built before the image/Tailwind hardening
+    category = doc.get("category") or guess_category(doc.get("prompt", ""))
+    return HTMLResponse(content=ensure_tailwind(sanitize_html_images(doc["html"], category)))
 
 
 @router.get("/public/mira-builder/download/{pid}")
@@ -445,7 +458,7 @@ async def builder_download(pid: str, request: Request):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         if doc["kind"] == "website":
-            z.writestr("index.html", doc["html"])
+            z.writestr("index.html", ensure_tailwind(sanitize_html_images(doc["html"], doc.get("category") or guess_category(doc.get("prompt", "")))))
             z.writestr("README.md", f"# {doc.get('name', 'Website')}\n\nGenerated by Mira AI Studio ✦\n\nOpen index.html in any browser, or host it anywhere (Netlify, Vercel, S3).\n")
         else:
             for f in doc.get("gen_files", []):
