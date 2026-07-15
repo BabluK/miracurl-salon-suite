@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-15.5"
-BUILD_TIME = "15 Jul 2026, 2:00 PM IST"
+BUILD = "2026-07-15.6"
+BUILD_TIME = "15 Jul 2026, 4:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-15",
         "changes": [
+            "Introducing Mira AI Studio ✦ (/mira.ai) — a brand-new platform where anyone can build a full website or business app from one sentence! Sign up for 50 free credits, watch Mira's agent team plan → design → code → test → deploy, get a LIVE URL in ~60 seconds, refine with prompts and download the full code. Credit top-ups via Razorpay",
+            "Mira AI Studio wears couture 👗 — the studio page got a luxury redesign: gold & rose gradients, elegant serif headlines, glowing prompt box and a premium builder showcase that matches the Miracurl brand",
             "Your booking page just got smarter 💇 — guests now filter services by Everyone / Women / Men, and Mira's gender tags make sure men only see men's + unisex services (and vice-versa). Faster booking, fewer drop-offs",
             "One beautiful banner per category 🖼️ — no more uploading a photo for every single service! Each category (Skin, Manicure, Men Hair…) now has an elegant banner on the booking page with services as clean rows beneath. We've pre-loaded gorgeous defaults for all categories — change any of them from Service Menu → Banner",
             "Fully tune Mira's daily offer before posting 🎛️ — swap, remove or add services right on the suggestion card (tap ✕ on a service, or '+ Add / swap service'), and every price updates instantly with your chosen discount",

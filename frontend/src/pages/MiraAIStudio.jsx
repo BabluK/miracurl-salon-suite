@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 import {
   Sparkles, Globe, Smartphone, Server, LayoutDashboard, Boxes, Rocket,
   Download, ExternalLink, Wand2, X, CheckCircle2, Loader2, Circle, Store, Scissors, FileCode2,
+  ArrowRight, Zap, ShieldCheck, Palette, Code2, Copy,
 } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+const GOLD = "#D4AF37";
+const GRADIENT = "linear-gradient(135deg, #D81B60 0%, #FF4081 45%, #D4AF37 100%)";
+const HERO_BG = "https://images.unsplash.com/photo-1617351165725-ec1c8ca2bf67?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxkYXJrJTIwbHV4dXJ5JTIwc2Fsb24lMjBpbnRlcmlvcnxlbnwwfHx8fDE3ODQxMDI1Njl8MA&ixlib=rb-4.1.0&q=85";
 
 const BUILD_CHIPS = [
   { label: "Website", icon: Globe, kind: "website" },
@@ -17,16 +23,22 @@ const BUILD_CHIPS = [
 ];
 
 const MENU = [
-  { label: "Website Builder", live: true },
-  { label: "Mobile App Builder", live: false },
-  { label: "API Builder", live: true, note: "via App Builder" },
-  { label: "CRM Builder", live: false },
-  { label: "Deployment Center", live: true, note: "with every build" },
+  { label: "Website Builder", icon: Globe, live: true, desc: "Prompt → live URL in ~60s" },
+  { label: "Mobile App Builder", icon: Smartphone, live: false, desc: "Native-feel PWAs" },
+  { label: "API Builder", icon: Server, live: true, desc: "FastAPI + JWT, via App Builder" },
+  { label: "CRM Builder", icon: LayoutDashboard, live: false, desc: "Pipelines & contacts" },
+  { label: "Deployment Center", icon: Rocket, live: true, desc: "Docker files with every build" },
 ];
 
 const EXAMPLES = {
   website: ["Build me a salon website", "A website for my dental clinic in Pune", "Portfolio website for a wedding photographer"],
   app: ["Create a clinic management system", "Inventory & billing app for my pharmacy", "Gym membership management system"],
+};
+
+const fadeUp = {
+  initial: { opacity: 0, y: 24 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
 };
 
 export default function MiraAIStudio() {
@@ -52,6 +64,7 @@ export default function MiraAIStudio() {
   const [refining, setRefining] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
   const pollRef = useRef(null);
+  const promptRef = useRef(null);
   const COSTS = me?.costs || { website: 20, app: 30, refine: 5 };
 
   useEffect(() => { document.title = "Mira AI Studio — build with a prompt ✦"; }, []);
@@ -108,7 +121,7 @@ export default function MiraAIStudio() {
   }, [project?.id, project?.status, PUBLIC]);
 
   const pickChip = (c) => {
-    if (c.kind === "soon") { toast("📱 Mobile App Builder is coming soon — Website & App builders are live today!"); return; }
+    if (c.kind === "soon") { toast("Mobile App Builder is coming soon — Website & App builders are live today!"); return; }
     setKind(c.kind);
   };
 
@@ -146,7 +159,7 @@ export default function MiraAIStudio() {
         key: data.key_id, order_id: data.order_id, amount: data.amount, currency: data.currency,
         name: "Mira AI Studio", description: `${data.credits} build credits · ${data.plan_label}`,
         prefill: { name: data.name, email: data.email },
-        theme: { color: "#fbbf24" },
+        theme: { color: "#D4AF37" },
         handler: async (resp) => {
           try {
             const v = await AUTHED.post("/mira-studio/buy/verify", resp);
@@ -180,303 +193,398 @@ export default function MiraAIStudio() {
   const liveUrl = project?.live_path ? `${BACKEND_URL}${project.live_path}` : "";
   const busy = ["building", "refining"].includes(project?.status);
 
+  const inputCls = "w-full bg-white/[0.04] border border-white/10 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:border-[#D4AF37]/70 focus:ring-1 focus:ring-[#D4AF37]/40 placeholder:text-white/25 transition-colors";
+
   return (
-    <div className="min-h-screen bg-[#100e14] text-white" style={{ fontFamily: "'Inter',system-ui,sans-serif" }}>
-      {/* Top bar */}
-      <header className="sticky top-0 z-40 bg-[#100e14]/85 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
-          <a href="/" className="flex items-center gap-2 shrink-0">
-            <Scissors className="w-5 h-5 text-amber-300" />
-            <span className="font-playfair text-lg tracking-wide">Miracurl <span className="text-amber-300">Suite</span></span>
+    <div className="min-h-screen bg-[#0A0809] text-[#FDFBF7]" style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}>
+
+      {/* ─── Navbar ─── */}
+      <header className="fixed top-0 inset-x-0 z-40 bg-[#0A0809]/70 backdrop-blur-xl border-b border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 h-[68px] flex items-center gap-4">
+          <a href="/" className="flex items-center gap-2.5 shrink-0 group">
+            <span className="w-9 h-9 rounded-full flex items-center justify-center border border-[#D4AF37]/40 bg-[#D4AF37]/10">
+              <Scissors className="w-4 h-4 text-[#F3E5AB]" />
+            </span>
+            <span className="font-playfair text-lg tracking-wide leading-none">
+              MIRA<span className="text-[#D4AF37]">CURL</span>
+              <span className="block text-[8px] tracking-[0.35em] uppercase text-white/40 font-sans mt-0.5">AI Studio</span>
+            </span>
           </a>
-          <div className="h-5 w-px bg-white/15" />
-          <span className="flex items-center gap-1.5 text-sm text-fuchsia-300 font-semibold"><Sparkles className="w-4 h-4" /> Mira AI Studio</span>
-          <nav className="ml-auto flex items-center gap-1 sm:gap-3 text-xs sm:text-sm">
-            <a href="/" className="hidden sm:block px-3 py-1.5 rounded-full text-white/60 hover:text-white transition" data-testid="studio-nav-salon-suite">Salon Suite</a>
-            <button onClick={() => toast("🛍️ Marketplace is coming soon!")} className="hidden sm:flex px-3 py-1.5 rounded-full text-white/60 hover:text-white transition items-center gap-1.5" data-testid="studio-nav-marketplace"><Store className="w-3.5 h-3.5" /> Marketplace</button>
+          <nav className="ml-auto flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+            <a href="/" className="hidden sm:block px-4 py-2 rounded-full text-white/55 hover:text-white hover:bg-white/5 transition-colors" data-testid="studio-nav-salon-suite">Salon Suite</a>
+            <button onClick={() => toast("Marketplace is coming soon!")} className="hidden sm:flex px-4 py-2 rounded-full text-white/55 hover:text-white hover:bg-white/5 transition-colors items-center gap-1.5" data-testid="studio-nav-marketplace"><Store className="w-3.5 h-3.5" /> Marketplace</button>
             {me ? (
               <>
                 <button onClick={() => setBuyOpen(true)} data-testid="studio-credits-badge"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-300/15 border border-amber-300/40 text-amber-300 font-semibold hover:bg-amber-300/25 transition">
-                  ✦ {me.user.credits} credits
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[#F3E5AB] font-semibold hover:bg-[#D4AF37]/20 transition-colors">
+                  ✦ {me.user.credits} <span className="hidden sm:inline">credits</span>
                 </button>
-                <span className="hidden sm:block text-white/50 max-w-[110px] truncate">{me.user.name}</span>
-                <button onClick={logout} data-testid="studio-logout-btn" className="px-2.5 py-1.5 rounded-full text-white/40 hover:text-white transition">Logout</button>
+                <span className="hidden md:block text-white/45 max-w-[110px] truncate">{me.user.name}</span>
+                <button onClick={logout} data-testid="studio-logout-btn" className="px-3 py-2 rounded-full text-white/40 hover:text-white transition-colors">Logout</button>
               </>
             ) : (
               <button onClick={() => { setAuthTab("login"); setAuthOpen(true); }} data-testid="studio-login-btn"
-                className="px-4 py-1.5 rounded-full bg-amber-300 text-black font-semibold hover:brightness-110 transition">Login / Register</button>
+                className="px-5 py-2.5 rounded-full text-white text-xs sm:text-sm font-semibold hover:opacity-90 hover:shadow-[0_0_20px_rgba(255,64,129,0.35)] transition-[opacity,box-shadow]"
+                style={{ background: GRADIENT }}>
+                Login / Register
+              </button>
             )}
           </nav>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 grid lg:grid-cols-[230px_1fr] gap-8">
-        {/* Builder menu */}
-        <aside className="hidden lg:block">
-          <div className="sticky top-24 space-y-1">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-white/35 px-3 mb-2">Mira AI Studio</div>
-            {MENU.map(m => (
-              <div key={m.label} data-testid={`studio-menu-${m.label.replace(/\s+/g, "-").toLowerCase()}`}
-                className={`px-3 py-2.5 rounded-xl text-sm flex items-center gap-2 ${m.live ? "text-white bg-white/[0.06] border border-white/10" : "text-white/35"}`}>
-                {m.live ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" /> : <span className="w-1.5 h-1.5 rounded-full bg-white/20 shrink-0" />}
-                <span className="flex-1">{m.label}</span>
-                {!m.live && <span className="text-[9px] uppercase tracking-wider bg-white/10 px-1.5 py-0.5 rounded">Soon</span>}
-              </div>
-            ))}
-          </div>
-        </aside>
+      {!project && (
+        <>
+          {/* ─── Hero ─── */}
+          <section className="relative pt-[68px] overflow-hidden">
+            <div className="absolute inset-0">
+              <img src={HERO_BG} alt="" className="w-full h-full object-cover opacity-40" />
+              <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 75% 90% at 50% 15%, rgba(10,8,9,0.55) 0%, rgba(10,8,9,0.92) 55%, #0A0809 100%)" }} />
+            </div>
 
-        <main className="min-w-0 space-y-8">
-          {!project && (
-            <>
-              {/* Hero */}
-              <section className="pt-6">
-                <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-fuchsia-300/80 mb-4">
-                  <Sparkles className="w-3.5 h-3.5" /> Prompt → Live product
-                </div>
-                <h1 className="font-playfair text-4xl sm:text-5xl leading-tight">
-                  What would you like to <span className="text-amber-300">build</span> today?
-                </h1>
-                <p className="text-white/50 mt-3 max-w-xl text-sm sm:text-base">
-                  Describe it in one sentence. Mira's agent team plans, designs, codes, tests and deploys it — websites go live instantly, apps arrive as ready-to-run code.
-                </p>
-              </section>
+            <div className="relative max-w-4xl mx-auto px-5 sm:px-8 pt-20 sm:pt-28 pb-16 text-center">
+              <motion.div {...fadeUp} className="inline-flex items-center gap-2.5 text-[10px] sm:text-[11px] uppercase tracking-[0.35em] text-[#F3E5AB] border border-[#D4AF37]/40 bg-[#D4AF37]/10 backdrop-blur-md rounded-full px-5 py-2 mb-8">
+                <Sparkles className="w-3.5 h-3.5" /> Prompt → Live Product · No Code
+              </motion.div>
+              <motion.h1 {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }}
+                className="font-playfair text-4xl sm:text-6xl lg:text-7xl leading-[1.08] tracking-tight">
+                What would you like to<br />
+                <span style={{ background: "linear-gradient(100deg,#F3E5AB 0%,#D4AF37 40%,#FF4081 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>build</span> today?
+              </motion.h1>
+              <motion.p {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.2 }}
+                className="text-white/55 mt-6 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
+                Describe it in one sentence. Mira's agent team plans, designs, codes, tests and deploys it —
+                websites go live instantly, apps arrive as ready-to-run code.
+              </motion.p>
 
-              {/* Build chips */}
-              <div className="flex flex-wrap gap-2.5" data-testid="studio-build-chips">
+              {/* Build type selector */}
+              <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.3 }}
+                className="mt-10 flex flex-wrap justify-center gap-2.5" data-testid="studio-build-chips">
                 {BUILD_CHIPS.map(c => {
                   const active = c.kind === kind;
                   return (
                     <button key={c.label} onClick={() => pickChip(c)} data-testid={`studio-chip-${c.label.replace(/\s+/g, "-").toLowerCase()}`}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm border transition ${active ? "bg-amber-300 text-black border-amber-300 font-semibold" : "bg-white/[0.04] border-white/12 text-white/70 hover:border-amber-300/50 hover:text-white"}`}>
+                      className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm border backdrop-blur-md transition-colors ${active
+                        ? "border-[#D4AF37] bg-[#D4AF37]/15 text-[#F3E5AB] font-semibold shadow-[0_0_24px_rgba(212,175,55,0.25)]"
+                        : "bg-white/[0.04] border-white/10 text-white/60 hover:border-[#D4AF37]/50 hover:text-white"}`}>
                       <c.icon className="w-4 h-4" /> {c.label}
-                      {c.kind === "soon" && <span className="text-[9px] uppercase bg-black/20 px-1.5 py-0.5 rounded">Soon</span>}
+                      {c.kind === "soon" && <span className="text-[8px] uppercase tracking-wider bg-white/10 px-1.5 py-0.5 rounded-full">Soon</span>}
                     </button>
                   );
                 })}
-              </div>
+              </motion.div>
 
               {/* Prompt box */}
-              <div className="rounded-2xl border border-white/12 bg-white/[0.04] p-4 sm:p-5">
-                <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3} data-testid="studio-prompt-input"
-                  placeholder={kind === "website" ? 'e.g. "Build me a salon website"' : 'e.g. "Create a clinic management system"'}
-                  className="w-full bg-transparent resize-none focus:outline-none text-base placeholder:text-white/25" />
-                <div className="flex items-center justify-between gap-3 flex-wrap mt-2">
-                  <div className="flex gap-2 flex-wrap">
-                    {EXAMPLES[kind].map(ex => (
-                      <button key={ex} onClick={() => setPrompt(ex)} className="text-[11px] px-2.5 py-1 rounded-full bg-white/[0.05] border border-white/10 text-white/50 hover:text-white/80 transition">{ex}</button>
-                    ))}
+              <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.4 }} className="mt-8 relative">
+                <div className="absolute -inset-[1px] rounded-[26px] opacity-60" style={{ background: GRADIENT, filter: "blur(1px)" }} />
+                <div className="relative rounded-[25px] bg-[#0F0C0E]/90 backdrop-blur-2xl p-5 sm:p-6 text-left shadow-[0_0_50px_rgba(216,27,96,0.12)]">
+                  <textarea ref={promptRef} value={prompt} onChange={e => setPrompt(e.target.value)} rows={3} data-testid="studio-prompt-input"
+                    placeholder={kind === "website" ? 'e.g. "Build me a salon website"' : 'e.g. "Create a clinic management system"'}
+                    className="w-full bg-transparent resize-none focus:outline-none text-base sm:text-lg placeholder:text-white/25" />
+                  <div className="flex items-center justify-between gap-3 flex-wrap mt-3">
+                    <div className="flex gap-2 flex-wrap">
+                      {EXAMPLES[kind].map(ex => (
+                        <button key={ex} onClick={() => setPrompt(ex)}
+                          className="text-[11px] px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/10 text-white/50 hover:text-white hover:border-white/25 transition-colors">
+                          {ex}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={start} disabled={starting} data-testid="studio-build-btn"
+                      className="flex items-center gap-2 text-white font-semibold px-7 py-3 rounded-full hover:opacity-90 hover:shadow-[0_0_30px_rgba(255,64,129,0.45)] disabled:opacity-60 transition-[opacity,box-shadow]"
+                      style={{ background: GRADIENT }}>
+                      {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                      {starting ? "Waking Mira's agents…" : <>Build with Mira ✦ <span className="text-[11px] font-medium opacity-75">· {COSTS[kind]} credits</span></>}
+                    </button>
                   </div>
-                  <button onClick={start} disabled={starting} data-testid="studio-build-btn"
-                    className="flex items-center gap-2 bg-gradient-to-r from-amber-300 to-amber-400 text-black font-bold px-6 py-2.5 rounded-full hover:brightness-110 disabled:opacity-60 transition shadow-[0_0_28px_rgba(251,191,36,0.25)]">
-                    {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                    {starting ? "Waking Mira's agents…" : <>Build with Mira ✦ <span className="text-[11px] font-semibold opacity-70">· {COSTS[kind]} credits</span></>}
-                  </button>
                 </div>
+              </motion.div>
+
+              <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.5 }}
+                className="mt-8 flex items-center justify-center gap-x-6 gap-y-2 flex-wrap text-[11px] text-white/40">
+                <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-[#D4AF37]" /> Live in ~60 seconds</span>
+                <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" /> {plans.free_credits ?? 50} free credits on signup</span>
+                <span className="flex items-center gap-1.5"><Code2 className="w-3.5 h-3.5 text-[#D4AF37]" /> Full code ownership</span>
+              </motion.div>
+            </div>
+          </section>
+
+          {/* ─── Bento features ─── */}
+          <section className="max-w-7xl mx-auto px-5 sm:px-8 py-16 sm:py-24">
+            <div className="text-[10px] uppercase tracking-[0.35em] text-white/35 mb-3">The Studio</div>
+            <h2 className="font-playfair text-3xl sm:text-4xl mb-10">Two builders. <span className="text-[#D4AF37]">Infinite products.</span></h2>
+
+            <div className="grid md:grid-cols-12 gap-5">
+              {/* Website builder — wide */}
+              <div className="md:col-span-7 rounded-3xl border border-white/[0.07] bg-[#141012] p-7 sm:p-9 relative overflow-hidden group">
+                <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full opacity-[0.07] group-hover:opacity-[0.12] transition-opacity duration-500" style={{ background: GOLD }} />
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-11 h-11 rounded-2xl flex items-center justify-center bg-[#D4AF37]/10 border border-[#D4AF37]/30"><Globe className="w-5 h-5 text-[#F3E5AB]" /></span>
+                  <div>
+                    <div className="font-playfair text-xl">Website Builder</div>
+                    <div className="text-[11px] text-white/40 uppercase tracking-wider">{COSTS.website} credits per build</div>
+                  </div>
+                </div>
+                <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm text-white/60">
+                  {["Complete website, designed & written by AI", "Instantly LIVE at a real URL", 'Refine with prompts — "make it dark blue"', "Download the code, host anywhere"].map(f => (
+                    <li key={f} className="flex items-start gap-2.5"><CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" /> {f}</li>
+                  ))}
+                </ul>
               </div>
 
-              {/* What you get + architecture */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                  <div className="flex items-center gap-2 text-amber-300 font-semibold text-sm"><Globe className="w-4 h-4" /> Website Builder</div>
-                  <ul className="text-sm text-white/55 mt-3 space-y-1.5">
-                    <li>✅ Complete website, designed & written by AI</li>
-                    <li>✅ Instantly LIVE at a real URL</li>
-                    <li>✅ Refine with prompts — "make it dark blue"</li>
-                    <li>✅ Download the code, host anywhere</li>
-                  </ul>
+              {/* App builder — narrow */}
+              <div className="md:col-span-5 rounded-3xl border border-white/[0.07] bg-[#141012] p-7 sm:p-9 relative overflow-hidden group">
+                <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full opacity-[0.07] group-hover:opacity-[0.12] transition-opacity duration-500" style={{ background: "#FF4081" }} />
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-11 h-11 rounded-2xl flex items-center justify-center bg-[#FF4081]/10 border border-[#FF4081]/30"><FileCode2 className="w-5 h-5 text-[#FF4081]" /></span>
+                  <div>
+                    <div className="font-playfair text-xl">Business App Builder</div>
+                    <div className="text-[11px] text-white/40 uppercase tracking-wider">{COSTS.app} credits per build</div>
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                  <div className="flex items-center gap-2 text-fuchsia-300 font-semibold text-sm"><FileCode2 className="w-4 h-4" /> Business App Builder</div>
-                  <ul className="text-sm text-white/55 mt-3 space-y-1.5">
-                    <li>✅ Backend APIs (FastAPI) + JWT login</li>
-                    <li>✅ React admin panel</li>
-                    <li>✅ PostgreSQL schema</li>
-                    <li>✅ Docker deployment — one command</li>
-                  </ul>
-                </div>
+                <ul className="space-y-3 text-sm text-white/60">
+                  {["Backend APIs (FastAPI) + JWT login", "React admin panel", "PostgreSQL schema", "Docker deployment — one command"].map(f => (
+                    <li key={f} className="flex items-start gap-2.5"><CheckCircle2 className="w-4 h-4 text-[#FF4081] shrink-0 mt-0.5" /> {f}</li>
+                  ))}
+                </ul>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 overflow-x-auto">
-                <div className="text-[10px] uppercase tracking-[0.25em] text-white/35 mb-3">How Mira builds</div>
-                <div className="flex items-center gap-2 text-xs whitespace-nowrap text-white/60">
-                  {["Your prompt", "Planner Agent", "Frontend · Backend · Database Agents", "Testing Agent", "Deployment Agent", "Live URL ✦"].map((s, i, arr) => (
-                    <span key={s} className="flex items-center gap-2">
-                      <span className={`px-3 py-1.5 rounded-full border ${i === arr.length - 1 ? "border-amber-300/60 text-amber-300" : "border-white/12 bg-white/[0.04]"}`}>{s}</span>
-                      {i < arr.length - 1 && <span className="text-white/25">→</span>}
+
+              {/* Pipeline — full width */}
+              <div className="md:col-span-12 rounded-3xl border border-white/[0.07] bg-[#141012] p-7 sm:p-9 overflow-x-auto">
+                <div className="text-[10px] uppercase tracking-[0.35em] text-white/35 mb-6">How Mira Builds</div>
+                <div className="flex items-center gap-3 text-xs whitespace-nowrap">
+                  {["Your prompt", "Planner Agent", "Design Agent", "Frontend · Backend Agents", "Testing Agent", "Deployment Agent", "Live URL ✦"].map((s, i, arr) => (
+                    <span key={s} className="flex items-center gap-3">
+                      <span className={`px-4 py-2 rounded-full border ${i === arr.length - 1
+                        ? "border-[#D4AF37]/70 text-[#F3E5AB] bg-[#D4AF37]/10 shadow-[0_0_18px_rgba(212,175,55,0.25)] font-semibold"
+                        : i === 0 ? "border-[#FF4081]/50 text-[#FF4081]/90 bg-[#FF4081]/5"
+                          : "border-white/10 bg-white/[0.03] text-white/55"}`}>{s}</span>
+                      {i < arr.length - 1 && <ArrowRight className="w-3.5 h-3.5 text-white/25 shrink-0" />}
                     </span>
                   ))}
                 </div>
               </div>
-            </>
-          )}
 
-          {/* Pipeline + result */}
-          {project && (
-            <section className="pt-4 space-y-6" data-testid="studio-pipeline">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <h2 className="font-playfair text-3xl">{project.name || (busy ? "Mira is building…" : "Your build")}</h2>
-                  <p className="text-white/45 text-sm mt-1 max-w-xl truncate">"{prompt}"</p>
+            </div>
+
+            {/* Studio tools */}
+            <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
+              {MENU.map(m => (
+                <div key={m.label} data-testid={`studio-menu-${m.label.replace(/\s+/g, "-").toLowerCase()}`}
+                  className={`rounded-2xl border p-5 ${m.live ? "border-white/[0.09] bg-white/[0.03]" : "border-white/[0.05] bg-transparent opacity-60"}`}>
+                  <m.icon className={`w-5 h-5 mb-3 ${m.live ? "text-[#D4AF37]" : "text-white/30"}`} />
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    {m.label}
+                    {m.live
+                      ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      : <span className="text-[8px] uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded-full text-white/50">Soon</span>}
+                  </div>
+                  <div className="text-[11px] text-white/35 mt-1">{m.desc}</div>
                 </div>
-                <button onClick={() => { setProject(null); setPrompt(""); }} data-testid="studio-new-build-btn"
-                  className="text-xs px-4 py-2 rounded-full border border-white/15 text-white/60 hover:text-white transition">＋ New build</button>
-              </div>
+              ))}
+            </div>
+          </section>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
-                {(project.pipeline || []).map((s) => (
-                  <div key={s.agent} className="flex items-start gap-3" data-testid={`studio-step-${s.agent.replace(/\s+/g, "-").toLowerCase()}`}>
-                    {s.status === "done" ? <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                      : s.status === "running" ? <Loader2 className="w-5 h-5 text-amber-300 animate-spin shrink-0" />
-                        : <Circle className="w-5 h-5 text-white/20 shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-medium ${s.status === "pending" ? "text-white/35" : ""}`}>{s.agent}</div>
-                      {s.note && <div className="text-xs text-white/45 mt-0.5">{s.note}</div>}
-                    </div>
-                  </div>
-                ))}
-                {project.status === "failed" && (
-                  <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-400/30 rounded-xl px-4 py-3" data-testid="studio-error">
-                    Build failed — {project.error || "please try again"}.
-                  </div>
-                )}
+          {/* ─── Pricing strip ─── */}
+          <section className="max-w-7xl mx-auto px-5 sm:px-8 pb-24">
+            <div className="rounded-3xl border border-[#D4AF37]/25 relative overflow-hidden p-8 sm:p-12 text-center"
+              style={{ background: "radial-gradient(ellipse 60% 120% at 50% 0%, rgba(212,175,55,0.10) 0%, #141012 65%)" }}>
+              <div className="font-playfair text-2xl sm:text-3xl">Start with <span className="text-[#D4AF37]">{plans.free_credits ?? 50} free credits</span> — no card needed</div>
+              <p className="text-white/45 text-sm mt-3 max-w-md mx-auto">That's enough for your first two websites. Top up anytime, credits never expire, failed builds auto-refund.</p>
+              <div className="mt-7 flex items-center justify-center gap-3 flex-wrap">
+                <button onClick={() => { setAuthTab("register"); setAuthOpen(true); }} data-testid="studio-cta-register"
+                  className="px-8 py-3 rounded-full text-white font-semibold hover:opacity-90 hover:shadow-[0_0_28px_rgba(255,64,129,0.4)] transition-[opacity,box-shadow]" style={{ background: GRADIENT }}>
+                  Claim free credits ✦
+                </button>
+                <button onClick={() => setBuyOpen(true)} data-testid="studio-cta-pricing"
+                  className="px-8 py-3 rounded-full border border-white/15 text-white/70 hover:text-white hover:bg-white/5 transition-colors">
+                  View credit packs
+                </button>
               </div>
+            </div>
+          </section>
+        </>
+      )}
 
-              {project.status === "live" && (
-                <div className="space-y-4" data-testid="studio-website-result">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <a href={liveUrl} target="_blank" rel="noreferrer" data-testid="studio-live-url"
-                      className="flex items-center gap-2 bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-sm px-4 py-2 rounded-full hover:bg-emerald-500/25 transition">
-                      <Rocket className="w-4 h-4" /> {liveUrl.replace(/^https?:\/\//, "")} <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                    <button onClick={() => { navigator.clipboard.writeText(liveUrl); toast.success("Live URL copied"); }} className="text-xs px-3 py-2 rounded-full border border-white/15 text-white/60 hover:text-white">Copy link</button>
-                    <a href={`${BACKEND_URL}/api/public/mira-builder/download/${project.id}`} data-testid="studio-download-btn"
-                      className="flex items-center gap-2 text-xs px-4 py-2 rounded-full border border-amber-300/50 text-amber-300 hover:bg-amber-300/10 transition">
-                      <Download className="w-3.5 h-3.5" /> Download code
-                    </a>
+      {/* ─── Workspace: pipeline + result ─── */}
+      {project && (
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 pt-[68px]">
+          <section className="pt-12 space-y-7 pb-16" data-testid="studio-pipeline">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.35em] text-[#D4AF37]/80 mb-2 flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5" /> {busy ? "Agents at work" : "Build complete"}
+                </div>
+                <h2 className="font-playfair text-3xl sm:text-4xl">{project.name || (busy ? "Mira is building…" : "Your build")}</h2>
+                <p className="text-white/40 text-sm mt-2 max-w-xl truncate">"{prompt}"</p>
+              </div>
+              <button onClick={() => { setProject(null); setPrompt(""); }} data-testid="studio-new-build-btn"
+                className="text-xs px-5 py-2.5 rounded-full border border-white/15 text-white/60 hover:text-white hover:bg-white/5 transition-colors">＋ New build</button>
+            </div>
+
+            <div className="rounded-3xl border border-white/[0.07] bg-[#141012] p-6 sm:p-8 space-y-4">
+              {(project.pipeline || []).map((s) => (
+                <div key={s.agent} className="flex items-start gap-4" data-testid={`studio-step-${s.agent.replace(/\s+/g, "-").toLowerCase()}`}>
+                  {s.status === "done" ? <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    : s.status === "running" ? <span className="relative shrink-0"><Loader2 className="w-5 h-5 text-[#D4AF37] animate-spin" /><span className="absolute inset-0 rounded-full animate-ping bg-[#D4AF37]/20" /></span>
+                      : <Circle className="w-5 h-5 text-white/15 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-medium ${s.status === "pending" ? "text-white/30" : s.status === "running" ? "text-[#F3E5AB]" : ""}`}>{s.agent}</div>
+                    {s.note && <div className="text-xs text-white/40 mt-0.5">{s.note}</div>}
                   </div>
-                  <div className="rounded-2xl overflow-hidden border border-white/12 bg-white">
-                    <iframe key={iframeKey} src={liveUrl} title="Website preview" className="w-full h-[560px]" data-testid="studio-preview-iframe" />
+                </div>
+              ))}
+              {project.status === "failed" && (
+                <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-400/30 rounded-2xl px-5 py-3.5" data-testid="studio-error">
+                  Build failed — {project.error || "please try again"}.
+                </div>
+              )}
+            </div>
+
+            {project.status === "live" && (
+              <div className="space-y-5" data-testid="studio-website-result">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <a href={liveUrl} target="_blank" rel="noreferrer" data-testid="studio-live-url"
+                    className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-400/40 text-emerald-300 text-sm px-5 py-2.5 rounded-full hover:bg-emerald-500/20 transition-colors">
+                    <Rocket className="w-4 h-4" /> {liveUrl.replace(/^https?:\/\//, "")} <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <button onClick={() => { navigator.clipboard.writeText(liveUrl); toast.success("Live URL copied"); }}
+                    className="flex items-center gap-1.5 text-xs px-4 py-2.5 rounded-full border border-white/15 text-white/60 hover:text-white hover:bg-white/5 transition-colors">
+                    <Copy className="w-3.5 h-3.5" /> Copy link
+                  </button>
+                  <a href={`${BACKEND_URL}/api/public/mira-builder/download/${project.id}`} data-testid="studio-download-btn"
+                    className="flex items-center gap-2 text-xs px-5 py-2.5 rounded-full border border-[#D4AF37]/50 text-[#F3E5AB] hover:bg-[#D4AF37]/10 transition-colors">
+                    <Download className="w-3.5 h-3.5" /> Download code
+                  </a>
+                </div>
+                <div className="rounded-3xl overflow-hidden border border-white/10 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+                  <div className="h-9 bg-[#1a1618] flex items-center gap-2 px-4 border-b border-white/5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF4081]/70" /><span className="w-2.5 h-2.5 rounded-full bg-[#D4AF37]/70" /><span className="w-2.5 h-2.5 rounded-full bg-emerald-400/70" />
+                    <span className="ml-3 text-[10px] text-white/35 font-mono truncate">{liveUrl.replace(/^https?:\/\//, "")}</span>
                   </div>
-                  <div className="rounded-2xl border border-white/12 bg-white/[0.04] p-4 flex items-center gap-3 flex-wrap">
-                    <Wand2 className="w-4 h-4 text-fuchsia-300 shrink-0" />
+                  <iframe key={iframeKey} src={liveUrl} title="Website preview" className="w-full h-[560px]" data-testid="studio-preview-iframe" />
+                </div>
+                <div className="relative">
+                  <div className="absolute -inset-[1px] rounded-[19px] opacity-40" style={{ background: GRADIENT }} />
+                  <div className="relative rounded-[18px] bg-[#0F0C0E] p-4 flex items-center gap-3 flex-wrap">
+                    <Wand2 className="w-4 h-4 text-[#FF4081] shrink-0" />
                     <input value={refine} onChange={e => setRefine(e.target.value)} onKeyDown={e => e.key === "Enter" && doRefine()}
                       placeholder='Refine it — "make the hero dark blue", "add a pricing section"…' data-testid="studio-refine-input"
                       className="flex-1 min-w-[220px] bg-transparent focus:outline-none text-sm placeholder:text-white/25" />
                     <button onClick={doRefine} disabled={refining} data-testid="studio-refine-btn"
-                      className="text-xs px-4 py-2 rounded-full bg-fuchsia-400/90 text-black font-semibold hover:brightness-110 disabled:opacity-50 transition">
-                      {refining ? "Applying…" : "Apply ✦"}
+                      className="text-xs px-5 py-2.5 rounded-full text-white font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity" style={{ background: GRADIENT }}>
+                      {refining ? "Applying…" : `Apply ✦ · ${COSTS.refine} credits`}
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {project.status === "code_ready" && (
-                <div className="space-y-4" data-testid="studio-app-result">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                    <div className="text-[10px] uppercase tracking-[0.25em] text-white/35 mb-3">Generated project</div>
-                    <div className="space-y-1.5">
-                      {(project.files || []).map(f => (
-                        <div key={f.path} className="flex items-center gap-2 text-sm text-white/70 font-mono">
-                          <FileCode2 className="w-3.5 h-3.5 text-fuchsia-300 shrink-0" /> {f.path}
-                          <span className="text-[10px] text-white/30 ml-auto">{(f.size / 1024).toFixed(1)} KB</span>
-                        </div>
-                      ))}
-                    </div>
-                    <a href={`${BACKEND_URL}/api/public/mira-builder/download/${project.id}`} data-testid="studio-download-btn"
-                      className="mt-5 inline-flex items-center gap-2 bg-gradient-to-r from-amber-300 to-amber-400 text-black font-bold px-6 py-2.5 rounded-full hover:brightness-110 transition">
-                      <Download className="w-4 h-4" /> Download project ZIP
-                    </a>
+            {project.status === "code_ready" && (
+              <div className="grid md:grid-cols-2 gap-5" data-testid="studio-app-result">
+                <div className="rounded-3xl border border-white/[0.07] bg-[#141012] p-6 sm:p-7">
+                  <div className="text-[10px] uppercase tracking-[0.35em] text-white/35 mb-4">Generated Project</div>
+                  <div className="space-y-2">
+                    {(project.files || []).map(f => (
+                      <div key={f.path} className="flex items-center gap-2.5 text-sm text-white/65 font-mono">
+                        <FileCode2 className="w-3.5 h-3.5 text-[#FF4081] shrink-0" /> {f.path}
+                        <span className="text-[10px] text-white/25 ml-auto">{(f.size / 1024).toFixed(1)} KB</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5" data-testid="studio-deployment-center">
-                    <div className="flex items-center gap-2 text-amber-300 font-semibold text-sm mb-3"><Rocket className="w-4 h-4" /> Deployment Center</div>
-                    <pre className="text-xs text-emerald-300/90 bg-black/40 rounded-xl p-4 overflow-x-auto">{`unzip ${(project.name || "project").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.zip && cd project
+                  <a href={`${BACKEND_URL}/api/public/mira-builder/download/${project.id}`} data-testid="studio-download-btn"
+                    className="mt-6 inline-flex items-center gap-2 text-white font-semibold px-7 py-3 rounded-full hover:opacity-90 hover:shadow-[0_0_24px_rgba(255,64,129,0.35)] transition-[opacity,box-shadow]" style={{ background: GRADIENT }}>
+                    <Download className="w-4 h-4" /> Download project ZIP
+                  </a>
+                </div>
+                <div className="rounded-3xl border border-white/[0.07] bg-[#141012] p-6 sm:p-7" data-testid="studio-deployment-center">
+                  <div className="flex items-center gap-2 text-[#F3E5AB] font-semibold text-sm mb-4"><Rocket className="w-4 h-4" /> Deployment Center</div>
+                  <pre className="text-xs text-emerald-300/90 bg-black/50 border border-white/5 rounded-2xl p-5 overflow-x-auto font-mono">{`unzip ${(project.name || "project").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.zip && cd project
 docker compose up --build
 # API    → http://localhost:8000/docs
 # Admin  → http://localhost:3000`}</pre>
-                    <p className="text-xs text-white/40 mt-3">Everything's included — PostgreSQL schema, FastAPI backend with JWT login, React admin and Docker files.</p>
-                  </div>
+                  <p className="text-xs text-white/40 mt-4 leading-relaxed">Everything's included — PostgreSQL schema, FastAPI backend with JWT login, React admin and Docker files.</p>
                 </div>
-              )}
-            </section>
-          )}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
 
-          <footer className="pt-8 pb-4 text-center text-[11px] text-white/30">
-            Mira AI Studio · part of <a href="/" className="text-amber-300/70 hover:text-amber-300">Miracurl Suite</a> · websites & apps, born from a prompt ✦
-          </footer>
-        </main>
-      </div>
+      <footer className="border-t border-white/[0.05] py-8 text-center text-[11px] text-white/30">
+        Mira AI Studio · part of <a href="/" className="text-[#D4AF37]/70 hover:text-[#D4AF37] transition-colors">Miracurl Suite</a> · websites & apps, born from a prompt ✦
+      </footer>
 
-      {/* Auth modal — login / register (50 free credits) */}
+      {/* ─── Auth modal ─── */}
       {authOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={() => setAuthOpen(false)}>
-          <div className="w-full max-w-md rounded-2xl border border-white/12 bg-[#17141c] p-6" onClick={e => e.stopPropagation()} data-testid="studio-auth-modal">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setAuthOpen(false)}>
+          <motion.div initial={{ opacity: 0, scale: 0.96, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.25 }}
+            className="w-full max-w-md rounded-3xl border border-white/10 bg-[#141012] p-7 shadow-2xl" onClick={e => e.stopPropagation()} data-testid="studio-auth-modal">
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-playfair text-2xl">{authTab === "register" ? "Create your account ✦" : "Welcome back ✦"}</h3>
-              <button onClick={() => setAuthOpen(false)} className="text-white/40 hover:text-white"><X className="w-5 h-5" /></button>
+              <button onClick={() => setAuthOpen(false)} className="text-white/40 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-amber-300/90 text-sm mb-4">{authTab === "register" ? `Get ${plans.free_credits ?? 50} build credits FREE on signup` : "Log in to keep building"}</p>
-            <div className="flex rounded-full bg-white/5 border border-white/10 p-1 mb-5 text-xs font-semibold">
+            <p className="text-[#F3E5AB]/90 text-sm mb-5">{authTab === "register" ? `Get ${plans.free_credits ?? 50} build credits FREE on signup` : "Log in to keep building"}</p>
+            <div className="flex rounded-full bg-white/5 border border-white/10 p-1 mb-6 text-xs font-semibold">
               {["register", "login"].map(t => (
                 <button key={t} onClick={() => setAuthTab(t)} data-testid={`studio-auth-tab-${t}`}
-                  className={`flex-1 py-2 rounded-full transition ${authTab === t ? "bg-amber-300 text-black" : "text-white/50"}`}>
+                  className={`flex-1 py-2.5 rounded-full transition-colors ${authTab === t ? "text-white" : "text-white/45"}`}
+                  style={authTab === t ? { background: GRADIENT } : {}}>
                   {t === "register" ? "Register" : "Login"}
                 </button>
               ))}
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {authTab === "register" && (
                 <>
-                  <input value={authForm.name} onChange={e => setAuthForm({ ...authForm, name: e.target.value })} placeholder="Your name *" data-testid="studio-auth-name"
-                    className="w-full bg-white/[0.05] border border-white/12 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-300/50 placeholder:text-white/25" />
-                  <input value={authForm.phone} onChange={e => setAuthForm({ ...authForm, phone: e.target.value })} placeholder="Phone (10 digits) *" inputMode="numeric" data-testid="studio-auth-phone"
-                    className="w-full bg-white/[0.05] border border-white/12 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-300/50 placeholder:text-white/25" />
+                  <input value={authForm.name} onChange={e => setAuthForm({ ...authForm, name: e.target.value })} placeholder="Your name *" data-testid="studio-auth-name" className={inputCls} />
+                  <input value={authForm.phone} onChange={e => setAuthForm({ ...authForm, phone: e.target.value })} placeholder="Phone (10 digits) *" inputMode="numeric" data-testid="studio-auth-phone" className={inputCls} />
                 </>
               )}
-              <input value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} placeholder="Email *" type="email" data-testid="studio-auth-email"
-                className="w-full bg-white/[0.05] border border-white/12 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-300/50 placeholder:text-white/25" />
+              <input value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} placeholder="Email *" type="email" data-testid="studio-auth-email" className={inputCls} />
               <input value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} onKeyDown={e => e.key === "Enter" && doAuth()}
-                placeholder={authTab === "register" ? "Create a password (6+ chars) *" : "Password *"} type="password" data-testid="studio-auth-password"
-                className="w-full bg-white/[0.05] border border-white/12 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-300/50 placeholder:text-white/25" />
+                placeholder={authTab === "register" ? "Create a password (6+ chars) *" : "Password *"} type="password" data-testid="studio-auth-password" className={inputCls} />
               <button onClick={doAuth} disabled={authBusy} data-testid="studio-auth-submit"
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-300 to-amber-400 text-black font-bold px-6 py-3 rounded-xl hover:brightness-110 disabled:opacity-60 transition">
+                className="w-full flex items-center justify-center gap-2 text-white font-semibold px-6 py-3.5 rounded-2xl hover:opacity-90 hover:shadow-[0_0_24px_rgba(255,64,129,0.35)] disabled:opacity-60 transition-[opacity,box-shadow]" style={{ background: GRADIENT }}>
                 {authBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {authTab === "register" ? `Register & claim ${plans.free_credits ?? 50} credits ✦` : "Login ✦"}
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
-      {/* Buy credits modal */}
+      {/* ─── Buy credits modal ─── */}
       {buyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={() => setBuyOpen(false)}>
-          <div className="w-full max-w-lg rounded-2xl border border-white/12 bg-[#17141c] p-6" onClick={e => e.stopPropagation()} data-testid="studio-buy-modal">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setBuyOpen(false)}>
+          <motion.div initial={{ opacity: 0, scale: 0.96, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.25 }}
+            className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#141012] p-7 shadow-2xl" onClick={e => e.stopPropagation()} data-testid="studio-buy-modal">
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-playfair text-2xl">Top up credits ✦</h3>
-              <button onClick={() => setBuyOpen(false)} className="text-white/40 hover:text-white"><X className="w-5 h-5" /></button>
+              <button onClick={() => setBuyOpen(false)} className="text-white/40 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-white/45 text-sm mb-5">
-              Website build · {COSTS.website} credits &nbsp;·&nbsp; App build · {COSTS.app} credits &nbsp;·&nbsp; Refine · {COSTS.refine} credits
+            <p className="text-white/45 text-sm mb-6">
+              Website · {COSTS.website} credits &nbsp;·&nbsp; App · {COSTS.app} credits &nbsp;·&nbsp; Refine · {COSTS.refine} credits
             </p>
-            <div className="grid sm:grid-cols-3 gap-3">
+            <div className="grid sm:grid-cols-3 gap-3.5">
               {(plans.plans || []).map(p => (
-                <div key={p.key} className={`rounded-2xl border p-4 text-center ${p.key === "plan_200" ? "border-amber-300/60 bg-amber-300/[0.06]" : "border-white/12 bg-white/[0.03]"}`}>
-                  {p.key === "plan_200" && <div className="text-[9px] uppercase tracking-widest text-amber-300 mb-1">Most popular</div>}
-                  <div className="font-playfair text-3xl text-amber-300">{p.credits}</div>
-                  <div className="text-[10px] uppercase tracking-widest text-white/40">credits</div>
-                  <div className="text-lg font-bold mt-2">₹{p.price}</div>
-                  {p.save && <div className="text-[10px] text-emerald-300">{p.save}</div>}
+                <div key={p.key} className={`rounded-2xl border p-5 text-center relative ${p.key === "plan_200" ? "border-[#D4AF37]/60 bg-[#D4AF37]/[0.06] shadow-[0_0_24px_rgba(212,175,55,0.12)]" : "border-white/10 bg-white/[0.02]"}`}>
+                  {p.key === "plan_200" && <div className="text-[8px] uppercase tracking-[0.25em] text-[#F3E5AB] mb-1.5">Most Popular</div>}
+                  <div className="font-playfair text-3xl text-[#F3E5AB]">{p.credits}</div>
+                  <div className="text-[9px] uppercase tracking-[0.25em] text-white/35">credits</div>
+                  <div className="text-lg font-semibold mt-2.5">₹{p.price}</div>
+                  {p.save && <div className="text-[10px] text-emerald-300 mt-0.5">{p.save}</div>}
                   <button onClick={() => buy(p.key)} disabled={!!buying || !plans.payments_enabled} data-testid={`studio-buy-${p.key}`}
-                    className="mt-3 w-full text-xs font-bold py-2.5 rounded-full bg-amber-300 text-black hover:brightness-110 disabled:opacity-50 transition">
+                    className={`mt-4 w-full text-xs font-semibold py-2.5 rounded-full text-white hover:opacity-90 disabled:opacity-50 transition-opacity ${p.key === "plan_200" ? "" : ""}`}
+                    style={{ background: p.key === "plan_200" ? GRADIENT : "rgba(255,255,255,0.08)" }}>
                     {buying === p.key ? "Opening…" : "Buy now"}
                   </button>
                 </div>
               ))}
             </div>
             {!plans.payments_enabled && <p className="text-xs text-rose-300 mt-4">Payments are being set up — contact us to top up manually.</p>}
-            <p className="text-[10px] text-white/30 mt-4 text-center">Secure payments by Razorpay · credits never expire · failed builds are auto-refunded</p>
-          </div>
+            <p className="text-[10px] text-white/30 mt-5 text-center">Secure payments by Razorpay · credits never expire · failed builds are auto-refunded</p>
+          </motion.div>
         </div>
       )}
     </div>

@@ -1153,3 +1153,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - HiringEarningsReview wired in Revenue tab (was lost edit — component existed but SuperAdmin wiring missing): always-visible card w/ Due/Collected/hires totals, All/Due/Paid filter, mark-paid. Verified rendering.
 - FIXED stray `}` at end of SuperAdmin.jsx breaking build (leftover from lost edit).
 - LESSON: several search_replace edits were silently lost after user interruptions — ALWAYS grep-verify wiring edits before testing.
+
+## Iter 106 (15 Jul 2026) — Mira AI Studio V1 shipped + luxury redesign
+- Mira AI Studio (/mira.ai): standalone B2C builder — own auth (studio_users, 50 free credits), Razorpay credit packs (100/₹1000, 200/₹1800 popular, 300/₹2700), website builds (20cr, live URL via /api/site/{slug}), app builds (30cr, zip download), prompt refinements (5cr), auto-refund on failed builds. Backend: routes/mira_builder.py. Endpoints: /api/public/mira-studio/register|login|plans, /api/mira-studio/me|buy|buy/verify, /api/public/mira-builder/start|status/{pid}|refine|download/{pid}.
+- testing_agent iteration_70.json: 13/13 backend PASS, all frontend flows PASS (register→credits→build→live URL→refine→download, Razorpay iframe load, salon SaaS regression clean).
+- LUXURY REDESIGN of MiraAIStudio.jsx per design_guidelines.json ("Old Money Tech"): #0A0809 base, gold #D4AF37 + pink #FF4081 gradient CTAs, Playfair serif hero w/ gradient "build", dark salon hero bg image, glowing gradient-border prompt box, bento feature grid, agent pipeline strip, studio tools row, free-credits pricing CTA, framer-motion entrances, redesigned auth/buy modals. All logic + data-testids unchanged. Verified via screenshots (hero, features, pricing, both modals).
+- release_notes.py BUILD bumped to 2026-07-15.6 (Studio launch + redesign entries).
+- NOTE from tester: studio JWTs share jwt_secret with salon SaaS (collections separate, safe today) — consider 'aud':'studio' claim later.

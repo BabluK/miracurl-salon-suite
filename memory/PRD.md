@@ -359,3 +359,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Backend: public_services annotates each service with `gender` (routes.packages._service_gender); new GET /api/public/service-categories/{slug} (owner overrides map); admin GET /api/service-categories + PUT /api/service-categories/{name} {image_url} (upsert, tenant-scoped via new db.service_categories collection added to database.py).
 - Category images: 8 AI-generated luxe salon photos (Skin/Manicure/Pedicure/Men Hair/Women Hair/Makeup/Nails + generic) hosted on emergent static CDN, mapped in /app/frontend/src/lib/categoryImages.js (catImage(cat, overrides) helper). Admin Services page: banner thumb in each category header + "Banner" button (set-cat-image-{cat}) → modal (cat-image-modal) with ImageUploader kind=category, "Use default" reset, Save (cat-image-save) → PUT.
 - Verified: curl (gender counts 29 unisex/6 women/1 men; PUT/GET/reset category image roundtrip), browser: Men tab → 30 rows & Women Hair section hidden, Women → 35 rows & Men Hair hidden, row selection works; admin banner modal opens/saves. NOTE for testers: clicking gender toggle via Playwright coordinates can hit the sticky footer — use JS el.click(). BUILD → 2026-07-15.5.
+
+## 2026-07-15 — Mira AI Studio V1 (/mira.ai) + luxury redesign
+- New standalone B2C platform: build websites/apps from a prompt. Own auth (50 free credits on signup), Razorpay credit packs, live URL deploys (~60s), prompt refinements, full code downloads, auto-refund on failed builds.
+- Backend: routes/mira_builder.py (studio_users, studio_projects). Frontend: pages/MiraAIStudio.jsx.
+- Tested: iteration_70.json — 13/13 backend, all frontend flows PASS incl. salon SaaS regression.
+- Redesigned per design_guidelines.json: luxury gold/pink "Old Money Tech" aesthetic matching Miracurl brand (user request: "more professional"). Verified via screenshots.
