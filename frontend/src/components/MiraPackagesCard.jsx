@@ -16,9 +16,12 @@ export const MiraPackagesCard = () => {
   const [pkg, setPkg] = useState(null);
   const [busy, setBusy] = useState("");
   const [pct, setPct] = useState("");
+  const [adjPct, setAdjPct] = useState("");
   const [validDays, setValidDays] = useState("7");
   const [style, setStyle] = useState("");
   const [live, setLive] = useState({ packages: [], max_live: 4 });
+
+  useEffect(() => setAdjPct(""), [pkg?.id, pkg?.status]);
 
   const loadLive = () => api.get("/mira-packages/live").then(r => setLive(r.data)).catch(() => {});
 
@@ -57,7 +60,10 @@ export const MiraPackagesCard = () => {
   const publish = async () => {
     setBusy("publish");
     try {
-      const { data } = await api.post("/mira-packages/publish", { package_id: pkg.id, template: style || randomPosterStyle() });
+      const { data } = await api.post("/mira-packages/publish", {
+        package_id: pkg.id, template: style || randomPosterStyle(),
+        ...(adjPct ? { discount_pct: Number(adjPct) } : {}),
+      });
       setPkg(data.package);
       loadLive();
       toast.success(data.package.google_post?.ok ? "Poster ready & posted on Google 🎉" : "Poster ready — download & share it 🎉");
@@ -72,7 +78,9 @@ export const MiraPackagesCard = () => {
   };
 
   const published = pkg?.status === "published";
-  const savings = pkg ? Math.max(0, pkg.total_value - pkg.package_price) : 0;
+  const effPct = pkg ? (adjPct ? Number(adjPct) : (pkg.discount_pct || 0)) : 0;
+  const effPrice = pkg ? (adjPct ? Math.round(pkg.total_value * (1 - Number(adjPct) / 100)) : Math.round(pkg.package_price)) : 0;
+  const savings = pkg ? Math.max(0, Math.round(pkg.total_value) - effPrice) : 0;
 
   return (
     <div className="bg-gradient-to-br from-[#17141c] to-[#26202b] rounded-2xl border border-fuchsia-300/30 p-5 text-white" data-testid="mira-packages-card">
@@ -134,10 +142,23 @@ export const MiraPackagesCard = () => {
             </div>
             <div className="text-right">
               <div className="text-xs text-white/45 line-through">Worth ₹{Math.round(pkg.total_value)}</div>
-              <div className="text-2xl font-bold text-fuchsia-200">₹{Math.round(pkg.package_price)}</div>
-              {savings > 0 && <div className="text-[11px] text-emerald-300">You save ₹{Math.round(savings)} ({pkg.discount_pct}%)</div>}
+              <div className="text-2xl font-bold text-fuchsia-200" data-testid="package-eff-price">₹{effPrice}</div>
+              {savings > 0 && <div className="text-[11px] text-emerald-300" data-testid="package-savings">You save ₹{savings} ({effPct}%)</div>}
+              {!published && (
+                <select value={adjPct} onChange={(e) => setAdjPct(e.target.value)} data-testid="package-adjust-pct"
+                  title="Change the package discount — price updates instantly"
+                  className="mt-1.5 bg-white/5 border border-fuchsia-300/40 text-fuchsia-200/90 text-xs rounded-full px-3 py-1.5 focus:outline-none focus:border-fuchsia-300/70 [&>option]:bg-[#17141c]">
+                  <option value="">✎ Adjust %{pkg.discount_pct ? ` (Mira: ${pkg.discount_pct}%)` : ""}</option>
+                  {[5, 10, 15, 20, 25, 30, 35, 40, 50, 60].map(p => <option key={p} value={p}>{p}% off</option>)}
+                </select>
+              )}
             </div>
           </div>
+          {!published && adjPct && (
+            <p className="text-[11px] text-emerald-300/90 mt-2" data-testid="package-adjust-hint">
+              ✓ Package price updated to {adjPct}% off — hit Publish to lock it in
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             {pkg.services.map((s, i) => (
               <div key={i} className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">

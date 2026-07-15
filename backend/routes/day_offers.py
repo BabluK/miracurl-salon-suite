@@ -304,6 +304,25 @@ class AcceptIn(BaseModel):
     offer_id: str
     template: str = "dark_glam"
     discount_pct: int | None = None  # owner-adjusted % — prices recalculated server-side
+    service_names: list[str] | None = None  # owner-tuned service list (swap/remove/add before locking in)
+
+
+async def _apply_services(doc: dict, names: list) -> dict:
+    """Owner swapped services on the suggestion — rebuild the list from the real catalog."""
+    catalog = await db.services.find({"active": {"$ne": False}}, {"_id": 0, "name": 1, "price": 1}).to_list(300)
+    real = {s["name"].lower().strip(): s for s in catalog}
+    pct = int(doc.get("discount_pct") or 0)
+    services = []
+    for n in names[:6]:
+        m = real.get(str(n).lower().strip())
+        if m:
+            price = float(m["price"])
+            services.append({"name": m["name"], "original_price": price,
+                             "offer_price": float(max(0, round(price * (1 - pct / 100))))})
+    if not services:
+        raise HTTPException(400, "None of those services are on your menu — refresh and try again")
+    doc["services"] = services
+    return doc
 
 
 def _apply_pct(doc: dict, pct: int) -> dict:
@@ -358,11 +377,14 @@ async def accept_offer(body: AcceptIn, request: Request, user=Depends(require_te
         return {"offer": doc}
     pct = _clean_pct(body.discount_pct)
     pct_patch = {}
+    if body.service_names:
+        await _apply_services(doc, body.service_names)
+        pct_patch["services"] = doc["services"]
     if pct and pct != int(doc.get("discount_pct") or 0):
         _apply_pct(doc, pct)
-        pct_patch = {"discount_pct": doc["discount_pct"], "services": doc["services"],
-                     "title": doc["title"], "offer_text": doc["offer_text"],
-                     "whatsapp_caption": doc.get("whatsapp_caption", "")}
+        pct_patch.update({"discount_pct": doc["discount_pct"], "services": doc["services"],
+                          "title": doc["title"], "offer_text": doc["offer_text"],
+                          "whatsapp_caption": doc.get("whatsapp_caption", "")})
     flyer_id, flyer_url = await _accept_flyer(doc, body.template, user, t)
     google_post, meta_post = await _auto_post_socials(request, t, doc, flyer_url)
     patch = {**pct_patch,

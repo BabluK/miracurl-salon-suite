@@ -1,5 +1,6 @@
 """Mira Packages — AI-designed Men/Women service bundles with one-tap Google post + WhatsApp share."""
 import logging
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -13,10 +14,32 @@ router = APIRouter()
 log = logging.getLogger("packages")
 
 AUDIENCE_HINT = {
-    "men": "for MEN — grooming bundle: haircut, beard styling, hair colour, cleanup/de-tan, head massage etc.",
-    "women": "for WOMEN — beauty bundle: haircut, colour, keratin/smoothening, facial, mani-pedi, threading etc.",
-    "family": "for FAMILY / COUPLES — a smart mix of men's and women's services they can enjoy together.",
+    "men": "for MEN — a grooming bundle men will love. Pick ONLY from the service catalog below.",
+    "women": "for WOMEN — a beauty bundle women will love. Pick ONLY from the service catalog below.",
+    "family": "for FAMILY / COUPLES — a smart mix of men's and women's services they can enjoy together. Pick ONLY from the service catalog below.",
 }
+
+_MEN_RE = re.compile(r"\b(men|man|male|gents?|boys?|beard|moustache|mustache|shave)\b", re.I)
+_WOMEN_RE = re.compile(r"\b(women|woman|female|ladies|lady|girls?|bridal|bride|saree|sari|mehendi|mehndi|blouse)\b", re.I)
+
+
+def _service_gender(s: dict) -> str:
+    """men / women / unisex — from the service name + category text."""
+    text = f"{s.get('name', '')} {s.get('category', '')}"
+    m, w = bool(_MEN_RE.search(text)), bool(_WOMEN_RE.search(text))
+    if m and not w:
+        return "men"
+    if w and not m:
+        return "women"
+    return "unisex"
+
+
+def _audience_pool(services: list, audience: str) -> list:
+    """Men get men's + unisex services, women get women's + unisex, family gets everything."""
+    if audience not in ("men", "women"):
+        return services
+    pool = [s for s in services if _service_gender(s) in ("unisex", audience)]
+    return pool if len(pool) >= 2 else services
 
 
 class SuggestIn(BaseModel):
@@ -31,30 +54,41 @@ async def _generate_package(t: dict, audience: str, pct: int | None = None,
     from routes.mira_studio import _ask_json
     from routes.day_offers import _catalog_context
     ctx = await _catalog_context(t)
-    catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in ctx["services"][:30])
+    pool = _audience_pool(ctx["services"], audience)
+    catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in pool[:30])
     eng = ", ".join(f"{n} ({c} pts)" for n, c in ctx.get("engagement", []))
     pct = max(5, min(60, int(pct))) if pct else None
     pct_line = (f"The owner has FIXED the package discount at exactly {pct}% off the combined value — package_price must be exactly {pct}% less."
                 if pct else "Choose a compelling package discount (15-30% off the combined value).")
-    data = await _ask_json(
-        "You are Mira, an expert salon revenue strategist for Indian salons. You design irresistible service "
-        "packages that feel premium yet great value.",
-        f"Salon: {t.get('name')}. Design ONE service package {AUDIENCE_HINT[audience]}\n"
-        f"{'AUDIENCE INSIGHTS — services ranked by social engagement: ' + eng + chr(10) if eng else ''}"
-        f"SERVICE CATALOG (real prices — never invent services):\n{catalog}\n"
-        f"Pick 3-5 REAL services. {pct_line}\n"
-        'Return JSON: {"name":"<catchy 3-6 word package name>","tagline":"<one premium punchy line>",'
-        '"services":[{"name":"<exact catalog name>","price":<num>}],"total_value":<sum of prices>,'
-        '"package_price":<discounted bundle price, round to nearest 49/99>,'
-        '"caption":"<ready-to-post WhatsApp/Google caption with emojis, list services, show total value vs package price, end with book-now nudge>"}')
-    if not data.get("name") or not isinstance(data.get("services"), list) or not data["services"]:
-        raise HTTPException(400, "Mira returned an unexpected package format — try again")
-    real = {s["name"].lower().strip(): s for s in ctx["services"]}
-    valid = []
-    for s in data["services"][:6]:
-        m = real.get(str(s.get("name", "")).lower().strip())
-        if m:
-            valid.append({"name": m["name"], "price": float(m["price"])})
+    gender_line = ("STRICT: this package is exclusively for this audience — every service you pick must be from the list above (they are already suitable). "
+                   if audience in ("men", "women") else "")
+    real = {s["name"].lower().strip(): s for s in pool}
+    valid, bad_names = [], []
+    for attempt in range(2):
+        retry_line = (f"YOUR PREVIOUS PICKS WERE REJECTED — these are NOT on the menu: {', '.join(bad_names)}. "
+                      "Copy service names EXACTLY, character-for-character, from the catalog above.\n") if attempt else ""
+        data = await _ask_json(
+            "You are Mira, an expert salon revenue strategist for Indian salons. You design irresistible service "
+            "packages that feel premium yet great value.",
+            f"Salon: {t.get('name')}. Design ONE service package {AUDIENCE_HINT[audience]}\n"
+            f"{'AUDIENCE INSIGHTS — services ranked by social engagement: ' + eng + chr(10) if eng else ''}"
+            f"SERVICE CATALOG (real prices — never invent, rename or abbreviate services):\n{catalog}\n"
+            f"Pick 3-5 REAL services, copying names EXACTLY as written above. {gender_line}{pct_line}\n{retry_line}"
+            'Return JSON: {"name":"<catchy 3-6 word package name>","tagline":"<one premium punchy line>",'
+            '"services":[{"name":"<exact catalog name>","price":<num>}],"total_value":<sum of prices>,'
+            '"package_price":<discounted bundle price, round to nearest 49/99>,'
+            '"caption":"<ready-to-post WhatsApp/Google caption with emojis, list services, show total value vs package price, end with book-now nudge>"}')
+        if not data.get("name") or not isinstance(data.get("services"), list) or not data["services"]:
+            raise HTTPException(400, "Mira returned an unexpected package format — try again")
+        valid, bad_names = [], []
+        for s in data["services"][:6]:
+            m = real.get(str(s.get("name", "")).lower().strip())
+            if m:
+                valid.append({"name": m["name"], "price": float(m["price"])})
+            else:
+                bad_names.append(str(s.get("name", ""))[:40])
+        if len(valid) >= 2:
+            break
     if len(valid) < 2:
         raise HTTPException(400, "Mira picked services not on your menu — try again")
     data["services"] = valid
@@ -95,6 +129,24 @@ async def suggest_package(body: SuggestIn, user=Depends(require_tenant_admin), t
 class PublishIn(BaseModel):
     package_id: str
     template: str = "dark_glam"
+    discount_pct: int | None = None  # owner-adjusted % — price recalculated server-side
+
+
+def _apply_pkg_pct(doc: dict, pct: int) -> dict:
+    """Owner changed the package discount % — recompute the bundle price and fix the caption copy."""
+    old_pct = int(doc.get("discount_pct") or 0)
+    old_price = round(float(doc.get("package_price") or 0))
+    total = float(doc.get("total_value") or 0)
+    new_price = round(total * (1 - pct / 100))
+    doc["package_price"] = float(new_price)
+    doc["discount_pct"] = pct
+    cap = doc.get("caption") or ""
+    if old_price and old_price != new_price:
+        cap = cap.replace(f"₹{old_price}", f"₹{new_price}")
+    if old_pct and old_pct != pct:
+        cap = cap.replace(f"{old_pct}%", f"{pct}%")
+    doc["caption"] = cap
+    return doc
 
 
 def _live_filter(tenant_id: str) -> dict:
@@ -135,6 +187,11 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
     live_count = await _raw_db.mira_packages.count_documents(_live_filter(t["id"]))
     if live_count >= MAX_LIVE_PACKAGES:
         raise HTTPException(400, f"You already have {MAX_LIVE_PACKAGES} live packages — remove one from the 'Live packages' list first")
+    pct = max(5, min(60, int(body.discount_pct))) if body.discount_pct else None
+    pct_patch = {}
+    if pct and pct != int(doc.get("discount_pct") or 0):
+        _apply_pkg_pct(doc, pct)
+        pct_patch = {"package_price": doc["package_price"], "discount_pct": doc["discount_pct"], "caption": doc["caption"]}
     from routes.offer_flyer import FlyerIn, create_flyer
     audience_label = {"men": "For Men", "women": "For Women", "family": "For the Family"}[doc["audience"]]
     valid_days = doc.get("valid_days")
@@ -164,7 +221,8 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
     except Exception as e:
         log.warning(f"package social post failed: {e}")
         google_post = google_post or {"ok": False, "error": str(e)[:200]}
-    patch = {"status": "published", "published_at": datetime.now(timezone.utc).isoformat(),
+    patch = {**pct_patch,
+             "status": "published", "published_at": datetime.now(timezone.utc).isoformat(),
              "expires_at": expires_at,
              "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post, "meta_post": meta_post}
     await _raw_db.mira_packages.update_one({"id": doc["id"]}, {"$set": patch})

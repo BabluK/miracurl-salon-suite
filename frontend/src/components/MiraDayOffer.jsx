@@ -7,14 +7,27 @@ import { shareWithPoster } from "@/lib/sharePoster";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
-function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, testPrefix }) {
+function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, testPrefix, catalog = [] }) {
   const accepted = offer.status === "accepted";
   const [adjPct, setAdjPct] = useState("");
-  useEffect(() => setAdjPct(""), [offer.id]);
+  const [svcList, setSvcList] = useState(offer.services || []);
+  const [svcTouched, setSvcTouched] = useState(false);
+  useEffect(() => { setAdjPct(""); setSvcList(offer.services || []); setSvcTouched(false); }, [offer.id, offer.status, offer.services]);
   const effPct = adjPct ? Number(adjPct) : (offer.discount_pct || 0);
-  const priceFor = (s) => adjPct
-    ? Math.max(0, Math.round(s.original_price * (1 - Number(adjPct) / 100)))
+  const priceFor = (s) => (adjPct || svcTouched)
+    ? Math.max(0, Math.round(s.original_price * (1 - effPct / 100)))
     : Math.round(s.offer_price);
+  const removeSvc = (i) => {
+    if (svcList.length <= 1) return;
+    setSvcList(l => l.filter((_, j) => j !== i));
+    setSvcTouched(true);
+  };
+  const addSvc = (name) => {
+    const m = catalog.find(c => c.name === name);
+    if (!m || svcList.some(s => s.name === m.name)) return;
+    setSvcList(l => [...l, { name: m.name, original_price: m.price, offer_price: m.price * (1 - effPct / 100) }]);
+    setSvcTouched(true);
+  };
   const shareWA = () => {
     const caption = offer.whatsapp_caption || offer.offer_text;
     if (offer.flyer_url) shareWithPoster(`${BACKEND}${offer.flyer_url}`, caption);
@@ -46,19 +59,36 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, tes
           )}
         </div>
       </div>
-      {offer.services?.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {offer.services.map((s, i) => (
-            <div key={i} className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5" data-testid={`${testPrefix}-service-price-${i}`}>
-              {s.name} · <span className="line-through text-white/40">₹{Math.round(s.original_price)}</span>{" "}
-              <span className="text-amber-200 font-semibold">₹{priceFor(s)}</span>
+      {svcList.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2 items-center">
+          {svcList.map((s, i) => (
+            <div key={`${s.name}-${i}`} className="flex items-center gap-1.5 text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5" data-testid={`${testPrefix}-service-price-${i}`}>
+              <span>
+                {s.name} · <span className="line-through text-white/40">₹{Math.round(s.original_price)}</span>{" "}
+                <span className="text-amber-200 font-semibold">₹{priceFor(s)}</span>
+              </span>
+              {!accepted && svcList.length > 1 && (
+                <button onClick={() => removeSvc(i)} data-testid={`${testPrefix}-service-remove-${i}`}
+                  title="Remove this service from the offer"
+                  className="text-white/35 hover:text-rose-300 -mr-1 leading-none text-sm">✕</button>
+              )}
             </div>
           ))}
+          {!accepted && catalog.length > 0 && (
+            <select value="" onChange={(e) => e.target.value && addSvc(e.target.value)} data-testid={`${testPrefix}-service-add`}
+              title="Swap in another service — remove one above, then add its replacement here"
+              className="text-xs bg-white/5 border border-dashed border-amber-300/40 text-amber-200/80 rounded-lg px-2.5 py-1.5 focus:outline-none max-w-[180px] [&>option]:bg-[#17141c]">
+              <option value="">＋ Add / swap service</option>
+              {catalog.filter(c => !svcList.some(s => s.name === c.name)).map(c => (
+                <option key={c.id || c.name} value={c.name}>{c.name} · ₹{Math.round(c.price)}</option>
+              ))}
+            </select>
+          )}
         </div>
       )}
-      {!accepted && adjPct && (
+      {!accepted && (adjPct || svcTouched) && (
         <p className="text-[11px] text-emerald-300/90 mt-2" data-testid={`${testPrefix}-adjust-hint`}>
-          ✓ Prices updated to {adjPct}% off — tap "Yes — use this offer" to lock it in
+          ✓ Offer tuned{adjPct ? ` — ${adjPct}% off` : ""}{svcTouched ? " · services updated" : ""} — tap "Yes — use this offer" to lock it in
         </p>
       )}
       <p className="text-xs text-white/55 mt-3 leading-relaxed"><span className="text-amber-300">Why:</span> {offer.reasoning}</p>
@@ -114,7 +144,7 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, tes
           </>
         ) : (
           <>
-            <button onClick={() => onAccept(adjPct ? Number(adjPct) : null)} disabled={!!busy} data-testid={`${testPrefix}-accept-btn`}
+            <button onClick={() => onAccept(adjPct ? Number(adjPct) : null, svcTouched ? svcList.map(s => s.name) : null)} disabled={!!busy} data-testid={`${testPrefix}-accept-btn`}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-300 to-rose-200 text-[#17141c] text-sm font-semibold hover:opacity-90 disabled:opacity-60">
               {busy === "accept" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {busy === "accept" ? "Creating poster (~1 min)…" : "Yes — use this offer ✦"}
@@ -139,6 +169,7 @@ export function MiraDayOffer() {
   const [pct, setPct] = useState("");
   const [tier, setTier] = useState("");
   const [style, setStyle] = useState("");
+  const [svcCatalog, setSvcCatalog] = useState([]);
   const autoAsked = useRef(false);
 
   useEffect(() => {
@@ -154,9 +185,10 @@ export function MiraDayOffer() {
       }
     }).catch(() => {});
     api.get("/day-offers/flash-alert").then(r => setFlash(r.data)).catch(() => {});
+    api.get("/services").then(r => setSvcCatalog((r.data || []).filter(s => s.active !== false))).catch(() => {});
   }, []);
 
-  const run = async (action, isFlash = false, pctOverride = null) => {
+  const run = async (action, isFlash = false, pctOverride = null, serviceNames = null) => {
     setBusy(action);
     try {
       if (action === "accept") {
@@ -164,6 +196,7 @@ export function MiraDayOffer() {
         const { data } = await api.post("/day-offers/accept", {
           offer_id: target.id, template: style || randomPosterStyle(),
           ...(pctOverride ? { discount_pct: pctOverride } : {}),
+          ...(serviceNames ? { service_names: serviceNames } : {}),
         });
         if (isFlash) setFlash(f => ({ ...f, offer: data.offer }));
         else setOffer(data.offer);
@@ -211,7 +244,7 @@ export function MiraDayOffer() {
               </button>
             </div>
           ) : (
-            <OfferBlock offer={flash.offer} busy={busy} onAccept={(pct) => run("accept", true, pct)} testPrefix="flash-offer" />
+            <OfferBlock offer={flash.offer} busy={busy} onAccept={(pct, names) => run("accept", true, pct, names)} catalog={svcCatalog} testPrefix="flash-offer" />
           )}
         </div>
       )}
@@ -258,7 +291,7 @@ export function MiraDayOffer() {
         </div>
       </div>
 
-      {offer && <OfferBlock offer={offer} busy={busy} onAccept={(pct) => run("accept", false, pct)} onAnother={offer.status !== "accepted" ? () => run("another") : null} onUnlock={offer.status === "accepted" ? () => run("unlock") : null} onReflyer={offer.status === "accepted" ? () => run("reflyer") : null} testPrefix="day-offer" />}
+      {offer && <OfferBlock offer={offer} busy={busy} onAccept={(pct, names) => run("accept", false, pct, names)} onAnother={offer.status !== "accepted" ? () => run("another") : null} onUnlock={offer.status === "accepted" ? () => run("unlock") : null} onReflyer={offer.status === "accepted" ? () => run("reflyer") : null} catalog={svcCatalog} testPrefix="day-offer" />}
     </div>
   );
 }

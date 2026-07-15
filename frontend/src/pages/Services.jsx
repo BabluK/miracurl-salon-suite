@@ -1,12 +1,13 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, Clock, IndianRupee, Flame, Sparkles, Download, Upload, Globe } from "lucide-react";
+import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 
 // Must match the booking page category tabs (BookPublic.steps.jsx CATEGORY_ORDER)
 const CATS = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup", "Nails"];
 const NEW_CAT = "__new__";
+const FALLBACK_IMG = "https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400";
 
 export default function Services() {
   const [list, setList] = useState([]);
@@ -14,6 +15,8 @@ export default function Services() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", category: "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true, bookable_online: true });
   const [newCat, setNewCat] = useState(false);
+  const [activeCat, setActiveCat] = useState("All");
+  const [q, setQ] = useState("");
   const csvRef = useRef(null);
 
   async function exportCsv() {
@@ -48,7 +51,7 @@ export default function Services() {
   const load = useCallback(async () => { const { data } = await api.get("/services"); setList(data); }, []);
   useEffect(() => { load(); }, [load]);
 
-  function startNew() { setEditing(null); setNewCat(false); setForm({ name: "", category: "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true }); setOpen(true); }
+  function startNew() { setEditing(null); setNewCat(false); setForm({ name: "", category: activeCat !== "All" ? activeCat : "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true }); setOpen(true); }
   function startEdit(s) { setEditing(s); setNewCat(false); setForm({ ...s, price: s.price, duration_min: s.duration_min }); setOpen(true); }
 
   async function save(e) {
@@ -76,12 +79,21 @@ export default function Services() {
     } catch { toast.error("Couldn't update — try again"); }
   }
 
-  const byCategory = list.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {});
+  const byCategory = useMemo(() => list.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {}), [list]);
   const catOptions = [...CATS, ...Object.keys(byCategory).filter(c => !CATS.includes(c)).sort()];
+  const allCats = Object.keys(byCategory).sort((a, b) => (byCategory[b].length - byCategory[a].length));
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return list.filter(s =>
+      (activeCat === "All" || s.category === activeCat) &&
+      (!needle || s.name.toLowerCase().includes(needle) || (s.category || "").toLowerCase().includes(needle)));
+  }, [list, activeCat, q]);
+  const filteredByCat = useMemo(() => filtered.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {}), [filtered]);
 
   return (
-    <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-playfair text-3xl">Service Menu</h1>
           <p className="text-slate-500 text-sm mt-1">Curate what your salon offers your guests.</p>
@@ -113,46 +125,71 @@ export default function Services() {
         </div>
       </div>
 
-      {Object.keys(byCategory).map(cat => (
-        <div key={cat}>
-          <div className="flex items-center gap-3 mb-3">
-            <h3 className="font-playfair text-xl text-sky-600">{cat}</h3>
-            <div className="h-px bg-slate-100 flex-1" />
-            <span className="text-xs text-slate-400">{byCategory[cat].length} services</span>
+      {/* Sticky filter bar — search + category chips, no more endless scroll */}
+      <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-white/85 backdrop-blur-md border-b border-slate-100 space-y-2.5">
+        <div className="relative max-w-sm">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input data-testid="services-search-input" value={q} onChange={e => setQ(e.target.value)}
+            placeholder="Search services…"
+            className="w-full pl-9 pr-8 py-2 text-sm rounded-full border border-slate-200 bg-white focus:outline-none focus:border-sky-300" />
+          {q && <button onClick={() => setQ("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X className="w-3.5 h-3.5" /></button>}
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button data-testid="services-cat-chip-All" onClick={() => setActiveCat("All")}
+            className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition ${activeCat === "All" ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+            All <span className="opacity-60">({list.length})</span>
+          </button>
+          {allCats.map(c => (
+            <button key={c} data-testid={`services-cat-chip-${c}`} onClick={() => setActiveCat(c)}
+              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition ${activeCat === c ? "bg-sky-600 text-white border-sky-600" : "bg-white text-slate-600 border-slate-200 hover:border-sky-300"}`}>
+              {c} <span className="opacity-60">({byCategory[c].length})</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="card-light p-10 text-center text-slate-400 text-sm" data-testid="services-empty-state">
+          {q ? <>No services match “{q}”.</> : <>No services here yet — tap <b>Add Service</b> to create one.</>}
+        </div>
+      )}
+
+      {Object.keys(filteredByCat).map(cat => (
+        <div key={cat} className="card-light p-0 overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50/70 border-b border-slate-100">
+            <h3 className="font-playfair text-lg text-sky-700">{cat}</h3>
+            <span className="text-[11px] text-slate-400">{filteredByCat[cat].length} services</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {byCategory[cat].map(s => (
-              <div key={s.id} data-testid={`service-card-${s.id}`} className="card-light p-0 overflow-hidden group hover:border-sky-300 transition-all">
-                <div className="h-32 relative">
-                  <img src={s.image_url || "https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400"} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-white to-transparent" />
-                  {s.trending && (
-                    <span className="absolute top-2 left-2 bg-sky-500 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded flex items-center gap-1">
-                      <Flame className="w-3 h-3" /> Trending
-                    </span>
-                  )}
-                </div>
-                <div className="p-4">
-                  <h4 className="font-playfair text-lg">{s.name}</h4>
-                  {s.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{s.description}</p>}
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="flex items-center gap-1 text-sky-600 font-semibold"><IndianRupee className="w-3 h-3" />{s.price}</span>
-                      <span className="flex items-center gap-1 text-slate-500 text-xs"><Clock className="w-3 h-3" />{s.duration_min}m</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button data-testid={`edit-service-${s.id}`} onClick={() => startEdit(s)} className="p-1.5 hover:bg-slate-50 rounded text-slate-500 hover:text-sky-600"><Edit3 className="w-3.5 h-3.5" /></button>
-                      <button data-testid={`delete-service-${s.id}`} onClick={() => remove(s.id)} className="p-1.5 hover:bg-red-500/10 rounded text-slate-500 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
-                    </div>
+          <div className="divide-y divide-slate-50">
+            {filteredByCat[cat].map(s => (
+              <div key={s.id} data-testid={`service-card-${s.id}`}
+                className="flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-sky-50/40 transition group">
+                <img src={s.image_url || FALLBACK_IMG} alt=""
+                  className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-100" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-semibold truncate">{s.name}</span>
+                    {s.trending && <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" title="Trending" />}
                   </div>
-                  <button data-testid={`toggle-online-${s.id}`} onClick={() => toggleOnline(s)}
-                    className={`mt-3 w-full flex items-center justify-between text-xs px-3 py-1.5 rounded-lg border transition ${s.bookable_online !== false ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
-                    <span className="flex items-center gap-1.5"><Globe className="w-3 h-3" /> Online booking</span>
-                    <span className={`relative inline-flex h-4 w-7 rounded-full transition ${s.bookable_online !== false ? "bg-emerald-500" : "bg-slate-300"}`}>
-                      <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${s.bookable_online !== false ? "left-3.5" : "left-0.5"}`} />
-                    </span>
-                  </button>
+                  <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+                    <span className="font-semibold text-sky-600 text-xs">₹{s.price}</span>
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.duration_min}m</span>
+                    {s.description && <span className="truncate hidden sm:inline">· {s.description}</span>}
+                  </div>
                 </div>
+                <button data-testid={`toggle-online-${s.id}`} onClick={() => toggleOnline(s)}
+                  title={s.bookable_online !== false ? "Bookable online — tap to hide" : "Hidden from online booking — tap to show"}
+                  className={`shrink-0 flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-full border transition ${s.bookable_online !== false ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                  <Globe className="w-3 h-3" />
+                  <span className="hidden sm:inline">{s.bookable_online !== false ? "Online" : "Hidden"}</span>
+                  <span className={`relative inline-flex h-3.5 w-6 rounded-full transition ${s.bookable_online !== false ? "bg-emerald-500" : "bg-slate-300"}`}>
+                    <span className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-all ${s.bookable_online !== false ? "left-3" : "left-0.5"}`} />
+                  </span>
+                </button>
+                <button data-testid={`edit-service-${s.id}`} onClick={() => startEdit(s)}
+                  className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50" title="Edit"><Edit3 className="w-4 h-4" /></button>
+                <button data-testid={`delete-service-${s.id}`} onClick={() => remove(s.id)}
+                  className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50" title="Delete"><Trash2 className="w-4 h-4" /></button>
               </div>
             ))}
           </div>
@@ -161,7 +198,7 @@ export default function Services() {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          <div className="card-light w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+          <div className="card-light w-full max-w-lg mx-4 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-playfair text-2xl">{editing ? "Edit Service" : "New Service"}</h3>
               <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
@@ -203,7 +240,7 @@ export default function Services() {
                       load();
                     } catch { toast.error("Auto-save failed — press Save Service"); }
                   }}
-                  fallback="https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400"
+                  fallback={FALLBACK_IMG}
                 />
               </div>
               <div><label className="label-light block mb-1">Description</label><textarea rows="2" className="input-light" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>

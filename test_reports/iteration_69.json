@@ -1,0 +1,55 @@
+{
+  "summary": "Frontend testing of new features: (1) Day Offer tuning card (adjust %, add/remove chips, live price recalc) PASSED; (2) Mira Package Builder on /offers-studio (gender-correct AI picks, adjust % live recalc) PASSED; (3) Services page redesign (sticky search + category chips + compact rows + toggle/edit/create/delete) PASSED; (4) Dashboard + navigation regression to Appointments/CRM/POS PASSED (no crashes, no error boundaries). No blocking issues found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Package Builder (Offer Maker) / Day Offer / POS pages", "issues": ["Console hydration warning: '<span> cannot be a child of <option>' — dev-mode React warning caused by data-ve-dynamic instrumentation spans injected inside <option> elements in MiraDayOffer.jsx line 280 and similar select-in-option patterns. Non-blocking (dev overlay only, no user impact), but should be reviewed to avoid production hydration issues."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_69.json"],
+  "action_items": [
+    "None required — all new features work as designed.",
+    "Optional: investigate the dev-mode 'span cannot be a child of option' hydration warning (from build instrumentation wrapping option values in span). Not user-facing."
+  ],
+  "critical_code_review_comments": [
+    "MiraPackagesCard is only mounted on /offers-studio (Offer Maker) page, NOT on Dashboard as the review request implied — I tested it on /offers-studio which was the correct location.",
+    "Delete-service uses window.confirm() dialog — worked but test scripts must register a page.on('dialog', ...) handler to accept.",
+    "Pre-existing 401 console errors right after login (2-3) are auth-hydration race — flagged as known by main agent, ignored."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (tenant miracurl-marathahalli)",
+  "seed_data_creation": "Created and cleaned up 'TEST UI Service' (Skin/₹100/10min) on /services page. No residual test data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Day-offer suggestion already exists in salon in 'suggested' state — tuning UI can be tested without triggering AI. Package builder AI call for suggest-men-btn takes ~30-60s. Services page shows 36 services across categories Manicure/Pedicure/Makeup/Skin/Women Hair/Nails/Men Hair/TEST. MiraPackagesCard lives on /offers-studio, not /dashboard.",
+  "detailed_test_results": {
+    "day_offer_tuning": {
+      "initial_chips": 2,
+      "initial_badge": "25% OFF",
+      "after_adjust_40pct": {"badge": "40% OFF", "chip_price": "Hair Cut - Women ₹600 → ₹360"},
+      "remove_chip": "worked (2 → 1)",
+      "add_chip": "worked (1 → 2 after adding)",
+      "adjust_hint_visible": true
+    },
+    "package_builder": {
+      "men_suggestion_services": "Keratin Treatment etc — no Women/Ladies/Bridal/Saree tokens found",
+      "before_adjust": {"price": "₹7599", "savings": "You save ₹3301 (30%)"},
+      "after_adjust_5pct": {"price": "₹10355", "savings": "You save ₹545 (5%)"},
+      "adjust_hint_visible": true
+    },
+    "services_page": {
+      "search_input_present": true,
+      "cat_chips": ["All", "Manicure", "Pedicure", "Makeup", "Skin", "Women Hair", "Nails", "Men Hair", "TEST"],
+      "search_filter_works": "36 → 6 rows on 'hair'",
+      "category_filter_works": "Manicure → 9 rows",
+      "toggle_online_works": true,
+      "edit_modal_prefill_works": true,
+      "create_service_works": true,
+      "delete_service_works": true
+    },
+    "nav_regression": {"/appointments": "OK", "/crm": "OK", "/pos": "OK"}
+  }
+}
