@@ -526,7 +526,7 @@ export default function MiraAIStudio() {
                       </div>
                     );
                     if (m.kind === "build") {
-                      if (busy) return (
+                      if (project.status === "building") return (
                         <div key={m.id} className="flex gap-3" data-testid="studio-agent-working">
                           <Sparkles className="w-5 h-5 text-[#D4AF37] shrink-0 mt-2" />
                           <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 bg-white/[0.05] border border-white/[0.07]">
