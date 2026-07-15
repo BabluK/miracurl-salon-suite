@@ -51,7 +51,7 @@ def super_sess():
 # ==================== OT UNIT ====================
 class TestOvertimeUnit:
     def test_overtime_computations(self):
-        from server import _overtime_for, IST_TZ
+        from routes.staff_portal import _overtime_for, IST_TZ
         staff = {"shift_end": "21:00"}
         # 22:10 -> 70 min = 2 completed 30-min blocks = ₹100
         co1 = datetime(2026, 1, 15, 22, 10, tzinfo=IST_TZ)
@@ -63,7 +63,7 @@ class TestOvertimeUnit:
         assert pay2 == 0.0, f"Expected 0.0 for 21:20, got {pay2}"
 
     def test_overtime_with_custom_rate(self):
-        from server import _overtime_for, IST_TZ
+        from routes.staff_portal import _overtime_for, IST_TZ
         staff = {"shift_end": "21:00", "overtime_rate": 200}  # 200/hr => 100/block
         co = datetime(2026, 1, 15, 22, 30, tzinfo=IST_TZ)  # 90 min = 3 blocks
         _, pay = _overtime_for(staff, co)
@@ -75,7 +75,8 @@ class TestProductCommission:
     def test_product_commission_2pct_via_direct_compute(self, admin_sess):
         """Create a paid invoice with a product line, run _compute_salary_for_month,
         assert product_commission_amount == 2% of product_gross, then delete invoice."""
-        from server import _compute_salary_for_month, _current_tenant_id
+        from routes.staff_portal import _compute_salary_for_month
+        from database import _current_tenant_id
 
         # Resolve tenant + a real staff + a real product
         # Fetch tenant + first staff + first product via admin session

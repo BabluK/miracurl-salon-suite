@@ -1,0 +1,266 @@
+# Extracted from server.py — domain route module (auto-split refactor)
+import os  # noqa: F401
+import re  # noqa: F401
+import io  # noqa: F401
+import csv  # noqa: F401
+import math  # noqa: F401
+import uuid  # noqa: F401
+import hmac  # noqa: F401
+import hashlib  # noqa: F401
+import asyncio  # noqa: F401
+import base64  # noqa: F401
+import secrets  # noqa: F401
+import logging  # noqa: F401
+import html as html_lib  # noqa: F401
+from datetime import datetime, timezone, timedelta  # noqa: F401
+from typing import Dict, List, Optional  # noqa: F401
+from urllib.parse import quote, urlparse  # noqa: F401
+
+import requests  # noqa: F401
+from fastapi import (  # noqa: F401
+    APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Form,
+)
+from starlette.responses import StreamingResponse  # noqa: F401
+from pydantic import BaseModel, Field, EmailStr, field_validator  # noqa: F401
+
+from database import client, _raw_db, db, _current_tenant_id, _clean  # noqa: F401
+from security import (  # noqa: F401
+    hash_pw, verify_pw, get_current_user, require_admin, public_rate_limit,
+    durable_rate_limit, ai_daily_quota, require_super_admin, require_tenant_admin,
+    current_tenant, require_owner_pin, _pin_attempt_guard, _pin_attempt_fail, _pin_attempt_clear,
+)
+from models import (  # noqa: F401
+    Tenant, Customer, Appointment, REVIEW_REWARD_CREDITS, MAX_CUSTOMER_CREDIT,
+    REFERRAL_REWARD_REFERRER, REFERRAL_REWARD_REFERRED,
+)
+from email_service import (  # noqa: F401
+    _send_email, _welcome_email_html, _credentials_email_html, _monthly_report_html,
+    _weekly_report_html, _birthday_email_html, _platform_digest_html,
+)
+from services.storage import _put_object, _get_object, _MIME, APP_NAME, validate_image_bytes  # noqa: F401
+from services.pdf import _render_salary_slip_pdf, _render_resume_pdf  # noqa: F401
+from services.billing import (  # noqa: F401
+    _validate_coupon, _consume_coupon, _coupon_discount, _active_membership, _loyalty_rules,
+)
+from utils import _csv_cell, _csv_row, _read_csv_upload, MAX_CSV_BYTES  # noqa: F401
+from schemas import Review, ReviewIn, ReviewModerateIn, resolve_tenant_from_slug, DEFAULT_TENANT_SLUG
+
+router = APIRouter()
+
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+# ---------------- Reviews ----------------
+@router.get("/reviews")
+async def list_reviews(user=Depends(get_current_user)):
+    return await db.reviews.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+class ReviewReplyIn(BaseModel):
+    reply: str = Field(..., max_length=1000)
+
+
+@router.post("/reviews/{rid}/suggest-reply")
+async def suggest_review_reply(rid: str, user=Depends(require_admin), t=Depends(current_tenant)):
+    """AI-drafted polite owner reply for a customer review."""
+    rev = await db.reviews.find_one({"id": rid}, {"_id": 0})
+    if not rev:
+        raise HTTPException(404, "Review not found")
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    chat = LlmChat(
+        api_key=key, session_id=f"review-reply-{rid}-{uuid.uuid4().hex[:8]}",
+        system_message=(
+            f"You write short, warm, professional owner replies to customer reviews for '{t.get('name')}', an Indian salon. "
+            "Rules: 2-4 sentences max. Thank them by name if given. For 4-5 stars: express joy, invite them back. "
+            "For 3 stars: thank + acknowledge there's room to improve. For 1-2 stars: apologise sincerely, promise to fix it, "
+            "invite them to call the salon so you can make it right. No hashtags. At most one emoji. "
+            "Reply with ONLY the reply text, nothing else."),
+    ).with_model("openai", "gpt-4o-mini")
+    prompt = f"Rating: {rev.get('rating')}/5\nCustomer: {rev.get('customer_name') or 'Guest'}\nReview: {rev.get('comment') or '(no comment, rating only)'}"
+    try:
+        resp = await chat.send_message(UserMessage(text=prompt))
+        reply = (resp or "").strip()[:1000]
+    except Exception as e:
+        raise HTTPException(400, f"AI reply failed: {e}")
+    return {"reply": reply}
+
+
+@router.put("/reviews/{rid}/reply")
+async def save_review_reply(rid: str, body: ReviewReplyIn, user=Depends(require_admin)):
+    await db.reviews.update_one({"id": rid}, {"$set": {
+        "owner_reply": body.reply.strip(),
+        "owner_reply_at": datetime.now(timezone.utc).isoformat(),
+    }})
+    return await db.reviews.find_one({"id": rid}, {"_id": 0})
+
+
+@router.put("/reviews/{rid}/moderate")
+async def moderate_review(rid: str, body: ReviewModerateIn, user=Depends(require_admin)):
+    await db.reviews.update_one({"id": rid}, {"$set": {"public": body.public}})
+    return await db.reviews.find_one({"id": rid}, {"_id": 0})
+
+@router.delete("/reviews/{rid}")
+async def delete_review(rid: str, user=Depends(require_admin)):
+    await db.reviews.delete_one({"id": rid})
+    return {"ok": True}
+
+@router.get("/public/review-info/{token}")
+async def public_review_info(token: str, request: Request):
+    """Token = appointment_id. Returns appointment summary so the customer can confirm."""
+    public_rate_limit(request, key_suffix="review-info", limit=30, window_sec=600)
+    # No tenant context — find any appointment globally, then set tenant for follow-up ops
+    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
+    if not appt:
+        raise HTTPException(404, "Invalid review link")
+    if appt.get("tenant_id"):
+        _current_tenant_id.set(appt["tenant_id"])
+    if appt.get("status") not in ("completed", "scheduled"):
+        # Allow rating even if appointment isn't marked complete (some salons forget to mark)
+        pass
+    existing = await db.reviews.find_one({"appointment_id": token}, {"_id": 0})
+    # Enrich with tenant branding so the public review page can white-label
+    # correctly for each salon (Miracurl vs Elegance vs any future tenant).
+    salon_name = None
+    salon_location = None
+    if appt.get("tenant_id"):
+        t = await _raw_db.tenants.find_one({"id": appt["tenant_id"]}, {"_id": 0, "name": 1, "location": 1})
+        if t:
+            salon_name = t.get("name")
+            salon_location = t.get("location")
+    return {
+        "customer_name": appt["customer_name"],
+        "staff_name": appt.get("staff_name"),
+        "service_names": appt.get("service_names", []),
+        "scheduled_at": appt["scheduled_at"],
+        "already_submitted": existing is not None,
+        "existing_rating": existing.get("rating") if existing else None,
+        "salon_name": salon_name,
+        "salon_location": salon_location,
+    }
+
+@router.post("/public/review/{token}")
+async def public_review(token: str, body: ReviewIn, request: Request):
+    public_rate_limit(request, key_suffix="review", limit=10, window_sec=600)
+    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
+    if not appt:
+        raise HTTPException(404, "Invalid review link")
+    if appt.get("tenant_id"):
+        _current_tenant_id.set(appt["tenant_id"])
+    if await db.reviews.find_one({"appointment_id": token}):
+        raise HTTPException(400, "Review already submitted for this visit")
+
+    # SEC-002: only reward if the guest has actually paid — an invoice linked to
+    # this appointment OR any paid invoice for this customer. Prevents
+    # "book fake → review fake → mint ₹50" farming loops.
+    invoiced = await db.invoices.find_one(
+        {"$or": [{"appointment_id": token}, {"customer_id": appt["customer_id"]}]},
+        {"_id": 0, "id": 1})
+
+    reward_code = None
+    reward_amt = REVIEW_REWARD_CREDITS.get(body.rating, 0)
+    if reward_amt and invoiced:
+        cust_now = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0, "referral_credit": 1})
+        current_credit = float((cust_now or {}).get("referral_credit") or 0)
+        if current_credit < MAX_CUSTOMER_CREDIT:
+            reward_code = f"THANKS-{secrets.token_urlsafe(3).upper().replace('_', 'X').replace('-', 'Y')[:5]}"
+            await db.customers.update_one(
+                {"id": appt["customer_id"]},
+                {"$inc": {"referral_credit": reward_amt}},
+            )
+
+    review = Review(
+        appointment_id=token,
+        customer_id=appt["customer_id"],
+        customer_name=appt["customer_name"],
+        staff_id=appt.get("staff_id"),
+        staff_name=appt.get("staff_name"),
+        rating=body.rating,
+        comment=(body.comment or "").strip() or None,
+        public=body.rating >= 4,  # auto-public for 4★+, admin can change
+        reward_code=reward_code,
+    ).model_dump()
+    await db.reviews.insert_one(review)
+
+    if body.rating <= 3:
+        # Low ratings become a PRIVATE complaint for the owner — never published.
+        await db.complaints.insert_one({
+            "id": str(uuid.uuid4()), "appointment_id": token,
+            "customer_id": appt["customer_id"], "customer_name": appt["customer_name"],
+            "customer_phone": appt.get("customer_phone"),
+            "rating": body.rating, "service_names": appt.get("service_names", []),
+            "staff_name": appt.get("staff_name"),
+            "disappointed_service": (body.disappointed_service or "").strip() or None,
+            "message": (body.comment or "").strip() or None,
+            "status": "open", "created_at": datetime.now(timezone.utc).isoformat()})
+    return {
+        "ok": True,
+        "review": _clean(review),
+        "reward": {
+            "code": reward_code,
+            "credit": reward_amt if reward_code else 0,
+        } if reward_code else None,
+    }
+
+class ReviewDraftIn(BaseModel):
+    rating: int = Field(..., ge=4, le=5)
+
+
+@router.post("/public/review-draft/{token}")
+async def public_review_draft(token: str, body: ReviewDraftIn, request: Request):
+    """Mira writes a ready-to-paste Google review from the guest's actual visit (4-5★ only)."""
+    public_rate_limit(request, key_suffix="review-draft", limit=6, window_sec=600)
+    await durable_rate_limit(request, "review-draft", limit=6, window_sec=600)
+    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
+    if not appt:
+        raise HTTPException(404, "Invalid review link")
+    tid = appt.get("tenant_id")
+    if tid:
+        _current_tenant_id.set(tid)
+        await ai_daily_quota(tid, "review_draft", 100)
+    t = await _raw_db.tenants.find_one({"id": tid}, {"_id": 0, "name": 1, "location": 1, "google_review_url": 1}) or {}
+    from routes.mira_common import _ask
+    services = ", ".join(appt.get("service_names") or []) or "salon services"
+    stylist = appt.get("staff_name") or ""
+    text = await _ask(
+        "You write short, authentic-sounding Google reviews for happy salon customers. "
+        "Sound like a real person, not marketing. No hashtags. 2-4 sentences. At most one emoji.",
+        f"Customer {appt.get('customer_name', '')} just had {services}"
+        f"{' with stylist ' + stylist if stylist else ''} at {t.get('name', 'the salon')}"
+        f"{' (' + t.get('location', '') + ')' if t.get('location') else ''} and rated it {body.rating} stars. "
+        f"Write the review in first person. Mention the actual service(s) naturally.")
+    return {"text": text.strip().strip('"')[:600], "google_review_url": t.get("google_review_url") or ""}
+
+
+@router.get("/complaints")
+async def list_complaints(user=Depends(require_tenant_admin), t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
+    """PIN-locked: private low-rating complaints for the owner's eyes only."""
+    return await db.complaints.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+
+@router.post("/complaints/{cid}/resolve")
+async def resolve_complaint(cid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
+    res = await db.complaints.update_one(
+        {"id": cid}, {"$set": {"status": "resolved", "resolved_at": datetime.now(timezone.utc).isoformat(),
+                               "resolved_by": user.get("email")}})
+    if not res.matched_count:
+        raise HTTPException(404, "Complaint not found")
+    return {"ok": True}
+
+
+_TEST_REVIEW_FILTER = {"$nor": [{"customer_name": {"$regex": "^TEST", "$options": "i"}},
+                                {"comment": {"$regex": "^TEST", "$options": "i"}}]}
+
+
+@router.get("/public/reviews/featured/{slug}")
+async def public_featured_reviews(slug: str, limit: int = 6):
+    await resolve_tenant_from_slug(slug)
+    docs = await db.reviews.find(
+        {"public": True, "rating": {"$gte": 4}, **_TEST_REVIEW_FILTER},
+        {"_id": 0, "customer_id": 0, "appointment_id": 0, "staff_id": 0, "reward_code": 0}
+    ).sort("created_at", -1).to_list(limit)
+    return docs
+
+@router.get("/public/reviews/featured")
+async def public_featured_reviews_default(limit: int = 6):
+    return await public_featured_reviews(DEFAULT_TENANT_SLUG, limit)
+

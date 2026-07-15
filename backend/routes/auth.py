@@ -12,7 +12,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr, Field
 
-from database import db
+from database import db, _raw_db
 from models import Tenant
 from security import (
     JWT_ALG, jwt_secret, hash_pw, verify_pw, make_access, make_refresh,
@@ -333,6 +333,14 @@ async def forgot(body: ForgotIn, request: Request):
     public_rate_limit(request, key_suffix="forgotpw", limit=5, window_sec=3600)
     email = body.email.lower()
     user = await db.users.find_one({"email": email})
+    reset_recipient = email
+    if user and user.get("role") in ("staff", "employee"):
+        staff = await _raw_db.staff.find_one(
+            {"email": email}, {"_id": 0, "active": 1, "status": 1, "personal_email": 1})
+        if not staff or staff.get("active") is False or staff.get("status") in ("inactive", "archived"):
+            user = None  # ex-staff can't reset their way back in; response stays generic
+        elif staff.get("personal_email"):
+            reset_recipient = staff["personal_email"]
     if user:
         token = secrets.token_urlsafe(32)
         await db.password_reset_tokens.insert_one({
@@ -345,19 +353,19 @@ async def forgot(body: ForgotIn, request: Request):
         try:
             from email_service import _send_email
             await _send_email(
-                [email],
+                [reset_recipient],
                 "Reset your Miracurl password",
                 f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
                 f"<h2 style='margin:0 0 8px'>Password reset ✦</h2>"
-                f"<p style='color:#444'>Tap the button below to set a new password. "
-                f"This link works once and expires in 1 hour.</p>"
+                f"<p style='color:#444'>Tap the button below to set a new password for your login "
+                f"<b>{email}</b>. This link works once and expires in 1 hour.</p>"
                 f"<p style='margin:20px 0'><a href='{reset_link}' "
                 f"style='background:#e11d48;color:#fff;padding:12px 22px;border-radius:24px;"
                 f"text-decoration:none;font-weight:bold'>Set new password</a></p>"
                 f"<p style='color:#888;font-size:12px'>Didn't ask for this? You can safely ignore this email — "
                 f"your password stays unchanged.</p></div>")
         except Exception as e:
-            logging.error(f"reset email send failed for {email}: {e}")
+            logging.error(f"reset email send failed for {reset_recipient}: {e}")
         logging.info("[Miracurl] Password reset requested for %s (token %d chars)", email, len(token))
     return {"message": "If that email exists, a reset link was sent."}
 

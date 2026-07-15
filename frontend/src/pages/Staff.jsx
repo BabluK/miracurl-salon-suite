@@ -13,7 +13,7 @@ import { LeaveApprovalsPanel } from "@/components/staff/LeaveApprovalsPanel";
 import { StaffLeaderboard } from "@/components/staff/StaffLeaderboard";
 
 const EMPTY_FORM = {
-  name: "", role: "Stylist", phone: "", email: "", specialties: "",
+  name: "", role: "Stylist", phone: "", email: "", personal_email: "", specialties: "",
   commission_pct: 10, monthly_base_salary: 0, salary_visible: true,
   image_url: "", active: true, blood_group: "",
   shift_start: "10:00", shift_end: "21:00", overtime_rate: 0, week_off_day: "",

@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-15.1"
-BUILD_TIME = "15 Jul 2026, 12:15 AM IST"
+BUILD = "2026-07-15.2"
+BUILD_TIME = "15 Jul 2026, 08:00 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-15",
         "changes": [
+            "Every email now carries your brand ✦ — all outgoing emails (reports, birthday wishes, review requests, alerts) end with a 'Book Now' button and a 'Powered by Miracurl' footer, turning every email into a booking opportunity",
+            "Under the hood: engine room reorganised 🔧 — the backend was split from one giant file into 22 clean, domain-focused modules (customers, staff, billing, public booking, schedulers…). Nothing changes on screen, but future features ship faster and safer",
             "Locked out? Reset yourself 🔑 — 'Forgot Password' now emails a secure 1-hour reset link; setting a new password also clears any login lock instantly. Owners can still reset staff passwords from the Staff page",
             "Late staff auto-alerts ⏰ — 10 minutes after shift start with no check-in, staff get an automatic 'You're running late' email + a red banner and popup in their Staff Portal; owners receive a midday summary of the day's late arrivals",
         ],

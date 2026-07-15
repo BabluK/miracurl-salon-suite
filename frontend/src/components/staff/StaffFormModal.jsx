@@ -39,7 +39,8 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
             <div><label className="label-light block mb-1">Phone *</label><input data-testid="staff-phone-input" required className="input-light" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><label className="label-light block mb-1">Email</label><input type="email" className="input-light" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+            <div><label className="label-light block mb-1">Work email (salon login)</label><input type="email" className="input-light" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="riya@miracurl.com" /></div>
+            <div><label className="label-light block mb-1">Personal email (reset links & alerts)</label><input data-testid="staff-personal-email-input" type="email" className="input-light" value={form.personal_email || ""} onChange={e => setForm({ ...form, personal_email: e.target.value })} placeholder="riya.sharma@gmail.com" /></div>
             <div>
               <label className="label-light block mb-1">Blood Group</label>
               <select data-testid="staff-blood-group-input" className="input-light" value={form.blood_group || ""} onChange={e => setForm({ ...form, blood_group: e.target.value })}>
