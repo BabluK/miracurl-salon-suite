@@ -33,6 +33,7 @@ async def root():
 
 # ---------------- Routers (registration order preserved from the monolith) ----------------
 from routes.auth import router as auth_router  # noqa: E402
+from routes.manager_access import router as manager_access_router  # noqa: E402
 from routes.customers import router as customers_router  # noqa: E402
 from routes.uploads import router as uploads_router  # noqa: E402
 from routes.services_catalog import router as services_catalog_router  # noqa: E402
@@ -99,7 +100,7 @@ for _r in (
     packages_router, wallet_router, id_cards_router, releases_router,
     testimonials_router, diagnostics_router, subscriptions_router, day_offers_router,
     cctv_router, hiring_router, hq_notifications_router, winback_router,
-    employee_portal_router, hq_documents_router, mira_builder_router,
+    employee_portal_router, hq_documents_router, mira_builder_router, manager_access_router,
 ):
     api.include_router(_r)
 

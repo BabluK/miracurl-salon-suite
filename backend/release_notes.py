@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-15.11"
-BUILD_TIME = "15 Jul 2026, 9:45 PM IST"
+BUILD = "2026-07-15.12"
+BUILD_TIME = "15 Jul 2026, 11:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-15",
         "changes": [
+            "Managers now see the FULL menu 👔 — Staff, Attendance, AI CCTV, Hire Staff, Messages and Settings are all visible with a small gold lock. Opening a locked section asks for the Admin PIN, and every attempt (opened, denied, unlocked) is recorded",
+            "New 'Staff Activities' section 🔍 — a PIN-protected audit log where owners can see exactly which manager tried to open what and when, with denied/unlocked badges",
             "'Made with Mira ✦' gallery 🖼️ — the Studio homepage now shows the latest live websites built by real users (with live mini-previews). Instant social proof that turns visitors into builders",
             "Mira Studio is now a true chat experience 💬 — type your request, watch 'Agent is working…' and get 'Agent is finished ✦' bubbles for every build and change, with the live preview beside the chat. Changes now apply in the background too (no more timeouts on slow edits!)",
             "Power tools after every build 🧰 — upload your own photos (📎 in chat) to place on your website, run a one-tap Security Check 🛡 or Code Review 📋 on the generated code, and Push to GitHub with your personal access token (never stored)",

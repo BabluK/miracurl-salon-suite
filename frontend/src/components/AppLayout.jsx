@@ -5,8 +5,9 @@ import {
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
   Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot,
   Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck, Megaphone,
-  Landmark, FileText, Music, Sparkles, Cctv, Briefcase
+  Landmark, FileText, Music, Sparkles, Cctv, Briefcase, Activity, Lock
 } from "lucide-react";
+import { ManagerLockScreen } from "./ManagerLockScreen";
 import { FloatingPlayer } from "@/components/FloatingPlayer";
 import BranchSwitcher from "./BranchSwitcher";
 import SalonSwitcher from "./SalonSwitcher";
@@ -44,8 +45,12 @@ const NAV_ADMIN = [
   { to: "/gallery", label: "Gallery", icon: ImageIcon, testid: "nav-gallery" },
   { to: "/entertainment", label: "Entertainment", icon: Music, testid: "nav-entertainment" },
   { to: "/assistant", label: "AI Assistant", icon: Bot, testid: "nav-assistant" },
+  { to: "/staff-activities", label: "Staff Activities", icon: Activity, testid: "nav-staff-activities" },
   { to: "/settings", label: "Settings", icon: SettingsIcon, testid: "nav-settings" },
 ];
+
+// Sections a manager can only open with the Admin (Owner) PIN — every attempt is logged
+const MANAGER_LOCKED = ["/staff", "/cctv", "/attendance", "/hire", "/messages", "/settings", "/staff-activities"];
 
 const NAV_STAFF = [
   { to: "/staff-portal", label: "My Dashboard", icon: LayoutDashboard, testid: "nav-staff-portal" },
@@ -54,15 +59,7 @@ const NAV_STAFF = [
   { to: "/build-resume", label: "Build Your Resume", icon: FileText, testid: "nav-build-resume" },
 ];
 
-const NAV_MANAGER = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
-  { to: "/appointments", label: "Appointments", icon: Calendar, testid: "nav-appointments" },
-  { to: "/customers", label: "CRM", icon: Users, testid: "nav-customers" },
-  { to: "/services", label: "Services", icon: Scissors, testid: "nav-services" },
-  { to: "/pos", label: "POS / Billing", icon: ShoppingCart, testid: "nav-pos" },
-  { to: "/reviews", label: "Reviews", icon: Star, testid: "nav-reviews" },
-  { to: "/offers-studio", label: "Offer Maker", icon: Megaphone, testid: "nav-offers-studio" },
-];
+const NAV_MANAGER = NAV_ADMIN.filter((i) => i.to !== "/assistant");
 
 export default function AppLayout() {
   const { user, tenant, logout } = useAuth();
@@ -100,6 +97,12 @@ export default function AppLayout() {
 
   const NAV = user?.role === "staff" ? NAV_STAFF : user?.role === "manager" ? NAV_MANAGER : NAV_ADMIN;
   const current = NAV.find(n => loc.pathname.startsWith(n.to));
+
+  // Manager Admin-PIN gate: sensitive sections render a lock screen until unlocked this session
+  const [, setUnlockTick] = useState(0);
+  const lockedPath = user?.role === "manager"
+    ? MANAGER_LOCKED.find((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`)) : null;
+  const isLockedNow = lockedPath && !sessionStorage.getItem(`mgr_unlock:${lockedPath}`);
 
   // Booking notification poller — only for owners/admins. Fires a chime + OS
   // notification when a customer self-books via the public link.
@@ -178,6 +181,9 @@ export default function AppLayout() {
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
               <span>{item.label}</span>
+              {user?.role === "manager" && MANAGER_LOCKED.includes(item.to) && (
+                <Lock className="w-3 h-3 ml-auto text-amber-400/70" data-testid={`nav-lock-${item.to.slice(1)}`} />
+              )}
               {item.to === "/messages" && chatUnread > 0 && (
                 <span data-testid="nav-messages-unread" className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
                   {chatUnread}
@@ -285,7 +291,13 @@ export default function AppLayout() {
           data-testid="main-content"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5.5rem)" }}
         >
-          <Outlet />
+          {isLockedNow ? (
+            <ManagerLockScreen key={lockedPath} path={lockedPath}
+              label={NAV.find((i) => i.to === lockedPath)?.label || "This section"}
+              onUnlocked={() => { sessionStorage.setItem(`mgr_unlock:${lockedPath}`, "1"); setUnlockTick((v) => v + 1); }} />
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
 

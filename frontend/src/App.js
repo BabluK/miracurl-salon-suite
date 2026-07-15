@@ -21,6 +21,7 @@ import BookPublic from "@/pages/BookPublic";
 import PartnerLanding from "@/pages/PartnerLanding";
 import SuccessStories from "@/pages/SuccessStories";
 import MiraAIStudio from "@/pages/MiraAIStudio";
+import StaffActivities from "@/pages/StaffActivities";
 import ResetPassword from "@/pages/ResetPassword";
 import ReviewPublic from "@/pages/ReviewPublic";
 import SuperAdmin from "@/pages/SuperAdmin";
@@ -86,7 +87,7 @@ function AdminOnly({ children }) {
 function OwnerOnly({ children }) {
   const { user } = useAuth();
   if (user?.role === "staff") return <Navigate to="/staff-portal" replace />;
-  if (user?.role === "manager") return <Navigate to="/dashboard" replace />;
+  // managers get the full menu — sensitive sections are gated by the Admin PIN lock screen in AppLayout
   return children;
 }
 
@@ -176,6 +177,7 @@ export default function App() {
               <Route path="cctv" element={<OwnerOnly><CctvAnalytics /></OwnerOnly>} />
               <Route path="hire" element={<OwnerOnly><HireStaff /></OwnerOnly>} />
               <Route path="settings" element={<OwnerOnly><Settings /></OwnerOnly>} />
+              <Route path="staff-activities" element={<OwnerOnly><StaffActivities /></OwnerOnly>} />
             </Route>
             <Route path="/cctv-capture" element={<Protected><OwnerOnly><CctvCapture /></OwnerOnly></Protected>} />
             <Route path="/jobs" element={<JobsBoard />} />

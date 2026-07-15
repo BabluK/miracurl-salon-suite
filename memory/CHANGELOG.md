@@ -1187,3 +1187,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 
 ## Iter 110 (15 Jul 2026) — "Made with Mira ✦" showcase gallery
 - GET /api/public/mira-builder/showcase — last 6 live websites (deduped by name). Section on /mira.ai landing (mira-showcase): cards w/ browser chrome, scaled live iframe (400%/scale .25) over a verified category-image fallback (CAT_THUMBS map), name + category badge, opens live site. NOTE: loading="lazy" on transformed iframes never loads in Chromium — removed; headless screenshots don't composite OOPIF iframes (blank) but content verified via contentDocument (6.6KB body) + fallback image guarantees visuals. BUILD → 2026-07-15.11.
+
+## Iter 111 (15 Jul 2026) — Manager full menu + Admin-PIN gate + Staff Activities audit
+- NAV_MANAGER = full NAV_ADMIN (minus /assistant). MANAGER_LOCKED = [/staff,/cctv,/attendance,/hire,/messages,/settings,/staff-activities] show gold Lock icon; opening renders ManagerLockScreen (logs attempt on mount, auto-unlock if tenant has no security_pin_hash; PIN unlock per-session via sessionStorage mgr_unlock:{path}).
+- Backend routes/manager_access.py: POST /api/manager/section-access (admin bypass; manager: no pin → log 'attempted' + pin_required; wrong → _pin_attempt guard + 'denied'; right → 'unlocked'), GET /api/manager/activity-logs (require_owner_pin). Collection manager_activity_logs.
+- OwnerOnly in App.js no longer redirects managers (staff still redirected). New page StaffActivities.jsx (/staff-activities, admin+manager nav, pinApi → auto Owner PIN modal, StrictMode double-mount guarded).
+- FIXED during work: stray duplicated tail in AppLayout.jsx (compile error), lock-input contrast, StaffActivities double PIN modal.
+- Manager credential reset: manager@miracurl.com / Manager@1234 (test_credentials.md updated).
+- E2E verified via curl + screenshots: manager full nav w/ locks, lock screen, wrong/right PIN, staff page unlock, admin audit table w/ attempted/denied/unlocked rows. BUILD → 2026-07-15.12.
