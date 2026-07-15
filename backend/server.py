@@ -78,6 +78,7 @@ from routes.hq_notifications import router as hq_notifications_router  # noqa: E
 from routes.winback import router as winback_router  # noqa: E402
 from routes.employee_portal import router as employee_portal_router  # noqa: E402
 from routes.hq_documents import router as hq_documents_router  # noqa: E402
+from routes.mira_builder import router as mira_builder_router  # noqa: E402
 
 from seeds import backfill_tenant_ids, seed_super_admin, seed_default_tenant, seed_admin, seed_data  # noqa: E402
 from schedulers import (  # noqa: E402
@@ -98,7 +99,7 @@ for _r in (
     packages_router, wallet_router, id_cards_router, releases_router,
     testimonials_router, diagnostics_router, subscriptions_router, day_offers_router,
     cctv_router, hiring_router, hq_notifications_router, winback_router,
-    employee_portal_router, hq_documents_router,
+    employee_portal_router, hq_documents_router, mira_builder_router,
 ):
     api.include_router(_r)
 
