@@ -83,6 +83,29 @@ async def export_customers_csv(user=Depends(require_admin)):
     return Response(content=buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=customers.csv"})
 
+def _customer_row_doc(raw: dict) -> Optional[dict]:
+    """Normalize one CSV row → customer doc, or None when name/phone missing."""
+    row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
+    name, phone = row.get("name", ""), re.sub(r"[^\d+]", "", row.get("phone", ""))
+    if not name or not phone:
+        return None
+    doc = {"name": name, "phone": phone}
+    for f in ("email", "gender", "dob", "address", "notes"):
+        if row.get(f):
+            doc[f] = row[f]
+    return doc
+
+
+async def _upsert_customer(doc: dict) -> str:
+    """Insert or update by phone. Returns 'added' | 'updated'."""
+    existing = await db.customers.find_one({"phone": doc["phone"]})
+    if existing:
+        await db.customers.update_one({"id": existing["id"]}, {"$set": doc})
+        return "updated"
+    await db.customers.insert_one(Customer(**doc).model_dump())
+    return "added"
+
+
 @router.post("/customers/import")
 async def import_customers_csv(file: UploadFile = File(...), user=Depends(require_admin)):
     content = await _read_csv_upload(file)
@@ -90,25 +113,14 @@ async def import_customers_csv(file: UploadFile = File(...), user=Depends(requir
     fields = {(f or "").strip().lower() for f in (reader.fieldnames or [])}
     if not {"name", "phone"}.issubset(fields):
         raise HTTPException(400, "CSV needs columns: name, phone (optional: email, gender, dob, address, notes)")
-    added = updated = skipped = 0
+    counts = {"added": 0, "updated": 0, "skipped": 0}
     for raw in reader:
-        row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
-        name, phone = row.get("name", ""), re.sub(r"[^\d+]", "", row.get("phone", ""))
-        if not name or not phone:
-            skipped += 1
+        doc = _customer_row_doc(raw)
+        if doc is None:
+            counts["skipped"] += 1
             continue
-        doc = {"name": name, "phone": phone}
-        for f in ("email", "gender", "dob", "address", "notes"):
-            if row.get(f):
-                doc[f] = row[f]
-        existing = await db.customers.find_one({"phone": phone})
-        if existing:
-            await db.customers.update_one({"id": existing["id"]}, {"$set": doc})
-            updated += 1
-        else:
-            await db.customers.insert_one(Customer(**doc).model_dump())
-            added += 1
-    return {"added": added, "updated": updated, "skipped": skipped}
+        counts[await _upsert_customer(doc)] += 1
+    return counts
 
 @router.get("/customers/{cid}")
 async def get_customer(cid: str, user=Depends(get_current_user)):

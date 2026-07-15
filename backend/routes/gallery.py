@@ -108,22 +108,37 @@ _GALLERY_VID = {"mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/web
 _MAX_GALLERY_IMG = 5 * 1024 * 1024
 _MAX_GALLERY_VID = 25 * 1024 * 1024
 
-async def _store_gallery_media(t, data: bytes, ext: str, mime: str, kind: str, caption: str, source: str, uploaded_by: str, filename: str = ""):
+from dataclasses import dataclass
+
+
+@dataclass
+class GalleryMedia:
+    data: bytes
+    ext: str
+    mime: str
+    kind: str          # image | video
+    caption: str
+    source: str        # upload | ai
+    uploaded_by: str
+    filename: str = ""
+
+
+async def _store_gallery_media(t, media: GalleryMedia):
     file_id = str(uuid.uuid4())
-    storage_path = f"{APP_NAME}/tenants/{t['id']}/gallery/{file_id}.{ext}"
+    storage_path = f"{APP_NAME}/tenants/{t['id']}/gallery/{file_id}.{media.ext}"
     try:
-        result = _put_object(storage_path, data, mime)
+        result = _put_object(storage_path, media.data, media.mime)
     except requests.HTTPError as e:
         raise HTTPException(400, f"Storage upload failed: {e}") from e
     await _raw_db.uploads.insert_one({
         "id": file_id, "tenant_id": t["id"], "kind": "gallery",
         "storage_path": result.get("path", storage_path),
-        "original_filename": filename or f"{file_id}.{ext}",
-        "content_type": mime, "size": len(data), "uploaded_by": uploaded_by,
+        "original_filename": media.filename or f"{file_id}.{media.ext}",
+        "content_type": media.mime, "size": len(media.data), "uploaded_by": media.uploaded_by,
         "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
     })
-    doc = {"id": file_id, "url": f"/api/files/{file_id}", "kind": kind, "caption": caption,
-           "source": source, "created_at": datetime.now(timezone.utc).isoformat()}
+    doc = {"id": file_id, "url": f"/api/files/{file_id}", "kind": media.kind, "caption": media.caption,
+           "source": media.source, "created_at": datetime.now(timezone.utc).isoformat()}
     await db.gallery.insert_one(doc)
     return _clean(doc)
 
@@ -144,7 +159,9 @@ async def gallery_upload(file: UploadFile = File(...), caption: str = Query("", 
         validate_image_bytes(ext, data)
     if len(data) > cap:
         raise HTTPException(413, f"Too large — max {cap // (1024 * 1024)}MB for {kind}s")
-    return await _store_gallery_media(t, data, ext, mime, kind, caption, "upload", user["id"], file.filename or "")
+    return await _store_gallery_media(t, GalleryMedia(
+        data=data, ext=ext, mime=mime, kind=kind, caption=caption,
+        source="upload", uploaded_by=user["id"], filename=file.filename or ""))
 
 class PromoGenIn(BaseModel):
     prompt: str = Field(..., min_length=5, max_length=500)
@@ -165,7 +182,9 @@ async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin),
         raise HTTPException(400, f"Image generation failed: {e}")
     if not images:
         raise HTTPException(400, "No image was generated")
-    return await _store_gallery_media(t, images[0], "png", "image/png", "image", body.prompt, "ai", user["id"])
+    return await _store_gallery_media(t, GalleryMedia(
+        data=images[0], ext="png", mime="image/png", kind="image",
+        caption=body.prompt, source="ai", uploaded_by=user["id"]))
 
 @router.get("/gallery")
 async def list_gallery(user=Depends(get_current_user)):

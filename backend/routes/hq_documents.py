@@ -151,21 +151,13 @@ DOCS = {
 }
 
 
-def _doc_pdf(doc: dict) -> bytes:
-    import io
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas as rl_canvas
-    import textwrap
+_PDF_GOLD, _PDF_INK, _PDF_GREY = (0.72, 0.6, 0.25), (0.12, 0.12, 0.14), (0.4, 0.4, 0.45)
 
-    gold, ink, grey = (0.72, 0.6, 0.25), (0.12, 0.12, 0.14), (0.4, 0.4, 0.45)
-    buf = io.BytesIO()
-    c = rl_canvas.Canvas(buf, pagesize=A4)
-    W, H = A4
 
-    c.setFillColorRGB(*ink)
+def _pdf_doc_header(c, doc: dict, W, H, mm):
+    c.setFillColorRGB(*_PDF_INK)
     c.rect(0, H - 40 * mm, W, 40 * mm, stroke=0, fill=1)
-    c.setFillColorRGB(*gold)
+    c.setFillColorRGB(*_PDF_GOLD)
     c.setFont("Helvetica-Bold", 19)
     c.drawString(20 * mm, H - 20 * mm, doc["title"])
     c.setFillColorRGB(0.92, 0.92, 0.92)
@@ -175,14 +167,17 @@ def _doc_pdf(doc: dict) -> bytes:
     c.drawString(20 * mm, H - 34 * mm,
                  f"Miracurl Suite · miracurl-suite.com · issued {datetime.now(timezone.utc).strftime('%d %b %Y')}")
 
+
+def _pdf_doc_sections(c, doc: dict, W, H, mm):
+    import textwrap
     y = H - 50 * mm
     for heading, points in doc["sections"]:
         if y < 45 * mm:
             c.showPage(); y = H - 25 * mm
-        c.setFillColorRGB(*gold)
+        c.setFillColorRGB(*_PDF_GOLD)
         c.setFont("Helvetica-Bold", 12)
         c.drawString(20 * mm, y, heading.upper())
-        c.setStrokeColorRGB(*gold)
+        c.setStrokeColorRGB(*_PDF_GOLD)
         c.setLineWidth(0.7)
         c.line(20 * mm, y - 2 * mm, W - 20 * mm, y - 2 * mm)
         y -= 9 * mm
@@ -190,7 +185,7 @@ def _doc_pdf(doc: dict) -> bytes:
             for j, line in enumerate(textwrap.wrap(pt, 92)):
                 if y < 22 * mm:
                     c.showPage(); y = H - 25 * mm
-                c.setFillColorRGB(*ink)
+                c.setFillColorRGB(*_PDF_INK)
                 c.setFont("Helvetica", 10)
                 prefix = "•  " if j == 0 else "    "
                 c.drawString(22 * mm, y, prefix + line)
@@ -198,7 +193,19 @@ def _doc_pdf(doc: dict) -> bytes:
             y -= 1.5 * mm
         y -= 4 * mm
 
-    c.setFillColorRGB(*grey)
+
+def _doc_pdf(doc: dict) -> bytes:
+    import io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas as rl_canvas
+
+    buf = io.BytesIO()
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    W, H = A4
+    _pdf_doc_header(c, doc, W, H, mm)
+    _pdf_doc_sections(c, doc, W, H, mm)
+    c.setFillColorRGB(*_PDF_GREY)
     c.setFont("Helvetica-Oblique", 8)
     c.drawCentredString(W / 2, 12 * mm, "© Miracurl Suite — this document is part of the tenant onboarding pack")
     c.save()
@@ -222,32 +229,34 @@ async def document_pdf(key: str, user=Depends(require_super_admin)):
                     headers={"Content-Disposition": f'attachment; filename="miracurl-{key.replace("_", "-")}.pdf"'})
 
 
-@router.get("/super-admin/earnings")
-async def platform_earnings(user=Depends(require_super_admin)):
-    """Combined platform income — subscriptions + placement fees, last 6 months."""
+def _last_n_months(n: int) -> list:
     now = datetime.now(timezone.utc)
-    months = []
-    y, m = now.year, now.month
-    for _ in range(6):
+    months, y, m = [], now.year, now.month
+    for _ in range(n):
         months.append(f"{y:04d}-{m:02d}")
         m -= 1
         if m == 0:
             y, m = y - 1, 12
     months.reverse()
+    return months
 
-    subs = {mo: 0.0 for mo in months}
-    fees = {mo: 0.0 for mo in months}
-    async for p in _raw_db.subscription_payments.find(
-            {"status": {"$nin": ["created", "failed"]}},
-            {"_id": 0, "amount": 1, "paid_at": 1, "created_at": 1}):
-        mo = (p.get("paid_at") or p.get("created_at") or "")[:7]
-        if mo in subs:
-            subs[mo] += float(p.get("amount") or 0)
-    async for f in _raw_db.placement_fees.find({"status": "paid"}, {"_id": 0, "amount": 1, "paid_at": 1, "created_at": 1}):
-        mo = (f.get("paid_at") or f.get("created_at") or "")[:7]
-        if mo in fees:
-            fees[mo] += float(f.get("amount") or 0)
 
+async def _monthly_sums(coll, flt: dict, months: list) -> dict:
+    """Sum `amount` per YYYY-MM (keyed on paid_at, falling back to created_at)."""
+    sums = {mo: 0.0 for mo in months}
+    async for rec in coll.find(flt, {"_id": 0, "amount": 1, "paid_at": 1, "created_at": 1}):
+        mo = (rec.get("paid_at") or rec.get("created_at") or "")[:7]
+        if mo in sums:
+            sums[mo] += float(rec.get("amount") or 0)
+    return sums
+
+
+@router.get("/super-admin/earnings")
+async def platform_earnings(user=Depends(require_super_admin)):
+    """Combined platform income — subscriptions + placement fees, last 6 months."""
+    months = _last_n_months(6)
+    subs = await _monthly_sums(_raw_db.subscription_payments, {"status": {"$nin": ["created", "failed"]}}, months)
+    fees = await _monthly_sums(_raw_db.placement_fees, {"status": "paid"}, months)
     series = [{"month": mo, "label": calendar.month_abbr[int(mo[5:7])],
                "subscriptions": round(subs[mo], 2), "placement_fees": round(fees[mo], 2)}
               for mo in months]
@@ -381,22 +390,55 @@ def _demo_pricing_block(plans: list | None) -> str:
   </td></tr>"""
 
 
+def _demo_modules_block() -> str:
+    m = _demo_module
+    return f"""
+  <tr><td style="padding:8px 24px 4px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr>{m("📅", "Appointments &amp; 24/7 Online Booking", "Your own public booking page with Mira, the AI receptionist — customers book even while you sleep.")}
+          {m("🧾", "Smart POS &amp; GST Billing", "Fast counter billing, e-receipts by email &amp; SMS, coupons, memberships and loyalty points.")}</tr>
+      <tr>{m("✨", "Mira AI Marketing Studio", "Daily social posts, promo videos, flash offers and win-back campaigns — created for you, automatically.")}
+          {m("👥", "Verified Staff &amp; Hiring", "Aadhaar-verified staff registry, QR ID cards and a curated hiring marketplace when you need talent.")}</tr>
+      <tr>{m("📊", "Reports &amp; Weekly Digests", "Revenue analytics, staff leaderboards and business summaries delivered to your inbox.")}
+          {m("🔐", "Secure &amp; Multi-branch", "Bank-grade security, per-salon data isolation, and every branch under one account.")}</tr>
+    </table>
+  </td></tr>"""
+
+
+def _demo_footer_blocks(hq_email: str) -> str:
+    return f"""
+  <tr><td style="padding:22px 36px 6px">
+    <div style="background:#f7f6f2;border-radius:12px;padding:16px 20px">
+      <div style="font-size:12px;letter-spacing:1.5px;color:#9a8f6d;font-weight:bold">📎 ATTACHED FOR YOU</div>
+      <div style="font-size:13px;color:#55555f;line-height:1.7;margin-top:6px">
+        Complete Suite Overview &nbsp;·&nbsp; Sales Brochure with real app screenshots &nbsp;·&nbsp; Onboarding Policy &nbsp;·&nbsp; Hiring Policy &nbsp;·&nbsp; Terms &amp; Conditions —
+        everything you need to review at leisure, before we ever speak.</div>
+    </div>
+  </td></tr>
+  <tr><td style="padding:20px 36px 30px">
+    <p style="font-size:14px;color:#55555f;line-height:1.7;margin:0">
+      Thank you so much for your time — we'd be honoured to show you what Miracurl can do for your salon.</p>
+    <p style="font-size:14px;color:#33333b;line-height:1.7;margin:12px 0 0">Warm regards,<br>
+      <b style="font-family:Georgia,serif">The Miracurl Team</b><br>
+      <span style="font-size:12px;color:#8f8798">miracurl-suite.com · {html_lib.escape(hq_email)}</span></p>
+  </td></tr>
+  <tr><td style="background:#15151b;padding:16px 36px;text-align:center">
+    <div style="color:#6d675c;font-size:11px">© Miracurl Suite — sent with care from Miracurl HQ. If this isn't relevant, simply ignore this email.</div>
+  </td></tr>"""
+
+
 def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str,
                      plans: list | None = None, track_base: str = "", invite_id: str = "") -> str:
     name = html_lib.escape(recipient_name or "").strip()
     salon = html_lib.escape(salon_name or "").strip()
     greeting = f"Dear {name}," if name else "Dear Salon Owner,"
     salon_line = f" at <b>{salon}</b>" if salon else ""
-    note_block = _demo_note_block(note)
     mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
               f"&body=Hi%20Miracurl%20team%2C%0A%0AI%27d%20love%20a%20demo%20of%20the%20Miracurl%20Salon%20Suite."
               f"%0AMy%20preferred%20time%3A%20%0AMy%20salon%3A%20%0APhone%3A%20%0A%0AThank%20you!")
     cta_href = f"{track_base}/api/public/demo-track/{invite_id}/click" if (track_base and invite_id) else mailto
     pixel = (f'<img src="{track_base}/api/public/demo-track/{invite_id}/open.png" width="1" height="1" '
              f'style="display:block;width:1px;height:1px;border:0" alt="">') if (track_base and invite_id) else ""
-    _module = _demo_module
-    agents_block = _demo_agents_block()
-    pricing_block = _demo_pricing_block(plans)
 
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
@@ -420,42 +462,16 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
       We know your day is busy, so the demo takes just <b>20 minutes</b>, at a time of your choosing —
       and you're free to simply watch, ask questions, or explore at your own pace.</p>
   </td></tr>
-  {note_block}
-  <tr><td style="padding:8px 24px 4px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-      <tr>{_module("📅", "Appointments &amp; 24/7 Online Booking", "Your own public booking page with Mira, the AI receptionist — customers book even while you sleep.")}
-          {_module("🧾", "Smart POS &amp; GST Billing", "Fast counter billing, e-receipts by email &amp; SMS, coupons, memberships and loyalty points.")}</tr>
-      <tr>{_module("✨", "Mira AI Marketing Studio", "Daily social posts, promo videos, flash offers and win-back campaigns — created for you, automatically.")}
-          {_module("👥", "Verified Staff &amp; Hiring", "Aadhaar-verified staff registry, QR ID cards and a curated hiring marketplace when you need talent.")}</tr>
-      <tr>{_module("📊", "Reports &amp; Weekly Digests", "Revenue analytics, staff leaderboards and business summaries delivered to your inbox.")}
-          {_module("🔐", "Secure &amp; Multi-branch", "Bank-grade security, per-salon data isolation, and every branch under one account.")}</tr>
-    </table>
-  </td></tr>
-  {agents_block}
-  {pricing_block}
+  {_demo_note_block(note)}
+  {_demo_modules_block()}
+  {_demo_agents_block()}
+  {_demo_pricing_block(plans)}
   <tr><td align="center" style="padding:26px 36px 8px">
     <a href="{cta_href}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
        text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">Request my demo time ✦</a>
     <div style="font-size:12px;color:#8f8798;margin-top:12px">Or simply reply to this email with a day &amp; time that suits you — we'll fit around your schedule.</div>
   </td></tr>
-  <tr><td style="padding:22px 36px 6px">
-    <div style="background:#f7f6f2;border-radius:12px;padding:16px 20px">
-      <div style="font-size:12px;letter-spacing:1.5px;color:#9a8f6d;font-weight:bold">📎 ATTACHED FOR YOU</div>
-      <div style="font-size:13px;color:#55555f;line-height:1.7;margin-top:6px">
-        Complete Suite Overview &nbsp;·&nbsp; Sales Brochure with real app screenshots &nbsp;·&nbsp; Onboarding Policy &nbsp;·&nbsp; Hiring Policy &nbsp;·&nbsp; Terms &amp; Conditions —
-        everything you need to review at leisure, before we ever speak.</div>
-    </div>
-  </td></tr>
-  <tr><td style="padding:20px 36px 30px">
-    <p style="font-size:14px;color:#55555f;line-height:1.7;margin:0">
-      Thank you so much for your time — we'd be honoured to show you what Miracurl can do for your salon.</p>
-    <p style="font-size:14px;color:#33333b;line-height:1.7;margin:12px 0 0">Warm regards,<br>
-      <b style="font-family:Georgia,serif">The Miracurl Team</b><br>
-      <span style="font-size:12px;color:#8f8798">miracurl-suite.com · {html_lib.escape(hq_email)}</span></p>
-  </td></tr>
-  <tr><td style="background:#15151b;padding:16px 36px;text-align:center">
-    <div style="color:#6d675c;font-size:11px">© Miracurl Suite — sent with care from Miracurl HQ. If this isn't relevant, simply ignore this email.</div>
-  </td></tr>
+  {_demo_footer_blocks(hq_email)}
 </table>
 </td></tr></table>{pixel}</body></html>"""
 

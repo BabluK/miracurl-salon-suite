@@ -92,17 +92,19 @@ def _joined(names: list, lang: str) -> str:
     return f"{', '.join(names[:-1])}{sep}{names[-1]}"
 
 
-def _staff_sentence(staff_st: dict, lang: str) -> str:
-    ci, ni, ol = len(staff_st["checked_in"]), len(staff_st["not_checked_in"]), staff_st["on_leave"]
+def _staff_sentence_hi(ci: int, ni: int, ol: list) -> str:
     s = ""
-    if lang == "hi":
-        if ci:
-            s += f"{ci} स्टाफ चेक-इन कर चुके हैं" + (f", {ni} अभी बाकी हैं। " if ni else "। ")
-        elif ni:
-            s += "टीम ने अभी चेक-इन नहीं किया है। "
-        if ol:
-            s += f"{_joined(ol, 'hi')} आज छुट्टी पर हैं। "
-        return s
+    if ci:
+        s += f"{ci} स्टाफ चेक-इन कर चुके हैं" + (f", {ni} अभी बाकी हैं। " if ni else "। ")
+    elif ni:
+        s += "टीम ने अभी चेक-इन नहीं किया है। "
+    if ol:
+        s += f"{_joined(ol, 'hi')} आज छुट्टी पर हैं। "
+    return s
+
+
+def _staff_sentence_en(ci: int, ni: int, ol: list) -> str:
+    s = ""
     if ci:
         s += f"{ci} of your team {'have' if ci != 1 else 'has'} checked in"
         s += f", {ni} {'are' if ni != 1 else 'is'} yet to arrive. " if ni else ". "
@@ -111,6 +113,11 @@ def _staff_sentence(staff_st: dict, lang: str) -> str:
     if ol:
         s += f"{_joined(ol, 'en')} {'are' if len(ol) > 1 else 'is'} on approved leave today — plan the roster accordingly. "
     return s
+
+
+def _staff_sentence(staff_st: dict, lang: str) -> str:
+    ci, ni, ol = len(staff_st["checked_in"]), len(staff_st["not_checked_in"]), staff_st["on_leave"]
+    return _staff_sentence_hi(ci, ni, ol) if lang == "hi" else _staff_sentence_en(ci, ni, ol)
 
 
 def _notif_sentence(notif: dict, lang: str) -> str:

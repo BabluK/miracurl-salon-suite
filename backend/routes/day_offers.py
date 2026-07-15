@@ -269,27 +269,32 @@ class ReflyerIn(BaseModel):
     template: str | None = None
 
 
+def _offer_flyer_in(doc: dict, template: str):
+    from routes.offer_flyer import FlyerIn
+    return FlyerIn(
+        template=template,
+        headline=doc["title"],
+        offer_text=doc["offer_text"],
+        services=[f"{s['name']} ₹{s['offer_price']:.0f}" for s in doc["services"]],
+        valid_until=f"Today only · {doc['day_name']}")
+
+
 @router.post("/day-offers/regenerate-flyer")
 async def regenerate_flyer(body: ReflyerIn = ReflyerIn(), user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Fresh poster design for today's accepted offer — the offer itself doesn't change."""
-    import random
+    import secrets as _secrets
     today = _today_ist().date().isoformat()
     doc = await _raw_db.day_offers.find_one(
         {"tenant_id": t["id"], "date": today, "status": "accepted", "kind": {"$ne": "flash"}}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "No accepted offer today")
-    from routes.offer_flyer import FlyerIn, create_flyer, TEMPLATES
+    from routes.offer_flyer import create_flyer, TEMPLATES
     if body.template and body.template in TEMPLATES:
         template = body.template
     else:
         choices = [k for k in TEMPLATES if k != doc.get("flyer_template")] or list(TEMPLATES)
-        template = random.choice(choices)
-    flyer = await create_flyer(FlyerIn(
-        template=template,
-        headline=doc["title"],
-        offer_text=doc["offer_text"],
-        services=[f"{s['name']} ₹{s['offer_price']:.0f}" for s in doc["services"]],
-        valid_until=f"Today only · {doc['day_name']}"), user=user, t=t)
+        template = _secrets.choice(choices)
+    flyer = await create_flyer(_offer_flyer_in(doc, template), user=user, t=t)
     patch = {"flyer_id": flyer["id"], "flyer_url": flyer["url"], "flyer_template": template}
     await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
     return {"offer": {**doc, **patch}}
@@ -300,27 +305,17 @@ class AcceptIn(BaseModel):
     template: str = "dark_glam"
 
 
-@router.post("/day-offers/accept")
-async def accept_offer(body: AcceptIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Owner said YES — lock the offer for today, generate a flyer and auto-post to Google Business."""
-    doc = await _raw_db.day_offers.find_one({"id": body.offer_id, "tenant_id": t["id"]}, {"_id": 0})
-    if not doc:
-        raise HTTPException(404, "Offer suggestion not found — ask Mira again")
-    if doc["status"] == "accepted" and doc.get("flyer_url"):
-        return {"offer": doc}
-    from routes.offer_flyer import FlyerIn, create_flyer
-    flyer_body = FlyerIn(
-        template=body.template,
-        headline=doc["title"],
-        offer_text=doc["offer_text"],
-        services=[f"{s['name']} ₹{s['offer_price']:.0f}" for s in doc["services"]],
-        valid_until=f"Today only · {doc['day_name']}")
+async def _accept_flyer(doc: dict, template: str, user, t) -> tuple:
+    from routes.offer_flyer import create_flyer
     try:
-        flyer = await create_flyer(flyer_body, user=user, t=t)
-        flyer_id, flyer_url = flyer["id"], flyer["url"]
+        flyer = await create_flyer(_offer_flyer_in(doc, template), user=user, t=t)
+        return flyer["id"], flyer["url"]
     except Exception as e:
         logging.getLogger("day_offers").warning(f"flyer generation failed, accepting without flyer: {e}")
-        flyer_id, flyer_url = None, None
+        return None, None
+
+
+async def _auto_post_socials(request: Request, t: dict, doc: dict, flyer_url) -> tuple:
     google_post, meta_post = None, None
     try:
         from routes.social_connect import publish_google_post, publish_content, _base
@@ -337,6 +332,19 @@ async def accept_offer(body: AcceptIn, request: Request, user=Depends(require_te
     except Exception as e:
         logging.getLogger("day_offers").warning(f"social auto-post failed: {e}")
         google_post = google_post or {"ok": False, "error": str(e)[:200]}
+    return google_post, meta_post
+
+
+@router.post("/day-offers/accept")
+async def accept_offer(body: AcceptIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner said YES — lock the offer for today, generate a flyer and auto-post to Google Business."""
+    doc = await _raw_db.day_offers.find_one({"id": body.offer_id, "tenant_id": t["id"]}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Offer suggestion not found — ask Mira again")
+    if doc["status"] == "accepted" and doc.get("flyer_url"):
+        return {"offer": doc}
+    flyer_id, flyer_url = await _accept_flyer(doc, body.template, user, t)
+    google_post, meta_post = await _auto_post_socials(request, t, doc, flyer_url)
     patch = {"status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat(),
              "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post, "meta_post": meta_post}
     await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
