@@ -122,6 +122,10 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 sm:px-10 py-4 flex items-center justify-between">
           <BrandMark variant="dark" size="md" />
           <div className="flex items-center gap-3 sm:gap-7 text-sm">
+            <Link to="/mira.ai" data-testid="nav-mira-studio-link"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-300/40 bg-amber-300/10 text-amber-300 hover:bg-amber-300/20 font-medium transition-colors">
+              ✦ Mira AI Studio
+            </Link>
             <a href="#features" data-testid="nav-features-link" className="hidden sm:block text-white/70 hover:text-white transition-colors">Features</a>
             <a href="#pricing" data-testid="nav-pricing-link" className="hidden sm:block text-white/70 hover:text-white transition-colors">Pricing</a>
             <Link to="/staff-registry" data-testid="landing-verify-staff" className="hidden md:block text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Verify Staff — Free</Link>
@@ -343,6 +347,7 @@ export default function Landing() {
               <a href="#features" className="hover:text-white transition-colors">Features</a>
               <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
               <Link to="/staff-registry" className="hover:text-white transition-colors">Verify staff (free)</Link>
+              <Link to="/mira.ai" className="text-amber-300/70 hover:text-amber-300 transition-colors">Mira AI Studio ✦</Link>
             </div>
           </div>
         </div>

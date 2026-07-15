@@ -1160,3 +1160,4 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - LUXURY REDESIGN of MiraAIStudio.jsx per design_guidelines.json ("Old Money Tech"): #0A0809 base, gold #D4AF37 + pink #FF4081 gradient CTAs, Playfair serif hero w/ gradient "build", dark salon hero bg image, glowing gradient-border prompt box, bento feature grid, agent pipeline strip, studio tools row, free-credits pricing CTA, framer-motion entrances, redesigned auth/buy modals. All logic + data-testids unchanged. Verified via screenshots (hero, features, pricing, both modals).
 - release_notes.py BUILD bumped to 2026-07-15.6 (Studio launch + redesign entries).
 - NOTE from tester: studio JWTs share jwt_secret with salon SaaS (collections separate, safe today) — consider 'aud':'studio' claim later.
+- Landing.jsx: added "✦ Mira AI Studio" gold pill link in navbar + footer link → /mira.ai (user couldn't find studio from homepage). Verified click navigates.
