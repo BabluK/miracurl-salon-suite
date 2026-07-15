@@ -41,12 +41,18 @@ export default function Reports() {
   };
 
   const load = useCallback(async () => {
-    const [a, b] = await Promise.all([
-      api.get(`/reports/sales?start=${start}&end=${end}`),
-      api.get(`/reports/staff-commission?start=${start}&end=${end}&pct=${pct}`),
-    ]);
-    setData(a.data);
-    setCommission(b.data);
+    try {
+      const a = await api.get(`/reports/sales?start=${start}&end=${end}`);
+      setData(a.data);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't load sales report");
+    }
+    try {
+      const b = await pinApi.get(`/reports/staff-commission?start=${start}&end=${end}&pct=${pct}`);
+      setCommission(b.data);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Commission report needs the Owner PIN");
+    }
   }, [start, end, pct]);
   useEffect(() => { load(); }, [load]);
 

@@ -1,0 +1,28 @@
+{
+  "summary": "Frontend retest of Owner-PIN flows for manager & admin PASSED. All previously failing scenarios (manager Refer & Earn, manager Reports commission, manager unlock-rate) now work. Admin regression also passes. Note: React.StrictMode is enabled in dev, causing the PIN modal to appear twice (double-invoke of useEffect) on Refer & Earn and Reports/staff-commission — user has to submit PIN twice in dev preview. In production build StrictMode does not double-invoke, so this is DEV-ONLY. Not a functional bug but a UX annoyance in dev preview.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ownerPin.js + useEffect", "issue": "React.StrictMode causes double useEffect invocation in dev → two stacked owner-pin modals on Refer & Earn (and staff-commission on Reports). User must submit PIN twice in the preview environment. Works in production build. Consider guarding pinApi requests or dismissing already-shown modal when a new PIN request comes in.", "selector": "[data-testid='owner-pin-modal']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "OPTIONAL/LOW: Deduplicate concurrent PIN prompts in /app/frontend/src/lib/ownerPin.js so simultaneous 403 responses share a single askPin() promise (avoids double-modal on Refer & Earn and Reports in dev/StrictMode).",
+    "Existing 'Failed to load resource: 401' at /login is expected (unauthenticated /me probe) — safe to ignore."
+  ],
+  "critical_code_review_comments": [
+    "ownerPin.js does not coalesce parallel PIN prompts — if two API calls 403 simultaneously (e.g., due to StrictMode or intentional parallel calls), two overlays stack. Fix: share a single in-flight askPin() promise.",
+    "Reports.jsx load() fires two independent try/catch API calls in useEffect; combined with StrictMode this produces 2x staff-commission → 2x PIN modal in dev."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped as requested)", "frontend": "100%"},
+  "test_credentials": "manager@miracurl.com / Manager@1234 ; admin@miracurl.com / q6QY@tn3p#9DtL ; Owner PIN 4321 ; tenant miracurl-marathahalli",
+  "seed_data_creation": "None. Did not touch [SIM-TEST] social post per instructions.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Verified retest scope: (1) Manager Refer & Earn → PIN modal appears, submitting 4321 renders refer-earn-page with referral link ?ref=miracurl-marathahalli, credits=₹0, 1 referral 'Test Referred Salon'. (2) Manager Reports → sales report renders immediately (no error overlay); staff-commission fires PIN modal, after 4321 the commission-card shows 2 rows (Priya Sharma ₹78,950/₹23,685; Rahul Verma ₹30,200/₹9,060). (3) Manager clicking commission-rate-unlock-btn works (used cached PIN, toast 'Commission rate unlocked ✦', commission-pct enabled) — NO 'Admin role required'. (4) Admin regression on both Reports and Refer & Earn works after PIN prompt. Only nit: StrictMode double useEffect in dev produces 2 stacked PIN modals; test script handled by submitting the last modal repeatedly.",
+  "rca of the issue": "Previous 403 'Admin role required' was fixed by main agent switching /reports/sales, /reports/staff-commission, /settings/verify-owner-pin and /settings/affiliate from require_admin_only to require_admin (which includes manager) + require_owner_pin, and by routing frontend calls through pinApi. Verified end-to-end via UI. Remaining minor: PIN modal duplication only in dev StrictMode — non-blocking."
+}

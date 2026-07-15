@@ -251,7 +251,7 @@ async def update_tax_settings(body: TaxSettingsIn, user=Depends(require_tenant_a
 
 
 @router.get("/settings/affiliate")
-async def get_affiliate_summary(user=Depends(require_tenant_admin), t=Depends(current_tenant),
+async def get_affiliate_summary(user=Depends(require_admin), t=Depends(current_tenant),
                                 _pin=Depends(require_owner_pin)):
     """Returns the salon's referral link, earned credits, and list of referred salons."""
     cursor = db.affiliate_referrals.find(

@@ -238,7 +238,7 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
 
 
 @router.get("/reports/sales")
-async def sales_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(require_tenant_admin)):
+async def sales_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(require_admin)):
     flt = {}
     if start and end:
         flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
@@ -290,7 +290,8 @@ async def staff_commission_report(
     start: Optional[str] = None,
     end: Optional[str] = None,
     pct: float = 30.0,
-    user=Depends(require_tenant_admin),
+    user=Depends(require_admin),
+    _pin=Depends(require_owner_pin),
 ):
     """Per-stylist gross revenue + commission for invoices in [start, end].
     Item-level staff_id wins; falls back to invoice.staff_id if a line has none.
@@ -384,7 +385,7 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 
 @router.post("/settings/verify-owner-pin", dependencies=[Depends(require_owner_pin)])
-async def verify_owner_pin_only(user=Depends(require_tenant_admin)):
+async def verify_owner_pin_only(user=Depends(require_admin)):
     """No-op endpoint used by the UI to unlock PIN-gated controls (e.g. commission rate)."""
     return {"ok": True}
 

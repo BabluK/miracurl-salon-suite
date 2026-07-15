@@ -32,15 +32,22 @@ async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session:
 
 
 async def _ask_json(system: str, prompt: str) -> dict:
-    raw = await _ask(system + " Reply with ONLY valid minified JSON, no markdown, no prose.", prompt)
-    raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        start, end = raw.find("{"), raw.rfind("}")
-        if start >= 0 and end > start:
-            return json.loads(raw[start:end + 1])
-        raise HTTPException(400, "AI returned an unexpected format — please try again")
+    sys = system + " Reply with ONLY valid minified JSON, no markdown, no prose."
+    for attempt in range(2):
+        raw = await _ask(sys, prompt)
+        raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            start, end = raw.find("{"), raw.rfind("}")
+            if start >= 0 and end > start:
+                try:
+                    return json.loads(raw[start:end + 1])
+                except json.JSONDecodeError:
+                    pass
+            if attempt == 0:
+                log.warning("AI returned malformed JSON — retrying once")
+    raise HTTPException(400, "AI returned an unexpected format — please try again")
 
 
 async def _gen_image(prompt: str, t: dict, kind: str) -> str:
