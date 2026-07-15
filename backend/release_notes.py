@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-15.6"
-BUILD_TIME = "15 Jul 2026, 4:30 PM IST"
+BUILD = "2026-07-15.7"
+BUILD_TIME = "15 Jul 2026, 5:15 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-15",
         "changes": [
+            "Mira AI Studio now on the homepage 🏠 — a golden '✦ Mira AI Studio' link in the top menu plus a stunning 'Built with AI' showcase section with a live animated demo (watch a prompt turn into a website!) so visitors can discover the Studio and grab their 50 free credits",
             "Introducing Mira AI Studio ✦ (/mira.ai) — a brand-new platform where anyone can build a full website or business app from one sentence! Sign up for 50 free credits, watch Mira's agent team plan → design → code → test → deploy, get a LIVE URL in ~60 seconds, refine with prompts and download the full code. Credit top-ups via Razorpay",
             "Mira AI Studio wears couture 👗 — the studio page got a luxury redesign: gold & rose gradients, elegant serif headlines, glowing prompt box and a premium builder showcase that matches the Miracurl brand",
             "Your booking page just got smarter 💇 — guests now filter services by Everyone / Women / Men, and Mira's gender tags make sure men only see men's + unisex services (and vice-versa). Faster booking, fewer drop-offs",

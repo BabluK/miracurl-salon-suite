@@ -1161,3 +1161,4 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - release_notes.py BUILD bumped to 2026-07-15.6 (Studio launch + redesign entries).
 - NOTE from tester: studio JWTs share jwt_secret with salon SaaS (collections separate, safe today) — consider 'aud':'studio' claim later.
 - Landing.jsx: added "✦ Mira AI Studio" gold pill link in navbar + footer link → /mira.ai (user couldn't find studio from homepage). Verified click navigates.
+- MiraStudioShowcase.jsx (new): "Built with AI" section on Landing (after features, before SoftwareFlowSection) — copy + CTA to /mira.ai + self-contained animated demo (typing prompt → Planner/Design/Code/Test/Deploy pipeline lights up → mock browser site fades in, loops every ~12s). Verified both phases via screenshots. release_notes BUILD → 2026-07-15.7.

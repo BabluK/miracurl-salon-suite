@@ -7,6 +7,7 @@ import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { DemoCarousel } from "@/components/DemoCarousel";
 import { PartnerGrid } from "@/components/PartnerGrid";
 import { SoftwareFlowSection } from "@/components/SoftwareFlowSection";
+import { MiraStudioShowcase } from "@/components/MiraStudioShowcase";
 import api from "@/lib/api";
 
 const IMG = {
@@ -254,6 +255,9 @@ export default function Landing() {
           })}
         </div>
       </section>
+
+      {/* Mira AI Studio — built with AI showcase */}
+      <MiraStudioShowcase />
 
       {/* Software flow — neon 3D timeline */}
       <SoftwareFlowSection />
