@@ -63,6 +63,9 @@ export default function MiraStudio() {
         const { data } = await api.get("/mira-studio/leads"); setResult({ type: "leads", ...data });
       } else if (agent === "staff_verify") {
         const { data } = await api.get("/mira-studio/staff-verification"); setResult({ type: "staff", ...data });
+      } else if (agent === "google_post") {
+        const { data } = await api.post("/mira-studio/google/post", { topic, with_image: true });
+        setResult({ type: "google_post", topic, ...data });
       } else if (agent === "google" && conns.google_business) {
         const { data } = await api.get("/social/google/reviews");
         setResult({ type: "greviews", ...data });
@@ -139,10 +142,17 @@ export default function MiraStudio() {
       {tab === "history" && <SocialHistoryPanel />}
 
       {tab === "agents" && <>
-      <MiraSocialNudge variant="studio" onSuggest={() => {
+      <MiraSocialNudge variant="studio" onSuggest={(kind) => {
+        if (kind === "specific") {
+          toast.info("Tell Mira what you'd like to post ✦");
+          document.querySelector('[data-testid="mira-studio-input"]')?.focus();
+          return;
+        }
         setResult(null);
-        setReply("✨ On it! Crafting a fresh offer to bring guests in…");
-        runAgent("social", "an irresistible limited-time salon offer for today to bring more customers in");
+        setReply(kind === "package" ? "✨ Crafting a tempting package deal for you…" : "✨ On it! Crafting a fresh offer to bring guests in…");
+        runAgent("social", kind === "package"
+          ? "an attractive salon package deal bundling popular services at a great price, to promote today"
+          : "an irresistible limited-time salon offer for today to bring more customers in");
       }} />
       {/* Agent grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" data-testid="mira-agent-grid">
@@ -267,6 +277,8 @@ function ResultView({ result, conns = {}, onRegen }) {
         </div>
       )}
 
+      {r.type === "google_post" && <GooglePostResult r={r} />}
+
       {["content"].includes(r.type) && r.result && (
         <Block label="Content" copyText={`${r.result.title}\n\n${r.result.body}\n\n${r.result.cta}`}>
           <p className="font-semibold text-slate-800">{r.result.title}</p>
@@ -355,6 +367,77 @@ function ResultView({ result, conns = {}, onRegen }) {
           </Block>
         </>
       )}
+    </div>
+  );
+}
+
+function GooglePostResult({ r }) {
+  const [state, setState] = useState({ posted: r.posted, needs: r.needs_confirmation, result: r.result, busy: false, declined: false });
+  const draft = r.draft || {};
+
+  const postNow = async () => {
+    setState(s => ({ ...s, busy: true }));
+    try {
+      const { data } = await api.post("/mira-studio/google/post", {
+        topic: r.topic || "offer", caption: draft.caption, offer_title: draft.offer_title,
+        image_url: draft.image_url, with_image: false, confirm: true,
+      });
+      setState({ posted: data.posted, needs: false, result: data.result, busy: false, declined: false });
+      if (data.posted) toast.success("Posted to Google Business 🎉");
+      else toast.error(data.result?.error?.slice(0, 140) || "Google posting failed — post manually below");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Posting failed");
+      setState(s => ({ ...s, busy: false }));
+    }
+  };
+
+  const copyAndOpen = () => { copy(draft.caption || ""); window.open("https://business.google.com/posts", "_blank", "noopener"); };
+
+  return (
+    <div className="grid md:grid-cols-2 gap-3" data-testid="mira-google-post-result">
+      <div className="space-y-3">
+        {state.needs && !state.declined && (
+          <div data-testid="mira-google-confirm" className="bg-amber-50 border border-amber-300 rounded-xl p-4">
+            <p className="text-sm text-amber-900">{r.question}</p>
+            <div className="flex gap-2 mt-3">
+              <button data-testid="mira-google-confirm-yes" onClick={postNow} disabled={state.busy}
+                className="text-xs px-4 py-2 rounded-lg bg-slate-900 text-white font-semibold disabled:opacity-60 inline-flex items-center gap-1.5">
+                {state.busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Yes, post it
+              </button>
+              <button data-testid="mira-google-confirm-no" onClick={() => setState(s => ({ ...s, declined: true }))}
+                className="text-xs px-4 py-2 rounded-lg border border-slate-300 text-slate-600">No, keep as draft</button>
+            </div>
+          </div>
+        )}
+        {state.posted && (
+          <div data-testid="mira-google-posted" className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 text-sm text-emerald-800">
+            ✅ Posted to your Google Business Profile ✦
+          </div>
+        )}
+        {!state.posted && !state.needs && state.result && (
+          <div data-testid="mira-google-post-failed" className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+            ⚡ Couldn't auto-post: {state.result.error || "Google Business not ready"}. Post manually below — the caption copies automatically.
+          </div>
+        )}
+        <Block label="Google Business offer" copyText={draft.caption}>
+          {draft.offer_title && <p className="font-semibold text-slate-800">{draft.offer_title}</p>}
+          <p className="text-sm text-slate-700 whitespace-pre-line mt-1">{draft.caption}</p>
+        </Block>
+        {!state.posted && (
+          <button data-testid="mira-google-manual-post" onClick={copyAndOpen}
+            className="w-full text-xs px-3 py-2.5 rounded-xl bg-slate-900 text-white font-semibold">
+            Post manually on Google (caption copies) ↗
+          </button>
+        )}
+      </div>
+      <div>
+        {draft.image_url ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-3">
+            <img src={abs(draft.image_url)} alt="Offer" data-testid="mira-google-image" className="w-full rounded-lg" />
+            <a href={abs(draft.image_url)} download target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-fuchsia-600"><ImageIcon className="w-3.5 h-3.5" /> Download image</a>
+          </div>
+        ) : <div className="bg-slate-50 rounded-xl border border-dashed border-slate-200 p-8 text-center text-slate-400 text-sm">No image</div>}
+      </div>
     </div>
   );
 }

@@ -14,7 +14,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 
 from database import _raw_db
@@ -87,11 +87,14 @@ _ROUTER_SYS = (
     "You are the Orchestrator for a salon marketing AI. Given the owner's request, choose the single best "
     "specialist agent to handle it. Valid agents: content (captions/copy/greetings), social (instagram/facebook post + image), "
     "video (reel script), email (newsletter campaign), seo (google ranking/keywords), google (reply to reviews), "
+    "google_post (user wants Mira to actually POST or publish an offer/post on Google Business, e.g. 'post this on google', 'publish offer to google business'), "
     "analytics (explain business numbers), sales (upsell scripts), leadfinder (win-back from customer data), "
     "whatsapp (broadcast message). "
     "Return JSON: {\"agent\":\"<key>\",\"topic\":\"<short subject the user wants, e.g. 'hair spa monsoon offer'>\","
     "\"reply\":\"<one warm sentence to the owner about what you'll do>\"}."
 )
+
+_VALID_ROUTES = _AGENT_KEYS | {"google_post"}
 
 
 @router.post("/mira-studio/orchestrate")
@@ -100,7 +103,7 @@ async def orchestrate(body: OrchestrateIn, admin=Depends(require_tenant_admin), 
     if not msg:
         raise HTTPException(400, "Tell Mira what you'd like to create")
     plan = await _ask_json(_ROUTER_SYS, f"Salon: {t.get('name')}. Owner request: {msg}")
-    agent = plan.get("agent") if plan.get("agent") in _AGENT_KEYS else "content"
+    agent = plan.get("agent") if plan.get("agent") in _VALID_ROUTES else "content"
     topic = plan.get("topic") or msg
     return {
         "agent": agent,
@@ -132,6 +135,9 @@ async def _social_context(tid: str) -> dict:
                 posted_today[plat] = _post_snippet(p)
     last = await _raw_db.social_posts.find_one(
         {"tenant_id": tid}, {"_id": 0, "created_at": 1}, sort=[("created_at", -1)])
+    history = await _raw_db.social_posts.find(
+        {"tenant_id": tid}, {"_id": 0, "caption": 1, "platforms": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(10)
     days_since = None
     if last:
         try:
@@ -139,7 +145,8 @@ async def _social_context(tid: str) -> dict:
             days_since = max(0, (now - dt).days)
         except ValueError:
             pass
-    return {"recent": recent, "posted_today": posted_today, "days_since_last_post": days_since}
+    return {"recent": recent, "posted_today": posted_today,
+            "days_since_last_post": days_since, "history": history}
 
 
 @router.get("/mira-studio/social/context")
@@ -148,9 +155,11 @@ async def social_context(admin=Depends(require_tenant_admin), t=Depends(current_
     days = ctx["days_since_last_post"]
     nudge = None
     if days is None:
-        nudge = "Your salon hasn't posted on social media yet — want me to suggest a great first offer?"
+        nudge = ("Hey Admin team — your salon hasn't posted on Google / social media yet. "
+                 "Would you like me to suggest an offer, a package, or something specific to post?")
     elif days >= 3:
-        nudge = f"No social activity in {days} days — want me to suggest an offer to keep your salon buzzing?"
+        nudge = (f"Hey Admin team — no activity found on your Google / social media in the past {days} days. "
+                 "Would you like me to suggest an offer, a package, or something specific to post?")
     return {
         "posted_today": ctx["posted_today"],
         "days_since_last_post": days,
@@ -176,19 +185,23 @@ async def social_generate(body: SocialIn, admin=Depends(require_tenant_admin), t
     loc = t.get("location") or "your city"
     sys = (f"You are the Social Media Agent for '{name}', a premium Indian unisex salon in {loc}. "
            "Write scroll-stopping, warm, on-brand social copy. Use Indian salon context, tasteful emojis, "
-           "and strong local + service hashtags. Keep captions punchy.")
+           "and strong local + service hashtags. Keep captions punchy. "
+           "When the topic is an offer/discount/package, structure every caption as: catchy hook line, "
+           "offer details (service + discount or price), validity line, clear booking call-to-action.")
     plat_rules = {
         "instagram": "Instagram caption: hook first line, 3-4 short lines, 8-12 hashtags mixing niche + local.",
         "facebook": "Facebook post: slightly longer, friendly, 1 clear call-to-action, 3-5 hashtags, include phone-booking nudge.",
-        "google": "Google Business post: 1500 char max, informative + keyword-rich for local SEO, end with 'Book now', 0-2 hashtags.",
+        "google": ("Google Business OFFER post: line 1 is a catchy offer headline, then 2-3 short lines of offer "
+                   "details (service + discount/price), one validity line, end with 'Book now'. Max 1400 chars, "
+                   "keyword-rich for local SEO, 0-2 hashtags."),
     }
     want = [p for p in body.platforms if p in plat_rules] or ["instagram"]
     ctx = await _social_context(t["id"])
     history = ""
-    if ctx["recent"]:
+    if ctx["history"]:
         lines = [f"- [{(p.get('created_at') or '')[:10]}] ({', '.join(p.get('platforms', []))}) {_post_snippet(p)}"
-                 for p in ctx["recent"][:10]]
-        history = ("\n\nMemory — posts published in the last 3 days (do NOT repeat these themes, "
+                 for p in ctx["history"]]
+        history = ("\n\nMemory — this salon's most recent posts (do NOT repeat these themes, "
                    "offers or wording; create something clearly fresh and different):\n" + "\n".join(lines))
     schema = ", ".join(f'"{p}":{{"caption":"...","hashtags":["#..."]}}' for p in want)
     posts = await _ask_json(
@@ -212,6 +225,55 @@ async def social_generate(body: SocialIn, admin=Depends(require_tenant_admin), t
     posted_today = {p: v for p, v in ctx["posted_today"].items() if p in want}
     return {"topic": body.topic, "posts": posts, "image_url": image_url,
             "platforms": want, "posted_today": posted_today}
+
+
+# ── Google Business auto-posting (generate + publish, with same-day memory) ──
+class GooglePostIn(BaseModel):
+    topic: str
+    caption: str | None = None
+    offer_title: str | None = None
+    image_url: str | None = None
+    with_image: bool = True
+    confirm: bool = False
+
+
+@router.post("/mira-studio/google/post")
+async def google_auto_post(body: GooglePostIn, request: Request,
+                           admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from routes.social_connect import publish_google_post, _base
+    name = t.get("name", "our salon")
+    ctx = await _social_context(t["id"])
+    caption, title, image_url = body.caption, body.offer_title, body.image_url
+    if not caption:
+        out = _clean_newlines(await _ask_json(
+            f"You are the Google Business posting agent for '{name}', a premium Indian salon in "
+            f"{t.get('location') or 'your city'}. Write a properly formatted Google Business OFFER post.",
+            f"Topic: {body.topic}. Structure the post as: catchy offer headline line, 2-3 short lines of offer "
+            "details (service + discount/price), one validity line (today only unless the topic says otherwise), "
+            "end with 'Book now'. Max 1400 chars, local-SEO keyword rich, no markdown. Return JSON: "
+            '{"offer_title":"<max 55 chars>","caption":"<the full post text with line breaks>"}'))
+        caption = out.get("caption") or ""
+        title = out.get("offer_title") or body.topic[:55]
+        if not caption:
+            raise HTTPException(400, "Couldn't generate the offer — please try again")
+        if body.with_image:
+            image_url = await _gen_image(
+                f"Professional Google Business promo image for an Indian salon offer about '{body.topic}'. "
+                "Premium beauty-brand aesthetic, warm cinematic lighting, square 1:1. "
+                "Absolutely NO text, NO letters, NO logos, NO watermarks.", t, "google")
+    already = ctx["posted_today"].get("google")
+    who = (admin or {}).get("name") or "Salon admin"
+    draft = {"caption": caption, "offer_title": title, "image_url": image_url}
+    if already and not body.confirm:
+        return {"needs_confirmation": True, "posted": False, "draft": draft,
+                "question": (f"Hey {who} — we already posted an offer on Google today "
+                             f"(“{already[:80]}”). Would you like to post this one as well?")}
+    image_abs = None
+    if image_url:
+        image_abs = image_url if image_url.startswith("http") else f"{_base(request)}{image_url}"
+    result = await publish_google_post(t["id"], caption, image_abs, title)
+    return {"needs_confirmation": False, "posted": bool(result.get("ok")),
+            "result": result, "draft": draft}
 
 
 # ── Content Writer / Sales / SEO / Video / Email (text agents) ──────────────

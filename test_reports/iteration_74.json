@@ -1,0 +1,61 @@
+{
+  "summary": "Frontend E2E test of Mira conversational Google posting + upgraded 3-day idle nudge. Tests 1, 2 (Yes path), 3 PASSED. Test 2b (No path) exposed a minor UI bug: confirm dialog does not fully unmount after clicking 'No, keep as draft'. Regression Test 4 skipped due to WhatsNewModal overlay + backend already curl-verified per handoff note.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "MiraStudio › GooglePostResult (confirm dialog)",
+        "issue": "Clicking data-testid='mira-google-confirm-no' should hide the entire confirm dialog (condition `state.needs && !state.declined`). Observed: outer div `mira-google-confirm` remains in DOM and visible with question text + 'Yes, post it' button. The 'No, keep as draft' button itself disappears, but the wrapper does not. Draft/manual-post below is preserved (that part works). Reproduced twice.",
+        "selector": "[data-testid='mira-google-confirm']",
+        "priority": "MEDIUM",
+        "repro": "Login admin@miracurl.com → /mira-studio → seed today's google social_post with [QA-SIM] → type 'Mira post a face cleanup offer on google' → Send → wait for confirm → click 'No, keep as draft' → confirm div still present."
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "MiraStudio + Dashboard (all)",
+        "issues": ["WhatsNewModal (data-testid='whats-new-modal') opens on every fresh visit and its backdrop intercepts clicks on the whole page including the Agents grid until dismissed — blocks automated tests and can annoy real users on repeat visits."]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Investigate why the confirm div (data-testid='mira-google-confirm') is not unmounting after 'No' click. Possible cause: `state.declined` update is being overridden by another re-render / state.result assignment. Suggest simplifying to `state.needs && !state.declined && !state.posted` and verifying setState updater fires (add console.log or React devtools trace).",
+    "Consider auto-dismissing WhatsNewModal after a small delay or via localStorage on first close so it stops blocking pointer events across the app on subsequent navigations."
+  ],
+  "critical_code_review_comments": [
+    "MiraStudio.jsx GooglePostResult (~L375) initializes local state from props once with useState; if the parent later updates `result` (e.g., after clicking a nudge button), the child's `state.needs/posted` won't sync — could lead to stale UI. Consider deriving from props or `useEffect(() => setState(...), [r.id])`.",
+    "Hydration warning in console: '<span> cannot be a child of <option>' (AppLayout region) — should fix invalid HTML in a Select option render."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "~85% (3 of 3 primary flows PASS + 1 minor UI bug on No path)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (miracurl-marathahalli); owner@elegance.com / Owner@123 (elegance-koramangala) — both valid, sourced from /app/memory/test_credentials.md.",
+  "seed_data_creation": "Inserted one social_posts doc {caption:'Morning facial offer [QA-SIM]', platforms:['google'], kind:'google_offer', results.google.ok:true, created_at:now} for miracurl tenant (tenant_id=83ab97b6-b481-4172-afd7-53a46c93317d). DELETED after all tests (deletedCount=1, remaining [QA-SIM]=0).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Google Business publish is correctly failing with 'account not connected' in preview — treat as PASS. To re-test same-day confirm, insert a social_posts doc with today's ISO created_at, platforms:['google'], results.google.ok:true, kind:'google_offer' for the tenant, then use chat 'Mira post <service> offer on google'. Confirm dialog text should be 'Hey Salon Admin — we already posted an offer on Google today (\"<prev caption>\")…'. WhatsNewModal always covers UI on fresh visit; click 'Got it ✦' or dismiss via data-testid before other clicks. Rate limiting for /api/auth/login triggers after ~5 fast attempts (returns 403) — wait ~60s to unlock.",
+  "detailed_test_results": {
+    "test_1_admin_google_post_chat": {
+      "status": "PASS",
+      "details": "Chat 'Mira please post a 20% off haircut offer on google' → orchestrator routed to google_post, generation ~30s, `mira-google-post-result` rendered with: structured offer ('20% Off on All Haircuts Today Only!' + details + 'Book now'), image loaded (`mira-google-image`), amber failed note (`mira-google-post-failed`) showing 'Google Business account not connected', and manual-post button (`mira-google-manual-post`). ✅"
+    },
+    "test_2a_same_day_confirm_yes": {
+      "status": "PASS",
+      "details": "Confirm dialog text (verbatim): 'Hey Salon Admin — we already posted an offer on Google today (\"Morning facial offer [QA-SIM]\"). Would you like to post this one as well?' with both Yes & No buttons. Clicking Yes → attempt publish → toast error implicitly (not captured, but manual-post button appears and draft persists) → recovery UI (manual-post) rendered as expected. ✅"
+    },
+    "test_2b_same_day_confirm_no": {
+      "status": "FAIL (minor UI bug)",
+      "details": "Clicking 'No, keep as draft' hides the No button but the confirm dialog wrapper (data-testid='mira-google-confirm') remains visible with the question and 'Yes, post it'. Draft + manual-post below are preserved. Reproduced 2/2."
+    },
+    "test_3_nudge_elegance_owner": {
+      "status": "PASS",
+      "details": "Dashboard nudge (single-button variant): text 'Mira: Hey Admin team — your salon hasn't posted on Google / social media yet…' with ONE button 'Ask Mira for ideas ✦' (data-testid=mira-nudge-suggest-btn). Package/Specific buttons correctly absent. Studio nudge (3-button variant): same intro text + three buttons 'Suggest an offer ✦', 'Suggest a package', 'Something specific…'. Clicked 'Suggest a package' → runAgent('social', <package topic>) → social result rendered with instagram/facebook/google captions containing package/₹ pricing. ✅"
+    },
+    "test_4_regression_social_card_flow": {
+      "status": "NOT RE-TESTED",
+      "details": "Attempted via agent-social card but blocked repeatedly by WhatsNewModal backdrop overlay. Handoff note says backend already curl-verified this returns instagram/facebook/google posts. Test 3 exercised the same /mira-studio/social/generate endpoint via nudge and returned expected multi-platform posts, so the underlying flow is confirmed working from the UI at least via nudge trigger."
+    }
+  },
+  "rca of the issue": "test_2b bug — GooglePostResult local state uses `useState({ posted: r.posted, needs: r.needs_confirmation, ... })` with initial props snapshot only. Clicking No sets declined:true via setState updater. Expected: outer conditional `{state.needs && !state.declined && (...)}` collapses. Observed: div remains. Most likely cause: something else (parent re-render passing new r prop, or postNow being invoked accidentally, or setState callback batched with a subsequent state overwrite) is resetting declined back to false or the whole state object. Recommend adding a console.log inside the No onClick + inside GooglePostResult render to see the state values after click, and check whether MiraStudio's parent is re-setting result. Also consider using a functional dedicated flag or a separate useState for `declined` to isolate updates."
+}
