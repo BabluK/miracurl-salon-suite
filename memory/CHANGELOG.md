@@ -1231,3 +1231,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - offer_flyer._draw_flyer_copy: headline/offer text now has subtle stroke (readability over busy backgrounds).
 - TESTED: iteration_76 100% pass (backend generate + all 4 share flows + same-day confirm + regression). Two E2E generate runs verified visually (royal_gold monsoon, bridal_blush bridal — logo crisp, no garbled text).
 - Reminder to user: production miracurl-suite.com needs REDEPLOY to get all of this.
+
+## Iter 116 (16 Jul 2026) — Staff forgot-password via personal Gmail
+- Problem: staff login IDs (name@miracurl.com) aren't real inboxes — reset links went nowhere.
+- Backend auth.py forgot(): ForgotIn gains optional personal_email. For staff/employee roles the reset link is issued ONLY if staff record active (not inactive/archived) AND provided personal_email == staff.personal_email (case-insensitive); link is emailed to the personal Gmail. Otherwise generic response (no enumeration). Admin flow unchanged. Rate limit 5/hr/IP unchanged.
+- Frontend Login.jsx forgot mode: amber info note (forgot-info-note) "ask your salon owner to reset OR enter personal Gmail" + new field forgot-personal-email-input; AuthContext.forgot(email, personalEmail); success toast generic.
+- TESTED: curl matrix (match→token, wrong/missing gmail→no token, ex-staff→no token) + iteration_77 frontend E2E (all pass; negative UI flow hit rate limit as designed). pwtest seed docs cleaned.
+- Note: staff personal_email is set by owner on the Staff record — staff without one on file MUST ask the owner (by design).
