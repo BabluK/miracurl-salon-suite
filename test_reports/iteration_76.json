@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 76: Tested new Gallery ShareRow (Google / Insta / WhatsApp) + AI Promo Generator + same-day confirm. Backend regression /api/gallery/generate returned a proper branded flyer with rich hashtagged post_caption (pytest PASSED in ~16s — cached image reuse or fast run). Frontend all flows PASS: 3 image items rendered with share row + AI badge; share buttons clickable; Google/Insta fallback → window.open + clipboard populated with the LLM caption (hashtags intact); WhatsApp opened wa.me?text=... with caption + backend file url; same-day Mira confirm dialog appeared with '[QA-SIM]' after seeding social_posts and after accept, business.google.com opened (auto-post fallback = expected in preview). Regression: upload/copy/download/delete buttons all render.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login page", "issues": ["Input value gets cleared / element 'not stable' with fast automated fills. Real users are fine, but automated tests need wait_for_load_state('networkidle') + ~2s settle before fill. Recommend removing the animated re-render on first paint if possible."]},
+      {"screen": "Dashboard / Sidebar (pre-existing, not this iteration)", "issues": ["Recharts warning: 'width(-1) height(-1) of chart should be greater than 0' (some chart container has 0 dimensions at initial render).", "Hydration warning '<span> cannot be a child of <option>' still present (MiraDayOffer.jsx — flagged since iter 75)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_gallery_generate.py", "/app/test_reports/pytest/iter76_gallery.xml"],
+  "action_items": [
+    "Non-blocking: fix MiraDayOffer.jsx invalid <span> inside <option> (persistent hydration warning).",
+    "Non-blocking: fix Recharts container width/height=0 warning on dashboard mount."
+  ],
+  "critical_code_review_comments": [
+    "Gallery.jsx ShareRow: post_caption fallback chain (m.post_caption || m.caption || generic) is fine, but consider trimming the WhatsApp url to backend/api/files path rather than full url with double-slash — currently produces `${BACKEND_URL}${m.url}` where m.url starts with `/api/files/...` — works but the wa.me link is 250+ chars.",
+    "Gallery.jsx: three async click handlers all setPosting(null) in finally — good. But `disabled={!!posting}` on WhatsApp button prevents WA share while Google/Insta network calls are in flight — arguably intended (single-flight) but the WhatsApp path is client-only and could be always enabled.",
+    "Gallery.jsx generate() uses timeout: 120000 but backend can take 60–180s for image gen — bump to 240000 (or backend to trim time) so the toast 'Generation failed' doesn't fire on slow LLM runs.",
+    "Design: `[10px]` font size on share buttons is on the border of readability (screenshot shows Google/Insta/WhatsApp text still legible on 1920, but on mobile 390px it will crunch)."
+  ],
+  "updated_files": ["/app/backend/tests/test_gallery_generate.py (new)"],
+  "success_rate": {"backend": "100% (1/1)", "frontend": "100% (all 4 button flows + regression pass)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (miracurl-marathahalli)",
+  "seed_data_creation": "Inserted 1 social_posts doc {caption:'Morning offer [QA-SIM]', platforms:['google'], kind:'google_offer', results.google.ok:true, created_at:<iso today>} for tenant 83ab97b6-b481-4172-afd7-53a46c93317d. DELETED after test (deleted_count=1, remaining google_today=0).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login form quirk: on first paint the email input remounts (animated bg) — a plain page.fill immediately after wait_for_selector sometimes silently succeeds but the input clears on the next React render. Fix: `await page.wait_for_load_state('networkidle')` + `await page.wait_for_timeout(2000)` BEFORE `page.locator('input[type=email]').fill(...)`. Sonner toasts are not caught by `[data-sonner-toast]` / `[role=status]` selectors reliably during click flow — verify success by observing window.open() calls + navigator.clipboard patched writeText instead. To patch clipboard, use `Object.defineProperty(navigator,'clipboard',{value:{writeText: async t => window.__clip=t}, configurable:true})` — do NOT call the real writeText (throws NotAllowedError in headless). Seed doc for same-day google confirm: created_at MUST be ISO string (Python datetime → server TypeError). Cleanup DONE.",
+  "detailed_test_results": {
+    "backend_generate": {"status": "PASS", "details": "POST /api/gallery/generate returned 200; post_caption='Transform your hair this weekend! Enjoy 30% off on our Keratin Treatment...' with 7 branded hashtags."},
+    "gallery_render": {"status": "PASS", "images": 3, "videos": 0, "share_rows_on_images": 3, "share_rows_on_videos": 0},
+    "google_no_sameday": {"status": "PASS", "details": "Clicked gallery-post-google-<id> → window.open('https://business.google.com/posts'), clipboard populated with full post_caption + hashtags. No crash."},
+    "insta_button": {"status": "PASS", "details": "Clicked → window.open('https://www.instagram.com/'), clipboard populated with post_caption. No crash."},
+    "whatsapp_button": {"status": "PASS", "details": "Clicked → window.open('https://wa.me/?text=<encoded caption + backend file url>')."},
+    "google_sameday_confirm": {"status": "PASS", "details": "After seeding QA-SIM social_posts, click Google → window.confirm fired with exact text: 'Hey Salon Admin — we already posted an offer on Google today (\"Morning offer [QA-SIM]\"). Would you like to post this one as well?'. Accepted → second /google/post call → posted=false (GBP not connected) → business.google.com opened + caption copied (expected fallback in preview)."},
+    "regression": {"status": "PASS", "details": "gallery-upload-btn, gallery-copy-<id>, gallery-download-<id>, gallery-delete-<id> all render for each image."}
+  }
+}

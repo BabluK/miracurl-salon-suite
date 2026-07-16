@@ -174,23 +174,46 @@ class PromoGenIn(BaseModel):
 
 @router.post("/gallery/generate")
 async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from routes.offer_flyer import TEMPLATES, FlyerIn, _compose_flyer, _load_logo
+    from routes.mira_common import _ask_json, _key
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-    key = os.environ.get("EMERGENT_LLM_KEY")
-    if not key:
-        raise HTTPException(500, "AI key not configured")
-    gen = OpenAIImageGeneration(api_key=key)
-    full_prompt = (f"Professional social-media promotional image for an Indian beauty salon named '{t.get('name', 'the salon')}'. "
-                   f"{body.prompt}. Elegant premium salon aesthetic, warm lighting, clean composition; "
-                   f"if text is included keep it minimal and legible.")
+    tpl_keys = ", ".join(TEMPLATES.keys())
+    plan = await _ask_json(
+        f"You design salon promo flyers for '{t.get('name', 'the salon')}', a premium Indian salon. "
+        "Parse the owner's offer request into flyer fields.",
+        f"Offer request: {body.prompt}\nPick the best template from: {tpl_keys} "
+        "(bridal→bridal_blush, men→mens_edge, festive→festive_sparkle, otherwise royal_gold/dark_glam/navy_classic).\n"
+        'Return JSON: {"template":"<key>","headline":"<2-4 word offer headline>",'
+        '"offer_text":"<one punchy line with the discount % or price>",'
+        '"services":["<service — price>", "...max 3, ONLY if distinct services beyond the main offer are mentioned, else []"],'
+        '"valid_until":"<validity text or empty>",'
+        '"post_caption":"<ready-to-post social caption: hook line, offer details, validity, book-now CTA, 5-8 hashtags>"}')
+    template = plan.get("template") if plan.get("template") in TEMPLATES else "royal_gold"
+    tpl = TEMPLATES[template]
+    gen = OpenAIImageGeneration(api_key=_key())
+    img_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
+                  "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
     try:
-        images = await gen.generate_images(prompt=full_prompt, model="gpt-image-1", number_of_images=1)
+        imgs = await asyncio.wait_for(gen.generate_images(prompt=img_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
     except Exception as e:
         raise HTTPException(400, f"Image generation failed: {e}")
-    if not images:
+    if not imgs:
         raise HTTPException(400, "No image was generated")
-    return await _store_gallery_media(t, GalleryMedia(
-        data=images[0], ext="png", mime="image/png", kind="image",
+    flyer = FlyerIn(
+        template=template,
+        headline=(plan.get("headline") or "Special Offer")[:40],
+        offer_text=(plan.get("offer_text") or body.prompt)[:80],
+        services=[str(s)[:44] for s in (plan.get("services") or [])[:3]],
+        valid_until=str(plan.get("valid_until") or "")[:40])
+    logo_bytes = await _load_logo(t)
+    final = await asyncio.to_thread(_compose_flyer, imgs[0], flyer, tpl, t, logo_bytes)
+    item = await _store_gallery_media(t, GalleryMedia(
+        data=final, ext="jpg", mime="image/jpeg", kind="image",
         caption=body.prompt, source="ai", uploaded_by=user["id"]))
+    caption = str(plan.get("post_caption") or body.prompt).replace("\\n", "\n")
+    await db.gallery.update_one({"id": item["id"]}, {"$set": {"post_caption": caption}})
+    item["post_caption"] = caption
+    return item
 
 @router.get("/gallery")
 async def list_gallery(user=Depends(get_current_user)):

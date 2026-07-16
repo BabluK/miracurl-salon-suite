@@ -1,9 +1,77 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Image as ImageIcon, Upload, Sparkles, Trash2, Copy, ExternalLink, Loader2, Video } from "lucide-react";
+import { Image as ImageIcon, Upload, Sparkles, Trash2, Copy, ExternalLink, Loader2, Video, Send } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+function ShareRow({ m }) {
+  const [posting, setPosting] = useState(null);
+  const caption = m.post_caption || m.caption || "Fresh from our salon ✂️✨ Book your slot today!";
+
+  const postGoogle = async () => {
+    setPosting("google");
+    try {
+      let { data } = await api.post("/mira-studio/google/post", {
+        topic: m.caption || "salon offer", caption, image_url: m.url, with_image: false,
+      });
+      if (data.needs_confirmation) {
+        if (!window.confirm(data.question)) { setPosting(null); return; }
+        ({ data } = await api.post("/mira-studio/google/post", {
+          topic: m.caption || "salon offer", caption, image_url: m.url, with_image: false, confirm: true,
+        }));
+      }
+      if (data.posted) toast.success("Posted to Google Business 🎉");
+      else {
+        navigator.clipboard?.writeText(caption);
+        toast.info("Auto-post not available yet — caption copied, paste it on Google");
+        window.open("https://business.google.com/posts", "_blank", "noopener");
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || "Google post failed"); }
+    finally { setPosting(null); }
+  };
+
+  const postInsta = async () => {
+    setPosting("insta");
+    try {
+      const ctx = await api.get("/mira-studio/social/context").catch(() => null);
+      const today = ctx?.data?.posted_today || {};
+      const dup = ["instagram", "facebook"].filter(p => today[p]);
+      if (dup.length && !window.confirm(`We already posted on ${dup.join(" & ")} today. Post this as well?`)) { setPosting(null); return; }
+      const { data } = await api.post("/social/publish", { caption, image_url: m.url, platforms: ["instagram", "facebook"] });
+      const ok = Object.entries(data.results).filter(([, v]) => v.ok).map(([k]) => k);
+      if (ok.length) toast.success(`Posted to ${ok.join(" + ")} 🎉`);
+      else {
+        navigator.clipboard?.writeText(caption);
+        toast.info("Instagram not connected — caption copied, paste it in the app");
+        window.open("https://www.instagram.com/", "_blank", "noopener");
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || "Publish failed"); }
+    finally { setPosting(null); }
+  };
+
+  const shareWA = () => {
+    const text = `${caption}\n\n${BACKEND_URL}${m.url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+  };
+
+  return (
+    <div className="px-2.5 pb-2.5 flex gap-1.5" data-testid={`gallery-share-row-${m.id}`}>
+      <button onClick={postGoogle} disabled={!!posting} data-testid={`gallery-post-google-${m.id}`}
+        className="flex-1 text-[10px] font-semibold px-2 py-1.5 rounded-lg bg-slate-900 text-white disabled:opacity-50 inline-flex items-center justify-center gap-1">
+        {posting === "google" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Google
+      </button>
+      <button onClick={postInsta} disabled={!!posting} data-testid={`gallery-post-insta-${m.id}`}
+        className="flex-1 text-[10px] font-semibold px-2 py-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white disabled:opacity-50 inline-flex items-center justify-center gap-1">
+        {posting === "insta" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Insta
+      </button>
+      <button onClick={shareWA} disabled={!!posting} data-testid={`gallery-post-wa-${m.id}`}
+        className="flex-1 text-[10px] font-semibold px-2 py-1.5 rounded-lg bg-emerald-600 text-white disabled:opacity-50 inline-flex items-center justify-center gap-1">
+        <Send className="w-3 h-3" /> WhatsApp
+      </button>
+    </div>
+  );
+}
 
 export default function Gallery() {
   const [list, setList] = useState([]);
@@ -119,6 +187,7 @@ export default function Gallery() {
               <a href={`${BACKEND_URL}${m.url}`} download className="p-1.5 text-slate-400 hover:text-emerald-600 rounded" title="Download" data-testid={`gallery-download-${m.id}`}><Upload className="w-3.5 h-3.5 rotate-180" /></a>
               <button onClick={() => remove(m.id)} className="p-1.5 text-slate-400 hover:text-rose-500 rounded" title="Delete" data-testid={`gallery-delete-${m.id}`}><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
+            {m.kind === "image" && <ShareRow m={m} />}
           </div>
         ))}
       </div>
