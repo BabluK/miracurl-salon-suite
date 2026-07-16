@@ -698,6 +698,44 @@ async def demo_campaign_mark_seen(user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+@router.get("/super-admin/demo-calendar")
+async def demo_calendar(user=Depends(require_super_admin)):
+    """All booked demo slots — upcoming first, plus the last 30 days of past demos."""
+    from datetime import timedelta
+    now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    cutoff_past = (now_ist.date() - timedelta(days=30)).isoformat()
+    upcoming, past = [], []
+    async for inv in _raw_db.demo_invites.find({"preferred_slot": {"$ne": None}}, {"_id": 0}):
+        slot = inv.get("preferred_slot") or {}
+        if not slot.get("date"):
+            continue
+        item = {"id": inv["id"], "name": inv.get("name", ""), "salon_name": inv.get("salon_name", ""),
+                "city": inv.get("city", ""), "email": inv.get("email", ""),
+                "phone": slot.get("phone") or inv.get("phone", ""),
+                "date": slot["date"], "time": slot.get("time", ""),
+                "source": inv.get("source", "invite"), "booked_at": slot.get("booked_at", ""),
+                "gcal": _gcal_link(slot["date"], slot.get("time") or "11:00"),
+                "done": bool(inv.get("demo_done"))}
+        slot_dt = f"{slot['date']}T{slot.get('time') or '00:00'}"
+        if slot_dt >= now_ist.strftime("%Y-%m-%dT%H:%M"):
+            upcoming.append(item)
+        elif slot["date"] >= cutoff_past:
+            past.append(item)
+    upcoming.sort(key=lambda i: (i["date"], i["time"]))
+    past.sort(key=lambda i: (i["date"], i["time"]), reverse=True)
+    today = now_ist.date().isoformat()
+    return {"upcoming": upcoming, "past": past, "today": today,
+            "today_count": sum(1 for i in upcoming if i["date"] == today)}
+
+
+@router.post("/super-admin/demo-calendar/{iid}/done")
+async def demo_mark_done(iid: str, user=Depends(require_super_admin)):
+    res = await _raw_db.demo_invites.update_one({"id": iid}, {"$set": {"demo_done": True}})
+    if not res.matched_count:
+        raise HTTPException(404, "Demo not found")
+    return {"ok": True}
+
+
 def _invite_status(i: dict, tenant_emails: set) -> str:
     if i["email"] in tenant_emails:
         return "converted"

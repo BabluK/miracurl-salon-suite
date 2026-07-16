@@ -28,6 +28,7 @@ import { PromoImageStudio } from "@/components/superadmin/PromoImageStudio";
 import { VerifiedStaffPanel } from "@/components/superadmin/VerifiedStaffPanel";
 import { MiracurlTeamPanel } from "@/components/superadmin/MiracurlTeamPanel";
 import { DeploymentHistoryPanel } from "@/components/superadmin/DeploymentHistoryPanel";
+import { DemoCalendar } from "@/components/superadmin/DemoCalendar";
 import { MiraStudioPanel } from "@/components/superadmin/MiraStudioPanel";
 import { MiraLeadAgent } from "@/components/superadmin/MiraLeadAgent";
 import { DiagnoseTenantModal } from "@/components/superadmin/DiagnoseTenantModal";
@@ -301,6 +302,7 @@ export default function SuperAdmin() {
               { id: "docs", label: "Documents", icon: FileText },
               { id: "lead-email", label: "Lead Gen Email", icon: Mail, badge: demoHot, hot: demoHot > 0 },
               { id: "mira-leads", label: "Mira Lead Agent", icon: Sparkles },
+              { id: "demo-calendar", label: "Demo Calendar", icon: Bell },
               { id: "ai", label: "AI Insights", icon: Sparkles },
               { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
               { id: "mira-studio", label: "Mira Studio Users", icon: Sparkles },
@@ -345,6 +347,7 @@ export default function SuperAdmin() {
             revenue: <div className="space-y-6"><PlatformEarnings /><HiringEarningsReview /><RevenuePanel /></div>,
             docs: <DocsPanel />,
             "mira-leads": <MiraLeadAgent />,
+            "demo-calendar": <DemoCalendar />,
             "lead-email": (
               <div className="space-y-6" data-testid="lead-email-panel">
                 <div>
