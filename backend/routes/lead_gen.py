@@ -137,15 +137,20 @@ def _pricing_table_html(plans: dict) -> str:
         '</div>')
 
 
+_PRICE_RE = re.compile(r"(?:for |at )?(?:just |only )?(?:Rs\.?|₹|INR)\s?[\d,]+\s?(?:/-|/month|/year|per month|per year|a month|a year)?", re.I)
+
+
 async def _draft_email(lead: dict) -> dict:
     from routes.mira_common import _ask_json
     pricing = _pricing_lines(await _live_plans())
+    research = {k: v for k, v in lead.items()
+                if k not in ("email_body", "email_subject", "id", "_id", "run_id", "score_breakdown", "status")}
     out = await _ask_json(
         "You are Mira, the outreach agent for Miracurl Suite — an all-in-one salon management platform "
         "(online booking, WhatsApp marketing & automation, staff attendance & payroll, memberships, GST billing). "
         f"Current live plan pricing:\n{pricing}\n"
         "Write warm, short, personalized B2B outreach emails to Indian salon owners.",
-        f"Salon research data: {lead}\n"
+        f"Salon research data: {research}\n"
         "Write a personalized email to this salon's owner. Rules: greet as 'Hi {name} team' or owner if known; "
         "1st line must reference something SPECIFIC from the research (their rating/reviews, services, branches); "
         "if the salon has 500+ reviews but no website, emphasize how much repeat business they're losing without "
@@ -157,7 +162,7 @@ async def _draft_email(lead: dict) -> dict:
         "https://miracurl-suite.com to pick a demo slot. Max 140 words, no fluff, plain paragraphs. "
         'Return JSON: {"subject":"<catchy subject max 60 chars>","body":"<email body, use \\n between paragraphs>"}')
     return {"subject": (out.get("subject") or "Grow your salon with Miracurl Suite")[:120],
-            "body": out.get("body") or ""}
+            "body": _PRICE_RE.sub("at the plans priced below", out.get("body") or "")}
 
 
 async def _emails_from_contact_pages(client: httpx.AsyncClient, website: str, soup) -> list:
