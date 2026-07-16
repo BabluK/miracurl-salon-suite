@@ -80,7 +80,7 @@ function LeadRow({ lead, onRefresh }) {
           <div className="flex flex-wrap gap-1.5">
             {(lead.score_breakdown || []).map(b => <span key={b} className="text-[10px] bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200 px-2 py-0.5 rounded-full">{b}</span>)}
           </div>
-          {lead.status !== "sent" && lead.status !== "customer" && (
+          {["drafted", "no_email", "researched"].includes(lead.status) && (
             <div className="space-y-2">
               <input value={draft.email} onChange={e => setDraft({ ...draft, email: e.target.value })} placeholder="owner@salon.com"
                 className="border border-slate-200 rounded-xl px-3 py-2 text-sm w-full max-w-sm" data-testid={`lead-email-input-${lead.id}`} />
@@ -106,7 +106,7 @@ function LeadRow({ lead, onRefresh }) {
               <button onClick={() => act(() => api.post(`/super-admin/mira-leads/${lead.id}/stage`, { stage: "customer" }), "customer")} data-testid={`lead-customer-${lead.id}`}
                 className="text-xs px-3 py-2 rounded-lg bg-emerald-700 text-white font-semibold inline-flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" /> Became Customer 🎉</button>
             )}
-            {!["sent", "customer", "rejected"].includes(lead.status) && (
+            {!["sent", "demo", "customer", "rejected"].includes(lead.status) && (
               <button onClick={() => act(() => api.post(`/super-admin/mira-leads/${lead.id}/reject`), "reject")} data-testid={`lead-reject-${lead.id}`}
                 className="text-xs px-3 py-2 rounded-lg border border-slate-200 text-slate-500 inline-flex items-center gap-1.5"><X className="w-3.5 h-3.5" /> Reject</button>
             )}
