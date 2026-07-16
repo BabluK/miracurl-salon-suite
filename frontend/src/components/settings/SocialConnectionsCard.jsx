@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Instagram, Star, Link2, Unlink, Loader2, KeyRound, Copy } from "lucide-react";
+import { Instagram, Star, Link2, Unlink, Loader2, KeyRound } from "lucide-react";
 
 export const SocialConnectionsCard = () => {
   const [conn, setConn] = useState(null);
@@ -132,22 +132,6 @@ export const SocialConnectionsCard = () => {
           </button>
         )}
       </div>
-
-      {!conn.google_business && conn.google_configured && (
-        <div className="mt-2 border border-amber-200 bg-amber-50/70 rounded-xl p-3" data-testid="google-redirect-uri-help">
-          <p className="text-xs font-semibold text-slate-700">Seeing “Error 400: redirect_uri_mismatch”?</p>
-          <p className="text-xs text-slate-500 mt-1">
-            In <b>Google Cloud Console → APIs &amp; Services → Credentials</b>, open your OAuth client and add this exact URL under <b>Authorized redirect URIs</b>:
-          </p>
-          <div className="mt-1.5 flex items-center gap-2">
-            <code className="flex-1 text-[11px] bg-white border border-slate-200 rounded-lg px-2 py-1.5 break-all text-slate-700" data-testid="google-redirect-uri-value">{conn.google_redirect_uri}</code>
-            <button data-testid="google-redirect-uri-copy-btn"
-              onClick={() => { navigator.clipboard.writeText(conn.google_redirect_uri); toast.success("Redirect URI copied"); }}
-              className="text-xs px-3 py-1.5 rounded-lg bg-slate-900 text-white inline-flex items-center gap-1"><Copy className="w-3 h-3" /> Copy</button>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1.5">Tip: your live (deployed) site has a different domain — open this Settings page on the live site and add that URI too.</p>
-        </div>
-      )}
     </div>
   );
 };

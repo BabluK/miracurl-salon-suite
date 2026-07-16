@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 78 — Full pre-onboarding regression sweep (backend + frontend). Focus areas: all-role auth, POS invoice math, multi-tenant isolation (miracurl vs elegance), owner-PIN gates, public booking route, super-admin console, and the specifically-requested removal of the `google-redirect-uri-help` helper box. Result: 21/21 new backend regression tests PASS; the requested UI removal is CONFIRMED (`data-testid=google-redirect-uri-help` no longer exists in DOM or source). Admin dashboard loads clean, Connected Accounts card + Google + Instagram Connect buttons render correctly, public /book/<slug> route renders with services. No blocking issues found for tenant onboarding.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/public/book", "issue": "customer_name validator now rejects any name with digits, underscores or non-latin punctuation (regex `[A-Za-z][A-Za-z .'\\-]{1,79}`). Older iter test rows using 'TEST_' prefix fail; real Indian names (K.G. Priya, John D'Souza) are fine. Confirm with product that customers with numeric suffixes / Devanagari names aren't a concern before onboarding."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (MiraDayOffer)", "issues": ["React hydration warning: In HTML, <span> cannot be a child of <option>. Origin: /app/frontend/src/components/MiraDayOffer.jsx line 280 — dev-tooling `x-source-editable` span is being rendered inside a raw <option>. Layout not broken but console warning fires on every dashboard load. Wrap the dynamic expression's text without an intermediate span, or move the marker to a wrapping <select>-adjacent element."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter78_full_regression.py",
+    "/app/test_reports/pytest/iter78.xml"
+  ],
+  "action_items": [
+    "(LOW) Silence the MiraDayOffer hydration warning (<span> inside <option>) so console stays clean for onboarding demos.",
+    "(INFO) Optional: relax /public/book customer_name regex or add clearer 422 message so front-end can show 'Please use letters only' — real customer names with digits will hit a 422."
+  ],
+  "critical_code_review_comments": [
+    "SocialConnectionsCard.jsx: the requested `google-redirect-uri-help` element is fully removed; card still exposes both `google-connect-btn` and `meta-connect-btn` and gracefully shows the 'Setup required' amber note when `meta_configured`/`google_configured` is false — good multi-tenant behavior for new salons that haven't attached their own Meta/Google apps yet.",
+    "auth.py: X-Tenant-Slug header path resolves tenant correctly for admin@miracurl.com and owner@elegance.com; verified their `/customers` and `/invoices` id-sets are fully disjoint (no leak).",
+    "public_site.py customer_name validator is quite strict (letters + space + . + ' + -). Consider allowing digits for names like 'John 2nd' if this matters for future international tenants."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter78_full_regression.py (created)"
+  ],
+  "success_rate": {"backend": "100% (21/21 new regression tests)", "frontend": "100% on the requested acceptance criteria (redirect-uri-help removed, Connected Accounts card + buttons render, admin dashboard loads, public book route works, super-admin console loads)"},
+  "test_credentials": "admin@miracurl.com / manager@miracurl.com / super@miracurl.com / owner@elegance.com (see /app/memory/test_credentials.md). Owner PIN 4321.",
+  "seed_data_creation": "None — the new test file uses read-only queries + short-lived invoice-only writes that don't leave TEST_ rows in customers/products.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Pre-existing backend_test.py has 6 failing rows that all share the same root cause: they submit customer_name='TEST_...' (with underscore) to /api/public/book which the tightened validator now rejects with 422. This is a *test hygiene* issue, not a product bug. If you need to run the full suite, update those rows to use letters-only names (e.g., 'TestPublicBook' without the underscore). The new /app/backend/tests/test_iter78_full_regression.py is clean and can be reused as-is for future regression passes — it exercises all six critical flows the onboarding user cares about. To run the new file: `REACT_APP_BACKEND_URL=<preview_url> pytest /app/backend/tests/test_iter78_full_regression.py -v`.",
+  "rca of the issue": "N/A — no product bug. Removal of `google-redirect-uri-help` element verified at both source (SocialConnectionsCard.jsx has no such data-testid) and DOM (queryselector returned null after Settings page fully loaded)."
+}
