@@ -130,7 +130,7 @@ function StepServices({ onNext }) {
       <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
         <div>
           <p className="text-sm font-semibold text-slate-800">Quick start: import our ready-made salon menu</p>
-          <p className="text-xs text-slate-500 mt-0.5">40+ popular services (hair, skin, mani-pedi) with typical prices — edit anytime later.</p>
+          <p className="text-xs text-slate-500 mt-0.5">25+ popular services (hair, skin, mani-pedi) with typical prices — edit anytime later.</p>
         </div>
         <button onClick={importPreset} disabled={!!busy} data-testid="setup-import-preset-btn"
           className="text-xs px-4 py-2.5 rounded-xl bg-fuchsia-600 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
