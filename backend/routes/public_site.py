@@ -66,9 +66,13 @@ class PublicBookingIn(BaseModel):
     @field_validator("customer_name")
     @classmethod
     def _name(cls, v):
+        import unicodedata
         cleaned = v.strip()
-        if not re.fullmatch(r"[A-Za-z][A-Za-z .'\-]{1,79}", cleaned):
-            raise ValueError("Name should contain only letters")
+        if not (2 <= len(cleaned) <= 80) or not cleaned[0].isalpha():
+            raise ValueError("Please enter a valid name (start with a letter)")
+        for ch in cleaned:
+            if not (ch.isalnum() or ch in " .'-_" or unicodedata.category(ch).startswith("M")):
+                raise ValueError("Please enter a valid name (letters, spaces, . ' - only)")
         return cleaned
 
     @field_validator("customer_phone")

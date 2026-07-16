@@ -277,7 +277,7 @@ export function MiraDayOffer() {
               <select value={pct} onChange={(e) => setPct(e.target.value)} data-testid="day-offer-pct-select"
                 className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
                 <option value="">Mira decides %</option>
-                {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map(p => <option key={p} value={p}>{p}% off</option>)}
+                {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map(p => <option key={p} value={p}>{`${p}% off`}</option>)}
               </select>
             </>
           )}

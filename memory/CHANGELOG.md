@@ -1238,3 +1238,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Frontend Login.jsx forgot mode: amber info note (forgot-info-note) "ask your salon owner to reset OR enter personal Gmail" + new field forgot-personal-email-input; AuthContext.forgot(email, personalEmail); success toast generic.
 - TESTED: curl matrix (match→token, wrong/missing gmail→no token, ex-staff→no token) + iteration_77 frontend E2E (all pass; negative UI flow hit rate limit as designed). pwtest seed docs cleaned.
 - Note: staff personal_email is set by owner on the Staff record — staff without one on file MUST ask the owner (by design).
+
+## Iter 117 (16 Jul 2026) — Pre-onboarding regression + polish
+- Removed 'redirect_uri_mismatch' helper box from Settings → Connected Accounts (SocialConnectionsCard.jsx, user request; Copy import cleaned).
+- FULL regression sweep (iteration_78): 21/21 backend tests PASS (all-role auth, POS invoice math, appointments, customers, inventory, reports+PIN, multi-tenant isolation miracurl vs elegance disjoint, public booking, super admin). New reusable suite at /app/backend/tests/test_iter78_full_regression.py (run: REACT_APP_BACKEND_URL=<url> pytest -v).
+- Fixed MiraDayOffer hydration warning (<span> in <option> — template literal fix, line ~281).
+- public_site.py customer_name validator now unicode-aware (unicodedata: alnum + marks Mc/Mn + \" .'-_\"): Hindi/Tamil/Kannada names accepted, <script>/leading-digit rejected. In-situ verified with Devanagari booking (200).
+- Known pre-existing: backend_test.py has 6 stale rows using underscore names (now pass since _ allowed). CCTV mocked; Instagram/Google publish pending user account connections.
