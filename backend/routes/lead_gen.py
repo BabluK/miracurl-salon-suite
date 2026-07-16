@@ -12,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 import httpx
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from database import _raw_db
@@ -398,6 +399,63 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
 @router.post("/super-admin/mira-leads/{lid}/reject")
 async def reject_lead(lid: str, user=Depends(require_super_admin)):
     await _raw_db.mira_leads.update_one({"id": lid}, {"$set": {"status": "rejected"}})
+    return {"ok": True}
+
+
+@router.get("/public/brochure.pdf")
+async def public_brochure():
+    from routes.hq_documents import suite_overview_attachment
+    import base64
+    att = await asyncio.to_thread(suite_overview_attachment)
+    return Response(content=base64.b64decode(att["content"]), media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="miracurl-suite-overview.pdf"'})
+
+
+def _wa_phone(raw: str) -> str:
+    num = "".join(ch for ch in (raw or "") if ch.isdigit())
+    if num.startswith("0"):
+        num = num[1:]
+    return f"91{num}" if len(num) == 10 else num
+
+
+async def _wa_message(lead: dict) -> str:
+    plans = await _live_plans()
+    half, annual = int(plans["half_year"]["price"]), int(plans["annual"]["price"])
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    intro = f"Hi {lead.get('owner_name') or lead['name'] + ' team'}! 👋\n"
+    if lead.get("rating"):
+        reviews = f" with {lead['reviews']} reviews" if lead.get("reviews") else ""
+        intro += f"Came across your salon in {lead.get('city', '')} — {lead['rating']}⭐{reviews} is truly impressive!\n\n"
+    else:
+        intro += f"Came across your salon in {lead.get('city', '')} and had to reach out!\n\n"
+    return (intro +
+            "I'm Mira from *Miracurl Suite* — the all-in-one salon platform: online booking, "
+            "WhatsApp marketing & automation, staff attendance & payroll, memberships and GST billing.\n\n"
+            f"💰 Plans start at Rs.{half:,} for 6 months — *best value: Annual at Rs.{annual:,}* "
+            "(multi-branch discounts available!)\n\n"
+            f"📎 Full brochure with all details: {base}/api/public/brochure.pdf\n"
+            f"🌐 {base}\n\n"
+            "Reply here for a *free 15-minute live demo* — I'd love to show you around! ✨")
+
+
+@router.get("/super-admin/mira-leads/{lid}/whatsapp")
+async def whatsapp_link(lid: str, user=Depends(require_super_admin)):
+    from urllib.parse import quote
+    lead = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+    phone = _wa_phone(lead.get("phone", ""))
+    if not phone:
+        raise HTTPException(400, "No phone number on this lead.")
+    msg = await _wa_message(lead)
+    return {"wa_url": f"https://wa.me/{phone}?text={quote(msg)}", "phone": phone, "message": msg}
+
+
+@router.post("/super-admin/mira-leads/{lid}/whatsapp-sent")
+async def whatsapp_mark_sent(lid: str, user=Depends(require_super_admin)):
+    await _raw_db.mira_leads.update_one(
+        {"id": lid}, {"$set": {"status": "sent", "sent_via": "whatsapp", "sent_at": _now(),
+                               "approved_by": user.get("email")}})
     return {"ok": True}
 
 

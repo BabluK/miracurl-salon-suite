@@ -372,3 +372,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Follow-up email: hardcoded Rs.900/month removed; now quotes live half_year + annual prices with multi-branch note.
 - Maps log clarity: `_places_search` returns (places, note); run log now distinguishes "key not configured" vs actual API error vs "all Maps results already contacted". User's [05:30] "Google Places not enabled" was their PRODUCTION deployment missing GOOGLE_MAPS_API_KEY env var — preview key verified working.
 - Verified: unit (pricing table 8 tiers, draft email, followup, attachment build) + real e2e approve→Resend send to delivered@resend.dev returned {"ok":true}. Test lead cleaned up.
+
+## 2026-07-16 — WhatsApp outreach for leads without email (user request)
+- Backend (lead_gen.py): GET /api/public/brochure.pdf (public, streams suite-overview PDF); GET /super-admin/mira-leads/{lid}/whatsapp → {wa_url, phone, message} — personalized wa.me click-to-chat text (greeting + rating/reviews line, suite pitch, live half_year/annual pricing + multi-branch note, brochure link, website link, demo CTA); POST /{lid}/whatsapp-sent → status=sent, sent_via=whatsapp. _wa_phone normalizes Indian numbers (strip 0, prefix 91).
+- Frontend (MiraLeadAgent.jsx): green "Send via WhatsApp" button (lead-whatsapp-{id}) shown when lead has phone & status drafted/no_email/researched/rejected; opens wa.me tab then marks sent; sent line shows "via WhatsApp 💬" when sent_via=whatsapp.
+- Verified: curl (brochure 200 PDF, whatsapp endpoint returns normalized 919356204158 + full message), unit (_wa_phone, _wa_message with live prices), browser (button visible on Geetanjali Salon no_email lead, absent on VLCC which has no phone).
+- Also showed user the email format screenshot + brochure attachment pages (approved).
