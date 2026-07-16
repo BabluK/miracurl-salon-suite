@@ -19,7 +19,7 @@ export default function PublicDemo() {
     axios.get(`${API}/public/demo/slots`).then(r => setSlots(r.data)).catch(() => setErr("Couldn't load available slots — please refresh."));
   }, []);
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const canBook = form.name.trim().length >= 2 && /\S+@\S+\.\S+/.test(form.email) && date && time;
 
   const book = async () => {

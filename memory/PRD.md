@@ -384,3 +384,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - `_outreach_email_html` (lead_gen.py): luxe card template — beige backdrop, hero image, gold gradient divider, Georgia body, pricing table, pill CTA "Book a free live demo ✦", dark MIRACURL footer strip. approve_and_send now uses this template.
 - Hot subject lines: _draft_email prompt now demands scroll-stopping personalized hooks with ONE emoji, max 60 chars (e.g. "Kudos on 4.9⭐ Atmos Salon — automate the rush 🔥"). All 3 pending drafts regenerated with hot subjects.
 - Verified: preview screenshot approved-look, real e2e approve→Resend send OK, test lead cleaned.
+
+## 2026-07-16 — Delete cancelled subscriptions + public /demo slot-picker (user requests)
+- Pricing clarification: email DOES read live Plan Catalog (plan_overrides via load_plan_overrides) — preview matched exactly; user's differing prices are on PRODUCTION DB (separate env).
+- DELETE /api/super-admin/subscriptions/{sid} (subscriptions.py): only cancelled/expired; cascade-deletes subscription_payments; 400 guard on active. BillingPanel.jsx: trash button delete-sub-{id} on cancelled/expired rows with confirm dialog.
+- Public /demo page (PublicDemo.jsx, route in App.js): name/salon/city/email/phone + 7-day date grid + 8 IST time slots → POST /api/public/demo/book. Backend (hq_documents.py): GET /public/demo/slots, POST /public/demo/book — dedups demo_invites by email (source=public_demo_page), sends prospect confirmation (gcal + .ics) + HQ alert via shared _send_slot_confirmations, marks matching mira_leads → status 'demo'. Refactored invite-based demo_slot_book to use shared _validate_slot/_send_slot_confirmations (regression tested).
+- All outreach CTAs now point to {base}/demo: email template button, AI draft prompt, WhatsApp message, follow-up email, _brand_footer book_url.
+- Testing: iteration_81.json — 10/10 backend, all frontend flows PASS. Fixed HIGH bug found: PublicDemo stale-closure setForm → functional update (re-verified via Playwright rapid-fill).
