@@ -101,7 +101,7 @@ export default function Gallery() {
     if (prompt.trim().length < 5) { toast.error("Describe the promo you want"); return; }
     setGenerating(true);
     try {
-      await api.post("/gallery/generate", { prompt }, { timeout: 120000 });
+      await api.post("/gallery/generate", { prompt }, { timeout: 240000 });
       toast.success("Promo image ready ✦");
       setPrompt("");
       load();

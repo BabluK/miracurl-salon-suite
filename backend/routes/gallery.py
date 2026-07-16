@@ -175,8 +175,7 @@ class PromoGenIn(BaseModel):
 @router.post("/gallery/generate")
 async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from routes.offer_flyer import TEMPLATES, FlyerIn, _compose_flyer, _load_logo
-    from routes.mira_common import _ask_json, _key
-    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    from routes.mira_common import _ask_json, _gen_image_bytes
     tpl_keys = ", ".join(TEMPLATES.keys())
     plan = await _ask_json(
         f"You design salon promo flyers for '{t.get('name', 'the salon')}', a premium Indian salon. "
@@ -190,15 +189,11 @@ async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin),
         '"post_caption":"<ready-to-post social caption: hook line, offer details, validity, book-now CTA, 5-8 hashtags>"}')
     template = plan.get("template") if plan.get("template") in TEMPLATES else "royal_gold"
     tpl = TEMPLATES[template]
-    gen = OpenAIImageGeneration(api_key=_key())
     img_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
                   "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
-    try:
-        imgs = await asyncio.wait_for(gen.generate_images(prompt=img_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
-    except Exception as e:
-        raise HTTPException(400, f"Image generation failed: {e}")
-    if not imgs:
-        raise HTTPException(400, "No image was generated")
+    bg = await _gen_image_bytes(img_prompt)
+    if not bg:
+        raise HTTPException(400, "Image generation failed — try again")
     flyer = FlyerIn(
         template=template,
         headline=(plan.get("headline") or "Special Offer")[:40],
@@ -206,7 +201,7 @@ async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin),
         services=[str(s)[:44] for s in (plan.get("services") or [])[:3]],
         valid_until=str(plan.get("valid_until") or "")[:40])
     logo_bytes = await _load_logo(t)
-    final = await asyncio.to_thread(_compose_flyer, imgs[0], flyer, tpl, t, logo_bytes)
+    final = await asyncio.to_thread(_compose_flyer, bg, flyer, tpl, t, logo_bytes)
     item = await _store_gallery_media(t, GalleryMedia(
         data=final, ext="jpg", mime="image/jpeg", kind="image",
         caption=body.prompt, source="ai", uploaded_by=user["id"]))

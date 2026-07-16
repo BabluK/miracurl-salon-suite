@@ -93,18 +93,16 @@ class FlyerIn(BaseModel):
 async def create_flyer(body: FlyerIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     if body.template not in TEMPLATES:
         raise HTTPException(400, "Unknown template")
-    from routes.mira_common import _key
-    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    from routes.mira_common import _gen_image_bytes
     tpl = TEMPLATES[body.template]
-    gen = OpenAIImageGeneration(api_key=_key())
     prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
               "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
-    imgs = await asyncio.wait_for(gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
-    if not imgs:
+    bg = await _gen_image_bytes(prompt)
+    if not bg:
         raise HTTPException(502, "Image generation failed — try again")
 
     logo_bytes = await _load_logo(t)
-    final = await asyncio.to_thread(_compose_flyer, imgs[0], body, tpl, t, logo_bytes)
+    final = await asyncio.to_thread(_compose_flyer, bg, body, tpl, t, logo_bytes)
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/tenants/{t['id']}/flyers/{fid}.jpg"
     result = _put_object(path, final, "image/jpeg")
@@ -282,12 +280,15 @@ def _draw_flyer_copy(d: ImageDraw.ImageDraw, body: FlyerIn, tpl: dict, t: dict) 
     y += 82
 
     hl = body.headline.strip()[:36] or "Special Offer"
-    d.text((m, y), hl, font=_fit(hl, 82, maxw, SERIF, "Bold"), fill=(*text_col, 255))
+    shadow = (20, 12, 10) if text_col == (255, 255, 255) else (255, 250, 245)
+    d.text((m, y), hl, font=_fit(hl, 82, maxw, SERIF, "Bold"), fill=(*text_col, 255),
+           stroke_width=3, stroke_fill=(*shadow, 160))
     y += 116
 
     offer = body.offer_text.strip()[:60]
     if offer:
-        d.text((m, y), offer, font=_fit(offer, 44, maxw), fill=(*accent, 255))
+        d.text((m, y), offer, font=_fit(offer, 44, maxw), fill=(*accent, 255),
+               stroke_width=2, stroke_fill=(*shadow, 140))
         y += 84
 
     for s in body.services[:5]:

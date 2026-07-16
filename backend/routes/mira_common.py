@@ -2,6 +2,8 @@
 import os
 import json
 import uuid
+import base64
+import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -50,27 +52,50 @@ async def _ask_json(system: str, prompt: str) -> dict:
     raise HTTPException(400, "AI returned an unexpected format — please try again")
 
 
-async def _gen_image(prompt: str, t: dict, kind: str) -> str:
+async def _gen_image_gemini(prompt: str) -> bytes | None:
+    """Nano Banana (Gemini) image generation via the universal key."""
+    chat = LlmChat(api_key=_key(), session_id=f"imggen-{uuid.uuid4().hex[:8]}",
+                   system_message="You are an expert promotional image generator.").with_model(
+        "gemini", "gemini-3.1-flash-image-preview").with_params(modalities=["image", "text"])
+    _, images = await chat.send_message_multimodal_response(UserMessage(text=prompt))
+    if images:
+        return base64.b64decode(images[0]["data"])
+    return None
+
+
+async def _gen_image_bytes(prompt: str) -> bytes | None:
+    """Dual-engine image generation: GPT-Image-1 first, Gemini Nano Banana fallback."""
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-    gen = OpenAIImageGeneration(api_key=_key())
     try:
-        images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+        gen = OpenAIImageGeneration(api_key=_key())
+        images = await asyncio.wait_for(
+            gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+        if images:
+            return images[0]
     except Exception as e:
-        log.error("image gen failed: %s", e)
-        return ""
-    if not images:
+        log.warning("gpt-image-1 failed, trying Gemini Nano Banana: %s", e)
+    try:
+        return await asyncio.wait_for(_gen_image_gemini(prompt), timeout=240)
+    except Exception as e:
+        log.error("gemini image gen failed too: %s", e)
+        return None
+
+
+async def _gen_image(prompt: str, t: dict, kind: str) -> str:
+    data = await _gen_image_bytes(prompt)
+    if not data:
         return ""
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/{t['id']}/mira-studio/{kind}/{fid}.png"
     try:
-        result = _put_object(path, images[0], "image/png")
+        result = _put_object(path, data, "image/png")
     except Exception as e:
         log.error("storage failed: %s", e)
         return ""
     await _raw_db.uploads.insert_one({
         "id": fid, "tenant_id": t["id"], "kind": f"mira_studio_{kind}",
         "storage_path": result.get("path", path), "original_filename": f"{fid}.png",
-        "content_type": "image/png", "size": len(images[0]), "uploaded_by": "mira_studio",
+        "content_type": "image/png", "size": len(data), "uploaded_by": "mira_studio",
         "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
     })
     return f"/api/files/{fid}"

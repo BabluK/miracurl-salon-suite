@@ -1223,3 +1223,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - TESTED: iteration_74 (3/4 pass, No-path bug) → iteration_75 (No + Yes paths PASS). Test seeds cleaned.
 - NOTE: user confusion — production (miracurl-suite.com) runs OLD code until redeploy; 'Wake up servers' page = platform preview sleep gate (not app). Reports erase (last month/all) + PIN-gated rate modify already existed in preview (Reports.jsx erase-last-month-btn / erase-all-btn).
 - Main-agent screenshot browser CANNOT pass the preview wake gate (app.emergent.sh iframe); testing_agent infra can — delegate browser tests there.
+
+## Iter 115 (16 Jul 2026) — Gallery templated promos + share buttons + dual image engines
+- /gallery/generate REWRITTEN: LLM parses free-text offer → {template (auto-picked from offer_flyer TEMPLATES), headline, offer_text, services, valid_until, post_caption} → AI background with NO TEXT → _compose_flyer overlays real salon logo + crisp Playfair text + % badge + contact bar (fixes garbled AI text user showed from production). post_caption (social caption w/ hashtags) stored on gallery doc.
+- Gallery.jsx: new ShareRow per image (gallery-post-google/insta/wa-<id>): Google → /mira-studio/google/post w/ same-day Mira confirm (window.confirm) + manual fallback (caption copied + business.google.com); Insta → checks /mira-studio/social/context posted_today then /social/publish (ig+fb), manual fallback; WhatsApp → wa.me share w/ caption + image link. Generate timeout 120s→240s.
+- DUAL IMAGE ENGINES (user request "use ChatGPT and Gemini"): mira_common._gen_image_bytes() tries gpt-image-1 then falls back to Gemini Nano Banana (gemini-3.1-flash-image-preview via LlmChat multimodal, playbook-verified, returns b64→bytes). Wired into _gen_image (Mira Studio social/google images), gallery_generate, offers/flyer create_flyer. Gemini direct-tested (530KB image OK).
+- offer_flyer._draw_flyer_copy: headline/offer text now has subtle stroke (readability over busy backgrounds).
+- TESTED: iteration_76 100% pass (backend generate + all 4 share flows + same-day confirm + regression). Two E2E generate runs verified visually (royal_gold monsoon, bridal_blush bridal — logo crisp, no garbled text).
+- Reminder to user: production miracurl-suite.com needs REDEPLOY to get all of this.
