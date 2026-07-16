@@ -60,6 +60,21 @@ def _card_response(pdf_bytes: bytes, name: str) -> Response:
                     headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
+def _staff_card_data(s: dict, t: dict, photo, logo) -> dict:
+    email = (s.get("email") or "").strip()
+    return {
+        "name": s["name"], "role": s.get("role") or "Staff",
+        "id_number": f"EMP-{s['id'][:8].upper()}",
+        "email": email or None,
+        "phone": None if email else (s.get("phone") or None),
+        "blood_group": s.get("blood_group") or None,
+        "photo_bytes": photo, "logo_bytes": logo,
+        "brand_name": t.get("name") or "Salon",
+        "website": f"{_site_host()}/book/{t.get('slug', '')}",
+        "qr_url": _verify_qr_url(s.get("phone") or ""),
+    }
+
+
 @router.get("/id-cards/staff/{sid}/pdf")
 async def staff_id_card(sid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     s = await db.staff.find_one({"id": sid}, {"_id": 0, "aadhaar_hash": 0})
@@ -69,17 +84,7 @@ async def staff_id_card(sid: str, admin=Depends(require_tenant_admin), t=Depends
         raise HTTPException(400, "ID cards are only generated for currently working staff")
     photo = await _img_bytes(s.get("image_url"), tenant_id=t["id"])
     logo = await _img_bytes(t.get("logo_url"), tenant_id=t["id"])
-    data = {
-        "name": s["name"], "role": s.get("role") or "Staff",
-        "id_number": f"EMP-{s['id'][:8].upper()}",
-        "email": (s.get("email") or "").strip() or None,
-        "phone": None if (s.get("email") or "").strip() else (s.get("phone") or None),
-        "blood_group": s.get("blood_group") or None,
-        "photo_bytes": photo, "logo_bytes": logo,
-        "brand_name": t.get("name") or "Salon",
-        "website": f"{_site_host()}/book/{t.get('slug', '')}",
-        "qr_url": _verify_qr_url(s.get("phone") or ""),
-    }
+    data = _staff_card_data(s, t, photo, logo)
     pdf_bytes = await asyncio.to_thread(_render_id_card_pdf, data)
     return _card_response(pdf_bytes, s["name"])
 

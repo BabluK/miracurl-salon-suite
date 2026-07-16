@@ -121,63 +121,114 @@ async def _draft_email(lead: dict) -> dict:
             "body": out.get("body") or ""}
 
 
-async def _research_salon(client: httpx.AsyncClient, name: str, city: str, website_hint: str = "") -> dict:
-    from routes.mira_common import _ask_json
+async def _emails_from_contact_pages(client: httpx.AsyncClient, website: str, soup) -> list:
+    base = website.rstrip("/") if website.startswith("http") else f"https://{website.rstrip('/')}"
+    for a in soup.select("a[href]"):
+        href = a.get("href", "")
+        if "contact" in href.lower() and not href.startswith("mailto:"):
+            url = href if href.startswith("http") else f"{base}/{href.lstrip('/')}"
+            emails = _extract_emails(await _fetch_page(client, url))
+            if emails:
+                return emails
+            break
+    for path in ("/contact", "/contact-us", "/contactus"):
+        emails = _extract_emails(await _fetch_page(client, base + path))
+        if emails:
+            return emails
+    return []
+
+
+async def _scrape_site(client: httpx.AsyncClient, website_hint: str) -> dict:
+    """Fetch the salon website and extract emails / instagram / booking signal / text."""
     site_html = await _fetch_site(client, website_hint)
-    website = website_hint if site_html else ""
-    emails = _extract_emails(site_html)
-    instagram = ""
-    booking_signal = False
-    site_text = ""
-    if site_html:
-        soup = BeautifulSoup(site_html, "html.parser")
-        low = site_html.lower()
-        booking_signal = any(k in low for k in ("book now", "book appointment", "book online", "bookslot",
-                                                "calendly", "setmore", "fresha", "zylu", "dingg"))
-        ig = soup.select_one('a[href*="instagram.com/"]')
-        if ig:
-            instagram = ig.get("href", "")[:120]
-        if not emails:
-            for a in soup.select("a[href]"):
-                href = a.get("href", "")
-                if "contact" in href.lower() and not href.startswith("mailto:"):
-                    base = website.rstrip("/") if website.startswith("http") else f"https://{website.rstrip('/')}"
-                    contact_url = href if href.startswith("http") else f"{base}/{href.lstrip('/')}"
-                    emails = _extract_emails(await _fetch_page(client, contact_url))
-                    break
-        if not emails:
-            base = website.rstrip("/") if website.startswith("http") else f"https://{website.rstrip('/')}"
-            for path in ("/contact", "/contact-us", "/contactus"):
-                emails = _extract_emails(await _fetch_page(client, base + path))
-                if emails:
-                    break
-        site_text = soup.get_text(" ", strip=True)[:2500]
-    info = await _ask_json(
+    if not site_html:
+        return {"website": "", "emails": [], "instagram": "", "booking": False, "text": ""}
+    soup = BeautifulSoup(site_html, "html.parser")
+    low = site_html.lower()
+    booking = any(k in low for k in ("book now", "book appointment", "book online", "bookslot",
+                                     "calendly", "setmore", "fresha", "zylu", "dingg"))
+    ig = soup.select_one('a[href*="instagram.com/"]')
+    emails = _extract_emails(site_html) or await _emails_from_contact_pages(client, website_hint, soup)
+    return {"website": website_hint, "emails": emails,
+            "instagram": ig.get("href", "")[:120] if ig else "",
+            "booking": booking, "text": soup.get_text(" ", strip=True)[:2500]}
+
+
+async def _llm_research(name: str, city: str, site: dict) -> dict:
+    from routes.mira_common import _ask_json
+    website = site["website"]
+    return await _ask_json(
         "You are the Research Agent for a salon-software company. You MAY use your general knowledge about this "
         "salon brand (typical Google rating, whether it is a chain and roughly how many branches it has in this city, "
         "its usual services). But judge website_quality and online booking primarily from the provided website text. "
         "Never invent emails or website URLs.",
         f"Salon: {name}, City: {city}, India. Website {'(verified live)' if website else '(none found)'}: {website}\n"
-        f"Website text: {site_text or '(no website content)'}\n"
+        f"Website text: {site['text'] or '(no website content)'}\n"
         'Return JSON: {"rating": <typical Google rating like 4.3, null only if you truly do not know this brand>, '
         '"services": ["..."], "branches": <estimated branch count in this city, 1 if single outlet>, '
-        f'"instagram": "<handle/url or empty>", "has_online_booking": {str(booking_signal).lower()} '
+        f'"instagram": "<handle/url or empty>", "has_online_booking": {str(site["booking"]).lower()} '
         'or true if the website text clearly offers online booking, '
         '"website_quality": "<none|poor|good — judge from the website text richness>", '
         '"owner_name": "<if found, else empty>"}')
+
+
+async def _research_salon(client: httpx.AsyncClient, name: str, city: str, website_hint: str = "") -> dict:
+    site = await _scrape_site(client, website_hint)
+    info = await _llm_research(name, city, site)
     lead = {
         "id": str(uuid.uuid4()), "name": name, "city": city,
-        "website": website, "instagram": instagram or (info.get("instagram") or ""),
+        "website": site["website"], "instagram": site["instagram"] or (info.get("instagram") or ""),
         "rating": info.get("rating"), "services": (info.get("services") or [])[:6],
         "branches": int(info.get("branches") or 1),
-        "has_online_booking": booking_signal or bool(info.get("has_online_booking")),
-        "website_quality": (info.get("website_quality") or ("none" if not website else "poor")),
+        "has_online_booking": site["booking"] or bool(info.get("has_online_booking")),
+        "website_quality": (info.get("website_quality") or ("none" if not site["website"] else "poor")),
         "owner_name": info.get("owner_name") or "",
-        "email": emails[0] if emails else "", "email_source": website if emails else "",
-        "all_emails": emails, "crm": False,
+        "email": site["emails"][0] if site["emails"] else "",
+        "email_source": site["website"] if site["emails"] else "",
+        "all_emails": site["emails"], "crm": False,
         "status": "researched", "created_at": _now(),
     }
     lead["score"], lead["score_breakdown"] = _score(lead)
+    return lead
+
+
+async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, existing: set) -> tuple:
+    """Returns (source, candidates). Google Maps when available, else Mira AI research."""
+    places = [p for p in await _places_search(client, city, target + 8)
+              if p["name"] and p["name"].lower() not in existing][:target]
+    if places:
+        return "maps", [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p}
+                        for p in places]
+    from routes.mira_common import _ask_json
+    plan = await _ask_json(
+        "You are the Lead Finder agent for a salon-software company targeting Indian salons. "
+        "List REAL salon businesses that operate in the given city — well-known local salons and chains. "
+        "Include their official website domain ONLY if you are confident it is correct; otherwise leave empty. "
+        "Never invent salon names or domains.",
+        f"City: {city}, India. Already contacted (skip these): {sorted(existing)[:40]}\n"
+        f'Return JSON: {{"salons": [{{"name": "<salon name>", "website": "<https://… or empty>", '
+        f'"area": "<locality if known>"}}]}} with up to {target + 6} salons.')
+    return "ai", [c for c in (plan.get("salons") or [])
+                  if c.get("name") and c["name"].strip().lower() not in existing][:target]
+
+
+async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str, run_id: str) -> dict:
+    lead = await _research_salon(client, cand["name"].strip(), city, (cand.get("website") or "").strip())
+    lead["run_id"] = run_id
+    lead["area"] = cand.get("area") or ""
+    place = cand.get("_place")
+    if place:
+        lead["rating"] = place.get("rating") or lead["rating"]
+        lead["reviews"] = place.get("reviews")
+        lead["phone"] = place.get("phone") or ""
+        lead["address"] = place.get("address") or ""
+        lead["source"] = "google_maps"
+        lead["score"], lead["score_breakdown"] = _score(lead)
+    if lead["email"]:
+        draft = await _draft_email(lead)
+        lead.update({"email_subject": draft["subject"], "email_body": draft["body"], "status": "drafted"})
+    else:
+        lead["status"] = "no_email"
     return lead
 
 
@@ -186,57 +237,25 @@ async def _run_pipeline(run_id: str, city: str, target: int):
         await _raw_db.mira_lead_runs.update_one(
             {"id": run_id}, {"$push": {"log": f"[{_now()[11:19]}] {msg}"}, "$set": sets or {}})
     try:
-        from routes.mira_common import _ask_json
         async with httpx.AsyncClient() as client:
             await _log(f"🔍 Lead Finder: Mira is listing real salons in {city}…", stage="finding")
             existing = {(d.get("name") or "").lower() async for d in _raw_db.mira_leads.find({"city": city}, {"name": 1})}
-            places = [p for p in await _places_search(client, city, target + 8)
-                      if p["name"] and p["name"].lower() not in existing][:target]
-            if places:
-                await _log(f"📍 Google Maps: {len(places)} real salons with ratings & websites found.")
-                cands = [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p} for p in places]
-            else:
-                await _log("ℹ️ Google Places not enabled — using Mira AI research instead.")
-                plan = await _ask_json(
-                    "You are the Lead Finder agent for a salon-software company targeting Indian salons. "
-                    "List REAL salon businesses that operate in the given city — well-known local salons and chains. "
-                    "Include their official website domain ONLY if you are confident it is correct; otherwise leave empty. "
-                    "Never invent salon names or domains.",
-                    f"City: {city}, India. Already contacted (skip these): {sorted(existing)[:40]}\n"
-                    f'Return JSON: {{"salons": [{{"name": "<salon name>", "website": "<https://… or empty>", '
-                    f'"area": "<locality if known>"}}]}} with up to {target + 6} salons.')
-                cands = [c for c in (plan.get("salons") or [])
-                         if c.get("name") and c["name"].strip().lower() not in existing][:target]
+            source, cands = await _find_candidates(client, city, target, existing)
             if not cands:
                 await _log("No new salons found — try another city or run again later.", status="done", stage="done")
                 return
+            await _log("📍 Google Maps: real salons with ratings & websites found." if source == "maps"
+                       else "ℹ️ Google Places not enabled — using Mira AI research instead.")
             await _log(f"✅ Found {len(cands)} candidate salons. Researching each…", stage="researching", found=len(cands))
             done = 0
             for cand in cands:
-                name = cand["name"].strip()
                 try:
-                    lead = await _research_salon(client, name, city, (cand.get("website") or "").strip())
-                    lead["run_id"] = run_id
-                    lead["area"] = cand.get("area") or ""
-                    place = cand.get("_place")
-                    if place:
-                        lead["rating"] = place.get("rating") or lead["rating"]
-                        lead["reviews"] = place.get("reviews")
-                        lead["phone"] = place.get("phone") or ""
-                        lead["address"] = place.get("address") or ""
-                        lead["source"] = "google_maps"
-                        lead["score"], lead["score_breakdown"] = _score(lead)
-                    if lead["email"]:
-                        await _log(f"✉️ Drafting personalized email for {name} (score {lead['score']})…")
-                        draft = await _draft_email(lead)
-                        lead.update({"email_subject": draft["subject"], "email_body": draft["body"], "status": "drafted"})
-                    else:
-                        lead["status"] = "no_email"
+                    lead = await _build_candidate_lead(client, cand, city, run_id)
                     await _raw_db.mira_leads.insert_one(lead)
                     done += 1
-                    await _log(f"📋 {name}: score {lead['score']} | email: {lead['email'] or 'not found'}", researched=done)
+                    await _log(f"📋 {lead['name']}: score {lead['score']} | email: {lead['email'] or 'not found'}", researched=done)
                 except Exception as e:
-                    await _log(f"⚠️ {name} skipped: {str(e)[:80]}")
+                    await _log(f"⚠️ {cand.get('name')} skipped: {str(e)[:80]}")
                 await asyncio.sleep(1.5)
             await _log(f"🎉 Run complete — {done} leads ready for your review.", status="done", stage="done")
     except Exception as e:

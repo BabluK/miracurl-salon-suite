@@ -237,24 +237,27 @@ async def export_products_csv(user=Depends(require_tenant_admin)):
     return Response(content=buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=products.csv"})
 
+def _parse_csv_numbers(row: dict) -> Optional[dict]:
+    try:
+        return {"price": float(row.get("price") or ""),
+                "stock": int(float(row.get("stock") or 0)),
+                "cost": float(row.get("cost") or 0),
+                "low_stock_threshold": int(float(row.get("low_stock_threshold") or 5))}
+    except ValueError:
+        return None
+
+
 def _product_doc_from_csv_row(raw: dict) -> Optional[dict]:
     """Parse one CSV row into a product doc. Returns None if the row is invalid."""
     row = {(k or "").strip().lower(): (v or "").strip() for k, v in raw.items()}
     name = row.get("name", "")
-    if not name:
-        return None
-    try:
-        price = float(row.get("price") or "")
-        stock = int(float(row.get("stock") or 0))
-        cost = float(row.get("cost") or 0)
-        threshold = int(float(row.get("low_stock_threshold") or 5))
-    except ValueError:
+    nums = _parse_csv_numbers(row) if name else None
+    if not nums:
         return None
     sku = row.get("sku") or f"SKU-{re.sub(r'[^A-Za-z0-9]', '', name)[:12].upper()}"
     return {
         "name": name, "brand": row.get("brand", ""), "category": row.get("category") or "General",
-        "sku": sku, "price": price, "cost": cost, "stock": stock,
-        "low_stock_threshold": threshold, "image_url": row.get("image_url", ""),
+        "sku": sku, "image_url": row.get("image_url", ""), **nums,
     }
 
 

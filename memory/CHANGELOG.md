@@ -1258,3 +1258,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - User provided real Maps key (AIza…jja0w) → saved as GOOGLE_MAPS_API_KEY in backend/.env (line 40).
 - lead_gen.py: _places_search() (Places API New searchText, fieldmask displayName/rating/userRatingCount/websiteUri/nationalPhoneNumber/formattedAddress). Pipeline tries Places first → enriches leads with real rating/reviews/phone/address (source google_maps) → falls back to AI research when Places unavailable (verified: currently 403 SERVICE_DISABLED on project 885100136995 — user must (1) enable 'Places API (New)' in console and (2) link billing account 0111E1-D072FD-F10C6D to the project). Frontend row shows reviews count + phone.
 - Fallback path verified working (returns [] gracefully, logs 'Google Places not enabled — using Mira AI research').
+
+## Iter 120 (16 Jul 2026) — Code review fixes
+- FALSE POSITIVES verified & skipped: social_connect.py:30 (public API URLs, no secret), utils.py:8 'is' checks (none exist), 46 undefined vars (ruff F821 clean).
+- Fixed: tests/test_gallery_generate.py password now from TEST_ADMIN_PASSWORD env (module-level pytest.skip when unset).
+- Complexity refactors (all now ≤11): auth.forgot → _staff_reset_recipient + _send_reset_email; lead_gen._research_salon → _scrape_site + _emails_from_contact_pages + _llm_research; lead_gen._run_pipeline → _find_candidates + _build_candidate_lead; id_cards.staff_id_card → _staff_card_data; inventory._product_doc_from_csv_row → _parse_csv_numbers; mira_calendar.plan_week → _calendar_items.
+- REGRESSION TESTED: forgot-password generic response OK, staff ID-card PDF 200, CSV row parsing (valid/bad/missing), live lead run Mumbai (2 leads, refactored pipeline works, Places fallback logs correctly).

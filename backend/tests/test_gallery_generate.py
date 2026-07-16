@@ -1,4 +1,6 @@
-"""Regression test for POST /api/gallery/generate - branded flyer with post_caption."""
+"""Regression test for POST /api/gallery/generate - branded flyer with post_caption.
+Run with: TEST_ADMIN_PASSWORD=<see /app/memory/test_credentials.md> pytest tests/test_gallery_generate.py
+"""
 import os
 import requests
 import pytest
@@ -6,7 +8,10 @@ import pytest
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 TENANT_SLUG = "miracurl-marathahalli"
 EMAIL = "admin@miracurl.com"
-PASSWORD = "q6QY@tn3p#9DtL"
+PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "")
+
+if not PASSWORD:
+    pytest.skip("TEST_ADMIN_PASSWORD env var not set (see /app/memory/test_credentials.md)", allow_module_level=True)
 
 
 @pytest.fixture(scope="module")

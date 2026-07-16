@@ -20,6 +20,17 @@ class PlanIn(BaseModel):
     focus: str | None = None
 
 
+def _calendar_items(days: list, dates: list, tid: str) -> list:
+    now = datetime.now(timezone.utc).isoformat()
+    return [{
+        "id": str(uuid.uuid4()), "tenant_id": tid,
+        "date": d.get("date"), "post_type": d.get("post_type", "post"),
+        "platform": d.get("platform", "instagram"), "topic": d.get("topic", ""),
+        "caption": d.get("caption", ""), "hashtags": d.get("hashtags") or [],
+        "status": "suggested", "image_url": "", "created_at": now,
+    } for d in days if d.get("date") in dates]
+
+
 @router.post("/mira-studio/calendar/plan")
 async def plan_week(body: PlanIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     try:
@@ -43,14 +54,7 @@ async def plan_week(body: PlanIn, admin=Depends(require_tenant_admin), t=Depends
         raise HTTPException(400, "Mira couldn't plan the week — try again")
     await _raw_db.content_calendar.delete_many(
         {"tenant_id": t["id"], "date": {"$in": dates}, "status": "suggested"})
-    now = datetime.now(timezone.utc).isoformat()
-    items = [{
-        "id": str(uuid.uuid4()), "tenant_id": t["id"],
-        "date": d.get("date"), "post_type": d.get("post_type", "post"),
-        "platform": d.get("platform", "instagram"), "topic": d.get("topic", ""),
-        "caption": d.get("caption", ""), "hashtags": d.get("hashtags") or [],
-        "status": "suggested", "image_url": "", "created_at": now,
-    } for d in days if d.get("date") in dates]
+    items = _calendar_items(days, dates, t["id"])
     if items:
         await _raw_db.content_calendar.insert_many(items)
     for i in items:

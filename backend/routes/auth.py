@@ -328,6 +328,36 @@ async def refresh_token(request: Request, response: Response):
     except jwt.InvalidTokenError:
         raise HTTPException(401, "Invalid refresh token")
 
+async def _staff_reset_recipient(email: str, personal_email) -> str | None:
+    """Active staff may self-reset only to the personal email on their staff record."""
+    staff = await _raw_db.staff.find_one(
+        {"email": email}, {"_id": 0, "active": 1, "status": 1, "personal_email": 1})
+    provided = (personal_email or "").lower().strip()
+    on_file = ((staff or {}).get("personal_email") or "").lower().strip()
+    if (not staff or staff.get("active") is False
+            or staff.get("status") in ("inactive", "archived")
+            or not provided or not on_file or provided != on_file):
+        return None
+    return on_file
+
+
+async def _send_reset_email(login_email: str, recipient: str, token: str):
+    from email_service import _send_email
+    reset_link = f"{os.environ.get('APP_PUBLIC_URL', '')}/reset-password?token={token}"
+    await _send_email(
+        [recipient],
+        "Reset your Miracurl password",
+        f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
+        f"<h2 style='margin:0 0 8px'>Password reset ✦</h2>"
+        f"<p style='color:#444'>Tap the button below to set a new password for your login "
+        f"<b>{login_email}</b>. This link works once and expires in 1 hour.</p>"
+        f"<p style='margin:20px 0'><a href='{reset_link}' "
+        f"style='background:#e11d48;color:#fff;padding:12px 22px;border-radius:24px;"
+        f"text-decoration:none;font-weight:bold'>Set new password</a></p>"
+        f"<p style='color:#888;font-size:12px'>Didn't ask for this? You can safely ignore this email — "
+        f"your password stays unchanged.</p></div>")
+
+
 @router.post("/auth/forgot-password")
 async def forgot(body: ForgotIn, request: Request):
     from security import public_rate_limit
@@ -336,18 +366,10 @@ async def forgot(body: ForgotIn, request: Request):
     user = await db.users.find_one({"email": email})
     reset_recipient = email
     if user and user.get("role") in ("staff", "employee"):
-        staff = await _raw_db.staff.find_one(
-            {"email": email}, {"_id": 0, "active": 1, "status": 1, "personal_email": 1})
-        provided = (body.personal_email or "").lower().strip()
-        on_file = ((staff or {}).get("personal_email") or "").lower().strip()
-        if (not staff or staff.get("active") is False
-                or staff.get("status") in ("inactive", "archived")
-                or not provided or not on_file or provided != on_file):
-            # Ex-staff can't reset back in; active staff must provide the personal
-            # Gmail on record (login IDs aren't real inboxes). Response stays generic.
+        # Staff login IDs aren't real inboxes — response stays generic (no enumeration).
+        reset_recipient = await _staff_reset_recipient(email, body.personal_email)
+        if not reset_recipient:
             user = None
-        else:
-            reset_recipient = on_file
     if user:
         token = secrets.token_urlsafe(32)
         await db.password_reset_tokens.insert_one({
@@ -356,21 +378,8 @@ async def forgot(body: ForgotIn, request: Request):
             "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
             "used": False,
         })
-        reset_link = f"{os.environ.get('APP_PUBLIC_URL', '')}/reset-password?token={token}"
         try:
-            from email_service import _send_email
-            await _send_email(
-                [reset_recipient],
-                "Reset your Miracurl password",
-                f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
-                f"<h2 style='margin:0 0 8px'>Password reset ✦</h2>"
-                f"<p style='color:#444'>Tap the button below to set a new password for your login "
-                f"<b>{email}</b>. This link works once and expires in 1 hour.</p>"
-                f"<p style='margin:20px 0'><a href='{reset_link}' "
-                f"style='background:#e11d48;color:#fff;padding:12px 22px;border-radius:24px;"
-                f"text-decoration:none;font-weight:bold'>Set new password</a></p>"
-                f"<p style='color:#888;font-size:12px'>Didn't ask for this? You can safely ignore this email — "
-                f"your password stays unchanged.</p></div>")
+            await _send_reset_email(email, reset_recipient, token)
         except Exception as e:
             logging.error(f"reset email send failed for {reset_recipient}: {e}")
         logging.info("[Miracurl] Password reset requested for %s (token %d chars)", email, len(token))
