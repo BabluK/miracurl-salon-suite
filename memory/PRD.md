@@ -365,3 +365,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Backend: routes/mira_builder.py (studio_users, studio_projects). Frontend: pages/MiraAIStudio.jsx.
 - Tested: iteration_70.json — 13/13 backend, all frontend flows PASS incl. salon SaaS regression.
 - Redesigned per design_guidelines.json: luxury gold/pink "Old Money Tech" aesthetic matching Miracurl brand (user request: "more professional"). Verified via screenshots.
+
+## 2026-07-16 — Lead Gen email: live pricing table + brochure attachment (user request)
+- `_draft_email` (lead_gen.py): AI now gets live PLAN_CATALOG pricing (via _live_plans → load_plan_overrides) in system prompt; recommends branch-matching plan, told NOT to write prices in body (prevents hallucinated numbers).
+- `approve_and_send`: appends `_pricing_table_html()` — full 8-tier table rendered from live PLAN_CATALOG, annual rows highlighted gold with "BEST VALUE" badge, multi-branch-discounts footnote — and attaches `suite_overview_attachment()` PDF (miracurl-suite-overview.pdf) to the Resend payload.
+- Follow-up email: hardcoded Rs.900/month removed; now quotes live half_year + annual prices with multi-branch note.
+- Maps log clarity: `_places_search` returns (places, note); run log now distinguishes "key not configured" vs actual API error vs "all Maps results already contacted". User's [05:30] "Google Places not enabled" was their PRODUCTION deployment missing GOOGLE_MAPS_API_KEY env var — preview key verified working.
+- Verified: unit (pricing table 8 tiers, draft email, followup, attachment build) + real e2e approve→Resend send to delivered@resend.dev returned {"ok":true}. Test lead cleaned up.

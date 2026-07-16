@@ -26,11 +26,11 @@ _SKIP_EMAIL = ("example.", "sentry.", "wixpress", "@2x", ".png", ".jpg", "@sentr
 FUNNEL_TARGETS = {"target_leads": 300, "qualified": 100, "emails_sent": 50, "demos": 10, "customers": 5}
 
 
-async def _places_search(client: httpx.AsyncClient, city: str, n: int) -> list:
-    """Real salon data from Google Places API (New). Returns [] if key missing/disabled."""
+async def _places_search(client: httpx.AsyncClient, city: str, n: int) -> tuple:
+    """Real salon data from Google Places API (New). Returns (places, note)."""
     key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
     if not key:
-        return []
+        return [], "no_key"
     try:
         r = await client.post(
             "https://places.googleapis.com/v1/places:searchText",
@@ -41,14 +41,14 @@ async def _places_search(client: httpx.AsyncClient, city: str, n: int) -> list:
         data = r.json()
         if "places" not in data:
             log.warning("places api unavailable: %s", str(data)[:200])
-            return []
+            return [], (data.get("error") or {}).get("message", "no results")[:90]
         return [{"name": p.get("displayName", {}).get("text", ""), "rating": p.get("rating"),
                  "reviews": p.get("userRatingCount"), "website": p.get("websiteUri", ""),
                  "phone": p.get("nationalPhoneNumber", ""), "address": p.get("formattedAddress", "")}
-                for p in data["places"]]
+                for p in data["places"]], ""
     except Exception as e:
         log.warning("places search failed: %s", e)
-        return []
+        return [], str(e)[:90]
 
 
 def _now():
@@ -107,20 +107,54 @@ def _score(lead: dict) -> tuple:
     return score, breakdown
 
 
+async def _live_plans() -> dict:
+    from routes.subscriptions import load_plan_overrides, PLAN_CATALOG
+    try:
+        await load_plan_overrides()
+    except Exception:
+        pass
+    return {k: dict(v) for k, v in PLAN_CATALOG.items()}
+
+
+def _pricing_lines(plans: dict) -> str:
+    return "\n".join(f"- {v['label']}: Rs.{int(v['price']):,}" for v in plans.values())
+
+
+def _pricing_table_html(plans: dict) -> str:
+    rows = ""
+    for k, v in plans.items():
+        annual = "annual" in k
+        style = "background:#faf6ec;font-weight:bold" if annual else ""
+        badge = ' <span style="background:#d4af37;color:#fff;font-size:10px;padding:2px 7px;border-radius:8px;vertical-align:middle">BEST VALUE</span>' if annual else ""
+        rows += (f'<tr style="{style}"><td style="padding:8px 14px;border-bottom:1px solid #eee">{v["label"]}{badge}</td>'
+                 f'<td style="padding:8px 14px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">₹{int(v["price"]):,}</td></tr>')
+    return (
+        '<div style="margin:22px 0">'
+        '<div style="font-size:15px;font-weight:bold;color:#1c1c22;margin-bottom:8px">Miracurl Suite — Plans &amp; Pricing</div>'
+        '<table style="border-collapse:collapse;width:100%;max-width:480px;font-size:14px;color:#333;border:1px solid #eee;border-radius:10px">'
+        f'{rows}</table>'
+        '<div style="font-size:12px;color:#777;margin-top:8px">💡 Multi-branch discounts available — the more branches, the more you save. Full details in the attached brochure.</div>'
+        '</div>')
+
+
 async def _draft_email(lead: dict) -> dict:
     from routes.mira_common import _ask_json
+    pricing = _pricing_lines(await _live_plans())
     out = await _ask_json(
         "You are Mira, the outreach agent for Miracurl Suite — an all-in-one salon management platform "
-        "(online booking, WhatsApp marketing & automation, staff attendance & payroll, memberships, GST billing) "
-        "at just Rs.900/month. Write warm, short, personalized B2B outreach emails to Indian salon owners.",
+        "(online booking, WhatsApp marketing & automation, staff attendance & payroll, memberships, GST billing). "
+        f"Current live plan pricing:\n{pricing}\n"
+        "Write warm, short, personalized B2B outreach emails to Indian salon owners.",
         f"Salon research data: {lead}\n"
         "Write a personalized email to this salon's owner. Rules: greet as 'Hi {name} team' or owner if known; "
         "1st line must reference something SPECIFIC from the research (their rating/reviews, services, branches); "
         "if the salon has 500+ reviews but no website, emphasize how much repeat business they're losing without "
         "online booking given their popularity; "
         "2nd para: point out what they seem to be missing (online booking / WhatsApp automation / website) and how "
-        "Miracurl Suite fixes it; mention Rs.900/month; CTA: free live demo — reply to this email or visit "
-        "https://miracurl-suite.com to pick a demo slot. Max 130 words, no fluff, plain paragraphs. "
+        "Miracurl Suite fixes it; recommend the plan that best fits their branch count and note the annual plan is "
+        "the best value; do NOT list prices in the body — a full pricing table is appended below your email "
+        "automatically; mention the attached brochure PDF has full details; CTA: free live demo — reply to this email or visit "
+        "https://miracurl-suite.com to pick a demo slot. Max 140 words, no fluff, plain paragraphs. "
         'Return JSON: {"subject":"<catchy subject max 60 chars>","body":"<email body, use \\n between paragraphs>"}')
     return {"subject": (out.get("subject") or "Grow your salon with Miracurl Suite")[:120],
             "body": out.get("body") or ""}
@@ -198,12 +232,14 @@ async def _research_salon(client: httpx.AsyncClient, name: str, city: str, websi
 
 
 async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, existing: set) -> tuple:
-    """Returns (source, candidates). Google Maps when available, else Mira AI research."""
-    places = [p for p in await _places_search(client, city, target + 8)
-              if p["name"] and p["name"].lower() not in existing][:target]
+    """Returns (source, candidates, note). Google Maps when available, else Mira AI research."""
+    raw, note = await _places_search(client, city, target + 8)
+    places = [p for p in raw if p["name"] and p["name"].lower() not in existing][:target]
     if places:
         return "maps", [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p}
-                        for p in places]
+                        for p in places], ""
+    if raw and not places:
+        note = "all Maps results already contacted"
     from routes.mira_common import _ask_json
     plan = await _ask_json(
         "You are the Lead Finder agent for a salon-software company targeting Indian salons. "
@@ -214,7 +250,7 @@ async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, ex
         f'Return JSON: {{"salons": [{{"name": "<salon name>", "website": "<https://… or empty>", '
         f'"area": "<locality if known>"}}]}} with up to {target + 6} salons.')
     return "ai", [c for c in (plan.get("salons") or [])
-                  if c.get("name") and c["name"].strip().lower() not in existing][:target]
+                  if c.get("name") and c["name"].strip().lower() not in existing][:target], note
 
 
 async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str, run_id: str) -> dict:
@@ -245,12 +281,16 @@ async def _run_pipeline(run_id: str, city: str, target: int):
         async with httpx.AsyncClient() as client:
             await _log(f"🔍 Lead Finder: Mira is listing real salons in {city}…", stage="finding")
             existing = {(d.get("name") or "").lower() async for d in _raw_db.mira_leads.find({"city": city}, {"name": 1})}
-            source, cands = await _find_candidates(client, city, target, existing)
+            source, cands, note = await _find_candidates(client, city, target, existing)
             if not cands:
                 await _log("No new salons found — try another city or run again later.", status="done", stage="done")
                 return
-            await _log("📍 Google Maps: real salons with ratings & websites found." if source == "maps"
-                       else "ℹ️ Google Places not enabled — using Mira AI research instead.")
+            if source == "maps":
+                await _log("📍 Google Maps: real salons with ratings & websites found.")
+            elif note == "no_key":
+                await _log("ℹ️ Google Maps key not configured on this server — using Mira AI research instead.")
+            else:
+                await _log(f"⚠️ Google Maps unavailable ({note or 'no results'}) — using Mira AI research instead.")
             await _log(f"✅ Found {len(cands)} candidate salons. Researching each…", stage="researching", found=len(cands))
             done = 0
             for cand in cands:
@@ -337,9 +377,12 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
     if lead.get("status") == "sent":
         raise HTTPException(400, "Already sent")
     from email_service import _send_email
+    from routes.hq_documents import suite_overview_attachment
     html = "".join(f"<p>{p}</p>" for p in (lead.get("email_body") or "").split("\n") if p.strip())
+    html += _pricing_table_html(await _live_plans())
+    attachment = await asyncio.to_thread(suite_overview_attachment)
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
-                               html, book_url="https://miracurl-suite.com")
+                               html, attachments=[attachment], book_url="https://miracurl-suite.com")
     if not result.get("sent"):
         raise HTTPException(502, f"Send failed: {result.get('error')}")
     await _raw_db.mira_leads.update_one(
@@ -372,12 +415,15 @@ async def delete_lead(lid: str, user=Depends(require_super_admin)):
 FOLLOWUP_AFTER_DAYS = 5
 
 
-def _followup_email(lead: dict) -> tuple:
+def _followup_email(lead: dict, plans: dict) -> tuple:
+    half = int(plans["half_year"]["price"])
+    annual = int(plans["annual"]["price"])
     subject = f"Re: {lead.get('email_subject') or 'Miracurl Suite — free demo'}"
     body = (f"Hi {lead.get('owner_name') or lead['name'] + ' team'},\n\n"
             f"Just a gentle follow-up — did you get a chance to see my earlier email about "
             f"Miracurl Suite? Salon owners like you use it to automate online bookings, WhatsApp "
-            f"marketing, staff attendance and memberships for just Rs.900/month.\n\n"
+            f"marketing, staff attendance and memberships from just Rs.{half:,} for 6 months "
+            f"(best value: Rs.{annual:,}/year, multi-branch discounts available).\n\n"
             f"If you'd like, I can set up a quick 15-minute live demo this week — just reply to this "
             f"email or visit https://miracurl-suite.com.\n\n"
             f"Warm regards,\nTeam Miracurl")
@@ -392,8 +438,9 @@ async def run_lead_followups() -> dict:
         {"status": "sent", "sent_at": {"$lte": cutoff}, "follow_up_sent_at": {"$exists": False}},
         {"_id": 0}).to_list(50)
     sent = failed = 0
+    plans = await _live_plans() if due else {}
     for lead in due:
-        subject, body = _followup_email(lead)
+        subject, body = _followup_email(lead, plans)
         html = "".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
         try:
             result = await _send_email([lead["email"]], subject, html, book_url="https://miracurl-suite.com")
