@@ -2,7 +2,7 @@
 // Lets the super-admin sell 6-month / 12-month plans to salon tenants,
 // record Paytm payments manually, see revenue stats, and cancel subscriptions.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { IndianRupee, TrendingUp, Calendar, X, Plus, Ban, CheckCircle2, Receipt, AlertTriangle, CalendarPlus, Pencil } from "lucide-react";
+import { IndianRupee, TrendingUp, Calendar, X, Plus, Ban, CheckCircle2, Receipt, AlertTriangle, CalendarPlus, Pencil, Trash2 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -41,6 +41,17 @@ export default function BillingPanel({ tenants }) {
       await load();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Cancel failed");
+    }
+  }
+
+  async function hardDelete(sub) {
+    if (!window.confirm(`Permanently DELETE ${sub.tenant?.name || "this salon"}'s ${sub.status} subscription?\nThis also removes its payment records from revenue. Cannot be undone.`)) return;
+    try {
+      await api.delete(`/super-admin/subscriptions/${sub.id}`);
+      toast.success("Subscription deleted permanently");
+      await load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Delete failed");
     }
   }
 
@@ -159,6 +170,14 @@ export default function BillingPanel({ tenants }) {
                           title="Cancel"
                         ><Ban className="w-4 h-4" /></button>
                       </>
+                    )}
+                    {["cancelled", "expired"].includes(s.status) && (
+                      <button
+                        data-testid={`delete-sub-${s.id}`}
+                        onClick={() => hardDelete(s)}
+                        className="text-rose-400 hover:text-rose-600 p-1.5"
+                        title="Delete permanently (removes payment records too)"
+                      ><Trash2 className="w-4 h-4" /></button>
                     )}
                   </td>
                 </tr>

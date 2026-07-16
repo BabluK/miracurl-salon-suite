@@ -55,6 +55,7 @@ import Partners from "@/pages/Partners";
 import SalonPublic from "@/pages/SalonPublic";
 import EmployeePortal from "@/pages/EmployeePortal";
 import DemoSlot from "@/pages/DemoSlot";
+import PublicDemo from "@/pages/PublicDemo";
 import { PlayerProvider } from "@/context/PlayerContext";
 import Entertainment from "@/pages/Entertainment";
 
@@ -139,6 +140,7 @@ export default function App() {
             <Route path="/salon/:slug" element={<SalonPublic />} />
             <Route path="/employee" element={<EmployeePortal />} />
             <Route path="/demo-slot/:iid" element={<DemoSlot />} />
+            <Route path="/demo" element={<PublicDemo />} />
             <Route path="/partner" element={<PartnerLanding />} />
             <Route path="/success-stories" element={<SuccessStories />} />
             <Route path="/mira.ai" element={<MiraAIStudio />} />

@@ -847,6 +847,19 @@ async def cancel_subscription(sid: str, body: SubscriptionCancelIn, user=Depends
     return {"ok": True}
 
 
+@router.delete("/super-admin/subscriptions/{sid}")
+async def delete_subscription(sid: str, user=Depends(require_super_admin)):
+    """Permanently delete a cancelled/expired (test) subscription and its payment records."""
+    sub = await db.subscriptions.find_one({"id": sid}, {"_id": 0})
+    if not sub:
+        raise HTTPException(404, "Subscription not found")
+    if sub["status"] == "active":
+        raise HTTPException(400, "Cancel the subscription first — active subscriptions can't be deleted.")
+    pays = await db.subscription_payments.delete_many({"subscription_id": sid})
+    await db.subscriptions.delete_one({"id": sid})
+    return {"ok": True, "payments_deleted": pays.deleted_count}
+
+
 def _revenue_totals(pays: list, now: datetime) -> dict:
     today_iso = now.date().isoformat()
     month_prefix = now.strftime("%Y-%m")

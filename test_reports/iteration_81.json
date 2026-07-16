@@ -1,0 +1,33 @@
+{
+  "summary": "Tested iter-81 features: public /demo booking (GET slots, POST book, validation, dedup), refactored invite-based /demo-slot regression, DELETE /super-admin/subscriptions/{sid}, and Super Admin Billing UI trash button. All 10 backend pytest cases passed. Frontend flows verified end-to-end including delete confirm dialog & row removal.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PublicDemo.jsx", "issue": "Stale-closure bug in form state: `const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })` reads `form` from closure at render time. When multiple fields are populated quickly (fast typing / autofill / browser password managers), later field's onChange spreads a stale `form` and can overwrite earlier field values (e.g. name got blanked when subsequent fields were typed). Reproduced in Playwright with page.fill on 5 fields in rapid succession — the `name` field ended up empty. Recommended fix: use functional setState — `setForm(f => ({ ...f, [k]: e.target.value }))`.", "selector": "[data-testid=\"demo-name-input\"]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter81_public_demo_and_delete_sub.py",
+    "/app/test_reports/pytest/iter81.xml"
+  ],
+  "action_items": [
+    "Fix PublicDemo.jsx stale-closure in set() — replace with functional setState (setForm(f => ({...f, [k]: e.target.value}))) to prevent field values being clobbered when users type/paste quickly across fields."
+  ],
+  "critical_code_review_comments": [
+    "PublicDemo.jsx `set` handler uses object-spread with closure-captured `form`; switch to functional update.",
+    "public_demo_book creates demo_invites with correct source='public_demo_page' and dedups by email — verified.",
+    "_validate_slot correctly rejects invalid time (09:00), past dates, and dates >30 days out; shared between /demo-slot/{iid} and /demo/book (refactor OK).",
+    "delete_subscription correctly rejects active subs (400) and cascade-deletes subscription_payments — verified via seeded payment doc.",
+    "public_rate_limit on /demo/book at 5/10min may be tight for QA — a legitimate user retrying twice after an error could get 429. Consider bumping window or per-IP+email keying."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter81_public_demo_and_delete_sub.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (all critical flows verified)"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (used); delivered@resend.dev used for demo booking (cleaned up).",
+  "seed_data_creation": "One transient demo_invites doc inserted for regression fixture (deleted on teardown); one subscription_payments doc inserted for delete-cascade check (deleted with sub). Net: 2 cancelled subscriptions deleted during testing (1 backend + 1 UI).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Rate limits on POST /api/public/demo/book (5 per 10 min per IP) will trip if tests + UI both call from same IP. Backend tests dedupe so 2 attempts share slot. UI test may hit 429 if run after backend tests — expected. There are still 111 cancelled subs and 3 active subs in DB — delete flow can be retested repeatedly.",
+  "rca of the issue": "PublicDemo.jsx bug RCA: `set = (k) => (e) => setForm({ ...form, [k]: e.target.value })` — `form` is captured in the closure at each render. Between rapid keystrokes on different fields, if React hasn't yet committed the previous state update, the new onChange handler still spreads the stale `form`, overwriting previously typed values. Repro: use Playwright page.fill on all 5 inputs back-to-back — `name` ends up empty. Mitigation: functional setState (`setForm(f => ({...f, [k]: e.target.value}))`)."
+}

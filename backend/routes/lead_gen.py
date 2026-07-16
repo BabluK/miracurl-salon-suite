@@ -160,7 +160,7 @@ async def _draft_email(lead: dict) -> dict:
         "Miracurl Suite fixes it; recommend the plan that best fits their branch count and note the annual plan is "
         "the best value; do NOT list prices in the body — a full pricing table is appended below your email "
         "automatically; mention the attached brochure PDF has full details; CTA: free live demo — reply to this email or visit "
-        "https://miracurl-suite.com to pick a demo slot. Max 140 words, no fluff, plain paragraphs. "
+        "https://miracurl-suite.com/demo to pick a demo slot. Max 140 words, no fluff, plain paragraphs. "
         "The subject line must be a scroll-stopping HOT hook: personalized with the salon's name, rating, review "
         "count or a money angle (e.g. 'Kudos on 4.9⭐ Atmos — now automate the rush 🔥'), create curiosity or FOMO, "
         "exactly ONE tasteful emoji (🔥 ✨ 💇 📈 ⭐), max 60 chars, never spammy ALL-CAPS. "
@@ -388,7 +388,7 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
         <div style="padding:30px 34px 4px">{paras}</div>
         <div style="padding:0 34px">{_pricing_table_html(plans)}</div>
         <div style="padding:2px 34px 28px">
-          <a href="{base}" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:13px 32px;border-radius:999px;font-size:14px;letter-spacing:.6px">Book a free live demo ✦</a>
+          <a href="{base}/demo" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:13px 32px;border-radius:999px;font-size:14px;letter-spacing:.6px">Book a free live demo ✦</a>
           <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📎 The attached brochure covers every module of Miracurl Suite.</p>
         </div>
         <div style="background:#1c1c22;padding:16px 34px;text-align:center">
@@ -413,7 +413,7 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
     html = _outreach_email_html(lead, await _live_plans())
     attachment = await asyncio.to_thread(suite_overview_attachment)
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
-                               html, attachments=[attachment], book_url="https://miracurl-suite.com")
+                               html, attachments=[attachment], book_url="https://miracurl-suite.com/demo")
     if not result.get("sent"):
         raise HTTPException(502, f"Send failed: {result.get('error')}")
     await _raw_db.mira_leads.update_one(
@@ -513,7 +513,7 @@ def _followup_email(lead: dict, plans: dict) -> tuple:
             f"marketing, staff attendance and memberships from just Rs.{half:,} for 6 months "
             f"(best value: Rs.{annual:,}/year, multi-branch discounts available).\n\n"
             f"If you'd like, I can set up a quick 15-minute live demo this week — just reply to this "
-            f"email or visit https://miracurl-suite.com.\n\n"
+            f"email or pick a slot at https://miracurl-suite.com/demo.\n\n"
             f"Warm regards,\nTeam Miracurl")
     return subject, body
 
@@ -531,7 +531,7 @@ async def run_lead_followups() -> dict:
         subject, body = _followup_email(lead, plans)
         html = "".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
         try:
-            result = await _send_email([lead["email"]], subject, html, book_url="https://miracurl-suite.com")
+            result = await _send_email([lead["email"]], subject, html, book_url="https://miracurl-suite.com/demo")
             if result.get("sent"):
                 await _raw_db.mira_leads.update_one(
                     {"id": lead["id"]}, {"$set": {"follow_up_sent_at": _now()}})

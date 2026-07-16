@@ -889,22 +889,49 @@ async def demo_slot_info(iid: str, request: Request):
             "scheduled": inv.get("preferred_slot"), "dates": days, "times": DEMO_SLOT_TIMES}
 
 
+def _validate_slot(date_s: str, time_s: str):
+    from datetime import timedelta
+    try:
+        d = datetime.fromisoformat(date_s).date()
+    except ValueError:
+        raise HTTPException(400, "Invalid date")
+    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+    if not (today <= d <= today + timedelta(days=30)):
+        raise HTTPException(400, "Pick a date within the next 30 days")
+    if time_s not in DEMO_SLOT_TIMES:
+        raise HTTPException(400, "Invalid time slot")
+
+
+async def _send_slot_confirmations(email: str, name: str, salon_name: str,
+                                   date_s: str, time_s: str, phone: str, city: str = "") -> str:
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    gcal = _gcal_link(date_s, time_s)
+    ics = _slot_ics(date_s, time_s, email)
+    ics_att = [{"filename": "miracurl-demo.ics", "content": base64.b64encode(ics.encode()).decode()}]
+    await _send_email([email],
+                      f"Your Miracurl demo is booked — {date_s} at {time_s} IST ✦",
+                      _slot_confirm_email_html(name, date_s, time_s, gcal, hq_email),
+                      attachments=ics_att, reply_to=hq_email)
+    pretty = datetime.fromisoformat(date_s).strftime("%a, %d %b %Y")
+    await _send_email([hq_email],
+                      f"🔥 Demo booked: {name or email} — {pretty} {time_s} IST",
+                      f"""<div style="font-family:Arial,sans-serif;font-size:14px;color:#33333b;line-height:1.7">
+<p><b>{html_lib.escape(name or '')}</b> ({html_lib.escape(email)}) just booked a demo slot.</p>
+<p>📅 <b>{pretty} at {time_s} IST</b> · 20 min<br>
+📞 Phone: {html_lib.escape(phone.strip() or '—')}<br>
+🏠 Salon: {html_lib.escape(salon_name or '—')}{f" · {html_lib.escape(city)}" if city else ""}</p>
+<p><a href="{gcal}">Add to your Google Calendar</a> — the prospect received a confirmation with the same invite.</p></div>""",
+                      attachments=ics_att)
+    return gcal
+
+
 @router.post("/public/demo-slot/{iid}")
 async def demo_slot_book(iid: str, body: DemoSlotIn, request: Request):
     public_rate_limit(request, "demo-slot-book", limit=10, window_sec=600)
     inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invite not found")
-    from datetime import timedelta
-    try:
-        d = datetime.fromisoformat(body.date).date()
-    except ValueError:
-        raise HTTPException(400, "Invalid date")
-    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
-    if not (today <= d <= today + timedelta(days=30)):
-        raise HTTPException(400, "Pick a date within the next 30 days")
-    if body.time not in DEMO_SLOT_TIMES:
-        raise HTTPException(400, "Invalid time slot")
+    _validate_slot(body.date, body.time)
 
     now_iso = datetime.now(timezone.utc).isoformat()
     slot = {"date": body.date, "time": body.time, "phone": body.phone.strip(), "booked_at": now_iso}
@@ -913,23 +940,60 @@ async def demo_slot_book(iid: str, body: DemoSlotIn, request: Request):
         {"$set": {"preferred_slot": slot, "demo_requested_at": inv.get("demo_requested_at") or now_iso,
                   "opened_at": inv.get("opened_at") or now_iso,
                   "seen_by_hq_req": False, "responded": True}})
+    gcal = await _send_slot_confirmations(inv["email"], inv.get("name", ""), inv.get("salon_name", ""),
+                                          body.date, body.time, body.phone)
+    return {"ok": True, "gcal": gcal, "slot": slot}
 
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
-    gcal = _gcal_link(body.date, body.time)
-    ics = _slot_ics(body.date, body.time, inv["email"])
-    ics_att = [{"filename": "miracurl-demo.ics", "content": base64.b64encode(ics.encode()).decode()}]
-    await _send_email([inv["email"]],
-                      f"Your Miracurl demo is booked — {body.date} at {body.time} IST ✦",
-                      _slot_confirm_email_html(inv.get("name", ""), body.date, body.time, gcal, hq_email),
-                      attachments=ics_att, reply_to=hq_email)
-    pretty = datetime.fromisoformat(body.date).strftime("%a, %d %b %Y")
-    await _send_email([hq_email],
-                      f"🔥 Demo booked: {inv.get('name') or inv['email']} — {pretty} {body.time} IST",
-                      f"""<div style="font-family:Arial,sans-serif;font-size:14px;color:#33333b;line-height:1.7">
-<p><b>{html_lib.escape(inv.get('name') or '')}</b> ({html_lib.escape(inv['email'])}) just booked a demo slot.</p>
-<p>📅 <b>{pretty} at {body.time} IST</b> · 20 min<br>
-📞 Phone: {html_lib.escape(body.phone.strip() or '—')}<br>
-🏠 Salon: {html_lib.escape(inv.get('salon_name') or '—')}</p>
-<p><a href="{gcal}">Add to your Google Calendar</a> — the prospect received a confirmation with the same invite.</p></div>""",
-                      attachments=ics_att)
+
+_DEMO_EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+
+class PublicDemoIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    salon_name: str = Field("", max_length=100)
+    city: str = Field("", max_length=60)
+    email: str = Field(..., max_length=120)
+    phone: str = Field("", max_length=20)
+    date: str = Field(..., max_length=10)
+    time: str = Field(..., max_length=5)
+
+
+@router.get("/public/demo/slots")
+async def public_demo_slots(request: Request):
+    public_rate_limit(request, "demo-open-slots", limit=30, window_sec=600)
+    from datetime import timedelta
+    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+    return {"dates": [(today + timedelta(days=d)).isoformat() for d in range(1, 8)],
+            "times": DEMO_SLOT_TIMES}
+
+
+@router.post("/public/demo/book")
+async def public_demo_book(body: PublicDemoIn, request: Request):
+    public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
+    email = body.email.strip().lower()
+    if not _DEMO_EMAIL_RE.fullmatch(email):
+        raise HTTPException(400, "Enter a valid email address")
+    _validate_slot(body.date, body.time)
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    slot = {"date": body.date, "time": body.time, "phone": body.phone.strip(), "booked_at": now_iso}
+    existing = await _raw_db.demo_invites.find_one({"email": email}, {"_id": 0, "id": 1})
+    if existing:
+        await _raw_db.demo_invites.update_one(
+            {"id": existing["id"]},
+            {"$set": {"preferred_slot": slot, "demo_requested_at": now_iso, "responded": True,
+                      "seen_by_hq_req": False, "name": body.name.strip(),
+                      "salon_name": body.salon_name.strip(), "city": body.city.strip()}})
+    else:
+        await _raw_db.demo_invites.insert_one({
+            "id": str(uuid.uuid4()), "email": email, "name": body.name.strip(),
+            "salon_name": body.salon_name.strip(), "city": body.city.strip(),
+            "source": "public_demo_page", "first_sent_at": now_iso, "opened_at": now_iso,
+            "responded": True, "reminder_sent_at": None, "converted": False,
+            "demo_requested_at": now_iso, "preferred_slot": slot, "seen_by_hq_req": False})
+    await _raw_db.mira_leads.update_many(
+        {"email": email, "status": {"$in": ["sent", "drafted", "no_email", "researched"]}},
+        {"$set": {"status": "demo"}})
+    gcal = await _send_slot_confirmations(email, body.name.strip(), body.salon_name.strip(),
+                                          body.date, body.time, body.phone, body.city.strip())
     return {"ok": True, "gcal": gcal, "slot": slot}
