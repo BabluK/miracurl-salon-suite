@@ -1,6 +1,8 @@
 """Mira Lead Generation Agent — AI web research pipeline for finding & pitching salons.
-Lead Finder -> Research -> Email Finder -> Qualification -> Outreach -> Super-admin approval -> Send.
+Lead Finder (Google Places when key enabled, else AI research) -> Research -> Email Finder
+-> Qualification -> Outreach -> Super-admin approval -> Send.
 """
+import os
 import re
 import uuid
 import asyncio
@@ -22,6 +24,31 @@ _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
 _SKIP_EMAIL = ("example.", "sentry.", "wixpress", "@2x", ".png", ".jpg", "@sentry", "no-reply@", "noreply@")
 FUNNEL_TARGETS = {"target_leads": 300, "qualified": 100, "emails_sent": 50, "demos": 10, "customers": 5}
+
+
+async def _places_search(client: httpx.AsyncClient, city: str, n: int) -> list:
+    """Real salon data from Google Places API (New). Returns [] if key missing/disabled."""
+    key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+    if not key:
+        return []
+    try:
+        r = await client.post(
+            "https://places.googleapis.com/v1/places:searchText",
+            headers={"Content-Type": "application/json", "X-Goog-Api-Key": key,
+                     "X-Goog-FieldMask": ("places.displayName,places.rating,places.userRatingCount,"
+                                          "places.websiteUri,places.nationalPhoneNumber,places.formattedAddress")},
+            json={"textQuery": f"beauty salons in {city}", "pageSize": min(n, 20)}, timeout=20)
+        data = r.json()
+        if "places" not in data:
+            log.warning("places api unavailable: %s", str(data)[:200])
+            return []
+        return [{"name": p.get("displayName", {}).get("text", ""), "rating": p.get("rating"),
+                 "reviews": p.get("userRatingCount"), "website": p.get("websiteUri", ""),
+                 "phone": p.get("nationalPhoneNumber", ""), "address": p.get("formattedAddress", "")}
+                for p in data["places"]]
+    except Exception as e:
+        log.warning("places search failed: %s", e)
+        return []
 
 
 def _now():
@@ -163,16 +190,23 @@ async def _run_pipeline(run_id: str, city: str, target: int):
         async with httpx.AsyncClient() as client:
             await _log(f"🔍 Lead Finder: Mira is listing real salons in {city}…", stage="finding")
             existing = {(d.get("name") or "").lower() async for d in _raw_db.mira_leads.find({"city": city}, {"name": 1})}
-            plan = await _ask_json(
-                "You are the Lead Finder agent for a salon-software company targeting Indian salons. "
-                "List REAL salon businesses that operate in the given city — well-known local salons and chains. "
-                "Include their official website domain ONLY if you are confident it is correct; otherwise leave empty. "
-                "Never invent salon names or domains.",
-                f"City: {city}, India. Already contacted (skip these): {sorted(existing)[:40]}\n"
-                f'Return JSON: {{"salons": [{{"name": "<salon name>", "website": "<https://… or empty>", '
-                f'"area": "<locality if known>"}}]}} with up to {target + 6} salons.')
-            cands = [c for c in (plan.get("salons") or [])
-                     if c.get("name") and c["name"].strip().lower() not in existing][:target]
+            places = [p for p in await _places_search(client, city, target + 8)
+                      if p["name"] and p["name"].lower() not in existing][:target]
+            if places:
+                await _log(f"📍 Google Maps: {len(places)} real salons with ratings & websites found.")
+                cands = [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p} for p in places]
+            else:
+                await _log("ℹ️ Google Places not enabled — using Mira AI research instead.")
+                plan = await _ask_json(
+                    "You are the Lead Finder agent for a salon-software company targeting Indian salons. "
+                    "List REAL salon businesses that operate in the given city — well-known local salons and chains. "
+                    "Include their official website domain ONLY if you are confident it is correct; otherwise leave empty. "
+                    "Never invent salon names or domains.",
+                    f"City: {city}, India. Already contacted (skip these): {sorted(existing)[:40]}\n"
+                    f'Return JSON: {{"salons": [{{"name": "<salon name>", "website": "<https://… or empty>", '
+                    f'"area": "<locality if known>"}}]}} with up to {target + 6} salons.')
+                cands = [c for c in (plan.get("salons") or [])
+                         if c.get("name") and c["name"].strip().lower() not in existing][:target]
             if not cands:
                 await _log("No new salons found — try another city or run again later.", status="done", stage="done")
                 return
@@ -184,6 +218,14 @@ async def _run_pipeline(run_id: str, city: str, target: int):
                     lead = await _research_salon(client, name, city, (cand.get("website") or "").strip())
                     lead["run_id"] = run_id
                     lead["area"] = cand.get("area") or ""
+                    place = cand.get("_place")
+                    if place:
+                        lead["rating"] = place.get("rating") or lead["rating"]
+                        lead["reviews"] = place.get("reviews")
+                        lead["phone"] = place.get("phone") or ""
+                        lead["address"] = place.get("address") or ""
+                        lead["source"] = "google_maps"
+                        lead["score"], lead["score_breakdown"] = _score(lead)
                     if lead["email"]:
                         await _log(f"✉️ Drafting personalized email for {name} (score {lead['score']})…")
                         draft = await _draft_email(lead)

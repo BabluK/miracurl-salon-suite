@@ -62,8 +62,8 @@ function LeadRow({ lead, onRefresh }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 truncate">{lead.name} <span className="text-slate-400 font-normal">· {lead.city}</span></p>
           <p className="text-[11px] text-slate-400 truncate">
-            {lead.rating ? <><Star className="w-3 h-3 inline text-amber-400 -mt-0.5" /> {lead.rating} · </> : null}
-            {lead.email || "no email found"} {lead.branches > 1 ? `· ${lead.branches} branches` : ""}
+            {lead.rating ? <><Star className="w-3 h-3 inline text-amber-400 -mt-0.5" /> {lead.rating}{lead.reviews ? ` (${lead.reviews})` : ""} · </> : null}
+            {lead.email || "no email found"} {lead.phone ? `· ${lead.phone}` : ""} {lead.branches > 1 ? `· ${lead.branches} branches` : ""}
           </p>
         </div>
         <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${STATUS_STYLE[lead.status] || "bg-slate-100 text-slate-500"}`}>{lead.status}</span>

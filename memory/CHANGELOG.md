@@ -1253,3 +1253,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - TESTED: live Bangalore run (BBlunt: verified site, care@bblunt.com found, score 80, personalized draft referencing rating 4.3 + 5 branches; approve→sent via Resend OK; funnel transitions OK). iteration_80 frontend 100% pass + 2 minor polish fixes applied (hide inputs/reject on demo/rejected states).
 - beautifulsoup4 installed (requirements.txt frozen).
 - NOTE: user sent Google Cloud BILLING ID (0111E1-D072FD-F10C6D) thinking it's an API key — real Places key starts 'AIza'. When provided: upgrade Lead Finder to Places API (New) searchText for real ratings/phones.
+
+## Iter 119 (16 Jul 2026) — Google Places integration for Lead Finder
+- User provided real Maps key (AIza…jja0w) → saved as GOOGLE_MAPS_API_KEY in backend/.env (line 40).
+- lead_gen.py: _places_search() (Places API New searchText, fieldmask displayName/rating/userRatingCount/websiteUri/nationalPhoneNumber/formattedAddress). Pipeline tries Places first → enriches leads with real rating/reviews/phone/address (source google_maps) → falls back to AI research when Places unavailable (verified: currently 403 SERVICE_DISABLED on project 885100136995 — user must (1) enable 'Places API (New)' in console and (2) link billing account 0111E1-D072FD-F10C6D to the project). Frontend row shows reviews count + phone.
+- Fallback path verified working (returns [] gracefully, logs 'Google Places not enabled — using Mira AI research').
