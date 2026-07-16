@@ -108,8 +108,8 @@ export function AuthProvider({ children }) {
     setTenant(null);
   }, []);
 
-  const forgot = useCallback(async (email) => {
-    try { await api.post("/auth/forgot-password", { email }); return { ok: true }; }
+  const forgot = useCallback(async (email, personalEmail) => {
+    try { await api.post("/auth/forgot-password", { email, personal_email: personalEmail || null }); return { ok: true }; }
     catch (e) { return { ok: false, error: formatApiError(e.response?.data?.detail) }; }
   }, []);
 

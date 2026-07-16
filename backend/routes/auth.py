@@ -35,6 +35,7 @@ class LoginIn(BaseModel):
 
 class ForgotIn(BaseModel):
     email: EmailStr
+    personal_email: Optional[EmailStr] = None
 
 class ResetIn(BaseModel):
     token: str
@@ -337,10 +338,16 @@ async def forgot(body: ForgotIn, request: Request):
     if user and user.get("role") in ("staff", "employee"):
         staff = await _raw_db.staff.find_one(
             {"email": email}, {"_id": 0, "active": 1, "status": 1, "personal_email": 1})
-        if not staff or staff.get("active") is False or staff.get("status") in ("inactive", "archived"):
-            user = None  # ex-staff can't reset their way back in; response stays generic
-        elif staff.get("personal_email"):
-            reset_recipient = staff["personal_email"]
+        provided = (body.personal_email or "").lower().strip()
+        on_file = ((staff or {}).get("personal_email") or "").lower().strip()
+        if (not staff or staff.get("active") is False
+                or staff.get("status") in ("inactive", "archived")
+                or not provided or not on_file or provided != on_file):
+            # Ex-staff can't reset back in; active staff must provide the personal
+            # Gmail on record (login IDs aren't real inboxes). Response stays generic.
+            user = None
+        else:
+            reset_recipient = on_file
     if user:
         token = secrets.token_urlsafe(32)
         await db.password_reset_tokens.insert_one({

@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 77: Frontend-only test of reworked forgot-password flow for staff (personal Gmail gate). All acceptance criteria PASS. UI: heading='Reset Password', forgot-info-note visible with 'salon owner' + 'personal Gmail' copy, forgot-personal-email-input rendered, password field hidden, submit label='Send Reset Link'. Positive E2E (pwtest.staff@miracurl.com + pwtest.real@gmail.com): POST /auth/forgot-password → 200, generic success toast rendered ('If the details match our records, a reset link was sent to your personal email.'), password_reset_tokens count 4→5 with new token attached to the pwtest staff user_id (860a28c1-...). Negative flow (wrong@gmail.com): rate-limited (429) — expected per handoff note (5/hour cap). UI displayed formatted error 'Too many requests. Please wait a few minutes and try again.' Backend already curl-verified by main agent that wrong gmail creates no token. Regression: 'Back to sign in' returns to Welcome Back with password field; admin@miracurl.com login → /dashboard OK.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Login.jsx submit(): in forgot branch when res.ok=false (e.g. 429 rate-limit), the error is shown inline via setErr — good, but the same generic-toast success is not shown, which is a *slight* enumeration risk when combined with the 429 pattern. Consider always showing the generic toast even on non-fatal server errors, or at minimum for 429 (which is unrelated to whether the account exists).",
+    "AuthContext.forgot(): sends personal_email:null when empty — matches backend contract (no-gmail branch = no token). OK.",
+    "Login.jsx forgot mode: 'Your Personal Gmail' Field is not marked required — user can submit with empty gmail and backend still returns generic 200 (which is the desired anti-enumeration behavior), so this is intentional. Fine as-is."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% (4/4 acceptance criteria, negative case verified via 429+UI+backend prior curl)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL; staff: pwtest.staff@miracurl.com (personal_email=pwtest.real@gmail.com, active); pwtest.exstaff@miracurl.com (active=false)",
+  "seed_data_creation": "None created by testing agent — pwtest.* seed docs already existed and were left intact (main agent will clean up).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Rate limit on /auth/forgot-password is 5/hour per IP — after this iteration the pod IP is at cap. Wait ~1 hour or use fresh IP before re-testing negative path. Positive-path token evidence: db.password_reset_tokens for user_id=860a28c1-52c8-429f-8cd9-b8415d89346a shows 2 unused tokens (main agent's earlier curl + this run). Login form quirk from iter 76 (networkidle + 2s settle before fill) still applies and worked reliably here.",
+  "rca of the issue": "N/A — no bug found."
+}

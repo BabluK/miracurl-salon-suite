@@ -23,6 +23,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [remember, setRemember] = useState(false);
+  const [personalEmail, setPersonalEmail] = useState("");
 
   useEffect(() => {
     try {
@@ -43,9 +44,9 @@ export default function Login() {
     if (mode === "login") res = await login(email, password);
     else if (mode === "signup") res = await register(name, email, password);
     else {
-      res = await forgot(email);
+      res = await forgot(email, personalEmail);
       setBusy(false);
-      if (res.ok) toast.success("If the email exists, a reset link was sent.");
+      if (res.ok) toast.success("If the details match our records, a reset link was sent to your personal email.");
       else setErr(res.error);
       return;
     }
@@ -123,6 +124,24 @@ export default function Login() {
               placeholder="you@example.com"
               required
             />
+
+            {mode === "forgot" && (
+              <>
+                <div className="text-[13px] text-slate-600 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3 leading-relaxed" data-testid="forgot-info-note">
+                  <b>Staff?</b> Your login ID isn&apos;t a real inbox — the quickest fix is to <b>ask your salon owner to reset your password</b>.
+                  Or enter your <b>personal Gmail</b> below: if it matches the email on your staff record (active staff only), we&apos;ll send the reset link there.
+                </div>
+                <Field
+                  label="Your Personal Gmail"
+                  icon={User}
+                  testid="forgot-personal-email-input"
+                  type="email"
+                  value={personalEmail}
+                  onChange={setPersonalEmail}
+                  placeholder="yourname@gmail.com"
+                />
+              </>
+            )}
 
             {mode !== "forgot" && (
               <Field
