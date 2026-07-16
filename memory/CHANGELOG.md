@@ -1275,3 +1275,6 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 ## Iter 122 (16 Jul 2026) — Google Maps LIVE for Lead Agent
 - User created new key in correct project: GOOGLE_MAPS_API_KEY updated in backend/.env (AIzaSyBbD7…pp9Y — old AIzaSyD53… key was in wrong project, replaced).
 - VERIFIED LIVE: Pune run via Places API — 4 real salons w/ real ratings (4.7★/1883 reviews etc), real phones, verified websites, REAL emails scraped from their sites (atmossalon24@gmail.com, info@applesalon.in), source=google_maps, scores computed. Pipeline fully Maps-powered now; AI fallback still in place.
+
+## Iter 123 (16 Jul 2026) — HOT prospect prioritization
+- _score: +20 '🔥 500+ reviews, no website +20' bonus (highest-value prospects float to top of score-sorted list). Outreach prompt emphasizes lost repeat business for popular no-website salons. Frontend 🔥 HOT badge (lead-hot-badge-<id>) when reviews≥500 & no website. Existing leads rescored (Geetanjali Salon 50→70, now #1).

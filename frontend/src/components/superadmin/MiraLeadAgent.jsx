@@ -59,6 +59,9 @@ function LeadRow({ lead, onRefresh }) {
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden" data-testid={`lead-row-${lead.id}`}>
       <button onClick={() => setOpen(o => !o)} className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50" data-testid={`lead-toggle-${lead.id}`}>
         <span className={`shrink-0 w-11 h-8 rounded-lg text-xs font-bold inline-flex items-center justify-center ${lead.score >= 50 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{lead.score}</span>
+        {(lead.reviews || 0) >= 500 && !lead.website && (
+          <span data-testid={`lead-hot-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200">🔥 HOT</span>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 truncate">{lead.name} <span className="text-slate-400 font-normal">· {lead.city}</span></p>
           <p className="text-[11px] text-slate-400 truncate">

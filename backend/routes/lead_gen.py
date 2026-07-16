@@ -101,6 +101,9 @@ def _score(lead: dict) -> tuple:
     if (lead.get("branches") or 1) >= 2:
         score += 30
         breakdown.append("Multiple branches +30")
+    if (lead.get("reviews") or 0) >= 500 and not lead.get("website"):
+        score += 20
+        breakdown.append("🔥 500+ reviews, no website +20")
     return score, breakdown
 
 
@@ -113,6 +116,8 @@ async def _draft_email(lead: dict) -> dict:
         f"Salon research data: {lead}\n"
         "Write a personalized email to this salon's owner. Rules: greet as 'Hi {name} team' or owner if known; "
         "1st line must reference something SPECIFIC from the research (their rating/reviews, services, branches); "
+        "if the salon has 500+ reviews but no website, emphasize how much repeat business they're losing without "
+        "online booking given their popularity; "
         "2nd para: point out what they seem to be missing (online booking / WhatsApp automation / website) and how "
         "Miracurl Suite fixes it; mention Rs.900/month; CTA: free live demo — reply to this email or visit "
         "https://miracurl-suite.com to pick a demo slot. Max 130 words, no fluff, plain paragraphs. "
