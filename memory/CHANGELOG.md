@@ -1271,3 +1271,7 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Frontend MiraLeadAgent: '🔁 Send due follow-ups' button + '🔁 Follow-up sent <date>' marker on sent leads.
 - TESTED E2E: approve→sent, not-due returns 0, backdated 6d → follow-up sent via Resend + timestamp set, idempotent (2nd run due:0).
 - Places API still 403 PERMISSION_DENIED (user hasn't linked billing yet) — AI research fallback active.
+
+## Iter 122 (16 Jul 2026) — Google Maps LIVE for Lead Agent
+- User created new key in correct project: GOOGLE_MAPS_API_KEY updated in backend/.env (AIzaSyBbD7…pp9Y — old AIzaSyD53… key was in wrong project, replaced).
+- VERIFIED LIVE: Pune run via Places API — 4 real salons w/ real ratings (4.7★/1883 reviews etc), real phones, verified websites, REAL emails scraped from their sites (atmossalon24@gmail.com, info@applesalon.in), source=google_maps, scores computed. Pipeline fully Maps-powered now; AI fallback still in place.
