@@ -148,6 +148,30 @@ async def _demo_followup_scheduler() -> None:
         await asyncio.sleep(1800)
 
 
+async def _lead_followup_scheduler() -> None:
+    """Daily (after 10:00 IST) one-time follow-up to Mira leads still unanswered after 5 days.
+    Idempotent via system_flags."""
+    from routes.lead_gen import run_lead_followups
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.hour >= 10:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "lead_followup_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await run_lead_followups()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "lead_followup_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    if out.get("sent") or out.get("failed"):
+                        logging.info(f"Mira lead follow-ups {period}: {out}")
+        except Exception as e:
+            logging.error(f"lead followup scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 async def _late_alert_scheduler() -> None:
     while True:
         try:

@@ -1264,3 +1264,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Fixed: tests/test_gallery_generate.py password now from TEST_ADMIN_PASSWORD env (module-level pytest.skip when unset).
 - Complexity refactors (all now ≤11): auth.forgot → _staff_reset_recipient + _send_reset_email; lead_gen._research_salon → _scrape_site + _emails_from_contact_pages + _llm_research; lead_gen._run_pipeline → _find_candidates + _build_candidate_lead; id_cards.staff_id_card → _staff_card_data; inventory._product_doc_from_csv_row → _parse_csv_numbers; mira_calendar.plan_week → _calendar_items.
 - REGRESSION TESTED: forgot-password generic response OK, staff ID-card PDF 200, CSV row parsing (valid/bad/missing), live lead run Mumbai (2 leads, refactored pipeline works, Places fallback logs correctly).
+
+## Iter 121 (16 Jul 2026) — Lead follow-up automation
+- lead_gen.py: run_lead_followups() — leads status 'sent' + sent_at ≥5 days old + no follow_up_sent_at get ONE gentle follow-up email (static personalized template "Re: <orig subject>"), sets follow_up_sent_at. Manual trigger POST /super-admin/mira-leads/followups/run. Delete endpoint preserved (was briefly clobbered during edit — restored).
+- schedulers.py: _lead_followup_scheduler (daily after 10:00 IST, system_flags key 'lead_followup_auto', 30-min poll) + registered in server.py startup.
+- Frontend MiraLeadAgent: '🔁 Send due follow-ups' button + '🔁 Follow-up sent <date>' marker on sent leads.
+- TESTED E2E: approve→sent, not-due returns 0, backdated 6d → follow-up sent via Resend + timestamp set, idempotent (2nd run due:0).
+- Places API still 403 PERMISSION_DENIED (user hasn't linked billing yet) — AI research fallback active.

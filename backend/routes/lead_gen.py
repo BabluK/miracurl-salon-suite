@@ -7,7 +7,7 @@ import re
 import uuid
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import httpx
 from bs4 import BeautifulSoup
@@ -362,3 +362,49 @@ async def set_stage(lid: str, body: StageIn, user=Depends(require_super_admin)):
 async def delete_lead(lid: str, user=Depends(require_super_admin)):
     await _raw_db.mira_leads.delete_one({"id": lid})
     return {"ok": True}
+
+
+FOLLOWUP_AFTER_DAYS = 5
+
+
+def _followup_email(lead: dict) -> tuple:
+    subject = f"Re: {lead.get('email_subject') or 'Miracurl Suite — free demo'}"
+    body = (f"Hi {lead.get('owner_name') or lead['name'] + ' team'},\n\n"
+            f"Just a gentle follow-up — did you get a chance to see my earlier email about "
+            f"Miracurl Suite? Salon owners like you use it to automate online bookings, WhatsApp "
+            f"marketing, staff attendance and memberships for just Rs.900/month.\n\n"
+            f"If you'd like, I can set up a quick 15-minute live demo this week — just reply to this "
+            f"email or visit https://miracurl-suite.com.\n\n"
+            f"Warm regards,\nTeam Miracurl")
+    return subject, body
+
+
+async def run_lead_followups() -> dict:
+    """One-time gentle follow-up to leads still in 'sent' after FOLLOWUP_AFTER_DAYS days."""
+    from email_service import _send_email
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
+    due = await _raw_db.mira_leads.find(
+        {"status": "sent", "sent_at": {"$lte": cutoff}, "follow_up_sent_at": {"$exists": False}},
+        {"_id": 0}).to_list(50)
+    sent = failed = 0
+    for lead in due:
+        subject, body = _followup_email(lead)
+        html = "".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
+        try:
+            result = await _send_email([lead["email"]], subject, html, book_url="https://miracurl-suite.com")
+            if result.get("sent"):
+                await _raw_db.mira_leads.update_one(
+                    {"id": lead["id"]}, {"$set": {"follow_up_sent_at": _now()}})
+                sent += 1
+            else:
+                failed += 1
+        except Exception as e:
+            log.error("lead followup failed for %s: %s", lead.get("email"), e)
+            failed += 1
+        await asyncio.sleep(0.5)
+    return {"due": len(due), "sent": sent, "failed": failed}
+
+
+@router.post("/super-admin/mira-leads/followups/run")
+async def trigger_followups(user=Depends(require_super_admin)):
+    return await run_lead_followups()

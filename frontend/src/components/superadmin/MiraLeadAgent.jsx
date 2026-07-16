@@ -90,7 +90,8 @@ function LeadRow({ lead, onRefresh }) {
                 className="border border-slate-200 rounded-xl px-3 py-2 text-sm w-full" data-testid={`lead-body-input-${lead.id}`} />
             </div>
           )}
-          {lead.status === "sent" && <p className="text-xs text-sky-600">✅ Sent {lead.sent_at?.slice(0, 16).replace("T", " ")} to {lead.email}</p>}
+          {lead.status === "sent" && <p className="text-xs text-sky-600">✅ Sent {lead.sent_at?.slice(0, 16).replace("T", " ")} to {lead.email}
+          {lead.follow_up_sent_at && <span className="text-fuchsia-600"> · 🔁 Follow-up sent {lead.follow_up_sent_at.slice(0, 10)}</span>}</p>}
           <div className="flex flex-wrap gap-2">
             {["drafted", "no_email", "researched", "rejected"].includes(lead.status) && (
               <button onClick={approve} disabled={!!busy || !draft.email} data-testid={`lead-approve-${lead.id}`}
@@ -183,6 +184,18 @@ export function MiraLeadAgent() {
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white text-sm font-bold inline-flex items-center gap-2 disabled:opacity-50">
           {starting || activeRun ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
           {activeRun ? "Mira is working…" : "Find salons ✦"}
+        </button>
+        <button data-testid="lead-followups-btn"
+          onClick={async () => {
+            try {
+              const { data } = await api.post("/super-admin/mira-leads/followups/run");
+              toast.success(`Follow-ups: ${data.sent} sent, ${data.due - data.sent} not due yet`);
+              refresh().catch(() => {});
+            } catch (e) { toast.error(e.response?.data?.detail || "Follow-up run failed"); }
+          }}
+          className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:border-fuchsia-400"
+          title="Auto-runs daily at 10 AM — sends a gentle nudge to leads with no reply after 5 days">
+          🔁 Send due follow-ups
         </button>
       </div>
 
