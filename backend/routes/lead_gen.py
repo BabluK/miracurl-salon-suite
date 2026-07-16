@@ -161,7 +161,10 @@ async def _draft_email(lead: dict) -> dict:
         "the best value; do NOT list prices in the body — a full pricing table is appended below your email "
         "automatically; mention the attached brochure PDF has full details; CTA: free live demo — reply to this email or visit "
         "https://miracurl-suite.com to pick a demo slot. Max 140 words, no fluff, plain paragraphs. "
-        'Return JSON: {"subject":"<catchy subject max 60 chars>","body":"<email body, use \\n between paragraphs>"}')
+        "The subject line must be a scroll-stopping HOT hook: personalized with the salon's name, rating, review "
+        "count or a money angle (e.g. 'Kudos on 4.9⭐ Atmos — now automate the rush 🔥'), create curiosity or FOMO, "
+        "exactly ONE tasteful emoji (🔥 ✨ 💇 📈 ⭐), max 60 chars, never spammy ALL-CAPS. "
+        'Return JSON: {"subject":"<hot personalized subject max 60 chars>","body":"<email body, use \\n between paragraphs>"}')
     return {"subject": (out.get("subject") or "Grow your salon with Miracurl Suite")[:120],
             "body": _PRICE_RE.sub("at the plans priced below", out.get("body") or "")}
 
@@ -373,6 +376,29 @@ async def edit_lead(lid: str, body: LeadEditIn, user=Depends(require_super_admin
     return await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
 
 
+def _outreach_email_html(lead: dict, plans: dict) -> str:
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    paras = "".join(f'<p style="font-size:14px;color:#3a3a40;line-height:1.8;margin:0 0 15px">{p}</p>'
+                    for p in (lead.get("email_body") or "").split("\n") if p.strip())
+    return f"""
+    <div style="background:#efe9dc;padding:28px 12px;font-family:Georgia,serif">
+      <div style="max-width:600px;margin:0 auto;background:#fdfbf7;border:1px solid #e6ddc8;border-radius:18px;overflow:hidden;box-shadow:0 10px 34px rgba(28,28,34,.14)">
+        <img src="{base}/assets/mira-outreach-hero.png" alt="Miracurl Suite — Mira, your AI salon partner" width="600" style="width:100%;display:block" />
+        <div style="height:3px;background:linear-gradient(90deg,#b08d3f,#e8c37f,#b08d3f)"></div>
+        <div style="padding:30px 34px 4px">{paras}</div>
+        <div style="padding:0 34px">{_pricing_table_html(plans)}</div>
+        <div style="padding:2px 34px 28px">
+          <a href="{base}" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:13px 32px;border-radius:999px;font-size:14px;letter-spacing:.6px">Book a free live demo ✦</a>
+          <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📎 The attached brochure covers every module of Miracurl Suite.</p>
+        </div>
+        <div style="background:#1c1c22;padding:16px 34px;text-align:center">
+          <span style="color:#e8c37f;font-size:15px;letter-spacing:2px">MIRACURL ✦ SUITE</span>
+          <div style="color:#8a8a92;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:3px">Mira — your AI salon partner</div>
+        </div>
+      </div>
+    </div>"""
+
+
 @router.post("/super-admin/mira-leads/{lid}/approve")
 async def approve_and_send(lid: str, user=Depends(require_super_admin)):
     lead = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
@@ -384,8 +410,7 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
         raise HTTPException(400, "Already sent")
     from email_service import _send_email
     from routes.hq_documents import suite_overview_attachment
-    html = "".join(f"<p>{p}</p>" for p in (lead.get("email_body") or "").split("\n") if p.strip())
-    html += _pricing_table_html(await _live_plans())
+    html = _outreach_email_html(lead, await _live_plans())
     attachment = await asyncio.to_thread(suite_overview_attachment)
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
                                html, attachments=[attachment], book_url="https://miracurl-suite.com")

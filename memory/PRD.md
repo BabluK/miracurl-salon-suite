@@ -378,3 +378,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Frontend (MiraLeadAgent.jsx): green "Send via WhatsApp" button (lead-whatsapp-{id}) shown when lead has phone & status drafted/no_email/researched/rejected; opens wa.me tab then marks sent; sent line shows "via WhatsApp 💬" when sent_via=whatsapp.
 - Verified: curl (brochure 200 PDF, whatsapp endpoint returns normalized 919356204158 + full message), unit (_wa_phone, _wa_message with live prices), browser (button visible on Geetanjali Salon no_email lead, absent on VLCC which has no phone).
 - Also showed user the email format screenshot + brochure attachment pages (approved).
+
+## 2026-07-16 — Professional outreach email design + hot subjects (user request)
+- Generated branded hero banner (gold hologram "Mira — your AI salon partner", MIRACURL ✦ SUITE) → cropped to 1264x560, stored at frontend/public/assets/mira-outreach-hero.png (email references {APP_PUBLIC_URL}/assets/... — live after redeploy).
+- `_outreach_email_html` (lead_gen.py): luxe card template — beige backdrop, hero image, gold gradient divider, Georgia body, pricing table, pill CTA "Book a free live demo ✦", dark MIRACURL footer strip. approve_and_send now uses this template.
+- Hot subject lines: _draft_email prompt now demands scroll-stopping personalized hooks with ONE emoji, max 60 chars (e.g. "Kudos on 4.9⭐ Atmos Salon — automate the rush 🔥"). All 3 pending drafts regenerated with hot subjects.
+- Verified: preview screenshot approved-look, real e2e approve→Resend send OK, test lead cleaned.
