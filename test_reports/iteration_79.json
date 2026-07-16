@@ -1,0 +1,42 @@
+{
+  "summary": "E2E tested New Salon Setup Wizard for fresh tenant (wizard-test-salon). All 5 wizard steps completed successfully, banner shows/hides correctly, backend /setup/status transitioned done:false→true, tenant isolation intact, and Miracurl regression (no banner) confirmed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "observations": [
+    "Preset import toast promised '~40 services' but actually adds 25 services (services-count went 0→25 after import, then 26 after custom). UI copy in StepServices says '40+ popular services' but backend preset returns 25. Cosmetic/copy discrepancy only — not blocking.",
+    "Welcome-to-Miracurl trial modal overlays dashboard on first login and required force-dismiss before clicking banner CTA in automation; users can still click via manual dismiss. Not a wizard bug.",
+    "React hydration warning: '<span> cannot be child of <option>' from AppLayout — pre-existing, unrelated to wizard."
+  ],
+  "verified_flows": [
+    "Login wizard.owner@test.com → dashboard shows setup-banner with '2 of 5 steps done'.",
+    "setup-banner-cta navigates to /setup; setup-wizard-page renders.",
+    "Step 1 Profile: phone (+91 9000000001) & location (HSR Layout) prefilled; edited location & next → advances.",
+    "Step 2 Services: setup-import-preset-btn added 25 services, custom 'Test Hair Wash' @ ₹200 added → count 26.",
+    "Step 3 Staff: added 'Ravi Kumar' / Stylist / 9111111111 → count 1; NO PIN modal appeared (as expected for fresh tenant).",
+    "Step 4 Hours: chip pick + next advanced.",
+    "Step 5 Payment: GST toggle OFF, setup-finish-btn → success toast '🎉 Your salon is fully set up!', navigated to dashboard, setup-banner GONE.",
+    "GET /api/setup/status (wizard-test-salon) after wizard: {done:true, progress all true, counts:{services:26,staff:1}, remaining:0}.",
+    "GET /api/services returns 26 items for wizard tenant; GET /api/staff returns 1 (Ravi Kumar).",
+    "Tenant isolation: miracurl-marathahalli services count remains 36 (unchanged).",
+    "Regression: admin@miracurl.com dashboard does NOT show setup-banner."
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "Optional: reconcile preset count copy — either seed preset with 40 services or update StepServices UI text from '40+ popular services' to '25+' to match backend."
+  ],
+  "critical_code_review_comments": [
+    "setup_wizard.py progress.profile logic uses OR of logo_url with phone+location — fine, but progress.payment is (tax_enabled OR setup_payment_done); if a user later disables tax, payment step would flip back to false unless setup_done already set. Minor edge case.",
+    "SetupBanner does not refetch on route change — if user finishes wizard and returns to dashboard the banner disappears because it was mounted fresh; but if dashboard is already mounted in another tab, banner won't auto-hide. Consider a global setup-status refresh event."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "wizard.owner@test.com / Wizard@1234 (slug wizard-test-salon) — NOW SETUP-COMPLETE. Future wizard-flow retests need a new fresh tenant via /api/public/signup-salon.",
+  "seed_data_creation": "wizard-test-salon now has 26 services (25 preset + Test Hair Wash ₹200) and 1 staff (Ravi Kumar / Stylist / 9111111111); tenant setup_done=true, hours set, tax skipped.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "wizard-test-salon is fully set up; /setup/status returns done:true so banner will not appear. To re-test the wizard flow, create a new fresh tenant via POST /api/public/signup-salon."
+}
