@@ -1,0 +1,40 @@
+{
+  "summary": "Frontend E2E tested new 'Mira Lead Agent' super-admin tab. All specified UI flows pass: tab renders, panel + funnel cards match seeded DB (5/300, 5/100, 1/50→2/50 after approve, 1/10→2/10 after demo, 1/5), completed run log displays, lead rows expand with score breakdown chips + website link, BBlunt (customer) correctly hides editable email inputs, Approve→Resend send on Naturals succeeds and increments emails_sent to 2, Mark Demo booked flips to demo and increments demos to 2, reject on Toni&Guy flips to rejected. Regression: Tenants tab (176 rows) and Lead Gen Email (DemoCampaign) tabs render fine. No new pipeline run was triggered.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MiraLeadAgent lead row", "issues": ["After a lead is marked 'demo', the Reject button re-appears (condition !['sent','customer','rejected'].includes(status) allows reject on 'demo'/'drafted'/'no_email'/'researched'). A demo-booked lead probably shouldn't be rejectable — minor UX concern.", "For status='demo' or 'rejected' the editable email/subject/body inputs are still shown (condition only hides on 'sent' and 'customer'); user could edit a rejected lead's draft with no effect on send. Minor."]}
+    ]
+  },
+  "verified_flows": [
+    "Login super@miracurl.com → /super-admin loads",
+    "super-tab-mira-leads visible in sidebar labeled 'Mira Lead Agent', click renders mira-lead-agent-panel",
+    "lead-funnel-cards shows funnel-target_leads 5/300, funnel-qualified 5/100, funnel-emails_sent 1/50, funnel-demos 1/10, funnel-customers 1/5",
+    "lead-city-input, lead-target-input, lead-run-btn, lead-run-log all present with completed pipeline log lines (03:33:12 → 03:33:32 '🎉 Run complete — 5 leads ready')",
+    "5 lead rows rendered: BBlunt (customer, 80), VLCC (rejected, 80), Naturals (no_email, 80), Toni&Guy (no_email, 50), Habib's (no_email, 50)",
+    "Expand BBlunt: 3 breakdown chips (Poor website +20, No booking system +30, Multiple branches +30), website link https://www.bblunt.com, status chip 'customer', NO editable inputs (correct for status=customer)",
+    "Approve Naturals with delivered@resend.dev + subject 'UI test' + body 'Hello from UI test' → status flips 'no_email' → 'sent' (✅ Sent 2026-07-16 03:38), funnel emails_sent 1→2",
+    "lead-demo-{naturals} click → status flips 'sent' → 'demo', funnel demos 1→2",
+    "lead-reject-{toni} click → status flips 'no_email' → 'rejected'",
+    "Regression: super-tab-tenants shows 176 tenant rows; super-tab-lead-email renders Lead Generation Email panel with DemoCampaign component"
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "Minor: consider hiding Reject button when status is 'demo' (can only be rejected before demo booked).",
+    "Minor: hide editable email/subject/body inputs when status is 'demo' or 'rejected' (currently only hidden on 'sent'/'customer') to avoid confusing no-op edits."
+  ],
+  "critical_code_review_comments": [
+    "MiraLeadAgent.jsx: pollRef interval keeps polling every 6s while a run is running — fine, but on unmount only clearInterval is called; if the component remounts while a run is in-flight polling never resumes until user clicks run again. Minor.",
+    "LeadRow approve() diff-checks strict equality against undefined-vs-empty-string could send PUT redundantly when server returns null vs '' for empty fields; not blocking but could cause an extra PUT before /approve."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (used); delivered@resend.dev as safe Resend recipient",
+  "seed_data_creation": "DB state mutated by testing (per plan): Naturals lead approved → sent → demo (email delivered@resend.dev); Toni&Guy lead rejected. Funnel counts now: emails_sent 2/50, demos 2/10 (customers still 1/5, BBlunt).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Mira Lead Agent flows all working. After this run, Naturals lead is at status=demo, Toni&Guy=rejected, BBlunt=customer, VLCC=rejected (pre-existing), Habib's=no_email (untouched). Funnel: 5/300 target, 5/100 qualified, 2/50 emails, 2/10 demos, 1/5 customers. No new pipeline runs were started (as instructed).",
+  "rca of the issue": "N/A — no defects found in scope."
+}
