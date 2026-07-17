@@ -27,6 +27,8 @@ import ReviewPublic from "@/pages/ReviewPublic";
 import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
 import Landing from "@/pages/Landing";
+import Terms from "@/pages/Terms";
+import Privacy from "@/pages/Privacy";
 import Settings from "@/pages/Settings";
 import Assistant from "@/pages/Assistant";
 import MiraStudio from "@/pages/MiraStudio";
@@ -148,6 +150,8 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/staff-registry" element={<RegistryPublic />} />
             <Route path="/partners" element={<Partners />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/book" element={<SalonFinder />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />

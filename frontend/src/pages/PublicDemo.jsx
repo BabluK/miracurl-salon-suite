@@ -116,7 +116,7 @@ export default function PublicDemo() {
           </div>
         )}
 
-        <p className="text-center text-[10px] text-[#6d675c] mt-6">© Miracurl Suite · miracurl-suite.com</p>
+        <p className="text-center text-[10px] text-[#6d675c] mt-6">© Miracurl Suite · miracurl-suite.com · <a href="/terms" className="underline hover:text-[#3d3a33]">Terms</a> · <a href="/privacy" className="underline hover:text-[#3d3a33]">Privacy</a></p>
       </div>
     </div>
   );

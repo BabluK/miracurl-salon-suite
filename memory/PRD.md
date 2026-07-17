@@ -445,3 +445,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - services_catalog.py: _build_qr_poster now kind-aware (booking|review — tagline SCAN·RATE·SHINE, "Loved it? Scan!", bottom band "LOVED YOUR VISIT? TELL THE WORLD", review URL hidden on poster). NEW _build_tent_card: 2000×1400 landscape desk card (QR+mascot left, name/timings/Mira right). Endpoint params: design, kind, fmt(poster|tent).
 - QrPosterCard.jsx: type toggle (Booking/Review QR) + format toggle (Wall Poster/Desk Tent Card) + review hint banner.
 - Verified: review-go 302, all kind/fmt combos 200, tent + review poster renders reviewed visually (fixed: raw redirect URL hidden on review posters).
+
+## 2026-07-17 — Original Legal Pages: Terms of Service & Privacy Policy (user request)
+- User provided Respark/Relfor sample text as REFERENCE ONLY; wrote 100% original copy for Miracurl Suite (NO verbatim copying — copyright safe).
+- User choices: no refunds after billing period starts (standard SaaS), contact legal@miracurl.com (placeholder, user may change), India/Bangalore jurisdiction.
+- NEW pages: /app/frontend/src/pages/Terms.jsx (12 sections: acceptance, account, permitted use, billing/Razorpay, refunds, data ownership, third-party/AI, availability, liability, termination, changes, governing law) and Privacy.jsx (12 sections: overview/controller-processor roles, data collected, usage, cookies, sharing, retention, security, GDPR/DPDP rights, marketing, children, changes, contact).
+- Routes /terms and /privacy registered in App.js. Footer links added: Landing.jsx footer, PublicDemo.jsx footer, SignupSalon.jsx ("By signing up you agree…" under submit button).
+- Verified via screenshots: both pages render with dark theme + playfair headings matching brand.
