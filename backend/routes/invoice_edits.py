@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from database import db, _clean
 from models import InvoiceItem
-from security import get_current_user, require_owner_pin, current_tenant
+from security import require_admin, require_owner_pin, require_tenant_admin, current_tenant
 
 router = APIRouter()
 
@@ -41,7 +41,7 @@ def _derived_tax_pct(inv: dict, tenant_doc: dict) -> float:
 
 
 @router.put("/invoices/{inv_id}")
-async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(get_current_user),
+async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_admin),
                        t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
     inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
     if not inv:
@@ -87,14 +87,16 @@ async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(get_curren
 
 
 @router.get("/invoice-edits")
-async def list_invoice_edits(user=Depends(get_current_user), _pin=Depends(require_owner_pin)):
+async def list_invoice_edits(user=Depends(require_admin), _pin=Depends(require_owner_pin)):
     return [_clean(e) for e in await db.invoice_edits.find({}, {"_id": 0}).sort("edited_at", -1).to_list(200)]
 
 
 @router.delete("/invoice-edits/bulk")
-async def bulk_delete_invoice_edits(scope: str = "older_than_30d", user=Depends(get_current_user),
-                                    _pin=Depends(require_owner_pin)):
+async def bulk_delete_invoice_edits(scope: str = "older_than_30d", user=Depends(require_tenant_admin),
+                                    t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
     if scope == "all":
+        if user.get("role") != "super_admin" and not (t or {}).get("security_pin_hash"):
+            raise HTTPException(403, "Set an Owner Security PIN in Settings before purging the full audit trail.")
         q = {}
     elif scope == "older_than_30d":
         cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()

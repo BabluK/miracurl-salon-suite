@@ -217,6 +217,9 @@ async def list_gallery(user=Depends(get_current_user)):
 @router.delete("/gallery/{gid}")
 async def delete_gallery_item(gid: str, user=Depends(require_tenant_admin)):
     await db.gallery.delete_one({"id": gid})
-    await _raw_db.uploads.update_one({"id": gid}, {"$set": {"is_deleted": True}})
+    up_q = {"id": gid}
+    if user.get("tenant_id"):
+        up_q["tenant_id"] = user["tenant_id"]
+    await _raw_db.uploads.update_one(up_q, {"$set": {"is_deleted": True}})
     return {"ok": True}
 

@@ -1,5 +1,6 @@
 """Sales Mira: landing-page product chat + tenant inquiries (super-admin CRM)."""
 import asyncio
+import html as html_lib
 import logging
 import os
 import re
@@ -146,7 +147,7 @@ async def _credit_circle_bonus(inq: dict) -> None:
                 "🎉 You earned ₹1,000 — your Miracurl Circle referral just joined!",
                 f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
                 f"<h2 style='margin:0 0 8px'>₹1,000 Circle bonus credited ✦</h2>"
-                f"<p style='color:#444'>A salon that discovered Miracurl through <b>{ref.get('salon_name')}</b> "
+                f"<p style='color:#444'>A salon that discovered Miracurl through <b>{html_lib.escape(ref.get('salon_name') or '')}</b> "
                 f"just came on board. We've added <b>₹{CIRCLE_BONUS_AMOUNT:.0f}</b> to your Miracurl Circle bonus wallet.</p>"
                 f"<p style='color:#666;font-size:13px'>View it on your Dashboard → Miracurl Circle card (Owner PIN required). "
                 f"Keep referring — every salon you bring earns you another ₹1,000!</p></div>")

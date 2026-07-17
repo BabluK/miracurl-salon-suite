@@ -463,3 +463,8 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - User rejected cream/gold standalone design; wants SAME design as main website (dark landing).
 - LegalLayout.jsx rewritten: exact Landing.jsx tokens — sticky backdrop-blur-xl bg-black/60 nav with BrandMark (variant dark), Features/Pricing/Demo/Sign in links + fuchsia→rose "Start free trial" pill; hero with amber-200→fuchsia-400 gradient playfair title + ✦ + LEGAL badge pill; glass section cards (bg-white/[0.04], amber circle numbers); footer identical to landing footer style.
 - Terms.jsx/Privacy.jsx unchanged content-wise. Screenshot-verified both pages.
+
+## 2026-07-17 — Security Audit + fixes
+- Ran security_audit_agent: CONDITIONAL PASS. No critical/high; tenant isolation, JWT, Razorpay signatures, rate limits all confirmed strong.
+- FIXED SEC-001 (MEDIUM): invoice_edits.py — PUT /invoices/{id} & GET /invoice-edits now require_admin (owner/manager/super); DELETE /invoice-edits/bulk now require_tenant_admin (owner only) and scope=all additionally requires a Security PIN to be configured (403 otherwise). Verified: staff→403, manager view→200/purge→403, owner→200.
+- Hardening: gallery.py delete now tenant-filters _raw_db.uploads; sales.py circle-bonus email escapes salon_name. (Webhook-secret warning & google_review_url https validation already existed.)
