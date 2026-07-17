@@ -475,7 +475,6 @@ async def mark_fee_paid(fid: str, user=Depends(require_super_admin)):
 
 # ─────────── Shareable candidate profile (HQ → salon owner via WhatsApp) ───────────
 
-@router.post("/super-admin/hiring/applications/{aid}/share-link")
 def _candidate_wa_link(app_doc: dict, req: dict, tenant: dict, url: str) -> str | None:
     num = re.sub(r"\D", "", tenant.get("whatsapp_number") or tenant.get("phone") or "")
     if not num:
@@ -489,6 +488,7 @@ def _candidate_wa_link(app_doc: dict, req: dict, tenant: dict, url: str) -> str 
     return f"https://wa.me/{'91' + num if len(num) == 10 else num}?text={quote(text)}"
 
 
+@router.post("/super-admin/hiring/applications/{aid}/share-link")
 async def share_link(aid: str, user=Depends(require_super_admin)):
     """Capability URL: verified work history + ratings, with one-tap trial confirm for the owner."""
     app_doc = await _raw_db.job_applications.find_one({"id": aid}, {"_id": 0})

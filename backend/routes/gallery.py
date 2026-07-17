@@ -58,7 +58,6 @@ async def salon_gallery(user=Depends(require_tenant_admin), t=Depends(current_te
     return {"photos": (doc or {}).get("gallery") or [], "max": _GALLERY_MAX}
 
 
-@router.post("/salon/gallery")
 def _validated_gallery_upload(filename: str, data: bytes) -> str:
     """Validate extension, size and magic bytes for a gallery image. Returns the extension."""
     ext = (filename or "").rsplit(".", 1)[-1].lower() if "." in (filename or "") else "bin"
@@ -72,6 +71,7 @@ def _validated_gallery_upload(filename: str, data: bytes) -> str:
     return ext
 
 
+@router.post("/salon/gallery")
 async def salon_gallery_upload(file: UploadFile = File(...), user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     doc = await _raw_db.tenants.find_one({"id": t["id"]}, {"_id": 0, "gallery": 1})
     photos = (doc or {}).get("gallery") or []
