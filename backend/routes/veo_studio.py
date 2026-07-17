@@ -217,6 +217,7 @@ async def _generate(job_id: str, body: VeoAdIn):
         await _progress(job_id, "🎞️ Stitching scenes into the final ad…")
         final = os.path.join(tmp, "final.mp4")
         await asyncio.to_thread(_concat_clips, clip_paths, final)
+        await _progress(job_id, "☁️ Uploading the final ad to your gallery…")
         with open(final, "rb") as f:
             video_bytes = f.read()
         fid = str(uuid.uuid4())
