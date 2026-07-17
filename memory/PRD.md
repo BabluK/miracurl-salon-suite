@@ -476,3 +476,7 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - POS.jsx: in_house products excluded from sale catalog.
 - Inventory.jsx: filter tabs All/Retail/In-house, Type badge column, Retail/In-house toggle in add/edit form, "Use" button (violet) on in-house rows → deduct modal with qty. Low-stock flow unchanged → existing vendor restock emails pick up deductions.
 - Tested: curl (create in_house, use qty, usage log, 422 invalid type) + screenshots (login centered, inventory tabs/badges, form toggle).
+
+## 2026-07-17 — AI CCTV + Hire Staff pages converted to light theme (user request)
+- CctvAnalytics.jsx & HireStaff.jsx rewritten from dark (#0F0F0F cards, white/x text) to the standard light app-canvas theme (like Reviews): app-canvas wrapper, card-light white cards, slate text, amber-500 accents, amber→rose gradient CTAs, input-light form fields. All data-testids preserved.
+- Screenshot-verified both pages against the light Reviews reference.
