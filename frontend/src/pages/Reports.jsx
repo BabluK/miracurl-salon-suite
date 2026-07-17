@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
-import { IndianRupee, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2 } from "lucide-react";
+import { IndianRupee, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2, Pencil } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { EditInvoiceModal } from "@/components/EditInvoiceModal";
 
 const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
 const PIE_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", color: "#0f172a" };
@@ -18,6 +19,7 @@ export default function Reports() {
   const [pct, setPct] = useState(30);
   const [rateUnlocked, setRateUnlocked] = useState(() => sessionStorage.getItem("commission_rate_unlock") === "1");
   const [erasing, setErasing] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   const unlockRate = async () => {
     try {
@@ -159,18 +161,22 @@ export default function Reports() {
               </div>
               <div className="overflow-x-auto">
                 <table className="luxe-table-light">
-                  <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Mode</th><th className="text-right">Total</th></tr></thead>
+                  <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Mode</th><th className="text-right">Total</th><th></th></tr></thead>
                   <tbody>
                     {data.invoices.slice(0, 20).map(i => (
                       <tr key={i.id}>
-                        <td className="font-mono text-xs">{i.invoice_no}</td>
+                        <td className="font-mono text-xs">{i.invoice_no}{i.edit_count > 0 && <span className="ml-1 text-[9px] text-amber-500" title={`Edited by ${i.last_edited_by}`}>✎</span>}</td>
                         <td className="text-xs text-slate-500">{new Date(i.created_at).toLocaleDateString()}</td>
                         <td>{i.customer_name}</td>
                         <td><span className="text-[10px] uppercase tracking-wider text-sky-600">{i.payment_mode}</span></td>
                         <td className="text-right text-sky-600">{inr(i.total)}</td>
+                        <td>
+                          <button onClick={() => setEditing(i)} data-testid={`edit-invoice-btn-${i.id}`} title="Edit this bill"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"><Pencil className="w-3.5 h-3.5" /></button>
+                        </td>
                       </tr>
                     ))}
-                    {data.invoices.length === 0 && <tr><td colSpan="5" className="text-center py-8 text-slate-500">No invoices in range</td></tr>}
+                    {data.invoices.length === 0 && <tr><td colSpan="6" className="text-center py-8 text-slate-500">No invoices in range</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -258,6 +264,7 @@ export default function Reports() {
           </div>
         </>
       )}
+      {editing && <EditInvoiceModal invoice={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </div>
   );
 }

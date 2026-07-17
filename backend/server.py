@@ -57,6 +57,7 @@ from routes.public_chat import router as public_chat_router  # noqa: E402
 from routes.sales import router as sales_router  # noqa: E402
 from routes.registry import router as registry_router  # noqa: E402
 from routes.appointments_pos import router as appointments_pos_router  # noqa: E402
+from routes.invoice_edits import router as invoice_edits_router  # noqa: E402
 from routes.mira_studio import router as mira_studio_router  # noqa: E402
 from routes.social_connect import router as social_connect_router  # noqa: E402
 from routes.mira_calendar import router as mira_calendar_router  # noqa: E402
@@ -98,7 +99,7 @@ for _r in (
     inventory_router, tenant_settings_router, crm_router, briefings_router,
     reviews_router, reports_router, public_site_router, super_admin_router,
     data_cleanup_router, super_admin_ops_router, assistant_router, offers_router,
-    public_chat_router, sales_router, registry_router, appointments_pos_router,
+    public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router,
     mira_studio_router, social_connect_router, mira_calendar_router, mira_autopilot_router,
     promo_video_router, platform_tools_router, promo_image_router, offer_flyer_router, veo_studio_router,
     packages_router, wallet_router, id_cards_router, releases_router,

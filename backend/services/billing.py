@@ -170,8 +170,9 @@ async def _validate_package_redeem_items(items: list, cust: dict):
 def _receipt_sms_text(t: dict, inv: dict, points_earned: int) -> str:
     name = (t or {}).get("name") or "Your Salon"
     pts = f" You earned {points_earned} loyalty pts." if points_earned else ""
+    review = f" Loved it? Review us: {t['google_review_url']}" if (t or {}).get("google_review_url") else ""
     return (f"{name}: Thank you {inv['customer_name']}! Receipt {inv['invoice_no']} - "
-            f"Rs.{inv['total']:.0f} paid via {_pay_label(inv['payment_mode'])}.{pts} See you again!")
+            f"Rs.{inv['total']:.0f} paid via {_pay_label(inv['payment_mode'])}.{pts}{review}")
 
 
 async def _send_billing_receipts(inv: dict, cust: dict, tenant_doc: Optional[dict], points_earned: int) -> dict:

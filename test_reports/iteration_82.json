@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 82 — Invoice Edit + Audit Trail feature tested end-to-end (backend + frontend). Found 2 backend bugs (missing db.invoice_edits collection registration causing 500s; edit_count missing from PUT response) — BOTH FIXED. All 13 backend tests pass. Frontend E2E happy-path works: edit modal opens, live totals recalculate correctly, PIN dialog flow works, audit trail renders in Settings with editor name + before/after totals, bulk-delete-old works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Reports (and other admin pages)", "issues": ["'What's New' modal (data-testid=whats-new-modal) intercepts pointer events on page load — blocked automated click on edit-invoice-btn until dismissed. Real users must dismiss it once, but the overlay bg is aria-hidden yet still swallows clicks. Consider auto-dismissing on outside-click or lowering z-index once acknowledged."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_invoice_edits.py", "/app/test_reports/pytest/invoice_edits.xml"],
+  "action_items": [
+    "None blocking — 2 backend bugs already fixed by me (see updated_files). Please verify the fixes match your intent.",
+    "OPTIONAL: DELETE /api/invoices/{id} returned 405 Method Not Allowed — invoice delete route may be missing. Not in feature scope but flagged for awareness."
+  ],
+  "critical_code_review_comments": [
+    "invoice_edits.py PUT response constructed from stale invoice dict — did not include $inc'd edit_count. Fixed by computing edit_count = old+1 and merging.",
+    "database.py _DB was missing the invoice_edits TenantCollection registration, causing AttributeError on every list/delete call. Added — inherits tenant scoping which is correct (audit records should be tenant-isolated).",
+    "invoice_edits.py: on validation error (empty items / wrong payment_mode) HTTPException raised AFTER require_owner_pin dep — a valid PIN is required to see a 400 error. Not a security issue (guard passes first), just worth noting."
+  ],
+  "updated_files": [
+    "/app/backend/database.py (added invoice_edits = TenantCollection)",
+    "/app/backend/routes/invoice_edits.py (return edit_count in PUT response)",
+    "/app/backend/tests/test_invoice_edits.py (new — 13 tests, all passing)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% (all UI flows pass after What's New dismissal)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, PIN 4321, tenant slug miracurl-marathahalli",
+  "seed_data_creation": "Test invoices/customers auto-created and cleaned up (bulk-cleaned 70 stale TEST_ invoices + 22 customers from prior iterations)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Feature is fully working post-fix. Run `pytest /app/backend/tests/test_invoice_edits.py -n 0` for regression (parallel workers split module fixtures — use -n 0). Frontend: always dismiss whats-new-modal before clicking table buttons on Reports.",
+  "rca of the issue": "1) db.invoice_edits missing → _DB class in database.py enumerates every allowed collection explicitly (no __getattr__ fallback). Adding `invoice_edits = TenantCollection(_raw_db.invoice_edits)` resolves. 2) edit_count key absent in response → route returned {**inv, **updates}; edit_count only mutated via $inc (not in updates dict) and inv was fetched before mutation. Fixed by injecting updates['edit_count'] = old+1 after update_one."
+}

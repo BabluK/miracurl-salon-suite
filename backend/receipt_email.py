@@ -71,6 +71,17 @@ def _points_banner(points_earned: int) -> str:
         f'on this visit — redeem them on your next bill!</p>')
 
 
+def _review_nudge(t: dict) -> str:
+    url = (t or {}).get("google_review_url") or ""
+    if not url:
+        return ""
+    return (
+        f'<p style="margin:14px 0 0;text-align:center">'
+        f'<a href="{url}" style="display:inline-block;background:{GOLD};color:{INK};font-size:13px;font-weight:bold;'
+        f'text-decoration:none;padding:11px 26px;border-radius:999px">&#11088; Loved your visit? Leave us a Google review</a>'
+        f'<br/><span style="font-size:11px;color:#9a9aa6">It takes 30 seconds and makes our day!</span></p>')
+
+
 def _receipt_email_html(t: dict, inv: dict, points_earned: int = 0) -> str:
     esc = html_lib.escape
     salon = esc(t.get("name") or "Your Salon")
@@ -100,6 +111,7 @@ def _receipt_email_html(t: dict, inv: dict, points_earned: int = 0) -> str:
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{_items_rows(inv)}</table>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px">{_totals_rows(inv)}</table>
   {_points_banner(points_earned)}
+  {_review_nudge(t)}
 </td></tr>
 <tr><td style="background:{INK};border-radius:0 0 18px 18px;padding:20px 34px;text-align:center">
   <div style="color:#9a9aa6;font-size:12px">{footer_contact}</div>
