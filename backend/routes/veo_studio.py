@@ -56,12 +56,25 @@ AVATAR_DESC = ("An elegant Indian woman presenter in her early 30s, shoulder-len
                "standing in a luxury salon with warm golden lighting and softly blurred product shelves behind her")
 
 
+def _is_stale(doc: dict) -> bool:
+    from datetime import timedelta
+    last = datetime.fromisoformat(doc.get("updated_at") or doc["created_at"])
+    return datetime.now(timezone.utc) - last > timedelta(minutes=STALE_MINUTES)
+
+
+STALE_MSG = "Generation was interrupted (server restart or timeout). Please try again."
+
+
 @router.post("/super/veo-ad")
 async def create_veo_ad(body: VeoAdIn, admin=Depends(require_super_admin)):
     _gemini_key()
     active = await _raw_db.veo_ads.find_one({"status": "generating"})
     if active:
-        raise HTTPException(409, "A Veo ad is already rendering — wait for it to finish.")
+        if _is_stale(active):
+            await _raw_db.veo_ads.update_one({"id": active["id"]},
+                                             {"$set": {"status": "failed", "error": STALE_MSG}})
+        else:
+            raise HTTPException(409, "A Veo ad is already rendering — wait for it to finish.")
     job_id = str(uuid.uuid4())
     await _raw_db.veo_ads.insert_one({
         "id": job_id, "status": "generating", "progress": "Mira is writing the cinematic script…",
@@ -81,20 +94,22 @@ async def veo_ad_status(job_id: str, admin=Depends(require_super_admin)):
     doc = await _raw_db.veo_ads.find_one({"id": job_id}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Job not found")
-    if doc.get("status") == "generating":
-        from datetime import timedelta
-        last = datetime.fromisoformat(doc.get("updated_at") or doc["created_at"])
-        if datetime.now(timezone.utc) - last > timedelta(minutes=STALE_MINUTES):
-            msg = "Generation was interrupted (server restart or timeout). Please try again."
-            await _raw_db.veo_ads.update_one({"id": job_id}, {"$set": {"status": "failed", "error": msg}})
-            doc.update({"status": "failed", "error": msg})
+    if doc.get("status") == "generating" and _is_stale(doc):
+        await _raw_db.veo_ads.update_one({"id": job_id}, {"$set": {"status": "failed", "error": STALE_MSG}})
+        doc.update({"status": "failed", "error": STALE_MSG})
     return doc
 
 
 @router.get("/super/veo-ads")
 async def veo_ad_list(admin=Depends(require_super_admin)):
+    active = await _raw_db.veo_ads.find_one({"status": "generating"}, {"_id": 0})
+    if active and _is_stale(active):
+        await _raw_db.veo_ads.update_one({"id": active["id"]},
+                                         {"$set": {"status": "failed", "error": STALE_MSG}})
+        active = None
     return {"videos": await _raw_db.veo_ads.find(
         {"status": "done"}, {"_id": 0}).sort("created_at", -1).to_list(10),
+        "active": active,
         "configured": bool(os.environ.get("GEMINI_API_KEY"))}
 
 

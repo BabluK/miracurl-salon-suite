@@ -414,3 +414,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - KEY LEARNINGS: (1) Veo audio safety filter BLOCKS speech in image-to-video from a person photo (voice-impersonation guard) — rai_media_filtered_reasons. Solution: avatar mode = TEXT-to-video with hyper-detailed fixed AVATAR_DESC persona in every scene prompt → consistent presenter WITH native speech. (2) LLM script JSON broke on double-quoted dialogue — fixed with structured {"visual","line"} output + quote-stripping + 2-attempt retry (_write_script).
 - Mira avatar image generated (nano banana) → /app/frontend/public/assets/mira-avatar.png (shown in UI mode card).
 - User's Gemini credits now ACTIVE. E2E VERIFIED: 1-scene avatar job → done, 8s 9:16 MP4 with AAC audio, presenter matches persona (frame extracted + checked). Video in gallery /api/files/d9849a77-...
+
+## 2026-07-17 — Veo stuck-job recovery (production incident)
+- User's production Veo job stuck >20min at "Stitching" — root cause: background asyncio task killed by production pod restart; stuck 'generating' record then BLOCKED new jobs via 409 guard, and UI polling stopped on first network error (clearInterval on catch).
+- Fixes (veo_studio.py + VeoAdStudio.jsx): _is_stale() helper applied in create (auto-fails stale active job instead of 409), list endpoint (returns `active` job + clears stale), status endpoint; UI resumes polling of active job on page load; polling tolerates 10 consecutive errors before stopping; added "Uploading final ad" progress step.
+- Verified: seeded 30-min-old stale generating job → list cleared it, create returned new job_id (no 409), job completed (done + video stored). ffmpeg concat benchmarked: 2 clips in 7.4s (fast — stitching was never the bottleneck).
+- NOTE: user must REDEPLOY for these fixes; production long-running background tasks remain vulnerable to pod restarts but now recover gracefully.

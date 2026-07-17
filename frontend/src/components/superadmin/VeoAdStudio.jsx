@@ -14,22 +14,32 @@ export const VeoAdStudio = () => {
   const pollRef = useRef(null);
 
   const loadList = useCallback(() => {
-    api.get("/super/veo-ads").then(r => { setVideos(r.data.videos); setConfigured(r.data.configured); }).catch(() => {});
+    api.get("/super/veo-ads").then(r => {
+      setVideos(r.data.videos);
+      setConfigured(r.data.configured);
+      if (r.data.active) { setJob(r.data.active); poll(r.data.active.id); }
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { loadList(); return () => clearInterval(pollRef.current); }, [loadList]);
 
   const poll = (id) => {
     clearInterval(pollRef.current);
+    let misses = 0;
     pollRef.current = setInterval(async () => {
       try {
         const { data } = await api.get(`/super/veo-ad/${id}`);
+        misses = 0;
         setJob(data);
         if (data.status !== "generating") {
           clearInterval(pollRef.current);
           if (data.status === "done") { toast.success("Cinematic ad is ready 🎬"); loadList(); }
           else toast.error(data.error || "Generation failed");
         }
-      } catch { clearInterval(pollRef.current); }
+      } catch {
+        misses += 1;
+        if (misses >= 10) clearInterval(pollRef.current);
+      }
     }, 6000);
   };
 
