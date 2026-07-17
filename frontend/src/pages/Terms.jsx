@@ -4,7 +4,7 @@ export default function Terms() {
   return (
     <LegalLayout testId="terms-page" label="LEGAL" title="Terms of Service"
                  subtitle="Last updated: June 2026 · These terms govern your use of Miracurl Salon Suite."
-                 crossLabel="PRIVACY POLICY" crossTo="/privacy-policy">
+                 crossLabel="Privacy Policy" crossTo="/privacy-policy">
       <S n="1" title="Who we are & acceptance of these terms">
         <p>Miracurl Salon Suite ("Miracurl", "we", "us") is a cloud-based salon and spa management platform that helps businesses manage appointments, customers, staff, billing, inventory, marketing and related operations. By creating an account, accessing our website, or using any part of the platform, you agree to be bound by these Terms of Service. If you are using Miracurl on behalf of a salon or company, you confirm you have the authority to bind that business to these terms.</p>
         <p>If you do not agree with any part of these terms, please do not use the platform.</p>

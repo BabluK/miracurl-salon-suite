@@ -458,3 +458,8 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - NEW /app/frontend/src/components/LegalLayout.jsx — pill nav (gold logo /brand/miracurl-gold.png, HOME/FEATURES/PRICING/DEMO, SALON SUITE outline pill, gold BOOK NOW gradient CTA), playfair hero with gold ✦ divider, numbered white section cards, cream #faf6ec bg. Terms.jsx/Privacy.jsx rewritten to use it (same original copy).
 - receipt_email.py: send_invoice_receipt_email now auto-attaches "rate-us-scan-me.jpg" — rosegold review tent card generated via _build_tent_card, thumbnailed to 1200px JPEG q82 (~113KB), QR → APP_PUBLIC_URL/api/public/review-go/{slug}. Exception-safe (never blocks receipt). Small "📎 rate-us card attached" note appended to email HTML.
 - Verified: attachment generator unit-tested (151KB b64), both redesigned pages screenshot-verified.
+
+## 2026-07-17 — Legal pages restyled to match Landing dark theme (user request)
+- User rejected cream/gold standalone design; wants SAME design as main website (dark landing).
+- LegalLayout.jsx rewritten: exact Landing.jsx tokens — sticky backdrop-blur-xl bg-black/60 nav with BrandMark (variant dark), Features/Pricing/Demo/Sign in links + fuchsia→rose "Start free trial" pill; hero with amber-200→fuchsia-400 gradient playfair title + ✦ + LEGAL badge pill; glass section cards (bg-white/[0.04], amber circle numbers); footer identical to landing footer style.
+- Terms.jsx/Privacy.jsx unchanged content-wise. Screenshot-verified both pages.

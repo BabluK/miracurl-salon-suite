@@ -4,7 +4,7 @@ export default function Privacy() {
   return (
     <LegalLayout testId="privacy-page" label="LEGAL" title="Privacy Policy"
                  subtitle="Last updated: June 2026 · How Miracurl Salon Suite collects, uses and protects information."
-                 crossLabel="TERMS OF SERVICE" crossTo="/terms-of-service">
+                 crossLabel="Terms of Service" crossTo="/terms-of-service">
       <S n="1" title="Overview">
         <p>Miracurl Salon Suite ("Miracurl", "we", "us") provides salon management software to businesses. This policy explains what information we collect, why we collect it, and the choices you have. It applies to our websites, web apps, booking pages and related services.</p>
         <p>We act in two roles: as a <strong>data controller</strong> for information about salon owners and staff who sign up with us, and as a <strong>data processor</strong> for the customer records that salons store inside the platform. Salons remain responsible for the customer data they collect through Miracurl.</p>
