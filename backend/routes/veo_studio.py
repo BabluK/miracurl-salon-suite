@@ -47,6 +47,13 @@ class VeoAdIn(BaseModel):
     concept: str = Field("Full Miracurl Salon Suite ad — online booking, WhatsApp automation, staff payroll, GST billing and the 12-agent AI team, for Indian salon owners", max_length=600)
     scenes: int = Field(2, ge=1, le=4)
     aspect_ratio: str = Field("9:16", pattern=r"^(9:16|16:9)$")
+    mode: str = Field("cinematic", pattern=r"^(cinematic|avatar)$")
+
+
+AVATAR_PATH = "/app/frontend/public/assets/mira-avatar.png"
+AVATAR_DESC = ("An elegant Indian woman presenter in her early 30s, shoulder-length dark wavy hair, warm confident "
+               "smile, wearing a dark navy blazer with subtle gold trim over a black top, delicate gold necklace, "
+               "standing in a luxury salon with warm golden lighting and softly blurred product shelves behind her")
 
 
 @router.post("/super/veo-ad")
@@ -58,7 +65,7 @@ async def create_veo_ad(body: VeoAdIn, admin=Depends(require_super_admin)):
     job_id = str(uuid.uuid4())
     await _raw_db.veo_ads.insert_one({
         "id": job_id, "status": "generating", "progress": "Mira is writing the cinematic script…",
-        "concept": body.concept, "scenes": body.scenes, "aspect_ratio": body.aspect_ratio,
+        "concept": body.concept, "scenes": body.scenes, "aspect_ratio": body.aspect_ratio, "mode": body.mode,
         "video_url": "", "error": "", "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
@@ -111,30 +118,62 @@ async def _progress(job_id: str, msg: str):
 
 async def _write_script(body: VeoAdIn) -> list:
     from routes.mira_studio import _ask_json
-    out = await _ask_json(
-        "You are a world-class video ad director writing Veo 3.1 prompts. Each scene prompt must be a rich, "
-        "cinematic single-paragraph description: subject, action, camera motion, lighting, mood, and spoken "
-        "dialogue/voiceover in quotes (Veo generates real audio). Setting: modern premium INDIAN salons, "
-        "Indian owners/staff/clients. The product is 'Miracurl Suite' salon software.",
-        f"Ad concept: {body.concept}\n"
-        f"Write exactly {body.scenes} scene prompts for consecutive 8-second video clips that flow as one ad. "
-        "Rules per scene: 1080p cinematic quality; include one short spoken line (Indian-English accent) in "
-        "double quotes that continues the story; final scene must end with a call to action mentioning "
-        "'miracurl hyphen suite dot com'. Avoid on-screen text requests except a subtle logo mention in the last scene. "
-        'Return JSON: {"scenes": ["<scene 1 prompt>", ...]}')
-    scenes = [s for s in (out.get("scenes") or []) if isinstance(s, str) and s.strip()]
-    if not scenes:
-        raise RuntimeError("Script writing failed — try again")
-    return scenes[:body.scenes]
+    if body.mode == "avatar":
+        system = (
+            "You are a video ad director writing Veo 3.1 image-to-video prompts for a SPOKESPERSON ad. "
+            f"Every scene features {AVATAR_DESC}. She speaks DIRECTLY to camera in warm Indian-English. "
+            "The product is 'Miracurl Suite' salon software.")
+        task = (
+            f"Ad concept: {body.concept}\n"
+            f"Write exactly {body.scenes} scenes for consecutive 8-second clips forming ONE continuous "
+            "monologue by the presenter (each spoken line ~20 words max, continuing the previous line naturally). "
+            "Final scene's line ends with a call to action mentioning miracurl hyphen suite dot com. "
+            'Return JSON: {"scenes": [{"visual": "<her gesture/motion + camera move + lighting — plain text, '
+            'no quotation marks>", "line": "<the exact words she speaks — no quotation marks>"}]}')
+    else:
+        system = (
+            "You are a world-class video ad director writing Veo 3.1 prompts. Each scene needs a rich cinematic "
+            "description: subject, action, camera motion, lighting, mood. Setting: modern premium INDIAN salons, "
+            "Indian owners/staff/clients. The product is 'Miracurl Suite' salon software.")
+        task = (
+            f"Ad concept: {body.concept}\n"
+            f"Write exactly {body.scenes} scenes for consecutive 8-second video clips that flow as one ad, "
+            "1080p cinematic quality. Each scene has one short spoken voiceover line (Indian-English accent) "
+            "continuing the story; final scene's line ends with a call to action mentioning "
+            "miracurl hyphen suite dot com. "
+            'Return JSON: {"scenes": [{"visual": "<cinematic scene description — plain text, no quotation marks>", '
+            '"line": "<the spoken voiceover words — no quotation marks>"}]}')
+    for _attempt in range(2):
+        out = await _ask_json(system, task)
+        scenes = []
+        for s in (out.get("scenes") or []):
+            if isinstance(s, dict):
+                visual = str(s.get("visual") or "").strip()
+                line = str(s.get("line") or "").replace('"', "'").strip()
+                if visual or line:
+                    if body.mode == "avatar":
+                        scenes.append(f'{AVATAR_DESC}. {visual} She looks into the camera and says: "{line}"' if line
+                                      else f"{AVATAR_DESC}. {visual}")
+                    else:
+                        scenes.append(f'{visual} Voiceover in warm Indian-English says: "{line}"' if line else visual)
+            elif isinstance(s, str) and s.strip():
+                scenes.append(s.strip())
+        if scenes:
+            return scenes[:body.scenes]
+    raise RuntimeError("Script writing failed — try again")
 
 
-def _render_scene(prompt: str, aspect_ratio: str, out_path: str):
-    """Blocking: generate one Veo clip and save to out_path."""
+def _render_scene(prompt: str, aspect_ratio: str, out_path: str, image_path: str = None):
+    """Blocking: generate one Veo clip (optionally image-to-video from avatar) and save to out_path."""
     from google import genai
     from google.genai import types
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    kwargs = {}
+    if image_path and os.path.exists(image_path):
+        with open(image_path, "rb") as f:
+            kwargs["image"] = types.Image(image_bytes=f.read(), mime_type="image/png")
     op = client.models.generate_videos(
-        model=VEO_MODEL, prompt=prompt,
+        model=VEO_MODEL, prompt=prompt, **kwargs,
         config=types.GenerateVideosConfig(aspect_ratio=aspect_ratio))
     deadline = _time.time() + 600
     while not op.done:

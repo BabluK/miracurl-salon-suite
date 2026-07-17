@@ -7,6 +7,7 @@ export const VeoAdStudio = () => {
   const [concept, setConcept] = useState("Full Miracurl Salon Suite ad — online booking, WhatsApp automation, staff payroll, GST billing and the 12-agent AI team, for Indian salon owners");
   const [scenes, setScenes] = useState(2);
   const [aspect, setAspect] = useState("9:16");
+  const [mode, setMode] = useState("cinematic");
   const [job, setJob] = useState(null);
   const [videos, setVideos] = useState([]);
   const [configured, setConfigured] = useState(true);
@@ -34,7 +35,7 @@ export const VeoAdStudio = () => {
 
   const generate = async () => {
     try {
-      const { data } = await api.post("/super/veo-ad", { concept, scenes: Number(scenes), aspect_ratio: aspect });
+      const { data } = await api.post("/super/veo-ad", { concept, scenes: Number(scenes), aspect_ratio: aspect, mode });
       setJob({ id: data.job_id, status: "generating", progress: "Starting…" });
       poll(data.job_id);
     } catch (e) {
@@ -65,6 +66,22 @@ export const VeoAdStudio = () => {
           <span>Needs your <b>Google Gemini API key</b> (with billing) — get one at <b>aistudio.google.com</b> → API Keys, then ask Mira's developer to add it as GEMINI_API_KEY. Each 8s scene costs ~$2–6 on your Google billing.</span>
         </div>
       )}
+
+      <div className="flex gap-3" data-testid="veo-mode-toggle">
+        <button onClick={() => setMode("cinematic")} data-testid="veo-mode-cinematic"
+          className={`flex-1 rounded-xl border-2 p-3 text-left transition-colors ${mode === "cinematic" ? "border-fuchsia-500 bg-fuchsia-50" : "border-slate-200 hover:border-slate-300"}`}>
+          <p className="text-sm font-bold text-slate-800">🎥 Cinematic Scenes</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Story-style ad — salon scenes, customers, voiceover</p>
+        </button>
+        <button onClick={() => setMode("avatar")} data-testid="veo-mode-avatar"
+          className={`flex-1 rounded-xl border-2 p-3 text-left transition-colors flex items-center gap-3 ${mode === "avatar" ? "border-fuchsia-500 bg-fuchsia-50" : "border-slate-200 hover:border-slate-300"}`}>
+          <img src="/assets/mira-avatar.png" alt="Mira avatar" className="w-11 h-11 rounded-full object-cover object-top border-2 border-amber-300" />
+          <span>
+            <p className="text-sm font-bold text-slate-800">👩 Mira Avatar Presenter</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Mira speaks your ad to camera — her own AI avatar, no selfie needed</p>
+          </span>
+        </button>
+      </div>
 
       <textarea value={concept} onChange={e => setConcept(e.target.value)} rows={3} maxLength={600}
         className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm" data-testid="veo-concept-input" />

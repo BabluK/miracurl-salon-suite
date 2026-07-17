@@ -408,3 +408,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Review nudge: receipt email gold "⭐ Leave us a Google review" button + SMS suffix when tenant google_review_url set (receipt_email.py/_review_nudge, services/billing.py).
 - Testing: iteration_82.json — 13/13 backend, frontend flows 100%. Testing agent fixed: database.py invoice_edits registration, edit_count in PUT response; created /app/backend/tests/test_invoice_edits.py (run with -n 0).
 - Flagged (not built): DELETE /invoices/{id} (void bill) doesn't exist — user earlier offered option b (void) but chose custom scope; consider later.
+
+## 2026-07-17 — Mira Avatar Presenter mode in Veo Studio (user request)
+- User complaint: no avatar video option, shouldn't need selfie. Added mode toggle (cinematic|avatar) to VeoAdStudio.jsx + veo_studio.py.
+- KEY LEARNINGS: (1) Veo audio safety filter BLOCKS speech in image-to-video from a person photo (voice-impersonation guard) — rai_media_filtered_reasons. Solution: avatar mode = TEXT-to-video with hyper-detailed fixed AVATAR_DESC persona in every scene prompt → consistent presenter WITH native speech. (2) LLM script JSON broke on double-quoted dialogue — fixed with structured {"visual","line"} output + quote-stripping + 2-attempt retry (_write_script).
+- Mira avatar image generated (nano banana) → /app/frontend/public/assets/mira-avatar.png (shown in UI mode card).
+- User's Gemini credits now ACTIVE. E2E VERIFIED: 1-scene avatar job → done, 8s 9:16 MP4 with AAC audio, presenter matches persona (frame extracted + checked). Video in gallery /api/files/d9849a77-...
