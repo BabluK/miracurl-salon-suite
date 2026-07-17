@@ -433,3 +433,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - promo_video.py: new mode "presenter" — Mira avatar (frontend/public/assets/mira-avatar.png via MIRA_AVATAR const) opens & closes the reel, express app screenshots in middle, first-person TTS monologue (shimmer voice, Emergent key), CTA avatar scene "Book your free demo today" before QR outro. Forces express middle (no AI image cost).
 - PromoVideoStudio.jsx: "Mira Presenter FREE" mode button (promo-mode-presenter) with avatar thumbnail + info banner. VeoAdStudio.jsx: billing-error message now suggests the free mode below.
 - E2E VERIFIED: presenter job → done, 38.7s reel, frame check shows avatar + gold caption + logo, voiceover starts "Hi, I'm Mira!". Cost: ~₹2-5 Emergent key only.
+
+## 2026-07-17 — HD Designer Booking QR Posters (user request, all tenants)
+- Rewrote _build_qr_poster (services_catalog.py): HD 1600×2400 print-ready, AI-generated backgrounds, 4 designs in POSTER_DESIGNS: blush, rosegold (replaced emerald per user), lavender, ivory. Assets in /app/backend/assets/posters/ (+ thumbs in frontend/public/assets/posters/). Elements: salon name/location bands, SCAN·BOOK·GLOW tagline, cute kawaii "Scan me!" mascot (scan_me.png, bg auto-removed pixel threshold), white rounded QR panel (ERROR_CORRECT_H), Mira AI circle avatar w/ gold ring, "OPEN MONDAY – SUNDAY" + tenant.hours + phone + booking URL from Settings, Powered by Miracurl. NOTE: FreeSans lacks ✦ glyph (tofu) — avoid in PIL text.
+- GET /settings/qr-poster?origin=&design= (validated, PIL via asyncio.to_thread). Multi-tenant automatic (tenant doc: name/location/hours/phone/slug).
+- QrPosterCard.jsx rewritten: 4 design thumbnails, Preview (blob img) + Download HD buttons.
+- Verified: all 4 designs rendered + shown to user (emerald rejected → rosegold approved), API 200 (3.3MB PNG, 1.7s), 400 on bad design, Settings UI preview screenshot OK with real tenant data.

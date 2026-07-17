@@ -151,12 +151,50 @@ async def import_preset_services(user=Depends(require_admin)):
 
 SERVICE_CSV_COLUMNS = ["name", "category", "price", "duration_min", "description", "image_url", "trending", "active"]
 
-def _build_qr_poster(salon_name: str, location: str, url: str) -> bytes:
+POSTER_DIR = ROOT_DIR / "assets" / "posters"
+POSTER_DESIGNS = {
+    "blush": {"bg": "blush.png", "name": (94, 52, 66), "accent": (168, 124, 46), "sub": (120, 84, 94), "band": (255, 252, 248, 200)},
+    "rosegold": {"bg": "rosegold.png", "name": (128, 66, 74), "accent": (186, 110, 96), "sub": (146, 100, 100), "band": (255, 250, 246, 205)},
+    "lavender": {"bg": "lavender.png", "name": (84, 56, 122), "accent": (146, 104, 190), "sub": (110, 88, 140), "band": (252, 250, 255, 200)},
+    "ivory": {"bg": "ivory.png", "name": (122, 70, 42), "accent": (192, 100, 62), "sub": (140, 100, 74), "band": (255, 251, 244, 205)},
+}
+
+
+def _mascot_rgba():
+    from PIL import Image as PILImage
+    im = PILImage.open(POSTER_DIR / "scan_me.png").convert("RGBA")
+    px = im.load()
+    bg = px[4, 4][:3]
+    w, h = im.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if abs(r - bg[0]) + abs(g - bg[1]) + abs(b - bg[2]) < 60:
+                px[x, y] = (r, g, b, 0)
+    return im
+
+
+def _circle_avatar(size: int):
+    from PIL import Image as PILImage, ImageDraw
+    im = PILImage.open(POSTER_DIR / "mira.png").convert("RGB")
+    side = min(im.size)
+    im = im.crop(((im.width - side) // 2, 0, (im.width - side) // 2 + side, side)).resize((size, size))
+    mask = PILImage.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).ellipse([0, 0, size, size], fill=255)
+    out = PILImage.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.paste(im, (0, 0), mask)
+    d = ImageDraw.Draw(out)
+    d.ellipse([2, 2, size - 2, size - 2], outline=(212, 175, 55), width=8)
+    return out
+
+
+def _build_qr_poster(tenant: dict, url: str, design: str = "blush") -> bytes:
     import qrcode
     from PIL import Image as PILImage, ImageDraw, ImageFont
 
+    cfg = POSTER_DESIGNS.get(design) or POSTER_DESIGNS["blush"]
+
     def _load_font(fname, size):
-        # Bundled fonts first (survive production deploys), then system, then default
         for p in (ROOT_DIR / "fonts" / fname, Path("/usr/share/fonts/truetype/freefont") / fname):
             try:
                 return ImageFont.truetype(str(p), size)
@@ -164,61 +202,97 @@ def _build_qr_poster(salon_name: str, location: str, url: str) -> bytes:
                 continue
         return ImageFont.load_default()
 
-    W, H = 1240, 1754
-    img = PILImage.new("RGB", (W, H), (10, 10, 10))
+    W, H = 1600, 2400
+    bg = PILImage.open(POSTER_DIR / cfg["bg"]).convert("RGB")
+    scale = max(W / bg.width, H / bg.height)
+    bg = bg.resize((int(bg.width * scale) + 1, int(bg.height * scale) + 1))
+    img = bg.crop(((bg.width - W) // 2, (bg.height - H) // 2, (bg.width - W) // 2 + W, (bg.height - H) // 2 + H)).convert("RGBA")
     d = ImageDraw.Draw(img)
 
     def fit_font(text, fname, start, max_w):
         size = start
-        while size > 30:
+        while size > 34:
             f = _load_font(fname, size)
             bbox = d.textbbox((0, 0), text, font=f)
             if bbox[2] - bbox[0] <= max_w:
                 return f
             size -= 6
-        return _load_font(fname, 30)
+        return _load_font(fname, 34)
 
     def center(text, y, font, fill):
         bbox = d.textbbox((0, 0), text, font=font)
         d.text(((W - (bbox[2] - bbox[0])) / 2 - bbox[0], y), text, font=font, fill=fill)
 
-    f_sub = _load_font("FreeSansBold.ttf", 34)
-    f_small = _load_font("FreeSansBold.ttf", 28)
-    d.rectangle([0, 0, W, 14], fill=(212, 175, 55))
-    d.rectangle([0, H - 14, W, H], fill=(212, 175, 55))
-    center(salon_name, 130, fit_font(salon_name, "FreeSerifBold.ttf", 84, W - 120), (212, 175, 55))
-    if location:
-        center(location[:70], 260, f_small, (230, 230, 230))
-    center("S C A N  ·  B O O K  ·  G L O W", 350, f_sub, (255, 255, 255))
+    def band(y0, y1, radius=36):
+        overlay = PILImage.new("RGBA", (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(overlay).rounded_rectangle([110, y0, W - 110, y1], radius=radius, fill=cfg["band"])
+        return PILImage.alpha_composite(img, overlay)
 
-    qr = qrcode.QRCode(box_size=12, border=2)
+    # ---- header band: salon name + location + tagline
+    img = band(430, 800)
+    d = ImageDraw.Draw(img)
+    name = tenant.get("name") or "Your Salon"
+    center(name, 470, fit_font(name, "FreeSerifBold.ttf", 110, W - 320), cfg["name"])
+    loc = (tenant.get("location") or "").strip()
+    if loc:
+        center(loc[:60], 620, _load_font("FreeSansBold.ttf", 42), cfg["sub"])
+    center("S C A N  ·  B O O K  ·  G L O W", 705, _load_font("FreeSansBold.ttf", 40), cfg["accent"])
+
+    # ---- QR panel with white rounded card
+    qr = qrcode.QRCode(box_size=14, border=2, error_correction=qrcode.constants.ERROR_CORRECT_H)
     qr.add_data(url)
     qr.make(fit=True)
-    qimg = qr.make_image(fill_color="black", back_color="white").convert("RGB").resize((640, 640))
-    panel = PILImage.new("RGB", (700, 700), (255, 255, 255))
-    panel.paste(qimg, (30, 30))
-    img.paste(panel, ((W - 700) // 2, 450))
+    qimg = qr.make_image(fill_color="black", back_color="white").convert("RGB").resize((560, 560))
+    panel = PILImage.new("RGBA", (W, H), (0, 0, 0, 0))
+    px0, py0 = (W - 660) // 2, 1000
+    ImageDraw.Draw(panel).rounded_rectangle([px0, py0, px0 + 660, py0 + 660], radius=44, fill=(255, 255, 255, 255))
+    img = PILImage.alpha_composite(img, panel)
+    img.paste(qimg, (px0 + 50, py0 + 50))
+    d = ImageDraw.Draw(img)
 
-    y = 450 + 700 + 70
-    center("Point your phone camera at the code", y, f_sub, (255, 255, 255))
-    center("Book your visit in seconds — no calls, no waiting", y + 62, f_small, (200, 200, 200))
-    center("Tap Install to get the Miracurl Book app for offers & reminders", y + 118, f_small, (212, 175, 55))
-    center("Powered by Miracurl", H - 90, f_small, (130, 130, 130))
+    # ---- cute mascot + "Scan me!" above the QR
+    try:
+        mascot = _mascot_rgba().resize((330, 330))
+        img.paste(mascot, (px0 + 660 - 190, py0 - 250), mascot)
+        d.text((px0 + 90, py0 - 150), "Scan me!", font=_load_font("FreeSerifBoldItalic.ttf", 76), fill=cfg["accent"])
+    except Exception:
+        pass
+
+    # ---- Mira avatar bottom-left of QR panel
+    try:
+        av = _circle_avatar(230)
+        img.paste(av, (px0 - 105, py0 + 660 - 150), av)
+        d.text((px0 - 95, py0 + 660 + 88), "Mira AI", font=_load_font("FreeSansBold.ttf", 34), fill=cfg["accent"])
+    except Exception:
+        pass
+
+    # ---- timings band (from Settings)
+    img = band(1830, 2130)
+    d = ImageDraw.Draw(img)
+    center("—  OPEN MONDAY – SUNDAY  —", 1870, _load_font("FreeSansBold.ttf", 44), cfg["accent"])
+    hours = (tenant.get("hours") or "").strip() or "10:00 AM – 9:00 PM"
+    center(hours[:60], 1935, fit_font(hours[:60], "FreeSerifBold.ttf", 66, W - 360), cfg["name"])
+    contact = " · ".join(x for x in [(tenant.get("phone") or "").strip(), url.replace("https://", "")] if x)
+    center(contact[:80], 2035, _load_font("FreeSansBold.ttf", 36), cfg["sub"])
+
+    center("Powered by Miracurl", 2290, _load_font("FreeSansBold.ttf", 32), cfg["sub"])
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    img.convert("RGB").save(buf, format="PNG")
     return buf.getvalue()
 
 @router.get("/settings/qr-poster")
-async def download_qr_poster(origin: str = "", user=Depends(get_current_user)):
+async def download_qr_poster(origin: str = "", design: str = "blush", user=Depends(get_current_user)):
     if not origin.startswith("http"):
         raise HTTPException(400, "origin query param required")
+    if design not in POSTER_DESIGNS:
+        raise HTTPException(400, f"design must be one of {sorted(POSTER_DESIGNS)}")
     tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
     if not tenant:
         raise HTTPException(404, "Tenant not found")
     url = f"{origin.rstrip('/')}/book/{tenant['slug']}"
-    png = _build_qr_poster(tenant.get("name", "Your Salon"), tenant.get("location", "") or "", url)
+    png = await asyncio.to_thread(_build_qr_poster, tenant, url, design)
     return Response(content=png, media_type="image/png",
-                    headers={"Content-Disposition": "attachment; filename=booking-qr-poster.png"})
+                    headers={"Content-Disposition": f"attachment; filename=booking-poster-{design}.png"})
 
 @router.get("/services/export")
 async def export_services_csv(user=Depends(require_admin)):

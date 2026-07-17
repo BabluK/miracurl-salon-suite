@@ -1,73 +1,83 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { QrCode, Download, Loader2 } from "lucide-react";
+import { QrCode, Download, Loader2, Eye } from "lucide-react";
+
+const DESIGNS = [
+  { key: "blush", label: "Blush & Gold" },
+  { key: "rosegold", label: "Rose Gold Silk" },
+  { key: "lavender", label: "Lavender Glam" },
+  { key: "ivory", label: "Boho Ivory" },
+];
 
 export function QrPosterCard() {
-  const [downloading, setDownloading] = useState(false);
+  const [design, setDesign] = useState("blush");
+  const [busy, setBusy] = useState("");
   const [preview, setPreview] = useState(null);
-  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const res = await api.get(`/settings/qr-poster?origin=${encodeURIComponent(window.location.origin)}`, { responseType: "blob" });
-        if (alive) setPreview(URL.createObjectURL(res.data));
-      } catch { if (alive) setError(true); }
-    })();
-    return () => { alive = false; };
-  }, []);
-
-  async function download() {
-    setDownloading(true);
+  const fetchPoster = async (mode) => {
+    setBusy(mode);
     try {
-      let url = preview;
-      if (!url) {
-        const res = await api.get(`/settings/qr-poster?origin=${encodeURIComponent(window.location.origin)}`, { responseType: "blob" });
-        url = URL.createObjectURL(res.data);
-        setPreview(url);
+      const { data } = await api.get("/settings/qr-poster", {
+        params: { origin: window.location.origin, design },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(data);
+      if (mode === "preview") {
+        setPreview({ url, design });
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `booking-poster-${design}.png`;
+        a.click();
+        toast.success("HD poster downloaded — ready to print 🖨️");
       }
-      const a = document.createElement("a");
-      a.href = url; a.download = "booking-qr-poster.png"; a.click();
-      toast.success("QR poster downloaded — print it for your reception desk ✦");
-    } catch { toast.error("Couldn't generate poster — please try again"); }
-    finally { setDownloading(false); }
-  }
+    } catch {
+      toast.error("Couldn't generate the poster — try again");
+    }
+    setBusy("");
+  };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-qr-card">
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="qr-poster-card">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+        <div className="w-10 h-10 rounded-lg bg-rose-100 text-rose-500 flex items-center justify-center shrink-0">
           <QrCode className="w-5 h-5" />
         </div>
-        <div className="flex-1">
-          <h2 className="text-lg font-semibold text-slate-800">Booking QR poster</h2>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-800">Booking QR Poster (HD)</h2>
           <p className="text-xs text-slate-500 mt-1">
-            A print-ready poster for your reception desk. Clients scan it with their phone camera → your booking page opens → they install the Miracurl Book app and self-book their next visit.
+            Print-ready designer poster for your salon entrance — your name, Mon–Sun timings (from this Settings page), phone, Mira AI and a scan-to-book QR. Pick a design:
           </p>
         </div>
-        <button
-          data-testid="download-qr-poster-btn"
-          onClick={download}
-          disabled={downloading}
-          className="btn-blue flex items-center gap-2 flex-shrink-0 disabled:opacity-60"
-        >
-          {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          {downloading ? "Generating…" : "Download poster"}
+      </div>
+
+      <div className="grid grid-cols-4 gap-3 mt-5">
+        {DESIGNS.map(d => (
+          <button key={d.key} onClick={() => { setDesign(d.key); setPreview(null); }}
+            data-testid={`poster-design-${d.key}`}
+            className={`rounded-xl overflow-hidden border-2 transition-colors ${design === d.key ? "border-rose-400 shadow-md" : "border-slate-200 hover:border-slate-300"}`}>
+            <img src={`/assets/posters/${d.key}.png`} alt={d.label} className="w-full h-28 object-cover" />
+            <p className={`text-[10px] font-bold py-1.5 ${design === d.key ? "bg-rose-50 text-rose-600" : "text-slate-500"}`}>{d.label}</p>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-2 mt-4">
+        <button onClick={() => fetchPoster("preview")} disabled={!!busy} data-testid="poster-preview-btn"
+          className="flex-1 border border-slate-300 text-slate-700 rounded-xl py-2.5 text-sm font-bold inline-flex items-center justify-center gap-2 disabled:opacity-50">
+          {busy === "preview" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />} Preview
+        </button>
+        <button onClick={() => fetchPoster("download")} disabled={!!busy} data-testid="poster-download-btn"
+          className="flex-1 bg-slate-900 text-white rounded-xl py-2.5 text-sm font-bold inline-flex items-center justify-center gap-2 disabled:opacity-50">
+          {busy === "download" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Download HD
         </button>
       </div>
-      <div className="mt-5 flex justify-center bg-slate-50 border border-slate-200 rounded-xl p-4" data-testid="qr-poster-preview">
-        {preview ? (
-          <img src={preview} alt="Booking QR poster preview" className="max-h-96 rounded-lg shadow-md" />
-        ) : error ? (
-          <div className="text-xs text-rose-500 py-8">Couldn&apos;t load the poster preview — tap &quot;Download poster&quot; to retry.</div>
-        ) : (
-          <div className="flex items-center gap-2 text-xs text-slate-400 py-10">
-            <Loader2 className="w-4 h-4 animate-spin" /> Generating your QR poster…
-          </div>
-        )}
-      </div>
+
+      {preview && (
+        <img src={preview.url} alt="Poster preview" data-testid="poster-preview-img"
+          className="mt-4 rounded-xl border border-slate-200 w-full max-w-sm mx-auto block" />
+      )}
     </div>
   );
 }
