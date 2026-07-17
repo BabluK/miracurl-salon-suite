@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
 import { X, Trash2, Loader2, Save } from "lucide-react";
@@ -8,6 +9,10 @@ const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
 export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
   const [editor, setEditor] = useState("");
+  const [staffList, setStaffList] = useState(null);
+  useEffect(() => {
+    api.get("/staff").then(r => setStaffList(r.data.map(s => s.name))).catch(() => setStaffList([]));
+  }, []);
   const [mode, setMode] = useState(MODES.includes(invoice.payment_mode) ? invoice.payment_mode : "cash");
   const fixed = (invoice.membership_discount || 0) + (invoice.coupon_discount || 0) + (invoice.points_used || 0);
   const [discount, setDiscount] = useState(Math.max(0, (invoice.discount || 0) - fixed));
@@ -54,9 +59,18 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
           <>
             <div>
               <label className="text-xs font-semibold text-slate-500">Who is editing this bill? *</label>
-              <input value={editor} onChange={e => setEditor(e.target.value)} maxLength={60} placeholder="Staff / your name"
-                data-testid="edit-invoice-editor-input"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1" />
+              {staffList && staffList.length > 0 ? (
+                <select value={editor} onChange={e => setEditor(e.target.value)} data-testid="edit-invoice-editor-select"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 bg-white">
+                  <option value="">— select who is editing —</option>
+                  <option value="Owner">Owner</option>
+                  {staffList.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              ) : (
+                <input value={editor} onChange={e => setEditor(e.target.value)} maxLength={60} placeholder="Staff / your name"
+                  data-testid="edit-invoice-editor-input"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1" />
+              )}
               <p className="text-[10px] text-slate-400 mt-1">Recorded in the audit trail — the owner can review every edit in Settings.</p>
             </div>
 
