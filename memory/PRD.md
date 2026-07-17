@@ -483,3 +483,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 
 ## 2026-07-17 — Test data cleanup (user approved)
 - Deleted 12 TEST_ hiring_requests + 11 orphan job_applications + 10 TEST_ products from DB. Hire Staff page now shows only the 2 real Hair Stylist requests; verified via screenshot.
+
+## 2026-07-17 — Code review fixes applied
+- FALSE POSITIVES verified & dismissed: "hardcoded secret" social_connect.py:30 (public OAuth scope const, Fernet key from env), "42 undefined vars" (ruff F821 clean), utils.py:8 `is` comparison (none; F632 clean).
+- REAL BUG FOUND & FIXED: hq_documents.py had @router.post("/super-admin/demo-campaign/send") decorating _dedupe_recipients instead of demo_campaign_send (endpoint was broken). Route restored + verified registered.
+- Circular import fixed: _pay_label/_PAY_LABELS moved to utils.py; services/pdf.py & services/billing.py now import from utils (receipt_email→services_catalog→pdf→receipt_email cycle broken).
+- Complexity refactors (behavior-identical): invoice_edits.edit_invoice → _validate_edit + _recompute_totals; offer_flyer create_about_poster → _gen_gallery_insets + _persist_about_poster; _compose_about_poster → _hero_canvas + _draw_hero_text + _draw_about_section; mira_studio → _history_block/_social_image_prompt/_draft_google_offer/_campaign_recipients; mira_builder._run_app → _plan_app + _generate_app_code; hq_documents._send_demo_invite 9 args → _DemoSendCtx dataclass.
+- Verified: ruff F,E9 clean, all modules import, edit-invoice regression curl 200, 499 routes registered.

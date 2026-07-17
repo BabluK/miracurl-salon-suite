@@ -179,6 +179,29 @@ class SocialIn(BaseModel):
     image_style: str = "luxury"
 
 
+def _history_block(ctx: dict) -> str:
+    if not ctx["history"]:
+        return ""
+    lines = [f"- [{(p.get('created_at') or '')[:10]}] ({', '.join(p.get('platforms', []))}) {_post_snippet(p)}"
+             for p in ctx["history"]]
+    return ("\n\nMemory — this salon's most recent posts (do NOT repeat these themes, "
+            "offers or wording; create something clearly fresh and different):\n" + "\n".join(lines))
+
+
+_IMAGE_STYLES = {
+    "luxury": "opulent dark luxury salon, warm golden bokeh, marble & brass",
+    "bright": "bright airy modern salon, soft daylight, pastel tones",
+    "festive": "festive Indian salon scene, marigold & fairy-light glow, celebratory",
+    "bold": "bold vibrant beauty editorial, high-contrast colour pop",
+}
+
+
+def _social_image_prompt(topic: str, style: str) -> str:
+    return (f"Professional social-media promo image for an Indian salon about '{topic}'. "
+            f"{_IMAGE_STYLES.get(style, _IMAGE_STYLES['luxury'])}. Square 1:1, premium beauty-brand aesthetic, "
+            f"cinematic lighting. Absolutely NO text, NO letters, NO logos, NO watermarks, no distorted faces.")
+
+
 @router.post("/mira-studio/social/generate")
 async def social_generate(body: SocialIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     name = t.get("name", "our salon")
@@ -197,31 +220,16 @@ async def social_generate(body: SocialIn, admin=Depends(require_tenant_admin), t
     }
     want = [p for p in body.platforms if p in plat_rules] or ["instagram"]
     ctx = await _social_context(t["id"])
-    history = ""
-    if ctx["history"]:
-        lines = [f"- [{(p.get('created_at') or '')[:10]}] ({', '.join(p.get('platforms', []))}) {_post_snippet(p)}"
-                 for p in ctx["history"]]
-        history = ("\n\nMemory — this salon's most recent posts (do NOT repeat these themes, "
-                   "offers or wording; create something clearly fresh and different):\n" + "\n".join(lines))
     schema = ", ".join(f'"{p}":{{"caption":"...","hashtags":["#..."]}}' for p in want)
     posts = await _ask_json(
         sys, f"Topic: {body.topic}. Create posts for these platforms with their rules:\n"
              + "\n".join(f"- {p}: {plat_rules[p]}" for p in want)
-             + history
+             + _history_block(ctx)
              + f'\nReturn JSON: {{{schema}}}')
     posts = _clean_newlines(posts)
     image_url = ""
     if body.with_image:
-        styles = {
-            "luxury": "opulent dark luxury salon, warm golden bokeh, marble & brass",
-            "bright": "bright airy modern salon, soft daylight, pastel tones",
-            "festive": "festive Indian salon scene, marigold & fairy-light glow, celebratory",
-            "bold": "bold vibrant beauty editorial, high-contrast colour pop",
-        }
-        img_prompt = (f"Professional social-media promo image for an Indian salon about '{body.topic}'. "
-                      f"{styles.get(body.image_style, styles['luxury'])}. Square 1:1, premium beauty-brand aesthetic, "
-                      f"cinematic lighting. Absolutely NO text, NO letters, NO logos, NO watermarks, no distorted faces.")
-        image_url = await _gen_image(img_prompt, t, "social")
+        image_url = await _gen_image(_social_image_prompt(body.topic, body.image_style), t, "social")
     posted_today = {p: v for p, v in ctx["posted_today"].items() if p in want}
     return {"topic": body.topic, "posts": posts, "image_url": image_url,
             "platforms": want, "posted_today": posted_today}
@@ -237,30 +245,37 @@ class GooglePostIn(BaseModel):
     confirm: bool = False
 
 
+async def _draft_google_offer(body: GooglePostIn, t: dict) -> tuple:
+    """Generate (caption, title, image_url) for a Google Business offer post."""
+    name = t.get("name", "our salon")
+    out = _clean_newlines(await _ask_json(
+        f"You are the Google Business posting agent for '{name}', a premium Indian salon in "
+        f"{t.get('location') or 'your city'}. Write a properly formatted Google Business OFFER post.",
+        f"Topic: {body.topic}. Structure the post as: catchy offer headline line, 2-3 short lines of offer "
+        "details (service + discount/price), one validity line (today only unless the topic says otherwise), "
+        "end with 'Book now'. Max 1400 chars, local-SEO keyword rich, no markdown. Return JSON: "
+        '{"offer_title":"<max 55 chars>","caption":"<the full post text with line breaks>"}'))
+    caption = out.get("caption") or ""
+    title = out.get("offer_title") or body.topic[:55]
+    if not caption:
+        raise HTTPException(400, "Couldn't generate the offer — please try again")
+    image_url = None
+    if body.with_image:
+        image_url = await _gen_image(
+            f"Professional Google Business promo image for an Indian salon offer about '{body.topic}'. "
+            "Premium beauty-brand aesthetic, warm cinematic lighting, square 1:1. "
+            "Absolutely NO text, NO letters, NO logos, NO watermarks.", t, "google")
+    return caption, title, image_url
+
+
 @router.post("/mira-studio/google/post")
 async def google_auto_post(body: GooglePostIn, request: Request,
                            admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from routes.social_connect import publish_google_post, _base
-    name = t.get("name", "our salon")
     ctx = await _social_context(t["id"])
     caption, title, image_url = body.caption, body.offer_title, body.image_url
     if not caption:
-        out = _clean_newlines(await _ask_json(
-            f"You are the Google Business posting agent for '{name}', a premium Indian salon in "
-            f"{t.get('location') or 'your city'}. Write a properly formatted Google Business OFFER post.",
-            f"Topic: {body.topic}. Structure the post as: catchy offer headline line, 2-3 short lines of offer "
-            "details (service + discount/price), one validity line (today only unless the topic says otherwise), "
-            "end with 'Book now'. Max 1400 chars, local-SEO keyword rich, no markdown. Return JSON: "
-            '{"offer_title":"<max 55 chars>","caption":"<the full post text with line breaks>"}'))
-        caption = out.get("caption") or ""
-        title = out.get("offer_title") or body.topic[:55]
-        if not caption:
-            raise HTTPException(400, "Couldn't generate the offer — please try again")
-        if body.with_image:
-            image_url = await _gen_image(
-                f"Professional Google Business promo image for an Indian salon offer about '{body.topic}'. "
-                "Premium beauty-brand aesthetic, warm cinematic lighting, square 1:1. "
-                "Absolutely NO text, NO letters, NO logos, NO watermarks.", t, "google")
+        caption, title, image_url = await _draft_google_offer(body, t)
     already = ctx["posted_today"].get("google")
     who = (admin or {}).get("name") or "Salon admin"
     draft = {"caption": caption, "offer_title": title, "image_url": image_url}
@@ -343,13 +358,10 @@ class CampaignSendIn(BaseModel):
     audience: str = "all"  # all | winback
 
 
-@router.post("/mira-studio/email-campaign/send")
-async def campaign_send(body: CampaignSendIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    from email_service import marketing_email_html, _send_email
+async def _campaign_recipients(t: dict, audience: str) -> list:
+    """Audience selection + 7-day cooldown filter, capped at 100."""
     from routes.mira_autopilot import _find_winback_leads  # runtime import: autopilot pulls email_service at module load
-    if not body.subject.strip() or not body.body.strip():
-        raise HTTPException(400, "Subject and body are required")
-    if body.audience == "winback":
+    if audience == "winback":
         recipients = [{"id": lead["id"], "name": lead["name"], "email": lead["email"]}
                       for lead in await _find_winback_leads(t["id"], 45) if lead["email"]]
     else:
@@ -360,7 +372,15 @@ async def campaign_send(body: CampaignSendIn, admin=Depends(require_tenant_admin
     recent = {r["customer_id"] for r in await _raw_db.lead_outreach.find(
         {"tenant_id": t["id"], "channel": "campaign", "created_at": {"$gte": cooldown}},
         {"customer_id": 1}).to_list(5000)}
-    recipients = [r for r in recipients if r["id"] not in recent][:100]
+    return [r for r in recipients if r["id"] not in recent][:100]
+
+
+@router.post("/mira-studio/email-campaign/send")
+async def campaign_send(body: CampaignSendIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from email_service import marketing_email_html, _send_email
+    if not body.subject.strip() or not body.body.strip():
+        raise HTTPException(400, "Subject and body are required")
+    recipients = await _campaign_recipients(t, body.audience)
     if not recipients:
         return {"sent": 0, "skipped": 0, "note": "No eligible recipients (all contacted within 7 days or no emails on file)"}
 

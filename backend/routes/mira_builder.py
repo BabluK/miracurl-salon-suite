@@ -206,41 +206,50 @@ def _app_package_files(name: str, plan: dict, schema: str, backend: str, fronten
     ]
 
 
+async def _plan_app(pid: str, prompt: str) -> tuple:
+    await _set_step(pid, "Planner Agent", "running", "Designing your system architecture")
+    plan = await _ask_json(
+        "You are the Planner Agent of Mira AI Studio, an expert software architect.",
+        f'Client request: "{prompt}". Plan a full-stack business application (FastAPI + React + PostgreSQL + Docker). '
+        'Return JSON: {"name":"<app name>","entities":[{"name":"x","fields":[{"name":"id","type":"uuid"}]}] (3-6 entities),'
+        '"endpoints":["GET /api/x"] (8-14),"admin_pages":["Dashboard","x"],"summary":"<2 lines>"}')
+    name = str(plan.get("name") or "Business App")[:60]
+    await _set_step(pid, "Planner Agent", "done", f"“{name}” — {len(plan.get('entities', []))} entities, {len(plan.get('endpoints', []))} endpoints")
+    return plan, name
+
+
+async def _generate_app_code(pid: str, plan: dict) -> tuple:
+    await _set_step(pid, "Database Agent", "running", "Writing PostgreSQL schema")
+    schema = _strip_code_fence(await _ask(
+        "You are the Database Agent. Output ONLY raw SQL, no markdown.",
+        f"Write a production PostgreSQL schema (CREATE TABLE with PKs, FKs, indexes, sensible types, "
+        f"plus a users table with hashed password + role) for: {plan}"))
+    await _set_step(pid, "Database Agent", "done", f"{schema.count('CREATE TABLE')} tables designed")
+
+    await _set_step(pid, "Backend Agent", "running", "Generating FastAPI backend")
+    backend = _strip_code_fence(await _ask(
+        "You are the Backend Agent. Output ONLY raw Python code, no markdown.",
+        f"Write a single-file FastAPI backend `main.py` for: {plan}\n"
+        "Include: SQLAlchemy models matching the schema, Pydantic schemas, JWT login (python-jose, passlib bcrypt), "
+        "CRUD routers for every entity under /api, CORS, and uvicorn entrypoint. Keep it complete and runnable.",
+        model="gpt-4o"))
+    await _set_step(pid, "Backend Agent", "done", f"{len(backend.splitlines())} lines of API code")
+
+    await _set_step(pid, "Frontend Agent", "running", "Generating React admin panel")
+    frontend = _strip_code_fence(await _ask(
+        "You are the Frontend Agent. Output ONLY raw JSX code, no markdown.",
+        f"Write a single-file React admin `App.jsx` (Tailwind classes, axios, react-router) for: {plan}\n"
+        "Include: login page storing the JWT, sidebar with the admin pages, a data-table page per entity with "
+        "create/edit/delete modals hitting the /api CRUD routes. Complete and readable.",
+        model="gpt-4o"))
+    await _set_step(pid, "Frontend Agent", "done", "Admin panel with login ready")
+    return schema, backend, frontend
+
+
 async def _run_app(pid: str, prompt: str):
     try:
-        await _set_step(pid, "Planner Agent", "running", "Designing your system architecture")
-        plan = await _ask_json(
-            "You are the Planner Agent of Mira AI Studio, an expert software architect.",
-            f'Client request: "{prompt}". Plan a full-stack business application (FastAPI + React + PostgreSQL + Docker). '
-            'Return JSON: {"name":"<app name>","entities":[{"name":"x","fields":[{"name":"id","type":"uuid"}]}] (3-6 entities),'
-            '"endpoints":["GET /api/x"] (8-14),"admin_pages":["Dashboard","x"],"summary":"<2 lines>"}')
-        name = str(plan.get("name") or "Business App")[:60]
-        await _set_step(pid, "Planner Agent", "done", f"“{name}” — {len(plan.get('entities', []))} entities, {len(plan.get('endpoints', []))} endpoints")
-
-        await _set_step(pid, "Database Agent", "running", "Writing PostgreSQL schema")
-        schema = _strip_code_fence(await _ask(
-            "You are the Database Agent. Output ONLY raw SQL, no markdown.",
-            f"Write a production PostgreSQL schema (CREATE TABLE with PKs, FKs, indexes, sensible types, "
-            f"plus a users table with hashed password + role) for: {plan}"))
-        await _set_step(pid, "Database Agent", "done", f"{schema.count('CREATE TABLE')} tables designed")
-
-        await _set_step(pid, "Backend Agent", "running", "Generating FastAPI backend")
-        backend = _strip_code_fence(await _ask(
-            "You are the Backend Agent. Output ONLY raw Python code, no markdown.",
-            f"Write a single-file FastAPI backend `main.py` for: {plan}\n"
-            "Include: SQLAlchemy models matching the schema, Pydantic schemas, JWT login (python-jose, passlib bcrypt), "
-            "CRUD routers for every entity under /api, CORS, and uvicorn entrypoint. Keep it complete and runnable.",
-            model="gpt-4o"))
-        await _set_step(pid, "Backend Agent", "done", f"{len(backend.splitlines())} lines of API code")
-
-        await _set_step(pid, "Frontend Agent", "running", "Generating React admin panel")
-        frontend = _strip_code_fence(await _ask(
-            "You are the Frontend Agent. Output ONLY raw JSX code, no markdown.",
-            f"Write a single-file React admin `App.jsx` (Tailwind classes, axios, react-router) for: {plan}\n"
-            "Include: login page storing the JWT, sidebar with the admin pages, a data-table page per entity with "
-            "create/edit/delete modals hitting the /api CRUD routes. Complete and readable.",
-            model="gpt-4o"))
-        await _set_step(pid, "Frontend Agent", "done", "Admin panel with login ready")
+        plan, name = await _plan_app(pid, prompt)
+        schema, backend, frontend = await _generate_app_code(pid, plan)
 
         await _set_step(pid, "Testing Agent", "running", "Reviewing generated code")
         if len(backend) < 800 or len(frontend) < 800 or "CREATE TABLE" not in schema:

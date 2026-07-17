@@ -4,7 +4,7 @@ callable so it stays decoupled from server-side SSRF-safe image fetching."""
 import io
 from datetime import datetime, timezone, timedelta
 
-from receipt_email import _pay_label
+from utils import _pay_label
 
 
 def _render_invoice_pdf(inv: dict, tenant: dict) -> bytes:

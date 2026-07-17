@@ -346,22 +346,8 @@ class AboutPosterIn(BaseModel):
     offer_line: str = "Book now and get 20% OFF any service!"
 
 
-@router.post("/offers/about-poster")
-async def create_about_poster(body: AboutPosterIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """A4 shop-front poster: hero model + salon logo + About Us + 3 circular photo insets + contact bar."""
-    if body.template not in TEMPLATES:
-        raise HTTPException(400, "Unknown template")
-    from routes.mira_common import _key
-    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-    tpl = TEMPLATES[body.template]
-    gen = OpenAIImageGeneration(api_key=_key())
-
-    hero_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
-                   "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
-    imgs = await asyncio.wait_for(gen.generate_images(prompt=hero_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
-    if not imgs:
-        raise HTTPException(502, "Image generation failed — try again")
-
+async def _gen_gallery_insets(gen, t: dict) -> list[bytes]:
+    """Up to 3 circular inset photos — salon gallery first, AI triptych as filler."""
     insets = []
     for g in (t.get("gallery") or [])[:3]:
         data = await _load_upload(g.get("url", ""))
@@ -383,9 +369,10 @@ async def create_about_poster(body: AboutPosterIn, user=Depends(require_tenant_a
                     insets.append(b.getvalue())
         except Exception as e:  # noqa: BLE001 — poster still renders without insets
             log.warning(f"triptych generation failed: {e}")
+    return insets
 
-    logo_bytes = await _load_logo(t)
-    final = await asyncio.to_thread(_compose_about_poster, imgs[0], insets, body, tpl, t, logo_bytes)
+
+async def _persist_about_poster(final: bytes, body: AboutPosterIn, t: dict, user: dict) -> dict:
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/tenants/{t['id']}/flyers/{fid}.jpg"
     result = _put_object(path, final, "image/jpeg")
@@ -400,6 +387,28 @@ async def create_about_poster(body: AboutPosterIn, user=Depends(require_tenant_a
     await _raw_db.offer_flyers.insert_one({**doc})
     doc.pop("_id", None)
     return doc
+
+
+@router.post("/offers/about-poster")
+async def create_about_poster(body: AboutPosterIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """A4 shop-front poster: hero model + salon logo + About Us + 3 circular photo insets + contact bar."""
+    if body.template not in TEMPLATES:
+        raise HTTPException(400, "Unknown template")
+    from routes.mira_common import _key
+    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    tpl = TEMPLATES[body.template]
+    gen = OpenAIImageGeneration(api_key=_key())
+
+    hero_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
+                   "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
+    imgs = await asyncio.wait_for(gen.generate_images(prompt=hero_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+    if not imgs:
+        raise HTTPException(502, "Image generation failed — try again")
+
+    insets = await _gen_gallery_insets(gen, t)
+    logo_bytes = await _load_logo(t)
+    final = await asyncio.to_thread(_compose_about_poster, imgs[0], insets, body, tpl, t, logo_bytes)
+    return await _persist_about_poster(final, body, t, user)
 
 
 def _wrap_lines(d: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, maxw: int) -> list[str]:
@@ -431,14 +440,8 @@ def _circle_inset(img: Image.Image, data: bytes, cx: int, cy: int, r: int, accen
     img.paste(photo, (cx - r, cy - r), mask)
 
 
-def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPosterIn,
-                          tpl: dict, t: dict, logo_bytes: bytes | None) -> bytes:
-    W, H, hero_h, bar_h, m = 1240, 1754, 820, 130, 72
-    dark_theme = tpl["text"] == (255, 255, 255)
-    panel = (22, 18, 26) if dark_theme else (252, 244, 242)
-    panel_txt = (245, 242, 238) if dark_theme else (55, 40, 45)
-    accent = tpl["accent"]
-
+def _hero_canvas(hero_bytes: bytes, panel: tuple, W: int, H: int, hero_h: int) -> Image.Image:
+    """Panel-coloured canvas with the hero image pasted, left scrim + bottom fade."""
     img = Image.new("RGBA", (W, H), (*panel, 255))
     hero = Image.open(io.BytesIO(hero_bytes)).convert("RGB")
     scale = max(W / hero.width, hero_h / hero.height)
@@ -446,7 +449,6 @@ def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPos
     hero = hero.crop(((hero.width - W) // 2, (hero.height - hero_h) // 2,
                       (hero.width + W) // 2, (hero.height + hero_h) // 2)).convert("RGBA")
     img.paste(hero, (0, 0))
-
     d = ImageDraw.Draw(img)
     for x in range(int(W * 0.58)):  # left scrim on hero for text
         alpha = int(200 * (1 - x / (W * 0.58)))
@@ -454,7 +456,11 @@ def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPos
     for i in range(140):  # fade hero into panel
         a = int(255 * i / 140)
         d.line([(0, hero_h - 140 + i), (W, hero_h - 140 + i)], fill=(*panel, a))
+    return img
 
+
+def _draw_hero_text(d: ImageDraw.ImageDraw, body: AboutPosterIn, t: dict, accent: tuple,
+                    W: int, hero_h: int, m: int) -> None:
     _fit = _make_fitter(d)
     salon = t.get("name") or "Your Salon"
     d.text((m, 96), salon, font=_fit(salon, 76, int(W * 0.47), SCRIPT), fill=(*accent, 255))
@@ -468,10 +474,15 @@ def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPos
         for ln in _wrap_lines(d, offer, f_off, int(W * 0.5))[:3]:
             d.text((m, y), ln, font=f_off, fill=(255, 255, 255, 245))
             y += 56
-
     d.arc([-400, hero_h - 190, W + 400, hero_h + 60], start=193, end=347, fill=(*accent, 240), width=14)
     d.arc([-400, hero_h - 158, W + 400, hero_h + 92], start=193, end=347, fill=(255, 255, 255, 110), width=6)
 
+
+def _draw_about_section(img: Image.Image, d: ImageDraw.ImageDraw, body: AboutPosterIn, t: dict,
+                        insets: list, accent: tuple, panel_txt: tuple,
+                        W: int, hero_h: int, m: int) -> int:
+    """About Us heading, wrapped copy and circular photo insets. Returns final y."""
+    salon = t.get("name") or "Your Salon"
     y = hero_h + 10
     d.text((m, y), "About Us!", font=_font(SCRIPT, 84), fill=(*accent, 255))
     y += 122
@@ -482,7 +493,6 @@ def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPos
     for ln in _wrap_lines(d, about, f_about, W - 2 * m)[:5]:
         d.text((m, y), ln, font=f_about, fill=(*panel_txt, 245))
         y += 46
-
     if insets:
         r = 150
         y_c = y + r + 46
@@ -492,6 +502,21 @@ def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPos
             cx = m + gap * (i + 1) + r * (2 * i + 1)
             _circle_inset(img, insets[i], cx, y_c, r, accent)
         y = y_c + r + 40
+    return y
+
+
+def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPosterIn,
+                          tpl: dict, t: dict, logo_bytes: bytes | None) -> bytes:
+    W, H, hero_h, bar_h, m = 1240, 1754, 820, 130, 72
+    dark_theme = tpl["text"] == (255, 255, 255)
+    panel = (22, 18, 26) if dark_theme else (252, 244, 242)
+    panel_txt = (245, 242, 238) if dark_theme else (55, 40, 45)
+    accent = tpl["accent"]
+
+    img = _hero_canvas(hero_bytes, panel, W, H, hero_h)
+    d = ImageDraw.Draw(img)
+    _draw_hero_text(d, body, t, accent, W, hero_h, m)
+    y = _draw_about_section(img, d, body, t, insets, accent, panel_txt, W, hero_h, m)
 
     mm = re.search(r"(\d{1,2})\s*%", body.offer_line or "")
     if mm and y < H - bar_h - 130:

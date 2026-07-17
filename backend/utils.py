@@ -13,6 +13,13 @@ def _csv_cell(v):
 def _csv_row(w, values):
     w.writerow([_csv_cell(v) for v in values])
 
+
+_PAY_LABELS = {"cash": "Cash", "card": "Card", "upi": "GPay", "wallet": "Phone Pay"}
+
+
+def _pay_label(mode) -> str:
+    return _PAY_LABELS.get(str(mode or "").lower(), str(mode or "").upper())
+
 async def _read_csv_upload(file: UploadFile) -> str:
     if not (file.filename or "").lower().endswith(".csv"):
         raise HTTPException(400, "Only CSV files are supported. Export first to get the exact template.")

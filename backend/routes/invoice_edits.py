@@ -40,12 +40,7 @@ def _derived_tax_pct(inv: dict, tenant_doc: dict) -> float:
     return 0.0
 
 
-@router.put("/invoices/{inv_id}")
-async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_admin),
-                       t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
-    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
-    if not inv:
-        raise HTTPException(404, "Invoice not found")
+def _validate_edit(inv: dict, body: InvoiceEditIn) -> None:
     if inv.get("payment_mode") == "salon_wallet" or float(inv.get("points_used") or 0) > 0:
         raise HTTPException(400, "This bill used wallet/loyalty balance and is locked — void it and re-bill instead.")
     if body.payment_mode and body.payment_mode not in ALLOWED_MODES:
@@ -53,30 +48,39 @@ async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_ad
     if body.items is not None and not body.items:
         raise HTTPException(400, "A bill needs at least one item")
 
-    before = {"payment_mode": inv["payment_mode"], "items": inv["items"],
-              "subtotal": inv["subtotal"], "discount": inv["discount"],
-              "tax": inv["tax"], "total": inv["total"]}
 
+def _recompute_totals(inv: dict, body: InvoiceEditIn, tenant_doc: dict) -> dict:
     items = [i.model_dump() for i in body.items] if body.items is not None else inv["items"]
     fixed = _fixed_credits(inv)
     old_manual = max(0.0, float(inv.get("discount") or 0) - fixed)
     manual = body.manual_discount if body.manual_discount is not None else old_manual
     subtotal = round(sum(i["qty"] * i["price"] for i in items), 2)
     discount = round(min(manual + fixed, subtotal), 2)
-    tax_pct = _derived_tax_pct(inv, t)
+    tax_pct = _derived_tax_pct(inv, tenant_doc)
     taxable = max(0.0, subtotal - discount)
     tax = round(taxable * tax_pct / 100, 2)
-    total = round(taxable + tax, 2)
-    payment_mode = body.payment_mode or inv["payment_mode"]
+    return {"payment_mode": body.payment_mode or inv["payment_mode"], "items": items,
+            "subtotal": subtotal, "discount": discount, "tax": tax,
+            "total": round(taxable + tax, 2)}
 
-    updates = {"payment_mode": payment_mode, "items": items, "subtotal": subtotal,
-               "discount": discount, "tax": tax, "total": total,
+
+@router.put("/invoices/{inv_id}")
+async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_admin),
+                       t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    _validate_edit(inv, body)
+
+    before = {"payment_mode": inv["payment_mode"], "items": inv["items"],
+              "subtotal": inv["subtotal"], "discount": inv["discount"],
+              "tax": inv["tax"], "total": inv["total"]}
+    after = _recompute_totals(inv, body, t)
+    updates = {**after,
                "last_edited_by": body.editor_name.strip(),
                "last_edited_at": datetime.now(timezone.utc).isoformat()}
     await db.invoices.update_one({"id": inv_id}, {"$set": updates, "$inc": {"edit_count": 1}})
     updates["edit_count"] = int(inv.get("edit_count") or 0) + 1
-    after = {"payment_mode": payment_mode, "items": items, "subtotal": subtotal,
-             "discount": discount, "tax": tax, "total": total}
     await db.invoice_edits.insert_one({
         "id": str(uuid.uuid4()), "invoice_id": inv_id, "invoice_no": inv["invoice_no"],
         "customer_name": inv.get("customer_name", ""),

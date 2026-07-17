@@ -7,15 +7,10 @@ import logging
 import os
 
 from email_service import _send_email
+from utils import _pay_label
 
 GOLD = "#c9a35c"
 INK = "#191921"
-
-_PAY_LABELS = {"cash": "Cash", "card": "Card", "upi": "GPay", "wallet": "Phone Pay"}
-
-
-def _pay_label(mode) -> str:
-    return _PAY_LABELS.get(str(mode or "").lower(), str(mode or "").upper())
 
 
 def _money_row(label: str, amount: float, sign: str = "", color: str = "#55555f", bold: bool = False) -> str:

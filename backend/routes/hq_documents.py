@@ -6,6 +6,7 @@ import html as html_lib
 import os
 import re
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -507,7 +508,6 @@ async def demo_campaign_recipients(user=Depends(require_super_admin)):
     }
 
 
-@router.post("/super-admin/demo-campaign/send")
 def _dedupe_recipients(recipients: list) -> list:
     seen, targets = set(), []
     for r in recipients:
@@ -520,25 +520,35 @@ def _dedupe_recipients(recipients: list) -> list:
     return targets
 
 
-async def _send_demo_invite(em: str, name: str, salon: str, *, body, hq_email, subject,
-                            attachments, plans, track_base) -> dict:
+@dataclass
+class _DemoSendCtx:
+    body: object
+    hq_email: str
+    subject: str
+    attachments: list
+    plans: dict
+    track_base: str
+
+
+async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -> dict:
     existing = await _raw_db.demo_invites.find_one({"email": em}, {"_id": 0, "id": 1})
     iid = existing["id"] if existing else str(uuid.uuid4())
-    html = _demo_email_html(name, salon, body.note, hq_email, plans=plans,
-                            track_base=track_base, invite_id=iid)
-    status = await _send_email([em], subject, html, attachments=attachments, reply_to=hq_email)
+    html = _demo_email_html(name, salon, ctx.body.note, ctx.hq_email, plans=ctx.plans,
+                            track_base=ctx.track_base, invite_id=iid)
+    status = await _send_email([em], ctx.subject, html, attachments=ctx.attachments, reply_to=ctx.hq_email)
     if status.get("sent"):
         now_iso = datetime.now(timezone.utc).isoformat()
         await _raw_db.demo_invites.update_one(
             {"email": em},
             {"$set": {"id": iid, "name": name, "salon_name": salon, "first_sent_at": now_iso,
-                      "reminder_sent_at": None, "responded": False, "track_base": track_base,
+                      "reminder_sent_at": None, "responded": False, "track_base": ctx.track_base,
                       "opened_at": None, "demo_requested_at": None,
                       "seen_by_hq_open": True, "seen_by_hq_req": True}},
             upsert=True)
     return {"email": em, "sent": status.get("sent", False), "error": status.get("error")}
 
 
+@router.post("/super-admin/demo-campaign/send")
 async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depends(require_super_admin)):
     targets = _dedupe_recipients(body.recipients)
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
@@ -548,15 +558,15 @@ async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depend
     plans = await _live_plans()
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     track_base = f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    ctx = _DemoSendCtx(body=body, hq_email=hq_email, subject=subject,
+                       attachments=attachments, plans=plans, track_base=track_base)
 
     results = []
     for em, name, salon in targets:
         if em in tenant_emails:
             results.append({"email": em, "sent": False, "error": "Already a Miracurl partner — skipped"})
             continue
-        results.append(await _send_demo_invite(
-            em, name, salon, body=body, hq_email=hq_email, subject=subject,
-            attachments=attachments, plans=plans, track_base=track_base))
+        results.append(await _send_demo_invite(em, name, salon, ctx))
 
     sent_count = sum(1 for r in results if r["sent"])
     await _raw_db.demo_campaigns.insert_one({

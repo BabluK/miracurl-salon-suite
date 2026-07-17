@@ -6,7 +6,8 @@ from typing import Optional
 from fastapi import HTTPException
 
 from database import db
-from receipt_email import send_invoice_receipt_email, _pay_label
+from receipt_email import send_invoice_receipt_email
+from utils import _pay_label
 from sms_service import send_sms
 
 
