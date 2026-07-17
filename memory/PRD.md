@@ -439,3 +439,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - GET /settings/qr-poster?origin=&design= (validated, PIL via asyncio.to_thread). Multi-tenant automatic (tenant doc: name/location/hours/phone/slug).
 - QrPosterCard.jsx rewritten: 4 design thumbnails, Preview (blob img) + Download HD buttons.
 - Verified: all 4 designs rendered + shown to user (emerald rejected → rosegold approved), API 200 (3.3MB PNG, 1.7s), 400 on bad design, Settings UI preview screenshot OK with real tenant data.
+
+## 2026-07-17 — Review QR posters + A5 desk tent cards (user request)
+- reviews.py: GET /api/public/review-go/{slug} → 302 to tenant.google_review_url (fallback /salon/{slug}).
+- services_catalog.py: _build_qr_poster now kind-aware (booking|review — tagline SCAN·RATE·SHINE, "Loved it? Scan!", bottom band "LOVED YOUR VISIT? TELL THE WORLD", review URL hidden on poster). NEW _build_tent_card: 2000×1400 landscape desk card (QR+mascot left, name/timings/Mira right). Endpoint params: design, kind, fmt(poster|tent).
+- QrPosterCard.jsx: type toggle (Booking/Review QR) + format toggle (Wall Poster/Desk Tent Card) + review hint banner.
+- Verified: review-go 302, all kind/fmt combos 200, tent + review poster renders reviewed visually (fixed: raw redirect URL hidden on review posters).

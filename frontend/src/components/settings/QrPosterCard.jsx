@@ -12,6 +12,8 @@ const DESIGNS = [
 
 export function QrPosterCard() {
   const [design, setDesign] = useState("blush");
+  const [kind, setKind] = useState("booking");
+  const [fmt, setFmt] = useState("poster");
   const [busy, setBusy] = useState("");
   const [preview, setPreview] = useState(null);
 
@@ -19,7 +21,7 @@ export function QrPosterCard() {
     setBusy(mode);
     try {
       const { data } = await api.get("/settings/qr-poster", {
-        params: { origin: window.location.origin, design },
+        params: { origin: window.location.origin, design, kind, fmt },
         responseType: "blob",
       });
       const url = URL.createObjectURL(data);
@@ -28,9 +30,9 @@ export function QrPosterCard() {
       } else {
         const a = document.createElement("a");
         a.href = url;
-        a.download = `booking-poster-${design}.png`;
+        a.download = `${kind}-${fmt}-${design}.png`;
         a.click();
-        toast.success("HD poster downloaded — ready to print 🖨️");
+        toast.success("HD file downloaded — ready to print 🖨️");
       }
     } catch {
       toast.error("Couldn't generate the poster — try again");
@@ -52,7 +54,22 @@ export function QrPosterCard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mt-5">
+      <div className="flex flex-wrap gap-2 mt-5">
+        {[["booking", "📅 Booking QR"], ["review", "⭐ Review QR"]].map(([k, label]) => (
+          <button key={k} onClick={() => { setKind(k); setPreview(null); }} data-testid={`poster-kind-${k}`}
+            className={`text-xs font-bold px-4 py-2 rounded-xl border ${kind === k ? "border-rose-400 bg-rose-50 text-rose-600" : "border-slate-200 text-slate-500"}`}>{label}</button>
+        ))}
+        <span className="w-px bg-slate-200 mx-1" />
+        {[["poster", "🖼️ Wall Poster"], ["tent", "🪧 Desk Tent Card"]].map(([k, label]) => (
+          <button key={k} onClick={() => { setFmt(k); setPreview(null); }} data-testid={`poster-fmt-${k}`}
+            className={`text-xs font-bold px-4 py-2 rounded-xl border ${fmt === k ? "border-rose-400 bg-rose-50 text-rose-600" : "border-slate-200 text-slate-500"}`}>{label}</button>
+        ))}
+      </div>
+      {kind === "review" && (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2">⭐ Review QR redirects scanners to your Google review link (set it in salon profile). If not set, it opens your public salon page.</p>
+      )}
+
+      <div className="grid grid-cols-4 gap-3 mt-3">
         {DESIGNS.map(d => (
           <button key={d.key} onClick={() => { setDesign(d.key); setPreview(null); }}
             data-testid={`poster-design-${d.key}`}

@@ -264,3 +264,12 @@ async def public_featured_reviews(slug: str, limit: int = 6):
 async def public_featured_reviews_default(limit: int = 6):
     return await public_featured_reviews(DEFAULT_TENANT_SLUG, limit)
 
+
+@router.get("/public/review-go/{slug}")
+async def public_review_redirect(slug: str):
+    from fastapi.responses import RedirectResponse
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "google_review_url": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    target = (t.get("google_review_url") or "").strip() or f"/salon/{slug}"
+    return RedirectResponse(target, status_code=302)

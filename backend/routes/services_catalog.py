@@ -188,7 +188,7 @@ def _circle_avatar(size: int):
     return out
 
 
-def _build_qr_poster(tenant: dict, url: str, design: str = "blush") -> bytes:
+def _build_qr_poster(tenant: dict, url: str, design: str = "blush", kind: str = "booking") -> bytes:
     import qrcode
     from PIL import Image as PILImage, ImageDraw, ImageFont
 
@@ -236,7 +236,8 @@ def _build_qr_poster(tenant: dict, url: str, design: str = "blush") -> bytes:
     loc = (tenant.get("location") or "").strip()
     if loc:
         center(loc[:60], 620, _load_font("FreeSansBold.ttf", 42), cfg["sub"])
-    center("S C A N  ·  B O O K  ·  G L O W", 705, _load_font("FreeSansBold.ttf", 40), cfg["accent"])
+    center("S C A N  ·  R A T E  ·  S H I N E" if kind == "review" else "S C A N  ·  B O O K  ·  G L O W",
+           705, _load_font("FreeSansBold.ttf", 40), cfg["accent"])
 
     # ---- QR panel with white rounded card
     qr = qrcode.QRCode(box_size=14, border=2, error_correction=qrcode.constants.ERROR_CORRECT_H)
@@ -254,7 +255,8 @@ def _build_qr_poster(tenant: dict, url: str, design: str = "blush") -> bytes:
     try:
         mascot = _mascot_rgba().resize((330, 330))
         img.paste(mascot, (px0 + 660 - 190, py0 - 250), mascot)
-        d.text((px0 + 90, py0 - 150), "Scan me!", font=_load_font("FreeSerifBoldItalic.ttf", 76), fill=cfg["accent"])
+        scan_label = "Loved it? Scan!" if kind == "review" else "Scan me!"
+        d.text((px0 + 40, py0 - 150), scan_label, font=_load_font("FreeSerifBoldItalic.ttf", 70), fill=cfg["accent"])
     except Exception:
         pass
 
@@ -269,10 +271,18 @@ def _build_qr_poster(tenant: dict, url: str, design: str = "blush") -> bytes:
     # ---- timings band (from Settings)
     img = band(1830, 2130)
     d = ImageDraw.Draw(img)
-    center("—  OPEN MONDAY – SUNDAY  —", 1870, _load_font("FreeSansBold.ttf", 44), cfg["accent"])
-    hours = (tenant.get("hours") or "").strip() or "10:00 AM – 9:00 PM"
-    center(hours[:60], 1935, fit_font(hours[:60], "FreeSerifBold.ttf", 66, W - 360), cfg["name"])
-    contact = " · ".join(x for x in [(tenant.get("phone") or "").strip(), url.replace("https://", "")] if x)
+    head = "—  LOVED YOUR VISIT? TELL THE WORLD  —" if kind == "review" else "—  OPEN MONDAY – SUNDAY  —"
+    center(head, 1870, _load_font("FreeSansBold.ttf", 42), cfg["accent"])
+    if kind == "review":
+        center("Your review takes 30 seconds and means the world to us", 1940,
+               _load_font("FreeSerifBold.ttf", 46), cfg["name"])
+    else:
+        hours = (tenant.get("hours") or "").strip() or "10:00 AM – 9:00 PM"
+        center(hours[:60], 1935, fit_font(hours[:60], "FreeSerifBold.ttf", 66, W - 360), cfg["name"])
+    parts = [(tenant.get("phone") or "").strip()]
+    if kind == "booking":
+        parts.append(url.replace("https://", ""))
+    contact = " · ".join(x for x in parts if x)
     center(contact[:80], 2035, _load_font("FreeSansBold.ttf", 36), cfg["sub"])
 
     center("Powered by Miracurl", 2290, _load_font("FreeSansBold.ttf", 32), cfg["sub"])
@@ -280,19 +290,114 @@ def _build_qr_poster(tenant: dict, url: str, design: str = "blush") -> bytes:
     img.convert("RGB").save(buf, format="PNG")
     return buf.getvalue()
 
+def _build_tent_card(tenant: dict, url: str, design: str = "blush", kind: str = "booking") -> bytes:
+    """A5 landscape table tent card — QR left, salon details right."""
+    import qrcode
+    from PIL import Image as PILImage, ImageDraw, ImageFont
+
+    cfg = POSTER_DESIGNS.get(design) or POSTER_DESIGNS["blush"]
+
+    def _load_font(fname, size):
+        for p in (ROOT_DIR / "fonts" / fname, Path("/usr/share/fonts/truetype/freefont") / fname):
+            try:
+                return ImageFont.truetype(str(p), size)
+            except Exception:
+                continue
+        return ImageFont.load_default()
+
+    W, H = 2000, 1400
+    bg = PILImage.open(POSTER_DIR / cfg["bg"]).convert("RGB")
+    scale = max(W / bg.width, H / bg.height)
+    bg = bg.resize((int(bg.width * scale) + 1, int(bg.height * scale) + 1))
+    img = bg.crop(((bg.width - W) // 2, (bg.height - H) // 2, (bg.width - W) // 2 + W, (bg.height - H) // 2 + H)).convert("RGBA")
+    d = ImageDraw.Draw(img)
+
+    def fit_font(text, fname, start, max_w):
+        size = start
+        while size > 28:
+            f = _load_font(fname, size)
+            bbox = d.textbbox((0, 0), text, font=f)
+            if bbox[2] - bbox[0] <= max_w:
+                return f
+            size -= 5
+        return _load_font(fname, 28)
+
+    # right info band
+    overlay = PILImage.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(overlay).rounded_rectangle([880, 170, W - 90, H - 170], radius=40, fill=cfg["band"])
+    img = PILImage.alpha_composite(img, overlay)
+    d = ImageDraw.Draw(img)
+
+    # left QR panel + mascot
+    panel = PILImage.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(panel).rounded_rectangle([150, 400, 150 + 620, 400 + 620], radius=40, fill=(255, 255, 255, 255))
+    img = PILImage.alpha_composite(img, panel)
+    qr = qrcode.QRCode(box_size=13, border=2, error_correction=qrcode.constants.ERROR_CORRECT_H)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img.paste(qr.make_image(fill_color="black", back_color="white").convert("RGB").resize((530, 530)), (195, 445))
+    d = ImageDraw.Draw(img)
+    try:
+        mascot = _mascot_rgba().resize((280, 280))
+        img.paste(mascot, (150 + 620 - 170, 400 - 220), mascot)
+        d.text((175, 400 - 130), "Loved it? Scan!" if kind == "review" else "Scan me!",
+               font=_load_font("FreeSerifBoldItalic.ttf", 62), fill=cfg["accent"])
+    except Exception:
+        pass
+    d.text((225, 400 + 620 + 30), "Point your camera at the code",
+           font=_load_font("FreeSansBold.ttf", 32), fill=cfg["sub"])
+
+    # right column text
+    rx, rw = 940, W - 90 - 940 - 40
+    def rtext(text, y, font, fill):
+        bbox = d.textbbox((0, 0), text, font=font)
+        d.text((rx + (rw - (bbox[2] - bbox[0])) / 2, y), text, font=font, fill=fill)
+    name = tenant.get("name") or "Your Salon"
+    rtext(name, 240, fit_font(name, "FreeSerifBold.ttf", 82, rw), cfg["name"])
+    loc = (tenant.get("location") or "").strip()
+    if loc:
+        rtext(loc[:50], 360, _load_font("FreeSansBold.ttf", 34), cfg["sub"])
+    rtext("S C A N · R A T E · S H I N E" if kind == "review" else "S C A N · B O O K · G L O W",
+          445, _load_font("FreeSansBold.ttf", 34), cfg["accent"])
+    if kind == "review":
+        rtext("Loved your visit?", 590, _load_font("FreeSerifBold.ttf", 66), cfg["name"])
+        rtext("Tell the world — it takes 30 seconds", 700, _load_font("FreeSansBold.ttf", 36), cfg["sub"])
+    else:
+        rtext("—  OPEN MONDAY – SUNDAY  —", 590, _load_font("FreeSansBold.ttf", 36), cfg["accent"])
+        hours = (tenant.get("hours") or "").strip() or "10:00 AM – 9:00 PM"
+        rtext(hours[:50], 660, fit_font(hours[:50], "FreeSerifBold.ttf", 58, rw), cfg["name"])
+    contact = " · ".join(x for x in [(tenant.get("phone") or "").strip()] if x)
+    if contact:
+        rtext(contact[:50], 820, _load_font("FreeSansBold.ttf", 36), cfg["sub"])
+    try:
+        av = _circle_avatar(190)
+        img.paste(av, (rx + rw // 2 - 95, 900), av)
+        d = ImageDraw.Draw(img)
+        rtext("Mira AI  ·  Powered by Miracurl", 1110, _load_font("FreeSansBold.ttf", 30), cfg["accent"])
+    except Exception:
+        pass
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="PNG")
+    return buf.getvalue()
+
 @router.get("/settings/qr-poster")
-async def download_qr_poster(origin: str = "", design: str = "blush", user=Depends(get_current_user)):
+async def download_qr_poster(origin: str = "", design: str = "blush", kind: str = "booking",
+                             fmt: str = "poster", user=Depends(get_current_user)):
     if not origin.startswith("http"):
         raise HTTPException(400, "origin query param required")
     if design not in POSTER_DESIGNS:
         raise HTTPException(400, f"design must be one of {sorted(POSTER_DESIGNS)}")
+    if kind not in ("booking", "review") or fmt not in ("poster", "tent"):
+        raise HTTPException(400, "kind must be booking|review, fmt must be poster|tent")
     tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
     if not tenant:
         raise HTTPException(404, "Tenant not found")
-    url = f"{origin.rstrip('/')}/book/{tenant['slug']}"
-    png = await asyncio.to_thread(_build_qr_poster, tenant, url, design)
+    base = origin.rstrip("/")
+    url = f"{base}/book/{tenant['slug']}" if kind == "booking" else f"{base}/api/public/review-go/{tenant['slug']}"
+    builder = _build_tent_card if fmt == "tent" else _build_qr_poster
+    png = await asyncio.to_thread(builder, tenant, url, design, kind)
     return Response(content=png, media_type="image/png",
-                    headers={"Content-Disposition": f"attachment; filename=booking-poster-{design}.png"})
+                    headers={"Content-Disposition": f"attachment; filename={kind}-{fmt}-{design}.png"})
 
 @router.get("/services/export")
 async def export_services_csv(user=Depends(require_admin)):
