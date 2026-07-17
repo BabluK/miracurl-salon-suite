@@ -134,6 +134,7 @@ async def public_salon(slug: str):
         "whatsapp_number": t.get("whatsapp_number") or "",
         "logo_url": t.get("logo_url") or "",
         "maps_url": t.get("maps_url") or "",
+        "gallery": [g.get("url", "") for g in (t.get("gallery") or []) if g.get("url")],
         "branches": t.get("branches", []),
     }
 

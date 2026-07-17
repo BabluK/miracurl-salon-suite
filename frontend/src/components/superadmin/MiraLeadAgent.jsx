@@ -143,6 +143,7 @@ export function MiraLeadAgent() {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [filter, setFilter] = useState("all");
   const pollRef = useRef(null);
 
   const refresh = useCallback(async () => {
@@ -177,6 +178,18 @@ export function MiraLeadAgent() {
   };
 
   const activeRun = runs.find(r => r.status === "running");
+
+  const isHot = l => (l.reviews || 0) >= 500 && !l.website;
+  const FILTERS = [
+    { key: "all", label: "All", test: () => true },
+    { key: "recent", label: "🕐 Recent search", test: l => runs[0] && l.run_id === runs[0].id },
+    { key: "hot", label: "🔥 Hot leads", test: l => isHot(l) },
+    { key: "ready", label: "✉️ Ready to send", test: l => ["drafted", "researched"].includes(l.status) && !!l.email },
+    { key: "no_email", label: "🚫 No email", test: l => l.status === "no_email" || !l.email },
+    { key: "sent", label: "✅ Already sent", test: l => ["sent", "demo", "customer"].includes(l.status) },
+  ];
+  const counts = Object.fromEntries(FILTERS.map(f => [f.key, leads.filter(f.test).length]));
+  const shownLeads = leads.filter(FILTERS.find(f => f.key === filter)?.test || (() => true));
 
   return (
     <div className="space-y-6" data-testid="mira-lead-agent-panel">
@@ -222,8 +235,19 @@ export function MiraLeadAgent() {
       )}
 
       <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2" data-testid="lead-filter-tabs">
+          {FILTERS.map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key)} data-testid={`lead-filter-${f.key}`}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${filter === f.key
+                ? "bg-fuchsia-600 text-white border-fuchsia-600"
+                : "bg-white text-slate-500 border-slate-200 hover:border-fuchsia-300"}`}>
+              {f.label} <span className={`ml-1 ${filter === f.key ? "text-fuchsia-200" : "text-slate-400"}`}>{counts[f.key]}</span>
+            </button>
+          ))}
+        </div>
         {leads.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No leads yet — run Mira above to find your first salons.</p>}
-        {leads.map(l => <LeadRow key={l.id} lead={l} onRefresh={() => refresh().catch(() => {})} />)}
+        {leads.length > 0 && shownLeads.length === 0 && <p className="text-sm text-slate-400 text-center py-8" data-testid="lead-filter-empty">No leads in this bucket.</p>}
+        {shownLeads.map(l => <LeadRow key={l.id} lead={l} onRefresh={() => refresh().catch(() => {})} />)}
       </div>
     </div>
   );
