@@ -480,3 +480,6 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 ## 2026-07-17 — AI CCTV + Hire Staff pages converted to light theme (user request)
 - CctvAnalytics.jsx & HireStaff.jsx rewritten from dark (#0F0F0F cards, white/x text) to the standard light app-canvas theme (like Reviews): app-canvas wrapper, card-light white cards, slate text, amber-500 accents, amber→rose gradient CTAs, input-light form fields. All data-testids preserved.
 - Screenshot-verified both pages against the light Reviews reference.
+
+## 2026-07-17 — Test data cleanup (user approved)
+- Deleted 12 TEST_ hiring_requests + 11 orphan job_applications + 10 TEST_ products from DB. Hire Staff page now shows only the 2 real Hair Stylist requests; verified via screenshot.
