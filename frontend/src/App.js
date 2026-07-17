@@ -151,7 +151,9 @@ export default function App() {
             <Route path="/staff-registry" element={<RegistryPublic />} />
             <Route path="/partners" element={<Partners />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/terms-of-service" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/privacy-policy" element={<Privacy />} />
             <Route path="/book" element={<SalonFinder />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />

@@ -351,8 +351,8 @@ export default function Landing() {
               <a href="#features" className="hover:text-white transition-colors">Features</a>
               <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
               <Link to="/staff-registry" className="hover:text-white transition-colors">Verify staff (free)</Link>
-              <Link to="/terms" className="hover:text-white transition-colors" data-testid="footer-terms-link">Terms</Link>
-              <Link to="/privacy" className="hover:text-white transition-colors" data-testid="footer-privacy-link">Privacy</Link>
+              <Link to="/terms-of-service" className="hover:text-white transition-colors" data-testid="footer-terms-link">Terms</Link>
+              <Link to="/privacy-policy" className="hover:text-white transition-colors" data-testid="footer-privacy-link">Privacy</Link>
               <Link to="/mira.ai" className="text-amber-300/70 hover:text-amber-300 transition-colors">Mira AI Studio ✦</Link>
             </div>
           </div>

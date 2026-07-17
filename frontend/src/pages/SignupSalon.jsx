@@ -201,7 +201,7 @@ export default function SignupSalon() {
               </button>
             )}
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">By signing up you agree to our <a href="/terms" className="underline hover:text-slate-600">Terms of Service</a> and <a href="/privacy" className="underline hover:text-slate-600">Privacy Policy</a>.</p>
+          <p className="mt-3 text-[11px] text-slate-400">By signing up you agree to our <a href="/terms-of-service" className="underline hover:text-slate-600">Terms of Service</a> and <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a>.</p>
         </div>
 
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">

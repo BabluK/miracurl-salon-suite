@@ -452,3 +452,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - NEW pages: /app/frontend/src/pages/Terms.jsx (12 sections: acceptance, account, permitted use, billing/Razorpay, refunds, data ownership, third-party/AI, availability, liability, termination, changes, governing law) and Privacy.jsx (12 sections: overview/controller-processor roles, data collected, usage, cookies, sharing, retention, security, GDPR/DPDP rights, marketing, children, changes, contact).
 - Routes /terms and /privacy registered in App.js. Footer links added: Landing.jsx footer, PublicDemo.jsx footer, SignupSalon.jsx ("By signing up you agree…" under submit button).
 - Verified via screenshots: both pages render with dark theme + playfair headings matching brand.
+
+## 2026-07-17 — Legal pages redesign (cream/gold) + review tent card auto-attach on e-receipts
+- URLs: canonical /terms-of-service and /privacy-policy (user-requested style); /terms and /privacy kept as aliases. Added to sitemap.xml.
+- NEW /app/frontend/src/components/LegalLayout.jsx — pill nav (gold logo /brand/miracurl-gold.png, HOME/FEATURES/PRICING/DEMO, SALON SUITE outline pill, gold BOOK NOW gradient CTA), playfair hero with gold ✦ divider, numbered white section cards, cream #faf6ec bg. Terms.jsx/Privacy.jsx rewritten to use it (same original copy).
+- receipt_email.py: send_invoice_receipt_email now auto-attaches "rate-us-scan-me.jpg" — rosegold review tent card generated via _build_tent_card, thumbnailed to 1200px JPEG q82 (~113KB), QR → APP_PUBLIC_URL/api/public/review-go/{slug}. Exception-safe (never blocks receipt). Small "📎 rate-us card attached" note appended to email HTML.
+- Verified: attachment generator unit-tested (151KB b64), both redesigned pages screenshot-verified.

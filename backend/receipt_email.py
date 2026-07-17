@@ -1,5 +1,10 @@
 """Luxe HTML invoice receipt emailed to the guest right after POS billing."""
+import asyncio
+import base64
 import html as html_lib
+import io
+import logging
+import os
 
 from email_service import _send_email
 
@@ -120,6 +125,34 @@ def _receipt_email_html(t: dict, inv: dict, points_earned: int = 0) -> str:
 </table></td></tr></table></body></html>"""
 
 
+async def _review_tent_card_attachment(t: dict) -> dict | None:
+    """Auto-generated review QR tent card attached to every e-receipt (never blocks the email)."""
+    if not (t or {}).get("slug"):
+        return None
+    try:
+        from PIL import Image
+        from routes.services_catalog import _build_tent_card
+        base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
+        url = f"{base}/api/public/review-go/{t['slug']}"
+        png = await asyncio.to_thread(_build_tent_card, t, url, "rosegold", "review")
+        img = Image.open(io.BytesIO(png))
+        img.thumbnail((1200, 1200))
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, "JPEG", quality=82)
+        return {"filename": "rate-us-scan-me.jpg", "content": base64.b64encode(buf.getvalue()).decode()}
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("email").warning(f"tent card attach skipped: {e}")
+        return None
+
+
 async def send_invoice_receipt_email(t: dict, inv: dict, to_email: str, points_earned: int = 0) -> dict:
     subject = f"Your receipt from {t.get('name') or 'your salon'} — {inv.get('invoice_no')}"
-    return await _send_email([to_email], subject, _receipt_email_html(t, inv, points_earned))
+    card = await _review_tent_card_attachment(t)
+    html = _receipt_email_html(t, inv, points_earned)
+    if card:
+        note = ('<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">'
+                '<tr><td style="padding:12px 34px 0;text-align:center;font-size:12px;color:#8a8a93">'
+                '&#128206; We\'ve attached a scannable <b>rate-us card</b> to this email &mdash; '
+                'scan it anytime to share your experience!</td></tr></table>')
+        html = html.replace("</td></tr></table></body></html>", "</td></tr></table>" + note + "</body></html>")
+    return await _send_email([to_email], subject, html, attachments=[card] if card else None)
