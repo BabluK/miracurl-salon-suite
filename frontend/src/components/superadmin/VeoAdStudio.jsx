@@ -122,7 +122,12 @@ export const VeoAdStudio = () => {
         </div>
       )}
       {job?.status === "failed" && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-700" data-testid="veo-error">{job.error}</div>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-700" data-testid="veo-error">
+          {job.error}
+          {/quota|billing|credit|RESOURCE_EXHAUSTED/i.test(job.error || "") && (
+            <p className="mt-1.5 text-emerald-700">💡 No Google credits? Use the free <b>Mira Presenter</b> mode in the Promo Reel studio below — zero billing.</p>
+          )}
+        </div>
       )}
 
       {videos.length > 0 && (

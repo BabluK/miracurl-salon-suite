@@ -72,6 +72,10 @@ export const PromoVideoStudio = () => {
         <div>
           <p className="text-xs font-semibold text-slate-600 mb-1.5">Video type</p>
           <div className="flex gap-2 mb-4">
+            <button data-testid="promo-mode-presenter" onClick={() => setMode("presenter")}
+              className={`text-xs px-3 py-2 rounded-xl border font-medium inline-flex items-center gap-1.5 ${mode === "presenter" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
+              <img src="/assets/mira-avatar.png" alt="" className="w-5 h-5 rounded-full object-cover object-top" /> Mira Presenter <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-bold">FREE</span>
+            </button>
             <button data-testid="promo-mode-tour" onClick={() => setMode("feature_tour")}
               className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "feature_tour" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
               ✦ Mira presents — full feature tour
@@ -85,6 +89,9 @@ export const PromoVideoStudio = () => {
               Custom focus
             </button>
           </div>
+          {mode === "presenter" && (
+            <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">👩 Mira hosts the reel on camera — her avatar opens & closes, real app screenshots in between, her voice narrating. 100% free, no Google billing.</p>
+          )}
           {mode === "feature_tour" && (
             <p className="text-[11px] text-slate-400 -mt-2 mb-3">Mira appears as the host, introduces herself in her own voice, and tours every feature — bookings, POS, CRM, Staff Verification Portal, AI marketing &amp; more. No photo needed.</p>
           )}

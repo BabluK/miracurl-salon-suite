@@ -151,13 +151,22 @@ async def _fail_job(job_id: str, error: str):
 
 MIRA_INTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_intro.png")
 MIRA_OUTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "mira_outro.png")
+MIRA_AVATAR = "/app/frontend/public/assets/mira-avatar.png"
 
 
 async def _run_pipeline(job_id: str, body: PromoIn):
     lang_note = "Write in Hindi (Devanagari)." if body.language == "hi" else "Write in simple, energetic English."
     greet_note = (f" Early in the voiceover, warmly introduce the founder with: '{body.greeting.strip()}'."
                   if body.greeting.strip() else "")
-    if body.mode == "booking_demo":
+    if body.mode == "presenter":
+        sys = ("You ARE Mira — the elegant AI presenter of 'Miracurl Salon Suite', speaking DIRECTLY to salon "
+               "owners on camera. Write a 40-second presenter monologue in FIRST PERSON: greet warmly ('Hi, I'm "
+               f"Mira!'), tour the suite's best features ({ALL_FEATURES}), and close with a friendly call to "
+               f"action to book a free demo at miracurl-suite.com.{greet_note} {lang_note}")
+        user = ('Return JSON: {"voiceover":"<~100 words, spoken style, warm confident female presenter, hook '
+                'first, end with call to action>",'
+                '"scenes":[{"caption":"<max 6 words, one key benefit>"} x4]}')
+    elif body.mode == "booking_demo":
         sys = ("You ARE Mira — the golden AI booking assistant of 'Miracurl Salon Suite'. Write a 40-second Instagram "
                "reel voiceover in FIRST PERSON narrating a LIVE demo of a real booking through you: a customer opens "
                "the salon's booking page at night, chats with you, asks for a Botox treatment tomorrow at 4 PM, "
@@ -294,9 +303,10 @@ async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[
     captions: list[str] = []
     fits: list[bool] = []
 
-    with open(MIRA_INTRO, "rb") as f:
+    intro_path = MIRA_AVATAR if body.mode == "presenter" else MIRA_INTRO
+    with open(intro_path, "rb") as f:
         images.append(f.read())
-    captions.append("Meet Mira - Your Salon AI")
+    captions.append("Hi, I'm Mira - your salon AI" if body.mode == "presenter" else "Meet Mira - Your Salon AI")
     fits.append(False)
 
     if body.photo_url:
@@ -308,13 +318,21 @@ async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[
 
     if body.mode == "booking_demo":
         middle = _booking_scenes(scenes)
+    elif body.mode == "presenter":
+        middle = _express_scenes(scenes)
     else:
         middle = _express_scenes(scenes) if body.express else await _ai_scenes(body, scenes)
-    fit_middle = body.express or body.mode == "booking_demo"
+    fit_middle = body.express or body.mode in ("booking_demo", "presenter")
     for img, cap in middle:
         images.append(img)
         captions.append(cap)
         fits.append(fit_middle)
+
+    if body.mode == "presenter":
+        with open(MIRA_AVATAR, "rb") as f:
+            images.append(f.read())
+        captions.append("Book your free demo today")
+        fits.append(False)
 
     with open(MIRA_OUTRO, "rb") as f:
         outro = f.read()

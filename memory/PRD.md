@@ -427,3 +427,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Deployment agent scan: PASS. Production verified healthy (all public URLs 200); earlier Cloudflare error was origin restart during redeploy + upload-blocking.
 - E2E verified post-fix: avatar job → done with video stored (heartbeat path exercised).
 - User must REDEPLOY to get these production-stability fixes.
+
+## 2026-07-17 — "Mira Presenter (FREE)" video mode (user choice: option a + keep Veo)
+- User's Google credits exhausted (₹3,171 spent on Veo in 1 day); confirmed via web search there is NO truly free AI video API (all trial credits). User chose: free presenter mode + keep Veo as premium.
+- promo_video.py: new mode "presenter" — Mira avatar (frontend/public/assets/mira-avatar.png via MIRA_AVATAR const) opens & closes the reel, express app screenshots in middle, first-person TTS monologue (shimmer voice, Emergent key), CTA avatar scene "Book your free demo today" before QR outro. Forces express middle (no AI image cost).
+- PromoVideoStudio.jsx: "Mira Presenter FREE" mode button (promo-mode-presenter) with avatar thumbnail + info banner. VeoAdStudio.jsx: billing-error message now suggests the free mode below.
+- E2E VERIFIED: presenter job → done, 38.7s reel, frame check shows avatar + gold caption + logo, voiceover starts "Hi, I'm Mira!". Cost: ~₹2-5 Emergent key only.
