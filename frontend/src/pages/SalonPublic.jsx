@@ -53,7 +53,30 @@ export default function SalonPublic() {
     api.get(`/public/salon-page/${slug}`).then(r => {
       setS(r.data);
       document.title = `${r.data.name} — Book Online | Miracurl`;
+      const d = r.data;
+      let meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute("content", `Book ${d.name}${d.location ? ` in ${d.location}` : ""} online — ${d.services?.length || ""} services, instant confirmation. Powered by Miracurl.`);
+      const ld = {
+        "@context": "https://schema.org", "@type": "HairSalon",
+        name: d.name, url: `https://miracurl-suite.com/salon/${slug}`,
+        ...(d.location ? { address: d.location } : {}),
+        ...(d.phone ? { telephone: d.phone } : {}),
+        ...(d.gallery?.length ? { image: d.gallery[0].startsWith("http") ? d.gallery[0] : `https://miracurl-suite.com${d.gallery[0]}` } : {}),
+        ...(d.avg_rating && d.reviews_count ? {
+          aggregateRating: { "@type": "AggregateRating", ratingValue: d.avg_rating, reviewCount: d.reviews_count }
+        } : {}),
+        potentialAction: { "@type": "ReserveAction", target: `https://miracurl-suite.com/book/${slug}` },
+      };
+      let tag = document.getElementById("salon-ld");
+      if (!tag) {
+        tag = document.createElement("script");
+        tag.type = "application/ld+json";
+        tag.id = "salon-ld";
+        document.head.appendChild(tag);
+      }
+      tag.textContent = JSON.stringify(ld);
     }).catch(() => setErr(true));
+    return () => document.getElementById("salon-ld")?.remove();
   }, [slug]);
 
   if (err) return <div className="min-h-screen bg-[#0A0A0A] text-white/60 flex items-center justify-center text-sm">Salon not found.</div>;
