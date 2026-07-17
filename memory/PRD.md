@@ -468,3 +468,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Ran security_audit_agent: CONDITIONAL PASS. No critical/high; tenant isolation, JWT, Razorpay signatures, rate limits all confirmed strong.
 - FIXED SEC-001 (MEDIUM): invoice_edits.py — PUT /invoices/{id} & GET /invoice-edits now require_admin (owner/manager/super); DELETE /invoice-edits/bulk now require_tenant_admin (owner only) and scope=all additionally requires a Security PIN to be configured (403 otherwise). Verified: staff→403, manager view→200/purge→403, owner→200.
 - Hardening: gallery.py delete now tenant-filters _raw_db.uploads; sales.py circle-bonus email escapes salon_name. (Webhook-secret warning & google_review_url https validation already existed.)
+
+## 2026-07-17 — Login centering + legal links & Inventory Retail/In-house split (user request)
+- Login.jsx: card now vertically centered (min-h-screen flex items-center), brand mark absolute top-left, tightened spacing — Login button + footer visible without scrolling (verified y=618 in 800px viewport). Terms/Privacy links added under "Create a staff account" (all modes). EmployeePortal auth card also got Terms/Privacy links. SignupSalon already had them.
+- Inventory product types: schemas.py Product/ProductIn `product_type` ("retail"|"in_house", validated, default retail). Retail = sold to guests (staff commission via existing _commission_agg products bucket); In-house = colours/consumables used by services.
+- NEW endpoints: POST /api/products/{pid}/use {qty,note} → deducts stock (clamped ≥0), logs to NEW `product_usage` tenant collection (registered in database.py), returns low_stock flag; GET /api/products/{pid}/usage (last 50). CSV export/import includes product_type.
+- POS.jsx: in_house products excluded from sale catalog.
+- Inventory.jsx: filter tabs All/Retail/In-house, Type badge column, Retail/In-house toggle in add/edit form, "Use" button (violet) on in-house rows → deduct modal with qty. Low-stock flow unchanged → existing vendor restock emails pick up deductions.
+- Tested: curl (create in_house, use qty, usage log, 422 invalid type) + screenshots (login centered, inventory tabs/badges, form toggle).

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, AlertTriangle, Package, Download, Upload } from "lucide-react";
+import { Plus, X, Edit3, Trash2, AlertTriangle, Package, Download, Upload, Minus, ShoppingBag, Droplets } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 
@@ -8,8 +8,11 @@ export default function Inventory() {
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "", vendor_id: "" });
+  const [form, setForm] = useState({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "", vendor_id: "", product_type: "retail" });
   const [vendors, setVendors] = useState([]);
+  const [tab, setTab] = useState("all"); // all | retail | in_house
+  const [useFor, setUseFor] = useState(null); // product being deducted
+  const [useQty, setUseQty] = useState(1);
 
   const load = useCallback(async () => { const { data } = await api.get("/products"); setList(data); }, []);
   useEffect(() => {
@@ -42,8 +45,8 @@ export default function Inventory() {
     finally { e.target.value = ""; }
   }
 
-  function startNew() { setEditing(null); setForm({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "", vendor_id: "" }); setOpen(true); }
-  function startEdit(p) { setEditing(p); setForm({ ...p, vendor_id: p.vendor_id || "" }); setOpen(true); }
+  function startNew() { setEditing(null); setForm({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "", vendor_id: "", product_type: "retail" }); setOpen(true); }
+  function startEdit(p) { setEditing(p); setForm({ ...p, vendor_id: p.vendor_id || "", product_type: p.product_type || "retail" }); setOpen(true); }
 
   async function save(e) {
     e.preventDefault();
@@ -61,6 +64,16 @@ export default function Inventory() {
   }
 
   const lowStock = list.filter(p => p.stock <= p.low_stock_threshold);
+  const shown = list.filter(p => tab === "all" ? true : (p.product_type || "retail") === tab);
+
+  async function recordUse(e) {
+    e.preventDefault();
+    try {
+      const { data } = await api.post(`/products/${useFor.id}/use`, { qty: parseInt(useQty) });
+      toast.success(`Deducted ${useQty} — ${data.stock} left${data.low_stock ? " · LOW STOCK, remind your vendor!" : ""}`);
+      setUseFor(null); setUseQty(1); load();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  }
 
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
@@ -91,16 +104,27 @@ export default function Inventory() {
         </div>
       )}
 
+      <div className="flex items-center gap-2">
+        {[["all", "All"], ["retail", "Retail · For Sale"], ["in_house", "In-house · Service Use"]].map(([k, l]) => (
+          <button key={k} data-testid={`inv-tab-${k}`} onClick={() => setTab(k)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors ${tab === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"}`}>
+            {l}
+          </button>
+        ))}
+        <span className="text-xs text-slate-400 ml-2 hidden sm:block">Retail = sold to guests (staff earn commission) · In-house = colours/consumables used by services</span>
+      </div>
+
       <div className="card-light p-0 overflow-x-auto">
-        <table className="luxe-table-light min-w-[720px]">
+        <table className="luxe-table-light min-w-[780px]">
           <thead>
             <tr>
-              <th>Product</th><th>SKU</th><th>Category</th><th>Vendor</th><th>Cost</th><th>Price</th><th>Stock</th><th></th>
+              <th>Product</th><th>Type</th><th>SKU</th><th>Category</th><th>Vendor</th><th>Cost</th><th>Price</th><th>Stock</th><th></th>
             </tr>
           </thead>
           <tbody>
-            {list.map(p => {
+            {shown.map(p => {
               const low = p.stock <= p.low_stock_threshold;
+              const inHouse = (p.product_type || "retail") === "in_house";
               return (
                 <tr key={p.id} data-testid={`product-row-${p.id}`}>
                   <td>
@@ -111,6 +135,12 @@ export default function Inventory() {
                         <div className="text-xs text-slate-500">{p.brand}</div>
                       </div>
                     </div>
+                  </td>
+                  <td>
+                    <span data-testid={`product-type-${p.id}`} className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full font-semibold ${inHouse ? "bg-violet-500/10 text-violet-500" : "bg-sky-500/10 text-sky-600"}`}>
+                      {inHouse ? <Droplets className="w-3 h-3" /> : <ShoppingBag className="w-3 h-3" />}
+                      {inHouse ? "In-house" : "Retail"}
+                    </span>
                   </td>
                   <td className="font-mono text-xs text-slate-500">{p.sku}</td>
                   <td className="text-sm">{p.category}</td>
@@ -126,6 +156,12 @@ export default function Inventory() {
                   </td>
                   <td>
                     <div className="flex items-center gap-2 justify-end">
+                      {inHouse && (
+                        <button data-testid={`use-product-${p.id}`} onClick={() => { setUseFor(p); setUseQty(1); }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-violet-500/10 text-violet-500 hover:bg-violet-500/20 transition-colors" title="Deduct stock used by services today">
+                          <Minus className="w-3.5 h-3.5" /> Use
+                        </button>
+                      )}
                       <button data-testid={`edit-product-${p.id}`} onClick={() => startEdit(p)} className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-sky-600"><Edit3 className="w-4 h-4" /></button>
                       <button data-testid={`delete-product-${p.id}`} onClick={() => remove(p.id)} className="p-2 hover:bg-red-500/10 rounded text-slate-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                     </div>
@@ -133,7 +169,7 @@ export default function Inventory() {
                 </tr>
               );
             })}
-            {list.length === 0 && <tr><td colSpan="8" className="text-center text-slate-500 py-12">No products yet</td></tr>}
+            {shown.length === 0 && <tr><td colSpan="9" className="text-center text-slate-500 py-12">No products {tab !== "all" ? "in this category" : "yet"}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -146,6 +182,21 @@ export default function Inventory() {
               <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={save} className="space-y-4">
+              <div>
+                <label className="label-light block mb-1">Product type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" data-testid="ptype-retail-btn" onClick={() => setForm({ ...form, product_type: "retail" })}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm transition-colors ${form.product_type !== "in_house" ? "border-sky-500 bg-sky-500/5 text-sky-700 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                    <ShoppingBag className="w-4 h-4" />
+                    <span className="text-left">Retail<span className="block text-[10px] font-normal text-slate-400">For sale · staff commission</span></span>
+                  </button>
+                  <button type="button" data-testid="ptype-inhouse-btn" onClick={() => setForm({ ...form, product_type: "in_house" })}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm transition-colors ${form.product_type === "in_house" ? "border-violet-500 bg-violet-500/5 text-violet-700 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                    <Droplets className="w-4 h-4" />
+                    <span className="text-left">In-house<span className="block text-[10px] font-normal text-slate-400">Colour/consumables · service use</span></span>
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label-light block mb-1">Name *</label><input data-testid="product-name-input" required className="input-light" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
                 <div><label className="label-light block mb-1">Brand</label><input className="input-light" value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} /></div>
@@ -187,6 +238,27 @@ export default function Inventory() {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="btn-slate flex-1">Cancel</button>
                 <button data-testid="save-product-btn" type="submit" className="btn-blue flex-1">{editing ? "Update" : "Create"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {useFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setUseFor(null)}>
+          <div className="card-light w-full max-w-sm mx-4" onClick={e => e.stopPropagation()} data-testid="use-stock-modal">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-playfair text-xl">Record usage</h3>
+              <button onClick={() => setUseFor(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-4"><b className="text-slate-700">{useFor.name}</b> — {useFor.stock} in stock. How many units did services consume?</p>
+            <form onSubmit={recordUse} className="space-y-4">
+              <input data-testid="use-qty-input" type="number" min="1" max={Math.max(1, useFor.stock)} required autoFocus
+                     className="input-light w-full text-center text-lg font-semibold" value={useQty} onChange={e => setUseQty(e.target.value)} />
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setUseFor(null)} className="btn-slate flex-1">Cancel</button>
+                <button data-testid="use-confirm-btn" type="submit" className="flex-1 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors">
+                  Deduct from stock
+                </button>
               </div>
             </form>
           </div>

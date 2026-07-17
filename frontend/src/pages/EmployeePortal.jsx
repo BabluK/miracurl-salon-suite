@@ -70,6 +70,9 @@ function AuthForms({ onAuthed }) {
             ? "Verify with your registered mobile + Aadhaar to set a new password."
             : "Use the mobile number you registered with. New here? Use the Register tab."}
       </p>
+      <p className="text-[11px] text-white/30 mt-3 text-center">
+        By continuing you agree to our <a href="/terms-of-service" className="underline hover:text-white/60">Terms</a> & <a href="/privacy-policy" className="underline hover:text-white/60">Privacy Policy</a>
+      </p>
     </div>
   );
 }

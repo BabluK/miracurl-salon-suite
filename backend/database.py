@@ -88,6 +88,7 @@ class _DB:
     appointments = TenantCollection(_raw_db.appointments)
     invoices = TenantCollection(_raw_db.invoices)
     invoice_edits = TenantCollection(_raw_db.invoice_edits)
+    product_usage = TenantCollection(_raw_db.product_usage)
     reviews = TenantCollection(_raw_db.reviews)
     attendance = TenantCollection(_raw_db.attendance)
     feedback = TenantCollection(_raw_db.feedback)

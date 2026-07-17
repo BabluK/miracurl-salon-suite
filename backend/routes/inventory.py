@@ -227,12 +227,12 @@ async def export_products_csv(user=Depends(require_tenant_admin)):
     rows = await db.products.find({}).sort("name", 1).to_list(2000)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["name", "brand", "category", "sku", "price", "cost", "stock", "low_stock_threshold", "image_url"])
+    w.writerow(["name", "brand", "category", "sku", "price", "cost", "stock", "low_stock_threshold", "image_url", "product_type"])
     for r in rows:
         _csv_row(w, [
             r.get("name", ""), r.get("brand", "") or "", r.get("category", ""), r.get("sku", ""),
             r.get("price", 0), r.get("cost", 0), r.get("stock", 0), r.get("low_stock_threshold", 5),
-            r.get("image_url", "") or "",
+            r.get("image_url", "") or "", r.get("product_type", "retail") or "retail",
         ])
     return Response(content=buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=products.csv"})
@@ -255,9 +255,11 @@ def _product_doc_from_csv_row(raw: dict) -> Optional[dict]:
     if not nums:
         return None
     sku = row.get("sku") or f"SKU-{re.sub(r'[^A-Za-z0-9]', '', name)[:12].upper()}"
+    ptype = (row.get("product_type") or "retail").lower()
     return {
         "name": name, "brand": row.get("brand", ""), "category": row.get("category") or "General",
-        "sku": sku, "image_url": row.get("image_url", ""), **nums,
+        "sku": sku, "image_url": row.get("image_url", ""),
+        "product_type": ptype if ptype in ("retail", "in_house") else "retail", **nums,
     }
 
 
@@ -287,6 +289,33 @@ async def import_products_csv(file: UploadFile = File(...), user=Depends(require
 async def update_product(pid: str, body: ProductIn, user=Depends(get_current_user)):
     await db.products.update_one({"id": pid}, {"$set": body.model_dump()})
     return await db.products.find_one({"id": pid}, {"_id": 0})
+
+
+class ProductUseIn(BaseModel):
+    qty: int = Field(..., ge=1, le=1000)
+    note: str = Field("", max_length=200)
+
+
+@router.post("/products/{pid}/use")
+async def use_product_stock(pid: str, body: ProductUseIn, user=Depends(get_current_user)):
+    """Deduct in-house/service consumption from stock (e.g. hair color tubes used today)."""
+    p = await db.products.find_one({"id": pid}, {"_id": 0})
+    if not p:
+        raise HTTPException(404, "Product not found")
+    new_stock = max(0, int(p.get("stock") or 0) - body.qty)
+    await db.products.update_one({"id": pid}, {"$set": {"stock": new_stock}})
+    await db.product_usage.insert_one({
+        "id": str(uuid.uuid4()), "product_id": pid, "product_name": p.get("name", ""),
+        "qty": body.qty, "note": body.note.strip(),
+        "used_by": user.get("email", ""), "used_at": datetime.now(timezone.utc).isoformat(),
+        "stock_after": new_stock})
+    low = new_stock <= int(p.get("low_stock_threshold") or 5)
+    return {"ok": True, "stock": new_stock, "low_stock": low}
+
+
+@router.get("/products/{pid}/usage")
+async def product_usage_log(pid: str, user=Depends(get_current_user)):
+    return [_clean(u) for u in await db.product_usage.find({"product_id": pid}, {"_id": 0}).sort("used_at", -1).to_list(50)]
 
 @router.delete("/products/{pid}")
 async def delete_product(pid: str, user=Depends(require_tenant_admin)):

@@ -58,7 +58,7 @@ export default function POS() {
       const firstCat = [...new Set(r.data.map(s => s.category))][0];
       setCategory(c => c || firstCat || "");
     });
-    api.get("/products").then(r => setProducts(r.data));
+    api.get("/products").then(r => setProducts(r.data.filter(p => (p.product_type || "retail") !== "in_house")));
     api.get("/packages").then(r => setPackages(r.data.filter(p => p.active))).catch(() => {});
     api.get("/memberships").then(r => setMemberships(r.data.filter(m => m.active))).catch(() => {});
     api.get("/staff").then(r => setStaff(r.data));

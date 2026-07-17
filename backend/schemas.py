@@ -170,6 +170,7 @@ class Product(BaseModel):
     low_stock_threshold: int = 5
     image_url: Optional[str] = None
     vendor_id: Optional[str] = None
+    product_type: str = "retail"
 
 class ProductIn(BaseModel):
     name: str
@@ -182,6 +183,15 @@ class ProductIn(BaseModel):
     low_stock_threshold: int = 5
     image_url: Optional[str] = None
     vendor_id: Optional[str] = None
+    product_type: str = "retail"
+
+    @field_validator("product_type")
+    @classmethod
+    def _ptype(cls, v: str) -> str:
+        v = (v or "retail").strip().lower()
+        if v not in ("retail", "in_house"):
+            raise ValueError("product_type must be 'retail' or 'in_house'")
+        return v
 
 class Review(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

@@ -82,8 +82,8 @@ export default function Login() {
         ))}
       </div>
 
-      {/* Brand mark — top-left */}
-      <div className="relative z-10 px-8 pt-6 sm:px-14 sm:pt-10">
+      {/* Brand mark — top-left (absolute so the card centers in the viewport) */}
+      <div className="absolute z-10 px-6 pt-5 sm:px-10 sm:pt-6">
         <BrandMark variant="light" size="lg" />
       </div>
 
@@ -91,9 +91,9 @@ export default function Login() {
           returning users can open the app in one tap. */}
       <InstallAppPrompt variant="app" />
 
-      {/* Card */}
-      <div className="relative z-10 flex items-start justify-center px-4 pt-10 pb-24 sm:pt-16">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 p-8 sm:p-10 animate-fade-up">
+      {/* Card — vertically centered so Login is visible without scrolling */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-6">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 p-7 sm:p-8 animate-fade-up">
           <h1 className="text-center text-3xl sm:text-[2rem] font-semibold text-slate-800 tracking-tight" data-testid="login-heading">
             {heading}
           </h1>
@@ -101,7 +101,7 @@ export default function Login() {
             <span className="brand-ai-tag">✦ AI Powered Salon Suite ✦</span>
           </p>
 
-          <form onSubmit={submit} className="mt-10 space-y-6">
+          <form onSubmit={submit} className="mt-6 space-y-4">
             {mode === "signup" && (
               <Field
                 label="Full Name"
@@ -205,7 +205,7 @@ export default function Login() {
           </form>
 
           {mode === "login" ? (
-            <p className="text-center text-sm text-slate-500 mt-8">
+            <p className="text-center text-sm text-slate-500 mt-6">
               New to Miracurl?{" "}
               <a href="/signup-salon" className="text-rose-500 hover:text-rose-600 font-semibold" data-testid="link-signup-salon">
                 Start your salon&apos;s free trial →
@@ -216,12 +216,24 @@ export default function Login() {
                   Create a staff account
                 </button>
               </span>
+              <span className="block mt-3 text-[11px] text-slate-400">
+                By continuing you agree to our{" "}
+                <a href="/terms-of-service" className="underline hover:text-slate-600" data-testid="login-terms-link">Terms of Service</a>
+                {" "}&{" "}
+                <a href="/privacy-policy" className="underline hover:text-slate-600" data-testid="login-privacy-link">Privacy Policy</a>
+              </span>
             </p>
           ) : (
-            <p className="text-center text-sm text-slate-500 mt-8">
+            <p className="text-center text-sm text-slate-500 mt-6">
               <button onClick={() => { setMode("login"); setErr(""); }} className="text-rose-500 hover:text-rose-600 font-medium" data-testid="back-to-login-btn">
                 ← Back to sign in
               </button>
+              <span className="block mt-3 text-[11px] text-slate-400">
+                By continuing you agree to our{" "}
+                <a href="/terms-of-service" className="underline hover:text-slate-600">Terms of Service</a>
+                {" "}&{" "}
+                <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a>
+              </span>
             </p>
           )}
         </div>
