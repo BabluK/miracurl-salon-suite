@@ -63,7 +63,7 @@ from routes.social_connect import router as social_connect_router  # noqa: E402
 from routes.mira_calendar import router as mira_calendar_router  # noqa: E402
 from routes.mira_autopilot import router as mira_autopilot_router, autopilot_scheduler  # noqa: E402
 from routes.promo_video import router as promo_video_router, weekly_promo_scheduler  # noqa: E402
-from routes.veo_studio import router as veo_studio_router  # noqa: E402
+from routes.veo_studio import router as veo_studio_router, sweep_stale_veo_jobs  # noqa: E402
 from routes.platform_tools import router as platform_tools_router  # noqa: E402
 from routes.promo_image import router as promo_image_router  # noqa: E402
 from routes.offer_flyer import router as offer_flyer_router  # noqa: E402
@@ -124,6 +124,7 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_birthday_scheduler())
     asyncio.get_event_loop().create_task(autopilot_scheduler())
     asyncio.get_event_loop().create_task(weekly_promo_scheduler())
+    asyncio.get_event_loop().create_task(sweep_stale_veo_jobs())
 
     async def _ensure_indexes():
         await db.users.create_index("email", unique=True)

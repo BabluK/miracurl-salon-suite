@@ -26,6 +26,8 @@ log = logging.getLogger("veo_studio")
 
 VEO_MODEL = os.environ.get("VEO_MODEL", "veo-3.1-generate-preview")
 APP_NAME = os.environ.get("APP_NAME", "miracurl")
+STALE_MINUTES = 20
+STALE_MSG = "Generation was interrupted (server restart or timeout). Please try again."
 
 
 def _gemini_key() -> str:
@@ -62,7 +64,18 @@ def _is_stale(doc: dict) -> bool:
     return datetime.now(timezone.utc) - last > timedelta(minutes=STALE_MINUTES)
 
 
-STALE_MSG = "Generation was interrupted (server restart or timeout). Please try again."
+async def sweep_stale_veo_jobs():
+    """On startup: fail 'generating' jobs whose heartbeat is older than the stale window."""
+    from datetime import timedelta
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=STALE_MINUTES)).isoformat()
+        await _raw_db.veo_ads.update_many(
+            {"status": "generating",
+             "$or": [{"updated_at": {"$lt": cutoff}},
+                     {"updated_at": {"$exists": False}, "created_at": {"$lt": cutoff}}]},
+            {"$set": {"status": "failed", "error": STALE_MSG}})
+    except Exception as e:
+        log.error("stale veo cleanup failed: %s", e)
 
 
 @router.post("/super/veo-ad")
@@ -84,9 +97,6 @@ async def create_veo_ad(body: VeoAdIn, admin=Depends(require_super_admin)):
     })
     asyncio.create_task(_generate(job_id, body))
     return {"job_id": job_id}
-
-
-STALE_MINUTES = 20
 
 
 @router.get("/super/veo-ad/{job_id}")
@@ -178,7 +188,7 @@ async def _write_script(body: VeoAdIn) -> list:
     raise RuntimeError("Script writing failed — try again")
 
 
-def _render_scene(prompt: str, aspect_ratio: str, out_path: str, image_path: str = None):
+def _render_scene(prompt: str, aspect_ratio: str, out_path: str, image_path: str = None, beat=None):
     """Blocking: generate one Veo clip (optionally image-to-video from avatar) and save to out_path."""
     from google import genai
     from google.genai import types
@@ -195,6 +205,8 @@ def _render_scene(prompt: str, aspect_ratio: str, out_path: str, image_path: str
         if _time.time() > deadline:
             raise RuntimeError("Veo generation timed out (10 min)")
         _time.sleep(10)
+        if beat:
+            beat()
         op = client.operations.get(op)
     if getattr(op, "error", None):
         raise RuntimeError(str(op.error)[:200])
@@ -220,6 +232,14 @@ def _concat_clips(paths: list, out_path: str):
 
 async def _generate(job_id: str, body: VeoAdIn):
     tmp = tempfile.mkdtemp(prefix="veo_")
+    loop = asyncio.get_running_loop()
+
+    async def _touch():
+        await _raw_db.veo_ads.update_one(
+            {"id": job_id}, {"$set": {"updated_at": datetime.now(timezone.utc).isoformat()}})
+
+    def _beat():
+        asyncio.run_coroutine_threadsafe(_touch(), loop)
     try:
         scenes = await _write_script(body)
         await _raw_db.veo_ads.update_one({"id": job_id}, {"$set": {"script": scenes}})
@@ -227,17 +247,16 @@ async def _generate(job_id: str, body: VeoAdIn):
         for i, prompt in enumerate(scenes, 1):
             await _progress(job_id, f"🎬 Veo is filming scene {i} of {len(scenes)} (~1-3 min per scene)…")
             path = os.path.join(tmp, f"scene{i}.mp4")
-            await asyncio.to_thread(_render_scene, prompt, body.aspect_ratio, path)
+            await asyncio.to_thread(_render_scene, prompt, body.aspect_ratio, path, None, _beat)
             clip_paths.append(path)
         await _progress(job_id, "🎞️ Stitching scenes into the final ad…")
         final = os.path.join(tmp, "final.mp4")
         await asyncio.to_thread(_concat_clips, clip_paths, final)
         await _progress(job_id, "☁️ Uploading the final ad to your gallery…")
-        with open(final, "rb") as f:
-            video_bytes = f.read()
+        video_bytes = await asyncio.to_thread(lambda: open(final, "rb").read())
         fid = str(uuid.uuid4())
         path = f"{APP_NAME}/superadmin/veo-ads/{fid}.mp4"
-        result = _put_object(path, video_bytes, "video/mp4")
+        result = await asyncio.to_thread(_put_object, path, video_bytes, "video/mp4")
         await _raw_db.uploads.insert_one({
             "id": fid, "tenant_id": "superadmin", "kind": "veo_ad",
             "storage_path": result.get("path", path), "original_filename": f"veo-ad-{fid}.mp4",

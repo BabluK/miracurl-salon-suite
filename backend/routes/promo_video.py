@@ -250,7 +250,7 @@ async def _owner_photo_scene(body: PromoIn, scenes: list) -> tuple[bytes, str] |
     up = await _raw_db.uploads.find_one({"id": fid}, {"_id": 0})
     if not up:
         return None
-    data, _ = _get_object(up["storage_path"])
+    data, _ = await asyncio.to_thread(_get_object, up["storage_path"])
     caption = body.greeting.strip()[:44] or (scenes[0].get("caption", "") if scenes else "")
     return data, caption
 

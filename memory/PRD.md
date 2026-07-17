@@ -420,3 +420,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Fixes (veo_studio.py + VeoAdStudio.jsx): _is_stale() helper applied in create (auto-fails stale active job instead of 409), list endpoint (returns `active` job + clears stale), status endpoint; UI resumes polling of active job on page load; polling tolerates 10 consecutive errors before stopping; added "Uploading final ad" progress step.
 - Verified: seeded 30-min-old stale generating job → list cleared it, create returned new job_id (no 409), job completed (done + video stored). ffmpeg concat benchmarked: 2 clips in 7.4s (fast — stitching was never the bottleneck).
 - NOTE: user must REDEPLOY for these fixes; production long-running background tasks remain vulnerable to pod restarts but now recover gracefully.
+
+## 2026-07-17 — Code review fixes: event-loop blocking (ROOT CAUSE of prod Cloudflare 520s)
+- Code review (user-requested) confirmed HIGH: sync _put_object/_get_object + file reads called directly in async coroutines during video upload blocked the single uvicorn worker's event loop for up to 2-4 min → entire site unresponsive → Cloudflare "could not parse origin response" during/after video generation.
+- Fixed: veo_studio.py (file read + _put_object via asyncio.to_thread), promo_video.py (_put_object + _get_object via to_thread). Added sweep_stale_veo_jobs() on server startup (mirrors promo sweep) so crashed jobs never block new ones. Added render heartbeat (_beat via run_coroutine_threadsafe wrapping async _touch — NOTE: must wrap Motor call in async def, raw update_one raised "A coroutine object is required"). Moved STALE_MINUTES/STALE_MSG to module top.
+- Deployment agent scan: PASS. Production verified healthy (all public URLs 200); earlier Cloudflare error was origin restart during redeploy + upload-blocking.
+- E2E verified post-fix: avatar job → done with video stored (heartbeat path exercised).
+- User must REDEPLOY to get these production-stability fixes.
