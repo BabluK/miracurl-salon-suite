@@ -32,6 +32,17 @@ PLAN_CATALOG = {
     "three_branch_annual": {"label": "3-Branch Annual",  "price": 60000.0, "duration_days": 365, "branches": 3},
     "multi_branch_half":   {"label": "Multi-Branch 6-Month (5+ branches)", "price": 45000.0, "duration_days": 183, "branches": 5},
     "multi_branch_annual": {"label": "Multi-Branch Annual (5+ branches)",  "price": 70000.0, "duration_days": 365, "branches": 5},
+    # International (outside India) — USD
+    "intl_starter_monthly":  {"label": "Starter Monthly (USD)",      "price": 79.0,   "duration_days": 31,  "branches": 1, "currency": "USD", "tier": "starter"},
+    "intl_starter_half":     {"label": "Starter 6-Month (USD)",      "price": 399.0,  "duration_days": 183, "branches": 1, "currency": "USD", "tier": "starter"},
+    "intl_starter_annual":   {"label": "Starter Annual (USD)",       "price": 699.0,  "duration_days": 365, "branches": 1, "currency": "USD", "tier": "starter"},
+    "intl_pro_monthly":      {"label": "Professional Monthly (USD)", "price": 149.0,  "duration_days": 31,  "branches": 1, "currency": "USD", "tier": "professional"},
+    "intl_pro_half":         {"label": "Professional 6-Month (USD)", "price": 799.0,  "duration_days": 183, "branches": 1, "currency": "USD", "tier": "professional"},
+    "intl_pro_annual":       {"label": "Professional Annual (USD)",  "price": 1399.0, "duration_days": 365, "branches": 1, "currency": "USD", "tier": "professional"},
+    "intl_premium_monthly":  {"label": "Premium AI Monthly (USD)",   "price": 249.0,  "duration_days": 31,  "branches": 1, "currency": "USD", "tier": "premium"},
+    "intl_premium_half":     {"label": "Premium AI 6-Month (USD)",   "price": 1299.0, "duration_days": 183, "branches": 1, "currency": "USD", "tier": "premium"},
+    "intl_premium_annual":   {"label": "Premium AI Annual (USD)",    "price": 2399.0, "duration_days": 365, "branches": 1, "currency": "USD", "tier": "premium"},
+    "intl_enterprise_monthly": {"label": "Enterprise Monthly (USD)", "price": 499.0,  "duration_days": 31,  "branches": 5, "currency": "USD", "tier": "enterprise"},
 }
 
 
@@ -159,7 +170,8 @@ async def public_plans():
     Overrides re-read from DB on every call so edits show instantly on ALL workers."""
     await load_plan_overrides()
     return {k: {"label": v["label"], "price": v["price"], "duration_days": v["duration_days"],
-                "branches": v["branches"]} for k, v in PLAN_CATALOG.items()}
+                "branches": v["branches"], "currency": v.get("currency", "INR"),
+                "tier": v.get("tier")} for k, v in PLAN_CATALOG.items()}
 
 
 @router.get("/super-admin/plans")

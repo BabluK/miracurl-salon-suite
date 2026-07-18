@@ -531,3 +531,13 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - NEW GET /api/reviews/qr-funnel?days=30 (tenant admin): {scans, rated, happy(4-5★), avg_rating, google_redirects}.
 - Reviews.jsx: funnel card "QR scans → Ratings left → Happy → Sent to Google" with avg rating + empty-state nudge to print tent card. data-testids: qr-funnel-card, funnel-scans/rated/happy/google.
 - Verified: all 3 events fire (curl), stats endpoint returns correct counts, card screenshot-verified on dashboard. Needs Deploy for production.
+
+## 2026-07-18 — Demo invite scanner false-positives fixed
+- User: recipients say they never saw the invite though HQ shows "Opened/Demo requested". Root cause: demo-track click endpoint set demo_requested_at on ANY link fetch — corporate email security scanners (UK domains) auto-fetch links.
+- Fix: click now sets clicked_at only; demo_requested_at ONLY set by actual slot-form submit (demo_slot_book). _invite_status requires preferred_slot/demo_requested_at. Invites list returns clicked flag; DemoCampaign.jsx shows "🔗 Clicked" badge with scanner caveat tooltip; "Demo requested" stat counts real ones.
+- Startup migration demo_click_fix_v1 (server.py): moves demo_requested_at→clicked_at where preferred_slot is None (idempotent, runs on production at redeploy). Verified in preview.
+
+## 2026-07-18 — International (USD) plans (user request)
+- subscriptions.py PLAN_CATALOG: 10 new USD plans — intl_{starter,pro,premium}_{monthly,half,annual} (79/399/699, 149/799/1399, 249/1299/2399) + intl_enterprise_monthly 499, all with currency:USD & tier fields. /public/plans returns currency+tier. Prices editable via existing super-admin overrides.
+- Landing.jsx pricing: 🇮🇳 India·₹ / 🌍 International·$ toggle. USD view: 3 tier cards (monthly + 6mo/1yr with save badges, per-tier features, Professional = Most Popular) + Enterprise $499 strip w/ mailto + USD footnote. data-testids: pricing-region-{in,intl}, plan-intl_*, plan-intl-enterprise.
+- Verified: /public/plans returns 10 USD plans; screenshot of intl pricing section. Needs Deploy for production.

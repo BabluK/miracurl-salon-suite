@@ -41,6 +41,30 @@ const PLANS = [
 
 const fmtINR = (n) => "₹" + Number(n).toLocaleString("en-IN");
 const kINR = (n) => "₹" + Math.round(n / 1000) + "k";
+const fmtUSD = (n) => "$" + Number(n).toLocaleString("en-US");
+
+const INTL_TIERS = [
+  { tier: "starter", title: "Starter", primary: false,
+    items: ["Online booking & CRM", "POS billing", "WhatsApp reminders", "Email support"] },
+  { tier: "professional", title: "Professional", primary: true,
+    items: ["Everything in Starter", "Inventory & vendors", "Staff payroll & commissions", "Analytics & reports", "Multi-staff accounts"] },
+  { tier: "premium", title: "Premium AI", primary: false,
+    items: ["Everything in Professional", "Mira AI receptionist", "AI marketing studio", "Review automation", "Staff verification registry"] },
+];
+
+function buildIntlPlans(c) {
+  const price = (key, fallback) => c?.[key]?.price ?? fallback;
+  const defaults = { starter: [79, 399, 699], professional: [149, 799, 1399], premium: [249, 1299, 2399] };
+  const keys = { starter: "intl_starter", professional: "intl_pro", premium: "intl_premium" };
+  return INTL_TIERS.map(t => {
+    const [m, h, a] = defaults[t.tier];
+    const k = keys[t.tier];
+    return {
+      ...t, key: `${k}_monthly`,
+      monthly: price(`${k}_monthly`, m), half: price(`${k}_half`, h), annual: price(`${k}_annual`, a),
+    };
+  });
+}
 
 function buildPlans(c) {
   if (!c) return PLANS;
@@ -95,8 +119,10 @@ function TrustedPartnersSection() {
 export default function Landing() {
   const [refSlug, setRefSlug] = useState(null);
   const [catalog, setCatalog] = useState(null);
+  const [region, setRegion] = useState("in"); // in | intl
   const [liveTestimonials, setLiveTestimonials] = useState([]);
   const plans = buildPlans(catalog);
+  const intlPlans = buildIntlPlans(catalog);
   const testimonials = liveTestimonials.length > 0
     ? liveTestimonials.map(t => ({
         name: t.owner_name,
@@ -292,7 +318,18 @@ export default function Landing() {
           <Label className="text-fuchsia-400">Pricing</Label>
           <h2 className="font-playfair text-4xl sm:text-5xl mt-4">Simple, salon-friendly</h2>
           <p className="text-neutral-500 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Pay once, use everything.</p>
+          <div className="inline-flex items-center gap-1 mt-7 p-1 rounded-full bg-white/5 border border-white/10" data-testid="pricing-region-toggle">
+            {[["in", "🇮🇳 India · ₹"], ["intl", "🌍 International · $"]].map(([k, l]) => (
+              <button key={k} data-testid={`pricing-region-${k}`} onClick={() => setRegion(k)}
+                className={`px-5 py-2 rounded-full text-xs font-semibold transition-colors ${region === k
+                  ? "bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white"
+                  : "text-white/60 hover:text-white"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
+        {region === "in" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {plans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
@@ -321,6 +358,47 @@ export default function Landing() {
             </div>
           ))}
         </div>
+        ) : (
+        <>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+          {intlPlans.map(p => (
+            <div key={p.key} data-testid={`plan-${p.key}`}
+                 className={`rounded-3xl p-7 relative bg-white/[0.03] border transition-colors ${p.primary
+                   ? "border-fuchsia-500/50 shadow-[0_0_40px_rgba(217,70,239,0.18)]"
+                   : "border-white/10 hover:bg-white/[0.06]"}`}>
+              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white text-[10px] uppercase tracking-widest font-bold">Most popular</div>}
+              <div className="text-xs uppercase tracking-[0.2em] text-neutral-500 font-semibold">{p.title}</div>
+              <div className="mt-4 flex items-end gap-2">
+                <span className="text-4xl font-bold font-playfair text-amber-200">{fmtUSD(p.monthly)}</span>
+                <span className="text-sm text-neutral-500 mb-1.5">/mo</span>
+              </div>
+              <div className="text-xs text-neutral-500 mt-2 space-y-0.5">
+                <div>6 months: <b className="text-neutral-300">{fmtUSD(p.half)}</b> <span className="text-emerald-400">save {fmtUSD(p.monthly * 6 - p.half)}</span></div>
+                <div>1 year: <b className="text-neutral-300">{fmtUSD(p.annual)}</b> <span className="text-emerald-400">save {fmtUSD(p.monthly * 12 - p.annual)}</span></div>
+              </div>
+              <ul className="mt-6 space-y-2.5">
+                {p.items.map(i => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-neutral-400">
+                    <Check className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" /> {i}
+                  </li>
+                ))}
+              </ul>
+              <Link to="/signup-salon" data-testid={`plan-cta-${p.key}`}
+                    className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
+                      ? "bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white shadow-[0_10px_28px_-8px_rgba(217,70,239,0.6)]"
+                      : "border border-white/15 text-white/85 hover:bg-white/5"}`}>
+                Start free trial <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          ))}
+        </div>
+        <div className="max-w-5xl mx-auto mt-6 rounded-2xl border border-amber-300/25 bg-amber-300/[0.05] px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3" data-testid="plan-intl-enterprise">
+          <p className="text-sm text-neutral-300"><b className="text-amber-300">Enterprise:</b> starting from <b>{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 499)}/month</b> or custom annual contracts for multi-branch chains.</p>
+          <a href="mailto:hello@miracurl-suite.com?subject=Enterprise%20plan%20enquiry" className="text-xs font-semibold text-amber-300 hover:text-amber-200 whitespace-nowrap">Talk to us →</a>
+        </div>
+        <p className="text-center text-[11px] text-neutral-600 mt-5">Prices in USD for clients outside India (US, UK, UAE, Canada, Australia & more). Billed via secure international payment link.</p>
+        </>
+        )}
       </section>
 
       {/* Final CTA */}

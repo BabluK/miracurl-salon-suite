@@ -152,7 +152,7 @@ export function DemoCampaign() {
             {[
               ["Invited", invites.length, "text-slate-700"],
               ["Opened", invites.filter(i => i.opened).length, "text-sky-600"],
-              ["Demo requested", invites.filter(i => i.demo_requested_at).length, "text-amber-600"],
+              ["Demo requested", invites.filter(i => i.status === "demo_requested").length, "text-amber-600"],
               ["Converted", invites.filter(i => i.status === "converted").length, "text-emerald-600"],
             ].map(([label, n, color]) => (
               <div key={label} className="bg-slate-50 rounded-xl px-3 py-2 text-center">
@@ -183,7 +183,8 @@ export function DemoCampaign() {
                   <span className="font-medium text-slate-700 truncate">{inv.name || inv.email}</span>
                   <span className="text-slate-400 truncate hidden sm:inline">{inv.email}</span>
                   <span className="text-[10px] text-slate-400 shrink-0">{(inv.first_sent_at || "").slice(0, 10)}</span>
-                  {inv.opened && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-600 text-[10px] font-semibold" title={`Opened ${(inv.opened_at || "").slice(0, 16).replace("T", " ")}`}>👀 Opened</span>}
+                  {inv.opened && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-600 text-[10px] font-semibold" title={`Opened ${(inv.opened_at || "").slice(0, 16).replace("T", " ")} — note: can be triggered by the recipient's email scanner`}>👀 Opened</span>}
+                  {inv.clicked && !inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-semibold" title={`Link fetched ${(inv.clicked_at || "").slice(0, 16).replace("T", " ")} — may be their email security scanner, not a person`}>🔗 Clicked</span>}
                   {inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold" title={`Phone: ${inv.preferred_slot.phone || "—"}`}>📅 {inv.preferred_slot.date} {inv.preferred_slot.time}</span>}
                   <span className={`ml-auto shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${chip[1]}`}>{chip[0]}</span>
                   {inv.resend_suggested && (

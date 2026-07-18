@@ -689,9 +689,10 @@ async def demo_track_click(iid: str, request: Request):
     now_iso = datetime.now(timezone.utc).isoformat()
     await _raw_db.demo_invites.update_one(
         {"id": iid, "opened_at": None}, {"$set": {"opened_at": now_iso, "seen_by_hq_open": False}})
+    # NOTE: link fetches are often email security scanners, not humans —
+    # "demo requested" is only set when the slot form is actually submitted.
     await _raw_db.demo_invites.update_one(
-        {"id": iid, "demo_requested_at": None},
-        {"$set": {"demo_requested_at": now_iso, "seen_by_hq_req": False}})
+        {"id": iid, "clicked_at": None}, {"$set": {"clicked_at": now_iso}})
     inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0, "track_base": 1})
     base = (inv or {}).get("track_base") or os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
@@ -749,7 +750,9 @@ async def demo_mark_done(iid: str, user=Depends(require_super_admin)):
 def _invite_status(i: dict, tenant_emails: set) -> str:
     if i["email"] in tenant_emails:
         return "converted"
-    if i.get("demo_requested_at"):
+    # Genuine demo request = they actually submitted the slot form
+    # (bare link clicks are often email security scanners).
+    if i.get("preferred_slot") or i.get("demo_requested_at"):
         return "demo_requested"
     if i.get("responded"):
         return "replied"
@@ -767,6 +770,7 @@ async def demo_invites(user=Depends(require_super_admin)):
     for i in items:
         i["status"] = _invite_status(i, tenant_emails)
         i["opened"] = bool(i.get("opened_at"))
+        i["clicked"] = bool(i.get("clicked_at"))
         stale = (i.get("first_sent_at") or "") <= stale_cutoff
         i["resend_suggested"] = (i["status"] in ("awaiting", "reminded") and not i["opened"] and stale)
         i["stale_no_reply"] = (i["status"] in ("awaiting", "reminded") and i["opened"] and stale)

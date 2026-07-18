@@ -164,6 +164,21 @@ async def on_startup():
                                            "at": datetime.now(timezone.utc).isoformat()})
             logging.info(f"CRM pending migration: {res.modified_count} lead customers hidden until service completion")
 
+        # One-time migration: scanner-clicked demo invites were wrongly marked
+        # "demo requested" — real requests always have a preferred_slot.
+        if not await _raw_db.meta.find_one({"key": "demo_click_fix_v1"}):
+            false_pos = await _raw_db.demo_invites.find(
+                {"demo_requested_at": {"$ne": None}, "preferred_slot": None},
+                {"_id": 0, "id": 1, "demo_requested_at": 1}).to_list(1000)
+            for fp in false_pos:
+                await _raw_db.demo_invites.update_one(
+                    {"id": fp["id"]},
+                    {"$set": {"clicked_at": fp["demo_requested_at"], "demo_requested_at": None,
+                              "seen_by_hq_req": True}})
+            await _raw_db.meta.insert_one({"key": "demo_click_fix_v1", "modified": len(false_pos),
+                                           "at": datetime.now(timezone.utc).isoformat()})
+            logging.info(f"Demo click fix: {len(false_pos)} scanner false-positives downgraded to 'clicked'")
+
     async def _run_seeds():
         default_tenant = await seed_default_tenant()
         await backfill_tenant_ids(default_tenant["id"])
