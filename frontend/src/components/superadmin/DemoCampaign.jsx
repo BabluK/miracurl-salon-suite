@@ -91,6 +91,14 @@ export function DemoCampaign() {
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't resend"); }
   };
 
+  const sendSlotPicker = async (inv) => {
+    try {
+      await api.post(`/super-admin/demo-campaign/${inv.id}/send-slot-picker`);
+      toast.success(`Time-picker sent to ${inv.email} — they'll choose a slot ✦`);
+      loadInvites();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send"); }
+  };
+
   const Group = ({ title, icon: I, rows, kind }) => (
     <div>
       <p className="text-[11px] font-semibold tracking-wide text-slate-400 uppercase mb-1.5 flex items-center gap-1.5"><I className="w-3.5 h-3.5" /> {title} ({rows.length})</p>
@@ -198,7 +206,14 @@ export function DemoCampaign() {
                   <span className="text-[10px] text-slate-400 shrink-0">{(inv.first_sent_at || "").slice(0, 10)}</span>
                   {inv.opened && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-600 text-[10px] font-semibold" title={`Opened ${(inv.opened_at || "").slice(0, 16).replace("T", " ")} — note: can be triggered by the recipient's email scanner`}>👀 Opened</span>}
                   {inv.clicked && !inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-semibold" title={`Link fetched ${(inv.clicked_at || "").slice(0, 16).replace("T", " ")} — may be their email security scanner, not a person`}>🔗 Clicked</span>}
-                  {inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold" title={`Phone: ${inv.preferred_slot.phone || "—"}`}>📅 {inv.preferred_slot.date} {inv.preferred_slot.time}</span>}
+                  {inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold" title={`Phone: ${inv.preferred_slot.phone || "—"}`}>📅 {inv.preferred_slot.date} {inv.preferred_slot.time} IST{inv.preferred_slot.local_time ? ` · ${inv.preferred_slot.local_time} theirs` : ""}</span>}
+                  {!inv.preferred_slot?.date && inv.status !== "converted" && (
+                    <button onClick={() => sendSlotPicker(inv)} data-testid={`demo-invite-slot-picker-${inv.email}`}
+                      title={inv.slot_picker_sent_at ? `Time-picker sent ${(inv.slot_picker_sent_at || "").slice(0, 10)} — send again` : "Email them a 'pick your demo time' link"}
+                      className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${inv.slot_picker_sent_at ? "bg-slate-100 text-slate-500 hover:bg-slate-200" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
+                      📅 {inv.slot_picker_sent_at ? "Picker sent" : "Send time-picker"}
+                    </button>
+                  )}
                   <span className={`ml-auto shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold ${chip[1]}`}>{chip[0]}</span>
                   {inv.resend_suggested && (
                     <button onClick={() => resendInvite(inv)} data-testid={`demo-invite-resend-${inv.email}`}

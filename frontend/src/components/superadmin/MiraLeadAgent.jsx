@@ -62,6 +62,11 @@ function LeadRow({ lead, onRefresh }) {
     toast.success("WhatsApp opened — hit Send there. Lead marked as sent 💬");
   }, "whatsapp");
 
+  const sendSlotPicker = () => act(async () => {
+    await api.post(`/super-admin/mira-leads/${lead.id}/send-slot-picker`);
+    toast.success(`Time-picker sent to ${lead.email} — they'll choose a demo slot 📅`);
+  }, "slot-picker");
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden" data-testid={`lead-row-${lead.id}`}>
       <button onClick={() => setOpen(o => !o)} className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50" data-testid={`lead-toggle-${lead.id}`}>
@@ -77,6 +82,7 @@ function LeadRow({ lead, onRefresh }) {
           </p>
         </div>
         <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${STATUS_STYLE[lead.status] || "bg-slate-100 text-slate-500"}`}>{lead.status}</span>
+        {lead.opened_at && <span data-testid={`lead-opened-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-sky-100 text-sky-600 font-semibold" title={`Opened ${(lead.opened_at || "").slice(0, 16).replace("T", " ")} — can also be their email scanner`}>👀 Opened</span>}
         {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
       </button>
 
@@ -101,8 +107,15 @@ function LeadRow({ lead, onRefresh }) {
             </div>
           )}
           {lead.status === "sent" && <p className="text-xs text-sky-600">✅ Sent {lead.sent_at?.slice(0, 16).replace("T", " ")} {lead.sent_via === "whatsapp" ? "via WhatsApp 💬" : `to ${lead.email}`}
-          {lead.follow_up_sent_at && <span className="text-fuchsia-600"> · 🔁 Follow-up sent {lead.follow_up_sent_at.slice(0, 10)}</span>}</p>}
+          {lead.follow_up_sent_at && <span className="text-fuchsia-600"> · 🔁 Follow-up sent {lead.follow_up_sent_at.slice(0, 10)}</span>}
+          {lead.slot_picker_sent_at && <span className="text-amber-600"> · 📅 Time-picker sent {lead.slot_picker_sent_at.slice(0, 10)}</span>}</p>}
           <div className="flex flex-wrap gap-2">
+            {lead.email && (
+              <button onClick={sendSlotPicker} disabled={!!busy} data-testid={`lead-slot-picker-${lead.id}`}
+                className="text-xs px-4 py-2 rounded-lg bg-amber-500 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
+                {busy === "slot-picker" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "📅"} Send time-picker
+              </button>
+            )}
             {["drafted", "no_email", "researched", "rejected"].includes(lead.status) && (
               <button onClick={approve} disabled={!!busy || !draft.email} data-testid={`lead-approve-${lead.id}`}
                 className="text-xs px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
@@ -185,6 +198,7 @@ export function MiraLeadAgent() {
     { key: "recent", label: "🕐 Recent search", test: l => runs[0] && l.run_id === runs[0].id },
     { key: "hot", label: "🔥 Hot leads", test: l => isHot(l) },
     { key: "ready", label: "✉️ Ready to send", test: l => ["drafted", "researched"].includes(l.status) && !!l.email },
+    { key: "opened", label: "👀 Opened", test: l => !!l.opened_at },
     { key: "no_email", label: "🚫 No email", test: l => l.status === "no_email" || !l.email },
     { key: "sent", label: "✅ Already sent", test: l => ["sent", "demo", "customer"].includes(l.status) },
   ];

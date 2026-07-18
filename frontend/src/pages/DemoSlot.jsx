@@ -28,7 +28,7 @@ export default function DemoSlot() {
     if (!date || !time) return;
     setBusy(true);
     try {
-      const r = await axios.post(`${API}/public/demo-slot/${iid}`, { date, time, phone });
+      const r = await axios.post(`${API}/public/demo-slot/${iid}`, { date, time, phone, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "" });
       setDone({ slot: r.data.slot, gcal: r.data.gcal });
     } catch (e) {
       setErr(e.response?.data?.detail || "Couldn't book the slot — please try again.");

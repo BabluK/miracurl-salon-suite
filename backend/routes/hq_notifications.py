@@ -90,17 +90,20 @@ async def _demo_items(since: str) -> list:
         salon = f" ({r['salon_name']})" if r.get("salon_name") else ""
         if r.get("demo_requested_at"):
             slot = r.get("preferred_slot") or {}
-            when = f"Booked {slot['date']} at {slot['time']} IST — add it to your calendar!" if slot.get("date") else \
+            local = f" · {slot['local_time']} their time" if slot.get("local_time") else ""
+            when = f"Booked {slot['date']} at {slot['time']} IST{local} — add it to your calendar!" if slot.get("date") else \
                 f"{r.get('email')} clicked 'Request my demo time' — call them!"
             items.append({"id": f"demoreq-{r['id']}", "type": "demo", "icon": "🔥",
                           "title": f"Demo requested — {who}{salon}",
                           "body": when,
+                          "invite_id": r["id"], "email": r.get("email"),
                           "at": r["demo_requested_at"], "tab": "lead-email",
                           "unread": not r.get("seen_by_hq_req", True)})
         elif r.get("opened_at"):
             items.append({"id": f"demoopen-{r['id']}", "type": "demo", "icon": "👀",
                           "title": f"Demo invite opened — {who}{salon}",
                           "body": f"{r.get('email')} opened your invitation email",
+                          "invite_id": r["id"], "email": r.get("email"),
                           "at": r["opened_at"], "tab": "lead-email",
                           "unread": not r.get("seen_by_hq_open", True)})
     return items

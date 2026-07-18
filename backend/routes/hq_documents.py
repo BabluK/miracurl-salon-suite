@@ -288,6 +288,13 @@ def _all_doc_attachments() -> list:
                       "content": base64.b64encode(build_brochure_pdf()).decode()})
     except Exception:
         pass
+    try:
+        from routes.lead_gen import _screens_tour_attachment
+        tour = _screens_tour_attachment()
+        if tour:
+            items.append(tour)
+    except Exception:
+        pass
     return items
 
 
@@ -722,6 +729,41 @@ async def run_demo_followups() -> dict:
     return {"sent": sent, "failed": failed, "converted_skipped": skipped}
 
 
+async def _send_slot_picker_email(inv: dict, base: str) -> dict:
+    link = f"{base}/demo-slot/{inv['id']}"
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    name = html_lib.escape(inv.get("name") or "there")
+    salon = html_lib.escape(inv.get("salon_name") or "your salon")
+    html = f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fffdf8;border:1px solid #eee9dc;border-radius:14px;padding:34px">
+      <div style="font-size:11px;letter-spacing:3px;color:#9a8f6d;font-weight:bold">MIRACURL SUITE ✦ DEMO</div>
+      <h2 style="color:#1d1d24;margin:14px 0 8px">Pick a time that suits you, {name} ✦</h2>
+      <p style="font-size:14px;color:#3a3a40;line-height:1.8">We'd love to show you how Miracurl runs bookings, billing and AI marketing for {salon} — a quick 20-minute walkthrough, no commitment.</p>
+      <p style="text-align:center;margin:26px 0">
+        <a href="{link}" style="display:inline-block;background:#c9a35c;color:#191921;font-size:14px;font-weight:bold;text-decoration:none;padding:14px 38px;border-radius:999px">Choose my demo time ✦</a>
+      </p>
+      <p style="font-size:12px;color:#9a948a">Times are shown in your local timezone on the booking page. Prefer email? Just reply with a day &amp; time — {hq_email}</p>
+      <img src="{base}/api/public/demo-track/{inv['id']}/open.png" width="1" height="1" style="display:block" alt="" />
+    </div>"""
+    status = await _send_email([inv["email"]], f"Pick your Miracurl demo time, {inv.get('name') or 'friend'} ✦",
+                               html, reply_to=hq_email)
+    if status.get("sent"):
+        await _raw_db.demo_invites.update_one(
+            {"id": inv["id"]}, {"$set": {"slot_picker_sent_at": datetime.now(timezone.utc).isoformat()}})
+    return {"sent": status.get("sent", False), "error": status.get("error"), "link": link}
+
+
+@router.post("/super-admin/demo-campaign/{iid}/send-slot-picker")
+async def send_slot_picker(iid: str, request: Request, user=Depends(require_super_admin)):
+    """Short 'pick your demo time' email with the personalized slot-picker link."""
+    inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Invite not found")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    base = inv.get("track_base") or (f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "").rstrip("/"))
+    return await _send_slot_picker_email(inv, base)
+
+
 _PIXEL_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")
 
@@ -979,6 +1021,19 @@ class DemoSlotIn(BaseModel):
     date: str = Field(..., max_length=10)
     time: str = Field(..., max_length=5)
     phone: str = Field(default="", max_length=20)
+    tz: str = Field(default="", max_length=50)
+
+
+def _slot_local_label(date_str: str, time_str: str, tz_name: str) -> str:
+    """The IST slot expressed in the guest's own timezone, e.g. '9:30 AM EDT'."""
+    try:
+        from zoneinfo import ZoneInfo
+        ist = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+        loc = ist.astimezone(ZoneInfo(tz_name))
+        day = " (+1 day)" if loc.date() > ist.date() else (" (-1 day)" if loc.date() < ist.date() else "")
+        return loc.strftime("%I:%M %p %Z").lstrip("0") + day
+    except Exception:
+        return ""
 
 
 @router.get("/public/demo-slot/{iid}")
@@ -1041,6 +1096,11 @@ async def demo_slot_book(iid: str, body: DemoSlotIn, request: Request):
 
     now_iso = datetime.now(timezone.utc).isoformat()
     slot = {"date": body.date, "time": body.time, "phone": body.phone.strip(), "booked_at": now_iso}
+    if body.tz and body.tz != "Asia/Kolkata":
+        local = _slot_local_label(body.date, body.time, body.tz)
+        if local:
+            slot["tz"] = body.tz
+            slot["local_time"] = local
     await _raw_db.demo_invites.update_one(
         {"id": iid},
         {"$set": {"preferred_slot": slot, "demo_requested_at": inv.get("demo_requested_at") or now_iso,
@@ -1062,6 +1122,7 @@ class PublicDemoIn(BaseModel):
     phone: str = Field("", max_length=20)
     date: str = Field(..., max_length=10)
     time: str = Field(..., max_length=5)
+    tz: str = Field(default="", max_length=50)
 
 
 @router.get("/public/demo/slots")
@@ -1083,6 +1144,11 @@ async def public_demo_book(body: PublicDemoIn, request: Request):
 
     now_iso = datetime.now(timezone.utc).isoformat()
     slot = {"date": body.date, "time": body.time, "phone": body.phone.strip(), "booked_at": now_iso}
+    if body.tz and body.tz != "Asia/Kolkata":
+        local = _slot_local_label(body.date, body.time, body.tz)
+        if local:
+            slot["tz"] = body.tz
+            slot["local_time"] = local
     existing = await _raw_db.demo_invites.find_one({"email": email}, {"_id": 0, "id": 1})
     if existing:
         await _raw_db.demo_invites.update_one(

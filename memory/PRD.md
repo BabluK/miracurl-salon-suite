@@ -541,3 +541,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - subscriptions.py PLAN_CATALOG: 10 new USD plans — intl_{starter,pro,premium}_{monthly,half,annual} (79/399/699, 149/799/1399, 249/1299/2399) + intl_enterprise_monthly 499, all with currency:USD & tier fields. /public/plans returns currency+tier. Prices editable via existing super-admin overrides.
 - Landing.jsx pricing: 🇮🇳 India·₹ / 🌍 International·$ toggle. USD view: 3 tier cards (monthly + 6mo/1yr with save badges, per-tier features, Professional = Most Popular) + Enterprise $499 strip w/ mailto + USD footnote. data-testids: pricing-region-{in,intl}, plan-intl_*, plan-intl-enterprise.
 - Verified: /public/plans returns 10 USD plans; screenshot of intl pricing section. Needs Deploy for production.
+
+## 2026-07-18 — Demo time-picker + timezone UI verified (screenshot QA)
+- Verified "📅 Send time-picker" button in MiraLeadAgent.jsx (expanded lead card, amber button, testid lead-slot-picker-{id}) and DemoCampaign.jsx invite rows (pill button, testid demo-invite-slot-picker-{email}) — both render correctly as Super Admin, no layout breaks.
+- Preferred slot badge shows "📅 date time IST · local_time theirs" once booked; timezone conversion handled server-side (preferred_slot.local_time).
+- Backend endpoints confirmed: POST /super-admin/mira-leads/{lid}/send-slot-picker (lead_gen.py:464), POST /super-admin/demo-campaign/{iid}/send-slot-picker (hq_documents.py:756).
+- User will test actual email send + slot booking themselves. Needs Deploy for production.

@@ -6,12 +6,13 @@ import os
 import re
 import uuid
 import asyncio
+import base64
 import logging
 from datetime import datetime, timezone, timedelta
 
 import httpx
 from bs4 import BeautifulSoup
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -378,6 +379,8 @@ async def edit_lead(lid: str, body: LeadEditIn, user=Depends(require_super_admin
 
 def _outreach_email_html(lead: dict, plans: dict) -> str:
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    pixel = (f'<img src="{base}/api/public/lead-track/{lead.get("id", "")}/open.png" '
+             'width="1" height="1" style="display:block;width:1px;height:1px" alt="" />') if lead.get("id") else ""
     paras = "".join(f'<p style="font-size:14px;color:#3a3a40;line-height:1.8;margin:0 0 15px">{p}</p>'
                     for p in (lead.get("email_body") or "").split("\n") if p.strip())
     return f"""
@@ -396,7 +399,35 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
           <div style="color:#8a8a92;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:3px">Mira — your AI salon partner</div>
         </div>
       </div>
+      {pixel}
     </div>"""
+
+
+_SCREENS_TOUR_PDF = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "miracurl-screens-tour.pdf")
+
+
+def _screens_tour_attachment() -> dict | None:
+    try:
+        with open(_SCREENS_TOUR_PDF, "rb") as f:
+            return {"filename": "miracurl-screens-tour.pdf",
+                    "content": base64.b64encode(f.read()).decode()}
+    except Exception:
+        return None
+
+
+@router.get("/public/lead-track/{lid}/open.png")
+async def lead_track_open(lid: str, request: Request):
+    from security import public_rate_limit
+    from routes.hq_documents import _PIXEL_PNG
+    public_rate_limit(request, "lead-open", limit=60, window_sec=600)
+    await _raw_db.mira_leads.update_one(
+        {"id": lid, "opened_at": None},
+        {"$set": {"opened_at": _now()}})
+    await _raw_db.mira_leads.update_one(
+        {"id": lid, "opened_at": {"$exists": False}},
+        {"$set": {"opened_at": _now()}})
+    return Response(content=_PIXEL_PNG, media_type="image/png",
+                    headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
 
 
 @router.post("/super-admin/mira-leads/{lid}/approve")
@@ -411,9 +442,12 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
     from email_service import _send_email
     from routes.hq_documents import suite_overview_attachment
     html = _outreach_email_html(lead, await _live_plans())
-    attachment = await asyncio.to_thread(suite_overview_attachment)
+    attachments = [await asyncio.to_thread(suite_overview_attachment)]
+    tour = _screens_tour_attachment()
+    if tour:
+        attachments.append(tour)
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
-                               html, attachments=[attachment], book_url="https://miracurl-suite.com/demo")
+                               html, attachments=attachments, book_url="https://miracurl-suite.com/demo")
     if not result.get("sent"):
         raise HTTPException(502, f"Send failed: {result.get('error')}")
     await _raw_db.mira_leads.update_one(
@@ -425,6 +459,33 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
 async def reject_lead(lid: str, user=Depends(require_super_admin)):
     await _raw_db.mira_leads.update_one({"id": lid}, {"$set": {"status": "rejected"}})
     return {"ok": True}
+
+
+@router.post("/super-admin/mira-leads/{lid}/send-slot-picker")
+async def lead_send_slot_picker(lid: str, request: Request, user=Depends(require_super_admin)):
+    """Send a 'pick your demo time' email to a lead (creates their demo invite if needed)."""
+    lead = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+    if not lead.get("email"):
+        raise HTTPException(400, "No email address on this lead — add one first.")
+    from routes.hq_documents import _send_slot_picker_email
+    em = lead["email"].strip().lower()
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    base = f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    inv = await _raw_db.demo_invites.find_one({"email": em}, {"_id": 0})
+    if not inv:
+        inv = {"id": str(uuid.uuid4()), "email": em, "name": lead.get("owner_name") or lead.get("name") or "",
+               "salon_name": lead.get("name") or "", "preferred_slot": None, "status": None,
+               "first_sent_at": _now(), "reminder_sent_at": None, "responded": False,
+               "opened_at": None, "demo_requested_at": None, "clicked_at": None,
+               "track_base": base, "seen_by_hq_open": True, "seen_by_hq_req": True}
+        await _raw_db.demo_invites.insert_one({**inv})
+        inv.pop("_id", None)
+    result = await _send_slot_picker_email(inv, inv.get("track_base") or base)
+    if result.get("sent"):
+        await _raw_db.mira_leads.update_one({"id": lid}, {"$set": {"slot_picker_sent_at": _now()}})
+    return result
 
 
 @router.get("/public/brochure.pdf")
@@ -529,9 +590,14 @@ async def run_lead_followups() -> dict:
     plans = await _live_plans() if due else {}
     for lead in due:
         subject, body = _followup_email(lead, plans)
-        html = "".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
+        base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+        html = ("".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
+                + f'<img src="{base}/api/public/lead-track/{lead["id"]}/open.png" width="1" height="1" style="display:block" alt="" />')
+        tour = _screens_tour_attachment()
         try:
-            result = await _send_email([lead["email"]], subject, html, book_url="https://miracurl-suite.com/demo")
+            result = await _send_email([lead["email"]], subject, html,
+                                       attachments=[tour] if tour else None,
+                                       book_url="https://miracurl-suite.com/demo")
             if result.get("sent"):
                 await _raw_db.mira_leads.update_one(
                     {"id": lead["id"]}, {"$set": {"follow_up_sent_at": _now()}})

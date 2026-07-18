@@ -26,7 +26,7 @@ export default function PublicDemo() {
     setBusy(true);
     setErr("");
     try {
-      const r = await axios.post(`${API}/public/demo/book`, { ...form, date, time });
+      const r = await axios.post(`${API}/public/demo/book`, { ...form, date, time, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "" });
       setDone({ slot: r.data.slot, gcal: r.data.gcal });
     } catch (e) {
       setErr(e.response?.data?.detail || "Couldn't book the slot — please try again.");

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { BellRing } from "lucide-react";
+import api from "@/lib/api";
+import { toast } from "sonner";
 
 const TYPES = [
   ["all", "All"], ["hiring", "💼 Hiring"], ["inbox", "📩 Messages"],
@@ -8,7 +10,17 @@ const TYPES = [
 
 export function NotificationsPanel({ feed, onGoTab }) {
   const [filter, setFilter] = useState("all");
+  const [sentIds, setSentIds] = useState({});
   const items = (feed?.items || []).filter(i => filter === "all" || i.type === filter);
+
+  const sendPicker = async (e, i) => {
+    e.stopPropagation();
+    try {
+      await api.post(`/super-admin/demo-campaign/${i.invite_id}/send-slot-picker`);
+      setSentIds(s => ({ ...s, [i.id]: true }));
+      toast.success(`Time-picker sent to ${i.email} ✦`);
+    } catch (err) { toast.error(err.response?.data?.detail || "Couldn't send"); }
+  };
   return (
     <div className="space-y-5" data-testid="notifications-panel">
       <div>
@@ -36,6 +48,12 @@ export function NotificationsPanel({ feed, onGoTab }) {
             <span className="min-w-0 flex-1">
               <span className={`block text-sm ${i.unread ? "font-semibold text-slate-900" : "text-slate-700"}`}>{i.title}</span>
               {i.body && <span className="block text-xs text-slate-500 truncate">{i.body}</span>}
+              {i.invite_id && i.email && (
+                <span onClick={(e) => sendPicker(e, i)} data-testid={`notif-slot-picker-${i.id}`}
+                  className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition ${sentIds[i.id] ? "bg-emerald-100 text-emerald-600" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
+                  📅 {sentIds[i.id] ? "Time-picker sent ✓" : "Send time-picker email"}
+                </span>
+              )}
             </span>
             <span className="text-[10px] text-slate-400 whitespace-nowrap mt-1">
               {i.at ? new Date(i.at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
