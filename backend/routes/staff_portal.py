@@ -887,6 +887,99 @@ async def staff_upload_photo(file: UploadFile = File(...), s=Depends(_current_st
 
 LATE_ALERT_GRACE_MIN = 10
 
+_PUBLIC_BASE = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+
+
+def _abs_media(u):
+    if not u:
+        return None
+    return u if u.startswith("http") else f"{_PUBLIC_BASE}{u}"
+
+
+def _staff_avatar_html(name, image_url, size: int = 52) -> str:
+    url = _abs_media(image_url)
+    if url:
+        return (f'<img src="{url}" width="{size}" height="{size}" alt="{html_lib.escape(name or "")}" '
+                f'style="display:block;width:{size}px;height:{size}px;border-radius:50%;object-fit:cover;'
+                f'border:2px solid #e8c37f" />')
+    initial = html_lib.escape((name or "?").strip()[:1].upper())
+    return (f'<div style="width:{size}px;height:{size}px;border-radius:50%;background:#1c1c22;color:#e8c37f;'
+            f'font-family:Georgia,serif;font-size:{size // 2}px;line-height:{size}px;text-align:center;'
+            f'border:2px solid #e8c37f">{initial}</div>')
+
+
+def _attendance_email_shell(t: dict, inner_html: str) -> str:
+    """Branded shell: salon hero banner + logo band + white body card (email-client-safe inline styles)."""
+    salon = html_lib.escape(t.get("name") or "Your Salon")
+    logo = _abs_media(t.get("logo_url"))
+    logo_html = (f'<img src="{logo}" width="42" height="42" alt="" style="display:block;width:42px;height:42px;'
+                 f'border-radius:50%;object-fit:cover;background:#fff;border:2px solid #e8c37f" />'
+                 if logo else
+                 f'<div style="width:42px;height:42px;border-radius:50%;background:#e8c37f;color:#1c1c22;'
+                 f'font-family:Georgia,serif;font-size:20px;line-height:42px;text-align:center;font-weight:bold">'
+                 f'{salon[:1]}</div>')
+    return f"""
+    <div style="max-width:560px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;border:1px solid #ece7db;border-radius:18px;overflow:hidden;background:#ffffff">
+      <img src="{_PUBLIC_BASE}/assets/email-attendance-hero.jpg" width="560" alt=""
+        style="display:block;width:100%;max-height:170px;object-fit:cover" />
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#1c1c22">
+        <tr>
+          <td style="padding:12px 20px;width:52px">{logo_html}</td>
+          <td style="padding:12px 8px 12px 0">
+            <p style="margin:0;font-family:Georgia,serif;font-size:17px;color:#e8c37f;letter-spacing:0.5px">{salon}</p>
+            <p style="margin:2px 0 0;font-size:10.5px;color:#9a9aa2;letter-spacing:2px;text-transform:uppercase">Attendance · Team Update</p>
+          </td>
+        </tr>
+      </table>
+      <div style="padding:26px 26px 22px">{inner_html}</div>
+    </div>"""
+
+
+def _late_reminder_html(t: dict, s: dict, mins: int) -> str:
+    name = html_lib.escape(s.get("name") or "")
+    shift = html_lib.escape(s.get("shift_start") or "10:00")
+    inner = f"""
+      <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="width:64px;vertical-align:top">{_staff_avatar_html(s.get("name"), s.get("image_url"), 52)}</td>
+          <td style="vertical-align:middle;padding-left:4px">
+            <h2 style="margin:0;font-size:19px;color:#1c1c22">Please hurry, {name} — you're getting late ⏰</h2>
+          </td>
+        </tr>
+      </table>
+      <p style="color:#444;font-size:14px;line-height:1.65;margin:16px 0 0">
+        Your shift at <b>{html_lib.escape(t.get("name") or "")}</b> started at <b>{shift}</b> and you haven't checked in yet.</p>
+      <div style="margin:14px 0 0">
+        <span style="display:inline-block;background:#fdeaea;color:#c0392b;border:1px solid #f5c6c6;border-radius:999px;padding:7px 16px;font-size:13px;font-weight:bold">⏱ {mins} minutes late</span>
+      </div>
+      <p style="color:#444;font-size:14px;line-height:1.65;margin:16px 0 0">
+        Please check in from your Staff Portal the moment you arrive.</p>
+      <p style="color:#999;font-size:12px;margin:18px 0 0;border-top:1px solid #f0ece2;padding-top:14px">
+        Checking in on time keeps your attendance clean and avoids late fines.</p>"""
+    return _attendance_email_shell(t, inner)
+
+
+def _late_digest_row(name, image_url, status_html: str) -> str:
+    return f"""
+      <tr>
+        <td style="width:56px;padding:7px 0">{_staff_avatar_html(name, image_url, 44)}</td>
+        <td style="padding:7px 0 7px 6px;border-bottom:1px solid #f6f2e9">
+          <p style="margin:0;font-size:14px;color:#1c1c22"><b>{html_lib.escape(name or "")}</b></p>
+          <p style="margin:3px 0 0">{status_html}</p>
+        </td>
+      </tr>"""
+
+
+def _late_digest_html(t: dict, rows_html: str, today_label: str) -> str:
+    inner = f"""
+      <h2 style="margin:0;font-size:19px;color:#1c1c22">Today's late arrivals</h2>
+      <p style="margin:4px 0 0;color:#999;font-size:12px">{today_label}</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px">{rows_html}</table>
+      <p style="color:#999;font-size:12px;margin:18px 0 0;border-top:1px solid #f0ece2;padding-top:14px">
+        Each of them already received an automatic "please hurry" email 10 minutes after their shift start.</p>"""
+    return _attendance_email_shell(t, inner)
+
+
 
 @router.get("/staff/me/late-status")
 async def staff_late_status(s=Depends(_current_staff), t=Depends(current_tenant)):
@@ -910,11 +1003,11 @@ async def _run_late_alerts() -> dict:
     emails_sent = summaries = 0
     tenants = await _raw_db.tenants.find(
         {"status": {"$in": ["active", "trial"]}},
-        {"_id": 0, "id": 1, "name": 1, "owner_email": 1, "salon_email": 1}).to_list(500)
+        {"_id": 0, "id": 1, "name": 1, "owner_email": 1, "salon_email": 1, "logo_url": 1}).to_list(500)
     for t in tenants:
         staff_list = await _raw_db.staff.find(
             {"tenant_id": t["id"], "status": {"$nin": ["inactive", "archived"]}},
-            {"_id": 0, "id": 1, "name": 1, "email": 1, "personal_email": 1, "shift_start": 1}).to_list(300)
+            {"_id": 0, "id": 1, "name": 1, "email": 1, "personal_email": 1, "shift_start": 1, "image_url": 1}).to_list(300)
         for s in staff_list:
             h, m = _parse_hhmm(s.get("shift_start"), "10:00")
             mins = int((ist - ist.replace(hour=h, minute=m, second=0, microsecond=0)).total_seconds() // 60)
@@ -933,13 +1026,8 @@ async def _run_late_alerts() -> dict:
                     await _send_email(
                         [s.get("personal_email") or s["email"]],
                         f"⏰ You're running late — please check in at {t.get('name')}",
-                        f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
-                        f"<h2 style='margin:0 0 8px'>Please hurry — you're getting late ⏰</h2>"
-                        f"<p style='color:#444'>Hi {s.get('name', '')}, your shift at <b>{t.get('name')}</b> "
-                        f"started at <b>{s.get('shift_start') or '10:00'}</b> and you haven't checked in yet "
-                        f"({mins} min late). Please check in from your Staff Portal as soon as you arrive.</p>"
-                        f"<p style='color:#888;font-size:12px'>Checking in on time keeps your attendance clean "
-                        f"and avoids late fines.</p></div>")
+                        _late_reminder_html(t, s, mins),
+                        book_url=f"{_PUBLIC_BASE}/staff-portal", book_label="Check in now ✦")
                     emails_sent += 1
                 except Exception as e:
                     logging.warning(f"late alert email failed for {s.get('name')}: {e}")
@@ -947,22 +1035,27 @@ async def _run_late_alerts() -> dict:
             alerts = await _raw_db.late_alerts.find({"tenant_id": t["id"], "date": today}, {"_id": 0}).to_list(100)
             flag = await _raw_db.system_flags.find_one({"key": f"late_summary:{t['id']}"})
             if alerts and (not flag or flag.get("value") != today):
+                staff_imgs = {st["id"]: st.get("image_url") for st in staff_list}
                 rows = ""
                 for a in alerts:
                     att = await _raw_db.attendance.find_one(
                         {"staff_id": a["staff_id"], "date": today}, {"_id": 0, "check_in_at": 1, "late_minutes": 1})
-                    status = (f"checked in {att.get('late_minutes', 0)} min late"
-                              if att and att.get("check_in_at") else "not checked in yet ⚠️")
-                    rows += f"<li><b>{a.get('staff_name')}</b> — {status}</li>"
+                    if att and att.get("check_in_at"):
+                        status = (f'<span style="display:inline-block;background:#fef6e2;color:#a8730a;border:1px solid #f3dfae;'
+                                  f'border-radius:999px;padding:3px 12px;font-size:11.5px;font-weight:bold">'
+                                  f'🕐 Checked in {att.get("late_minutes", 0)} min late</span>')
+                    else:
+                        status = ('<span style="display:inline-block;background:#fdeaea;color:#c0392b;border:1px solid #f5c6c6;'
+                                  'border-radius:999px;padding:3px 12px;font-size:11.5px;font-weight:bold">'
+                                  '⚠️ Not checked in yet</span>')
+                    rows += _late_digest_row(a.get("staff_name"), staff_imgs.get(a["staff_id"]), status)
                 recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
                 if recipients:
                     try:
                         await _send_email(
                             recipients, f"🌤️ Late arrivals today at {t.get('name')}",
-                            f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
-                            f"<h2 style='margin:0 0 8px'>Today's late arrivals</h2><ul style='color:#444'>{rows}</ul>"
-                            f"<p style='color:#888;font-size:12px'>Each of them already received an automatic "
-                            f"'please hurry' email 10 minutes after their shift start.</p></div>")
+                            _late_digest_html(t, rows, ist.strftime("%A, %d %B %Y")),
+                            book_url=f"{_PUBLIC_BASE}/attendance", book_label="View Attendance ✦")
                         summaries += 1
                     except Exception as e:
                         logging.warning(f"late summary email failed for {t.get('name')}: {e}")

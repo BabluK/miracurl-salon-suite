@@ -33,19 +33,20 @@ def marketing_email_html(salon: str, body_text: str, cta_url: str, cta_label: st
     </div>"""
 
 
-def _brand_footer(book_url: str | None = None) -> str:
-    """Branded footer appended to every outgoing email (Powered by Miracurl + Book Now)."""
+def _brand_footer(book_url: str | None = None, book_label: str = "Book Now ✦") -> str:
+    """Branded footer appended to every outgoing email (Powered by Miracurl + CTA)."""
     url = book_url or "https://miracurl-suite.com"
     return f"""
     <div style="max-width:560px;margin:18px auto 0;text-align:center;font-family:Georgia,serif">
-      <a href="{url}" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:11px 28px;border-radius:999px;font-size:13px;letter-spacing:0.6px">Book Now ✦</a>
+      <a href="{url}" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:11px 28px;border-radius:999px;font-size:13px;letter-spacing:0.6px">{book_label}</a>
       <p style="font-size:11px;color:#9a9aa2;margin:12px 0 0;letter-spacing:0.4px">
         Powered by <a href="https://miracurl-suite.com" style="color:#b08d3f;text-decoration:none;font-weight:bold">Miracurl</a> · Salon Management Suite</p>
     </div>"""
 
 
 async def _send_email(to: list, subject: str, html: str, attachments: list | None = None,
-                      reply_to: str | None = None, book_url: str | None = None) -> dict:
+                      reply_to: str | None = None, book_url: str | None = None,
+                      book_label: str = "Book Now ✦") -> dict:
     key = os.environ.get("RESEND_API_KEY")
     if not key:
         return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
@@ -55,7 +56,7 @@ async def _send_email(to: list, subject: str, html: str, attachments: list | Non
     resend.api_key = key
     params = {
         "from": f"Miracurl <{sender}>",
-        "to": to, "subject": subject, "html": html + _brand_footer(book_url),
+        "to": to, "subject": subject, "html": html + _brand_footer(book_url, book_label),
     }
     if reply_to:
         params["reply_to"] = [reply_to]
