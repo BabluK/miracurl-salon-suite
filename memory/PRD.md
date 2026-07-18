@@ -547,3 +547,10 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Preferred slot badge shows "📅 date time IST · local_time theirs" once booked; timezone conversion handled server-side (preferred_slot.local_time).
 - Backend endpoints confirmed: POST /super-admin/mira-leads/{lid}/send-slot-picker (lead_gen.py:464), POST /super-admin/demo-campaign/{iid}/send-slot-picker (hq_documents.py:756).
 - User will test actual email send + slot booking themselves. Needs Deploy for production.
+
+## 2026-07-18 — Lead follow-up command bar + build tag fix (user request)
+- User: (1) implement Inquiries-style rich toolbar for "Already sent" leads in Mira Lead Agent, remind ALL sent leads (option b); (2) deployment tag stuck at 2026-07-16.
+- Build tag ROOT CAUSE: release_notes.py BUILD never bumped since 07-16. Fixed: BUILD="2026-07-18.1", added 2026-07-18 + 2026-07-17 RELEASES entries covering all changes since last build. /super/version now returns MIRA-DEPLOYED-2026-07-18. User must click Deploy to push to prod.
+- NEW lead_gen.py endpoints: POST /super-admin/mira-leads/{lid}/remind (follow-up email + tour PDF + tracking pixel, 5-min rate guard, sets last_reminder_at/$inc reminder_count), /resend (original pitch + brochure+tour PDFs, pdf_resent_at guard), /meet-invite (reuses sales._build_ics, .ics attachment, sets status=demo + meeting{at_ist,duration_min,meet_link}). StageIn pattern now allows "sent" (move back to Contacted).
+- MiraLeadAgent.jsx: for sent/demo/customer leads — status dropdown (🟡 Contacted/🟣 Meeting scheduled/🟢 Customer), Remind, Resend PDF, Meet invite (inline violet form: date/time/link → send), 📞 Call (tel:) + 💬 WhatsApp (skips whatsapp-sent status overwrite for already-sent), badges line (🔔 Reminded ×n · 📩 PDF re-sent · 🎥 Meet at IST). Replaced old "Mark Demo booked"/"Became Customer" buttons with dropdown. testids: lead-status-select/remind/resend-pdf/meet-invite/call/whatsapp-followup/meet-form/meet-send-{id}.
+- Verified: curl (remind/resend/meet-invite all ok on delivered@resend.dev lead, version=2026-07-18.1) + screenshot (toolbar, badges, meet form all render). Needs Deploy for production.

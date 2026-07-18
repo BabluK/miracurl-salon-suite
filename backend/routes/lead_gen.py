@@ -546,7 +546,7 @@ async def whatsapp_mark_sent(lid: str, user=Depends(require_super_admin)):
 
 
 class StageIn(BaseModel):
-    stage: str = Field(..., pattern=r"^(demo|customer)$")
+    stage: str = Field(..., pattern=r"^(sent|demo|customer)$")
 
 
 @router.post("/super-admin/mira-leads/{lid}/stage")
@@ -614,3 +614,108 @@ async def run_lead_followups() -> dict:
 @router.post("/super-admin/mira-leads/followups/run")
 async def trigger_followups(user=Depends(require_super_admin)):
     return await run_lead_followups()
+
+
+async def _lead_with_email(lid: str) -> dict:
+    lead = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+    if not lead.get("email"):
+        raise HTTPException(400, "No email address on this lead — add one first.")
+    return lead
+
+
+def _rate_guard(lead: dict, field: str, what: str):
+    last = lead.get(field)
+    if last and (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds() < 300:
+        raise HTTPException(429, f"{what} sent moments ago — wait a few minutes before sending again")
+
+
+@router.post("/super-admin/mira-leads/{lid}/remind")
+async def lead_remind(lid: str, user=Depends(require_super_admin)):
+    """Manual gentle reminder to an already-sent lead — works whether or not they opened."""
+    from email_service import _send_email
+    lead = await _lead_with_email(lid)
+    _rate_guard(lead, "last_reminder_at", "Reminder")
+    subject, body = _followup_email(lead, await _live_plans())
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    html = ("".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
+            + f'<img src="{base}/api/public/lead-track/{lid}/open.png" width="1" height="1" style="display:block" alt="" />')
+    tour = _screens_tour_attachment()
+    result = await _send_email([lead["email"]], subject, html,
+                               attachments=[tour] if tour else None,
+                               book_url="https://miracurl-suite.com/demo")
+    if not result.get("sent"):
+        raise HTTPException(502, f"Send failed: {result.get('error')}")
+    await _raw_db.mira_leads.update_one({"id": lid}, {
+        "$set": {"last_reminder_at": _now(),
+                 "follow_up_sent_at": lead.get("follow_up_sent_at") or _now()},
+        "$inc": {"reminder_count": 1}})
+    return {"ok": True, "sent_to": lead["email"]}
+
+
+@router.post("/super-admin/mira-leads/{lid}/resend")
+async def lead_resend_pitch(lid: str, user=Depends(require_super_admin)):
+    """Re-send the original pitch email with the brochure + screens-tour PDFs."""
+    from email_service import _send_email
+    from routes.hq_documents import suite_overview_attachment
+    lead = await _lead_with_email(lid)
+    _rate_guard(lead, "pdf_resent_at", "PDF")
+    html = _outreach_email_html(lead, await _live_plans())
+    attachments = [await asyncio.to_thread(suite_overview_attachment)]
+    tour = _screens_tour_attachment()
+    if tour:
+        attachments.append(tour)
+    result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
+                               html, attachments=attachments, book_url="https://miracurl-suite.com/demo")
+    if not result.get("sent"):
+        raise HTTPException(502, f"Send failed: {result.get('error')}")
+    await _raw_db.mira_leads.update_one({"id": lid}, {"$set": {"pdf_resent_at": _now()}})
+    return {"ok": True, "sent_to": lead["email"]}
+
+
+class LeadMeetInviteIn(BaseModel):
+    date: str = Field(min_length=10, max_length=10)  # YYYY-MM-DD
+    time: str = Field(min_length=5, max_length=5)    # HH:MM (IST)
+    duration_min: int = Field(default=30, ge=15, le=120)
+    meet_link: str = Field(default="", max_length=200)
+
+
+@router.post("/super-admin/mira-leads/{lid}/meet-invite")
+async def lead_meet_invite(lid: str, body: LeadMeetInviteIn, user=Depends(require_super_admin)):
+    """Google Meet invite email with .ics calendar attachment — mirrors the Inquiries flow."""
+    from email_service import _send_email, marketing_email_html
+    from routes.sales import _build_ics
+    lead = await _lead_with_email(lid)
+    try:
+        ist_dt = datetime.strptime(f"{body.date} {body.time}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        raise HTTPException(400, "Invalid date/time")
+    start_utc = (ist_dt - timedelta(hours=5, minutes=30)).replace(tzinfo=timezone.utc)
+    end_utc = start_utc + timedelta(minutes=body.duration_min)
+    first = (lead.get("owner_name") or lead.get("name") or "there").split()[0].title()
+    hq_email = os.environ.get("HQ_EMAIL", "hello@miracurl.com")
+    pretty = ist_dt.strftime("%A, %d %B %Y at %I:%M %p IST")
+    link_line = f"\nJoin here: {body.meet_link}" if body.meet_link else ""
+    ics = _build_ics(lid, start_utc, end_utc, f"Miracurl Salon Suite demo — {lead.get('name', '')}",
+                     f"Google Meet demo of Miracurl Salon Suite.{link_line}".replace("\n", "\\n"),
+                     hq_email, lead["email"])
+    body_text = (
+        f"Dear {first},\n"
+        f"Your Miracurl Salon Suite demo is confirmed for {pretty} ({body.duration_min} minutes).\n"
+        + (f"Google Meet link: {body.meet_link}\n" if body.meet_link else "The meeting link is in the attached calendar invite.\n")
+        + "The invite is attached — open it to add the meeting to your calendar automatically.\n"
+        "See you there!\nWarm regards,\nMiracurl Family")
+    html = marketing_email_html("Miracurl Salon Suite", body_text,
+                                body.meet_link or os.environ.get("APP_PUBLIC_URL", ""),
+                                cta_label="Join the meeting ✦" if body.meet_link else "Explore Miracurl ✦")
+    res = await _send_email([lead["email"]], f"Your Miracurl demo is confirmed — {pretty}",
+                            html, attachments=[{"filename": "miracurl-demo.ics",
+                                                "content": base64.b64encode(ics.encode()).decode()}])
+    if not res.get("sent"):
+        raise HTTPException(400, f"Email failed: {res.get('error')}")
+    await _raw_db.mira_leads.update_one({"id": lid}, {"$set": {
+        "status": "demo",
+        "meeting": {"at_ist": f"{body.date} {body.time}", "duration_min": body.duration_min,
+                    "meet_link": body.meet_link, "sent_at": _now()}}})
+    return {"ok": True, "when": pretty}

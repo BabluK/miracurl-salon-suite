@@ -2,10 +2,37 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-16.1"
-BUILD_TIME = "16 Jul 2026, 12:30 AM IST"
+BUILD = "2026-07-18.1"
+BUILD_TIME = "18 Jul 2026, 08:15 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-18",
+        "changes": [
+            "Super Admin: Lead follow-up command bar 🚀 — every 'Already sent' lead in Mira Lead Agent now has the full toolkit: status dropdown (Contacted → Meeting scheduled → Customer), 🔔 one-tap Remind (works for ALL sent leads, opened or not), 📩 Resend PDF, 🎥 Google Meet invite with calendar (.ics) attachment, and quick 📞 Call / 💬 WhatsApp buttons",
+            "Super Admin: Demo time-picker with timezone smarts 📅 — send prospects a 'pick your demo time' email from the Lead Agent or Demo Campaign; when they book, you see the slot in IST AND their local time side-by-side",
+            "Super Admin: 5-day auto follow-ups 🔁 — Mira automatically nudges leads who haven't replied after 5 days, with the full screens-tour PDF attached to every outreach email",
+            "Super Admin: International pricing goes live 🌍 — the landing page now has an India ₹ / International $ toggle with dedicated USD plans (Starter/Professional/Premium/Enterprise), and outreach emails automatically quote USD for non-India leads",
+            "Super Admin: Demo invite tracking is now scanner-proof 🛡 — corporate email security bots no longer trigger false 'Demo requested' alerts; only a real slot booking counts (link fetches show as a subtle 'Clicked' badge instead)",
+            "Smart Review funnel for walk-ins ⭐ — customers scan your desk QR tent card → rate → Mira writes their Google review → one tap copies & opens Google. Unhappy ratings (1-3★) go privately to you, never public",
+            "Review funnel analytics on your dashboard 📊 — see QR scans → ratings → happy customers → sent-to-Google conversions with average rating, right on the Reviews page",
+            "E-receipts got smarter 🧾 — every receipt email and WhatsApp message now carries your smart review link, and the printable review tent card is auto-attached",
+        ],
+    },
+    {
+        "date": "2026-07-17",
+        "changes": [
+            "HD Designer Booking QR posters 🖼️ — beautiful print-ready posters with your salon's booking QR, plus A5 desk tent cards for reviews",
+            "Original legal pages ⚖️ — professionally written Terms of Service & Privacy Policy, styled to match the brand",
+            "Inventory split: Retail vs In-house 📦 — retail products (sold with commission) and in-house consumables (used by services) now live in separate tabs with independent low-stock tracking",
+            "Edit invoices with a full audit trail ✏️ — owners can correct billed invoices; every change is logged with who/when/what",
+            "Mira Presenter video mode (FREE) 🎬 — generate promo videos with Mira as your avatar presenter, no external API cost",
+            "AI CCTV & Hire Staff pages redesigned in the light theme, and the login/signup pages are now perfectly centered",
+            "Gallery uploads fixed end-to-end 📸 — photos you upload now appear instantly on your public salon page",
+            "Super Admin: Lead Agent filter buckets (Recent search / Hot leads / Ready to send / Opened / No email / Already sent) + demo calendar",
+            "Platform: performance & security hardening — fixed event-loop blocking that caused intermittent Cloudflare 520 errors in production",
+        ],
+    },
     {
         "date": "2026-07-16",
         "changes": [

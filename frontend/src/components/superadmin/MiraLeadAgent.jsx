@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Mail, Trash2, CalendarCheck, Trophy, MessageCircle } from "lucide-react";
+import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Trash2, MessageCircle, Video, Phone, BellRing, FileText } from "lucide-react";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -38,6 +38,7 @@ function FunnelCards({ stats }) {
 function LeadRow({ lead, onRefresh }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
+  const [meetOpen, setMeetOpen] = useState(false);
   const [draft, setDraft] = useState({ email: lead.email || "", email_subject: lead.email_subject || "", email_body: lead.email_body || "" });
 
   const act = async (fn, label) => {
@@ -55,17 +56,38 @@ function LeadRow({ lead, onRefresh }) {
     toast.success(`Email sent to ${data.sent_to} 🚀`);
   }, "approve");
 
+  const isSent = ["sent", "demo", "customer"].includes(lead.status);
+
   const sendWhatsApp = () => act(async () => {
     const { data } = await api.get(`/super-admin/mira-leads/${lead.id}/whatsapp`);
     window.open(data.wa_url, "_blank");
-    await api.post(`/super-admin/mira-leads/${lead.id}/whatsapp-sent`);
-    toast.success("WhatsApp opened — hit Send there. Lead marked as sent 💬");
+    if (!isSent) {
+      await api.post(`/super-admin/mira-leads/${lead.id}/whatsapp-sent`);
+      toast.success("WhatsApp opened — hit Send there. Lead marked as sent 💬");
+    } else {
+      toast.success("WhatsApp opened — hit Send there 💬");
+    }
   }, "whatsapp");
 
   const sendSlotPicker = () => act(async () => {
     await api.post(`/super-admin/mira-leads/${lead.id}/send-slot-picker`);
     toast.success(`Time-picker sent to ${lead.email} — they'll choose a demo slot 📅`);
   }, "slot-picker");
+
+  const remind = () => act(async () => {
+    await api.post(`/super-admin/mira-leads/${lead.id}/remind`);
+    toast.success(`Reminder sent to ${lead.email} 🔔`);
+  }, "remind");
+
+  const resendPdf = () => act(async () => {
+    await api.post(`/super-admin/mira-leads/${lead.id}/resend`);
+    toast.success(`Pitch + brochure re-sent to ${lead.email} 📩`);
+  }, "resend");
+
+  const setStage = (stage) => act(async () => {
+    await api.post(`/super-admin/mira-leads/${lead.id}/stage`, { stage });
+    toast.success("Status updated ✦");
+  }, "stage");
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden" data-testid={`lead-row-${lead.id}`}>
@@ -109,7 +131,44 @@ function LeadRow({ lead, onRefresh }) {
           {lead.status === "sent" && <p className="text-xs text-sky-600">✅ Sent {lead.sent_at?.slice(0, 16).replace("T", " ")} {lead.sent_via === "whatsapp" ? "via WhatsApp 💬" : `to ${lead.email}`}
           {lead.follow_up_sent_at && <span className="text-fuchsia-600"> · 🔁 Follow-up sent {lead.follow_up_sent_at.slice(0, 10)}</span>}
           {lead.slot_picker_sent_at && <span className="text-amber-600"> · 📅 Time-picker sent {lead.slot_picker_sent_at.slice(0, 10)}</span>}</p>}
-          <div className="flex flex-wrap gap-2">
+          {isSent && (lead.last_reminder_at || lead.pdf_resent_at || lead.meeting?.at_ist) && (
+            <p className="text-xs text-slate-500" data-testid={`lead-followup-badges-${lead.id}`}>
+              {lead.last_reminder_at && <span className="text-amber-600">🔔 Reminded {lead.last_reminder_at.slice(0, 10)}{(lead.reminder_count || 0) > 1 ? ` ×${lead.reminder_count}` : ""}</span>}
+              {lead.pdf_resent_at && <span className="text-emerald-600"> · 📩 PDF re-sent {lead.pdf_resent_at.slice(0, 10)}</span>}
+              {lead.meeting?.at_ist && <span className="text-violet-600"> · 🎥 Meet {lead.meeting.at_ist} IST{lead.meeting.meet_link ? " (link sent)" : ""}</span>}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {isSent && (
+              <select value={lead.status} onChange={e => setStage(e.target.value)} disabled={!!busy} data-testid={`lead-status-select-${lead.id}`}
+                className={`text-xs px-2 py-2 rounded-lg border font-semibold cursor-pointer ${
+                  { sent: "bg-amber-50 text-amber-700 border-amber-200", demo: "bg-violet-50 text-violet-700 border-violet-200", customer: "bg-emerald-50 text-emerald-700 border-emerald-200" }[lead.status]}`}>
+                <option value="sent">🟡 Contacted</option>
+                <option value="demo">🟣 Meeting scheduled</option>
+                <option value="customer">🟢 Customer 🎉</option>
+              </select>
+            )}
+            {isSent && lead.email && (
+              <button onClick={remind} disabled={!!busy} data-testid={`lead-remind-${lead.id}`}
+                title="Send a gentle reminder email now (with brochure PDF) — works whether or not they opened"
+                className="text-xs px-3.5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
+                {busy === "remind" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BellRing className="w-3.5 h-3.5" />} Remind
+              </button>
+            )}
+            {isSent && lead.email && (
+              <button onClick={resendPdf} disabled={!!busy} data-testid={`lead-resend-pdf-${lead.id}`}
+                title="Re-send the original pitch email with all PDFs attached"
+                className="text-xs px-3.5 py-2 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
+                {busy === "resend" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />} Resend PDF
+              </button>
+            )}
+            {isSent && lead.email && (
+              <button onClick={() => setMeetOpen(o => !o)} disabled={!!busy} data-testid={`lead-meet-invite-${lead.id}`}
+                title="Email a Google Meet invite with calendar (.ics) attachment"
+                className={`text-xs px-3.5 py-2 rounded-lg font-bold disabled:opacity-50 inline-flex items-center gap-1.5 ${meetOpen ? "bg-violet-600 text-white" : "border border-violet-300 bg-violet-50 text-violet-700"}`}>
+                <Video className="w-3.5 h-3.5" /> Meet invite
+              </button>
+            )}
             {lead.email && (
               <button onClick={sendSlotPicker} disabled={!!busy} data-testid={`lead-slot-picker-${lead.id}`}
                 className="text-xs px-4 py-2 rounded-lg bg-amber-500 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
@@ -128,13 +187,18 @@ function LeadRow({ lead, onRefresh }) {
                 {busy === "whatsapp" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />} Send via WhatsApp
               </button>
             )}
-            {lead.status === "sent" && (
-              <button onClick={() => act(() => api.post(`/super-admin/mira-leads/${lead.id}/stage`, { stage: "demo" }), "demo")} data-testid={`lead-demo-${lead.id}`}
-                className="text-xs px-3 py-2 rounded-lg bg-violet-600 text-white font-semibold inline-flex items-center gap-1.5"><CalendarCheck className="w-3.5 h-3.5" /> Mark Demo booked</button>
+            {isSent && lead.phone && (
+              <a href={`tel:${lead.phone}`} data-testid={`lead-call-${lead.id}`} title={`Call ${lead.phone}`}
+                className="text-xs px-3 py-2 rounded-lg border border-slate-200 text-slate-600 font-semibold inline-flex items-center gap-1.5 hover:border-sky-400 hover:text-sky-600">
+                <Phone className="w-3.5 h-3.5" /> Call
+              </a>
             )}
-            {["sent", "demo"].includes(lead.status) && (
-              <button onClick={() => act(() => api.post(`/super-admin/mira-leads/${lead.id}/stage`, { stage: "customer" }), "customer")} data-testid={`lead-customer-${lead.id}`}
-                className="text-xs px-3 py-2 rounded-lg bg-emerald-700 text-white font-semibold inline-flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" /> Became Customer 🎉</button>
+            {isSent && lead.phone && (
+              <button onClick={sendWhatsApp} disabled={!!busy} data-testid={`lead-whatsapp-followup-${lead.id}`}
+                title="Open WhatsApp with a pre-written follow-up message"
+                className="text-xs px-3 py-2 rounded-lg bg-[#25D366] text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
+                {busy === "whatsapp" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />} WhatsApp
+              </button>
             )}
             {!["sent", "demo", "customer", "rejected"].includes(lead.status) && (
               <button onClick={() => act(() => api.post(`/super-admin/mira-leads/${lead.id}/reject`), "reject")} data-testid={`lead-reject-${lead.id}`}
@@ -143,8 +207,46 @@ function LeadRow({ lead, onRefresh }) {
             <button onClick={() => act(() => api.delete(`/super-admin/mira-leads/${lead.id}`), "delete")} data-testid={`lead-delete-${lead.id}`}
               className="text-xs px-2.5 py-2 rounded-lg text-rose-400 hover:bg-rose-50 ml-auto"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
+          {meetOpen && <MeetInviteForm lead={lead} onSent={() => { setMeetOpen(false); onRefresh(); }} />}
         </div>
       )}
+    </div>
+  );
+}
+
+function MeetInviteForm({ lead, onSent }) {
+  const [date, setDate] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
+  const [time, setTime] = useState("11:00");
+  const [link, setLink] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const send = async () => {
+    setSending(true);
+    try {
+      const { data } = await api.post(`/super-admin/mira-leads/${lead.id}/meet-invite`,
+        { date, time, duration_min: 30, meet_link: link.trim() });
+      toast.success(`Meet invite sent — ${data.when} ✦`);
+      onSent();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send invite"); }
+    finally { setSending(false); }
+  };
+
+  return (
+    <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 space-y-2" data-testid={`lead-meet-form-${lead.id}`}>
+      <p className="text-[11px] font-semibold text-violet-700 uppercase tracking-wide">🎥 Google Meet demo invite → {lead.email}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} data-testid={`lead-meet-date-${lead.id}`}
+          className="border border-violet-200 rounded-lg px-2.5 py-1.5 text-xs bg-white" />
+        <input type="time" value={time} onChange={e => setTime(e.target.value)} data-testid={`lead-meet-time-${lead.id}`}
+          className="border border-violet-200 rounded-lg px-2.5 py-1.5 text-xs bg-white" />
+        <input value={link} onChange={e => setLink(e.target.value)} placeholder="Google Meet link (meet.google.com/…) — optional" data-testid={`lead-meet-link-${lead.id}`}
+          className="border border-violet-200 rounded-lg px-2.5 py-1.5 text-xs bg-white flex-1 min-w-[220px]" />
+        <button onClick={send} disabled={sending || !date || !time} data-testid={`lead-meet-send-${lead.id}`}
+          className="text-xs px-4 py-2 rounded-lg bg-violet-600 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
+          {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Send invite
+        </button>
+      </div>
+      <p className="text-[10px] text-violet-500">Time is IST · 30 min · a calendar (.ics) invite is attached so it lands straight in their calendar. Tip: create an instant link at meet.google.com and paste it above.</p>
     </div>
   );
 }
