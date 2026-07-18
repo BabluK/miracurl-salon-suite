@@ -33,14 +33,32 @@ _SALES_SYSTEM_PROMPT = (
     "• Inventory with low-stock alerts and one-click vendor restock emails "
     "• AI tools: Mira voice briefings (English + Hindi), AI logo & poster studio, AI review replies, business reports emailed weekly & monthly "
     "• Multi-branch support, PWA mobile apps, Reviews→₹credits, Refer & Earn. "
-    "PRICING (INR, no per-booking fees or commissions): Free Trial ₹0 for 7 days (all features, up to 50 customers, no credit card); "
-    "6-Month Plan ₹12,000; Annual Plan ₹20,000 (save ₹4,000); Multi-Branch (5+ branches) ₹45,000 for 6 months or ₹70,000 per year. "
+    "FREE TRIAL: 7 days, all features, up to 50 customers, no credit card — works for India and international salons. "
+    "CURRENCY RULE (IMPORTANT): understand where their salon is FIRST. Salon in India → quote the INDIA (INR ₹) plans. "
+    "Salon outside India (US, UK, UAE, Canada, Australia — anywhere international) → quote the INTERNATIONAL (USD $) plans and NEVER quote INR to them. "
+    "If they ask about pricing and the country is unclear, politely ask which country their salon is in. "
     "SIGNUP: 'Start free trial' button on the site → live in under 90 seconds. "
-    "CONTACT: WhatsApp +91 82170 72523. "
-    "RULES: Only discuss Miracurl — politely decline unrelated topics. Never invent features or prices. "
-    "Be warm, concise (2-4 short sentences), use ₹ for money. Plain text only — no markdown, no asterisks, no bullet lists. Always nudge toward the free trial. "
+    "CONTACT: WhatsApp +91 82170 72523. For Enterprise/multi-branch chains they can also book a live demo at miracurl-suite.com/demo. "
+    "RULES: Only discuss Miracurl — politely decline unrelated topics. Never invent features or prices — the LIVE PLAN LIST below is the only source of truth for pricing. "
+    "Be warm, concise (2-4 short sentences), use ₹ or $ correctly per the currency rule. Plain text only — no markdown, no asterisks, no bullet lists. Always nudge toward the free trial (or a demo for enterprise chains). "
     "The visitor's contact details are already saved — our team will reach out; you don't need to ask for them again."
 )
+
+
+async def _sales_pricing_block() -> str:
+    """Live plan catalog (INR + USD) injected into the sales prompt — reflects super-admin price edits."""
+    from routes.subscriptions import PLAN_CATALOG, load_plan_overrides
+    try:
+        await load_plan_overrides()
+    except Exception:  # noqa: BLE001 — stale in-memory catalog is still usable
+        pass
+    inr = "; ".join(f"{v['label']} ₹{v['price']:,.0f}" for v in PLAN_CATALOG.values()
+                    if v.get("currency", "INR") == "INR")
+    usd = "; ".join(f"{v['label']} ${v['price']:,.0f}" for v in PLAN_CATALOG.values()
+                    if v.get("currency") == "USD")
+    return (f" LIVE PLAN LIST — INDIA (INR, no per-booking fees or commissions): {inr}. "
+            f"INTERNATIONAL (USD, billed via secure international payment link): {usd}. "
+            "Enterprise for international multi-branch chains: from $499/month or custom annual contracts — suggest booking a demo.")
 
 
 class SalesChatStartIn(BaseModel):
@@ -227,7 +245,8 @@ async def sales_chat_message(body: SalesChatMsgIn, request: Request):
     if chat is None:
         chat = LlmChat(
             api_key=key, session_id=f"sales-{body.inquiry_id}",
-            system_message=_SALES_SYSTEM_PROMPT + f" The visitor's name is {inq.get('name', 'there')}.",
+            system_message=_SALES_SYSTEM_PROMPT + await _sales_pricing_block()
+            + f" The visitor's name is {inq.get('name', 'there')}.",
         ).with_model("openai", "gpt-5.4")
         _SALES_SESSIONS[body.inquiry_id] = chat
         if len(_SALES_SESSIONS) > 300:

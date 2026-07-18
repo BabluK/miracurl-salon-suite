@@ -392,9 +392,45 @@ export default function Landing() {
             </div>
           ))}
         </div>
-        <div className="max-w-5xl mx-auto mt-6 rounded-2xl border border-amber-300/25 bg-amber-300/[0.05] px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3" data-testid="plan-intl-enterprise">
-          <p className="text-sm text-neutral-300"><b className="text-amber-300">Enterprise:</b> starting from <b>{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 499)}/month</b> or custom annual contracts for multi-branch chains.</p>
-          <a href="mailto:hello@miracurl-suite.com?subject=Enterprise%20plan%20enquiry" className="text-xs font-semibold text-amber-300 hover:text-amber-200 whitespace-nowrap">Talk to us →</a>
+        <div className="max-w-5xl mx-auto mt-6 rounded-2xl border border-amber-300/25 bg-amber-300/[0.05] p-6 sm:p-8" data-testid="plan-intl-enterprise">
+          <div className="flex flex-col lg:flex-row gap-6 lg:items-center">
+            <div className="flex-1">
+              <p className="text-[11px] uppercase tracking-[3px] text-amber-300/80 font-semibold">Managing 5+ branches?</p>
+              <h3 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">Enterprise for Multi-Branch Chains</h3>
+              <p className="text-sm text-neutral-400 mt-1.5">
+                Starting from <b className="text-amber-300">{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 499)}/month</b> — or custom annual contracts tailored to your chain.
+              </p>
+              <ul className="mt-4 grid sm:grid-cols-3 gap-2.5">
+                {["Centralized bookings & billing", "AI marketing on autopilot", "Unlimited staff & branches"].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-[13px] text-neutral-300">
+                    <Check className="w-4 h-4 text-amber-300 mt-0.5 flex-shrink-0" /> {f}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-5 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] pl-1.5 pr-4 py-1.5" data-testid="enterprise-consultant-chip">
+                <span className="w-8 h-8 rounded-full bg-amber-300/20 text-amber-300 flex items-center justify-center text-sm">👨‍💼</span>
+                <span className="text-[12px] text-neutral-300 leading-tight">
+                  <b className="text-white">Bablu Kumar</b> · Enterprise Consultant
+                  <span className="block text-[10px] text-emerald-400">● Usually replies within 5 minutes</span>
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 lg:w-72 flex-shrink-0">
+              <Link to="/demo" data-testid="enterprise-book-demo"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-neutral-900 bg-gradient-to-r from-amber-300 to-yellow-500 shadow-[0_0_26px_-6px_rgba(251,191,36,0.65)] hover:shadow-[0_0_36px_-4px_rgba(251,191,36,0.9)] hover:-translate-y-0.5 transition-all">
+                📞 Book a Demo
+              </Link>
+              <a href={`https://wa.me/918217072523?text=${encodeURIComponent("Hi! I run a multi-branch salon chain and I'd like to know about Miracurl Enterprise plans.")}`}
+                target="_blank" rel="noreferrer" data-testid="enterprise-whatsapp"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-white bg-[#25D366] shadow-[0_0_22px_-8px_rgba(37,211,102,0.7)] hover:shadow-[0_0_30px_-6px_rgba(37,211,102,0.95)] hover:-translate-y-0.5 transition-all">
+                💬 Chat on WhatsApp
+              </a>
+              <button onClick={() => window.dispatchEvent(new Event("open-sales-chat"))} data-testid="enterprise-ask-mira"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-[13px] font-semibold text-amber-300 border border-amber-300/40 hover:bg-amber-300/10 transition-colors">
+                ✦ Ask Mira — instant answers
+              </button>
+            </div>
+          </div>
         </div>
         <p className="text-center text-[11px] text-neutral-600 mt-5">Prices in USD for clients outside India (US, UK, UAE, Canada, Australia & more). Billed via secure international payment link.</p>
         </>

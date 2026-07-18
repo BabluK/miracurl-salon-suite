@@ -56,6 +56,7 @@ from routes.briefings import _tts_cached_speech
 
 # ---------------- Public AI Beauty Advisor (recommends + books) ----------------
 _BOOK_MARKER = "[[BOOK]]"
+_INQ_MARKER = "[[MIRA_INQUIRY]]"
 
 class PublicAIChatIn(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000)
@@ -179,6 +180,27 @@ async def _free_slots_for(date: str) -> list[str]:
             free.append(hhmm)
     return free
 
+async def _capture_ai_inquiry(t, reply: str, hist: list, message: str) -> str:
+    """Parse Mira's [[MIRA_INQUIRY]] marker, store it for the salon team, return cleaned reply."""
+    import json as _json
+    text, _, payload = reply.partition(_INQ_MARKER)
+    try:
+        data = _json.loads(payload.strip().strip("`").strip())
+        transcript = ([{"role": h["role"], "text": h["content"]} for h in hist[-20:]]
+                      + [{"role": "user", "text": message}, {"role": "assistant", "text": text.strip()}])
+        await _raw_db.ai_inquiries.insert_one({
+            "id": str(uuid.uuid4()), "tenant_id": t["id"],
+            "name": str(data.get("name") or "")[:80], "phone": str(data.get("phone") or "")[:20],
+            "concern": str(data.get("concern") or "")[:300],
+            "suggested_products": [str(p)[:150] for p in (data.get("suggested_products") or [])[:5]],
+            "transcript": transcript, "status": "new",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:  # noqa: BLE001 — a bad marker must never break the chat
+        logging.getLogger("public_ai").error(f"inquiry capture failed: {e}")
+    return text.strip()
+
+
 async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False):
     """Shared Mira pipeline for text + voice. Returns (reply, booking, booking_error)."""
     key = os.environ.get("EMERGENT_LLM_KEY")
@@ -220,6 +242,21 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "Serie Expert ranges, INOA ammonia-free colour, Majirel, Dia Light gloss) and Schwarzkopf Professional (Fibreplex bond protection during colour, "
             "BC Bonacure repair ranges, OSiS+ styling, IGORA Royal colour, BlondMe for blondes). Recommend the right professional range for their concern and say why in one line. "
             "If the salon lists its own retail products in the menu below, prefer those.\n"
+            "— SKIN CONCERNS & CONDITIONS (real-world solutions): acne & breakouts (salicylic/BHA clean-up, anti-acne facial, non-comedogenic routine), "
+            "blackheads/whiteheads & open pores (clean-up + niacinamide), tanning & sun damage (D-tan, vitamin-C facial, SPF 50 daily), "
+            "pigmentation & dark spots (kojic acid, vitamin-C, niacinamide), melasma (gentle brightening; stubborn cases → dermatologist), "
+            "dull dehydrated skin (hyaluronic hydrating facial), sensitive/redness-prone (fragrance-free, cica/oat calming), "
+            "dry flaky/eczema-prone (ceramide moisturisers, no harsh scrubs), keratosis pilaris (lactic-acid body lotion), aging & fine lines (collagen/gold facial, retinol night care). "
+            "For anything MEDICAL-looking (severe cystic acne, infections, psoriasis, ringworm, bald patches) — advise a dermatologist visit politely while suggesting gentle supportive care; never diagnose.\n"
+            "— SKIN TONES & WHAT SUITS THEM: fair/light (cool undertone — ash, beige, rosy shades; sunscreen non-negotiable), wheatish/medium (golden undertone — golden brown, caramel, honey highlights), "
+            "dusky/olive (warm — chocolate brown, burgundy, mahogany, copper), deep (rich — espresso, blue-black, plum, wine, bold burgundy). "
+            "Match hair colour and makeup base to their undertone. NEVER promise 'fairness' — promise glow, evenness and healthy skin.\n"
+            "— HAIR PROBLEMS (solution + product): hair fall/thinning (scalp treatments, redensyl/peptide serums, gentle sulphate-free wash), "
+            "dandruff — dry vs oily/seborrheic (anti-dandruff scalp treatment; severe/itchy-scaly → dermatologist), scalp buildup (clarifying scalp detox), "
+            "split ends & breakage (trim + bond repair — Fibreplex/Absolut Repair), heat & colour damage (Metal Detox wash, Absolut Repair Molecular, BC Bonacure Repair), "
+            "frizz & dryness (keratin/nanoplastia, argan-oil ranges), premature greying (INOA ammonia-free colour), oily scalp with dry ends (balancing shampoo, condition mid-lengths only).\n"
+            "— PRODUCT RECOMMENDATION STYLE: always name a specific product WITH a one-line description, phrased warmly like: "
+            "'I would suggest **[Product]** — [what it does and why it suits you]'. Prefer the salon's IN-STOCK retail products first, then L'Oréal/Schwarzkopf professional ranges.\n"
             "— SALON KNOWLEDGE: the data below is LIVE for this salon — full service menu with prices, every team member with their specialties, "
             "current retail product stock, offers, packages and open slots. Answer stock questions honestly: if a product shows out of stock, "
             "say so and suggest an in-stock alternative; if someone asks who is best for a service, name the expert whose specialty matches.\n"
@@ -241,6 +278,13 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "(e.g. nails → the nail expert, hair → the hair expert). If the guest is new or unsure, say something like "
             "'Since it's your first time, I'd suggest [Name] — our [specialty] expert, you'll be in great hands! ✨'. "
             "Put the chosen expert's id in staff_id in the booking JSON; if they truly have no preference, use null. Never invent staff names.\n"
+            "8) UNAVAILABLE PRODUCT / SERVICE → TEAM FOLLOW-UP: when a guest wants a product or service we don't currently offer (or it's out of stock), "
+            "first give your full expert advice with your product suggestion, then offer warmly: "
+            "'Would you like me to share your request with our team? They'll arrange it and get back to you — or please do walk in, we'd love to help you in person! 💖' "
+            "If they agree, collect their name and phone number (skip whatever they already shared). Once you have NAME + PHONE + the concern, "
+            "confirm: 'Done! I've shared your request with our team — they'll reach out to you soon 💖' and end your reply with one line in EXACTLY this format (valid JSON, double quotes):\n"
+            f'{_INQ_MARKER}{{"name":"...","phone":"...","concern":"<what they want, one line>","suggested_products":["<product you suggested — short why>"]}}\n'
+            "Never mention this marker or JSON (machine-read). Emit it ONLY once per request and ONLY when you truly have their name and phone.\n"
             "CRITICAL MEMORY RULE: carefully re-read the conversation history before replying and NEVER re-ask for anything the customer already told you "
             "(chosen services, name, phone, date, time, skin/hair details). If earlier they picked services and now send name+phone+time, go straight to the summary + confirmation.\n"
             f"ONLY after the customer explicitly confirms, end your reply with one line in EXACTLY this format (double quotes, valid JSON):\n"
@@ -267,6 +311,8 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
         raise HTTPException(400, "Mira is unavailable right now — please try again in a moment.")
 
     booking, booking_error = None, None
+    if _INQ_MARKER in reply:
+        reply = await _capture_ai_inquiry(t, reply, hist, message)
     if _BOOK_MARKER in reply:
         text, _, payload = reply.partition(_BOOK_MARKER)
         booking, booking_error, req_date = await _ai_execute_booking(payload)
@@ -465,6 +511,31 @@ async def public_chat_send(slug: str, thread_id: str, body: ChatSendIn, request:
     if not th:
         raise HTTPException(404, "Chat not found")
     return await _append_chat_message(thread_id, "customer", body.message.strip())
+
+# ---------------- Mira AI Inquiries (unavailable product/service requests) ----------------
+@router.get("/ai-inquiries")
+async def list_ai_inquiries(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    rows = await _raw_db.ai_inquiries.find({"tenant_id": t["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"inquiries": rows, "new_count": sum(1 for r in rows if r.get("status") == "new")}
+
+
+@router.post("/ai-inquiries/{iid}/done")
+async def ai_inquiry_done(iid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    row = await _raw_db.ai_inquiries.find_one({"id": iid, "tenant_id": t["id"]}, {"_id": 0, "status": 1})
+    if not row:
+        raise HTTPException(404, "Inquiry not found")
+    new_status = "new" if row.get("status") == "handled" else "handled"
+    await _raw_db.ai_inquiries.update_one({"id": iid}, {"$set": {"status": new_status}})
+    return {"ok": True, "status": new_status}
+
+
+@router.delete("/ai-inquiries/{iid}")
+async def ai_inquiry_delete(iid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await _raw_db.ai_inquiries.delete_one({"id": iid, "tenant_id": t["id"]})
+    if not res.deleted_count:
+        raise HTTPException(404, "Inquiry not found")
+    return {"ok": True}
+
 
 @router.get("/owner-chats")
 async def owner_chats(user=Depends(require_tenant_admin)):
