@@ -312,12 +312,19 @@ class RateSubmitIn(BaseModel):
     service: str = Field("", max_length=80)
 
 
+async def _qr_event(tenant_id: str, event: str, rating: int | None = None):
+    await _raw_db.qr_funnel.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": tenant_id, "event": event,
+        "rating": rating, "created_at": datetime.now(timezone.utc).isoformat()})
+
+
 @router.get("/public/rate-info/{slug}")
 async def public_rate_info(slug: str, request: Request):
     public_rate_limit(request, key_suffix="rate-info", limit=30, window_sec=600)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "location": 1, "google_review_url": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
+    await _qr_event(t["id"], "scan")
     g_url = (t.get("google_review_url") or "").strip()
     svcs = await _raw_db.services.find({"tenant_id": t["id"], "active": {"$ne": False}},
                                        {"_id": 0, "name": 1}).sort("popularity", -1).to_list(8)
@@ -354,6 +361,7 @@ async def public_rate_submit(slug: str, body: RateSubmitIn, request: Request):
     if not t:
         raise HTTPException(404, "Salon not found")
     _current_tenant_id.set(t["id"])
+    await _qr_event(t["id"], "rated", body.rating)
     name = body.name.strip() or "Guest"
     review = Review(
         appointment_id=f"qr-{uuid.uuid4()}", customer_id="qr-guest", customer_name=name,
@@ -369,3 +377,29 @@ async def public_rate_submit(slug: str, body: RateSubmitIn, request: Request):
             "message": body.comment.strip() or None,
             "status": "open", "created_at": datetime.now(timezone.utc).isoformat()})
     return {"ok": True}
+
+
+@router.post("/public/rate-track/{slug}")
+async def public_rate_track(slug: str, request: Request):
+    """Beacon: guest was sent to the Google review box (review copied)."""
+    public_rate_limit(request, key_suffix="rate-track", limit=10, window_sec=600)
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    await _qr_event(t["id"], "google_redirect")
+    return {"ok": True}
+
+
+@router.get("/reviews/qr-funnel")
+async def qr_funnel_stats(days: int = 30, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    since = (datetime.now(timezone.utc) - timedelta(days=min(days, 365))).isoformat()
+    rows = await _raw_db.qr_funnel.find(
+        {"tenant_id": t["id"], "created_at": {"$gte": since}},
+        {"_id": 0, "event": 1, "rating": 1}).to_list(20000)
+    scans = sum(1 for r in rows if r["event"] == "scan")
+    rated = [r for r in rows if r["event"] == "rated"]
+    redirects = sum(1 for r in rows if r["event"] == "google_redirect")
+    happy = sum(1 for r in rated if (r.get("rating") or 0) >= 4)
+    avg = round(sum(r.get("rating") or 0 for r in rated) / len(rated), 1) if rated else 0
+    return {"days": days, "scans": scans, "rated": len(rated), "happy": happy,
+            "avg_rating": avg, "google_redirects": redirects}

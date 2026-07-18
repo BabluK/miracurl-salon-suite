@@ -525,3 +525,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Fixed: Review model requires customer_id string (None crashed — 500).
 - Verified: curl (redirect 302→/rate, rate-info, Mira draft, 2★ complaint + 5★ public review stored) + full browser flow screenshots (stars → chips → Mira draft → copied + Google countdown banner). Test rows cleaned.
 - NOTE: needs Deploy for production.
+
+## 2026-07-18 — QR Tent Card Funnel on Reviews dashboard (user approved)
+- NEW qr_funnel collection (events: scan on rate-info load, rated w/ rating on rate-submit, google_redirect via NEW POST /public/rate-track/{slug} beacon fired on actual redirect from RatePublic).
+- NEW GET /api/reviews/qr-funnel?days=30 (tenant admin): {scans, rated, happy(4-5★), avg_rating, google_redirects}.
+- Reviews.jsx: funnel card "QR scans → Ratings left → Happy → Sent to Google" with avg rating + empty-state nudge to print tent card. data-testids: qr-funnel-card, funnel-scans/rated/happy/google.
+- Verified: all 3 events fire (curl), stats endpoint returns correct counts, card screenshot-verified on dashboard. Needs Deploy for production.

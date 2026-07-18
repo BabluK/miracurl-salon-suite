@@ -70,10 +70,14 @@ export default function RatePublic() {
 
   useEffect(() => {
     if (redirectIn === null) return;
-    if (redirectIn <= 0) { window.location.href = info.google_review_url; return; }
+    if (redirectIn <= 0) {
+      PUBLIC.post(`/rate-track/${slug}`).catch(() => {});
+      window.location.href = info.google_review_url;
+      return;
+    }
     const t = setTimeout(() => setRedirectIn(n => (n === null ? null : n - 1)), 1000);
     return () => clearTimeout(t);
-  }, [redirectIn, info]);
+  }, [redirectIn, info, slug]);
 
   if (error) return (
     <div className="min-h-screen flex items-center justify-center bg-bg-base p-6">

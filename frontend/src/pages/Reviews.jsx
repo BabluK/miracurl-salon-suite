@@ -88,10 +88,12 @@ function StarRow({ rating }) {
 export default function Reviews() {
   const [list, setList] = useState([]);
   const [filter, setFilter] = useState("all"); // all | 5 | 4 | 1-3
+  const [funnel, setFunnel] = useState(null);
 
   const load = useCallback(async () => {
     const { data } = await api.get("/reviews");
     setList(data);
+    api.get("/reviews/qr-funnel").then(r => setFunnel(r.data)).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -127,6 +129,33 @@ export default function Reviews() {
       </div>
 
       <ReviewRequestsCard />
+
+      {/* QR tent-card funnel */}
+      {funnel && (
+        <div className="card-light" data-testid="qr-funnel-card">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <div className="label-light">QR Tent Card Funnel · last {funnel.days} days</div>
+            {funnel.rated > 0 && <span className="text-xs text-slate-400">avg rating from scans: <b className="text-amber-600">{funnel.avg_rating}★</b></span>}
+          </div>
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+            {[
+              { label: "QR scans", value: funnel.scans, tint: "text-sky-600", testid: "funnel-scans" },
+              { label: "Ratings left", value: funnel.rated, tint: "text-amber-600", testid: "funnel-rated" },
+              { label: "Happy (4-5★)", value: funnel.happy, tint: "text-emerald-600", testid: "funnel-happy" },
+              { label: "Sent to Google", value: funnel.google_redirects, tint: "text-fuchsia-600", testid: "funnel-google" },
+            ].map((s, i) => (
+              <div key={s.label} className="flex items-center gap-2 sm:gap-4">
+                {i > 0 && <span className="text-slate-300 text-lg">→</span>}
+                <div className="text-center px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 min-w-[92px]">
+                  <div className={`font-playfair text-2xl ${s.tint}`} data-testid={s.testid}>{s.value}</div>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-0.5">{s.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {funnel.scans === 0 && <p className="text-xs text-slate-400 mt-3">No scans yet — print your review tent card from Settings → QR Posters and keep it at the billing desk ✦</p>}
+        </div>
+      )}
 
       <ComplaintsPanel />
 
