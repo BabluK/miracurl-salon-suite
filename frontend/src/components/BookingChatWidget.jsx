@@ -20,12 +20,27 @@ const QUICK_PROMPTS = [
 ];
 
 function BookingCard({ booking }) {
+  const when = new Date(booking.scheduled_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+  const waText = encodeURIComponent(
+    `✨ My appointment at ${booking.salon_name || "the salon"}\n` +
+    `💇 ${booking.service_names.join(", ")}\n` +
+    `📅 ${when}\n👤 With ${booking.staff_name}\n💰 ₹${booking.total} · ${booking.duration_min} min`
+  );
   return (
     <div className="mt-2 rounded-xl border border-gold/40 bg-gold/10 p-3 text-xs space-y-1" data-testid="ai-booking-card">
       <div className="flex items-center gap-1.5 text-gold font-semibold"><Check className="w-3.5 h-3.5" /> Appointment Booked</div>
       <div className="text-white/80">{booking.service_names.join(", ")}</div>
-      <div className="text-white/60">{new Date(booking.scheduled_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} · with {booking.staff_name}</div>
+      <div className="text-white/60">{when} · with {booking.staff_name}</div>
       <div className="text-gold font-semibold">₹{booking.total} · {booking.duration_min} min</div>
+      <a
+        href={`https://wa.me/?text=${waText}`}
+        target="_blank"
+        rel="noreferrer"
+        data-testid="ai-booking-wa-share"
+        className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#25D366] text-white font-bold text-[11px]"
+      >
+        <MessageCircle className="w-3 h-3" /> Save details on WhatsApp
+      </a>
     </div>
   );
 }

@@ -570,3 +570,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Frontend (BookingChatWidget.jsx AiTab): on open → fetch greeting audio → play (spoken tag on first bubble) → auto-enable hands-free + startRecording. heard:false response → apology bubble + audio + auto-resume listening. Voice error catch also resumes listening in hands-free. GOTCHA: React StrictMode double-mount cancelled the first effect — fixed by dropping `cancelled` cleanup, guarding with `endRef.current` (null after real unmount).
 - Verified: curls (greeting TTS 311KB, Kannada→English/Hindi apology, L'Oréal/Schwarzkopf expert answer, silent-wav flow) + browser screenshot (greeting spoken → AUTO gold → mic recording "Listening…"). Needs Deploy for production.
 - NOTE: Whisper hallucinates transcripts on pure silence; frontend VAD blocks no-speech blobs so real impact is minimal.
+
+## 2026-07-18 — Mira: Kannada + salon knowledge + spoken booking confirm + WA share (user request)
+- Language: Kannada added as 3rd supported language (English/Hindi/Kannada); apology line updated for others. Tested: Kannada question answered in Kannada.
+- Name greeting: on hearing/typing name → "Welcome, [Name]! 💖 Thank you for choosing {salon} — you've picked a salon that truly pampers." + one 'why we're different' line (verified experts / L'Oréal & Schwarzkopf / hygiene / Mira 24/7). Tested.
+- Salon knowledge: prompt now stresses LIVE per-tenant data (_booking_catalog already includes services, staff+specialties, product stock, offers, slots) — honest stock answers + expert matching. Tested: in-stock vs out-of-stock listed correctly.
+- Booking: success reply now speaks full details "booked! [services] on [day, date at time] with [staff], total ₹X" (voice TTS reads it); booking payload includes salon_name. Tested full 2-turn booking (then cleaned test appt/customer).
+- BookingCard (BookingChatWidget.jsx): new "Save details on WhatsApp" button (wa.me/?text= share with salon, services, datetime, staff, total). testid: ai-booking-wa-share. NOTE: server-side WhatsApp send not possible (no WA Business API) — share-link approach used.
+- Needs Deploy for production.

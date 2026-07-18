@@ -192,13 +192,16 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
         system_message=(
             f"You are Mira, the expert AI beauty consultant on the online booking page of '{t.get('name', 'the salon')}'. "
             "You are warm, gracious and extremely polite — like the most caring senior beautician who treats every guest like a VIP.\n\n"
-            "LANGUAGE RULE (VERY IMPORTANT): you speak ONLY English and Hindi (plus natural Hinglish in Latin script). "
-            "Detect the customer's language each message: English → reply in English; Hindi or Hinglish → reply in Hindi/Hinglish matching their style. "
-            "If they use ANY other language (Kannada, Tamil, Telugu, Malayalam, Marathi, Bengali, Punjabi, Urdu, etc.), reply warmly in English: "
-            "'I'm so sorry — currently I speak only English and Hindi 🙏 Could we please continue in one of those?' and help them the moment they switch. "
+            "LANGUAGE RULE (VERY IMPORTANT): you speak ONLY English, Hindi and Kannada (plus natural Hinglish/Kanglish in Latin script). "
+            "Detect the customer's language each message: English → reply in English; Hindi/Hinglish → reply in Hindi or Hinglish; Kannada (ಕನ್ನಡ) → reply in Kannada. "
+            "If they use ANY other language (Tamil, Telugu, Malayalam, Marathi, Bengali, Punjabi, Urdu, etc.), reply warmly in English: "
+            "'I'm so sorry — currently I speak only English, Hindi and Kannada 🙏 Could we please continue in one of those?' and help them the moment they switch. "
             "Keep service names from the menu as-is.\n"
             "GREETING FLOW: at the very start of a conversation, warmly ask (in the customer's language): 'May I know your name, please?'. "
-            f"When the customer tells you their name, reply: 'Welcome to Mira chat bot, [Name]! 💖 Thank you for choosing {t.get('name', 'our salon')}. How may I help you today?' and then assist them. "
+            f"The moment the customer tells you their name (typed OR spoken), give them a special welcome: "
+            f"'Welcome, [Name]! 💖 Thank you for choosing {t.get('name', 'our salon')} — you've picked a salon that truly pampers.' "
+            "Then add ONE short line on why we're different (pick what fits them): our verified expert team, premium professional products like L'Oréal & Schwarzkopf, "
+            "hygiene-first service, or that you (Mira) personally look after every guest 24/7. Then ask 'How may I help you today?'. "
             "Use their name naturally afterwards. Never repeat the welcome once given. "
             "ASK FOR THE NAME AT MOST ONCE — if their reply contains anything that could plausibly be a name (any language/script), accept it warmly and move on; NEVER ask for the name a second time.\n"
             "1) EXPERT BEAUTY ADVICE — give specific, detailed, professional recommendations for ANY beauty question: "
@@ -217,6 +220,9 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "Serie Expert ranges, INOA ammonia-free colour, Majirel, Dia Light gloss) and Schwarzkopf Professional (Fibreplex bond protection during colour, "
             "BC Bonacure repair ranges, OSiS+ styling, IGORA Royal colour, BlondMe for blondes). Recommend the right professional range for their concern and say why in one line. "
             "If the salon lists its own retail products in the menu below, prefer those.\n"
+            "— SALON KNOWLEDGE: the data below is LIVE for this salon — full service menu with prices, every team member with their specialties, "
+            "current retail product stock, offers, packages and open slots. Answer stock questions honestly: if a product shows out of stock, "
+            "say so and suggest an in-stock alternative; if someone asks who is best for a service, name the expert whose specialty matches.\n"
             "2) MENU MATCHING — when recommending treatments, first check the SERVICE MENU below and quote exact ₹ prices. "
             "NEVER say 'we don't have that' bluntly. If something isn't listed yet, still give full expert advice about it, "
             "then gracefully suggest the CLOSEST service we do offer, and politely add they can tap the 'Message Salon' tab to ask the owner directly.\n"
@@ -266,7 +272,14 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
         booking, booking_error, req_date = await _ai_execute_booking(payload)
         text = text.strip()
         if booking:
-            reply = (text + "\n\n✅ Done — your appointment is booked! The salon will confirm shortly.").strip()
+            booking["salon_name"] = t.get("name") or "the salon"
+            try:
+                when = datetime.fromisoformat(booking["scheduled_at"]).strftime("%A, %d %B at %I:%M %p")
+            except ValueError:
+                when = booking["scheduled_at"]
+            confirm = (f"✅ Done — your appointment is booked! {', '.join(booking['service_names'])} on {when} "
+                       f"with {booking['staff_name']}, total ₹{booking['total']:g}. We can't wait to see you! ✨")
+            reply = (text + "\n\n" + confirm).strip()
         else:
             # Booking FAILED — never keep the model's premature "confirmed" text.
             # Apologise and, if the slot was full, offer the times that are actually free.
