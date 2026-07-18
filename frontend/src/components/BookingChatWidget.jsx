@@ -153,9 +153,12 @@ function AiTab({ slug }) {
   function toggleHandsFree() {
     if (handsFree) {
       setHandsFree(false);
+      handsFreeRef.current = false;
       stopRecording();
     } else {
       setHandsFree(true);
+      handsFreeRef.current = true;
+      audioRef.current?.pause();
       startRecording(true);
     }
   }
@@ -214,7 +217,11 @@ function AiTab({ slug }) {
       <div className="p-3 border-t border-white/10 flex gap-2 items-center">
         <button
           data-testid="ai-voice-btn"
-          onClick={() => (recording ? stopRecording() : startRecording(false))}
+          onClick={() => {
+            if (recording) { stopRecording(); return; }
+            audioRef.current?.pause(); // barge-in: stop Mira's voice when the user wants to talk
+            startRecording(handsFree);
+          }}
           disabled={busy}
           title={recording ? "Tap to stop & send" : "Speak to Mira"}
           className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50 ${

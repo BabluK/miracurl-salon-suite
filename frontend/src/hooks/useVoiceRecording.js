@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 // after speech, or after 30s of total silence (hands-free mode).
 export function useVoiceRecording({ onBlob, onNoSpeech, onMicError }) {
   const [recording, setRecording] = useState(false);
+  const recordingRef = useRef(false); // ref guard — state closures go stale in resume callbacks
   const recRef = useRef(null);
   const chunksRef = useRef([]);
   const vadCtxRef = useRef(null);
@@ -24,7 +25,8 @@ export function useVoiceRecording({ onBlob, onNoSpeech, onMicError }) {
   }
 
   async function startRecording(auto = false) {
-    if (recording) return;
+    if (recordingRef.current) return;
+    recordingRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
@@ -36,12 +38,16 @@ export function useVoiceRecording({ onBlob, onNoSpeech, onMicError }) {
         cleanupVad();
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
+        recordingRef.current = false;
         setRecording(false);
         if (auto && !speechRef.current) {
           cbRef.current.onNoSpeech?.();
           return;
         }
-        if (blob.size < 1200) return;
+        if (blob.size < 1200) {
+          if (auto) startRecording(auto); // too short to transcribe — keep listening hands-free
+          return;
+        }
         await cbRef.current.onBlob?.(blob, auto);
       };
       rec.start();
@@ -73,6 +79,7 @@ export function useVoiceRecording({ onBlob, onNoSpeech, onMicError }) {
       };
       rafRef.current = requestAnimationFrame(tick);
     } catch {
+      recordingRef.current = false;
       cbRef.current.onMicError?.();
     }
   }
@@ -80,6 +87,7 @@ export function useVoiceRecording({ onBlob, onNoSpeech, onMicError }) {
   function stopRecording() {
     cleanupVad();
     try { recRef.current?.state !== "inactive" && recRef.current?.stop(); } catch { /* noop */ }
+    recordingRef.current = false;
     setRecording(false);
   }
 
