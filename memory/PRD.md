@@ -503,3 +503,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - YouTube video IYuhfdw8_yc (Bollywood Hot Hits) was removed by uploader ("Video unavailable"). Verified all 6 channel IDs via oEmbed — only this one dead.
 - Replaced with fS-lamSWb4o ("24/7 Live Bollywood Music | Nonstop Hindi Songs") in musicChannels.js. Verified in-app: mini-player loads and shows playable stream.
 - NOTE: user saw this on production — needs redeploy to go live.
+
+## 2026-07-18 — Receipt review flow now uses Mira smart review page (user request)
+- User: tent card QR "not opening" + wants QR/email to use existing smart review flow (rate → 4-5★ → Mira auto-writes Google review from actual services) instead of plain review-go Google redirect.
+- Root cause of "not opening": review-go redirected to tenant google_review_url which was junk ("not-a-url") — added http:// validation guard, falls back to /salon/{slug}.
+- reviews.py: NEW _resolve_visit(token) — review token now accepts appointment id OR invoice id (walk-in bills adapt invoice → visit dict: customer, staff, service items). review-info / public_review / review-draft all use it. Invoice tokens count as "invoiced" for the ₹credit reward.
+- receipt_email.py: _smart_review_url(t, inv) = APP_PUBLIC_URL/review/{appointment_id or invoice_id}. Both the receipt button ("Rate us — Mira writes your review!") and the attached tent-card QR now use this personalized link.
+- Verified: review-info + Mira 5★ draft via invoice token (curl), full /review/{invoice_id} page screenshot (stars → Mira-drafted review → ₹30 credit banner), tent card generates with personalized QR.
+- NOTE: user must Deploy for production.

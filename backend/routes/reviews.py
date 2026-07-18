@@ -50,6 +50,24 @@ router = APIRouter()
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 # ---------------- Reviews ----------------
+async def _resolve_visit(token: str) -> dict | None:
+    """Review token = appointment id OR invoice id (walk-in bills). Returns a visit dict."""
+    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
+    if appt:
+        return appt
+    inv = await _raw_db.invoices.find_one({"id": token}, {"_id": 0})
+    if not inv:
+        return None
+    services = [i.get("name", "") for i in (inv.get("items") or [])
+                if i.get("type", "service") != "product" and i.get("name")]
+    return {"id": inv["id"], "tenant_id": inv.get("tenant_id"),
+            "customer_id": inv.get("customer_id"), "customer_name": inv.get("customer_name", "Guest"),
+            "customer_phone": inv.get("customer_phone"),
+            "staff_id": inv.get("staff_id"), "staff_name": inv.get("staff_name"),
+            "service_names": services, "scheduled_at": inv.get("created_at"),
+            "status": "completed", "_from_invoice": True}
+
+
 @router.get("/reviews")
 async def list_reviews(user=Depends(get_current_user)):
     return await db.reviews.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
@@ -108,8 +126,8 @@ async def delete_review(rid: str, user=Depends(require_admin)):
 async def public_review_info(token: str, request: Request):
     """Token = appointment_id. Returns appointment summary so the customer can confirm."""
     public_rate_limit(request, key_suffix="review-info", limit=30, window_sec=600)
-    # No tenant context — find any appointment globally, then set tenant for follow-up ops
-    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
+    # No tenant context — resolve appointment or invoice globally, then set tenant
+    appt = await _resolve_visit(token)
     if not appt:
         raise HTTPException(404, "Invalid review link")
     if appt.get("tenant_id"):
@@ -141,7 +159,7 @@ async def public_review_info(token: str, request: Request):
 @router.post("/public/review/{token}")
 async def public_review(token: str, body: ReviewIn, request: Request):
     public_rate_limit(request, key_suffix="review", limit=10, window_sec=600)
-    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
+    appt = await _resolve_visit(token)
     if not appt:
         raise HTTPException(404, "Invalid review link")
     if appt.get("tenant_id"):
@@ -152,9 +170,12 @@ async def public_review(token: str, body: ReviewIn, request: Request):
     # SEC-002: only reward if the guest has actually paid — an invoice linked to
     # this appointment OR any paid invoice for this customer. Prevents
     # "book fake → review fake → mint ₹50" farming loops.
-    invoiced = await db.invoices.find_one(
-        {"$or": [{"appointment_id": token}, {"customer_id": appt["customer_id"]}]},
-        {"_id": 0, "id": 1})
+    if appt.get("_from_invoice"):
+        invoiced = True  # token IS a paid invoice
+    else:
+        invoiced = await db.invoices.find_one(
+            {"$or": [{"appointment_id": token}, {"customer_id": appt["customer_id"]}]},
+            {"_id": 0, "id": 1})
 
     reward_code = None
     reward_amt = REVIEW_REWARD_CREDITS.get(body.rating, 0)
@@ -210,7 +231,7 @@ async def public_review_draft(token: str, body: ReviewDraftIn, request: Request)
     """Mira writes a ready-to-paste Google review from the guest's actual visit (4-5★ only)."""
     public_rate_limit(request, key_suffix="review-draft", limit=6, window_sec=600)
     await durable_rate_limit(request, "review-draft", limit=6, window_sec=600)
-    appt = await _raw_db.appointments.find_one({"id": token}, {"_id": 0})
+    appt = await _resolve_visit(token)
     if not appt:
         raise HTTPException(404, "Invalid review link")
     tid = appt.get("tenant_id")
@@ -271,5 +292,7 @@ async def public_review_redirect(slug: str):
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "google_review_url": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
-    target = (t.get("google_review_url") or "").strip() or f"/salon/{slug}"
+    target = (t.get("google_review_url") or "").strip()
+    if not target.startswith("http"):
+        target = f"/salon/{slug}"
     return RedirectResponse(target, status_code=302)

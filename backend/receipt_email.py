@@ -71,15 +71,22 @@ def _points_banner(points_earned: int) -> str:
         f'on this visit — redeem them on your next bill!</p>')
 
 
-def _review_nudge(t: dict) -> str:
-    url = (t or {}).get("google_review_url") or ""
-    if not url:
-        return ""
+def _smart_review_url(t: dict, inv: dict) -> str:
+    """Personalized Mira review page (rate → 4-5★ → Mira writes the Google review)."""
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
+    token = inv.get("appointment_id") or inv.get("id")
+    if token:
+        return f"{base}/review/{token}"
+    return f"{base}/api/public/review-go/{(t or {}).get('slug', '')}"
+
+
+def _review_nudge(t: dict, inv: dict) -> str:
+    url = _smart_review_url(t, inv)
     return (
         f'<p style="margin:14px 0 0;text-align:center">'
         f'<a href="{url}" style="display:inline-block;background:{GOLD};color:{INK};font-size:13px;font-weight:bold;'
-        f'text-decoration:none;padding:11px 26px;border-radius:999px">&#11088; Loved your visit? Leave us a Google review</a>'
-        f'<br/><span style="font-size:11px;color:#9a9aa6">It takes 30 seconds and makes our day!</span></p>')
+        f'text-decoration:none;padding:11px 26px;border-radius:999px">&#11088; Loved your visit? Rate us — Mira writes your review!</a>'
+        f'<br/><span style="font-size:11px;color:#9a9aa6">Tap, pick your stars, and Mira drafts a Google review from your actual visit &mdash; 30 seconds!</span></p>')
 
 
 def _receipt_email_html(t: dict, inv: dict, points_earned: int = 0) -> str:
@@ -111,7 +118,7 @@ def _receipt_email_html(t: dict, inv: dict, points_earned: int = 0) -> str:
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{_items_rows(inv)}</table>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px">{_totals_rows(inv)}</table>
   {_points_banner(points_earned)}
-  {_review_nudge(t)}
+  {_review_nudge(t, inv)}
 </td></tr>
 <tr><td style="background:{INK};border-radius:0 0 18px 18px;padding:20px 34px;text-align:center">
   <div style="color:#9a9aa6;font-size:12px">{footer_contact}</div>
@@ -120,15 +127,14 @@ def _receipt_email_html(t: dict, inv: dict, points_earned: int = 0) -> str:
 </table></td></tr></table></body></html>"""
 
 
-async def _review_tent_card_attachment(t: dict) -> dict | None:
+async def _review_tent_card_attachment(t: dict, inv: dict) -> dict | None:
     """Auto-generated review QR tent card attached to every e-receipt (never blocks the email)."""
     if not (t or {}).get("slug"):
         return None
     try:
         from PIL import Image
         from routes.services_catalog import _build_tent_card
-        base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
-        url = f"{base}/api/public/review-go/{t['slug']}"
+        url = _smart_review_url(t, inv)
         png = await asyncio.to_thread(_build_tent_card, t, url, "rosegold", "review")
         img = Image.open(io.BytesIO(png))
         img.thumbnail((1200, 1200))
@@ -142,7 +148,7 @@ async def _review_tent_card_attachment(t: dict) -> dict | None:
 
 async def send_invoice_receipt_email(t: dict, inv: dict, to_email: str, points_earned: int = 0) -> dict:
     subject = f"Your receipt from {t.get('name') or 'your salon'} — {inv.get('invoice_no')}"
-    card = await _review_tent_card_attachment(t)
+    card = await _review_tent_card_attachment(t, inv)
     html = _receipt_email_html(t, inv, points_earned)
     if card:
         note = ('<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">'
