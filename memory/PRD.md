@@ -498,3 +498,8 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 ## 2026-07-17 — Gallery E2E fix + Mira Lead Agent filters (user request)
 - Gallery E2E: upload/validate/delete verified working after decorator fix. FOUND & FIXED: public /api/public/salon/{slug} never returned the tenant `gallery` field though SalonPublic.jsx renders s.gallery — added gallery URLs to response. Also removed 1 corrupt 160-byte gallery photo (uploaded July 12 when storage failed) from tenant + marked upload deleted. "Inside the salon" section now renders on public pages.
 - Mira Lead Agent filter tabs (MiraLeadAgent.jsx): All / 🕐 Recent search (run_id === latest run) / 🔥 Hot (reviews≥500 & no website) / ✉️ Ready to send (drafted|researched + email) / 🚫 No email / ✅ Already sent (sent|demo|customer) — each with live counts, fuchsia active state, data-testids lead-filter-{key}. Screenshot-verified all buckets filter correctly.
+
+## 2026-07-18 — Bollywood Hot Hits music channel fix
+- YouTube video IYuhfdw8_yc (Bollywood Hot Hits) was removed by uploader ("Video unavailable"). Verified all 6 channel IDs via oEmbed — only this one dead.
+- Replaced with fS-lamSWb4o ("24/7 Live Bollywood Music | Nonstop Hindi Songs") in musicChannels.js. Verified in-app: mini-player loads and shows playable stream.
+- NOTE: user saw this on production — needs redeploy to go live.
