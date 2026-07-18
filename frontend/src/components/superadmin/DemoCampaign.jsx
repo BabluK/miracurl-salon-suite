@@ -10,6 +10,7 @@ export function DemoCampaign() {
   const [selected, setSelected] = useState({});
   const [manual, setManual] = useState("");
   const [note, setNote] = useState("");
+  const [currency, setCurrency] = useState("auto");
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState([]);
   const [invites, setInvites] = useState([]);
@@ -42,7 +43,7 @@ export function DemoCampaign() {
     if (!list.length) return toast.error("Select at least one recipient");
     setSending(true);
     try {
-      const r = await api.post("/super-admin/demo-campaign/send", { recipients: list, note });
+      const r = await api.post("/super-admin/demo-campaign/send", { recipients: list, note, currency });
       toast.success(`Demo invite sent to ${r.data.sent} owner${r.data.sent === 1 ? "" : "s"}${r.data.failed ? ` · ${r.data.failed} failed` : ""}`);
       if (r.data.failed) {
         const bad = r.data.results.filter(x => !x.sent).map(x => `${x.email}${x.error ? ` — ${x.error}` : ""}`).join(", ");
@@ -139,7 +140,19 @@ export function DemoCampaign() {
         className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none !bg-white !text-slate-700 placeholder:text-slate-400" />
 
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-xs text-slate-500">{list.length} recipient{list.length === 1 ? "" : "s"} selected</p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <p className="text-xs text-slate-500">{list.length} recipient{list.length === 1 ? "" : "s"} selected</p>
+          <div className="flex items-center gap-1 text-[11px]" data-testid="demo-currency-toggle">
+            <span className="text-slate-400 mr-1">Pricing shown:</span>
+            {[["auto", "🌐 Auto"], ["INR", "🇮🇳 ₹"], ["USD", "🌍 $"]].map(([k, l]) => (
+              <button key={k} onClick={() => setCurrency(k)} data-testid={`demo-currency-${k}`}
+                title={k === "auto" ? "Detects from email domain (.uk/.ae/.us… → USD)" : ""}
+                className={`px-2.5 py-1 rounded-full border font-semibold transition-colors ${currency === k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
         <button onClick={send} disabled={sending || !list.length} data-testid="demo-campaign-send-btn"
           className="px-5 py-2.5 rounded-full bg-slate-900 text-white text-xs font-semibold flex items-center gap-2 hover:bg-slate-700 disabled:opacity-40">
           <Send className="w-3.5 h-3.5" /> {sending ? "Sending…" : "Send demo invites"}

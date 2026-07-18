@@ -376,11 +376,60 @@ def _demo_pricing_row(p: dict) -> str:
         </tr>"""
 
 
-def _demo_pricing_block(plans: list | None) -> str:
+_INTL_TLDS = {"uk", "ae", "us", "ca", "au", "nz", "sg", "ie", "de", "fr", "eu", "qa",
+              "sa", "om", "bh", "kw", "hk", "my", "za", "ch", "nl", "it", "es"}
+
+
+def _is_intl_email(email: str) -> bool:
+    tld = (email or "").rsplit(".", 1)[-1].lower().strip()
+    return tld in _INTL_TLDS
+
+
+_INTL_TIER_FEATURES = {
+    "starter": "Booking, CRM, POS, WhatsApp reminders",
+    "professional": "+ Inventory, Payroll, Analytics, Multi-staff",
+    "premium": "+ Mira AI, AI Marketing, Review Automation",
+}
+
+
+def _usd_pricing_rows(plans: list) -> str:
+    usd = {p["key"]: p for p in plans if p.get("currency") == "USD"}
+    rows = ""
+    for tier, key in (("Starter", "intl_starter"), ("Professional", "intl_pro"), ("Premium AI", "intl_premium")):
+        mo = (usd.get(f"{key}_monthly") or {}).get("price")
+        half = (usd.get(f"{key}_half") or {}).get("price")
+        yr = (usd.get(f"{key}_annual") or {}).get("price")
+        if not mo:
+            continue
+        tier_key = "premium" if "Premium" in tier else tier.lower()
+        rows += f"""
+        <tr>
+          <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>{tier}</b>
+            <div style="font-size:11px;color:#9a948a">{_INTL_TIER_FEATURES.get(tier_key, '')}</div></td>
+          <td align="right" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:15px;color:#1d1d24"><b>${round(mo):,}/mo</b>
+            <div style="font-size:11px;color:#9a948a">6&nbsp;months ${round(half or mo * 6):,} · 1&nbsp;year ${round(yr or mo * 12):,}</div></td>
+        </tr>"""
+    ent = (usd.get("intl_enterprise_monthly") or {}).get("price") or 499
+    rows += f"""
+        <tr>
+          <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>Enterprise</b>
+            <div style="font-size:11px;color:#9a948a">Multi-branch chains · custom contracts</div></td>
+          <td align="right" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:15px;color:#1d1d24"><b>from ${round(ent):,}/mo</b></td>
+        </tr>"""
+    return rows
+
+
+def _demo_pricing_block(plans: list | None, currency: str = "INR") -> str:
     if not plans:
         return ""
-    show = [p for p in plans if (p.get("branches") or 1) == 1] or plans[:2]
-    rows = "".join(_demo_pricing_row(p) for p in show)
+    if currency == "USD":
+        rows = _usd_pricing_rows(plans)
+        tail = "All features included. Prices in USD for international salons — billed via secure payment link."
+    else:
+        show = [p for p in plans if (p.get("branches") or 1) == 1 and p.get("currency", "INR") == "INR"] or plans[:2]
+        rows = "".join(_demo_pricing_row(p) for p in show)
+        tail = ("All features included in every plan — POS, bookings, CRM and the full 12-agent AI team. "
+                "Multi-branch plans also available — ask us in the demo.")
     return f"""
   <tr><td style="padding:14px 36px 4px">
     <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold">SIMPLE, HONEST PRICING</div>
@@ -388,7 +437,7 @@ def _demo_pricing_block(plans: list | None) -> str:
       <tr><td colspan="2" style="padding:12px 16px;font-size:12.5px;color:#55555f;line-height:1.6">
         Start with a <b>7-day free trial</b> — no card, no commitment. Then choose the plan that fits:</td></tr>
       {rows}
-      <tr><td colspan="2" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:11px;color:#9a948a">All features included in every plan — POS, bookings, CRM and the full 12-agent AI team. Multi-branch plans also available — ask us in the demo.</td></tr>
+      <tr><td colspan="2" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:11px;color:#9a948a">{tail}</td></tr>
     </table>
   </td></tr>"""
 
@@ -431,7 +480,8 @@ def _demo_footer_blocks(hq_email: str) -> str:
 
 
 def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str,
-                     plans: list | None = None, track_base: str = "", invite_id: str = "") -> str:
+                     plans: list | None = None, track_base: str = "", invite_id: str = "",
+                     currency: str = "INR") -> str:
     name = html_lib.escape(recipient_name or "").strip()
     salon = html_lib.escape(salon_name or "").strip()
     greeting = f"Dear {name}," if name else "Dear Salon Owner,"
@@ -468,7 +518,7 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
   {_demo_note_block(note)}
   {_demo_modules_block()}
   {_demo_agents_block()}
-  {_demo_pricing_block(plans)}
+  {_demo_pricing_block(plans, currency)}
   <tr><td align="center" style="padding:26px 36px 8px">
     <a href="{cta_href}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
        text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">Request my demo time ✦</a>
@@ -492,6 +542,7 @@ class DemoCampaignIn(BaseModel):
     recipients: list[DemoRecipient] = Field(..., min_length=1, max_length=100)
     note: str = Field(default="", max_length=600)
     subject: str = Field(default="", max_length=140)
+    currency: str = Field(default="auto")  # auto | INR | USD
 
 
 @router.get("/super-admin/demo-campaign/recipients")
@@ -533,8 +584,10 @@ class _DemoSendCtx:
 async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -> dict:
     existing = await _raw_db.demo_invites.find_one({"email": em}, {"_id": 0, "id": 1})
     iid = existing["id"] if existing else str(uuid.uuid4())
+    mode = getattr(ctx.body, "currency", "auto") or "auto"
+    currency = mode if mode in ("INR", "USD") else ("USD" if _is_intl_email(em) else "INR")
     html = _demo_email_html(name, salon, ctx.body.note, ctx.hq_email, plans=ctx.plans,
-                            track_base=ctx.track_base, invite_id=iid)
+                            track_base=ctx.track_base, invite_id=iid, currency=currency)
     status = await _send_email([em], ctx.subject, html, attachments=ctx.attachments, reply_to=ctx.hq_email)
     if status.get("sent"):
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -798,7 +851,8 @@ async def demo_invite_resend(iid: str, request: Request, user=Depends(require_su
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     track_base = f"https://{host}" if host else (inv.get("track_base") or "")
     html = _demo_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", hq_email,
-                            plans=plans, track_base=track_base, invite_id=iid)
+                            plans=plans, track_base=track_base, invite_id=iid,
+                            currency="USD" if _is_intl_email(inv["email"]) else "INR")
     status = await _send_email([inv["email"]],
                                "A warm invitation — see your salon run beautifully with Miracurl ✦",
                                html, attachments=attachments, reply_to=hq_email)
