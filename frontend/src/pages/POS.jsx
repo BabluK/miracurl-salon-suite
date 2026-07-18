@@ -222,6 +222,12 @@ export default function POS() {
       const rc = data.receipts || {};
       if (rc.email?.sent) toast.info("📧 Receipt emailed to the guest");
       if (rc.sms?.sent) toast.info(`📱 SMS receipt sent · ${rc.sms.points_left} SMS points left`);
+      if (rc.whatsapp_url) {
+        toast.success("💬 Send the receipt + review link on WhatsApp?", {
+          duration: 12000,
+          action: { label: "Open WhatsApp", onClick: () => window.open(rc.whatsapp_url, "_blank") },
+        });
+      }
       else if (rc.sms?.error === "no_sms_points") toast.warning("SMS receipt skipped — no SMS points left. Ask HQ to recharge.");
       setLastInvoice(data);
       if (complete) clearAll();

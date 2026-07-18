@@ -511,3 +511,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - receipt_email.py: _smart_review_url(t, inv) = APP_PUBLIC_URL/review/{appointment_id or invoice_id}. Both the receipt button ("Rate us — Mira writes your review!") and the attached tent-card QR now use this personalized link.
 - Verified: review-info + Mira 5★ draft via invoice token (curl), full /review/{invoice_id} page screenshot (stars → Mira-drafted review → ₹30 credit banner), tent card generates with personalized QR.
 - NOTE: user must Deploy for production.
+
+## 2026-07-18 — WhatsApp receipt with smart review link (user approved)
+- billing.py: _receipt_whatsapp_url() — wa.me link (customer phone) with branded receipt msg + loyalty points + smart Mira review link; returned as receipts.whatsapp_url from POST /api/invoices. SMS receipt also switched from google_review_url to smart review link.
+- POS.jsx: after checkout, 12s toast "Send the receipt + review link on WhatsApp?" with Open WhatsApp action button.
+- Verified: live checkout via curl → whatsapp_url present with /review/{invoice_id} link. Test invoice cleaned up.
+- IMPORTANT USER EDUCATION GIVEN: Google does NOT allow auto-posting reviews on a customer's behalf (no API; doing so = fake-review policy violation, listing risk). Mira flow = closest legal automation: writes review, copies, one tap opens Google, customer pastes+posts from own account.

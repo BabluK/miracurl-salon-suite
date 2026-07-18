@@ -1,4 +1,5 @@
 """Shared billing domain: invoice totals, coupons, memberships, loyalty, receipts."""
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -169,17 +170,37 @@ async def _validate_package_redeem_items(items: list, cust: dict):
 
 
 def _receipt_sms_text(t: dict, inv: dict, points_earned: int) -> str:
+    from receipt_email import _smart_review_url
     name = (t or {}).get("name") or "Your Salon"
     pts = f" You earned {points_earned} loyalty pts." if points_earned else ""
-    review = f" Loved it? Review us: {t['google_review_url']}" if (t or {}).get("google_review_url") else ""
+    review = f" Loved it? Rate us (Mira writes your review!): {_smart_review_url(t, inv)}"
     return (f"{name}: Thank you {inv['customer_name']}! Receipt {inv['invoice_no']} - "
             f"Rs.{inv['total']:.0f} paid via {_pay_label(inv['payment_mode'])}.{pts}{review}")
 
 
+def _receipt_whatsapp_url(t: dict, inv: dict, phone: str, points_earned: int) -> str | None:
+    """wa.me link the cashier taps to send the receipt + smart review link on WhatsApp (free)."""
+    from urllib.parse import quote
+    from receipt_email import _smart_review_url
+    num = re.sub(r"\D", "", phone or "")
+    if not num:
+        return None
+    name = (t or {}).get("name") or "Your Salon"
+    pts = f"\n✨ You earned *{points_earned} loyalty points* — redeem on your next visit!" if points_earned else ""
+    msg = (f"✦ *{name}* ✦\n\nThank you {inv['customer_name']}! 🌸\n"
+           f"Receipt *{inv['invoice_no']}* — ₹{inv['total']:.0f} paid via {_pay_label(inv['payment_mode'])}.{pts}\n\n"
+           f"⭐ Loved your visit? Tap to rate us — Mira even writes your review for you:\n{_smart_review_url(t, inv)}")
+    return f"https://wa.me/{'91' + num if len(num) == 10 else num}?text={quote(msg)}"
+
+
 async def _send_billing_receipts(inv: dict, cust: dict, tenant_doc: Optional[dict], points_earned: int) -> dict:
     """Post-billing receipts. Email is free; each SMS burns 1 sms_point (credited by HQ)."""
-    out = {"email": None, "sms": None}
+    out = {"email": None, "sms": None, "whatsapp_url": None}
     t = tenant_doc or {}
+    try:
+        out["whatsapp_url"] = _receipt_whatsapp_url(t, inv, cust.get("phone") or "", points_earned)
+    except Exception:  # noqa: BLE001
+        out["whatsapp_url"] = None
     try:
         if cust.get("email"):
             out["email"] = await send_invoice_receipt_email(t, inv, cust["email"], points_earned)
