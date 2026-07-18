@@ -2,9 +2,23 @@
 Pure functions (dict in -> bytes out). The registry PDF takes a `fetch_image`
 callable so it stays decoupled from server-side SSRF-safe image fetching."""
 import io
+import os
+import base64
 from datetime import datetime, timezone, timedelta
 
 from utils import _pay_label
+
+_SCREENS_TOUR_PDF = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "miracurl-screens-tour.pdf")
+
+
+def screens_tour_attachment() -> dict | None:
+    """The miracurl-screens-tour.pdf brochure as a Resend email attachment payload."""
+    try:
+        with open(_SCREENS_TOUR_PDF, "rb") as f:
+            return {"filename": "miracurl-screens-tour.pdf",
+                    "content": base64.b64encode(f.read()).decode()}
+    except Exception:
+        return None
 
 
 def _render_invoice_pdf(inv: dict, tenant: dict) -> bytes:

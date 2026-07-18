@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from security import require_super_admin
+from services.pdf import screens_tour_attachment
 
 router = APIRouter()
 log = logging.getLogger("mira_leads")
@@ -283,6 +284,29 @@ async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str
     return lead
 
 
+async def _log_candidate_source(_log, source: str, note: str):
+    if source == "maps":
+        await _log("📍 Google Maps: real salons with ratings & websites found.")
+    elif note == "no_key":
+        await _log("ℹ️ Google Maps key not configured on this server — using Mira AI research instead.")
+    else:
+        await _log(f"⚠️ Google Maps unavailable ({note or 'no results'}) — using Mira AI research instead.")
+
+
+async def _research_candidates(client: httpx.AsyncClient, cands: list, city: str, run_id: str, _log) -> int:
+    done = 0
+    for cand in cands:
+        try:
+            lead = await _build_candidate_lead(client, cand, city, run_id)
+            await _raw_db.mira_leads.insert_one(lead)
+            done += 1
+            await _log(f"📋 {lead['name']}: score {lead['score']} | email: {lead['email'] or 'not found'}", researched=done)
+        except Exception as e:  # noqa: BLE001 — one bad candidate must not stop the run
+            await _log(f"⚠️ {cand.get('name')} skipped: {str(e)[:80]}")
+        await asyncio.sleep(1.5)
+    return done
+
+
 async def _run_pipeline(run_id: str, city: str, target: int):
     async def _log(msg, **sets):
         await _raw_db.mira_lead_runs.update_one(
@@ -295,23 +319,9 @@ async def _run_pipeline(run_id: str, city: str, target: int):
             if not cands:
                 await _log("No new salons found — try another city or run again later.", status="done", stage="done")
                 return
-            if source == "maps":
-                await _log("📍 Google Maps: real salons with ratings & websites found.")
-            elif note == "no_key":
-                await _log("ℹ️ Google Maps key not configured on this server — using Mira AI research instead.")
-            else:
-                await _log(f"⚠️ Google Maps unavailable ({note or 'no results'}) — using Mira AI research instead.")
+            await _log_candidate_source(_log, source, note)
             await _log(f"✅ Found {len(cands)} candidate salons. Researching each…", stage="researching", found=len(cands))
-            done = 0
-            for cand in cands:
-                try:
-                    lead = await _build_candidate_lead(client, cand, city, run_id)
-                    await _raw_db.mira_leads.insert_one(lead)
-                    done += 1
-                    await _log(f"📋 {lead['name']}: score {lead['score']} | email: {lead['email'] or 'not found'}", researched=done)
-                except Exception as e:
-                    await _log(f"⚠️ {cand.get('name')} skipped: {str(e)[:80]}")
-                await asyncio.sleep(1.5)
+            done = await _research_candidates(client, cands, city, run_id, _log)
             await _log(f"🎉 Run complete — {done} leads ready for your review.", status="done", stage="done")
     except Exception as e:
         log.exception("lead run failed")
@@ -406,15 +416,6 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
 _SCREENS_TOUR_PDF = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "miracurl-screens-tour.pdf")
 
 
-def _screens_tour_attachment() -> dict | None:
-    try:
-        with open(_SCREENS_TOUR_PDF, "rb") as f:
-            return {"filename": "miracurl-screens-tour.pdf",
-                    "content": base64.b64encode(f.read()).decode()}
-    except Exception:
-        return None
-
-
 @router.get("/public/lead-track/{lid}/open.png")
 async def lead_track_open(lid: str, request: Request):
     from security import public_rate_limit
@@ -443,7 +444,7 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
     from routes.hq_documents import suite_overview_attachment
     html = _outreach_email_html(lead, await _live_plans())
     attachments = [await asyncio.to_thread(suite_overview_attachment)]
-    tour = _screens_tour_attachment()
+    tour = screens_tour_attachment()
     if tour:
         attachments.append(tour)
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
@@ -593,7 +594,7 @@ async def run_lead_followups() -> dict:
         base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
         html = ("".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
                 + f'<img src="{base}/api/public/lead-track/{lead["id"]}/open.png" width="1" height="1" style="display:block" alt="" />')
-        tour = _screens_tour_attachment()
+        tour = screens_tour_attachment()
         try:
             result = await _send_email([lead["email"]], subject, html,
                                        attachments=[tour] if tour else None,
@@ -641,7 +642,7 @@ async def lead_remind(lid: str, user=Depends(require_super_admin)):
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     html = ("".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
             + f'<img src="{base}/api/public/lead-track/{lid}/open.png" width="1" height="1" style="display:block" alt="" />')
-    tour = _screens_tour_attachment()
+    tour = screens_tour_attachment()
     result = await _send_email([lead["email"]], subject, html,
                                attachments=[tour] if tour else None,
                                book_url="https://miracurl-suite.com/demo")
@@ -663,7 +664,7 @@ async def lead_resend_pitch(lid: str, user=Depends(require_super_admin)):
     _rate_guard(lead, "pdf_resent_at", "PDF")
     html = _outreach_email_html(lead, await _live_plans())
     attachments = [await asyncio.to_thread(suite_overview_attachment)]
-    tour = _screens_tour_attachment()
+    tour = screens_tour_attachment()
     if tour:
         attachments.append(tour)
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",

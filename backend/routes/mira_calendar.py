@@ -99,6 +99,21 @@ async def delete_calendar_item(item_id: str, admin=Depends(require_tenant_admin)
     return {"ok": True}
 
 
+async def _ensure_calendar_image(item: dict, item_id: str, t: dict) -> str:
+    image_url = item.get("image_url")
+    if image_url:
+        return image_url
+    image_url = await _gen_image(
+        f"Professional social-media promo image for an Indian salon about '{item['topic']}'. "
+        "Premium beauty-brand aesthetic, cinematic lighting, square 1:1. "
+        "Absolutely NO text, NO letters, NO logos, no distorted faces.", t, "calendar")
+    if not image_url:
+        raise HTTPException(500, "Image generation failed — try again")
+    await _raw_db.content_calendar.update_one(
+        {"id": item_id, "tenant_id": t["id"]}, {"$set": {"image_url": image_url}})
+    return image_url
+
+
 @router.post("/mira-studio/calendar/{item_id}/publish")
 async def publish_calendar_item(item_id: str, request: Request,
                                 admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
@@ -109,16 +124,7 @@ async def publish_calendar_item(item_id: str, request: Request,
     platforms = [p for p in ("instagram", "facebook") if conn.get(p)]
     if not platforms:
         raise HTTPException(400, "Connect Instagram/Facebook in Settings before auto-posting")
-    image_url = item.get("image_url")
-    if not image_url:
-        image_url = await _gen_image(
-            f"Professional social-media promo image for an Indian salon about '{item['topic']}'. "
-            "Premium beauty-brand aesthetic, cinematic lighting, square 1:1. "
-            "Absolutely NO text, NO letters, NO logos, no distorted faces.", t, "calendar")
-        if not image_url:
-            raise HTTPException(500, "Image generation failed — try again")
-        await _raw_db.content_calendar.update_one(
-            {"id": item_id, "tenant_id": t["id"]}, {"$set": {"image_url": image_url}})
+    image_url = await _ensure_calendar_image(item, item_id, t)
     caption = f"{item['caption']}\n\n{' '.join(item.get('hashtags') or [])}".strip()
     image_abs = image_url if image_url.startswith("http") else f"{_base(request)}{image_url}"
     results = await publish_content(t["id"], caption, image_abs, platforms)

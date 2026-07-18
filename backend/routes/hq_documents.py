@@ -289,8 +289,8 @@ def _all_doc_attachments() -> list:
     except Exception:
         pass
     try:
-        from routes.lead_gen import _screens_tour_attachment
-        tour = _screens_tour_attachment()
+        from services.pdf import screens_tour_attachment
+        tour = screens_tour_attachment()
         if tour:
             items.append(tour)
     except Exception:
@@ -399,23 +399,26 @@ _INTL_TIER_FEATURES = {
 }
 
 
-def _usd_pricing_rows(plans: list) -> str:
-    usd = {p["key"]: p for p in plans if p.get("currency") == "USD"}
-    rows = ""
-    for tier, key in (("Starter", "intl_starter"), ("Professional", "intl_pro"), ("Premium AI", "intl_premium")):
-        mo = (usd.get(f"{key}_monthly") or {}).get("price")
-        half = (usd.get(f"{key}_half") or {}).get("price")
-        yr = (usd.get(f"{key}_annual") or {}).get("price")
-        if not mo:
-            continue
-        tier_key = "premium" if "Premium" in tier else tier.lower()
-        rows += f"""
+def _usd_tier_row(tier: str, key: str, usd: dict) -> str:
+    mo = (usd.get(f"{key}_monthly") or {}).get("price")
+    if not mo:
+        return ""
+    half = (usd.get(f"{key}_half") or {}).get("price")
+    yr = (usd.get(f"{key}_annual") or {}).get("price")
+    tier_key = "premium" if "Premium" in tier else tier.lower()
+    return f"""
         <tr>
           <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>{tier}</b>
             <div style="font-size:11px;color:#9a948a">{_INTL_TIER_FEATURES.get(tier_key, '')}</div></td>
           <td align="right" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:15px;color:#1d1d24"><b>${round(mo):,}/mo</b>
             <div style="font-size:11px;color:#9a948a">6&nbsp;months ${round(half or mo * 6):,} · 1&nbsp;year ${round(yr or mo * 12):,}</div></td>
         </tr>"""
+
+
+def _usd_pricing_rows(plans: list) -> str:
+    usd = {p["key"]: p for p in plans if p.get("currency") == "USD"}
+    rows = "".join(_usd_tier_row(tier, key, usd)
+                   for tier, key in (("Starter", "intl_starter"), ("Professional", "intl_pro"), ("Premium AI", "intl_premium")))
     ent = (usd.get("intl_enterprise_monthly") or {}).get("price") or 499
     rows += f"""
         <tr>
@@ -486,7 +489,7 @@ def _demo_footer_blocks(hq_email: str) -> str:
   </td></tr>"""
 
 
-def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str,
+def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str, *,
                      plans: list | None = None, track_base: str = "", invite_id: str = "",
                      currency: str = "INR") -> str:
     name = html_lib.escape(recipient_name or "").strip()

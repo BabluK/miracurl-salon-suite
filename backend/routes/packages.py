@@ -58,19 +58,34 @@ async def _generate_package(t: dict, audience: str, pct: int | None = None,
     catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in pool[:30])
     eng = ", ".join(f"{n} ({c} pts)" for n, c in ctx.get("engagement", []))
     pct = max(5, min(60, int(pct))) if pct else None
+    real = {s["name"].lower().strip(): s for s in pool}
+    valid, bad_names = [], []
+    for attempt in range(2):
+        data = await _ask_json(
+            "You are Mira, an expert salon revenue strategist for Indian salons. You design irresistible service "
+            "packages that feel premium yet great value.",
+            _pkg_prompt(t, audience, catalog, eng, pct, bad_names, attempt))
+        if not data.get("name") or not isinstance(data.get("services"), list) or not data["services"]:
+            raise HTTPException(400, "Mira returned an unexpected package format — try again")
+        valid, bad_names = _match_catalog_services(data, real)
+        if len(valid) >= 2:
+            break
+    if len(valid) < 2:
+        raise HTTPException(400, "Mira picked services not on your menu — try again")
+    doc = _package_doc(t, audience, data, valid, pct, valid_days, auto_reason)
+    await _raw_db.mira_packages.insert_one({**doc})
+    return doc
+
+
+def _pkg_prompt(t: dict, audience: str, catalog: str, eng: str,
+                pct: int | None, bad_names: list, attempt: int) -> str:
     pct_line = (f"The owner has FIXED the package discount at exactly {pct}% off the combined value — package_price must be exactly {pct}% less."
                 if pct else "Choose a compelling package discount (15-30% off the combined value).")
     gender_line = ("STRICT: this package is exclusively for this audience — every service you pick must be from the list above (they are already suitable). "
                    if audience in ("men", "women") else "")
-    real = {s["name"].lower().strip(): s for s in pool}
-    valid, bad_names = [], []
-    for attempt in range(2):
-        retry_line = (f"YOUR PREVIOUS PICKS WERE REJECTED — these are NOT on the menu: {', '.join(bad_names)}. "
-                      "Copy service names EXACTLY, character-for-character, from the catalog above.\n") if attempt else ""
-        data = await _ask_json(
-            "You are Mira, an expert salon revenue strategist for Indian salons. You design irresistible service "
-            "packages that feel premium yet great value.",
-            f"Salon: {t.get('name')}. Design ONE service package {AUDIENCE_HINT[audience]}\n"
+    retry_line = (f"YOUR PREVIOUS PICKS WERE REJECTED — these are NOT on the menu: {', '.join(bad_names)}. "
+                  "Copy service names EXACTLY, character-for-character, from the catalog above.\n") if attempt else ""
+    return (f"Salon: {t.get('name')}. Design ONE service package {AUDIENCE_HINT[audience]}\n"
             f"{'AUDIENCE INSIGHTS — services ranked by social engagement: ' + eng + chr(10) if eng else ''}"
             f"SERVICE CATALOG (real prices — never invent, rename or abbreviate services):\n{catalog}\n"
             f"Pick 3-5 REAL services, copying names EXACTLY as written above. {gender_line}{pct_line}\n{retry_line}"
@@ -78,20 +93,22 @@ async def _generate_package(t: dict, audience: str, pct: int | None = None,
             '"services":[{"name":"<exact catalog name>","price":<num>}],"total_value":<sum of prices>,'
             '"package_price":<discounted bundle price, round to nearest 49/99>,'
             '"caption":"<ready-to-post WhatsApp/Google caption with emojis, list services, show total value vs package price, end with book-now nudge>"}')
-        if not data.get("name") or not isinstance(data.get("services"), list) or not data["services"]:
-            raise HTTPException(400, "Mira returned an unexpected package format — try again")
-        valid, bad_names = [], []
-        for s in data["services"][:6]:
-            m = real.get(str(s.get("name", "")).lower().strip())
-            if m:
-                valid.append({"name": m["name"], "price": float(m["price"])})
-            else:
-                bad_names.append(str(s.get("name", ""))[:40])
-        if len(valid) >= 2:
-            break
-    if len(valid) < 2:
-        raise HTTPException(400, "Mira picked services not on your menu — try again")
-    data["services"] = valid
+
+
+def _match_catalog_services(data: dict, real: dict) -> tuple[list, list]:
+    """Match Mira's picks to real catalog services — returns (valid, rejected_names)."""
+    valid, bad = [], []
+    for s in data["services"][:6]:
+        m = real.get(str(s.get("name", "")).lower().strip())
+        if m:
+            valid.append({"name": m["name"], "price": float(m["price"])})
+        else:
+            bad.append(str(s.get("name", ""))[:40])
+    return valid, bad
+
+
+def _package_doc(t: dict, audience: str, data: dict, valid: list,
+                 pct: int | None, valid_days: int | None, auto_reason: str | None) -> dict:
     total = sum(s["price"] for s in valid)
     price = float(data.get("package_price") or 0)
     if pct:
@@ -102,7 +119,7 @@ async def _generate_package(t: dict, audience: str, pct: int | None = None,
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "audience": audience,
         "name": str(data["name"])[:80], "tagline": str(data.get("tagline") or "")[:140],
         "services": [{"name": str(s.get("name", ""))[:60], "price": float(s.get("price") or 0)}
-                     for s in data["services"][:5]],
+                     for s in valid[:5]],
         "total_value": total, "package_price": price,
         "discount_pct": round((1 - price / total) * 100) if total > 0 and 0 < price < total else (pct or 0),
         "caption": str(data.get("caption") or "")[:900],
@@ -112,7 +129,6 @@ async def _generate_package(t: dict, audience: str, pct: int | None = None,
     if auto_reason:
         doc["auto_suggested"] = True
         doc["auto_reason"] = auto_reason
-    await _raw_db.mira_packages.insert_one({**doc})
     return doc
 
 
@@ -176,6 +192,43 @@ async def unpublish_package(pid: str, user=Depends(require_tenant_admin), t=Depe
     return {"ok": True}
 
 
+async def _render_package_flyer(doc: dict, template: str, user, t) -> tuple:
+    """Generate the package poster — returns (flyer_id, flyer_url), (None, None) on failure."""
+    from routes.offer_flyer import FlyerIn, create_flyer
+    audience_label = {"men": "For Men", "women": "For Women", "family": "For the Family"}[doc["audience"]]
+    valid_days = doc.get("valid_days")
+    valid_text = f"Valid for {valid_days} days only" if valid_days else "Limited period package"
+    try:
+        flyer = await create_flyer(FlyerIn(
+            template=template,
+            headline=doc["name"],
+            offer_text=f"{audience_label} · Worth ₹{doc['total_value']:.0f} — now ₹{doc['package_price']:.0f}",
+            services=[f"{s['name']} ₹{s['price']:.0f}" for s in doc["services"]],
+            valid_until=valid_text), user=user, t=t)
+        return flyer["id"], flyer["url"]
+    except Exception as e:  # noqa: BLE001 — publish must proceed without a poster
+        log.warning(f"package flyer generation failed: {e}")
+        return None, None
+
+
+async def _post_package_social(t: dict, doc: dict, flyer_url: str | None, request: Request) -> tuple:
+    """Post the package to Google Business + Instagram/Facebook — returns (google_post, meta_post)."""
+    google_post, meta_post = None, None
+    try:
+        from routes.social_connect import publish_google_post, publish_content, _base
+        image_abs = f"{_base(request)}{flyer_url}" if flyer_url else None
+        google_post = await publish_google_post(t["id"], doc["caption"], image_abs, offer_title=doc["name"])
+        if image_abs:
+            meta_post = await publish_content(t["id"], doc["caption"], image_abs, ["instagram", "facebook"])
+        else:
+            meta_post = {"instagram": {"ok": False, "error": "No poster image"},
+                         "facebook": {"ok": False, "error": "No poster image"}}
+    except Exception as e:  # noqa: BLE001 — social failures must not block publish
+        log.warning(f"package social post failed: {e}")
+        google_post = google_post or {"ok": False, "error": str(e)[:200]}
+    return google_post, meta_post
+
+
 @router.post("/mira-packages/publish")
 async def publish_package(body: PublishIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Generate a poster and post the package on Google Business. WhatsApp status is shared from the UI."""
@@ -192,35 +245,10 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
     if pct and pct != int(doc.get("discount_pct") or 0):
         _apply_pkg_pct(doc, pct)
         pct_patch = {"package_price": doc["package_price"], "discount_pct": doc["discount_pct"], "caption": doc["caption"]}
-    from routes.offer_flyer import FlyerIn, create_flyer
-    audience_label = {"men": "For Men", "women": "For Women", "family": "For the Family"}[doc["audience"]]
     valid_days = doc.get("valid_days")
     expires_at = (datetime.now(timezone.utc) + timedelta(days=valid_days)).isoformat() if valid_days else None
-    valid_text = f"Valid for {valid_days} days only" if valid_days else "Limited period package"
-    try:
-        flyer = await create_flyer(FlyerIn(
-            template=body.template,
-            headline=doc["name"],
-            offer_text=f"{audience_label} · Worth ₹{doc['total_value']:.0f} — now ₹{doc['package_price']:.0f}",
-            services=[f"{s['name']} ₹{s['price']:.0f}" for s in doc["services"]],
-            valid_until=valid_text), user=user, t=t)
-        flyer_id, flyer_url = flyer["id"], flyer["url"]
-    except Exception as e:
-        log.warning(f"package flyer generation failed: {e}")
-        flyer_id, flyer_url = None, None
-    google_post, meta_post = None, None
-    try:
-        from routes.social_connect import publish_google_post, publish_content, _base
-        image_abs = f"{_base(request)}{flyer_url}" if flyer_url else None
-        google_post = await publish_google_post(t["id"], doc["caption"], image_abs, offer_title=doc["name"])
-        if image_abs:
-            meta_post = await publish_content(t["id"], doc["caption"], image_abs, ["instagram", "facebook"])
-        else:
-            meta_post = {"instagram": {"ok": False, "error": "No poster image"},
-                         "facebook": {"ok": False, "error": "No poster image"}}
-    except Exception as e:
-        log.warning(f"package social post failed: {e}")
-        google_post = google_post or {"ok": False, "error": str(e)[:200]}
+    flyer_id, flyer_url = await _render_package_flyer(doc, body.template, user, t)
+    google_post, meta_post = await _post_package_social(t, doc, flyer_url, request)
     patch = {**pct_patch,
              "status": "published", "published_at": datetime.now(timezone.utc).isoformat(),
              "expires_at": expires_at,
@@ -232,10 +260,39 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
 _AUDIENCE_ROTATION = {"men": "women", "women": "family", "family": "men"}
 
 
+def _needs_fresh_package(last: dict | None, now_iso: str, week_ago: str) -> bool:
+    if not last:
+        return False  # tenant never used packages — don't push unsolicited suggestions
+    if last.get("created_at", "") >= week_ago:
+        return False  # a fresh package already exists this week
+    if last["status"] == "published" and (not last.get("expires_at") or last["expires_at"] > now_iso):
+        return False  # last package is still live
+    return True
+
+
+async def _email_package_suggestion(t: dict, doc: dict) -> None:
+    from email_service import _send_email
+    recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
+    if not recipients:
+        return
+    items = "".join(f"<li>{s['name']} — ₹{s['price']:.0f}</li>" for s in doc["services"])
+    await _send_email(
+        recipients,
+        f"✦ Mira designed a fresh package for {t.get('name')} — approve to publish",
+        f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
+        f"<h2 style='margin:0 0 6px'>{doc['name']}</h2>"
+        f"<p style='color:#666;margin:0 0 12px'>{doc['tagline']}</p>"
+        f"<ul style='color:#444'>{items}</ul>"
+        f"<p><b>Worth ₹{doc['total_value']:.0f} → package price ₹{doc['package_price']:.0f} "
+        f"({doc['discount_pct']}% off)</b></p>"
+        f"<p style='color:#666'>Your previous package expired, so Mira drafted this fresh suggestion. "
+        f"Open your Miracurl dashboard → <b>Offers Studio</b> and tap <b>Publish</b> to create the poster "
+        f"and post it on Google, Instagram &amp; Facebook.</p></div>")
+
+
 async def run_monday_package_suggestions() -> dict:
     """Monday auto-suggester: when a tenant's last package has expired, Mira drafts a fresh
     suggestion (owner approves before publish) and emails the owner. Used by the weekly scheduler."""
-    from email_service import _send_email
     now_iso = datetime.now(timezone.utc).isoformat()
     week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     tenants = await _raw_db.tenants.find({"status": {"$in": ["active", "trial"]}}, {"_id": 0}).to_list(500)
@@ -244,32 +301,14 @@ async def run_monday_package_suggestions() -> dict:
         try:
             last = await _raw_db.mira_packages.find(
                 {"tenant_id": t["id"]}, {"_id": 0}).sort("created_at", -1).to_list(1)
-            last = last[0] if last else None
-            if not last:
-                continue  # tenant never used packages — don't push unsolicited suggestions
-            if last.get("created_at", "") >= week_ago:
-                continue  # a fresh package already exists this week
-            if last["status"] == "published" and (not last.get("expires_at") or last["expires_at"] > now_iso):
-                continue  # last package is still live
+            if not _needs_fresh_package(last[0] if last else None, now_iso, week_ago):
+                continue
+            last = last[0]
             audience = _AUDIENCE_ROTATION.get(last.get("audience"), "women")
             doc = await _generate_package(
                 t, audience, valid_days=last.get("valid_days") or 7,
                 auto_reason="Your previous package ended — Mira designed a fresh one to keep bookings coming")
-            recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
-            if recipients:
-                items = "".join(f"<li>{s['name']} — ₹{s['price']:.0f}</li>" for s in doc["services"])
-                await _send_email(
-                    recipients,
-                    f"✦ Mira designed a fresh package for {t.get('name')} — approve to publish",
-                    f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
-                    f"<h2 style='margin:0 0 6px'>{doc['name']}</h2>"
-                    f"<p style='color:#666;margin:0 0 12px'>{doc['tagline']}</p>"
-                    f"<ul style='color:#444'>{items}</ul>"
-                    f"<p><b>Worth ₹{doc['total_value']:.0f} → package price ₹{doc['package_price']:.0f} "
-                    f"({doc['discount_pct']}% off)</b></p>"
-                    f"<p style='color:#666'>Your previous package expired, so Mira drafted this fresh suggestion. "
-                    f"Open your Miracurl dashboard → <b>Offers Studio</b> and tap <b>Publish</b> to create the poster "
-                    f"and post it on Google, Instagram &amp; Facebook.</p></div>")
+            await _email_package_suggestion(t, doc)
             results.append({"tenant": t["name"], "ok": True, "package": doc["name"], "audience": audience})
         except Exception as e:  # noqa: BLE001 — one tenant must not block the rest
             log.warning(f"monday package suggestion failed for {t.get('name')}: {e}")

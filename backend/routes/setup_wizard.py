@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.get("/setup/status")
-async def setup_status(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def setup_status(user=Depends(require_tenant_admin), t=Depends(current_tenant)) -> dict:
     services = await db.services.count_documents({"active": True})
     staff = await db.staff.count_documents({"active": True})
     progress = {
@@ -27,7 +27,7 @@ async def setup_status(user=Depends(require_tenant_admin), t=Depends(current_ten
 
 
 @router.post("/setup/payment-done")
-async def setup_payment_done(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def setup_payment_done(user=Depends(require_tenant_admin), t=Depends(current_tenant)) -> dict:
     """Owner explicitly chose 'no tax / skip' — mark the payment step handled."""
     await db.tenants.update_one({"id": t["id"]}, {"$set": {"setup_payment_done": True}})
     return {"ok": True}

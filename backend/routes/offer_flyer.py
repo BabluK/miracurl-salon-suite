@@ -478,7 +478,7 @@ def _draw_hero_text(d: ImageDraw.ImageDraw, body: AboutPosterIn, t: dict, accent
     d.arc([-400, hero_h - 158, W + 400, hero_h + 92], start=193, end=347, fill=(255, 255, 255, 110), width=6)
 
 
-def _draw_about_section(img: Image.Image, d: ImageDraw.ImageDraw, body: AboutPosterIn, t: dict,
+def _draw_about_section(img: Image.Image, d: ImageDraw.ImageDraw, body: AboutPosterIn, t: dict, *,
                         insets: list, accent: tuple, panel_txt: tuple,
                         W: int, hero_h: int, m: int) -> int:
     """About Us heading, wrapped copy and circular photo insets. Returns final y."""
@@ -516,7 +516,7 @@ def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPos
     img = _hero_canvas(hero_bytes, panel, W, H, hero_h)
     d = ImageDraw.Draw(img)
     _draw_hero_text(d, body, t, accent, W, hero_h, m)
-    y = _draw_about_section(img, d, body, t, insets, accent, panel_txt, W, hero_h, m)
+    y = _draw_about_section(img, d, body, t, insets=insets, accent=accent, panel_txt=panel_txt, W=W, hero_h=hero_h, m=m)
 
     mm = re.search(r"(\d{1,2})\s*%", body.offer_line or "")
     if mm and y < H - bar_h - 130:

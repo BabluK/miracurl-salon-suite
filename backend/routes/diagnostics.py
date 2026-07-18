@@ -27,6 +27,22 @@ _THRESHOLDS = {
 }
 
 
+async def _data_issues(tid: str, counts: dict) -> list:
+    issues = []
+    for c, n in counts.items():
+        th = _THRESHOLDS.get(c)
+        if th and n >= th[0]:
+            issues.append({"level": "warn", "text": f"{th[1]} ({n:,} records)", "collection": c})
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
+    stuck = await _raw_db.offer_flyers.count_documents(
+        {"tenant_id": tid, "status": "generating", "created_at": {"$lt": cutoff}})
+    if stuck:
+        issues.append({"level": "error", "text": f"{stuck} stuck flyer job(s) — will be cleared by auto-fix", "collection": "offer_flyers"})
+    if not issues:
+        issues.append({"level": "ok", "text": "No heavy data or stuck jobs found. If the salon still feels slow, run 'Clear cache & auto-fix' — their app cache will be wiped on next open.", "collection": ""})
+    return issues
+
+
 @router.get("/super/tenants/{tid}/diagnostics")
 async def tenant_diagnostics(tid: str, admin=Depends(require_super_admin)):
     t = await _raw_db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "status": 1, "cache_reset_at": 1})
@@ -40,18 +56,7 @@ async def tenant_diagnostics(tid: str, admin=Depends(require_super_admin)):
     async def _count(c):
         return c, await _raw_db[c].count_documents({"tenant_id": tid})
     counts = dict(await asyncio.gather(*[_count(c) for c in KEY_COLLECTIONS]))
-
-    issues = []
-    for c, n in counts.items():
-        th = _THRESHOLDS.get(c)
-        if th and n >= th[0]:
-            issues.append({"level": "warn", "text": f"{th[1]} ({n:,} records)", "collection": c})
-
-    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
-    stuck = await _raw_db.offer_flyers.count_documents(
-        {"tenant_id": tid, "status": "generating", "created_at": {"$lt": cutoff}})
-    if stuck:
-        issues.append({"level": "error", "text": f"{stuck} stuck flyer job(s) — will be cleared by auto-fix", "collection": "offer_flyers"})
+    issues = await _data_issues(tid, counts)
 
     last = {}
     for c in ("appointments", "invoices"):
@@ -61,9 +66,6 @@ async def tenant_diagnostics(tid: str, admin=Depends(require_super_admin)):
     upload_bytes = 0
     async for u in _raw_db.uploads.find({"tenant_id": tid, "is_deleted": False}, {"_id": 0, "size": 1}):
         upload_bytes += u.get("size") or 0
-
-    if not issues:
-        issues.append({"level": "ok", "text": "No heavy data or stuck jobs found. If the salon still feels slow, run 'Clear cache & auto-fix' — their app cache will be wiped on next open.", "collection": ""})
 
     return {
         "tenant": t, "db_ping_ms": ping_ms, "counts": counts, "issues": issues,
