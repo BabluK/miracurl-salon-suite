@@ -60,6 +60,7 @@ function AiTab({ slug }) {
   const sidRef = useRef(null);
   const audioRef = useRef(null);
   const handsFreeRef = useRef(false);
+  const greetedRef = useRef(false);
 
   const { recording, startRecording, stopRecording } = useVoiceRecording({
     onBlob: (blob, auto) => sendVoice(blob, auto),
@@ -87,6 +88,28 @@ function AiTab({ slug }) {
   }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
   useEffect(() => () => { audioRef.current?.pause(); }, []);
+
+  // Voice-first: as soon as Mira opens, she speaks the greeting and starts listening hands-free.
+  useEffect(() => {
+    if (greetedRef.current) return;
+    greetedRef.current = true;
+    (async () => {
+      const begin = () => {
+        if (!endRef.current) return; // component unmounted (panel closed)
+        setHandsFree(true);
+        handsFreeRef.current = true;
+        startRecording(true);
+      };
+      try {
+        const { data } = await axios.get(`${BACKEND_URL}/api/public/ai-greeting/${slug}`, { timeout: 15000 });
+        if (!endRef.current) return;
+        if (data.audio_b64) {
+          setMsgs(m => m.map((x, i) => (i === 0 ? { ...x, spoken: true } : x)));
+          playAudio(data.audio_b64, begin);
+        } else begin();
+      } catch { begin(); }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function send(preset) {
     const text = (preset ?? input).trim();
@@ -130,16 +153,24 @@ function AiTab({ slug }) {
       fd.append("audio", blob, "voice.webm");
       fd.append("session_id", sidRef.current);
       const { data } = await axios.post(`${BACKEND_URL}/api/public/ai-voice/${slug}`, fd, { timeout: 120000 });
+      const resume = () => { if (auto && handsFreeRef.current && !data.booking) startRecording(true); };
+      if (data.heard === false) {
+        // Mira couldn't hear — spoken apology, keep listening in hands-free.
+        setMsgs(m => [...m.filter(x => !x.pending), mkMsg({ role: "ai", text: data.reply, spoken: !!data.audio_b64 })]);
+        if (data.audio_b64) playAudio(data.audio_b64, resume);
+        else resume();
+        return;
+      }
       setMsgs(m => {
         const next = m.filter(x => !x.pending);
         return [...next, mkMsg({ role: "user", text: `🎙️ ${data.transcript}` }), mkMsg({ role: "ai", text: data.reply, booking: data.booking, spoken: !!data.audio_b64 })];
       });
       // In hands-free mode, resume listening once Mira finishes speaking.
-      const resume = () => { if (auto && handsFreeRef.current && !data.booking) startRecording(true); };
       if (data.audio_b64) playAudio(data.audio_b64, resume);
       else resume();
     } catch (e) {
       setMsgs(m => [...m.filter(x => !x.pending), mkMsg({ role: "ai", text: e.response?.data?.detail || "Sorry, I couldn't hear that — please try again." })]);
+      if (auto && handsFreeRef.current) startRecording(true);
     } finally { setBusy(false); }
   }
 

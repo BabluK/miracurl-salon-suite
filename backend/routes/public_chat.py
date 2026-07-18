@@ -179,7 +179,7 @@ async def _free_slots_for(date: str) -> list[str]:
             free.append(hhmm)
     return free
 
-async def _public_ai_reply(t, session_id: str, message: str):
+async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False):
     """Shared Mira pipeline for text + voice. Returns (reply, booking, booking_error)."""
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
@@ -192,9 +192,11 @@ async def _public_ai_reply(t, session_id: str, message: str):
         system_message=(
             f"You are Mira, the expert AI beauty consultant on the online booking page of '{t.get('name', 'the salon')}'. "
             "You are warm, gracious and extremely polite — like the most caring senior beautician who treats every guest like a VIP.\n\n"
-            "LANGUAGE RULE (VERY IMPORTANT): detect the language of each customer message and ALWAYS reply in that SAME language and script — "
-            "English, Hindi (देवनागरी), Kannada (ಕನ್ನಡ), Tamil, Telugu, Malayalam, Marathi, Bengali, Urdu (اردو), or Hinglish/Kanglish in Latin script. "
-            "If they switch languages mid-chat, switch with them instantly. Keep service names from the menu as-is but explain around them in their language.\n"
+            "LANGUAGE RULE (VERY IMPORTANT): you speak ONLY English and Hindi (plus natural Hinglish in Latin script). "
+            "Detect the customer's language each message: English → reply in English; Hindi or Hinglish → reply in Hindi/Hinglish matching their style. "
+            "If they use ANY other language (Kannada, Tamil, Telugu, Malayalam, Marathi, Bengali, Punjabi, Urdu, etc.), reply warmly in English: "
+            "'I'm so sorry — currently I speak only English and Hindi 🙏 Could we please continue in one of those?' and help them the moment they switch. "
+            "Keep service names from the menu as-is.\n"
             "GREETING FLOW: at the very start of a conversation, warmly ask (in the customer's language): 'May I know your name, please?'. "
             f"When the customer tells you their name, reply: 'Welcome to Mira chat bot, [Name]! 💖 Thank you for choosing {t.get('name', 'our salon')}. How may I help you today?' and then assist them. "
             "Use their name naturally afterwards. Never repeat the welcome once given. "
@@ -203,6 +205,18 @@ async def _public_ai_reply(t, session_id: str, message: str):
             "skin tone (fair, wheatish, dusky, deep), skin type (oily/dry/combination/sensitive), hair type (straight/wavy/curly, thin/thick), "
             "concerns (acne, tanning, pigmentation, dandruff, hair fall, frizz, dullness, aging), ingredients (vitamin C, niacinamide, hyaluronic acid, keratin, argan oil), "
             "aftercare routines, and product guidance. Explain WHY a treatment suits them in 1-2 lines. Ask 1-2 short questions if you need more info.\n"
+            "YOUR PROFESSIONAL KNOWLEDGE (use it confidently):\n"
+            "— SKIN: match treatment to skin type — oily/acne-prone → salicylic clean-up or anti-acne facial; dry/dull → hydrating facial or HydraFacial; "
+            "tan/pigmentation → D-tan, vitamin-C facial, glycolic/lactic peels; sensitive → gentle fruit or oxy facial; anti-aging → collagen or gold facial. "
+            "Typical durations: clean-up 30-40 min, classic facial ~60 min, HydraFacial 60-75 min, D-tan 20-30 min, chemical peel 30-45 min.\n"
+            "— HAIR TREATMENTS with honest procedure times: keratin/cysteine smoothing 2.5-4 hrs (lasts 3-5 months, needs sulphate-free shampoo, no wash for 48-72 hrs); "
+            "hair botox 2-3 hrs (deep repair, adds shine, no harsh straightening); smoothening/rebonding 3-4 hrs; nanoplastia 3-4 hrs; "
+            "bond repair (Olaplex-style) 45-60 min add-on; hair spa 45-60 min; root touch-up 45-60 min; global colour 2-3 hrs; highlights/balayage 3-5 hrs. "
+            "Always add one line of aftercare advice.\n"
+            "— PROFESSIONAL PRODUCTS you know deeply: L'Oréal Professionnel (Absolut Repair Molecular for damaged hair, Metal Detox for coloured hair, "
+            "Serie Expert ranges, INOA ammonia-free colour, Majirel, Dia Light gloss) and Schwarzkopf Professional (Fibreplex bond protection during colour, "
+            "BC Bonacure repair ranges, OSiS+ styling, IGORA Royal colour, BlondMe for blondes). Recommend the right professional range for their concern and say why in one line. "
+            "If the salon lists its own retail products in the menu below, prefer those.\n"
             "2) MENU MATCHING — when recommending treatments, first check the SERVICE MENU below and quote exact ₹ prices. "
             "NEVER say 'we don't have that' bluntly. If something isn't listed yet, still give full expert advice about it, "
             "then gracefully suggest the CLOSEST service we do offer, and politely add they can tap the 'Message Salon' tab to ask the owner directly.\n"
@@ -227,7 +241,10 @@ async def _public_ai_reply(t, session_id: str, message: str):
             f'{_BOOK_MARKER}{{"customer_name":"...","customer_phone":"...","gender":"Female","service_ids":["<id from menu>"],"staff_id":null,"date":"YYYY-MM-DD","time":"HH:MM"}}\n'
             "Rules: never mention the marker or JSON (it is machine-read); never invent service ids; time is 24h format; "
             "keep replies short, warm and mobile-friendly (short paragraphs or dash lists; you may use **bold** for service names and prices, no other markdown); use ₹ for prices; sprinkle a tasteful emoji occasionally (✨💆‍♀️); "
-            "never be dismissive — every reply should leave the guest feeling cared for.\n\n" + catalog
+            "never be dismissive — every reply should leave the guest feeling cared for.\n"
+            + ("VOICE MODE: the customer is SPEAKING with you and will HEAR your reply read aloud. Keep it under 60 words, "
+               "conversational short sentences, no lists, no markdown, at most one emoji.\n\n" if voice else "\n")
+            + catalog
         ),
     ).with_model("openai", "gpt-5.4-mini")
     if hist:
@@ -279,6 +296,36 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
     reply, booking, booking_error = await _public_ai_reply(t, body.session_id, body.message)
     return {"reply": reply, "booking": booking, "booking_error": booking_error}
 
+async def _sorry_no_hear_response() -> dict:
+    """Spoken 'couldn't hear you' fallback so hands-free voice chat continues gracefully."""
+    sorry = "I'm sorry, I couldn't hear you properly 🙏 Could you please say that again?"
+    audio_b64 = None
+    try:
+        audio_b64 = await _tts_cached_speech(
+            "I'm sorry, I couldn't hear you properly. Could you please say that again?",
+            voice="shimmer", speed=1.0)
+    except Exception as e:  # noqa: BLE001 — text fallback still works without audio
+        logging.getLogger("public_ai").error(f"sorry tts error: {e}")
+    return {"transcript": "", "reply": sorry, "booking": None,
+            "booking_error": None, "audio_b64": audio_b64, "heard": False}
+
+
+@router.get("/public/ai-greeting/{slug}")
+async def public_ai_greeting(slug: str, request: Request):
+    """Spoken greeting for the voice-first Mira widget — TTS is content-cached, so repeats are free."""
+    t = await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"aigreet:{slug}", limit=30, window_sec=600)
+    text = (f"Hi! I'm Mira, your personal beauty advisor at {t.get('name', 'our salon')}. "
+            "I can book your appointment or suggest the right treatment for your hair and skin. "
+            "May I know your name, please?")
+    audio_b64 = None
+    try:
+        audio_b64 = await _tts_cached_speech(text, voice="shimmer", speed=1.0)
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("public_ai").error(f"greeting tts error: {e}")
+    return {"text": text, "audio_b64": audio_b64}
+
+
 @router.post("/public/ai-voice/{slug}")
 async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(...), session_id: str = Form(..., min_length=8, max_length=64)):
     from emergentintegrations.llm.openai import OpenAISpeechToText
@@ -306,10 +353,10 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
         transcript = (tr.text or "").strip()
     except Exception as e:
         logging.getLogger("public_ai").error(f"stt error: {e}")
-        raise HTTPException(400, "Sorry, I couldn't hear that — please try again.")
+        return await _sorry_no_hear_response()
     if not transcript:
-        raise HTTPException(400, "I couldn't hear anything — please speak again.")
-    reply, booking, booking_error = await _public_ai_reply(t, session_id, transcript)
+        return await _sorry_no_hear_response()
+    reply, booking, booking_error = await _public_ai_reply(t, session_id, transcript, voice=True)
     audio_b64 = None
     try:
         speech_text = re.sub(r"\*\*|✨|💖|💆‍♀️|✅|⚠️|📞|🙏", "", reply)[:4000]
