@@ -24,6 +24,7 @@ import MiraAIStudio from "@/pages/MiraAIStudio";
 import StaffActivities from "@/pages/StaffActivities";
 import ResetPassword from "@/pages/ResetPassword";
 import ReviewPublic from "@/pages/ReviewPublic";
+import RatePublic from "@/pages/RatePublic";
 import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
 import Landing from "@/pages/Landing";
@@ -156,6 +157,7 @@ export default function App() {
             <Route path="/privacy-policy" element={<Privacy />} />
             <Route path="/book" element={<SalonFinder />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
+            <Route path="/rate/:slug" element={<RatePublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup-salon" element={<PublicOnly><SignupSalon /></PublicOnly>} />
             <Route path="/super-admin" element={<SuperAdminProtected><SuperAdmin /></SuperAdminProtected>} />

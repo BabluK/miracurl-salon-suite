@@ -517,3 +517,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - POS.jsx: after checkout, 12s toast "Send the receipt + review link on WhatsApp?" with Open WhatsApp action button.
 - Verified: live checkout via curl → whatsapp_url present with /review/{invoice_id} link. Test invoice cleaned up.
 - IMPORTANT USER EDUCATION GIVEN: Google does NOT allow auto-posting reviews on a customer's behalf (no API; doing so = fake-review policy violation, listing risk). Mira flow = closest legal automation: writes review, copies, one tap opens Google, customer pastes+posts from own account.
+
+## 2026-07-18 — Full Mira review funnel: auto-copy + auto-redirect + walk-up /rate/{slug} page (user request)
+- ReviewPublic.jsx (per-visit /review/{token}): on 4-5★ submit, Mira's review is AUTO-COPIED and a 6s countdown banner auto-redirects to Google review box ("Go to Google now →" / "Stay here"). review-info now returns tenant-correct google_review_url (validated http).
+- NEW walk-up flow (desk QR posters): /api/public/review-go/{slug} now redirects to NEW /rate/{slug} page (all already-printed QR cards instantly upgraded). RatePublic.jsx: stars → service chips → Mira drafts review live → "Copy & Post on Google ✦" → stores review + copies + countdown redirect. 1-3★ → private feedback to owner (complaints collection), never published.
+- NEW endpoints in reviews.py: GET /public/rate-info/{slug} (salon + top 8 services + validated g_url), POST /public/rate-draft/{slug} (Mira text, rate-limited + AI quota), POST /public/rate-submit/{slug} (review w/ customer_id 'qr-guest', public if ≥4, complaint if ≤3; NO reward — unverified visit).
+- Fixed: Review model requires customer_id string (None crashed — 500).
+- Verified: curl (redirect 302→/rate, rate-info, Mira draft, 2★ complaint + 5★ public review stored) + full browser flow screenshots (stars → chips → Mira draft → copied + Google countdown banner). Test rows cleaned.
+- NOTE: needs Deploy for production.

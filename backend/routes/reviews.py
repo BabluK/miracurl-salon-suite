@@ -140,11 +140,13 @@ async def public_review_info(token: str, request: Request):
     # correctly for each salon (Miracurl vs Elegance vs any future tenant).
     salon_name = None
     salon_location = None
+    g_url = ""
     if appt.get("tenant_id"):
-        t = await _raw_db.tenants.find_one({"id": appt["tenant_id"]}, {"_id": 0, "name": 1, "location": 1})
+        t = await _raw_db.tenants.find_one({"id": appt["tenant_id"]}, {"_id": 0, "name": 1, "location": 1, "google_review_url": 1})
         if t:
             salon_name = t.get("name")
             salon_location = t.get("location")
+            g_url = (t.get("google_review_url") or "").strip()
     return {
         "customer_name": appt["customer_name"],
         "staff_name": appt.get("staff_name"),
@@ -154,6 +156,7 @@ async def public_review_info(token: str, request: Request):
         "existing_rating": existing.get("rating") if existing else None,
         "salon_name": salon_name,
         "salon_location": salon_location,
+        "google_review_url": g_url if g_url.startswith("http") else "",
     }
 
 @router.post("/public/review/{token}")
@@ -288,11 +291,81 @@ async def public_featured_reviews_default(limit: int = 6):
 
 @router.get("/public/review-go/{slug}")
 async def public_review_redirect(slug: str):
+    """QR target on printed posters/tent cards — routes through Mira's rate page."""
     from fastapi.responses import RedirectResponse
-    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "google_review_url": 1})
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
-    target = (t.get("google_review_url") or "").strip()
-    if not target.startswith("http"):
-        target = f"/salon/{slug}"
-    return RedirectResponse(target, status_code=302)
+    return RedirectResponse(f"/rate/{slug}", status_code=302)
+
+
+# ---------------- Walk-up QR rating (no visit token) ----------------
+class RateDraftIn(BaseModel):
+    rating: int = Field(..., ge=4, le=5)
+    service: str = Field("", max_length=80)
+
+
+class RateSubmitIn(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: str = Field("", max_length=800)
+    name: str = Field("", max_length=60)
+    service: str = Field("", max_length=80)
+
+
+@router.get("/public/rate-info/{slug}")
+async def public_rate_info(slug: str, request: Request):
+    public_rate_limit(request, key_suffix="rate-info", limit=30, window_sec=600)
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "location": 1, "google_review_url": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    g_url = (t.get("google_review_url") or "").strip()
+    svcs = await _raw_db.services.find({"tenant_id": t["id"], "active": {"$ne": False}},
+                                       {"_id": 0, "name": 1}).sort("popularity", -1).to_list(8)
+    return {"salon_name": t.get("name"), "salon_location": t.get("location"),
+            "google_review_url": g_url if g_url.startswith("http") else "",
+            "services": [s["name"] for s in svcs]}
+
+
+@router.post("/public/rate-draft/{slug}")
+async def public_rate_draft(slug: str, body: RateDraftIn, request: Request):
+    """Mira writes a Google review for a walk-up QR scan (4-5★ only)."""
+    public_rate_limit(request, key_suffix="rate-draft", limit=6, window_sec=600)
+    await durable_rate_limit(request, "rate-draft", limit=6, window_sec=600)
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "location": 1, "google_review_url": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    await ai_daily_quota(t["id"], "review_draft", 100)
+    from routes.mira_common import _ask
+    svc = body.service.strip() or "a salon service"
+    text = await _ask(
+        "You write short, authentic-sounding Google reviews for happy salon customers. "
+        "Sound like a real person, not marketing. No hashtags. 2-4 sentences. At most one emoji.",
+        f"A happy customer just had {svc} at {t.get('name', 'the salon')}"
+        f"{' (' + t.get('location', '') + ')' if t.get('location') else ''} and rated it {body.rating} stars. "
+        f"Write the review in first person. Mention the service naturally.")
+    g_url = (t.get("google_review_url") or "").strip()
+    return {"text": text.strip().strip('"')[:600], "google_review_url": g_url if g_url.startswith("http") else ""}
+
+
+@router.post("/public/rate-submit/{slug}")
+async def public_rate_submit(slug: str, body: RateSubmitIn, request: Request):
+    public_rate_limit(request, key_suffix="rate-submit", limit=6, window_sec=600)
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    _current_tenant_id.set(t["id"])
+    name = body.name.strip() or "Guest"
+    review = Review(
+        appointment_id=f"qr-{uuid.uuid4()}", customer_id="qr-guest", customer_name=name,
+        rating=body.rating, comment=body.comment.strip() or None,
+        public=body.rating >= 4, reward_code=None).model_dump()
+    await db.reviews.insert_one(review)
+    if body.rating <= 3:
+        await db.complaints.insert_one({
+            "id": str(uuid.uuid4()), "appointment_id": None,
+            "customer_id": None, "customer_name": name, "customer_phone": None,
+            "rating": body.rating, "service_names": [body.service.strip()] if body.service.strip() else [],
+            "staff_name": None, "disappointed_service": body.service.strip() or None,
+            "message": body.comment.strip() or None,
+            "status": "open", "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"ok": True}

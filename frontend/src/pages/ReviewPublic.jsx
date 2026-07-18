@@ -23,6 +23,8 @@ export default function ReviewPublic() {
   const [draft, setDraft] = useState(null);
   const [draftBusy, setDraftBusy] = useState(false);
   const [prefillBusy, setPrefillBusy] = useState(false);
+  const [redirectIn, setRedirectIn] = useState(null);
+  const googleUrlRef = useRef("");
   const prefillCache = useRef({});
   const autoFilled = useRef(false);
 
@@ -72,8 +74,13 @@ export default function ReviewPublic() {
       setSubmitted(data);
       toast.success("Thank you for your feedback!");
       if (rating >= 4) {
-        if (comment.trim().length >= 20) {
-          setDraft({ text: comment.trim(), google_review_url: salon?.google_review_url || "" });
+        const reviewText = comment.trim();
+        const gUrl = info?.google_review_url || salon?.google_review_url || "";
+        if (reviewText) {
+          setDraft({ text: reviewText, google_review_url: gUrl });
+          // Auto-copy Mira's review + auto-redirect to Google so the guest just pastes & posts
+          try { await navigator.clipboard.writeText(reviewText); } catch { /* long-press fallback below */ }
+          if (gUrl) { googleUrlRef.current = gUrl; setRedirectIn(6); }
         } else {
           setDraftBusy(true);
           PUBLIC.post(`/review-draft/${token}`, { rating })
@@ -88,11 +95,22 @@ export default function ReviewPublic() {
   }
 
   async function copyAndOpenGoogle() {
-    const url = draft?.google_review_url || salon?.google_review_url;
+    const url = draft?.google_review_url || info?.google_review_url || salon?.google_review_url;
     try { await navigator.clipboard.writeText(draft.text); toast.success("Review copied — just paste it on Google ✦"); }
     catch { toast.error("Couldn't copy — long-press the text to copy"); }
     if (url) window.open(url, "_blank", "noopener,noreferrer");
   }
+
+  // Countdown → take the guest straight to the Google review box (review already copied)
+  useEffect(() => {
+    if (redirectIn === null) return;
+    if (redirectIn <= 0) {
+      if (googleUrlRef.current) window.location.href = googleUrlRef.current;
+      return;
+    }
+    const t = setTimeout(() => setRedirectIn(n => (n === null ? null : n - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [redirectIn]);
 
   const brandName = info?.salon_name || salon?.name || "Our Salon";
   const brandLoc = info?.salon_location || salon?.location || "";
@@ -226,6 +244,20 @@ export default function ReviewPublic() {
           </div>
         ) : (
           <div className="card-luxe max-w-xl w-full text-center" data-testid="review-success">
+            {redirectIn !== null && (
+              <div className="mb-6 rounded-xl border border-gold/40 bg-gold/10 p-4 text-left" data-testid="google-redirect-banner">
+                <p className="text-sm text-ink-primary">
+                  ✅ <b>Your review is copied!</b> Taking you to Google in{" "}
+                  <span className="font-playfair text-gold text-lg">{redirectIn}s</span> — just <b>paste &amp; post</b> ✦
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <button data-testid="google-redirect-now-btn" onClick={() => setRedirectIn(0)}
+                    className="btn-gold flex-1 text-xs py-2">Go to Google now →</button>
+                  <button data-testid="google-redirect-cancel-btn" onClick={() => setRedirectIn(null)}
+                    className="btn-ghost text-xs px-4">Stay here</button>
+                </div>
+              </div>
+            )}
             <div className="w-20 h-20 mx-auto rounded-full bg-gold flex items-center justify-center shadow-gold-glow mb-6">
               <Check className="w-10 h-10 text-bg-base" />
             </div>
