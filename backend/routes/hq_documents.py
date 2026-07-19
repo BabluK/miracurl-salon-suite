@@ -3,11 +3,12 @@ import asyncio
 import base64
 import calendar
 import html as html_lib
+import logging
 import os
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
@@ -1137,38 +1138,125 @@ async def public_demo_slots(request: Request):
             "times": DEMO_SLOT_TIMES}
 
 
-@router.post("/public/demo/book")
-async def public_demo_book(body: PublicDemoIn, request: Request):
-    public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
-    email = body.email.strip().lower()
+async def _book_open_demo(name: str, salon_name: str, city: str, email: str,
+                          phone: str, date_s: str, time_s: str, tz: str) -> dict:
+    """Shared open-demo booking used by the /demo form AND Mira's demo chat."""
+    email = (email or "").strip().lower()
+    if len((name or "").strip()) < 2:
+        raise HTTPException(400, "Please share your name")
     if not _DEMO_EMAIL_RE.fullmatch(email):
         raise HTTPException(400, "Enter a valid email address")
-    _validate_slot(body.date, body.time)
+    _validate_slot(date_s, time_s)
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    slot = {"date": body.date, "time": body.time, "phone": body.phone.strip(), "booked_at": now_iso}
-    if body.tz and body.tz != "Asia/Kolkata":
-        local = _slot_local_label(body.date, body.time, body.tz)
+    slot = {"date": date_s, "time": time_s, "phone": (phone or "").strip(), "booked_at": now_iso}
+    if tz and tz != "Asia/Kolkata":
+        local = _slot_local_label(date_s, time_s, tz)
         if local:
-            slot["tz"] = body.tz
+            slot["tz"] = tz
             slot["local_time"] = local
     existing = await _raw_db.demo_invites.find_one({"email": email}, {"_id": 0, "id": 1})
     if existing:
         await _raw_db.demo_invites.update_one(
             {"id": existing["id"]},
             {"$set": {"preferred_slot": slot, "demo_requested_at": now_iso, "responded": True,
-                      "seen_by_hq_req": False, "name": body.name.strip(),
-                      "salon_name": body.salon_name.strip(), "city": body.city.strip()}})
+                      "seen_by_hq_req": False, "name": name.strip(),
+                      "salon_name": (salon_name or "").strip(), "city": (city or "").strip()}})
     else:
         await _raw_db.demo_invites.insert_one({
-            "id": str(uuid.uuid4()), "email": email, "name": body.name.strip(),
-            "salon_name": body.salon_name.strip(), "city": body.city.strip(),
+            "id": str(uuid.uuid4()), "email": email, "name": name.strip(),
+            "salon_name": (salon_name or "").strip(), "city": (city or "").strip(),
             "source": "public_demo_page", "first_sent_at": now_iso, "opened_at": now_iso,
             "responded": True, "reminder_sent_at": None, "converted": False,
             "demo_requested_at": now_iso, "preferred_slot": slot, "seen_by_hq_req": False})
     await _raw_db.mira_leads.update_many(
         {"email": email, "status": {"$in": ["sent", "drafted", "no_email", "researched"]}},
         {"$set": {"status": "demo"}})
-    gcal = await _send_slot_confirmations(email, body.name.strip(), body.salon_name.strip(),
-                                          body.date, body.time, body.phone, body.city.strip())
+    gcal = await _send_slot_confirmations(email, name.strip(), (salon_name or "").strip(),
+                                          date_s, time_s, phone or "", (city or "").strip())
     return {"ok": True, "gcal": gcal, "slot": slot}
+
+
+@router.post("/public/demo/book")
+async def public_demo_book(body: PublicDemoIn, request: Request):
+    public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
+    return await _book_open_demo(body.name, body.salon_name, body.city, body.email,
+                                 body.phone, body.date, body.time, body.tz)
+
+
+_DEMO_BOOK_MARKER = "[[DEMO_BOOK]]"
+
+
+class DemoChatIn(BaseModel):
+    message: str = Field(..., min_length=1, max_length=800)
+    session_id: str = Field(..., min_length=8, max_length=64)
+    tz: str = Field(default="", max_length=50)
+
+
+@router.post("/public/demo-chat")
+async def public_demo_chat(body: DemoChatIn, request: Request):
+    """Mira books the live demo on the visitor's behalf, conversationally."""
+    import json as _json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    public_rate_limit(request, "demo-chat", limit=25, window_sec=600)
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    sid = f"demochat-{body.session_id}"
+    hist = await _raw_db.demo_chat_messages.find({"sid": sid}, {"_id": 0}).sort("created_at", 1).to_list(24)
+    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+    dates = [(today + timedelta(days=d)).isoformat() for d in range(1, 8)]
+    date_lines = ", ".join(f"{d} ({datetime.fromisoformat(d).strftime('%A')})" for d in dates)
+    tz_note = (f"The visitor's timezone is {body.tz}. Slot times are IST — when suggesting times, also mention their local time."
+               if body.tz and body.tz != "Asia/Kolkata" else "The visitor appears to be in India (IST).")
+    system = (
+        "You are Mira, the friendly AI demo concierge for Miracurl Salon Suite (all-in-one salon management with a 12-agent AI team). "
+        "Your ONLY job: book the visitor a free 20-minute live demo. Be warm, human and brief (2-3 short sentences per reply). Speak English or Hindi/Hinglish matching them.\n"
+        f"AVAILABLE DAYS (next 7): {date_lines}. AVAILABLE TIMES (IST): {', '.join(DEMO_SLOT_TIMES)}. {tz_note}\n"
+        "Understand natural phrases: 'tomorrow' = first available date, 'day after' = second, weekday names map to the matching date above. Morning→11:00, afternoon→13:00/15:00, evening→17:00/18:00.\n"
+        "COLLECT (conversationally, not like a form): name, email (required — confirmation goes there), salon name & city (nice to have), phone (optional), preferred day + time from the lists.\n"
+        "Once you have AT LEAST name + valid email + day + time, DO NOT ask any more questions or re-confirm — book IMMEDIATELY: state the details in one line and end your reply with EXACTLY this machine line (valid JSON, double quotes):\n"
+        f'{_DEMO_BOOK_MARKER}{{"name":"...","salon_name":"...","city":"...","email":"...","phone":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n'
+        "Rules: never mention the marker/JSON; only emit it once, only with a real email the visitor gave; date must be one of the available days, time one of the available times. "
+        "If they ask about Miracurl, answer briefly (bookings, POS billing, staff & attendance, inventory, AI marketing, WhatsApp receipts, from a 7-day free trial) and steer back to booking the demo.")
+    transcript = "".join(f"{'Visitor' if h['role'] == 'user' else 'Mira'}: {h['content']}\n" for h in hist)
+    chat = LlmChat(api_key=key, session_id=f"{sid}-{uuid.uuid4().hex[:6]}",
+                   system_message=system).with_model("openai", "gpt-5.4-mini")
+    try:
+        reply = (await chat.send_message(UserMessage(
+            text=f"{transcript}Visitor: {body.message}\nMira:"))).strip()
+    except Exception as e:
+        logging.error(f"demo chat LLM error: {e}")
+        raise HTTPException(502, "Mira is momentarily unavailable — please use the quick form below.")
+
+    booking, booking_error = None, None
+    if _DEMO_BOOK_MARKER in reply:
+        text, _, payload = reply.partition(_DEMO_BOOK_MARKER)
+        reply = text.strip()
+        try:
+            data = _json.loads(payload.strip().strip("`").strip())
+            # Same strict cap as the manual form — Mira gets no special treatment (anti-flood).
+            public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
+            res = await _book_open_demo(str(data.get("name") or ""), str(data.get("salon_name") or ""),
+                                        str(data.get("city") or ""), str(data.get("email") or ""),
+                                        str(data.get("phone") or ""), str(data.get("date") or ""),
+                                        str(data.get("time") or ""), body.tz)
+            booking = {**res["slot"], "gcal": res["gcal"], "email": str(data.get("email") or "").lower()}
+            when = datetime.fromisoformat(res["slot"]["date"]).strftime("%A, %d %B")
+            local = res["slot"].get("local_time")
+            reply = (reply + f"\n\n✅ Done! Your demo is booked for {when} at {res['slot']['time']} IST"
+                     + (f" ({local} your time)" if local else "")
+                     + " — the confirmation and calendar invite are on their way to your inbox. See you there! ✦").strip()
+        except HTTPException as he:
+            booking_error = he.detail
+            reply = (reply + f"\n\n⚠️ {he.detail}").strip()
+        except Exception as e:
+            logging.error(f"demo chat booking parse error: {e}")
+            booking_error = "Couldn't complete the booking — please use the quick form below."
+            reply = (reply + f"\n\n⚠️ {booking_error}").strip()
+
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.demo_chat_messages.insert_many([
+        {"sid": sid, "role": "user", "content": body.message, "created_at": now},
+        {"sid": sid, "role": "assistant", "content": reply, "created_at": now}])
+    return {"reply": reply, "booking": booking, "booking_error": booking_error}
