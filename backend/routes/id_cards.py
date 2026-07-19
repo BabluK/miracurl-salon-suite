@@ -40,6 +40,10 @@ async def _img_bytes(url: str, tenant_id=None):
     url = (url or "").strip()
     if not url:
         return None
+    if url.startswith("/api/public/registry/photo/"):
+        import base64
+        rec = await _raw_db.registry_photos.find_one({"id": url.rsplit("/", 1)[-1]}, {"_id": 0, "b64": 1})
+        return base64.b64decode(rec["b64"]) if rec else None
     if url.startswith("/api/files/"):
         rec = await _raw_db.uploads.find_one({"id": url.rsplit("/", 1)[-1], "is_deleted": False})
         if not rec or (tenant_id is not None and rec.get("tenant_id") != tenant_id):

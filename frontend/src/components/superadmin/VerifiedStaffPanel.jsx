@@ -2,7 +2,148 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { API } from "@/lib/api";
 import { toast } from "sonner";
-import { BadgeCheck, Plus, Trash2, Building2, FileDown } from "lucide-react";
+import { BadgeCheck, Plus, Trash2, Building2, FileDown, Inbox, Phone, PhoneCall, Loader2, Sparkles, Mail } from "lucide-react";
+
+const REQ_STATUS = {
+  new: { label: "🔴 New request", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+  owner_verified: { label: "🟡 Verified by Salon Owner", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  badge_issued: { label: "🟢 Badge issued", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+};
+
+function VerificationRequests() {
+  const [items, setItems] = useState([]);
+  const [busyId, setBusyId] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await api.get("/super/registry/verify-requests");
+      setItems(data.items || []);
+    } catch { toast.error("Couldn't load verification requests"); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const markVerified = async (r) => {
+    setBusyId(r.id);
+    try {
+      await api.post(`/super/registry/verify-requests/${r.id}/owner-verified`);
+      toast.success("Marked as verified by the salon owner ✓ — you can now generate the badge");
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update"); }
+    finally { setBusyId(""); }
+  };
+
+  const generateBadge = async (r) => {
+    setBusyId(r.id);
+    try {
+      const { data } = await api.post(`/super/registry/verify-requests/${r.id}/generate-badge`);
+      if (data.email_sent) toast.success(`Badge generated ✦ Staff ID ${data.staff_code} created & PDF emailed to ${r.email} 🎉`);
+      else toast.warning(`Badge generated ✦ Staff ID ${data.staff_code} created — but email failed (${data.email_error || "unknown"}). Use Download to send it manually.`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Badge generation failed"); }
+    finally { setBusyId(""); }
+  };
+
+  const remove = async (r) => {
+    if (!window.confirm(`Delete the verification request from ${r.name}?`)) return;
+    try { await api.delete(`/super/registry/verify-requests/${r.id}`); toast.success("Request removed"); load(); }
+    catch { toast.error("Delete failed"); }
+  };
+
+  return (
+    <div className="card-light p-0 overflow-hidden" data-testid="verification-requests-panel">
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <div className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <Inbox className="w-4 h-4 text-pink-500" /> Verification Requests
+            {items.filter(i => i.status === "new").length > 0 && (
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center">
+                {items.filter(i => i.status === "new").length}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mt-0.5">Stylists who tapped "Get verified" on the public portal. Call the salon owner → mark verified → generate the badge (emails the PDF & creates their Staff ID).</p>
+        </div>
+      </div>
+      {loading ? <div className="text-slate-400 py-8 text-center text-sm">Loading…</div> : items.length === 0 ? (
+        <div className="text-center py-8 text-slate-400 text-sm" data-testid="verify-requests-empty">No verification requests yet — they arrive from the public Staff Registry page.</div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {items.map(r => {
+            const st = REQ_STATUS[r.status] || REQ_STATUS.new;
+            return (
+              <div key={r.id} className="px-5 py-4" data-testid={`verify-request-row-${r.id}`}>
+                <div className="flex flex-wrap items-start gap-3">
+                  <img
+                    src={r.photo_id ? `${API}/public/registry/photo/${r.photo_id}` : "https://ui-avatars.com/api/?background=fdf2f8&color=db2777&name=" + encodeURIComponent(r.name || "S")}
+                    alt={r.name} data-testid={`verify-request-photo-${r.id}`}
+                    className="w-14 h-14 rounded-xl object-cover border-2 border-pink-200 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-slate-800">{r.name}</span>
+                      <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${st.cls}`} data-testid={`verify-request-status-${r.id}`}>{st.label}</span>
+                      {r.staff_code && <span className="text-xs font-mono bg-amber-50 border border-amber-200 text-amber-700 rounded px-1.5 py-0.5" data-testid={`verify-request-staffcode-${r.id}`}>✦ {r.staff_code}</span>}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0.5 text-xs text-slate-500 mt-1.5">
+                      <span>📱 {r.phone} · ✉️ {r.email}</span>
+                      <span>🏠 {r.salon_name || "salon not shared"}{r.city ? `, ${r.city}` : ""}</span>
+                      <span>👤 Owner/manager: {r.owner_phone ? `+91 ${r.owner_phone}` : "not shared"}</span>
+                      <span>📅 Joined: {r.joining || "—"} · Experience: {r.experience || "—"}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-1">
+                      Requested {r.created_at ? new Date(r.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                      {r.badge_issued_at && <> · Badge issued {new Date(r.badge_issued_at).toLocaleDateString("en-IN", { dateStyle: "medium" })}</>}
+                      {r.status === "badge_issued" && (r.email_sent === false) && <span className="text-rose-500 font-semibold"> · ⚠ badge email failed — download & send manually</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {r.owner_phone && r.status === "new" && (
+                      <a href={`tel:+91${r.owner_phone}`} data-testid={`verify-request-call-${r.id}`} title="Call the salon owner/manager to verify"
+                        className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-sky-200 bg-sky-50 text-sky-700 text-[11px] font-semibold hover:bg-sky-100">
+                        <PhoneCall className="w-3.5 h-3.5" /> Call owner
+                      </a>
+                    )}
+                    {r.status === "new" && (
+                      <button onClick={() => markVerified(r)} disabled={busyId === r.id} data-testid={`verify-request-owner-ok-${r.id}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-500 disabled:opacity-50">
+                        {busyId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BadgeCheck className="w-3.5 h-3.5" />} Verified by Salon Owner
+                      </button>
+                    )}
+                    {r.status === "owner_verified" && (
+                      <button onClick={() => generateBadge(r)} disabled={busyId === r.id} data-testid={`verify-request-generate-${r.id}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-[11px] font-bold hover:opacity-90 disabled:opacity-50">
+                        {busyId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Generate Badge & Email
+                      </button>
+                    )}
+                    {r.status === "badge_issued" && (
+                      <>
+                        <a href={`${API}/super/registry/verify-requests/${r.id}/badge.pdf`} target="_blank" rel="noreferrer" data-testid={`verify-request-download-${r.id}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 text-[11px] font-bold hover:bg-amber-100">
+                          <FileDown className="w-3.5 h-3.5" /> Download Badge PDF
+                        </a>
+                        <button onClick={() => generateBadge(r)} disabled={busyId === r.id} data-testid={`verify-request-resend-${r.id}`} title={`Re-email the badge PDF to ${r.email}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-semibold hover:bg-slate-50 disabled:opacity-50">
+                          {busyId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />} Resend email
+                        </button>
+                      </>
+                    )}
+                    {r.phone && (
+                      <a href={`tel:+91${r.phone}`} title="Call the stylist" data-testid={`verify-request-call-staff-${r.id}`}
+                        className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-sky-50 hover:text-sky-600"><Phone className="w-4 h-4" /></a>
+                    )}
+                    <button onClick={() => remove(r)} data-testid={`verify-request-delete-${r.id}`} title="Delete request"
+                      className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const EMPTY = { name: "", phone: "", aadhaar: "", salon_name: "", role: "", years_worked: "1", city: "", owner_comment: "", photo_url: "" };
 
@@ -55,6 +196,8 @@ export const VerifiedStaffPanel = () => {
           Your own team has its own section: <b>Miracurl Team</b>.
         </p>
       </div>
+
+      <VerificationRequests />
 
       <form onSubmit={save} className="card-light space-y-4" data-testid="verified-staff-form">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

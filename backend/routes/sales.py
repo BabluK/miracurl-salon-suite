@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
@@ -213,95 +213,6 @@ async def _send_lead_alert(inq: dict, question: str):
         logging.error(f"lead alert error: {e}")
 
 
-class GetVerifiedIn(BaseModel):
-    name: str = Field(..., min_length=2, max_length=80)
-    phone: str = Field(..., min_length=8, max_length=20)
-    email: str = Field(..., min_length=5, max_length=120)
-    salon_name: str = Field(default="", max_length=100)
-    city: str = Field(default="", max_length=60)
-    owner_phone: str = Field(default="", max_length=20)
-    joining: str = Field(default="", max_length=30)
-
-
-@router.post("/public/registry/get-verified")
-async def registry_get_verified(body: GetVerifiedIn, request: Request):
-    """Stylist not on Miracurl asks for a verified badge — lands in HQ Leads & Inquiries."""
-    public_rate_limit(request, "get-verified", limit=5, window_sec=600)
-    now = datetime.now(timezone.utc).isoformat()
-    phone = re.sub(r"\D", "", body.phone)
-    if len(phone) < 8:
-        raise HTTPException(400, "Enter a valid phone number")
-    dup = await _raw_db.tenant_inquiries.find_one(
-        {"phone": phone, "source": "staff_badge_request"}, {"_id": 1})
-    if dup:
-        return {"ok": True, "note": "already_requested"}
-    email = body.email.strip().lower()
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}", email):
-        raise HTTPException(400, "Enter a valid email address")
-    msg = (f"Stylist badge request ✦ {body.name.strip()} wants a verified Miracurl badge. "
-           f"Works at: {body.salon_name.strip() or 'not shared'}{', ' + body.city.strip() if body.city.strip() else ''}. "
-           f"Joined: {body.joining.strip() or 'not shared'}. "
-           f"Owner/manager contact for verification call: {body.owner_phone.strip() or 'not shared'}. "
-           f"Verify tenure with the owner, then attach & send the badge PDF from this card. "
-           f"Great door-opener — the salon isn't on Miracurl yet.")
-    await _raw_db.tenant_inquiries.insert_one({
-        "id": str(uuid.uuid4()), "name": body.name.strip(), "email": email,
-        "phone": phone, "status": "new", "source": "staff_badge_request",
-        "badge_meta": {"salon_name": body.salon_name.strip(), "city": body.city.strip(),
-                       "owner_phone": body.owner_phone.strip(), "joining": body.joining.strip()},
-        "messages": [{"role": "user", "content": msg, "at": now}],
-        "created_at": now, "last_message_at": now,
-    })
-    return {"ok": True}
-
-
-@router.post("/super-admin/inquiries/{iid}/send-badge")
-async def send_badge_email(iid: str, pdf: UploadFile = File(...), user=Depends(require_super_admin)):
-    """Attach the verified-badge PDF and email it in a branded Miracurl template."""
-    inq = await _raw_db.tenant_inquiries.find_one({"id": iid}, {"_id": 0})
-    if not inq:
-        raise HTTPException(404, "Inquiry not found")
-    if not inq.get("email"):
-        raise HTTPException(400, "This request has no email address")
-    data = await pdf.read()
-    if not data or len(data) > 8 * 1024 * 1024:
-        raise HTTPException(400, "Attach a PDF under 8 MB")
-    from email_service import _send_email
-    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
-    first = html_lib.escape((inq.get("name") or "there").split()[0].title())
-    html = f"""
-    <div style="max-width:560px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;border:1px solid #ece7db;border-radius:18px;overflow:hidden;background:#ffffff">
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#1c1c22">
-        <tr><td align="center" style="padding:22px">
-          <img src="{base}/brand/miracurl-gold.png" width="180" alt="Miracurl" style="display:block" />
-        </td></tr>
-      </table>
-      <div style="padding:30px 28px;text-align:center">
-        <div style="display:inline-block;width:74px;height:74px;border-radius:50%;background:linear-gradient(135deg,#f472b6,#f59e0b);line-height:74px;font-size:34px;color:#fff">✔</div>
-        <h2 style="margin:16px 0 4px;font-family:Georgia,serif;color:#1c1c22">You're officially verified, {first}! 🎉</h2>
-        <p style="color:#8a8477;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin:0 0 16px">Miracurl Verified Professional</p>
-        <p style="color:#444;font-size:14px;line-height:1.7;margin:0 0 14px;text-align:left">
-          Congratulations! Your employment details have been verified with your salon, and your official
-          <b>Miracurl Verified Badge</b> is attached to this email as a PDF. It's your career passport —
-          verified experience and reputation that travel with you to any salon.</p>
-        <p style="color:#444;font-size:14px;line-height:1.7;margin:0 0 18px;text-align:left">
-          Anyone can confirm your badge anytime at <a href="{base}/staff-registry" style="color:#b08d3f;font-weight:bold">miracurl-suite.com/staff-registry</a>.</p>
-        <a href="{base}/staff-registry" style="display:inline-block;background:linear-gradient(90deg,#fb7185,#ec4899,#f59e0b);color:#fff;text-decoration:none;padding:12px 30px;border-radius:999px;font-size:13px;font-weight:bold">View my public profile ✦</a>
-      </div>
-    </div>"""
-    att = [{"filename": pdf.filename or "miracurl-verified-badge.pdf",
-            "content": base64.b64encode(data).decode()}]
-    res = await _send_email([inq["email"]], "🎉 Your Miracurl Verified Badge is here!",
-                            html, attachments=att, book_label="Explore Miracurl ✦")
-    if not res.get("sent"):
-        raise HTTPException(502, f"Email failed: {res.get('error')}")
-    now = datetime.now(timezone.utc).isoformat()
-    await _raw_db.tenant_inquiries.update_one(
-        {"id": iid}, {"$set": {"badge_sent_at": now, "status": "converted"},
-                      "$push": {"messages": {"role": "assistant", "content": f"Verified badge PDF emailed to {inq['email']}", "at": now}}})
-    return {"ok": True, "sent_to": inq["email"]}
-
-
 @router.post("/public/sales-chat/start")
 async def sales_chat_start(body: SalesChatStartIn, request: Request):
     public_rate_limit(request, "sales-start", limit=5, window_sec=600)
@@ -428,7 +339,6 @@ async def partner_inquiry(body: PartnerInquiryIn, request: Request):
 
 @router.post("/super-admin/inquiries/{iid}/send-thankyou")
 async def inquiry_send_thankyou(iid: str, user=Depends(require_super_admin)):
-    import base64
     from services.brochure import build_brochure_pdf
     from email_service import marketing_email_html
     inq = await _raw_db.tenant_inquiries.find_one({"id": iid}, {"_id": 0})
@@ -490,7 +400,6 @@ def _build_ics(uid: str, start_utc: datetime, end_utc: datetime, summary: str,
 
 @router.post("/super-admin/inquiries/{iid}/send-invite")
 async def inquiry_send_invite(iid: str, body: MeetInviteIn, user=Depends(require_super_admin)):
-    import base64
     from datetime import timedelta
     from email_service import marketing_email_html
     inq = await _raw_db.tenant_inquiries.find_one({"id": iid}, {"_id": 0})

@@ -19,9 +19,13 @@ function MiraDemoChat({ onBooked }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const sidRef = useRef(newSid());
-  const endRef = useRef(null);
+  const listRef = useRef(null);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+  // Scroll only the chat container — scrollIntoView scrolled the whole page and hid the Mira hero logo.
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [msgs]);
 
   const send = async (preset) => {
     const text = (preset ?? input).trim();
@@ -43,7 +47,7 @@ function MiraDemoChat({ onBooked }) {
 
   return (
     <div className="flex flex-col h-[55vh] min-h-[340px] max-h-[460px]" data-testid="demo-mira-chat">
-      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+      <div ref={listRef} className="flex-1 overflow-y-auto space-y-2.5 pr-1">
         {msgs.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "ai" && (
@@ -66,7 +70,6 @@ function MiraDemoChat({ onBooked }) {
             ))}
           </div>
         )}
-        <div ref={endRef} />
       </div>
       <div className="flex gap-2 pt-3 border-t border-rose-100 mt-2">
         <input value={input} onChange={e => setInput(e.target.value)}
@@ -133,7 +136,7 @@ export default function PublicDemo() {
         <div className="text-center mb-6">
           <div className="relative inline-block">
             <img src="/assets/mira-ai-logo.png" alt="Mira AI" data-testid="demo-mira-hero"
-              className="h-24 sm:h-28 mx-auto rounded-full drop-shadow-[0_12px_30px_rgba(236,72,153,0.35)]" />
+              className="w-28 h-28 sm:w-32 sm:h-32 mx-auto object-contain drop-shadow-[0_12px_30px_rgba(236,72,153,0.35)]" />
             <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-bold tracking-[2px] px-3 py-1 rounded-full bg-gradient-to-r from-rose-400 via-pink-500 to-amber-500 text-white whitespace-nowrap shadow">MIRA AI</span>
           </div>
           <p className="text-[11px] uppercase tracking-[0.25em] mt-5 font-semibold" data-testid="demo-ai-tagline">

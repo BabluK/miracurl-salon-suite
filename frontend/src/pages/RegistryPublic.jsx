@@ -20,17 +20,31 @@ const BADGE_LABEL = {
 
 function GetVerifiedCard() {
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ name: "", phone: "", email: "", salon_name: "", city: "", owner_phone: "", joining: "" });
+  const [f, setF] = useState({ name: "", phone: "", email: "", salon_name: "", city: "", owner_phone: "", joining: "", experience: "" });
+  const [photo, setPhoto] = useState(null);
+  const [preview, setPreview] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const set = (k) => (e) => setF(v => ({ ...v, [k]: e.target.value }));
   const inputCls = "w-full bg-white border border-rose-200 rounded-xl px-4 py-2.5 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-pink-400";
 
+  const onPhoto = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { alert("Photo must be under 3 MB"); e.target.value = ""; return; }
+    setPhoto(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
   const submit = async (e) => {
     e.preventDefault();
+    if (!photo) { alert("Please upload your recent photo — it appears on your verified badge."); return; }
     setBusy(true);
     try {
-      await api.post("/public/registry/get-verified", f);
+      const fd = new FormData();
+      Object.entries(f).forEach(([k, v]) => fd.append(k, v));
+      fd.append("photo", photo);
+      await api.post("/public/registry/get-verified", fd);
       setSent(true);
     } catch (err) {
       alert(err.response?.data?.detail || "Couldn't send — please try again.");
@@ -70,7 +84,22 @@ function GetVerifiedCard() {
               <input maxLength={100} value={f.salon_name} onChange={set("salon_name")} placeholder="Salon where you work" data-testid="get-verified-salon" className={inputCls} />
               <input maxLength={60} value={f.city} onChange={set("city")} placeholder="City" data-testid="get-verified-city" className={inputCls} />
               <input maxLength={20} value={f.owner_phone} onChange={set("owner_phone")} placeholder="Salon owner / manager phone (for verification call)" data-testid="get-verified-owner-phone" className={inputCls} />
-              <input maxLength={30} value={f.joining} onChange={set("joining")} placeholder="When did you join? (e.g. March 2023)" data-testid="get-verified-joining" className={inputCls + " sm:col-span-2"} />
+              <input maxLength={30} value={f.joining} onChange={set("joining")} placeholder="When did you join? (e.g. March 2023)" data-testid="get-verified-joining" className={inputCls} />
+              <input maxLength={60} value={f.experience} onChange={set("experience")} placeholder="Total experience (e.g. 5 years)" data-testid="get-verified-experience" className={inputCls} />
+              <div className="sm:col-span-2 flex items-center gap-3 bg-white border border-rose-200 rounded-xl px-4 py-2.5" data-testid="get-verified-photo-row">
+                {preview ? (
+                  <img src={preview} alt="Your photo" className="w-12 h-12 rounded-full object-cover border-2 border-pink-300 shrink-0" data-testid="get-verified-photo-preview" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-rose-50 border border-dashed border-rose-300 flex items-center justify-center text-pink-400 text-lg shrink-0">📷</div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="get-verified-photo" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                    Recent photo * <span className="text-slate-400 font-normal">(appears on your verified badge · JPG/PNG, max 3 MB)</span>
+                  </label>
+                  <input id="get-verified-photo" type="file" accept="image/jpeg,image/png,image/webp" onChange={onPhoto} data-testid="get-verified-photo"
+                    className="block w-full text-xs text-slate-500 bg-transparent mt-1 file:mr-3 file:px-3 file:py-1.5 file:rounded-full file:border-0 file:bg-pink-100 file:text-pink-700 file:text-xs file:font-semibold hover:file:bg-pink-200 file:cursor-pointer" style={{ background: "transparent" }} />
+                </div>
+              </div>
               <p className="sm:col-span-2 text-[10px] text-slate-400 -mt-1">Our team calls your salon owner/manager to confirm your joining date and tenure — then your official verified badge PDF is emailed to you. ✦</p>
               <button disabled={busy} data-testid="get-verified-submit"
                 className={`sm:col-span-2 ${gradBtn} text-sm font-bold py-3 rounded-full disabled:opacity-50`}>
