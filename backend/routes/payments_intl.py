@@ -187,3 +187,34 @@ async def stripe_sub_status(session_id: str, request: Request,
         except Exception:
             pass
     return {"session_id": session_id, "payment_status": rec["payment_status"], "plan": rec.get("plan")}
+
+
+@router.get("/public/renew/{token}")
+async def public_renew_redirect(token: str, request: Request):
+    """One-click renewal from the reminder email — redirects straight to Stripe Checkout."""
+    public_rate_limit(request, "renew-link", limit=10, window_sec=600)
+    t = await _raw_db.tenants.find_one({"renewal_pay_token": token},
+                                       {"_id": 0, "id": 1, "slug": 1, "plan": 1, "currency": 1})
+    if not t or (t.get("currency") or "INR") == "INR":
+        raise HTTPException(404, "Invalid or expired renewal link")
+    from routes.subscriptions import PLAN_CATALOG, _fresh_plan_or_400
+    plan_key = t.get("plan") or ""
+    if not (plan_key.startswith("intl_") and plan_key in PLAN_CATALOG):
+        plan_key = "intl_pro_annual"
+    plan = await _fresh_plan_or_400(plan_key)
+    app_url = os.environ.get("APP_PUBLIC_URL", str(request.base_url).rstrip("/"))
+    from emergentintegrations.payments.stripe.checkout import CheckoutSessionRequest
+    sc = _checkout(request)
+    session = await sc.create_checkout_session(CheckoutSessionRequest(
+        amount=float(plan["price"]), currency="usd",
+        success_url=f"{app_url}/settings?stripe_session={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{app_url}/settings",
+        metadata={"kind": "subscription", "tenant_id": t["id"], "plan": plan_key, "via": "renewal_email"}))
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.payment_transactions.insert_one({
+        "session_id": session.session_id, "tenant_id": t["id"], "kind": "subscription",
+        "plan": plan_key, "amount": float(plan["price"]), "currency": "usd", "via": "renewal_email",
+        "status": "initiated", "payment_status": "pending",
+        "created_at": now, "updated_at": now})
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(session.url, status_code=302)

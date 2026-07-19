@@ -762,6 +762,7 @@ async def mark_renewal_reminded(tid: str, user=Depends(require_super_admin)):
 
 # ---------------- Automated renewal reminders (15 / 7 / 1 days before expiry) ----------------
 RENEWAL_REMINDER_DAYS = (15, 7, 1)
+INTL_RENEWAL_REMINDER_DAYS = (15, 7, 5, 1)  # USD salons: extra 5-day nudge with one-click Stripe link
 
 
 def _renewal_wa_link(t: dict, days: int, end_date: str, source: str) -> Optional[str]:
@@ -769,18 +770,54 @@ def _renewal_wa_link(t: dict, days: int, end_date: str, source: str) -> Optional
     if not num:
         return None
     line = "*ends tomorrow*" if days == 1 else f"ends in *{days} days*"
+    intl = (t.get("currency") or "INR") != "INR"
+    how = ("Renew in one click via the secure Stripe link in your reminder email (billed in USD). "
+           if intl else
+           "Renew directly inside your dashboard → Settings → Subscription → Pay via Razorpay (UPI/card). ")
     from urllib.parse import quote
     text = (f"Hi {t.get('name', '')} ✦ A friendly reminder from Miracurl — your {source} {line} ({end_date}). "
-            f"Renew directly inside your dashboard → Settings → Subscription → Pay via Razorpay (UPI/card). "
+            f"{how}"
             f"Reply here if you need any help. — Team Miracurl")
     return f"https://wa.me/{num}?text={quote(text)}"
 
 
+async def _send_renewal_email(t: dict, days: int, end_str: str, source: str) -> dict:
+    """Currency-aware reminder email: INR → Razorpay in-app CTA; USD → one-click Stripe pay link."""
+    from email_service import _send_email, renewal_reminder_email_html, renewal_reminder_email_intl_html
+    name = t.get("name") or t["slug"]
+    if (t.get("currency") or "INR") != "INR":
+        token = t.get("renewal_pay_token")
+        if not token:
+            token = str(uuid.uuid4())
+            await db.tenants.update_one({"id": t["id"]}, {"$set": {"renewal_pay_token": token}})
+        plan_key = t.get("plan") or ""
+        if not (plan_key.startswith("intl_") and plan_key in PLAN_CATALOG):
+            plan_key = "intl_pro_annual"
+        plan_info = PLAN_CATALOG.get(plan_key, {})
+        app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+        return await _send_email(
+            [t["owner_email"]],
+            f"⏳ Your Miracurl {source} ends in {days} day{'s' if days != 1 else ''} — renew in one click",
+            renewal_reminder_email_intl_html(
+                name, days, end_str,
+                plan_info.get("label") or "Professional Annual (USD)",
+                float(plan_info.get("price") or 0),
+                f"{app_url}/api/public/renew/{token}"))
+    plan_info = PLAN_CATALOG.get(t.get("plan") or "", {})
+    return await _send_email(
+        [t["owner_email"]],
+        f"⏳ Your Miracurl {source} ends in {days} day{'s' if days != 1 else ''} — renew in 2 minutes",
+        renewal_reminder_email_html(
+            name, days, end_str,
+            plan_info.get("label") or (t.get("plan") or "Trial"),
+            float(plan_info.get("price") or 0),
+            float(t.get("affiliate_credits") or 0)))
+
+
 async def run_renewal_reminders() -> dict:
-    """Auto-email every tenant whose subscription/trial ends in exactly 15, 7 or 1 days.
-    Idempotent per (tenant, end_date, days_mark). Also prepares a WhatsApp deep link
-    per reminder for the Super Admin queue. Used by the daily scheduler AND 'Run now'."""
-    from email_service import _send_email, renewal_reminder_email_html
+    """Auto-email every tenant whose subscription/trial ends in exactly 15, 7 or 1 days
+    (USD salons also get a 5-day nudge). Idempotent per (tenant, end_date, days_mark).
+    Also prepares a WhatsApp deep link per reminder for the Super Admin queue."""
     now_iso = datetime.now(timezone.utc).isoformat()
     tenants = await db.tenants.find({"status": {"$ne": "cancelled"}}, {"_id": 0}).to_list(5000)
     checked, sent, skipped, failed = 0, 0, 0, 0
@@ -788,7 +825,8 @@ async def run_renewal_reminders() -> dict:
     for t in tenants:
         end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
         days = _days_until(end)
-        if days not in RENEWAL_REMINDER_DAYS:
+        is_intl = (t.get("currency") or "INR") != "INR"
+        if days not in (INTL_RENEWAL_REMINDER_DAYS if is_intl else RENEWAL_REMINDER_DAYS):
             continue
         checked += 1
         end_str = str(end)[:10]
@@ -798,17 +836,9 @@ async def run_renewal_reminders() -> dict:
             skipped += 1
             continue
         source = "subscription" if t.get("subscription_end_date") else "trial"
-        plan_info = PLAN_CATALOG.get(t.get("plan") or "", {})
         email_status = {"sent": False, "error": "no owner_email on tenant"}
         if t.get("owner_email"):
-            email_status = await _send_email(
-                [t["owner_email"]],
-                f"⏳ Your Miracurl {source} ends in {days} day{'s' if days != 1 else ''} — renew in 2 minutes",
-                renewal_reminder_email_html(
-                    t.get("name") or t["slug"], days, end_str,
-                    plan_info.get("label") or (t.get("plan") or "Trial"),
-                    float(plan_info.get("price") or 0),
-                    float(t.get("affiliate_credits") or 0)))
+            email_status = await _send_renewal_email(t, days, end_str, source)
         log = {
             "id": str(uuid.uuid4()), "tenant_id": t["id"], "slug": t["slug"],
             "tenant_name": t.get("name"), "days_mark": days, "end_date": end_str,

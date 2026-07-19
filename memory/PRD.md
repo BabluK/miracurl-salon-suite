@@ -666,3 +666,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - release_notes BUILD 2026-07-19.4. Needs Deploy (user's prod screenshot ₹10K/₹18K = old build; preview verified USD).
 - TESTED: testing_agent iteration_83 — backend 9/9 pytest (/app/backend/tests/test_iter82_stripe_intl_signup.py), frontend 100%. Do NOT complete real Stripe payments in tests. Test tenants cleaned up.
 - Note from tester: signup rate limit 4/900s per IP can block automated E2E signups.
+
+## 2026-07-19 — Auto USD renewal reminder emails w/ one-click Stripe pay link (user approved)
+- subscriptions.py: INTL_RENEWAL_REMINDER_DAYS=(15,7,5,1) for currency!=INR tenants (INR stays 15/7/1); run_renewal_reminders refactored — email build extracted to _send_renewal_email (currency-aware); intl path generates+stores tenant.renewal_pay_token (uuid) and emails renewal_reminder_email_intl_html with pay link {APP_PUBLIC_URL}/api/public/renew/{token}. _renewal_wa_link text also currency-aware.
+- payments_intl.py: NEW GET /api/public/renew/{token} (rate-limited) — finds tenant by renewal_pay_token (rejects INR tenants w/ 404), resolves plan (tenant.plan if intl_* in catalog else intl_pro_annual), creates Stripe checkout, records payment_transactions kind=subscription via=renewal_email, 302 → checkout.stripe.com. Activation via existing _settle_txn (webhook/status).
+- email_service.py: NEW renewal_reminder_email_intl_html (USD wording, "Pay $X & Activate — one click" gold CTA).
+- release_notes BUILD 2026-07-19.5. Needs Deploy.
+- TESTED (self, e2e): seeded USD tenant expiring in 5 days → run_renewal_reminders sent email (delivered@resend.dev, days_mark=5, token stored); INR tenant at 5 days correctly skipped; GET /api/public/renew/{token} → 302 stripe URL; bad token → 404. Test tenants cleaned up.
