@@ -107,21 +107,28 @@ def _match_catalog_services(data: dict, real: dict) -> tuple[list, list]:
     return valid, bad
 
 
-def _package_doc(t: dict, audience: str, data: dict, valid: list,
-                 pct: int | None, valid_days: int | None, auto_reason: str | None) -> dict:
-    total = sum(s["price"] for s in valid)
+def _pkg_price(data: dict, total: float, pct: int | None) -> tuple[float, int]:
+    """Resolve the bundle price and the effective discount %."""
     price = float(data.get("package_price") or 0)
     if pct:
         price = round(total * (1 - pct / 100))
     elif not (0 < price < total):
         price = round(total * 0.8)
+    disc = round((1 - price / total) * 100) if total > 0 and 0 < price < total else (pct or 0)
+    return float(price), disc
+
+
+def _package_doc(t: dict, audience: str, data: dict, valid: list,
+                 pct: int | None, valid_days: int | None, auto_reason: str | None) -> dict:
+    total = sum(s["price"] for s in valid)
+    price, disc = _pkg_price(data, total, pct)
     doc = {
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "audience": audience,
         "name": str(data["name"])[:80], "tagline": str(data.get("tagline") or "")[:140],
         "services": [{"name": str(s.get("name", ""))[:60], "price": float(s.get("price") or 0)}
                      for s in valid[:5]],
         "total_value": total, "package_price": price,
-        "discount_pct": round((1 - price / total) * 100) if total > 0 and 0 < price < total else (pct or 0),
+        "discount_pct": disc,
         "caption": str(data.get("caption") or "")[:900],
         "valid_days": valid_days if valid_days in (3, 4, 7, 15, 30) else None,
         "status": "draft", "created_at": datetime.now(timezone.utc).isoformat(),

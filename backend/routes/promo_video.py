@@ -154,7 +154,8 @@ MIRA_OUTRO = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", 
 MIRA_AVATAR = "/app/frontend/public/assets/mira-avatar.png"
 
 
-async def _run_pipeline(job_id: str, body: PromoIn):
+def _script_prompts(body: PromoIn) -> tuple[str, str]:
+    """(system, user) prompts for the reel script, per video mode."""
     lang_note = "Write in Hindi (Devanagari)." if body.language == "hi" else "Write in simple, energetic English."
     greet_note = (f" Early in the voiceover, warmly introduce the founder with: '{body.greeting.strip()}'."
                   if body.greeting.strip() else "")
@@ -188,6 +189,27 @@ async def _run_pipeline(job_id: str, body: PromoIn):
                f"salon management software ({ALL_FEATURES}). Main focus: {body.focus}.{greet_note} {lang_note}")
         user = ('Return JSON: {"voiceover":"<~85 words, spoken style, hook first, end with call to action>",'
                 '"scenes":[{"caption":"<max 6 words>","image_prompt":"<visual for this scene, salon/software themed>"} x4]}')
+    return sys, user
+
+
+async def _persist_video(job_id: str, video_bytes: bytes, voiceover: str) -> None:
+    """Upload the rendered mp4 to storage and mark the job done."""
+    fid = str(uuid.uuid4())
+    path = f"{APP_NAME}/superadmin/promo-videos/{fid}.mp4"
+    result = _put_object(path, video_bytes, "video/mp4")
+    await _raw_db.uploads.insert_one({
+        "id": fid, "tenant_id": "superadmin", "kind": "promo_video",
+        "storage_path": result.get("path", path), "original_filename": f"promo-{fid}.mp4",
+        "content_type": "video/mp4", "size": len(video_bytes), "uploaded_by": "promo_studio",
+        "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    await _raw_db.promo_videos.update_one({"id": job_id}, {"$set": {
+        "status": "done", "progress": "Ready!", "video_url": f"/api/files/{fid}",
+        "voiceover": voiceover, "size_mb": round(len(video_bytes) / 1048576, 1)}})
+
+
+async def _run_pipeline(job_id: str, body: PromoIn):
+    sys, user = _script_prompts(body)
     script = await asyncio.wait_for(_ask_json(sys, user), timeout=120)
     voiceover = (script.get("voiceover") or "").strip()
     scenes = (script.get("scenes") or [])[:6 if body.mode == "booking_demo" else 4]
@@ -218,19 +240,7 @@ async def _run_pipeline(job_id: str, body: PromoIn):
     video_bytes = await asyncio.wait_for(
         asyncio.to_thread(_render_video, images, captions, fits, audio_bytes, vw, vh, _beat,
                           not (body.express or body.mode == "booking_demo")), timeout=1500)
-
-    fid = str(uuid.uuid4())
-    path = f"{APP_NAME}/superadmin/promo-videos/{fid}.mp4"
-    result = _put_object(path, video_bytes, "video/mp4")
-    await _raw_db.uploads.insert_one({
-        "id": fid, "tenant_id": "superadmin", "kind": "promo_video",
-        "storage_path": result.get("path", path), "original_filename": f"promo-{fid}.mp4",
-        "content_type": "video/mp4", "size": len(video_bytes), "uploaded_by": "promo_studio",
-        "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    await _raw_db.promo_videos.update_one({"id": job_id}, {"$set": {
-        "status": "done", "progress": "Ready!", "video_url": f"/api/files/{fid}",
-        "voiceover": voiceover, "size_mb": round(len(video_bytes) / 1048576, 1)}})
+    await _persist_video(job_id, video_bytes, voiceover)
 
 
 EXPRESS_SHOTS = ["dashboard.png", "pos.png", "staff.png", "mira.png"]

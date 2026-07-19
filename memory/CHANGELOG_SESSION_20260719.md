@@ -54,3 +54,11 @@
 - employee_portal.py: new `_is_employment_active(employee_id)` — active salon staff record (active=True AND last_working_day not past, matched by phone last-10) wins; if salon staff records exist but none active → BLOCKED; registry-only externals need an open employment (to_date None).
 - Enforced in `current_employee` dependency (kills existing sessions instantly), `employee_login`, `employee_register`. 403 message: "This portal is available to active salon staff only…".
 - E2E verified: active → login OK; staff disabled → existing session + fresh login both 403; re-enabled → access restored. Test data restored (weekoff-test-staff active, employment reopened).
+
+## 2026-07-19 (part 7) — Code review fixes
+- FALSE POSITIVES (verified, no change): social_connect.py:30 "hardcoded secret" is a public Google OAuth scope URL (creds via env); ruff F821/F632 = 0 across backend incl. tests ("43 undefined vars" / "159 is-comparisons" don't reproduce); utils.py:8 uses `in` correctly.
+- Complexity refactors (all with type hints): auth.py → _match_unclaimed_staff() + _link_matched_staff(); packages.py → _pkg_price(); promo_video.py _run_pipeline → _script_prompts() + _persist_video(); hq_documents.py _run_demo_chat_booking → _demo_booked_reply().
+- Param-count fixes: _demo_email_html tracking=(base,id) tuple; _book_open_demo now takes a dict (callers: body.model_dump() / {**data,"tz":tz}); _draw_about_section frame=(W,hero_h,m).
+- Style: E702 semicolons in hq_documents PDF loop; E731 lambda→def in sales.py. Remaining E402s are DELIBERATE (circular-import avoidance) — left as-is.
+- Import-splitting suggestion (hq_documents 37 imports) deferred — high-churn, low-value.
+- Regression: register→pending(match)→attach(linked_staff) ✓, public demo book ✓, _pkg_price/_script_prompts unit checks ✓, ruff clean (E402 only). Test data cleaned.

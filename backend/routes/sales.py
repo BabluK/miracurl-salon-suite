@@ -193,7 +193,8 @@ async def success_stats():
             {"$group": {"_id": None, "avg": {"$avg": "$rating"}, "n": {"$sum": 1}}}]
     agg = await _raw_db.reviews.aggregate(pipe).to_list(1)
     avg = round(agg[0]["avg"], 1) if agg else 5.0
-    rounded = (lambda n: n if n < 20 else (n // 10) * 10)
+    def rounded(n: int) -> int:
+        return n if n < 20 else (n // 10) * 10
     return {"salons": salons, "bookings": rounded(bookings), "customers": rounded(customers), "avg_rating": avg}
 
 

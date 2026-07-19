@@ -175,7 +175,8 @@ def _pdf_doc_sections(c, doc: dict, W, H, mm):
     y = H - 50 * mm
     for heading, points in doc["sections"]:
         if y < 45 * mm:
-            c.showPage(); y = H - 25 * mm
+            c.showPage()
+            y = H - 25 * mm
         c.setFillColorRGB(*_PDF_GOLD)
         c.setFont("Helvetica-Bold", 12)
         c.drawString(20 * mm, y, heading.upper())
@@ -186,7 +187,8 @@ def _pdf_doc_sections(c, doc: dict, W, H, mm):
         for pt in points:
             for j, line in enumerate(textwrap.wrap(pt, 92)):
                 if y < 22 * mm:
-                    c.showPage(); y = H - 25 * mm
+                    c.showPage()
+                    y = H - 25 * mm
                 c.setFillColorRGB(*_PDF_INK)
                 c.setFont("Helvetica", 10)
                 prefix = "•  " if j == 0 else "    "
@@ -491,8 +493,9 @@ def _demo_footer_blocks(hq_email: str) -> str:
 
 
 def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str, *,
-                     plans: list | None = None, track_base: str = "", invite_id: str = "",
+                     plans: list | None = None, tracking: tuple[str, str] = ("", ""),
                      currency: str = "INR") -> str:
+    track_base, invite_id = tracking
     name = html_lib.escape(recipient_name or "").strip()
     salon = html_lib.escape(salon_name or "").strip()
     greeting = f"Dear {name}," if name else "Dear Salon Owner,"
@@ -598,7 +601,7 @@ async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -
     mode = getattr(ctx.body, "currency", "auto") or "auto"
     currency = mode if mode in ("INR", "USD") else ("USD" if _is_intl_email(em) else "INR")
     html = _demo_email_html(name, salon, ctx.body.note, ctx.hq_email, plans=ctx.plans,
-                            track_base=ctx.track_base, invite_id=iid, currency=currency)
+                            tracking=(ctx.track_base, iid), currency=currency)
     status = await _send_email([em], ctx.subject, html, attachments=ctx.attachments, reply_to=ctx.hq_email)
     if status.get("sent"):
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -897,7 +900,7 @@ async def demo_invite_resend(iid: str, request: Request, user=Depends(require_su
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     track_base = f"https://{host}" if host else (inv.get("track_base") or "")
     html = _demo_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", hq_email,
-                            plans=plans, track_base=track_base, invite_id=iid,
+                            plans=plans, tracking=(track_base, iid),
                             currency="USD" if _is_intl_email(inv["email"]) else "INR")
     status = await _send_email([inv["email"]],
                                "A warm invitation — see your salon run beautifully with Miracurl ✦",
@@ -1164,31 +1167,32 @@ async def _upsert_demo_invite(email: str, name: str, salon_name: str, city: str,
             "demo_requested_at": now_iso, "preferred_slot": slot, "seen_by_hq_req": False})
 
 
-async def _book_open_demo(name: str, salon_name: str, city: str, email: str,
-                          phone: str, date_s: str, time_s: str, tz: str) -> dict:
-    """Shared open-demo booking used by the /demo form AND Mira's demo chat."""
-    email = (email or "").strip().lower()
-    if len((name or "").strip()) < 2:
+async def _book_open_demo(d: dict) -> dict:
+    """Shared open-demo booking used by the /demo form AND Mira's demo chat.
+    Expects keys: name, salon_name, city, email, phone, date, time, tz."""
+    name, salon_name, city = str(d.get("name") or ""), str(d.get("salon_name") or ""), str(d.get("city") or "")
+    phone, date_s, time_s, tz = str(d.get("phone") or ""), str(d.get("date") or ""), str(d.get("time") or ""), str(d.get("tz") or "")
+    email = str(d.get("email") or "").strip().lower()
+    if len(name.strip()) < 2:
         raise HTTPException(400, "Please share your name")
     if not _DEMO_EMAIL_RE.fullmatch(email):
         raise HTTPException(400, "Enter a valid email address")
     _validate_slot(date_s, time_s)
     now_iso = datetime.now(timezone.utc).isoformat()
     slot = _demo_slot_dict(date_s, time_s, phone, tz, now_iso)
-    await _upsert_demo_invite(email, name.strip(), (salon_name or "").strip(), (city or "").strip(), slot, now_iso)
+    await _upsert_demo_invite(email, name.strip(), salon_name.strip(), city.strip(), slot, now_iso)
     await _raw_db.mira_leads.update_many(
         {"email": email, "status": {"$in": ["sent", "drafted", "no_email", "researched"]}},
         {"$set": {"status": "demo"}})
-    gcal = await _send_slot_confirmations(email, name.strip(), (salon_name or "").strip(),
-                                          date_s, time_s, phone or "", (city or "").strip())
+    gcal = await _send_slot_confirmations(email, name.strip(), salon_name.strip(),
+                                          date_s, time_s, phone, city.strip())
     return {"ok": True, "gcal": gcal, "slot": slot}
 
 
 @router.post("/public/demo/book")
 async def public_demo_book(body: PublicDemoIn, request: Request):
     public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
-    return await _book_open_demo(body.name, body.salon_name, body.city, body.email,
-                                 body.phone, body.date, body.time, body.tz)
+    return await _book_open_demo(body.model_dump())
 
 
 _DEMO_BOOK_MARKER = "[[DEMO_BOOK]]"
@@ -1218,6 +1222,15 @@ def _demo_chat_system(tz: str) -> str:
         "If they ask about Miracurl, answer briefly (bookings, POS billing, staff & attendance, inventory, AI marketing, WhatsApp receipts, from a 7-day free trial) and steer back to booking the demo.")
 
 
+def _demo_booked_reply(reply: str, res: dict) -> str:
+    """Append the human confirmation line to Mira's reply after a successful demo booking."""
+    when = datetime.fromisoformat(res["slot"]["date"]).strftime("%A, %d %B")
+    local = res["slot"].get("local_time")
+    return (reply + f"\n\n✅ Done! Your demo is booked for {when} at {res['slot']['time']} IST"
+            + (f" ({local} your time)" if local else "")
+            + " — the confirmation and calendar invite are on their way to your inbox. See you there! ✦").strip()
+
+
 async def _run_demo_chat_booking(reply: str, request: Request, tz: str) -> tuple:
     """Parse Mira's [[DEMO_BOOK]] marker and execute the booking. Returns (reply, booking, error)."""
     import json as _json
@@ -1227,17 +1240,9 @@ async def _run_demo_chat_booking(reply: str, request: Request, tz: str) -> tuple
         data = _json.loads(payload.strip().strip("`").strip())
         # Same strict cap as the manual form — Mira gets no special treatment (anti-flood).
         public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
-        res = await _book_open_demo(str(data.get("name") or ""), str(data.get("salon_name") or ""),
-                                    str(data.get("city") or ""), str(data.get("email") or ""),
-                                    str(data.get("phone") or ""), str(data.get("date") or ""),
-                                    str(data.get("time") or ""), tz)
+        res = await _book_open_demo({**data, "tz": tz})
         booking = {**res["slot"], "gcal": res["gcal"], "email": str(data.get("email") or "").lower()}
-        when = datetime.fromisoformat(res["slot"]["date"]).strftime("%A, %d %B")
-        local = res["slot"].get("local_time")
-        reply = (reply + f"\n\n✅ Done! Your demo is booked for {when} at {res['slot']['time']} IST"
-                 + (f" ({local} your time)" if local else "")
-                 + " — the confirmation and calendar invite are on their way to your inbox. See you there! ✦").strip()
-        return reply, booking, None
+        return _demo_booked_reply(reply, res), booking, None
     except HTTPException as he:
         return (reply + f"\n\n⚠️ {he.detail}").strip(), None, he.detail
     except Exception as e:  # noqa: BLE001 — bad LLM JSON must not 500 the chat

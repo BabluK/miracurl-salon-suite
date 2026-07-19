@@ -41,6 +41,17 @@ class ResetIn(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8, max_length=128)
 
+async def _match_unclaimed_staff(email: str) -> tuple[Optional[dict], Optional[dict]]:
+    """(staff, tenant) when the email exactly matches a staff profile no user has claimed yet."""
+    m = await _raw_db.staff.find_one(
+        {"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}},
+        {"_id": 0, "id": 1, "tenant_id": 1, "name": 1, "role": 1, "user_id": 1})
+    if not m or m.get("user_id"):
+        return None, None
+    tenant = await _raw_db.tenants.find_one({"id": m["tenant_id"]}, {"_id": 0, "id": 1, "slug": 1, "name": 1})
+    return (m, tenant) if tenant else (None, None)
+
+
 @router.post("/auth/register")
 async def register(body: RegisterIn, request: Request, response: Response):
     """Public staff registration.
@@ -57,14 +68,7 @@ async def register(body: RegisterIn, request: Request, response: Response):
         raise HTTPException(400, "Email already registered")
     # Auto-link hint: if this email exactly matches a staff profile in a salon,
     # route the pending request to THAT salon's approval list (admin still approves).
-    matched_staff, matched_tenant = None, None
-    m = await _raw_db.staff.find_one(
-        {"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}},
-        {"_id": 0, "id": 1, "tenant_id": 1, "name": 1, "role": 1, "user_id": 1})
-    if m and not m.get("user_id"):
-        matched_tenant = await _raw_db.tenants.find_one({"id": m["tenant_id"]}, {"_id": 0, "id": 1, "slug": 1, "name": 1})
-        if matched_tenant:
-            matched_staff = m
+    matched_staff, matched_tenant = await _match_unclaimed_staff(email)
     user = {
         "id": str(uuid.uuid4()),
         "email": email,
@@ -99,6 +103,19 @@ class StaffAttachIn(BaseModel):
     role: str = Field("staff", pattern=r"^(staff|admin)$")
 
 
+async def _link_matched_staff(target: dict, tenant_id: str, user_id: str) -> Optional[str]:
+    """After approval: link the user to their matched staff profile if it is still unclaimed."""
+    if not target.get("matched_staff_id") or target.get("matched_tenant_id") != tenant_id:
+        return None
+    sp = await db.staff.find_one({"id": target["matched_staff_id"]},
+                                 {"_id": 0, "id": 1, "name": 1, "user_id": 1, "email": 1})
+    if not sp or sp.get("user_id") or (sp.get("email") or "").lower() != (target.get("email") or "").lower():
+        return None
+    await db.users.update_one({"id": user_id}, {"$set": {"staff_id": sp["id"]}})
+    await db.staff.update_one({"id": sp["id"]}, {"$set": {"user_id": user_id}})
+    return sp["name"]
+
+
 @router.post("/tenants/staff/{user_id}/attach")
 async def attach_staff(user_id: str, body: StaffAttachIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Tenant admin attaches a pending self-registered user to this tenant."""
@@ -113,15 +130,7 @@ async def attach_staff(user_id: str, body: StaffAttachIn, admin=Depends(require_
                   "attached_at": datetime.now(timezone.utc).isoformat(),
                   "attached_by": admin["id"]}},
     )
-    # Auto-link to the matched staff profile (server-verified at signup) so the
-    # Staff Portal works instantly — only if the profile is still unclaimed.
-    linked_staff = None
-    if target.get("matched_staff_id") and target.get("matched_tenant_id") == t["id"]:
-        sp = await db.staff.find_one({"id": target["matched_staff_id"]}, {"_id": 0, "id": 1, "name": 1, "user_id": 1, "email": 1})
-        if sp and not sp.get("user_id") and (sp.get("email") or "").lower() == (target.get("email") or "").lower():
-            await db.users.update_one({"id": user_id}, {"$set": {"staff_id": sp["id"]}})
-            await db.staff.update_one({"id": sp["id"]}, {"$set": {"user_id": user_id}})
-            linked_staff = sp["name"]
+    linked_staff = await _link_matched_staff(target, t["id"], user_id)
     # Hiring marketplace hook: if this new staff matches an open application for this
     # salon, auto-mark it hired → HQ notified + placement fee & payment link emailed.
     hired = None
