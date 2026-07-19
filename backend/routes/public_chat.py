@@ -76,10 +76,10 @@ async def _booking_catalog(t) -> str:
             {"_id": 0, "staff_name": 1, "to_date": 1}).to_list(50),
     )
     svc_lines = "\n".join(
-        f"- id={s['id']} | {s['name']} | {s.get('category', '')} | ₹{s['price']} | {s['duration_min']}min"
+        f"- id={s['id'][:8]} | {s['name']} | {s.get('category', '')} | ₹{s['price']} | {s['duration_min']}min"
         for s in services) or "(no services listed)"
     staff_lines = "\n".join(
-        f"- {s['name']} (id={s['id']}) — {s.get('role') or 'Stylist'}"
+        f"- {s['name']} (id={s['id'][:8]}) — {s.get('role') or 'Stylist'}"
         + (f" | specialties: {', '.join(s['tags'])}" if s.get("tags") else "")
         for s in staff) or "- any available stylist"
     on_leave = {(lv.get("staff_name") or "").strip() for lv in leaves if lv.get("staff_name")}
@@ -120,6 +120,20 @@ async def _booking_catalog(t) -> str:
             f"PACKAGES (bought at the salon):\n{pkg_lines}\nMEMBERSHIPS (bought at the salon):\n{mem_lines}\n"
             f"RETAIL PRODUCTS (guests can buy these at the salon — recommend when relevant to their concern):\n{prod_lines}")
 
+async def _resolve_id_prefixes(collection, ids: list, extra: dict | None = None) -> list:
+    """Mira gets 8-char ids (LLMs corrupt full UUIDs) — expand prefixes back to full ids."""
+    out = []
+    for sid in ids:
+        sid = str(sid or "").strip()
+        if not sid:
+            continue
+        q = {"id": {"$regex": f"^{re.escape(sid[:12])}"}, **(extra or {})}
+        doc = await collection.find_one(q, {"_id": 0, "id": 1})
+        if doc:
+            out.append(doc["id"])
+    return out
+
+
 async def _ai_execute_booking(payload: str):
     """Parse the AI's booking JSON and create a real appointment.
     Returns (booking, error, requested_date)."""
@@ -129,10 +143,15 @@ async def _ai_execute_booking(payload: str):
         data = _json.loads(payload.strip().strip("`").strip())
         req_date = data.get("date")
         scheduled_at = f"{data['date']}T{data['time']}:00+05:30"
+        service_ids = await _resolve_id_prefixes(db.services, data.get("service_ids") or [], {"active": True})
+        if not service_ids:
+            logging.getLogger("public_ai").warning(f"ai booking: no services resolved from ids={data.get('service_ids')}")
+            return None, "Selected services were not found on the menu", req_date
+        staff_ids = await _resolve_id_prefixes(db.staff, [data["staff_id"]], {"active": True}) if data.get("staff_id") else []
         bk = PublicBookingIn(
             customer_name=data["customer_name"], customer_phone=data["customer_phone"],
-            gender=data.get("gender"), service_ids=data["service_ids"],
-            staff_id=data.get("staff_id") or None, scheduled_at=scheduled_at,
+            gender=data.get("gender"), service_ids=service_ids,
+            staff_id=staff_ids[0] if staff_ids else None, scheduled_at=scheduled_at,
             notes="Booked via AI advisor chat")
     except Exception as e:
         msg = str(e)
@@ -144,6 +163,7 @@ async def _ai_execute_booking(payload: str):
         return None, msg, req_date
     services = await db.services.find({"id": {"$in": bk.service_ids}, "active": True}, {"_id": 0}).to_list(50)
     if not services:
+        logging.getLogger("public_ai").warning(f"ai booking: services not found for ids={bk.service_ids}")
         return None, "Selected services were not found on the menu", req_date
     try:
         staff = await _resolve_staff(bk.staff_id, bk.scheduled_at, sum(s["duration_min"] for s in services) or 30)
@@ -324,29 +344,39 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
         reply = await _capture_ai_inquiry(t, reply, hist, message)
     if _BOOK_MARKER in reply:
         text, _, payload = reply.partition(_BOOK_MARKER)
-        booking, booking_error, req_date = await _ai_execute_booking(payload)
         text = text.strip()
-        if booking:
-            booking["salon_name"] = t.get("name") or "the salon"
-            try:
-                when = datetime.fromisoformat(booking["scheduled_at"]).strftime("%A, %d %B at %I:%M %p")
-            except ValueError:
-                when = booking["scheduled_at"]
-            confirm = (f"✅ Done — your appointment is booked! {', '.join(booking['service_names'])} on {when} "
-                       f"with {booking['staff_name']}, total ₹{booking['total']:g}. We can't wait to see you! ✨")
-            reply = (text + "\n\n" + confirm).strip()
+        # SEC-001: hard booking caps — 8 per IP per 10 min + per-tenant daily ceiling.
+        try:
+            if request is not None:
+                await durable_rate_limit(request, f"aibook:{t['id']}", limit=8, window_sec=600)
+            await ai_daily_quota(t["id"], "public_ai_bookings", 50)
+        except HTTPException:
+            booking_error = "booking_limit_reached"
+            reply = ("I'm so sorry — we've reached our online booking limit for now 🙏 "
+                     "Please call the salon directly and the team will reserve your slot right away 💛")
         else:
-            # Booking FAILED — never keep the model's premature "confirmed" text.
-            # Apologise and, if the slot was full, offer the times that are actually free.
-            free = await _free_slots_for(req_date) if req_date else []
-            if free:
-                shown = ", ".join(free[:8])
-                reply = (f"I'm so sorry — that time slot just got fully booked 🙏\n\n"
-                         f"Here are the open times for {req_date}: {shown}.\n"
-                         f"Which one shall I book for you? ✨")
+            booking, booking_error, req_date = await _ai_execute_booking(payload)
+            if booking:
+                booking["salon_name"] = t.get("name") or "the salon"
+                try:
+                    when = datetime.fromisoformat(booking["scheduled_at"]).strftime("%A, %d %B at %I:%M %p")
+                except ValueError:
+                    when = booking["scheduled_at"]
+                confirm = (f"✅ Done — your appointment is booked! {', '.join(booking['service_names'])} on {when} "
+                           f"with {booking['staff_name']}, total ₹{booking['total']:g}. We can't wait to see you! ✨")
+                reply = (text + "\n\n" + confirm).strip()
             else:
-                reply = (f"I'm so sorry — I couldn't complete that booking ({booking_error}). "
-                         f"Could we try a different date or time? I'll get you in as soon as possible 💖")
+                # Booking FAILED — never keep the model's premature "confirmed" text.
+                # Apologise and, if the slot was full, offer the times that are actually free.
+                free = await _free_slots_for(req_date) if req_date else []
+                if free:
+                    shown = ", ".join(free[:8])
+                    reply = (f"I'm so sorry — that time slot just got fully booked 🙏\n\n"
+                             f"Here are the open times for {req_date}: {shown}.\n"
+                             f"Which one shall I book for you? ✨")
+                else:
+                    reply = (f"I'm so sorry — I couldn't complete that booking ({booking_error}). "
+                             f"Could we try a different date or time? I'll get you in as soon as possible 💖")
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.public_ai_messages.insert_many([
         {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "user", "content": message, "created_at": now},
@@ -570,5 +600,4 @@ async def owner_chat_reply(thread_id: str, body: ChatSendIn, user=Depends(requir
     if not th:
         raise HTTPException(404, "Chat not found")
     return await _append_chat_message(thread_id, "owner", body.message.strip())
-
 

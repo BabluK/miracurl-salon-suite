@@ -508,7 +508,24 @@ def _build_registry_pdf(p: dict, fetch_image) -> bytes:
         c.setFont("Helvetica", 9)
         c.drawString(44, H - 70, "Miracurl Staff Registry  ·  cross-salon employment history & reputation")
         c.setFont("Helvetica", 8)
-        c.drawRightString(W - 44, H - 70, datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y"))
+        c.drawRightString(W - (120 if p.get("verify_url") else 44), H - 70,
+                          datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y"))
+        if p.get("verify_url"):
+            from reportlab.graphics.barcode.qr import QrCodeWidget
+            from reportlab.graphics.shapes import Drawing
+            from reportlab.graphics import renderPDF
+            box, qs = 62, 54
+            bx0, by0 = W - 44 - box, H - 88
+            c.setFillColorRGB(1, 1, 1)
+            c.roundRect(bx0, by0, box, box, 6, fill=1, stroke=0)
+            qw = QrCodeWidget(p["verify_url"], barLevel="M")
+            b = qw.getBounds()
+            dr = Drawing(qs, qs, transform=[qs / (b[2] - b[0]), 0, 0, qs / (b[3] - b[1]), 0, 0])
+            dr.add(qw)
+            renderPDF.draw(dr, c, bx0 + (box - qs) / 2, by0 + (box - qs) / 2)
+            c.setFillColorRGB(*GOLD)
+            c.setFont("Helvetica-Bold", 5.2)
+            c.drawCentredString(bx0 + box / 2, by0 - 7, "SCAN TO VERIFY LIVE")
 
     header()
 

@@ -8,7 +8,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import requests
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
@@ -585,6 +585,9 @@ async def _registry_photo_bytes(photo_url: str):
 
 
 async def _registry_pdf_bytes(profile: dict) -> bytes:
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    first = (profile.get("name") or "").split()[0] if (profile.get("name") or "").strip() else ""
+    profile["verify_url"] = f"{base}/staff-registry?q={profile.get('staff_code', '')}&name={quote(first)}"
     pre = await _registry_photo_bytes(profile.get("photo_url"))
     fetcher = (lambda url: pre) if pre else _safe_fetch_image_bytes
     return await asyncio.to_thread(_build_registry_pdf, profile, fetcher)

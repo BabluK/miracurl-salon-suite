@@ -15,3 +15,10 @@
 
 ## Tested (curl E2E + screenshots)
 - Submit w/ photo → list → 400 guard on premature generate → owner-verified → generate (STF-00133, email_sent true) → PDF download valid → public search shows HQ Verified + photo. Test data cleaned after.
+
+## 2026-07-19 (part 2) — Booking caps + QR verify + UUID-hallucination fix
+- SEC-001 booking caps (`public_chat.py _public_ai_reply`): before executing a [[BOOK]] marker — `durable_rate_limit(aibook:{tenant}, 8/10min per IP)` + `ai_daily_quota(public_ai_bookings, 50/day per tenant)`. On limit: graceful Mira reply ("call the salon directly"), booking_error="booking_limit_reached", no exception leaks. Tested: quota seeded to 50 → graceful block; reset → booking succeeds.
+- Inquiry dedupe (same phone / 24h + 40/day) was ALREADY in `_capture_ai_inquiry` — no change needed.
+- BUG FOUND & FIXED (pre-existing, likely on production too): gpt-5.4-mini hallucinated the tail of full 36-char service UUIDs in booking JSON → "Selected services were not found on the menu". Fix: catalog now exposes 8-char ids (`s['id'][:8]`), new `_resolve_id_prefixes()` expands prefixes back to full ids for services + staff at execution time. Verified E2E: real booking created via chat.
+- QR on badge PDF: `_build_registry_pdf` header now renders a QR (white box, top-right, "SCAN TO VERIFY LIVE") when profile has `verify_url`; `_registry_pdf_bytes` (registry.py) sets it to `{APP_PUBLIC_URL}/staff-registry?q={staff_code}&name={first}` — deep-link auto-search already exists in RegistryPublic.jsx. Verified by rendering the PDF to PNG.
+- INCIDENT: a search_replace on public_chat.py silently appended garbage at EOF (duplicate fragment "ind_one(...)") — repaired by truncating at line 603. Check EOF if syntax errors appear after edits to this file.
