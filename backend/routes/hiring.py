@@ -396,7 +396,10 @@ def _match_open_application(apps: list, user_doc: dict, email_by_emp: dict) -> O
     match = next((a for a in apps if email and email_by_emp.get(a["employee_id"]) == email), None)
     if match:
         return match
-    return next((a for a in apps if _name_matches(user_doc.get("name") or "", a.get("candidate_name") or "")), None)
+    # Name fallback must be STRICT (exact normalized full name) — a single shared
+    # token like "Test"/"Kumar" must never auto-mark an application as hired.
+    given = re.sub(r"\s+", " ", (user_doc.get("name") or "").strip().lower())
+    return next((a for a in apps if given and given == re.sub(r"\s+", " ", (a.get("candidate_name") or "").strip().lower())), None)
 
 
 async def auto_mark_hired_on_staff_attach(tenant: dict, user_doc: dict) -> Optional[dict]:

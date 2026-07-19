@@ -11,6 +11,7 @@ import { AdvanceModal } from "@/components/staff/AdvanceModal";
 import { TempCredModal } from "@/components/staff/TempCredModal";
 import { LeaveApprovalsPanel } from "@/components/staff/LeaveApprovalsPanel";
 import { StaffLeaderboard } from "@/components/staff/StaffLeaderboard";
+import { PendingSignupsPanel } from "@/components/staff/PendingSignupsPanel";
 
 const EMPTY_FORM = {
   name: "", role: "Stylist", phone: "", email: "", personal_email: "", specialties: "",
@@ -163,6 +164,8 @@ export default function Staff() {
           <Plus className="w-4 h-4" /> Add Staff
         </button>
       </div>
+
+      <PendingSignupsPanel onChanged={load} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {list.map(s => (

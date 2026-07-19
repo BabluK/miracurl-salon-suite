@@ -38,3 +38,13 @@
 - Server-generated booking messages localized (_BOOK_MSGS en/hi/kn + _msg_lang script detection): limit / confirm / slot_free / slot_none / generic — no more English "slot fully booked" in Hindi chats.
 - E2E verified: garbled Devanagari+English message answered helpfully (no refusal); full Hindi booking flow with Hindi confirmation "✅ हो गया — आपकी बुकिंग पक्की!". Test data cleaned.
 - deployment_agent: PASS — no blockers, ready to Deploy.
+
+## 2026-07-19 (part 5) — Auto-link staff signup (pending admin approval)
+- auth.py register: if signup email exactly matches an UNCLAIMED staff profile (staff.email, no user_id), store matched_staff_id/matched_tenant_id + auto-set requested_tenant_slug → request lands in that salon's pending list; message names the salon.
+- list_pending_staff: includes matched users, enriches with matched_staff {name, role}.
+- attach_staff: on approval, if verified match (same tenant, email equal, profile unclaimed) → sets user.staff_id + staff.user_id (Staff Portal works instantly). Returns linked_staff.
+- NEW: DELETE /tenants/staff/pending/{user_id} (reject/delete orphan signup, scoped).
+- NEW UI: PendingSignupsPanel on Staff page (amber card, approve/reject, match hint). Was NO UI for pending attach before — stranded users had no path.
+- BUG FIXED (pre-existing): hiring auto_mark_hired name fallback matched on a single shared token ("Test") → spurious hires + placement-fee emails. Now requires exact normalized full-name equality. Spurious test hire reverted, fee deleted.
+- Cleaned 57 stale @test.com orphan pending users.
+- E2E verified: staff created → self-signup with same email → match message → pending list shows match → approve → user linked (staff_id set) → /staff/me/profile works. UI screenshot verified.

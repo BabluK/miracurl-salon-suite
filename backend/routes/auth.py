@@ -55,6 +55,16 @@ async def register(body: RegisterIn, request: Request, response: Response):
     email = body.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(400, "Email already registered")
+    # Auto-link hint: if this email exactly matches a staff profile in a salon,
+    # route the pending request to THAT salon's approval list (admin still approves).
+    matched_staff, matched_tenant = None, None
+    m = await _raw_db.staff.find_one(
+        {"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}},
+        {"_id": 0, "id": 1, "tenant_id": 1, "name": 1, "role": 1, "user_id": 1})
+    if m and not m.get("user_id"):
+        matched_tenant = await _raw_db.tenants.find_one({"id": m["tenant_id"]}, {"_id": 0, "id": 1, "slug": 1, "name": 1})
+        if matched_tenant:
+            matched_staff = m
     user = {
         "id": str(uuid.uuid4()),
         "email": email,
@@ -64,7 +74,11 @@ async def register(body: RegisterIn, request: Request, response: Response):
         "status": "pending",  # awaiting admin attach
         # Unverified HINT of which salon they meant to join — used ONLY to scope
         # the owner's pending list (privacy), never for authorization.
-        "requested_tenant_slug": (request.headers.get("X-Tenant-Slug") or "").strip().lower() or None,
+        "requested_tenant_slug": (matched_tenant or {}).get("slug")
+                                 or (request.headers.get("X-Tenant-Slug") or "").strip().lower() or None,
+        # Server-verified match to an unlinked staff profile (approval still required).
+        "matched_staff_id": (matched_staff or {}).get("id"),
+        "matched_tenant_id": (matched_tenant or {}).get("id"),
         "password_hash": hash_pw(body.password),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -74,10 +88,11 @@ async def register(body: RegisterIn, request: Request, response: Response):
     set_auth_cookies(response, access, refresh)
     user.pop("password_hash", None)
     user.pop("_id", None)
-    return {
-        "user": user,
-        "message": "Account created. Ask your salon admin to link it to your salon before you can log in fully.",
-    }
+    msg = ("Account created. Ask your salon admin to link it to your salon before you can log in fully."
+           if not matched_staff else
+           f"Account created — we found your staff profile at {matched_tenant['name']}. "
+           f"Your salon admin has been asked to approve the link; you'll get full access once they do.")
+    return {"user": user, "message": msg}
 
 
 class StaffAttachIn(BaseModel):
@@ -98,6 +113,15 @@ async def attach_staff(user_id: str, body: StaffAttachIn, admin=Depends(require_
                   "attached_at": datetime.now(timezone.utc).isoformat(),
                   "attached_by": admin["id"]}},
     )
+    # Auto-link to the matched staff profile (server-verified at signup) so the
+    # Staff Portal works instantly — only if the profile is still unclaimed.
+    linked_staff = None
+    if target.get("matched_staff_id") and target.get("matched_tenant_id") == t["id"]:
+        sp = await db.staff.find_one({"id": target["matched_staff_id"]}, {"_id": 0, "id": 1, "name": 1, "user_id": 1, "email": 1})
+        if sp and not sp.get("user_id") and (sp.get("email") or "").lower() == (target.get("email") or "").lower():
+            await db.users.update_one({"id": user_id}, {"$set": {"staff_id": sp["id"]}})
+            await db.staff.update_one({"id": sp["id"]}, {"$set": {"user_id": user_id}})
+            linked_staff = sp["name"]
     # Hiring marketplace hook: if this new staff matches an open application for this
     # salon, auto-mark it hired → HQ notified + placement fee & payment link emailed.
     hired = None
@@ -106,7 +130,19 @@ async def attach_staff(user_id: str, body: StaffAttachIn, admin=Depends(require_
         hired = await auto_mark_hired_on_staff_attach(t, target)
     except Exception as e:
         logging.getLogger("auth").error("auto-hire hook failed: %s", e)
-    return {"ok": True, "marketplace_hire": hired}
+    return {"ok": True, "marketplace_hire": hired, "linked_staff": linked_staff}
+
+
+@router.delete("/tenants/staff/pending/{user_id}")
+async def reject_pending_staff(user_id: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Reject (delete) an orphan self-registered account that requested this salon."""
+    target = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target or target.get("tenant_id") or target.get("status") != "pending":
+        raise HTTPException(404, "Pending sign-up not found")
+    if target.get("requested_tenant_slug") not in (t["slug"], None) and target.get("matched_tenant_id") != t["id"]:
+        raise HTTPException(403, "This sign-up did not request your salon")
+    await db.users.delete_one({"id": user_id})
+    return {"ok": True}
 
 
 @router.get("/tenants/staff/pending")
@@ -117,9 +153,18 @@ async def list_pending_staff(_admin=Depends(require_tenant_admin), t=Depends(cur
     so one owner can't harvest sign-up emails intended for other salons."""
     pending = await db.users.find(
         {"tenant_id": None, "status": "pending",
-         "requested_tenant_slug": {"$in": [t["slug"], None]}},
-        {"_id": 0, "id": 1, "email": 1, "name": 1, "created_at": 1},
+         "$or": [{"requested_tenant_slug": {"$in": [t["slug"], None]}},
+                 {"matched_tenant_id": t["id"]}]},
+        {"_id": 0, "id": 1, "email": 1, "name": 1, "created_at": 1, "matched_staff_id": 1, "matched_tenant_id": 1},
     ).sort("created_at", -1).to_list(50)
+    for p in pending:
+        p["matched_staff"] = None
+        if p.get("matched_staff_id") and p.get("matched_tenant_id") == t["id"]:
+            sp = await db.staff.find_one({"id": p["matched_staff_id"]}, {"_id": 0, "name": 1, "role": 1, "user_id": 1})
+            if sp and not sp.get("user_id"):
+                p["matched_staff"] = {"name": sp["name"], "role": sp.get("role") or "Staff"}
+        p.pop("matched_staff_id", None)
+        p.pop("matched_tenant_id", None)
     return {"pending": pending}
 
 
