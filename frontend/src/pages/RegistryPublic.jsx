@@ -24,7 +24,7 @@ function GetVerifiedCard() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const set = (k) => (e) => setF(v => ({ ...v, [k]: e.target.value }));
-  const inputCls = "w-full bg-white border border-rose-200 rounded-xl px-4 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:border-pink-400";
+  const inputCls = "w-full bg-white border border-rose-200 rounded-xl px-4 py-2.5 text-base sm:text-sm placeholder:text-slate-400 focus:outline-none focus:border-pink-400";
 
   const submit = async (e) => {
     e.preventDefault();
@@ -169,7 +169,7 @@ export default function RegistryPublic() {
                   data-testid="public-registry-search-input"
                   value={q} onChange={e => setQ(e.target.value)}
                   placeholder="Enter Aadhaar (12 digits), phone number or Staff ID (STF-00001)"
-                  className="w-full bg-white border border-rose-200 rounded-xl pl-10 pr-4 py-3 text-sm placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-pink-400 transition"
+                  className="w-full bg-white border border-rose-200 rounded-xl pl-10 pr-4 py-3 text-base sm:text-sm placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-pink-400 transition"
                 />
               </div>
               <button data-testid="public-registry-search-btn" disabled={loading} className={`px-6 py-3 rounded-xl ${gradBtn} text-sm font-semibold transition disabled:opacity-50 shadow-[0_10px_25px_-8px_rgba(236,72,153,0.5)]`}>
@@ -181,7 +181,7 @@ export default function RegistryPublic() {
                 data-testid="public-registry-name-input"
                 value={name} onChange={e => setName(e.target.value)}
                 placeholder="Staff member's name as printed on the badge (required for Staff ID search)"
-                className="w-full bg-white border border-rose-200 rounded-xl px-4 py-3 text-sm placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-pink-400 transition"
+                className="w-full bg-white border border-rose-200 rounded-xl px-4 py-3 text-base sm:text-sm placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-pink-400 transition"
               />
             )}
           </form>

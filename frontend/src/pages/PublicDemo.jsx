@@ -5,7 +5,7 @@ import BrandMark from "@/components/BrandMark";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const inputCls = "w-full bg-rose-50/50 border border-rose-100 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-pink-400";
+const inputCls = "w-full bg-rose-50/50 border border-rose-100 rounded-xl px-4 py-3 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-pink-400";
 const gradBtn = "bg-gradient-to-r from-rose-400 via-pink-500 to-amber-500 hover:from-rose-500 hover:via-pink-600 hover:to-amber-600 text-white";
 
 const CHIPS = ["Book me a demo for tomorrow evening", "What can Miracurl do for my salon?", "मुझे कल का डेमो चाहिए"];
@@ -42,7 +42,7 @@ function MiraDemoChat({ onBooked }) {
   };
 
   return (
-    <div className="flex flex-col h-[460px]" data-testid="demo-mira-chat">
+    <div className="flex flex-col h-[55vh] min-h-[340px] max-h-[460px]" data-testid="demo-mira-chat">
       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
         {msgs.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -133,10 +133,10 @@ export default function PublicDemo() {
         <div className="text-center mb-6">
           <div className="relative inline-block">
             <img src="/assets/mira-ai-logo.png" alt="Mira AI" data-testid="demo-mira-hero"
-              className="h-28 mx-auto rounded-full drop-shadow-[0_12px_30px_rgba(236,72,153,0.35)]" />
+              className="h-24 sm:h-28 mx-auto rounded-full drop-shadow-[0_12px_30px_rgba(236,72,153,0.35)]" />
             <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-bold tracking-[2px] px-3 py-1 rounded-full bg-gradient-to-r from-rose-400 via-pink-500 to-amber-500 text-white whitespace-nowrap shadow">MIRA AI</span>
           </div>
-          <p className="text-[11px] uppercase tracking-[0.25em] mt-4 font-semibold" data-testid="demo-ai-tagline">
+          <p className="text-[11px] uppercase tracking-[0.25em] mt-5 font-semibold" data-testid="demo-ai-tagline">
             <span className="brand-ai-tag">✦ AI Powered Salon Suite ✦</span>
           </p>
         </div>
@@ -165,28 +165,28 @@ export default function PublicDemo() {
               <p className="text-xs text-slate-500 mt-2 leading-relaxed">
                 A relaxed 20-minute walkthrough of the Miracurl Suite — bookings, POS, staff and your 12-agent AI team. No obligation, ever.
               </p>
-              <div className="flex gap-2 mt-5">
+              <div className="flex gap-1 mt-5 p-1 rounded-full bg-slate-100" data-testid="demo-tabs">
                 <button onClick={() => setTab("mira")} data-testid="demo-tab-mira"
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-3 rounded-t-xl transition-colors ${
-                    tab === "mira" ? "bg-pink-50 text-pink-600 border border-b-0 border-pink-200" : "text-slate-400 hover:text-slate-600"}`}>
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-full transition-all ${
+                    tab === "mira" ? "bg-white text-pink-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
                   <Bot className="w-4 h-4" /> Let Mira book it <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gradient-to-r from-rose-400 to-amber-500 text-white">AI</span>
                 </button>
                 <button onClick={() => setTab("form")} data-testid="demo-tab-form"
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-3 rounded-t-xl transition-colors ${
-                    tab === "form" ? "bg-pink-50 text-pink-600 border border-b-0 border-pink-200" : "text-slate-400 hover:text-slate-600"}`}>
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-full transition-all ${
+                    tab === "form" ? "bg-white text-pink-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
                   <ClipboardList className="w-4 h-4" /> Quick form
                 </button>
               </div>
             </div>
 
             {tab === "mira" && (
-              <div className="p-6 pt-4 bg-pink-50/40">
+              <div className="p-4 sm:p-6 pt-4 sm:pt-4">
                 <MiraDemoChat onBooked={setDone} />
               </div>
             )}
 
             {tab === "form" && (
-              <div className="p-6 pt-4 space-y-6 bg-pink-50/40">
+              <div className="p-4 sm:p-6 pt-4 sm:pt-4 space-y-6">
                 <div className="space-y-2.5">
                   <p className="text-[11px] tracking-widest text-pink-500 font-semibold flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> ABOUT YOU</p>
                   <input value={form.name} onChange={set("name")} maxLength={80} placeholder="Your name *" data-testid="demo-name-input" className={inputCls} />

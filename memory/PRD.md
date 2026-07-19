@@ -634,3 +634,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Complexity: hq_documents public_demo_chat (21→<10) split into _demo_chat_system(tz) + _run_demo_chat_booking(reply, request, tz); _book_open_demo (17→<10) split into _demo_slot_dict + _upsert_demo_invite. Regression: demo-chat + demo resend curls pass.
 - FALSE POSITIVES re-verified: social_connect.py:30 = public OAuth scope URL constant (creds via os.environ META_APP_ID/SECRET); ruff F821 (undefined vars) + F632 (`is` literal) clean on whole backend incl. tests.
 - Deferred (documented): _demo_email_html 8 params (already keyword-only, low risk); splitting hq_documents.py (1250+ lines, 37 imports) into hq_demo.py/hq_outreach.py — recommend during a quiet cycle, not mid-feature.
+
+## 2026-07-19 — /demo overlap fix + mobile/iOS polish (user bug, seen on PRODUCTION)
+- ROOT CAUSE of overlap: "attached tab" styling (border-b-0 rounded-t tabs floating over a full-width bg-pink-50/40 strip) created a broken seam that looked like content overlapping outside the card.
+- FIX: tabs replaced with a segmented pill control (bg-slate-100 track, white active pill, testid demo-tabs) fully inside the card; content padding now responsive (p-4 sm:p-6, white bg).
+- Mobile/iOS/Android: chat height h-[55vh] min-340 max-460 (was fixed 460px); hero h-24 sm:h-28; tagline spacing; ALL inputs on /demo + /staff-registry now text-base sm:text-sm (prevents iOS Safari auto-zoom on focus, 16px rule).
+- Verified: screenshots desktop 1920 + mobile 390 (chat tab + form tab) — no seam, everything within card bounds. USER MUST REDEPLOY — bug was reported on production.
