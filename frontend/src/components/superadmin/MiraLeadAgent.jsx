@@ -107,6 +107,7 @@ function LeadRow({ lead, onRefresh }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 truncate">{lead.name} <span className="text-slate-400 font-normal">· {lead.city}</span></p>
           <p className="text-[11px] text-slate-400 truncate">
+            {lead.category ? <span data-testid={`lead-category-${lead.id}`} className="text-fuchsia-500 font-semibold">{lead.category} · </span> : null}
             {lead.rating ? <><Star className="w-3 h-3 inline text-amber-400 -mt-0.5" /> {lead.rating}{lead.reviews ? ` (${lead.reviews})` : ""} · </> : null}
             {lead.email || "no email found"} {lead.phone ? `· ${lead.phone}` : ""} {lead.branches > 1 ? `· ${lead.branches} branches` : ""}
           </p>
@@ -327,11 +328,11 @@ export function MiraLeadAgent() {
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-3">
         <div>
           <label className="text-[11px] uppercase tracking-wide text-slate-400">City</label>
-          <input value={city} onChange={e => setCity(e.target.value)} className="block border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1" data-testid="lead-city-input" />
+          <input value={city} onChange={e => setCity(e.target.value)} placeholder="Bangalore · London, UK · New York, US" className="block border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 w-56" data-testid="lead-city-input" />
         </div>
         <div>
           <label className="text-[11px] uppercase tracking-wide text-slate-400">How many salons</label>
-          <input type="number" min="1" max="25" value={target} onChange={e => setTarget(e.target.value)} className="block border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 w-24" data-testid="lead-target-input" />
+          <input type="number" min="1" max="50" value={target} onChange={e => setTarget(e.target.value)} className="block border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 w-24" data-testid="lead-target-input" />
         </div>
         <button onClick={startRun} disabled={starting || !!activeRun} data-testid="lead-run-btn"
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white text-sm font-bold inline-flex items-center gap-2 disabled:opacity-50">

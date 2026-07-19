@@ -67,3 +67,9 @@
 - Farewell screen (EmployeePortal.jsx): 403 "active salon staff only" on /employee/me or login now shows a warm "Thank you for everything ✦" screen (data-testid farewell-screen) instead of an error toast. Verified via screenshot.
 - Win-back automation (standalone, no full autopilot needed): new `winback_auto` flag in autopilot_settings (DEFAULTS + SettingsIn); `run_autopilot_for_tenant(..., winback_only=True)` skips daily post; `_run_enabled_tenants` also runs winback-only tenants ({enabled≠True, winback_auto:True}) via existing daily 10:00-IST scheduler. Toggle endpoints GET/PUT /api/winback/auto (winback.py). Dashboard WinbackNudges card got "Auto ON/OFF" pill (data-testid winback-auto-toggle). E2E: lapsed test customer → winback-only run → 1 email sent + lead_outreach record; cleaned + toggle reset OFF.
 - Lead Gen funnel cards (MiraLeadAgent.jsx): when count >= target, show just the count + green "✓ TARGET n DONE" chip and emerald bar (no more "529 / 300"). 5-day resend reminder scheduler untouched (kept as requested).
+
+## 2026-07-19 (part 9) — Lead Gen advanced search + international
+- _places_search: multi-category parallel queries (Salon / Unisex Salon / Spa / Boutique / Hair Care), each PAGINATED up to 3 pages (60/category via nextPageToken) → up to ~300 raw, deduped by name+address, best-reviewed first, `category` tagged (shown as fuchsia chip on lead rows, data-testid lead-category-{id}).
+- Depth: _find_candidates now pulls a pool of max(target*3, 40) so Bangalore-sized cities don't repeat; target cap raised 25→50 (backend Field le=50 + UI max).
+- International: prompts region-neutral (no ", India" hardcoding), city accepts "London, UK" / "New York, US" (country code preserved uppercase on title-casing), UI placeholder updated. NOTE: appended pricing table in outreach emails is still INR-based — flagged to user.
+- Verified: Bangalore 150 unique results; London, UK 40 real venues across all 5 categories.

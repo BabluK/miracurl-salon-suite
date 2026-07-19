@@ -29,29 +29,71 @@ _SKIP_EMAIL = ("example.", "sentry.", "wixpress", "@2x", ".png", ".jpg", "@sentr
 FUNNEL_TARGETS = {"target_leads": 300, "qualified": 100, "emails_sent": 50, "demos": 10, "customers": 5}
 
 
-async def _places_search(client: httpx.AsyncClient, city: str, n: int) -> tuple:
-    """Real salon data from Google Places API (New). Returns (places, note)."""
-    key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
-    if not key:
-        return [], "no_key"
-    try:
+_SEARCH_CATEGORIES = [
+    ("Salon", "beauty salons in {city}"),
+    ("Unisex Salon", "unisex salons in {city}"),
+    ("Spa", "spas and wellness centres in {city}"),
+    ("Boutique", "beauty boutiques in {city}"),
+    ("Hair Care", "hair care and hair studios in {city}"),
+]
+
+
+async def _places_query(client: httpx.AsyncClient, key: str, query: str, want: int) -> list:
+    """Places text-search with pagination — up to 3 pages (60 results) per query."""
+    out, token = [], None
+    for _ in range(3):
+        payload = {"textQuery": query, "pageSize": 20}
+        if token:
+            payload["pageToken"] = token
         r = await client.post(
             "https://places.googleapis.com/v1/places:searchText",
             headers={"Content-Type": "application/json", "X-Goog-Api-Key": key,
                      "X-Goog-FieldMask": ("places.displayName,places.rating,places.userRatingCount,"
-                                          "places.websiteUri,places.nationalPhoneNumber,places.formattedAddress")},
-            json={"textQuery": f"beauty salons in {city}", "pageSize": min(n, 20)}, timeout=20)
+                                          "places.websiteUri,places.nationalPhoneNumber,places.formattedAddress,"
+                                          "nextPageToken")},
+            json=payload, timeout=20)
         data = r.json()
         if "places" not in data:
-            log.warning("places api unavailable: %s", str(data)[:200])
-            return [], (data.get("error") or {}).get("message", "no results")[:90]
-        return [{"name": p.get("displayName", {}).get("text", ""), "rating": p.get("rating"),
+            if out:
+                break
+            raise RuntimeError((data.get("error") or {}).get("message", "no results")[:90])
+        out += [{"name": p.get("displayName", {}).get("text", ""), "rating": p.get("rating"),
                  "reviews": p.get("userRatingCount"), "website": p.get("websiteUri", ""),
                  "phone": p.get("nationalPhoneNumber", ""), "address": p.get("formattedAddress", "")}
-                for p in data["places"]], ""
-    except Exception as e:
-        log.warning("places search failed: %s", e)
-        return [], str(e)[:90]
+                for p in data["places"]]
+        token = data.get("nextPageToken")
+        if not token or len(out) >= want:
+            break
+    return out[:want]
+
+
+async def _places_search(client: httpx.AsyncClient, city: str, n: int) -> tuple:
+    """Advanced multi-category Google Places search: Salon, Unisex Salon, Spa,
+    Boutique and Hair Care queried in PARALLEL with pagination (up to 60/category),
+    deduped, best-reviewed first. Works for any city worldwide (e.g. 'London, UK')."""
+    key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+    if not key:
+        return [], "no_key"
+    per_cat = min(60, max(12, (n // len(_SEARCH_CATEGORIES)) + 10))
+    results = await asyncio.gather(
+        *[_places_query(client, key, q.format(city=city), per_cat) for _, q in _SEARCH_CATEGORIES],
+        return_exceptions=True)
+    seen, out, first_err = set(), [], ""
+    for (cat, _), res in zip(_SEARCH_CATEGORIES, results):
+        if isinstance(res, BaseException):
+            log.warning("places search [%s] failed: %s", cat, res)
+            first_err = first_err or str(res)[:90]
+            continue
+        for p in res:
+            k = (p["name"].strip().lower(), (p.get("address") or "").strip().lower()[:40])
+            if not p["name"] or k in seen:
+                continue
+            seen.add(k)
+            out.append({**p, "category": cat})
+    if not out:
+        return [], first_err or "no results"
+    out.sort(key=lambda p: (p.get("reviews") or 0, p.get("rating") or 0), reverse=True)
+    return out[:max(n, 1)], ""
 
 
 def _now():
@@ -160,7 +202,8 @@ async def _draft_email(lead: dict) -> dict:
         "You are Mira, the outreach agent for Miracurl Suite — an all-in-one salon management platform "
         "(online booking, WhatsApp marketing & automation, staff attendance & payroll, memberships, GST billing). "
         f"Current live plan pricing:\n{pricing}\n"
-        "Write warm, short, personalized B2B outreach emails to Indian salon owners.",
+        "Write warm, short, personalized B2B outreach emails to salon owners anywhere in the world — "
+        "match the tone and spelling to the salon's country (the city may include a country like 'London, UK').",
         f"Salon research data: {research}\n"
         "Write a personalized email to this salon's owner. Rules: greet as 'Hi {name} team' or owner if known; "
         "1st line must reference something SPECIFIC from the research (their rating/reviews, services, branches); "
@@ -252,7 +295,7 @@ async def _research_salon(client: httpx.AsyncClient, name: str, city: str, websi
 
 async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, existing: set) -> tuple:
     """Returns (source, candidates, note). Google Maps when available, else Mira AI research."""
-    raw, note = await _places_search(client, city, target + 8)
+    raw, note = await _places_search(client, city, max(target * 3, 40))
     places = [p for p in raw if p["name"] and p["name"].lower() not in existing][:target]
     if places:
         return "maps", [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p}
@@ -261,11 +304,12 @@ async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, ex
         note = "all Maps results already contacted"
     from routes.mira_common import _ask_json
     plan = await _ask_json(
-        "You are the Lead Finder agent for a salon-software company targeting Indian salons. "
+        "You are the Lead Finder agent for a salon-software company targeting salons worldwide. "
         "List REAL salon businesses that operate in the given city — well-known local salons and chains. "
         "Include their official website domain ONLY if you are confident it is correct; otherwise leave empty. "
         "Never invent salon names or domains.",
-        f"City: {city}, India. Already contacted (skip these): {sorted(existing)[:40]}\n"
+        f"City/region: {city} (may include a country, e.g. 'London, UK'). "
+        f"Already contacted (skip these): {sorted(existing)[:40]}\n"
         f'Return JSON: {{"salons": [{{"name": "<salon name>", "website": "<https://… or empty>", '
         f'"area": "<locality if known>"}}]}} with up to {target + 6} salons.')
     return "ai", [c for c in (plan.get("salons") or [])
@@ -282,6 +326,7 @@ async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str
         lead["reviews"] = place.get("reviews")
         lead["phone"] = place.get("phone") or ""
         lead["address"] = place.get("address") or ""
+        lead["category"] = place.get("category") or ""
         lead["source"] = "google_maps"
         lead["score"], lead["score_breakdown"] = _score(lead)
     if lead["email"]:
@@ -294,7 +339,7 @@ async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str
 
 async def _log_candidate_source(_log, source: str, note: str):
     if source == "maps":
-        await _log("📍 Google Maps: real salons with ratings & websites found.")
+        await _log("📍 Google Maps advanced search: Salons, Unisex Salons, Spas, Boutiques & Hair Care studios found (deduped, best-reviewed first).")
     elif note == "no_key":
         await _log("ℹ️ Google Maps key not configured on this server — using Mira AI research instead.")
     else:
@@ -338,7 +383,7 @@ async def _run_pipeline(run_id: str, city: str, target: int):
 
 class RunIn(BaseModel):
     city: str = Field(..., min_length=2, max_length=60)
-    target: int = Field(10, ge=1, le=25)
+    target: int = Field(10, ge=1, le=50)
 
 
 @router.post("/super-admin/mira-leads/run")
@@ -346,7 +391,8 @@ async def start_run(body: RunIn, user=Depends(require_super_admin)):
     active = await _raw_db.mira_lead_runs.find_one({"status": "running"})
     if active:
         raise HTTPException(409, "A lead run is already in progress — wait for it to finish.")
-    run = {"id": str(uuid.uuid4()), "city": body.city.strip().title(), "target": body.target,
+    city = re.sub(r",\s*([A-Za-z]{2,3})$", lambda m: ", " + m.group(1).upper(), body.city.strip().title())
+    run = {"id": str(uuid.uuid4()), "city": city, "target": body.target,
            "status": "running", "stage": "starting", "found": 0, "researched": 0,
            "log": [], "created_at": _now()}
     await _raw_db.mira_lead_runs.insert_one({**run})
