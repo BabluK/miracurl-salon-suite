@@ -2,13 +2,33 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-18.1"
-BUILD_TIME = "18 Jul 2026, 08:15 AM IST"
+BUILD = "2026-07-19.1"
+BUILD_TIME = "19 Jul 2026, 12:30 PM IST"
 
 RELEASES = [
     {
+        "date": "2026-07-19",
+        "changes": [
+            "Mira books reliably now 🔒 — fixed a bug where Mira sometimes said 'that slot is booked' even when it wasn't (an internal service-ID mix-up); bookings now go through first time",
+            "Mira lives on Indian time 🕐 — she never offers time slots that have already passed today, resolves 'today/tomorrow/evening' in IST correctly, and knows every open slot for the next 7 days",
+            "One confirmation, then booked ✅ — Mira collects name, phone, service, expert & time, shows one summary, and books the moment you say yes — no more double-checking loops",
+            "Speak English, get English 🗣 — Mira now strictly mirrors your language (pure English for English, Hindi for Hindi, Kannada for Kannada), voice messages are transcribed in the right script, and she never refuses mixed or garbled voice messages",
+            "Booking replies in your language 💬 — even system messages (booking confirmed, slot unavailable, alternatives offered) now arrive in English, Hindi or Kannada to match your chat",
+            "Honest slot answers 🙏 — if your chosen expert is busy, Mira tells you exactly that (e.g. 'Rahul is already booked at that time') and offers the times that are genuinely free",
+            "Booking flood protection 🛡 — AI bookings are now capped (8 per visitor per 10 minutes + a daily per-salon ceiling) so bots can never flood your calendar; real guests are politely asked to call if the cap is hit",
+            "Mira's new logo everywhere ✦ — the Mira AI avatar was redrawn as a perfect, crisp circle and now renders beautifully on the /demo page, chat widgets and voice bubbles",
+            "Super Admin: Staff Verification section 🪪 — 'Get verified' requests from external stylists now land in their own Staff Verification tab (not Tenant Inquiries) with every detail + the stylist's photo: call the owner → mark 'Verified by Salon Owner' → 'Generate Badge & Email' creates their permanent Staff ID (STF-xxxxx), emails the badge PDF and offers portal download",
+            "Get Verified form upgraded 📸 — external stylists now upload a recent photo (appears on their badge) and share their total experience along with salon, owner contact and joining date",
+            "Scan-to-verify badges 📱 — every verified badge PDF now carries a QR code that opens the stylist's live registry profile, so any salon can verify them in one scan",
+        ],
+    },
+    {
         "date": "2026-07-18",
         "changes": [
+            "Mira found her voice 🎙 — the booking chat now speaks: auto-greeting when opened, spoken booking confirmations, graceful silent fallback, a WhatsApp share button, and full Kannada support alongside English & Hindi",
+            "The /demo page got the couture treatment 🖤 — dark rose-gold redesign with Mira AI front and center, mobile layouts fixed",
+            "Mira Inquiries inbox 💌 — when Mira recommends products or takes a query in chat, it lands in a new 'Mira Inquiries' tab on your Messages page with the full transcript",
+            "Staff Portal emails redesigned ✉️ — attendance and portal emails now carry premium Miracurl branding",
             "Super Admin: Lead follow-up command bar 🚀 — every 'Already sent' lead in Mira Lead Agent now has the full toolkit: status dropdown (Contacted → Meeting scheduled → Customer), 🔔 one-tap Remind (works for ALL sent leads, opened or not), 📩 Resend PDF, 🎥 Google Meet invite with calendar (.ics) attachment, and quick 📞 Call / 💬 WhatsApp buttons",
             "Super Admin: Demo time-picker with timezone smarts 📅 — send prospects a 'pick your demo time' email from the Lead Agent or Demo Campaign; when they book, you see the slot in IST AND their local time side-by-side",
             "Super Admin: 5-day auto follow-ups 🔁 — Mira automatically nudges leads who haven't replied after 5 days, with the full screens-tour PDF attached to every outreach email",
