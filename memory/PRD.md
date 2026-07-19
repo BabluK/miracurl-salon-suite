@@ -618,3 +618,8 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - User rejected the dark AI theme; wanted the login page's light rose-gold style. Mira robot avatar kept unchanged everywhere (user instruction).
 - PublicDemo.jsx rewritten (logic/testids identical): white bg + login's radial rose-gold blobs, BrandMark(light) top-left, Mira robot hero w/ gradient "MIRA AI" badge + brand-ai-tag tagline, white shadow card, pink-50 tabs, gradient rose→pink→amber buttons/user bubbles, light inputs. Screenshots verified (desktop + mobile).
 - Needs Deploy.
+
+## 2026-07-19 — Staff Verification Portal (/staff-registry) redesigned + consent/legal section (user request)
+- RegistryPublic.jsx restyled to light rose-gold brand theme (search/deep-link logic + ALL testids unchanged): BrandMark, gradient shield tile, badge showcase strip (Extraordinary/Excellent/Good/New pills, testid registry-badge-showcase), gradient Verify button, light result cards/verdict banners/history timeline.
+- NEW consent & legal section (testid registry-consent-section, always visible): "Verification with consent — done right ✦" — 4 cards: Consent-first (staff voluntarily share details w/ written consent at onboarding), Why verification matters, Privacy by design (Aadhaar always masked, never stored in full), Your data your rights (DPDP Act 2023, withdraw via hello@miracurl.com). Footer legal line: employment-verification-only use, DPDP consent basis, links to Privacy/Terms.
+- Screenshots verified (hero + consent section). Needs Deploy.
