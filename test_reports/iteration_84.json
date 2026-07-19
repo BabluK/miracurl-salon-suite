@@ -1,0 +1,30 @@
+{
+  "summary": "Iter 84 tip-capture (POS tip presets, tips report, receipt tip row, currency-aware) tested end-to-end. All 5 backend tests passed. Frontend E2E validated: preset tip buttons (15/18/20/25%), custom tip override, No-tip clear, tip-staff select, receipt-total-incl-tip row on receipt modal, and Tips-by-Stylist card on Reports page with 2 aggregated rows. INR ₹ symbols intact (regression OK). Period Revenue, Recent Invoices, Branch Performance and Commission sections still render.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/reports on load", "issues": ["Owner-PIN modal auto-opens on page mount because staff-commission call is pin-gated. It obscures Branch Performance until dismissed. Consider only prompting when the user actually interacts with the commission section, or auto-loading commission=0 without a modal."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter84_tips.py",
+    "/app/test_reports/pytest/iter84_tips.xml"
+  ],
+  "action_items": [
+    "Optional UX: defer Owner-PIN prompt on /reports until the commission card is expanded/interacted with (currently intrudes over unrelated cards)."
+  ],
+  "critical_code_review_comments": [
+    "appointments_pos.py::create_invoice — tip fallback logic uses body.tip_staff_id OR invoice-level staff['id']; per-item staff (items[i].staff_id) is NOT considered. That's fine per spec but worth documenting.",
+    "reports.py::staff_tips_report — pure aggregation, no owner-PIN gate: correct given tips = staff-owned money, not commission structure.",
+    "Reports.jsx L63 tips fetch swallows all errors silently (`catch {}`). Consider logging so an outage doesn't hide the card being empty."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter84_tips.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% of scripted flows"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug miracurl-marathahalli, PIN 4321)",
+  "seed_data_creation": "Created 4 test invoices via backend + 1 via UI (all under existing customers Explicit VCard / seeded customer). Tips: Priya Sharma ₹500 (2 tips), Rahul Verma ₹50 (1 tip). Owner can wipe via 'Erase billing' if needed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 84 tip capture feature is fully working. Backend endpoints POST /api/invoices (tip fields) and GET /api/reports/staff-tips are correct. Tip is stored separately from invoice.total (total = subtotal - discount + tax). Loyalty/customer.total_spent correctly ignore tips. Reports UI card renders after commission-PIN modal is dismissed (bug: unrelated PIN modal appears on reports mount)."
+}

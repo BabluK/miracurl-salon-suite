@@ -4,8 +4,10 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import ThermalPrintButton from "@/components/pos/ThermalPrintButton";
 import { payLabel } from "@/components/pos/payLabels";
+import { curSym } from "@/lib/currency";
 
 export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmailSaved, onClose, onPrint, onShare }) {
+  const sym = curSym(tenant);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
@@ -97,15 +99,21 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
                 <div className="text-slate-800">{it.name} × {it.qty}</div>
                 {it.staff_name && <div className="text-[10px] text-slate-500">by {it.staff_name}</div>}
               </div>
-              <span className="text-slate-800">₹{(it.qty * it.price).toFixed(2)}</span>
+              <span className="text-slate-800">{sym}{(it.qty * it.price).toFixed(2)}</span>
             </div>
           ))}
         </div>
         <div className="border-t border-slate-100 pt-3 mt-3 space-y-1 text-sm">
-          <Row label="Subtotal" value={`₹${invoice.subtotal.toFixed(2)}`} />
-          <Row label="Discount" value={`−₹${invoice.discount.toFixed(2)}`} />
-          {Number(invoice.tax) > 0 && <Row label="Tax" value={`₹${invoice.tax.toFixed(2)}`} />}
-          <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-200"><span>Total</span><span className="text-sky-600">₹{invoice.total.toFixed(2)}</span></div>
+          <Row label="Subtotal" value={`${sym}${invoice.subtotal.toFixed(2)}`} />
+          <Row label="Discount" value={`−${sym}${invoice.discount.toFixed(2)}`} />
+          {Number(invoice.tax) > 0 && <Row label="Tax" value={`${sym}${invoice.tax.toFixed(2)}`} />}
+          <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-200"><span>Total</span><span className="text-sky-600">{sym}{invoice.total.toFixed(2)}</span></div>
+          {Number(invoice.tip) > 0 && (
+            <>
+              <Row label={`Tip 💜${invoice.tip_staff_name ? ` (for ${invoice.tip_staff_name})` : ""}`} value={`${sym}${invoice.tip.toFixed(2)}`} />
+              <div className="flex justify-between font-bold text-lg pt-1" data-testid="receipt-total-incl-tip"><span>Total incl. tip</span><span className="text-rose-600">{sym}{(invoice.total + invoice.tip).toFixed(2)}</span></div>
+            </>
+          )}
         </div>
         <ThermalPrintButton invoice={invoice} tenant={tenant} />
         <div className="flex items-center gap-2 mt-3">

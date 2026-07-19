@@ -2,20 +2,24 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
-import { IndianRupee, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2, Pencil } from "lucide-react";
+import { IndianRupee, DollarSign, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2, Pencil, Heart } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { EditInvoiceModal } from "@/components/EditInvoiceModal";
+import { useAuth } from "@/context/AuthContext";
+import { curSym } from "@/lib/currency";
 
 const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
 const PIE_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", color: "#0f172a" };
 
 export default function Reports() {
+  const { tenant } = useAuth();
   const today = new Date().toISOString().slice(0, 10);
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
   const [start, setStart] = useState(monthAgo);
   const [end, setEnd] = useState(today);
   const [data, setData] = useState(null);
   const [commission, setCommission] = useState(null);
+  const [tips, setTips] = useState(null);
   const [pct, setPct] = useState(30);
   const [rateUnlocked, setRateUnlocked] = useState(() => sessionStorage.getItem("commission_rate_unlock") === "1");
   const [erasing, setErasing] = useState(false);
@@ -55,10 +59,16 @@ export default function Reports() {
     } catch (e) {
       toast.error(e.response?.data?.detail || "Commission report needs the Owner PIN");
     }
+    try {
+      const c = await api.get(`/reports/staff-tips?start=${start}&end=${end}`);
+      setTips(c.data);
+    } catch { /* tips report optional */ }
   }, [start, end, pct]);
   useEffect(() => { load(); }, [load]);
 
-  const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  const sym = curSym(tenant);
+  const CurIcon = (tenant?.currency || "INR") === "INR" ? IndianRupee : DollarSign;
+  const inr = (n) => `${sym}${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
@@ -84,7 +94,7 @@ export default function Reports() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <div className="card-light" data-testid="report-total-revenue">
               <div className="label-light">Period Revenue</div>
-              <div className="font-playfair text-4xl mt-2 text-sky-600 flex items-center"><IndianRupee className="w-7 h-7" />{data.total_revenue.toLocaleString("en-IN")}</div>
+              <div className="font-playfair text-4xl mt-2 text-sky-600 flex items-center"><CurIcon className="w-7 h-7" />{data.total_revenue.toLocaleString("en-IN")}</div>
               <div className="text-xs text-slate-500 mt-2">from {start} to {end}</div>
             </div>
             <div className="card-light" data-testid="report-total-invoices">
@@ -254,6 +264,46 @@ export default function Reports() {
                           <td className="text-right text-slate-700">{r.item_count} <span className="text-[10px] text-slate-400">({r.service_count}s · {r.product_count}p)</span></td>
                           <td className="text-right text-slate-800 font-medium">{inr(r.gross_revenue)}</td>
                           <td className="text-right text-sky-600 font-semibold">{inr(r.commission_amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Per-stylist tips */}
+          <div className="card-light p-0 overflow-hidden" data-testid="tips-card">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <Heart className="w-4 h-4 text-rose-500" />
+                <h3 className="font-playfair text-xl">Tips by Stylist</h3>
+              </div>
+              <span className="text-xs text-slate-400">Tips captured at billing — 100% belongs to your team</span>
+            </div>
+            {tips && (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 bg-rose-50/40 border-b border-slate-100">
+                  <Mini label="Total tips" value={inr(tips.total_tips)} accent="text-rose-600" />
+                  <Mini label="Stylists tipped" value={tips.rows.length} />
+                  <Mini label="Tipped bills" value={tips.rows.reduce((s, r) => s + r.tip_count, 0) + tips.unassigned_count} />
+                  <Mini label="Unassigned tips" value={inr(tips.unassigned_total)} hint={tips.unassigned_total > 0 ? "no stylist picked at POS" : ""} />
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="luxe-table-light">
+                    <thead>
+                      <tr><th>Stylist</th><th className="text-right">Tipped Bills</th><th className="text-right">Avg Tip</th><th className="text-right">Total Tips</th></tr>
+                    </thead>
+                    <tbody>
+                      {tips.rows.length === 0 ? (
+                        <tr><td colSpan="4" className="text-center py-8 text-slate-500">No tips in this range yet. Tip presets (15/18/20/25%) appear on the POS billing screen.</td></tr>
+                      ) : tips.rows.map(r => (
+                        <tr key={r.staff_id} data-testid={`tips-row-${r.staff_id}`}>
+                          <td className="text-slate-800 font-medium">{r.staff_name}</td>
+                          <td className="text-right text-slate-700">{r.tip_count}</td>
+                          <td className="text-right text-slate-700">{inr(r.avg_tip)}</td>
+                          <td className="text-right text-rose-600 font-semibold">{inr(r.tips_total)}</td>
                         </tr>
                       ))}
                     </tbody>

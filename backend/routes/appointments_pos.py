@@ -282,6 +282,13 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     if body.payment_mode == "salon_wallet":
         _check_wallet_balance(cust, totals["total"])
 
+    tip = round(float(body.tip_amount or 0), 2)
+    tip_staff = None
+    if tip > 0:
+        tsid = body.tip_staff_id or (staff["id"] if staff else None)
+        if tsid:
+            tip_staff = await db.staff.find_one({"id": tsid}, {"_id": 0, "id": 1, "name": 1})
+
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),
         customer_id=cust["id"], customer_name=cust["name"],
@@ -289,6 +296,9 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         staff_name=staff["name"] if staff else None,
         items=body.items, subtotal=totals["subtotal"], discount=totals["discount"],
         tax=totals["tax"], total=totals["total"], payment_mode=body.payment_mode,
+        tip=tip,
+        tip_staff_id=tip_staff["id"] if tip_staff else None,
+        tip_staff_name=tip_staff["name"] if tip_staff else None,
         appointment_id=body.appointment_id,
         branch_id=branch["id"] if branch else None,
         branch_name=branch["name"] if branch else None,

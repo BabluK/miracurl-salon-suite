@@ -59,6 +59,9 @@ def _totals_rows(inv: dict) -> str:
     if float(inv.get("tax") or 0) > 0:
         totals += _money_row("GST", float(inv["tax"]))
     totals += _money_row("Total Paid", float(inv.get("total") or 0), color=INK, bold=True)
+    if float(inv.get("tip") or 0) > 0:
+        totals += _money_row("Tip 💜", float(inv["tip"]))
+        totals += _money_row("Total incl. tip", float(inv.get("total") or 0) + float(inv["tip"]), color=INK, bold=True)
     return totals
 
 

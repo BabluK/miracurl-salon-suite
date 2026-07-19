@@ -368,6 +368,32 @@ async def staff_commission_report(
     }
 
 
+@router.get("/reports/staff-tips")
+async def staff_tips_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(require_admin)):
+    """Per-stylist tips collected at billing in [start, end]. Sorted desc by tips_total."""
+    flt = {"tip": {"$gt": 0}}
+    if start and end:
+        flt["created_at"] = {"$gte": start, "$lte": end + "T23:59:59Z"}
+    invs = await db.invoices.find(flt, {"_id": 0, "tip": 1, "tip_staff_id": 1, "tip_staff_name": 1}).to_list(5000)
+    agg = {}
+    unassigned = {"total": 0.0, "count": 0}
+    for inv in invs:
+        sid = inv.get("tip_staff_id")
+        if not sid:
+            unassigned["total"] += float(inv["tip"])
+            unassigned["count"] += 1
+            continue
+        row = agg.setdefault(sid, {"name": inv.get("tip_staff_name") or "(removed)", "total": 0.0, "count": 0})
+        row["total"] += float(inv["tip"])
+        row["count"] += 1
+    rows = [{"staff_id": sid, "staff_name": r["name"], "tips_total": round(r["total"], 2),
+             "tip_count": r["count"], "avg_tip": round(r["total"] / r["count"], 2)} for sid, r in agg.items()]
+    rows.sort(key=lambda r: r["tips_total"], reverse=True)
+    return {"from": start, "to": end, "rows": rows,
+            "unassigned_total": round(unassigned["total"], 2), "unassigned_count": unassigned["count"],
+            "total_tips": round(sum(r["tips_total"] for r in rows) + unassigned["total"], 2)}
+
+
 @router.get("/reviews/blast-targets")
 async def reviews_blast_targets(user=Depends(get_current_user)):
     """Completed appointments that haven't received a review yet, with customer phone + share URL.

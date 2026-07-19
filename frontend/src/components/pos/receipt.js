@@ -11,14 +11,18 @@ function escapeHtml(s) {
 export function buildReceiptHtml(inv, tenant) {
   const brandName = tenant?.name || "Your Salon";
   const brandLoc = tenant?.location || "";
+  const sym = { INR: "₹", USD: "$", GBP: "£", EUR: "€", AED: "AED " }[tenant?.currency || "INR"] || "₹";
   const itemsHtml = inv.items.map(it => {
     const sub = (it.qty * it.price).toFixed(2);
     const staffLine = it.staff_name
       ? `<div style="font-size:10px;color:#666">by ${escapeHtml(it.staff_name)}</div>`
       : "";
-    return `<tr><td>${escapeHtml(it.name)} × ${Number(it.qty)}${staffLine}</td><td style="text-align:right">₹${sub}</td></tr>`;
+    return `<tr><td>${escapeHtml(it.name)} × ${Number(it.qty)}${staffLine}</td><td style="text-align:right">${sym}${sub}</td></tr>`;
   }).join("");
   const showTax = Number(inv.tax) > 0;
+  const tipHtml = Number(inv.tip) > 0
+    ? `<div class="row"><span>Tip${inv.tip_staff_name ? ` (for ${escapeHtml(inv.tip_staff_name)})` : ""}</span><span>${sym}${inv.tip.toFixed(2)}</span></div>
+<div class="row total"><span>Total incl. tip</span><span>${sym}${(inv.total + inv.tip).toFixed(2)}</span></div>` : "";
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(inv.invoice_no)}</title>
 <style>
   body{font-family:Arial,sans-serif;color:#000;padding:24px;max-width:420px;margin:auto}
@@ -37,10 +41,11 @@ export function buildReceiptHtml(inv, tenant) {
 ${inv.staff_name ? `<div class="row"><b>Stylist</b><span>${escapeHtml(inv.staff_name)}</span></div>` : ""}
 <div class="row"><b>Payment</b><span>${escapeHtml(payLabel(inv.payment_mode))}</span></div>
 <table>${itemsHtml}</table>
-<div class="row"><span>Subtotal</span><span>₹${inv.subtotal.toFixed(2)}</span></div>
-<div class="row"><span>Discount</span><span>−₹${inv.discount.toFixed(2)}</span></div>
-${showTax ? `<div class="row"><span>Tax</span><span>₹${inv.tax.toFixed(2)}</span></div>` : ""}
-<div class="row total"><span>Total</span><span>₹${inv.total.toFixed(2)}</span></div>
+<div class="row"><span>Subtotal</span><span>${sym}${inv.subtotal.toFixed(2)}</span></div>
+<div class="row"><span>Discount</span><span>−${sym}${inv.discount.toFixed(2)}</span></div>
+${showTax ? `<div class="row"><span>Tax</span><span>${sym}${inv.tax.toFixed(2)}</span></div>` : ""}
+<div class="row total"><span>Total</span><span>${sym}${inv.total.toFixed(2)}</span></div>
+${tipHtml}
 <div class="foot">Thank you for visiting ${escapeHtml(brandName)} ✦</div>
 </body></html>`;
 }

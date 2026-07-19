@@ -115,6 +115,9 @@ class Invoice(BaseModel):
     total: float
     payment_mode: str  # cash | card | upi | wallet
     paid: bool = True
+    tip: float = 0
+    tip_staff_id: Optional[str] = None
+    tip_staff_name: Optional[str] = None
     appointment_id: Optional[str] = None
     branch_id: Optional[str] = None
     branch_name: Optional[str] = None
@@ -130,6 +133,8 @@ class InvoiceIn(BaseModel):
     payment_mode: str = "cash"
     redeem_points: int = 0
     coupon_code: Optional[str] = None
+    tip_amount: float = Field(0, ge=0, le=100000)
+    tip_staff_id: Optional[str] = None
     appointment_id: Optional[str] = None
     branch_id: Optional[str] = None
 

@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 export function CartTable({
   cart, staff, taxEnabled, taxPct, updateLine, setLineStaff, removeLine,
   couponCode, setCouponCode, setCouponInfo, checkCoupon, couponInfo,
-  membershipDiscount, couponDiscount, pointsUsed, totalDiscount, tax, total,
+  membershipDiscount, couponDiscount, pointsUsed, totalDiscount, tax, total, sym = "₹",
 }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -49,8 +49,8 @@ export function CartTable({
                       <button onClick={() => updateLine(i, { qty: c.qty + 1 })} className="px-2 py-1 text-slate-500 hover:text-slate-800">+</button>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-right text-slate-700">₹{c.price.toFixed(0)}</td>
-                  <td className="px-3 py-3 text-right text-slate-700">₹{sub.toFixed(0)}</td>
+                  <td className="px-3 py-3 text-right text-slate-700">{sym}{c.price.toFixed(0)}</td>
+                  <td className="px-3 py-3 text-right text-slate-700">{sym}{sub.toFixed(0)}</td>
                   <td className="px-3 py-3 text-right">
                     <input
                       type="number" min="0" max="100"
@@ -60,8 +60,8 @@ export function CartTable({
                       className="w-14 text-right py-1 px-2 rounded bg-slate-50 border border-slate-200 text-xs"
                     />
                   </td>
-                  {taxEnabled && <td className="px-3 py-3 text-right text-slate-500">₹{lineTax.toFixed(0)}</td>}
-                  <td className="px-3 py-3 text-right font-semibold text-slate-800">₹{(lineTaxable + lineTax).toFixed(0)}</td>
+                  {taxEnabled && <td className="px-3 py-3 text-right text-slate-500">{sym}{lineTax.toFixed(0)}</td>}
+                  <td className="px-3 py-3 text-right font-semibold text-slate-800">{sym}{(lineTaxable + lineTax).toFixed(0)}</td>
                   <td className="px-3 py-3 text-right">
                     <button onClick={() => removeLine(i)} className="text-slate-300 hover:text-red-500" data-testid={`cart-line-remove-${i}`}>
                       <X className="w-4 h-4" />
@@ -88,15 +88,15 @@ export function CartTable({
           />
           <button type="button" data-testid="pos-coupon-apply-btn" onClick={checkCoupon} className="text-xs text-sky-600 font-medium hover:underline">Apply</button>
         </span>
-        {membershipDiscount > 0 && <span className="text-violet-600" data-testid="pos-membership-discount">👑 −₹{membershipDiscount.toFixed(0)}</span>}
-        {couponDiscount > 0 && <span className="text-emerald-600" data-testid="pos-coupon-discount">🎟 {couponInfo.code} −₹{couponDiscount.toFixed(0)}</span>}
-        {pointsUsed > 0 && <span className="text-amber-600" data-testid="pos-points-discount">🪙 −₹{pointsUsed.toFixed(0)}</span>}
-        <span>Discount: <span className="font-semibold text-slate-800">₹{totalDiscount.toFixed(0)}</span></span>
+        {membershipDiscount > 0 && <span className="text-violet-600" data-testid="pos-membership-discount">👑 −{sym}{membershipDiscount.toFixed(0)}</span>}
+        {couponDiscount > 0 && <span className="text-emerald-600" data-testid="pos-coupon-discount">🎟 {couponInfo.code} −{sym}{couponDiscount.toFixed(0)}</span>}
+        {pointsUsed > 0 && <span className="text-amber-600" data-testid="pos-points-discount">🪙 −{sym}{pointsUsed.toFixed(0)}</span>}
+        <span>Discount: <span className="font-semibold text-slate-800">{sym}{totalDiscount.toFixed(0)}</span></span>
         {taxEnabled && (
-          <span>Tax ({taxPct}%): <span className="font-semibold text-slate-800">₹{tax.toFixed(0)}</span></span>
+          <span>Tax ({taxPct}%): <span className="font-semibold text-slate-800">{sym}{tax.toFixed(0)}</span></span>
         )}
         <span className="text-base">
-          Grand Total: <span className="font-bold text-slate-900 text-lg ml-1">₹{total.toFixed(0)}</span>
+          Grand Total: <span className="font-bold text-slate-900 text-lg ml-1">{sym}{total.toFixed(0)}</span>
         </span>
       </div>
     </div>

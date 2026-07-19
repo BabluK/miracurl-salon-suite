@@ -11,7 +11,9 @@ import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
 import { InvoiceHeader } from "@/components/pos/InvoiceHeader";
 import { CartTable } from "@/components/pos/CartTable";
+import { TipSection } from "@/components/pos/TipSection";
 import { PaymentSection } from "@/components/pos/PaymentSection";
+import { curSym } from "@/lib/currency";
 
 const ITEM_TYPE_BY_MODE = { services: "service", products: "product", package: "package", membership: "membership" };
 
@@ -44,7 +46,11 @@ export default function POS() {
   const [lastInvoice, setLastInvoice] = useState(null);
   const [addGuestOpen, setAddGuestOpen] = useState(false);
   const [orderNotes, setOrderNotes] = useState("");
+  const [tipPct, setTipPct] = useState(null);
+  const [customTip, setCustomTip] = useState(0);
+  const [tipStaffId, setTipStaffId] = useState("");
   const guestBoxRef = useRef(null);
+  const sym = curSym(tenant);
 
   const loadCustomers = useCallback(() => {
     api.get("/customers")
@@ -156,7 +162,7 @@ export default function POS() {
   function redeemPackage(p) {
     if (cart.some(c => c.type === "package_redeem" && c.ref_id === p.id)) { toast.info("Session already added"); return; }
     setCart(prev => [...prev, { type: "package_redeem", ref_id: p.id, name: `${p.service_name} (package session)`, qty: 1, price: 0, disc_pct: 0, staff_id: "", staff_name: "" }]);
-    toast.success(`Session from '${p.package_name}' added at ₹0`);
+    toast.success(`Session from '${p.package_name}' added at ${sym}0`);
   }
   function updateLine(i, patch) { setCart(cart.map((c, idx) => idx === i ? { ...c, ...patch } : c)); }
   function setLineStaff(i, sid) {
@@ -181,6 +187,8 @@ export default function POS() {
   const taxable = Math.max(0, subtotal - totalDiscount);
   const tax = taxable * taxPct / 100;
   const total = taxable + tax;
+  const tipAmount = tipPct != null ? Math.round(taxable * tipPct) / 100 : Number(customTip || 0);
+  const grandTotal = total + tipAmount;
 
   async function checkCoupon() {
     const code = couponCode.trim().toUpperCase();
@@ -198,6 +206,7 @@ export default function POS() {
     setCart([]); setOrderNotes(""); setStaffId("");
     setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("cash");
     setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
+    setTipPct(null); setCustomTip(0); setTipStaffId("");
   }
 
   async function checkout(complete = true) {
@@ -216,6 +225,8 @@ export default function POS() {
         payment_mode: payment,
         redeem_points: pointsUsed,
         coupon_code: couponInfo?.code || null,
+        tip_amount: tipAmount,
+        tip_staff_id: tipStaffId || staffId || null,
         branch_id: branchId || null,
       });
       toast.success(`Invoice ${data.invoice_no} created${data.points_earned ? ` · +${data.points_earned} pts earned` : ""}`);
@@ -240,7 +251,7 @@ export default function POS() {
     const phone = cust?.phone?.replace(/\D/g, "") || "";
     const itemLines = inv.items.map(it => {
       const staffPart = it.staff_name ? ` (by ${it.staff_name})` : "";
-      return `• ${it.name} × ${it.qty}${staffPart} — ₹${(it.qty * it.price).toFixed(0)}`;
+      return `• ${it.name} × ${it.qty}${staffPart} — ${sym}${(it.qty * it.price).toFixed(0)}`;
     }).join("\n");
     const msg = [
       `*${brandName} ✦* Receipt`,
@@ -250,10 +261,12 @@ export default function POS() {
       "",
       itemLines,
       "",
-      `Subtotal: ₹${inv.subtotal.toFixed(0)}`,
-      `Discount: −₹${inv.discount.toFixed(0)}`,
-      Number(inv.tax) > 0 ? `Tax: ₹${inv.tax.toFixed(0)}` : "",
-      `*Total: ₹${inv.total.toFixed(0)}*`,
+      `Subtotal: ${sym}${inv.subtotal.toFixed(0)}`,
+      `Discount: −${sym}${inv.discount.toFixed(0)}`,
+      Number(inv.tax) > 0 ? `Tax: ${sym}${inv.tax.toFixed(0)}` : "",
+      `*Total: ${sym}${inv.total.toFixed(0)}*`,
+      Number(inv.tip) > 0 ? `Tip 💜: ${sym}${inv.tip.toFixed(0)}${inv.tip_staff_name ? ` (for ${inv.tip_staff_name})` : ""}` : "",
+      Number(inv.tip) > 0 ? `*Total incl. tip: ${sym}${(inv.total + inv.tip).toFixed(0)}*` : "",
       `Paid via ${payLabel(inv.payment_mode)}`,
       "",
       `Thank you for visiting ${brandName} ✦`,
@@ -286,7 +299,7 @@ export default function POS() {
           />
 
           <CartTable
-            cart={cart} staff={staff} taxEnabled={taxEnabled} taxPct={taxPct}
+            cart={cart} staff={staff} taxEnabled={taxEnabled} taxPct={taxPct} sym={sym}
             updateLine={updateLine} setLineStaff={setLineStaff} removeLine={removeLine}
             couponCode={couponCode} setCouponCode={setCouponCode} setCouponInfo={setCouponInfo}
             checkCoupon={checkCoupon} couponInfo={couponInfo}
@@ -294,9 +307,15 @@ export default function POS() {
             pointsUsed={pointsUsed} totalDiscount={totalDiscount} tax={tax} total={total}
           />
 
+          <TipSection
+            sym={sym} taxable={taxable} tipPct={tipPct} setTipPct={setTipPct}
+            customTip={customTip} setCustomTip={setCustomTip} tipAmount={tipAmount}
+            tipStaffId={tipStaffId} setTipStaffId={setTipStaffId} staff={staff} grandTotal={grandTotal}
+          />
+
           <PaymentSection
             orderNotes={orderNotes} setOrderNotes={setOrderNotes}
-            payment={payment} setPayment={setPayment}
+            payment={payment} setPayment={setPayment} sym={sym}
             walletBalance={customers.find(c => c.id === customerId)?.wallet_balance || 0}
             onClear={clearAll} onCheckout={checkout}
           />
