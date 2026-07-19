@@ -658,3 +658,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - release_notes.py bumped to BUILD 2026-07-19.3 with user-facing note. Needs Deploy.
 - Verified: curl signup region=intl → currency USD + tz stored (test tenant cleaned up); screenshots — signup intl shows $ everywhere, toggle flips to ₹; landing intl CTA carries ?region=intl.
 - LESSON: search_replace on Landing.jsx once duplicated the file tail + one edit landed in the duplicate — always grep-verify after multi-edit batches on the same file.
+
+## 2026-07-19 — Stripe "Pay & Activate" USD subscriptions for international salons (user approved enhancement)
+- ANSWERED USER: Razorpay = INR only (implemented, kept for Indian salons). USD payments go via Stripe (already had deposits; now subscriptions too).
+- Backend payments_intl.py: _mark_deposit_paid generalized → _settle_txn (atomic find_one_and_update claim, dispatches kind subscription→_activate_subscription vs booking_deposit); NEW POST /api/billing/stripe/checkout (tenant admin, intl_ plans only, USD, success_url /settings?stripe_session={id}) + GET /api/billing/stripe/status/{session_id} (tenant-scoped, settles on paid). Activation reuses subscriptions._apply_subscription_to_tenants + SubscriptionPayment (method=stripe). Webhook /api/webhook/stripe now settles both kinds.
+- Frontend: NEW settings/StripeSubscriptionCard.jsx (renders only when tenant.currency!=INR; tier pills starter/pro/premium + duration cards monthly/half/annual; savings vs monthly; polls stripe_session param 8×2.5s then toasts; testids settings-stripe-card, stripe-tier-*, stripe-duration-*, stripe-pay-btn). RazorpayCard: returns null for non-INR tenants + filters intl_ plans out of its list (was showing USD plans with ₹ symbol — display bug fixed). Settings.jsx renders StripeSubscriptionCard above RazorpayCard. TrialReminder button renamed "Pay & Activate" → /settings.
+- release_notes BUILD 2026-07-19.4. Needs Deploy (user's prod screenshot ₹10K/₹18K = old build; preview verified USD).
+- TESTED: testing_agent iteration_83 — backend 9/9 pytest (/app/backend/tests/test_iter82_stripe_intl_signup.py), frontend 100%. Do NOT complete real Stripe payments in tests. Test tenants cleaned up.
+- Note from tester: signup rate limit 4/900s per IP can block automated E2E signups.
