@@ -8,11 +8,13 @@ import BrandMark from "@/components/BrandMark";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug, formatApiError } from "@/lib/api";
+import { detectRegion } from "@/lib/region";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const TOASTER_OPTIONS = { style: { background: "#fff", color: "#0f172a", border: "1px solid rgba(14,165,233,0.2)" } };
 const STEP_LABELS = ["Salon", "Owner", "Location", "Confirm"];
 const kFmt = (n) => (n >= 1000 && n % 1000 === 0 ? `₹${n / 1000}K` : `₹${Number(n).toLocaleString("en-IN")}`);
+const fmtUSD = (n) => "$" + Number(n).toLocaleString("en-US");
 
 function slugify(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
@@ -26,6 +28,15 @@ export default function SignupSalon() {
   const [err, setErr] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [catalog, setCatalog] = useState(null);
+  const [region, setRegion] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get("region");
+      if (p === "in" || p === "intl") { localStorage.setItem("miracurl_region", p); return p; }
+      return localStorage.getItem("miracurl_region") || detectRegion();
+    } catch { return "in"; }
+  });
+  const isIntl = region === "intl";
+  const pickRegion = (k) => { setRegion(k); try { localStorage.setItem("miracurl_region", k); } catch { /* private mode */ } };
   useEffect(() => {
     axios.get(`${BACKEND_URL}/api/public/plans`).then(r => setCatalog(r.data)).catch(() => {});
   }, []);
@@ -98,6 +109,8 @@ export default function SignupSalon() {
         location: form.location.trim() || undefined,
         phone: form.phone.trim() || undefined,
         ref,
+        region,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
       });
       setTenantSlug(data.tenant.slug);
       localStorage.setItem("miracurl_tenant", data.tenant.slug);
@@ -146,6 +159,16 @@ export default function SignupSalon() {
             Set up bookings, billing, staff, and customer reviews in under 90 seconds.
             Cancel anytime during the trial — no questions asked.
           </p>
+          <div className="mt-5 inline-flex items-center gap-1 p-1 rounded-full bg-slate-100 border border-slate-200" data-testid="signup-region-toggle">
+            {[["in", "🇮🇳 India · ₹"], ["intl", "🌍 International · $"]].map(([k, l]) => (
+              <button key={k} type="button" data-testid={`signup-region-${k}`} onClick={() => pickRegion(k)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${region === k
+                  ? "bg-white shadow text-sky-600"
+                  : "text-slate-500 hover:text-slate-700"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.15)] ring-1 ring-slate-100 p-6 sm:p-10">
@@ -161,7 +184,7 @@ export default function SignupSalon() {
             <LocationStep form={form} update={update} />
           )}
           {step === 3 && (
-            <ReviewStep form={form} previewUrl={previewUrl} catalog={catalog} />
+            <ReviewStep form={form} previewUrl={previewUrl} catalog={catalog} isIntl={isIntl} />
           )}
 
           {err && (
@@ -205,12 +228,17 @@ export default function SignupSalon() {
         </div>
 
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-          {[
+          {(isIntl ? [
+            { v: "$0", l: "Trial cost" },
+            { v: "7 days", l: "Free trial" },
+            { v: catalog?.intl_pro_monthly?.price ? `${fmtUSD(catalog.intl_pro_monthly.price)}/mo` : "—", l: "Professional plan" },
+            { v: catalog?.intl_pro_annual?.price ? `${fmtUSD(catalog.intl_pro_annual.price)}/yr` : "—", l: "Pro annual" },
+          ] : [
             { v: "₹0", l: "Trial cost" },
             { v: "7 days", l: "Free trial" },
             { v: catalog?.half_year?.price ? kFmt(catalog.half_year.price) : "—", l: "6-month plan" },
             { v: catalog?.annual?.price ? kFmt(catalog.annual.price) : "—", l: "Annual plan" },
-          ].map(c => (
+          ]).map(c => (
             <div key={c.l} className="bg-white/70 backdrop-blur-sm rounded-lg border border-slate-200 px-3 py-3">
               <div className="text-lg font-bold text-slate-800">{c.v}</div>
               <div className="text-[10px] uppercase tracking-wider text-slate-500 mt-0.5">{c.l}</div>
@@ -340,7 +368,7 @@ function LocationStep({ form, update }) {
   );
 }
 
-function ReviewStep({ form, previewUrl, catalog }) {
+function ReviewStep({ form, previewUrl, catalog, isIntl }) {
   const rows = [
     { label: "Salon", value: form.salon_name },
     { label: "Booking URL", value: previewUrl, mono: true },
@@ -364,7 +392,11 @@ function ReviewStep({ form, previewUrl, catalog }) {
       </div>
       <div className="text-xs text-slate-500 flex items-start gap-2">
         <Sparkles className="w-3.5 h-3.5 text-sky-500 mt-0.5 flex-shrink-0" />
-        <span>After your trial, choose {catalog?.half_year?.price ? `₹${Number(catalog.half_year.price).toLocaleString("en-IN")}` : "a 6-month"} / 6 months or {catalog?.annual?.price ? `₹${Number(catalog.annual.price).toLocaleString("en-IN")}` : "an annual"} / 1 year. We&apos;ll send payment instructions via WhatsApp before the trial expires.</span>
+        {isIntl ? (
+          <span data-testid="signup-review-pricing-intl">After your trial, plans start at {fmtUSD(catalog?.intl_starter_monthly?.price ?? 79)}/month (Starter) — Professional from {fmtUSD(catalog?.intl_pro_monthly?.price ?? 149)}/month. Billed in USD via secure international payment link.</span>
+        ) : (
+          <span data-testid="signup-review-pricing-in">After your trial, choose {catalog?.half_year?.price ? `₹${Number(catalog.half_year.price).toLocaleString("en-IN")}` : "a 6-month"} / 6 months or {catalog?.annual?.price ? `₹${Number(catalog.annual.price).toLocaleString("en-IN")}` : "an annual"} / 1 year. We&apos;ll send payment instructions via WhatsApp before the trial expires.</span>
+        )}
       </div>
     </div>
   );

@@ -649,3 +649,12 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - InquiriesPanel: SendBadgeButton (gold gradient "Attach & send badge PDF" / amber "Resend badge PDF") shows only for source=staff_badge_request. testids: inquiry-send-badge-{id}, badge-file-{id}.
 - Requests land in Super Admin → Leads & Inquiries (told user). Consent withdrawal (hello@miracurl.com): handled manually today — super admin archives the staff record which removes them from registry search; dedicated console button NOT built yet (backlog P2).
 - Needs Deploy.
+
+## 2026-07-19 — Start Trial USD pricing for international clients (user P0 fix)
+- NEW /app/frontend/src/lib/region.js: detectRegion() — timezone-based (Asia/Kolkata → "in", else "intl").
+- Landing.jsx: pricing region toggle now auto-detects (localStorage miracurl_region > detectRegion), persists manual pick; India plan CTAs → /signup-salon?region=in, intl CTAs → /signup-salon?region=intl.
+- SignupSalon.jsx: region resolution (URL ?region > localStorage > detect), 🇮🇳/🌍 toggle (testids signup-region-toggle/-in/-intl), stats grid shows $0 trial / $149/mo Pro / $1,399/yr when intl, ReviewStep footer shows USD plans (testids signup-review-pricing-intl/-in). Signup payload now sends region + browser timezone.
+- Backend auth.py SalonSignupIn: + region (in|intl) + timezone; signup sets tenant.currency=USD (+timezone) for intl — Mira chat & Stripe deposits use USD from day one.
+- release_notes.py bumped to BUILD 2026-07-19.3 with user-facing note. Needs Deploy.
+- Verified: curl signup region=intl → currency USD + tz stored (test tenant cleaned up); screenshots — signup intl shows $ everywhere, toggle flips to ₹; landing intl CTA carries ?region=intl.
+- LESSON: search_replace on Landing.jsx once duplicated the file tail + one edit landed in the duplicate — always grep-verify after multi-edit batches on the same file.

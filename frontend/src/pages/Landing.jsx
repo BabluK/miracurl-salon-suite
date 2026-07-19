@@ -9,6 +9,7 @@ import { PartnerGrid } from "@/components/PartnerGrid";
 import { SoftwareFlowSection } from "@/components/SoftwareFlowSection";
 import { MiraStudioShowcase } from "@/components/MiraStudioShowcase";
 import api from "@/lib/api";
+import { detectRegion } from "@/lib/region";
 
 const IMG = {
   hero: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/5f277bf6c250f088f3edd106c237e68fc45cb57e393b44d9d947c28d4668ebdb.png",
@@ -119,7 +120,10 @@ function TrustedPartnersSection() {
 export default function Landing() {
   const [refSlug, setRefSlug] = useState(null);
   const [catalog, setCatalog] = useState(null);
-  const [region, setRegion] = useState("in"); // in | intl
+  const [region, setRegion] = useState(() => {
+    try { return localStorage.getItem("miracurl_region") || detectRegion(); } catch { return "in"; }
+  }); // in | intl
+  const pickRegion = (k) => { setRegion(k); try { localStorage.setItem("miracurl_region", k); } catch { /* private mode */ } };
   const [liveTestimonials, setLiveTestimonials] = useState([]);
   const plans = buildPlans(catalog);
   const intlPlans = buildIntlPlans(catalog);
@@ -320,7 +324,7 @@ export default function Landing() {
           <p className="text-neutral-500 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Pay once, use everything.</p>
           <div className="inline-flex items-center gap-1 mt-7 p-1 rounded-full bg-white/5 border border-white/10" data-testid="pricing-region-toggle">
             {[["in", "🇮🇳 India · ₹"], ["intl", "🌍 International · $"]].map(([k, l]) => (
-              <button key={k} data-testid={`pricing-region-${k}`} onClick={() => setRegion(k)}
+              <button key={k} data-testid={`pricing-region-${k}`} onClick={() => pickRegion(k)}
                 className={`px-5 py-2 rounded-full text-xs font-semibold transition-colors ${region === k
                   ? "bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white"
                   : "text-white/60 hover:text-white"}`}>
@@ -349,7 +353,7 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link to="/signup-salon" data-testid={`plan-cta-${p.key}`}
+              <Link to="/signup-salon?region=in" data-testid={`plan-cta-${p.key}`}
                     className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
                       ? "bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white shadow-[0_10px_28px_-8px_rgba(217,70,239,0.6)]"
                       : "border border-white/15 text-white/85 hover:bg-white/5"}`}>
@@ -383,7 +387,7 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link to="/signup-salon" data-testid={`plan-cta-${p.key}`}
+              <Link to="/signup-salon?region=intl" data-testid={`plan-cta-${p.key}`}
                     className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
                       ? "bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white shadow-[0_10px_28px_-8px_rgba(217,70,239,0.6)]"
                       : "border border-white/15 text-white/85 hover:bg-white/5"}`}>

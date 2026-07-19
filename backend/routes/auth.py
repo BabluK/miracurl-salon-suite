@@ -196,6 +196,8 @@ class SalonSignupIn(BaseModel):
     location: Optional[str] = None
     phone: Optional[str] = None
     ref: Optional[str] = None  # affiliate referrer slug (Refer-a-salon program)
+    region: Optional[str] = Field(None, pattern="^(in|intl)$")  # pricing region picked at signup
+    timezone: Optional[str] = Field(None, max_length=64)  # browser timezone (stored for intl salons)
 
 
 AFFILIATE_REWARD_INR = 1000.0  # ₹ credited to the referrer for each verified signup
@@ -266,6 +268,10 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
         referred_by_tenant_id=referrer["id"] if referrer else None,
     ).model_dump()
     tenant["trial_end_date"] = trial_end
+    if body.region == "intl":
+        tenant["currency"] = "USD"
+        if body.timezone:
+            tenant["timezone"] = body.timezone
     await db.tenants.insert_one(tenant)
 
     owner = {
