@@ -212,6 +212,37 @@ async def _send_lead_alert(inq: dict, question: str):
         logging.error(f"lead alert error: {e}")
 
 
+class GetVerifiedIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    phone: str = Field(..., min_length=8, max_length=20)
+    salon_name: str = Field(default="", max_length=100)
+    city: str = Field(default="", max_length=60)
+
+
+@router.post("/public/registry/get-verified")
+async def registry_get_verified(body: GetVerifiedIn, request: Request):
+    """Stylist not on Miracurl asks for a verified badge — lands in HQ Leads & Inquiries."""
+    public_rate_limit(request, "get-verified", limit=5, window_sec=600)
+    now = datetime.now(timezone.utc).isoformat()
+    phone = re.sub(r"\D", "", body.phone)
+    if len(phone) < 8:
+        raise HTTPException(400, "Enter a valid phone number")
+    dup = await _raw_db.tenant_inquiries.find_one(
+        {"phone": phone, "source": "staff_badge_request"}, {"_id": 1})
+    if dup:
+        return {"ok": True, "note": "already_requested"}
+    msg = (f"Stylist badge request ✦ {body.name.strip()} wants a verified Miracurl badge. "
+           f"Works at: {body.salon_name.strip() or 'not shared'}{', ' + body.city.strip() if body.city.strip() else ''}. "
+           f"Great door-opener — the salon isn't on Miracurl yet.")
+    await _raw_db.tenant_inquiries.insert_one({
+        "id": str(uuid.uuid4()), "name": body.name.strip(), "email": "",
+        "phone": phone, "status": "new", "source": "staff_badge_request",
+        "messages": [{"role": "user", "content": msg, "at": now}],
+        "created_at": now, "last_message_at": now,
+    })
+    return {"ok": True}
+
+
 @router.post("/public/sales-chat/start")
 async def sales_chat_start(body: SalesChatStartIn, request: Request):
     public_rate_limit(request, "sales-start", limit=5, window_sec=600)

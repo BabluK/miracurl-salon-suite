@@ -18,6 +18,68 @@ const BADGE_LABEL = {
   NEW: "New — building history", BAD: "Poor track record ❌",
 };
 
+function GetVerifiedCard() {
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ name: "", phone: "", salon_name: "", city: "" });
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const set = (k) => (e) => setF(v => ({ ...v, [k]: e.target.value }));
+  const inputCls = "w-full bg-white border border-rose-200 rounded-xl px-4 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:border-pink-400";
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.post("/public/registry/get-verified", f);
+      setSent(true);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Couldn't send — please try again.");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-r from-rose-50 via-pink-50 to-amber-50 ring-1 ring-pink-100 p-6 sm:p-7">
+      {sent ? (
+        <div className="text-center py-2" data-testid="get-verified-success">
+          <div className="text-2xl">🎉</div>
+          <h3 className="font-playfair text-lg text-slate-900 mt-1">Request received, {f.name.split(" ")[0]}!</h3>
+          <p className="text-xs text-slate-500 mt-1.5 max-w-md mx-auto">Our team will call you to set up your verified badge — and show your salon how Miracurl makes it official. Keep an eye on your phone ✦</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <h3 className="font-playfair text-lg sm:text-xl text-slate-900">Not on Miracurl yet? Get your verified badge ✦</h3>
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                Your badge is a career passport — verified experience, ratings and history that travel with you to any salon.
+                Tell us where you work and we'll set it up with your salon.
+              </p>
+            </div>
+            {!open && (
+              <button onClick={() => setOpen(true)} data-testid="get-verified-cta"
+                className={`${gradBtn} text-sm font-bold px-6 py-3 rounded-full whitespace-nowrap shadow-[0_10px_25px_-8px_rgba(236,72,153,0.5)]`}>
+                Get verified →
+              </button>
+            )}
+          </div>
+          {open && (
+            <form onSubmit={submit} className="grid sm:grid-cols-2 gap-2.5 mt-4" data-testid="get-verified-form">
+              <input required minLength={2} maxLength={80} value={f.name} onChange={set("name")} placeholder="Your name *" data-testid="get-verified-name" className={inputCls} />
+              <input required minLength={8} maxLength={20} value={f.phone} onChange={set("phone")} placeholder="Phone / WhatsApp *" data-testid="get-verified-phone" className={inputCls} />
+              <input maxLength={100} value={f.salon_name} onChange={set("salon_name")} placeholder="Salon where you work" data-testid="get-verified-salon" className={inputCls} />
+              <input maxLength={60} value={f.city} onChange={set("city")} placeholder="City" data-testid="get-verified-city" className={inputCls} />
+              <button disabled={busy} data-testid="get-verified-submit"
+                className={`sm:col-span-2 ${gradBtn} text-sm font-bold py-3 rounded-full disabled:opacity-50`}>
+                {busy ? "Sending…" : "Request my verified badge ✦"}
+              </button>
+            </form>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 const CONSENT_POINTS = [
   { icon: FileSignature, title: "Consent-first, always", text: "Every professional on this registry joined voluntarily. Staff share their details (name, phone, Aadhaar, address, work history) with their employer and give explicit written consent — recorded at onboarding — for Miracurl to verify and display their professional profile." },
   { icon: UserCheck, title: "Why verification matters", text: "Salons hire faster and safer when a professional's employment history, service duration and ratings are verified. Staff benefit too — a verified badge is a portable career passport that travels with them from salon to salon." },
@@ -252,6 +314,11 @@ export default function RegistryPublic() {
           </div>
         </div>
       )}
+
+      {/* Get verified CTA — for stylists not yet on Miracurl */}
+      <div className="relative z-10 max-w-3xl mx-auto px-4 pt-2" data-testid="registry-get-verified-section">
+        <GetVerifiedCard />
+      </div>
 
       {/* Consent & legal — always visible */}
       <div className="relative z-10 max-w-3xl mx-auto px-4 py-10" data-testid="registry-consent-section">

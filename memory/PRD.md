@@ -623,3 +623,8 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - RegistryPublic.jsx restyled to light rose-gold brand theme (search/deep-link logic + ALL testids unchanged): BrandMark, gradient shield tile, badge showcase strip (Extraordinary/Excellent/Good/New pills, testid registry-badge-showcase), gradient Verify button, light result cards/verdict banners/history timeline.
 - NEW consent & legal section (testid registry-consent-section, always visible): "Verification with consent — done right ✦" — 4 cards: Consent-first (staff voluntarily share details w/ written consent at onboarding), Why verification matters, Privacy by design (Aadhaar always masked, never stored in full), Your data your rights (DPDP Act 2023, withdraw via hello@miracurl.com). Footer legal line: employment-verification-only use, DPDP consent basis, links to Privacy/Terms.
 - Screenshots verified (hero + consent section). Needs Deploy.
+
+## 2026-07-19 — "Get verified" CTA on /staff-registry (user approved improvement)
+- sales.py: NEW POST /public/registry/get-verified {name, phone, salon_name, city} — rate-limited 5/10min, phone-normalized, deduped by phone; inserts into tenant_inquiries source="staff_badge_request" with door-opener note ("salon isn't on Miracurl yet") → appears in Super Admin Leads & Inquiries with full toolbar.
+- RegistryPublic.jsx: GetVerifiedCard between search hero and consent section — gradient card "Not on Miracurl yet? Get your verified badge ✦", CTA expands 4-field form, success state. testids: get-verified-cta/form/name/phone/salon/city/submit/success.
+- Tested: curl submit → HQ inquiry verified → cleaned; UI screenshot verified. Needs Deploy.
