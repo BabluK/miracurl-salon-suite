@@ -18,6 +18,32 @@ NOT_REGISTERED_MSG = ("You are not registered with us. Kindly contact the Miracu
                       "for registration — once onboarded, you can use this portal.")
 _COOKIE = "emp_token"
 
+_ACCESS_ENDED_MSG = ("This portal is available to active salon staff only. Your access ended because "
+                     "you left the salon, were deactivated by your admin, or completed your notice period. "
+                     "Please contact your salon admin or the Miracurl HQ team.")
+
+
+async def _is_employment_active(employee_id: str) -> bool:
+    """Portal access rule: ONLY currently-active staff may use the app.
+    Left / disabled-by-admin / notice-period-completed → blocked everywhere."""
+    emp = await _raw_db.registry_employees.find_one({"id": employee_id}, {"_id": 0, "phone": 1})
+    if not emp:
+        return False
+    phone = _norm_phone(emp.get("phone") or "")
+    today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+    staff_recs = []
+    if len(phone) >= 10:
+        staff_recs = await _raw_db.staff.find(
+            {"phone": {"$regex": f"{re.escape(phone[-10:])}$"}},
+            {"_id": 0, "active": 1, "last_working_day": 1}).to_list(20)
+    if staff_recs:
+        return any(s.get("active", True)
+                   and not (s.get("last_working_day") and s["last_working_day"] < today)
+                   for s in staff_recs)
+    # Registry-only staff (HQ-verified, works at a non-Miracurl salon): active = open employment.
+    return bool(await _raw_db.registry_employments.find_one(
+        {"employee_id": employee_id, "to_date": None}, {"_id": 1}))
+
 
 def _norm_phone(p: str) -> str:
     return re.sub(r"\D", "", p or "")[-10:]
@@ -50,6 +76,8 @@ async def current_employee(request: Request) -> dict:
     acct = await _raw_db.employee_accounts.find_one({"id": payload["sub"]}, {"_id": 0})
     if not acct:
         raise HTTPException(401, "Account not found")
+    if not await _is_employment_active(acct["employee_id"]):
+        raise HTTPException(403, _ACCESS_ENDED_MSG)
     return acct
 
 
@@ -97,6 +125,8 @@ async def employee_register(body: RegisterIn, request: Request, response: Respon
         raise HTTPException(403, "Your details don't match our records. Please check your Aadhaar number or contact the Miracurl Admin team.")
     if await _raw_db.employee_accounts.find_one({"employee_id": emp["id"]}):
         raise HTTPException(400, "You are already registered — please log in (or reset your password below)")
+    if not await _is_employment_active(emp["id"]):
+        raise HTTPException(403, _ACCESS_ENDED_MSG)
     acct = {"id": str(uuid.uuid4()), "employee_id": emp["id"], "phone": _norm_phone(body.phone),
             "password_hash": hash_pw(body.password),
             "created_at": datetime.now(timezone.utc).isoformat()}
@@ -125,6 +155,8 @@ async def employee_login(body: LoginIn, request: Request, response: Response):
             upsert=True)
         raise HTTPException(401, "Invalid mobile number or password")
     await db.login_attempts.delete_one({"identifier": ident})
+    if not await _is_employment_active(acct["employee_id"]):
+        raise HTTPException(403, _ACCESS_ENDED_MSG)
     emp = await _raw_db.registry_employees.find_one({"id": acct["employee_id"]}, {"_id": 0, "aadhaar_hash": 0})
     _set_emp_cookie(response, _make_emp_token(acct["id"], acct["employee_id"]))
     return {"ok": True, "name": emp.get("name") if emp else ""}

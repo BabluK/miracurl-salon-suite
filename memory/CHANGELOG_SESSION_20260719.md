@@ -48,3 +48,9 @@
 - BUG FIXED (pre-existing): hiring auto_mark_hired name fallback matched on a single shared token ("Test") → spurious hires + placement-fee emails. Now requires exact normalized full-name equality. Spurious test hire reverted, fee deleted.
 - Cleaned 57 stale @test.com orphan pending users.
 - E2E verified: staff created → self-signup with same email → match message → pending list shows match → approve → user linked (staff_id set) → /staff/me/profile works. UI screenshot verified.
+
+## 2026-07-19 (part 6) — Employee Portal locked to ACTIVE staff only (user request)
+- User reversed the "career passport for left staff" concept: left / disabled-by-admin / notice-period-completed staff must NOT access the app at all.
+- employee_portal.py: new `_is_employment_active(employee_id)` — active salon staff record (active=True AND last_working_day not past, matched by phone last-10) wins; if salon staff records exist but none active → BLOCKED; registry-only externals need an open employment (to_date None).
+- Enforced in `current_employee` dependency (kills existing sessions instantly), `employee_login`, `employee_register`. 403 message: "This portal is available to active salon staff only…".
+- E2E verified: active → login OK; staff disabled → existing session + fresh login both 403; re-enabled → access restored. Test data restored (weekoff-test-staff active, employment reopened).
