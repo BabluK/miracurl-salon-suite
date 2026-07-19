@@ -20,11 +20,11 @@ const BADGE_LABEL = {
 
 function GetVerifiedCard() {
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ name: "", phone: "", salon_name: "", city: "" });
+  const [f, setF] = useState({ name: "", phone: "", email: "", salon_name: "", city: "", owner_phone: "", joining: "" });
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const set = (k) => (e) => setF(v => ({ ...v, [k]: e.target.value }));
-  const inputCls = "w-full bg-white border border-rose-200 rounded-xl px-4 py-2.5 text-base sm:text-sm placeholder:text-slate-400 focus:outline-none focus:border-pink-400";
+  const inputCls = "w-full bg-white border border-rose-200 rounded-xl px-4 py-2.5 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-pink-400";
 
   const submit = async (e) => {
     e.preventDefault();
@@ -43,7 +43,7 @@ function GetVerifiedCard() {
         <div className="text-center py-2" data-testid="get-verified-success">
           <div className="text-2xl">🎉</div>
           <h3 className="font-playfair text-lg text-slate-900 mt-1">Request received, {f.name.split(" ")[0]}!</h3>
-          <p className="text-xs text-slate-500 mt-1.5 max-w-md mx-auto">Our team will call you to set up your verified badge — and show your salon how Miracurl makes it official. Keep an eye on your phone ✦</p>
+          <p className="text-xs text-slate-500 mt-1.5 max-w-md mx-auto">Our team will call you and your salon to verify your joining date & tenure — then your official <b>verified badge PDF</b> lands in your email inbox ✦</p>
         </div>
       ) : (
         <>
@@ -66,8 +66,12 @@ function GetVerifiedCard() {
             <form onSubmit={submit} className="grid sm:grid-cols-2 gap-2.5 mt-4" data-testid="get-verified-form">
               <input required minLength={2} maxLength={80} value={f.name} onChange={set("name")} placeholder="Your name *" data-testid="get-verified-name" className={inputCls} />
               <input required minLength={8} maxLength={20} value={f.phone} onChange={set("phone")} placeholder="Phone / WhatsApp *" data-testid="get-verified-phone" className={inputCls} />
+              <input required type="email" maxLength={120} value={f.email} onChange={set("email")} placeholder="Email * (your badge PDF comes here)" data-testid="get-verified-email" className={inputCls} />
               <input maxLength={100} value={f.salon_name} onChange={set("salon_name")} placeholder="Salon where you work" data-testid="get-verified-salon" className={inputCls} />
               <input maxLength={60} value={f.city} onChange={set("city")} placeholder="City" data-testid="get-verified-city" className={inputCls} />
+              <input maxLength={20} value={f.owner_phone} onChange={set("owner_phone")} placeholder="Salon owner / manager phone (for verification call)" data-testid="get-verified-owner-phone" className={inputCls} />
+              <input maxLength={30} value={f.joining} onChange={set("joining")} placeholder="When did you join? (e.g. March 2023)" data-testid="get-verified-joining" className={inputCls + " sm:col-span-2"} />
+              <p className="sm:col-span-2 text-[10px] text-slate-400 -mt-1">Our team calls your salon owner/manager to confirm your joining date and tenure — then your official verified badge PDF is emailed to you. ✦</p>
               <button disabled={busy} data-testid="get-verified-submit"
                 className={`sm:col-span-2 ${gradBtn} text-sm font-bold py-3 rounded-full disabled:opacity-50`}>
                 {busy ? "Sending…" : "Request my verified badge ✦"}
@@ -169,7 +173,7 @@ export default function RegistryPublic() {
                   data-testid="public-registry-search-input"
                   value={q} onChange={e => setQ(e.target.value)}
                   placeholder="Enter Aadhaar (12 digits), phone number or Staff ID (STF-00001)"
-                  className="w-full bg-white border border-rose-200 rounded-xl pl-10 pr-4 py-3 text-base sm:text-sm placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-pink-400 transition"
+                  className="w-full bg-white border border-rose-200 rounded-xl pl-10 pr-4 py-3 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-pink-400 transition"
                 />
               </div>
               <button data-testid="public-registry-search-btn" disabled={loading} className={`px-6 py-3 rounded-xl ${gradBtn} text-sm font-semibold transition disabled:opacity-50 shadow-[0_10px_25px_-8px_rgba(236,72,153,0.5)]`}>
@@ -181,7 +185,7 @@ export default function RegistryPublic() {
                 data-testid="public-registry-name-input"
                 value={name} onChange={e => setName(e.target.value)}
                 placeholder="Staff member's name as printed on the badge (required for Staff ID search)"
-                className="w-full bg-white border border-rose-200 rounded-xl px-4 py-3 text-base sm:text-sm placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-pink-400 transition"
+                className="w-full bg-white border border-rose-200 rounded-xl px-4 py-3 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-pink-400 transition"
               />
             )}
           </form>

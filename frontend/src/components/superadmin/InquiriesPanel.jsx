@@ -1,7 +1,38 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Phone, MessageCircle, CalendarPlus, Trash2, ChevronDown, ChevronUp, Users, UserPlus, Mail, Loader2, Video } from "lucide-react";
+import { Phone, MessageCircle, CalendarPlus, Trash2, ChevronDown, ChevronUp, Users, UserPlus, Mail, Loader2, Video, BadgeCheck } from "lucide-react";
+
+function SendBadgeButton({ inq, onDone }) {
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const send = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("pdf", file);
+      const { data } = await api.post(`/super-admin/inquiries/${inq.id}/send-badge`, fd);
+      toast.success(`Verified badge emailed to ${data.sent_to} 🎉`);
+      onDone();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Badge send failed");
+    } finally { setBusy(false); e.target.value = ""; }
+  };
+  return (
+    <>
+      <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={send} data-testid={`badge-file-${inq.id}`} />
+      <button onClick={() => fileRef.current?.click()} disabled={busy} data-testid={`inquiry-send-badge-${inq.id}`}
+        title={inq.email ? `Attach the badge PDF — it will be emailed to ${inq.email} in a branded template` : "No email on this request"}
+        className={`inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-[11px] font-bold disabled:opacity-50 ${
+          inq.badge_sent_at ? "border border-amber-300 text-amber-700 bg-amber-50" : "bg-gradient-to-r from-amber-500 to-yellow-500 text-white hover:opacity-90"}`}>
+        {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BadgeCheck className="w-3.5 h-3.5" />}
+        {inq.badge_sent_at ? "Resend badge PDF" : "Attach & send badge PDF"}
+      </button>
+    </>
+  );
+}
 
 const STATUS_STYLE = {
   new: "bg-rose-50 text-rose-700 border-rose-200",
@@ -109,6 +140,7 @@ export function InquiriesPanel({ onNewCount, onConvert }) {
                   <option value="converted">🟢 Converted</option>
                 </select>
                 <div className="flex items-center gap-1.5">
+                  {i.source === "staff_badge_request" && <SendBadgeButton inq={i} onDone={load} />}
                   <button onClick={() => sendThankYou(i)} disabled={busyId === i.id} title="Send thank-you email with brochure PDF"
                     data-testid={`inquiry-thankyou-${i.id}`}
                     className={`inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-[11px] font-semibold ${i.thankyou_sent_at ? "border border-emerald-200 text-emerald-600 bg-emerald-50" : "bg-slate-900 text-white hover:bg-slate-700"} disabled:opacity-50`}>

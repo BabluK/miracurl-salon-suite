@@ -640,3 +640,11 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - FIX: tabs replaced with a segmented pill control (bg-slate-100 track, white active pill, testid demo-tabs) fully inside the card; content padding now responsive (p-4 sm:p-6, white bg).
 - Mobile/iOS/Android: chat height h-[55vh] min-340 max-460 (was fixed 460px); hero h-24 sm:h-28; tagline spacing; ALL inputs on /demo + /staff-registry now text-base sm:text-sm (prevents iOS Safari auto-zoom on focus, 16px rule).
 - Verified: screenshots desktop 1920 + mobile 390 (chat tab + form tab) — no seam, everything within card bounds. USER MUST REDEPLOY — bug was reported on production.
+
+## 2026-07-19 — Get-verified upgrades: typing fix, email+owner fields, badge PDF email (user request)
+- BUG FIXED: get-verified/registry inputs had no explicit text color → typed text rendered white-on-white (invisible). Added text-slate-800 to all inputs on RegistryPublic.
+- GetVerifiedIn extended: email (required, validated), owner_phone, joining. Inquiry msg now includes joining date + owner/manager number for the verification call; badge_meta stored. NOTE: first search_replace on this model silently didn't persist — had to reapply (verify greps after model edits).
+- NEW POST /super-admin/inquiries/{iid}/send-badge (multipart PDF ≤8MB, super admin): branded email (dark band + gold Miracurl logo + gradient ✔ verified medal + registry link + Explore CTA footer) with badge PDF attached; sets badge_sent_at + status=converted + message log. Tested E2E (delivered@resend.dev).
+- InquiriesPanel: SendBadgeButton (gold gradient "Attach & send badge PDF" / amber "Resend badge PDF") shows only for source=staff_badge_request. testids: inquiry-send-badge-{id}, badge-file-{id}.
+- Requests land in Super Admin → Leads & Inquiries (told user). Consent withdrawal (hello@miracurl.com): handled manually today — super admin archives the staff record which removes them from registry search; dedicated console button NOT built yet (backlog P2).
+- Needs Deploy.
