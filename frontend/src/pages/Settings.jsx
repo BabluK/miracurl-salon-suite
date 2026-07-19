@@ -14,6 +14,7 @@ import { VendorsCard } from "@/components/settings/VendorsCard";
 import { BirthdayCard } from "@/components/settings/BirthdayCard";
 import { AttendanceFinesCard } from "@/components/settings/AttendanceFinesCard";
 import { PreviousStaffCard } from "@/components/settings/PreviousStaffCard";
+import { InternationalCard } from "@/components/settings/InternationalCard";
 import { SmsPacksCard } from "@/components/settings/SmsPacksCard";
 import { SecurityPinCard } from "@/components/settings/SecurityPinCard";
 import { UpdatedBillsCard } from "@/components/settings/UpdatedBillsCard";
@@ -46,6 +47,8 @@ export default function Settings() {
         <TaxCard />
 
         <AttendanceFinesCard />
+
+        <InternationalCard />
 
         <PreviousStaffCard />
 

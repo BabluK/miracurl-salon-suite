@@ -62,21 +62,21 @@ _INQ_MARKER = "[[MIRA_INQUIRY]]"
 _BOOK_MSGS = {
     "en": {
         "limit": "I'm so sorry — we've reached our online booking limit for now 🙏 Please call the salon directly and the team will reserve your slot right away 💛",
-        "confirm": "✅ Done — your appointment is booked! {services} on {when} with {staff}, total ₹{total}. We can't wait to see you! ✨",
+        "confirm": "✅ Done — your appointment is booked! {services} on {when} with {staff}, total {cur}{total}. We can't wait to see you! ✨",
         "slot_free": "I'm so sorry — {error} 🙏\n\nOpen times on {date}: {slots}.\nShall I book one of these for you? ✨",
         "slot_none": "I'm so sorry — we're fully booked on {date} 🙏 Could we try another day? I'll get you in as soon as possible 💖",
         "generic": "I'm so sorry — I couldn't complete that booking ({error}). Could we go over the details once more? I'll book you right away 💖",
     },
     "hi": {
         "limit": "माफ़ कीजिए — अभी हमारी ऑनलाइन बुकिंग की सीमा पूरी हो गई है 🙏 कृपया सैलून को सीधे कॉल करें, टीम तुरंत आपका स्लॉट बुक कर देगी 💛",
-        "confirm": "✅ हो गया — आपकी बुकिंग पक्की! {services}, {when}, {staff} के साथ, कुल ₹{total}। आपसे मिलने का इंतज़ार रहेगा! ✨",
+        "confirm": "✅ हो गया — आपकी बुकिंग पक्की! {services}, {when}, {staff} के साथ, कुल {cur}{total}। आपसे मिलने का इंतज़ार रहेगा! ✨",
         "slot_free": "माफ़ कीजिए — वह समय उपलब्ध नहीं है ({error}) 🙏\n\n{date} के खाली समय: {slots}।\nइनमें से कौन सा बुक कर दूँ? ✨",
         "slot_none": "माफ़ कीजिए — {date} को सभी स्लॉट भर चुके हैं 🙏 क्या किसी और दिन कोशिश करें? मैं आपको जल्द से जल्द बुक कर दूँगी 💖",
         "generic": "माफ़ कीजिए — बुकिंग पूरी नहीं हो पाई ({error})। एक बार फिर से details बता दीजिए, मैं तुरंत बुक कर दूँगी 💖",
     },
     "kn": {
         "limit": "ಕ್ಷಮಿಸಿ — ಸದ್ಯ ನಮ್ಮ ಆನ್‌ಲೈನ್ ಬುಕಿಂಗ್ ಮಿತಿ ತಲುಪಿದೆ 🙏 ದಯವಿಟ್ಟು ಸಲೂನ್‌ಗೆ ನೇರವಾಗಿ ಕರೆ ಮಾಡಿ, ತಂಡ ತಕ್ಷಣ ನಿಮ್ಮ ಸ್ಲಾಟ್ ಕಾಯ್ದಿರಿಸುತ್ತದೆ 💛",
-        "confirm": "✅ ಆಯ್ತು — ನಿಮ್ಮ ಬುಕಿಂಗ್ ಖಚಿತ! {services}, {when}, {staff} ಜೊತೆ, ಒಟ್ಟು ₹{total}. ನಿಮ್ಮನ್ನು ನೋಡಲು ಕಾಯುತ್ತಿದ್ದೇವೆ! ✨",
+        "confirm": "✅ ಆಯ್ತು — ನಿಮ್ಮ ಬುಕಿಂಗ್ ಖಚಿತ! {services}, {when}, {staff} ಜೊತೆ, ಒಟ್ಟು {cur}{total}. ನಿಮ್ಮನ್ನು ನೋಡಲು ಕಾಯುತ್ತಿದ್ದೇವೆ! ✨",
         "slot_free": "ಕ್ಷಮಿಸಿ — ಆ ಸಮಯ ಲಭ್ಯವಿಲ್ಲ ({error}) 🙏\n\n{date} ರ ಖಾಲಿ ಸಮಯ: {slots}.\nಇವುಗಳಲ್ಲಿ ಯಾವುದನ್ನು ಬುಕ್ ಮಾಡಲಿ? ✨",
         "slot_none": "ಕ್ಷಮಿಸಿ — {date} ರಂದು ಎಲ್ಲ ಸ್ಲಾಟ್‌ಗಳು ಭರ್ತಿಯಾಗಿವೆ 🙏 ಬೇರೆ ದಿನ ಪ್ರಯತ್ನಿಸೋಣವೇ? 💖",
         "generic": "ಕ್ಷಮಿಸಿ — ಬುಕಿಂಗ್ ಪೂರ್ಣಗೊಳ್ಳಲಿಲ್ಲ ({error}). ಇನ್ನೊಮ್ಮೆ ವಿವರ ತಿಳಿಸಿ, ತಕ್ಷಣ ಬುಕ್ ಮಾಡುತ್ತೇನೆ 💖",
@@ -96,7 +96,14 @@ class PublicAIChatIn(BaseModel):
     session_id: str = Field(..., min_length=8, max_length=64)
 
 async def _booking_catalog(t) -> str:
-    today_iso = datetime.now(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+    from zoneinfo import ZoneInfo
+    tzname = t.get("timezone") or "Asia/Kolkata"
+    try:
+        _tz = ZoneInfo(tzname)
+    except Exception:
+        _tz, tzname = ZoneInfo("Asia/Kolkata"), "Asia/Kolkata"
+    sym = {"INR": "₹", "USD": "$", "GBP": "£", "EUR": "€", "AED": "AED "}.get(t.get("currency") or "INR", "₹")
+    today_iso = datetime.now(_tz).date().isoformat()
     services, staff, coupons, pkgs, mems, products, leaves = await asyncio.gather(
         db.services.find({"active": True}, {"_id": 0}).to_list(200),
         db.staff.find({"active": True}, {"_id": 0, "id": 1, "name": 1, "role": 1, "tags": 1}).to_list(50),
@@ -109,7 +116,7 @@ async def _booking_catalog(t) -> str:
             {"_id": 0, "staff_name": 1, "to_date": 1}).to_list(50),
     )
     svc_lines = "\n".join(
-        f"- id={s['id'][:8]} | {s['name']} | {s.get('category', '')} | ₹{s['price']} | {s['duration_min']}min"
+        f"- id={s['id'][:8]} | {s['name']} | {s.get('category', '')} | {sym}{s['price']} | {s['duration_min']}min"
         for s in services) or "(no services listed)"
     staff_lines = "\n".join(
         f"- {s['name']} (id={s['id'][:8]}) — {s.get('role') or 'Stylist'}"
@@ -125,19 +132,24 @@ async def _booking_catalog(t) -> str:
                     if (not c.get("expires_at") or c["expires_at"] >= today)
                     and (not c.get("max_uses") or int(c.get("used_count") or 0) < int(c["max_uses"]))]
     offer_lines = "\n".join(
-        f"- Code {c['code']}: {int(c['value'])}% off" if c["type"] == "percent" else f"- Code {c['code']}: ₹{int(c['value'])} off"
+        f"- Code {c['code']}: {int(c['value'])}% off" if c["type"] == "percent" else f"- Code {c['code']}: {sym}{int(c['value'])} off"
         for c in live_coupons) or "(none currently)"
     pkg_lines = "\n".join(
-        f"- {p['name']}: {p['sessions']}× {p.get('service_name', '')} for ₹{int(p['price'])} (valid {p.get('validity_days', 365)} days)"
+        f"- {p['name']}: {p['sessions']}× {p.get('service_name', '')} for {sym}{int(p['price'])} (valid {p.get('validity_days', 365)} days)"
         for p in pkgs) or "(none currently)"
     mem_lines = "\n".join(
-        f"- {m['name']}: {int(m['discount_pct'])}% off all services for ₹{int(m['price'])} ({m.get('validity_days', 180)} days)"
+        f"- {m['name']}: {int(m['discount_pct'])}% off all services for {sym}{int(m['price'])} ({m.get('validity_days', 180)} days)"
         for m in mems) or "(none currently)"
     prod_lines = "\n".join(
-        f"- {p['name']}{' (' + p['category'] + ')' if p.get('category') else ''} — ₹{int(p.get('price') or 0)}"
+        f"- {p['name']}{' (' + p['category'] + ')' if p.get('category') else ''} — {sym}{int(p.get('price') or 0)}"
         + (" | in stock" if int(p.get("stock") or 0) > 0 else " | currently out of stock")
         for p in products) or "(no retail products listed)"
-    ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    from zoneinfo import ZoneInfo
+    try:
+        _ptz = ZoneInfo(t.get("timezone") or "Asia/Kolkata")
+    except Exception:
+        _ptz = ZoneInfo("Asia/Kolkata")
+    ist_now = datetime.now(_ptz)
     # Slot availability for the next 7 days so Mira never offers a full time.
     days = [(ist_now + timedelta(days=d)).date().isoformat() for d in range(7)]
     free_lists = await asyncio.gather(*[_free_slots_for(d) for d in days])
@@ -146,7 +158,7 @@ async def _booking_catalog(t) -> str:
         for d, fl in zip(days, free_lists))
     return (f"Salon: {t.get('name')}{', ' + t['location'] if t.get('location') else ''}. Hours: {t.get('hours')}. "
             f"Phone: {t.get('phone') or 'ask at the salon'}. "
-            f"Current date & time (IST): {ist_now.strftime('%A %Y-%m-%d %H:%M')}.\n"
+            f"Current date & time (salon local time): {ist_now.strftime('%A %Y-%m-%d %H:%M')}.\n"
             f"SERVICE MENU:\n{svc_lines}\nOUR TEAM OF EXPERTS:\n{staff_lines}\n{leave_line}\n"
             f"OPEN TIME SLOTS (only ever offer/confirm a time from this list — others are full):\n{avail_lines}\n"
             f"CURRENT OFFERS (coupon codes customers can apply):\n{offer_lines}\n"
@@ -335,7 +347,7 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "— SALON KNOWLEDGE: the data below is LIVE for this salon — full service menu with prices, every team member with their specialties, "
             "current retail product stock, offers, packages and open slots. Answer stock questions honestly: if a product shows out of stock, "
             "say so and suggest an in-stock alternative; if someone asks who is best for a service, name the expert whose specialty matches.\n"
-            "2) MENU MATCHING — when recommending treatments, first check the SERVICE MENU below and quote exact ₹ prices. "
+            "2) MENU MATCHING — when recommending treatments, first check the SERVICE MENU below and quote exact prices in the salon's currency shown on the menu. "
             "NEVER say 'we don't have that' bluntly. If something isn't listed yet, still give full expert advice about it, "
             "then gracefully suggest the CLOSEST service we do offer, and politely add they can tap the 'Message Salon' tab to ask the owner directly.\n"
             "3) OFFERS & PACKAGES — if the customer asks about offers, discounts, packages or memberships: share the CURRENT OFFERS / PACKAGES / MEMBERSHIPS listed below if any exist. "
@@ -343,14 +355,14 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "If a coupon code exists, tell them the code and that they can apply it while booking.\n"
             "4) SALON QUESTIONS — answer anything about the salon (timings, location, phone, stylists, prices) using the details below, always politely. "
             "If you genuinely don't know something, warmly direct them to the 'Message Salon' tab or the salon phone — never guess facts about the salon.\n"
-            "5) BOOK APPOINTMENTS — you can book directly. All dates and times are IST (Indian Standard Time) — the current IST date & time is given below; use it to resolve 'today' / 'tomorrow' / 'evening' correctly. "
+            "5) BOOK APPOINTMENTS — you can book directly. All dates and times are in the SALON'S LOCAL TIMEZONE — the current local date & time is given below; use it to resolve 'today' / 'tomorrow' / 'evening' correctly. "
             "Collect ONLY these details: full name, phone number (7-15 digits), chosen service(s) from the menu, expert preference, and preferred date & time "
             "(only offer times from the OPEN TIME SLOTS list below; suggest tomorrow if they're unsure). "
-            "When you have ALL details, show a one-line summary (services, total ₹, date, time, expert) and ask them to confirm — "
+            "When you have ALL details, show a one-line summary (services, total price, date, time, expert) and ask them to confirm — "
             "ask for confirmation EXACTLY ONCE. The moment they confirm (yes / ok / confirm / book it — any language), IMMEDIATELY emit the booking line; "
             "NEVER ask them to confirm a second time, and NEVER re-verify details they already gave.\n"
             "6) SMART UPSELL — when the customer has chosen their service(s) and BEFORE asking for final confirmation, suggest exactly ONE complementary add-on from the menu "
-            "(e.g. 'Would you like to add a Pedicure for just ₹500 more? ✨'). Suggest it only ONCE — if they decline or ignore it, proceed graciously without repeating.\n"
+            "(e.g. 'Would you like to add a Pedicure for a small extra price? ✨'). Suggest it only ONCE — if they decline or ignore it, proceed graciously without repeating.\n"
             "7) EXPERT SELECTION — OUR TEAM OF EXPERTS (with their specialties) is listed below. While booking, ask warmly: "
             "'Which of our experts would you like for your service?' and mention the experts by name whose specialty matches "
             "(e.g. nails → the nail expert, hair → the hair expert). If the guest is new or unsure, say something like "
@@ -368,7 +380,7 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             f"ONLY after the customer explicitly confirms, end your reply with one line in EXACTLY this format (double quotes, valid JSON):\n"
             f'{_BOOK_MARKER}{{"customer_name":"...","customer_phone":"...","gender":"Female","service_ids":["<id from menu>"],"staff_id":null,"date":"YYYY-MM-DD","time":"HH:MM"}}\n'
             "Rules: never mention the marker or JSON (it is machine-read); never invent service ids; time is 24h format; "
-            "keep replies short, warm and mobile-friendly (short paragraphs or dash lists; you may use **bold** for service names and prices, no other markdown); use ₹ for prices; sprinkle a tasteful emoji occasionally (✨💆‍♀️); "
+            "keep replies short, warm and mobile-friendly (short paragraphs or dash lists; you may use **bold** for service names and prices, no other markdown); use the salon's currency symbol (as shown in the menu) for prices; sprinkle a tasteful emoji occasionally (✨💆‍♀️); "
             "never be dismissive — every reply should leave the guest feeling cared for.\n"
             + ("VOICE MODE: the customer is SPEAKING with you and will HEAR your reply read aloud. Keep it under 60 words, "
                "conversational short sentences, no lists, no markdown, at most one emoji.\n\n" if voice else "\n")
@@ -411,7 +423,8 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
                     when = datetime.fromisoformat(booking["scheduled_at"]).strftime("%A, %d %B at %I:%M %p")
                 except ValueError:
                     when = booking["scheduled_at"]
-                confirm = L["confirm"].format(services=", ".join(booking["service_names"]), when=when,
+                sym = {"INR": "₹", "USD": "$", "GBP": "£", "EUR": "€", "AED": "AED "}.get(t.get("currency") or "INR", "₹")
+                confirm = L["confirm"].format(services=", ".join(booking["service_names"]), when=when, cur=sym,
                                               staff=booking["staff_name"], total=f"{booking['total']:g}")
                 reply = (text + "\n\n" + confirm).strip()
             else:

@@ -94,3 +94,11 @@
 - Main GET /staff now excludes former:True. Routes registered BEFORE /staff/{sid} (order safe).
 - Settings page: PreviousStaffCard (previous-staff-card, rehire/delete buttons; hides when empty).
 - E2E verified: seed → sweep closes → previous list shows → main list excludes → rehire returns new id + registry_linked → public search shows BOTH stints under same STF code. Public verification confirmed for left staff (unless consent withdrawn). Test data cleaned.
+
+## 2026-07-19 (part 14) — International: Stripe deposits + multi-currency/timezone Mira
+- Stripe claimable sandbox NOT available (account country IN) → Flow B: STRIPE_API_KEY=sk_test_emergent added to backend/.env; emergentintegrations StripeCheckout.
+- NEW routes/payments_intl.py (registered in server.py): GET/PUT /api/settings/international (currency INR/USD/GBP/EUR/AED, timezone list, deposit_amount 0-500 stored on tenant doc) · POST /api/public/{slug}/deposit/checkout (server-side amount, metadata appointment_id, payment_transactions record) · GET /api/payments/deposit/status/{session_id} (polls + marks) · POST /api/webhook/stripe (_mark_deposit_paid → appointment {deposit_paid, amount, currency}).
+- Mira multi-currency+tz (public_chat.py): catalog + coupons/packages/memberships/products lines + booking confirm messages use tenant currency symbol; prompt current time uses tenant ZoneInfo ("salon local time"). NOTE: slot engine (_free_slots_for/_ai_execute_booking) still IST offset — flagged as next step for non-IN salons.
+- Settings UI: InternationalCard (intl-currency-select / intl-timezone-select / intl-deposit-input / intl-save-btn).
+- Verified E2E: settings save; Mira quoted "$600" USD (no ₹ leak); real Stripe checkout URL created; _mark_deposit_paid marks appointment deposit_paid. Test data cleaned, tenant reverted to INR.
+- PENDING: surface deposit checkout link in public booking widget/Mira reply; per-tenant tz slot engine; Twilio SMS (user gave only Account SID AC9f2f059b2bedd9f4f567578ef44bbbc7 — need Auth Token + Twilio phone number).
