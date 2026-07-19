@@ -364,6 +364,16 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
         appt.update({"coupon_code": coupon["code"], "coupon_discount": coupon_discount, "total": total - coupon_discount})
         total = total - coupon_discount
 
+    # SMS confirmation for international salons (fire-and-forget, Twilio)
+    t_doc = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "name": 1, "currency": 1})
+    if t_doc and (t_doc.get("currency") or "INR") != "INR":
+        from sms_service import send_sms, sms_configured
+        if sms_configured():
+            when = appt["scheduled_at"][:16].replace("T", " at ")
+            asyncio.create_task(send_sms(
+                body.customer_phone,
+                f"✦ {t_doc.get('name') or 'Your salon'}: booking confirmed! {', '.join(s['name'] for s in services)} on {when} with {staff['name']}. See you there!"))
+
     return {
         "appointment": appt,
         "summary": {

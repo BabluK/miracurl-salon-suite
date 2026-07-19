@@ -102,3 +102,11 @@
 - Settings UI: InternationalCard (intl-currency-select / intl-timezone-select / intl-deposit-input / intl-save-btn).
 - Verified E2E: settings save; Mira quoted "$600" USD (no ₹ leak); real Stripe checkout URL created; _mark_deposit_paid marks appointment deposit_paid. Test data cleaned, tenant reverted to INR.
 - PENDING: surface deposit checkout link in public booking widget/Mira reply; per-tenant tz slot engine; Twilio SMS (user gave only Account SID AC9f2f059b2bedd9f4f567578ef44bbbc7 — need Auth Token + Twilio phone number).
+
+## 2026-07-19 (part 15) — Twilio SMS wired (confirmations + 24h reminders)
+- sms_service.py ALREADY existed (twilio+msg91 providers, send_sms, sms_configured) but was wired NOWHERE.
+- .env: TWILIO_ACCOUNT_SID (user's, AC9f2f…), TWILIO_AUTH_TOKEN (already present, verified valid), TWILIO_PHONE_NUMBER="+14246557277" — user gave +18777804236 but Twilio rejected it (not on their account); actual account number found via API = +14246557277. Duplicate env lines removed.
+- public_site.py public_book: fire-and-forget confirmation SMS when tenant currency != INR.
+- schedulers.py _sms_reminder_scheduler (every 30 min): 24h-before reminders for intl tenants' scheduled/confirmed appointments, sms_reminder_sent flag idempotent. Registered in server.py.
+- Verified: auth OK (account active, TRIAL type), correct From number accepted; send blocked only by trial "unverified recipient" rule (expected). User must verify recipient numbers or upgrade Twilio to send freely.
+- twilio SDK added to requirements.txt.

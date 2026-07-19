@@ -30,6 +30,39 @@ async def _monthly_report_scheduler() -> None:
             logging.error(f"monthly report scheduler error: {e}")
         await asyncio.sleep(3600)
 
+async def _sms_reminder_scheduler() -> None:
+    """Every 30 min: SMS a 24h reminder for tomorrow's appointments at international
+    (non-INR) salons. Marks sms_reminder_sent to stay idempotent."""
+    from datetime import datetime, timedelta, timezone as _tzmod
+    from sms_service import send_sms, sms_configured
+    from database import _raw_db
+    while True:
+        try:
+            if sms_configured():
+                intl = {t["id"]: t async for t in _raw_db.tenants.find(
+                    {"currency": {"$nin": [None, "INR"]}}, {"_id": 0, "id": 1, "name": 1})}
+                if intl:
+                    now = datetime.now(_tzmod.utc)
+                    lo = (now + timedelta(hours=23, minutes=30)).isoformat()
+                    hi = (now + timedelta(hours=24, minutes=30)).isoformat()
+                    rows = await _raw_db.appointments.find(
+                        {"tenant_id": {"$in": list(intl)}, "status": {"$in": ["scheduled", "confirmed"]},
+                         "scheduled_at": {"$gte": lo, "$lte": hi}, "sms_reminder_sent": {"$ne": True}},
+                        {"_id": 0}).to_list(200)
+                    for a in rows:
+                        cust = await _raw_db.customers.find_one({"id": a.get("customer_id")}, {"_id": 0, "phone": 1})
+                        if cust and cust.get("phone"):
+                            t = intl[a["tenant_id"]]
+                            when = a["scheduled_at"][:16].replace("T", " at ")
+                            await send_sms(cust["phone"],
+                                           f"✦ Reminder from {t.get('name') or 'your salon'}: "
+                                           f"{', '.join(a.get('service_names') or ['your appointment'])} tomorrow, {when}. Reply/call to reschedule.")
+                        await _raw_db.appointments.update_one({"id": a["id"]}, {"$set": {"sms_reminder_sent": True}})
+        except Exception as e:
+            logging.error(f"sms reminder scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 async def _staff_exit_scheduler() -> None:
     """Every 6h: close out staff whose last working day has passed (former list,
     login block, registry employment exit date). Idempotent."""
