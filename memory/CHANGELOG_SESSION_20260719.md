@@ -30,3 +30,11 @@
 - Failure replies no longer lie: stylist/slot conflicts show the REAL reason (e.g. "Rahul Verma is already booked at that time") + actual free times; non-slot errors show honest message instead of "slot got fully booked".
 - NOTE: user's production complaint ("slot is booked" on every attempt) = the UUID-hallucination bug fixed in part 2 → needs DEPLOY.
 - E2E verified: past-slot filtering, single-confirm English booking at 18:00 IST with named stylist, stylist-conflict message. Test bookings/customers cleaned.
+
+## 2026-07-19 (part 4) — Language fixes (user screenshots from PRODUCTION) + deploy check
+- User screenshots were from miracurl-suite.com (production, old code) — most issues already fixed in preview; deploy required.
+- Voice STT: whisper prompt was Devanagari-heavy → English speech transcribed in Devanagari → Mira's language-refusal loop. Prompt now Latin-biased ("Transcribe English speech in English (Latin script)").
+- Prompt rules: Devanagari = Hindi always; never refuse mixed/partly-English messages; refusal only for clearly-entirely-foreign scripts; translate ALL English template lines (welcome etc.) into the customer's language.
+- Server-generated booking messages localized (_BOOK_MSGS en/hi/kn + _msg_lang script detection): limit / confirm / slot_free / slot_none / generic — no more English "slot fully booked" in Hindi chats.
+- E2E verified: garbled Devanagari+English message answered helpfully (no refusal); full Hindi booking flow with Hindi confirmation "✅ हो गया — आपकी बुकिंग पक्की!". Test data cleaned.
+- deployment_agent: PASS — no blockers, ready to Deploy.
