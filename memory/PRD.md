@@ -613,3 +613,8 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - Mira AI logo (user-attached robot avatar) saved to /assets/mira-ai-logo.png AND overwrote /assets/mira-avatar.png (propagates to PublicDemo, PromoVideoStudio, VeoAdStudio references).
 - PublicDemo.jsx: AI ambience background (gold/rose glow orbs + faint gold grid + large faded Mira watermark right side), Mira logo hero w/ pulse glow + "MIRA AI" badge above brand logo, chat bubbles use the robot avatar. Screenshots verified (desktop + mobile).
 - Regression: ai-chat works post-refactor; ruff clean. Needs Deploy.
+
+## 2026-07-19 — /demo restyled to light login theme (user correction)
+- User rejected the dark AI theme; wanted the login page's light rose-gold style. Mira robot avatar kept unchanged everywhere (user instruction).
+- PublicDemo.jsx rewritten (logic/testids identical): white bg + login's radial rose-gold blobs, BrandMark(light) top-left, Mira robot hero w/ gradient "MIRA AI" badge + brand-ai-tag tagline, white shadow card, pink-50 tabs, gradient rose→pink→amber buttons/user bubbles, light inputs. Screenshots verified (desktop + mobile).
+- Needs Deploy.
