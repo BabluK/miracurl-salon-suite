@@ -673,3 +673,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - email_service.py: NEW renewal_reminder_email_intl_html (USD wording, "Pay $X & Activate — one click" gold CTA).
 - release_notes BUILD 2026-07-19.5. Needs Deploy.
 - TESTED (self, e2e): seeded USD tenant expiring in 5 days → run_renewal_reminders sent email (delivered@resend.dev, days_mark=5, token stored); INR tenant at 5 days correctly skipped; GET /api/public/renew/{token} → 302 stripe URL; bad token → 404. Test tenants cleaned up.
+
+## 2026-07-19 — Tip capture at billing + POS currency-awareness (P1, user approved for intl onboarding)
+- Backend: Invoice model + tip/tip_staff_id/tip_staff_name; InvoiceIn + tip_amount (0-100000) + tip_staff_id; create_invoice resolves tip staff (body.tip_staff_id fallback → invoice staff). Tip NOT added to invoice.total (revenue/loyalty unaffected). NEW GET /api/reports/staff-tips (require_admin, start/end) — rows per stylist {tips_total, tip_count, avg_tip} + unassigned + total_tips. receipt_email.py shows Tip + Total incl. tip rows.
+- Frontend: NEW lib/currency.js (curSym, TIP_PRESETS 15/18/20/25); NEW components/pos/TipSection.jsx (testids pos-tip-section/-none/-15..25/-custom/-staff/-amount); POS.jsx computes tipAmount/grandTotal, sends tip in payload, WhatsApp share + toast currency-aware; CartTable/PaymentSection take sym prop; InvoiceReceiptModal + receipt.js print show tip rows + currency symbol; Reports.jsx new 'Tips by Stylist' card (tips-card, tips-row-<id>) + sym-aware inr() + DollarSign icon for USD tenants.
+- release_notes BUILD 2026-07-19.6. Needs Deploy.
+- TESTED: testing_agent iteration_84 — backend 5/5 (/app/backend/tests/test_iter84_tips.py), frontend E2E 100%. Test tip invoices cleaned up post-test.
+- BACKLOG (from tester, pre-existing): /reports auto-opens Owner-PIN modal on mount (commission is pin-gated) — consider deferring prompt until commission card interaction. Reports.jsx tips fetch swallows errors silently. Email receipts still hardcode ₹ (&#8377;) — currency-aware receipt emails pending.
+- User Q&A: confirmed admin@miracurl.com can be used to register their Stripe account (needs a real mailbox for verification).
