@@ -37,7 +37,23 @@ export const PreviousStaffCard = () => {
     finally { setBusyId(""); }
   };
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="previous-staff-card">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center"><UserMinus className="w-5 h-5" /></div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Previous staff</h2>
+            <p className="text-xs text-slate-500 mt-1" data-testid="previous-staff-empty">
+              No one here yet. Staff automatically move to this list once their <b>last working day</b> passes
+              (set it via Edit ✏️ on their staff card — use yesterday's date to move someone right away).
+              Entries stay for 6 months with one-tap <b>Rehire</b>; registry history is permanent.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="previous-staff-card">

@@ -2,10 +2,24 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-19.1"
-BUILD_TIME = "19 Jul 2026, 12:30 PM IST"
+BUILD = "2026-07-19.2"
+BUILD_TIME = "19 Jul 2026, 06:15 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-19 (evening)",
+        "changes": [
+            "Graceful goodbyes 🌸 — deactivated or departed staff now see a warm 'Thank you for everything' farewell screen on both the salon app login and the Employee Portal, instead of a cold error message",
+            "Staff exits close themselves 🕐 — once a staff member's last working day passes, the system automatically marks them as left, blocks their login and stamps the exit date on their public registry history (no manual entry ever again)",
+            "Previous staff list in Settings ♻️ — departed staff are kept in a new Settings card for 6 months with one-tap Rehire (fresh staff ID, same permanent registry history — both stints show on their public profile) and a delete option",
+            "Auto-approve returning stylists 🪄 — when someone signs up with an email matching your staff profile, they appear in a 'Pending sign-ups' panel on the Staff page for one-tap approve & auto-link",
+            "Auto win-back is here 💌 — flip the 'Auto' switch on the Win-them-back card and Mira emails lapsed guests (45+ days) a personal comeback offer daily, capped at 15/day with a 30-day cooldown",
+            "Weekly digest on WhatsApp 📲 — a new dashboard card shows last week's revenue, bills, top service & new guests with a one-tap 'Share on WhatsApp' button",
+            "Staff privacy control 🛡 — staff can withdraw (or restore) consent for public registry lookups with one tap in their Employee Portal",
+            "Lead Gen went global 🌍 — Mira now searches Salons, Unisex Salons, Spas, Boutiques & Hair Care studios in parallel, digs 15× deeper in big cities, rotates through fresh localities every run, works for cities worldwide ('London, UK') and quotes USD pricing to international leads automatically",
+            "Cleaner targets 🎯 — Lead Gen counters past their goal now show a green '✓ TARGET DONE' chip instead of confusing overflow numbers",
+        ],
+    },
     {
         "date": "2026-07-19",
         "changes": [
