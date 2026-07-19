@@ -681,3 +681,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - TESTED: testing_agent iteration_84 — backend 5/5 (/app/backend/tests/test_iter84_tips.py), frontend E2E 100%. Test tip invoices cleaned up post-test.
 - BACKLOG (from tester, pre-existing): /reports auto-opens Owner-PIN modal on mount (commission is pin-gated) — consider deferring prompt until commission card interaction. Reports.jsx tips fetch swallows errors silently. Email receipts still hardcode ₹ (&#8377;) — currency-aware receipt emails pending.
 - User Q&A: confirmed admin@miracurl.com can be used to register their Stripe account (needs a real mailbox for verification).
+
+## 2026-07-19 — User's own Stripe TEST key installed
+- User created their Stripe account and shared sk_test_51TuxZ5... + pk_test (pk unused — hosted Checkout needs only secret key).
+- backend/.env STRIPE_API_KEY replaced (was sk_test_emergent), backend restarted, checkout session verified working with their key (test tenant cleaned up).
+- For PRODUCTION: user must paste the same key in the deployment popup's STRIPE_API_KEY field + redeploy. LIVE payments still need sk_live_ key after Stripe account activation.
