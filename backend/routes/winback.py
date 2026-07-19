@@ -48,3 +48,22 @@ async def winback_ack(customer_id: str, body: AckIn, admin=Depends(require_tenan
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     return {"ok": True}
+
+
+class WinbackAutoIn(BaseModel):
+    enabled: bool
+
+
+@router.get("/winback/auto")
+async def winback_auto_status(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    cfg = await _raw_db.autopilot_settings.find_one({"tenant_id": t["id"]}, {"_id": 0, "winback_auto": 1}) or {}
+    return {"enabled": bool(cfg.get("winback_auto"))}
+
+
+@router.put("/winback/auto")
+async def winback_auto_toggle(body: WinbackAutoIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Standalone daily win-back emails (Mira's comeback offer) — no social autopilot needed."""
+    await _raw_db.autopilot_settings.update_one(
+        {"tenant_id": t["id"]},
+        {"$set": {"winback_auto": body.enabled, "tenant_id": t["id"]}}, upsert=True)
+    return {"ok": True, "enabled": body.enabled}

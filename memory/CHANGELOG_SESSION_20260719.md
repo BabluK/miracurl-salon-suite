@@ -62,3 +62,8 @@
 - Style: E702 semicolons in hq_documents PDF loop; E731 lambda→def in sales.py. Remaining E402s are DELIBERATE (circular-import avoidance) — left as-is.
 - Import-splitting suggestion (hq_documents 37 imports) deferred — high-churn, low-value.
 - Regression: register→pending(match)→attach(linked_staff) ✓, public demo book ✓, _pkg_price/_script_prompts unit checks ✓, ruff clean (E402 only). Test data cleaned.
+
+## 2026-07-19 (part 8) — Farewell screen + Win-back automation + Lead Gen target UI
+- Farewell screen (EmployeePortal.jsx): 403 "active salon staff only" on /employee/me or login now shows a warm "Thank you for everything ✦" screen (data-testid farewell-screen) instead of an error toast. Verified via screenshot.
+- Win-back automation (standalone, no full autopilot needed): new `winback_auto` flag in autopilot_settings (DEFAULTS + SettingsIn); `run_autopilot_for_tenant(..., winback_only=True)` skips daily post; `_run_enabled_tenants` also runs winback-only tenants ({enabled≠True, winback_auto:True}) via existing daily 10:00-IST scheduler. Toggle endpoints GET/PUT /api/winback/auto (winback.py). Dashboard WinbackNudges card got "Auto ON/OFF" pill (data-testid winback-auto-toggle). E2E: lapsed test customer → winback-only run → 1 email sent + lead_outreach record; cleaned + toggle reset OFF.
+- Lead Gen funnel cards (MiraLeadAgent.jsx): when count >= target, show just the count + green "✓ TARGET n DONE" chip and emerald bar (no more "529 / 300"). 5-day resend reminder scheduler untouched (kept as requested).

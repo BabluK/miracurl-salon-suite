@@ -19,18 +19,26 @@ function FunnelCards({ stats }) {
   ];
   return (
     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3" data-testid="lead-funnel-cards">
-      {items.map(it => (
-        <div key={it.key} className="bg-white rounded-2xl border border-slate-200 p-4" data-testid={`funnel-${it.key}`}>
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">{it.label}</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">
-            {stats.actual[it.key]}<span className="text-sm font-medium text-slate-400"> / {stats.targets[it.key]}</span>
-          </p>
-          <div className="h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-fuchsia-500 to-pink-500 rounded-full"
-              style={{ width: `${Math.min(100, (stats.actual[it.key] / stats.targets[it.key]) * 100)}%` }} />
+      {items.map(it => {
+        const actual = stats.actual[it.key] ?? 0;
+        const target = stats.targets[it.key] || 1;
+        const reached = actual >= target;
+        return (
+          <div key={it.key} className="bg-white rounded-2xl border border-slate-200 p-4" data-testid={`funnel-${it.key}`}>
+            <p className="text-[11px] uppercase tracking-wide text-slate-400">{it.label}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">
+              {actual}
+              {reached
+                ? <span className="ml-2 align-middle text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5" data-testid={`funnel-reached-${it.key}`}>✓ TARGET {target} DONE</span>
+                : <span className="text-sm font-medium text-slate-400"> / {target}</span>}
+            </p>
+            <div className="h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
+              <div className={`h-full rounded-full ${reached ? "bg-gradient-to-r from-emerald-400 to-emerald-500" : "bg-gradient-to-r from-fuchsia-500 to-pink-500"}`}
+                style={{ width: `${Math.min(100, (actual / target) * 100)}%` }} />
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

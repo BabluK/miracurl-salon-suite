@@ -28,7 +28,7 @@ router = APIRouter()
 log = logging.getLogger("mira_autopilot")
 
 DEFAULTS = {"enabled": False, "daily_post": True, "winback_emails": True,
-            "email_daily_cap": 15, "winback_days": 45}
+            "email_daily_cap": 15, "winback_days": 45, "winback_auto": False}
 
 
 async def _settings(tid: str) -> dict:
@@ -46,6 +46,7 @@ class AutopilotIn(BaseModel):
     enabled: bool | None = None
     daily_post: bool | None = None
     winback_emails: bool | None = None
+    winback_auto: bool | None = None
     email_daily_cap: int | None = None
     winback_days: int | None = None
 
@@ -87,7 +88,7 @@ async def _find_winback_leads(tid: str, days: int) -> list[dict]:
 
 
 # ── The daily cycle ─────────────────────────────────────────────────────────
-async def run_autopilot_for_tenant(t: dict, force: bool = False) -> dict:
+async def run_autopilot_for_tenant(t: dict, force: bool = False, winback_only: bool = False) -> dict:
     tid = t["id"]
     cfg = await _settings(tid)
     today = date.today().isoformat()
@@ -100,7 +101,7 @@ async def run_autopilot_for_tenant(t: dict, force: bool = False) -> dict:
     connected = [p for p in ("instagram", "facebook") if conn.get(p)]
 
     # 1) today's post
-    if cfg["daily_post"]:
+    if cfg["daily_post"] and not winback_only:
         try:
             summary.update(await _create_daily_post(t, today, connected))
         except Exception as e:
@@ -270,6 +271,18 @@ async def _run_enabled_tenants():
                 log.info("autopilot ran for %s: %s", t.get("slug"), out)
         except Exception as e:
             log.error("autopilot tenant %s failed: %s", cfg["tenant_id"], e)
+    # Standalone win-back automation: tenants who want the daily comeback emails
+    # WITHOUT the full autopilot (no social posts).
+    async for cfg in _raw_db.autopilot_settings.find({"enabled": {"$ne": True}, "winback_auto": True}):
+        t = await _raw_db.tenants.find_one({"id": cfg["tenant_id"]}, {"_id": 0})
+        if not t or t.get("status") == "deleted":
+            continue
+        try:
+            out = await run_autopilot_for_tenant(t, winback_only=True)
+            if not out.get("skipped"):
+                log.info("winback-auto ran for %s: %s", t.get("slug"), out)
+        except Exception as e:
+            log.error("winback-auto tenant %s failed: %s", cfg["tenant_id"], e)
 
 
 async def autopilot_scheduler():

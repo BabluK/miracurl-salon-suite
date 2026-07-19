@@ -15,7 +15,7 @@ const errMsg = (e) => {
 
 const inputCls = "w-full bg-white/5 border border-white/15 rounded-lg px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-400/60";
 
-function AuthForms({ onAuthed }) {
+function AuthForms({ onAuthed, onEnded }) {
   const [mode, setMode] = useState("login"); // login | register | reset
   const [f, setF] = useState({ phone: "", aadhaar: "", password: "" });
   const [busy, setBusy] = useState(false);
@@ -38,7 +38,13 @@ function AuthForms({ onAuthed }) {
         toast.success("Password reset — please log in");
         setMode("login");
       }
-    } catch (err) { toast.error(errMsg(err)); }
+    } catch (err) {
+      if (err?.response?.status === 403 && String(err.response?.data?.detail || "").includes("active salon staff only")) {
+        onEnded?.(err.response.data.detail);
+      } else {
+        toast.error(errMsg(err));
+      }
+    }
     setBusy(false);
   };
 
@@ -259,8 +265,15 @@ function Dashboard({ me, reload, onLogout }) {
 export default function EmployeePortal() {
   const [me, setMe] = useState(null);
   const [checking, setChecking] = useState(true);
+  const [accessEnded, setAccessEnded] = useState("");
 
-  const load = () => http.get("/employee/me").then(r => setMe(r.data)).catch(() => setMe(null)).finally(() => setChecking(false));
+  const isEnded = (err) => err?.response?.status === 403 &&
+    String(err.response?.data?.detail || "").includes("active salon staff only");
+
+  const load = () => http.get("/employee/me")
+    .then(r => { setMe(r.data); setAccessEnded(""); })
+    .catch(err => { setMe(null); if (isEnded(err)) setAccessEnded(err.response.data.detail); })
+    .finally(() => setChecking(false));
   useEffect(() => { load(); }, []);
 
   const logout = async () => {
@@ -278,7 +291,30 @@ export default function EmployeePortal() {
       </div>
       {checking ? <p className="text-center text-white/40 text-sm">Loading…</p>
         : me ? <Dashboard me={me} reload={load} onLogout={logout} />
-          : <AuthForms onAuthed={load} />}
+          : accessEnded ? <FarewellScreen onBack={() => setAccessEnded("")} />
+            : <AuthForms onAuthed={load} onEnded={setAccessEnded} />}
+    </div>
+  );
+}
+
+function FarewellScreen({ onBack }) {
+  return (
+    <div className="w-full max-w-md mx-auto bg-white/[0.04] border border-amber-300/20 rounded-2xl p-8 text-center backdrop-blur-md" data-testid="farewell-screen">
+      <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-amber-400/20 to-rose-400/20 border border-amber-300/30 flex items-center justify-center text-3xl">🌸</div>
+      <h2 className="font-playfair text-2xl mt-5">Thank you for everything ✦</h2>
+      <p className="text-white/60 text-sm mt-3 leading-relaxed">
+        Your access to this portal has ended — it&apos;s reserved for staff currently working at a salon.
+      </p>
+      <p className="text-white/40 text-xs mt-3 leading-relaxed">
+        If you believe this is a mistake, or you&apos;ve joined a new salon, please contact your
+        <b className="text-amber-300/80"> salon admin</b> or the <b className="text-amber-300/80">Miracurl HQ team</b> —
+        the moment you&apos;re active again, everything here comes right back.
+      </p>
+      <p className="text-white/50 text-xs mt-4 italic">We wish you the very best in your journey 💛</p>
+      <button onClick={onBack} data-testid="farewell-back-btn"
+        className="mt-6 px-6 py-2.5 rounded-full border border-white/15 text-white/70 text-xs font-semibold hover:bg-white/5 transition-colors">
+        ← Back to login
+      </button>
     </div>
   );
 }
