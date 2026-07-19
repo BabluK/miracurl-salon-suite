@@ -58,6 +58,39 @@ from routes.briefings import _tts_cached_speech
 _BOOK_MARKER = "[[BOOK]]"
 _INQ_MARKER = "[[MIRA_INQUIRY]]"
 
+# Server-generated booking messages, localized — Mira must never break language mid-chat.
+_BOOK_MSGS = {
+    "en": {
+        "limit": "I'm so sorry — we've reached our online booking limit for now 🙏 Please call the salon directly and the team will reserve your slot right away 💛",
+        "confirm": "✅ Done — your appointment is booked! {services} on {when} with {staff}, total ₹{total}. We can't wait to see you! ✨",
+        "slot_free": "I'm so sorry — {error} 🙏\n\nOpen times on {date}: {slots}.\nShall I book one of these for you? ✨",
+        "slot_none": "I'm so sorry — we're fully booked on {date} 🙏 Could we try another day? I'll get you in as soon as possible 💖",
+        "generic": "I'm so sorry — I couldn't complete that booking ({error}). Could we go over the details once more? I'll book you right away 💖",
+    },
+    "hi": {
+        "limit": "माफ़ कीजिए — अभी हमारी ऑनलाइन बुकिंग की सीमा पूरी हो गई है 🙏 कृपया सैलून को सीधे कॉल करें, टीम तुरंत आपका स्लॉट बुक कर देगी 💛",
+        "confirm": "✅ हो गया — आपकी बुकिंग पक्की! {services}, {when}, {staff} के साथ, कुल ₹{total}। आपसे मिलने का इंतज़ार रहेगा! ✨",
+        "slot_free": "माफ़ कीजिए — वह समय उपलब्ध नहीं है ({error}) 🙏\n\n{date} के खाली समय: {slots}।\nइनमें से कौन सा बुक कर दूँ? ✨",
+        "slot_none": "माफ़ कीजिए — {date} को सभी स्लॉट भर चुके हैं 🙏 क्या किसी और दिन कोशिश करें? मैं आपको जल्द से जल्द बुक कर दूँगी 💖",
+        "generic": "माफ़ कीजिए — बुकिंग पूरी नहीं हो पाई ({error})। एक बार फिर से details बता दीजिए, मैं तुरंत बुक कर दूँगी 💖",
+    },
+    "kn": {
+        "limit": "ಕ್ಷಮಿಸಿ — ಸದ್ಯ ನಮ್ಮ ಆನ್‌ಲೈನ್ ಬುಕಿಂಗ್ ಮಿತಿ ತಲುಪಿದೆ 🙏 ದಯವಿಟ್ಟು ಸಲೂನ್‌ಗೆ ನೇರವಾಗಿ ಕರೆ ಮಾಡಿ, ತಂಡ ತಕ್ಷಣ ನಿಮ್ಮ ಸ್ಲಾಟ್ ಕಾಯ್ದಿರಿಸುತ್ತದೆ 💛",
+        "confirm": "✅ ಆಯ್ತು — ನಿಮ್ಮ ಬುಕಿಂಗ್ ಖಚಿತ! {services}, {when}, {staff} ಜೊತೆ, ಒಟ್ಟು ₹{total}. ನಿಮ್ಮನ್ನು ನೋಡಲು ಕಾಯುತ್ತಿದ್ದೇವೆ! ✨",
+        "slot_free": "ಕ್ಷಮಿಸಿ — ಆ ಸಮಯ ಲಭ್ಯವಿಲ್ಲ ({error}) 🙏\n\n{date} ರ ಖಾಲಿ ಸಮಯ: {slots}.\nಇವುಗಳಲ್ಲಿ ಯಾವುದನ್ನು ಬುಕ್ ಮಾಡಲಿ? ✨",
+        "slot_none": "ಕ್ಷಮಿಸಿ — {date} ರಂದು ಎಲ್ಲ ಸ್ಲಾಟ್‌ಗಳು ಭರ್ತಿಯಾಗಿವೆ 🙏 ಬೇರೆ ದಿನ ಪ್ರಯತ್ನಿಸೋಣವೇ? 💖",
+        "generic": "ಕ್ಷಮಿಸಿ — ಬುಕಿಂಗ್ ಪೂರ್ಣಗೊಳ್ಳಲಿಲ್ಲ ({error}). ಇನ್ನೊಮ್ಮೆ ವಿವರ ತಿಳಿಸಿ, ತಕ್ಷಣ ಬುಕ್ ಮಾಡುತ್ತೇನೆ 💖",
+    },
+}
+
+
+def _msg_lang(text: str) -> str:
+    if re.search(r"[\u0C80-\u0CFF]", text or ""):
+        return "kn"
+    if re.search(r"[\u0900-\u097F]", text or ""):
+        return "hi"
+    return "en"
+
 class PublicAIChatIn(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000)
     session_id: str = Field(..., min_length=8, max_length=64)
@@ -253,11 +286,16 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "LANGUAGE RULE (VERY IMPORTANT): you speak ONLY English, Hindi and Kannada (plus natural Hinglish/Kanglish in Latin script). "
             "ALWAYS MIRROR the language of the customer's LATEST message: English → reply in PURE English only (do not mix in Hindi/Hinglish words); "
             "Hindi/Hinglish → reply in Hindi or Hinglish; Kannada (ಕನ್ನಡ) → reply in Kannada. "
+            "Devanagari script is ALWAYS Hindi — never treat it as another language. Voice transcription can garble words or write English sounds in Devanagari — "
+            "if the message contains ANY English words, or you're unsure of the language, DEFAULT to English and answer helpfully. "
+            "NEVER refuse a message that is even partly in English, Hindi or Kannada. "
+            "ALL example sentences in these instructions are written in English ONLY for your reference — when the customer speaks Hindi or Kannada you MUST translate every such template (welcome lines, questions, confirmations) into their language before replying; never output an English template sentence to a Hindi/Kannada speaker. "
             "If they use ANY other language (Tamil, Telugu, Malayalam, Marathi, Bengali, Punjabi, Urdu, etc.), reply warmly in English: "
             "'I'm so sorry — currently I speak only English, Hindi and Kannada 🙏 Could we please continue in one of those?' and help them the moment they switch. "
+            "Use that refusal ONLY when the message is clearly and entirely in another language — never for mixed or unclear messages. "
             "Keep service names from the menu as-is.\n"
             "GREETING FLOW: at the very start of a conversation, warmly ask (in the customer's language): 'May I know your name, please?'. "
-            f"The moment the customer tells you their name (typed OR spoken), give them a special welcome: "
+            f"The moment the customer tells you their name (typed OR spoken), give them a special welcome IN THE CUSTOMER'S OWN LANGUAGE (translate it — Hindi speakers get it in Hindi, Kannada in Kannada): "
             f"'Welcome, [Name]! 💖 Thank you for choosing {t.get('name', 'our salon')} — you've picked a salon that truly pampers.' "
             "Then add ONE short line on why we're different (pick what fits them): our verified expert team, premium professional products like L'Oréal & Schwarzkopf, "
             "hygiene-first service, or that you (Mira) personally look after every guest 24/7. Then ask 'How may I help you today?'. "
@@ -356,6 +394,7 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
     if _BOOK_MARKER in reply:
         text, _, payload = reply.partition(_BOOK_MARKER)
         text = text.strip()
+        L = _BOOK_MSGS[_msg_lang(message)]
         # SEC-001: hard booking caps — 8 per IP per 10 min + per-tenant daily ceiling.
         try:
             if request is not None:
@@ -363,8 +402,7 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             await ai_daily_quota(t["id"], "public_ai_bookings", 50)
         except HTTPException:
             booking_error = "booking_limit_reached"
-            reply = ("I'm so sorry — we've reached our online booking limit for now 🙏 "
-                     "Please call the salon directly and the team will reserve your slot right away 💛")
+            reply = L["limit"]
         else:
             booking, booking_error, req_date = await _ai_execute_booking(payload)
             if booking:
@@ -373,8 +411,8 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
                     when = datetime.fromisoformat(booking["scheduled_at"]).strftime("%A, %d %B at %I:%M %p")
                 except ValueError:
                     when = booking["scheduled_at"]
-                confirm = (f"✅ Done — your appointment is booked! {', '.join(booking['service_names'])} on {when} "
-                           f"with {booking['staff_name']}, total ₹{booking['total']:g}. We can't wait to see you! ✨")
+                confirm = L["confirm"].format(services=", ".join(booking["service_names"]), when=when,
+                                              staff=booking["staff_name"], total=f"{booking['total']:g}")
                 reply = (text + "\n\n" + confirm).strip()
             else:
                 # Booking FAILED — never keep the model's premature "confirmed" text.
@@ -383,16 +421,11 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
                 slot_issue = any(w in (booking_error or "").lower() for w in ("booked", "off", "full", "leave"))
                 free = await _free_slots_for(req_date) if req_date else []
                 if slot_issue and free:
-                    shown = ", ".join(free[:8])
-                    reply = (f"I'm so sorry — {booking_error} 🙏\n\n"
-                             f"Open times on {req_date}: {shown}.\n"
-                             f"Shall I book one of these for you? ✨")
+                    reply = L["slot_free"].format(error=booking_error, date=req_date, slots=", ".join(free[:8]))
                 elif slot_issue:
-                    reply = (f"I'm so sorry — we're fully booked on {req_date} 🙏 "
-                             f"Could we try another day? I'll get you in as soon as possible 💖")
+                    reply = L["slot_none"].format(date=req_date)
                 else:
-                    reply = (f"I'm so sorry — I couldn't complete that booking ({booking_error}). "
-                             f"Could we go over the details once more? I'll book you right away 💖")
+                    reply = L["generic"].format(error=booking_error)
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.public_ai_messages.insert_many([
         {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "user", "content": message, "created_at": now},
@@ -463,7 +496,7 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
         # Bias prompt helps Whisper with Indian multilingual salon vocabulary (auto language detect).
         tr = await stt.transcribe(
             file=buf, model="whisper-1", response_format="json",
-            prompt="Indian salon booking call. ग्राहक हिंदी या English में बोलते हैं: हेयरकट, फेशियल, कीमत, बुकिंग. Beauty terms: haircut, facial, keratin, mehendi, pedicure.")
+            prompt="Indian salon booking call. Customers speak English, Hindi or Kannada. Transcribe English speech in English (Latin script). Common words: haircut, facial, keratin, mehendi, pedicure, booking, price, hindi mein: हेयरकट, बुकिंग.")
         transcript = (tr.text or "").strip()
     except Exception as e:
         logging.getLogger("public_ai").error(f"stt error: {e}")
