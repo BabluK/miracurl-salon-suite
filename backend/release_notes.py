@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-19.6"
-BUILD_TIME = "19 Jul 2026, 11:00 PM IST"
+BUILD = "2026-07-19.7"
+BUILD_TIME = "20 Jul 2026, 12:01 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-19 (evening)",
         "changes": [
+            "Stripe payments at HQ 🏦 — Super Admin → Billing now shows every international Stripe transaction (subscriptions & booking deposits) with salon, plan, amount, status and whether it came from Settings or a renewal email",
             "Tips at billing 💜 — the POS now has one-tap tip presets (15/18/20/25% or custom) with a 'tip goes to' stylist picker; tips show on receipts, prints, emails & WhatsApp, and a new 'Tips by Stylist' report tracks who earned what (tips never mix into salon revenue)",
             "POS speaks your currency 💱 — billing screen, receipts and reports now show $/£/€ for international salons instead of ₹",
             "USD renewals on autopilot 💌 — international salons now get renewal reminder emails 15/7/5/1 days before expiry with a one-click 'Pay & Activate' Stripe link (no login needed); Indian salons keep their Razorpay reminders",

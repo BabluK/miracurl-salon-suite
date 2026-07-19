@@ -686,3 +686,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - User created their Stripe account and shared sk_test_51TuxZ5... + pk_test (pk unused — hosted Checkout needs only secret key).
 - backend/.env STRIPE_API_KEY replaced (was sk_test_emergent), backend restarted, checkout session verified working with their key (test tenant cleaned up).
 - For PRODUCTION: user must paste the same key in the deployment popup's STRIPE_API_KEY field + redeploy. LIVE payments still need sk_live_ key after Stripe account activation.
+
+## 2026-07-19 — Stripe payment history panel in Super Admin (user approved)
+- Backend: NEW GET /api/super-admin/stripe-payments (require_super_admin) in payments_intl.py — last 200 payment_transactions (subscriptions + deposits) joined with tenant name/slug + plan_label; summary {total_paid_usd (subscriptions), deposits_paid_usd, paid_count, pending_count}. Verified: super admin 200, salon admin 403.
+- Frontend: NEW components/superadmin/StripePaymentsPanel.jsx (testids stripe-payments-panel, stripe-payments-refresh, stripe-txn-<session>) rendered at top of Super Admin → Billing & Subscriptions tab. Shows date/salon/plan/amount/status badge/via (Settings vs ✉️ Renewal email).
+- release_notes BUILD 2026-07-19.7. Needs Deploy.
+- TESTED (self): curl auth checks + screenshot of billing tab with seeded txn ($1,399 PAID, renewal-email tag) — seeded row removed after verification.

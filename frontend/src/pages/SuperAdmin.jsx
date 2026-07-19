@@ -38,6 +38,7 @@ import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
 import { Super3DBackdrop } from "@/components/superadmin/Super3DBackdrop";
 import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
 import { DocsPanel } from "@/components/superadmin/DocsPanel";
+import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel";
 import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
 import { Mail } from "lucide-react";
 import { PlatformEarnings } from "@/components/superadmin/PlatformEarnings";
@@ -342,7 +343,7 @@ export default function SuperAdmin() {
           const panels = {
             notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} />,
             "platform-map": <PlatformOrbitMap onGoTab={setTab} />,
-            billing: <BillingPanel tenants={tenants} />,
+            billing: <div className="space-y-6"><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,
             revenue: <div className="space-y-6"><PlatformEarnings /><HiringEarningsReview /><RevenuePanel /></div>,

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from database import db, _raw_db
-from security import require_tenant_admin, current_tenant, public_rate_limit
+from security import require_tenant_admin, require_super_admin, current_tenant, public_rate_limit
 
 router = APIRouter()
 
@@ -218,3 +218,39 @@ async def public_renew_redirect(token: str, request: Request):
         "created_at": now, "updated_at": now})
     from fastapi.responses import RedirectResponse
     return RedirectResponse(session.url, status_code=302)
+
+
+@router.get("/super-admin/stripe-payments")
+async def super_stripe_payments(user=Depends(require_super_admin)):
+    """HQ view of all Stripe transactions (USD subscriptions + booking deposits)."""
+    txns = await _raw_db.payment_transactions.find(
+        {}, {"_id": 0}).sort("created_at", -1).limit(200).to_list(200)
+    tids = list({t["tenant_id"] for t in txns if t.get("tenant_id")})
+    tenants = await _raw_db.tenants.find(
+        {"id": {"$in": tids}}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "currency": 1}).to_list(500)
+    tmap = {t["id"]: t for t in tenants}
+    from routes.subscriptions import PLAN_CATALOG
+    rows = []
+    for t in txns:
+        ten = tmap.get(t.get("tenant_id"), {})
+        rows.append({
+            "session_id": t.get("session_id"), "kind": t.get("kind"),
+            "tenant_name": ten.get("name") or "(deleted)", "tenant_slug": ten.get("slug"),
+            "plan": t.get("plan"),
+            "plan_label": PLAN_CATALOG.get(t.get("plan") or "", {}).get("label") or t.get("plan"),
+            "amount": t.get("amount"), "currency": (t.get("currency") or "usd").upper(),
+            "payment_status": t.get("payment_status"), "via": t.get("via") or "settings",
+            "created_at": t.get("created_at"),
+        })
+    paid = [r for r in rows if r["payment_status"] == "paid"]
+    return {
+        "rows": rows,
+        "summary": {
+            "paid_count": len(paid),
+            "pending_count": sum(1 for r in rows if r["payment_status"] == "pending"),
+            "total_paid_usd": round(sum(float(r["amount"] or 0) for r in paid
+                                        if r["currency"] == "USD" and r["kind"] == "subscription"), 2),
+            "deposits_paid_usd": round(sum(float(r["amount"] or 0) for r in paid
+                                           if r["kind"] == "booking_deposit"), 2),
+        },
+    }
