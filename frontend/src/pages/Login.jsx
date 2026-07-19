@@ -24,6 +24,7 @@ export default function Login() {
   const [err, setErr] = useState("");
   const [remember, setRemember] = useState(false);
   const [personalEmail, setPersonalEmail] = useState("");
+  const [farewell, setFarewell] = useState(false);
 
   useEffect(() => {
     try {
@@ -61,7 +62,31 @@ export default function Login() {
       toast.success("Welcome back ✦");
       nav("/dashboard");
     }
+    else if (String(res.error || "").includes("disabled by the salon admin")) setFarewell(true);
     else setErr(res.error || "Authentication failed");
+  }
+
+  if (farewell) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white px-4" data-testid="login-farewell-screen">
+        <div className="w-full max-w-md bg-white border border-rose-100 rounded-3xl shadow-[0_20px_60px_rgba(212,175,55,0.15)] p-8 text-center">
+          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-rose-100 to-amber-100 border border-amber-200 flex items-center justify-center text-3xl">🌸</div>
+          <h2 className="font-playfair text-2xl text-slate-800 mt-5">Thank you for everything ✦</h2>
+          <p className="text-sm text-slate-500 mt-3 leading-relaxed">
+            Your salon account has been deactivated, so this app is no longer available to you.
+          </p>
+          <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+            If you believe this is a mistake — or you're joining a new salon — please contact your
+            <b className="text-amber-600"> salon admin</b>. The moment you're re-activated, everything comes right back.
+          </p>
+          <p className="text-xs text-slate-400 mt-4 italic">We wish you the very best in your journey 💛</p>
+          <button onClick={() => { setFarewell(false); setPassword(""); }} data-testid="login-farewell-back-btn"
+            className="mt-6 px-6 py-2.5 rounded-full border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-slate-50 transition-colors">
+            ← Back to login
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const heading = mode === "login" ? "Welcome Back"
