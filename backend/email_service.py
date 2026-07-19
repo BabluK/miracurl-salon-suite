@@ -136,6 +136,7 @@ def renewal_reminder_email_intl_html(salon_name: str, days_left: int, end_date: 
                                      plan_label: str, price_usd: float, pay_url: str) -> str:
     """USD renewal reminder with a one-click Stripe pay link (international salons)."""
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    demo_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/demo"
     when = "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>"
     price_row = f' · ${price_usd:,.0f}' if price_usd else ""
     btn_label = f"💳 &nbsp;Pay ${price_usd:,.0f} &amp; Activate — one click&nbsp; ✦" if price_usd else "💳 &nbsp;Renew now — one click&nbsp; ✦"
@@ -158,6 +159,10 @@ def renewal_reminder_email_intl_html(salon_name: str, days_left: int, end_date: 
           <a href="{pay_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:13px 38px;border-radius:999px;font-weight:bold;font-family:Arial,sans-serif;font-size:14px">{btn_label}</a>
         </p>
         <p style="font-size:12px;color:#888;text-align:center;font-family:Arial,sans-serif">One secure Stripe checkout — billed in USD, any international card accepted. Your plan activates instantly.</p>
+        <div style="margin:20px 0 4px;background:#f6f4fb;border:1px dashed #c8bde3;border-radius:12px;padding:16px 20px;text-align:center;font-family:Arial,sans-serif">
+          <p style="margin:0;font-size:13px;color:#4a3f63;line-height:1.6">Not sure yet? Grab a free <b>live 1-on-1 demo</b> — we'll walk you through bookings, billing and Mira AI for your salon.</p>
+          <a href="{demo_url}" style="display:inline-block;margin-top:10px;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:10px 26px;border-radius:999px;font-size:13px;font-weight:bold">📅 &nbsp;Book a live demo&nbsp;</a>
+        </div>
         <p style="font-size:12px;color:#888;font-family:Arial,sans-serif;border-top:1px solid #eee;padding-top:14px;margin-top:22px">
           Prefer a different plan or need help? Just reply to this email or write to {hq_email} — we're happy to assist.</p>
       </div>

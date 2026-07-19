@@ -692,3 +692,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Frontend: NEW components/superadmin/StripePaymentsPanel.jsx (testids stripe-payments-panel, stripe-payments-refresh, stripe-txn-<session>) rendered at top of Super Admin → Billing & Subscriptions tab. Shows date/salon/plan/amount/status badge/via (Settings vs ✉️ Renewal email).
 - release_notes BUILD 2026-07-19.7. Needs Deploy.
 - TESTED (self): curl auth checks + screenshot of billing tab with seeded txn ($1,399 PAID, renewal-email tag) — seeded row removed after verification.
+
+## 2026-07-19 — "Book a live demo" CTA in USD renewal/trial emails (user approved)
+- email_service.py renewal_reminder_email_intl_html: added dashed-border demo block under the Stripe pay CTA — "📅 Book a live demo" button → {APP_PUBLIC_URL}/demo (existing demo booking page → Super Admin Demo Calendar).
+- release_notes BUILD 2026-07-19.8. Needs Deploy.
+- TESTED (self): template render asserts both CTAs; e2e seeded USD tenant at 5 days → email sent (delivered@resend.dev); test data cleaned.
