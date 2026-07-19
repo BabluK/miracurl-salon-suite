@@ -604,3 +604,12 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - PublicDemo.jsx rewritten: gold logo image /brand/miracurl-gold.png w/ glow, tabs "Let Mira book it [AI]" (default, chat w/ mira-avatar, quick chips incl. Hindi) | "Quick form" (original form preserved, same testids), shared success card (now shows local_time), trust ticks row. testids: demo-brand-logo, demo-mira-chat, demo-chat-input/send/chip, demo-tab-mira/form.
 - Tested: curl 1-shot booking ("Vikram... tomorrow 6pm" from America/New_York → booked 18:00 IST / 8:30 AM EDT + gcal link), prompt fixed to book immediately once name+email+day+time known; screenshots verified both tabs. Test chat msgs cleaned.
 - Needs Deploy. SECURITY BACKLOG still pending user approval: SEC-001 AI salon-booking cap, SEC-002 inquiry dedupe/cap, SEC-003 SSRF guard, reset-password min length.
+
+## 2026-07-19 — Security fixes applied (user approved) + /demo Mira AI branding
+- SEC-001 FIXED: public_chat._public_ai_reply now takes request; [[BOOK]] branch enforces public_rate_limit aibook:{tenant} 8/10min + ai_daily_quota public_ai_bookings 60/day; on limit → polite booking_error, chat continues. Both chat+voice endpoints pass request.
+- SEC-002 FIXED: _capture_ai_inquiry — ai_daily_quota public_ai_inquiries 40/day/tenant + dedupe (same tenant+phone within 24h skipped).
+- SEC-003 FIXED: lead_gen._fetch_page validates every hop w/ registry.is_safe_public_url, follow_redirects=False + manual 4-hop follow.
+- Hardening: auth.ResetIn new_password min_length=8 (tested 422); lead_gen._outreach_email_html paragraphs html-escaped.
+- Mira AI logo (user-attached robot avatar) saved to /assets/mira-ai-logo.png AND overwrote /assets/mira-avatar.png (propagates to PublicDemo, PromoVideoStudio, VeoAdStudio references).
+- PublicDemo.jsx: AI ambience background (gold/rose glow orbs + faint gold grid + large faded Mira watermark right side), Mira logo hero w/ pulse glow + "MIRA AI" badge above brand logo, chat bubbles use the robot avatar. Screenshots verified (desktop + mobile).
+- Regression: ai-chat works post-refactor; ruff clean. Needs Deploy.

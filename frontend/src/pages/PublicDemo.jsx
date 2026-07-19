@@ -45,7 +45,7 @@ function MiraDemoChat({ onBooked }) {
         {msgs.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "ai" && (
-              <img src="/assets/mira-avatar.png" alt="" className="w-7 h-7 rounded-full border border-[#d4af37]/40 mr-2 mt-1 flex-shrink-0" />
+              <img src="/assets/mira-ai-logo.png" alt="" className="w-8 h-8 rounded-full border border-[#d4af37]/50 bg-[#1d1d24] object-cover mr-2 mt-1 flex-shrink-0" />
             )}
             <div className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap ${
               m.role === "user" ? "bg-[#d4af37] text-[#15151b] rounded-br-sm" : "bg-white/[0.07] text-[#eae5d8] rounded-bl-sm"}`}>
@@ -112,11 +112,23 @@ export default function PublicDemo() {
   const pretty = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 
   return (
-    <div className="min-h-screen bg-[#15151b] text-[#f4f1e8] px-4 py-10" data-testid="public-demo-page">
-      <div className="w-full max-w-lg mx-auto">
+    <div className="min-h-screen bg-[#15151b] text-[#f4f1e8] px-4 py-10 relative overflow-hidden" data-testid="public-demo-page">
+      {/* AI ambience background */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full bg-[#d4af37]/[0.09] blur-[110px]" />
+        <div className="absolute -bottom-40 -right-32 w-[520px] h-[520px] rounded-full bg-[#e2725b]/[0.08] blur-[120px]" />
+        <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "linear-gradient(rgba(212,175,55,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,.5) 1px, transparent 1px)", backgroundSize: "56px 56px" }} />
+        <img src="/assets/mira-ai-logo.png" alt="" className="absolute -right-16 top-24 w-[380px] opacity-[0.07] blur-[1px] select-none" />
+      </div>
+      <div className="w-full max-w-lg mx-auto relative z-10">
         <div className="text-center mb-7">
+          <div className="relative inline-block">
+            <img src="/assets/mira-ai-logo.png" alt="Mira AI" data-testid="demo-mira-hero"
+              className="h-32 mx-auto drop-shadow-[0_0_34px_rgba(212,175,55,0.45)] animate-[pulse_4s_ease-in-out_infinite]" />
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-bold tracking-[2px] px-2.5 py-1 rounded-full bg-[#d4af37] text-[#15151b] whitespace-nowrap">MIRA AI</span>
+          </div>
           <img src="/brand/miracurl-gold.png" alt="Miracurl — Salon Suite, AI Powered" data-testid="demo-brand-logo"
-            className="h-28 mx-auto drop-shadow-[0_0_28px_rgba(212,175,55,0.25)]" />
+            className="h-20 mx-auto mt-4 drop-shadow-[0_0_28px_rgba(212,175,55,0.25)]" />
           <div className="text-[11px] tracking-[.25em] text-[#8f8798] mt-2">THE ALL-IN-ONE SALON SUITE</div>
         </div>
 

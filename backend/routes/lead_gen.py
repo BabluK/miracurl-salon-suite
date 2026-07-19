@@ -59,11 +59,19 @@ def _now():
 
 
 async def _fetch_page(client: httpx.AsyncClient, url: str) -> str:
+    from routes.registry import is_safe_public_url
     try:
-        r = await client.get(url, headers=_UA, timeout=12, follow_redirects=True)
-        if r.status_code >= 400:
-            return ""
-        return r.text[:150000]
+        for _ in range(4):  # SEC-003: validate every hop against private/internal targets
+            if not is_safe_public_url(url):
+                return ""
+            r = await client.get(url, headers=_UA, timeout=12, follow_redirects=False)
+            if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
+                url = str(httpx.URL(url).join(r.headers["location"]))
+                continue
+            if r.status_code >= 400:
+                return ""
+            return r.text[:150000]
+        return ""
     except Exception:
         return ""
 
@@ -391,7 +399,8 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     pixel = (f'<img src="{base}/api/public/lead-track/{lead.get("id", "")}/open.png" '
              'width="1" height="1" style="display:block;width:1px;height:1px" alt="" />') if lead.get("id") else ""
-    paras = "".join(f'<p style="font-size:14px;color:#3a3a40;line-height:1.8;margin:0 0 15px">{p}</p>'
+    import html as _html
+    paras = "".join(f'<p style="font-size:14px;color:#3a3a40;line-height:1.8;margin:0 0 15px">{_html.escape(p)}</p>'
                     for p in (lead.get("email_body") or "").split("\n") if p.strip())
     return f"""
     <div style="background:#efe9dc;padding:28px 12px;font-family:Georgia,serif">

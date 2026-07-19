@@ -186,6 +186,15 @@ async def _capture_ai_inquiry(t, reply: str, hist: list, message: str) -> str:
     text, _, payload = reply.partition(_INQ_MARKER)
     try:
         data = _json.loads(payload.strip().strip("`").strip())
+        # SEC-002: cap + dedupe — one inquiry per phone per 24h, bounded per tenant per day.
+        await ai_daily_quota(t["id"], "public_ai_inquiries", 40)
+        phone = str(data.get("phone") or "")[:20]
+        if phone:
+            cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+            dup = await _raw_db.ai_inquiries.find_one(
+                {"tenant_id": t["id"], "phone": phone, "created_at": {"$gte": cutoff}}, {"_id": 1})
+            if dup:
+                return text.strip()
         transcript = ([{"role": h["role"], "text": h["content"]} for h in hist[-20:]]
                       + [{"role": "user", "text": message}, {"role": "assistant", "text": text.strip()}])
         await _raw_db.ai_inquiries.insert_one({
@@ -201,7 +210,7 @@ async def _capture_ai_inquiry(t, reply: str, hist: list, message: str) -> str:
     return text.strip()
 
 
-async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False):
+async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False, request: Request | None = None):
     """Shared Mira pipeline for text + voice. Returns (reply, booking, booking_error)."""
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
@@ -352,7 +361,7 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
     public_rate_limit(request, key_suffix=f"aichat:{slug}", limit=40, window_sec=600)
     await durable_rate_limit(request, f"aichat:{slug}", limit=40, window_sec=600)
     await ai_daily_quota(t["id"], "public_ai_chat", 400)
-    reply, booking, booking_error = await _public_ai_reply(t, body.session_id, body.message)
+    reply, booking, booking_error = await _public_ai_reply(t, body.session_id, body.message, request=request)
     return {"reply": reply, "booking": booking, "booking_error": booking_error}
 
 async def _sorry_no_hear_response() -> dict:
@@ -415,7 +424,7 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
         return await _sorry_no_hear_response()
     if not transcript:
         return await _sorry_no_hear_response()
-    reply, booking, booking_error = await _public_ai_reply(t, session_id, transcript, voice=True)
+    reply, booking, booking_error = await _public_ai_reply(t, session_id, transcript, voice=True, request=request)
     audio_b64 = None
     try:
         speech_text = re.sub(r"\*\*|✨|💖|💆‍♀️|✅|⚠️|📞|🙏", "", reply)[:4000]
