@@ -67,29 +67,45 @@ async def _places_query(client: httpx.AsyncClient, key: str, query: str, want: i
     return out[:want]
 
 
-async def _places_search(client: httpx.AsyncClient, city: str, n: int) -> tuple:
+async def _places_search(client: httpx.AsyncClient, city: str, n: int, areas: list | None = None) -> tuple:
     """Advanced multi-category Google Places search: Salon, Unisex Salon, Spa,
     Boutique and Hair Care queried in PARALLEL with pagination (up to 60/category),
-    deduped, best-reviewed first. Works for any city worldwide (e.g. 'London, UK')."""
+    deduped, best-reviewed first. Works for any city worldwide (e.g. 'London, UK').
+    When `areas` (rotating localities) are given, each category is searched per
+    locality first; the city-wide deep search tops up only if results are thin."""
     key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
     if not key:
         return [], "no_key"
-    per_cat = min(60, max(12, (n // len(_SEARCH_CATEGORIES)) + 10))
-    results = await asyncio.gather(
-        *[_places_query(client, key, q.format(city=city), per_cat) for _, q in _SEARCH_CATEGORIES],
-        return_exceptions=True)
-    seen, out, first_err = set(), [], ""
-    for (cat, _), res in zip(_SEARCH_CATEGORIES, results):
-        if isinstance(res, BaseException):
-            log.warning("places search [%s] failed: %s", cat, res)
-            first_err = first_err or str(res)[:90]
-            continue
-        for p in res:
-            k = (p["name"].strip().lower(), (p.get("address") or "").strip().lower()[:40])
-            if not p["name"] or k in seen:
+
+    def _collect(pairs, seen, out, first_err):
+        for cat, res in pairs:
+            if isinstance(res, BaseException):
+                log.warning("places search [%s] failed: %s", cat, res)
+                first_err = first_err or str(res)[:90]
                 continue
-            seen.add(k)
-            out.append({**p, "category": cat})
+            for p in res:
+                k = (p["name"].strip().lower(), (p.get("address") or "").strip().lower()[:40])
+                if not p["name"] or k in seen:
+                    continue
+                seen.add(k)
+                out.append({**p, "category": cat})
+        return first_err
+
+    seen, out, first_err = set(), [], ""
+    if areas:
+        tasks, cats = [], []
+        for cat, q in _SEARCH_CATEGORIES:
+            for a in areas:
+                tasks.append(_places_query(client, key, q.format(city=f"{a}, {city}"), 20))
+                cats.append(cat)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        first_err = _collect(zip(cats, results), seen, out, first_err)
+    if len(out) < n:  # city-wide deep search (initial run, small towns, or thin localities)
+        per_cat = min(60, max(12, (n // len(_SEARCH_CATEGORIES)) + 10))
+        results = await asyncio.gather(
+            *[_places_query(client, key, q.format(city=city), per_cat) for _, q in _SEARCH_CATEGORIES],
+            return_exceptions=True)
+        first_err = _collect(zip([c for c, _ in _SEARCH_CATEGORIES], results), seen, out, first_err)
     if not out:
         return [], first_err or "no results"
     out.sort(key=lambda p: (p.get("reviews") or 0, p.get("rating") or 0), reverse=True)
@@ -169,8 +185,22 @@ async def _live_plans() -> dict:
     return {k: dict(v) for k, v in PLAN_CATALOG.items()}
 
 
+def _lead_intl(city: str) -> bool:
+    """True when the lead's city is outside India (e.g. 'London, UK', 'New York, US')."""
+    m = re.search(r",\s*([A-Za-z]{2,3})$", (city or "").strip())
+    return bool(m and m.group(1).upper() not in ("IN", "IND"))
+
+
+def _plans_for(plans: dict, intl: bool) -> dict:
+    """USD plans for international leads, INR plans for Indian leads."""
+    return {k: v for k, v in plans.items() if (v.get("currency") == "USD") == intl}
+
+
 def _pricing_lines(plans: dict) -> str:
-    return "\n".join(f"- {v['label']}: Rs.{int(v['price']):,}" for v in plans.values())
+    return "\n".join(
+        (f"- {v['label']}: ${v['price']:,.0f}" if v.get("currency") == "USD"
+         else f"- {v['label']}: Rs.{int(v['price']):,}")
+        for v in plans.values())
 
 
 def _pricing_table_html(plans: dict) -> str:
@@ -179,23 +209,27 @@ def _pricing_table_html(plans: dict) -> str:
         annual = "annual" in k
         style = "background:#faf6ec;font-weight:bold" if annual else ""
         badge = ' <span style="background:#d4af37;color:#fff;font-size:10px;padding:2px 7px;border-radius:8px;vertical-align:middle">BEST VALUE</span>' if annual else ""
+        price = f"${v['price']:,.0f}" if v.get("currency") == "USD" else f"₹{int(v['price']):,}"
         rows += (f'<tr style="{style}"><td style="padding:8px 14px;border-bottom:1px solid #eee">{v["label"]}{badge}</td>'
-                 f'<td style="padding:8px 14px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">₹{int(v["price"]):,}</td></tr>')
+                 f'<td style="padding:8px 14px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">{price}</td></tr>')
+    intl = any(v.get("currency") == "USD" for v in plans.values())
+    foot = ('💳 Billed in USD via a secure international payment link.' if intl
+            else '💡 Multi-branch discounts available — the more branches, the more you save. Full details in the attached brochure.')
     return (
         '<div style="margin:22px 0">'
         '<div style="font-size:15px;font-weight:bold;color:#1c1c22;margin-bottom:8px">Miracurl Suite — Plans &amp; Pricing</div>'
         '<table style="border-collapse:collapse;width:100%;max-width:480px;font-size:14px;color:#333;border:1px solid #eee;border-radius:10px">'
         f'{rows}</table>'
-        '<div style="font-size:12px;color:#777;margin-top:8px">💡 Multi-branch discounts available — the more branches, the more you save. Full details in the attached brochure.</div>'
+        f'<div style="font-size:12px;color:#777;margin-top:8px">{foot}</div>'
         '</div>')
 
 
-_PRICE_RE = re.compile(r"(?:for |at )?(?:just |only )?(?:Rs\.?|₹|INR)\s?[\d,]+\s?(?:/-|/month|/year|per month|per year|a month|a year)?", re.I)
+_PRICE_RE = re.compile(r"(?:for |at )?(?:just |only )?(?:Rs\.?|₹|INR|\$|USD)\s?[\d,]+(?:\.\d+)?\s?(?:/-|/month|/year|per month|per year|a month|a year)?", re.I)
 
 
 async def _draft_email(lead: dict) -> dict:
     from routes.mira_common import _ask_json
-    pricing = _pricing_lines(await _live_plans())
+    pricing = _pricing_lines(_plans_for(await _live_plans(), _lead_intl(lead.get("city"))))
     research = {k: v for k, v in lead.items()
                 if k not in ("email_body", "email_subject", "id", "_id", "run_id", "score_breakdown", "status")}
     out = await _ask_json(
@@ -293,9 +327,37 @@ async def _research_salon(client: httpx.AsyncClient, name: str, city: str, websi
     return lead
 
 
-async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, existing: set) -> tuple:
+async def _next_localities(city: str, k: int = 3) -> list:
+    """Rotate through popular localities of a city so repeat runs explore fresh neighbourhoods.
+    Locality list is AI-built once per city and cached; cursor advances every run."""
+    key = city.lower().strip()
+    doc = await _raw_db.lead_localities.find_one({"city": key})
+    if not doc:
+        from routes.mira_common import _ask_json
+        try:
+            plan = await _ask_json(
+                "You know world cities and their commercial neighbourhoods well.",
+                f"City/region: {city}. List its popular commercial localities/neighbourhoods known for salons, "
+                'spas and shopping. Return JSON: {"localities": ["...", ...]} with 12-18 short names '
+                "(no city name repeated inside them). If it is a small town with no distinct localities, return [].")
+            locs = [str(x).strip()[:40] for x in (plan.get("localities") or []) if str(x).strip()][:18]
+        except Exception:
+            locs = []
+        doc = {"city": key, "localities": locs, "cursor": 0}
+        await _raw_db.lead_localities.insert_one({**doc})
+    locs = doc.get("localities") or []
+    if not locs:
+        return []
+    cur = doc.get("cursor", 0) % len(locs)
+    picked = [locs[(cur + i) % len(locs)] for i in range(min(k, len(locs)))]
+    await _raw_db.lead_localities.update_one({"city": key}, {"$set": {"cursor": (cur + k) % len(locs)}})
+    return picked
+
+
+async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, existing: set,
+                           areas: list | None = None) -> tuple:
     """Returns (source, candidates, note). Google Maps when available, else Mira AI research."""
-    raw, note = await _places_search(client, city, max(target * 3, 40))
+    raw, note = await _places_search(client, city, max(target * 3, 40), areas=areas)
     places = [p for p in raw if p["name"] and p["name"].lower() not in existing][:target]
     if places:
         return "maps", [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p}
@@ -367,8 +429,11 @@ async def _run_pipeline(run_id: str, city: str, target: int):
     try:
         async with httpx.AsyncClient() as client:
             await _log(f"🔍 Lead Finder: Mira is listing real salons in {city}…", stage="finding")
+            areas = await _next_localities(city, 3)
+            if areas:
+                await _log(f"🧭 This run explores: {', '.join(areas)} (fresh localities each run)")
             existing = {(d.get("name") or "").lower() async for d in _raw_db.mira_leads.find({"city": city}, {"name": 1})}
-            source, cands, note = await _find_candidates(client, city, target, existing)
+            source, cands, note = await _find_candidates(client, city, target, existing, areas=areas)
             if not cands:
                 await _log("No new salons found — try another city or run again later.", status="done", stage="done")
                 return
@@ -454,7 +519,7 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
         <img src="{base}/assets/mira-outreach-hero.png" alt="Miracurl Suite — Mira, your AI salon partner" width="600" style="width:100%;display:block" />
         <div style="height:3px;background:linear-gradient(90deg,#b08d3f,#e8c37f,#b08d3f)"></div>
         <div style="padding:30px 34px 4px">{paras}</div>
-        <div style="padding:0 34px">{_pricing_table_html(plans)}</div>
+        <div style="padding:0 34px">{_pricing_table_html(_plans_for(plans, _lead_intl(lead.get("city"))))}</div>
         <div style="padding:2px 34px 28px">
           <a href="{base}/demo" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:13px 32px;border-radius:999px;font-size:14px;letter-spacing:.6px">Book a free live demo ✦</a>
           <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📎 The attached brochure covers every module of Miracurl Suite.</p>

@@ -190,6 +190,42 @@ function GreetingBadge({ me }) {
   );
 }
 
+function PrivacyConsentCard({ me, reload }) {
+  const [busy, setBusy] = useState(false);
+  const withdrawn = !!me.profile.consent_withdrawn;
+  const toggle = async () => {
+    if (!withdrawn && !window.confirm("Withdraw consent? Your profile, badge and employment history will no longer appear in public Staff Registry searches. You can re-enable anytime.")) return;
+    setBusy(true);
+    try {
+      await http.post("/employee/me/consent", { public_visible: withdrawn });
+      toast.success(withdrawn ? "Public profile re-enabled ✦" : "Consent withdrawn — your profile is now hidden from public searches");
+      reload();
+    } catch (err) { toast.error(errMsg(err)); }
+    setBusy(false);
+  };
+  return (
+    <div className={`bg-white/[0.04] border rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap ${withdrawn ? "border-rose-400/30" : "border-white/10"}`} data-testid="emp-consent-card">
+      <div className="flex items-center gap-4 min-w-0">
+        <span className="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg">{withdrawn ? "🙈" : "🛡"}</span>
+        <div className="min-w-0">
+          <h3 className="text-white font-semibold text-sm">Public registry visibility</h3>
+          <p className="text-xs text-white/50 mt-0.5">
+            {withdrawn
+              ? "Hidden — salons cannot look up your profile, badge or history right now."
+              : "Visible — salons can verify your badge & employment history with your Staff ID or phone."}
+          </p>
+        </div>
+      </div>
+      <button onClick={toggle} disabled={busy} data-testid="emp-consent-toggle-btn"
+        className={`px-4 py-2.5 rounded-full text-xs font-semibold border transition-colors disabled:opacity-50 ${
+          withdrawn ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/25"
+                    : "bg-rose-500/10 border-rose-400/40 text-rose-300 hover:bg-rose-500/20"}`}>
+        {withdrawn ? "Re-enable public profile" : "Withdraw consent"}
+      </button>
+    </div>
+  );
+}
+
 function Dashboard({ me, reload, onLogout }) {
   const p = me.profile;
   const [editing, setEditing] = useState(false);
@@ -219,6 +255,8 @@ function Dashboard({ me, reload, onLogout }) {
         </div>
         {editing && <div className="mt-6 pt-6 border-t border-white/10"><ProfileEditor me={me} onSaved={() => { setEditing(false); reload(); }} /></div>}
       </div>
+
+      <PrivacyConsentCard me={me} reload={reload} />
 
       {me.week_off_day && (
         <div className="bg-white/[0.04] border border-violet-400/30 rounded-2xl p-5 flex items-center gap-4" data-testid="emp-week-off-card">

@@ -73,3 +73,13 @@
 - Depth: _find_candidates now pulls a pool of max(target*3, 40) so Bangalore-sized cities don't repeat; target cap raised 25→50 (backend Field le=50 + UI max).
 - International: prompts region-neutral (no ", India" hardcoding), city accepts "London, UK" / "New York, US" (country code preserved uppercase on title-casing), UI placeholder updated. NOTE: appended pricing table in outreach emails is still INR-based — flagged to user.
 - Verified: Bangalore 150 unique results; London, UK 40 real venues across all 5 categories.
+
+## 2026-07-19 (part 10) — Locality rotation for repeat lead runs
+- _next_localities(city, 3): AI builds 12-18 locality list once per city (cached in `lead_localities` {city, localities, cursor}); cursor rotates 3 per run.
+- _places_search(areas=...): locality-scoped queries first (5 cats × 3 areas, 1 page each); city-wide deep search tops up only when thin. Run log shows "🧭 This run explores: …".
+- Verified: run1 Indiranagar/MG Road/Koramangala → run2 Brigade Road/Jayanagar/Church Street; 31/40 results from picked localities.
+
+## 2026-07-19 (part 11) — Three roadmap items
+1. Currency-aware outreach pricing (lead_gen.py): _lead_intl(city) (country suffix ≠ IN), _plans_for filters PLAN_CATALOG by currency; _pricing_lines/_pricing_table_html render $ vs ₹ (+USD payment-link footer); _PRICE_RE also strips $/USD; draft + email HTML use lead.city. Verified: London,UK→10 USD plans, Bangalore→8 INR.
+2. Weekly digest + WhatsApp share: GET /api/reports/weekly-digest (require_admin+current_tenant; reuses _tenant_week_stats + _rule_based_tip from super_admin_ops) returns stats + wa_text. New WeeklyDigestCard on Dashboard (owner-only, data-testid weekly-digest-card, digest-whatsapp-btn wa.me share, expandable stats+tip). Weekly Monday-9am EMAIL report already existed (untouched). Verified: ₹194,714 week, card renders, WA share button present.
+3. Consent-withdraw (Staff Registry): POST /api/employee/me/consent {public_visible}; registry public search + badge PDF now 403 "withdrawn consent" when consent_withdrawn; PrivacyConsentCard on Employee Portal dashboard (emp-consent-card / emp-consent-toggle-btn) with withdraw/re-enable. Verified E2E: withdraw→403 search+pdf→re-enable→visible.

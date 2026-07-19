@@ -538,11 +538,17 @@ async def registry_public_search(q: str, request: Request, name: str = ""):
     qs = (q or "").strip()
     if not qs:
         raise HTTPException(400, "Enter a Staff ID or phone number")
+
+    def _check_consent(e: dict):
+        if e and e.get("consent_withdrawn"):
+            raise HTTPException(403, "This staff member has withdrawn consent for public profile lookups.")
+
     digits = re.sub(r"\D", "", qs)
     # Staff ID lookup -> requires the badge name as a verifier; only the CURRENT organization is shown.
     # Phone lookup -> the FULL employment history (past + present) is shown.
     emp = await _raw_db.registry_employees.find_one({"staff_code": qs.upper()}, {"_id": 0})
     if emp:
+        _check_consent(emp)
         if not _name_matches(emp.get("name", ""), name):
             raise HTTPException(400, _NAME_REQUIRED_MSG)
         return await _registry_profile(emp, current_only=True, redact=True, show_aadhaar=False)
@@ -551,11 +557,13 @@ async def registry_public_search(q: str, request: Request, name: str = ""):
         emp = await _raw_db.registry_employees.find_one({"aadhaar_hash": _aadhaar_fp(digits)}, {"_id": 0})
         if not emp:
             raise HTTPException(404, "No staff found with that Aadhaar number — check all 12 digits")
+        _check_consent(emp)
         return await _registry_profile(emp, redact=True)
     if len(digits) >= 10:
         emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{digits[-10:]}$"}}, {"_id": 0})
     if not emp:
         raise HTTPException(404, "No staff found. Use their 12-digit Aadhaar, 10-digit phone, or Staff ID (STF-xxxxx)")
+    _check_consent(emp)
     return await _registry_profile(emp, redact=True, show_aadhaar=False)
 
 
@@ -566,6 +574,8 @@ async def registry_public_pdf(staff_code: str, request: Request, name: str = "")
     emp = await _raw_db.registry_employees.find_one({"staff_code": staff_code.upper()}, {"_id": 0})
     if not emp:
         raise HTTPException(404, "Staff not found")
+    if emp.get("consent_withdrawn"):
+        raise HTTPException(403, "This staff member has withdrawn consent for public profile lookups.")
     if not _name_matches(emp.get("name", ""), name):
         raise HTTPException(400, _NAME_REQUIRED_MSG)
     profile = await _registry_profile(emp, redact=True, show_aadhaar=False)

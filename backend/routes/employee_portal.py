@@ -208,6 +208,20 @@ async def employee_me(acct=Depends(current_employee)):
             "staff_name": staff_info.get("name")}
 
 
+class ConsentIn(BaseModel):
+    public_visible: bool
+
+
+@router.post("/employee/me/consent")
+async def employee_consent(body: ConsentIn, acct=Depends(current_employee)):
+    """One-click withdraw (or restore) consent for public Staff Registry lookups."""
+    await _raw_db.registry_employees.update_one(
+        {"id": acct["employee_id"]},
+        {"$set": {"consent_withdrawn": not body.public_visible,
+                  "consent_updated_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "public_visible": body.public_visible}
+
+
 async def _current_staff_info(emp: dict) -> dict:
     """Week-off + shift from the active staff record matching this employee's phone."""
     phone = _norm_phone(emp.get("phone") or "")

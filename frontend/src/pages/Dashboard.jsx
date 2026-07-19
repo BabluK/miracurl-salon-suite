@@ -18,6 +18,7 @@ import { DashboardAurora } from "@/components/DashboardAurora";
 import { MiraDayOffer } from "@/components/MiraDayOffer";
 import { CircleBonusCard } from "@/components/CircleBonusCard";
 import { WinbackNudges } from "@/components/WinbackNudges";
+import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
 import { MiraSocialNudge } from "@/components/MiraSocialNudge";
 import { SetupBanner } from "@/components/SetupBanner";
 
@@ -112,6 +113,7 @@ export default function Dashboard() {
       {isOwner && <CircleBonusCard slug={tenant?.slug || "miracurl-marathahalli"} />}
       <CelebrationsCard />
       {isOwner && <WinbackNudges />}
+      {isOwner && <WeeklyDigestCard />}
       {isOwner && <DailyReportBanner ownerName={user?.name} />}
       {isOwner && <WhatsAppApprovals />}
       {isOwner && <BranchSwitchApprovals />}

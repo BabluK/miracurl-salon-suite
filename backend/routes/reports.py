@@ -6,9 +6,35 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from database import db
-from security import get_current_user, require_admin, require_tenant_admin, require_owner_pin
+from security import get_current_user, require_admin, require_tenant_admin, require_owner_pin, current_tenant
 
 router = APIRouter()
+
+
+@router.get("/reports/weekly-digest")
+async def weekly_digest(user=Depends(require_admin), t=Depends(current_tenant)):
+    """Last week's business digest + a WhatsApp-ready share text for the owner."""
+    from routes.super_admin_ops import _tenant_week_stats, _rule_based_tip
+    ist = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    monday_this = (ist - timedelta(days=ist.weekday())).date()
+    start = (monday_this - timedelta(days=7)).isoformat()
+    end = monday_this.isoformat()
+    stats = await _tenant_week_stats(t["id"], start, end)
+    tip = _rule_based_tip(stats)
+    trend = "📈" if stats["revenue"] >= stats.get("prev_revenue", 0) else "📉"
+    top = "\n".join(f"  {i + 1}. {n} — ₹{v:,.0f}" for i, (n, v) in enumerate(stats.get("top_services") or []))
+    week_label = f"{start} → {(monday_this - timedelta(days=1)).isoformat()}"
+    wa_text = (f"✦ {t.get('name')} — Weekly Digest ({week_label})\n\n"
+               f"{trend} Revenue: ₹{stats['revenue']:,.0f} (previous week ₹{stats.get('prev_revenue', 0):,.0f})\n"
+               f"🧾 Bills: {stats['invoices']} · Avg bill ₹{stats['avg_bill']:,.0f}\n"
+               f"✨ New guests: {stats['new_customers']}\n"
+               + (f"🏆 Top services:\n{top}\n" if top else "")
+               + f"\n💡 Tip: {tip}\n\n— Mira, Miracurl Suite ✦")
+    return {"week_label": week_label,
+            "revenue": stats["revenue"], "prev_revenue": stats.get("prev_revenue", 0),
+            "invoices": stats["invoices"], "avg_bill": stats["avg_bill"],
+            "new_customers": stats["new_customers"],
+            "top_services": stats.get("top_services") or [], "tip": tip, "wa_text": wa_text}
 
 async def _dashboard_top_services(limit: int = 5) -> list:
     pipeline = [
