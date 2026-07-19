@@ -628,3 +628,9 @@ Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). B
 - sales.py: NEW POST /public/registry/get-verified {name, phone, salon_name, city} — rate-limited 5/10min, phone-normalized, deduped by phone; inserts into tenant_inquiries source="staff_badge_request" with door-opener note ("salon isn't on Miracurl yet") → appears in Super Admin Leads & Inquiries with full toolbar.
 - RegistryPublic.jsx: GetVerifiedCard between search hero and consent section — gradient card "Not on Miracurl yet? Get your verified badge ✦", CTA expands 4-field form, success state. testids: get-verified-cta/form/name/phone/salon/city/submit/success.
 - Tested: curl submit → HQ inquiry verified → cleaned; UI screenshot verified. Needs Deploy.
+
+## 2026-07-19 — Code review round 2 fixes applied
+- Circular import STRUCTURALLY broken: created services/posters.py (POSTER_DIR/POSTER_DESIGNS/_mascot_rgba/_circle_avatar/_build_qr_poster/_build_tent_card moved out of services_catalog, ~230 lines); services_catalog re-imports from it (noqa F401 re-export); receipt_email now imports _build_tent_card from services.posters — receipt_email no longer references services_catalog at all. Verified: all modules import, ruff clean.
+- Complexity: hq_documents public_demo_chat (21→<10) split into _demo_chat_system(tz) + _run_demo_chat_booking(reply, request, tz); _book_open_demo (17→<10) split into _demo_slot_dict + _upsert_demo_invite. Regression: demo-chat + demo resend curls pass.
+- FALSE POSITIVES re-verified: social_connect.py:30 = public OAuth scope URL constant (creds via os.environ META_APP_ID/SECRET); ruff F821 (undefined vars) + F632 (`is` literal) clean on whole backend incl. tests.
+- Deferred (documented): _demo_email_html 8 params (already keyword-only, low risk); splitting hq_documents.py (1250+ lines, 37 imports) into hq_demo.py/hq_outreach.py — recommend during a quiet cycle, not mid-feature.

@@ -133,7 +133,7 @@ async def _review_tent_card_attachment(t: dict, inv: dict) -> dict | None:
         return None
     try:
         from PIL import Image
-        from routes.services_catalog import _build_tent_card
+        from services.posters import _build_tent_card
         url = _smart_review_url(t, inv)
         png = await asyncio.to_thread(_build_tent_card, t, url, "rosegold", "review")
         img = Image.open(io.BytesIO(png))

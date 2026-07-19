@@ -1138,6 +1138,32 @@ async def public_demo_slots(request: Request):
             "times": DEMO_SLOT_TIMES}
 
 
+def _demo_slot_dict(date_s: str, time_s: str, phone: str, tz: str, now_iso: str) -> dict:
+    slot = {"date": date_s, "time": time_s, "phone": (phone or "").strip(), "booked_at": now_iso}
+    if tz and tz != "Asia/Kolkata":
+        local = _slot_local_label(date_s, time_s, tz)
+        if local:
+            slot["tz"] = tz
+            slot["local_time"] = local
+    return slot
+
+
+async def _upsert_demo_invite(email: str, name: str, salon_name: str, city: str, slot: dict, now_iso: str):
+    existing = await _raw_db.demo_invites.find_one({"email": email}, {"_id": 0, "id": 1})
+    if existing:
+        await _raw_db.demo_invites.update_one(
+            {"id": existing["id"]},
+            {"$set": {"preferred_slot": slot, "demo_requested_at": now_iso, "responded": True,
+                      "seen_by_hq_req": False, "name": name, "salon_name": salon_name, "city": city}})
+    else:
+        await _raw_db.demo_invites.insert_one({
+            "id": str(uuid.uuid4()), "email": email, "name": name,
+            "salon_name": salon_name, "city": city,
+            "source": "public_demo_page", "first_sent_at": now_iso, "opened_at": now_iso,
+            "responded": True, "reminder_sent_at": None, "converted": False,
+            "demo_requested_at": now_iso, "preferred_slot": slot, "seen_by_hq_req": False})
+
+
 async def _book_open_demo(name: str, salon_name: str, city: str, email: str,
                           phone: str, date_s: str, time_s: str, tz: str) -> dict:
     """Shared open-demo booking used by the /demo form AND Mira's demo chat."""
@@ -1147,28 +1173,9 @@ async def _book_open_demo(name: str, salon_name: str, city: str, email: str,
     if not _DEMO_EMAIL_RE.fullmatch(email):
         raise HTTPException(400, "Enter a valid email address")
     _validate_slot(date_s, time_s)
-
     now_iso = datetime.now(timezone.utc).isoformat()
-    slot = {"date": date_s, "time": time_s, "phone": (phone or "").strip(), "booked_at": now_iso}
-    if tz and tz != "Asia/Kolkata":
-        local = _slot_local_label(date_s, time_s, tz)
-        if local:
-            slot["tz"] = tz
-            slot["local_time"] = local
-    existing = await _raw_db.demo_invites.find_one({"email": email}, {"_id": 0, "id": 1})
-    if existing:
-        await _raw_db.demo_invites.update_one(
-            {"id": existing["id"]},
-            {"$set": {"preferred_slot": slot, "demo_requested_at": now_iso, "responded": True,
-                      "seen_by_hq_req": False, "name": name.strip(),
-                      "salon_name": (salon_name or "").strip(), "city": (city or "").strip()}})
-    else:
-        await _raw_db.demo_invites.insert_one({
-            "id": str(uuid.uuid4()), "email": email, "name": name.strip(),
-            "salon_name": (salon_name or "").strip(), "city": (city or "").strip(),
-            "source": "public_demo_page", "first_sent_at": now_iso, "opened_at": now_iso,
-            "responded": True, "reminder_sent_at": None, "converted": False,
-            "demo_requested_at": now_iso, "preferred_slot": slot, "seen_by_hq_req": False})
+    slot = _demo_slot_dict(date_s, time_s, phone, tz, now_iso)
+    await _upsert_demo_invite(email, name.strip(), (salon_name or "").strip(), (city or "").strip(), slot, now_iso)
     await _raw_db.mira_leads.update_many(
         {"email": email, "status": {"$in": ["sent", "drafted", "no_email", "researched"]}},
         {"$set": {"status": "demo"}})
@@ -1193,23 +1200,13 @@ class DemoChatIn(BaseModel):
     tz: str = Field(default="", max_length=50)
 
 
-@router.post("/public/demo-chat")
-async def public_demo_chat(body: DemoChatIn, request: Request):
-    """Mira books the live demo on the visitor's behalf, conversationally."""
-    import json as _json
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-    public_rate_limit(request, "demo-chat", limit=25, window_sec=600)
-    key = os.environ.get("EMERGENT_LLM_KEY")
-    if not key:
-        raise HTTPException(500, "AI key not configured")
-    sid = f"demochat-{body.session_id}"
-    hist = await _raw_db.demo_chat_messages.find({"sid": sid}, {"_id": 0}).sort("created_at", 1).to_list(24)
+def _demo_chat_system(tz: str) -> str:
     today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
     dates = [(today + timedelta(days=d)).isoformat() for d in range(1, 8)]
     date_lines = ", ".join(f"{d} ({datetime.fromisoformat(d).strftime('%A')})" for d in dates)
-    tz_note = (f"The visitor's timezone is {body.tz}. Slot times are IST — when suggesting times, also mention their local time."
-               if body.tz and body.tz != "Asia/Kolkata" else "The visitor appears to be in India (IST).")
-    system = (
+    tz_note = (f"The visitor's timezone is {tz}. Slot times are IST — when suggesting times, also mention their local time."
+               if tz and tz != "Asia/Kolkata" else "The visitor appears to be in India (IST).")
+    return (
         "You are Mira, the friendly AI demo concierge for Miracurl Salon Suite (all-in-one salon management with a 12-agent AI team). "
         "Your ONLY job: book the visitor a free 20-minute live demo. Be warm, human and brief (2-3 short sentences per reply). Speak English or Hindi/Hinglish matching them.\n"
         f"AVAILABLE DAYS (next 7): {date_lines}. AVAILABLE TIMES (IST): {', '.join(DEMO_SLOT_TIMES)}. {tz_note}\n"
@@ -1219,9 +1216,49 @@ async def public_demo_chat(body: DemoChatIn, request: Request):
         f'{_DEMO_BOOK_MARKER}{{"name":"...","salon_name":"...","city":"...","email":"...","phone":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n'
         "Rules: never mention the marker/JSON; only emit it once, only with a real email the visitor gave; date must be one of the available days, time one of the available times. "
         "If they ask about Miracurl, answer briefly (bookings, POS billing, staff & attendance, inventory, AI marketing, WhatsApp receipts, from a 7-day free trial) and steer back to booking the demo.")
+
+
+async def _run_demo_chat_booking(reply: str, request: Request, tz: str) -> tuple:
+    """Parse Mira's [[DEMO_BOOK]] marker and execute the booking. Returns (reply, booking, error)."""
+    import json as _json
+    text, _, payload = reply.partition(_DEMO_BOOK_MARKER)
+    reply = text.strip()
+    try:
+        data = _json.loads(payload.strip().strip("`").strip())
+        # Same strict cap as the manual form — Mira gets no special treatment (anti-flood).
+        public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
+        res = await _book_open_demo(str(data.get("name") or ""), str(data.get("salon_name") or ""),
+                                    str(data.get("city") or ""), str(data.get("email") or ""),
+                                    str(data.get("phone") or ""), str(data.get("date") or ""),
+                                    str(data.get("time") or ""), tz)
+        booking = {**res["slot"], "gcal": res["gcal"], "email": str(data.get("email") or "").lower()}
+        when = datetime.fromisoformat(res["slot"]["date"]).strftime("%A, %d %B")
+        local = res["slot"].get("local_time")
+        reply = (reply + f"\n\n✅ Done! Your demo is booked for {when} at {res['slot']['time']} IST"
+                 + (f" ({local} your time)" if local else "")
+                 + " — the confirmation and calendar invite are on their way to your inbox. See you there! ✦").strip()
+        return reply, booking, None
+    except HTTPException as he:
+        return (reply + f"\n\n⚠️ {he.detail}").strip(), None, he.detail
+    except Exception as e:  # noqa: BLE001 — bad LLM JSON must not 500 the chat
+        logging.error(f"demo chat booking parse error: {e}")
+        err = "Couldn't complete the booking — please use the quick form below."
+        return (reply + f"\n\n⚠️ {err}").strip(), None, err
+
+
+@router.post("/public/demo-chat")
+async def public_demo_chat(body: DemoChatIn, request: Request):
+    """Mira books the live demo on the visitor's behalf, conversationally."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    public_rate_limit(request, "demo-chat", limit=25, window_sec=600)
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    sid = f"demochat-{body.session_id}"
+    hist = await _raw_db.demo_chat_messages.find({"sid": sid}, {"_id": 0}).sort("created_at", 1).to_list(24)
     transcript = "".join(f"{'Visitor' if h['role'] == 'user' else 'Mira'}: {h['content']}\n" for h in hist)
     chat = LlmChat(api_key=key, session_id=f"{sid}-{uuid.uuid4().hex[:6]}",
-                   system_message=system).with_model("openai", "gpt-5.4-mini")
+                   system_message=_demo_chat_system(body.tz)).with_model("openai", "gpt-5.4-mini")
     try:
         reply = (await chat.send_message(UserMessage(
             text=f"{transcript}Visitor: {body.message}\nMira:"))).strip()
@@ -1231,29 +1268,7 @@ async def public_demo_chat(body: DemoChatIn, request: Request):
 
     booking, booking_error = None, None
     if _DEMO_BOOK_MARKER in reply:
-        text, _, payload = reply.partition(_DEMO_BOOK_MARKER)
-        reply = text.strip()
-        try:
-            data = _json.loads(payload.strip().strip("`").strip())
-            # Same strict cap as the manual form — Mira gets no special treatment (anti-flood).
-            public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
-            res = await _book_open_demo(str(data.get("name") or ""), str(data.get("salon_name") or ""),
-                                        str(data.get("city") or ""), str(data.get("email") or ""),
-                                        str(data.get("phone") or ""), str(data.get("date") or ""),
-                                        str(data.get("time") or ""), body.tz)
-            booking = {**res["slot"], "gcal": res["gcal"], "email": str(data.get("email") or "").lower()}
-            when = datetime.fromisoformat(res["slot"]["date"]).strftime("%A, %d %B")
-            local = res["slot"].get("local_time")
-            reply = (reply + f"\n\n✅ Done! Your demo is booked for {when} at {res['slot']['time']} IST"
-                     + (f" ({local} your time)" if local else "")
-                     + " — the confirmation and calendar invite are on their way to your inbox. See you there! ✦").strip()
-        except HTTPException as he:
-            booking_error = he.detail
-            reply = (reply + f"\n\n⚠️ {he.detail}").strip()
-        except Exception as e:
-            logging.error(f"demo chat booking parse error: {e}")
-            booking_error = "Couldn't complete the booking — please use the quick form below."
-            reply = (reply + f"\n\n⚠️ {booking_error}").strip()
+        reply, booking, booking_error = await _run_demo_chat_booking(reply, request, body.tz)
 
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.demo_chat_messages.insert_many([
