@@ -63,7 +63,90 @@ async def list_staff(user=Depends(get_current_user)):
     proj = {"_id": 0, "aadhaar_hash": 0}
     if user.get("role") not in ("admin", "super_admin"):
         proj.update(_STAFF_SENSITIVE_FIELDS)  # SEC-001: staff/manager get no pay/bank/ID data
-    return await db.staff.find({}, proj).to_list(500)
+    return await db.staff.find({"former": {"$ne": True}}, proj).to_list(500)
+
+
+# ── Previous staff (left / notice completed) — Settings section ──
+
+async def _close_registry_employment(s: dict) -> None:
+    """Close the open registry employment for this salon with the exit date."""
+    phone = re.sub(r"\D", "", s.get("phone") or "")
+    if len(phone) < 10:
+        return
+    emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{phone[-10:]}$"}}, {"_id": 0, "id": 1})
+    if not emp:
+        return
+    await _raw_db.registry_employments.update_many(
+        {"employee_id": emp["id"], "to_date": None, "tenant_id": s["tenant_id"]},
+        {"$set": {"to_date": s.get("last_working_day") or datetime.now(timezone.utc).date().isoformat(),
+                  "reason_for_leaving": "Completed notice period"}})
+
+
+async def auto_close_departed_staff() -> dict:
+    """Daily sweep: staff whose last working day has passed → former, login blocked,
+    registry employment closed with the exit date. Idempotent."""
+    today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+    rows = await _raw_db.staff.find(
+        {"last_working_day": {"$nin": [None, ""], "$lt": today}, "former": {"$ne": True}},
+        {"_id": 0}).to_list(500)
+    for s in rows:
+        await _raw_db.staff.update_one({"id": s["id"]}, {"$set": {
+            "active": False, "former": True, "left_on": s["last_working_day"], "serving_notice": False}})
+        if s.get("user_id"):
+            await _raw_db.users.update_one({"id": s["user_id"]}, {"$set": {"disabled": True}})
+        await _close_registry_employment(s)
+    return {"closed": len(rows)}
+
+
+@router.get("/staff/previous")
+async def previous_staff_list(user=Depends(require_tenant_admin)):
+    """Staff who left — kept in this list for 6 months. Registry history is permanent."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=183)).date().isoformat()
+    rows = await db.staff.find(
+        {"former": True, "former_hidden": {"$ne": True}, "left_on": {"$gte": cutoff}},
+        {"_id": 0, "id": 1, "name": 1, "role": 1, "phone": 1, "email": 1, "left_on": 1, "rehired_as": 1},
+    ).sort("left_on", -1).to_list(200)
+    return {"items": rows}
+
+
+@router.delete("/staff/previous/{sid}")
+async def previous_staff_delete(sid: str, user=Depends(require_tenant_admin)):
+    """Remove an entry from the Previous Staff list (registry history stays intact)."""
+    res = await db.staff.update_one({"id": sid, "former": True}, {"$set": {"former_hidden": True}})
+    if not res.matched_count:
+        raise HTTPException(404, "Previous staff entry not found")
+    return {"ok": True}
+
+
+@router.post("/staff/previous/{sid}/rehire")
+async def previous_staff_rehire(sid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Welcome them back: fresh staff ID for the new stint; the registry links it to
+    their permanent history automatically (same registry employee, new employment)."""
+    old = await db.staff.find_one({"id": sid, "former": True}, {"_id": 0})
+    if not old:
+        raise HTTPException(404, "Previous staff entry not found")
+    now = datetime.now(timezone.utc).isoformat()
+    new_id = str(uuid.uuid4())
+    fresh = {k: old.get(k) for k in ("name", "phone", "email", "role", "specialties", "commission_pct",
+                                     "salary", "week_off_day", "shift_start", "shift_end") if old.get(k) is not None}
+    await db.staff.insert_one({**fresh, "id": new_id, "tenant_id": t["id"], "active": True,
+                               "rehired_from": sid, "created_at": now})
+    await db.staff.update_one({"id": sid}, {"$set": {"rehired_as": new_id, "former_hidden": True}})
+    # Registry continuity: same permanent registry profile, NEW open employment for this stint.
+    registry_linked = False
+    phone = re.sub(r"\D", "", old.get("phone") or "")
+    if len(phone) >= 10:
+        emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{phone[-10:]}$"}}, {"_id": 0, "id": 1})
+        if emp:
+            await _raw_db.registry_employments.insert_one({
+                "id": str(uuid.uuid4()), "employee_id": emp["id"], "tenant_id": t["id"],
+                "salon_name": t.get("name") or "Salon", "designation": old.get("role") or "Stylist",
+                "skills": old.get("specialties") or [], "from_date": now[:10], "to_date": None,
+                "rating": None, "reason_for_leaving": "Working",
+                "comment": f"Rehired on {now[:10]} — previous stint closed on {old.get('left_on') or 'n/a'}.",
+                "hq_verified": False, "created_by": user["id"], "created_at": now})
+            registry_linked = True
+    return {"ok": True, "staff_id": new_id, "registry_linked": registry_linked}
 
 
 def _staff_write_payload(body: StaffIn) -> dict:

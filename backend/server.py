@@ -90,7 +90,7 @@ from schedulers import (  # noqa: E402
     _monthly_report_scheduler, _weekly_report_scheduler, _birthday_scheduler,
     _cctv_poll_scheduler, _renewal_reminder_scheduler, _review_request_scheduler,
     _demo_followup_scheduler, _late_alert_scheduler, _weekly_package_scheduler,
-    _lead_followup_scheduler,
+    _lead_followup_scheduler, _staff_exit_scheduler,
 )
 
 for _r in (
@@ -122,6 +122,7 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_monthly_report_scheduler())
     asyncio.get_event_loop().create_task(_weekly_report_scheduler())
     asyncio.get_event_loop().create_task(_birthday_scheduler())
+    asyncio.get_event_loop().create_task(_staff_exit_scheduler())
     asyncio.get_event_loop().create_task(autopilot_scheduler())
     asyncio.get_event_loop().create_task(weekly_promo_scheduler())
     asyncio.get_event_loop().create_task(sweep_stale_veo_jobs())

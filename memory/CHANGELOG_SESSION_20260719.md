@@ -87,3 +87,10 @@
 ## 2026-07-19 (part 12) — Farewell screen on MAIN app login
 - User's disabled staff (Bablu) logs into the MAIN salon app (/login) — farewell existed only on /employee. Added farewell state to Login.jsx: when login error includes "disabled by the salon admin" (matches both auth.py:338 and security.py:158 variants) → light-themed "Thank you for everything ✦" card (data-testid login-farewell-screen) instead of the red error. Verified via screenshot with a temp disabled user (cleaned after).
 - "How to mark left": Edit staff → Serving notice + last working day (blocks login after that date), or Disable button (blocks instantly). Both now show farewell.
+
+## 2026-07-19 (part 13) — Auto-close exits + Previous Staff (Settings) + Rehire
+- auto_close_departed_staff() (staff_admin.py) + _staff_exit_scheduler (every 6h, schedulers.py, registered in server.py): last_working_day past → staff {active:False, former:True, left_on}, linked user disabled, registry employment closed (to_date=lwd, "Completed notice period"). Idempotent.
+- GET /api/staff/previous (6-month window, former_hidden excluded) · DELETE .../{sid} (soft-hide, history intact) · POST .../{sid}/rehire (NEW staff id copying profile, old entry hidden+rehired_as, NEW open registry employment on same permanent registry employee → history continuity).
+- Main GET /staff now excludes former:True. Routes registered BEFORE /staff/{sid} (order safe).
+- Settings page: PreviousStaffCard (previous-staff-card, rehire/delete buttons; hides when empty).
+- E2E verified: seed → sweep closes → previous list shows → main list excludes → rehire returns new id + registry_linked → public search shows BOTH stints under same STF code. Public verification confirmed for left staff (unless consent withdrawn). Test data cleaned.

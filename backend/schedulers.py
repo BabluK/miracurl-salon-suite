@@ -30,6 +30,20 @@ async def _monthly_report_scheduler() -> None:
             logging.error(f"monthly report scheduler error: {e}")
         await asyncio.sleep(3600)
 
+async def _staff_exit_scheduler() -> None:
+    """Every 6h: close out staff whose last working day has passed (former list,
+    login block, registry employment exit date). Idempotent."""
+    from routes.staff_admin import auto_close_departed_staff
+    while True:
+        try:
+            out = await auto_close_departed_staff()
+            if out.get("closed"):
+                logging.info(f"staff exit sweep: closed={out['closed']}")
+        except Exception as e:
+            logging.error(f"staff exit scheduler error: {e}")
+        await asyncio.sleep(6 * 3600)
+
+
 async def _weekly_report_scheduler() -> None:
     """Every Monday (after 09:00 IST) auto-email each active salon owner last
     week's business snapshot. Idempotent via system_flags."""
