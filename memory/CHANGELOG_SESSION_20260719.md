@@ -22,3 +22,11 @@
 - BUG FOUND & FIXED (pre-existing, likely on production too): gpt-5.4-mini hallucinated the tail of full 36-char service UUIDs in booking JSON → "Selected services were not found on the menu". Fix: catalog now exposes 8-char ids (`s['id'][:8]`), new `_resolve_id_prefixes()` expands prefixes back to full ids for services + staff at execution time. Verified E2E: real booking created via chat.
 - QR on badge PDF: `_build_registry_pdf` header now renders a QR (white box, top-right, "SCAN TO VERIFY LIVE") when profile has `verify_url`; `_registry_pdf_bytes` (registry.py) sets it to `{APP_PUBLIC_URL}/staff-registry?q={staff_code}&name={first}` — deep-link auto-search already exists in RegistryPublic.jsx. Verified by rendering the PDF to PNG.
 - INCIDENT: a search_replace on public_chat.py silently appended garbage at EOF (duplicate fragment "ind_one(...)") — repaired by truncating at line 603. Check EOF if syntax errors appear after edits to this file.
+
+## 2026-07-19 (part 3) — Mira booking UX fixes (user-reported)
+- _free_slots_for: rejects past dates; for TODAY excludes slots already past in IST (+15 min buffer) — Mira no longer offers 10:00 AM at noon.
+- Catalog slot window extended 3 → 7 days.
+- Prompt: strict language mirroring (English → PURE English, no Hindi mixing); booking flow collects name+phone+service+expert+time, confirms EXACTLY ONCE, books immediately on confirm; explicit "all times are IST" instruction.
+- Failure replies no longer lie: stylist/slot conflicts show the REAL reason (e.g. "Rahul Verma is already booked at that time") + actual free times; non-slot errors show honest message instead of "slot got fully booked".
+- NOTE: user's production complaint ("slot is booked" on every attempt) = the UUID-hallucination bug fixed in part 2 → needs DEPLOY.
+- E2E verified: past-slot filtering, single-confirm English booking at 18:00 IST with named stylist, stylist-conflict message. Test bookings/customers cleaned.

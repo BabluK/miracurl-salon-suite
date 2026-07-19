@@ -105,8 +105,8 @@ async def _booking_catalog(t) -> str:
         + (" | in stock" if int(p.get("stock") or 0) > 0 else " | currently out of stock")
         for p in products) or "(no retail products listed)"
     ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
-    # Slot availability for the next 3 days so Mira never offers a full time.
-    days = [(ist_now + timedelta(days=d)).date().isoformat() for d in range(3)]
+    # Slot availability for the next 7 days so Mira never offers a full time.
+    days = [(ist_now + timedelta(days=d)).date().isoformat() for d in range(7)]
     free_lists = await asyncio.gather(*[_free_slots_for(d) for d in days])
     avail_lines = "\n".join(
         f"- {d}: {', '.join(fl) if fl else 'FULLY BOOKED — do not offer this day'}"
@@ -176,8 +176,12 @@ async def _ai_execute_booking(payload: str):
             "duration_min": duration, "scheduled_at": bk.scheduled_at}, None, req_date
 
 async def _free_slots_for(date: str) -> list[str]:
-    """Return the list of 'HH:MM' slots still open on a given YYYY-MM-DD (IST)."""
+    """Return the list of 'HH:MM' slots still open on a given YYYY-MM-DD (IST).
+    For today, slots already in the past (IST) are excluded."""
     if not date or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        return []
+    ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    if date < ist_now.date().isoformat():
         return []
     staff_count = await db.staff.count_documents({"active": True}) or 1
     appts = await db.appointments.find(
@@ -193,8 +197,11 @@ async def _free_slots_for(date: str) -> list[str]:
         except ValueError:
             continue
     free = []
+    min_start = ist_now + timedelta(minutes=15)
     for hhmm in _SLOT_TIMES:
         s = datetime.fromisoformat(f"{date}T{hhmm}:00+05:30")
+        if s < min_start:
+            continue
         e = s + timedelta(minutes=30)
         if sum(1 for ast, aen in parsed if ast < e and aen > s) < staff_count:
             free.append(hhmm)
@@ -244,7 +251,8 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             f"You are Mira, the expert AI beauty consultant on the online booking page of '{t.get('name', 'the salon')}'. "
             "You are warm, gracious and extremely polite — like the most caring senior beautician who treats every guest like a VIP.\n\n"
             "LANGUAGE RULE (VERY IMPORTANT): you speak ONLY English, Hindi and Kannada (plus natural Hinglish/Kanglish in Latin script). "
-            "Detect the customer's language each message: English → reply in English; Hindi/Hinglish → reply in Hindi or Hinglish; Kannada (ಕನ್ನಡ) → reply in Kannada. "
+            "ALWAYS MIRROR the language of the customer's LATEST message: English → reply in PURE English only (do not mix in Hindi/Hinglish words); "
+            "Hindi/Hinglish → reply in Hindi or Hinglish; Kannada (ಕನ್ನಡ) → reply in Kannada. "
             "If they use ANY other language (Tamil, Telugu, Malayalam, Marathi, Bengali, Punjabi, Urdu, etc.), reply warmly in English: "
             "'I'm so sorry — currently I speak only English, Hindi and Kannada 🙏 Could we please continue in one of those?' and help them the moment they switch. "
             "Keep service names from the menu as-is.\n"
@@ -297,9 +305,12 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "If a coupon code exists, tell them the code and that they can apply it while booking.\n"
             "4) SALON QUESTIONS — answer anything about the salon (timings, location, phone, stylists, prices) using the details below, always politely. "
             "If you genuinely don't know something, warmly direct them to the 'Message Salon' tab or the salon phone — never guess facts about the salon.\n"
-            "5) BOOK APPOINTMENTS — you can book directly. Collect: full name, phone number (7-15 digits), chosen service(s) from the menu, "
-            "preferred date and time (salon is open 10:00–21:00 IST; suggest tomorrow if they're unsure). "
-            "When you have ALL details, show a one-line summary (services, total ₹, date, time) and ask them to confirm.\n"
+            "5) BOOK APPOINTMENTS — you can book directly. All dates and times are IST (Indian Standard Time) — the current IST date & time is given below; use it to resolve 'today' / 'tomorrow' / 'evening' correctly. "
+            "Collect ONLY these details: full name, phone number (7-15 digits), chosen service(s) from the menu, expert preference, and preferred date & time "
+            "(only offer times from the OPEN TIME SLOTS list below; suggest tomorrow if they're unsure). "
+            "When you have ALL details, show a one-line summary (services, total ₹, date, time, expert) and ask them to confirm — "
+            "ask for confirmation EXACTLY ONCE. The moment they confirm (yes / ok / confirm / book it — any language), IMMEDIATELY emit the booking line; "
+            "NEVER ask them to confirm a second time, and NEVER re-verify details they already gave.\n"
             "6) SMART UPSELL — when the customer has chosen their service(s) and BEFORE asking for final confirmation, suggest exactly ONE complementary add-on from the menu "
             "(e.g. 'Would you like to add a Pedicure for just ₹500 more? ✨'). Suggest it only ONCE — if they decline or ignore it, proceed graciously without repeating.\n"
             "7) EXPERT SELECTION — OUR TEAM OF EXPERTS (with their specialties) is listed below. While booking, ask warmly: "
@@ -367,16 +378,21 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
                 reply = (text + "\n\n" + confirm).strip()
             else:
                 # Booking FAILED — never keep the model's premature "confirmed" text.
-                # Apologise and, if the slot was full, offer the times that are actually free.
+                # Slot-conflict errors → apologise + offer the times that are actually free;
+                # any other error → be honest about the real reason (never blame the slot).
+                slot_issue = any(w in (booking_error or "").lower() for w in ("booked", "off", "full", "leave"))
                 free = await _free_slots_for(req_date) if req_date else []
-                if free:
+                if slot_issue and free:
                     shown = ", ".join(free[:8])
-                    reply = (f"I'm so sorry — that time slot just got fully booked 🙏\n\n"
-                             f"Here are the open times for {req_date}: {shown}.\n"
-                             f"Which one shall I book for you? ✨")
+                    reply = (f"I'm so sorry — {booking_error} 🙏\n\n"
+                             f"Open times on {req_date}: {shown}.\n"
+                             f"Shall I book one of these for you? ✨")
+                elif slot_issue:
+                    reply = (f"I'm so sorry — we're fully booked on {req_date} 🙏 "
+                             f"Could we try another day? I'll get you in as soon as possible 💖")
                 else:
                     reply = (f"I'm so sorry — I couldn't complete that booking ({booking_error}). "
-                             f"Could we try a different date or time? I'll get you in as soon as possible 💖")
+                             f"Could we go over the details once more? I'll book you right away 💖")
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.public_ai_messages.insert_many([
         {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "user", "content": message, "created_at": now},
