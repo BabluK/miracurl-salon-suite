@@ -10,6 +10,7 @@ import { TaxCard } from "@/components/settings/TaxCard";
 import { LoyaltyCard } from "@/components/settings/LoyaltyCard";
 import { AffiliateCard } from "@/components/settings/AffiliateCard";
 import { RazorpayCard } from "@/components/settings/RazorpayCard";
+import { StripeSubscriptionCard } from "@/components/settings/StripeSubscriptionCard";
 import { VendorsCard } from "@/components/settings/VendorsCard";
 import { BirthdayCard } from "@/components/settings/BirthdayCard";
 import { AttendanceFinesCard } from "@/components/settings/AttendanceFinesCard";
@@ -73,6 +74,8 @@ export default function Settings() {
         </div>
 
         <AffiliateCard />
+
+        <StripeSubscriptionCard />
 
         <RazorpayCard />
 

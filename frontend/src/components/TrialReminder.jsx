@@ -56,7 +56,7 @@ export const TrialReminder = () => {
             data-testid="trial-reminder-pay-btn"
             onClick={() => { setInfo(null); nav("/settings"); }}
             className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white text-sm font-semibold hover:from-amber-600 hover:to-rose-600 transition inline-flex items-center justify-center gap-2"
-          ><CreditCard className="w-4 h-4" /> Pay Now</button>
+          ><CreditCard className="w-4 h-4" /> Pay &amp; Activate</button>
         </div>
       </div>
     </div>

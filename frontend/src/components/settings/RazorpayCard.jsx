@@ -36,8 +36,10 @@ export function RazorpayCard() {
 
   if (!cfg) return null;
   if (!cfg.enabled) return null;
+  if (tenant && (tenant.currency || "INR") !== "INR") return null; // intl salons pay in USD via Stripe
 
-  const visiblePlans = (cfg.plans || []).filter(p => (p.branches || 1) === 1 || ownedCount >= (p.branches || 1));
+  const visiblePlans = (cfg.plans || []).filter(p => !p.key.startsWith("intl_"))
+    .filter(p => (p.branches || 1) === 1 || ownedCount >= (p.branches || 1));
   const chosen = visiblePlans.find(p => p.key === selected) || visiblePlans[0];
   const needBranches = (chosen?.branches || 1) > 1;
   const requiredBranches = chosen?.branches || 1;

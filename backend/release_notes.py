@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-19.3"
-BUILD_TIME = "19 Jul 2026, 08:30 PM IST"
+BUILD = "2026-07-19.4"
+BUILD_TIME = "19 Jul 2026, 09:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-19 (evening)",
         "changes": [
+            "Pay & Activate in dollars 💳 — international salons now have a Stripe-powered USD subscription card in Settings (Starter / Professional / Premium AI, monthly / 6-month / annual); the plan activates instantly after payment, no WhatsApp back-and-forth",
             "USD pricing everywhere for international salons 💵 — the Start Trial signup now auto-detects your country and shows dollar pricing (with a 🇮🇳/🌍 toggle), and international salons are created with USD currency from day one",
             "Graceful goodbyes 🌸 — deactivated or departed staff now see a warm 'Thank you for everything' farewell screen on both the salon app login and the Employee Portal, instead of a cold error message",
             "Staff exits close themselves 🕐 — once a staff member's last working day passes, the system automatically marks them as left, blocks their login and stamps the exit date on their public registry history (no manual entry ever again)",

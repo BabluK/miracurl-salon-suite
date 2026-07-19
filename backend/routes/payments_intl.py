@@ -82,15 +82,31 @@ async def deposit_checkout(slug: str, body: DepositCheckoutIn, request: Request)
     return {"checkout_url": session.url, "session_id": session.session_id}
 
 
-async def _mark_deposit_paid(session_id: str) -> None:
-    rec = await _raw_db.payment_transactions.find_one({"session_id": session_id, "payment_status": {"$ne": "paid"}}, {"_id": 0})
-    if not rec:
-        return
+async def _activate_subscription(rec: dict) -> None:
+    from routes.subscriptions import _fresh_plan_or_400, _apply_subscription_to_tenants, SubscriptionPayment
+    plan_info = await _fresh_plan_or_400(rec["plan"])
+    subs = await _apply_subscription_to_tenants(
+        [rec["tenant_id"]], rec["plan"], plan_info,
+        payment_method="stripe", payment_ref=rec["session_id"],
+        notes=f"Stripe Checkout {rec['session_id']}")
+    pay = SubscriptionPayment(
+        subscription_id=subs[0]["id"], tenant_id=rec["tenant_id"],
+        amount=float(rec["amount"]), paid_at=datetime.now(timezone.utc).date().isoformat(),
+        method="stripe", txn_ref=rec["session_id"]).model_dump()
+    await db.subscription_payments.insert_one(pay)
+
+
+async def _settle_txn(session_id: str) -> None:
+    """Atomically claim + settle a paid Stripe session (deposit OR subscription). Idempotent."""
     now = datetime.now(timezone.utc).isoformat()
-    await _raw_db.payment_transactions.update_one(
+    rec = await _raw_db.payment_transactions.find_one_and_update(
         {"session_id": session_id, "payment_status": {"$ne": "paid"}},
         {"$set": {"status": "completed", "payment_status": "paid", "updated_at": now}})
-    if rec.get("appointment_id"):
+    if not rec:
+        return
+    if rec.get("kind") == "subscription":
+        await _activate_subscription(rec)
+    elif rec.get("appointment_id"):
         await _raw_db.appointments.update_one(
             {"id": rec["appointment_id"]},
             {"$set": {"deposit_paid": True, "deposit_amount": rec["amount"],
@@ -106,7 +122,7 @@ async def deposit_status(session_id: str, request: Request):
         try:
             status = await _checkout(request).get_checkout_status(session_id)
             if status.payment_status == "paid":
-                await _mark_deposit_paid(session_id)
+                await _settle_txn(session_id)
                 rec = await _raw_db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
         except Exception:
             pass
@@ -121,5 +137,53 @@ async def stripe_webhook(request: Request):
     except Exception:
         raise HTTPException(400, "Invalid webhook")
     if wr.payment_status == "paid" and wr.session_id:
-        await _mark_deposit_paid(wr.session_id)
+        await _settle_txn(wr.session_id)
     return {"status": "ok"}
+
+
+# ---------------- Stripe subscription checkout (international USD plans) ----------------
+class SubCheckoutIn(BaseModel):
+    plan: str = Field(..., max_length=40)
+    origin_url: str = Field(..., max_length=200)
+
+
+@router.post("/billing/stripe/checkout")
+async def stripe_sub_checkout(body: SubCheckoutIn, request: Request,
+                              user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """One-click USD subscription payment via Stripe Checkout — international salons only."""
+    from routes.subscriptions import _fresh_plan_or_400
+    if not body.plan.startswith("intl_"):
+        raise HTTPException(400, "This checkout is for international (USD) plans only")
+    plan = await _fresh_plan_or_400(body.plan)
+    from emergentintegrations.payments.stripe.checkout import CheckoutSessionRequest
+    sc = _checkout(request)
+    session = await sc.create_checkout_session(CheckoutSessionRequest(
+        amount=float(plan["price"]), currency="usd",
+        success_url=f"{body.origin_url}/settings?stripe_session={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{body.origin_url}/settings",
+        metadata={"kind": "subscription", "tenant_id": t["id"], "plan": body.plan}))
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.payment_transactions.insert_one({
+        "session_id": session.session_id, "tenant_id": t["id"], "kind": "subscription",
+        "plan": body.plan, "amount": float(plan["price"]), "currency": "usd",
+        "status": "initiated", "payment_status": "pending",
+        "created_at": now, "updated_at": now})
+    return {"checkout_url": session.url, "session_id": session.session_id}
+
+
+@router.get("/billing/stripe/status/{session_id}")
+async def stripe_sub_status(session_id: str, request: Request,
+                            user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    rec = await _raw_db.payment_transactions.find_one(
+        {"session_id": session_id, "tenant_id": t["id"], "kind": "subscription"}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Transaction not found")
+    if rec.get("payment_status") != "paid":
+        try:
+            status = await _checkout(request).get_checkout_status(session_id)
+            if status.payment_status == "paid":
+                await _settle_txn(session_id)
+                rec = await _raw_db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+        except Exception:
+            pass
+    return {"session_id": session_id, "payment_status": rec["payment_status"], "plan": rec.get("plan")}
