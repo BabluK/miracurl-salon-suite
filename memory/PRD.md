@@ -752,3 +752,6 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Diagnosis: production release page shows build 2026-07-20.4 AND lists "Hunt all emails" in its own notes → code IS deployed; the user's browser tab was serving a stale cached app bundle (their funnel screenshot showed the old 04:41 Toronto log + no hunt button).
 - Preview re-verified via screenshot: Hunt-all button, Replied filter, funnel stats all present.
 - Bumped BUILD to 2026-07-20.5 (code-review fixes had no bump) so the user can verify by number after redeploy.
+
+## ⚠️ PERMANENT RULE (user instruction, 2026-07-20)
+- EVERY change/feature/bugfix MUST bump BUILD + BUILD_TIME and add a user-facing entry in /app/backend/release_notes.py BEFORE finishing the task. No exceptions — the user relies on the "What's New" popup and build number to verify each production deployment.
