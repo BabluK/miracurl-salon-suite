@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-20.1"
-BUILD_TIME = "20 Jul 2026, 02:15 AM IST"
+BUILD = "2026-07-20.2"
+BUILD_TIME = "20 Jul 2026, 02:45 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-20",
         "changes": [
+            "🔍 Hunt all emails — one click re-runs the deep email hunt (website → Instagram → web search) across every no-email lead, with a live progress log and auto-drafted pitches for each inbox found",
             "Indian tips, the Indian way 🇮🇳 — POS tip buttons for Indian salons are now flat ₹10/₹20/₹50/₹100/₹200/₹500 (US/UK salons keep 15–25%), and the custom amount box now shows what you type clearly",
             "Tips ledger & handover 💜 — Reports → Tips by Stylist now tracks Pending vs Paid with a one-tap 'Mark paid' button (hand cash over at day-end, weekly or monthly — your call), and every stylist sees their own Earned/Received/Pending tips in the Employee Portal, clearly separate from salary",
         ],

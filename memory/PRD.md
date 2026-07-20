@@ -719,3 +719,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - release_notes BUILD 2026-07-20.1. Needs Deploy.
 - TESTED (self, e2e curl): invoice tip 50 → report pending 50 → mark-paid {amount:50} → paid 50/pending 0; my-tips 401 unauth; POS screenshot verified flat presets + visible custom value 250 + tip summary. Test invoice + payout log cleaned.
 - PENDING USER DECISION: "Hunt all" bulk find-email button — suggested, not yet confirmed.
+
+## 2026-07-20 — "Hunt all emails" bulk button (user approved)
+- lead_gen.py: NEW POST /api/super-admin/mira-leads/hunt-all (409 if any run active — shares mira_lead_runs guard with search runs) → background _hunt_all_pipeline iterates up to 200 no-email leads (status no_email/drafted/researched, sorted by score), runs _deep_email_hunt each, logs 🎯/📋 per lead to the same run-log UI, drafts pitch + status→drafted on hits.
+- MiraLeadAgent.jsx: "🔍 Hunt all emails" button (testid lead-hunt-all-btn) next to Find salons; disabled while a run is active; triggers polling so log streams live.
+- release_notes BUILD 2026-07-20.2. Needs Deploy.
+- TESTED (self, e2e): live run over 5 leads found 2 emails (incl. REAL lead Geetanjali Salon → cybercitygeetanjali@gmail.com via web search); log format + UI verified via screenshot; seeded test leads cleaned (real find kept).

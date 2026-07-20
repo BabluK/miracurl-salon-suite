@@ -529,6 +529,56 @@ class RunIn(BaseModel):
     target: int = Field(10, ge=1, le=50)
 
 
+async def _hunt_all_pipeline(run_id: str, leads: list):
+    async def _log(msg, **sets):
+        await _raw_db.mira_lead_runs.update_one(
+            {"id": run_id}, {"$push": {"log": f"[{_now()[11:19]}] {msg}"}, "$set": sets or {}})
+    found = 0
+    try:
+        await _log(f"🔍 Email hunt started — re-checking {len(leads)} leads with no inbox (website → Instagram → web search)…", stage="hunting")
+        for i, lead in enumerate(leads, 1):
+            try:
+                email, source, all_emails = await _deep_email_hunt(lead)
+            except Exception as e:
+                await _log(f"⚠️ {lead.get('name', '?')}: hunt error ({str(e)[:60]})")
+                continue
+            if email:
+                lead.update({"email": email, "email_source": source, "all_emails": all_emails})
+                draft = await _draft_email(lead)
+                await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {
+                    "email": email, "email_source": source, "all_emails": all_emails,
+                    "email_subject": draft["subject"], "email_body": draft["body"], "status": "drafted"}})
+                found += 1
+                await _log(f"🎯 {lead.get('name', '?')}: found {email} via {source} — pitch drafted", found=found)
+            else:
+                await _log(f"📋 {lead.get('name', '?')}: still no email ({i}/{len(leads)})")
+        await _log(f"🎉 Hunt complete — {found} new inbox{'es' if found != 1 else ''} found out of {len(leads)} leads.",
+                   status="done", stage="done", researched=len(leads))
+    except Exception as e:
+        log.exception("email hunt run failed")
+        await _log(f"❌ Hunt failed: {str(e)[:120]}", status="failed", stage="failed")
+
+
+@router.post("/super-admin/mira-leads/hunt-all")
+async def hunt_all_emails(user=Depends(require_super_admin)):
+    """One click: run the second-pass email hunt across every lead that has no inbox yet."""
+    active = await _raw_db.mira_lead_runs.find_one({"status": "running"})
+    if active:
+        raise HTTPException(409, "A run is already in progress — wait for it to finish.")
+    leads = await _raw_db.mira_leads.find(
+        {"status": {"$in": ["no_email", "drafted", "researched"]},
+         "$or": [{"email": ""}, {"email": None}, {"email": {"$exists": False}}]},
+        {"_id": 0}).sort("score", -1).to_list(200)
+    if not leads:
+        return {"started": False, "count": 0}
+    run = {"id": str(uuid.uuid4()), "city": "Email hunt — all no-email leads", "target": len(leads),
+           "status": "running", "stage": "hunting", "found": 0, "researched": 0,
+           "log": [], "created_at": _now()}
+    await _raw_db.mira_lead_runs.insert_one({**run})
+    asyncio.create_task(_hunt_all_pipeline(run["id"], leads))
+    return {"started": True, "count": len(leads)}
+
+
 @router.post("/super-admin/mira-leads/run")
 async def start_run(body: RunIn, user=Depends(require_super_admin)):
     active = await _raw_db.mira_lead_runs.find_one({"status": "running"})
