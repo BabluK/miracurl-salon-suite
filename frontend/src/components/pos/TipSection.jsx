@@ -1,9 +1,14 @@
 import { Heart } from "lucide-react";
-import { TIP_PRESETS } from "@/lib/currency";
 
-export function TipSection({ sym, taxable, tipPct, setTipPct, customTip, setCustomTip,
+const PCT_PRESETS = [15, 18, 20, 25];
+const INR_PRESETS = [10, 20, 50, 100, 200, 500];
+
+export function TipSection({ sym, isInr, taxable, tipPct, setTipPct, customTip, setCustomTip,
                              tipAmount, tipStaffId, setTipStaffId, staff, grandTotal }) {
-  const pick = (pct) => { setTipPct(pct); setCustomTip(0); };
+  const pickPct = (pct) => { setTipPct(pct); setCustomTip(0); };
+  const pickFlat = (amt) => { setCustomTip(amt); setTipPct(null); };
+  const btnCls = (active) => `px-3.5 py-1.5 rounded-full text-xs font-semibold border transition ${active
+    ? "bg-rose-500 text-white border-rose-500" : "border-slate-200 text-slate-600 hover:border-rose-200"}`;
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4" data-testid="pos-tip-section">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -23,19 +28,23 @@ export function TipSection({ sym, taxable, tipPct, setTipPct, customTip, setCust
             ? "bg-slate-800 text-white border-slate-800" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
           No tip
         </button>
-        {TIP_PRESETS.map(p => (
-          <button key={p} type="button" data-testid={`pos-tip-${p}`} onClick={() => pick(p)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition ${tipPct === p
-              ? "bg-rose-500 text-white border-rose-500" : "border-slate-200 text-slate-600 hover:border-rose-200"}`}>
+        {isInr ? INR_PRESETS.map(a => (
+          <button key={a} type="button" data-testid={`pos-tip-flat-${a}`} onClick={() => pickFlat(a)}
+            className={btnCls(tipPct == null && customTip === a)}>
+            ₹{a}
+          </button>
+        )) : PCT_PRESETS.map(p => (
+          <button key={p} type="button" data-testid={`pos-tip-${p}`} onClick={() => pickPct(p)}
+            className={btnCls(tipPct === p)}>
             {p}%{taxable > 0 && <span className="ml-1 opacity-70">({sym}{(Math.round(taxable * p) / 100).toFixed(0)})</span>}
           </button>
         ))}
-        <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+        <span className="inline-flex items-center gap-1 text-xs text-slate-600">
           <span>{sym}</span>
           <input type="number" min="0" data-testid="pos-tip-custom"
             value={customTip || ""} placeholder="Custom"
             onChange={e => { setCustomTip(Math.max(0, Number(e.target.value || 0))); setTipPct(null); }}
-            className="w-20 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-right" />
+            className="w-20 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-right text-slate-800 font-semibold" />
         </span>
         {tipAmount > 0 && (
           <select data-testid="pos-tip-staff" value={tipStaffId} onChange={e => setTipStaffId(e.target.value)}
@@ -45,6 +54,9 @@ export function TipSection({ sym, taxable, tipPct, setTipPct, customTip, setCust
           </select>
         )}
       </div>
+      {isInr && tipAmount > 0 && (
+        <p className="mt-2 text-[11px] text-slate-400">Hand this tip to the stylist in cash, or mark it paid later from Reports → Tips by Stylist.</p>
+      )}
     </div>
   );
 }

@@ -710,3 +710,12 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MiraLeadAgent.jsx: 🔍 "Find email" button (testid lead-find-email-<id>) shows only when !lead.email in drafted/no_email/researched/rejected; on success updates draft fields + toast with source; on miss suggests WhatsApp/call.
 - release_notes BUILD 2026-07-19.10. Needs Deploy.
 - TESTED (self): unit (_related_emails stranger filter), e2e endpoint (gnu.org lead → found gnu@gnu.org, drafted), UI screenshot (button renders on no-email lead). Test leads cleaned.
+
+## 2026-07-20 — Tips v2: INR flat presets, visibility fix, payout ledger, staff view (user request)
+- TipSection.jsx rewritten: custom input now text-slate-800 font-semibold (was invisible); INR salons get flat presets ₹10/20/50/100/200/500 (testids pos-tip-flat-<amt>), USD keeps 15/18/20/25%; isInr prop from POS.jsx; cash-handover hint for INR.
+- reports.py: staff-tips report now splits pending vs paid (invoice.tip_paid_at); NEW POST /api/reports/staff-tips/{staff_id}/mark-paid — stamps tip_paid_at on all unpaid tip invoices for staff + audit record in tip_payouts collection {id, staff_id, amount, invoice_count, paid_at, paid_by}. Owner marks EOD/weekly/monthly at their choice.
+- Reports.jsx Tips card: Pending handover stat + Paid Out/Pending columns + "✓ Mark ₹X paid" button (testid tips-mark-paid-<id>) with confirm.
+- employee_portal.py: NEW GET /api/employee/my-tips (staff matched by phone via _current_staff_info, projection now includes id) → {total, paid, pending, recent[10]}. EmployeePortal.jsx MyTipsCard (testid emp-tips-card): Earned/Received/Pending + recent list, labeled "not part of salary". Hidden if unlinked or 0 tips.
+- release_notes BUILD 2026-07-20.1. Needs Deploy.
+- TESTED (self, e2e curl): invoice tip 50 → report pending 50 → mark-paid {amount:50} → paid 50/pending 0; my-tips 401 unauth; POS screenshot verified flat presets + visible custom value 250 + tip summary. Test invoice + payout log cleaned.
+- PENDING USER DECISION: "Hunt all" bulk find-email button — suggested, not yet confirmed.

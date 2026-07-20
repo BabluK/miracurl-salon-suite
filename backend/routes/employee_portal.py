@@ -228,11 +228,30 @@ async def _current_staff_info(emp: dict) -> dict:
     if not phone:
         return {}
     async for s in _raw_db.staff.find({"active": True},
-                                      {"_id": 0, "phone": 1, "week_off_day": 1,
+                                      {"_id": 0, "id": 1, "phone": 1, "week_off_day": 1,
                                        "shift_start": 1, "shift_end": 1, "name": 1}):
         if _norm_phone(s.get("phone") or "") == phone:
             return s
     return {}
+
+
+@router.get("/employee/my-tips")
+async def employee_my_tips(acct=Depends(current_employee)):
+    """The stylist's own tips ledger — earned, pending handover, and already paid out."""
+    emp = await _raw_db.registry_employees.find_one({"id": acct["employee_id"]}, {"_id": 0, "phone": 1})
+    staff = await _current_staff_info(emp or {})
+    if not staff.get("id"):
+        return {"linked": False, "total": 0, "pending": 0, "paid": 0, "recent": []}
+    invs = await _raw_db.invoices.find(
+        {"tip_staff_id": staff["id"], "tip": {"$gt": 0}},
+        {"_id": 0, "tip": 1, "tip_paid_at": 1, "created_at": 1, "invoice_no": 1},
+    ).sort("created_at", -1).to_list(500)
+    total = round(sum(float(i["tip"]) for i in invs), 2)
+    paid = round(sum(float(i["tip"]) for i in invs if i.get("tip_paid_at")), 2)
+    return {"linked": True, "total": total, "paid": paid, "pending": round(total - paid, 2),
+            "count": len(invs),
+            "recent": [{"date": i.get("created_at", "")[:10], "tip": i["tip"],
+                        "paid": bool(i.get("tip_paid_at"))} for i in invs[:10]]}
 
 
 class ProfileIn(BaseModel):

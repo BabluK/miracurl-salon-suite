@@ -190,6 +190,34 @@ function GreetingBadge({ me }) {
   );
 }
 
+function MyTipsCard() {
+  const [tips, setTips] = useState(null);
+  useEffect(() => { http.get("/employee/my-tips").then(r => setTips(r.data)).catch(() => {}); }, []);
+  if (!tips || !tips.linked || tips.count === 0) return null;
+  return (
+    <div className="rounded-2xl bg-white/[0.04] border border-white/10 p-5" data-testid="emp-tips-card">
+      <h3 className="text-white font-semibold text-sm flex items-center gap-2">💜 My Tips <span className="text-[10px] text-white/40 font-normal">(from guests — not part of salary)</span></h3>
+      <div className="grid grid-cols-3 gap-3 mt-4">
+        {[["Earned", tips.total, "text-amber-300"], ["Received", tips.paid, "text-emerald-400"], ["Pending", tips.pending, "text-rose-300"]].map(([l, v, c]) => (
+          <div key={l} className="rounded-xl bg-white/[0.04] border border-white/10 p-3 text-center">
+            <div className="text-[10px] uppercase tracking-wider text-white/40">{l}</div>
+            <div className={`text-lg font-bold mt-1 ${c}`} data-testid={`emp-tips-${l.toLowerCase()}`}>₹{Number(v).toLocaleString("en-IN")}</div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 space-y-1">
+        {tips.recent.slice(0, 5).map((t, i) => (
+          <div key={i} className="flex justify-between text-xs text-white/60">
+            <span>{t.date}</span>
+            <span>₹{t.tip} {t.paid ? <span className="text-emerald-400">✓ received</span> : <span className="text-rose-300">pending</span>}</span>
+          </div>
+        ))}
+      </div>
+      {tips.pending > 0 && <p className="mt-3 text-[11px] text-white/40">Pending tips are handed over by your salon owner at day-end / weekly / monthly.</p>}
+    </div>
+  );
+}
+
 function PrivacyConsentCard({ me, reload }) {
   const [busy, setBusy] = useState(false);
   const withdrawn = !!me.profile.consent_withdrawn;
@@ -255,6 +283,8 @@ function Dashboard({ me, reload, onLogout }) {
         </div>
         {editing && <div className="mt-6 pt-6 border-t border-white/10"><ProfileEditor me={me} onSaved={() => { setEditing(false); reload(); }} /></div>}
       </div>
+
+      <MyTipsCard />
 
       <PrivacyConsentCard me={me} reload={reload} />
 

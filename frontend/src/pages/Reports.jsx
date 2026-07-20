@@ -34,6 +34,15 @@ export default function Reports() {
     } catch (e) { toast.error(e.response?.data?.detail || "Admin PIN required"); }
   };
 
+  const markTipsPaid = async (r) => {
+    if (!window.confirm(`Mark ${r.staff_name}'s pending tips as handed over? (${r.pending_count} bill${r.pending_count === 1 ? "" : "s"})`)) return;
+    try {
+      const { data } = await api.post(`/reports/staff-tips/${r.staff_id}/mark-paid`);
+      toast.success(`${r.staff_name}'s tips marked paid — ${sym}${data.amount} ✓`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't mark tips paid"); }
+  };
+
   const eraseBilling = async (scope) => {
     const label = scope === "all" ? "ALL billing data" : "last month's billing data";
     if (!window.confirm(`Erase ${label}? This permanently deletes those invoices (revenue & commission reports reset). This cannot be undone.`)) return;
@@ -286,24 +295,34 @@ export default function Reports() {
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 bg-rose-50/40 border-b border-slate-100">
                   <Mini label="Total tips" value={inr(tips.total_tips)} accent="text-rose-600" />
+                  <Mini label="Pending handover" value={inr(tips.total_pending)} accent="text-amber-600" hint={tips.total_pending > 0 ? "mark paid when you hand cash over" : ""} />
                   <Mini label="Stylists tipped" value={tips.rows.length} />
-                  <Mini label="Tipped bills" value={tips.rows.reduce((s, r) => s + r.tip_count, 0) + tips.unassigned_count} />
                   <Mini label="Unassigned tips" value={inr(tips.unassigned_total)} hint={tips.unassigned_total > 0 ? "no stylist picked at POS" : ""} />
                 </div>
                 <div className="overflow-x-auto">
                   <table className="luxe-table-light">
                     <thead>
-                      <tr><th>Stylist</th><th className="text-right">Tipped Bills</th><th className="text-right">Avg Tip</th><th className="text-right">Total Tips</th></tr>
+                      <tr><th>Stylist</th><th className="text-right">Tipped Bills</th><th className="text-right">Total Tips</th><th className="text-right">Paid Out</th><th className="text-right">Pending</th><th></th></tr>
                     </thead>
                     <tbody>
                       {tips.rows.length === 0 ? (
-                        <tr><td colSpan="4" className="text-center py-8 text-slate-500">No tips in this range yet. Tip presets (15/18/20/25%) appear on the POS billing screen.</td></tr>
+                        <tr><td colSpan="6" className="text-center py-8 text-slate-500">No tips in this range yet. Tip presets appear on the POS billing screen — tips go 100% to your team, separate from salary.</td></tr>
                       ) : tips.rows.map(r => (
                         <tr key={r.staff_id} data-testid={`tips-row-${r.staff_id}`}>
                           <td className="text-slate-800 font-medium">{r.staff_name}</td>
                           <td className="text-right text-slate-700">{r.tip_count}</td>
-                          <td className="text-right text-slate-700">{inr(r.avg_tip)}</td>
                           <td className="text-right text-rose-600 font-semibold">{inr(r.tips_total)}</td>
+                          <td className="text-right text-emerald-600">{inr(r.paid_total)}</td>
+                          <td className="text-right text-amber-600 font-semibold">{inr(r.pending_total)}</td>
+                          <td className="text-right">
+                            {r.pending_total > 0 && (
+                              <button onClick={() => markTipsPaid(r)} data-testid={`tips-mark-paid-${r.staff_id}`}
+                                title="Hand the cash to this stylist (EOD / weekly / monthly — your call), then mark it paid here"
+                                className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">
+                                ✓ Mark {inr(r.pending_total)} paid
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

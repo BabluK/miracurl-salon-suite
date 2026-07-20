@@ -308,7 +308,8 @@ export default function POS() {
           />
 
           <TipSection
-            sym={sym} taxable={taxable} tipPct={tipPct} setTipPct={setTipPct}
+            sym={sym} isInr={(tenant?.currency || "INR") === "INR"}
+            taxable={taxable} tipPct={tipPct} setTipPct={setTipPct}
             customTip={customTip} setCustomTip={setCustomTip} tipAmount={tipAmount}
             tipStaffId={tipStaffId} setTipStaffId={setTipStaffId} staff={staff} grandTotal={grandTotal}
           />

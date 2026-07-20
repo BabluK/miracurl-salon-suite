@@ -1,11 +1,12 @@
 """Reports & dashboards: staff performance, sales, daily, commissions, review blast targets."""
 import asyncio
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from database import db
+from database import db, _raw_db
 from security import get_current_user, require_admin, require_tenant_admin, require_owner_pin, current_tenant
 
 router = APIRouter()
@@ -370,28 +371,59 @@ async def staff_commission_report(
 
 @router.get("/reports/staff-tips")
 async def staff_tips_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(require_admin)):
-    """Per-stylist tips collected at billing in [start, end]. Sorted desc by tips_total."""
+    """Per-stylist tips collected at billing in [start, end], split into pending vs paid-out."""
     flt = {"tip": {"$gt": 0}}
     if start and end:
         flt["created_at"] = {"$gte": start, "$lte": end + "T23:59:59Z"}
-    invs = await db.invoices.find(flt, {"_id": 0, "tip": 1, "tip_staff_id": 1, "tip_staff_name": 1}).to_list(5000)
+    invs = await db.invoices.find(
+        flt, {"_id": 0, "tip": 1, "tip_staff_id": 1, "tip_staff_name": 1, "tip_paid_at": 1}).to_list(5000)
     agg = {}
     unassigned = {"total": 0.0, "count": 0}
     for inv in invs:
         sid = inv.get("tip_staff_id")
+        tip = float(inv["tip"])
         if not sid:
-            unassigned["total"] += float(inv["tip"])
+            unassigned["total"] += tip
             unassigned["count"] += 1
             continue
-        row = agg.setdefault(sid, {"name": inv.get("tip_staff_name") or "(removed)", "total": 0.0, "count": 0})
-        row["total"] += float(inv["tip"])
+        row = agg.setdefault(sid, {"name": inv.get("tip_staff_name") or "(removed)",
+                                   "total": 0.0, "count": 0, "pending": 0.0, "pending_count": 0, "paid": 0.0})
+        row["total"] += tip
         row["count"] += 1
+        if inv.get("tip_paid_at"):
+            row["paid"] += tip
+        else:
+            row["pending"] += tip
+            row["pending_count"] += 1
     rows = [{"staff_id": sid, "staff_name": r["name"], "tips_total": round(r["total"], 2),
-             "tip_count": r["count"], "avg_tip": round(r["total"] / r["count"], 2)} for sid, r in agg.items()]
+             "tip_count": r["count"], "avg_tip": round(r["total"] / r["count"], 2),
+             "pending_total": round(r["pending"], 2), "pending_count": r["pending_count"],
+             "paid_total": round(r["paid"], 2)} for sid, r in agg.items()]
     rows.sort(key=lambda r: r["tips_total"], reverse=True)
     return {"from": start, "to": end, "rows": rows,
             "unassigned_total": round(unassigned["total"], 2), "unassigned_count": unassigned["count"],
-            "total_tips": round(sum(r["tips_total"] for r in rows) + unassigned["total"], 2)}
+            "total_tips": round(sum(r["tips_total"] for r in rows) + unassigned["total"], 2),
+            "total_pending": round(sum(r["pending_total"] for r in rows), 2)}
+
+
+@router.post("/reports/staff-tips/{staff_id}/mark-paid")
+async def mark_tips_paid(staff_id: str, user=Depends(require_admin)):
+    """Owner hands tips over (EOD / weekly / monthly — their choice) and marks all pending as paid."""
+    now = datetime.now(timezone.utc).isoformat()
+    pending = await db.invoices.find(
+        {"tip_staff_id": staff_id, "tip": {"$gt": 0}, "tip_paid_at": {"$exists": False}},
+        {"_id": 0, "id": 1, "tip": 1, "tip_staff_name": 1}).to_list(2000)
+    if not pending:
+        return {"ok": True, "amount": 0, "count": 0}
+    amount = round(sum(float(p["tip"]) for p in pending), 2)
+    await db.invoices.update_many(
+        {"tip_staff_id": staff_id, "tip": {"$gt": 0}, "tip_paid_at": {"$exists": False}},
+        {"$set": {"tip_paid_at": now}})
+    await _raw_db.tip_payouts.insert_one({
+        "id": str(uuid.uuid4()), "staff_id": staff_id,
+        "staff_name": pending[0].get("tip_staff_name"), "amount": amount,
+        "invoice_count": len(pending), "paid_at": now, "paid_by": user.get("email")})
+    return {"ok": True, "amount": amount, "count": len(pending)}
 
 
 @router.get("/reviews/blast-targets")
