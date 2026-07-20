@@ -25,7 +25,25 @@ log = logging.getLogger("mira_leads")
 
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"}
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
-_SKIP_EMAIL = ("example.", "sentry.", "wixpress", "@2x", ".png", ".jpg", "@sentry", "no-reply@", "noreply@")
+_SKIP_EMAIL = ("example.", "sentry.", "wixpress", "@2x", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg",
+               "@sentry", "no-reply@", "noreply@", "donotreply@", "mailer-daemon@", "postmaster@",
+               "user@", "test@", "demo@", "sample@", "name@", "your@", "youremail@", "email@",
+               "someone@", "john@", "jane@", "filler@", "placeholder@", "webmaster@")
+# Exact placeholder/service domains that page builders & widgets leave behind — never real salon inboxes.
+_SKIP_DOMAINS = {
+    "domain.com", "mystore.com", "example.com", "example.org", "example.net", "yourdomain.com",
+    "yoursite.com", "yourwebsite.com", "yourcompany.com", "email.com", "website.com", "company.com",
+    "test.com", "demo.com", "site.com", "mysite.com", "domain.co", "acme.com", "abc.com", "xyz.com",
+    "mail.com", "address.com", "change.me", "localhost.com", "squarespace.com", "wix.com", "godaddy.com",
+    "shopify.com", "wordpress.com", "yourshop.com", "business.com", "companyname.com", "sitename.com",
+}
+# When several emails are found, prefer real salon inbox prefixes in this order.
+_EMAIL_PREFIX_RANK = ("booking", "bookings", "appointment", "appointments", "reservations",
+                      "info", "hello", "hi", "contact", "enquiry", "enquiries", "inquiries",
+                      "salon", "care", "team", "office", "admin")
+# Obfuscated emails: "info [at] salon [dot] com" → info@salon.com
+_OBFUSCATED_AT = re.compile(r"\s*[\[\(\{]\s*at\s*[\]\)\}]\s*", re.I)
+_OBFUSCATED_DOT = re.compile(r"\s*[\[\(\{]\s*dot\s*[\]\)\}]\s*", re.I)
 FUNNEL_TARGETS = {"target_leads": 300, "qualified": 100, "emails_sent": 50, "demos": 10, "customers": 5}
 
 
@@ -145,14 +163,52 @@ async def _fetch_site(client: httpx.AsyncClient, website: str) -> str:
     return html
 
 
-def _extract_emails(html: str) -> list:
+def _site_domain(website: str) -> str:
+    host = re.sub(r"^https?://", "", (website or "").lower()).split("/")[0]
+    return host[4:] if host.startswith("www.") else host
+
+
+def _email_rank(email: str, site_domain: str) -> tuple:
+    """Sort key: same-domain first, then known salon-inbox prefixes, then shortest."""
+    local, _, domain = email.partition("@")
+    same_domain = 0 if (site_domain and domain.endswith(site_domain)) else 1
+    try:
+        prefix_rank = _EMAIL_PREFIX_RANK.index(next(p for p in _EMAIL_PREFIX_RANK if local.startswith(p)))
+    except StopIteration:
+        prefix_rank = len(_EMAIL_PREFIX_RANK)
+    return (same_domain, prefix_rank, len(email))
+
+
+def _extract_emails(html: str, site_domain: str = "") -> list:
+    text = _OBFUSCATED_DOT.sub(".", _OBFUSCATED_AT.sub("@", html or ""))
     found = []
-    for m in _EMAIL_RE.findall(html or ""):
-        low = m.lower()
-        if any(s in low for s in _SKIP_EMAIL) or low in found:
+    for m in _EMAIL_RE.findall(text):
+        low = m.lower().strip(".")
+        domain = low.rsplit("@", 1)[-1]
+        if any(s in low for s in _SKIP_EMAIL) or domain in _SKIP_DOMAINS or low in found:
             continue
         found.append(low)
+    found.sort(key=lambda e: _email_rank(e, site_domain))
     return found[:5]
+
+
+async def _domain_resolves(email: str) -> bool:
+    """Cheap dead-domain filter — a typo'd or parked domain can't receive mail."""
+    import socket
+    domain = email.rsplit("@", 1)[-1]
+    try:
+        await asyncio.wait_for(asyncio.to_thread(socket.getaddrinfo, domain, None), timeout=4)
+        return True
+    except Exception:
+        return False
+
+
+async def _pick_deliverable(emails: list) -> list:
+    """Reorder so the first email has a live domain; drop candidates whose domain is dead."""
+    alive, dead = [], []
+    for e in emails[:3]:
+        (alive if await _domain_resolves(e) else dead).append(e)
+    return alive + emails[3:] if alive else []
 
 
 def _score(lead: dict) -> tuple:
@@ -256,18 +312,38 @@ async def _draft_email(lead: dict) -> dict:
             "body": _PRICE_RE.sub("at the plans priced below", out.get("body") or "")}
 
 
-async def _emails_from_contact_pages(client: httpx.AsyncClient, website: str, soup) -> list:
+_CONTACT_PATHS = ("/contact", "/contact-us", "/contactus", "/contact.html", "/pages/contact",
+                  "/pages/contact-us", "/about", "/about-us", "/book", "/booking", "/appointments")
+
+
+async def _emails_from_contact_pages(client: httpx.AsyncClient, website: str, soup, site_domain: str) -> list:
+    """Dig deeper: follow contact/about/book links found on the homepage, then common paths."""
     base = website.rstrip("/") if website.startswith("http") else f"https://{website.rstrip('/')}"
+    tried = set()
+    # 1. Real links on the page beat guessed paths (works for any CMS/permalink style)
+    linked = []
     for a in soup.select("a[href]"):
         href = a.get("href", "")
-        if "contact" in href.lower() and not href.startswith("mailto:"):
-            url = href if href.startswith("http") else f"{base}/{href.lstrip('/')}"
-            emails = _extract_emails(await _fetch_page(client, url))
+        if href.startswith("mailto:"):
+            emails = _extract_emails(href[7:], site_domain)
             if emails:
                 return emails
-            break
-    for path in ("/contact", "/contact-us", "/contactus"):
-        emails = _extract_emails(await _fetch_page(client, base + path))
+            continue
+        if any(k in href.lower() for k in ("contact", "about", "book", "appointment")):
+            url = href if href.startswith("http") else f"{base}/{href.lstrip('/')}"
+            if url not in linked:
+                linked.append(url)
+    for url in linked[:3]:
+        tried.add(url.rstrip("/"))
+        emails = _extract_emails(await _fetch_page(client, url), site_domain)
+        if emails:
+            return emails
+    # 2. Common paths across Shopify/Wix/WordPress
+    for path in _CONTACT_PATHS:
+        url = base + path
+        if url.rstrip("/") in tried:
+            continue
+        emails = _extract_emails(await _fetch_page(client, url), site_domain)
         if emails:
             return emails
     return []
@@ -283,7 +359,9 @@ async def _scrape_site(client: httpx.AsyncClient, website_hint: str) -> dict:
     booking = any(k in low for k in ("book now", "book appointment", "book online", "bookslot",
                                      "calendly", "setmore", "fresha", "zylu", "dingg"))
     ig = soup.select_one('a[href*="instagram.com/"]')
-    emails = _extract_emails(site_html) or await _emails_from_contact_pages(client, website_hint, soup)
+    domain = _site_domain(website_hint)
+    emails = _extract_emails(site_html, domain) or await _emails_from_contact_pages(client, website_hint, soup, domain)
+    emails = await _pick_deliverable(emails)
     return {"website": website_hint, "emails": emails,
             "instagram": ig.get("href", "")[:120] if ig else "",
             "booking": booking, "text": soup.get_text(" ", strip=True)[:2500]}

@@ -697,3 +697,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - email_service.py renewal_reminder_email_intl_html: added dashed-border demo block under the Stripe pay CTA — "📅 Book a live demo" button → {APP_PUBLIC_URL}/demo (existing demo booking page → Super Admin Demo Calendar).
 - release_notes BUILD 2026-07-19.8. Needs Deploy.
 - TESTED (self): template render asserts both CTAs; e2e seeded USD tenant at 5 days → email sent (delivered@resend.dev); test data cleaned.
+
+## 2026-07-20 — Lead Gen email engine upgrade (user: "more leads with actual email id")
+- USER Q ANSWERED: score 0 does NOT block leads — score measures software-need fit (no website +20, poor site +20, no booking +30, multi-branch +30, 500+ reviews no site +20). Score 0 = digitally well-equipped salon (lower priority, still gets drafted email if inbox found).
+- ROOT CAUSE of junk emails: template placeholders (user@domain.com, hi@mystore.com) scraped as real.
+- lead_gen.py upgrades: _SKIP_EMAIL expanded + _SKIP_DOMAINS blocklist (30+ placeholder domains); obfuscation decode ([at]/[dot]); _extract_emails(html, site_domain) ranks same-domain + salon prefixes (booking/info/hello/contact...); _emails_from_contact_pages follows up to 3 real contact/about/book links + 11 common CMS paths + mailto: parsing; _pick_deliverable() drops emails on dead domains (getaddrinfo, 4s timeout).
+- release_notes BUILD 2026-07-19.9. Needs Deploy.
+- TESTED (self): 4-case python test — placeholder filtering, ranking, deobfuscation, junk/mailto, dead-domain drop. All pass. NOTE: user's logs were from PRODUCTION — needs redeploy to take effect.
