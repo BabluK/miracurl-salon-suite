@@ -97,6 +97,16 @@ function LeadRow({ lead, onRefresh }) {
     toast.success("Status updated ✦");
   }, "stage");
 
+  const findEmail = () => act(async () => {
+    const { data } = await api.post(`/super-admin/mira-leads/${lead.id}/find-email`);
+    if (data.found) {
+      setDraft(d => ({ ...d, email: data.email, email_subject: data.email_subject || d.email_subject, email_body: data.email_body || d.email_body }));
+      toast.success(`Found ${data.email} via ${data.email_source} 🎯 — email drafted`);
+    } else {
+      toast.info("No email found on website, Instagram or web search — try WhatsApp or a call instead.");
+    }
+  }, "find-email");
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden" data-testid={`lead-row-${lead.id}`}>
       <button onClick={() => setOpen(o => !o)} className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50" data-testid={`lead-toggle-${lead.id}`}>
@@ -182,6 +192,13 @@ function LeadRow({ lead, onRefresh }) {
               <button onClick={sendSlotPicker} disabled={!!busy} data-testid={`lead-slot-picker-${lead.id}`}
                 className="text-xs px-4 py-2 rounded-lg bg-amber-500 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
                 {busy === "slot-picker" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "📅"} Send time-picker
+              </button>
+            )}
+            {["drafted", "no_email", "researched", "rejected"].includes(lead.status) && !lead.email && (
+              <button onClick={findEmail} disabled={!!busy} data-testid={`lead-find-email-${lead.id}`}
+                title="Mira re-hunts: deep website crawl → Instagram bio → web search"
+                className="text-xs px-4 py-2 rounded-lg bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
+                {busy === "find-email" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "🔍"} Find email
               </button>
             )}
             {["drafted", "no_email", "researched", "rejected"].includes(lead.status) && (

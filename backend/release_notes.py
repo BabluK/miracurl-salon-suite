@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-19.9"
-BUILD_TIME = "20 Jul 2026, 01:00 AM IST"
+BUILD = "2026-07-19.10"
+BUILD_TIME = "20 Jul 2026, 01:30 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-19 (evening)",
         "changes": [
+            "🔍 Find email retry — leads with no inbox now have a 'Find email' button: Mira re-hunts with a deep website crawl, then the salon's Instagram bio, then a web search, and drafts the pitch the moment she scores a hit",
             "Lead Gen finds real inboxes 📧 — Mira now rejects fake template emails (user@domain.com etc.), decodes 'info [at] salon [dot] com' tricks, digs through contact/about/booking pages on any CMS, prefers the salon's own domain & booking/info inboxes, and drops emails on dead domains",
             "Demo before you decide 📅 — USD renewal & trial reminder emails now include a 'Book a live demo' button, so hesitant international owners can grab a 1-on-1 call instead of quietly churning",
             "Stripe payments at HQ 🏦 — Super Admin → Billing now shows every international Stripe transaction (subscriptions & booking deposits) with salon, plan, amount, status and whether it came from Settings or a renewal email",

@@ -704,3 +704,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - lead_gen.py upgrades: _SKIP_EMAIL expanded + _SKIP_DOMAINS blocklist (30+ placeholder domains); obfuscation decode ([at]/[dot]); _extract_emails(html, site_domain) ranks same-domain + salon prefixes (booking/info/hello/contact...); _emails_from_contact_pages follows up to 3 real contact/about/book links + 11 common CMS paths + mailto: parsing; _pick_deliverable() drops emails on dead domains (getaddrinfo, 4s timeout).
 - release_notes BUILD 2026-07-19.9. Needs Deploy.
 - TESTED (self): 4-case python test — placeholder filtering, ranking, deobfuscation, junk/mailto, dead-domain drop. All pass. NOTE: user's logs were from PRODUCTION — needs redeploy to take effect.
+
+## 2026-07-20 — "Find email" second-pass hunt button (user approved)
+- lead_gen.py: NEW POST /api/super-admin/mira-leads/{lid}/find-email — _deep_email_hunt(): (A) deep website re-crawl via upgraded engine, (B) Instagram bio scrape (handle from lead.instagram), (C) DuckDuckGo html search filtered by _related_emails (only same-domain or salon-name-token emails, blocks strangers from directories). On hit: updates email/email_source/all_emails, drafts pitch via _draft_email, status→drafted.
+- MiraLeadAgent.jsx: 🔍 "Find email" button (testid lead-find-email-<id>) shows only when !lead.email in drafted/no_email/researched/rejected; on success updates draft fields + toast with source; on miss suggests WhatsApp/call.
+- release_notes BUILD 2026-07-19.10. Needs Deploy.
+- TESTED (self): unit (_related_emails stranger filter), e2e endpoint (gnu.org lead → found gnu@gnu.org, drafted), UI screenshot (button renders on no-email lead). Test leads cleaned.

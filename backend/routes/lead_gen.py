@@ -555,6 +555,67 @@ async def list_leads(status: str = "", user=Depends(require_super_admin)):
     return await _raw_db.mira_leads.find(q, {"_id": 0}).sort("score", -1).to_list(300)
 
 
+def _name_tokens(name: str) -> list:
+    return [t for t in re.split(r"[^a-z0-9]+", (name or "").lower()) if len(t) > 3]
+
+
+def _related_emails(emails: list, lead: dict) -> list:
+    """Web-search results can contain strangers' emails — keep only ones plausibly this salon's."""
+    site = _site_domain(lead.get("website") or "")
+    tokens = _name_tokens(lead.get("name") or "")
+    out = []
+    for e in emails:
+        domain = e.rsplit("@", 1)[-1]
+        if site and domain.endswith(site):
+            out.append(e)
+        elif any(t in e for t in tokens):
+            out.append(e)
+    return out
+
+
+async def _deep_email_hunt(lead: dict) -> tuple:
+    """Second-pass hunt: website deep-crawl → Instagram bio → web search snippets."""
+    site_domain = _site_domain(lead.get("website") or "")
+    async with httpx.AsyncClient(timeout=15) as client:
+        if lead.get("website"):
+            site = await _scrape_site(client, lead["website"])
+            if site["emails"]:
+                return site["emails"][0], f"website: {lead['website']}", site["emails"]
+        ig = (lead.get("instagram") or "").strip()
+        if ig:
+            handle = ig.rstrip("/").split("/")[-1].lstrip("@").split("?")[0]
+            if handle:
+                html = await _fetch_page(client, f"https://www.instagram.com/{handle}/")
+                emails = await _pick_deliverable(_extract_emails(html, site_domain))
+                if emails:
+                    return emails[0], f"instagram: @{handle}", emails
+        from urllib.parse import quote_plus
+        q = quote_plus(f'"{lead.get("name", "")}" {lead.get("city", "")} email contact')
+        html = await _fetch_page(client, f"https://html.duckduckgo.com/html/?q={q}")
+        emails = _related_emails(_extract_emails(html, site_domain), lead)
+        emails = await _pick_deliverable(emails)
+        if emails:
+            return emails[0], "web search", emails
+    return "", "", []
+
+
+@router.post("/super-admin/mira-leads/{lid}/find-email")
+async def find_email_retry(lid: str, user=Depends(require_super_admin)):
+    """Manual second-pass email hunt for a lead where the first crawl found nothing."""
+    lead = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+    email, source, all_emails = await _deep_email_hunt(lead)
+    if not email:
+        return {"found": False}
+    lead.update({"email": email, "email_source": source, "all_emails": all_emails})
+    draft = await _draft_email(lead)
+    updates = {"email": email, "email_source": source, "all_emails": all_emails,
+               "email_subject": draft["subject"], "email_body": draft["body"], "status": "drafted"}
+    await _raw_db.mira_leads.update_one({"id": lid}, {"$set": updates})
+    return {"found": True, **updates}
+
+
 @router.get("/super-admin/mira-leads/stats")
 async def lead_stats(user=Depends(require_super_admin)):
     total = await _raw_db.mira_leads.count_documents({})
