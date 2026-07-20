@@ -10,6 +10,54 @@ const STATUS_STYLE = {
   researched: "bg-slate-100 text-slate-600", replied: "bg-orange-100 text-orange-700",
 };
 
+function RoiPanel({ roi }) {
+  if (!roi || !roi.funnel) return null;
+  const f = roi.funnel;
+  const money = [];
+  if (roi.won_annual_usd > 0) money.push(`$${roi.won_annual_usd.toLocaleString("en-US")}`);
+  if (roi.won_annual_inr > 0) money.push(`₹${roi.won_annual_inr.toLocaleString("en-IN")}`);
+  const steps = [
+    ["Contacted", f.contacted, "text-sky-600"],
+    ["Replied", f.replied, "text-orange-600"],
+    ["Demo booked", f.demos, "text-violet-600"],
+    ["Converted", f.converted, "text-emerald-600"],
+  ];
+  return (
+    <div className="bg-gradient-to-br from-slate-900 to-fuchsia-950 rounded-2xl p-5 text-white" data-testid="lead-roi-panel">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h3 className="font-playfair text-xl flex items-center gap-2">📈 Lead Agent ROI</h3>
+        <div className="text-right">
+          <div className="text-[10px] uppercase tracking-wider text-white/50">Annual revenue won</div>
+          <div className="text-2xl font-bold text-emerald-300" data-testid="roi-revenue">{money.length ? money.join(" + ") : "—"}</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-2 mt-4">
+        {steps.map(([label, val, color], i) => (
+          <div key={label} className="relative bg-white/[0.06] border border-white/10 rounded-xl p-3 text-center" data-testid={`roi-step-${label.split(" ")[0].toLowerCase()}`}>
+            <div className={`text-2xl font-bold ${color.replace("600", "300")}`}>{val}</div>
+            <div className="text-[10px] uppercase tracking-wider text-white/50 mt-1">{label}</div>
+            {i < steps.length - 1 && <span className="hidden sm:block absolute -right-1.5 top-1/2 -translate-y-1/2 text-white/30 text-lg">→</span>}
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 text-xs text-white/60">
+        Conversion rate: <b className="text-white">{roi.conversion_rate}%</b> of contacted leads signed up
+        {roi.converted_leads.length > 0 && <span> · {roi.converted_leads.filter(l => l.still_active).length} still active</span>}
+      </div>
+      {roi.converted_leads.length > 0 && (
+        <div className="mt-3 space-y-1 max-h-40 overflow-y-auto">
+          {roi.converted_leads.map((l, i) => (
+            <div key={i} className="flex items-center justify-between text-xs bg-white/[0.04] rounded-lg px-3 py-1.5" data-testid={`roi-won-${i}`}>
+              <span className="text-white/80">🎉 {l.name} <span className="text-white/40">· {l.city}</span></span>
+              <span className="text-emerald-300 font-semibold">{l.currency === "USD" ? "$" : "₹"}{l.plan_value.toLocaleString(l.currency === "USD" ? "en-US" : "en-IN")}/yr{!l.still_active && <span className="text-rose-300 ml-1" title="cancelled/expired">⚠</span>}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FunnelCards({ stats }) {
   if (!stats) return null;
   const items = [
@@ -287,15 +335,17 @@ export function MiraLeadAgent() {
   const [runs, setRuns] = useState([]);
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
+  const [roi, setRoi] = useState(null);
   const [starting, setStarting] = useState(false);
   const [filter, setFilter] = useState("all");
   const pollRef = useRef(null);
 
   const refresh = useCallback(async () => {
-    const [r, l, s] = await Promise.all([
-      api.get("/super-admin/mira-leads/runs"), api.get("/super-admin/mira-leads"), api.get("/super-admin/mira-leads/stats"),
+    const [r, l, s, roiRes] = await Promise.all([
+      api.get("/super-admin/mira-leads/runs"), api.get("/super-admin/mira-leads"),
+      api.get("/super-admin/mira-leads/stats"), api.get("/super-admin/mira-leads/roi").catch(() => ({ data: null })),
     ]);
-    setRuns(r.data); setLeads(l.data); setStats(s.data);
+    setRuns(r.data); setLeads(l.data); setStats(s.data); setRoi(roiRes.data);
     return r.data;
   }, []);
 
@@ -346,6 +396,8 @@ export function MiraLeadAgent() {
       </div>
 
       <FunnelCards stats={stats} />
+
+      <RoiPanel roi={roi} />
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-3">
         <div>

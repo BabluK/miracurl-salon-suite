@@ -763,3 +763,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - release_notes BUILD 2026-07-20.6. Needs Deploy.
 - TESTED (self): _convert_lead_to_customer direct test — both email + all_emails match → customer + slug stored; imports/ruff clean. (Full signup e2e hit the 4/900s rate limit; logic verified directly.)
 - SECURITY AUDIT SUMMARY (2026-07-20): CONDITIONAL PASS. No Critical/High data-theft path; auth, tenant isolation, payments sound. Fixed SEC-001 (SSRF rebinding) + SEC-002 (webhook secret). REMAINING P3 backlog: register/signup account enumeration (auth.py:68,285 "email exists"), mira_builder public download IDOR by UUID (mira_builder.py:497), login throttle per-account (not just ip:email). Unaudited modules: hq_documents, staff_portal, hiring, super_admin_ops, promo_video, social_connect.
+
+## 2026-07-20 — 📈 Lead Agent ROI dashboard (user approved)
+- lead_gen.py: NEW GET /api/super-admin/mira-leads/roi — funnel {contacted (sent/demo/customer/replied), replied, demos, converted}, conversion_rate, per-converted-salon $ value (looks up converted tenant currency → intl_pro_annual USD else annual INR from PLAN_CATALOG), won_annual_usd/inr totals, still_active flag.
+- MiraLeadAgent.jsx: NEW RoiPanel (testid lead-roi-panel, roi-revenue, roi-step-*, roi-won-*) — gradient card below FunnelCards; refresh() now also fetches /roi.
+- release_notes BUILD 2026-07-20.7. Needs Deploy.
+- TESTED: curl /roi (33.3% conv, ₹20K won, 1 converted) + screenshot verified full panel renders.

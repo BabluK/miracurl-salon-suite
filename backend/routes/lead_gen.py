@@ -696,6 +696,48 @@ async def find_email_retry(lid: str, user=Depends(require_super_admin)):
     return {"found": True, **updates}
 
 
+@router.get("/super-admin/mira-leads/roi")
+async def lead_roi(user=Depends(require_super_admin)):
+    """Outreach funnel + revenue: contacted → replied → demo → converted, with $ per converted salon."""
+    contacted = await _raw_db.mira_leads.count_documents({"status": {"$in": ["sent", "demo", "customer", "replied"]}})
+    replied = await _raw_db.mira_leads.count_documents(
+        {"$or": [{"status": "replied"}, {"replied_at": {"$exists": True}}]})
+    demos = await _raw_db.mira_leads.count_documents(
+        {"$or": [{"status": {"$in": ["demo", "customer"]}}, {"demo_slot": {"$exists": True}}]})
+    converted = await _raw_db.mira_leads.find(
+        {"status": "customer"}, {"_id": 0, "name": 1, "city": 1, "converted_at": 1,
+                                 "converted_tenant_id": 1, "converted_tenant_slug": 1}).to_list(500)
+    from routes.subscriptions import PLAN_CATALOG
+    intl_annual = float(PLAN_CATALOG.get("intl_pro_annual", {}).get("price") or 0)
+    inr_annual = float(PLAN_CATALOG.get("annual", {}).get("price") or 0)
+    rows = []
+    won_usd = won_inr = 0.0
+    for c in converted:
+        ten = await _raw_db.tenants.find_one(
+            {"id": c.get("converted_tenant_id")},
+            {"_id": 0, "currency": 1, "plan": 1, "status": 1}) if c.get("converted_tenant_id") else None
+        is_usd = bool(ten and (ten.get("currency") or "INR") != "INR")
+        value = intl_annual if is_usd else inr_annual
+        cur = "USD" if is_usd else "INR"
+        if is_usd:
+            won_usd += value
+        else:
+            won_inr += value
+        rows.append({"name": c.get("name"), "city": c.get("city"),
+                     "converted_at": (c.get("converted_at") or "")[:10],
+                     "slug": c.get("converted_tenant_slug"),
+                     "plan_value": value, "currency": cur,
+                     "still_active": bool(ten and ten.get("status") in ("active", "trial"))})
+    rows.sort(key=lambda r: r["converted_at"], reverse=True)
+    conv_rate = round(len(converted) / contacted * 100, 1) if contacted else 0.0
+    return {
+        "funnel": {"contacted": contacted, "replied": replied, "demos": demos, "converted": len(converted)},
+        "conversion_rate": conv_rate,
+        "won_annual_usd": round(won_usd, 2), "won_annual_inr": round(won_inr, 2),
+        "converted_leads": rows,
+    }
+
+
 @router.get("/super-admin/mira-leads/stats")
 async def lead_stats(user=Depends(require_super_admin)):
     total = await _raw_db.mira_leads.count_documents({})
