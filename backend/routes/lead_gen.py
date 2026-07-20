@@ -757,7 +757,8 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
     if tour:
         attachments.append(tour)
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
-                               html, attachments=attachments, book_url="https://miracurl-suite.com/demo")
+                               html, attachments=attachments, book_url="https://miracurl-suite.com/demo",
+                               reply_to=_lead_reply_to())
     if not result.get("sent"):
         raise HTTPException(502, f"Send failed: {result.get('error')}")
     await _raw_db.mira_leads.update_one(
@@ -856,13 +857,53 @@ async def whatsapp_mark_sent(lid: str, user=Depends(require_super_admin)):
 
 
 class StageIn(BaseModel):
-    stage: str = Field(..., pattern=r"^(sent|demo|customer)$")
+    stage: str = Field(..., pattern=r"^(sent|demo|customer|replied)$")
 
 
 @router.post("/super-admin/mira-leads/{lid}/stage")
 async def set_stage(lid: str, body: StageIn, user=Depends(require_super_admin)):
+    if body.stage == "replied":
+        await _raw_db.mira_leads.update_one(
+            {"id": lid, "replied_at": {"$exists": False}}, {"$set": {"replied_at": _now()}})
     await _raw_db.mira_leads.update_one({"id": lid}, {"$set": {"status": body.stage}})
     return {"ok": True}
+
+
+def _lead_reply_to() -> str | None:
+    """Replies land on the Resend inbound domain so the webhook can flag 🔥 Replied."""
+    return os.environ.get("LEAD_REPLY_INBOX") or None
+
+
+@router.post("/webhooks/resend-inbound")
+async def resend_inbound_webhook(request: Request):
+    """Resend Inbound (email.received) → match sender to a lead and flag it Replied."""
+    secret = os.environ.get("RESEND_INBOUND_SECRET")
+    if not secret:
+        raise HTTPException(503, "Inbound webhook not configured (set RESEND_INBOUND_SECRET)")
+    if request.query_params.get("secret") != secret and request.headers.get("x-inbound-secret") != secret:
+        raise HTTPException(403, "Bad webhook secret")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+    data = payload.get("data") or payload
+    m = _EMAIL_RE.search(str(data.get("from") or ""))
+    sender = m.group(0).lower() if m else ""
+    if not sender:
+        return {"ok": True, "matched": False}
+    lead = await _raw_db.mira_leads.find_one(
+        {"$or": [{"email": sender}, {"all_emails": sender}]},
+        {"_id": 0, "id": 1, "name": 1, "status": 1})
+    if not lead:
+        return {"ok": True, "matched": False}
+    await _raw_db.mira_leads.update_one(
+        {"id": lead["id"], "replied_at": {"$exists": False}}, {"$set": {"replied_at": _now()}})
+    sets = {"reply_subject": str(data.get("subject") or "")[:200]}
+    if lead.get("status") not in ("demo", "customer"):
+        sets["status"] = "replied"
+    await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": sets})
+    log.info("lead reply detected: %s (%s)", lead["name"], sender)
+    return {"ok": True, "matched": True}
 
 
 @router.delete("/super-admin/mira-leads/{lid}")
@@ -907,7 +948,8 @@ async def run_lead_followups() -> dict:
         try:
             result = await _send_email([lead["email"]], subject, html,
                                        attachments=[tour] if tour else None,
-                                       book_url="https://miracurl-suite.com/demo")
+                                       book_url="https://miracurl-suite.com/demo",
+                                       reply_to=_lead_reply_to())
             if result.get("sent"):
                 await _raw_db.mira_leads.update_one(
                     {"id": lead["id"]}, {"$set": {"follow_up_sent_at": _now()}})
@@ -954,7 +996,8 @@ async def lead_remind(lid: str, user=Depends(require_super_admin)):
     tour = screens_tour_attachment()
     result = await _send_email([lead["email"]], subject, html,
                                attachments=[tour] if tour else None,
-                               book_url="https://miracurl-suite.com/demo")
+                               book_url="https://miracurl-suite.com/demo",
+                               reply_to=_lead_reply_to())
     if not result.get("sent"):
         raise HTTPException(502, f"Send failed: {result.get('error')}")
     await _raw_db.mira_leads.update_one({"id": lid}, {

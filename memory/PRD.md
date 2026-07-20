@@ -725,3 +725,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MiraLeadAgent.jsx: "🔍 Hunt all emails" button (testid lead-hunt-all-btn) next to Find salons; disabled while a run is active; triggers polling so log streams live.
 - release_notes BUILD 2026-07-20.2. Needs Deploy.
 - TESTED (self, e2e): live run over 5 leads found 2 emails (incl. REAL lead Geetanjali Salon → cybercitygeetanjali@gmail.com via web search); log format + UI verified via screenshot; seeded test leads cleaned (real find kept).
+
+## 2026-07-20 — 🔥 Reply tracker for lead outreach (user approved)
+- lead_gen.py: NEW POST /api/webhooks/resend-inbound (secret via ?secret= or x-inbound-secret header vs env RESEND_INBOUND_SECRET; 503 if unset, 403 bad secret) — parses Resend email.received payload ({data:{from,subject}}), matches sender against mira_leads.email/all_emails, sets replied_at (first-time only) + reply_subject + status→replied (unless demo/customer). StageIn now allows "replied" (manual flag via status dropdown, also stamps replied_at). All 4 outreach sends now pass reply_to=env LEAD_REPLY_INBOX (optional).
+- MiraLeadAgent.jsx: 💬 Replied badge (hover shows time + reply subject), 🔥 Replied funnel filter, status dropdown + orange styles include Replied; isSent + "Already sent" filter include replied.
+- ENV: RESEND_INBOUND_SECRET added to preview backend/.env (generated). USER SETUP NEEDED FOR PRODUCTION: (1) add RESEND_INBOUND_SECRET to deploy env vars, (2) Resend dashboard → Domains: add inbound domain (MX mx.resend.com) e.g. in.miracurl-suite.com, (3) set LEAD_REPLY_INBOX=leads@in.miracurl-suite.com in deploy env, (4) Resend → Webhooks: email.received → https://miracurl-suite.com/api/webhooks/resend-inbound?secret=<secret>. Until then manual "🔥 Replied" dropdown works.
+- release_notes BUILD 2026-07-20.3. Needs Deploy.
+- TESTED (self, e2e curl): bad secret 403; simulated email.received → real lead flagged replied+reply_subject; unknown sender matched:false; lead reset after test.

@@ -7,7 +7,7 @@ const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
   sent: "bg-sky-100 text-sky-700", demo: "bg-violet-100 text-violet-700",
   customer: "bg-emerald-100 text-emerald-700", rejected: "bg-rose-100 text-rose-600",
-  researched: "bg-slate-100 text-slate-600",
+  researched: "bg-slate-100 text-slate-600", replied: "bg-orange-100 text-orange-700",
 };
 
 function FunnelCards({ stats }) {
@@ -123,6 +123,7 @@ function LeadRow({ lead, onRefresh }) {
           </p>
         </div>
         <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${STATUS_STYLE[lead.status] || "bg-slate-100 text-slate-500"}`}>{lead.status}</span>
+        {lead.replied_at && <span data-testid={`lead-replied-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200" title={`Replied ${(lead.replied_at || "").slice(0, 16).replace("T", " ")}${lead.reply_subject ? ` — "${lead.reply_subject}"` : ""}`}>💬 Replied</span>}
         {lead.opened_at && <span data-testid={`lead-opened-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-sky-100 text-sky-600 font-semibold" title={`Opened ${(lead.opened_at || "").slice(0, 16).replace("T", " ")} — can also be their email scanner`}>👀 Opened</span>}
         {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
       </button>
@@ -161,8 +162,9 @@ function LeadRow({ lead, onRefresh }) {
             {isSent && (
               <select value={lead.status} onChange={e => setStage(e.target.value)} disabled={!!busy} data-testid={`lead-status-select-${lead.id}`}
                 className={`text-xs px-2 py-2 rounded-lg border font-semibold cursor-pointer ${
-                  { sent: "bg-amber-50 text-amber-700 border-amber-200", demo: "bg-violet-50 text-violet-700 border-violet-200", customer: "bg-emerald-50 text-emerald-700 border-emerald-200" }[lead.status]}`}>
+                  { sent: "bg-amber-50 text-amber-700 border-amber-200", demo: "bg-violet-50 text-violet-700 border-violet-200", customer: "bg-emerald-50 text-emerald-700 border-emerald-200", replied: "bg-orange-50 text-orange-700 border-orange-200" }[lead.status]}`}>
                 <option value="sent">🟡 Contacted</option>
+                <option value="replied">🔥 Replied</option>
                 <option value="demo">🟣 Meeting scheduled</option>
                 <option value="customer">🟢 Customer 🎉</option>
               </select>
@@ -327,8 +329,9 @@ export function MiraLeadAgent() {
     { key: "hot", label: "🔥 Hot leads", test: l => isHot(l) },
     { key: "ready", label: "✉️ Ready to send", test: l => ["drafted", "researched"].includes(l.status) && !!l.email },
     { key: "opened", label: "👀 Opened", test: l => !!l.opened_at },
+    { key: "replied", label: "🔥 Replied", test: l => !!l.replied_at || l.status === "replied" },
     { key: "no_email", label: "🚫 No email", test: l => l.status === "no_email" || !l.email },
-    { key: "sent", label: "✅ Already sent", test: l => ["sent", "demo", "customer"].includes(l.status) },
+    { key: "sent", label: "✅ Already sent", test: l => ["sent", "demo", "customer", "replied"].includes(l.status) },
   ];
   const counts = Object.fromEntries(FILTERS.map(f => [f.key, leads.filter(f.test).length]));
   const shownLeads = leads.filter(FILTERS.find(f => f.key === filter)?.test || (() => true));
