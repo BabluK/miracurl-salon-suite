@@ -755,3 +755,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 
 ## ⚠️ PERMANENT RULE (user instruction, 2026-07-20)
 - EVERY change/feature/bugfix MUST bump BUILD + BUILD_TIME and add a user-facing entry in /app/backend/release_notes.py BEFORE finishing the task. No exceptions — the user relies on the "What's New" popup and build number to verify each production deployment.
+
+## 2026-07-20 — 🎉 Auto-mark Customer on trial signup (lead-agent ROI) + security hardening
+- auth.py: NEW _convert_lead_to_customer(email, tenant) called in public_signup_salon — matches mira_leads by email OR all_emails (uses _raw_db, mira_leads is a global/super-admin collection NOT tenant-scoped), sets status=customer + converted_at + converted_tenant_id/slug. Funnel stats already count status=customer.
+- MiraLeadAgent.jsx: 🎉 Converted green badge (testid lead-converted-badge-<id>) with hover showing signup slug+date.
+- SECURITY (from audit): lead_gen.py _fetch_page now re-checks connected peer IP via _peer_is_public() (SEC-001 DNS-rebinding, fail-open only if peer unknowable since DNS pre-check already ran); resend-inbound webhook now header-only secret + hmac.compare_digest (SEC-002, dropped query-param path).
+- release_notes BUILD 2026-07-20.6. Needs Deploy.
+- TESTED (self): _convert_lead_to_customer direct test — both email + all_emails match → customer + slug stored; imports/ruff clean. (Full signup e2e hit the 4/900s rate limit; logic verified directly.)
+- SECURITY AUDIT SUMMARY (2026-07-20): CONDITIONAL PASS. No Critical/High data-theft path; auth, tenant isolation, payments sound. Fixed SEC-001 (SSRF rebinding) + SEC-002 (webhook secret). REMAINING P3 backlog: register/signup account enumeration (auth.py:68,285 "email exists"), mira_builder public download IDOR by UUID (mira_builder.py:497), login throttle per-account (not just ip:email). Unaudited modules: hq_documents, staff_portal, hiring, super_admin_ops, promo_video, social_connect.

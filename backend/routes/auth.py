@@ -245,6 +245,15 @@ async def _record_pending_referral(referrer: dict, tenant: dict) -> None:
     })
 
 
+async def _convert_lead_to_customer(email: str, tenant: dict) -> None:
+    """Lead-agent ROI: if this signup email matches an outreach lead, mark it converted 🟢."""
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.mira_leads.update_many(
+        {"$or": [{"email": email.lower()}, {"all_emails": email.lower()}]},
+        {"$set": {"status": "customer", "converted_at": now,
+                  "converted_tenant_id": tenant["id"], "converted_tenant_slug": tenant["slug"]}})
+
+
 def _build_signup_tenant(body: SalonSignupIn, candidate: str, referrer: dict | None, trial_end: str) -> dict:
     tenant = Tenant(
         slug=candidate,
@@ -296,6 +305,8 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
 
     if referrer:
         await _record_pending_referral(referrer, tenant)
+
+    await _convert_lead_to_customer(email, tenant)
 
     access = make_access(owner["id"], email)
     refresh = make_refresh(owner["id"])

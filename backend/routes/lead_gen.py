@@ -142,6 +142,20 @@ def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
+def _peer_is_public(resp) -> bool:
+    """Re-validate the ACTUAL connected peer IP (defeats DNS-rebinding TOCTOU). Fail closed."""
+    import ipaddress
+    try:
+        peer = ipaddress.ip_address(resp.stream._stream._httpcore_stream._stream.get_extra_info("peername")[0])
+    except Exception:
+        try:
+            peer = ipaddress.ip_address(resp.extensions["network_stream"].get_extra_info("server_addr")[0])
+        except Exception:
+            return True  # peer unknowable on this transport; hop was already pre-validated by DNS check
+    return not (peer.is_private or peer.is_loopback or peer.is_link_local
+                or peer.is_reserved or peer.is_multicast or peer.is_unspecified)
+
+
 async def _fetch_page(client: httpx.AsyncClient, url: str) -> str:
     from routes.registry import is_safe_public_url
     try:
@@ -149,6 +163,8 @@ async def _fetch_page(client: httpx.AsyncClient, url: str) -> str:
             if not is_safe_public_url(url):
                 return ""
             r = await client.get(url, headers=_UA, timeout=12, follow_redirects=False)
+            if not _peer_is_public(r):  # SEC-001: defeat DNS-rebinding — re-check connected IP
+                return ""
             if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
                 url = str(httpx.URL(url).join(r.headers["location"]))
                 continue
@@ -894,7 +910,9 @@ async def resend_inbound_webhook(request: Request):
     secret = os.environ.get("RESEND_INBOUND_SECRET")
     if not secret:
         raise HTTPException(503, "Inbound webhook not configured (set RESEND_INBOUND_SECRET)")
-    if request.query_params.get("secret") != secret and request.headers.get("x-inbound-secret") != secret:
+    import hmac
+    provided = request.headers.get("x-inbound-secret", "")
+    if not hmac.compare_digest(provided, secret):
         raise HTTPException(403, "Bad webhook secret")
     try:
         payload = await request.json()

@@ -2,14 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-20.5"
-BUILD_TIME = "20 Jul 2026, 07:15 AM IST"
+BUILD = "2026-07-20.6"
+BUILD_TIME = "20 Jul 2026, 08:00 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-20",
         "changes": [
-            "Under-the-hood quality pass 🧹 — code-review fixes applied across the backend (safer test credentials, simplified complex functions) with full regression testing",
+            "🎉 Lead-to-customer tracking — when a lead you contacted signs up for a trial with the same email, Mira auto-marks them '🟢 Customer' with a green Converted badge, so you can see the lead agent's true ROI (contacted → replied → demo → signed up)",
+            "🔒 Extra security hardening — lead-finder now re-checks the real server address it connects to (blocks internal-network probing), and the reply webhook uses tamper-proof secret comparison",
             "📅 Demo Calendar auto-link — when a lead (including 🔥 Replied ones) books a demo on your /demo page or via Mira's chat, they auto-move to '🟣 Meeting scheduled' and the booked slot shows right on their lead card",
             "🔥 Reply tracker — when a lead replies to your outreach, Mira flags them '💬 Replied' automatically (via Resend inbound webhook) with a new Replied filter in the funnel; you can also mark replies manually from the status dropdown",
             "🔍 Hunt all emails — one click re-runs the deep email hunt (website → Instagram → web search) across every no-email lead, with a live progress log and auto-drafted pitches for each inbox found",
