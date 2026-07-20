@@ -797,3 +797,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MiraLeadAgent.jsx FunnelCards rewritten: removed "TARGET 300 / DONE" badges + progress bars; now plain live counters with lucide icons (Target/BadgeCheck/Mail/CalendarCheck/Trophy) in colored rounded tiles + Sparkles icon with CSS keyframe animations (funnelGlow scale pulse 3s + funnelSparkle twinkle 2.2s, staggered delays). "Target Leads" label → "Leads Found". Testids funnel-<key>, funnel-count-<key>.
 - release_notes BUILD 2026-07-20.11. Needs Deploy.
 - TESTED: screenshot verified — counters + icons render, no TARGET text.
+
+## 2026-07-20 — 📄 Relieving letters + late-arrivals bug fix (user request)
+- BUG FIX (staff_portal.py late-alerts query): added former:{$ne:True}, active:{$ne:False}, disabled:{$ne:True} — exited staff (Bablu) no longer appear in "Today's late arrivals" owner email.
+- services/pdf.py: NEW _render_relieving_letter_pdf + RELIEVING_TEMPLATES (excellent/standard/terminated/absconded) — A4 letterhead with tenant logo (best-effort fetch), name, duration from→to, type-specific wording, reason line, EXCELLENT/TERMINATED verdict stamp.
+- staff_admin.py: NEW POST /api/staff/previous/{sid}/relieving-letter {letter_type, reason, email_to?} (tenant admin) — emails PDF (base64 attachment via Resend) to staff personal email, stamps staff.relieving_letter, and for terminated/absconded calls _downgrade_registry_rating (matches registry_employees by phone last-10, sets registry_employments rating 1.5/1.0 + reason_for_leaving Terminated/Absconded + comment) → public verification portal rating drops. /staff/previous projection now includes relieving_letter.
+- PreviousStaffCard.jsx: 📄 Relieving letter button per ex-staff (✓ once issued), inline form (4 type pills, reason input for terminated/absconded, Generate & Email PDF). Testids: previous-staff-letter-<id>, relieving-letter-form, letter-type-*, letter-reason-input, letter-send-btn.
+- release_notes BUILD 2026-07-20.12. Needs Deploy.
+- TESTED (self, e2e): PDF renders (%PDF, both types); endpoint emailed=true to delivered@resend.dev; registry rating 4.5→1.5 with Terminated comment; UI screenshot verified full form. Test data cleaned.

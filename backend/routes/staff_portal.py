@@ -1006,7 +1006,8 @@ async def _run_late_alerts() -> dict:
         {"_id": 0, "id": 1, "name": 1, "owner_email": 1, "salon_email": 1, "logo_url": 1}).to_list(500)
     for t in tenants:
         staff_list = await _raw_db.staff.find(
-            {"tenant_id": t["id"], "status": {"$nin": ["inactive", "archived"]}},
+            {"tenant_id": t["id"], "status": {"$nin": ["inactive", "archived"]},
+             "former": {"$ne": True}, "active": {"$ne": False}, "disabled": {"$ne": True}},
             {"_id": 0, "id": 1, "name": 1, "email": 1, "personal_email": 1, "shift_start": 1, "image_url": 1}).to_list(300)
         for s in staff_list:
             h, m = _parse_hhmm(s.get("shift_start"), "10:00")

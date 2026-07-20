@@ -104,9 +104,68 @@ async def previous_staff_list(user=Depends(require_tenant_admin)):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=183)).date().isoformat()
     rows = await db.staff.find(
         {"former": True, "former_hidden": {"$ne": True}, "left_on": {"$gte": cutoff}},
-        {"_id": 0, "id": 1, "name": 1, "role": 1, "phone": 1, "email": 1, "left_on": 1, "rehired_as": 1},
+        {"_id": 0, "id": 1, "name": 1, "role": 1, "phone": 1, "email": 1, "left_on": 1, "rehired_as": 1, "relieving_letter": 1},
     ).sort("left_on", -1).to_list(200)
     return {"items": rows}
+
+
+class RelievingIn(BaseModel):
+    letter_type: str = Field(..., pattern="^(excellent|standard|terminated|absconded)$")
+    reason: str = Field("", max_length=200)
+    email_to: Optional[EmailStr] = None
+
+
+async def _downgrade_registry_rating(s: dict, letter_type: str, reason: str):
+    """Terminated/absconded staff lose rating on the public verification portal."""
+    phone = re.sub(r"\D", "", s.get("phone") or "")
+    if len(phone) < 10:
+        return
+    emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{phone[-10:]}$"}}, {"_id": 0, "id": 1})
+    if not emp:
+        return
+    new_rating = 1.0 if letter_type == "absconded" else 1.5
+    label = "Absconded" if letter_type == "absconded" else "Terminated"
+    await _raw_db.registry_employments.update_many(
+        {"employee_id": emp["id"], "tenant_id": s["tenant_id"]},
+        {"$set": {"rating": new_rating, "reason_for_leaving": label,
+                  "comment": (f"{label} by employer" + (f" — {reason}" if reason else ""))[:1000]}})
+
+
+@router.post("/staff/previous/{sid}/relieving-letter")
+async def send_relieving_letter(sid: str, body: RelievingIn,
+                                user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner issues a relieving/termination letter PDF (salon letterhead) to a departed
+    staff member's personal email. Terminated/absconded also lowers their public registry rating."""
+    from services.pdf import _render_relieving_letter_pdf, RELIEVING_TEMPLATES
+    s = await db.staff.find_one({"id": sid, "former": True}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Previous staff entry not found")
+    from_date = (s.get("joined_date") or s.get("created_at") or "")[:10]
+    to_date = s.get("left_on") or s.get("last_working_day") or datetime.now(timezone.utc).date().isoformat()
+    pdf = _render_relieving_letter_pdf(t, s, body.letter_type, from_date, to_date, body.reason)
+    title = RELIEVING_TEMPLATES[body.letter_type][0]
+    to = body.email_to or s.get("personal_email") or s.get("email")
+    emailed = False
+    if to:
+        res = await _send_email(
+            [to], f"{title} — {t.get('name')}",
+            f"<div style='font-family:Arial,sans-serif;font-size:14px;color:#333'>"
+            f"<p>Dear {html_lib.escape(s.get('name') or '')},</p>"
+            f"<p>Please find attached your <b>{title}</b> from <b>{html_lib.escape(t.get('name') or '')}</b> "
+            f"covering your employment from {from_date or 'N/A'} to {to_date}.</p>"
+            f"<p style='color:#888;font-size:12px'>This is a system-generated document issued by the management.</p></div>",
+            attachments=[{"filename": f"{body.letter_type}-letter-{(s.get('name') or 'staff').replace(' ', '-')}.pdf",
+                          "content": base64.b64encode(pdf).decode()}])
+        emailed = bool(res.get("sent"))
+        if to and not emailed:
+            raise HTTPException(502, f"Email failed: {res.get('error')}")
+    await db.staff.update_one({"id": sid}, {"$set": {"relieving_letter": {
+        "type": body.letter_type, "reason": body.reason, "sent_to": to, "emailed": emailed,
+        "sent_at": datetime.now(timezone.utc).isoformat(), "by": user.get("email")}}})
+    if body.letter_type in ("terminated", "absconded"):
+        await _downgrade_registry_rating(s, body.letter_type, body.reason)
+    return {"ok": True, "emailed": emailed, "sent_to": to,
+            "rating_downgraded": body.letter_type in ("terminated", "absconded")}
 
 
 @router.delete("/staff/previous/{sid}")

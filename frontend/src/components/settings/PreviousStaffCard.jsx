@@ -6,6 +6,23 @@ import { UserMinus, RotateCcw, Trash2, Loader2 } from "lucide-react";
 export const PreviousStaffCard = () => {
   const [items, setItems] = useState([]);
   const [busyId, setBusyId] = useState("");
+  const [letterFor, setLetterFor] = useState(null);
+  const [letterType, setLetterType] = useState("excellent");
+  const [letterReason, setLetterReason] = useState("");
+
+  const sendLetter = async () => {
+    const s = letterFor;
+    setBusyId(s.id);
+    try {
+      const { data } = await api.post(`/staff/previous/${s.id}/relieving-letter`,
+        { letter_type: letterType, reason: letterReason });
+      toast.success(data.emailed
+        ? `Letter emailed to ${data.sent_to} ✦${data.rating_downgraded ? " Public rating lowered." : ""}`
+        : `Letter recorded${data.rating_downgraded ? " — public rating lowered" : ""} (no email on file)`);
+      setLetterFor(null); setLetterReason(""); load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send the letter"); }
+    finally { setBusyId(""); }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -72,6 +89,11 @@ export const PreviousStaffCard = () => {
               <p className="text-[11px] text-slate-400">📱 {s.phone || "—"} · Left on {s.left_on || "—"}</p>
             </div>
             <div className="flex items-center gap-2">
+              <button onClick={() => { setLetterFor(s); setLetterType("excellent"); }} disabled={busyId === s.id}
+                data-testid={`previous-staff-letter-${s.id}`}
+                className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-amber-300 text-amber-700 text-[11px] font-bold hover:bg-amber-50 disabled:opacity-50">
+                📄 Relieving letter{s.relieving_letter ? " ✓" : ""}
+              </button>
               <button onClick={() => rehire(s)} disabled={busyId === s.id} data-testid={`previous-staff-rehire-${s.id}`}
                 className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-500 disabled:opacity-50">
                 {busyId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Rehire
@@ -84,6 +106,33 @@ export const PreviousStaffCard = () => {
           </div>
         ))}
       </div>
+      {letterFor && (
+        <div className="mt-4 border border-amber-200 bg-amber-50/50 rounded-xl p-4" data-testid="relieving-letter-form">
+          <p className="text-sm font-semibold text-slate-800">📄 Relieving letter for {letterFor.name}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">A PDF on your salon letterhead will be emailed to their personal email. Terminated/absconded also lowers their rating on the public verification portal.</p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            {[["excellent", "🌟 Excellent — served notice"], ["standard", "✅ Standard — resigned"],
+              ["terminated", "🚫 Terminated — misconduct/theft"], ["absconded", "⚠️ Absconded — left without notice"]].map(([k, l]) => (
+              <button key={k} type="button" data-testid={`letter-type-${k}`} onClick={() => setLetterType(k)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-semibold border ${letterType === k
+                  ? (k === "terminated" || k === "absconded" ? "bg-rose-600 text-white border-rose-600" : "bg-emerald-600 text-white border-emerald-600")
+                  : "border-slate-200 text-slate-600 bg-white hover:border-slate-300"}`}>{l}</button>
+            ))}
+          </div>
+          {(letterType === "terminated" || letterType === "absconded") && (
+            <input value={letterReason} onChange={e => setLetterReason(e.target.value)} maxLength={200}
+              data-testid="letter-reason-input" placeholder="Reason on record (e.g. repeated misconduct, theft of salon property)"
+              className="mt-3 w-full px-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-800 bg-white" />
+          )}
+          <div className="flex gap-2 mt-3">
+            <button onClick={sendLetter} disabled={busyId === letterFor.id} data-testid="letter-send-btn"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-700 disabled:opacity-50">
+              {busyId === letterFor.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "✉️"} Generate & Email PDF
+            </button>
+            <button onClick={() => setLetterFor(null)} className="px-4 py-2 rounded-lg border border-slate-200 text-xs text-slate-500">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

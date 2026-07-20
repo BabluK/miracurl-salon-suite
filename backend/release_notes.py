@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-20.11"
-BUILD_TIME = "20 Jul 2026, 12:00 PM IST"
+BUILD = "2026-07-20.12"
+BUILD_TIME = "20 Jul 2026, 01:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-20",
         "changes": [
+            "📄 Relieving letters — from Settings → Previous Staff, owners can now issue a PDF letter on the salon letterhead (with logo & employment duration) straight to the staff member's email. Choose the type: 🌟 Excellent (served notice), ✅ Standard (resigned), 🚫 Terminated (misconduct/theft) or ⚠️ Absconded — terminated/absconded automatically lowers their rating on the public staff verification portal",
+            "🩹 Fixed: staff who already left no longer appear in the 'Today's late arrivals' owner email",
             "✨ Cleaner funnel cards — the lead funnel now shows simple live counters (Leads Found, Qualified, Emails Sent, Demos, Customers) with animated sparkling icons instead of the old 'Target 300 / Done' badges",
             "🩹 No more stuck searches — if a lead search gets interrupted (e.g. by a deployment), it now auto-recovers instead of showing 'Mira is working…' forever; runs also auto-stop after 30 minutes, and there's a new ⏹ Stop button to end a run manually (leads found so far stay saved)",
             "🎯 Mira targets ALL salons again — every salon is now captured (no more skipping ones without a website). Scoring is balanced: salons already on Fresha/Vagaro/Mindbody score highest as 🔥 migration leads, while growth-stage salons (no website/booking yet) also score well as prospects who need software",
