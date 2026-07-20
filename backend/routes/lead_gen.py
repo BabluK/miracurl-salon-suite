@@ -633,6 +633,7 @@ async def _hunt_all_pipeline(run_id: str, leads: list):
 @router.post("/super-admin/mira-leads/hunt-all")
 async def hunt_all_emails(user=Depends(require_super_admin)):
     """One click: run the second-pass email hunt across every lead that has no inbox yet."""
+    await fail_stale_runs()
     active = await _raw_db.mira_lead_runs.find_one({"status": "running"})
     if active:
         raise HTTPException(409, "A run is already in progress — wait for it to finish.")
@@ -650,8 +651,33 @@ async def hunt_all_emails(user=Depends(require_super_admin)):
     return {"started": True, "count": len(leads)}
 
 
+STALE_RUN_MINUTES = 30
+
+
+async def fail_stale_runs(reason: str = "it ran too long or was interrupted by a server restart") -> int:
+    """Self-healing: a deploy/restart kills in-flight run tasks but their DB records stay
+    'running' forever, locking the UI. Fail anything running past the stale cutoff."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=STALE_RUN_MINUTES)).isoformat()
+    r = await _raw_db.mira_lead_runs.update_many(
+        {"status": "running", "created_at": {"$lt": cutoff}},
+        {"$set": {"status": "failed", "stage": "failed"},
+         "$push": {"log": f"[{_now()[11:19]}] ⏹️ Run stopped — {reason}. You can start a new search."}})
+    return r.modified_count
+
+
+async def fail_all_running_runs() -> int:
+    """Called at server startup: no background task survives a restart, so every
+    'running' record is definitively dead — fail them all immediately."""
+    r = await _raw_db.mira_lead_runs.update_many(
+        {"status": "running"},
+        {"$set": {"status": "failed", "stage": "failed"},
+         "$push": {"log": f"[{_now()[11:19]}] ⏹️ Run interrupted by a server restart/deployment. Start a new search anytime."}})
+    return r.modified_count
+
+
 @router.post("/super-admin/mira-leads/run")
 async def start_run(body: RunIn, user=Depends(require_super_admin)):
+    await fail_stale_runs()
     active = await _raw_db.mira_lead_runs.find_one({"status": "running"})
     if active:
         raise HTTPException(409, "A lead run is already in progress — wait for it to finish.")
@@ -665,8 +691,19 @@ async def start_run(body: RunIn, user=Depends(require_super_admin)):
     return run
 
 
+@router.post("/super-admin/mira-leads/runs/stop")
+async def stop_run(user=Depends(require_super_admin)):
+    """Manual kill switch: mark the active run as stopped so the UI unlocks immediately."""
+    r = await _raw_db.mira_lead_runs.update_many(
+        {"status": "running"},
+        {"$set": {"status": "failed", "stage": "failed"},
+         "$push": {"log": f"[{_now()[11:19]}] ⏹️ Run stopped manually. Leads found so far are saved."}})
+    return {"stopped": r.modified_count}
+
+
 @router.get("/super-admin/mira-leads/runs")
 async def list_runs(user=Depends(require_super_admin)):
+    await fail_stale_runs()
     return await _raw_db.mira_lead_runs.find({}, {"_id": 0}).sort("created_at", -1).to_list(10)
 
 

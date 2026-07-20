@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-20.9"
-BUILD_TIME = "20 Jul 2026, 10:30 AM IST"
+BUILD = "2026-07-20.11"
+BUILD_TIME = "20 Jul 2026, 12:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-20",
         "changes": [
+            "✨ Cleaner funnel cards — the lead funnel now shows simple live counters (Leads Found, Qualified, Emails Sent, Demos, Customers) with animated sparkling icons instead of the old 'Target 300 / Done' badges",
+            "🩹 No more stuck searches — if a lead search gets interrupted (e.g. by a deployment), it now auto-recovers instead of showing 'Mira is working…' forever; runs also auto-stop after 30 minutes, and there's a new ⏹ Stop button to end a run manually (leads found so far stay saved)",
             "🎯 Mira targets ALL salons again — every salon is now captured (no more skipping ones without a website). Scoring is balanced: salons already on Fresha/Vagaro/Mindbody score highest as 🔥 migration leads, while growth-stage salons (no website/booking yet) also score well as prospects who need software",
             "📈 Lead Agent ROI dashboard — Super Admin → Lead Generation now shows the full outreach funnel (contacted → replied → demo → converted), your conversion rate, and the annual revenue won per converted salon, so you see exactly what the lead agent earns you",
             "🎉 Lead-to-customer tracking — when a lead you contacted signs up for a trial with the same email, Mira auto-marks them '🟢 Customer' with a green Converted badge, so you can see the lead agent's true ROI (contacted → replied → demo → signed up)",

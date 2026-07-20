@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Trash2, MessageCircle, Video, Phone, BellRing, FileText } from "lucide-react";
+import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Trash2, MessageCircle, Video, Phone, BellRing, FileText, Target, BadgeCheck, Mail, CalendarCheck, Trophy, Sparkles } from "lucide-react";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -58,31 +58,51 @@ function RoiPanel({ roi }) {
   );
 }
 
+const FUNNEL_ICONS = {
+  target_leads: { Icon: Target, bg: "bg-fuchsia-100", fg: "text-fuchsia-600" },
+  qualified: { Icon: BadgeCheck, bg: "bg-sky-100", fg: "text-sky-600" },
+  emails_sent: { Icon: Mail, bg: "bg-amber-100", fg: "text-amber-600" },
+  demos: { Icon: CalendarCheck, bg: "bg-violet-100", fg: "text-violet-600" },
+  customers: { Icon: Trophy, bg: "bg-emerald-100", fg: "text-emerald-600" },
+};
+
 function FunnelCards({ stats }) {
   if (!stats) return null;
   const items = [
-    { key: "target_leads", label: "Target Leads" }, { key: "qualified", label: "Qualified" },
+    { key: "target_leads", label: "Leads Found" }, { key: "qualified", label: "Qualified" },
     { key: "emails_sent", label: "Emails Sent" }, { key: "demos", label: "Demos" },
     { key: "customers", label: "Customers" },
   ];
   return (
     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3" data-testid="lead-funnel-cards">
-      {items.map(it => {
+      <style>{`
+        @keyframes funnelSparkle {
+          0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+          50% { opacity: 1; transform: scale(1.1) rotate(25deg); }
+        }
+        @keyframes funnelGlow {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.08); }
+        }
+        .funnel-icon-wrap { animation: funnelGlow 3s ease-in-out infinite; }
+        .funnel-sparkle { animation: funnelSparkle 2.2s ease-in-out infinite; }
+      `}</style>
+      {items.map((it, i) => {
         const actual = stats.actual[it.key] ?? 0;
-        const target = stats.targets[it.key] || 1;
-        const reached = actual >= target;
+        const { Icon, bg, fg } = FUNNEL_ICONS[it.key];
         return (
           <div key={it.key} className="bg-white rounded-2xl border border-slate-200 p-4" data-testid={`funnel-${it.key}`}>
-            <p className="text-[11px] uppercase tracking-wide text-slate-400">{it.label}</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">
-              {actual}
-              {reached
-                ? <span className="ml-2 align-middle text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5" data-testid={`funnel-reached-${it.key}`}>✓ TARGET {target} DONE</span>
-                : <span className="text-sm font-medium text-slate-400"> / {target}</span>}
-            </p>
-            <div className="h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
-              <div className={`h-full rounded-full ${reached ? "bg-gradient-to-r from-emerald-400 to-emerald-500" : "bg-gradient-to-r from-fuchsia-500 to-pink-500"}`}
-                style={{ width: `${Math.min(100, (actual / target) * 100)}%` }} />
+            <div className="flex items-center gap-3">
+              <div className={`relative funnel-icon-wrap w-11 h-11 rounded-xl ${bg} ${fg} flex items-center justify-center shrink-0`}
+                style={{ animationDelay: `${i * 0.35}s` }}>
+                <Icon className="w-5 h-5" />
+                <Sparkles className={`funnel-sparkle absolute -top-1.5 -right-1.5 w-3.5 h-3.5 ${fg}`}
+                  style={{ animationDelay: `${i * 0.45}s` }} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wide text-slate-400 truncate">{it.label}</p>
+                <p className="text-2xl font-bold text-slate-900 leading-tight" data-testid={`funnel-count-${it.key}`}>{actual}</p>
+              </div>
             </div>
           </div>
         );
@@ -415,6 +435,21 @@ export function MiraLeadAgent() {
           {starting || activeRun ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
           {activeRun ? "Mira is working…" : "Find salons ✦"}
         </button>
+        {activeRun && (
+          <button data-testid="lead-stop-run-btn"
+            onClick={async () => {
+              if (!window.confirm("Stop the current run? Leads found so far are kept.")) return;
+              try {
+                await api.post("/super-admin/mira-leads/runs/stop");
+                toast.success("Run stopped — you can start a new search");
+                refresh().catch(() => {});
+              } catch (e) { toast.error(e.response?.data?.detail || "Couldn't stop the run"); }
+            }}
+            className="px-4 py-2.5 rounded-xl border border-rose-300 text-rose-600 text-sm font-semibold hover:bg-rose-50"
+            title="Stop the stuck/running search — leads found so far stay saved">
+            ⏹ Stop
+          </button>
+        )}
         <button data-testid="lead-hunt-all-btn"
           disabled={starting || !!activeRun}
           onClick={async () => {

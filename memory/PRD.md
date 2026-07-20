@@ -785,3 +785,15 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - _score() now balanced/dual-sided: has website +25 / no website "needs one" +15; online booking +20 / none "opportunity" +15; competitor +25 🔥; IG5k +10; 100+ reviews +10; multi-location +10. Migration leads still top (~90-100), growth-stage salons score 30-40 (all contactable). Nothing rejected.
 - release_notes BUILD 2026-07-20.9. Needs Deploy.
 - TESTED (self): _score — migration 90, growth-500rev 40, basic 30, website-only 40; ruff clean.
+
+## 2026-07-20 — 🩹 Stuck "Mira is working…" run fix (user: search stuck 2 hrs on production)
+- ROOT CAUSE: asyncio.create_task run pipelines die on server restart/deploy but mira_lead_runs record stays status=running forever → UI locked ("Mira is working…", Hunt-all disabled, new runs 409).
+- FIXES (lead_gen.py): fail_stale_runs() (>30 min = STALE_RUN_MINUTES, called lazily in GET /runs + start_run + hunt_all); fail_all_running_runs() called from NEW server.py startup db-prep step "stuck-runs" (no task survives restart → fail all running at boot); NEW POST /api/super-admin/mira-leads/runs/stop manual kill switch.
+- MiraLeadAgent.jsx: ⏹ Stop button (testid lead-stop-run-btn) shown while a run is active, confirm dialog, leads found so far kept.
+- release_notes BUILD 2026-07-20.10. Needs Deploy — user's stuck production run will self-heal on redeploy (startup step) or via the 30-min stale rule when the page polls.
+- TESTED (self, e2e): 2h-old stuck run auto-failed on GET /runs; manual stop endpoint stopped fresh run; restart failed boot-time running run. All cleaned.
+
+## 2026-07-20 — ✨ Funnel cards redesign (user request: remove targets, add icons + sparkle motion)
+- MiraLeadAgent.jsx FunnelCards rewritten: removed "TARGET 300 / DONE" badges + progress bars; now plain live counters with lucide icons (Target/BadgeCheck/Mail/CalendarCheck/Trophy) in colored rounded tiles + Sparkles icon with CSS keyframe animations (funnelGlow scale pulse 3s + funnelSparkle twinkle 2.2s, staggered delays). "Target Leads" label → "Leads Found". Testids funnel-<key>, funnel-count-<key>.
+- release_notes BUILD 2026-07-20.11. Needs Deploy.
+- TESTED: screenshot verified — counters + icons render, no TARGET text.

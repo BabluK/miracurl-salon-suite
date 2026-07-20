@@ -192,11 +192,18 @@ async def on_startup():
         await seed_data()
         _current_tenant_id.set(None)
 
+    async def _recover_stuck_runs():
+        from routes.lead_gen import fail_all_running_runs
+        n = await fail_all_running_runs()
+        if n:
+            logging.info("recovered %s lead run(s) stuck from before restart", n)
+
     async def _db_prep():
         # Runs in the BACKGROUND so the pod passes its readiness probe immediately.
         # Any single failure (e.g. index option conflicts / duplicate keys on the
         # production Atlas data) is logged and skipped instead of crash-looping the pod.
-        for name, step in (("indexes", _ensure_indexes), ("migrations", _run_migrations), ("seeds", _run_seeds)):
+        for name, step in (("indexes", _ensure_indexes), ("migrations", _run_migrations),
+                           ("seeds", _run_seeds), ("stuck-runs", _recover_stuck_runs)):
             try:
                 await step()
                 logging.info("startup db-prep step '%s' done", name)
