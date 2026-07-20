@@ -236,16 +236,23 @@ async def _pick_deliverable(emails: list) -> list:
 
 
 def _score(lead: dict) -> tuple:
-    """Migration-lead scoring: reward salons already invested in software — they convert best.
-    A salon on Fresha/Vagaro paying $$/mo is a HIGH-value migration target for a cheaper suite."""
+    """Balanced scoring across ALL salons. Migration leads (already on Fresha/Vagaro etc.) score
+    highest since they convert best, but growth-stage salons (no website/booking) also score well
+    as prospects who need software. Every salon is a valid target."""
     breakdown = []
     score = 0
     if lead.get("website"):
         score += 25
         breakdown.append("Has website +25")
+    else:
+        score += 15
+        breakdown.append("No website — needs one +15")
     if lead.get("has_online_booking"):
         score += 20
         breakdown.append("Online booking +20")
+    else:
+        score += 15
+        breakdown.append("No online booking — opportunity +15")
     if lead.get("competitor"):
         score += 25
         breakdown.append(f"🔥 Uses {lead['competitor']} (migration lead) +25")
@@ -532,11 +539,6 @@ async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str
         lead["category"] = place.get("category") or ""
         lead["source"] = "google_maps"
         lead["score"], lead["score_breakdown"] = _score(lead)
-    if not lead.get("website"):
-        # User's flow: no website → skip (these salons rarely pay for software; poor conversion)
-        lead["status"] = "rejected"
-        lead["reject_reason"] = "no website"
-        return lead
     if lead["email"]:
         draft = await _draft_email(lead)
         lead.update({"email_subject": draft["subject"], "email_body": draft["body"], "status": "drafted"})
@@ -561,11 +563,8 @@ async def _research_candidates(client: httpx.AsyncClient, cands: list, city: str
             lead = await _build_candidate_lead(client, cand, city, run_id)
             await _raw_db.mira_leads.insert_one(lead)
             done += 1
-            if lead.get("status") == "rejected":
-                await _log(f"⏭️ {lead['name']}: skipped — no website (not a software buyer)", researched=done)
-            else:
-                tag = f" · 🔥 {lead['competitor']}" if lead.get("competitor") else ""
-                await _log(f"📋 {lead['name']}: score {lead['score']}{tag} | email: {lead['email'] or 'not found'}", researched=done)
+            tag = f" · 🔥 {lead['competitor']}" if lead.get("competitor") else ""
+            await _log(f"📋 {lead['name']}: score {lead['score']}{tag} | email: {lead['email'] or 'not found'}", researched=done)
         except Exception as e:  # noqa: BLE001 — one bad candidate must not stop the run
             await _log(f"⚠️ {cand.get('name')} skipped: {str(e)[:80]}")
         await asyncio.sleep(1.5)

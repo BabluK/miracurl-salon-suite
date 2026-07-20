@@ -779,3 +779,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MiraLeadAgent.jsx: 🔥 competitor badge on card (lead-competitor-badge-<id>), "📅 Booking: X" + IG follower count in expanded row.
 - release_notes BUILD 2026-07-20.8. Needs Deploy.
 - TESTED (self): _score (hot migration lead=100 w/ full breakdown, website-only=25, no-website=10); _detect_competitor (fresha domain, vagaro/booksy bare words, clean=empty); ruff clean; panel screenshot renders.
+
+## 2026-07-20 — Correction: Mira targets ALL salons (user clarified)
+- Removed the no-website auto-reject in _build_candidate_lead (revert to drafted/no_email). Run log no longer shows ⏭️ skips.
+- _score() now balanced/dual-sided: has website +25 / no website "needs one" +15; online booking +20 / none "opportunity" +15; competitor +25 🔥; IG5k +10; 100+ reviews +10; multi-location +10. Migration leads still top (~90-100), growth-stage salons score 30-40 (all contactable). Nothing rejected.
+- release_notes BUILD 2026-07-20.9. Needs Deploy.
+- TESTED (self): _score — migration 90, growth-500rev 40, basic 30, website-only 40; ruff clean.
