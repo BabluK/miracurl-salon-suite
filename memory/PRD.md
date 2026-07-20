@@ -732,3 +732,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - ENV: RESEND_INBOUND_SECRET added to preview backend/.env (generated). USER SETUP NEEDED FOR PRODUCTION: (1) add RESEND_INBOUND_SECRET to deploy env vars, (2) Resend dashboard → Domains: add inbound domain (MX mx.resend.com) e.g. in.miracurl-suite.com, (3) set LEAD_REPLY_INBOX=leads@in.miracurl-suite.com in deploy env, (4) Resend → Webhooks: email.received → https://miracurl-suite.com/api/webhooks/resend-inbound?secret=<secret>. Until then manual "🔥 Replied" dropdown works.
 - release_notes BUILD 2026-07-20.3. Needs Deploy.
 - TESTED (self, e2e curl): bad secret 403; simulated email.received → real lead flagged replied+reply_subject; unknown sender matched:false; lead reset after test.
+
+## 2026-07-20 — Demo Calendar auto-link to lead cards (user approved)
+- hq_documents.py _book_open_demo: now stores demo_slot + demo_requested_at on ALL matching mira_leads (by email) and auto-moves status→demo including from new "replied" status (works for /demo form AND Mira demo chat since both share _book_open_demo).
+- MiraLeadAgent.jsx: 📅 slot badge on lead card (testid lead-demo-slot-badge-<id>) showing date · time IST, hover shows lead's local time.
+- release_notes BUILD 2026-07-20.4. Needs Deploy.
+- TESTED (self, e2e): seeded replied lead → POST /api/public/demo/book same email → status demo + demo_slot {date,time,local_time EDT} stored; test data cleaned.

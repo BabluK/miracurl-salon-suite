@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-20.3"
-BUILD_TIME = "20 Jul 2026, 03:30 AM IST"
+BUILD = "2026-07-20.4"
+BUILD_TIME = "20 Jul 2026, 04:00 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-20",
         "changes": [
+            "📅 Demo Calendar auto-link — when a lead (including 🔥 Replied ones) books a demo on your /demo page or via Mira's chat, they auto-move to '🟣 Meeting scheduled' and the booked slot shows right on their lead card",
             "🔥 Reply tracker — when a lead replies to your outreach, Mira flags them '💬 Replied' automatically (via Resend inbound webhook) with a new Replied filter in the funnel; you can also mark replies manually from the status dropdown",
             "🔍 Hunt all emails — one click re-runs the deep email hunt (website → Instagram → web search) across every no-email lead, with a live progress log and auto-drafted pitches for each inbox found",
             "Indian tips, the Indian way 🇮🇳 — POS tip buttons for Indian salons are now flat ₹10/₹20/₹50/₹100/₹200/₹500 (US/UK salons keep 15–25%), and the custom amount box now shows what you type clearly",

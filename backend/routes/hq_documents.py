@@ -1182,7 +1182,9 @@ async def _book_open_demo(d: dict) -> dict:
     slot = _demo_slot_dict(date_s, time_s, phone, tz, now_iso)
     await _upsert_demo_invite(email, name.strip(), salon_name.strip(), city.strip(), slot, now_iso)
     await _raw_db.mira_leads.update_many(
-        {"email": email, "status": {"$in": ["sent", "drafted", "no_email", "researched"]}},
+        {"email": email}, {"$set": {"demo_slot": slot, "demo_requested_at": now_iso}})
+    await _raw_db.mira_leads.update_many(
+        {"email": email, "status": {"$in": ["sent", "drafted", "no_email", "researched", "replied"]}},
         {"$set": {"status": "demo"}})
     gcal = await _send_slot_confirmations(email, name.strip(), salon_name.strip(),
                                           date_s, time_s, phone, city.strip())
