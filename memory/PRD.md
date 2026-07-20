@@ -747,3 +747,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - BUG CAUGHT IN REGRESSION: decorator @router.post("/public/signup-salon") got attached to helper during refactor → signup 422; fixed + verified.
 - REGRESSION TESTED: pytest iter84 tips 5/5 pass; intl signup e2e (currency USD, tz stored); stripe panel endpoint OK; places no-key path OK; ruff F821+E712 clean. Test tenant cleaned.
 - DEFERRED (backlog): splitting briefings.py / gallery.py / hq_documents.py into smaller modules — heavy refactor, schedule for a quiet cycle.
+
+## 2026-07-20 — User report: "current implementation not in production"
+- Diagnosis: production release page shows build 2026-07-20.4 AND lists "Hunt all emails" in its own notes → code IS deployed; the user's browser tab was serving a stale cached app bundle (their funnel screenshot showed the old 04:41 Toronto log + no hunt button).
+- Preview re-verified via screenshot: Hunt-all button, Replied filter, funnel stats all present.
+- Bumped BUILD to 2026-07-20.5 (code-review fixes had no bump) so the user can verify by number after redeploy.
