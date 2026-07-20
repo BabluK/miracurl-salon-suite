@@ -738,3 +738,12 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MiraLeadAgent.jsx: 📅 slot badge on lead card (testid lead-demo-slot-badge-<id>) showing date · time IST, hover shows lead's local time.
 - release_notes BUILD 2026-07-20.4. Needs Deploy.
 - TESTED (self, e2e): seeded replied lead → POST /api/public/demo/book same email → status demo + demo_slot {date,time,local_time EDT} stored; test data cleaned.
+
+## 2026-07-20 — Code review round: fixes applied
+- test_iter84_tips.py: hardcoded admin password → creds.password_for() (existing loader).
+- Tests: 8 `assert x is True` → truthiness assertions (sed across tests/).
+- FALSE POSITIVES (no change): utils.py:8 is `is None` (correct); social_connect.py:30 = public OAuth scope URL, no secret; "45 undefined variables" — ruff F821 clean across routes/tests/utils.
+- Complexity refactors (behavior-preserving): lead_gen _places_search → _collect_places + _places_area_phase + _places_citywide_phase; _emails_from_contact_pages → _homepage_contact_links helper; appointments_pos create_invoice → _resolve_tip; payments_intl super_stripe_payments → _stripe_txn_row + _stripe_summary; auth public_signup_salon → _build_signup_tenant + _build_signup_owner; promo_video _build_scenes → _read_frame/_intro_scene/_middle_scene_triples/_closing_scenes (triples pattern).
+- BUG CAUGHT IN REGRESSION: decorator @router.post("/public/signup-salon") got attached to helper during refactor → signup 422; fixed + verified.
+- REGRESSION TESTED: pytest iter84 tips 5/5 pass; intl signup e2e (currency USD, tz stored); stripe panel endpoint OK; places no-key path OK; ruff F821+E712 clean. Test tenant cleaned.
+- DEFERRED (backlog): splitting briefings.py / gallery.py / hq_documents.py into smaller modules — heavy refactor, schedule for a quiet cycle.

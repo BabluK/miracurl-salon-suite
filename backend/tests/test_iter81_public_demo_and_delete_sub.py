@@ -81,7 +81,7 @@ class TestPublicDemoSlots:
         r = public_client.post(f"{BASE_URL}/api/public/demo/book", json=payload)
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data["ok"] is True
+        assert data["ok"]
         assert data["slot"]["date"] == first_date
         assert data["slot"]["time"] == "12:00"
         assert "gcal" in data and data["gcal"].startswith("http")
@@ -147,11 +147,11 @@ class TestInviteBasedDemoSlot:
                                json={"date": slots["dates"][1], "time": "15:00", "phone": "+911234567890"})
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d["ok"] is True
+        assert d["ok"]
         assert d["gcal"].startswith("http")
         doc = db.demo_invites.find_one({"id": invite_id})
         assert doc["preferred_slot"]["time"] == "15:00"
-        assert doc["responded"] is True
+        assert doc["responded"]
 
 
 # ---------- DELETE super-admin subscription ----------
@@ -178,7 +178,7 @@ class TestDeleteSubscription:
 
         r = super_client.delete(f"{BASE_URL}/api/super-admin/subscriptions/{sid}")
         assert r.status_code == 200, r.text
-        assert r.json()["ok"] is True
+        assert r.json()["ok"]
         assert db.subscriptions.find_one({"id": sid}) is None
         assert db.subscription_payments.find_one({"id": pay_id}) is None
 

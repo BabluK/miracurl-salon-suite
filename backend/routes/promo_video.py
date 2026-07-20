@@ -307,49 +307,48 @@ async def _ai_scenes(body: PromoIn, scenes: list) -> list[tuple[bytes, str]]:
     return [(img, cap) for img, cap in results if img]
 
 
-async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[str], list[bool]]:
-    """Mira opens and closes every reel; owner photo (if any) is scene 2; middle is express or AI."""
-    images: list[bytes] = []
-    captions: list[str] = []
-    fits: list[bool] = []
+def _read_frame(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()
 
-    intro_path = MIRA_AVATAR if body.mode == "presenter" else MIRA_INTRO
-    with open(intro_path, "rb") as f:
-        images.append(f.read())
-    captions.append("Hi, I'm Mira - your salon AI" if body.mode == "presenter" else "Meet Mira - Your Salon AI")
-    fits.append(False)
 
-    if body.photo_url:
-        photo = await _owner_photo_scene(body, scenes)
-        if photo:
-            images.append(photo[0])
-            captions.append(photo[1])
-            fits.append(False)
+def _intro_scene(body: PromoIn) -> tuple[bytes, str, bool]:
+    if body.mode == "presenter":
+        return _read_frame(MIRA_AVATAR), "Hi, I'm Mira - your salon AI", False
+    return _read_frame(MIRA_INTRO), "Meet Mira - Your Salon AI", False
 
+
+async def _middle_scene_triples(body: PromoIn, scenes: list) -> list[tuple[bytes, str, bool]]:
     if body.mode == "booking_demo":
         middle = _booking_scenes(scenes)
     elif body.mode == "presenter":
         middle = _express_scenes(scenes)
     else:
         middle = _express_scenes(scenes) if body.express else await _ai_scenes(body, scenes)
-    fit_middle = body.express or body.mode in ("booking_demo", "presenter")
-    for img, cap in middle:
-        images.append(img)
-        captions.append(cap)
-        fits.append(fit_middle)
+    fit = body.express or body.mode in ("booking_demo", "presenter")
+    return [(img, cap, fit) for img, cap in middle]
 
+
+def _closing_scenes(body: PromoIn) -> list[tuple[bytes, str, bool]]:
+    out = []
     if body.mode == "presenter":
-        with open(MIRA_AVATAR, "rb") as f:
-            images.append(f.read())
-        captions.append("Book your free demo today")
-        fits.append(False)
+        out.append((_read_frame(MIRA_AVATAR), "Book your free demo today", False))
+    out.append((_add_partner_qr(_read_frame(MIRA_OUTRO)), "Get Miracurl Salon Suite", False))
+    return out
 
-    with open(MIRA_OUTRO, "rb") as f:
-        outro = f.read()
-    images.append(_add_partner_qr(outro))
-    captions.append("Get Miracurl Salon Suite")
-    fits.append(False)
-    captions = [c.replace("✦", "").replace("—", "-").strip() for c in captions]
+
+async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[str], list[bool]]:
+    """Mira opens and closes every reel; owner photo (if any) is scene 2; middle is express or AI."""
+    triples = [_intro_scene(body)]
+    if body.photo_url:
+        photo = await _owner_photo_scene(body, scenes)
+        if photo:
+            triples.append((photo[0], photo[1], False))
+    triples.extend(await _middle_scene_triples(body, scenes))
+    triples.extend(_closing_scenes(body))
+    images = [t[0] for t in triples]
+    captions = [t[1].replace("✦", "").replace("—", "-").strip() for t in triples]
+    fits = [t[2] for t in triples]
     return images, captions, fits
 
 

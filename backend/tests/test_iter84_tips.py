@@ -1,15 +1,16 @@
 """Iter 84 — Tip capture at billing (POS) + Staff Tips report."""
 import os
-import time
 from datetime import datetime, timezone
 
 import pytest
 import requests
 
+from creds import password_for
+
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 TENANT_SLUG = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASSWORD = "q6QY@tn3p#9DtL"
+ADMIN_PASSWORD = password_for(ADMIN_EMAIL)
 OWNER_PIN = "4321"
 
 

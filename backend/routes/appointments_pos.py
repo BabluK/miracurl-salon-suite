@@ -268,6 +268,14 @@ async def _apply_post_invoice_effects(cust: dict, totals: dict, loyalty_rules: d
     return points_earned
 
 
+async def _resolve_tip(body: InvoiceIn, staff: dict | None) -> dict | None:
+    """Who receives the tip: explicit pick at POS, else the invoice stylist."""
+    tsid = body.tip_staff_id or (staff["id"] if staff else None)
+    if not tsid:
+        return None
+    return await db.staff.find_one({"id": tsid}, {"_id": 0, "id": 1, "name": 1})
+
+
 @router.post("/invoices")
 async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
@@ -283,11 +291,7 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         _check_wallet_balance(cust, totals["total"])
 
     tip = round(float(body.tip_amount or 0), 2)
-    tip_staff = None
-    if tip > 0:
-        tsid = body.tip_staff_id or (staff["id"] if staff else None)
-        if tsid:
-            tip_staff = await db.staff.find_one({"id": tsid}, {"_id": 0, "id": 1, "name": 1})
+    tip_staff = await _resolve_tip(body, staff) if tip > 0 else None
 
     inv = Invoice(
         invoice_no=await _gen_invoice_no(),

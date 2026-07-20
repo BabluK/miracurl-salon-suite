@@ -85,45 +85,53 @@ async def _places_query(client: httpx.AsyncClient, key: str, query: str, want: i
     return out[:want]
 
 
+def _collect_places(pairs, seen, out, first_err):
+    for cat, res in pairs:
+        if isinstance(res, BaseException):
+            log.warning("places search [%s] failed: %s", cat, res)
+            first_err = first_err or str(res)[:90]
+            continue
+        for p in res:
+            k = (p["name"].strip().lower(), (p.get("address") or "").strip().lower()[:40])
+            if not p["name"] or k in seen:
+                continue
+            seen.add(k)
+            out.append({**p, "category": cat})
+    return first_err
+
+
+async def _places_area_phase(client, key, city, areas, seen, out) -> str:
+    """Each category searched per rotating locality, in parallel."""
+    tasks, cats = [], []
+    for cat, q in _SEARCH_CATEGORIES:
+        for a in areas:
+            tasks.append(_places_query(client, key, q.format(city=f"{a}, {city}"), 20))
+            cats.append(cat)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return _collect_places(zip(cats, results), seen, out, "")
+
+
+async def _places_citywide_phase(client, key, city, n, seen, out, first_err) -> str:
+    """City-wide deep search (initial run, small towns, or thin localities)."""
+    per_cat = min(60, max(12, (n // len(_SEARCH_CATEGORIES)) + 10))
+    results = await asyncio.gather(
+        *[_places_query(client, key, q.format(city=city), per_cat) for _, q in _SEARCH_CATEGORIES],
+        return_exceptions=True)
+    return _collect_places(zip([c for c, _ in _SEARCH_CATEGORIES], results), seen, out, first_err)
+
+
 async def _places_search(client: httpx.AsyncClient, city: str, n: int, areas: list | None = None) -> tuple:
     """Advanced multi-category Google Places search: Salon, Unisex Salon, Spa,
     Boutique and Hair Care queried in PARALLEL with pagination (up to 60/category),
-    deduped, best-reviewed first. Works for any city worldwide (e.g. 'London, UK').
-    When `areas` (rotating localities) are given, each category is searched per
-    locality first; the city-wide deep search tops up only if results are thin."""
+    deduped, best-reviewed first. Works for any city worldwide (e.g. 'London, UK')."""
     key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
     if not key:
         return [], "no_key"
-
-    def _collect(pairs, seen, out, first_err):
-        for cat, res in pairs:
-            if isinstance(res, BaseException):
-                log.warning("places search [%s] failed: %s", cat, res)
-                first_err = first_err or str(res)[:90]
-                continue
-            for p in res:
-                k = (p["name"].strip().lower(), (p.get("address") or "").strip().lower()[:40])
-                if not p["name"] or k in seen:
-                    continue
-                seen.add(k)
-                out.append({**p, "category": cat})
-        return first_err
-
     seen, out, first_err = set(), [], ""
     if areas:
-        tasks, cats = [], []
-        for cat, q in _SEARCH_CATEGORIES:
-            for a in areas:
-                tasks.append(_places_query(client, key, q.format(city=f"{a}, {city}"), 20))
-                cats.append(cat)
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        first_err = _collect(zip(cats, results), seen, out, first_err)
-    if len(out) < n:  # city-wide deep search (initial run, small towns, or thin localities)
-        per_cat = min(60, max(12, (n // len(_SEARCH_CATEGORIES)) + 10))
-        results = await asyncio.gather(
-            *[_places_query(client, key, q.format(city=city), per_cat) for _, q in _SEARCH_CATEGORIES],
-            return_exceptions=True)
-        first_err = _collect(zip([c for c, _ in _SEARCH_CATEGORIES], results), seen, out, first_err)
+        first_err = await _places_area_phase(client, key, city, areas, seen, out)
+    if len(out) < n:
+        first_err = await _places_citywide_phase(client, key, city, n, seen, out, first_err)
     if not out:
         return [], first_err or "no results"
     out.sort(key=lambda p: (p.get("reviews") or 0, p.get("rating") or 0), reverse=True)
@@ -316,29 +324,35 @@ _CONTACT_PATHS = ("/contact", "/contact-us", "/contactus", "/contact.html", "/pa
                   "/pages/contact-us", "/about", "/about-us", "/book", "/booking", "/appointments")
 
 
-async def _emails_from_contact_pages(client: httpx.AsyncClient, website: str, soup, site_domain: str) -> list:
-    """Dig deeper: follow contact/about/book links found on the homepage, then common paths."""
-    base = website.rstrip("/") if website.startswith("http") else f"https://{website.rstrip('/')}"
-    tried = set()
-    # 1. Real links on the page beat guessed paths (works for any CMS/permalink style)
+def _homepage_contact_links(soup, base: str, site_domain: str):
+    """mailto emails (if any) + contact/about/book links found on the homepage."""
     linked = []
     for a in soup.select("a[href]"):
         href = a.get("href", "")
         if href.startswith("mailto:"):
             emails = _extract_emails(href[7:], site_domain)
             if emails:
-                return emails
+                return emails, []
             continue
         if any(k in href.lower() for k in ("contact", "about", "book", "appointment")):
             url = href if href.startswith("http") else f"{base}/{href.lstrip('/')}"
             if url not in linked:
                 linked.append(url)
+    return [], linked
+
+
+async def _emails_from_contact_pages(client: httpx.AsyncClient, website: str, soup, site_domain: str) -> list:
+    """Dig deeper: follow contact/about/book links found on the homepage, then common paths."""
+    base = website.rstrip("/") if website.startswith("http") else f"https://{website.rstrip('/')}"
+    mailto, linked = _homepage_contact_links(soup, base, site_domain)
+    if mailto:
+        return mailto
+    tried = set()
     for url in linked[:3]:
         tried.add(url.rstrip("/"))
         emails = _extract_emails(await _fetch_page(client, url), site_domain)
         if emails:
             return emails
-    # 2. Common paths across Shopify/Wix/WordPress
     for path in _CONTACT_PATHS:
         url = base + path
         if url.rstrip("/") in tried:

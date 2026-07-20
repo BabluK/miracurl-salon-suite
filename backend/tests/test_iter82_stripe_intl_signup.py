@@ -72,7 +72,7 @@ def test_intl_settings_returns_usd(intl_session):
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["currency"] == "USD"
-    assert d["stripe_ready"] is True
+    assert d["stripe_ready"]
 
 
 def test_stripe_checkout_creates_session(intl_session):

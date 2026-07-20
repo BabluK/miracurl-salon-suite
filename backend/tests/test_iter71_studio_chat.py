@@ -74,7 +74,7 @@ def test_upload_image(topped_up_token):
                       files=files, headers=_hdr(topped_up_token), timeout=30)
     assert r.status_code == 200, r.text[:200]
     data = r.json()
-    assert data["ok"] is True
+    assert data["ok"]
     assert data["url"].startswith("/api/files/")
     # Verify file serves
     r2 = requests.get(f"{BASE}{data['url']}", timeout=15)
@@ -116,7 +116,7 @@ def test_analyze_security(topped_up_token, live_project):
                       headers=_hdr(topped_up_token), timeout=90)
     assert r.status_code == 200, r.text[:300]
     d = r.json()
-    assert d["ok"] is True
+    assert d["ok"]
     assert d["kind"] == "security"
     assert "VERDICT" in d["report"].upper()
 
@@ -139,7 +139,7 @@ def test_refine_returns_queued_immediately_and_completes(topped_up_token, live_p
     elapsed = time.time() - t0
     assert r.status_code == 200, r.text[:300]
     d = r.json()
-    assert d.get("queued") is True
+    assert d.get("queued")
     # Must return quickly (background) — under 5s is generous
     assert elapsed < 5, f"refine took {elapsed:.1f}s (should return immediately)"
 

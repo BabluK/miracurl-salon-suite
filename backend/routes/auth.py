@@ -245,6 +245,37 @@ async def _record_pending_referral(referrer: dict, tenant: dict) -> None:
     })
 
 
+def _build_signup_tenant(body: SalonSignupIn, candidate: str, referrer: dict | None, trial_end: str) -> dict:
+    tenant = Tenant(
+        slug=candidate,
+        name=body.salon_name.strip(),
+        owner_email=body.owner_email.lower(),
+        location=body.location,
+        phone=body.phone,
+        plan="trial",
+        status="trial",
+        referred_by_tenant_id=referrer["id"] if referrer else None,
+    ).model_dump()
+    tenant["trial_end_date"] = trial_end
+    if body.region == "intl":
+        tenant["currency"] = "USD"
+        if body.timezone:
+            tenant["timezone"] = body.timezone
+    return tenant
+
+
+def _build_signup_owner(body: SalonSignupIn, email: str, tenant_id: str) -> dict:
+    return {
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "name": body.owner_name.strip(),
+        "role": "admin",
+        "tenant_id": tenant_id,
+        "password_hash": hash_pw(body.password),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @router.post("/public/signup-salon")
 async def public_signup_salon(body: SalonSignupIn, request: Request, response: Response):
     public_rate_limit(request, key_suffix="signup", limit=4, window_sec=900)
@@ -257,32 +288,10 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     trial_end = (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).date().isoformat()
     referrer = await _resolve_referrer(body.ref, candidate)
 
-    tenant = Tenant(
-        slug=candidate,
-        name=body.salon_name.strip(),
-        owner_email=email,
-        location=body.location,
-        phone=body.phone,
-        plan="trial",
-        status="trial",
-        referred_by_tenant_id=referrer["id"] if referrer else None,
-    ).model_dump()
-    tenant["trial_end_date"] = trial_end
-    if body.region == "intl":
-        tenant["currency"] = "USD"
-        if body.timezone:
-            tenant["timezone"] = body.timezone
+    tenant = _build_signup_tenant(body, candidate, referrer, trial_end)
     await db.tenants.insert_one(tenant)
 
-    owner = {
-        "id": str(uuid.uuid4()),
-        "email": email,
-        "name": body.owner_name.strip(),
-        "role": "admin",
-        "tenant_id": tenant["id"],
-        "password_hash": hash_pw(body.password),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
+    owner = _build_signup_owner(body, email, tenant["id"])
     await db.users.insert_one(owner)
 
     if referrer:

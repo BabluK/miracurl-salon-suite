@@ -1,6 +1,5 @@
 """International settings (currency/timezone) + Stripe booking deposits (Flow B)."""
 import os
-import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -220,6 +219,31 @@ async def public_renew_redirect(token: str, request: Request):
     return RedirectResponse(session.url, status_code=302)
 
 
+def _stripe_txn_row(t: dict, tmap: dict, catalog: dict) -> dict:
+    ten = tmap.get(t.get("tenant_id"), {})
+    return {
+        "session_id": t.get("session_id"), "kind": t.get("kind"),
+        "tenant_name": ten.get("name") or "(deleted)", "tenant_slug": ten.get("slug"),
+        "plan": t.get("plan"),
+        "plan_label": catalog.get(t.get("plan") or "", {}).get("label") or t.get("plan"),
+        "amount": t.get("amount"), "currency": (t.get("currency") or "usd").upper(),
+        "payment_status": t.get("payment_status"), "via": t.get("via") or "settings",
+        "created_at": t.get("created_at"),
+    }
+
+
+def _stripe_summary(rows: list) -> dict:
+    paid = [r for r in rows if r["payment_status"] == "paid"]
+    return {
+        "paid_count": len(paid),
+        "pending_count": sum(1 for r in rows if r["payment_status"] == "pending"),
+        "total_paid_usd": round(sum(float(r["amount"] or 0) for r in paid
+                                    if r["currency"] == "USD" and r["kind"] == "subscription"), 2),
+        "deposits_paid_usd": round(sum(float(r["amount"] or 0) for r in paid
+                                       if r["kind"] == "booking_deposit"), 2),
+    }
+
+
 @router.get("/super-admin/stripe-payments")
 async def super_stripe_payments(user=Depends(require_super_admin)):
     """HQ view of all Stripe transactions (USD subscriptions + booking deposits)."""
@@ -230,27 +254,5 @@ async def super_stripe_payments(user=Depends(require_super_admin)):
         {"id": {"$in": tids}}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "currency": 1}).to_list(500)
     tmap = {t["id"]: t for t in tenants}
     from routes.subscriptions import PLAN_CATALOG
-    rows = []
-    for t in txns:
-        ten = tmap.get(t.get("tenant_id"), {})
-        rows.append({
-            "session_id": t.get("session_id"), "kind": t.get("kind"),
-            "tenant_name": ten.get("name") or "(deleted)", "tenant_slug": ten.get("slug"),
-            "plan": t.get("plan"),
-            "plan_label": PLAN_CATALOG.get(t.get("plan") or "", {}).get("label") or t.get("plan"),
-            "amount": t.get("amount"), "currency": (t.get("currency") or "usd").upper(),
-            "payment_status": t.get("payment_status"), "via": t.get("via") or "settings",
-            "created_at": t.get("created_at"),
-        })
-    paid = [r for r in rows if r["payment_status"] == "paid"]
-    return {
-        "rows": rows,
-        "summary": {
-            "paid_count": len(paid),
-            "pending_count": sum(1 for r in rows if r["payment_status"] == "pending"),
-            "total_paid_usd": round(sum(float(r["amount"] or 0) for r in paid
-                                        if r["currency"] == "USD" and r["kind"] == "subscription"), 2),
-            "deposits_paid_usd": round(sum(float(r["amount"] or 0) for r in paid
-                                           if r["kind"] == "booking_deposit"), 2),
-        },
-    }
+    rows = [_stripe_txn_row(t, tmap, PLAN_CATALOG) for t in txns]
+    return {"rows": rows, "summary": _stripe_summary(rows)}
