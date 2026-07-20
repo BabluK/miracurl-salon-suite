@@ -812,3 +812,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - release_notes BUILD 2026-07-20.13. Needs Deploy.
 - TESTED (self, e2e): seeded terminated registry profile → API terminated:true + verdict red "past record shows Terminated"; UI screenshot (phone search 9990001111) shows red banner + HIRE WITH CAUTION + POOR TRACK RECORD + 1.5/5. Test profile cleaned.
 - UI note: staff-ID search on /staff-registry needs the name typed with the ID; phone/aadhaar search shows full history directly.
+
+## 2026-07-20 — 🏅 Certificate-style Relieving Letter redesign (user request)
+- pdf.py `_render_relieving_letter_pdf` fully redesigned: soft themed background + watermark rings + faint diagonal salon-name watermark, double gold border frame with corner accents, EMPLOYER's own logo (tenant.logo_url) centered on top (gold monogram circle fallback), elegant Times serif headings.
+- Medal seal with ribbon (`_draw_seal`) + status pill above staff name: GOLD seal + green "★ EXCELLENT" pill for excellent; RED seal + red "✖ TERMINATED" pill for terminated/absconded (user asked red badge for terminated too). Standard = neutral grey, no badge.
+- Themes in `_LETTER_THEMES` dict (bg/border/accent/pill/watermark per letter type). Rose/gold palette for excellent, red/neutral for terminated.
+- Samples generated for user preview: /sample_excellent.pdf and /sample_terminated.pdf in frontend/public (visually verified via PyMuPDF render).
+- Wired into existing POST /api/staff/previous/{sid}/relieving-letter (no route changes needed). Awaiting user approval of the sample design.

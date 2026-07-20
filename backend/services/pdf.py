@@ -895,83 +895,246 @@ RELIEVING_TEMPLATES = {
 }
 
 
+_LETTER_THEMES = {
+    # bg, border, accent(seal), pill_bg, pill_text, pill_label, star
+    "excellent":  {"bg": (1.0, 0.976, 0.965), "border": (0.80, 0.62, 0.28), "accent": (0.83, 0.66, 0.22),
+                   "pill": (0.05, 0.55, 0.36), "pill_label": "\u2605 EXCELLENT", "wm": (0.96, 0.88, 0.85)},
+    "standard":   {"bg": (1.0, 1.0, 1.0), "border": (0.75, 0.76, 0.80), "accent": (0.55, 0.57, 0.62),
+                   "pill": None, "pill_label": "", "wm": (0.92, 0.93, 0.95)},
+    "terminated": {"bg": (0.995, 0.99, 0.99), "border": (0.72, 0.40, 0.40), "accent": (0.72, 0.16, 0.16),
+                   "pill": (0.72, 0.16, 0.16), "pill_label": "\u2716 TERMINATED", "wm": (0.94, 0.90, 0.90)},
+    "absconded":  {"bg": (0.995, 0.99, 0.99), "border": (0.72, 0.40, 0.40), "accent": (0.72, 0.16, 0.16),
+                   "pill": (0.72, 0.16, 0.16), "pill_label": "\u2716 TERMINATED", "wm": (0.94, 0.90, 0.90)},
+}
+
+
+def _draw_seal(c, cx, cy, r, accent, ring_txt):
+    """Medal seal with ribbon tails + star, in the given accent colour."""
+    from math import sin, cos, pi
+    dark = tuple(max(0, v - 0.14) for v in accent)
+    # ribbon tails
+    for sign in (-1, 1):
+        p = c.beginPath()
+        x0 = cx + sign * r * 0.42
+        p.moveTo(x0 - 7, cy - r * 0.5)
+        p.lineTo(x0 + sign * 4 - 7, cy - r - 16)
+        p.lineTo(x0 + sign * 4, cy - r - 10)
+        p.lineTo(x0 + sign * 4 + 7, cy - r - 16)
+        p.lineTo(x0 + 7, cy - r * 0.5)
+        p.close()
+        c.setFillColorRGB(*dark)
+        c.drawPath(p, fill=1, stroke=0)
+    # scalloped edge
+    c.setFillColorRGB(*dark)
+    for i in range(24):
+        ang = i * pi / 12
+        c.circle(cx + (r - 1) * cos(ang), cy + (r - 1) * sin(ang), 3.2, fill=1, stroke=0)
+    c.setFillColorRGB(*accent)
+    c.circle(cx, cy, r, fill=1, stroke=0)
+    c.setStrokeColorRGB(1, 1, 1)
+    c.setLineWidth(1.1)
+    c.circle(cx, cy, r - 4.5, fill=0, stroke=1)
+    # star
+    pts = []
+    for i in range(10):
+        rr = (r * 0.5) if i % 2 == 0 else (r * 0.22)
+        ang = -pi / 2 + i * pi / 5
+        pts.append((cx + rr * cos(ang), cy - 2 + rr * sin(ang)))
+    path = c.beginPath()
+    path.moveTo(*pts[0])
+    for pt in pts[1:]:
+        path.lineTo(*pt)
+    path.close()
+    c.setFillColorRGB(1, 1, 1)
+    c.drawPath(path, fill=1, stroke=0)
+    c.setFont("Helvetica-Bold", 5.6)
+    c.drawCentredString(cx, cy - r * 0.68, ring_txt)
+
+
 def _render_relieving_letter_pdf(tenant: dict, staff: dict, letter_type: str,
                                  from_date: str, to_date: str, reason: str = "") -> bytes:
-    """Single-page relieving/termination letter on salon letterhead (logo when available)."""
+    """Certificate-style relieving/termination letter: soft themed background, employer
+    logo letterhead, medal seal + status pill above the staff name."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
+    from reportlab.lib.utils import ImageReader, simpleSplit
     from reportlab.pdfgen import canvas
-    from reportlab.lib import colors
 
     title, body_line = RELIEVING_TEMPLATES[letter_type]
+    th = _LETTER_THEMES.get(letter_type, _LETTER_THEMES["standard"])
+    INK = (0.13, 0.12, 0.14)
+    MUTED = (0.45, 0.44, 0.47)
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
-    left, right = 22 * mm, w - 22 * mm
-    y = h - 25 * mm
-    # Letterhead: logo (best-effort) + salon name
-    logo_url = tenant.get("logo_url") or ""
-    if logo_url:
+
+    # ---- background + watermark rings ----
+    c.setFillColorRGB(*th["bg"])
+    c.rect(0, 0, w, h, fill=1, stroke=0)
+    c.saveState()
+    c.setStrokeColorRGB(*th["wm"])
+    for (cx, cy, r0) in ((0, h, 70), (w, h, 110), (0, 0, 110), (w, 0, 70), (w / 2, h / 2, 190)):
+        for k in range(3):
+            c.setLineWidth(0.9)
+            c.circle(cx, cy, r0 + k * 22, fill=0, stroke=1)
+    c.restoreState()
+    # faint diagonal salon-name watermark
+    c.saveState()
+    c.translate(w / 2, h / 2)
+    c.rotate(30)
+    c.setFillColorRGB(*th["wm"])
+    c.setFont("Helvetica-Bold", 44)
+    c.drawCentredString(0, -10, (tenant.get("name") or "SALON").upper())
+    c.restoreState()
+
+    # ---- double border frame + corner accents ----
+    m1, m2 = 24, 31
+    c.setStrokeColorRGB(*th["border"])
+    c.setLineWidth(2.4)
+    c.rect(m1, m1, w - 2 * m1, h - 2 * m1, fill=0, stroke=1)
+    c.setLineWidth(0.8)
+    c.rect(m2, m2, w - 2 * m2, h - 2 * m2, fill=0, stroke=1)
+    c.setFillColorRGB(*th["border"])
+    for (x, y0) in ((m1, m1), (m1, h - m1), (w - m1, m1), (w - m1, h - m1)):
+        c.rect(x - 5, y0 - 5, 10, 10, fill=1, stroke=0)
+
+    y = h - 62
+
+    # ---- employer logo (tenant's own) or monogram ----
+    drew_logo = False
+    if tenant.get("logo_url"):
         try:
             import requests as _rq
-            from reportlab.lib.utils import ImageReader
-            img = ImageReader(io.BytesIO(_rq.get(logo_url, timeout=6).content))
-            c.drawImage(img, left, y - 6 * mm, width=16 * mm, height=16 * mm,
+            img = ImageReader(io.BytesIO(_rq.get(tenant["logo_url"], timeout=6).content))
+            iw, ih = img.getSize()
+            lh = 52.0
+            lw = iw * lh / ih
+            if lw > 170:
+                lw, lh = 170, ih * 170.0 / iw
+            c.drawImage(img, (w - lw) / 2, y - lh + 8, width=lw, height=lh,
                         preserveAspectRatio=True, mask="auto")
+            drew_logo = True
+            y -= lh + 4
         except Exception:
-            logo_url = ""
-    c.setFillColor(colors.HexColor("#1c1c22"))
-    c.setFont("Helvetica-Bold", 17)
-    c.drawString(left + (20 * mm if logo_url else 0), y + 2 * mm, tenant.get("name") or "Salon")
-    c.setFont("Helvetica", 9)
-    c.setFillColor(colors.HexColor("#777777"))
-    c.drawString(left + (20 * mm if logo_url else 0), y - 3 * mm,
-                 (tenant.get("location") or "") + ("  ·  " + tenant.get("owner_email", "") if tenant.get("owner_email") else ""))
-    y -= 16 * mm
-    c.setStrokeColor(colors.HexColor("#d4af37"))
-    c.setLineWidth(1.2)
-    c.line(left, y, right, y)
-    y -= 14 * mm
-    c.setFillColor(colors.HexColor("#1c1c22"))
-    c.setFont("Helvetica-Bold", 14)
+            drew_logo = False
+    if not drew_logo:
+        mono_r = 22
+        c.setFillColorRGB(*th["border"])
+        c.circle(w / 2, y - mono_r + 8, mono_r, fill=1, stroke=0)
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont("Times-Bold", 24)
+        c.drawCentredString(w / 2, y - mono_r, (tenant.get("name") or "S")[0].upper())
+        y -= 2 * mono_r + 4
+
+    c.setFillColorRGB(*INK)
+    c.setFont("Times-Bold", 22)
+    c.drawCentredString(w / 2, y, tenant.get("name") or "Salon")
+    y -= 15
+    sub = "  ·  ".join(x for x in [tenant.get("location"), tenant.get("phone")] if x)
+    if sub:
+        c.setFillColorRGB(*MUTED)
+        c.setFont("Helvetica", 9)
+        c.drawCentredString(w / 2, y, sub)
+        y -= 13
+
+    # divider with diamond
+    y -= 8
+    c.setStrokeColorRGB(*th["border"])
+    c.setLineWidth(1)
+    c.line(w / 2 - 130, y, w / 2 - 10, y)
+    c.line(w / 2 + 10, y, w / 2 + 130, y)
+    c.setFillColorRGB(*th["border"])
+    p = c.beginPath()
+    p.moveTo(w / 2, y + 5); p.lineTo(w / 2 + 5, y); p.lineTo(w / 2, y - 5); p.lineTo(w / 2 - 5, y); p.close()
+    c.drawPath(p, fill=1, stroke=0)
+    y -= 30
+
+    c.setFillColorRGB(*INK)
+    c.setFont("Times-Bold", 17)
     c.drawCentredString(w / 2, y, title.upper())
-    y -= 12 * mm
+    y -= 14
+    c.setFillColorRGB(*MUTED)
+    c.setFont("Helvetica", 9)
+    c.drawCentredString(w / 2, y, "Date of issue: " + datetime.now(timezone.utc).date().isoformat())
+    y -= 34
+
+    # ---- medal seal + status pill above the staff name ----
+    if th["pill"]:
+        seal_r = 26
+        _draw_seal(c, w / 2, y - seal_r + 14, seal_r, th["accent"],
+                   "VERIFIED" if letter_type == "excellent" else "ON RECORD")
+        y -= 2 * seal_r + 26
+        label = th["pill_label"]
+        pw = c.stringWidth(label, "Helvetica-Bold", 11) + 34
+        c.setFillColorRGB(*th["pill"])
+        c.roundRect((w - pw) / 2, y - 6, pw, 22, 11, fill=1, stroke=0)
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawCentredString(w / 2, y, label)
+        y -= 34
+    else:
+        y -= 8
+
+    c.setFillColorRGB(*MUTED)
+    c.setFont("Helvetica-Oblique", 10)
+    c.drawCentredString(w / 2, y, "This letter is issued to")
+    y -= 26
+    c.setFillColorRGB(*INK)
+    c.setFont("Times-BoldItalic", 26)
+    c.drawCentredString(w / 2, y, staff.get("name") or "Staff Member")
+    y -= 15
+    c.setFillColorRGB(*MUTED)
     c.setFont("Helvetica", 10)
-    c.drawRightString(right, y, "Date: " + datetime.now(timezone.utc).date().isoformat())
-    y -= 12 * mm
-    c.setFont("Helvetica", 11)
-    c.drawString(left, y, "To whomsoever it may concern,")
-    y -= 10 * mm
+    c.drawCentredString(w / 2, y, staff.get("role") or "Staff")
+    y -= 12
+    c.setStrokeColorRGB(*th["border"])
+    c.setLineWidth(0.8)
+    c.line(w / 2 - 90, y, w / 2 + 90, y)
+    y -= 26
+
+    # ---- body ----
     para = (f"This is to certify that {staff.get('name')} ({staff.get('role') or 'Staff'}) was employed with "
             f"{tenant.get('name')} from {from_date or 'N/A'} to {to_date or 'N/A'}. "
             f"{staff.get('name')} {body_line}")
     if reason and letter_type in ("terminated", "absconded"):
         para += f" Reason on record: {reason}."
-    import textwrap
-    for line in textwrap.wrap(para, width=88):
-        c.drawString(left, y, line)
-        y -= 6.5 * mm
-    y -= 8 * mm
+    c.setFillColorRGB(0.25, 0.24, 0.28)
+    c.setFont("Helvetica", 10.5)
+    for line in simpleSplit(para, "Helvetica", 10.5, w - 200):
+        c.drawCentredString(w / 2, y, line)
+        y -= 16
+    y -= 14
+
     if letter_type == "excellent":
-        c.setFillColor(colors.HexColor("#0a7d43"))
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(left, y, "Overall conduct: EXCELLENT — eligible for rehire. Notice period: fully served.")
+        note, ncol = "Overall conduct: EXCELLENT  ·  Eligible for rehire  ·  Notice period fully served", (0.05, 0.55, 0.36)
     elif letter_type in ("terminated", "absconded"):
-        c.setFillColor(colors.HexColor("#b02a2a"))
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(left, y, "Status: TERMINATED — not eligible for rehire at this establishment.")
-    y -= 22 * mm
-    c.setFillColor(colors.HexColor("#1c1c22"))
-    c.setFont("Helvetica", 11)
-    c.drawString(left, y, "Sincerely,")
-    y -= 14 * mm
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(left, y, "Authorized Signatory")
-    c.setFont("Helvetica", 9)
-    c.drawString(left, y - 5 * mm, tenant.get("name") or "")
+        note, ncol = "Status: TERMINATED  ·  Not eligible for rehire at this establishment", (0.72, 0.16, 0.16)
+    else:
+        note, ncol = "", INK
+    if note:
+        c.setFillColorRGB(*ncol)
+        c.setFont("Helvetica-Bold", 10.5)
+        c.drawCentredString(w / 2, y, note)
+        y -= 20
+
+    # ---- signature block ----
+    sig_y = max(y - 46, 96)
+    c.setStrokeColorRGB(*MUTED)
+    c.setLineWidth(0.8)
+    c.line(70, sig_y, 210, sig_y)
+    c.line(w - 210, sig_y, w - 70, sig_y)
+    c.setFillColorRGB(*INK)
+    c.setFont("Helvetica-Bold", 9.5)
+    c.drawCentredString(140, sig_y - 13, "Authorized Signatory")
+    c.drawCentredString(w - 140, sig_y - 13, tenant.get("name") or "Salon")
+    c.setFillColorRGB(*MUTED)
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(140, sig_y - 24, "Management")
+    c.drawCentredString(w - 140, sig_y - 24, "Establishment seal")
+
     c.setFont("Helvetica-Oblique", 8)
-    c.setFillColor(colors.HexColor("#999999"))
-    c.drawCentredString(w / 2, 16 * mm, "Generated by Miracurl Salon Suite ✦ miracurl-suite.com")
+    c.setFillColorRGB(0.6, 0.6, 0.63)
+    c.drawCentredString(w / 2, 44, "Generated by Miracurl Salon Suite  ·  verifiable via the Miracurl Staff Registry")
     c.showPage()
     c.save()
     return buf.getvalue()
