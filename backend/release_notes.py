@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-20.12"
-BUILD_TIME = "20 Jul 2026, 01:30 PM IST"
+BUILD = "2026-07-20.13"
+BUILD_TIME = "20 Jul 2026, 02:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-07-20",
         "changes": [
+            "⚠ Termination alert on QR verification — when anyone scans a staff badge or searches the public Staff Registry, a bold red 'TERMINATED / ABSCONDED by a previous employer' banner now appears at the top of the profile, so hiring salons see the red flag instantly",
             "📄 Relieving letters — from Settings → Previous Staff, owners can now issue a PDF letter on the salon letterhead (with logo & employment duration) straight to the staff member's email. Choose the type: 🌟 Excellent (served notice), ✅ Standard (resigned), 🚫 Terminated (misconduct/theft) or ⚠️ Absconded — terminated/absconded automatically lowers their rating on the public staff verification portal",
             "🩹 Fixed: staff who already left no longer appear in the 'Today's late arrivals' owner email",
             "✨ Cleaner funnel cards — the lead funnel now shows simple live counters (Leads Found, Qualified, Emails Sent, Demos, Customers) with animated sparkling icons instead of the old 'Target 300 / Done' badges",

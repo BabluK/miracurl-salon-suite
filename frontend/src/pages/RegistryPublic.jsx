@@ -229,6 +229,20 @@ export default function RegistryPublic() {
       {profile && (
         <div className="relative z-10 max-w-3xl mx-auto px-4 py-8 space-y-5" data-testid="public-registry-result">
           <div className="bg-white ring-1 ring-slate-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] rounded-2xl p-6">
+            {profile.terminated && (
+              <div data-testid="terminated-warning-banner"
+                className="mb-4 rounded-xl px-4 py-3 bg-red-600 text-white flex items-center gap-3 shadow-[0_10px_30px_-10px_rgba(220,38,38,0.6)]">
+                <span className="text-2xl animate-pulse">⚠</span>
+                <div>
+                  <div className="text-sm font-black uppercase tracking-widest">
+                    {profile.terminated_labels?.join(" / ") || "Terminated"} by a previous employer
+                  </div>
+                  <div className="text-[11px] opacity-90 mt-0.5">
+                    This staff member's record shows a termination reported by a past salon. Check the employment history below and take strong references before hiring.
+                  </div>
+                </div>
+              </div>
+            )}
             {profile.hire_verdict && (
               <div
                 data-testid="hire-verdict-banner"

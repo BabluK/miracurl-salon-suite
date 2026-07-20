@@ -227,10 +227,13 @@ async def _registry_profile(emp: dict, current_only: bool = False, redact: bool 
     total_years = sum(_employment_years(e) for e in emps)
     ratings = [float(e["rating"]) for e in emps if e.get("rating")]
     avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
+    all_emps = emps
     if current_only:
         emps = [e for e in emps if not e.get("to_date")]
     badge = _registry_badge(total_years, avg_rating)
-    verdict, verdict_note = _hire_verdict(emps, badge, avg_rating, total_years)
+    verdict, verdict_note = _hire_verdict(all_emps, badge, avg_rating, total_years)
+    term_labels = sorted({e.get("reason_for_leaving") for e in all_emps
+                          if e.get("reason_for_leaving") in ("Terminated", "Absconded")})
     hq_verified = any(e.get("hq_verified") for e in emps)
     return {
         "history_scope": "current" if current_only else "full",
@@ -240,6 +243,7 @@ async def _registry_profile(emp: dict, current_only: bool = False, redact: bool 
         "city": emp.get("city") or "",
         "total_years": round(total_years, 1), "avg_rating": avg_rating,
         "badge": badge, "hq_verified": hq_verified,
+        "terminated": bool(term_labels), "terminated_labels": term_labels,
         "hire_verdict": verdict, "hire_verdict_note": verdict_note,
         "employments": emps, "created_at": emp.get("created_at"),
         "created_by_tenant": emp.get("created_by_tenant", ""),

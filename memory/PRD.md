@@ -805,3 +805,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - PreviousStaffCard.jsx: 📄 Relieving letter button per ex-staff (✓ once issued), inline form (4 type pills, reason input for terminated/absconded, Generate & Email PDF). Testids: previous-staff-letter-<id>, relieving-letter-form, letter-type-*, letter-reason-input, letter-send-btn.
 - release_notes BUILD 2026-07-20.12. Needs Deploy.
 - TESTED (self, e2e): PDF renders (%PDF, both types); endpoint emailed=true to delivered@resend.dev; registry rating 4.5→1.5 with Terminated comment; UI screenshot verified full form. Test data cleaned.
+
+## 2026-07-20 — ⚠ Terminated banner on public verification portal (user approved)
+- registry.py _registry_profile: verdict + NEW terminated/terminated_labels now computed from FULL employment history (all_emps captured BEFORE current_only filter — was hiding past terminations in staff-ID scope). Profile response adds terminated:bool + terminated_labels:list.
+- RegistryPublic.jsx: bold red banner (testid terminated-warning-banner, pulsing ⚠) above the hire-verdict pill: "TERMINATED / ABSCONDED by a previous employer" + advice text.
+- release_notes BUILD 2026-07-20.13. Needs Deploy.
+- TESTED (self, e2e): seeded terminated registry profile → API terminated:true + verdict red "past record shows Terminated"; UI screenshot (phone search 9990001111) shows red banner + HIRE WITH CAUTION + POOR TRACK RECORD + 1.5/5. Test profile cleaned.
+- UI note: staff-ID search on /staff-registry needs the name typed with the ID; phone/aadhaar search shows full history directly.
