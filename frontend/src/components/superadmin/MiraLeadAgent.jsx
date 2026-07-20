@@ -171,6 +171,7 @@ function LeadRow({ lead, onRefresh }) {
           </p>
         </div>
         <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${STATUS_STYLE[lead.status] || "bg-slate-100 text-slate-500"}`}>{lead.status}</span>
+        {lead.competitor && <span data-testid={`lead-competitor-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-red-100 text-red-700 font-bold border border-red-200" title={`Currently uses ${lead.competitor} — strong migration lead`}>🔥 {lead.competitor}</span>}
         {lead.converted_at && <span data-testid={`lead-converted-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold border border-emerald-200" title={`Signed up for a trial${lead.converted_tenant_slug ? ` as "${lead.converted_tenant_slug}"` : ""} on ${(lead.converted_at || "").slice(0, 10)} — thanks to your outreach!`}>🎉 Converted</span>}
         {lead.demo_slot && <span data-testid={`lead-demo-slot-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-violet-100 text-violet-700 font-bold border border-violet-200" title={`Demo booked${lead.demo_slot.local_time ? ` (${lead.demo_slot.local_time} their time)` : ""}`}>📅 {lead.demo_slot.date} · {lead.demo_slot.time} IST</span>}
         {lead.replied_at && <span data-testid={`lead-replied-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200" title={`Replied ${(lead.replied_at || "").slice(0, 16).replace("T", " ")}${lead.reply_subject ? ` — "${lead.reply_subject}"` : ""}`}>💬 Replied</span>}
@@ -182,7 +183,8 @@ function LeadRow({ lead, onRefresh }) {
         <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">
           <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
             {lead.website && <a href={lead.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-600"><Globe className="w-3 h-3" /> Website</a>}
-            {lead.instagram && <span>IG: {lead.instagram}</span>}
+            {lead.competitor && <span className="text-red-600 font-semibold">📅 Booking: {lead.competitor}</span>}
+            {lead.instagram && <span>IG: {lead.instagram}{lead.instagram_followers ? ` (${lead.instagram_followers >= 1000 ? (lead.instagram_followers / 1000).toFixed(0) + "k" : lead.instagram_followers})` : ""}</span>}
             {(lead.services || []).slice(0, 4).map(s => <span key={s} className="bg-slate-100 px-2 py-0.5 rounded-full">{s}</span>)}
           </div>
           <div className="flex flex-wrap gap-1.5">

@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-20.7"
-BUILD_TIME = "20 Jul 2026, 08:45 AM IST"
+BUILD = "2026-07-20.8"
+BUILD_TIME = "20 Jul 2026, 09:45 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-20",
         "changes": [
+            "🎯 Smarter lead targeting — Mira now prioritizes salons that ALREADY pay for software (Fresha, Vagaro, Mindbody, Booksy, Square…) as high-value migration leads. New scoring rewards a website (+25), online booking (+20), competitor software (+25 🔥), 5k+ Instagram (+10), 100+ reviews (+10) and multi-location (+10); salons with no website are auto-skipped, and the outreach email pitches an easy, cheaper migration",
             "📈 Lead Agent ROI dashboard — Super Admin → Lead Generation now shows the full outreach funnel (contacted → replied → demo → converted), your conversion rate, and the annual revenue won per converted salon, so you see exactly what the lead agent earns you",
             "🎉 Lead-to-customer tracking — when a lead you contacted signs up for a trial with the same email, Mira auto-marks them '🟢 Customer' with a green Converted badge, so you can see the lead agent's true ROI (contacted → replied → demo → signed up)",
             "🔒 Extra security hardening — lead-finder now re-checks the real server address it connects to (blocks internal-network probing), and the reply webhook uses tamper-proof secret comparison",

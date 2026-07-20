@@ -769,3 +769,13 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MiraLeadAgent.jsx: NEW RoiPanel (testid lead-roi-panel, roi-revenue, roi-step-*, roi-won-*) — gradient card below FunnelCards; refresh() now also fetches /roi.
 - release_notes BUILD 2026-07-20.7. Needs Deploy.
 - TESTED: curl /roi (33.3% conv, ₹20K won, 1 converted) + screenshot verified full panel renders.
+
+## 2026-07-20 — 🎯 Migration-lead scoring overhaul (user request: target salons WITH software)
+- PHILOSOPHY FLIP: old scoring rewarded digitally-weak salons (no website/booking = high). New = target salons already paying for software (best conversions, migration play).
+- lead_gen.py _score() rewritten: website +25, online booking +20, competitor software +25 🔥, IG 5k+ +10, reviews 100+ +10, multi-location +10 (capped 100).
+- NEW _detect_competitor(html) + _COMPETITORS map (fresha/vagaro/mindbody/booksy/square/styleseat/glossgenius/phorest/schedulicity/acuity/setmore — domain + distinctive bare-word needles; ambiguous "square"/"mindbody" domain-only). Wired into _scrape_site (competitor field, also sets booking=True). _research_salon adds competitor + instagram_followers (from LLM). _llm_research prompt asks instagram_followers.
+- NO-WEBSITE → auto-reject: _build_candidate_lead sets status="rejected"+reject_reason="no website" (soft — still inserted, filtered out of main view). Run log shows ⏭️ skipped / 🔥 competitor tag.
+- _draft_email: migration angle when competitor detected (acknowledge existing software → cheaper all-in-one upgrade, easy migration, no contracts/commissions).
+- MiraLeadAgent.jsx: 🔥 competitor badge on card (lead-competitor-badge-<id>), "📅 Booking: X" + IG follower count in expanded row.
+- release_notes BUILD 2026-07-20.8. Needs Deploy.
+- TESTED (self): _score (hot migration lead=100 w/ full breakdown, website-only=25, no-website=10); _detect_competitor (fresha domain, vagaro/booksy bare words, clean=empty); ruff clean; panel screenshot renders.

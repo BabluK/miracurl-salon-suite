@@ -236,24 +236,29 @@ async def _pick_deliverable(emails: list) -> list:
 
 
 def _score(lead: dict) -> tuple:
+    """Migration-lead scoring: reward salons already invested in software — they convert best.
+    A salon on Fresha/Vagaro paying $$/mo is a HIGH-value migration target for a cheaper suite."""
     breakdown = []
     score = 0
-    if not lead.get("website"):
+    if lead.get("website"):
+        score += 25
+        breakdown.append("Has website +25")
+    if lead.get("has_online_booking"):
         score += 20
-        breakdown.append("No website +20")
-    elif lead.get("website_quality") == "poor":
-        score += 20
-        breakdown.append("Poor website +20")
-    if not lead.get("has_online_booking"):
-        score += 30
-        breakdown.append("No booking system +30")
+        breakdown.append("Online booking +20")
+    if lead.get("competitor"):
+        score += 25
+        breakdown.append(f"🔥 Uses {lead['competitor']} (migration lead) +25")
+    if (lead.get("instagram_followers") or 0) >= 5000:
+        score += 10
+        breakdown.append("Instagram 5k+ +10")
+    if (lead.get("reviews") or 0) >= 100:
+        score += 10
+        breakdown.append("100+ reviews +10")
     if (lead.get("branches") or 1) >= 2:
-        score += 30
-        breakdown.append("Multiple branches +30")
-    if (lead.get("reviews") or 0) >= 500 and not lead.get("website"):
-        score += 20
-        breakdown.append("🔥 500+ reviews, no website +20")
-    return score, breakdown
+        score += 10
+        breakdown.append("Multi-location +10")
+    return min(score, 100), breakdown
 
 
 async def _live_plans() -> dict:
@@ -321,6 +326,9 @@ async def _draft_email(lead: dict) -> dict:
         f"Salon research data: {research}\n"
         "Write a personalized email to this salon's owner. Rules: greet as 'Hi {name} team' or owner if known; "
         "1st line must reference something SPECIFIC from the research (their rating/reviews, services, branches); "
+        "if the research shows a 'competitor' field (e.g. Fresha/Vagaro/Mindbody/Booksy), this is a MIGRATION lead — "
+        "warmly acknowledge they already use online booking software, then position Miracurl as an all-in-one upgrade "
+        "at a lower cost with easy migration and simple onboarding (no long contracts, no per-booking commissions); "
         "if the salon has 500+ reviews but no website, emphasize how much repeat business they're losing without "
         "online booking given their popularity; "
         "2nd para: point out what they seem to be missing (online booking / WhatsApp automation / website) and how "
@@ -379,22 +387,44 @@ async def _emails_from_contact_pages(client: httpx.AsyncClient, website: str, so
     return []
 
 
+_COMPETITORS = {
+    "fresha.com": "Fresha", "vagaro.com": "Vagaro", "vagaro": "Vagaro",
+    "mindbodyonline.com": "Mindbody", "mindbody": "Mindbody", "booksy.com": "Booksy", "booksy": "Booksy",
+    "squareup.com": "Square", "square.site": "Square",
+    "styleseat.com": "StyleSeat", "styleseat": "StyleSeat",
+    "schedulicity.com": "Schedulicity", "schedulicity": "Schedulicity",
+    "glossgenius.com": "GlossGenius", "glossgenius": "GlossGenius",
+    "phorest.com": "Phorest", "phorest": "Phorest", "saloniris.com": "Salon Iris",
+    "acuityscheduling.com": "Acuity", "setmore.com": "Setmore", "fresha": "Fresha",
+}
+
+
+def _detect_competitor(html: str) -> str:
+    low = (html or "").lower()
+    for needle, label in _COMPETITORS.items():
+        if needle in low:
+            return label
+    return ""
+
+
 async def _scrape_site(client: httpx.AsyncClient, website_hint: str) -> dict:
-    """Fetch the salon website and extract emails / instagram / booking signal / text."""
+    """Fetch the salon website and extract emails / instagram / booking signal / competitor software / text."""
     site_html = await _fetch_site(client, website_hint)
     if not site_html:
-        return {"website": "", "emails": [], "instagram": "", "booking": False, "text": ""}
+        return {"website": "", "emails": [], "instagram": "", "booking": False, "text": "", "competitor": ""}
     soup = BeautifulSoup(site_html, "html.parser")
     low = site_html.lower()
-    booking = any(k in low for k in ("book now", "book appointment", "book online", "bookslot",
-                                     "calendly", "setmore", "fresha", "zylu", "dingg"))
+    competitor = _detect_competitor(site_html)
+    booking = bool(competitor) or any(k in low for k in ("book now", "book appointment", "book online",
+                                      "bookslot", "calendly", "setmore", "fresha", "zylu", "dingg"))
     ig = soup.select_one('a[href*="instagram.com/"]')
     domain = _site_domain(website_hint)
     emails = _extract_emails(site_html, domain) or await _emails_from_contact_pages(client, website_hint, soup, domain)
     emails = await _pick_deliverable(emails)
     return {"website": website_hint, "emails": emails,
             "instagram": ig.get("href", "")[:120] if ig else "",
-            "booking": booking, "text": soup.get_text(" ", strip=True)[:2500]}
+            "booking": booking, "competitor": competitor,
+            "text": soup.get_text(" ", strip=True)[:2500]}
 
 
 async def _llm_research(name: str, city: str, site: dict) -> dict:
@@ -409,7 +439,8 @@ async def _llm_research(name: str, city: str, site: dict) -> dict:
         f"Website text: {site['text'] or '(no website content)'}\n"
         'Return JSON: {"rating": <typical Google rating like 4.3, null only if you truly do not know this brand>, '
         '"services": ["..."], "branches": <estimated branch count in this city, 1 if single outlet>, '
-        f'"instagram": "<handle/url or empty>", "has_online_booking": {str(site["booking"]).lower()} '
+        f'"instagram": "<handle/url or empty>", "instagram_followers": <approx follower count if you know this brand, else 0>, '
+        f'"has_online_booking": {str(site["booking"]).lower()} '
         'or true if the website text clearly offers online booking, '
         '"website_quality": "<none|poor|good — judge from the website text richness>", '
         '"owner_name": "<if found, else empty>"}')
@@ -421,10 +452,12 @@ async def _research_salon(client: httpx.AsyncClient, name: str, city: str, websi
     lead = {
         "id": str(uuid.uuid4()), "name": name, "city": city,
         "website": site["website"], "instagram": site["instagram"] or (info.get("instagram") or ""),
+        "instagram_followers": int(info.get("instagram_followers") or 0),
         "rating": info.get("rating"), "services": (info.get("services") or [])[:6],
         "branches": int(info.get("branches") or 1),
         "has_online_booking": site["booking"] or bool(info.get("has_online_booking")),
         "website_quality": (info.get("website_quality") or ("none" if not site["website"] else "poor")),
+        "competitor": site.get("competitor") or "",
         "owner_name": info.get("owner_name") or "",
         "email": site["emails"][0] if site["emails"] else "",
         "email_source": site["website"] if site["emails"] else "",
@@ -499,6 +532,11 @@ async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str
         lead["category"] = place.get("category") or ""
         lead["source"] = "google_maps"
         lead["score"], lead["score_breakdown"] = _score(lead)
+    if not lead.get("website"):
+        # User's flow: no website → skip (these salons rarely pay for software; poor conversion)
+        lead["status"] = "rejected"
+        lead["reject_reason"] = "no website"
+        return lead
     if lead["email"]:
         draft = await _draft_email(lead)
         lead.update({"email_subject": draft["subject"], "email_body": draft["body"], "status": "drafted"})
@@ -523,7 +561,11 @@ async def _research_candidates(client: httpx.AsyncClient, cands: list, city: str
             lead = await _build_candidate_lead(client, cand, city, run_id)
             await _raw_db.mira_leads.insert_one(lead)
             done += 1
-            await _log(f"📋 {lead['name']}: score {lead['score']} | email: {lead['email'] or 'not found'}", researched=done)
+            if lead.get("status") == "rejected":
+                await _log(f"⏭️ {lead['name']}: skipped — no website (not a software buyer)", researched=done)
+            else:
+                tag = f" · 🔥 {lead['competitor']}" if lead.get("competitor") else ""
+                await _log(f"📋 {lead['name']}: score {lead['score']}{tag} | email: {lead['email'] or 'not found'}", researched=done)
         except Exception as e:  # noqa: BLE001 — one bad candidate must not stop the run
             await _log(f"⚠️ {cand.get('name')} skipped: {str(e)[:80]}")
         await asyncio.sleep(1.5)
