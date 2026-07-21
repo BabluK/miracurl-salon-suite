@@ -50,14 +50,16 @@ export const LegalSection = ({ n, title, children }) => (
   </section>
 );
 
-export const LegalFooter = ({ crossLabel, crossTo }) => (
+export const LegalFooter = ({ cross = [] }) => (
   <footer className="relative z-10 border-t border-white/10 mt-16">
     <div className="max-w-4xl mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500">
       <div className="flex items-center gap-2">
         <Scissors className="w-3.5 h-3.5 text-fuchsia-400" /> © Miracurl Salon Suite · Marathahalli, Bangalore
       </div>
       <div className="flex items-center gap-5">
-        <Link to={crossTo} className="hover:text-white transition-colors">{crossLabel}</Link>
+        {cross.map((c) => (
+          <Link key={c.to} to={c.to} className="hover:text-white transition-colors">{c.label}</Link>
+        ))}
         <Link to="/" className="hover:text-white transition-colors">Home</Link>
         <Link to="/signup-salon" className="text-amber-300/70 hover:text-amber-300 transition-colors inline-flex items-center gap-1">
           Free trial <ArrowRight className="w-3 h-3" />
@@ -67,13 +69,13 @@ export const LegalFooter = ({ crossLabel, crossTo }) => (
   </footer>
 );
 
-export default function LegalLayout({ label, title, subtitle, crossLabel, crossTo, children, testId }) {
+export default function LegalLayout({ label, title, subtitle, cross, children, testId }) {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white font-outfit" data-testid={testId}>
       <LegalNav />
       <LegalHero label={label} title={title} subtitle={subtitle} />
       <main className="relative z-10 max-w-4xl mx-auto px-6 sm:px-10">{children}</main>
-      <LegalFooter crossLabel={crossLabel} crossTo={crossTo} />
+      <LegalFooter cross={cross} />
     </div>
   );
 }

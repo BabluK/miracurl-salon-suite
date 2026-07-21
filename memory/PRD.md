@@ -825,3 +825,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - App.js: NEW global ScrollToTop component (useLocation, scrolls window to 0 on pathname change) inside BrowserRouter — fixes "clicking Privacy/Terms lands mid-page" (react-router preserved scroll). Applies to ALL route navigations.
 - release_notes BUILD 2026-07-21.14. Needs Deploy.
 - TESTED (self, e2e screenshot): scrolled Terms to bottom → clicked Privacy Policy → scrollY=0, heading visible, emails verified on both pages.
+
+## 2026-07-21 — 📜 Refund Policy page + dedicated inboxes + reply-to wiring (user request)
+- NEW /app/frontend/src/pages/Refund.jsx (route /refund-policy in App.js) — user's exact refund policy content (India 7-10 days, intl 10-15 days, chargebacks, cancellation). Contact: refunds@ + support@ + billing@.
+- LegalLayout footer: crossLabel/crossTo → `cross` ARRAY of {label,to}; Terms/Privacy/Refund each cross-link the other two legal pages.
+- Email remap: Terms → legal@ (sec 2 & 12), refunds@ (sec 5, + Refund Policy link), billing@ (sec 4 new sentence). Privacy → privacy@ (2x). All @miracurl-suite.com.
+- Landing footer: NEW "Refunds" link (footer-refund-link). sitemap.xml: added /refund-policy.
+- email_service.py `_send_email`: default reply_to = env SUPPORT_REPLY_TO (=support@miracurl-suite.com in backend/.env) → all customer emails (reminders, receipts, bookings) get replies to support@; explicit reply_to callers (lead_gen, hq_documents) unchanged. Backend restarted.
+- release_notes BUILD 2026-07-21.15. Needs Deploy. TESTED: /refund-policy screenshot OK, emails verified in page content.

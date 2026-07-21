@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-21.14"
-BUILD_TIME = "21 Jul 2026, 09:45 AM IST"
+BUILD = "2026-07-21.15"
+BUILD_TIME = "21 Jul 2026, 10:15 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-21",
         "changes": [
+            "📜 New Refund Policy page at /refund-policy — India & international refund rules, cancellations and chargebacks, linked from the website footer and Terms",
+            "📧 Dedicated contact inboxes — legal@ (Terms), privacy@ (Privacy Policy), refunds@ & billing@ (Refund Policy) on miracurl-suite.com",
+            "↩️ Replies come home — customer replies to reminders, receipts and booking emails now land in support@miracurl-suite.com automatically",
             "🏅 Certificate-style relieving letters — the Excellent letter is now a rose-gold certificate with your salon's own logo, decorative border, gold medal seal and a green '★ EXCELLENT' badge above the staff name; Terminated letters get a red seal + red '✖ TERMINATED' badge",
             "📧 Legal contact updated to support@miracurl-suite.com on the Privacy Policy & Terms of Service pages",
             "🩹 Fixed: clicking Privacy Policy / Terms links now opens the page from the top heading instead of mid-page",

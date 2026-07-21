@@ -4,7 +4,7 @@ export default function Privacy() {
   return (
     <LegalLayout testId="privacy-page" label="LEGAL" title="Privacy Policy"
                  subtitle="Last updated: June 2026 · How Miracurl Salon Suite collects, uses and protects information."
-                 crossLabel="Terms of Service" crossTo="/terms-of-service">
+                 cross={[{ label: "Terms of Service", to: "/terms-of-service" }, { label: "Refund Policy", to: "/refund-policy" }]}>
       <S n="1" title="Overview">
         <p>Miracurl Salon Suite ("Miracurl", "we", "us") provides salon management software to businesses. This policy explains what information we collect, why we collect it, and the choices you have. It applies to our websites, web apps, booking pages and related services.</p>
         <p>We act in two roles: as a <strong>data controller</strong> for information about salon owners and staff who sign up with us, and as a <strong>data processor</strong> for the customer records that salons store inside the platform. Salons remain responsible for the customer data they collect through Miracurl.</p>
@@ -63,7 +63,7 @@ export default function Privacy() {
           <li>Export your data in a portable format;</li>
           <li>Object to or restrict certain processing, and withdraw consent where processing is based on consent.</li>
         </ul>
-        <p>To exercise any of these rights, email <a href="mailto:support@miracurl-suite.com">support@miracurl-suite.com</a>. If you are a salon's customer, please contact the salon directly first — they control your booking records.</p>
+        <p>To exercise any of these rights, email <a href="mailto:privacy@miracurl-suite.com">privacy@miracurl-suite.com</a>. If you are a salon's customer, please contact the salon directly first — they control your booking records.</p>
       </S>
 
       <S n="9" title="Marketing communications">
@@ -79,7 +79,7 @@ export default function Privacy() {
       </S>
 
       <S n="12" title="Contact us">
-        <p>For any privacy question, request or complaint, contact our privacy team at <a href="mailto:support@miracurl-suite.com">support@miracurl-suite.com</a>. Miracurl Salon Suite, Bangalore, Karnataka, India.</p>
+        <p>For any privacy question, request or complaint, contact our privacy team at <a href="mailto:privacy@miracurl-suite.com">privacy@miracurl-suite.com</a>. Miracurl Salon Suite, Bangalore, Karnataka, India.</p>
       </S>
     </LegalLayout>
   );

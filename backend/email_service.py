@@ -58,6 +58,7 @@ async def _send_email(to: list, subject: str, html: str, attachments: list | Non
         "from": f"Miracurl <{sender}>",
         "to": to, "subject": subject, "html": html + _brand_footer(book_url, book_label),
     }
+    reply_to = reply_to or os.environ.get("SUPPORT_REPLY_TO")
     if reply_to:
         params["reply_to"] = [reply_to]
     if attachments:

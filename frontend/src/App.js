@@ -37,6 +37,7 @@ import SignupSalon from "@/pages/SignupSalon";
 import Landing from "@/pages/Landing";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
+import Refund from "@/pages/Refund";
 import Settings from "@/pages/Settings";
 import Assistant from "@/pages/Assistant";
 import MiraStudio from "@/pages/MiraStudio";
@@ -163,6 +164,7 @@ export default function App() {
             <Route path="/terms-of-service" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/privacy-policy" element={<Privacy />} />
+            <Route path="/refund-policy" element={<Refund />} />
             <Route path="/book" element={<SalonFinder />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
             <Route path="/rate/:slug" element={<RatePublic />} />

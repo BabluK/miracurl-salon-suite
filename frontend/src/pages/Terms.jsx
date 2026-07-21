@@ -4,14 +4,14 @@ export default function Terms() {
   return (
     <LegalLayout testId="terms-page" label="LEGAL" title="Terms of Service"
                  subtitle="Last updated: June 2026 · These terms govern your use of Miracurl Salon Suite."
-                 crossLabel="Privacy Policy" crossTo="/privacy-policy">
+                 cross={[{ label: "Privacy Policy", to: "/privacy-policy" }, { label: "Refund Policy", to: "/refund-policy" }]}>
       <S n="1" title="Who we are & acceptance of these terms">
         <p>Miracurl Salon Suite ("Miracurl", "we", "us") is a cloud-based salon and spa management platform that helps businesses manage appointments, customers, staff, billing, inventory, marketing and related operations. By creating an account, accessing our website, or using any part of the platform, you agree to be bound by these Terms of Service. If you are using Miracurl on behalf of a salon or company, you confirm you have the authority to bind that business to these terms.</p>
         <p>If you do not agree with any part of these terms, please do not use the platform.</p>
       </S>
 
       <S n="2" title="Your account & eligibility">
-        <p>You must be at least 18 years old to open an account. You are responsible for keeping your login credentials, Owner PIN and staff access codes confidential, and for all activity that occurs under your account. Notify us immediately at support@miracurl-suite.com if you suspect unauthorised access.</p>
+        <p>You must be at least 18 years old to open an account. You are responsible for keeping your login credentials, Owner PIN and staff access codes confidential, and for all activity that occurs under your account. Notify us immediately at legal@miracurl-suite.com if you suspect unauthorised access.</p>
         <p>You agree to provide accurate business information during signup and to keep it up to date. Each subscription is licensed to a single salon business (tenant); reselling, sharing or sublicensing access to third parties is not permitted without our written consent.</p>
       </S>
 
@@ -29,12 +29,12 @@ export default function Terms() {
 
       <S n="4" title="Subscriptions, billing & renewals">
         <p>Miracurl is offered on a subscription basis with plans described on our pricing page. Payments are processed securely through our payment partner (Razorpay); we do not store your full card or banking details on our servers.</p>
-        <p>Unless stated otherwise, subscriptions renew automatically at the end of each billing cycle. You can cancel renewal at any time from your Billing panel — access continues until the end of the paid period. Prices may change; we will give you reasonable advance notice before any change affects your next billing cycle. Applicable taxes (such as GST) are charged as per law.</p>
+        <p>Unless stated otherwise, subscriptions renew automatically at the end of each billing cycle. You can cancel renewal at any time from your Billing panel — access continues until the end of the paid period. Prices may change; we will give you reasonable advance notice before any change affects your next billing cycle. Applicable taxes (such as GST) are charged as per law. For billing questions, write to <a href="mailto:billing@miracurl-suite.com">billing@miracurl-suite.com</a>.</p>
       </S>
 
       <S n="5" title="Refunds & cancellation">
         <p>Subscription fees are non-refundable once a billing period has started. We offer a free trial so you can fully evaluate the platform before paying — please use it to confirm Miracurl fits your business. No refunds or credits are provided for partially used billing periods, unused features, or downgrades.</p>
-        <p>In exceptional cases (for example a duplicate payment or a verified billing error on our side), contact support@miracurl-suite.com and we will investigate and correct the error, including a refund where appropriate.</p>
+        <p>In exceptional cases (for example a duplicate payment or a verified billing error on our side), contact refunds@miracurl-suite.com and we will investigate and correct the error, including a refund where appropriate. See our <a href="/refund-policy">Refund Policy</a> for full details.</p>
       </S>
 
       <S n="6" title="Your data & our content">
@@ -65,7 +65,7 @@ export default function Terms() {
       </S>
 
       <S n="12" title="Governing law & contact">
-        <p>These terms are governed by the laws of India, and the courts of Bangalore, Karnataka shall have exclusive jurisdiction over any dispute. Questions about these terms? Write to us at <a href="mailto:support@miracurl-suite.com">support@miracurl-suite.com</a>.</p>
+        <p>These terms are governed by the laws of India, and the courts of Bangalore, Karnataka shall have exclusive jurisdiction over any dispute. Questions about these terms? Write to us at <a href="mailto:legal@miracurl-suite.com">legal@miracurl-suite.com</a>.</p>
       </S>
     </LegalLayout>
   );
