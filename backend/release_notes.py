@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-20.13"
-BUILD_TIME = "20 Jul 2026, 02:30 PM IST"
+BUILD = "2026-07-21.14"
+BUILD_TIME = "21 Jul 2026, 09:45 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-21",
+        "changes": [
+            "🏅 Certificate-style relieving letters — the Excellent letter is now a rose-gold certificate with your salon's own logo, decorative border, gold medal seal and a green '★ EXCELLENT' badge above the staff name; Terminated letters get a red seal + red '✖ TERMINATED' badge",
+            "📧 Legal contact updated to support@miracurl-suite.com on the Privacy Policy & Terms of Service pages",
+            "🩹 Fixed: clicking Privacy Policy / Terms links now opens the page from the top heading instead of mid-page",
+        ],
+    },
     {
         "date": "2026-07-20",
         "changes": [

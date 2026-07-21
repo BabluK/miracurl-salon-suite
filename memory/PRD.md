@@ -819,3 +819,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Themes in `_LETTER_THEMES` dict (bg/border/accent/pill/watermark per letter type). Rose/gold palette for excellent, red/neutral for terminated.
 - Samples generated for user preview: /sample_excellent.pdf and /sample_terminated.pdf in frontend/public (visually verified via PyMuPDF render).
 - Wired into existing POST /api/staff/previous/{sid}/relieving-letter (no route changes needed). Awaiting user approval of the sample design.
+
+## 2026-07-21 — 📧 Legal pages email + scroll-to-top fix (user request)
+- Terms.jsx (3x) + Privacy.jsx (2x): legal@miracurl.com → support@miracurl-suite.com.
+- App.js: NEW global ScrollToTop component (useLocation, scrolls window to 0 on pathname change) inside BrowserRouter — fixes "clicking Privacy/Terms lands mid-page" (react-router preserved scroll). Applies to ALL route navigations.
+- release_notes BUILD 2026-07-21.14. Needs Deploy.
+- TESTED (self, e2e screenshot): scrolled Terms to bottom → clicked Privacy Policy → scrollY=0, heading visible, emails verified on both pages.
