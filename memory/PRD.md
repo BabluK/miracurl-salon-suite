@@ -852,3 +852,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - release_notes BUILD 2026-07-23.17. Needs Deploy.
 - TESTED (self, e2e): build endpoint OK; simulated inbound billing@ email → HQ inbox + notification unread; dispute form UI submit → hq_messages + notification; Terms/Privacy/Refund emails verified. Test data cleaned.
 - NOTE: inbound routing requires Resend inbound MX for miracurl-suite.com (already active — lead reply webhook uses it).
+
+## 2026-07-23 — 🎁 GIFT CARDS feature (user request, tested iteration_85 ALL PASS)
+- NEW /app/backend/routes/gift_cards.py: 12 occasions w/ gradients, public config/order/verify/upi-paid endpoints, admin settings+list+confirm+cancel+check, redeem_gift_card() helper, deliver_scheduled_gift_cards() (hourly scheduler _gift_card_scheduler in schedulers.py, registered in server.py).
+- Payment: per-salon gift_card_settings on tenant doc {enabled, razorpay_key_id/secret, upi_id, validity_days (default 180), amounts}. Main tenant (miracurl-marathahalli) falls back to HQ env RAZORPAY keys. Razorpay: order create + HMAC sig verify. UPI: upi:// deeplink + buyer claims paid → owner confirms → issue.
+- Issue: unique code GC-XXXX-XXXX, expires issue+validity, occasion-gradient e-card email w/ salon logo (absolute URL fix) to recipient + buyer receipt; send_on future → status scheduled, delivered by scheduler.
+- POS: InvoiceIn.gift_card_code (models.py); create_invoice applies via redeem_gift_card → inv.gift_card_applied/_balance_left. POS.jsx gift box (pos-gift-card-*). NOTE: testing agent fixed missing useState gcCode/gcInfo in POS.jsx (my edit had misapplied).
+- Frontend: NEW /gift/:slug GiftCardPublic.jsx (dark luxe, occasion grid, live card preview, razorpay checkout.js, UPI panel, success/scheduled screens); NEW settings/GiftCardsCard.jsx in Settings.jsx (settings + orders + stats + confirm/cancel); hero-gift-card-btn on BookPublic; salon-gift-card-btn on SalonPublic. Routes /gift/:slug + /gift in App.js.
+- release_notes BUILD 2026-07-23.18. Needs Deploy.

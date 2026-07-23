@@ -2,10 +2,20 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-23.17"
-BUILD_TIME = "23 Jul 2026, 11:15 AM IST"
+BUILD = "2026-07-23.18"
+BUILD_TIME = "23 Jul 2026, 01:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-23 (Gift Cards)",
+        "changes": [
+            "🎁 Gift Cards are here! Customers can buy occasion gift cards (Birthday, Anniversary, Valentine's, Diwali, Christmas + 7 more) for loved ones at /gift/your-salon — with your salon logo on a beautiful themed e-card",
+            "💳 Two ways to get paid: connect your own Razorpay keys OR just add your UPI ID (GPay/PhonePe) in Settings → Gift Cards; UPI orders wait for your one-tap 'Money received' confirmation",
+            "📧 The e-gift card with a unique GC- code is emailed to the recipient instantly — or scheduled to arrive exactly on the special day; the buyer gets a receipt too",
+            "🧾 Redeem at POS: enter the gift code at billing — balance deducts and any remainder stays on the card until it's used up (validity configurable, default 6 months)",
+            "🛍️ 'Gift Card for a Loved One' buttons added on your public booking page and salon page",
+        ],
+    },
     {
         "date": "2026-07-23",
         "changes": [
