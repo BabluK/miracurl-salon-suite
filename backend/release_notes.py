@@ -2,10 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-23.21"
-BUILD_TIME = "23 Jul 2026, 04:45 PM IST"
+BUILD = "2026-07-23.22"
+BUILD_TIME = "23 Jul 2026, 05:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-23 (Auto Campaign)",
+        "changes": [
+            "⚡ Auto Campaign — flip the 'Auto-call new hot leads' switch in the Lead Agent and Mira automatically phones every freshly discovered hot lead within the hour: business hours only (10 AM–7 PM IST), max 25 calls/day, never re-calls the same lead, honours opt-outs",
+        ],
+    },
     {
         "date": "2026-07-23 (Mira Conversations + Live Map)",
         "changes": [

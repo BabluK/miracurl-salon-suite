@@ -111,6 +111,29 @@ function FunnelCards({ stats }) {
   );
 }
 
+function AutoCallToggle() {
+  const [s, setS] = useState(null);
+  useEffect(() => { api.get("/super-admin/mira-calls/auto-settings").then(r => setS(r.data)).catch(() => {}); }, []);
+  if (!s) return null;
+  const toggle = async () => {
+    const next = { ...s, enabled: !s.enabled };
+    setS(next);
+    try {
+      await api.put("/super-admin/mira-calls/auto-settings", next);
+      toast.success(next.enabled
+        ? `⚡ Auto campaign ON — Mira will call new hot leads within the hour (10 AM–7 PM IST, max ${next.daily_limit}/day)`
+        : "Auto campaign paused");
+    } catch (e) { setS(s); toast.error(e.response?.data?.detail || "Couldn't save"); }
+  };
+  return (
+    <label data-testid="lead-auto-call-toggle" title="Every 10 minutes Mira checks for freshly discovered hot leads and calls them automatically — business hours only, with a daily cap"
+      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold cursor-pointer transition-colors ${s.enabled ? "border-violet-400 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-300"}`}>
+      <input type="checkbox" checked={s.enabled} onChange={toggle} className="accent-violet-600 w-4 h-4" />
+      ⚡ Auto-call new hot leads
+    </label>
+  );
+}
+
 function LeadRow({ lead, onRefresh }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
@@ -482,6 +505,7 @@ export function MiraLeadAgent() {
           title="Mira voice-calls all hot leads with your pitch script — press 1 sends the demo pack by email">
           📞 Mira Call Hot Leads
         </button>
+        <AutoCallToggle />
         <button data-testid="lead-hunt-all-btn"
           disabled={starting || !!activeRun}
           onClick={async () => {

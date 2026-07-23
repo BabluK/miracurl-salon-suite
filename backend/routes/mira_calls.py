@@ -476,3 +476,69 @@ async def mira_speak(body: MiraSpeakIn, user=Depends(require_super_admin)):
     from routes.briefings import _tts_cached_speech
     audio_b64 = await _tts_cached_speech(body.text.strip()[:900], voice="shimmer", speed=1.03)
     return {"audio_b64": audio_b64}
+
+
+# ---------------- auto campaign: call new hot leads within the hour ----------------
+
+AUTO_CALL_KEY = "mira_auto_call"
+
+
+async def _auto_settings() -> dict:
+    doc = await _raw_db.platform_settings.find_one({"key": AUTO_CALL_KEY}, {"_id": 0}) or {}
+    return {"enabled": bool(doc.get("enabled", False)),
+            "daily_limit": int(doc.get("daily_limit", 25)),
+            "start_hour": int(doc.get("start_hour", 10)), "end_hour": int(doc.get("end_hour", 19))}
+
+
+class AutoCallSettingsIn(BaseModel):
+    enabled: bool
+    daily_limit: int = 25
+
+
+@router.get("/super-admin/mira-calls/auto-settings")
+async def get_auto_call_settings(user=Depends(require_super_admin)):
+    return await _auto_settings()
+
+
+@router.put("/super-admin/mira-calls/auto-settings")
+async def set_auto_call_settings(body: AutoCallSettingsIn, user=Depends(require_super_admin)):
+    await _raw_db.platform_settings.update_one(
+        {"key": AUTO_CALL_KEY},
+        {"$set": {"enabled": body.enabled, "daily_limit": max(1, min(body.daily_limit, 100)),
+                  "updated_at": _now()}}, upsert=True)
+    return {"ok": True}
+
+
+async def auto_call_hot_leads() -> int:
+    """Scheduler: Mira automatically calls hot leads discovered in the last 24h, within IST business hours."""
+    s = await _auto_settings()
+    if not s["enabled"]:
+        return 0
+    ist_hour = datetime.now(_IST).hour
+    if not (s["start_hour"] <= ist_hour < s["end_hour"]):
+        return 0
+    today = datetime.now(timezone.utc).date().isoformat()
+    made_today = await _raw_db.mira_call_logs.count_documents(
+        {"created_at": {"$gte": today}, "auto": True})
+    budget = s["daily_limit"] - made_today
+    if budget <= 0:
+        return 0
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    leads = await _raw_db.mira_leads.find(
+        {**HOT_QUERY, "phone": {"$nin": ["", None]}, "do_not_call": {"$ne": True},
+         "last_call_at": {"$exists": False}, "auto_called_at": {"$exists": False},
+         "status": {"$nin": ["customer", "rejected", "sent"]},
+         "created_at": {"$gte": since}},
+        {"_id": 0}).sort("reviews", -1).to_list(min(budget, 10))
+    base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    n = 0
+    for ld in leads:
+        await _raw_db.mira_leads.update_one({"id": ld["id"]}, {"$set": {"auto_called_at": _now()}})
+        res = await _start_call(ld, base)
+        if res.get("ok"):
+            await _raw_db.mira_call_logs.update_one({"id": res["call_id"]}, {"$set": {"auto": True}})
+            n += 1
+        await asyncio.sleep(2)
+    if n:
+        log.info(f"auto campaign: Mira dialed {n} fresh hot leads")
+    return n

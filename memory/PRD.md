@@ -893,3 +893,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - FIXED: tests/*.py `is True/is False` → `== True/== False` (utils.py:8 flagged line was a correct `is None`). Gift card suite re-run 12/12 pass.
 - REFACTORED: resend_inbound_webhook business-inbox routing extracted to _route_business_inbox() helper; e2e webhook retest OK.
 - DEFERRED deliberately (regression risk >> value on freshly-deployed, fully-tested payment/call code): mass complexity refactors (create_invoice, gift_card_order, _converse, platform_map_live, etc.), 80% type-hint coverage drive, module splits of briefings/gallery/hq_documents. Documented for future incremental cleanup.
+
+## 2026-07-23 — ⚡ Auto Campaign: Mira auto-calls new hot leads (user request, self-tested)
+- mira_calls.py: platform_settings doc key mira_auto_call {enabled (default FALSE), daily_limit 25, start/end_hour 10-19 IST}; GET/PUT /super-admin/mira-calls/auto-settings; auto_call_hot_leads() — hot leads created <24h, phone, never called, not opted out, flags auto_called_at, marks call log auto:True, 2s stagger, daily budget from auto-tagged logs. Scheduler _mira_auto_call_scheduler every 10 min (schedulers.py + server.py).
+- MiraLeadAgent.jsx: AutoCallToggle component (lead-auto-call-toggle) next to Mira Call Hot Leads button.
+- TESTED: settings CRUD via curl; seeded fresh hot lead → detected + flagged + Twilio dial attempted (trial-account rejection expected) + idempotent re-run; UI toggle renders. LEFT DISABLED until user upgrades Twilio.
+- release_notes BUILD 2026-07-23.22. Needs Deploy.

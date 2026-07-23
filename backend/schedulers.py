@@ -273,3 +273,14 @@ async def _gift_card_scheduler() -> None:
         except Exception as e:
             logging.error(f"gift card scheduler error: {e}")
         await asyncio.sleep(3600)
+
+
+async def _mira_auto_call_scheduler() -> None:
+    """Every 10 min: Mira auto-calls hot leads discovered in the last 24h (if enabled)."""
+    from routes.mira_calls import auto_call_hot_leads
+    while True:
+        try:
+            await auto_call_hot_leads()
+        except Exception as e:
+            logging.error(f"mira auto-call scheduler error: {e}")
+        await asyncio.sleep(600)
