@@ -49,6 +49,8 @@ export default function POS() {
   const [tipPct, setTipPct] = useState(null);
   const [customTip, setCustomTip] = useState(0);
   const [tipStaffId, setTipStaffId] = useState("");
+  const [gcCode, setGcCode] = useState("");
+  const [gcInfo, setGcInfo] = useState(null);
   const guestBoxRef = useRef(null);
   const sym = curSym(tenant);
 
@@ -188,7 +190,9 @@ export default function POS() {
   const tax = taxable * taxPct / 100;
   const total = taxable + tax;
   const tipAmount = tipPct != null ? Math.round(taxable * tipPct) / 100 : Number(customTip || 0);
+  const giftApplied = gcInfo ? Math.min(gcInfo.balance, total) : 0;
   const grandTotal = total + tipAmount;
+  const dueAfterGift = Math.max(0, grandTotal - giftApplied);
 
   async function checkCoupon() {
     const code = couponCode.trim().toUpperCase();
@@ -202,10 +206,22 @@ export default function POS() {
     } catch { toast.error("Couldn't check coupon"); }
   }
 
+  async function checkGiftCard() {
+    const code = gcCode.trim().toUpperCase();
+    if (!code) { setGcInfo(null); return; }
+    try {
+      const { data } = await api.post("/gift-cards/check", { code });
+      if (!data.valid) { setGcInfo(null); toast.error(data.reason || "Invalid gift card"); return; }
+      setGcInfo(data);
+      toast.success(`Gift card 🎁 ${sym}${data.balance} balance applied`);
+    } catch { toast.error("Couldn't check the gift card"); }
+  }
+
   function clearAll() {
     setCart([]); setOrderNotes(""); setStaffId("");
     setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("cash");
     setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
+    setGcCode(""); setGcInfo(null);
     setTipPct(null); setCustomTip(0); setTipStaffId("");
   }
 
@@ -227,6 +243,7 @@ export default function POS() {
         coupon_code: couponInfo?.code || null,
         tip_amount: tipAmount,
         tip_staff_id: tipStaffId || staffId || null,
+        gift_card_code: gcInfo ? gcCode.trim().toUpperCase() : null,
         branch_id: branchId || null,
       });
       toast.success(`Invoice ${data.invoice_no} created${data.points_earned ? ` · +${data.points_earned} pts earned` : ""}`);
@@ -313,6 +330,25 @@ export default function POS() {
             customTip={customTip} setCustomTip={setCustomTip} tipAmount={tipAmount}
             tipStaffId={tipStaffId} setTipStaffId={setTipStaffId} staff={staff} grandTotal={grandTotal}
           />
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-4" data-testid="pos-gift-card-box">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-slate-700">🎁 Gift card</span>
+              <input value={gcCode} onChange={(e) => setGcCode(e.target.value.toUpperCase())} placeholder="GC-XXXX-XXXX"
+                data-testid="pos-gift-card-input" className="w-40 font-mono text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-400" />
+              <button onClick={checkGiftCard} data-testid="pos-gift-card-apply"
+                className="bg-fuchsia-600 text-white text-xs font-bold rounded-lg px-3 py-2 hover:bg-fuchsia-500">Apply</button>
+              {gcInfo && (
+                <>
+                  <span className="text-xs text-emerald-600 font-semibold" data-testid="pos-gift-card-applied">
+                    −{sym}{giftApplied.toFixed(0)} applied ({gcInfo.recipient_name} · bal {sym}{gcInfo.balance})
+                  </span>
+                  <button onClick={() => { setGcInfo(null); setGcCode(""); }} className="text-[10px] text-rose-500 font-semibold" data-testid="pos-gift-card-remove">Remove</button>
+                  <span className="ml-auto text-sm font-bold text-slate-800">Due: {sym}{dueAfterGift.toFixed(0)}</span>
+                </>
+              )}
+            </div>
+          </div>
 
           <PaymentSection
             orderNotes={orderNotes} setOrderNotes={setOrderNotes}

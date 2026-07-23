@@ -311,6 +311,12 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     inv["coupon_code"] = coupon["code"] if coupon else None
     inv["coupon_discount"] = totals["coupon_discount"]
     inv["points_used"] = totals["points_used"]
+    if body.gift_card_code:
+        from routes.gift_cards import redeem_gift_card
+        gc = await redeem_gift_card(body.gift_card_code, ctx["tenant_doc"]["id"], totals["total"], inv["id"])
+        inv["gift_card_code"] = gc["code"]
+        inv["gift_card_applied"] = gc["applied"]
+        inv["gift_card_balance_left"] = gc["balance_left"]
     await db.invoices.insert_one(inv)
 
     if body.payment_mode == "salon_wallet":

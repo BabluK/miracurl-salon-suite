@@ -55,6 +55,7 @@ from routes.assistant import router as assistant_router  # noqa: E402
 from routes.offers import router as offers_router  # noqa: E402
 from routes.public_chat import router as public_chat_router  # noqa: E402
 from routes.sales import router as sales_router  # noqa: E402
+from routes.gift_cards import router as gift_cards_router  # noqa: E402
 from routes.registry import router as registry_router  # noqa: E402
 from routes.appointments_pos import router as appointments_pos_router  # noqa: E402
 from routes.invoice_edits import router as invoice_edits_router  # noqa: E402
@@ -92,6 +93,7 @@ from schedulers import (  # noqa: E402
     _cctv_poll_scheduler, _renewal_reminder_scheduler, _review_request_scheduler,
     _demo_followup_scheduler, _late_alert_scheduler, _weekly_package_scheduler,
     _lead_followup_scheduler, _staff_exit_scheduler, _sms_reminder_scheduler,
+    _gift_card_scheduler,
 )
 
 for _r in (
@@ -100,7 +102,7 @@ for _r in (
     inventory_router, tenant_settings_router, crm_router, briefings_router,
     reviews_router, reports_router, public_site_router, super_admin_router,
     data_cleanup_router, super_admin_ops_router, assistant_router, offers_router,
-    public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router,
+    public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router, gift_cards_router,
     mira_studio_router, social_connect_router, mira_calendar_router, mira_autopilot_router,
     promo_video_router, platform_tools_router, promo_image_router, offer_flyer_router, veo_studio_router,
     packages_router, wallet_router, id_cards_router, releases_router,
@@ -125,6 +127,7 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_birthday_scheduler())
     asyncio.get_event_loop().create_task(_staff_exit_scheduler())
     asyncio.get_event_loop().create_task(_sms_reminder_scheduler())
+    asyncio.get_event_loop().create_task(_gift_card_scheduler())
     asyncio.get_event_loop().create_task(autopilot_scheduler())
     asyncio.get_event_loop().create_task(weekly_promo_scheduler())
     asyncio.get_event_loop().create_task(sweep_stale_veo_jobs())

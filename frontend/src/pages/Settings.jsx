@@ -10,6 +10,7 @@ import { TaxCard } from "@/components/settings/TaxCard";
 import { LoyaltyCard } from "@/components/settings/LoyaltyCard";
 import { AffiliateCard } from "@/components/settings/AffiliateCard";
 import { RazorpayCard } from "@/components/settings/RazorpayCard";
+import { GiftCardsCard } from "@/components/settings/GiftCardsCard";
 import { StripeSubscriptionCard } from "@/components/settings/StripeSubscriptionCard";
 import { VendorsCard } from "@/components/settings/VendorsCard";
 import { BirthdayCard } from "@/components/settings/BirthdayCard";
@@ -78,6 +79,8 @@ export default function Settings() {
         <StripeSubscriptionCard />
 
         <RazorpayCard />
+
+        <GiftCardsCard />
 
         <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm">
           <div className="flex items-start gap-3">

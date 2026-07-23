@@ -307,6 +307,11 @@ export default function BookPublic() {
             <span className="flex items-center gap-1"><PhoneIcon className="w-3 h-3 text-gold" /> {salon.phone}</span>
           </div>
           <HeroCTAs />
+          <Link to={`/gift/${slug}`} data-testid="hero-gift-card-btn"
+            className="mt-3 inline-flex items-center gap-2 w-fit px-5 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-600/30 to-amber-500/30 backdrop-blur-md border border-gold/40 text-sm font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
+            🎁 Gift Card for a Loved One
+            <span className="text-[9px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
+          </Link>
         </div>
       </header>
 

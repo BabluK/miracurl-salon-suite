@@ -1,0 +1,35 @@
+{
+  "summary": "Iter 85 — Gift Cards feature (public purchase, Razorpay + UPI, admin confirm/cancel, POS redeem). Backend: 12/12 pytest cases pass across config, settings, UPI flow (order→upi-paid→admin list→confirm→code+expires ~180d), Razorpay order (real order_id via HQ keys, key_id rzp_*), Razorpay verify wrong-sig=400, scheduled delivery (send_on=tomorrow → status=scheduled, code hidden), validation (bad email/unknown occasion=400, amount<=0=422), POS check + create-invoice with gift_card_code deducts balance, cancel makes code invalid. Frontend: /gift/miracurl-marathahalli fully works (12 occasions, amount presets+custom, preview updates with occasion gradient + amount, form fields, send-now/later toggle, UPI E2E → gift-success screen). Razorpay checkout modal opens (real api.razorpay.com iframe). /book/… hero-gift-card-btn & /salon/… salon-gift-card-btn both linked correctly. Salon-admin Settings shows gift-cards-card with all fields, gift-page-url, stats row, gift-row-*, gift-confirm-*, gift-cancel-*. CRITICAL BUG FOUND & FIXED in POS.jsx: missing useState declarations for gcCode / gcInfo caused entire POS page to crash with 'gcInfo is not defined' React error. Two lines added, POS now renders and pos-gift-card-box (input+apply+applied+remove) works end-to-end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "POS.jsx", "issue": "Missing `useState` for gcCode / gcInfo caused runtime error 'gcInfo is not defined' — entire POS page crashed (ErrorBoundary 'Something went off-script'). FIXED by testing agent (added 2 useState lines).", "selector": "[data-testid='pos-gift-card-box']", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iter85_gift_cards.py", "/app/test_reports/pytest/iter85_gift.xml"],
+  "action_items": [
+    "Verify the POS.jsx useState fix is acceptable / consider whether gcCode/gcInfo should be initialized elsewhere (e.g., reset after invoice create). Currently they are cleared on remove but not automatically after checkout — main agent may want to reset gcCode/gcInfo when the invoice is created successfully, else the applied gift card sticks in UI state after cart clears.",
+    "Optional: whats-new modal (z-[80]) intercepts pointer events on Settings — same issue reported in prior iterations; make it dismissable via Escape or auto-close after first sight."
+  ],
+  "critical_code_review_comments": [
+    "POS.jsx used gcCode/gcInfo state without declaring the hooks — a linter/CI check (react/no-undef) would have caught this pre-merge.",
+    "routes/gift_cards.py `pay_method` validation ordering — the 'razorpay' and 'upi' method-specific enable checks happen before the fallback 'Unknown payment method' check; harmless but the unknown-method 400 is unreachable when pay_method is neither. Consider validating pay_method first.",
+    "gift_cards.py `confirm_gift_card` — sets confirmed_by, then _issue_gift_card overwrites doc; fine but confirmed_by is not returned in the response.",
+    "GiftCardsCard.jsx admin uses window.confirm() for confirm/cancel — this native dialog is auto-accepted by Playwright but not testable easily; consider a themed modal for consistency.",
+    "gift_card.check returns valid=False (200) whereas redeem_gift_card raises 400 — consistent but frontend must handle both paths.",
+    "public gift-cards/{gcid}/upi-paid — no signature/HMAC on the buyer-supplied upi_ref; admin owner must eyeball the UPI ref (documented in playbook)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter85_gift_cards.py",
+    "/app/frontend/src/pages/POS.jsx (added missing useState for gcCode/gcInfo)"
+  ],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% of scripted flows (public gift page, Razorpay modal, Settings card render, POS gift box) after applying the POS useState fix"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug miracurl-marathahalli, PIN 4321)",
+  "seed_data_creation": "Created ~5 test gift cards under miracurl-marathahalli (buyer.test@/rzp/etc. gmail.com; codes GC-*). Also created 1 test invoice via API for redeem test. Also set gift_card_settings.upi_id='testsalon@upi' on this tenant per instructions (please keep or override).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Gift Cards feature is fully working after adding 2 missing useState hooks in POS.jsx (gcCode/gcInfo). Backend and frontend flows validated. If retesting: use test_iter85_gift_cards.py (auto-generates fresh cards each run). POS page fix must remain — confirm gcCode/gcInfo useState still present near tipStaffId. Razorpay HQ fallback works because tenant is 'miracurl-marathahalli'.",
+  "rca of the issue": "POS.jsx referenced gcCode/gcInfo state variables (lines 191, 208-213, 222, 244, 335-344) but the corresponding `useState` calls were never declared. On mount, React evaluated `giftApplied = gcInfo ? Math.min(gcInfo.balance, total) : 0` and threw ReferenceError. Fix: added `const [gcCode, setGcCode] = useState(\"\"); const [gcInfo, setGcInfo] = useState(null);` alongside the other useState declarations. Reproduction: navigate to /pos after login → whole page replaced by ErrorBoundary showing 'gcInfo is not defined'. After fix: POS renders normally, gift box accepts a code and shows applied amount + balance."
+}

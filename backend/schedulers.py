@@ -253,3 +253,16 @@ async def _weekly_package_scheduler() -> None:
         except Exception as e:
             logging.error(f"weekly package scheduler error: {e}")
         await asyncio.sleep(1800)
+
+
+async def _gift_card_scheduler() -> None:
+    """Hourly: deliver scheduled gift cards + expire stale ones."""
+    from routes.gift_cards import deliver_scheduled_gift_cards
+    while True:
+        try:
+            sent = await deliver_scheduled_gift_cards()
+            if sent:
+                logging.info(f"gift card scheduler: delivered {sent} scheduled cards")
+        except Exception as e:
+            logging.error(f"gift card scheduler error: {e}")
+        await asyncio.sleep(3600)

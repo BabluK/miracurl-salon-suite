@@ -151,6 +151,10 @@ export default function SalonPublic() {
               </Link>
             </span>
             <p className="mt-3 text-[11px] text-white/35">Takes 30 seconds · instant confirmation · no app needed</p>
+            <Link to={(s.book_url || "").replace("/book/", "/gift/") || "/gift"} data-testid="salon-gift-card-btn"
+              className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-gold/40 bg-white/5 text-sm font-semibold text-white hover:border-gold hover:bg-white/10 transition-all">
+              🎁 Gift Card for a Loved One — Birthday · Anniversary · Valentine &amp; more
+            </Link>
           </motion.div>
         </div>
       </section>
