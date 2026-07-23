@@ -921,3 +921,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - mira_ask: NEW action call_specific {target: phone|salon name} → dials ad-hoc number (lead-less call log, lead_name 'the salon') or lead by name regex; opt-out respected. TESTED: 'call this number 98220...' → dial attempted, friendly trial error spoken.
 - MiraLeadAgent.jsx: NEW CallHistoryPanel (call-history-toggle/call-row-*/call-transcript-btn-*) — collapsible, stats header, status/result chips, ⚡auto tag, friendly errors, expandable convo transcripts. Screenshot verified.
 - release_notes BUILD 2026-07-23.25. Needs Deploy.
+
+## 2026-07-24 — Call Recordings, Retry Failed, Map voice greeting (user request, tested iteration_86 100%)
+- Twilio calls now recorded (`record=True` + recording webhook `/api/webhooks/twilio/voice/{id}/recording` → saves recording_url/sid/duration on mira_call_logs)
+- `GET /api/super-admin/mira-calls/{id}/recording` proxies MP3 from Twilio with account auth; Call History shows 🎧 Play recording (blob fetch → <audio>)
+- `POST /api/super-admin/mira-calls/retry-failed` — re-dials latest-failed per phone (skips opt-out/interested); 🔁 Retry N failed button in Call History header
+- Platform Map opens → window event 'mira-map-briefing' → Mira panel auto-opens & speaks "Hey Miracurl! Live update — [leads today or none]; calls; hot leads. Please give me a command…" (`GET /api/super-admin/mira/map-briefing`)
+- release_notes BUILD 2026-07-24.26. Needs Deploy.
+- Backlog: Hindi pitch (P1), WhatsApp gifting (P2), Gift analytics (P2)
