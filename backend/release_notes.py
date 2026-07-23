@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-23.18"
-BUILD_TIME = "23 Jul 2026, 01:30 PM IST"
+BUILD = "2026-07-23.19"
+BUILD_TIME = "23 Jul 2026, 02:15 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-23 (Gift Card Intelligence)",
+        "changes": [
+            "💰 Balance updates by email — every time a gift card is used at your POS, the holder instantly gets a themed email showing what was redeemed and the exact remaining balance",
+            "⏰ Expiry nudges — 14 days and 3 days before a card expires unused, both the recipient AND the buyer get a friendly reminder to book and redeem",
+            "🪔 Occasion auto-promotion — 7 days before Diwali, Valentine's, Mother's/Father's Day, Christmas & New Year, your customer list automatically receives a beautiful 'send a gift card' invite (once per occasion, toggle in Settings → Gift Cards)",
+            "🏅 The new certificate-style relieving letters (approved design) are live in this build",
+        ],
+    },
     {
         "date": "2026-07-23 (Gift Cards)",
         "changes": [

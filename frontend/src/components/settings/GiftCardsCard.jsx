@@ -106,6 +106,11 @@ export const GiftCardsCard = () => {
           <input value={(s.amounts || []).join(", ")} onChange={(e) => setS(v => ({ ...v, amounts: e.target.value.split(",").map(x => Number(x.trim())).filter(Boolean) }))}
             data-testid="gift-settings-amounts" className={inputCls} />
         </div>
+        <label className="sm:col-span-2 flex items-center gap-2 text-xs text-slate-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 cursor-pointer">
+          <input type="checkbox" checked={s.occasion_campaigns !== false} onChange={(e) => setS(v => ({ ...v, occasion_campaigns: e.target.checked }))}
+            data-testid="gift-settings-campaigns" className="accent-amber-500 w-4 h-4" />
+          <span><b>Occasion auto-promotion</b> — 7 days before Diwali, Valentine's, Mother's/Father's Day, Christmas &amp; New Year, email your customer list a themed "send a gift card" invite (once per occasion)</span>
+        </label>
       </div>
       {!s.payment_ready && !s.razorpay_key_id && !s.upi_id && (
         <p className="text-[11px] text-amber-600 mt-2" data-testid="gift-payment-warning">⚠ Add your Razorpay keys OR your UPI ID so customers can pay you.</p>

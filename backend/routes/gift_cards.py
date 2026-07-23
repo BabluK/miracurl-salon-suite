@@ -51,6 +51,7 @@ def _gc_settings(t: dict) -> dict:
             "razorpay_key_secret": s.get("razorpay_key_secret") or "",
             "upi_id": s.get("upi_id") or "",
             "validity_days": int(s.get("validity_days") or DEFAULT_VALIDITY),
+            "occasion_campaigns": bool(s.get("occasion_campaigns", True)),
             "amounts": s.get("amounts") or DEFAULT_AMOUNTS}
 
 
@@ -318,6 +319,7 @@ class GiftSettingsIn(BaseModel):
     razorpay_key_secret: str = ""
     upi_id: str = ""
     validity_days: int = Field(DEFAULT_VALIDITY, ge=15, le=365)
+    occasion_campaigns: bool = True
     amounts: list = DEFAULT_AMOUNTS
 
 
@@ -341,7 +343,8 @@ async def set_gift_settings(body: GiftSettingsIn, user=Depends(require_tenant_ad
     await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"gift_card_settings": {
         "enabled": body.enabled, "razorpay_key_id": body.razorpay_key_id.strip(),
         "razorpay_key_secret": secret, "upi_id": body.upi_id.strip(),
-        "validity_days": body.validity_days, "amounts": amounts}}})
+        "validity_days": body.validity_days, "occasion_campaigns": body.occasion_campaigns,
+        "amounts": amounts}}})
     return {"ok": True}
 
 
@@ -421,4 +424,182 @@ async def redeem_gift_card(code: str, tenant_id: str, bill_total: float, invoice
         "$set": {"balance": new_balance,
                  "status": "redeemed" if new_balance <= 0 else "active"},
         "$push": {"redemptions": {"invoice_id": invoice_id, "amount": applied, "at": _now()}}})
+    try:
+        await _email_balance_update(gc, applied, new_balance)
+    except Exception:
+        pass  # never block billing on an email hiccup
     return {"applied": applied, "code": gc["code"], "balance_left": new_balance}
+
+
+async def _email_balance_update(gc: dict, applied: float, balance_left: float) -> None:
+    """After each POS redemption, email the card holder their usage + remaining balance."""
+    from email_service import _send_email
+    t = await _raw_db.tenants.find_one({"id": gc["tenant_id"]}, {"_id": 0}) or {}
+    occ = _OCC.get(gc["occasion"], _OCC["just-because"])
+    g1, g2 = occ["grad"]
+    salon = html_lib.escape(t.get("name") or "the salon")
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    used_total = round(gc["amount"] - balance_left, 2)
+    if balance_left > 0:
+        bal_line = (f'<div style="color:#fff;font-size:34px;font-weight:bold;margin-top:6px">{_cur(gc)}{balance_left:g}</div>'
+                    f'<div style="color:rgba(255,255,255,.85);font-size:11px">remaining · valid till {gc.get("expires_at")}</div>')
+        note = f"You still have <b>{_cur(gc)}{balance_left:g}</b> to enjoy — the same code works until the balance runs out."
+        subject = f"🎁 {_cur(gc)}{applied:g} redeemed — {_cur(gc)}{balance_left:g} still left on your gift card"
+    else:
+        bal_line = ('<div style="color:#fff;font-size:28px;font-weight:bold;margin-top:6px">Fully redeemed ✓</div>'
+                    '<div style="color:rgba(255,255,255,.85);font-size:11px">Thank you for visiting!</div>')
+        note = f"Your gift card is now fully used. We hope you loved your time at {salon} 💛"
+        subject = f"🎁 Gift card fully redeemed — thank you for visiting {t.get('name') or ''}!"
+    await _send_email(
+        [gc["recipient_email"]], subject,
+        f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto">
+        <div style="background:linear-gradient(120deg,{g1},{g2});border-radius:18px;padding:26px;text-align:center">
+          <div style="color:rgba(255,255,255,.9);font-size:11px;letter-spacing:3px;text-transform:uppercase">Gift card balance update</div>
+          <div style="font-family:'Courier New',monospace;color:#fff;font-size:18px;font-weight:bold;letter-spacing:2px;margin-top:6px">{gc["code"]}</div>
+          {bal_line}
+        </div>
+        <div style="padding:20px 8px;color:#333">
+          <p>Hi {html_lib.escape(gc["recipient_name"])},</p>
+          <p>You just redeemed <b>{_cur(gc)}{applied:g}</b> at <b>{salon}</b>.
+             Used so far: <b>{_cur(gc)}{used_total:g}</b> of {_cur(gc)}{gc["amount"]:g}. {note}</p>
+        </div></div>""",
+        book_url=f"{base}/book/{gc['tenant_slug']}", book_label="Book your next visit ✦")
+
+
+# ---------------- expiry reminders + occasion campaigns ----------------
+
+_OCCASION_CALENDAR = [
+    ("valentine", "02-14"), ("mothers-day", "05-10"), ("fathers-day", "06-21"),
+    ("christmas", "12-25"), ("new-year", "01-01"),
+    # Diwali moves with the lunar calendar
+    ("diwali", {"2026": "2026-11-08", "2027": "2027-10-29", "2028": "2028-10-17", "2029": "2029-11-05"}),
+]
+CAMPAIGN_LEAD_DAYS = 7
+CAMPAIGN_MAX_RECIPIENTS = 300
+
+
+def _upcoming_occasion(today) -> Optional[tuple]:
+    """Returns (occasion_key, date_iso) if a big gifting occasion is within the lead window."""
+    for key, spec in _OCCASION_CALENDAR:
+        for yr in (today.year, today.year + 1):
+            if isinstance(spec, dict):
+                d = spec.get(str(yr))
+                if not d:
+                    continue
+                occ_date = datetime.strptime(d, "%Y-%m-%d").date()
+            else:
+                occ_date = datetime.strptime(f"{yr}-{spec}", "%Y-%m-%d").date()
+            delta = (occ_date - today).days
+            if 0 < delta <= CAMPAIGN_LEAD_DAYS:
+                return key, occ_date.isoformat()
+    return None
+
+
+async def send_expiry_reminders() -> int:
+    """Nudge buyer + recipient when a card expires in ~14 or ~3 days with balance left."""
+    from email_service import _send_email
+    today = datetime.now(timezone.utc).date()
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    sent = 0
+    for flag, days in (("reminder_14_sent", 14), ("reminder_3_sent", 3)):
+        cutoff = (today + timedelta(days=days)).isoformat()
+        rows = await _raw_db.gift_cards.find(
+            {"status": "active", "balance": {"$gt": 0}, flag: {"$ne": True},
+             "expires_at": {"$lte": cutoff, "$gte": today.isoformat()}}, {"_id": 0}).to_list(100)
+        for gc in rows:
+            t = await _raw_db.tenants.find_one({"id": gc["tenant_id"]}, {"_id": 0})
+            if not t:
+                continue
+            occ = _OCC.get(gc["occasion"], _OCC["just-because"])
+            days_left = (datetime.strptime(gc["expires_at"], "%Y-%m-%d").date() - today).days
+            book = f"{base}/book/{gc['tenant_slug']}"
+            salon = html_lib.escape(t.get("name") or "the salon")
+            await _send_email(
+                [gc["recipient_email"]],
+                f"⏳ Your {occ['label']} gift card expires in {days_left} days — {_cur(gc)}{gc['balance']:g} left!",
+                f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+                <h2 style="color:#1c1c22">Don't let your gift slip away {occ['emoji']}</h2>
+                <p>Hi {html_lib.escape(gc['recipient_name'])}, your gift card
+                <b style="font-family:monospace">{gc['code']}</b> from <b>{html_lib.escape(gc['buyer_name'])}</b>
+                still has <b>{_cur(gc)}{gc['balance']:g}</b> to spend at <b>{salon}</b> —
+                but it expires on <b>{gc['expires_at']}</b>. Treat yourself before it's gone! ✂️</p>
+                </div>""", book_url=book, book_label="Book & redeem now ✦")
+            await _send_email(
+                [gc["buyer_email"]],
+                f"💛 The gift card you gave {gc['recipient_name']} is still unused ({days_left} days left)",
+                f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+                <h2 style="color:#1c1c22">A little nudge 💛</h2>
+                <p>Hi {html_lib.escape(gc['buyer_name'])}, the <b>{_cur(gc)}{gc['amount']:g}</b> {occ['label']}
+                gift card you sent {html_lib.escape(gc['recipient_name'])} still has
+                <b>{_cur(gc)}{gc['balance']:g}</b> unused and expires on <b>{gc['expires_at']}</b>.
+                Maybe remind them to book their pampering session at {salon}? 😊</p>
+                </div>""")
+            await _raw_db.gift_cards.update_one({"id": gc["id"]}, {"$set": {flag: True}})
+            sent += 1
+    return sent
+
+
+def _campaign_html(t: dict, occ: dict, occ_date: str, cust_name: str, amounts: list) -> str:
+    g1, g2 = occ["grad"]
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    salon = html_lib.escape(t.get("name") or "Salon")
+    chips = "".join(f'<span style="display:inline-block;background:rgba(255,255,255,.9);color:#1c1c22;'
+                    f'border-radius:999px;padding:6px 16px;margin:3px;font-weight:bold;font-size:13px">₹{a}</span>'
+                    for a in amounts[:4])
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto">
+      <div style="background:linear-gradient(120deg,{g1},{g2});border-radius:20px;padding:32px 28px;text-align:center">
+        <div style="font-size:44px">{occ['emoji']}</div>
+        <div style="color:#fff;font-size:24px;font-weight:bold;margin-top:6px">{occ['label']} is almost here!</div>
+        <div style="color:rgba(255,255,255,.9);font-size:14px;margin-top:8px">
+          Surprise someone you love with a <b>{salon}</b> gift card 🎁</div>
+        <div style="margin-top:14px">{chips}</div>
+        <a href="{base}/gift/{t.get('slug')}" style="display:inline-block;background:#1c1c22;color:#fff;
+           text-decoration:none;border-radius:999px;padding:13px 30px;font-weight:bold;font-size:14px;margin-top:16px">
+           Send a gift card in 1 minute →</a>
+      </div>
+      <p style="color:#666;font-size:13px;padding:16px 8px">Hi {html_lib.escape(cust_name or 'there')},
+      {occ['label']} falls on <b>{occ_date}</b> — a {salon} gift card is delivered instantly by email
+      (or scheduled for the day itself) and works on any service. 💛</p>
+    </div>"""
+
+
+async def send_occasion_campaigns() -> int:
+    """Auto-promote gift cards to each salon's customer list before big occasions."""
+    from email_service import _send_email
+    today = datetime.now(timezone.utc).date()
+    up = _upcoming_occasion(today)
+    if not up:
+        return 0
+    occ_key, occ_date = up
+    occ = _OCC[occ_key]
+    sent_total = 0
+    tenants = await _raw_db.tenants.find(
+        {"status": {"$in": ["active", "trial"]}}, {"_id": 0}).to_list(500)
+    for t in tenants:
+        s = _gc_settings(t)
+        if not s["enabled"] or not s.get("occasion_campaigns", True):
+            continue
+        key_id, key_secret = _pay_keys(t)
+        if not ((key_id and key_secret) or s["upi_id"]):
+            continue  # nowhere for the money to go
+        already = await _raw_db.gift_campaign_log.find_one(
+            {"tenant_id": t["id"], "occasion": occ_key, "occasion_date": occ_date}, {"_id": 1})
+        if already:
+            continue
+        custs = await _raw_db.customers.find(
+            {"tenant_id": t["id"], "email": {"$regex": "@"}},
+            {"_id": 0, "name": 1, "email": 1}).to_list(CAMPAIGN_MAX_RECIPIENTS)
+        n = 0
+        for c in custs:
+            res = await _send_email(
+                [c["email"]],
+                f"{occ['emoji']} {occ['label']} gift idea — a {t.get('name')} gift card 🎁",
+                _campaign_html(t, occ, occ_date, c.get("name") or "", s["amounts"]))
+            if res.get("sent"):
+                n += 1
+        await _raw_db.gift_campaign_log.insert_one({
+            "id": str(uuid.uuid4()), "tenant_id": t["id"], "occasion": occ_key,
+            "occasion_date": occ_date, "recipients": n, "at": _now()})
+        sent_total += n
+    return sent_total

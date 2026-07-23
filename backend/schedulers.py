@@ -256,13 +256,20 @@ async def _weekly_package_scheduler() -> None:
 
 
 async def _gift_card_scheduler() -> None:
-    """Hourly: deliver scheduled gift cards + expire stale ones."""
-    from routes.gift_cards import deliver_scheduled_gift_cards
+    """Hourly: deliver scheduled gift cards, expire stale ones, expiry nudges, occasion campaigns."""
+    from routes.gift_cards import (deliver_scheduled_gift_cards, send_expiry_reminders,
+                                   send_occasion_campaigns)
     while True:
         try:
             sent = await deliver_scheduled_gift_cards()
             if sent:
                 logging.info(f"gift card scheduler: delivered {sent} scheduled cards")
+            nudges = await send_expiry_reminders()
+            if nudges:
+                logging.info(f"gift card scheduler: sent {nudges} expiry reminders")
+            promos = await send_occasion_campaigns()
+            if promos:
+                logging.info(f"gift card scheduler: sent {promos} occasion campaign emails")
         except Exception as e:
             logging.error(f"gift card scheduler error: {e}")
         await asyncio.sleep(3600)

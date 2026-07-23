@@ -860,3 +860,12 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - POS: InvoiceIn.gift_card_code (models.py); create_invoice applies via redeem_gift_card → inv.gift_card_applied/_balance_left. POS.jsx gift box (pos-gift-card-*). NOTE: testing agent fixed missing useState gcCode/gcInfo in POS.jsx (my edit had misapplied).
 - Frontend: NEW /gift/:slug GiftCardPublic.jsx (dark luxe, occasion grid, live card preview, razorpay checkout.js, UPI panel, success/scheduled screens); NEW settings/GiftCardsCard.jsx in Settings.jsx (settings + orders + stats + confirm/cancel); hero-gift-card-btn on BookPublic; salon-gift-card-btn on SalonPublic. Routes /gift/:slug + /gift in App.js.
 - release_notes BUILD 2026-07-23.18. Needs Deploy.
+
+## 2026-07-23 — Gift card intelligence: expiry nudges + occasion campaigns + balance emails (user request)
+- gift_cards.py NEW: send_expiry_reminders() (14d + 3d before expiry, emails recipient AND buyer, flags reminder_14_sent/reminder_3_sent, idempotent); _OCCASION_CALENDAR (valentine 02-14, mothers 05-10, fathers 06-21, christmas 12-25, new-year 01-01, diwali lunar table 2026-29) + _upcoming_occasion(today, 7-day lead); send_occasion_campaigns() → per-tenant (enabled + payment ready + occasion_campaigns setting true default) themed promo email to customers with email (max 300), gift_campaign_log collection = once per occasion/tenant.
+- redeem_gift_card now emails the holder a balance update after EVERY POS redemption (amount used, remaining, gradient banner, fully-redeemed variant); try/except so email never blocks billing.
+- Settings: occasion_campaigns toggle in _gc_settings/GiftSettingsIn/PUT + checkbox in GiftCardsCard.jsx (gift-settings-campaigns).
+- Scheduler _gift_card_scheduler now runs delivery + reminders + campaigns hourly.
+- Certificate design APPROVED by user; sample PDFs removed from frontend/public.
+- release_notes BUILD 2026-07-23.19. Needs Deploy.
+- TESTED (self, /app/memory/test_gift_extras.py): reminder fires once + idempotent; occasion detection Nov3→diwali, Feb10→valentine, Dec27→new-year, today→None; campaign 8 customers + log + idempotent; redeem 250 → balance 350 + email attempt. Resend blocked only example.com demo addresses.
