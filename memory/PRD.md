@@ -929,3 +929,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Platform Map opens → window event 'mira-map-briefing' → Mira panel auto-opens & speaks "Hey Miracurl! Live update — [leads today or none]; calls; hot leads. Please give me a command…" (`GET /api/super-admin/mira/map-briefing`)
 - release_notes BUILD 2026-07-24.26. Needs Deploy.
 - Backlog: Hindi pitch (P1), WhatsApp gifting (P2), Gift analytics (P2)
+
+## 2026-07-24 — Neural Platform Map redesign + Mira live narration (user request w/ reference image, screenshot-verified)
+- PlatformOrbitMap.jsx rebuilt: neon glowing module cards (12), SVG curved particle streams (animateMotion sparkles, dashed flow) to pulsing Miracurl HQ core, twinkling starfield, rotating dashed rings
+- map-briefing endpoint now narrates: new leads received (or none), payments received w/ ₹ amount, new tenants, staff registered, bookings + "On your behalf I called N leads — no positive response yet / X said yes"
+- Real-time: while map open, new events in live feed dispatch 'mira-live-event' → Mira speaks them instantly
+- release_notes BUILD 2026-07-24.27. Production currently on .26 — needs redeploy for the new map.

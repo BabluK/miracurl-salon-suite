@@ -59,8 +59,20 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
       } catch { /* ignore */ }
       busy = false;
     };
+    const onLiveEvent = (e) => {
+      const text = e.detail;
+      if (!text) return;
+      sessionStorage.setItem("mira_open", "1");
+      setOpen(true);
+      setMsgs((m) => [...m, { role: "mira", text }]);
+      speak(text);
+    };
     window.addEventListener("mira-map-briefing", onMapGreet);
-    return () => window.removeEventListener("mira-map-briefing", onMapGreet);
+    window.addEventListener("mira-live-event", onLiveEvent);
+    return () => {
+      window.removeEventListener("mira-map-briefing", onMapGreet);
+      window.removeEventListener("mira-live-event", onLiveEvent);
+    };
   }, [speak]);
 
   const ask = async (question) => {

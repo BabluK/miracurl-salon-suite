@@ -551,28 +551,50 @@ async def mira_map_briefing(user=Depends(require_super_admin)):
     interested = len([c for c in calls_today if c.get("result") == "interested"])
     failed = len([c for c in calls_today if c.get("status") == "failed"])
     bookings_today = await _raw_db.appointments.count_documents({"date": today})
+    pay = await _raw_db.invoices.aggregate([
+        {"$match": {"created_at": {"$gte": today}}},
+        {"$group": {"_id": None, "n": {"$sum": 1}, "s": {"$sum": "$total"}}}]).to_list(1)
+    pay_n = (pay[0]["n"] if pay else 0) or 0
+    pay_amt = round((pay[0]["s"] if pay else 0) or 0)
+    tenants_today = await _raw_db.tenants.count_documents({"created_at": {"$gte": today}})
+    staff_today = await _raw_db.registry_employees.count_documents({"created_at": {"$gte": today}})
     callable_hot = await _raw_db.mira_leads.count_documents(await _callable_hot_query())
+
+    def _n(c, s, p):
+        return f"{c} {s if c == 1 else p}"
     bits = []
     if leads_today:
-        bits.append(f"I found {leads_today} new lead{'s' if leads_today != 1 else ''} today")
+        bits.append(f"{_n(leads_today, 'new lead', 'new leads')} received")
     else:
-        bits.append("no new leads found so far today")
-    if calls_today:
-        s = f"I made {len(calls_today)} call{'s' if len(calls_today) != 1 else ''}"
-        if interested:
-            s += f", {interested} interested"
-        if failed:
-            s += f", {failed} failed"
-        bits.append(s)
+        bits.append("no new leads received so far today")
+    if pay_n:
+        bits.append(f"{_n(pay_n, 'payment', 'payments')} received worth ₹{pay_amt:,}")
+    if tenants_today:
+        bits.append(f"{_n(tenants_today, 'new tenant', 'new tenants')} added")
+    if staff_today:
+        bits.append(f"{_n(staff_today, 'staff member', 'staff members')} registered")
     if bookings_today:
-        bits.append(f"{bookings_today} booking{'s' if bookings_today != 1 else ''} across your salons")
-    if callable_hot:
-        bits.append(f"{callable_hot} hot lead{'s are' if callable_hot != 1 else ' is'} ready to call")
-    text = (f"Hey Miracurl! Live update — {'; '.join(bits)}. "
-            "Please give me a command — what do you want to know?")
+        bits.append(f"{_n(bookings_today, 'booking', 'bookings')} across your salons")
+    if calls_today:
+        rep = f"On your behalf I called {_n(len(calls_today), 'lead', 'leads')} today — "
+        if interested:
+            rep += f"{interested} said yes to the demo!"
+        else:
+            rep += "no positive response received yet"
+            if failed:
+                rep += f", {failed} failed"
+            rep += "."
+    elif callable_hot:
+        rep = f"{_n(callable_hot, 'hot lead is', 'hot leads are')} ready — just say the word and I'll start calling."
+    else:
+        rep = ""
+    text = (f"Hey Miracurl! Live update — {'; '.join(bits)}. {rep} "
+            "Please give me a command — what do you want to know?").replace("  ", " ")
     return {"text": text,
             "data": {"leads_today": leads_today, "calls_today": len(calls_today),
                      "interested_today": interested, "failed_today": failed,
+                     "payments_today": pay_n, "payments_amount_today": pay_amt,
+                     "tenants_today": tenants_today, "staff_today": staff_today,
                      "bookings_today": bookings_today, "callable_hot": callable_hot}}
 
 

@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-24.26"
-BUILD_TIME = "24 Jul 2026, 12:30 PM IST"
+BUILD = "2026-07-24.27"
+BUILD_TIME = "24 Jul 2026, 03:15 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-24 (Neural Platform Map)",
+        "changes": [
+            "🌌 Platform Map reborn — neon glowing module cards connected to Miracurl HQ with sparkling animated particle streams flowing along every connection, twinkling starfield and a pulsing AI core",
+            "🗣️ Mira narrates the map — on open she reports live: new leads received, payments received (with ₹ amount), new tenants added, staff registered, and 'on your behalf I called N leads — no positive response yet / X said yes!'",
+            "⚡ Real-time voice alerts — while the map is open, Mira speaks new events the moment they happen (new lead, payment, booking, new salon…)",
+        ],
+    },
     {
         "date": "2026-07-24 (Call Recordings & Retry)",
         "changes": [
