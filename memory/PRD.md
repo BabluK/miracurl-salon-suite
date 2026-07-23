@@ -833,3 +833,13 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Landing footer: NEW "Refunds" link (footer-refund-link). sitemap.xml: added /refund-policy.
 - email_service.py `_send_email`: default reply_to = env SUPPORT_REPLY_TO (=support@miracurl-suite.com in backend/.env) → all customer emails (reminders, receipts, bookings) get replies to support@; explicit reply_to callers (lead_gen, hq_documents) unchanged. Backend restarted.
 - release_notes BUILD 2026-07-21.15. Needs Deploy. TESTED: /refund-policy screenshot OK, emails verified in page content.
+
+## 2026-07-23 — 🪪 Public staff-verification: HQ notifications + owner 1-click ratings + relieving letters (user request)
+- registry.py get-verified: NEW owner_email field + rating_token (uuid); owner rating email fires immediately on submit AND again on 'Verified by Salon Owner' if unrated.
+- NEW public endpoints (token-auth, rate-limited, styled HTML pages): GET /public/registry/owner-rate/{token}/{key} (excellent=5/very-good=4/good=3/average=2/bad=1, re-click to change, updates registry_employments.rating if badge issued), GET+POST /public/registry/owner-relieving/{token} (exit type + last date + reason form → relieving_request pending on the request doc).
+- NEW super endpoints: POST .../send-relieving-letter (certificate PDF via _render_relieving_letter_pdf → emailed to staff AND owner, closes employment with exit reason Terminated/Absconded/Resigned), POST .../resend-rating-email (accepts owner_email to backfill old requests).
+- generate-badge now applies owner_rating to the employment record. list_verify_requests marks seen_by_hq/seen_by_hq_rl.
+- hq_notifications.py: NEW _verify_items feed (🪪 new request / ⭐ owner rated / 📄 relieving requested) → tab verify-staff; NotificationsPanel new 'verify' filter.
+- RegistryPublic.jsx: owner email input (get-verified-owner-email). VerifiedStaffPanel: owner-rating chip, relieving banner (pending amber/sent green), Send Relieving Letter + Send/Resend rating email buttons (prompts for owner email on legacy requests).
+- release_notes BUILD 2026-07-23.16. Needs Deploy.
+- TESTED (self, e2e curl + UI screenshot): submit→token stored→rate very-good→profile rating 4→relieving form→pending→super send letter→PDF gen + both recipients (Resend blocked only example.com test domain)→employment closed→notifications feed shows all 3 items→panel UI chips OK. Test data cleaned.

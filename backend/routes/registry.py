@@ -650,10 +650,185 @@ async def registry_request_photo(pid: str):
                     headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
+OWNER_RATINGS = {"excellent": (5, "⭐ Excellent"), "very-good": (4, "Very Good"),
+                 "good": (3, "Good"), "average": (2, "Average"), "bad": (1, "Bad")}
+_RATING_COLORS = {"excellent": "#0a7d43", "very-good": "#1f7a4d", "good": "#0284c7",
+                  "average": "#b45309", "bad": "#b02a2a"}
+
+
+def _owner_rating_email_html(req: dict, base: str) -> str:
+    staff = html_lib.escape(req.get("name") or "your staff member")
+    salon = html_lib.escape(req.get("salon_name") or "your salon")
+    t = req["rating_token"]
+    btns = "".join(
+        f'<a href="{base}/api/public/registry/owner-rate/{t}/{k}" '
+        f'style="display:inline-block;margin:4px;background:{_RATING_COLORS[k]};color:#fff;text-decoration:none;'
+        f'padding:11px 20px;border-radius:999px;font-size:13px;font-weight:bold;font-family:Arial,sans-serif">{lbl}</a>'
+        for k, (_, lbl) in OWNER_RATINGS.items())
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px">
+        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Staff Registry</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Staff verification — owner rating</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        <p>Hello,</p>
+        <p><b>{staff}</b> has requested a verified career badge on the Miracurl Staff Registry and named
+           <b>{salon}</b> as their workplace. As the owner/manager, your rating builds their public track record —
+           it takes one click:</p>
+        <div style="text-align:center;margin:22px 0">{btns}</div>
+        <p style="font-size:12px;color:#888">Clicked the wrong one? Just click again — you can change your rating anytime from this email.</p>
+        <div style="border-top:1px solid #eee;margin-top:22px;padding-top:16px">
+          <p style="font-size:13px;color:#555"><b>Has {staff} left {salon}?</b> Request an official relieving letter —
+             we'll prepare a certificate PDF and email it to both of you.</p>
+          <p style="text-align:center;margin:14px 0 4px">
+            <a href="{base}/api/public/registry/owner-relieving/{t}"
+               style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:11px 26px;border-radius:10px;font-size:13px">Request relieving letter →</a>
+          </p>
+        </div>
+      </div>
+    </div>"""
+
+
+async def _send_owner_rating_email(req: dict) -> dict:
+    from email_service import _send_email
+    if not req.get("rating_token"):
+        req["rating_token"] = str(uuid.uuid4())
+        await _raw_db.staff_verification_requests.update_one(
+            {"id": req["id"]}, {"$set": {"rating_token": req["rating_token"]}})
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    res = await _send_email(
+        [req["owner_email"]],
+        f"Rate {req.get('name') or 'your staff member'} — one click, Miracurl Staff Registry",
+        _owner_rating_email_html(req, base), book_label="Explore Miracurl ✦")
+    await _raw_db.staff_verification_requests.update_one(
+        {"id": req["id"]}, {"$set": {"owner_rating_email_sent": bool(res.get("sent")),
+                                     "owner_rating_email_at": datetime.now(timezone.utc).isoformat()}})
+    return res
+
+
+def _public_html_page(title: str, body: str) -> Response:
+    return Response(media_type="text/html", content=f"""<!doctype html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title>
+<style>body{{font-family:Georgia,serif;background:#0a0a0a;color:#eee;margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px}}
+.card{{max-width:480px;width:100%;background:#17171c;border:1px solid #2a2a32;border-radius:18px;padding:34px;text-align:center}}
+h1{{color:#e8c37f;font-size:22px;margin:0 0 12px}}p{{color:#bbb;font-size:14px;line-height:1.7}}
+.btn{{display:inline-block;margin:4px;padding:11px 20px;border-radius:999px;font-size:13px;font-weight:bold;color:#fff;text-decoration:none;font-family:Arial}}
+input,select,textarea{{width:100%;box-sizing:border-box;background:#0f0f13;border:1px solid #33333c;color:#eee;border-radius:10px;padding:11px 14px;font-size:14px;margin:6px 0;font-family:Arial}}
+label{{display:block;text-align:left;font-size:12px;color:#999;margin-top:10px;font-family:Arial}}
+button{{background:linear-gradient(90deg,#d4af37,#e8c37f);color:#1c1c22;border:0;border-radius:999px;padding:13px 30px;font-size:14px;font-weight:bold;cursor:pointer;margin-top:16px}}</style>
+</head><body><div class="card">{body}</div></body></html>""")
+
+
+async def _req_by_token(token: str) -> dict:
+    req = await _raw_db.staff_verification_requests.find_one({"rating_token": token}, {"_id": 0})
+    if not req:
+        raise HTTPException(404, "This link is invalid or has expired")
+    return req
+
+
+async def _apply_owner_rating(req: dict, key: str):
+    rating, label = OWNER_RATINGS[key]
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.staff_verification_requests.update_one(
+        {"id": req["id"]}, {"$set": {"owner_rating": rating, "owner_rating_key": key,
+                                     "owner_rating_label": label, "owner_rated_at": now, "seen_by_hq": False}})
+    if req.get("employee_id"):
+        salon = (req.get("salon_name") or "").strip() or "Salon (self-reported)"
+        await _raw_db.registry_employments.update_one(
+            {"employee_id": req["employee_id"], "salon_name": {"$regex": f"^{re.escape(salon)}$", "$options": "i"}},
+            {"$set": {"rating": rating, "rated_by_owner_at": now}})
+
+
+@router.get("/public/registry/owner-rate/{token}/{key}")
+async def owner_rate_click(token: str, key: str, request: Request):
+    """One-click rating from the owner email. Records instantly; re-click to change."""
+    public_rate_limit(request, "owner-rate", limit=30, window_sec=600)
+    if key not in OWNER_RATINGS:
+        raise HTTPException(400, "Unknown rating")
+    req = await _req_by_token(token)
+    await _apply_owner_rating(req, key)
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    staff = html_lib.escape(req.get("name") or "the staff member")
+    others = "".join(
+        f'<a class="btn" style="background:{_RATING_COLORS[k]};opacity:{1 if k == key else 0.45}" '
+        f'href="{base}/api/public/registry/owner-rate/{token}/{k}">{lbl}</a>'
+        for k, (_, lbl) in OWNER_RATINGS.items())
+    return _public_html_page("Rating recorded ✦ Miracurl", f"""
+        <h1>Thank you — rating recorded ✦</h1>
+        <p>You rated <b style="color:#fff">{staff}</b> as
+           <b style="color:{_RATING_COLORS[key]}">{OWNER_RATINGS[key][1]}</b>.
+           This now reflects on their public Miracurl Staff Registry profile.</p>
+        <p style="font-size:12px;color:#777">Changed your mind? Click a different rating:</p>
+        <div>{others}</div>
+        <p style="margin-top:18px"><a href="{base}/api/public/registry/owner-relieving/{token}"
+           style="color:#e8c37f">Has {staff} left your salon? Request a relieving letter →</a></p>""")
+
+
+@router.get("/public/registry/owner-relieving/{token}")
+async def owner_relieving_form(token: str, request: Request):
+    """Owner requests a relieving letter for a departed staff member (public form)."""
+    public_rate_limit(request, "owner-relieving", limit=20, window_sec=600)
+    req = await _req_by_token(token)
+    staff = html_lib.escape(req.get("name") or "the staff member")
+    rl = req.get("relieving_request") or {}
+    if rl.get("status") == "sent":
+        return _public_html_page("Relieving letter sent ✦ Miracurl",
+            f"<h1>Already sent ✦</h1><p>The relieving letter for <b style='color:#fff'>{staff}</b> was already "
+            f"issued and emailed to both of you on {html_lib.escape(str(rl.get('sent_at', ''))[:10])}.</p>")
+    if rl.get("status") == "pending":
+        return _public_html_page("Request received ✦ Miracurl",
+            f"<h1>Request already received ✦</h1><p>Your relieving letter request for <b style='color:#fff'>{staff}</b> "
+            f"is with the Miracurl team — the certificate PDF will be emailed to you and {staff} shortly.</p>")
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    return _public_html_page("Request relieving letter ✦ Miracurl", f"""
+        <h1>Relieving letter for {staff}</h1>
+        <p>Tell us how {staff} exited — Miracurl will prepare the official certificate PDF and email it to
+           both you and {staff}.</p>
+        <form method="post" action="{base}/api/public/registry/owner-relieving/{token}">
+          <label>How did they leave?</label>
+          <select name="letter_type" required>
+            <option value="excellent">🌟 Excellent — served notice, highly recommended</option>
+            <option value="standard">✅ Standard — resigned normally</option>
+            <option value="terminated">🚫 Terminated — misconduct / theft</option>
+            <option value="absconded">⚠️ Absconded — left without notice</option>
+          </select>
+          <label>Last working date</label>
+          <input type="date" name="last_date" required />
+          <label>Reason / note (optional — appears on terminated letters)</label>
+          <textarea name="reason" rows="2" maxlength="300" placeholder="e.g. Repeated unexcused absence"></textarea>
+          <button type="submit">Request relieving letter ✦</button>
+        </form>""")
+
+
+@router.post("/public/registry/owner-relieving/{token}")
+async def owner_relieving_submit(token: str, request: Request,
+                                 letter_type: str = Form(...), last_date: str = Form(""),
+                                 reason: str = Form("")):
+    public_rate_limit(request, "owner-relieving-post", limit=10, window_sec=600)
+    if letter_type not in ("excellent", "standard", "terminated", "absconded"):
+        raise HTTPException(400, "Unknown letter type")
+    req = await _req_by_token(token)
+    if (req.get("relieving_request") or {}).get("status") == "sent":
+        raise HTTPException(400, "Letter already sent")
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.staff_verification_requests.update_one(
+        {"id": req["id"]},
+        {"$set": {"relieving_request": {"letter_type": letter_type, "last_date": last_date.strip()[:12],
+                                        "reason": reason.strip()[:300], "status": "pending",
+                                        "requested_at": now},
+                  "seen_by_hq_rl": False}})
+    staff = html_lib.escape(req.get("name") or "the staff member")
+    return _public_html_page("Request received ✦ Miracurl",
+        f"<h1>Request received ✦</h1><p>Thank you! The Miracurl team will verify and issue the relieving letter "
+        f"for <b style='color:#fff'>{staff}</b> — the certificate PDF will be emailed to both you and {staff}.</p>")
+
+
 @router.post("/public/registry/get-verified")
 async def registry_get_verified(request: Request,
                                 name: str = Form(...), phone: str = Form(...), email: str = Form(...),
                                 salon_name: str = Form(""), city: str = Form(""), owner_phone: str = Form(""),
+                                owner_email: str = Form(""),
                                 joining: str = Form(""), experience: str = Form(""),
                                 photo: Optional[UploadFile] = File(None)):
     """External stylist asks for a verified badge — lands in HQ → Staff Verification."""
@@ -666,6 +841,9 @@ async def registry_get_verified(request: Request,
     email = email.strip().lower()
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}", email):
         raise HTTPException(400, "Enter a valid email address")
+    owner_email = owner_email.strip().lower()
+    if owner_email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}", owner_email):
+        raise HTTPException(400, "Enter a valid owner/manager email address")
     dup = await _raw_db.staff_verification_requests.find_one({"phone": digits}, {"_id": 1})
     if dup:
         return {"ok": True, "note": "already_requested"}
@@ -683,12 +861,16 @@ async def registry_get_verified(request: Request,
             await _raw_db.registry_photos.insert_one({
                 "id": photo_id, "b64": base64.b64encode(data).decode(),
                 "content_type": ct, "created_at": now})
-    await _raw_db.staff_verification_requests.insert_one({
+    req_doc = {
         "id": str(uuid.uuid4()), "name": name.strip(), "phone": digits, "email": email,
         "salon_name": salon_name.strip()[:100], "city": city.strip()[:60],
-        "owner_phone": re.sub(r"\D", "", owner_phone)[:15], "joining": joining.strip()[:30],
+        "owner_phone": re.sub(r"\D", "", owner_phone)[:15], "owner_email": owner_email[:120],
+        "joining": joining.strip()[:30],
         "experience": experience.strip()[:60], "photo_id": photo_id,
-        "status": "new", "created_at": now})
+        "rating_token": str(uuid.uuid4()), "status": "new", "created_at": now}
+    await _raw_db.staff_verification_requests.insert_one({**req_doc})
+    if owner_email:
+        await _send_owner_rating_email(req_doc)
     return {"ok": True}
 
 
@@ -713,12 +895,15 @@ async def list_verify_requests(admin=Depends(require_super_admin)):
     if await _raw_db.tenant_inquiries.count_documents({"source": "staff_badge_request"}):
         await _migrate_legacy_badge_requests()
     rows = await _raw_db.staff_verification_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
+    await _raw_db.staff_verification_requests.update_many(
+        {"$or": [{"seen_by_hq": {"$ne": True}}, {"seen_by_hq_rl": {"$ne": True}}]},
+        {"$set": {"seen_by_hq": True, "seen_by_hq_rl": True}})
     return {"items": rows, "new_count": sum(1 for r in rows if r.get("status") == "new")}
 
 
 @router.post("/super/registry/verify-requests/{rid}/owner-verified")
 async def verify_request_owner_verified(rid: str, admin=Depends(require_super_admin)):
-    req = await _raw_db.staff_verification_requests.find_one({"id": rid}, {"_id": 0, "status": 1})
+    req = await _raw_db.staff_verification_requests.find_one({"id": rid}, {"_id": 0})
     if not req:
         raise HTTPException(404, "Request not found")
     if req.get("status") == "badge_issued":
@@ -726,7 +911,11 @@ async def verify_request_owner_verified(rid: str, admin=Depends(require_super_ad
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.staff_verification_requests.update_one(
         {"id": rid}, {"$set": {"status": "owner_verified", "owner_verified_at": now, "owner_verified_by": admin["id"]}})
-    return {"ok": True}
+    rating_email_sent = False
+    if req.get("owner_email") and not req.get("owner_rating"):
+        res = await _send_owner_rating_email(req)
+        rating_email_sent = bool(res.get("sent"))
+    return {"ok": True, "rating_email_sent": rating_email_sent}
 
 
 @router.post("/super/registry/verify-requests/{rid}/generate-badge")
@@ -766,7 +955,7 @@ async def verify_request_generate_badge(rid: str, admin=Depends(require_super_ad
             "id": str(uuid.uuid4()), "employee_id": emp["id"], "tenant_id": "hq",
             "salon_name": salon, "designation": "Stylist", "skills": [],
             "from_date": _joining_to_from_date(req.get("joining")), "to_date": None,
-            "rating": None, "reason_for_leaving": "Working",
+            "rating": req.get("owner_rating"), "reason_for_leaving": "Working",
             "comment": f"Verified over phone with owner/manager ({req.get('owner_phone') or 'contact on file'})."
                        + (f" Experience: {req['experience']}." if req.get("experience") else ""),
             "hq_verified": True, "created_by": admin["id"], "created_at": now})
@@ -816,3 +1005,93 @@ async def verify_request_delete(rid: str, admin=Depends(require_super_admin)):
             await _raw_db.registry_photos.delete_one({"id": req["photo_id"]})
     await _raw_db.staff_verification_requests.delete_one({"id": rid})
     return {"ok": True}
+
+
+_LETTER_EXIT_REASON = {"excellent": "Resigned", "standard": "Resigned",
+                       "terminated": "Terminated", "absconded": "Absconded"}
+
+
+def _relieving_letter_email_html(staff_name: str, salon: str, letter_type: str) -> str:
+    staff_name, salon = html_lib.escape(staff_name), html_lib.escape(salon)
+    tone = ("with an <b>EXCELLENT</b> record — congratulations!" if letter_type == "excellent"
+            else "— the details are in the attached PDF.")
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px">
+        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Staff Registry</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Official relieving letter</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        <p>Hello,</p>
+        <p>The official relieving letter for <b>{staff_name}</b> (formerly at <b>{salon}</b>) is attached,
+           issued via the Miracurl Staff Registry {tone}</p>
+        <p style="font-size:12px;color:#888">This letter is also reflected on the staff member's public
+           registry profile, verifiable by any future employer.</p>
+      </div>
+    </div>"""
+
+
+@router.post("/super/registry/verify-requests/{rid}/send-relieving-letter")
+async def verify_request_send_relieving(rid: str, admin=Depends(require_super_admin)):
+    """HQ issues the relieving certificate PDF → emailed to BOTH the staff member and the owner."""
+    req = await _raw_db.staff_verification_requests.find_one({"id": rid}, {"_id": 0})
+    if not req:
+        raise HTTPException(404, "Request not found")
+    rl = req.get("relieving_request") or {}
+    if not rl:
+        raise HTTPException(400, "The owner hasn't requested a relieving letter for this staff member yet")
+    if rl.get("status") == "sent":
+        raise HTTPException(400, "Relieving letter already sent")
+    letter_type = rl["letter_type"]
+    salon = (req.get("salon_name") or "").strip() or "Salon (self-reported)"
+    now = datetime.now(timezone.utc).isoformat()
+    from services.pdf import _render_relieving_letter_pdf
+    pdf = _render_relieving_letter_pdf(
+        {"name": salon, "location": req.get("city") or ""},
+        {"name": req.get("name"), "role": "Stylist"},
+        letter_type, _joining_to_from_date(req.get("joining")),
+        rl.get("last_date") or now[:10], rl.get("reason") or "")
+    from email_service import _send_email
+    to = [req["email"]] + ([req["owner_email"]] if req.get("owner_email") else [])
+    res = await _send_email(
+        to, f"📄 Relieving letter — {req.get('name')} ({salon})",
+        _relieving_letter_email_html(req.get("name") or "", salon, letter_type),
+        attachments=[{"filename": f"{(req.get('name') or 'staff').replace(' ', '-')}-relieving-letter.pdf",
+                      "content": base64.b64encode(pdf).decode()}],
+        book_label="Explore Miracurl ✦")
+    if req.get("employee_id"):
+        await _raw_db.registry_employments.update_one(
+            {"employee_id": req["employee_id"], "salon_name": {"$regex": f"^{re.escape(salon)}$", "$options": "i"}},
+            {"$set": {"to_date": rl.get("last_date") or now[:10],
+                      "reason_for_leaving": _LETTER_EXIT_REASON[letter_type],
+                      **({"comment": f"Relieving letter issued ({letter_type}). {rl.get('reason') or ''}".strip()}
+                         if letter_type in ("terminated", "absconded") else {})}})
+    await _raw_db.staff_verification_requests.update_one(
+        {"id": rid}, {"$set": {"relieving_request": {**rl, "status": "sent", "sent_at": now,
+                                                     "email_sent": bool(res.get("sent")),
+                                                     "email_error": res.get("error") or ""}}})
+    return {"ok": True, "email_sent": bool(res.get("sent")), "email_error": res.get("error") or "",
+            "recipients": to}
+
+
+class ResendRatingIn(BaseModel):
+    owner_email: str = ""
+
+
+@router.post("/super/registry/verify-requests/{rid}/resend-rating-email")
+async def verify_request_resend_rating(rid: str, body: ResendRatingIn = None,
+                                       admin=Depends(require_super_admin)):
+    req = await _raw_db.staff_verification_requests.find_one({"id": rid}, {"_id": 0})
+    if not req:
+        raise HTTPException(404, "Request not found")
+    new_email = (body.owner_email if body else "").strip().lower()
+    if new_email:
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}", new_email):
+            raise HTTPException(400, "Enter a valid owner email address")
+        req["owner_email"] = new_email
+        await _raw_db.staff_verification_requests.update_one(
+            {"id": rid}, {"$set": {"owner_email": new_email}})
+    if not req.get("owner_email"):
+        raise HTTPException(400, "No owner email on this request — provide one")
+    res = await _send_owner_rating_email(req)
+    return {"ok": True, "email_sent": bool(res.get("sent")), "email_error": res.get("error") or ""}

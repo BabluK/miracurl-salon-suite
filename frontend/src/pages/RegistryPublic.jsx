@@ -84,6 +84,7 @@ function GetVerifiedCard() {
               <input maxLength={100} value={f.salon_name} onChange={set("salon_name")} placeholder="Salon where you work" data-testid="get-verified-salon" className={inputCls} />
               <input maxLength={60} value={f.city} onChange={set("city")} placeholder="City" data-testid="get-verified-city" className={inputCls} />
               <input maxLength={20} value={f.owner_phone} onChange={set("owner_phone")} placeholder="Salon owner / manager phone (for verification call)" data-testid="get-verified-owner-phone" className={inputCls} />
+              <input type="email" maxLength={120} value={f.owner_email} onChange={set("owner_email")} placeholder="Salon owner / manager email (they rate you in 1 click)" data-testid="get-verified-owner-email" className={inputCls} />
               <input maxLength={30} value={f.joining} onChange={set("joining")} placeholder="When did you join? (e.g. March 2023)" data-testid="get-verified-joining" className={inputCls} />
               <input maxLength={60} value={f.experience} onChange={set("experience")} placeholder="Total experience (e.g. 5 years)" data-testid="get-verified-experience" className={inputCls} />
               <div className="sm:col-span-2 flex items-center gap-3 bg-white border border-rose-200 rounded-xl px-4 py-2.5" data-testid="get-verified-photo-row">

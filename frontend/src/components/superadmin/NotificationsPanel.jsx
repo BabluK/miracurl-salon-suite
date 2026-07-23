@@ -6,6 +6,7 @@ import { toast } from "sonner";
 const TYPES = [
   ["all", "All"], ["hiring", "💼 Hiring"], ["inbox", "📩 Messages"],
   ["lead", "🧲 Leads"], ["demo", "📬 Demo invites"], ["renewal", "⏳ Renewals"], ["signup", "🎉 Signups"],
+  ["verify", "🪪 Staff Verification"],
 ];
 
 export function NotificationsPanel({ feed, onGoTab }) {

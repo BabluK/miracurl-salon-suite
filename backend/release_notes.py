@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-21.15"
-BUILD_TIME = "21 Jul 2026, 10:15 AM IST"
+BUILD = "2026-07-23.16"
+BUILD_TIME = "23 Jul 2026, 10:45 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-23",
+        "changes": [
+            "🔔 Staff verification now pings you — every new public 'Get verified' request, owner rating and relieving-letter request lands instantly in your Super Admin notification bell (new 🪪 Staff Verification filter)",
+            "⭐ One-click owner ratings — the public badge form now collects the owner/manager's email; the owner instantly gets an email with 5 one-tap buttons (Excellent → Bad). One click records the rating on the staff's public registry profile — no more 'Not yet rated'. Sent again automatically when you mark 'Verified by Salon Owner', and re-sendable from the console",
+            "📄 Relieving letters for non-Miracurl salons — the owner's email includes 'Request relieving letter'; they pick the exit type (Excellent/Standard/Terminated/Absconded) + last working date on a simple page → it lands in Staff Verification with a 'Send Relieving Letter' button → the certificate PDF is emailed to BOTH the staff member and the owner, and their registry record is closed with the right exit status",
+        ],
+    },
     {
         "date": "2026-07-21",
         "changes": [

@@ -109,12 +109,44 @@ async def _demo_items(since: str) -> list:
     return items
 
 
+async def _verify_items(since: str) -> list:
+    """Public staff-verification requests + owner relieving-letter requests."""
+    items = []
+    rows = await _raw_db.staff_verification_requests.find(
+        {"$or": [{"created_at": {"$gte": since}},
+                 {"relieving_request.requested_at": {"$gte": since}},
+                 {"owner_rated_at": {"$gte": since}}]}, {"_id": 0}).to_list(200)
+    for r in rows:
+        salon = f" ({r['salon_name']})" if r.get("salon_name") else ""
+        if r.get("created_at", "") >= since:
+            items.append({"id": f"vreq-{r['id']}", "type": "verify", "icon": "🪪",
+                          "title": f"Staff verification request — {r.get('name')}{salon}",
+                          "body": f"Call the owner ({r.get('owner_phone') or 'no phone shared'}) to verify, then generate the badge",
+                          "at": r["created_at"], "tab": "verify-staff",
+                          "unread": r.get("status") == "new" and not r.get("seen_by_hq", False)})
+        if r.get("owner_rated_at", "") >= since:
+            items.append({"id": f"vrate-{r['id']}", "type": "verify", "icon": "⭐",
+                          "title": f"Owner rated {r.get('name')}: {r.get('owner_rating_label')}{salon}",
+                          "body": "One-click owner rating recorded on the registry profile",
+                          "at": r["owner_rated_at"], "tab": "verify-staff",
+                          "unread": not r.get("seen_by_hq", True)})
+        rl = r.get("relieving_request") or {}
+        if rl.get("requested_at", "") >= since:
+            items.append({"id": f"vrl-{r['id']}", "type": "verify", "icon": "📄",
+                          "title": f"Relieving letter requested — {r.get('name')}{salon}",
+                          "body": f"Owner marked exit as '{rl.get('letter_type')}' — review & send the certificate PDF"
+                                  if rl.get("status") == "pending" else "Relieving letter sent ✓",
+                          "at": rl["requested_at"], "tab": "verify-staff",
+                          "unread": rl.get("status") == "pending" and not r.get("seen_by_hq_rl", False)})
+    return items
+
+
 @router.get("/super-admin/notifications")
 async def hq_notifications(user=Depends(require_super_admin)):
     """Everything the super admin should know about, in one feed (last 30 days)."""
     since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     items = ((await _hiring_items(since)) + (await _message_items(since)) + (await _tenant_items(since))
-             + (await _fee_items(since)) + (await _demo_items(since)))
+             + (await _fee_items(since)) + (await _demo_items(since)) + (await _verify_items(since)))
     items.sort(key=lambda x: x.get("at") or "", reverse=True)
     unread = sum(1 for i in items if i.get("unread"))
     return {"items": items[:80], "unread": unread}

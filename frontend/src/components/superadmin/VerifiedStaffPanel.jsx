@@ -28,7 +28,7 @@ function VerificationRequests() {
     setBusyId(r.id);
     try {
       await api.post(`/super/registry/verify-requests/${r.id}/owner-verified`);
-      toast.success("Marked as verified by the salon owner ✓ — you can now generate the badge");
+      toast.success("Marked as verified by the salon owner ✓" + (r.owner_email && !r.owner_rating ? " — one-click rating email sent to the owner ⭐" : " — you can now generate the badge"));
       load();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update"); }
     finally { setBusyId(""); }
@@ -42,6 +42,35 @@ function VerificationRequests() {
       else toast.warning(`Badge generated ✦ Staff ID ${data.staff_code} created — but email failed (${data.email_error || "unknown"}). Use Download to send it manually.`);
       load();
     } catch (e) { toast.error(e.response?.data?.detail || "Badge generation failed"); }
+    finally { setBusyId(""); }
+  };
+
+  const sendRelieving = async (r) => {
+    const rl = r.relieving_request || {};
+    if (!window.confirm(`Send the ${rl.letter_type?.toUpperCase()} relieving letter for ${r.name}? The certificate PDF goes to the staff member${r.owner_email ? " AND the owner" : ""}.`)) return;
+    setBusyId(r.id);
+    try {
+      const { data } = await api.post(`/super/registry/verify-requests/${r.id}/send-relieving-letter`);
+      if (data.email_sent) toast.success(`Relieving letter sent 📄 → ${data.recipients.join(", ")}`);
+      else toast.warning(`Letter generated but email failed (${data.email_error || "unknown"})`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send the letter"); }
+    finally { setBusyId(""); }
+  };
+
+  const sendRatingEmail = async (r) => {
+    let owner_email = r.owner_email || "";
+    if (!owner_email) {
+      owner_email = window.prompt(`Owner email for ${r.salon_name || "this salon"}? The one-click rating email goes there.`) || "";
+      if (!owner_email.trim()) return;
+    }
+    setBusyId(r.id);
+    try {
+      const { data } = await api.post(`/super/registry/verify-requests/${r.id}/resend-rating-email`, { owner_email: r.owner_email ? "" : owner_email });
+      if (data.email_sent) toast.success("One-click rating email sent to the owner ⭐");
+      else toast.warning(`Email failed: ${data.email_error || "unknown"}`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send"); }
     finally { setBusyId(""); }
   };
 
@@ -84,13 +113,29 @@ function VerificationRequests() {
                       <span className="font-semibold text-sm text-slate-800">{r.name}</span>
                       <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${st.cls}`} data-testid={`verify-request-status-${r.id}`}>{st.label}</span>
                       {r.staff_code && <span className="text-xs font-mono bg-amber-50 border border-amber-200 text-amber-700 rounded px-1.5 py-0.5" data-testid={`verify-request-staffcode-${r.id}`}>✦ {r.staff_code}</span>}
+                      {r.owner_rating && (
+                        <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border bg-violet-50 text-violet-700 border-violet-200" data-testid={`verify-request-rating-${r.id}`}>
+                          Owner rated: {r.owner_rating_label} ({r.owner_rating}/5)
+                        </span>
+                      )}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0.5 text-xs text-slate-500 mt-1.5">
                       <span>📱 {r.phone} · ✉️ {r.email}</span>
                       <span>🏠 {r.salon_name || "salon not shared"}{r.city ? `, ${r.city}` : ""}</span>
-                      <span>👤 Owner/manager: {r.owner_phone ? `+91 ${r.owner_phone}` : "not shared"}</span>
+                      <span>👤 Owner/manager: {r.owner_phone ? `+91 ${r.owner_phone}` : "not shared"}{r.owner_email ? ` · ${r.owner_email}` : ""}</span>
                       <span>📅 Joined: {r.joining || "—"} · Experience: {r.experience || "—"}</span>
                     </div>
+                    {r.relieving_request && (
+                      <div className={`mt-2 rounded-lg border px-3 py-2 text-xs ${r.relieving_request.status === "sent" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-300 text-amber-800"}`} data-testid={`verify-request-relieving-${r.id}`}>
+                        {r.relieving_request.status === "sent" ? (
+                          <>📄 Relieving letter <b>sent</b> ({r.relieving_request.letter_type}) on {new Date(r.relieving_request.sent_at).toLocaleDateString("en-IN", { dateStyle: "medium" })}{r.relieving_request.email_sent === false && <span className="text-rose-600 font-semibold"> — ⚠ email failed</span>}</>
+                        ) : (
+                          <>📄 <b>Owner requested a relieving letter</b> — exit: <b className="uppercase">{r.relieving_request.letter_type}</b>
+                            {r.relieving_request.last_date && <> · last day {r.relieving_request.last_date}</>}
+                            {r.relieving_request.reason && <> · "{r.relieving_request.reason}"</>}</>
+                        )}
+                      </div>
+                    )}
                     <div className="text-[10px] text-slate-400 mt-1">
                       Requested {r.created_at ? new Date(r.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
                       {r.badge_issued_at && <> · Badge issued {new Date(r.badge_issued_at).toLocaleDateString("en-IN", { dateStyle: "medium" })}</>}
@@ -98,6 +143,19 @@ function VerificationRequests() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {r.relieving_request?.status === "pending" && (
+                      <button onClick={() => sendRelieving(r)} disabled={busyId === r.id} data-testid={`verify-request-send-letter-${r.id}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[11px] font-bold hover:opacity-90 disabled:opacity-50">
+                        {busyId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />} Send Relieving Letter
+                      </button>
+                    )}
+                    {!r.owner_rating && (
+                      <button onClick={() => sendRatingEmail(r)} disabled={busyId === r.id} data-testid={`verify-request-rating-email-${r.id}`}
+                        title={r.owner_email ? `Re-send the one-click rating email to ${r.owner_email}` : "Ask the owner to rate this staff (needs owner email)"}
+                        className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-[11px] font-semibold hover:bg-violet-100 disabled:opacity-50">
+                        {busyId === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />} {r.owner_rating_email_sent ? "Resend rating email" : "Send rating email"}
+                      </button>
+                    )}
                     {r.owner_phone && r.status === "new" && (
                       <a href={`tel:+91${r.owner_phone}`} data-testid={`verify-request-call-${r.id}`} title="Call the salon owner/manager to verify"
                         className="inline-flex items-center gap-1 px-2.5 py-2 rounded-lg border border-sky-200 bg-sky-50 text-sky-700 text-[11px] font-semibold hover:bg-sky-100">
