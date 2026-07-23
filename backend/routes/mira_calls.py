@@ -338,13 +338,28 @@ async def call_hot_leads(body: BatchCallIn, request: Request, user=Depends(requi
     return {"ok": True, "queued": queued}
 
 
+def _friendly_error(err: str) -> str:
+    e = (err or "").lower()
+    if "unverified" in e or "is not a verified" in e or "trial account" in e:
+        return "Twilio trial: this number isn't verified — upgrade Twilio to call anyone"
+    if "geo" in e or "permission" in e or "not authorized" in e:
+        return "Destination blocked — enable this country in Twilio Geo Permissions"
+    if "invalid" in e and "number" in e:
+        return "Invalid phone number format"
+    return (err or "")[:90]
+
+
 @router.get("/super-admin/mira-calls")
 async def list_calls(user=Depends(require_super_admin)):
     rows = await _raw_db.mira_call_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    for r in rows:
+        if r.get("error"):
+            r["error_friendly"] = _friendly_error(r["error"])
     stats = {"total": len(rows),
              "interested": len([r for r in rows if r.get("result") == "interested"]),
              "callback": len([r for r in rows if r.get("result") == "callback"]),
              "opt_out": len([r for r in rows if r.get("result") == "opt_out"]),
+             "failed": len([r for r in rows if r.get("status") == "failed"]),
              "completed": len([r for r in rows if r.get("status") == "completed"])}
     return {"items": rows, "stats": stats}
 
@@ -364,8 +379,11 @@ async def platform_map_live(user=Depends(require_super_admin)):
                   "conversations": len([c for c in calls if c.get("conversed")])}
     events = []
     for c in calls[:8]:
-        label = {"interested": "pressed 1 — demo pack sent 🎉", "callback": "asked to call back",
-                 "opt_out": "opted out"}.get(c.get("result"), c.get("status") or "dialing")
+        if c.get("status") == "failed":
+            label = f"failed — {_friendly_error(c.get('error'))}"
+        else:
+            label = {"interested": "pressed 1 — demo pack sent 🎉", "callback": "asked to call back",
+                     "opt_out": "opted out"}.get(c.get("result"), c.get("status") or "dialing")
         events.append({"icon": "📞", "title": f"Mira called {c.get('lead_name') or 'a lead'}",
                        "sub": label, "at": c.get("created_at", "")})
     for l in await _raw_db.mira_leads.find({}, {"_id": 0, "name": 1, "city": 1, "created_at": 1}).sort("created_at", -1).to_list(5):
@@ -432,6 +450,9 @@ def _tod_greeting() -> str:
 @router.get("/super-admin/mira/briefing")
 async def mira_briefing(user=Depends(require_super_admin)):
     snap = await _hq_snapshot()
+    today = datetime.now(timezone.utc).date().isoformat()
+    calls_today = await _raw_db.mira_call_logs.find(
+        {"created_at": {"$gte": today}}, {"_id": 0, "status": 1, "result": 1, "error": 1}).to_list(300)
     bits = []
     def _n(c, s, p):
         return f"{c} {s if c == 1 else p}"
@@ -446,7 +467,15 @@ async def mira_briefing(user=Depends(require_super_admin)):
     if snap["trials_expiring_in_5_days"]:
         bits.append(f"{_n(snap['trials_expiring_in_5_days'], 'trial', 'trials')} expiring within 5 days")
     summary = "; ".join(bits[:4]) if bits else "everything is calm right now"
-    text = (f"{_tod_greeting()} Miracurl! {summary}. "
+    call_report = ""
+    if calls_today:
+        interested_n = len([c for c in calls_today if c.get("result") == "interested"])
+        failed_n = len([c for c in calls_today if c.get("status") == "failed"])
+        call_report = f" Call report: I made {_n(len(calls_today), 'call', 'calls')} today — {interested_n} interested, {failed_n} failed"
+        if failed_n:
+            call_report += f". Most failures: {_friendly_error(next((c.get('error') for c in calls_today if c.get('error')), ''))}"
+        call_report += f". {snap['callable_hot_leads_with_phone']} hot leads are still callable — just say 'call the hot leads'."
+    text = (f"{_tod_greeting()} Miracurl! {summary}.{call_report} "
             f"Tell me what details you want me to show.")
     return {"text": text, "data": snap}
 
@@ -473,8 +502,12 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
                        "call (either in the request itself, like 'call 5 hot leads', or as a reply after you asked "
                        "— check the previous Mira message), set action='start_calls' and count to that number "
                        "(cap 50; 'all' means every callable one). "
+                       "If the admin asks you to call a SPECIFIC phone number or a SPECIFIC salon/lead by name "
+                       "(e.g. 'call 9876543210', 'call Empire Hair Lounge'), set action='call_specific' and put "
+                       "the phone number or the salon name in 'target'. "
                        'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab id or empty>", '
-                       '"action": "" | "ask_call_count" | "start_calls", "count": <int, 0 if not applicable>}'
+                       '"action": "" | "ask_call_count" | "start_calls" | "call_specific", '
+                       '"count": <int, 0 if not applicable>, "target": "<phone or salon name or empty>"}'
                    )).with_model("openai", "gpt-4o-mini")
     prev = f'Previous Mira message: "{body.last_mira.strip()[:200]}"\n' if body.last_mira.strip() else ""
     msg = f"Live snapshot: {json.dumps(snap)}\n{prev}\nAdmin says: {body.question.strip()[:300]}"
@@ -487,7 +520,29 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
         d = {"answer": "Sorry, I couldn't process that just now — please try again.", "tab": ""}
     answer = str(d.get("answer") or "")[:500]
     tab = d.get("tab") if d.get("tab") in MIRA_TABS else ""
-    action = d.get("action") if d.get("action") in ("ask_call_count", "start_calls") else ""
+    action = d.get("action") if d.get("action") in ("ask_call_count", "start_calls", "call_specific") else ""
+    if action == "call_specific":
+        target = str(d.get("target") or "").strip()
+        digits = re.sub(r"\D", "", target)
+        base = _webhook_base(request)
+        if len(digits) >= 8:
+            res = await _start_call({"id": "", "name": "the salon", "phone": target}, base)
+            answer = (f"Calling {target} now — I'll pitch Miracurl Suite and log the result in call history."
+                      if res.get("ok") else f"I couldn't place that call: {_friendly_error(res.get('error'))}")
+        elif target:
+            lead = await _raw_db.mira_leads.find_one(
+                {"name": {"$regex": re.escape(target), "$options": "i"}, "phone": {"$nin": ["", None]}}, {"_id": 0})
+            if not lead:
+                answer = f"I couldn't find a lead named '{target}' with a phone number."
+            elif lead.get("do_not_call"):
+                answer = f"{lead['name']} has opted out of calls, so I won't dial them."
+            else:
+                res = await _start_call(lead, base)
+                answer = (f"Calling {lead['name']} at {lead['phone']} now — watch their lead card for the result."
+                          if res.get("ok") else f"Couldn't reach {lead['name']}: {_friendly_error(res.get('error'))}")
+            tab = "mira-leads"
+        else:
+            answer = "Tell me the phone number or the salon name you want me to call."
     if action == "start_calls":
         try:
             count = max(1, min(int(d.get("count") or 0), 50))
@@ -644,7 +699,8 @@ async def send_daily_digest(force: bool = False) -> bool:
       </div>
     </div>"""
     admins = await _raw_db.users.find({"role": "super_admin"}, {"_id": 0, "email": 1}).to_list(10)
-    to = [a["email"] for a in admins if a.get("email")]
+    to = ([os.environ["HQ_DIGEST_EMAIL"]] if os.environ.get("HQ_DIGEST_EMAIL")
+          else [a["email"] for a in admins if a.get("email")])
     if not to:
         return False
     res = await _send_email(

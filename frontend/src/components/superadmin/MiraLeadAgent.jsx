@@ -134,6 +134,63 @@ function AutoCallToggle() {
   );
 }
 
+const CALL_STATUS_STYLE = {
+  completed: "bg-emerald-100 text-emerald-700", failed: "bg-rose-100 text-rose-600",
+  initiated: "bg-sky-100 text-sky-700", queued: "bg-slate-100 text-slate-500",
+  "no-answer": "bg-amber-100 text-amber-700", busy: "bg-amber-100 text-amber-700",
+};
+
+function CallHistoryPanel() {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState(null);
+  const [expand, setExpand] = useState("");
+  useEffect(() => {
+    if (open && !data) api.get("/super-admin/mira-calls").then(r => setData(r.data)).catch(() => {});
+  }, [open, data]);
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200" data-testid="call-history-panel">
+      <button onClick={() => setOpen(o => !o)} data-testid="call-history-toggle"
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700">
+        <span>📞 Mira Call History {data ? `· ${data.stats.total} calls (${data.stats.interested} 🎉 interested · ${data.stats.failed} failed)` : ""}</span>
+        <span className="text-slate-400">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-2 max-h-96 overflow-y-auto">
+          {!data && <p className="text-xs text-slate-400">Loading…</p>}
+          {data?.items?.length === 0 && <p className="text-xs text-slate-400">No calls yet — hit "Mira Call Hot Leads" or ask Mira to call.</p>}
+          {(data?.items || []).map((c) => (
+            <div key={c.id} className="border border-slate-100 rounded-xl px-3 py-2" data-testid={`call-row-${c.id}`}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-slate-700">{c.lead_name || c.phone}</span>
+                <span className="text-[10px] text-slate-400 font-mono">{c.phone}</span>
+                <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${CALL_STATUS_STYLE[c.status] || "bg-slate-100 text-slate-500"}`}>{c.status}</span>
+                {c.result && <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">{c.result.replace("_", " ")}</span>}
+                {c.duration > 0 && <span className="text-[10px] text-slate-400">{c.duration}s</span>}
+                {c.auto && <span className="text-[9px] font-bold text-amber-600">⚡ auto</span>}
+                <span className="ml-auto text-[10px] text-slate-400">{new Date(c.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+              </div>
+              {c.error_friendly && <p className="text-[10px] text-rose-500 mt-1">⚠ {c.error_friendly}</p>}
+              {c.convo?.length > 0 && (
+                <button onClick={() => setExpand(expand === c.id ? "" : c.id)} data-testid={`call-transcript-btn-${c.id}`}
+                  className="text-[10px] text-violet-600 font-semibold mt-1">💬 {expand === c.id ? "Hide" : "Show"} conversation ({Math.ceil(c.convo.length / 2)} turns)</button>
+              )}
+              {expand === c.id && (
+                <div className="mt-2 space-y-1 bg-slate-50 rounded-lg p-2">
+                  {c.convo.map((m, i) => (
+                    <p key={i} className={`text-[11px] ${m.role === "mira" ? "text-violet-700" : "text-slate-600"}`}>
+                      <b>{m.role === "mira" ? "Mira" : "Owner"}:</b> {m.text}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LeadRow({ lead, onRefresh }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
@@ -540,6 +597,8 @@ export function MiraLeadAgent() {
           {(runs[0].log || []).slice(-14).map((l, i) => <p key={i}>{l}</p>)}
         </div>
       )}
+
+      <CallHistoryPanel />
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2" data-testid="lead-filter-tabs">

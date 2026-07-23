@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-23.24"
-BUILD_TIME = "23 Jul 2026, 06:45 PM IST"
+BUILD = "2026-07-23.25"
+BUILD_TIME = "23 Jul 2026, 08:45 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-23 (Call Intelligence)",
+        "changes": [
+            "📞 Mira Call History — new panel in the Lead Agent with every call: status, result, duration, the full CONVERSATION TRANSCRIPT, and a plain-English failure reason (e.g. 'Twilio trial: number not verified — upgrade Twilio to call anyone')",
+            "🎙️ Tap Mira → instant call report — her greeting now includes today's calls, who's interested, why calls failed, and how many hot leads are still callable",
+            "☎️ Call any specific number — tell Mira 'call 9876543210' or 'call Empire Hair Lounge' and she dials that exact number/salon",
+            "🌙 Evening digest now goes to admin@miracurl-suite.com; failed calls show clear reasons on the Platform Map too",
+        ],
+    },
     {
         "date": "2026-07-23 (Evening Digest)",
         "changes": [

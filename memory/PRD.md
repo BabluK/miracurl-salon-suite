@@ -913,3 +913,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Scheduler _mira_digest_scheduler (15-min loop) in schedulers.py + server.py.
 - TESTED: force-send delivered REAL email to super@miracurl.com (sent:True), same-day re-run idempotent (False).
 - release_notes BUILD 2026-07-23.24. Needs Deploy.
+
+## 2026-07-23 — Call intelligence batch (user prod feedback, self-tested)
+- WHY PROD CALLS FAILED: Twilio account in TRIAL mode → all dials rejected (unverified numbers). Now surfaced everywhere via _friendly_error() (trial/geo/invalid mappings): call history rows (error_friendly), Platform Map live labels, Mira ask replies, Mira greeting.
+- Digest recipient: env HQ_DIGEST_EMAIL=admin@miracurl-suite.com (backend/.env, fallback super_admin users). NOTE: production needs this env var on deploy (deployer copies .env).
+- mira_briefing: + today's call report (calls made, interested, failed + top failure reason, callable count) — fires when user taps Mira. NOTE: an earlier parallel-edit collision duplicated the file tail (syntax error) and silently dropped this edit; fixed by line-deletion + re-apply. LESSON: avoid parallel search_replace on overlapping regions of one file.
+- mira_ask: NEW action call_specific {target: phone|salon name} → dials ad-hoc number (lead-less call log, lead_name 'the salon') or lead by name regex; opt-out respected. TESTED: 'call this number 98220...' → dial attempted, friendly trial error spoken.
+- MiraLeadAgent.jsx: NEW CallHistoryPanel (call-history-toggle/call-row-*/call-transcript-btn-*) — collapsible, stats header, status/result chips, ⚡auto tag, friendly errors, expandable convo transcripts. Screenshot verified.
+- release_notes BUILD 2026-07-23.25. Needs Deploy.
