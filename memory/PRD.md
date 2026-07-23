@@ -886,3 +886,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - _hq_snapshot: + mira_calls_made_total/today (Mira voice can answer 'how many calls today').
 - Guided user on Twilio console: skip Build wizard; Upgrade account + enable India in Voice→Settings→Geo Permissions (required!) + optional Verified Caller ID self-test in trial.
 - release_notes BUILD 2026-07-23.21. Needs Deploy.
+
+## 2026-07-23 — Code review fixes applied (user pasted review report)
+- FALSE POSITIVE: social_connect.py:30 "hardcoded secret" = public Google OAuth URL constant; renamed GOOGLE_TOKEN → GOOGLE_TOKEN_URL to silence scanners (real creds already env-based).
+- FALSE POSITIVE: "46 undefined variables" — ruff F821 across backend = 0 issues.
+- FIXED: tests/*.py `is True/is False` → `== True/== False` (utils.py:8 flagged line was a correct `is None`). Gift card suite re-run 12/12 pass.
+- REFACTORED: resend_inbound_webhook business-inbox routing extracted to _route_business_inbox() helper; e2e webhook retest OK.
+- DEFERRED deliberately (regression risk >> value on freshly-deployed, fully-tested payment/call code): mass complexity refactors (create_invoice, gift_card_order, _converse, platform_map_live, etc.), 80% type-hint coverage drive, module splits of briefings/gallery/hq_documents. Documented for future incremental cleanup.

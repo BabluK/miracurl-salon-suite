@@ -27,7 +27,7 @@ GRAPH = "https://graph.facebook.com/v21.0"
 FB_DIALOG = "https://www.facebook.com/v21.0/dialog/oauth"
 META_SCOPES = "pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,business_management"
 GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_SCOPE = "https://www.googleapis.com/auth/business.manage"
 GBP_V4 = "https://mybusiness.googleapis.com/v4"
 GBP_ACCOUNTS = "https://mybusinessaccountmanagement.googleapis.com/v1"
@@ -263,7 +263,7 @@ async def google_oauth_callback(request: Request, code: str = "", state: str = "
     g_id, g_secret = _google_creds()
     try:
         async with httpx.AsyncClient(timeout=30) as http:
-            tok = await http.post(GOOGLE_TOKEN, data={
+            tok = await http.post(GOOGLE_TOKEN_URL, data={
                 "code": code, "client_id": g_id, "client_secret": g_secret,
                 "redirect_uri": f"{_base(request)}/api/social/google/oauth/callback",
                 "grant_type": "authorization_code",
@@ -324,7 +324,7 @@ async def _google_token(tid: str) -> tuple[str, dict]:
         return gb["access_token"], gb
     g_id, g_secret = _google_creds()
     async with httpx.AsyncClient(timeout=30) as http:
-        resp = await http.post(GOOGLE_TOKEN, data={
+        resp = await http.post(GOOGLE_TOKEN_URL, data={
             "client_id": g_id, "client_secret": g_secret,
             "refresh_token": gb.get("refresh_token"), "grant_type": "refresh_token",
         })

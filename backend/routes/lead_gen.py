@@ -1024,28 +1024,12 @@ def _lead_reply_to() -> str | None:
     return os.environ.get("LEAD_REPLY_INBOX") or None
 
 
-@router.post("/webhooks/resend-inbound")
-async def resend_inbound_webhook(request: Request):
-    """Resend Inbound (email.received) → match sender to a lead and flag it Replied."""
-    secret = os.environ.get("RESEND_INBOUND_SECRET")
-    if not secret:
-        raise HTTPException(503, "Inbound webhook not configured (set RESEND_INBOUND_SECRET)")
-    import hmac
-    provided = request.headers.get("x-inbound-secret", "")
-    if not hmac.compare_digest(provided, secret):
-        raise HTTPException(403, "Bad webhook secret")
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(400, "Invalid JSON")
-    data = payload.get("data") or payload
-    m = _EMAIL_RE.search(str(data.get("from") or ""))
-    sender = m.group(0).lower() if m else ""
-    if not sender:
-        return {"ok": True, "matched": False}
-    # ---- business inbox routing → HQ Inbox (support@, billing@, payments@, …) ----
-    _BUSINESS_INBOXES = {"support", "billing", "payments", "sales", "booking",
-                         "careers", "info", "contact", "admin"}
+_BUSINESS_INBOXES = {"support", "billing", "payments", "sales", "booking",
+                     "careers", "info", "contact", "admin"}
+
+
+async def _route_business_inbox(data: dict, sender: str) -> str:
+    """If the mail was sent to a business inbox (support@, billing@, …), file it into HQ Inbox."""
     to_field = data.get("to") or []
     if isinstance(to_field, str):
         to_field = [to_field]
@@ -1067,6 +1051,29 @@ async def resend_inbound_webhook(request: Request):
             "message": body_text or "(empty message)", "read": False,
             "created_at": _now()})
         log.info("inbound business email routed to HQ inbox: %s ← %s", inbox, sender)
+    return inbox
+
+
+@router.post("/webhooks/resend-inbound")
+async def resend_inbound_webhook(request: Request):
+    """Resend Inbound (email.received) → match sender to a lead and flag it Replied."""
+    secret = os.environ.get("RESEND_INBOUND_SECRET")
+    if not secret:
+        raise HTTPException(503, "Inbound webhook not configured (set RESEND_INBOUND_SECRET)")
+    import hmac
+    provided = request.headers.get("x-inbound-secret", "")
+    if not hmac.compare_digest(provided, secret):
+        raise HTTPException(403, "Bad webhook secret")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+    data = payload.get("data") or payload
+    m = _EMAIL_RE.search(str(data.get("from") or ""))
+    sender = m.group(0).lower() if m else ""
+    if not sender:
+        return {"ok": True, "matched": False}
+    inbox = await _route_business_inbox(data, sender)
     lead = await _raw_db.mira_leads.find_one(
         {"$or": [{"email": sender}, {"all_emails": sender}]},
         {"_id": 0, "id": 1, "name": 1, "status": 1})
