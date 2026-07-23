@@ -38,6 +38,11 @@ export function PlatformOrbitMap({ onGoTab }) {
     return () => clearInterval(iv);
   }, [load]);
 
+  useEffect(() => {
+    const t = setTimeout(() => window.dispatchEvent(new Event("mira-map-briefing")), 700);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <div className="grid lg:grid-cols-[1fr_300px] gap-4">
       <div className="rounded-3xl bg-slate-950 border border-indigo-900/50 p-6 sm:p-8 overflow-hidden relative" data-testid="platform-orbit-map">

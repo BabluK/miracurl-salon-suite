@@ -224,6 +224,32 @@ async def twilio_voice_status(call_id: str, request: Request):
     return {"ok": True}
 
 
+@router.post("/webhooks/twilio/voice/{call_id}/recording")
+async def twilio_voice_recording(call_id: str, request: Request):
+    form = await request.form()
+    url = str(form.get("RecordingUrl") or "")
+    if url:
+        await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {
+            "recording_url": url, "recording_sid": str(form.get("RecordingSid") or ""),
+            "recording_duration": int(form.get("RecordingDuration") or 0)}})
+    return {"ok": True}
+
+
+@router.get("/super-admin/mira-calls/{call_id}/recording")
+async def get_call_recording(call_id: str, user=Depends(require_super_admin)):
+    """Proxy the Twilio recording audio (Twilio URLs need account credentials)."""
+    import httpx
+    c = await _raw_db.mira_call_logs.find_one({"id": call_id}, {"_id": 0, "recording_url": 1})
+    if not c or not c.get("recording_url"):
+        raise HTTPException(404, "No recording for this call")
+    auth = (os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"])
+    async with httpx.AsyncClient(auth=auth, timeout=30, follow_redirects=True) as cl:
+        r = await cl.get(c["recording_url"] + ".mp3")
+    if r.status_code != 200:
+        raise HTTPException(502, "Couldn't fetch the recording from Twilio")
+    return Response(content=r.content, media_type="audio/mpeg")
+
+
 async def _fulfil_interest(lead_id: str) -> None:
     """Press 1 → email the full demo pack (or SMS the link if no email on the lead)."""
     try:
@@ -279,7 +305,10 @@ async def _start_call(lead: dict, base: str) -> dict:
                 to=phone, from_=os.environ["TWILIO_PHONE_NUMBER"],
                 url=f"{base}/api/webhooks/twilio/voice/{call_id}",
                 status_callback=f"{base}/api/webhooks/twilio/voice/{call_id}/status",
-                status_callback_event=["completed"], timeout=25, machine_detection="Enable"))
+                status_callback_event=["completed"], timeout=25, machine_detection="Enable",
+                record=True,
+                recording_status_callback=f"{base}/api/webhooks/twilio/voice/{call_id}/recording",
+                recording_status_callback_event=["completed"]))
         await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"twilio_sid": tw.sid, "status": "initiated"}})
         return {"ok": True, "call_id": call_id}
     except Exception as e:
@@ -336,6 +365,38 @@ async def call_hot_leads(body: BatchCallIn, request: Request, user=Depends(requi
     if not queued:
         return {"ok": True, "queued": 0, "note": "No callable hot leads (all called in the last 7 days, opted out, or missing phones)"}
     return {"ok": True, "queued": queued}
+
+
+@router.post("/super-admin/mira-calls/retry-failed")
+async def retry_failed_calls(request: Request, user=Depends(require_super_admin)):
+    """Re-dial everyone whose LATEST call failed (skips leads that later succeeded or opted out)."""
+    logs = await _raw_db.mira_call_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    latest = {}
+    for c in logs:
+        key = c.get("phone") or c.get("lead_id")
+        if key and key not in latest:
+            latest[key] = c
+    failed = [c for c in latest.values() if c.get("status") == "failed"]
+    targets = []
+    for c in failed:
+        if c.get("lead_id"):
+            lead = await _raw_db.mira_leads.find_one({"id": c["lead_id"]}, {"_id": 0})
+            if not lead or lead.get("do_not_call") or lead.get("call_result") in ("interested", "opt_out"):
+                continue
+            targets.append(lead)
+        else:
+            targets.append({"id": "", "name": c.get("lead_name") or "", "phone": c.get("phone")})
+    targets = targets[:50]
+    base = _webhook_base(request)
+
+    async def _runner():
+        for ld in targets:
+            await _start_call(ld, base)
+            await asyncio.sleep(2)
+
+    if targets:
+        asyncio.get_event_loop().create_task(_runner())
+    return {"ok": True, "queued": len(targets)}
 
 
 def _friendly_error(err: str) -> str:
@@ -478,6 +539,41 @@ async def mira_briefing(user=Depends(require_super_admin)):
     text = (f"{_tod_greeting()} Miracurl! {summary}.{call_report} "
             f"Tell me what details you want me to show.")
     return {"text": text, "data": snap}
+
+
+@router.get("/super-admin/mira/map-briefing")
+async def mira_map_briefing(user=Depends(require_super_admin)):
+    """Spoken real-time update when the Platform Map opens."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    leads_today = await _raw_db.mira_leads.count_documents({"created_at": {"$gte": today}})
+    calls_today = await _raw_db.mira_call_logs.find(
+        {"created_at": {"$gte": today}}, {"_id": 0, "status": 1, "result": 1}).to_list(300)
+    interested = len([c for c in calls_today if c.get("result") == "interested"])
+    failed = len([c for c in calls_today if c.get("status") == "failed"])
+    bookings_today = await _raw_db.appointments.count_documents({"date": today})
+    callable_hot = await _raw_db.mira_leads.count_documents(await _callable_hot_query())
+    bits = []
+    if leads_today:
+        bits.append(f"I found {leads_today} new lead{'s' if leads_today != 1 else ''} today")
+    else:
+        bits.append("no new leads found so far today")
+    if calls_today:
+        s = f"I made {len(calls_today)} call{'s' if len(calls_today) != 1 else ''}"
+        if interested:
+            s += f", {interested} interested"
+        if failed:
+            s += f", {failed} failed"
+        bits.append(s)
+    if bookings_today:
+        bits.append(f"{bookings_today} booking{'s' if bookings_today != 1 else ''} across your salons")
+    if callable_hot:
+        bits.append(f"{callable_hot} hot lead{'s are' if callable_hot != 1 else ' is'} ready to call")
+    text = (f"Hey Miracurl! Live update — {'; '.join(bits)}. "
+            "Please give me a command — what do you want to know?")
+    return {"text": text,
+            "data": {"leads_today": leads_today, "calls_today": len(calls_today),
+                     "interested_today": interested, "failed_today": failed,
+                     "bookings_today": bookings_today, "callable_hot": callable_hot}}
 
 
 class MiraAskIn(BaseModel):

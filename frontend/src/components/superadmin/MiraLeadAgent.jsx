@@ -140,20 +140,62 @@ const CALL_STATUS_STYLE = {
   "no-answer": "bg-amber-100 text-amber-700", busy: "bg-amber-100 text-amber-700",
 };
 
+function RecordingPlayer({ callId, duration }) {
+  const [src, setSrc] = useState("");
+  const [loading, setLoading] = useState(false);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await api.get(`/super-admin/mira-calls/${callId}/recording`, { responseType: "blob" });
+      setSrc(URL.createObjectURL(r.data));
+    } catch { toast.error("Couldn't load the recording from Twilio"); }
+    finally { setLoading(false); }
+  };
+  if (src) return <audio controls autoPlay src={src} className="h-8 mt-1.5 w-full max-w-xs" data-testid={`call-recording-audio-${callId}`} />;
+  return (
+    <button onClick={load} disabled={loading} data-testid={`call-recording-btn-${callId}`}
+      className="text-[10px] text-emerald-600 font-semibold mt-1 inline-flex items-center gap-1 disabled:opacity-50">
+      {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "🎧"} Play recording{duration ? ` (${duration}s)` : ""}
+    </button>
+  );
+}
+
 function CallHistoryPanel() {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(null);
   const [expand, setExpand] = useState("");
+  const [retrying, setRetrying] = useState(false);
+  const reload = useCallback(() => api.get("/super-admin/mira-calls").then(r => setData(r.data)).catch(() => {}), []);
   useEffect(() => {
-    if (open && !data) api.get("/super-admin/mira-calls").then(r => setData(r.data)).catch(() => {});
-  }, [open, data]);
+    if (open && !data) reload();
+  }, [open, data, reload]);
+  const retryFailed = async () => {
+    if (!window.confirm("Mira will re-dial everyone whose latest call FAILED (skipping opt-outs and leads who already said yes). Start retrying?")) return;
+    setRetrying(true);
+    try {
+      const { data: res } = await api.post("/super-admin/mira-calls/retry-failed");
+      if (!res.queued) { toast.info("No failed calls to retry right now"); return; }
+      toast.success(`📞 Retrying ${res.queued} failed call${res.queued !== 1 ? "s" : ""} — refresh in a minute to see results`);
+      setTimeout(reload, 5000);
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start the retries"); }
+    finally { setRetrying(false); }
+  };
   return (
     <div className="bg-white rounded-2xl border border-slate-200" data-testid="call-history-panel">
-      <button onClick={() => setOpen(o => !o)} data-testid="call-history-toggle"
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700">
-        <span>📞 Mira Call History {data ? `· ${data.stats.total} calls (${data.stats.interested} 🎉 interested · ${data.stats.failed} failed)` : ""}</span>
-        <span className="text-slate-400">{open ? "▲" : "▼"}</span>
-      </button>
+      <div className="flex items-center gap-2 pr-3">
+        <button onClick={() => setOpen(o => !o)} data-testid="call-history-toggle"
+          className="flex-1 flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700">
+          <span>📞 Mira Call History {data ? `· ${data.stats.total} calls (${data.stats.interested} 🎉 interested · ${data.stats.failed} failed)` : ""}</span>
+          <span className="text-slate-400">{open ? "▲" : "▼"}</span>
+        </button>
+        {data?.stats?.failed > 0 && (
+          <button onClick={retryFailed} disabled={retrying} data-testid="retry-failed-calls-btn"
+            title="Re-dial every lead whose latest call failed — perfect after upgrading your Twilio account"
+            className="shrink-0 text-xs px-3.5 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-orange-500 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
+            {retrying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "🔁"} Retry {data.stats.failed} failed
+          </button>
+        )}
+      </div>
       {open && (
         <div className="px-4 pb-4 space-y-2 max-h-96 overflow-y-auto">
           {!data && <p className="text-xs text-slate-400">Loading…</p>}
@@ -170,6 +212,7 @@ function CallHistoryPanel() {
                 <span className="ml-auto text-[10px] text-slate-400">{new Date(c.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
               </div>
               {c.error_friendly && <p className="text-[10px] text-rose-500 mt-1">⚠ {c.error_friendly}</p>}
+              {c.recording_url && <RecordingPlayer callId={c.id} duration={c.recording_duration} />}
               {c.convo?.length > 0 && (
                 <button onClick={() => setExpand(expand === c.id ? "" : c.id)} data-testid={`call-transcript-btn-${c.id}`}
                   className="text-[10px] text-violet-600 font-semibold mt-1">💬 {expand === c.id ? "Hide" : "Show"} conversation ({Math.ceil(c.convo.length / 2)} turns)</button>

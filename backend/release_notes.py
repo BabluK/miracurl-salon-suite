@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-23.25"
-BUILD_TIME = "23 Jul 2026, 08:45 PM IST"
+BUILD = "2026-07-24.26"
+BUILD_TIME = "24 Jul 2026, 12:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-24 (Call Recordings & Retry)",
+        "changes": [
+            "🎧 Call Recordings — every Mira call is now recorded; press 'Play recording' on any call in Call History to hear the actual conversation",
+            "🔁 Retry Failed Calls — one button re-dials everyone whose latest call failed (skips opt-outs and leads who already said yes) — perfect after upgrading Twilio",
+            "🗺️ Platform Map now speaks — open the map and Mira greets you with a live update: new leads found today (or 'none yet'), calls made, interested, bookings, then asks for your command",
+        ],
+    },
     {
         "date": "2026-07-23 (Call Intelligence)",
         "changes": [

@@ -44,6 +44,25 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
     return () => { alive = false; };
   }, [speak]);
 
+  useEffect(() => {
+    let busy = false;
+    const onMapGreet = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const { data } = await api.get("/super-admin/mira/map-briefing");
+        sessionStorage.setItem("mira_open", "1");
+        sessionStorage.setItem("mira_greeted", "1");
+        setOpen(true);
+        setMsgs((m) => [...m, { role: "mira", text: data.text }]);
+        speak(data.text);
+      } catch { /* ignore */ }
+      busy = false;
+    };
+    window.addEventListener("mira-map-briefing", onMapGreet);
+    return () => window.removeEventListener("mira-map-briefing", onMapGreet);
+  }, [speak]);
+
   const ask = async (question) => {
     const text = (question || q).trim();
     if (!text || busy) return;

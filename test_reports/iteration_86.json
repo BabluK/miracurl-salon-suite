@@ -1,0 +1,21 @@
+{
+  "summary": "Tested Mira call-recordings, retry-failed, and Platform Map briefing (iteration 86). Backend: 6/6 pytest tests pass. Frontend: retry-failed-calls-btn shows '🔁 Retry 4 failed', Call History expands with 4 FAILED rows + friendly Twilio-trial error line; Play recording button rendered for the call whose recording_url was set via webhook test; confirm dialog accepted and retry API fired. Platform Map: Mira assistant panel auto-opened with 'Hey Miracurl! Live update — no new leads found so far today; I made 4 calls, 4 failed; 4 hot leads are ready to call. Please give me a command — what do you want to know?'. All criteria met.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_mira_recording_retry.py",
+    "/app/test_reports/pytest/iter86_mira.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "get_call_recording uses os.environ[...] directly for TWILIO creds — will KeyError if unset. Consider os.environ.get + 500 error. Minor.",
+    "retry_failed_calls scans only latest 500 mira_call_logs; fine at current volume, add index/pagination when logs grow."
+  ],
+  "updated_files": ["/app/backend/tests/test_mira_recording_retry.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (cookie-based)",
+  "seed_data_creation": "Backend webhook test set a fake recording_url on the seeded failed call log (id 13068ef7-3305-4f9a-9272-3bf7efeb335c) so the Play recording button rendering could be verified.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests in /app/backend/tests/test_mira_recording_retry.py cover map-briefing, list-calls stats+error_friendly, retry-failed (idempotency by grouping latest log per phone), recording 404, and public /api/webhooks/twilio/voice/{id}/recording persistence. Each retry call adds new failed logs (Twilio trial rejects unverified numbers), which is expected. Frontend uses data-testid: call-history-panel, call-history-toggle, retry-failed-calls-btn, call-recording-btn-{id}, mira-assistant-panel."
+}
