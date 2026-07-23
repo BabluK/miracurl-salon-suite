@@ -42,6 +42,7 @@ import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel
 import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
 import { Mail } from "lucide-react";
 import { PlatformEarnings } from "@/components/superadmin/PlatformEarnings";
+import { MiraVoiceAssistant } from "@/components/superadmin/MiraVoiceAssistant";
 import { FileText } from "lucide-react";
 import { BellRing, Orbit } from "lucide-react";
 import { BadgeCheck, Rocket } from "lucide-react";
@@ -277,6 +278,7 @@ export default function SuperAdmin() {
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <div className="hidden md:block"><NetSpeedIndicator /></div>
             <SuperNotifBell tenants={tenants} hqUnread={hqUnread} onGoInbox={() => setTab("inbox")} />
+            <MiraVoiceAssistant onGoTab={setTab} />
             <span className="text-xs text-white/50 hidden lg:inline">{user?.email}</span>
             <button data-testid="super-logout-btn" onClick={async () => { await logout(); nav("/login"); }} className="flex items-center gap-2 text-xs px-2.5 sm:px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-white/80 hover:bg-white/20 transition">
               <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Sign Out</span>

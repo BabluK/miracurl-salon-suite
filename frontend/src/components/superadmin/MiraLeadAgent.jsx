@@ -165,6 +165,12 @@ function LeadRow({ lead, onRefresh }) {
     toast.success("Status updated ✦");
   }, "stage");
 
+  const miraCall = () => act(async () => {
+    if (!window.confirm(`Mira will call ${lead.phone} now and pitch Miracurl Suite. Proceed?`)) return;
+    await api.post(`/super-admin/mira-calls/${lead.id}/call`);
+    toast.success("📞 Mira is dialing — the result will show on this lead in a minute");
+  }, "mira-call");
+
   const findEmail = () => act(async () => {
     const { data } = await api.post(`/super-admin/mira-leads/${lead.id}/find-email`);
     if (data.found) {
@@ -181,6 +187,12 @@ function LeadRow({ lead, onRefresh }) {
         <span className={`shrink-0 w-11 h-8 rounded-lg text-xs font-bold inline-flex items-center justify-center ${lead.score >= 50 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{lead.score}</span>
         {(lead.reviews || 0) >= 500 && !lead.website && (
           <span data-testid={`lead-hot-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200">🔥 HOT</span>
+        )}
+        {lead.call_result && (
+          <span data-testid={`lead-call-result-${lead.id}`} className={`shrink-0 text-[10px] px-2 py-1 rounded-full font-bold border ${
+            { interested: "bg-emerald-100 text-emerald-700 border-emerald-200", callback: "bg-sky-100 text-sky-700 border-sky-200", opt_out: "bg-rose-100 text-rose-600 border-rose-200" }[lead.call_result] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
+            📞 {{ interested: "INTERESTED (pressed 1)", callback: "CALL BACK", opt_out: "OPTED OUT" }[lead.call_result] || lead.call_result}
+          </span>
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 truncate">{lead.name} <span className="text-slate-400 font-normal">· {lead.city}</span></p>
@@ -285,6 +297,13 @@ function LeadRow({ lead, onRefresh }) {
               <button onClick={sendWhatsApp} disabled={!!busy} data-testid={`lead-whatsapp-${lead.id}`}
                 className="text-xs px-4 py-2 rounded-lg bg-[#25D366] text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
                 {busy === "whatsapp" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />} Send via WhatsApp
+              </button>
+            )}
+            {lead.phone && !lead.do_not_call && (
+              <button onClick={miraCall} disabled={!!busy} data-testid={`lead-mira-call-${lead.id}`}
+                title="Mira voice-calls this lead with the Miracurl pitch — press 1 sends the demo pack"
+                className="text-xs px-3.5 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
+                {busy === "mira-call" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Phone className="w-3.5 h-3.5" />} Mira Call
               </button>
             )}
             {isSent && lead.phone && (
@@ -450,6 +469,19 @@ export function MiraLeadAgent() {
             ⏹ Stop
           </button>
         )}
+        <button data-testid="lead-call-hot-btn"
+          onClick={async () => {
+            if (!window.confirm("Mira will VOICE-CALL every hot lead with a phone number (max 20, not called in the last 7 days), pitch Miracurl Suite and offer the demo + trial on keypress 1. Start calling?")) return;
+            try {
+              const { data } = await api.post("/super-admin/mira-calls/call-hot", { limit: 20 });
+              if (!data.queued) { toast.info(data.note || "No callable hot leads right now"); return; }
+              toast.success(`📞 Mira is calling ${data.queued} hot leads — results appear on each lead card`);
+            } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start the calls"); }
+          }}
+          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white text-sm font-bold inline-flex items-center gap-2"
+          title="Mira voice-calls all hot leads with your pitch script — press 1 sends the demo pack by email">
+          📞 Mira Call Hot Leads
+        </button>
         <button data-testid="lead-hunt-all-btn"
           disabled={starting || !!activeRun}
           onClick={async () => {

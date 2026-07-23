@@ -2,10 +2,25 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-23.19"
-BUILD_TIME = "23 Jul 2026, 02:15 PM IST"
+BUILD = "2026-07-23.21"
+BUILD_TIME = "23 Jul 2026, 04:45 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-23 (Mira Conversations + Live Map)",
+        "changes": [
+            "🗣️ Full Conversation Mode — on outbound calls, leads can now simply SPEAK to Mira ('how much does it cost?', 'we already use other software') and she answers live using your sales script, handles objections, and closes: if the owner agrees, the demo pack + trial email goes out automatically mid-call",
+            "🌌 Platform Map is now LIVE — real-time Mira call counters (calls made, today, interested, AI conversations), a Live Activity Stream (new leads, bookings, payments, new salons, staff registrations, call outcomes) refreshing every 30s, and an AI Insight card comparing this week's leads vs last week",
+            "📞 Ask Mira 'how many calls did you make today?' in the HQ assistant — call stats are in her live snapshot",
+        ],
+    },
+    {
+        "date": "2026-07-23 (Mira Voice)",
+        "changes": [
+            "📞 Mira AI now CALLS your hot leads — one click on a lead (or 'Mira Call Hot Leads' for a batch) and Mira phones the salon, delivers your Miracurl pitch in a natural Indian-English voice, and offers: Press 1 → demo pack + 7-day trial emailed instantly · Press 2 → call back later · Press 9 → opt out. Results (Interested / Call back / Opted out) appear right on each lead card",
+            "🎙️ Meet your HQ voice assistant — when you open the Super Admin console, Mira greets you out loud with today's snapshot (hot leads, bookings, revenue, expiring trials) and you can ask anything by typing or speaking: 'show hot leads', 'revenue yesterday', 'how many trials expiring?' — she answers with live data and jumps to the right tab",
+        ],
+    },
     {
         "date": "2026-07-23 (Gift Card Intelligence)",
         "changes": [

@@ -869,3 +869,20 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Certificate design APPROVED by user; sample PDFs removed from frontend/public.
 - release_notes BUILD 2026-07-23.19. Needs Deploy.
 - TESTED (self, /app/memory/test_gift_extras.py): reminder fires once + idempotent; occasion detection Nov3→diwali, Feb10→valentine, Dec27→new-year, today→None; campaign 8 customers + log + idempotent; redeem 250 → balance 350 + email attempt. Resend blocked only example.com demo addresses.
+
+## 2026-07-23 — 📞 Mira AI outbound calls + 🎙️ HQ voice assistant (user request, self-tested)
+- NEW /app/backend/routes/mira_calls.py (registered in server.py):
+  - Twilio Voice calls: POST /super-admin/mira-calls/{lid}/call + /call-hot (batch max 50, 2s stagger, skips do_not_call/interested/called<7d). TwiML webhooks (Polly.Aditi en-IN): /webhooks/twilio/voice/{call_id} (pitch from user's script + Gather), /gather (1=interested→_fulfil_interest emails demo pack via lead_gen _outreach_email_html or SMS fallback; 2=callback; 9=opt_out→do_not_call), /status. Collection mira_call_logs. Lead fields: call_result, last_call_status, last_call_at, do_not_call. GET /super-admin/mira-calls (log+stats).
+  - HQ Mira assistant: GET /super-admin/mira/briefing (time-of-day greeting + snapshot: hot leads, verify requests, inbox, trials expiring, bookings today, revenue yesterday — GIFT CARD DATA EXCLUDED per user: gift is per-salon only), POST /mira/ask (gpt-4o-mini via Emergent key, JSON answer+tab from MIRA_TABS), POST /mira/speak (reuses briefings._tts_cached_speech shimmer).
+- Frontend: NEW MiraVoiceAssistant.jsx (auto-greets once/session with spoken TTS audio, ask via text or mic webkitSpeechRecognition, navigates tabs; state persisted in sessionStorage mira_open/mira_greeting_text because SuperAdmin header REMOUNTS after load — fixed panel-vanishing bug; module-level _greetPromise for StrictMode). Mounted in SuperAdmin.jsx header w/ onGoTab. MiraLeadAgent.jsx: per-lead "Mira Call" button, "📞 Mira Call Hot Leads" batch button, call-result chips.
+- TESTED: briefing/ask/speak via curl+UI screenshot (panel auto-opens, answers, tab nav); TwiML flow via synthetic call log (pitch XML, digits 1/2, status callback, lead updates, SMS fulfilment attempted).
+- ⚠️ TWILIO ACCOUNT IS IN TRIAL MODE (error 21608): calls/SMS only to VERIFIED numbers until user upgrades Twilio account. User informed.
+- release_notes BUILD 2026-07-23.20. Needs Deploy.
+
+## 2026-07-23 — 🗣️ Full Conversation Mode + 🌌 Live Platform Map (user request, self-tested)
+- mira_calls.py: Gather now input="dtmf speech" language="en-IN"; SpeechResult → _converse(): gpt-4o-mini (Emergent key) w/ _SALES_CONTEXT (user's script + busy/competitor/cost objection handlers), JSON {say, action: continue|send_pack|callback|optout|end}, convo history stored on mira_call_logs.convo, MAX_TURNS=5, send_pack → _fulfil_interest mid-call + hangup. TESTED synthetically: cost question answered per script; 'send me details' → interested + email actually sent (lead status=sent w/ delivered@resend.dev).
+- NEW GET /super-admin/platform-map/live: call_stats (total/today/interested/conversations), merged live events feed (calls, leads, bookings, payments, tenants, registry staff — NO gift cards per user), AI insight leads week-over-week %.
+- PlatformOrbitMap.jsx REWRITTEN: orbit + right column (Mira Outbound Calls stats card, Live Activity Stream w/ LIVE badge + relative times, AI Insight, legend), 30s polling. Mira AI node → mira-leads tab. Screenshot verified.
+- _hq_snapshot: + mira_calls_made_total/today (Mira voice can answer 'how many calls today').
+- Guided user on Twilio console: skip Build wizard; Upgrade account + enable India in Voice→Settings→Geo Permissions (required!) + optional Verified Caller ID self-test in trial.
+- release_notes BUILD 2026-07-23.21. Needs Deploy.
