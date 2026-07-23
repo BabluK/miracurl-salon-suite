@@ -284,3 +284,15 @@ async def _mira_auto_call_scheduler() -> None:
         except Exception as e:
             logging.error(f"mira auto-call scheduler error: {e}")
         await asyncio.sleep(600)
+
+
+async def _mira_digest_scheduler() -> None:
+    """Every 15 min: send Mira's evening digest once daily after 7 PM IST."""
+    from routes.mira_calls import send_daily_digest
+    while True:
+        try:
+            if await send_daily_digest():
+                logging.info("mira daily digest sent")
+        except Exception as e:
+            logging.error(f"mira digest scheduler error: {e}")
+        await asyncio.sleep(900)

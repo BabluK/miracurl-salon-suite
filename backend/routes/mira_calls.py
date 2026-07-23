@@ -1,5 +1,6 @@
 """Mira AI outbound voice calls (Twilio) to hot leads + HQ voice assistant (briefing/ask/speak)."""
 import asyncio
+import html as html_lib
 import json
 import logging
 import os
@@ -579,3 +580,77 @@ async def auto_call_hot_leads() -> int:
     if n:
         log.info(f"auto campaign: Mira dialed {n} fresh hot leads")
     return n
+
+
+# ---------------- Mira daily digest email (7 PM IST) ----------------
+
+DIGEST_HOUR_IST = 19
+
+
+async def send_daily_digest(force: bool = False) -> bool:
+    """Evening email to super admins: leads found, calls made, who pressed 1."""
+    from email_service import _send_email
+    ist_now = datetime.now(_IST)
+    today_ist = ist_now.date().isoformat()
+    if not force:
+        if ist_now.hour < DIGEST_HOUR_IST:
+            return False
+        sent = await _raw_db.platform_settings.find_one(
+            {"key": "mira_digest", "last_sent": today_ist}, {"_id": 1})
+        if sent:
+            return False
+    day_start_utc = (ist_now.replace(hour=0, minute=0, second=0, microsecond=0)).astimezone(timezone.utc).isoformat()
+    leads_today = await _raw_db.mira_leads.find(
+        {"created_at": {"$gte": day_start_utc}}, {"_id": 0, "name": 1, "city": 1}).to_list(200)
+    calls = await _raw_db.mira_call_logs.find(
+        {"created_at": {"$gte": day_start_utc}}, {"_id": 0}).to_list(300)
+    interested = await _raw_db.mira_leads.find(
+        {"call_result": "interested", "last_call_at": {"$gte": day_start_utc}},
+        {"_id": 0, "name": 1, "city": 1, "phone": 1, "email": 1}).to_list(100)
+    callbacks = len([c for c in calls if c.get("result") == "callback"])
+    completed = len([c for c in calls if c.get("status") == "completed"])
+    hot_now = await _raw_db.mira_leads.count_documents(await _callable_hot_query())
+
+    def _stat(v, label, color="#1c1c22"):
+        return (f'<td style="padding:14px 10px;text-align:center;background:#faf7f2;border-radius:12px">'
+                f'<div style="font-size:26px;font-weight:bold;color:{color}">{v}</div>'
+                f'<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px">{label}</div></td>')
+
+    rows = "".join(
+        f'<tr><td style="padding:7px 10px;border-bottom:1px solid #f0ece4">🎉 <b>{html_lib.escape(l.get("name") or "")}</b>'
+        f'<span style="color:#888"> · {html_lib.escape(l.get("city") or "")}</span></td>'
+        f'<td style="padding:7px 10px;border-bottom:1px solid #f0ece4;color:#555;font-size:12px">'
+        f'{html_lib.escape(l.get("phone") or "")}{(" · " + html_lib.escape(l["email"])) if l.get("email") else ""}</td></tr>'
+        for l in interested) or ('<tr><td style="padding:10px;color:#999;font-size:12px" colspan="2">'
+                                 'No one pressed 1 today — try a batch call tomorrow morning.</td></tr>')
+    html = f"""
+    <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto">
+      <div style="background:#1c1c22;border-radius:18px 18px 0 0;padding:24px 28px">
+        <div style="color:#d4af37;font-size:20px;font-weight:bold">🌙 Mira's Evening Digest</div>
+        <div style="color:#999;font-size:12px;margin-top:4px">{ist_now.strftime('%A, %d %B %Y')} · Miracurl HQ</div>
+      </div>
+      <div style="background:#fff;border:1px solid #eee;border-top:0;border-radius:0 0 18px 18px;padding:24px 28px">
+        <table style="width:100%;border-spacing:6px 0"><tr>
+          {_stat(len(leads_today), "Leads found")}
+          {_stat(len(calls), "Calls made", "#7c3aed")}
+          {_stat(len(interested), "Pressed 1 🎉", "#0a7d43")}
+          {_stat(callbacks, "Call back", "#0284c7")}
+        </tr></table>
+        <h3 style="color:#1c1c22;font-size:14px;margin:22px 0 6px">Who pressed 1 (demo pack sent)</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#333">{rows}</table>
+        <p style="font-size:12px;color:#777;margin-top:18px">
+          📞 {completed} calls fully completed · 🔥 {hot_now} hot leads still callable —
+          just tell me <i>"call the hot leads"</i> tomorrow and I'll get dialing.</p>
+      </div>
+    </div>"""
+    admins = await _raw_db.users.find({"role": "super_admin"}, {"_id": 0, "email": 1}).to_list(10)
+    to = [a["email"] for a in admins if a.get("email")]
+    if not to:
+        return False
+    res = await _send_email(
+        to, f"🌙 Mira's digest — {len(leads_today)} leads found, {len(calls)} calls, {len(interested)} interested",
+        html, book_url="https://miracurl-suite.com/super-admin", book_label="Open HQ Console ✦")
+    await _raw_db.platform_settings.update_one(
+        {"key": "mira_digest"}, {"$set": {"last_sent": today_ist, "at": _now(),
+                                          "email_sent": bool(res.get("sent"))}}, upsert=True)
+    return bool(res.get("sent"))

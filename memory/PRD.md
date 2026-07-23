@@ -907,3 +907,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - TESTED via curl: 'call the hot leads' → ask_call_count w/ live count (4); reply '2' + last_mira → start_calls, 2 real Twilio dials attempted (trial-account rejection expected). Preview test call logs/lead flags cleaned.
 - Phone-first: calling needs NO email on leads (press-1 falls back to SMS).
 - release_notes BUILD 2026-07-23.23. Needs Deploy.
+
+## 2026-07-23 — 🌙 Mira Daily Digest email (user request, self-tested)
+- mira_calls.py send_daily_digest(force=False): after 19:00 IST, once/day (platform_settings key mira_digest last_sent) → HTML email to all users role=super_admin: stat cards (leads found today, calls made, pressed-1, callbacks), interested-leads table w/ phone+email, completed calls + callable-hot count + CTA. IST day boundary converted to UTC for queries.
+- Scheduler _mira_digest_scheduler (15-min loop) in schedulers.py + server.py.
+- TESTED: force-send delivered REAL email to super@miracurl.com (sent:True), same-day re-run idempotent (False).
+- release_notes BUILD 2026-07-23.24. Needs Deploy.
