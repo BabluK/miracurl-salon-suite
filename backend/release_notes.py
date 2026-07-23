@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-24.27"
-BUILD_TIME = "24 Jul 2026, 03:15 PM IST"
+BUILD = "2026-07-24.28"
+BUILD_TIME = "24 Jul 2026, 05:00 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-24 (Hands-free Mira)",
+        "changes": [
+            "🎙️ Hands-free conversation mode — tap Mira (or her mic) ONCE and she keeps the conversation going: she talks, then listens for your reply automatically, again and again until your command is done. Say 'stop', 'bye' or 'thank you' to end",
+            "🔴 Live listening indicator — the header shows 'Listening — just talk to me' while her ears are open",
+            "🗺️ Opening the Platform Map now also starts hands-free mode — Mira gives the live update and immediately waits for your command",
+        ],
+    },
     {
         "date": "2026-07-24 (Neural Platform Map)",
         "changes": [

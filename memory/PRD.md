@@ -935,3 +935,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - map-briefing endpoint now narrates: new leads received (or none), payments received w/ ₹ amount, new tenants, staff registered, bookings + "On your behalf I called N leads — no positive response yet / X said yes"
 - Real-time: while map open, new events in live feed dispatch 'mira-live-event' → Mira speaks them instantly
 - release_notes BUILD 2026-07-24.27. Production currently on .26 — needs redeploy for the new map.
+
+## 2026-07-24 — Hands-free Mira conversation mode (user request, screenshot-verified)
+- MiraVoiceAssistant.jsx: tap FAB/mic ONCE → continuous loop: speak → auto-listen (SpeechRecognition) → ask → speak → listen… until stop-word (stop/bye/thank you/ruko) or 3 no-speech timeouts
+- Map briefing + FAB open both auto-start conversation mode; header shows live status (🔴 Listening / 💬 Conversation on)
+- release_notes BUILD 2026-07-24.28. Production on .27 — needs redeploy.
