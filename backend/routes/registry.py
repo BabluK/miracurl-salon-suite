@@ -824,6 +824,24 @@ async def owner_relieving_submit(token: str, request: Request,
         f"for <b style='color:#fff'>{staff}</b> — the certificate PDF will be emailed to both you and {staff}.</p>")
 
 
+@router.post("/public/registry/dispute")
+async def registry_dispute(request: Request, staff_code: str = Form(""), name: str = Form(...),
+                           phone: str = Form(""), message: str = Form(...)):
+    """Staff appeals a termination mark on their public profile → lands in HQ Inbox."""
+    public_rate_limit(request, "registry-dispute", limit=3, window_sec=3600)
+    if len(name.strip()) < 2 or len(message.strip()) < 10:
+        raise HTTPException(400, "Please share your name and a short explanation (at least 10 characters)")
+    await _raw_db.hq_messages.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": "", "inbox": "dispute",
+        "tenant_name": "⚖️ Termination dispute",
+        "salon_name": "⚖️ Termination dispute",
+        "from_email": name.strip()[:80] + (f" · {re.sub(r'[^0-9+ ]', '', phone)[:18]}" if phone.strip() else ""),
+        "subject": f"Dispute — {name.strip()[:80]}" + (f" ({staff_code.strip()[:20]})" if staff_code.strip() else ""),
+        "message": message.strip()[:2000], "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"ok": True}
+
+
 @router.post("/public/registry/get-verified")
 async def registry_get_verified(request: Request,
                                 name: str = Form(...), phone: str = Form(...), email: str = Form(...),

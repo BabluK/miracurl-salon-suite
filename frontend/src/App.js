@@ -6,7 +6,35 @@ function ScrollToTop() {
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return null;
 }
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
+
+function VersionWatcher() {
+  useEffect(() => {
+    let initial = null, notified = false;
+    const check = async () => {
+      try {
+        const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/public/build`);
+        const d = await r.json();
+        if (!d.build) return;
+        if (initial === null) { initial = d.build; return; }
+        if (!notified && d.build !== initial) {
+          notified = true;
+          toast("✨ New version available", {
+            description: "Miracurl has been updated — refresh to load the latest version.",
+            duration: Infinity,
+            action: { label: "Refresh", onClick: () => window.location.reload() },
+          });
+        }
+      } catch { /* offline — retry next tick */ }
+    };
+    check();
+    const iv = setInterval(check, 5 * 60 * 1000);
+    const onVis = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); };
+  }, []);
+  return null;
+}
 import "@/App.css";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { getActAsSalon } from "@/lib/api";
@@ -142,6 +170,7 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <ScrollToTop />
+          <VersionWatcher />
           <ManifestSwitcher />
           <MicroInteractions />
           <Toaster theme="dark" position="top-right" toastOptions={TOAST_OPTIONS} />

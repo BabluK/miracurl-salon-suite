@@ -65,9 +65,9 @@ export default function Refund() {
       <S n="8" title="Contact information">
         <p>For refund-related requests, please contact:</p>
         <p><strong>Miracurl Suite</strong><br />
-          Email: <a href="mailto:refunds@miracurl-suite.com">refunds@miracurl-suite.com</a><br />
+          Refunds &amp; billing: <a href="mailto:billing@miracurl-suite.com">billing@miracurl-suite.com</a><br />
+          Payments: <a href="mailto:payments@miracurl-suite.com">payments@miracurl-suite.com</a><br />
           Support: <a href="mailto:support@miracurl-suite.com">support@miracurl-suite.com</a><br />
-          Billing: <a href="mailto:billing@miracurl-suite.com">billing@miracurl-suite.com</a><br />
           Website: <a href="https://miracurl-suite.com">https://miracurl-suite.com</a><br />
           Bangalore, Karnataka, India</p>
       </S>

@@ -63,7 +63,7 @@ export default function Privacy() {
           <li>Export your data in a portable format;</li>
           <li>Object to or restrict certain processing, and withdraw consent where processing is based on consent.</li>
         </ul>
-        <p>To exercise any of these rights, email <a href="mailto:privacy@miracurl-suite.com">privacy@miracurl-suite.com</a>. If you are a salon's customer, please contact the salon directly first — they control your booking records.</p>
+        <p>To exercise any of these rights, email <a href="mailto:support@miracurl-suite.com">support@miracurl-suite.com</a>. If you are a salon's customer, please contact the salon directly first — they control your booking records.</p>
       </S>
 
       <S n="9" title="Marketing communications">
@@ -79,7 +79,7 @@ export default function Privacy() {
       </S>
 
       <S n="12" title="Contact us">
-        <p>For any privacy question, request or complaint, contact our privacy team at <a href="mailto:privacy@miracurl-suite.com">privacy@miracurl-suite.com</a>. Miracurl Salon Suite, Bangalore, Karnataka, India.</p>
+        <p>For any privacy question, request or complaint, contact our privacy team at <a href="mailto:support@miracurl-suite.com">support@miracurl-suite.com</a>. Miracurl Salon Suite, Bangalore, Karnataka, India.</p>
       </S>
     </LegalLayout>
   );

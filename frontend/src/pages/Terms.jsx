@@ -11,7 +11,7 @@ export default function Terms() {
       </S>
 
       <S n="2" title="Your account & eligibility">
-        <p>You must be at least 18 years old to open an account. You are responsible for keeping your login credentials, Owner PIN and staff access codes confidential, and for all activity that occurs under your account. Notify us immediately at legal@miracurl-suite.com if you suspect unauthorised access.</p>
+        <p>You must be at least 18 years old to open an account. You are responsible for keeping your login credentials, Owner PIN and staff access codes confidential, and for all activity that occurs under your account. Notify us immediately at admin@miracurl-suite.com if you suspect unauthorised access.</p>
         <p>You agree to provide accurate business information during signup and to keep it up to date. Each subscription is licensed to a single salon business (tenant); reselling, sharing or sublicensing access to third parties is not permitted without our written consent.</p>
       </S>
 
@@ -34,7 +34,7 @@ export default function Terms() {
 
       <S n="5" title="Refunds & cancellation">
         <p>Subscription fees are non-refundable once a billing period has started. We offer a free trial so you can fully evaluate the platform before paying — please use it to confirm Miracurl fits your business. No refunds or credits are provided for partially used billing periods, unused features, or downgrades.</p>
-        <p>In exceptional cases (for example a duplicate payment or a verified billing error on our side), contact refunds@miracurl-suite.com and we will investigate and correct the error, including a refund where appropriate. See our <a href="/refund-policy">Refund Policy</a> for full details.</p>
+        <p>In exceptional cases (for example a duplicate payment or a verified billing error on our side), contact billing@miracurl-suite.com and we will investigate and correct the error, including a refund where appropriate. See our <a href="/refund-policy">Refund Policy</a> for full details.</p>
       </S>
 
       <S n="6" title="Your data & our content">
@@ -65,7 +65,7 @@ export default function Terms() {
       </S>
 
       <S n="12" title="Governing law & contact">
-        <p>These terms are governed by the laws of India, and the courts of Bangalore, Karnataka shall have exclusive jurisdiction over any dispute. Questions about these terms? Write to us at <a href="mailto:legal@miracurl-suite.com">legal@miracurl-suite.com</a>.</p>
+        <p>These terms are governed by the laws of India, and the courts of Bangalore, Karnataka shall have exclusive jurisdiction over any dispute. Questions about these terms? Write to us at <a href="mailto:admin@miracurl-suite.com">admin@miracurl-suite.com</a>.</p>
       </S>
     </LegalLayout>
   );

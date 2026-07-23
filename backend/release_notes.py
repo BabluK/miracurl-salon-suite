@@ -2,13 +2,17 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-23.16"
-BUILD_TIME = "23 Jul 2026, 10:45 AM IST"
+BUILD = "2026-07-23.17"
+BUILD_TIME = "23 Jul 2026, 11:15 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-23",
         "changes": [
+            "🔄 'New version available' toast — after every deployment, anyone on an old browser tab sees a one-click Refresh prompt automatically (no more preview-vs-live confusion)",
+            "📮 Business inboxes flow into HQ Inbox — emails to support@, billing@, payments@, sales@, booking@, careers@, info@, contact@ or admin@miracurl-suite.com now land in Super Admin → HQ Inbox tagged by inbox, with notification bell alerts",
+            "⚖️ Dispute link on the Terminated banner — staff who believe a termination mark is wrong can appeal directly from the public registry; appeals arrive in HQ Inbox with their name & phone",
+            "📧 Legal page contacts now use your live inboxes — Terms → admin@, Privacy → support@, Refund Policy → billing@ & payments@",
             "🔔 Staff verification now pings you — every new public 'Get verified' request, owner rating and relieving-letter request lands instantly in your Super Admin notification bell (new 🪪 Staff Verification filter)",
             "⭐ One-click owner ratings — the public badge form now collects the owner/manager's email; the owner instantly gets an email with 5 one-tap buttons (Excellent → Bad). One click records the rating on the staff's public registry profile — no more 'Not yet rated'. Sent again automatically when you mark 'Verified by Salon Owner', and re-sendable from the console",
             "📄 Relieving letters for non-Miracurl salons — the owner's email includes 'Request relieving letter'; they pick the exit type (Excellent/Standard/Terminated/Absconded) + last working date on a simple page → it lands in Staff Verification with a 'Send Relieving Letter' button → the certificate PDF is emailed to BOTH the staff member and the owner, and their registry record is closed with the right exit status",

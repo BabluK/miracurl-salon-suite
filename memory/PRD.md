@@ -843,3 +843,12 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - RegistryPublic.jsx: owner email input (get-verified-owner-email). VerifiedStaffPanel: owner-rating chip, relieving banner (pending amber/sent green), Send Relieving Letter + Send/Resend rating email buttons (prompts for owner email on legacy requests).
 - release_notes BUILD 2026-07-23.16. Needs Deploy.
 - TESTED (self, e2e curl + UI screenshot): submit→token stored→rate very-good→profile rating 4→relieving form→pending→super send letter→PDF gen + both recipients (Resend blocked only example.com test domain)→employment closed→notifications feed shows all 3 items→panel UI chips OK. Test data cleaned.
+
+## 2026-07-23 — 4-task batch: inbox mapping + inbound routing + version toast + dispute link (user approved)
+- Legal emails remapped to REAL configured inboxes (legal@/privacy@/refunds@ did NOT exist → would bounce): Terms → admin@, Privacy → support@, Refund → billing@ + payments@ + support@. User's configured list: support/info/admin/contact/booking/careers/sales/billing/noreply/payments@miracurl-suite.com + miracurl.unisex_saloon@ (main).
+- lead_gen.py resend-inbound webhook: NEW business-inbox routing — mail to any of 9 business inboxes @miracurl-suite.com → hq_messages doc (tenant_name "📮 {inbox}@…", inbox field) → HQ Inbox panel + notification feed. Lead reply-matching unchanged; returns routed_inbox.
+- releases.py: NEW GET /api/public/build (unauth) → {build}. App.js: NEW VersionWatcher (fetch build on load, poll 5 min + on tab visible; if changed → persistent sonner toast with Refresh action, fires once).
+- RegistryPublic.jsx: NEW DisputeLink component inside terminated-warning-banner (testids dispute-link/-form/-name/-phone/-message/-submit/-sent) → POST /api/public/registry/dispute (rate-limited 3/hr) → hq_messages "⚖️ Termination dispute".
+- release_notes BUILD 2026-07-23.17. Needs Deploy.
+- TESTED (self, e2e): build endpoint OK; simulated inbound billing@ email → HQ inbox + notification unread; dispute form UI submit → hq_messages + notification; Terms/Privacy/Refund emails verified. Test data cleaned.
+- NOTE: inbound routing requires Resend inbound MX for miracurl-suite.com (already active — lead reply webhook uses it).

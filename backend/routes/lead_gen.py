@@ -1043,11 +1043,35 @@ async def resend_inbound_webhook(request: Request):
     sender = m.group(0).lower() if m else ""
     if not sender:
         return {"ok": True, "matched": False}
+    # ---- business inbox routing → HQ Inbox (support@, billing@, payments@, …) ----
+    _BUSINESS_INBOXES = {"support", "billing", "payments", "sales", "booking",
+                         "careers", "info", "contact", "admin"}
+    to_field = data.get("to") or []
+    if isinstance(to_field, str):
+        to_field = [to_field]
+    inbox = ""
+    for t in to_field:
+        m2 = _EMAIL_RE.search(str(t))
+        addr = m2.group(0).lower() if m2 else ""
+        local, _, dom = addr.partition("@")
+        if dom == "miracurl-suite.com" and local in _BUSINESS_INBOXES:
+            inbox = local
+            break
+    if inbox:
+        body_text = (str(data.get("text") or "") or re.sub(r"<[^>]+>", " ", str(data.get("html") or ""))).strip()[:2000]
+        await _raw_db.hq_messages.insert_one({
+            "id": str(uuid.uuid4()), "tenant_id": "", "inbox": inbox,
+            "tenant_name": f"📮 {inbox}@miracurl-suite.com",
+            "salon_name": f"📮 {inbox}@miracurl-suite.com",
+            "from_email": sender, "subject": str(data.get("subject") or "(no subject)")[:200],
+            "message": body_text or "(empty message)", "read": False,
+            "created_at": _now()})
+        log.info("inbound business email routed to HQ inbox: %s ← %s", inbox, sender)
     lead = await _raw_db.mira_leads.find_one(
         {"$or": [{"email": sender}, {"all_emails": sender}]},
         {"_id": 0, "id": 1, "name": 1, "status": 1})
     if not lead:
-        return {"ok": True, "matched": False}
+        return {"ok": True, "matched": False, "routed_inbox": inbox or None}
     await _raw_db.mira_leads.update_one(
         {"id": lead["id"], "replied_at": {"$exists": False}}, {"$set": {"replied_at": _now()}})
     sets = {"reply_subject": str(data.get("subject") or "")[:200]}

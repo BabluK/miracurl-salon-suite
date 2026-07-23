@@ -22,6 +22,12 @@ async def whats_new(user=Depends(require_tenant_admin)):
     return {"build": BUILD, "date": latest["date"], "highlights": highlights}
 
 
+@router.get("/public/build")
+async def public_build():
+    """Unauthenticated build fingerprint — powers the 'New version available' toast."""
+    return {"build": BUILD}
+
+
 @router.get("/super/version")
 async def server_version(admin=Depends(require_super_admin)):
     return {

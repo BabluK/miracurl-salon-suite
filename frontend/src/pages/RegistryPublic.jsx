@@ -18,6 +18,48 @@ const BADGE_LABEL = {
   NEW: "New — building history", BAD: "Poor track record ❌",
 };
 
+function DisputeLink({ profile }) {
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ name: profile?.name || "", phone: "", message: "" });
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("staff_code", profile?.staff_code || "");
+      Object.entries(f).forEach(([k, v]) => fd.append(k, v));
+      await api.post("/public/registry/dispute", fd);
+      setSent(true);
+    } catch (err) { alert(err.response?.data?.detail || "Couldn't send — please try again."); }
+    finally { setBusy(false); }
+  };
+  if (sent) return <div className="text-[11px] font-semibold mt-1.5" data-testid="dispute-sent">✓ Appeal sent to Miracurl HQ — we'll review it and contact you.</div>;
+  return (
+    <div className="mt-1.5">
+      <button onClick={() => setOpen(o => !o)} data-testid="dispute-link"
+        className="text-[11px] underline underline-offset-2 font-semibold opacity-90 hover:opacity-100">
+        Is this you and you believe this mark is wrong? Dispute it with Miracurl HQ →
+      </button>
+      {open && (
+        <form onSubmit={submit} className="mt-2 grid gap-1.5 bg-white/10 rounded-lg p-2.5" data-testid="dispute-form">
+          <input required minLength={2} maxLength={80} value={f.name} onChange={e => setF(v => ({ ...v, name: e.target.value }))}
+            placeholder="Your full name *" data-testid="dispute-name" className="bg-white/90 text-slate-800 text-xs rounded-md px-2.5 py-1.5 placeholder:text-slate-400" />
+          <input maxLength={18} value={f.phone} onChange={e => setF(v => ({ ...v, phone: e.target.value }))}
+            placeholder="Phone (so we can call you back)" data-testid="dispute-phone" className="bg-white/90 text-slate-800 text-xs rounded-md px-2.5 py-1.5 placeholder:text-slate-400" />
+          <textarea required minLength={10} maxLength={2000} rows={2} value={f.message} onChange={e => setF(v => ({ ...v, message: e.target.value }))}
+            placeholder="Why is this termination mark wrong? *" data-testid="dispute-message" className="bg-white/90 text-slate-800 text-xs rounded-md px-2.5 py-1.5 placeholder:text-slate-400" />
+          <button disabled={busy} data-testid="dispute-submit"
+            className="bg-white text-red-600 text-xs font-bold rounded-md py-1.5 hover:bg-red-50 disabled:opacity-60">
+            {busy ? "Sending…" : "Send appeal to Miracurl HQ"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function GetVerifiedCard() {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: "", phone: "", email: "", salon_name: "", city: "", owner_phone: "", joining: "", experience: "" });
@@ -241,6 +283,7 @@ export default function RegistryPublic() {
                   <div className="text-[11px] opacity-90 mt-0.5">
                     This staff member's record shows a termination reported by a past salon. Check the employment history below and take strong references before hiring.
                   </div>
+                  <DisputeLink profile={profile} />
                 </div>
               </div>
             )}
