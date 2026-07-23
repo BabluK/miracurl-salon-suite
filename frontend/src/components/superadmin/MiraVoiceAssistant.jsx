@@ -51,7 +51,8 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
     setMsgs((m) => [...m, { role: "you", text }]);
     setBusy(true);
     try {
-      const { data } = await api.post("/super-admin/mira/ask", { question: text });
+      const lastMira = [...msgs].reverse().find((m) => m.role === "mira")?.text || "";
+      const { data } = await api.post("/super-admin/mira/ask", { question: text, last_mira: lastMira });
       setMsgs((m) => [...m, { role: "mira", text: data.answer }]);
       speak(data.answer);
       if (data.tab && onGoTab) onGoTab(data.tab);

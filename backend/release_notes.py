@@ -2,10 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-23.22"
-BUILD_TIME = "23 Jul 2026, 05:30 PM IST"
+BUILD = "2026-07-23.23"
+BUILD_TIME = "23 Jul 2026, 06:15 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-23 (Voice-commanded calling)",
+        "changes": [
+            "🎙️ Tell Mira to call — say or type 'call the hot leads' to your HQ assistant and she replies 'You have N hot leads with phone numbers ready — how many should I call now?'. Answer '5' (or 'all') and she dials them one by one, no email needed, results appear live on the lead cards",
+        ],
+    },
     {
         "date": "2026-07-23 (Auto Campaign)",
         "changes": [

@@ -305,27 +305,36 @@ class BatchCallIn(BaseModel):
     limit: int = 20
 
 
-@router.post("/super-admin/mira-calls/call-hot")
-async def call_hot_leads(body: BatchCallIn, request: Request, user=Depends(require_super_admin)):
-    """Mira calls all HOT leads (500+ reviews, no website) with a phone number, staggered."""
+async def _callable_hot_query() -> dict:
     since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    return {**HOT_QUERY, "phone": {"$nin": ["", None]}, "do_not_call": {"$ne": True},
+            "call_result": {"$nin": ["interested", "opt_out"]},
+            "status": {"$nin": ["customer", "rejected"]},
+            "$or": [{"last_call_at": {"$exists": False}}, {"last_call_at": {"$lt": since}}]}
+
+
+async def _call_hot_batch(limit: int, base: str) -> int:
+    """Fetch callable hot leads and dial them one by one (staggered, background)."""
     leads = await _raw_db.mira_leads.find(
-        {**HOT_QUERY, "phone": {"$nin": ["", None]}, "do_not_call": {"$ne": True},
-         "call_result": {"$nin": ["interested", "opt_out"]},
-         "status": {"$nin": ["customer", "rejected"]},
-         "$or": [{"last_call_at": {"$exists": False}}, {"last_call_at": {"$lt": since}}]},
-        {"_id": 0}).sort("reviews", -1).to_list(max(1, min(body.limit, 50)))
-    if not leads:
-        return {"ok": True, "queued": 0, "note": "No callable hot leads (all called in the last 7 days, opted out, or missing phones)"}
-    base = _webhook_base(request)
+        await _callable_hot_query(), {"_id": 0}).sort("reviews", -1).to_list(max(1, min(limit, 50)))
 
     async def _runner():
         for ld in leads:
             await _start_call(ld, base)
             await asyncio.sleep(2)
 
-    asyncio.get_event_loop().create_task(_runner())
-    return {"ok": True, "queued": len(leads)}
+    if leads:
+        asyncio.get_event_loop().create_task(_runner())
+    return len(leads)
+
+
+@router.post("/super-admin/mira-calls/call-hot")
+async def call_hot_leads(body: BatchCallIn, request: Request, user=Depends(require_super_admin)):
+    """Mira calls all HOT leads (500+ reviews, no website) with a phone number, staggered."""
+    queued = await _call_hot_batch(body.limit, _webhook_base(request))
+    if not queued:
+        return {"ok": True, "queued": 0, "note": "No callable hot leads (all called in the last 7 days, opted out, or missing phones)"}
+    return {"ok": True, "queued": queued}
 
 
 @router.get("/super-admin/mira-calls")
@@ -394,6 +403,7 @@ async def _hq_snapshot() -> dict:
     call_interested = await _raw_db.mira_leads.count_documents({"call_result": "interested"})
     calls_total = await _raw_db.mira_call_logs.count_documents({})
     calls_today = await _raw_db.mira_call_logs.count_documents({"created_at": {"$gte": today}})
+    callable_hot = await _raw_db.mira_leads.count_documents(await _callable_hot_query())
     new_verify = await _raw_db.staff_verification_requests.count_documents({"status": "new"})
     unread_inbox = await _raw_db.hq_messages.count_documents({"read": {"$ne": True}})
     tenants_total = await _raw_db.tenants.count_documents({"status": {"$in": ["active", "trial"]}})
@@ -404,6 +414,7 @@ async def _hq_snapshot() -> dict:
         {"$match": {"created_at": {"$gte": yesterday, "$lt": today}}},
         {"$group": {"_id": None, "s": {"$sum": "$total"}}}]).to_list(1)
     return {"hot_leads": hot, "call_interested": call_interested,
+            "callable_hot_leads_with_phone": callable_hot,
             "mira_calls_made_total": calls_total, "mira_calls_made_today": calls_today,
             "new_verification_requests": new_verify,
             "unread_hq_inbox": unread_inbox,
@@ -441,21 +452,31 @@ async def mira_briefing(user=Depends(require_super_admin)):
 
 class MiraAskIn(BaseModel):
     question: str
+    last_mira: str = ""
 
 
 @router.post("/super-admin/mira/ask")
-async def mira_ask(body: MiraAskIn, user=Depends(require_super_admin)):
+async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super_admin)):
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     snap = await _hq_snapshot()
-    chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-hq-{user['id']}",
+    chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-hq-{user['id']}-{uuid.uuid4().hex[:6]}",
                    system_message=(
                        "You are Mira, the voice assistant of the Miracurl Suite super-admin console. "
                        "Answer the admin's question in ONE or TWO short spoken-style sentences using the live "
                        "platform snapshot provided. If a dashboard tab is clearly relevant, include it. "
                        f"Valid tabs: {', '.join(MIRA_TABS)}. "
-                       'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab id or empty string>"}'
+                       "CALLING HOT LEADS: you can phone hot leads yourself. If the admin asks you to call hot "
+                       "leads WITHOUT saying how many, set action='ask_call_count' and ask exactly like: "
+                       "'You have N hot leads with phone numbers ready — how many should I call now?' using "
+                       "callable_hot_leads_with_phone from the snapshot. If the admin gives a number of leads to "
+                       "call (either in the request itself, like 'call 5 hot leads', or as a reply after you asked "
+                       "— check the previous Mira message), set action='start_calls' and count to that number "
+                       "(cap 50; 'all' means every callable one). "
+                       'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab id or empty>", '
+                       '"action": "" | "ask_call_count" | "start_calls", "count": <int, 0 if not applicable>}'
                    )).with_model("openai", "gpt-4o-mini")
-    msg = f"Live snapshot: {json.dumps(snap)}\n\nAdmin asks: {body.question.strip()[:300]}"
+    prev = f'Previous Mira message: "{body.last_mira.strip()[:200]}"\n' if body.last_mira.strip() else ""
+    msg = f"Live snapshot: {json.dumps(snap)}\n{prev}\nAdmin says: {body.question.strip()[:300]}"
     try:
         raw = await chat.send_message(UserMessage(text=msg))
         m = re.search(r"\{.*\}", str(raw), re.S)
@@ -463,8 +484,24 @@ async def mira_ask(body: MiraAskIn, user=Depends(require_super_admin)):
     except Exception as e:
         log.error(f"mira ask failed: {e}")
         d = {"answer": "Sorry, I couldn't process that just now — please try again.", "tab": ""}
-    tab = d.get("tab") or ""
-    return {"answer": str(d.get("answer") or "")[:500], "tab": tab if tab in MIRA_TABS else ""}
+    answer = str(d.get("answer") or "")[:500]
+    tab = d.get("tab") if d.get("tab") in MIRA_TABS else ""
+    action = d.get("action") if d.get("action") in ("ask_call_count", "start_calls") else ""
+    if action == "start_calls":
+        try:
+            count = max(1, min(int(d.get("count") or 0), 50))
+        except (TypeError, ValueError):
+            count = 0
+        if count:
+            queued = await _call_hot_batch(count, _webhook_base(request))
+            answer = (f"On it! I'm calling {queued} hot lead{'s' if queued != 1 else ''} one by one right now — "
+                      f"watch the results appear on the lead cards." if queued
+                      else "There are no callable hot leads right now — everyone was called in the last 7 days, opted out, or has no phone number.")
+            tab = "mira-leads"
+        else:
+            action = "ask_call_count"
+            answer = f"How many of the {snap['callable_hot_leads_with_phone']} callable hot leads should I call now?"
+    return {"answer": answer, "tab": tab, "action": action}
 
 
 class MiraSpeakIn(BaseModel):

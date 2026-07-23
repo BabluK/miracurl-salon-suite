@@ -899,3 +899,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MiraLeadAgent.jsx: AutoCallToggle component (lead-auto-call-toggle) next to Mira Call Hot Leads button.
 - TESTED: settings CRUD via curl; seeded fresh hot lead → detected + flagged + Twilio dial attempted (trial-account rejection expected) + idempotent re-run; UI toggle renders. LEFT DISABLED until user upgrades Twilio.
 - release_notes BUILD 2026-07-23.22. Needs Deploy.
+
+## 2026-07-23 — 🎙️ Voice-commanded hot-lead calling via Mira HQ assistant (user request, self-tested)
+- mira_calls.py: _callable_hot_query() + _call_hot_batch(limit, base) extracted (call-hot endpoint reuses). _hq_snapshot += callable_hot_leads_with_phone.
+- mira_ask REWRITTEN: MiraAskIn += last_mira (frontend sends previous Mira message for context); LLM actions ask_call_count / start_calls+count ('all'→50 cap); start_calls triggers _call_hot_batch server-side and answers 'On it! Calling N…' + tab mira-leads. Fresh session_id per ask (uuid suffix) to avoid history contamination.
+- MiraVoiceAssistant.jsx: ask() sends last_mira from message history.
+- TESTED via curl: 'call the hot leads' → ask_call_count w/ live count (4); reply '2' + last_mira → start_calls, 2 real Twilio dials attempted (trial-account rejection expected). Preview test call logs/lead flags cleaned.
+- Phone-first: calling needs NO email on leads (press-1 falls back to SMS).
+- release_notes BUILD 2026-07-23.23. Needs Deploy.
