@@ -975,3 +975,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Audit confirmed strong: cookie auth+JWT jti revocation, bcrypt, lockouts, fail-closed tenant isolation, payment HMAC verification, SSRF guards in scrapers, CORS, AI rate limits
 - Remaining P3 (accepted): account enumeration wording on signup ("email already registered" kept for UX)
 - release_notes BUILD 2026-07-25.33. Needs redeploy to apply on production.
+
+## 2026-07-25 — International phone dialing fix (user report: no recordings + US leads dialed as +91)
+- Root cause: lead_gen stored Google nationalPhoneNumber; _norm_phone assumed India → US leads (Spa Castle NY etc.) dialed +91718… (never connect → no recordings; recordings only exist on ANSWERED calls anyway)
+- Fixed: Places field mask now requests internationalPhoneNumber (preferred); _norm_phone trusts "+" prefixed numbers; heat refresh upgrades legacy national numbers
+- run_phone_backfill() one-shot on startup (_phone_backfill_task, system_flags phone_intl_backfill) — verified in preview: 4/4 leads converted to +91 intl format; will auto-heal production on redeploy
+- Call History hint added: recordings appear only on answered calls
+- release_notes BUILD 2026-07-25.34. Needs redeploy — then user should hit "Retry N failed" again.

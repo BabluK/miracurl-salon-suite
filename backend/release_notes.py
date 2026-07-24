@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-25.33"
-BUILD_TIME = "25 Jul 2026, 12:15 AM IST"
+BUILD = "2026-07-25.34"
+BUILD_TIME = "25 Jul 2026, 11:15 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-25 (International Dialing Fix)",
+        "changes": [
+            "🌍 Correct country codes — lead phone numbers are now stored in full international format, so US/overseas salons (New York spas etc.) are dialed with +1 instead of wrongly getting +91. Existing leads are auto-corrected once on startup",
+            "🔁 Weekly heat refresh also upgrades any remaining national-format numbers to international",
+            "🎧 Call History now explains that recordings appear only on answered calls — failed and unanswered calls have no audio",
+        ],
+    },
     {
         "date": "2026-07-25 (Security Hardening)",
         "changes": [

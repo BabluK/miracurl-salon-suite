@@ -343,3 +343,20 @@ async def _callback_redial_scheduler() -> None:
         except Exception as e:
             logging.error(f"callback redial scheduler error: {e}")
         await asyncio.sleep(900)
+
+
+async def _phone_backfill_task() -> None:
+    """One-shot on startup: convert national lead phone numbers to international format (idempotent via flag)."""
+    from routes.lead_gen import run_phone_backfill
+    try:
+        await asyncio.sleep(20)
+        flag = await _raw_db.system_flags.find_one({"key": "phone_intl_backfill"})
+        if flag and flag.get("value") == "done":
+            return
+        out = await run_phone_backfill()
+        await _raw_db.system_flags.update_one(
+            {"key": "phone_intl_backfill"},
+            {"$set": {"value": "done", "ran_at": datetime.now(timezone.utc).isoformat(), **out}}, upsert=True)
+        logging.info(f"phone intl backfill: {out}")
+    except Exception as e:
+        logging.error(f"phone backfill error: {e}")

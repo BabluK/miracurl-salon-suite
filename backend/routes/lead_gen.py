@@ -67,7 +67,8 @@ async def _places_query(client: httpx.AsyncClient, key: str, query: str, want: i
             "https://places.googleapis.com/v1/places:searchText",
             headers={"Content-Type": "application/json", "X-Goog-Api-Key": key,
                      "X-Goog-FieldMask": ("places.displayName,places.rating,places.userRatingCount,"
-                                          "places.websiteUri,places.nationalPhoneNumber,places.formattedAddress,"
+                                          "places.websiteUri,places.nationalPhoneNumber,"
+                                          "places.internationalPhoneNumber,places.formattedAddress,"
                                           "nextPageToken")},
             json=payload, timeout=20)
         data = r.json()
@@ -77,7 +78,8 @@ async def _places_query(client: httpx.AsyncClient, key: str, query: str, want: i
             raise RuntimeError((data.get("error") or {}).get("message", "no results")[:90])
         out += [{"name": p.get("displayName", {}).get("text", ""), "rating": p.get("rating"),
                  "reviews": p.get("userRatingCount"), "website": p.get("websiteUri", ""),
-                 "phone": p.get("nationalPhoneNumber", ""), "address": p.get("formattedAddress", "")}
+                 "phone": p.get("internationalPhoneNumber") or p.get("nationalPhoneNumber", ""),
+                 "address": p.get("formattedAddress", "")}
                 for p in data["places"]]
         token = data.get("nextPageToken")
         if not token or len(out) >= want:
@@ -1282,8 +1284,10 @@ async def run_lead_heat_refresh(limit: int = 150) -> dict:
                         upd["reviews"] = p["reviews"]
                     if p.get("website"):
                         upd["website"] = p["website"]
-                    if p.get("phone") and not lead.get("phone"):
-                        upd["phone"] = p["phone"]
+                    new_ph = p.get("phone") or ""
+                    old_ph = lead.get("phone") or ""
+                    if new_ph and (not old_ph or (new_ph.startswith("+") and not old_ph.startswith("+"))):
+                        upd["phone"] = new_ph
             old_score = lead.get("score") or 0
             upd["score"], upd["score_breakdown"] = _score({**lead, **upd})
             if upd["score"] > old_score:
@@ -1298,3 +1302,28 @@ async def run_lead_heat_refresh(limit: int = 150) -> dict:
         {"key": "lead_heat_risers"},
         {"$set": {"risers": risers[:5], "ran_at": _now(), "announced": not risers}}, upsert=True)
     return {"refreshed": refreshed, "hotter": hotter}
+
+
+async def run_phone_backfill() -> dict:
+    """One-time: rewrite stored national phone numbers to international (+CC) format via Google Places."""
+    key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+    if not key:
+        return {"fixed": 0, "note": "no google maps key"}
+    leads = await _raw_db.mira_leads.find(
+        {"phone": {"$nin": ["", None]}}, {"_id": 0, "id": 1, "name": 1, "city": 1, "phone": 1}).to_list(500)
+    todo = [l for l in leads if not (l.get("phone") or "").strip().startswith("+")]
+    fixed = 0
+    async with httpx.AsyncClient() as client:
+        for lead in todo:
+            try:
+                res = await _places_query(client, key, f"{lead.get('name')} {lead.get('city') or ''}".strip(), 1)
+            except Exception:
+                res = []
+            if res:
+                p = res[0]
+                ph = (p.get("phone") or "").strip()
+                if ph.startswith("+") and (p.get("name") or "").strip().lower()[:12] == (lead.get("name") or "").strip().lower()[:12]:
+                    await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"phone": ph}})
+                    fixed += 1
+            await asyncio.sleep(0.3)
+    return {"checked": len(todo), "fixed": fixed}

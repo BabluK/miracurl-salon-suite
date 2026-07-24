@@ -198,6 +198,7 @@ function CallHistoryPanel() {
       </div>
       {open && (
         <div className="px-4 pb-4 space-y-2 max-h-96 overflow-y-auto">
+          <p className="text-[10px] text-slate-400" data-testid="recording-hint">🎧 Recordings appear on <b>answered</b> calls a few seconds after they end — failed and unanswered calls have no audio to record.</p>
           {!data && <p className="text-xs text-slate-400">Loading…</p>}
           {data?.items?.length === 0 && <p className="text-xs text-slate-400">No calls yet — hit "Mira Call Hot Leads" or ask Mira to call.</p>}
           {(data?.items || []).map((c) => (

@@ -30,14 +30,19 @@ def _now() -> str:
 
 
 def _norm_phone(p: str) -> str:
-    d = re.sub(r"\D", "", p or "")
+    raw = (p or "").strip()
+    d = re.sub(r"\D", "", raw)
+    if not d:
+        return ""
+    if raw.startswith("+"):
+        return "+" + d
     if d.startswith("91") and len(d) == 12:
         return "+" + d
     if d.startswith("0") and len(d) == 11:
         d = d[1:]
     if len(d) == 10:
         return "+91" + d
-    return ("+" + d) if d else ""
+    return "+" + d
 
 
 def _twilio():
