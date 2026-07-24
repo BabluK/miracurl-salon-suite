@@ -2,10 +2,20 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-24.28"
-BUILD_TIME = "24 Jul 2026, 05:00 PM IST"
+BUILD = "2026-07-24.29"
+BUILD_TIME = "24 Jul 2026, 06:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-24 (Smarter, fresher Mira)",
+        "changes": [
+            "🌅 Correct greeting always — 'Hey Miracurl! Good morning / afternoon / evening' now follows the actual IST time (the stale cached greeting bug is gone), and her AI answers know the current time too",
+            "🧹 Fresh conversation on every tap — tapping Mira clears the old chat and greets you fresh: 'Hey Miracurl! Good morning! … How may I help you today — what details do you want me to show?'",
+            "🧠 Proactive issue alerts — if all calls failed she says it straight: 'I tried calling 25 leads today and NONE connected — Twilio trial blocks unverified numbers. Once fixed, say retry failed calls'",
+            "🗣️ 'Retry failed calls' by voice — just say it and Mira redials everyone whose call failed",
+            "💡 Smart suggestions — drafted emails awaiting approval, idle hot leads ready to call, and more surfaced in her greeting",
+        ],
+    },
     {
         "date": "2026-07-24 (Hands-free Mira)",
         "changes": [

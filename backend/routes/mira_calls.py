@@ -370,6 +370,11 @@ async def call_hot_leads(body: BatchCallIn, request: Request, user=Depends(requi
 @router.post("/super-admin/mira-calls/retry-failed")
 async def retry_failed_calls(request: Request, user=Depends(require_super_admin)):
     """Re-dial everyone whose LATEST call failed (skips leads that later succeeded or opted out)."""
+    queued = await _retry_failed_batch(_webhook_base(request))
+    return {"ok": True, "queued": queued}
+
+
+async def _retry_failed_batch(base: str) -> int:
     logs = await _raw_db.mira_call_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
     latest = {}
     for c in logs:
@@ -387,7 +392,6 @@ async def retry_failed_calls(request: Request, user=Depends(require_super_admin)
         else:
             targets.append({"id": "", "name": c.get("lead_name") or "", "phone": c.get("phone")})
     targets = targets[:50]
-    base = _webhook_base(request)
 
     async def _runner():
         for ld in targets:
@@ -396,7 +400,7 @@ async def retry_failed_calls(request: Request, user=Depends(require_super_admin)
 
     if targets:
         asyncio.get_event_loop().create_task(_runner())
-    return {"ok": True, "queued": len(targets)}
+    return len(targets)
 
 
 def _friendly_error(err: str) -> str:
@@ -493,9 +497,16 @@ async def _hq_snapshot() -> dict:
     rev = await _raw_db.invoices.aggregate([
         {"$match": {"created_at": {"$gte": yesterday, "$lt": today}}},
         {"$group": {"_id": None, "s": {"$sum": "$total"}}}]).to_list(1)
+    failed_today = await _raw_db.mira_call_logs.find(
+        {"created_at": {"$gte": today}, "status": "failed"}, {"_id": 0, "error": 1}).to_list(300)
+    drafted_ready = await _raw_db.mira_leads.count_documents(
+        {"status": {"$in": ["drafted", "researched"]}, "email": {"$nin": ["", None]}})
     return {"hot_leads": hot, "call_interested": call_interested,
             "callable_hot_leads_with_phone": callable_hot,
             "mira_calls_made_total": calls_total, "mira_calls_made_today": calls_today,
+            "calls_failed_today": len(failed_today),
+            "top_call_failure_reason": _friendly_error(next((c.get("error") for c in failed_today if c.get("error")), "")) if failed_today else "",
+            "emails_drafted_awaiting_your_approval": drafted_ready,
             "new_verification_requests": new_verify,
             "unread_hq_inbox": unread_inbox,
             "active_and_trial_salons": tenants_total, "trials_expiring_in_5_days": trials_expiring,
@@ -532,12 +543,22 @@ async def mira_briefing(user=Depends(require_super_admin)):
     if calls_today:
         interested_n = len([c for c in calls_today if c.get("result") == "interested"])
         failed_n = len([c for c in calls_today if c.get("status") == "failed"])
-        call_report = f" Call report: I made {_n(len(calls_today), 'call', 'calls')} today — {interested_n} interested, {failed_n} failed"
-        if failed_n:
-            call_report += f". Most failures: {_friendly_error(next((c.get('error') for c in calls_today if c.get('error')), ''))}"
-        call_report += f". {snap['callable_hot_leads_with_phone']} hot leads are still callable — just say 'call the hot leads'."
-    text = (f"{_tod_greeting()} Miracurl! {summary}.{call_report} "
-            f"Tell me what details you want me to show.")
+        if failed_n >= 3 and failed_n == len(calls_today):
+            reason = _friendly_error(next((c.get('error') for c in calls_today if c.get('error')), ''))
+            call_report = (f" ⚠ Heads up: I tried calling {_n(len(calls_today), 'lead', 'leads')} today and NONE connected"
+                           f" — {reason}. Once that's fixed, just say 'retry failed calls' and I'll redial everyone.")
+        else:
+            call_report = f" Call report: I made {_n(len(calls_today), 'call', 'calls')} today — {interested_n} interested, {failed_n} failed"
+            if failed_n:
+                call_report += f". Most failures: {_friendly_error(next((c.get('error') for c in calls_today if c.get('error')), ''))} — say 'retry failed calls' when ready"
+            call_report += f". {snap['callable_hot_leads_with_phone']} hot leads are still callable — just say 'call the hot leads'."
+    suggestion = ""
+    if snap["emails_drafted_awaiting_your_approval"]:
+        suggestion = f" Tip: {_n(snap['emails_drafted_awaiting_your_approval'], 'personalized email is', 'personalized emails are')} drafted and waiting for your approval."
+    elif not calls_today and snap["callable_hot_leads_with_phone"]:
+        suggestion = f" Tip: {snap['callable_hot_leads_with_phone']} hot leads are ready to call — just say 'call the hot leads'."
+    text = (f"Hey Miracurl! {_tod_greeting()}! {summary}.{call_report}{suggestion} "
+            f"How may I help you today — what details do you want me to show?")
     return {"text": text, "data": snap}
 
 
@@ -609,10 +630,17 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
     snap = await _hq_snapshot()
     chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-hq-{user['id']}-{uuid.uuid4().hex[:6]}",
                    system_message=(
-                       "You are Mira, the voice assistant of the Miracurl Suite super-admin console. "
-                       "Answer the admin's question in ONE or TWO short spoken-style sentences using the live "
-                       "platform snapshot provided. If a dashboard tab is clearly relevant, include it. "
+                       "You are Mira, the voice assistant of the Miracurl Suite super-admin console, and an EXPERT "
+                       "lead-generation consultant. Answer the admin's question in ONE or TWO short spoken-style "
+                       "sentences using the live platform snapshot provided. If a dashboard tab is clearly relevant, include it. "
                        f"Valid tabs: {', '.join(MIRA_TABS)}. "
+                       "The 'Current time' line in the message tells you the exact local time — ALWAYS use the matching "
+                       "greeting (Good morning before 12 PM, Good afternoon 12–5 PM, Good evening after 5 PM); NEVER guess. "
+                       "BE PROACTIVE: if calls_failed_today is high (especially if ALL calls failed), warn the admin, state "
+                       "top_call_failure_reason plainly, and suggest fixing it then saying 'retry failed calls'. If "
+                       "emails_drafted_awaiting_your_approval > 0, suggest approving them. If callable_hot_leads_with_phone "
+                       "is large and no calls were made today, suggest a calling session. You may also suggest hunting leads "
+                       "in a new city when the pipeline looks thin. "
                        "CALLING HOT LEADS: you can phone hot leads yourself. If the admin asks you to call hot "
                        "leads WITHOUT saying how many, set action='ask_call_count' and ask exactly like: "
                        "'You have N hot leads with phone numbers ready — how many should I call now?' using "
@@ -623,12 +651,17 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
                        "If the admin asks you to call a SPECIFIC phone number or a SPECIFIC salon/lead by name "
                        "(e.g. 'call 9876543210', 'call Empire Hair Lounge'), set action='call_specific' and put "
                        "the phone number or the salon name in 'target'. "
+                       "If the admin asks to RETRY the failed calls (e.g. 'retry failed calls', 'redial the failed ones'), "
+                       "ALWAYS set action='retry_failed' — the system itself checks the full call history (not just today), "
+                       "so never refuse based on the snapshot. "
                        'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab id or empty>", '
-                       '"action": "" | "ask_call_count" | "start_calls" | "call_specific", '
+                       '"action": "" | "ask_call_count" | "start_calls" | "call_specific" | "retry_failed", '
                        '"count": <int, 0 if not applicable>, "target": "<phone or salon name or empty>"}'
                    )).with_model("openai", "gpt-4o-mini")
     prev = f'Previous Mira message: "{body.last_mira.strip()[:200]}"\n' if body.last_mira.strip() else ""
-    msg = f"Live snapshot: {json.dumps(snap)}\n{prev}\nAdmin says: {body.question.strip()[:300]}"
+    ist_now = datetime.now(_IST)
+    msg = (f"Current time: {ist_now.strftime('%A %d %B, %I:%M %p')} IST ({_tod_greeting()}).\n"
+           f"Live snapshot: {json.dumps(snap)}\n{prev}\nAdmin says: {body.question.strip()[:300]}")
     try:
         raw = await chat.send_message(UserMessage(text=msg))
         m = re.search(r"\{.*\}", str(raw), re.S)
@@ -638,7 +671,13 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
         d = {"answer": "Sorry, I couldn't process that just now — please try again.", "tab": ""}
     answer = str(d.get("answer") or "")[:500]
     tab = d.get("tab") if d.get("tab") in MIRA_TABS else ""
-    action = d.get("action") if d.get("action") in ("ask_call_count", "start_calls", "call_specific") else ""
+    action = d.get("action") if d.get("action") in ("ask_call_count", "start_calls", "call_specific", "retry_failed") else ""
+    if action == "retry_failed":
+        queued = await _retry_failed_batch(_webhook_base(request))
+        answer = (f"On it! I'm re-dialing {queued} failed call{'s' if queued != 1 else ''} right now — "
+                  f"watch the call history for results." if queued
+                  else "Good news — there are no failed calls that need retrying right now.")
+        tab = "mira-leads"
     if action == "call_specific":
         target = str(d.get("target") or "").strip()
         digits = re.sub(r"\D", "", target)

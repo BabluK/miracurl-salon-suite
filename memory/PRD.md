@@ -940,3 +940,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MiraVoiceAssistant.jsx: tap FAB/mic ONCE → continuous loop: speak → auto-listen (SpeechRecognition) → ask → speak → listen… until stop-word (stop/bye/thank you/ruko) or 3 no-speech timeouts
 - Map briefing + FAB open both auto-start conversation mode; header shows live status (🔴 Listening / 💬 Conversation on)
 - release_notes BUILD 2026-07-24.28. Production on .27 — needs redeploy.
+
+## 2026-07-24 — Greeting time fix + fresh convo + smarter Mira (user bug report, curl+screenshot verified)
+- Fixed stale cached greeting (removed mira_greeting_text sessionStorage) — greeting now always fresh & IST-correct: "Hey Miracurl! Good morning!…How may I help you today"
+- Tap Mira FAB → clears old conversation, fetches fresh briefing, auto conversation mode
+- mira/ask now time-aware (IST timestamp in prompt) + proactive lead-gen advisor (failed-call alerts w/ reason, drafted-email tips, idle hot-lead suggestions)
+- New voice action 'retry_failed' — say "retry failed calls" and Mira redials via shared _retry_failed_batch()
+- Briefing: if ALL calls today failed (≥3) — "⚠ I tried calling N leads and NONE connected — {reason}. Say 'retry failed calls' once fixed"
+- Deduped "I'll stop listening" spam. release_notes BUILD 2026-07-24.29. Production on .28 — needs redeploy.

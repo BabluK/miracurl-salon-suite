@@ -8,10 +8,7 @@ const STOP_RE = /^(stop|bye|bye bye|goodbye|cancel|done|exit|quiet|chup|ruko|ban
 
 export const MiraVoiceAssistant = ({ onGoTab }) => {
   const [open, setOpen] = useState(() => sessionStorage.getItem("mira_open") === "1");
-  const [msgs, setMsgs] = useState(() => {
-    const t = sessionStorage.getItem("mira_greeting_text");
-    return t ? [{ role: "mira", text: t }] : [];
-  });
+  const [msgs, setMsgs] = useState([]);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
@@ -50,7 +47,8 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
         noSpeechRef.current += 1;
         if (noSpeechRef.current < 3) { setTimeout(() => startListening(), 300); return; }
         setConvoMode(false);
-        setMsgs((m) => [...m, { role: "mira", text: "I'll stop listening for now — tap the mic when you need me again 🎙️" }]);
+        setMsgs((m) => m[m.length - 1]?.text?.startsWith("I'll stop listening")
+          ? m : [...m, { role: "mira", text: "I'll stop listening for now — tap the mic when you need me again 🎙️" }]);
       }
     };
     setListening(true);
@@ -80,7 +78,6 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
       if (!alive || !data || sessionStorage.getItem("mira_greeted")) return;
       sessionStorage.setItem("mira_greeted", "1");
       sessionStorage.setItem("mira_open", "1");
-      sessionStorage.setItem("mira_greeting_text", data.text);
       setMsgs([{ role: "mira", text: data.text }]);
       setOpen(true);
       speak(data.text, true);
@@ -98,7 +95,7 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
         sessionStorage.setItem("mira_open", "1");
         sessionStorage.setItem("mira_greeted", "1");
         setOpen(true);
-        setMsgs((m) => [...m, { role: "mira", text: data.text }]);
+        setMsgs([{ role: "mira", text: data.text }]);
         setConvoMode(true);
         speak(data.text, true);
       } catch { /* ignore */ }
@@ -161,17 +158,13 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
   const openPanel = () => {
     sessionStorage.setItem("mira_open", "1");
     setOpen(true);
+    setMsgs([]);
     noSpeechRef.current = 0;
     setConvoMode(true);
-    if (!msgs.length) {
-      api.get("/super-admin/mira/briefing").then(({ data }) => {
-        sessionStorage.setItem("mira_greeting_text", data.text);
-        setMsgs([{ role: "mira", text: data.text }]);
-        speak(data.text, true);
-      }).catch(() => {});
-    } else {
-      startListening();
-    }
+    api.get("/super-admin/mira/briefing").then(({ data }) => {
+      setMsgs([{ role: "mira", text: data.text }]);
+      speak(data.text, true);
+    }).catch(() => {});
   };
 
   if (!open) {
