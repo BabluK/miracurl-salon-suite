@@ -95,6 +95,7 @@ from schedulers import (  # noqa: E402
     _demo_followup_scheduler, _late_alert_scheduler, _weekly_package_scheduler,
     _lead_followup_scheduler, _staff_exit_scheduler, _sms_reminder_scheduler,
     _gift_card_scheduler, _mira_auto_call_scheduler, _mira_digest_scheduler,
+    _lead_heat_scheduler, _callback_redial_scheduler,
 )
 
 for _r in (
@@ -131,6 +132,8 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_gift_card_scheduler())
     asyncio.get_event_loop().create_task(_mira_auto_call_scheduler())
     asyncio.get_event_loop().create_task(_mira_digest_scheduler())
+    asyncio.get_event_loop().create_task(_lead_heat_scheduler())
+    asyncio.get_event_loop().create_task(_callback_redial_scheduler())
     asyncio.get_event_loop().create_task(autopilot_scheduler())
     asyncio.get_event_loop().create_task(weekly_promo_scheduler())
     asyncio.get_event_loop().create_task(sweep_stale_veo_jobs())

@@ -955,3 +955,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Map node pulses: new live event → matching module card (keyword mapping nodeForEvent) flashes (neuro-flash CSS) for 7s in sync with Mira's announcement
 - Verified: EN twiml offers Press 3; press 3 → Hindi pitch; Hindi speech → Hindi LLM reply hi-IN gather; wake toggle + 12 nodes render. Mic wake & live pulse need real-user verification.
 - release_notes BUILD 2026-07-24.30. Production on .28 — needs redeploy (includes .29 fixes too).
+
+## 2026-07-24 — Hindi HQ Assistant + Lead Heat Refresh + Callback Scheduler (user request, tested)
+- mira/ask replies in admin's language (Hindi/Hinglish → Devanagari) — verified via curl; हिं/EN toggle in Mira header switches SpeechRecognition lang (localStorage mira_lang)
+- run_lead_heat_refresh() in lead_gen.py: re-queries Google Places per lead (reviews/rating/website/phone), re-scores via _score; _lead_heat_scheduler Sundays ≥08:00 IST (system_flags lead_heat_refresh, weekly) — verified live refresh of 2 leads
+- run_callback_redials() in mira_calls.py: callback leads (once per lead, callback_redialed flag) re-dialed via _callback_redial_scheduler daily ≥10:30 IST (system_flags mira_callback_redial) — verified dial attempt + idempotency
+- Both schedulers registered in server.py startup. release_notes BUILD 2026-07-24.31. Production on .30? (last deploy was .28+; needs redeploy for .29/.30/.31)

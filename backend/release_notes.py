@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-24.30"
-BUILD_TIME = "24 Jul 2026, 08:30 PM IST"
+BUILD = "2026-07-24.31"
+BUILD_TIME = "24 Jul 2026, 10:00 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-24 (Hindi HQ, Heat Refresh & Callbacks)",
+        "changes": [
+            "🗣️ Hindi HQ assistant — speak or type to Mira in Hindi (or Hinglish) and she replies in Hindi; tap the हिं/EN button in her header to switch her listening language",
+            "🔥 Weekly Lead Heat Refresh — every Sunday Mira re-checks each lead on Google (reviews, rating, website, phone) and re-scores them so the hot list always shows the freshest opportunities",
+            "☎️ Callback Scheduler — leads who said 'call me later' are automatically re-dialed the next morning at 10:30 AM, once, so no warm lead goes cold",
+        ],
+    },
     {
         "date": "2026-07-24 (Wake Word, Hindi & Node Pulses)",
         "changes": [

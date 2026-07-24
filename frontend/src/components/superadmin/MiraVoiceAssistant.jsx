@@ -22,7 +22,16 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
   const wakeRef = useRef(null);
   const wakeOnRef = useRef(localStorage.getItem("mira_wake") !== "0");
   const [wakeOn, setWakeOn] = useState(wakeOnRef.current);
+  const langRef = useRef(localStorage.getItem("mira_lang") || "en");
+  const [miraLang, setMiraLang] = useState(langRef.current);
   const openPanelRef = useRef(() => {});
+
+  const toggleLang = () => {
+    const v = langRef.current === "hi" ? "en" : "hi";
+    langRef.current = v;
+    setMiraLang(v);
+    localStorage.setItem("mira_lang", v);
+  };
 
   const stopWake = useCallback(() => {
     const w = wakeRef.current;
@@ -88,7 +97,7 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
     try { recRef.current?.stop(); } catch { /* noop */ }
     const r = new SR();
     recRef.current = r;
-    r.lang = "en-IN";
+    r.lang = langRef.current === "hi" ? "hi-IN" : "en-IN";
     r.onresult = (e) => {
       noSpeechRef.current = 0;
       const t = e.results[0][0].transcript;
@@ -250,6 +259,11 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
           <button onClick={() => speak(msgs[msgs.length - 1].text, true)} data-testid="mira-tap-to-hear"
             className="text-white/90 hover:text-white" title="Tap to hear Mira"><Volume2 className="w-4 h-4" /></button>
         )}
+        <button onClick={toggleLang} data-testid="mira-lang-toggle"
+          title={miraLang === "hi" ? "मैं हिंदी सुन रही हूँ — tap for English" : "Listening in English — हिंदी के लिए टैप करें"}
+          className="text-[9px] font-bold rounded-full px-2 py-0.5 border bg-white/20 text-white border-white/40">
+          {miraLang === "hi" ? "हिं" : "EN"}
+        </button>
         <button onClick={toggleWake} data-testid="mira-wake-toggle"
           title={wakeOn ? 'Wake word ON — say "Hey Mira" anywhere to wake me' : 'Wake word OFF — tap to enable "Hey Mira"'}
           className={`text-[9px] font-bold rounded-full px-2 py-0.5 border ${wakeOn ? "bg-white/20 text-white border-white/40" : "bg-transparent text-white/50 border-white/25"}`}>

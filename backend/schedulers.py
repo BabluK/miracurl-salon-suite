@@ -296,3 +296,46 @@ async def _mira_digest_scheduler() -> None:
         except Exception as e:
             logging.error(f"mira digest scheduler error: {e}")
         await asyncio.sleep(900)
+
+
+async def _lead_heat_scheduler() -> None:
+    """Every Sunday (after 08:00 IST) refresh Google data + re-score all Mira leads. Idempotent per week."""
+    from routes.lead_gen import run_lead_heat_refresh
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.weekday() == 6 and ist_now.hour >= 8:
+                period = ist_now.strftime("%Y-W%W")
+                flag = await _raw_db.system_flags.find_one({"key": "lead_heat_refresh"})
+                if not flag or flag.get("value") != period:
+                    out = await run_lead_heat_refresh()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "lead_heat_refresh"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(), **out}},
+                        upsert=True)
+                    logging.info(f"lead heat refresh {period}: {out}")
+        except Exception as e:
+            logging.error(f"lead heat scheduler error: {e}")
+        await asyncio.sleep(3600)
+
+
+async def _callback_redial_scheduler() -> None:
+    """Daily after 10:30 IST: Mira re-dials yesterday's 'call back later' leads once. Idempotent per day."""
+    from routes.mira_calls import run_callback_redials
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if (ist_now.hour, ist_now.minute) >= (10, 30):
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "mira_callback_redial"})
+                if not flag or flag.get("value") != period:
+                    n = await run_callback_redials()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "mira_callback_redial"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(), "redialed": n}},
+                        upsert=True)
+                    if n:
+                        logging.info(f"callback redials {period}: {n}")
+        except Exception as e:
+            logging.error(f"callback redial scheduler error: {e}")
+        await asyncio.sleep(1800)

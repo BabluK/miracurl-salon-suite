@@ -1255,3 +1255,39 @@ async def lead_meet_invite(lid: str, body: LeadMeetInviteIn, user=Depends(requir
         "meeting": {"at_ist": f"{body.date} {body.time}", "duration_min": body.duration_min,
                     "meet_link": body.meet_link, "sent_at": _now()}}})
     return {"ok": True, "when": pretty}
+
+
+async def run_lead_heat_refresh(limit: int = 150) -> dict:
+    """Weekly: refresh Google Places data (reviews/rating/website/phone) for the oldest-refreshed leads and re-score."""
+    key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+    if not key:
+        return {"refreshed": 0, "note": "no google maps key"}
+    leads = await _raw_db.mira_leads.find(
+        {"do_not_call": {"$ne": True}}, {"_id": 0}).sort("heat_refreshed_at", 1).to_list(limit)
+    refreshed = hotter = 0
+    async with httpx.AsyncClient() as client:
+        for lead in leads:
+            try:
+                res = await _places_query(client, key, f"{lead.get('name')} {lead.get('city') or ''}".strip(), 1)
+            except Exception:
+                res = []
+            upd = {"heat_refreshed_at": _now()}
+            if res:
+                p = res[0]
+                if (p.get("name") or "").strip().lower()[:12] == (lead.get("name") or "").strip().lower()[:12]:
+                    if p.get("rating") is not None:
+                        upd["rating"] = p["rating"]
+                    if p.get("reviews") is not None:
+                        upd["reviews"] = p["reviews"]
+                    if p.get("website"):
+                        upd["website"] = p["website"]
+                    if p.get("phone") and not lead.get("phone"):
+                        upd["phone"] = p["phone"]
+            old_score = lead.get("score") or 0
+            upd["score"], upd["score_breakdown"] = _score({**lead, **upd})
+            if upd["score"] > old_score:
+                hotter += 1
+            await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": upd})
+            refreshed += 1
+            await asyncio.sleep(0.3)
+    return {"refreshed": refreshed, "hotter": hotter}

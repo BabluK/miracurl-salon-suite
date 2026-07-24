@@ -387,6 +387,29 @@ async def _start_call(lead: dict, base: str) -> dict:
         return {"ok": False, "error": str(e)[:200]}
 
 
+async def run_callback_redials() -> int:
+    """Next-morning auto re-dial for 'call back later' leads (once per lead, called by scheduler)."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=14)).isoformat()
+    leads = await _raw_db.mira_leads.find(
+        {"call_result": "callback", "do_not_call": {"$ne": True}, "phone": {"$nin": ["", None]},
+         "callback_redialed": {"$ne": True}, "last_call_at": {"$lt": cutoff}}, {"_id": 0}).to_list(15)
+    if not leads:
+        return 0
+    last = await _raw_db.mira_call_logs.find_one(
+        {"webhook_base": {"$nin": ["", None]}}, {"_id": 0, "webhook_base": 1}, sort=[("created_at", -1)])
+    base = (last or {}).get("webhook_base") or os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    if not base:
+        return 0
+    n = 0
+    for lead in leads:
+        await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"callback_redialed": True}})
+        res = await _start_call(lead, base)
+        if res.get("ok"):
+            n += 1
+        await asyncio.sleep(2)
+    return n
+
+
 @router.post("/super-admin/mira-calls/{lid}/call")
 async def call_one_lead(lid: str, request: Request, user=Depends(require_super_admin)):
     lead = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
@@ -707,6 +730,8 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
                        f"Valid tabs: {', '.join(MIRA_TABS)}. "
                        "The 'Current time' line in the message tells you the exact local time — ALWAYS use the matching "
                        "greeting (Good morning before 12 PM, Good afternoon 12–5 PM, Good evening after 5 PM); NEVER guess. "
+                       "LANGUAGE: reply in the SAME language the admin used — English or Hindi (Devanagari script). "
+                       "Hinglish (Hindi words in Latin script) counts as Hindi: reply in Devanagari Hindi. "
                        "BE PROACTIVE: if calls_failed_today is high (especially if ALL calls failed), warn the admin, state "
                        "top_call_failure_reason plainly, and suggest fixing it then saying 'retry failed calls'. If "
                        "emails_drafted_awaiting_your_approval > 0, suggest approving them. If callable_hot_leads_with_phone "
