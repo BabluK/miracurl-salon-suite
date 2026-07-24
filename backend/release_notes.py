@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-24.32"
-BUILD_TIME = "24 Jul 2026, 11:30 PM IST"
+BUILD = "2026-07-25.33"
+BUILD_TIME = "25 Jul 2026, 12:15 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-25 (Security Hardening)",
+        "changes": [
+            "🔐 Twilio webhook signatures — every voice webhook (pitch, conversation, status, recording) now cryptographically verifies Twilio's X-Twilio-Signature, so nobody can forge call events",
+            "🛡️ Recording proxy locked down — recordings are only fetched from genuine twilio.com hosts with redirect protection, so account credentials can never leak to a third-party server",
+            "🙈 DB explorer redaction — password hashes and secrets are masked in the Super Admin database explorer",
+        ],
+    },
     {
         "date": "2026-07-24 (Callback Memory & Heat Alerts)",
         "changes": [

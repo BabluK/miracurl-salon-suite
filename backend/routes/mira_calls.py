@@ -113,13 +113,28 @@ def _gather_listen(base: str, call_id: str, lang: str = "en") -> str:
             f'action="{base}/api/webhooks/twilio/voice/{call_id}/gather" method="POST"/>')
 
 
-# ---------------- Twilio webhooks (public; call_id is an unguessable UUID) ----------------
+# ---------------- Twilio webhooks (public; signature-verified, call_id is an unguessable UUID) ----------------
+
+async def _twilio_form(request: Request, base: str) -> dict | None:
+    """Validate X-Twilio-Signature; return form params if genuine, else None."""
+    from twilio.request_validator import RequestValidator
+    form = await request.form()
+    params = {k: str(v) for k, v in form.items()}
+    url = f"{base}{request.url.path}" + (f"?{request.url.query}" if request.url.query else "")
+    sig = request.headers.get("X-Twilio-Signature", "")
+    if RequestValidator(os.environ["TWILIO_AUTH_TOKEN"]).validate(url, params, sig):
+        return params
+    log.warning(f"rejected Twilio webhook with bad signature: {request.url.path}")
+    return None
+
 
 @router.post("/webhooks/twilio/voice/{call_id}")
-async def twilio_voice_twiml(call_id: str, retry: int = 0):
+async def twilio_voice_twiml(call_id: str, request: Request, retry: int = 0):
     c = await _raw_db.mira_call_logs.find_one({"id": call_id}, {"_id": 0})
     if not c:
         return _xml(f'<Say {VOICE}>Sorry, this call is no longer valid. Goodbye.</Say><Hangup/>')
+    if await _twilio_form(request, c["webhook_base"]) is None:
+        raise HTTPException(403, "Invalid Twilio signature")
     base = c["webhook_base"]
     lang = c.get("lang") or "en"
     if retry:
@@ -240,12 +255,14 @@ async def _converse(c: dict, lead: dict, speech: str) -> Response:
 
 @router.post("/webhooks/twilio/voice/{call_id}/gather")
 async def twilio_voice_gather(call_id: str, request: Request):
-    form = await request.form()
-    digit = str(form.get("Digits") or "")
-    speech = str(form.get("SpeechResult") or "").strip()
     c = await _raw_db.mira_call_logs.find_one({"id": call_id}, {"_id": 0})
     if not c:
         return _xml("<Hangup/>")
+    form = await _twilio_form(request, c["webhook_base"])
+    if form is None:
+        raise HTTPException(403, "Invalid Twilio signature")
+    digit = str(form.get("Digits") or "")
+    speech = str(form.get("SpeechResult") or "").strip()
     base = c["webhook_base"]
     lang = c.get("lang") or "en"
     lead = await _raw_db.mira_leads.find_one({"id": c["lead_id"]}, {"_id": 0})
@@ -298,23 +315,38 @@ async def twilio_voice_gather(call_id: str, request: Request):
 
 @router.post("/webhooks/twilio/voice/{call_id}/status")
 async def twilio_voice_status(call_id: str, request: Request):
-    form = await request.form()
+    c0 = await _raw_db.mira_call_logs.find_one({"id": call_id}, {"_id": 0, "webhook_base": 1, "lead_id": 1})
+    if not c0:
+        return {"ok": True}
+    form = await _twilio_form(request, c0["webhook_base"])
+    if form is None:
+        raise HTTPException(403, "Invalid Twilio signature")
     status = str(form.get("CallStatus") or "")
     dur = int(form.get("CallDuration") or 0)
     upd = {"status": status, "duration": dur, "updated_at": _now()}
     await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": upd})
-    c = await _raw_db.mira_call_logs.find_one({"id": call_id}, {"_id": 0, "lead_id": 1})
-    if c:
-        await _raw_db.mira_leads.update_one(
-            {"id": c["lead_id"]}, {"$set": {"last_call_status": status, "last_call_at": _now()}})
+    await _raw_db.mira_leads.update_one(
+        {"id": c0["lead_id"]}, {"$set": {"last_call_status": status, "last_call_at": _now()}})
     return {"ok": True}
+
+
+def _is_twilio_url(url: str) -> bool:
+    from urllib.parse import urlparse
+    p = urlparse(url or "")
+    host = (p.hostname or "").lower()
+    return p.scheme == "https" and (host == "twilio.com" or host.endswith(".twilio.com"))
 
 
 @router.post("/webhooks/twilio/voice/{call_id}/recording")
 async def twilio_voice_recording(call_id: str, request: Request):
-    form = await request.form()
+    c0 = await _raw_db.mira_call_logs.find_one({"id": call_id}, {"_id": 0, "webhook_base": 1})
+    if not c0:
+        return {"ok": True}
+    form = await _twilio_form(request, c0["webhook_base"])
+    if form is None:
+        raise HTTPException(403, "Invalid Twilio signature")
     url = str(form.get("RecordingUrl") or "")
-    if url:
+    if url and _is_twilio_url(url):
         await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {
             "recording_url": url, "recording_sid": str(form.get("RecordingSid") or ""),
             "recording_duration": int(form.get("RecordingDuration") or 0)}})
@@ -328,9 +360,16 @@ async def get_call_recording(call_id: str, user=Depends(require_super_admin)):
     c = await _raw_db.mira_call_logs.find_one({"id": call_id}, {"_id": 0, "recording_url": 1})
     if not c or not c.get("recording_url"):
         raise HTTPException(404, "No recording for this call")
+    if not _is_twilio_url(c["recording_url"]):
+        raise HTTPException(400, "Recording URL is not a Twilio host")
     auth = (os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"])
-    async with httpx.AsyncClient(auth=auth, timeout=30, follow_redirects=True) as cl:
+    async with httpx.AsyncClient(auth=auth, timeout=30, follow_redirects=False) as cl:
         r = await cl.get(c["recording_url"] + ".mp3")
+        if r.status_code in (301, 302, 303, 307, 308):
+            loc = r.headers.get("location", "")
+            if not _is_twilio_url(loc):
+                raise HTTPException(502, "Recording redirect left Twilio")
+            r = await cl.get(loc)
     if r.status_code != 200:
         raise HTTPException(502, "Couldn't fetch the recording from Twilio")
     return Response(content=r.content, media_type="audio/mpeg")

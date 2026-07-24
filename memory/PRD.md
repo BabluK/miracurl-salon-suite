@@ -967,3 +967,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - run_timed_callbacks() dials due timed callbacks (once, callback_redialed flag); _callback_redial_scheduler now every 15 min (timed 08–21 IST + daily 10:30 untimed)
 - run_lead_heat_refresh collects risers → platform_settings.lead_heat_risers {risers, announced}; mira_briefing announces once ("🔥 Heat alert… top mover jumped 55→75"); _hq_snapshot exposes leads_heated_up_this_week
 - release_notes BUILD 2026-07-24.32. Production behind — needs redeploy.
+
+## 2026-07-25 — Security Audit + fixes (audit: CONDITIONAL PASS, no critical/high; both MEDIUMs fixed & verified)
+- SEC-001 fixed: all 4 Twilio voice webhooks now validate X-Twilio-Signature via _twilio_form() (RequestValidator) — forged req 403, valid sig 200 (curl verified)
+- SEC-002 fixed: recording_url must be https://*.twilio.com at write (webhook) AND read (proxy); proxy follow_redirects=False w/ manual Twilio-only redirect — evil host → 400 verified
+- P3: db explorer (platform_tools db_docs) redacts password_hash/secret/api_key fields — verified
+- Audit confirmed strong: cookie auth+JWT jti revocation, bcrypt, lockouts, fail-closed tenant isolation, payment HMAC verification, SSRF guards in scrapers, CORS, AI rate limits
+- Remaining P3 (accepted): account enumeration wording on signup ("email already registered" kept for UX)
+- release_notes BUILD 2026-07-25.33. Needs redeploy to apply on production.
