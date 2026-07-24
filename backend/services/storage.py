@@ -1,5 +1,6 @@
 """Emergent Object Storage: image uploads (staff photos, service/product thumbnails)."""
 import os
+import time
 import requests
 from typing import Optional
 from fastapi import HTTPException
@@ -31,35 +32,46 @@ def _init_storage() -> str:
 
 
 def _put_object(path: str, data: bytes, content_type: str) -> dict:
-    key = _init_storage()
-    r = requests.put(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key, "Content-Type": content_type},
-        data=data, timeout=120,
-    )
-    if r.status_code == 403:  # session expired — force a re-init
-        global _storage_key
-        _storage_key = None
-        key = _init_storage()
-        r = requests.put(
-            f"{STORAGE_URL}/objects/{path}",
-            headers={"X-Storage-Key": key, "Content-Type": content_type},
-            data=data, timeout=120,
-        )
-    r.raise_for_status()
-    return r.json()
+    """Upload with retries — the object store occasionally returns transient 5xx."""
+    global _storage_key
+    for attempt in range(3):
+        try:
+            key = _init_storage()
+            r = requests.put(
+                f"{STORAGE_URL}/objects/{path}",
+                headers={"X-Storage-Key": key, "Content-Type": content_type},
+                data=data, timeout=45,
+            )
+            if r.status_code == 403:  # session expired — force a re-init
+                _storage_key = None
+                continue
+            if r.status_code >= 500:  # transient outage — back off and retry
+                time.sleep(1 + attempt)
+                continue
+            r.raise_for_status()
+            return r.json()
+        except (requests.ConnectionError, requests.Timeout):
+            time.sleep(1 + attempt)
+    raise HTTPException(503, "Image storage is briefly unavailable — please try again in a minute")
 
 
 def _get_object(path: str) -> tuple[bytes, str]:
-    key = _init_storage()
-    r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
-    if r.status_code == 403:
-        global _storage_key
-        _storage_key = None
-        key = _init_storage()
-        r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
-    r.raise_for_status()
-    return r.content, r.headers.get("Content-Type", "application/octet-stream")
+    global _storage_key
+    for attempt in range(3):
+        try:
+            key = _init_storage()
+            r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=45)
+            if r.status_code == 403:
+                _storage_key = None
+                continue
+            if r.status_code >= 500:
+                time.sleep(1 + attempt)
+                continue
+            r.raise_for_status()
+            return r.content, r.headers.get("Content-Type", "application/octet-stream")
+        except (requests.ConnectionError, requests.Timeout):
+            time.sleep(1 + attempt)
+    raise HTTPException(503, "Image storage is briefly unavailable — please try again in a minute")
 
 
 

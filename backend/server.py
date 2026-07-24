@@ -135,6 +135,14 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_lead_heat_scheduler())
     asyncio.get_event_loop().create_task(_callback_redial_scheduler())
     asyncio.get_event_loop().create_task(_phone_backfill_task())
+
+    async def _warm_storage():
+        try:
+            from services.storage import _init_storage
+            await asyncio.to_thread(_init_storage)
+        except Exception:
+            pass
+    asyncio.get_event_loop().create_task(_warm_storage())
     asyncio.get_event_loop().create_task(autopilot_scheduler())
     asyncio.get_event_loop().create_task(weekly_promo_scheduler())
     asyncio.get_event_loop().create_task(sweep_stale_veo_jobs())

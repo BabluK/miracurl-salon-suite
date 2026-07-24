@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-25.35"
-BUILD_TIME = "25 Jul 2026, 01:00 PM IST"
+BUILD = "2026-07-25.36"
+BUILD_TIME = "25 Jul 2026, 04:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-25 (Services & Uploads polish)",
+        "changes": [
+            "⚡ Faster image uploads — photos are compressed harder before upload, storage hiccups (503) are retried automatically, and uploads no longer slow down the rest of the app",
+            "🔎 Smarter service search — typing partial words like 'mthrea' now finds 'Men Threading'; search also looks in categories and descriptions",
+            "🎨 Fixed the browser tab icon — the Miracurl logo now sits on its dark brand circle instead of a plain white disc",
+        ],
+    },
     {
         "date": "2026-07-25 (Lead-Local Call Timing)",
         "changes": [

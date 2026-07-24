@@ -25,15 +25,15 @@ export default function ImageUploader({ value, onChange, onUploaded, kind = "mis
   const preview = value || fallback || "";
 
   async function compressIfNeeded(file) {
-    if (file.size <= 1024 * 1024 || file.type === "image/gif") return file;
+    if (file.size <= 300 * 1024 || file.type === "image/gif") return file;
     try {
       const bmp = await createImageBitmap(file);
-      const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+      const scale = Math.min(1, 1024 / Math.max(bmp.width, bmp.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(bmp.width * scale);
       canvas.height = Math.round(bmp.height * scale);
       canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
-      const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.85));
+      const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.8));
       if (blob && blob.size < file.size) {
         return new File([blob], file.name.replace(/\.\w+$/i, "") + ".jpg", { type: "image/jpeg" });
       }
@@ -59,6 +59,7 @@ export default function ImageUploader({ value, onChange, onUploaded, kind = "mis
       fd.append("file", file);
       const { data } = await api.post(`/uploads/image?kind=${kind}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 90000,
       });
       onChange(data.url);
       onUploaded?.(data.url);

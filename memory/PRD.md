@@ -998,3 +998,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - INTENTIONALLY KEPT: `.get("active") is False` tri-state checks (== False would wrongly match 0)
 - DEFERRED (accepted debt): server.py import reorg, type hints for test files — high churn, no functional gain
 - Verified post-refactor: converse callback w/ time (11AM IST→05:30Z), continue path Gather, heat refresh live, gift order UPI 200 + validations 400
+
+## 2026-07-25 — Services page: upload speed, search & favicon (user report on prod, all verified)
+- Root causes: (1) sync requests in async route blocked event loop up to 120s; (2) objstore transient 503 had no retry; (3) cold storage-init handshake took ~27s on first upload; (4) search was literal substring only; (5) favicon PNG had white circular bg
+- Fixed: _put_object/_get_object retry 3x on 5xx/timeouts (45s timeout) + friendly 503 msg; uploads.py wraps storage calls in asyncio.to_thread; startup _warm_storage() task pre-inits session (verified: cold upload 27.8s → 0.49s)
+- ImageUploader: compress >300KB → 1024px jpeg q0.8, 90s axios timeout
+- Services.jsx: normalized + subsequence fuzzy search over name+category+description ("mhair"→Men Hair verified via screenshot)
+- favicon.svg regenerated: rose-gold logo on #1c1c22 dark circle (192px, also favicon-192.png)
+- release_notes BUILD 2026-07-25.36. Needs redeploy.

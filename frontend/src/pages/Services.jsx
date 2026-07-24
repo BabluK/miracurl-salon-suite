@@ -100,10 +100,19 @@ export default function Services() {
   const allCats = Object.keys(byCategory).sort((a, b) => (byCategory[b].length - byCategory[a].length));
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return list.filter(s =>
-      (activeCat === "All" || s.category === activeCat) &&
-      (!needle || s.name.toLowerCase().includes(needle) || (s.category || "").toLowerCase().includes(needle)));
+    const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const isSubseq = (needle, hay) => {
+      let i = 0;
+      for (const ch of hay) { if (ch === needle[i]) i += 1; if (i === needle.length) return true; }
+      return needle.length === 0;
+    };
+    const needle = norm(q);
+    return list.filter(s => {
+      if (activeCat !== "All" && s.category !== activeCat) return false;
+      if (!needle) return true;
+      const hay = norm(`${s.name} ${s.category} ${s.description || ""}`);
+      return hay.includes(needle) || (needle.length >= 3 && isSubseq(needle, norm(`${s.category} ${s.name}`)));
+    });
   }, [list, activeCat, q]);
   const filteredByCat = useMemo(() => filtered.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {}), [filtered]);
 

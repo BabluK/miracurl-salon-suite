@@ -79,7 +79,7 @@ async def upload_image(
     file_id = str(uuid.uuid4())
     storage_path = f"{APP_NAME}/tenants/{tenant_id}/{kind}/{file_id}.{ext}"
     try:
-        result = _put_object(storage_path, data, _MIME[ext])
+        result = await asyncio.to_thread(_put_object, storage_path, data, _MIME[ext])
     except requests.HTTPError as e:
         raise HTTPException(400, f"Storage upload failed: {e}") from e
     doc = {
@@ -108,7 +108,7 @@ async def download_file(file_id: str):
     if not rec:
         raise HTTPException(404, "File not found")
     try:
-        data, ct = _get_object(rec["storage_path"])
+        data, ct = await asyncio.to_thread(_get_object, rec["storage_path"])
     except requests.HTTPError as e:
         raise HTTPException(400, f"Storage fetch failed: {e}") from e
     return Response(content=data, media_type=rec.get("content_type", ct),
