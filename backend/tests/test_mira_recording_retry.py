@@ -55,7 +55,7 @@ class TestRetryFailed:
         r = sa_session.post(f"{BASE_URL}/api/super-admin/mira-calls/retry-failed", timeout=30)
         assert r.status_code == 200, r.text[:300]
         j = r.json()
-        assert j.get("ok") is True
+        assert j.get("ok") == True
         assert j.get("queued", 0) >= 1, f"expected queued >= 1, got {j}"
 
     def test_retry_failed_idempotent(self, sa_session):
@@ -64,7 +64,7 @@ class TestRetryFailed:
         r = sa_session.post(f"{BASE_URL}/api/super-admin/mira-calls/retry-failed", timeout=30)
         assert r.status_code == 200
         j = r.json()
-        assert j.get("ok") is True
+        assert j.get("ok") == True
         # New failed logs from last retry should still show up as failed latest → still callable
         assert j.get("queued", 0) >= 1, f"expected retry to still find failed calls, got {j}"
 
@@ -94,7 +94,7 @@ class TestRecording:
             timeout=20,
         )
         assert wh.status_code == 200, wh.text[:200]
-        assert wh.json().get("ok") is True
+        assert wh.json().get("ok") == True
 
         # verify saved
         r2 = sa_session.get(f"{BASE_URL}/api/super-admin/mira-calls", timeout=20)

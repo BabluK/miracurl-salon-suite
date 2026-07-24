@@ -1259,6 +1259,37 @@ async def lead_meet_invite(lid: str, body: LeadMeetInviteIn, user=Depends(requir
     return {"ok": True, "when": pretty}
 
 
+async def _places_match_lead(client, key: str, lead: dict):
+    """Look the lead up on Google Places; return the place only when the name matches."""
+    try:
+        res = await _places_query(client, key, f"{lead.get('name')} {lead.get('city') or ''}".strip(), 1)
+    except Exception:
+        res = []
+    if not res:
+        return None
+    p = res[0]
+    if (p.get("name") or "").strip().lower()[:12] == (lead.get("name") or "").strip().lower()[:12]:
+        return p
+    return None
+
+
+def _heat_updates(lead: dict, p) -> dict:
+    """Fresh-data update dict (rating/reviews/website/phone) + re-score for one lead."""
+    upd = {"heat_refreshed_at": _now()}
+    if p:
+        if p.get("rating") is not None:
+            upd["rating"] = p["rating"]
+        if p.get("reviews") is not None:
+            upd["reviews"] = p["reviews"]
+        if p.get("website"):
+            upd["website"] = p["website"]
+        new_ph, old_ph = (p.get("phone") or ""), (lead.get("phone") or "")
+        if new_ph and (not old_ph or (new_ph.startswith("+") and not old_ph.startswith("+"))):
+            upd["phone"] = new_ph
+    upd["score"], upd["score_breakdown"] = _score({**lead, **upd})
+    return upd
+
+
 async def run_lead_heat_refresh(limit: int = 150) -> dict:
     """Weekly: refresh Google Places data (reviews/rating/website/phone) for the oldest-refreshed leads and re-score."""
     key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
@@ -1266,32 +1297,13 @@ async def run_lead_heat_refresh(limit: int = 150) -> dict:
         return {"refreshed": 0, "note": "no google maps key"}
     leads = await _raw_db.mira_leads.find(
         {"do_not_call": {"$ne": True}}, {"_id": 0}).sort("heat_refreshed_at", 1).to_list(limit)
-    refreshed = hotter = 0
-    risers = []
+    refreshed, risers = 0, []
     async with httpx.AsyncClient() as client:
         for lead in leads:
-            try:
-                res = await _places_query(client, key, f"{lead.get('name')} {lead.get('city') or ''}".strip(), 1)
-            except Exception:
-                res = []
-            upd = {"heat_refreshed_at": _now()}
-            if res:
-                p = res[0]
-                if (p.get("name") or "").strip().lower()[:12] == (lead.get("name") or "").strip().lower()[:12]:
-                    if p.get("rating") is not None:
-                        upd["rating"] = p["rating"]
-                    if p.get("reviews") is not None:
-                        upd["reviews"] = p["reviews"]
-                    if p.get("website"):
-                        upd["website"] = p["website"]
-                    new_ph = p.get("phone") or ""
-                    old_ph = lead.get("phone") or ""
-                    if new_ph and (not old_ph or (new_ph.startswith("+") and not old_ph.startswith("+"))):
-                        upd["phone"] = new_ph
+            p = await _places_match_lead(client, key, lead)
+            upd = _heat_updates(lead, p)
             old_score = lead.get("score") or 0
-            upd["score"], upd["score_breakdown"] = _score({**lead, **upd})
             if upd["score"] > old_score:
-                hotter += 1
                 risers.append({"name": lead.get("name") or "", "city": lead.get("city") or "",
                                "from": old_score, "to": upd["score"]})
             await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": upd})
@@ -1301,7 +1313,7 @@ async def run_lead_heat_refresh(limit: int = 150) -> dict:
     await _raw_db.platform_settings.update_one(
         {"key": "lead_heat_risers"},
         {"$set": {"risers": risers[:5], "ran_at": _now(), "announced": not risers}}, upsert=True)
-    return {"refreshed": refreshed, "hotter": hotter}
+    return {"refreshed": refreshed, "hotter": len(risers)}
 
 
 async def run_phone_backfill() -> dict:
@@ -1315,15 +1327,10 @@ async def run_phone_backfill() -> dict:
     fixed = 0
     async with httpx.AsyncClient() as client:
         for lead in todo:
-            try:
-                res = await _places_query(client, key, f"{lead.get('name')} {lead.get('city') or ''}".strip(), 1)
-            except Exception:
-                res = []
-            if res:
-                p = res[0]
-                ph = (p.get("phone") or "").strip()
-                if ph.startswith("+") and (p.get("name") or "").strip().lower()[:12] == (lead.get("name") or "").strip().lower()[:12]:
-                    await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"phone": ph}})
-                    fixed += 1
+            p = await _places_match_lead(client, key, lead)
+            ph = ((p or {}).get("phone") or "").strip()
+            if ph.startswith("+"):
+                await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"phone": ph}})
+                fixed += 1
             await asyncio.sleep(0.3)
     return {"checked": len(todo), "fixed": fixed}

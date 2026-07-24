@@ -990,3 +990,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Scheduler _callback_redial_scheduler simplified to 15-min loop
 - REAL-CALL VALIDATION: test batch accidentally dialed 3 real Pune leads (Twilio now Full) — Geetanjali Salon COMPLETED 10s call; recording webhook sig-validated, recording_url saved, proxy streamed 37KB audio/mpeg — whole pipeline proven live
 - release_notes BUILD 2026-07-25.35. Needs redeploy.
+
+## 2026-07-25 — Code review fixes applied (behavior-verified via direct tests + curl)
+- Refactors (behavior-preserving, all re-tested): _converse (29→ split: _converse_llm/_converse_apply/_parse_callback_at), run_lead_heat_refresh (→ _places_match_lead/_heat_updates), run_phone_backfill (shares _places_match_lead), gift_card_order (→ _validate_gift_order/_gift_payment_init), run_timed_callbacks+run_callback_redials deduped via _dial_marked
+- Fixed unused import (twilio.rest.Client in _fulfil_interest); tests: all " is True/False" → "== True/False" (0 remaining)
+- FALSE POSITIVES documented: "46 undefined variables" — pyflakes reports ZERO undefined names in prod code & tests; utils.py:8 has no `is` comparison (it's `in` membership)
+- INTENTIONALLY KEPT: `.get("active") is False` tri-state checks (== False would wrongly match 0)
+- DEFERRED (accepted debt): server.py import reorg, type hints for test files — high churn, no functional gain
+- Verified post-refactor: converse callback w/ time (11AM IST→05:30Z), continue path Gather, heat refresh live, gift order UPI 200 + validations 400

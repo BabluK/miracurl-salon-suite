@@ -106,11 +106,8 @@ class GiftOrderIn(BaseModel):
     pay_method: str  # razorpay | upi
 
 
-@router.post("/public/gift-cards/{slug}/order")
-async def gift_card_order(slug: str, body: GiftOrderIn, request: Request):
-    public_rate_limit(request, "gift-order", limit=10, window_sec=600)
-    t = await _tenant_by_slug(slug)
-    s = _gc_settings(t)
+def _validate_gift_order(body: GiftOrderIn, t: dict, s: dict) -> tuple:
+    """Validate a public gift-card order; returns (key_id, key_secret) for razorpay."""
     if not s["enabled"]:
         raise HTTPException(400, "Gift cards are not available at this salon")
     if body.occasion not in _OCC:
@@ -132,6 +129,33 @@ async def gift_card_order(slug: str, body: GiftOrderIn, request: Request):
         raise HTTPException(400, "UPI payment is not enabled at this salon")
     if body.pay_method not in ("razorpay", "upi"):
         raise HTTPException(400, "Unknown payment method")
+    return key_id, key_secret
+
+
+def _gift_payment_init(gc: dict, t: dict, s: dict, key_id: str, key_secret: str) -> dict:
+    """Create the razorpay order or UPI intent link; mutates gc with gateway ids."""
+    amount = gc["amount"]
+    if gc["pay_method"] == "razorpay":
+        rzp = _razorpay.Client(auth=(key_id, key_secret))
+        order = rzp.order.create({"amount": int(round(amount * 100)), "currency": "INR",
+                                  "receipt": f"gc_{gc['id'][:30]}",
+                                  "notes": {"gift_card_id": gc["id"], "tenant_slug": t["slug"]}})
+        gc["razorpay_order_id"] = order["id"]
+        gc["razorpay_key_id"] = key_id
+        return {"order_id": order["id"], "key_id": key_id, "amount": order["amount"],
+                "salon_name": t.get("name")}
+    upi = s["upi_id"]
+    pn = re.sub(r"[^A-Za-z0-9 ]", "", t.get("name") or "Salon")[:40]
+    return {"upi_id": upi,
+            "upi_link": f"upi://pay?pa={upi}&pn={pn.replace(' ', '%20')}&am={amount:.2f}&cu=INR&tn=GiftCard"}
+
+
+@router.post("/public/gift-cards/{slug}/order")
+async def gift_card_order(slug: str, body: GiftOrderIn, request: Request):
+    public_rate_limit(request, "gift-order", limit=10, window_sec=600)
+    t = await _tenant_by_slug(slug)
+    s = _gc_settings(t)
+    key_id, key_secret = _validate_gift_order(body, t, s)
     amount = round(float(body.amount), 2)
     gc = {"id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_slug": t["slug"],
           "code": "", "occasion": body.occasion, "amount": amount, "balance": amount,
@@ -143,21 +167,7 @@ async def gift_card_order(slug: str, body: GiftOrderIn, request: Request):
           "message": body.message.strip()[:400], "send_on": body.send_on,
           "pay_method": body.pay_method, "status": "pending_payment",
           "validity_days": s["validity_days"], "created_at": _now()}
-    resp = {"gift_card_id": gc["id"]}
-    if body.pay_method == "razorpay":
-        rzp = _razorpay.Client(auth=(key_id, key_secret))
-        order = rzp.order.create({"amount": int(round(amount * 100)), "currency": "INR",
-                                  "receipt": f"gc_{gc['id'][:30]}",
-                                  "notes": {"gift_card_id": gc["id"], "tenant_slug": t["slug"]}})
-        gc["razorpay_order_id"] = order["id"]
-        gc["razorpay_key_id"] = key_id
-        resp.update({"order_id": order["id"], "key_id": key_id, "amount": order["amount"],
-                     "salon_name": t.get("name")})
-    else:
-        upi = s["upi_id"]
-        pn = re.sub(r"[^A-Za-z0-9 ]", "", t.get("name") or "Salon")[:40]
-        resp.update({"upi_id": upi,
-                     "upi_link": f"upi://pay?pa={upi}&pn={pn.replace(' ', '%20')}&am={amount:.2f}&cu=INR&tn=GiftCard"})
+    resp = {"gift_card_id": gc["id"], **_gift_payment_init(gc, t, s, key_id, key_secret)}
     await _raw_db.gift_cards.insert_one({**gc})
     return resp
 

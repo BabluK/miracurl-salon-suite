@@ -260,48 +260,41 @@ _CLOSERS = {
 }
 
 
-async def _converse(c: dict, lead: dict, speech: str) -> Response:
-    """Full conversation mode: lead spoke → LLM answers in Mira's voice, loops up to MAX_TURNS."""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-    base = c["webhook_base"]
-    call_id = c["id"]
-    convo = c.get("convo") or []
-    convo.append({"role": "lead", "text": speech[:300]})
-    turns = len([m for m in convo if m["role"] == "lead"])
-    lang = c.get("lang") or "en"
-    say, action, cb_at = "", "continue", ""
+def _parse_callback_at(d: dict, action: str) -> str:
+    """LLM gives IST 'YYYY-MM-DDTHH:MM' → UTC ISO, or '' when absent/invalid."""
+    if action != "callback":
+        return ""
+    raw = str(d.get("callback_at") or "").strip()
     try:
-        chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-call-{call_id}",
-                       system_message=_SALES_CONTEXT).with_model("openai", "gpt-4o-mini")
-        history = "\n".join(f"{'Owner' if m['role'] == 'lead' else 'Mira'}: {m['text']}" for m in convo[-8:])
-        raw = await chat.send_message(UserMessage(
-            text=f"Salon: {lead.get('name') if lead else 'a salon'} ({(lead or {}).get('city') or 'India'}). "
-                 f"Lead has email on file: {bool((lead or {}).get('email'))}.\n"
-                 f"Current time: {datetime.now(_IST).strftime('%A %d %B %Y, %I:%M %p')} IST.\n"
-                 f"Current language: {lang}.\n"
-                 f"Conversation so far:\n{history}\n\nOwner just said: \"{speech}\". Reply as Mira."))
-        m = re.search(r"\{.*\}", str(raw), re.S)
-        d = json.loads(m.group(0)) if m else {}
-        say = str(d.get("say") or "")[:400]
-        action = d.get("action") if d.get("action") in ("continue", "send_pack", "callback", "optout", "end") else "continue"
-        lang = d.get("lang") if d.get("lang") in ("en", "hi") else lang
-        cb_raw = str(d.get("callback_at") or "").strip()
-        if action == "callback" and cb_raw:
-            try:
-                dt = datetime.strptime(cb_raw[:16], "%Y-%m-%dT%H:%M")
-                cb_at = (dt.replace(tzinfo=timezone.utc) - timedelta(hours=5, minutes=30)).isoformat()
-            except ValueError:
-                cb_at = ""
-    except Exception as e:
-        log.error(f"converse LLM failed: {e}")
-        say, action = ("यह अच्छा सवाल है — सबसे आसान तरीका है हमारा फ्री डेमो और सात दिन का ट्रायल।"
-                       if lang == "hi" else
-                       "That's a great question — the easiest way is our free demo and 7 day trial."), "continue"
-    convo.append({"role": "mira", "text": say})
-    await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"convo": convo, "conversed": True, "lang": lang}})
-    if lang == "hi" and c.get("lead_id"):
-        await _raw_db.mira_leads.update_one({"id": c["lead_id"]}, {"$set": {"preferred_lang": "hi"}})
-    said = _say(say, lang)
+        dt = datetime.strptime(raw[:16], "%Y-%m-%dT%H:%M")
+        return (dt.replace(tzinfo=timezone.utc) - timedelta(hours=5, minutes=30)).isoformat()
+    except ValueError:
+        return ""
+
+
+async def _converse_llm(call_id: str, lead: dict, convo: list, speech: str, lang: str) -> tuple:
+    """Ask the sales LLM for Mira's next line. Returns (say, action, lang, cb_at)."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-call-{call_id}",
+                   system_message=_SALES_CONTEXT).with_model("openai", "gpt-4o-mini")
+    history = "\n".join(f"{'Owner' if m['role'] == 'lead' else 'Mira'}: {m['text']}" for m in convo[-8:])
+    raw = await chat.send_message(UserMessage(
+        text=f"Salon: {lead.get('name') if lead else 'a salon'} ({(lead or {}).get('city') or 'India'}). "
+             f"Lead has email on file: {bool((lead or {}).get('email'))}.\n"
+             f"Current time: {datetime.now(_IST).strftime('%A %d %B %Y, %I:%M %p')} IST.\n"
+             f"Current language: {lang}.\n"
+             f"Conversation so far:\n{history}\n\nOwner just said: \"{speech}\". Reply as Mira."))
+    m = re.search(r"\{.*\}", str(raw), re.S)
+    d = json.loads(m.group(0)) if m else {}
+    say = str(d.get("say") or "")[:400]
+    action = d.get("action") if d.get("action") in ("continue", "send_pack", "callback", "optout", "end") else "continue"
+    lang = d.get("lang") if d.get("lang") in ("en", "hi") else lang
+    return say, action, lang, _parse_callback_at(d, action)
+
+
+async def _converse_apply(c: dict, said: str, action: str, lang: str, cb_at: str, turns: int) -> Response:
+    """Apply the action's DB side-effects and return the closing/continuing TwiML."""
+    call_id, base = c["id"], c["webhook_base"]
     if action == "send_pack":
         await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"digits": "speech", "result": "interested"}})
         await _raw_db.mira_leads.update_one(
@@ -324,8 +317,30 @@ async def _converse(c: dict, lead: dict, speech: str) -> Response:
         return _xml(said + "<Hangup/>")
     if action == "end" or turns >= MAX_TURNS:
         return _xml(said + _say(_CLOSERS["end"][lang], lang) + "<Hangup/>")
-    return _xml(said + _gather_listen(base, c["id"], lang) +
+    return _xml(said + _gather_listen(base, call_id, lang) +
                 f'<Redirect method="POST">{base}/api/webhooks/twilio/voice/{call_id}?retry=1</Redirect>')
+
+
+async def _converse(c: dict, lead: dict, speech: str) -> Response:
+    """Full conversation mode: lead spoke → LLM answers in Mira's voice, loops up to MAX_TURNS."""
+    call_id = c["id"]
+    convo = c.get("convo") or []
+    convo.append({"role": "lead", "text": speech[:300]})
+    turns = len([m for m in convo if m["role"] == "lead"])
+    lang = c.get("lang") or "en"
+    try:
+        say, action, lang, cb_at = await _converse_llm(call_id, lead, convo, speech, lang)
+    except Exception as e:
+        log.error(f"converse LLM failed: {e}")
+        say = ("यह अच्छा सवाल है — सबसे आसान तरीका है हमारा फ्री डेमो और सात दिन का ट्रायल।"
+               if lang == "hi" else
+               "That's a great question — the easiest way is our free demo and 7 day trial.")
+        action, cb_at = "continue", ""
+    convo.append({"role": "mira", "text": say})
+    await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"convo": convo, "conversed": True, "lang": lang}})
+    if lang == "hi" and c.get("lead_id"):
+        await _raw_db.mira_leads.update_one({"id": c["lead_id"]}, {"$set": {"preferred_lang": "hi"}})
+    return await _converse_apply(c, _say(say, lang), action, lang, cb_at, turns)
 
 
 @router.post("/webhooks/twilio/voice/{call_id}/gather")
@@ -474,7 +489,6 @@ async def _fulfil_interest(lead_id: str) -> None:
                 await _raw_db.mira_leads.update_one(
                     {"id": lead_id}, {"$set": {"status": "sent", "sent_at": _now(), "approved_by": "mira-call"}})
         elif lead.get("phone"):
-            from twilio.rest import Client
             _twilio().messages.create(
                 to=_norm_phone(lead["phone"]), from_=os.environ["TWILIO_PHONE_NUMBER"],
                 body=("Hi! Mira from Miracurl Suite here \U0001F44B As promised: free demo + 7-day trial of the "
@@ -517,14 +531,8 @@ async def _start_call(lead: dict, base: str) -> dict:
         return {"ok": False, "error": str(e)[:200]}
 
 
-async def run_timed_callbacks() -> int:
-    """Dial leads whose owner asked for a specific callback time, once that time arrives (in a civil local hour)."""
-    now = datetime.now(timezone.utc).isoformat()
-    leads = await _raw_db.mira_leads.find(
-        {"call_result": "callback", "callback_at": {"$nin": ["", None], "$lte": now},
-         "do_not_call": {"$ne": True}, "phone": {"$nin": ["", None]},
-         "callback_redialed": {"$ne": True}}, {"_id": 0}).to_list(10)
-    leads = [ld for ld in leads if _in_call_window(ld.get("phone") or "", 8, 21)]
+async def _dial_marked(leads: list) -> int:
+    """Mark each lead callback_redialed and dial them staggered. Returns successful dials."""
     if not leads:
         return 0
     last = await _raw_db.mira_call_logs.find_one(
@@ -540,6 +548,16 @@ async def run_timed_callbacks() -> int:
             n += 1
         await asyncio.sleep(2)
     return n
+
+
+async def run_timed_callbacks() -> int:
+    """Dial leads whose owner asked for a specific callback time, once that time arrives (in a civil local hour)."""
+    now = datetime.now(timezone.utc).isoformat()
+    leads = await _raw_db.mira_leads.find(
+        {"call_result": "callback", "callback_at": {"$nin": ["", None], "$lte": now},
+         "do_not_call": {"$ne": True}, "phone": {"$nin": ["", None]},
+         "callback_redialed": {"$ne": True}}, {"_id": 0}).to_list(10)
+    return await _dial_marked([ld for ld in leads if _in_call_window(ld.get("phone") or "", 8, 21)])
 
 
 async def run_callback_redials() -> int:
@@ -549,22 +567,7 @@ async def run_callback_redials() -> int:
         {"call_result": "callback", "do_not_call": {"$ne": True}, "phone": {"$nin": ["", None]},
          "callback_at": {"$in": ["", None]},
          "callback_redialed": {"$ne": True}, "last_call_at": {"$lt": cutoff}}, {"_id": 0}).to_list(15)
-    leads = [ld for ld in leads if 10 <= _lead_local_hour(ld.get("phone") or "") < 12]
-    if not leads:
-        return 0
-    last = await _raw_db.mira_call_logs.find_one(
-        {"webhook_base": {"$nin": ["", None]}}, {"_id": 0, "webhook_base": 1}, sort=[("created_at", -1)])
-    base = (last or {}).get("webhook_base") or os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
-    if not base:
-        return 0
-    n = 0
-    for lead in leads:
-        await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"callback_redialed": True}})
-        res = await _start_call(lead, base)
-        if res.get("ok"):
-            n += 1
-        await asyncio.sleep(2)
-    return n
+    return await _dial_marked([ld for ld in leads if 10 <= _lead_local_hour(ld.get("phone") or "") < 12])
 
 
 @router.post("/super-admin/mira-calls/{lid}/call")
