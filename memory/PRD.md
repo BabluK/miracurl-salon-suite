@@ -948,3 +948,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - New voice action 'retry_failed' — say "retry failed calls" and Mira redials via shared _retry_failed_batch()
 - Briefing: if ALL calls today failed (≥3) — "⚠ I tried calling N leads and NONE connected — {reason}. Say 'retry failed calls' once fixed"
 - Deduped "I'll stop listening" spam. release_notes BUILD 2026-07-24.29. Production on .28 — needs redeploy.
+
+## 2026-07-24 — Wake Word + Hindi Pitch + Map Node Pulses (user request, curl + screenshot verified)
+- Wake word: background SpeechRecognition loop in MiraVoiceAssistant.jsx detects "Hey Mira" (variants meera/myra/mera) → opens panel fresh + convo mode; 👂 ON/OFF toggle in header (localStorage mira_wake); auto-pauses while convo mode is active
+- Hindi calls: Press 3 in call menu → full Hindi pitch/menu (Polly.Aditi hi-IN); LLM convo auto-switches lang when owner speaks Hindi (returns "lang" in JSON); digit 1/2/9 responses + closers bilingual; lead.preferred_lang="hi" remembered → future calls start in Hindi
+- Map node pulses: new live event → matching module card (keyword mapping nodeForEvent) flashes (neuro-flash CSS) for 7s in sync with Mira's announcement
+- Verified: EN twiml offers Press 3; press 3 → Hindi pitch; Hindi speech → Hindi LLM reply hi-IN gather; wake toggle + 12 nodes render. Mic wake & live pulse need real-user verification.
+- release_notes BUILD 2026-07-24.30. Production on .28 — needs redeploy (includes .29 fixes too).

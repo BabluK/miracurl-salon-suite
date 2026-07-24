@@ -39,9 +39,31 @@ const ago = (iso) => {
   return `${Math.floor(s / 86400)} d ago`;
 };
 
+const nodeForEvent = (e) => {
+  const t = `${e?.title || ""} ${e?.sub || ""}`.toLowerCase();
+  if (/call|dial|mira/.test(t)) return "Mira AI";
+  if (/payment|invoice|paid|₹|revenue/.test(t)) return "POS & Billing";
+  if (/booking|appointment/.test(t)) return "Bookings";
+  if (/lead|enquir|inquir/.test(t)) return "Leads";
+  if (/salon|tenant/.test(t)) return "Tenants";
+  if (/staff|verification|employee|relieving/.test(t)) return "Staff Registry";
+  if (/review|campaign|marketing|gift|promo/.test(t)) return "Marketing";
+  if (/hire|hiring|job|application/.test(t)) return "Hiring";
+  return "";
+};
+
 export function PlatformOrbitMap({ onGoTab }) {
   const [live, setLive] = useState(null);
+  const [pulseNode, setPulseNode] = useState("");
   const lastEventAtRef = useRef(null);
+  const pulseTimerRef = useRef(null);
+
+  const flashNode = useCallback((label) => {
+    if (!label) return;
+    clearTimeout(pulseTimerRef.current);
+    setPulseNode(label);
+    pulseTimerRef.current = setTimeout(() => setPulseNode(""), 7000);
+  }, []);
 
   const load = useCallback(() => {
     api.get("/super-admin/platform-map/live").then(({ data }) => {
@@ -51,11 +73,12 @@ export function PlatformOrbitMap({ onGoTab }) {
         if (lastEventAtRef.current && newest.at > lastEventAtRef.current) {
           const line = `Hey Miracurl! ${newest.title}${newest.sub ? ` — ${newest.sub}` : ""}`;
           window.dispatchEvent(new CustomEvent("mira-live-event", { detail: line }));
+          flashNode(nodeForEvent(newest));
         }
         lastEventAtRef.current = newest.at;
       }
     }).catch(() => {});
-  }, []);
+  }, [flashNode]);
 
   useEffect(() => {
     load();
@@ -83,9 +106,11 @@ export function PlatformOrbitMap({ onGoTab }) {
           @keyframes neuroHubPulse { 0%,100% { box-shadow: 0 0 34px 6px rgba(168,85,247,.45), 0 0 80px 18px rgba(217,70,239,.18), inset 0 0 26px rgba(251,191,36,.25); }
             50% { box-shadow: 0 0 50px 12px rgba(168,85,247,.65), 0 0 110px 30px rgba(217,70,239,.3), inset 0 0 34px rgba(251,191,36,.4); } }
           @keyframes neuroRingSpin { to { transform: rotate(360deg); } }
+          @keyframes neuroNodeFlash { 0%,100% { filter: brightness(1); } 50% { filter: brightness(2.4) drop-shadow(0 0 22px #fff); } }
           .neuro-line { stroke-dasharray: 2 10; stroke-linecap: round; animation: neuroFlow 2.6s linear infinite; }
           .neuro-star { position: absolute; border-radius: 9999px; background: #fff; animation: neuroTwinkle 3s ease-in-out infinite; }
           .neuro-card { animation: neuroCardGlow 3.4s ease-in-out infinite; }
+          .neuro-flash { animation: neuroNodeFlash .65s ease-in-out 10 !important; }
         `}</style>
 
         {stars.map((st, i) => (
@@ -142,7 +167,7 @@ export function PlatformOrbitMap({ onGoTab }) {
               <button key={n.label}
                 onClick={() => n.tab && onGoTab?.(n.tab)}
                 data-testid={`orbit-node-${n.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-                className={`neuro-card absolute -translate-x-1/2 -translate-y-1/2 z-10 rounded-2xl border-2 bg-[#0a0b1a]/85 backdrop-blur-md px-3.5 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2.5 transition-transform hover:scale-110 ${n.tab ? "cursor-pointer" : "cursor-default"}`}
+                className={`${pulseNode === n.label ? "neuro-flash" : "neuro-card"} absolute -translate-x-1/2 -translate-y-1/2 z-10 rounded-2xl border-2 bg-[#0a0b1a]/85 backdrop-blur-md px-3.5 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2.5 transition-transform hover:scale-110 ${n.tab ? "cursor-pointer" : "cursor-default"}`}
                 style={{ left: `${n.x}%`, top: `${n.y}%`, borderColor: `${n.c}99`,
                   boxShadow: `0 0 18px ${n.c}55, inset 0 0 16px ${n.c}1e`,
                   animationDelay: `${i * 0.28}s` }}>

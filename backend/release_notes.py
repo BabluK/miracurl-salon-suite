@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-24.29"
-BUILD_TIME = "24 Jul 2026, 06:30 PM IST"
+BUILD = "2026-07-24.30"
+BUILD_TIME = "24 Jul 2026, 08:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-24 (Wake Word, Hindi & Node Pulses)",
+        "changes": [
+            "👂 Wake word — just say 'Hey Mira' anywhere in the Super Admin console and she wakes up, greets you and starts listening (toggle it with the 👂 button in her header)",
+            "🇮🇳 Hindi pitch — Mira's sales calls now speak Hindi: owners press 3 for the full Hindi pitch and menu, or simply reply in Hindi and she switches mid-conversation; their preference is remembered for future calls",
+            "💥 Map node pulses — when Mira announces a live event on the Platform Map, the matching module card flashes brightly in sync with her voice",
+        ],
+    },
     {
         "date": "2026-07-24 (Smarter, fresher Mira)",
         "changes": [

@@ -19,12 +19,68 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
   const convoRef = useRef(false);
   const handleVoiceRef = useRef(() => {});
   const noSpeechRef = useRef(0);
+  const wakeRef = useRef(null);
+  const wakeOnRef = useRef(localStorage.getItem("mira_wake") !== "0");
+  const [wakeOn, setWakeOn] = useState(wakeOnRef.current);
+  const openPanelRef = useRef(() => {});
+
+  const stopWake = useCallback(() => {
+    const w = wakeRef.current;
+    wakeRef.current = null;
+    try { w?.abort?.(); w?.stop?.(); } catch { /* noop */ }
+  }, []);
+
+  const startWake = useCallback(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR || !wakeOnRef.current || convoRef.current || wakeRef.current) return;
+    const r = new SR();
+    wakeRef.current = r;
+    r.continuous = true;
+    r.interimResults = true;
+    r.lang = "en-IN";
+    r.onresult = (e) => {
+      const t = Array.from(e.results).map((res) => res[0].transcript).join(" ").toLowerCase();
+      if (/(hey|hi|hello|hay|ok|okay|oye|a)[\s,]*(mira|meera|mera|myra|maira|mirra)\b/.test(t)) {
+        stopWake();
+        openPanelRef.current();
+      }
+    };
+    r.onend = () => {
+      if (wakeRef.current === r) wakeRef.current = null;
+      if (wakeOnRef.current && !convoRef.current) setTimeout(() => startWake(), 900);
+    };
+    r.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        wakeOnRef.current = false;
+        setWakeOn(false);
+      }
+    };
+    try { r.start(); } catch { wakeRef.current = null; }
+  }, [stopWake]);
+
+  const toggleWake = () => {
+    const v = !wakeOnRef.current;
+    wakeOnRef.current = v;
+    setWakeOn(v);
+    localStorage.setItem("mira_wake", v ? "1" : "0");
+    if (v) startWake(); else stopWake();
+  };
+
+  useEffect(() => {
+    const t = setTimeout(() => startWake(), 1500);
+    return () => { clearTimeout(t); stopWake(); };
+  }, [startWake, stopWake]);
 
   const setConvoMode = useCallback((v) => {
     convoRef.current = v;
     setConvo(v);
-    if (!v) { try { recRef.current?.stop(); } catch { /* noop */ } }
-  }, []);
+    if (v) {
+      stopWake();
+    } else {
+      try { recRef.current?.stop(); } catch { /* noop */ }
+      setTimeout(() => startWake(), 900);
+    }
+  }, [startWake, stopWake]);
 
   const startListening = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -166,13 +222,16 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
       speak(data.text, true);
     }).catch(() => {});
   };
+  openPanelRef.current = openPanel;
 
   if (!open) {
     return (
       <button onClick={openPanel}
         data-testid="mira-assistant-fab"
+        title='Tap — or just say "Hey Mira"'
         className="fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-xl shadow-fuchsia-500/30 flex items-center justify-center text-2xl hover:scale-105 transition-transform">
         🎙️
+        {wakeOn && <span className="absolute -top-1.5 -left-10 text-[8px] bg-slate-900 text-fuchsia-300 border border-fuchsia-500/40 rounded-full px-2 py-0.5 whitespace-nowrap">"Hey Mira" 👂</span>}
       </button>
     );
   }
@@ -191,6 +250,11 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
           <button onClick={() => speak(msgs[msgs.length - 1].text, true)} data-testid="mira-tap-to-hear"
             className="text-white/90 hover:text-white" title="Tap to hear Mira"><Volume2 className="w-4 h-4" /></button>
         )}
+        <button onClick={toggleWake} data-testid="mira-wake-toggle"
+          title={wakeOn ? 'Wake word ON — say "Hey Mira" anywhere to wake me' : 'Wake word OFF — tap to enable "Hey Mira"'}
+          className={`text-[9px] font-bold rounded-full px-2 py-0.5 border ${wakeOn ? "bg-white/20 text-white border-white/40" : "bg-transparent text-white/50 border-white/25"}`}>
+          👂 {wakeOn ? "ON" : "OFF"}
+        </button>
         <button onClick={() => { audioRef.current?.pause(); setConvoMode(false); sessionStorage.removeItem("mira_open"); setOpen(false); }} data-testid="mira-assistant-close" className="text-white/80 hover:text-white"><X className="w-4 h-4" /></button>
       </div>
       <div className="max-h-64 overflow-y-auto p-3 space-y-2" data-testid="mira-assistant-messages">
