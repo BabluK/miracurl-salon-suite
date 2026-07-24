@@ -1006,3 +1006,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Services.jsx: normalized + subsequence fuzzy search over name+category+description ("mhair"→Men Hair verified via screenshot)
 - favicon.svg regenerated: rose-gold logo on #1c1c22 dark circle (192px, also favicon-192.png)
 - release_notes BUILD 2026-07-25.36. Needs redeploy.
+
+## 2026-07-25 — Booking Hindi fix + Dedicated per-salon Mira + testing (iteration_87 100%)
+- Testing agent iter_87: billing regression 6/6 (invoice math/CRUD, POS UI), services fuzzy search, Mira Photo AI round-trip, upload <5s, SuperAdmin logo dark circle — ALL PASS. Minor notes: no GET /invoices/{id} (list only), Recharts size warnings (non-blocking)
+- Booking-page Hindi bug fixed: Whisper bias prompt contained Devanagari → accented English speech transcribed to Hindi script. Prompt now English-only (public_chat.py public_ai_voice). Needs user voice verification on prod
+- NEW: Dedicated salon Mira (routes/tenant_mira.py): GET /tenant/mira/briefing (bookings/revenue/customers/staff/reviews snapshot), POST /tenant/mira/ask (gpt-4o-mini, EN/HI mirror, tab nav to /dashboard etc), POST /tenant/mira/speak (TTS via briefings._tts_cached_speech). All curl-verified incl. Hindi
+- Frontend TenantMiraAssistant.jsx (amber-rose FAB bottom-24 right-5, above existing widget): hands-free convo mode, हिं/EN toggle, mounted in AppLayout for admin+manager. Panel verified via screenshot (What's New modal was overlaying during test — not a bug)
+- services_catalog: EMERGENT_LLM_KEY now os.environ.get + 500 (review fix)
+- release_notes BUILD 2026-07-25.38. Needs redeploy (includes .36/.37 too).

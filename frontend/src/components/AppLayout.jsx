@@ -15,6 +15,7 @@ import api from "@/lib/api";
 import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
+import { TenantMiraAssistant } from "./TenantMiraAssistant";
 import InstallAppPrompt from "./InstallAppPrompt";
 import MiraFab from "./MiraFab";
 import TrialReminder from "./TrialReminder";
@@ -316,6 +317,9 @@ export default function AppLayout() {
 
       {/* Once-a-day polite trial expiry reminder for owners */}
       {user?.role === "admin" && <TrialReminder />}
+
+      {/* Dedicated Mira AI for every salon — voice briefing & Q&A on the salon's own numbers */}
+      {(user?.role === "admin" || user?.role === "manager") && <TenantMiraAssistant />}
 
       {/* Post-deployment "What's New ✨" highlights for owners — shown once per build */}
       {user?.role === "admin" && <WhatsNewModal />}

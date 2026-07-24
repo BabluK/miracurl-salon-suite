@@ -506,10 +506,13 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
     buf.name = f"voice.{ext if ext in ('webm', 'mp3', 'mp4', 'wav', 'm4a', 'mpeg', 'mpga') else 'webm'}"
     stt = OpenAISpeechToText(api_key=key)
     try:
-        # Bias prompt helps Whisper with Indian multilingual salon vocabulary (auto language detect).
+        # Bias prompt helps Whisper with Indian salon vocabulary. English-only prompt text on purpose:
+        # any Devanagari here biases Whisper to transcribe accented ENGLISH speech into Hindi script.
         tr = await stt.transcribe(
             file=buf, model="whisper-1", response_format="json",
-            prompt="Indian salon booking call. Customers speak English, Hindi or Kannada. Transcribe English speech in English (Latin script). Common words: haircut, facial, keratin, mehendi, pedicure, booking, price, hindi mein: हेयरकट, बुकिंग.")
+            prompt="Indian salon booking call. Most customers speak English with an Indian accent; some speak "
+                   "Hindi or Kannada. When the speech is English, transcribe it in English (Latin script). "
+                   "Common words: haircut, facial, keratin, mehendi, pedicure, manicure, threading, booking, price, appointment.")
         transcript = (tr.text or "").strip()
     except Exception as e:
         logging.getLogger("public_ai").error(f"stt error: {e}")

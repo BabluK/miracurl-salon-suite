@@ -283,7 +283,10 @@ async def set_category_image(name: str, body: CategoryImageIn, user=Depends(requ
 
 async def _generate_service_image_bytes(name: str, category: str) -> bytes:
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-    gen = OpenAIImageGeneration(api_key=os.environ["EMERGENT_LLM_KEY"])
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    gen = OpenAIImageGeneration(api_key=key)
     prompt = (f"Professional beauty-salon photograph for the service '{name}' in the category '{category}'. "
               "Elegant premium salon setting, close-up of the treatment being performed, soft warm lighting, "
               "rose-gold and cream tones, photorealistic, shallow depth of field. "
@@ -296,7 +299,6 @@ async def _generate_service_image_bytes(name: str, category: str) -> bytes:
 
 
 async def _store_service_image(tenant_id: str, img_bytes: bytes, name: str) -> str:
-    from services.storage import _put_object, APP_NAME
     file_id = str(uuid.uuid4())
     path = f"{APP_NAME}/tenants/{tenant_id}/service/{file_id}.png"
     result = await asyncio.to_thread(_put_object, path, img_bytes, "image/png")

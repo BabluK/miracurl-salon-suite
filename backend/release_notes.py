@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-25.37"
-BUILD_TIME = "25 Jul 2026, 06:45 PM IST"
+BUILD = "2026-07-25.38"
+BUILD_TIME = "25 Jul 2026, 09:00 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-25 (Dedicated Salon Mira)",
+        "changes": [
+            "🎙️ Every salon now has its own Mira — a dedicated AI manager in the dashboard (amber-rose mic button): she greets with today's bookings, revenue and new customers, answers questions hands-free, gives promo ideas, and even opens the right page for you",
+            "🗣️ Salon Mira speaks English or Hindi (हिं/EN toggle) and keeps the conversation going until you say 'stop'",
+            "🎧 Booking-page voice fix — Mira no longer answers in Hindi when customers speak English (the speech recognizer was being biased toward Hindi script)",
+        ],
+    },
     {
         "date": "2026-07-25 (Mira Photo Studio & Logo polish)",
         "changes": [
