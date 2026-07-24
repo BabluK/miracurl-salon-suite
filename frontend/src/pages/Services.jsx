@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2, Scissors, Hand, Paintbrush, Flower2, Tag, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 import { catImage } from "@/lib/categoryImages";
@@ -10,6 +10,15 @@ const CATS = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup"
 const NEW_CAT = "__new__";
 const FALLBACK_IMG = "https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400";
 
+const catIcon = (c) => {
+  const t = (c || "").toLowerCase();
+  if (t.includes("hair")) return Scissors;
+  if (t.includes("nail") || t.includes("manicure") || t.includes("pedicure") || t.includes("mehendi")) return Hand;
+  if (t.includes("makeup") || t.includes("make up")) return Paintbrush;
+  if (t.includes("spa") || t.includes("massage") || t.includes("skin") || t.includes("facial")) return Flower2;
+  return Tag;
+};
+
 export default function Services() {
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
@@ -18,6 +27,9 @@ export default function Services() {
   const [newCat, setNewCat] = useState(false);
   const [activeCat, setActiveCat] = useState("All");
   const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [loading, setLoading] = useState(true);
+  const searchRef = useRef(null);
   const [catImages, setCatImages] = useState({});
   const [catModal, setCatModal] = useState(null);
   const [catUrl, setCatUrl] = useState("");
@@ -62,11 +74,28 @@ export default function Services() {
     }
   }
 
-  const load = useCallback(async () => { const { data } = await api.get("/services"); setList(data); }, []);
+  const load = useCallback(async () => {
+    try { const { data } = await api.get("/services"); setList(data); } finally { setLoading(false); }
+  }, []);
   useEffect(() => {
     load();
     api.get("/service-categories").then(r => setCatImages(r.data || {})).catch(() => {});
   }, [load]);
+
+  // Real-time search with 250ms debounce
+  useEffect(() => {
+    const t = setTimeout(() => setQ(qInput), 250);
+    return () => clearTimeout(t);
+  }, [qInput]);
+
+  // ⌘K / Ctrl+K focuses the search bar
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); searchRef.current?.focus(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   function startNew() { setEditing(null); setNewCat(false); setForm({ name: "", category: activeCat !== "All" ? activeCat : "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true }); setOpen(true); }
   function startEdit(s) { setEditing(s); setNewCat(false); setForm({ ...s, price: s.price, duration_min: s.duration_min }); setOpen(true); }
@@ -98,7 +127,11 @@ export default function Services() {
 
   const byCategory = useMemo(() => list.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {}), [list]);
   const catOptions = [...CATS, ...Object.keys(byCategory).filter(c => !CATS.includes(c)).sort()];
-  const allCats = Object.keys(byCategory).sort((a, b) => (byCategory[b].length - byCategory[a].length));
+  // Dynamic categories: every category found on services PLUS ones created via banners — always in sync, no refresh needed
+  const allCats = useMemo(() => {
+    const set = new Set([...Object.keys(byCategory), ...Object.keys(catImages || {})]);
+    return [...set].filter(Boolean).sort((a, b) => (byCategory[b]?.length || 0) - (byCategory[a]?.length || 0));
+  }, [byCategory, catImages]);
 
   const filtered = useMemo(() => {
     const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -166,26 +199,57 @@ export default function Services() {
         </div>
       </div>
 
-      {/* Sticky filter bar — search + category chips, no more endless scroll */}
-      <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-white/85 backdrop-blur-md border-b border-slate-100 space-y-2.5">
-        <div className="relative max-w-sm">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input data-testid="services-search-input" value={q} onChange={e => setQ(e.target.value)}
-            placeholder="Search services…"
-            className="w-full pl-9 pr-8 py-2 text-sm rounded-full border border-slate-200 bg-white focus:outline-none focus:border-sky-300" />
-          {q && <button onClick={() => setQ("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X className="w-3.5 h-3.5" /></button>}
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <button data-testid="services-cat-chip-All" onClick={() => setActiveCat("All")}
-            className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition ${activeCat === "All" ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
-            All <span className="opacity-60">({list.length})</span>
-          </button>
-          {allCats.map(c => (
-            <button key={c} data-testid={`services-cat-chip-${c}`} onClick={() => setActiveCat(c)}
-              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition ${activeCat === c ? "bg-sky-600 text-white border-sky-600" : "bg-white text-slate-600 border-slate-200 hover:border-sky-300"}`}>
-              {c} <span className="opacity-60">({byCategory[c].length})</span>
+      {/* Sticky filter bar — premium search + animated category chips */}
+      <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-white/85 backdrop-blur-md border-b border-slate-100 space-y-3">
+        <div className="relative max-w-xl">
+          <Search className="w-4 h-4 text-rose-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input ref={searchRef} data-testid="services-search-input" value={qInput}
+            onChange={e => setQInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Escape") { setQInput(""); setQ(""); } }}
+            placeholder="Search services, categories, descriptions…"
+            className="w-full pl-11 pr-20 py-3 text-sm rounded-2xl border border-slate-200/80 bg-white text-slate-900 placeholder:text-slate-400 caret-rose-500 shadow-sm shadow-slate-200/60 focus:outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100 transition-all duration-200" />
+          {qInput ? (
+            <button data-testid="services-search-clear" onClick={() => { setQInput(""); setQ(""); searchRef.current?.focus(); }}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 flex items-center justify-center transition-colors">
+              <X className="w-3.5 h-3.5" />
             </button>
-          ))}
+          ) : (
+            <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 text-[10px] font-medium text-slate-400 border border-slate-200 rounded-md px-1.5 py-0.5 bg-slate-50">⌘K</kbd>
+          )}
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1 snap-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid="services-cat-chips">
+          {loading ? (
+            [...Array(6)].map((_, i) => (
+              <div key={i} className="shrink-0 h-9 w-24 rounded-full bg-slate-100 animate-pulse" style={{ animationDelay: `${i * 120}ms` }} />
+            ))
+          ) : (
+            <>
+              <button data-testid="services-cat-chip-All" onClick={() => setActiveCat("All")}
+                className={`snap-start shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border transition-all duration-200 ${activeCat === "All"
+                  ? "bg-gradient-to-r from-slate-800 to-slate-700 text-white border-transparent shadow-md shadow-slate-300 scale-[1.03]"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-400 hover:-translate-y-0.5 hover:shadow-md"}`}>
+                <LayoutGrid className="w-3.5 h-3.5" /> All
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeCat === "All" ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"}`}>{list.length}</span>
+              </button>
+              {allCats.map(c => {
+                const I = catIcon(c);
+                const n = byCategory[c]?.length || 0;
+                const active = activeCat === c;
+                return (
+                  <button key={c} data-testid={`services-cat-chip-${c}`} onClick={() => setActiveCat(c)}
+                    className={`snap-start shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border transition-all duration-200 ${active
+                      ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white border-transparent shadow-md shadow-rose-200 scale-[1.03]"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-rose-300 hover:text-rose-600 hover:-translate-y-0.5 hover:shadow-md"}`}>
+                    <I className={`w-3.5 h-3.5 ${active ? "text-white" : "text-rose-400"}`} /> {c}
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${active ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"}`}>{n}</span>
+                  </button>
+                );
+              })}
+              {allCats.length === 0 && (
+                <span className="text-xs text-slate-400 py-2" data-testid="services-cats-empty">No categories yet — add your first service and its category appears here instantly ✦</span>
+              )}
+            </>
+          )}
         </div>
       </div>
 

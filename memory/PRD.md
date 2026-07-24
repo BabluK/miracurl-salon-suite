@@ -1014,3 +1014,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Frontend TenantMiraAssistant.jsx (amber-rose FAB bottom-24 right-5, above existing widget): hands-free convo mode, हिं/EN toggle, mounted in AppLayout for admin+manager. Panel verified via screenshot (What's New modal was overlaying during test — not a bug)
 - services_catalog: EMERGENT_LLM_KEY now os.environ.get + 500 (review fix)
 - release_notes BUILD 2026-07-25.38. Needs redeploy (includes .36/.37 too).
+
+## 2026-07-25 — Service Menu redesign: search + category chips (user request w/ mock, screenshot-verified)
+- Search: rounded-2xl premium bar, rose focus ring, search icon, clear button, ⌘K/Ctrl+K focus shortcut, Escape clears, 250ms debounce (qInput→q), explicit text-slate-900 (fixes invisible text), searches name+category+description (fuzzy kept)
+- Chips: icon per category (catIcon: Scissors/Hand/Paintbrush/Flower2/Tag), live count badges, gradient rose-pink active state w/ scale, hover lift+shadow, horizontal snap scroll, skeleton loading state, empty state
+- Category sync fix: allCats = services categories ∪ banner categories (catImages) — new categories appear instantly, counts always live from list
+- Verified: Ctrl+K focus, text color rgb(15,23,42), debounce filter (keratin→1), clear btn, 9 chips incl. user-created "TEST"
+- release_notes BUILD 2026-07-25.39. Needs redeploy.

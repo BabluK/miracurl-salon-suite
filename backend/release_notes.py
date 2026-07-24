@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-25.38"
-BUILD_TIME = "25 Jul 2026, 09:00 PM IST"
+BUILD = "2026-07-25.39"
+BUILD_TIME = "25 Jul 2026, 10:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-25 (Service Menu redesign)",
+        "changes": [
+            "🔎 Premium search bar — bigger, rounded, with a search icon, clear button, ⌘K / Ctrl+K shortcut, and instant results with a smooth 250ms debounce across names, categories and descriptions",
+            "🏷️ Modern category chips — rounded pills with icons, live service counts, hover lift and a rose-pink active glow; scroll them sideways on small screens",
+            "🔄 New categories appear instantly — chips are built live from your services and banner categories, counts stay in sync without any refresh, with elegant loading and empty states",
+        ],
+    },
     {
         "date": "2026-07-25 (Dedicated Salon Mira)",
         "changes": [
