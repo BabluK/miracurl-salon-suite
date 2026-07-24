@@ -45,6 +45,76 @@ def _norm_phone(p: str) -> str:
     return "+" + d
 
 
+# ---------------- lead-local time helpers (call overseas leads in THEIR business hours) ----------------
+
+_CC_OFFSETS = (("+971", 4), ("+974", 3), ("+973", 3), ("+968", 4), ("+966", 3), ("+965", 3),
+               ("+880", 6), ("+977", 5.75), ("+852", 8), ("+886", 8), ("+254", 3), ("+234", 1),
+               ("+94", 5.5), ("+92", 5), ("+91", 5.5), ("+86", 8), ("+81", 9), ("+82", 9),
+               ("+66", 7), ("+65", 8), ("+63", 8), ("+62", 7), ("+61", 10), ("+60", 8),
+               ("+64", 12), ("+49", 1), ("+44", 0), ("+39", 1), ("+34", 1), ("+33", 1),
+               ("+31", 1), ("+27", 2), ("+20", 2), ("+7", 3), ("+1", -5))
+
+_US_PACIFIC = {"206", "209", "213", "253", "310", "323", "341", "408", "415", "424", "425", "442",
+               "458", "503", "509", "510", "530", "541", "559", "562", "619", "626", "628", "650",
+               "657", "661", "669", "702", "707", "714", "725", "747", "760", "775", "805", "818",
+               "831", "858", "909", "916", "925", "949", "951", "971", "986"}
+_US_MOUNTAIN = {"303", "307", "385", "406", "435", "480", "505", "520", "602", "623", "719", "720",
+                "801", "915", "928", "970", "983"}
+_US_CENTRAL = {"205", "210", "214", "217", "218", "224", "225", "228", "251", "254", "262", "270",
+               "281", "309", "312", "314", "316", "318", "319", "331", "337", "346", "361", "402",
+               "405", "409", "414", "417", "469", "479", "501", "502", "504", "507", "512", "515",
+               "563", "573", "580", "601", "608", "612", "615", "618", "630", "636", "651", "660",
+               "662", "682", "708", "712", "713", "715", "763", "773", "779", "785", "806", "812",
+               "815", "816", "817", "830", "832", "847", "870", "901", "903", "913", "918", "920",
+               "936", "940", "952", "956", "972", "979", "985"}
+
+
+def _lead_utc_offset(phone: str) -> float:
+    raw = (phone or "").strip()
+    if not raw.startswith("+"):
+        return 5.5
+    p = "+" + re.sub(r"\D", "", raw)
+    if p.startswith("+1") and len(p) >= 5:
+        area = p[2:5]
+        if area in _US_PACIFIC:
+            return -8
+        if area in _US_MOUNTAIN:
+            return -7
+        if area in _US_CENTRAL:
+            return -6
+        return -5
+    for pref, off in _CC_OFFSETS:
+        if p.startswith(pref):
+            return off
+    return 5.5
+
+
+def _lead_local_hour(phone: str) -> float:
+    now = datetime.now(timezone.utc)
+    return (now.hour + now.minute / 60 + _lead_utc_offset(phone)) % 24
+
+
+def _in_call_window(phone: str, start: float = 9, end: float = 20) -> bool:
+    return start <= _lead_local_hour(phone) < end
+
+
+def _next_local_hour_utc(phone: str, hour: float = 10) -> str:
+    """UTC ISO timestamp of the lead's next local `hour` o'clock."""
+    t = (hour - _lead_utc_offset(phone)) % 24
+    now = datetime.now(timezone.utc)
+    cand = now.replace(hour=int(t) % 24, minute=int(round((t % 1) * 60)) % 60, second=0, microsecond=0)
+    if cand <= now:
+        cand += timedelta(days=1)
+    return cand.isoformat()
+
+
+async def _schedule_for_business_hours(lead: dict) -> None:
+    """Queue a lead for their next 10 AM local via the timed-callback machinery."""
+    await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {
+        "call_result": "callback", "callback_at": _next_local_hour_utc(lead.get("phone") or "", 10),
+        "callback_redialed": False}})
+
+
 def _twilio():
     from twilio.rest import Client
     return Client(os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"])
@@ -448,12 +518,13 @@ async def _start_call(lead: dict, base: str) -> dict:
 
 
 async def run_timed_callbacks() -> int:
-    """Dial leads whose owner asked for a specific callback time, once that time arrives."""
+    """Dial leads whose owner asked for a specific callback time, once that time arrives (in a civil local hour)."""
     now = datetime.now(timezone.utc).isoformat()
     leads = await _raw_db.mira_leads.find(
         {"call_result": "callback", "callback_at": {"$nin": ["", None], "$lte": now},
          "do_not_call": {"$ne": True}, "phone": {"$nin": ["", None]},
          "callback_redialed": {"$ne": True}}, {"_id": 0}).to_list(10)
+    leads = [ld for ld in leads if _in_call_window(ld.get("phone") or "", 8, 21)]
     if not leads:
         return 0
     last = await _raw_db.mira_call_logs.find_one(
@@ -472,12 +543,13 @@ async def run_timed_callbacks() -> int:
 
 
 async def run_callback_redials() -> int:
-    """Next-morning auto re-dial for 'call back later' leads WITHOUT a specific time (once per lead)."""
+    """Morning auto re-dial for 'call back later' leads WITHOUT a specific time — in THEIR local 10 AM–12 PM window."""
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=14)).isoformat()
     leads = await _raw_db.mira_leads.find(
         {"call_result": "callback", "do_not_call": {"$ne": True}, "phone": {"$nin": ["", None]},
          "callback_at": {"$in": ["", None]},
          "callback_redialed": {"$ne": True}, "last_call_at": {"$lt": cutoff}}, {"_id": 0}).to_list(15)
+    leads = [ld for ld in leads if 10 <= _lead_local_hour(ld.get("phone") or "") < 12]
     if not leads:
         return 0
     last = await _raw_db.mira_call_logs.find_one(
@@ -523,17 +595,24 @@ async def _callable_hot_query() -> dict:
 
 
 async def _call_hot_batch(limit: int, base: str) -> int:
-    """Fetch callable hot leads and dial them one by one (staggered, background)."""
+    """Fetch callable hot leads and dial them one by one (staggered, background).
+    Leads outside their local business hours get scheduled for their next 10 AM local."""
     leads = await _raw_db.mira_leads.find(
         await _callable_hot_query(), {"_id": 0}).sort("reviews", -1).to_list(max(1, min(limit, 50)))
+    now_ok = [ld for ld in leads if _in_call_window(ld.get("phone") or "")]
+    later = [ld for ld in leads if ld not in now_ok]
+    for ld in later:
+        await _schedule_for_business_hours(ld)
 
     async def _runner():
-        for ld in leads:
+        for ld in now_ok:
             await _start_call(ld, base)
             await asyncio.sleep(2)
 
-    if leads:
+    if now_ok:
         asyncio.get_event_loop().create_task(_runner())
+    if later:
+        log.info(f"call batch: {len(later)} leads scheduled for their local business hours")
     return len(leads)
 
 
@@ -571,13 +650,17 @@ async def _retry_failed_batch(base: str) -> int:
         else:
             targets.append({"id": "", "name": c.get("lead_name") or "", "phone": c.get("phone")})
     targets = targets[:50]
+    now_ok = [t for t in targets if not t.get("id") or _in_call_window(t.get("phone") or "")]
+    for t in targets:
+        if t.get("id") and t not in now_ok:
+            await _schedule_for_business_hours(t)
 
     async def _runner():
-        for ld in targets:
+        for ld in now_ok:
             await _start_call(ld, base)
             await asyncio.sleep(2)
 
-    if targets:
+    if now_ok:
         asyncio.get_event_loop().create_task(_runner())
     return len(targets)
 
@@ -952,12 +1035,9 @@ async def set_auto_call_settings(body: AutoCallSettingsIn, user=Depends(require_
 
 
 async def auto_call_hot_leads() -> int:
-    """Scheduler: Mira automatically calls hot leads discovered in the last 24h, within IST business hours."""
+    """Scheduler: Mira automatically calls hot leads discovered in the last 24h — in each lead's LOCAL business hours."""
     s = await _auto_settings()
     if not s["enabled"]:
-        return 0
-    ist_hour = datetime.now(_IST).hour
-    if not (s["start_hour"] <= ist_hour < s["end_hour"]):
         return 0
     today = datetime.now(timezone.utc).date().isoformat()
     made_today = await _raw_db.mira_call_logs.count_documents(
@@ -971,7 +1051,9 @@ async def auto_call_hot_leads() -> int:
          "last_call_at": {"$exists": False}, "auto_called_at": {"$exists": False},
          "status": {"$nin": ["customer", "rejected", "sent"]},
          "created_at": {"$gte": since}},
-        {"_id": 0}).sort("reviews", -1).to_list(min(budget, 10))
+        {"_id": 0}).sort("reviews", -1).to_list(30)
+    leads = [ld for ld in leads
+             if _in_call_window(ld.get("phone") or "", s["start_hour"], s["end_hour"])][:min(budget, 10)]
     base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
     n = 0
     for ld in leads:

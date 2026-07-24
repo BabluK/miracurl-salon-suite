@@ -982,3 +982,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - run_phone_backfill() one-shot on startup (_phone_backfill_task, system_flags phone_intl_backfill) — verified in preview: 4/4 leads converted to +91 intl format; will auto-heal production on redeploy
 - Call History hint added: recordings appear only on answered calls
 - release_notes BUILD 2026-07-25.34. Needs redeploy — then user should hit "Retry N failed" again.
+
+## 2026-07-25 — Lead-Local Call Time Zones (user request, tested incl. REAL completed call)
+- _lead_utc_offset/_lead_local_hour/_in_call_window/_next_local_hour_utc in mira_calls.py: country-code offsets + US area-code zones (Pacific/Mountain/Central/Eastern)
+- _call_hot_batch & _retry_failed_batch: out-of-window leads auto-scheduled to their next 10 AM local via callback_at (timed-callback machinery) — verified US lead scheduled 15:00Z=10AM ET
+- auto_call_hot_leads: per-lead local window (start/end hour settings now lead-local); run_timed_callbacks gated 8–21 lead-local; run_callback_redials fires in lead's 10–12 AM local (daily IST flag removed)
+- Scheduler _callback_redial_scheduler simplified to 15-min loop
+- REAL-CALL VALIDATION: test batch accidentally dialed 3 real Pune leads (Twilio now Full) — Geetanjali Salon COMPLETED 10s call; recording webhook sig-validated, recording_url saved, proxy streamed 37KB audio/mpeg — whole pipeline proven live
+- release_notes BUILD 2026-07-25.35. Needs redeploy.

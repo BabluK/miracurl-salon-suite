@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-25.34"
-BUILD_TIME = "25 Jul 2026, 11:15 AM IST"
+BUILD = "2026-07-25.35"
+BUILD_TIME = "25 Jul 2026, 01:00 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-25 (Lead-Local Call Timing)",
+        "changes": [
+            "🌏 Mira now calls every lead during THEIR business hours — a New York spa gets called in New York's daytime, a Pune salon in India's, using the phone country code (and US area-code time zones)",
+            "🕙 Bulk calls & retries are smart — leads currently outside their local window aren't wasted; they're auto-scheduled for their next 10 AM local time",
+            "☎️ Morning callback redials and timed callbacks also follow the lead's local clock",
+        ],
+    },
     {
         "date": "2026-07-25 (International Dialing Fix)",
         "changes": [
