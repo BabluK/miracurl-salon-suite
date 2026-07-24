@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon } from "lucide-react";
+import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 import { catImage } from "@/lib/categoryImages";
@@ -21,6 +21,7 @@ export default function Services() {
   const [catImages, setCatImages] = useState({});
   const [catModal, setCatModal] = useState(null);
   const [catUrl, setCatUrl] = useState("");
+  const [genImg, setGenImg] = useState(false);
   const csvRef = useRef(null);
 
   async function saveCatImage() {
@@ -143,6 +144,21 @@ export default function Services() {
             className="btn-slate flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4" /> Import Makeup & Nails menu
+          </button>
+          <button
+            data-testid="generate-missing-images-btn"
+            onClick={async () => {
+              try {
+                const { data } = await api.post("/services/generate-missing-images");
+                if (!data.queued) { toast.info("Every service already has a photo ✦"); return; }
+                toast.success(`✨ Mira is painting ${data.queued} service photos${data.remaining ? ` (${data.remaining} more next run)` : ""} — they'll appear within a couple of minutes`);
+                setTimeout(load, 100000);
+              } catch { toast.error("Couldn't start Mira's photo studio — try again"); }
+            }}
+            className="btn-slate flex items-center gap-2"
+            title="Mira paints an on-brand photo for every service that has none, based on its category"
+          >
+            <Sparkles className="w-4 h-4 text-amber-500" /> Mira Photos
           </button>
           <button data-testid="add-service-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
             <Plus className="w-4 h-4" /> Add Service
@@ -293,6 +309,22 @@ export default function Services() {
                   }}
                   fallback={FALLBACK_IMG}
                 />
+                {editing && (
+                  <button type="button" data-testid="generate-service-image-btn" disabled={genImg}
+                    onClick={async () => {
+                      setGenImg(true);
+                      try {
+                        const { data } = await api.post(`/services/${editing.id}/generate-image`, {}, { timeout: 180000 });
+                        setForm(f => ({ ...f, image_url: data.image_url }));
+                        toast.success("✨ Mira painted a fresh photo for this service");
+                        load();
+                      } catch (err) { toast.error(err.response?.data?.detail || "Generation failed — try again"); }
+                      finally { setGenImg(false); }
+                    }}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-600 font-semibold hover:text-amber-700 disabled:opacity-50">
+                    {genImg ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is painting… (~30s)</> : <>✨ Let Mira paint this (based on category)</>}
+                  </button>
+                )}
               </div>
               <div><label className="label-light block mb-1">Description</label><textarea rows="2" className="input-light" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
               <label className="flex items-center gap-2 text-sm">

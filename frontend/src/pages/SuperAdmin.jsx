@@ -261,7 +261,7 @@ export default function SuperAdmin() {
       <header className="border-b border-indigo-900/40 bg-gradient-to-r from-slate-950 via-indigo-950 to-violet-950 sticky top-0 z-40 shadow-lg shadow-indigo-950/20">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="relative w-9 h-9 sm:w-11 sm:h-11 shrink-0 rounded-full bg-[#fdf7f2] flex items-center justify-center shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/60">
+            <div className="relative w-9 h-9 sm:w-11 sm:h-11 shrink-0 rounded-full bg-[#1c1c22] flex items-center justify-center shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/60">
               <img src="/brand/miracurl-rosegold-icon.png" alt="Miracurl" className="w-7 h-7 sm:w-8 sm:h-8 object-contain" draggable="false" />
               <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse" title="Systems online" />
             </div>

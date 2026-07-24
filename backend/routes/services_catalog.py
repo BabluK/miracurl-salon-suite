@@ -277,3 +277,72 @@ async def set_category_image(name: str, body: CategoryImageIn, user=Depends(requ
     await db.service_categories.update_one(
         {"name": name}, {"$set": {"name": name, "image_url": (body.image_url or "").strip()[:500]}}, upsert=True)
     return {"ok": True, "name": name, "image_url": (body.image_url or "").strip()[:500]}
+
+
+# ---------------- Mira Service Photo Studio (AI-generated service images) ----------------
+
+async def _generate_service_image_bytes(name: str, category: str) -> bytes:
+    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    gen = OpenAIImageGeneration(api_key=os.environ["EMERGENT_LLM_KEY"])
+    prompt = (f"Professional beauty-salon photograph for the service '{name}' in the category '{category}'. "
+              "Elegant premium salon setting, close-up of the treatment being performed, soft warm lighting, "
+              "rose-gold and cream tones, photorealistic, shallow depth of field. "
+              "Absolutely NO text, NO letters, NO watermarks, NO logos.")
+    imgs = await asyncio.wait_for(
+        gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+    if not imgs:
+        raise RuntimeError("empty generation")
+    return imgs[0]
+
+
+async def _store_service_image(tenant_id: str, img_bytes: bytes, name: str) -> str:
+    from services.storage import _put_object, APP_NAME
+    file_id = str(uuid.uuid4())
+    path = f"{APP_NAME}/tenants/{tenant_id}/service/{file_id}.png"
+    result = await asyncio.to_thread(_put_object, path, img_bytes, "image/png")
+    await _raw_db.uploads.insert_one({
+        "id": file_id, "tenant_id": tenant_id, "kind": "service",
+        "storage_path": result.get("path", path), "original_filename": f"mira-{name[:30]}.png",
+        "content_type": "image/png", "size": len(img_bytes), "uploaded_by": "mira-ai",
+        "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
+    return f"/api/files/{file_id}"
+
+
+@router.post("/services/generate-missing-images")
+async def generate_missing_service_images(user=Depends(require_admin)):
+    """Mira paints an on-brand photo (per category) for every service without one — 8 per run, background."""
+    svcs = await db.services.find(
+        {"$or": [{"image_url": ""}, {"image_url": None}]}, {"_id": 0}).to_list(200)
+    todo = svcs[:8]
+    if not todo:
+        return {"queued": 0, "remaining": 0}
+    tenant_id = _current_tenant_id.get()
+
+    async def _runner():
+        for s in todo:
+            try:
+                img = await _generate_service_image_bytes(s["name"], s.get("category") or "Beauty")
+                url = await _store_service_image(tenant_id, img, s["name"])
+                await _raw_db.services.update_one(
+                    {"id": s["id"], "tenant_id": tenant_id}, {"$set": {"image_url": url}})
+            except Exception as e:
+                logging.error(f"mira service image failed for {s.get('name')}: {e}")
+            await asyncio.sleep(1)
+
+    asyncio.get_event_loop().create_task(_runner())
+    return {"queued": len(todo), "remaining": max(0, len(svcs) - len(todo))}
+
+
+@router.post("/services/{sid}/generate-image")
+async def generate_service_image(sid: str, user=Depends(require_admin)):
+    svc = await db.services.find_one({"id": sid}, {"_id": 0})
+    if not svc:
+        raise HTTPException(404, "Service not found")
+    tenant_id = _current_tenant_id.get()
+    try:
+        img = await _generate_service_image_bytes(svc["name"], svc.get("category") or "Beauty")
+    except Exception as e:
+        raise HTTPException(502, f"Mira couldn't paint that one — please try again ({str(e)[:80]})")
+    url = await _store_service_image(tenant_id, img, svc["name"])
+    await db.services.update_one({"id": sid}, {"$set": {"image_url": url}})
+    return {"ok": True, "image_url": url}

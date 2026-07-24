@@ -23,7 +23,7 @@ export default function TenantBrandMark({ tenant }) {
       <span className="tenant-sparkle" style={{ bottom: "-2px", left: "2px", animationDelay: "0.9s" }}>✦</span>
       <span className="tenant-sparkle" style={{ top: "2px", right: "6px", animationDelay: "1.8s" }}>✦</span>
       {logo ? (
-        <img src={logo} alt={name || "Salon logo"} data-testid="tenant-logo-img" className="tenant-logo-glow w-9 h-9 rounded-xl object-cover flex-shrink-0 border border-white/15" />
+        <img src={logo} alt={name || "Salon logo"} data-testid="tenant-logo-img" className="tenant-logo-glow w-9 h-9 rounded-xl object-contain bg-[#14141a] p-0.5 flex-shrink-0 border border-white/15" />
       ) : (
         <div className="brand-pill tenant-logo-glow w-9 h-9 rounded-xl flex items-center justify-center relative overflow-hidden flex-shrink-0">
           <Scissors className="w-4 h-4 text-white brand-scissors relative z-10" />

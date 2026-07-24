@@ -2,10 +2,17 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-25.36"
-BUILD_TIME = "25 Jul 2026, 04:30 PM IST"
+BUILD = "2026-07-25.37"
+BUILD_TIME = "25 Jul 2026, 06:45 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-25 (Mira Photo Studio & Logo polish)",
+        "changes": [
+            "✨ Mira Photo Studio — hit 'Mira Photos' on the Service Menu and she paints an elegant on-brand photo for every service that has none, matched to its category (8 per run); or open any service and tap 'Let Mira paint this'",
+            "🎨 Logo polish — the Miracurl mark in the Super Admin header now sits on its dark brand circle (no more white disc), and salon logos in the sidebar get a framed dark backdrop",
+        ],
+    },
     {
         "date": "2026-07-25 (Services & Uploads polish)",
         "changes": [

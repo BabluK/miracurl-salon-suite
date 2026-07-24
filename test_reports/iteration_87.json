@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 87 — Billing regression + Mira Service Photo AI + Services fuzzy search + Super Admin logo verification. Backend: 6/6 pytest pass (invoice list, invoice create+math+persistence via list-lookup, services list, generate-missing-images shape {queued:8,remaining:X}, single-service generate-image round-trip returning /api/files/... served as image/png, upload /api/uploads/image?kind=service in <5s). Frontend: salon admin loads /pos (POS/Billing) fine with pos-page, pos-search, invoice grid rendered, tip presets & payment modes visible — no console errors. /services: services-search-input + generate-missing-images-btn ('Mira Photos') visible; typing 'mhair' fuzzy-filters 36→5 cards including Hair Cut - Men, Hair Cut - Women, Hair Color - Global, Keratin, Hair Styling. Opening edit-service-{id} pencil renders Edit Service modal with '✨ Let Mira paint this (based on category)' button (data-testid generate-service-image-btn) — not clicked (cost). Super Admin: header logo circle now has class 'rounded-full bg-[#1c1c22]' — computed bg rgb(28,28,34) — confirmed no longer white disc.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/invoices/{id}", "issue": "Returns 405 Method Not Allowed — only list endpoint exists. Not a regression but noted; tests fall back to list-lookup for persistence check."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Recharts on multiple pages", "issues": ["Recurring console warning: 'The width(-1) and height(-1) of chart should be greater than 0' — chart container renders before layout; consider minWidth/minHeight. Non-blocking."]},
+      {"screen": "Sidebar Select rendering", "issues": ["Hydration warning: <span> cannot be a child of <option> — coming from a branch/tenant selector. Non-blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_billing_and_mira_services.py",
+    "/app/test_reports/pytest/iter87.xml"
+  ],
+  "action_items": [
+    "(Optional) Add GET /api/invoices/{id} endpoint for direct fetch — currently only list is exposed.",
+    "(Optional) Fix Recharts min-size warnings and the <span> inside <option> hydration warning in the branch selector."
+  ],
+  "critical_code_review_comments": [
+    "services_catalog._generate_service_image_bytes uses os.environ['EMERGENT_LLM_KEY'] (KeyError if unset). Wrap with os.environ.get + 500 error like other services.",
+    "generate-missing-images runner uses asyncio.get_event_loop().create_task — deprecated in Py3.10+; prefer asyncio.create_task() inside a running loop or a BackgroundTasks dependency.",
+    "InvoiceIn.tax_pct default 18.0 is hardcoded — should come from tenant settings for GST correctness across tenants."
+  ],
+  "updated_files": ["/app/backend/tests/test_billing_and_mira_services.py"],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL with X-Tenant-Slug: miracurl-marathahalli; super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "One test invoice was created against the seeded first customer + first service (qty=2). Attempted best-effort DELETE /api/invoices/{id} (405 — endpoint absent), so the test invoice remains in the DB. Also, one Mira service image was generated (used ~1 image credit) as explicitly permitted; the generated image_url is now attached to a previously image-less service.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression suite at /app/backend/tests/test_billing_and_mira_services.py covers billing math + Mira image gen + upload. Note: single-service image generation is expensive (~15-30s + LLM cost) — skip or deselect ::test_generate_single_service_image unless explicitly required. /pos is the billing route (not /billing). Frontend testids: pos-page, pos-search, services-search-input, service-card-{id}, edit-service-{id}, generate-missing-images-btn, generate-service-image-btn."
+}
