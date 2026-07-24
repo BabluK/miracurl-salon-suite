@@ -1265,6 +1265,7 @@ async def run_lead_heat_refresh(limit: int = 150) -> dict:
     leads = await _raw_db.mira_leads.find(
         {"do_not_call": {"$ne": True}}, {"_id": 0}).sort("heat_refreshed_at", 1).to_list(limit)
     refreshed = hotter = 0
+    risers = []
     async with httpx.AsyncClient() as client:
         for lead in leads:
             try:
@@ -1287,7 +1288,13 @@ async def run_lead_heat_refresh(limit: int = 150) -> dict:
             upd["score"], upd["score_breakdown"] = _score({**lead, **upd})
             if upd["score"] > old_score:
                 hotter += 1
+                risers.append({"name": lead.get("name") or "", "city": lead.get("city") or "",
+                               "from": old_score, "to": upd["score"]})
             await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": upd})
             refreshed += 1
             await asyncio.sleep(0.3)
+    risers.sort(key=lambda r: r["to"] - r["from"], reverse=True)
+    await _raw_db.platform_settings.update_one(
+        {"key": "lead_heat_risers"},
+        {"$set": {"risers": risers[:5], "ran_at": _now(), "announced": not risers}}, upsert=True)
     return {"refreshed": refreshed, "hotter": hotter}

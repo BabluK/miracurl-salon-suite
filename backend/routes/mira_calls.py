@@ -153,9 +153,13 @@ _SALES_CONTEXT = (
     "LANGUAGE: a 'Current language' line is provided. If it is 'hi', reply ONLY in Hindi (Devanagari script). "
     "If the owner speaks Hindi (or asks for Hindi) while current language is 'en', SWITCH — reply in Hindi. "
     "If they ask for English, switch back. Always set \"lang\" to the language of YOUR reply. "
+    "CALLBACK TIME: if the owner asks to be called at a SPECIFIC time (e.g. 'call after 4 PM', 'tomorrow morning', "
+    "'कल शाम को'), set action='callback' AND set \"callback_at\" to that moment in IST as \"YYYY-MM-DDTHH:MM\", "
+    "computed from the 'Current time' line (morning=10:00, afternoon=14:00, evening=18:00 when vague). "
+    "If no specific time was mentioned, leave callback_at empty. "
     "Decide an action: 'continue' (keep talking), 'send_pack' (they agreed to receive details/demo/trial by email), "
     "'callback' (busy, call later), 'optout' (do not call again), 'end' (goodbye). "
-    'Respond ONLY JSON: {"say":"<spoken reply>","action":"continue|send_pack|callback|optout|end","lang":"en|hi"}')
+    'Respond ONLY JSON: {"say":"<spoken reply>","action":"continue|send_pack|callback|optout|end","lang":"en|hi","callback_at":""}')
 
 
 _CLOSERS = {
@@ -175,7 +179,7 @@ async def _converse(c: dict, lead: dict, speech: str) -> Response:
     convo.append({"role": "lead", "text": speech[:300]})
     turns = len([m for m in convo if m["role"] == "lead"])
     lang = c.get("lang") or "en"
-    say, action = "", "continue"
+    say, action, cb_at = "", "continue", ""
     try:
         chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-call-{call_id}",
                        system_message=_SALES_CONTEXT).with_model("openai", "gpt-4o-mini")
@@ -183,6 +187,7 @@ async def _converse(c: dict, lead: dict, speech: str) -> Response:
         raw = await chat.send_message(UserMessage(
             text=f"Salon: {lead.get('name') if lead else 'a salon'} ({(lead or {}).get('city') or 'India'}). "
                  f"Lead has email on file: {bool((lead or {}).get('email'))}.\n"
+                 f"Current time: {datetime.now(_IST).strftime('%A %d %B %Y, %I:%M %p')} IST.\n"
                  f"Current language: {lang}.\n"
                  f"Conversation so far:\n{history}\n\nOwner just said: \"{speech}\". Reply as Mira."))
         m = re.search(r"\{.*\}", str(raw), re.S)
@@ -190,6 +195,13 @@ async def _converse(c: dict, lead: dict, speech: str) -> Response:
         say = str(d.get("say") or "")[:400]
         action = d.get("action") if d.get("action") in ("continue", "send_pack", "callback", "optout", "end") else "continue"
         lang = d.get("lang") if d.get("lang") in ("en", "hi") else lang
+        cb_raw = str(d.get("callback_at") or "").strip()
+        if action == "callback" and cb_raw:
+            try:
+                dt = datetime.strptime(cb_raw[:16], "%Y-%m-%dT%H:%M")
+                cb_at = (dt.replace(tzinfo=timezone.utc) - timedelta(hours=5, minutes=30)).isoformat()
+            except ValueError:
+                cb_at = ""
     except Exception as e:
         log.error(f"converse LLM failed: {e}")
         say, action = ("यह अच्छा सवाल है — सबसे आसान तरीका है हमारा फ्री डेमो और सात दिन का ट्रायल।"
@@ -207,9 +219,13 @@ async def _converse(c: dict, lead: dict, speech: str) -> Response:
         asyncio.get_event_loop().create_task(_fulfil_interest(c["lead_id"]))
         return _xml(said + _say(_CLOSERS["send_pack"][lang], lang) + "<Hangup/>")
     if action == "callback":
-        await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"result": "callback"}})
-        await _raw_db.mira_leads.update_one(
-            {"id": c["lead_id"]}, {"$set": {"call_result": "callback", "last_call_at": _now()}})
+        await _raw_db.mira_call_logs.update_one(
+            {"id": call_id}, {"$set": {"result": "callback", **({"callback_at": cb_at} if cb_at else {})}})
+        upd = {"call_result": "callback", "last_call_at": _now()}
+        if cb_at:
+            upd["callback_at"] = cb_at
+            upd["callback_redialed"] = False
+        await _raw_db.mira_leads.update_one({"id": c["lead_id"]}, {"$set": upd})
         return _xml(said + "<Hangup/>")
     if action == "optout":
         await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"result": "opt_out"}})
@@ -387,11 +403,36 @@ async def _start_call(lead: dict, base: str) -> dict:
         return {"ok": False, "error": str(e)[:200]}
 
 
+async def run_timed_callbacks() -> int:
+    """Dial leads whose owner asked for a specific callback time, once that time arrives."""
+    now = datetime.now(timezone.utc).isoformat()
+    leads = await _raw_db.mira_leads.find(
+        {"call_result": "callback", "callback_at": {"$nin": ["", None], "$lte": now},
+         "do_not_call": {"$ne": True}, "phone": {"$nin": ["", None]},
+         "callback_redialed": {"$ne": True}}, {"_id": 0}).to_list(10)
+    if not leads:
+        return 0
+    last = await _raw_db.mira_call_logs.find_one(
+        {"webhook_base": {"$nin": ["", None]}}, {"_id": 0, "webhook_base": 1}, sort=[("created_at", -1)])
+    base = (last or {}).get("webhook_base") or os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    if not base:
+        return 0
+    n = 0
+    for lead in leads:
+        await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"callback_redialed": True}})
+        res = await _start_call(lead, base)
+        if res.get("ok"):
+            n += 1
+        await asyncio.sleep(2)
+    return n
+
+
 async def run_callback_redials() -> int:
-    """Next-morning auto re-dial for 'call back later' leads (once per lead, called by scheduler)."""
+    """Next-morning auto re-dial for 'call back later' leads WITHOUT a specific time (once per lead)."""
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=14)).isoformat()
     leads = await _raw_db.mira_leads.find(
         {"call_result": "callback", "do_not_call": {"$ne": True}, "phone": {"$nin": ["", None]},
+         "callback_at": {"$in": ["", None]},
          "callback_redialed": {"$ne": True}, "last_call_at": {"$lt": cutoff}}, {"_id": 0}).to_list(15)
     if not leads:
         return 0
@@ -595,8 +636,12 @@ async def _hq_snapshot() -> dict:
         {"created_at": {"$gte": today}, "status": "failed"}, {"_id": 0, "error": 1}).to_list(300)
     drafted_ready = await _raw_db.mira_leads.count_documents(
         {"status": {"$in": ["drafted", "researched"]}, "email": {"$nin": ["", None]}})
+    rd = await _raw_db.platform_settings.find_one({"key": "lead_heat_risers"}, {"_id": 0}) or {}
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    heated = (rd.get("risers") or [])[:3] if (rd.get("ran_at") or "") >= week_ago else []
     return {"hot_leads": hot, "call_interested": call_interested,
             "callable_hot_leads_with_phone": callable_hot,
+            "leads_heated_up_this_week": heated,
             "mira_calls_made_total": calls_total, "mira_calls_made_today": calls_today,
             "calls_failed_today": len(failed_today),
             "top_call_failure_reason": _friendly_error(next((c.get("error") for c in failed_today if c.get("error")), "")) if failed_today else "",
@@ -651,7 +696,14 @@ async def mira_briefing(user=Depends(require_super_admin)):
         suggestion = f" Tip: {_n(snap['emails_drafted_awaiting_your_approval'], 'personalized email is', 'personalized emails are')} drafted and waiting for your approval."
     elif not calls_today and snap["callable_hot_leads_with_phone"]:
         suggestion = f" Tip: {snap['callable_hot_leads_with_phone']} hot leads are ready to call — just say 'call the hot leads'."
-    text = (f"Hey Miracurl! {_tod_greeting()}! {summary}.{call_report}{suggestion} "
+    heat_note = ""
+    rd = await _raw_db.platform_settings.find_one({"key": "lead_heat_risers"}, {"_id": 0}) or {}
+    if rd.get("risers") and not rd.get("announced"):
+        top = rd["risers"][0]
+        heat_note = (f" 🔥 Heat alert: {_n(len(rd['risers']), 'lead', 'leads')} got hotter after my weekly refresh — "
+                     f"top mover: {top['name']} jumped from {top['from']} to {top['to']}. Worth a call!")
+        await _raw_db.platform_settings.update_one({"key": "lead_heat_risers"}, {"$set": {"announced": True}})
+    text = (f"Hey Miracurl! {_tod_greeting()}! {summary}.{call_report}{heat_note}{suggestion} "
             f"How may I help you today — what details do you want me to show?")
     return {"text": text, "data": snap}
 

@@ -961,3 +961,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - run_lead_heat_refresh() in lead_gen.py: re-queries Google Places per lead (reviews/rating/website/phone), re-scores via _score; _lead_heat_scheduler Sundays ≥08:00 IST (system_flags lead_heat_refresh, weekly) — verified live refresh of 2 leads
 - run_callback_redials() in mira_calls.py: callback leads (once per lead, callback_redialed flag) re-dialed via _callback_redial_scheduler daily ≥10:30 IST (system_flags mira_callback_redial) — verified dial attempt + idempotency
 - Both schedulers registered in server.py startup. release_notes BUILD 2026-07-24.31. Production on .30? (last deploy was .28+; needs redeploy for .29/.30/.31)
+
+## 2026-07-24 — Callback Time Memory + Hot List Alerts (user request, tested via direct function calls)
+- _converse extracts "callback_at" (IST→UTC) when owner names a time ("call after 4 PM" → 10:30Z verified); stored on lead + call log; Call History shows ⏰ line
+- run_timed_callbacks() dials due timed callbacks (once, callback_redialed flag); _callback_redial_scheduler now every 15 min (timed 08–21 IST + daily 10:30 untimed)
+- run_lead_heat_refresh collects risers → platform_settings.lead_heat_risers {risers, announced}; mira_briefing announces once ("🔥 Heat alert… top mover jumped 55→75"); _hq_snapshot exposes leads_heated_up_this_week
+- release_notes BUILD 2026-07-24.32. Production behind — needs redeploy.

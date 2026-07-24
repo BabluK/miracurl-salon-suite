@@ -212,6 +212,7 @@ function CallHistoryPanel() {
                 <span className="ml-auto text-[10px] text-slate-400">{new Date(c.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
               </div>
               {c.error_friendly && <p className="text-[10px] text-rose-500 mt-1">⚠ {c.error_friendly}</p>}
+              {c.callback_at && <p className="text-[10px] text-amber-600 mt-0.5" data-testid={`callback-time-${c.id}`}>⏰ Owner asked to call back: {new Date(c.callback_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>}
               {c.recording_url && <RecordingPlayer callId={c.id} duration={c.recording_duration} />}
               {c.convo?.length > 0 && (
                 <button onClick={() => setExpand(expand === c.id ? "" : c.id)} data-testid={`call-transcript-btn-${c.id}`}

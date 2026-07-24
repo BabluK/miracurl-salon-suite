@@ -320,11 +320,15 @@ async def _lead_heat_scheduler() -> None:
 
 
 async def _callback_redial_scheduler() -> None:
-    """Daily after 10:30 IST: Mira re-dials yesterday's 'call back later' leads once. Idempotent per day."""
-    from routes.mira_calls import run_callback_redials
+    """Every 15 min: dial due timed callbacks (08–21 IST); daily after 10:30 IST re-dial untimed callback leads."""
+    from routes.mira_calls import run_callback_redials, run_timed_callbacks
     while True:
         try:
             ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if 8 <= ist_now.hour <= 21:
+                timed = await run_timed_callbacks()
+                if timed:
+                    logging.info(f"timed callbacks dialed: {timed}")
             if (ist_now.hour, ist_now.minute) >= (10, 30):
                 period = ist_now.strftime("%Y-%m-%d")
                 flag = await _raw_db.system_flags.find_one({"key": "mira_callback_redial"})
@@ -338,4 +342,4 @@ async def _callback_redial_scheduler() -> None:
                         logging.info(f"callback redials {period}: {n}")
         except Exception as e:
             logging.error(f"callback redial scheduler error: {e}")
-        await asyncio.sleep(1800)
+        await asyncio.sleep(900)

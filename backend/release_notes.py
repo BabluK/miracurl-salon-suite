@@ -2,10 +2,17 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-24.31"
-BUILD_TIME = "24 Jul 2026, 10:00 PM IST"
+BUILD = "2026-07-24.32"
+BUILD_TIME = "24 Jul 2026, 11:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-24 (Callback Memory & Heat Alerts)",
+        "changes": [
+            "⏰ Callback time memory — when an owner says 'call after 4 PM' (or 'कल शाम को'), Mira notes the exact time and dials back precisely then (8 AM–9 PM), not just next morning; the requested time shows in Call History",
+            "🔥 Hot list alerts — after the weekly heat refresh Mira announces the leads whose scores jumped ('top mover: X jumped from 55 to 75 — worth a call!') in her greeting, and knows them when you ask",
+        ],
+    },
     {
         "date": "2026-07-24 (Hindi HQ, Heat Refresh & Callbacks)",
         "changes": [
