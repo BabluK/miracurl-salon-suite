@@ -1021,3 +1021,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Category sync fix: allCats = services categories ∪ banner categories (catImages) — new categories appear instantly, counts always live from list
 - Verified: Ctrl+K focus, text color rgb(15,23,42), debounce filter (keratin→1), clear btn, 9 chips incl. user-created "TEST"
 - release_notes BUILD 2026-07-25.39. Needs redeploy.
+
+## 2026-07-25 — All created categories visible everywhere (surgical fix, verified)
+- public_services query changed {"active": True} → {"active": {"$ne": False}} so services without the explicit flag (CSV/imports) and their categories can't vanish from the booking page
+- Booking page already appends non-preset categories after CATEGORY_ORDER; admin chips merge services ∪ banner cats (previous fix)
+- Verified: /api/public/services returns ALL 8 categories incl. user-created "TEST"; booking page renders it. NOTHING else changed per user request.
+- Ships with BUILD 2026-07-25.39 (no separate bump). Needs redeploy.

@@ -148,7 +148,7 @@ async def public_services(slug: str):
     await resolve_tenant_from_slug(slug)
     from routes.packages import _service_gender
     rows = await db.services.find(
-        {"active": True, "bookable_online": {"$ne": False}}, {"_id": 0}).sort("category", 1).to_list(500)
+        {"active": {"$ne": False}, "bookable_online": {"$ne": False}}, {"_id": 0}).sort("category", 1).to_list(500)
     for s in rows:
         s["gender"] = _service_gender(s)
     return rows
