@@ -3,6 +3,7 @@ import os
 import json
 import uuid
 import base64
+import random
 import asyncio
 import logging
 from datetime import datetime, timezone
@@ -23,14 +24,35 @@ def _key() -> str:
     return k
 
 
+# Global guard: max concurrent LLM calls + retry with backoff on transient/rate-limit errors.
+_LLM_SEM = asyncio.Semaphore(4)
+
+
+def _llm_retryable(e: Exception) -> bool:
+    s = str(e).lower()
+    if "budget has been exceeded" in s or "safety" in s:
+        return False
+    return any(k in s for k in ("rate limit", "ratelimit", "429", "overloaded", "timeout",
+                                "timed out", "temporarily", "connection", "502", "503"))
+
+
 async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session: str = "") -> str:
-    chat = LlmChat(
-        api_key=_key(),
-        session_id=session or f"mira-studio-{uuid.uuid4().hex[:10]}",
-        system_message=system,
-    ).with_model("openai", model)
-    resp = await chat.send_message(UserMessage(text=prompt))
-    return (resp or "").strip()
+    for attempt in range(4):
+        try:
+            async with _LLM_SEM:
+                chat = LlmChat(
+                    api_key=_key(),
+                    session_id=session or f"mira-studio-{uuid.uuid4().hex[:10]}",
+                    system_message=system,
+                ).with_model("openai", model)
+                resp = await chat.send_message(UserMessage(text=prompt))
+            return (resp or "").strip()
+        except Exception as e:
+            if attempt == 3 or not _llm_retryable(e):
+                raise
+            wait = (2 ** attempt) * 2 + random.uniform(0, 1.5)
+            log.warning("LLM call failed (attempt %d, retrying in %.1fs): %s", attempt + 1, wait, str(e)[:160])
+            await asyncio.sleep(wait)
 
 
 async def _ask_json(system: str, prompt: str) -> dict:

@@ -48,7 +48,7 @@ export default function GiftCardPublic() {
   const [occKey, setOccKey] = useState("birthday");
   const [amount, setAmount] = useState(0);
   const [custom, setCustom] = useState("");
-  const [f, setF] = useState({ buyer_name: "", buyer_email: "", buyer_phone: "", recipient_name: "", recipient_email: "", message: "" });
+  const [f, setF] = useState({ buyer_name: "", buyer_email: "", buyer_phone: "", recipient_name: "", recipient_email: "", recipient_whatsapp: "", message: "" });
   const [sendLater, setSendLater] = useState(false);
   const [sendOn, setSendOn] = useState("");
   const [busy, setBusy] = useState(false);
@@ -163,6 +163,12 @@ export default function GiftCardPublic() {
                     : <>The e-gift card is on its way to <b className="text-white">{f.recipient_email}</b>. Code: <b className="font-mono text-gold">{done.code}</b></>}
                   {" "}Valid till {done.expires_at}.
                 </p>
+                {done.whatsapp_url && (
+                  <a href={done.whatsapp_url} target="_blank" rel="noreferrer" data-testid="gift-whatsapp-send-btn"
+                    className="inline-flex items-center gap-2 mt-5 bg-[#25D366] hover:bg-[#1fbd5a] text-black font-bold rounded-full px-6 py-3 text-sm transition-colors">
+                    💬 Send it to {f.recipient_name || "them"} on WhatsApp
+                  </a>
+                )}
               </>
             )}
             <Link to={`/book/${slug}`} className="btn-gold inline-flex items-center gap-2 mt-6">Book an appointment <Sparkles className="w-4 h-4" /></Link>
@@ -225,6 +231,7 @@ export default function GiftCardPublic() {
                   <div className="h-px bg-white/10 my-1" />
                   <input value={f.recipient_name} onChange={set("recipient_name")} placeholder="Recipient's name *" data-testid="gift-recipient-name" className={inputCls} />
                   <input type="email" value={f.recipient_email} onChange={set("recipient_email")} placeholder="Recipient's email * (card is sent here)" data-testid="gift-recipient-email" className={inputCls} />
+                  <input type="tel" value={f.recipient_whatsapp} onChange={set("recipient_whatsapp")} placeholder="Recipient's WhatsApp (optional — send it there too 💬)" data-testid="gift-recipient-whatsapp" className={inputCls} />
                   <textarea rows={2} maxLength={400} value={f.message} onChange={set("message")} placeholder={`Personal message — e.g. "Happy ${occ?.label || "day"}! Treat yourself 💛"`} data-testid="gift-message" className={inputCls} />
                   <div className="flex items-center gap-3 pt-1">
                     <button onClick={() => setSendLater(false)} data-testid="gift-send-now"

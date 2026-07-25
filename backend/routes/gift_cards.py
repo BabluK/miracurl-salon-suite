@@ -8,6 +8,7 @@ import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+from urllib.parse import quote
 
 import razorpay as _razorpay
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -101,6 +102,7 @@ class GiftOrderIn(BaseModel):
     buyer_phone: str = ""
     recipient_name: str
     recipient_email: str
+    recipient_whatsapp: str = ""
     message: str = ""
     send_on: str = ""  # "" = now, else YYYY-MM-DD
     pay_method: str  # razorpay | upi
@@ -164,6 +166,7 @@ async def gift_card_order(slug: str, body: GiftOrderIn, request: Request):
           "buyer_phone": re.sub(r"\D", "", body.buyer_phone)[:15],
           "recipient_name": body.recipient_name.strip()[:80],
           "recipient_email": body.recipient_email.strip().lower(),
+          "recipient_whatsapp": re.sub(r"\D", "", body.recipient_whatsapp)[:15],
           "message": body.message.strip()[:400], "send_on": body.send_on,
           "pay_method": body.pay_method, "status": "pending_payment",
           "validity_days": s["validity_days"], "created_at": _now()}
@@ -228,15 +231,36 @@ async def _issue_gift_card(gcid: str) -> dict:
         {"id": gcid}, {"$set": {"code": code, "status": status, "expires_at": expires,
                                 "issued_at": _now()}})
     gc.update({"code": code, "status": status, "expires_at": expires})
+    wa_url = "" if scheduled else _gift_whatsapp_url(gc, t)
     if not scheduled:
         await _email_gift_card(gc, t)
-    await _email_buyer_receipt(gc, t, scheduled)
+    await _email_buyer_receipt(gc, t, scheduled, wa_url)
     return {"ok": True, "status": status, "code": code if not scheduled else "",
-            "expires_at": expires, "send_on": gc.get("send_on") or ""}
+            "expires_at": expires, "send_on": gc.get("send_on") or "", "whatsapp_url": wa_url}
 
 
 def _cur(gc: dict) -> str:
     return "₹" if (gc.get("currency") or "INR") == "INR" else "$"
+
+
+def _gift_whatsapp_url(gc: dict, t: dict) -> str:
+    """wa.me deep link that delivers the gift card straight to the recipient's WhatsApp."""
+    digits = gc.get("recipient_whatsapp") or ""
+    if not digits or not gc.get("code"):
+        return ""
+    wa_phone = digits if len(digits) > 10 else f"91{digits}"
+    occ = _OCC.get(gc["occasion"], _OCC["just-because"])
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    salon = t.get("name") or "the salon"
+    msg = (f"{occ['emoji']} Hi {gc['recipient_name']}! {gc['buyer_name']} sent you a "
+           f"{occ['label']} gift card for {salon} worth {_cur(gc)}{gc['amount']:g}! 🎁\n\n")
+    if gc.get("message"):
+        msg += f"💌 \"{gc['message']}\"\n\n"
+    msg += (f"🎟 Gift card code: {gc['code']}\n"
+            f"⏳ Valid till {gc.get('expires_at')}\n\n"
+            f"Show this code at {salon} to redeem it on any service ✂️✨\n"
+            f"Book your visit: {base}/book/{gc['tenant_slug']}")
+    return f"https://wa.me/{wa_phone}?text={quote(msg)}"
 
 
 def _ecard_html(gc: dict, t: dict) -> str:
@@ -288,10 +312,13 @@ async def _email_gift_card(gc: dict, t: dict) -> None:
         {"id": gc["id"]}, {"$set": {"recipient_email_sent": bool(res.get("sent")), "sent_at": _now()}})
 
 
-async def _email_buyer_receipt(gc: dict, t: dict, scheduled: bool) -> None:
+async def _email_buyer_receipt(gc: dict, t: dict, scheduled: bool, wa_url: str = "") -> None:
     from email_service import _send_email
     when = (f"It will be delivered to {html_lib.escape(gc['recipient_name'])} on <b>{gc['send_on']}</b> as scheduled."
             if scheduled else f"It has been emailed to <b>{html_lib.escape(gc['recipient_email'])}</b>.")
+    wa_btn = (f"""<p style="margin-top:18px"><a href="{wa_url}" style="background:#25D366;color:#fff;
+        text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">
+        💬 Send it to {html_lib.escape(gc['recipient_name'])} on WhatsApp too</a></p>""" if wa_url else "")
     await _send_email(
         [gc["buyer_email"]], f"🎁 Your gift card for {gc['recipient_name']} is confirmed",
         f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
@@ -299,6 +326,7 @@ async def _email_buyer_receipt(gc: dict, t: dict, scheduled: bool) -> None:
         <p>Hi {html_lib.escape(gc['buyer_name'])}, your <b>{_cur(gc)}{gc['amount']:g}</b>
         {_OCC.get(gc['occasion'], _OCC['just-because'])['label']} gift card for
         <b>{html_lib.escape(t.get('name') or '')}</b> is confirmed. {when}</p>
+        {wa_btn}
         <p style="font-size:12px;color:#888">Valid till {gc.get('expires_at')} · Redeemable in-salon against any services.</p>
         </div>""")
 

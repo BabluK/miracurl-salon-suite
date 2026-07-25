@@ -1034,3 +1034,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - send_weekly_win_report() in mira_calls.py + _weekly_win_scheduler (Mon ≥9 IST, ISO-week idempotent via platform_settings mira_weekly_win): calls/answered/demos/callbacks-kept/new-leads/emails/failed/hot stats + demo list + heat risers; force-send verified — email delivered
 - NOTE: prod lead-research "OpenAIException - B[udget]" failures were Universal Key budget exhaustion BEFORE user recharge; key verified working now — user should re-run research for skipped leads
 - release_notes BUILD 2026-07-26.40. Needs redeploy.
+
+## 2026-07-25 — LLM rate-limit hardening + WhatsApp Gifting
+- mira_common.py `_ask`: global Semaphore(4) caps concurrent LLM calls; 4-attempt exponential backoff (2s/4s/8s + jitter) on transient errors (429/rate limit/timeout/502/503/overloaded). Non-retryable: budget-exceeded & safety rejections. Covers all _ask_json users (lead_gen drafts, day_offers, etc.)
+- WhatsApp Gifting: GiftOrderIn.recipient_whatsapp (optional, digits normalized, 10-digit → +91 like appt convention). `_gift_whatsapp_url()` builds wa.me deep link w/ occasion emoji, code, expiry, personal msg, booking link. Returned as `whatsapp_url` from _issue_gift_card (instant issues only, not scheduled — avoids code leak before send_on). Buyer receipt email gets green "Send on WhatsApp" button (covers UPI flow issued later by admin confirm). Frontend: gift-recipient-whatsapp input + gift-whatsapp-send-btn on success screen.
+- Verified: curl order E2E (stored+normalized phone, issue returns wa.me/91... URL), UI field renders, retryable-classifier unit-tested.
