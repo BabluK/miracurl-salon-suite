@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from database import db, _raw_db
 from security import require_super_admin
@@ -147,9 +148,29 @@ async def hq_notifications(user=Depends(require_super_admin)):
     since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     items = ((await _hiring_items(since)) + (await _message_items(since)) + (await _tenant_items(since))
              + (await _fee_items(since)) + (await _demo_items(since)) + (await _verify_items(since)))
+    reads = {r["id"]: r async for r in _raw_db.hq_notification_reads.find({}, {"_id": 0})}
+    items = [i for i in items if not (reads.get(i["id"]) or {}).get("dismissed")]
+    for i in items:
+        if i["id"] in reads:
+            i["unread"] = False
     items.sort(key=lambda x: x.get("at") or "", reverse=True)
     unread = sum(1 for i in items if i.get("unread"))
     return {"items": items[:80], "unread": unread}
+
+
+class NotifReadIn(BaseModel):
+    ids: list = []
+    dismiss: bool = False
+
+
+@router.post("/super-admin/notifications/mark-read")
+async def mark_notifications_read(body: NotifReadIn, user=Depends(require_super_admin)):
+    now = datetime.now(timezone.utc).isoformat()
+    ids = [str(i)[:80] for i in body.ids[:200]]
+    for nid in ids:
+        await _raw_db.hq_notification_reads.update_one(
+            {"id": nid}, {"$set": {"id": nid, "dismissed": body.dismiss, "read_at": now}}, upsert=True)
+    return {"ok": True, "count": len(ids)}
 
 
 async def _fee_items(since: str) -> list:

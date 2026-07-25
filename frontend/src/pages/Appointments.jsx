@@ -178,8 +178,8 @@ export default function Appointments() {
               <LayoutGrid className="w-3.5 h-3.5" /> Week
             </button>
           </div>
-          {view === "list" && (
-            <div className="relative">
+          {view !== "week" && (
+            <div className={`relative ${view === "upcoming" ? "invisible pointer-events-none" : ""}`} aria-hidden={view === "upcoming"}>
               <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input type="date" data-testid="appt-date-filter" className="input-light pl-10" value={date} onChange={e => setDate(e.target.value)} />
             </div>

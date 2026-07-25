@@ -350,6 +350,23 @@ async def generate_service_image(sid: str, user=Depends(require_admin)):
     return {"ok": True, "image_url": url}
 
 
+class ImagePreviewIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+    category: str = ""
+
+
+@router.post("/services/generate-image-preview")
+async def generate_service_image_preview(body: ImagePreviewIn, user=Depends(require_admin)):
+    """Paint an image for a NOT-yet-saved service (New Service modal) — returns the url to attach."""
+    tenant_id = _current_tenant_id.get()
+    try:
+        img = await _generate_service_image_bytes(body.name.strip(), body.category.strip() or "Beauty")
+    except Exception as e:
+        raise HTTPException(502, f"Mira couldn't paint that one — please try again ({str(e)[:80]})")
+    url = await _store_service_image(tenant_id, img, body.name.strip())
+    return {"ok": True, "image_url": url}
+
+
 class CategoryRenameIn(BaseModel):
     old: str = Field(..., min_length=1, max_length=60)
     new: str = Field(..., min_length=1, max_length=60)

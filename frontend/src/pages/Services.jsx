@@ -5,8 +5,7 @@ import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 import { catImage } from "@/lib/categoryImages";
 
-// Must match the booking page category tabs (BookPublic.steps.jsx CATEGORY_ORDER)
-const CATS = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup", "Nails"];
+// Categories are fully dynamic — pulled from the salon's own services + created banners
 const NEW_CAT = "__new__";
 const FALLBACK_IMG = "https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400";
 
@@ -98,7 +97,12 @@ export default function Services() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  function startNew() { setEditing(null); setNewCat(false); setForm({ name: "", category: activeCat !== "All" ? activeCat : "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true }); setOpen(true); }
+  function startNew() {
+    const defCat = activeCat !== "All" ? activeCat : (allCats[0] || "");
+    setEditing(null); setNewCat(!defCat);
+    setForm({ name: "", category: defCat, price: "", duration_min: "", description: "", image_url: "", trending: false, active: true, bookable_online: true });
+    setOpen(true);
+  }
   function startEdit(s) { setEditing(s); setNewCat(false); setForm({ ...s, price: s.price, duration_min: s.duration_min }); setOpen(true); }
 
   async function save(e) {
@@ -150,12 +154,13 @@ export default function Services() {
   }
 
   const byCategory = useMemo(() => list.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {}), [list]);
-  const catOptions = [...CATS, ...Object.keys(byCategory).filter(c => !CATS.includes(c)).sort()];
   // Dynamic categories: every category found on services PLUS ones created via banners — always in sync, no refresh needed
   const allCats = useMemo(() => {
     const set = new Set([...Object.keys(byCategory), ...Object.keys(catImages || {})]);
     return [...set].filter(Boolean).sort((a, b) => (byCategory[b]?.length || 0) - (byCategory[a]?.length || 0));
   }, [byCategory, catImages]);
+  // Modal dropdown shows ONLY the salon's own categories (created/added) — no hardcoded list
+  const catOptions = allCats;
 
   const filtered = useMemo(() => {
     const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -385,7 +390,7 @@ export default function Services() {
                   {newCat ? (
                     <div className="flex gap-1">
                       <input data-testid="service-new-category-input" autoFocus className="input-light" placeholder="e.g. Spa" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} />
-                      <button type="button" data-testid="service-new-category-cancel" onClick={() => { setNewCat(false); setForm({ ...form, category: "Skin" }); }} className="text-slate-400 hover:text-slate-600 px-1" title="Back to list"><X className="w-4 h-4" /></button>
+                      <button type="button" data-testid="service-new-category-cancel" onClick={() => { setNewCat(false); setForm({ ...form, category: catOptions[0] || "" }); }} className="text-slate-400 hover:text-slate-600 px-1" title="Back to list"><X className="w-4 h-4" /></button>
                     </div>
                   ) : (
                     <select data-testid="service-category-select" className="input-light" value={form.category}
@@ -417,22 +422,25 @@ export default function Services() {
                   }}
                   fallback={FALLBACK_IMG}
                 />
-                {editing && (
+                {editing || !form.image_url ? (
                   <button type="button" data-testid="generate-service-image-btn" disabled={genImg}
                     onClick={async () => {
+                      if (!editing && !form.name.trim()) { toast.error("Enter the service name first — Mira paints from it"); return; }
                       setGenImg(true);
                       try {
-                        const { data } = await api.post(`/services/${editing.id}/generate-image`, {}, { timeout: 180000 });
+                        const { data } = editing
+                          ? await api.post(`/services/${editing.id}/generate-image`, {}, { timeout: 180000 })
+                          : await api.post("/services/generate-image-preview", { name: form.name.trim(), category: form.category.trim() || "Beauty" }, { timeout: 180000 });
                         setForm(f => ({ ...f, image_url: data.image_url }));
-                        toast.success("✨ Mira painted a fresh photo for this service");
-                        load();
+                        toast.success(editing ? "✨ Mira painted a fresh photo for this service" : "✨ Mira painted it — saves with the service");
+                        if (editing) load();
                       } catch (err) { toast.error(err.response?.data?.detail || "Generation failed — try again"); }
                       finally { setGenImg(false); }
                     }}
                     className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-600 font-semibold hover:text-amber-700 disabled:opacity-50">
                     {genImg ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is painting… (~30s)</> : <>✨ Let Mira paint this (based on category)</>}
                   </button>
-                )}
+                ) : null}
               </div>
               <div><label className="label-light block mb-1">Description</label><textarea rows="2" className="input-light" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
               <label className="flex items-center gap-2 text-sm">

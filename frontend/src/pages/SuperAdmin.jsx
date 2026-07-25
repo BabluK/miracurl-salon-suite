@@ -343,7 +343,7 @@ export default function SuperAdmin() {
 
         {(() => {
           const panels = {
-            notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} />,
+            notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} onRefresh={() => api.get("/super-admin/notifications").then(r => setNotifFeed(r.data)).catch(() => {})} />,
             "platform-map": <PlatformOrbitMap onGoTab={setTab} />,
             billing: <div className="space-y-6"><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
             partners: <PartnersPanel />,
