@@ -1027,3 +1027,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Booking page already appends non-preset categories after CATEGORY_ORDER; admin chips merge services ∪ banner cats (previous fix)
 - Verified: /api/public/services returns ALL 8 categories incl. user-created "TEST"; booking page renders it. NOTHING else changed per user request.
 - Ships with BUILD 2026-07-25.39 (no separate bump). Needs redeploy.
+
+## 2026-07-26 — Category rename + service disable + Weekly Win Report (tested)
+- POST /service-categories/rename {old,new} — moves all services + banner; verified round-trip (TEST→Trial Cat→TEST, 1 service moved). Rename UI inside category Banner modal (cat-rename-input/save)
+- Active toggle per service row (toggle-active-{id}) — disabled rows grey w/ "Disabled" badge, hidden from booking (active:$ne False query); verified in UI
+- send_weekly_win_report() in mira_calls.py + _weekly_win_scheduler (Mon ≥9 IST, ISO-week idempotent via platform_settings mira_weekly_win): calls/answered/demos/callbacks-kept/new-leads/emails/failed/hot stats + demo list + heat risers; force-send verified — email delivered
+- NOTE: prod lead-research "OpenAIException - B[udget]" failures were Universal Key budget exhaustion BEFORE user recharge; key verified working now — user should re-run research for skipped leads
+- release_notes BUILD 2026-07-26.40. Needs redeploy.

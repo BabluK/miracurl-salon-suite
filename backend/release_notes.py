@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-25.39"
-BUILD_TIME = "25 Jul 2026, 10:30 PM IST"
+BUILD = "2026-07-26.40"
+BUILD_TIME = "26 Jul 2026, 11:00 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-26 (Category editing & service disable)",
+        "changes": [
+            "✏️ Rename categories — open a category's Banner and rename it; every service and the banner move with it instantly",
+            "🚫 Disable services — a new Active toggle on every service row; disabled services grey out with a badge and vanish from the booking page until you re-enable them",
+            "🏆 Weekly Win Report — every Monday morning Mira emails HQ a summary of the week: calls made, answered, demo requests, callbacks kept, new leads, emails sent and who's heating up",
+        ],
+    },
     {
         "date": "2026-07-25 (Service Menu redesign)",
         "changes": [

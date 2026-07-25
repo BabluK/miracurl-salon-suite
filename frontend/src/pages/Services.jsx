@@ -33,6 +33,7 @@ export default function Services() {
   const [catImages, setCatImages] = useState({});
   const [catModal, setCatModal] = useState(null);
   const [catUrl, setCatUrl] = useState("");
+  const [catRename, setCatRename] = useState("");
   const [genImg, setGenImg] = useState(false);
   const csvRef = useRef(null);
 
@@ -114,6 +115,29 @@ export default function Services() {
     if (!window.confirm("Delete this service?")) return;
     try { await api.delete(`/services/${id}`); toast.success("Deleted"); load(); }
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+  }
+
+  async function toggleActive(s) {
+    const next = s.active === false;
+    try {
+      await api.put(`/services/${s.id}`, { ...s, active: next });
+      setList(l => l.map(x => x.id === s.id ? { ...x, active: next } : x));
+      toast.success(next ? `${s.name} enabled ✦` : `${s.name} disabled — hidden from booking until you enable it`);
+    } catch { toast.error("Couldn't update — try again"); }
+  }
+
+  async function renameCategory() {
+    const next = (catRename || "").trim();
+    if (!next || next === catModal) { toast.error("Enter a different category name"); return; }
+    try {
+      const { data } = await api.post("/service-categories/rename", { old: catModal, new: next });
+      toast.success(`Category renamed to "${next}" — ${data.services_moved} services moved ✦`);
+      setCatModal(null);
+      setCatRename("");
+      if (activeCat === catModal) setActiveCat(next);
+      load();
+      api.get("/service-categories").then(r => setCatImages(r.data || {})).catch(() => {});
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't rename — try again"); }
   }
 
   async function toggleOnline(s) {
@@ -274,13 +298,14 @@ export default function Services() {
           <div className="divide-y divide-slate-50">
             {filteredByCat[cat].map(s => (
               <div key={s.id} data-testid={`service-card-${s.id}`}
-                className="flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-sky-50/40 transition group">
+                className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-sky-50/40 transition group ${s.active === false ? "opacity-55" : ""}`}>
                 <img src={s.image_url || FALLBACK_IMG} alt=""
                   className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-100" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-semibold truncate">{s.name}</span>
                     {s.trending && <Flame className="w-3.5 h-3.5 text-orange-500 shrink-0" title="Trending" />}
+                    {s.active === false && <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-500 border border-slate-200 rounded-full px-1.5 py-0.5">Disabled</span>}
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
                     <span className="font-semibold text-sky-600 text-xs">₹{s.price}</span>
@@ -288,6 +313,14 @@ export default function Services() {
                     {s.description && <span className="truncate hidden sm:inline">· {s.description}</span>}
                   </div>
                 </div>
+                <button data-testid={`toggle-active-${s.id}`} onClick={() => toggleActive(s)}
+                  title={s.active === false ? "Disabled — tap to enable" : "Active — tap to disable (hides everywhere until re-enabled)"}
+                  className={`shrink-0 flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-full border transition ${s.active !== false ? "bg-sky-50 border-sky-200 text-sky-700" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                  <span className="hidden sm:inline">{s.active !== false ? "Active" : "Off"}</span>
+                  <span className={`relative inline-flex h-3.5 w-6 rounded-full transition ${s.active !== false ? "bg-sky-500" : "bg-slate-300"}`}>
+                    <span className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-all ${s.active !== false ? "left-3" : "left-0.5"}`} />
+                  </span>
+                </button>
                 <button data-testid={`toggle-online-${s.id}`} onClick={() => toggleOnline(s)}
                   title={s.bookable_online !== false ? "Bookable online — tap to hide" : "Hidden from online booking — tap to show"}
                   className={`shrink-0 flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-full border transition ${s.bookable_online !== false ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
@@ -315,6 +348,17 @@ export default function Services() {
               <button onClick={() => setCatModal(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
             <p className="text-xs text-slate-500 mb-3">One elegant banner for the whole category — shown on your public booking page. No need to upload a photo for every service ✦</p>
+            <div className="mb-4 p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <label className="label-light block mb-1.5">Rename this category (all its services move with it)</label>
+              <div className="flex gap-2">
+                <input data-testid="cat-rename-input" className="input-light flex-1" placeholder={catModal}
+                  value={catRename} onChange={e => setCatRename(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && renameCategory()} />
+                <button type="button" data-testid="cat-rename-save" onClick={renameCategory}
+                  disabled={!catRename.trim() || catRename.trim() === catModal}
+                  className="btn-slate px-4 disabled:opacity-40">Rename</button>
+              </div>
+            </div>
             <img src={catUrl || catImage(catModal, {})} alt="" className="w-full h-32 rounded-xl object-cover border border-slate-200 mb-3" />
             <ImageUploader kind="category" value={catUrl} onChange={setCatUrl} fallback={catImage(catModal, {})} />
             <div className="flex gap-3 pt-4">

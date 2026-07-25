@@ -348,3 +348,19 @@ async def generate_service_image(sid: str, user=Depends(require_admin)):
     url = await _store_service_image(tenant_id, img, svc["name"])
     await db.services.update_one({"id": sid}, {"$set": {"image_url": url}})
     return {"ok": True, "image_url": url}
+
+
+class CategoryRenameIn(BaseModel):
+    old: str = Field(..., min_length=1, max_length=60)
+    new: str = Field(..., min_length=1, max_length=60)
+
+
+@router.post("/service-categories/rename")
+async def rename_service_category(body: CategoryRenameIn, user=Depends(require_admin)):
+    """Rename a category everywhere — all its services and the banner move with it."""
+    old, new = body.old.strip(), body.new.strip()
+    if not new or old == new:
+        raise HTTPException(400, "Enter a different category name")
+    r = await db.services.update_many({"category": old}, {"$set": {"category": new}})
+    await db.service_categories.update_many({"name": old}, {"$set": {"name": new}})
+    return {"ok": True, "services_moved": r.modified_count}

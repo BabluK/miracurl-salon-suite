@@ -1144,3 +1144,91 @@ async def send_daily_digest(force: bool = False) -> bool:
         {"key": "mira_digest"}, {"$set": {"last_sent": today_ist, "at": _now(),
                                           "email_sent": bool(res.get("sent"))}}, upsert=True)
     return bool(res.get("sent"))
+
+# ---------------- Weekly Win Report (Monday morning email) ----------------
+
+async def send_weekly_win_report(force: bool = False) -> bool:
+    """Monday-morning email: Mira's last-7-day wins — calls, demos, callbacks kept, leads, heat risers."""
+    from email_service import _send_email
+    import html as html_lib
+    ist_now = datetime.now(_IST)
+    week_key = ist_now.strftime("%G-W%V")
+    if not force:
+        if ist_now.weekday() != 0 or ist_now.hour < 9:
+            return False
+        sent = await _raw_db.platform_settings.find_one(
+            {"key": "mira_weekly_win", "last_sent": week_key}, {"_id": 1})
+        if sent:
+            return False
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    calls = await _raw_db.mira_call_logs.find({"created_at": {"$gte": since}}, {"_id": 0}).to_list(500)
+    completed = [c for c in calls if c.get("status") == "completed"]
+    failed = len([c for c in calls if c.get("status") == "failed"])
+    interested = await _raw_db.mira_leads.find(
+        {"call_result": "interested", "last_call_at": {"$gte": since}},
+        {"_id": 0, "name": 1, "city": 1, "phone": 1, "email": 1}).to_list(100)
+    callbacks_kept = len([c for c in calls if c.get("lead_id") and any(
+        x.get("lead_id") == c.get("lead_id") and x.get("result") == "callback" and x["created_at"] < c["created_at"]
+        for x in calls)])
+    leads_found = await _raw_db.mira_leads.count_documents({"created_at": {"$gte": since}})
+    emails_sent = await _raw_db.mira_leads.count_documents({"status": "sent", "sent_at": {"$gte": since}})
+    rd = await _raw_db.platform_settings.find_one({"key": "lead_heat_risers"}, {"_id": 0}) or {}
+    risers = (rd.get("risers") or [])[:3] if (rd.get("ran_at") or "") >= since else []
+    hot_now = await _raw_db.mira_leads.count_documents(await _callable_hot_query())
+
+    def _stat(v, label, color="#1c1c22"):
+        return (f'<td style="padding:14px 10px;text-align:center;background:#faf7f2;border-radius:12px">'
+                f'<div style="font-size:26px;font-weight:bold;color:{color}">{v}</div>'
+                f'<div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px">{label}</div></td>')
+
+    win_rows = "".join(
+        f'<tr><td style="padding:7px 10px;border-bottom:1px solid #f0ece4">🎉 <b>{html_lib.escape(l.get("name") or "")}</b>'
+        f'<span style="color:#888"> · {html_lib.escape(l.get("city") or "")}</span></td>'
+        f'<td style="padding:7px 10px;border-bottom:1px solid #f0ece4;color:#555;font-size:12px">'
+        f'{html_lib.escape(l.get("phone") or "")}</td></tr>'
+        for l in interested) or ('<tr><td style="padding:10px;color:#999;font-size:12px" colspan="2">'
+                                 'No demo requests this week — a fresh calling session could change that.</td></tr>')
+    riser_html = ""
+    if risers:
+        riser_html = ("<h3 style='color:#1c1c22;font-size:14px;margin:20px 0 6px'>🔥 Heating up this week</h3>" +
+                      "".join(f"<div style='font-size:13px;color:#333;padding:4px 0'>• <b>{html_lib.escape(r['name'])}</b> "
+                              f"<span style='color:#888'>{html_lib.escape(r.get('city') or '')}</span> — score {r['from']} → <b>{r['to']}</b></div>"
+                              for r in risers))
+    html = f"""
+    <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto">
+      <div style="background:#1c1c22;border-radius:18px 18px 0 0;padding:24px 28px">
+        <div style="color:#d4af37;font-size:20px;font-weight:bold">🏆 Mira's Weekly Win Report</div>
+        <div style="color:#999;font-size:12px;margin-top:4px">Week of {(ist_now - timedelta(days=7)).strftime('%d %b')} – {ist_now.strftime('%d %b %Y')} · Miracurl HQ</div>
+      </div>
+      <div style="background:#fff;border:1px solid #eee;border-top:0;border-radius:0 0 18px 18px;padding:24px 28px">
+        <table style="width:100%;border-spacing:6px 0"><tr>
+          {_stat(len(calls), "Calls made", "#7c3aed")}
+          {_stat(len(completed), "Answered", "#0284c7")}
+          {_stat(len(interested), "Demos 🎉", "#0a7d43")}
+          {_stat(leads_found, "New leads")}
+        </tr></table>
+        <table style="width:100%;border-spacing:6px 0;margin-top:6px"><tr>
+          {_stat(callbacks_kept, "Callbacks kept", "#b45309")}
+          {_stat(emails_sent, "Emails sent", "#0f766e")}
+          {_stat(failed, "Failed", "#be123c")}
+          {_stat(hot_now, "Hot & callable", "#ea580c")}
+        </tr></table>
+        <h3 style="color:#1c1c22;font-size:14px;margin:22px 0 6px">This week's demo requests</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;color:#333">{win_rows}</table>
+        {riser_html}
+        <p style="font-size:12px;color:#777;margin-top:18px">
+          Have a great week! Say <i>"call the hot leads"</i> any time and I'll get dialing. — Mira 💫</p>
+      </div>
+    </div>"""
+    admins = await _raw_db.users.find({"role": "super_admin"}, {"_id": 0, "email": 1}).to_list(10)
+    to = ([os.environ["HQ_DIGEST_EMAIL"]] if os.environ.get("HQ_DIGEST_EMAIL")
+          else [a["email"] for a in admins if a.get("email")])
+    if not to:
+        return False
+    res = await _send_email(
+        to, f"🏆 Mira's week — {len(calls)} calls, {len(interested)} demos, {leads_found} new leads",
+        html, book_url="https://miracurl-suite.com/super-admin", book_label="Open HQ Console ✦")
+    await _raw_db.platform_settings.update_one(
+        {"key": "mira_weekly_win"}, {"$set": {"last_sent": week_key, "at": _now(),
+                                              "email_sent": bool(res.get("sent"))}}, upsert=True)
+    return bool(res.get("sent"))

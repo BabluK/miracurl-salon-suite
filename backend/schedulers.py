@@ -350,3 +350,15 @@ async def _phone_backfill_task() -> None:
         logging.info(f"phone intl backfill: {out}")
     except Exception as e:
         logging.error(f"phone backfill error: {e}")
+
+
+async def _weekly_win_scheduler() -> None:
+    """Monday ≥ 09:00 IST: email Mira's Weekly Win Report (idempotent per ISO week)."""
+    from routes.mira_calls import send_weekly_win_report
+    while True:
+        try:
+            if await send_weekly_win_report():
+                logging.info("weekly win report sent")
+        except Exception as e:
+            logging.error(f"weekly win scheduler error: {e}")
+        await asyncio.sleep(1800)
