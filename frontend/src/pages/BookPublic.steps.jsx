@@ -49,7 +49,7 @@ export function FeaturedReviews({ featured }) {
   );
 }
 
-export function ServicesStep({ byCategory, picked, onToggle, catImages = {} }) {
+export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, catOrder = [] }) {
   const [gender, setGender] = useState("All");
   const genderOf = (s) => s.gender || "unisex";
   const visible = (s) =>
@@ -58,11 +58,12 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {} }) {
     (gender === "Men" && genderOf(s) !== "women");
   const cats = useMemo(() => {
     const has = (c) => (byCategory[c] || []).some(visible);
-    const known = CATEGORY_ORDER.filter((c) => has(c));
-    const extra = Object.keys(byCategory).filter((c) => !CATEGORY_ORDER.includes(c) && has(c)).sort();
+    const baseOrder = catOrder.length ? catOrder : CATEGORY_ORDER;
+    const known = baseOrder.filter((c) => has(c));
+    const extra = Object.keys(byCategory).filter((c) => !known.includes(c) && has(c)).sort();
     return [...known, ...extra];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [byCategory, gender]);
+  }, [byCategory, gender, catOrder]);
   const [active, setActive] = useState("All");
   const shown = active === "All" ? cats : cats.filter((c) => c === active);
 

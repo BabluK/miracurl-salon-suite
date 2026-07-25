@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2, Scissors, Hand, Paintbrush, Flower2, Tag, LayoutGrid } from "lucide-react";
+import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2, Scissors, Hand, Paintbrush, Flower2, Tag, LayoutGrid, GripVertical, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 import { catImage } from "@/lib/categoryImages";
@@ -35,6 +35,26 @@ export default function Services() {
   const [catRename, setCatRename] = useState("");
   const [genImg, setGenImg] = useState(false);
   const csvRef = useRef(null);
+  const [catOrder, setCatOrder] = useState([]);
+  const [reorderOpen, setReorderOpen] = useState(false);
+  const [orderDraft, setOrderDraft] = useState([]);
+  const dragIdx = useRef(null);
+
+  function openReorder() { setOrderDraft(allCats); setReorderOpen(true); }
+
+  function moveDraft(from, to) {
+    if (to < 0 || to >= orderDraft.length || from === to) return;
+    setOrderDraft(d => { const arr = [...d]; const [x] = arr.splice(from, 1); arr.splice(to, 0, x); return arr; });
+  }
+
+  async function saveOrder() {
+    try {
+      await api.put("/service-categories/order", { order: orderDraft });
+      setCatOrder(orderDraft);
+      setReorderOpen(false);
+      toast.success("Category order saved — your booking page follows it too ✦");
+    } catch { toast.error("Couldn't save the order — try again"); }
+  }
 
   async function saveCatImage() {
     try {
@@ -80,6 +100,7 @@ export default function Services() {
   useEffect(() => {
     load();
     api.get("/service-categories").then(r => setCatImages(r.data || {})).catch(() => {});
+    api.get("/service-categories/order").then(r => setCatOrder(r.data.order || [])).catch(() => {});
   }, [load]);
 
   // Real-time search with 250ms debounce
@@ -157,8 +178,9 @@ export default function Services() {
   // Dynamic categories: every category found on services PLUS ones created via banners — always in sync, no refresh needed
   const allCats = useMemo(() => {
     const set = new Set([...Object.keys(byCategory), ...Object.keys(catImages || {})]);
-    return [...set].filter(Boolean).sort((a, b) => (byCategory[b]?.length || 0) - (byCategory[a]?.length || 0));
-  }, [byCategory, catImages]);
+    const pos = (c) => { const i = catOrder.indexOf(c); return i === -1 ? 999 : i; };
+    return [...set].filter(Boolean).sort((a, b) => pos(a) - pos(b) || (byCategory[b]?.length || 0) - (byCategory[a]?.length || 0));
+  }, [byCategory, catImages, catOrder]);
   // Modal dropdown shows ONLY the salon's own categories (created/added) — no hardcoded list
   const catOptions = allCats;
 
@@ -277,6 +299,12 @@ export default function Services() {
               {allCats.length === 0 && (
                 <span className="text-xs text-slate-400 py-2" data-testid="services-cats-empty">No categories yet — add your first service and its category appears here instantly ✦</span>
               )}
+              {allCats.length > 1 && (
+                <button data-testid="services-cat-reorder-btn" onClick={openReorder} title="Drag categories into your preferred order — the booking page follows it"
+                  className="snap-start shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border border-dashed border-slate-300 bg-white text-slate-500 hover:border-sky-400 hover:text-sky-600 transition-all duration-200">
+                  <ArrowUpDown className="w-3.5 h-3.5" /> Reorder
+                </button>
+              )}
             </>
           )}
         </div>
@@ -288,7 +316,7 @@ export default function Services() {
         </div>
       )}
 
-      {Object.keys(filteredByCat).map(cat => (
+      {[...Object.keys(filteredByCat)].sort((a, b) => allCats.indexOf(a) - allCats.indexOf(b)).map(cat => (
         <div key={cat} className="card-light p-0 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50/70 border-b border-slate-100">
             <img src={catImage(cat, catImages)} alt="" className="w-16 h-9 rounded-lg object-cover border border-slate-200" />
@@ -344,6 +372,40 @@ export default function Services() {
           </div>
         </div>
       ))}
+
+      {reorderOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setReorderOpen(false)}>
+          <div className="card-light w-full max-w-sm mx-4 max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()} data-testid="cat-reorder-modal">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-playfair text-xl">Reorder categories</h3>
+              <button onClick={() => setReorderOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">Drag (or use the arrows) to set the order — the chips here and the tabs on your public booking page follow it ✦</p>
+            <div className="space-y-1.5">
+              {orderDraft.map((c, i) => (
+                <div key={c} draggable data-testid={`cat-reorder-row-${c}`}
+                  onDragStart={() => { dragIdx.current = i; }}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={() => { moveDraft(dragIdx.current, i); dragIdx.current = null; }}
+                  className="flex items-center gap-2.5 border border-slate-200 rounded-xl px-3 py-2.5 bg-white cursor-grab active:cursor-grabbing hover:border-sky-300 transition-colors">
+                  <GripVertical className="w-4 h-4 text-slate-300" />
+                  <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                  <span className="text-sm font-semibold text-slate-700 flex-1 truncate">{c}</span>
+                  <span className="text-[10px] text-slate-400">{byCategory[c]?.length || 0}</span>
+                  <button type="button" data-testid={`cat-reorder-up-${c}`} onClick={() => moveDraft(i, i - 1)} disabled={i === 0}
+                    className="text-slate-400 hover:text-sky-600 disabled:opacity-20 px-0.5">↑</button>
+                  <button type="button" data-testid={`cat-reorder-down-${c}`} onClick={() => moveDraft(i, i + 1)} disabled={i === orderDraft.length - 1}
+                    className="text-slate-400 hover:text-sky-600 disabled:opacity-20 px-0.5">↓</button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setReorderOpen(false)} className="flex-1 border border-slate-200 rounded-xl py-2.5 text-sm text-slate-500 hover:bg-slate-50">Cancel</button>
+              <button onClick={saveOrder} data-testid="cat-reorder-save" className="flex-1 btn-blue justify-center">Save order</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {catModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setCatModal(null)}>

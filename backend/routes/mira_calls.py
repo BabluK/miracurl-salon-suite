@@ -832,6 +832,9 @@ async def mira_briefing(user=Depends(require_super_admin)):
         top = rd["risers"][0]
         heat_note = (f" 🔥 Heat alert: {_n(len(rd['risers']), 'lead', 'leads')} got hotter after my weekly refresh — "
                      f"top mover: {top['name']} jumped from {top['from']} to {top['to']}. Worth a call!")
+        if rd.get("auto_called"):
+            heat_note += (f" I've already queued morning calls to {', '.join(rd['auto_called'])} — "
+                          f"watch the call history for results.")
         await _raw_db.platform_settings.update_one({"key": "lead_heat_risers"}, {"$set": {"announced": True}})
     text = (f"Hey Miracurl! {_tod_greeting()}! {summary}.{call_report}{heat_note}{suggestion} "
             f"How may I help you today — what details do you want me to show?")

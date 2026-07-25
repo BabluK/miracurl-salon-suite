@@ -164,6 +164,13 @@ async def public_service_categories(slug: str):
     cats = await db.service_categories.find({}, {"_id": 0}).to_list(200)
     return {c["name"]: c.get("image_url", "") for c in cats if c.get("image_url")}
 
+@router.get("/public/service-category-order/{slug}")
+async def public_service_category_order(slug: str):
+    """Salon's preferred category order for the booking page tabs."""
+    await resolve_tenant_from_slug(slug)
+    doc = await db.service_category_order.find_one({}, {"_id": 0}) or {}
+    return {"order": doc.get("order") or []}
+
 @router.get("/public/staff/{slug}")
 async def public_staff(slug: str):
     await resolve_tenant_from_slug(slug)

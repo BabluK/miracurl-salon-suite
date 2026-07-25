@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import { Gift, Loader2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
+
+const monthLabel = (m) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short" });
 
 const STATUS_STYLE = {
   active: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -18,12 +21,14 @@ export const GiftCardsCard = () => {
   const [tenant, setTenant] = useState(null);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState("");
+  const [analytics, setAnalytics] = useState(null);
 
   const load = useCallback(async () => {
     const [a, b, c] = await Promise.all([api.get("/gift-cards/settings"), api.get("/gift-cards"), api.get("/tenants/current")]);
     setS(a.data);
     setList(b.data);
     setTenant(c.data);
+    api.get("/gift-cards/analytics").then(r => setAnalytics(r.data)).catch(() => {});
   }, []);
   useEffect(() => { load().catch(() => {}); }, [load]);
 
@@ -119,6 +124,35 @@ export const GiftCardsCard = () => {
         className="mt-3 bg-slate-900 text-white text-xs font-bold rounded-lg px-5 py-2.5 hover:bg-slate-700 disabled:opacity-50">
         {saving ? "Saving…" : "Save gift card settings"}
       </button>
+
+      {analytics && analytics.months.some(m => m.sold_amount || m.redeemed_amount) && (
+        <div className="mt-5 border-t border-slate-100 pt-4" data-testid="gift-analytics">
+          <h4 className="text-xs font-bold text-slate-600 mb-2">📊 Last 6 months — sales vs redemptions (₹)</h4>
+          <div className="h-44">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analytics.months.map(m => ({ ...m, name: monthLabel(m.month) }))} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v, n) => [`₹${v}`, n === "sold_amount" ? "Sold" : "Redeemed"]} labelStyle={{ fontSize: 11 }} contentStyle={{ fontSize: 11, borderRadius: 10 }} />
+                <Legend formatter={(v) => <span style={{ fontSize: 10 }}>{v === "sold_amount" ? "Sold ₹" : "Redeemed ₹"}</span>} />
+                <Bar dataKey="sold_amount" fill="#d946ef" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="redeemed_amount" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {analytics.expiring.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5 items-center" data-testid="gift-expiring">
+              <span className="text-[11px] font-semibold text-slate-500">⏳ Balances expiring:</span>
+              {analytics.expiring.map(e => (
+                <span key={e.month} className="text-[10px] px-2 py-1 rounded-full bg-rose-50 border border-rose-100 text-rose-600 font-semibold">
+                  {monthLabel(e.month)} · ₹{e.balance}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {list && (
         <div className="mt-5 border-t border-slate-100 pt-4">

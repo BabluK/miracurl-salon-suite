@@ -1304,16 +1304,37 @@ async def run_lead_heat_refresh(limit: int = 150) -> dict:
             upd = _heat_updates(lead, p)
             old_score = lead.get("score") or 0
             if upd["score"] > old_score:
-                risers.append({"name": lead.get("name") or "", "city": lead.get("city") or "",
+                risers.append({"id": lead["id"], "name": lead.get("name") or "", "city": lead.get("city") or "",
                                "from": old_score, "to": upd["score"]})
             await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": upd})
             refreshed += 1
             await asyncio.sleep(0.3)
     risers.sort(key=lambda r: r["to"] - r["from"], reverse=True)
+    auto_called = await _auto_call_risers(risers[:3])
     await _raw_db.platform_settings.update_one(
         {"key": "lead_heat_risers"},
-        {"$set": {"risers": risers[:5], "ran_at": _now(), "announced": not risers}}, upsert=True)
-    return {"refreshed": refreshed, "hotter": len(risers)}
+        {"$set": {"risers": risers[:5], "auto_called": auto_called, "ran_at": _now(),
+                  "announced": not risers}}, upsert=True)
+    return {"refreshed": refreshed, "hotter": len(risers), "auto_called": len(auto_called)}
+
+
+async def _auto_call_risers(top: list) -> list:
+    """Queue Mira calls to the top heat-refresh movers for their next local morning."""
+    from routes.mira_calls import _schedule_for_business_hours
+    queued = []
+    for r in top:
+        lead = await _raw_db.mira_leads.find_one({"id": r["id"]}, {"_id": 0})
+        if (not lead or not (lead.get("phone") or "").strip() or lead.get("do_not_call")
+                or lead.get("call_result") == "interested" or lead.get("status") == "customer"):
+            continue
+        try:
+            await _schedule_for_business_hours(lead)
+            queued.append(r.get("name") or "")
+        except Exception as e:
+            log.warning(f"auto-call riser skip {r.get('name')}: {e}")
+    if queued:
+        log.info(f"auto-call risers queued for morning calls: {queued}")
+    return queued
 
 
 async def run_phone_backfill() -> dict:

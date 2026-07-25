@@ -269,6 +269,24 @@ async def list_service_categories(user=Depends(require_admin)):
     return {c["name"]: c.get("image_url", "") for c in cats}
 
 
+class CategoryOrderIn(BaseModel):
+    order: list = []
+
+
+@router.get("/service-categories/order")
+async def get_category_order(user=Depends(require_admin)):
+    doc = await db.service_category_order.find_one({}, {"_id": 0}) or {}
+    return {"order": doc.get("order") or []}
+
+
+@router.put("/service-categories/order")
+async def set_category_order(body: CategoryOrderIn, user=Depends(require_admin)):
+    """Salon's preferred category order — drives chips here and tabs on the public booking page."""
+    order = [str(c).strip()[:60] for c in body.order[:100] if str(c).strip()]
+    await db.service_category_order.update_one({}, {"$set": {"order": order}}, upsert=True)
+    return {"ok": True, "order": order}
+
+
 @router.put("/service-categories/{name}")
 async def set_category_image(name: str, body: CategoryImageIn, user=Depends(require_admin)):
     name = name.strip()[:60]

@@ -56,12 +56,13 @@ export const BranchSwitcher = () => {
           data-testid="branch-switcher-select"
           value={value}
           onChange={e => requestSwitch(e.target.value)}
+          style={{ colorScheme: "dark" }}
           className="bg-white/5 border border-white/10 rounded-full px-2 sm:px-3 py-1 text-xs text-white/80 w-[64px] sm:w-auto sm:max-w-[150px] focus:outline-none"
           title="Switch branch — owner approval required"
         >
-          <option value="">All branches</option>
+          <option value="" className="bg-neutral-900 text-white">All branches</option>
           {branches.map(b => (
-            <option key={b.id || b.name} value={b.name}>{b.name}</option>
+            <option key={b.id || b.name} value={b.name} className="bg-neutral-900 text-white">{b.name}</option>
           ))}
         </select>
       </div>

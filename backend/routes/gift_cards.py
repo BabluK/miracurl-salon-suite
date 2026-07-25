@@ -386,6 +386,43 @@ async def set_gift_settings(body: GiftSettingsIn, user=Depends(require_tenant_ad
     return {"ok": True}
 
 
+@router.get("/gift-cards/analytics")
+async def gift_card_analytics(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Monthly gift card sales, redemptions and upcoming expiring balances (last 6 months)."""
+    rows = await _raw_db.gift_cards.find({"tenant_id": t["id"]}, {"_id": 0}).to_list(3000)
+    now = datetime.now(timezone.utc)
+    months = []
+    y, m = now.year, now.month
+    for i in range(5, -1, -1):
+        mm, yy = m - i, y
+        while mm <= 0:
+            mm += 12
+            yy -= 1
+        months.append(f"{yy:04d}-{mm:02d}")
+    sales = {k: {"count": 0, "amount": 0.0} for k in months}
+    red = {k: 0.0 for k in months}
+    expiring = {}
+    this_month = now.strftime("%Y-%m")
+    for gc in rows:
+        if gc.get("status") in ("active", "scheduled", "redeemed", "expired"):
+            mk = (gc.get("issued_at") or gc.get("created_at") or "")[:7]
+            if mk in sales:
+                sales[mk]["count"] += 1
+                sales[mk]["amount"] += gc.get("amount") or 0
+        for r in gc.get("redemptions") or []:
+            rk = (r.get("at") or "")[:7]
+            if rk in red:
+                red[rk] += r.get("amount") or 0
+        if gc.get("status") == "active" and (gc.get("balance") or 0) > 0 and gc.get("expires_at"):
+            ek = gc["expires_at"][:7]
+            if ek >= this_month:
+                expiring[ek] = expiring.get(ek, 0) + gc["balance"]
+    return {"months": [{"month": k, "sold_count": sales[k]["count"],
+                        "sold_amount": round(sales[k]["amount"], 2),
+                        "redeemed_amount": round(red[k], 2)} for k in months],
+            "expiring": [{"month": k, "balance": round(v, 2)} for k, v in sorted(expiring.items())][:6]}
+
+
 @router.get("/gift-cards")
 async def list_gift_cards(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     rows = await _raw_db.gift_cards.find(
