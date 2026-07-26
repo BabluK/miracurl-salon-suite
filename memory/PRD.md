@@ -1106,3 +1106,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Hardening (FIXED): /tenant/mira/ask now has ai_daily_quota(tenant, 'tenant_mira_ask', 300); assistant.py update_feedback coerces status/priority to str.
 - SEC-002 (LOW, BY DESIGN, NOT changed): 4★+ feedback auto-publishes to landing testimonials — user's explicit requirement; token is HQ-issued UUID so only real owners can submit; React auto-escapes (no XSS). Option offered: approval queue.
 - Audit found no critical/high issues; tenant isolation, payments HMAC, Twilio signatures, CSRF/XSS all clean. Gaps: employee/staff portals not exhaustively traced.
+
+## 2026-07-26 — Code review fixes
+- Circular import RESOLVED: new routes/lead_common.py holds _live_plans, _lead_intl, _plans_for, _pricing_lines, _pricing_table_html, _outreach_email_html, _lead_reply_to (moved from lead_gen.py, re-exported there via noqa import). mira_calls now imports from lead_common — no lead_gen↔mira_calls cycle. Verified: all modules import, outreach email renders.
+- Complexity refactors: _validate_gift_order → _validate_gift_people + _validate_gift_payment; gift_card_analytics → _last_six_month_keys + _tally_sale/_tally_redemptions/_tally_expiring; create_invoice → _build_invoice_doc + _apply_gift_card. E2E verified: invoice INV-202607-0133 (500+GST=590, 50 pts) created then cleaned; analytics endpoint intact; gift validation intact.
+- "46 undefined variables": ruff F821 + pyflakes = 0 findings in backend (reviewer tool false positives, e.g. utils.py:8 is an `in` check not `is`). `is False` usages are deliberate tri-state checks (distinguish explicit False from missing) — left as-is.

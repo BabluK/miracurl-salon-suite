@@ -276,6 +276,38 @@ async def _resolve_tip(body: InvoiceIn, staff: dict | None) -> dict | None:
     return await db.staff.find_one({"id": tsid}, {"_id": 0, "id": 1, "name": 1})
 
 
+def _build_invoice_doc(body: InvoiceIn, cust: dict, staff: dict | None,
+                       totals: dict, coupon: dict | None, branch: dict | None,
+                       tip: float, tip_staff: dict | None, invoice_no: str) -> dict:
+    inv = Invoice(
+        invoice_no=invoice_no,
+        customer_id=cust["id"], customer_name=cust["name"],
+        staff_id=staff["id"] if staff else None,
+        staff_name=staff["name"] if staff else None,
+        items=body.items, subtotal=totals["subtotal"], discount=totals["discount"],
+        tax=totals["tax"], total=totals["total"], payment_mode=body.payment_mode,
+        tip=tip,
+        tip_staff_id=tip_staff["id"] if tip_staff else None,
+        tip_staff_name=tip_staff["name"] if tip_staff else None,
+        appointment_id=body.appointment_id,
+        branch_id=branch["id"] if branch else None,
+        branch_name=branch["name"] if branch else None,
+    ).model_dump()
+    inv["membership_discount"] = totals["membership_discount"]
+    inv["coupon_code"] = coupon["code"] if coupon else None
+    inv["coupon_discount"] = totals["coupon_discount"]
+    inv["points_used"] = totals["points_used"]
+    return inv
+
+
+async def _apply_gift_card(inv: dict, code: str, tenant_id: str, total: float) -> None:
+    from routes.gift_cards import redeem_gift_card
+    gc = await redeem_gift_card(code, tenant_id, total, inv["id"])
+    inv["gift_card_code"] = gc["code"]
+    inv["gift_card_applied"] = gc["applied"]
+    inv["gift_card_balance_left"] = gc["balance_left"]
+
+
 @router.post("/invoices")
 async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
@@ -293,30 +325,10 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     tip = round(float(body.tip_amount or 0), 2)
     tip_staff = await _resolve_tip(body, staff) if tip > 0 else None
 
-    inv = Invoice(
-        invoice_no=await _gen_invoice_no(),
-        customer_id=cust["id"], customer_name=cust["name"],
-        staff_id=staff["id"] if staff else None,
-        staff_name=staff["name"] if staff else None,
-        items=body.items, subtotal=totals["subtotal"], discount=totals["discount"],
-        tax=totals["tax"], total=totals["total"], payment_mode=body.payment_mode,
-        tip=tip,
-        tip_staff_id=tip_staff["id"] if tip_staff else None,
-        tip_staff_name=tip_staff["name"] if tip_staff else None,
-        appointment_id=body.appointment_id,
-        branch_id=branch["id"] if branch else None,
-        branch_name=branch["name"] if branch else None,
-    ).model_dump()
-    inv["membership_discount"] = totals["membership_discount"]
-    inv["coupon_code"] = coupon["code"] if coupon else None
-    inv["coupon_discount"] = totals["coupon_discount"]
-    inv["points_used"] = totals["points_used"]
+    inv = _build_invoice_doc(body, cust, staff, totals, coupon, branch,
+                             tip, tip_staff, await _gen_invoice_no())
     if body.gift_card_code:
-        from routes.gift_cards import redeem_gift_card
-        gc = await redeem_gift_card(body.gift_card_code, ctx["tenant_doc"]["id"], totals["total"], inv["id"])
-        inv["gift_card_code"] = gc["code"]
-        inv["gift_card_applied"] = gc["applied"]
-        inv["gift_card_balance_left"] = gc["balance_left"]
+        await _apply_gift_card(inv, body.gift_card_code, ctx["tenant_doc"]["id"], totals["total"])
     await db.invoices.insert_one(inv)
 
     if body.payment_mode == "salon_wallet":

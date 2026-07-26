@@ -473,7 +473,7 @@ async def _fulfil_interest(lead_id: str) -> None:
             return
         if lead.get("email") and lead.get("status") != "sent":
             from email_service import _send_email
-            from routes.lead_gen import _outreach_email_html, _live_plans, _lead_reply_to
+            from routes.lead_common import _outreach_email_html, _live_plans, _lead_reply_to
             from services.pdf import screens_tour_attachment
             from routes.hq_documents import suite_overview_attachment
             html = _outreach_email_html(lead, await _live_plans())

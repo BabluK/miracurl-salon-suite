@@ -111,10 +111,7 @@ class GiftOrderIn(BaseModel):
     pay_method: str  # razorpay | upi
 
 
-def _validate_gift_order(body: GiftOrderIn, t: dict, s: dict) -> tuple:
-    """Validate a public gift-card order; returns (key_id, key_secret) for razorpay."""
-    if not s["enabled"]:
-        raise HTTPException(400, "Gift cards are not available at this salon")
+def _validate_gift_people(body: GiftOrderIn) -> None:
     if body.occasion not in _OCC:
         raise HTTPException(400, "Pick an occasion")
     for e in (body.buyer_email, body.recipient_email):
@@ -127,6 +124,9 @@ def _validate_gift_order(body: GiftOrderIn, t: dict, s: dict) -> tuple:
             datetime.strptime(body.send_on, "%Y-%m-%d")
         except ValueError:
             raise HTTPException(400, "Invalid send date")
+
+
+def _validate_gift_payment(body: GiftOrderIn, t: dict, s: dict) -> tuple:
     key_id, key_secret = _pay_keys(t)
     if body.pay_method == "razorpay" and not (key_id and key_secret):
         raise HTTPException(400, "Online payment is not enabled at this salon")
@@ -135,6 +135,14 @@ def _validate_gift_order(body: GiftOrderIn, t: dict, s: dict) -> tuple:
     if body.pay_method not in ("razorpay", "upi"):
         raise HTTPException(400, "Unknown payment method")
     return key_id, key_secret
+
+
+def _validate_gift_order(body: GiftOrderIn, t: dict, s: dict) -> tuple:
+    """Validate a public gift-card order; returns (key_id, key_secret) for razorpay."""
+    if not s["enabled"]:
+        raise HTTPException(400, "Gift cards are not available at this salon")
+    _validate_gift_people(body)
+    return _validate_gift_payment(body, t, s)
 
 
 def _gift_payment_init(gc: dict, t: dict, s: dict, key_id: str, key_secret: str) -> dict:
@@ -441,37 +449,56 @@ async def set_gift_settings(body: GiftSettingsIn, user=Depends(require_tenant_ad
     return {"ok": True}
 
 
-@router.get("/gift-cards/analytics")
-async def gift_card_analytics(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Monthly gift card sales, redemptions and upcoming expiring balances (last 6 months)."""
-    rows = await _raw_db.gift_cards.find({"tenant_id": t["id"]}, {"_id": 0}).to_list(3000)
-    now = datetime.now(timezone.utc)
-    months = []
+def _last_six_month_keys(now: datetime) -> list:
+    keys = []
     y, m = now.year, now.month
     for i in range(5, -1, -1):
         mm, yy = m - i, y
         while mm <= 0:
             mm += 12
             yy -= 1
-        months.append(f"{yy:04d}-{mm:02d}")
+        keys.append(f"{yy:04d}-{mm:02d}")
+    return keys
+
+
+def _tally_sale(gc: dict, sales: dict) -> None:
+    if gc.get("status") not in ("active", "scheduled", "redeemed", "expired"):
+        return
+    mk = (gc.get("issued_at") or gc.get("created_at") or "")[:7]
+    if mk in sales:
+        sales[mk]["count"] += 1
+        sales[mk]["amount"] += gc.get("amount") or 0
+
+
+def _tally_redemptions(gc: dict, red: dict) -> None:
+    for r in gc.get("redemptions") or []:
+        rk = (r.get("at") or "")[:7]
+        if rk in red:
+            red[rk] += r.get("amount") or 0
+
+
+def _tally_expiring(gc: dict, expiring: dict, this_month: str) -> None:
+    if gc.get("status") != "active" or (gc.get("balance") or 0) <= 0 or not gc.get("expires_at"):
+        return
+    ek = gc["expires_at"][:7]
+    if ek >= this_month:
+        expiring[ek] = expiring.get(ek, 0) + gc["balance"]
+
+
+@router.get("/gift-cards/analytics")
+async def gift_card_analytics(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Monthly gift card sales, redemptions and upcoming expiring balances (last 6 months)."""
+    rows = await _raw_db.gift_cards.find({"tenant_id": t["id"]}, {"_id": 0}).to_list(3000)
+    now = datetime.now(timezone.utc)
+    months = _last_six_month_keys(now)
     sales = {k: {"count": 0, "amount": 0.0} for k in months}
     red = {k: 0.0 for k in months}
     expiring = {}
     this_month = now.strftime("%Y-%m")
     for gc in rows:
-        if gc.get("status") in ("active", "scheduled", "redeemed", "expired"):
-            mk = (gc.get("issued_at") or gc.get("created_at") or "")[:7]
-            if mk in sales:
-                sales[mk]["count"] += 1
-                sales[mk]["amount"] += gc.get("amount") or 0
-        for r in gc.get("redemptions") or []:
-            rk = (r.get("at") or "")[:7]
-            if rk in red:
-                red[rk] += r.get("amount") or 0
-        if gc.get("status") == "active" and (gc.get("balance") or 0) > 0 and gc.get("expires_at"):
-            ek = gc["expires_at"][:7]
-            if ek >= this_month:
-                expiring[ek] = expiring.get(ek, 0) + gc["balance"]
+        _tally_sale(gc, sales)
+        _tally_redemptions(gc, red)
+        _tally_expiring(gc, expiring, this_month)
     return {"months": [{"month": k, "sold_count": sales[k]["count"],
                         "sold_amount": round(sales[k]["amount"], 2),
                         "redeemed_amount": round(red[k], 2)} for k in months],
