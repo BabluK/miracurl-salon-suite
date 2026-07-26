@@ -110,6 +110,8 @@ async def tenant_mira_ask(body: TenantMiraAskIn, user=Depends(require_tenant_adm
         raise HTTPException(500, "AI key not configured")
     snap = await _salon_snapshot()
     catalog = await _catalog_context()
+    from security import ai_daily_quota
+    await ai_daily_quota(user.get("tenant_id") or "", "tenant_mira_ask", 300)
     chat = LlmChat(api_key=key, session_id=f"tenant-mira-{user.get('tenant_id', '')[:12]}",
                    system_message=(
                        "You are Mira, this salon's dedicated AI manager inside the Miracurl Suite dashboard. "

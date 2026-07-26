@@ -149,7 +149,7 @@ async def list_feedback(user=Depends(get_current_user)):
 
 @router.put("/feedback/{fid}")
 async def update_feedback(fid: str, body: dict, user=Depends(require_admin)):
-    allowed = {k: v for k, v in body.items() if k in ("status", "priority")}
+    allowed = {k: str(v)[:40] for k, v in body.items() if k in ("status", "priority") and isinstance(v, (str, int))}
     if allowed:
         await db.feedback.update_one({"id": fid}, {"$set": allowed})
     return await db.feedback.find_one({"id": fid}, {"_id": 0})

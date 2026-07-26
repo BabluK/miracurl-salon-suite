@@ -192,24 +192,30 @@ async def gift_card_order(slug: str, body: GiftOrderIn, request: Request):
     return resp
 
 
+class RazorpayVerifyIn(BaseModel):
+    razorpay_order_id: str = Field(..., min_length=1, max_length=120)
+    razorpay_payment_id: str = Field("", max_length=120)
+    razorpay_signature: str = Field("", max_length=256)
+
+
 @router.post("/public/gift-cards/verify")
-async def gift_card_verify(body: dict, request: Request):
+async def gift_card_verify(body: RazorpayVerifyIn, request: Request):
     """Razorpay checkout callback → verify signature → issue the card."""
     public_rate_limit(request, "gift-verify", limit=20, window_sec=600)
     gc = await _raw_db.gift_cards.find_one(
-        {"razorpay_order_id": body.get("razorpay_order_id") or "_"}, {"_id": 0})
+        {"razorpay_order_id": body.razorpay_order_id}, {"_id": 0})
     if not gc:
         raise HTTPException(404, "Order not found")
     if gc["status"] != "pending_payment":
         return {"ok": True, "status": gc["status"]}
     t = await _raw_db.tenants.find_one({"id": gc["tenant_id"]}, {"_id": 0})
     _, key_secret = _pay_keys(t)
-    payload = f"{body.get('razorpay_order_id')}|{body.get('razorpay_payment_id')}".encode()
+    payload = f"{body.razorpay_order_id}|{body.razorpay_payment_id}".encode()
     expected = hmac.new(key_secret.encode(), payload, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, str(body.get("razorpay_signature") or "")):
+    if not hmac.compare_digest(expected, body.razorpay_signature):
         raise HTTPException(400, "Payment signature verification failed")
     await _raw_db.gift_cards.update_one(
-        {"id": gc["id"]}, {"$set": {"razorpay_payment_id": body.get("razorpay_payment_id"),
+        {"id": gc["id"]}, {"$set": {"razorpay_payment_id": body.razorpay_payment_id,
                                     "paid_at": _now()}})
     return await _issue_gift_card(gc["id"])
 

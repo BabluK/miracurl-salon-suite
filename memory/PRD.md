@@ -1100,3 +1100,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 ## 2026-07-26 — Weekly trends in digest + Scheduled Calls View
 - Digest trend: _digest_data now computes lw_revenue (same weekday last week, IST window); _trend_badge renders ▲ green / ▼ red pct vs last week (✦ new when lw=0). Unit-verified badges + html render.
 - Scheduled Calls: GET /api/super-admin/mira-calls/scheduled (call_result=callback, callback_at set, not redialed/do-not-call, sorted by time) + POST /api/super-admin/mira-calls/scheduled/{lid}/cancel (sets call_result=callback_cancelled + callback_redialed=True, unsets callback_at → redial scheduler skips). ScheduledCallsPanel in MiraLeadAgent.jsx (below Call History, auto-refresh 60s, hidden when empty): name/city/phone/heat score, "27 Jul, 4:30 am IST · in 12h" timing, ✕ Cancel per row. Verified E2E: list showed 3 real queued leads, cancel removed test lead from queue.
+
+## 2026-07-26 — Security audit round 2 (CONDITIONAL PASS) + fixes
+- SEC-001 (MEDIUM, FIXED): /public/gift-cards/verify accepted raw dict → NoSQL operator injection into razorpay_order_id lookup (bounded by HMAC sig). Now typed RazorpayVerifyIn (str fields). Verified: operator body → 422, string → normal flow.
+- Hardening (FIXED): /tenant/mira/ask now has ai_daily_quota(tenant, 'tenant_mira_ask', 300); assistant.py update_feedback coerces status/priority to str.
+- SEC-002 (LOW, BY DESIGN, NOT changed): 4★+ feedback auto-publishes to landing testimonials — user's explicit requirement; token is HQ-issued UUID so only real owners can submit; React auto-escapes (no XSS). Option offered: approval queue.
+- Audit found no critical/high issues; tenant isolation, payments HMAC, Twilio signatures, CSRF/XSS all clean. Gaps: employee/staff portals not exhaustively traced.
