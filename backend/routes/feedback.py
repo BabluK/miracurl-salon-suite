@@ -26,6 +26,9 @@ async def send_feedback_request(body: FeedbackRequestIn, user=Depends(require_su
     t = await _raw_db.tenants.find_one({"id": body.tenant_id}, {"_id": 0})
     if not t:
         raise HTTPException(404, "Salon not found")
+    to = t.get("owner_email") or t.get("salon_email")
+    if not to:
+        raise HTTPException(400, "This salon has no owner email on file")
     token = uuid.uuid4().hex
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     link = f"{base}/feedback/{token}"
@@ -34,9 +37,6 @@ async def send_feedback_request(body: FeedbackRequestIn, user=Depends(require_su
         "owner_email": t.get("owner_email") or "", "context": body.context.strip()[:200],
         "status": "sent", "rating": None, "comment": "", "responder_name": "",
         "created_at": datetime.now(timezone.utc).isoformat()})
-    to = t.get("owner_email") or t.get("salon_email")
-    if not to:
-        raise HTTPException(400, "This salon has no owner email on file")
     from email_service import _send_email
     salon = html_lib.escape(t.get("name") or "your salon")
     res = await _send_email(
