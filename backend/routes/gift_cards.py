@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import io
 import base64
+import asyncio
 import html as html_lib
 import os
 import re
@@ -215,6 +216,33 @@ async def gift_card_verify(body: dict, request: Request):
 
 class UpiPaidIn(BaseModel):
     upi_ref: str = ""
+    proof_b64: str = ""  # optional payment screenshot (data URL or raw base64)
+
+
+async def _store_payment_proof(gc: dict, proof_b64: str) -> str:
+    """Save the buyer's UPI payment screenshot to storage → /api/files/{id} url."""
+    raw = proof_b64.split(",", 1)[-1]
+    data = base64.b64decode(raw)
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(413, "Screenshot too large — max 5MB")
+    if data[:4] == b"\x89PNG":
+        ext, mime = "png", "image/png"
+    elif data[:3] == b"\xff\xd8\xff":
+        ext, mime = "jpg", "image/jpeg"
+    elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        ext, mime = "webp", "image/webp"
+    else:
+        raise HTTPException(400, "Screenshot must be a PNG, JPG or WEBP image")
+    from services.storage import _put_object, APP_NAME
+    fid = str(uuid.uuid4())
+    path = f"{APP_NAME}/tenants/{gc['tenant_id']}/gift-proofs/{fid}.{ext}"
+    result = await asyncio.to_thread(_put_object, path, data, mime)
+    await _raw_db.uploads.insert_one({
+        "id": fid, "tenant_id": gc["tenant_id"], "kind": "gift-payment-proof",
+        "storage_path": result.get("path", path), "original_filename": f"payment-proof-{gc['id'][:8]}.{ext}",
+        "content_type": mime, "size": len(data), "uploaded_by": f"gift-buyer:{gc.get('buyer_email','')}",
+        "is_deleted": False, "created_at": _now()})
+    return f"/api/files/{fid}"
 
 
 @router.post("/public/gift-cards/{gcid}/upi-paid")
@@ -225,10 +253,15 @@ async def gift_card_upi_paid(gcid: str, body: UpiPaidIn, request: Request):
         raise HTTPException(404, "Order not found")
     if gc["status"] != "pending_payment":
         return {"ok": True, "status": gc["status"]}
+    proof_url = ""
+    if body.proof_b64.strip():
+        proof_url = await _store_payment_proof(gc, body.proof_b64.strip())
     await _raw_db.gift_cards.update_one(
         {"id": gcid}, {"$set": {"status": "awaiting_confirmation",
-                                "upi_ref": body.upi_ref.strip()[:60], "upi_claimed_at": _now()}})
-    return {"ok": True, "status": "awaiting_confirmation"}
+                                "upi_ref": body.upi_ref.strip()[:60],
+                                "payment_proof_url": proof_url,
+                                "upi_claimed_at": _now()}})
+    return {"ok": True, "status": "awaiting_confirmation", "proof_attached": bool(proof_url)}
 
 
 # ---------------- issuance + e-card email ----------------

@@ -116,10 +116,22 @@ export default function GiftCardPublic() {
     finally { setBusy(false); }
   };
 
+  const [proofB64, setProofB64] = useState("");
+  const [proofName, setProofName] = useState("");
+
+  const onProofFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Screenshot too large — max 5MB"); return; }
+    const reader = new FileReader();
+    reader.onload = () => { setProofB64(reader.result); setProofName(file.name); };
+    reader.readAsDataURL(file);
+  };
+
   const confirmUpiPaid = async () => {
     setBusy(true);
     try {
-      await API.post(`/${upiOrder.gift_card_id}/upi-paid`, { upi_ref: upiRef });
+      await API.post(`/${upiOrder.gift_card_id}/upi-paid`, { upi_ref: upiRef, proof_b64: proofB64 });
       setDone({ status: "awaiting_confirmation" });
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't submit"); }
     finally { setBusy(false); }
@@ -206,6 +218,11 @@ export default function GiftCardPublic() {
             <div className="mt-6 max-w-sm mx-auto text-left">
               <label className="text-[11px] uppercase tracking-wider text-white/40">UPI transaction ID (optional, speeds up confirmation)</label>
               <input value={upiRef} onChange={(e) => setUpiRef(e.target.value)} placeholder="e.g. 4172XXXXXXXX" className={inputCls + " mt-1"} data-testid="gift-upi-ref" />
+              <label className="block mt-3 text-[11px] uppercase tracking-wider text-white/40">Payment screenshot (recommended — fastest confirmation)</label>
+              <label data-testid="gift-proof-upload" className={`mt-1 flex items-center justify-center gap-2 border border-dashed rounded-xl px-4 py-3 text-xs cursor-pointer transition ${proofName ? "border-emerald-400/60 text-emerald-300 bg-emerald-500/10" : "border-white/20 text-white/50 hover:border-gold/60 hover:text-gold"}`}>
+                <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onProofFile} />
+                {proofName ? `📎 ${proofName} ✓ attached` : "📎 Attach your GPay/PhonePe payment screenshot"}
+              </label>
               <button onClick={confirmUpiPaid} disabled={busy} data-testid="gift-upi-paid-btn"
                 className="w-full mt-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl py-3 text-sm disabled:opacity-50">
                 {busy ? "Submitting…" : "✓ I have paid — send the gift card"}

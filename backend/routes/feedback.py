@@ -54,8 +54,43 @@ async def send_feedback_request(body: FeedbackRequestIn, user=Depends(require_su
 
 @router.get("/super-admin/feedback-requests")
 async def list_feedback_requests(user=Depends(require_super_admin)):
-    rows = await _raw_db.feedback_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
-    return {"items": rows}
+    rows = await _raw_db.feedback_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    rated = [r for r in rows if r.get("rating")]
+    stats = {
+        "total": len(rows),
+        "submitted": len(rated),
+        "avg_rating": round(sum(r["rating"] for r in rated) / len(rated), 2) if rated else 0,
+        "published": len([r for r in rated if r["rating"] >= 4 and (r.get("comment") or "").strip()]),
+        "unhappy": len([r for r in rated if r["rating"] <= 3]),
+        "pending_followup": len([r for r in rated if r["rating"] <= 3 and not r.get("followed_up")]),
+    }
+    return {"items": rows, "stats": stats}
+
+
+@router.post("/super-admin/feedback-requests/{fid}/follow-up")
+async def feedback_follow_up(fid: str, user=Depends(require_super_admin)):
+    """Check-in email to an unhappy salon owner + mark followed up."""
+    fr = await _raw_db.feedback_requests.find_one({"id": fid}, {"_id": 0})
+    if not fr:
+        raise HTTPException(404, "Feedback not found")
+    to = fr.get("owner_email")
+    sent = False
+    if to:
+        from email_service import _send_email
+        salon = html_lib.escape(fr.get("tenant_name") or "your salon")
+        res = await _send_email(
+            [to], "We hear you — let's make it right 💛 (Miracurl Suite)",
+            f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+            <h2 style="color:#1a1a2e">Thank you for your honest feedback</h2>
+            <p>Hi! You rated your recent support experience for <b>{salon}</b> {fr.get('rating')}★ — that's not
+            the standard we hold ourselves to. Our team is personally reviewing what went wrong and will reach out
+            within 24 hours to make it right.</p>
+            <p style="font-size:12px;color:#888;margin-top:14px">— The Miracurl HQ team</p></div>""")
+        sent = bool(res.get("sent"))
+    await _raw_db.feedback_requests.update_one(
+        {"id": fid}, {"$set": {"followed_up": True,
+                               "followed_up_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "email_sent": sent}
 
 
 @router.get("/public/feedback/{token}")

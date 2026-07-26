@@ -179,6 +179,13 @@ export const GiftCardsCard = () => {
                 <span className={`text-[9px] uppercase font-bold px-2 py-1 rounded-full border ${STATUS_STYLE[gc.status] || STATUS_STYLE.cancelled}`}>
                   {gc.status.replace("_", " ")}
                 </span>
+                {gc.payment_proof_url && (
+                  <a href={`${process.env.REACT_APP_BACKEND_URL}${gc.payment_proof_url}`} target="_blank" rel="noreferrer"
+                    data-testid={`gift-proof-${gc.id}`}
+                    className="text-[10px] font-bold text-sky-600 hover:text-sky-800 border border-sky-200 bg-sky-50 rounded-lg px-2 py-1.5">
+                    📎 Payment proof
+                  </a>
+                )}
                 {gc.status === "awaiting_confirmation" && (
                   <button onClick={() => confirm(gc)} disabled={busyId === gc.id} data-testid={`gift-confirm-${gc.id}`}
                     className="bg-emerald-500 text-white text-[10px] font-bold rounded-lg px-2.5 py-1.5 hover:bg-emerald-600 disabled:opacity-50">

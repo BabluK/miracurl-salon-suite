@@ -44,7 +44,8 @@ import { Mail } from "lucide-react";
 import { PlatformEarnings } from "@/components/superadmin/PlatformEarnings";
 import { MiraVoiceAssistant } from "@/components/superadmin/MiraVoiceAssistant";
 import { FileText } from "lucide-react";
-import { BellRing, Orbit } from "lucide-react";
+import { BellRing, Orbit, Star } from "lucide-react";
+import { FeedbackPanel } from "@/components/superadmin/FeedbackPanel";
 import { BadgeCheck, Rocket } from "lucide-react";
 import { Briefcase } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
@@ -312,6 +313,7 @@ export default function SuperAdmin() {
               { id: "mira-studio", label: "Mira Studio Users", icon: Sparkles },
               { id: "hiring", label: "Hiring", icon: Briefcase, badge: hiringNew },
               { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread },
+              { id: "feedback", label: "Feedback", icon: Star },
               { id: "engineer", label: "AI Engineer", icon: Wrench },
               { id: "onboarding", label: "Onboarding Image", icon: Sparkles },
               { id: "promo", label: "Promo Video", icon: Clapperboard },
@@ -363,6 +365,7 @@ export default function SuperAdmin() {
             ),
             ai: <AiInsightsPanel />,
             inbox: <HqInbox onUnreadChange={setHqUnread} />,
+            feedback: <FeedbackPanel />,
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
             "mira-studio": <MiraStudioPanel />,
             hiring: <HiringPanel onNewCount={setHiringNew} />,

@@ -1076,3 +1076,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Order response (UPI branch, gift_cards.py) now returns qr_b64 (PNG QR of the upi:// URI via python qrcode lib), gpay_link (tez://upi/pay?...), phonepe_link (phonepe://pay?...), paytm_link.
 - GiftCardPublic UPI panel: white-backed scannable QR (gift-upi-qr), GPay (gift-upi-gpay) / PhonePe (gift-upi-phonepe) / Any-UPI buttons, note that app buttons are for phones & QR for desktop. Verified via curl (valid PNG) + screenshot.
 - Preview salon UPI id is testsalon@upi; production carries the real VPA from gift card settings.
+
+## 2026-07-26 — Payment proof upload + HQ Feedback Dashboard
+- UPI auto-confirm NOT possible without gateway (explained to user): plain UPI VPA has no callback; Razorpay = auto path.
+- Payment proof: UpiPaidIn.proof_b64 (data URL, ≤5MB, PNG/JPG/WEBP magic-validated) → _store_payment_proof() saves to object storage (kind gift-payment-proof, uploads collection) → gc.payment_proof_url=/api/files/{fid}. GiftCardPublic: dashed "Attach payment screenshot" upload (gift-proof-upload). Admin GiftCardsCard rows show "📎 Payment proof" link (gift-proof-{id}). Verified E2E: upload→storage→serving 200 image/png.
+- Feedback Dashboard: GET /super-admin/feedback-requests now returns {items, stats{total, submitted, avg_rating, published, unhappy, pending_followup}}; POST /super-admin/feedback-requests/{fid}/follow-up emails a check-in + sets followed_up. New superadmin/FeedbackPanel.jsx tab "Feedback" (Star icon) in SuperAdmin.jsx: 5 stat cards, rows w/ stars, comments, "Follow up" btn for ≤3★, "🌟 On landing page" tag for published. Verified E2E (2★ → pending_followup 1 → follow-up → 0; low rating not published).
+- All test docs cleaned from DB after testing.
