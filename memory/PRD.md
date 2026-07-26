@@ -1086,3 +1086,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 ## 2026-07-26 — Feedback reminders + inline proof thumbnails
 - send_feedback_reminders() in feedback.py: status=sent, created_at >3d, no reminded_at → one-time nudge email with link, sets reminded_at (idempotent, verified). _feedback_reminder_scheduler (6h loop) added to schedulers.py + server.py startup.
 - GiftCardsCard proof link → inline 48x64 thumbnail (img w/ 📎 PROOF label) clickable to full screenshot. Verified via screenshot with seeded proof order (cleaned after).
+
+## 2026-07-26 — Database audit + cleanup (PREVIEW DB)
+- Tenant isolation audit: every doc in tenant-scoped collections carries tenant_id (0 missing across customers/staff/appointments/invoices/services/reviews). TenantCollection wrapper enforces scoping at API level.
+- Removed 200 orphan docs referencing deleted test tenants, then cascade-purged 157 junk test tenants (test-iter5/iter17/suspend-test/unique/email-test/wizard-test/test-trial/glow-grace-preview) + 406 cascaded docs + 149 test users. FINAL preview state: 3 real tenants (miracurl-marathahalli, elegance-koramangala, miracurl-whitefield), 0 orphans, 25 users. App verified working after purge.
+- Shield icon in DB panel = PURGE_PROTECTED {users, tenants, meta, system_flags, subscriptions} (platform_tools.py) — bulk purge disabled, single-doc delete allowed.
+- NOTE: production DB is separate and already lean (user's screenshot showed tenants:2). Testing agents should ideally clean up created tenants.
