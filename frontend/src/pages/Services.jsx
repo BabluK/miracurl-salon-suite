@@ -491,11 +491,22 @@ export default function Services() {
                       setGenImg(true);
                       try {
                         const { data } = editing
-                          ? await api.post(`/services/${editing.id}/generate-image`, {}, { timeout: 180000 })
-                          : await api.post("/services/generate-image-preview", { name: form.name.trim(), category: form.category.trim() || "Beauty" }, { timeout: 180000 });
-                        setForm(f => ({ ...f, image_url: data.image_url }));
-                        toast.success(editing ? "✨ Mira painted a fresh photo for this service" : "✨ Mira painted it — saves with the service");
-                        if (editing) load();
+                          ? await api.post(`/services/${editing.id}/generate-image`, {})
+                          : await api.post("/services/generate-image-preview", { name: form.name.trim(), category: form.category.trim() || "Beauty" });
+                        let done = false;
+                        for (let i = 0; i < 60; i++) {
+                          await new Promise(r => setTimeout(r, 3000));
+                          const { data: j } = await api.get(`/services/image-jobs/${data.job_id}`);
+                          if (j.status === "done") {
+                            setForm(f => ({ ...f, image_url: j.image_url }));
+                            toast.success(editing ? "✨ Mira painted a fresh photo for this service" : "✨ Mira painted it — saves with the service");
+                            if (editing) load();
+                            done = true;
+                            break;
+                          }
+                          if (j.status === "failed") { toast.error(j.error || "Generation failed — try again"); done = true; break; }
+                        }
+                        if (!done) toast.error("Still painting… check the service again in a minute");
                       } catch (err) { toast.error(err.response?.data?.detail || "Generation failed — try again"); }
                       finally { setGenImg(false); }
                     }}

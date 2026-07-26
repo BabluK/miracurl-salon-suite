@@ -8,6 +8,7 @@ import {
   Landmark, FileText, Music, Sparkles, Cctv, Briefcase, Activity, Lock
 } from "lucide-react";
 import { ManagerLockScreen } from "./ManagerLockScreen";
+import { AdminLockScreen } from "./AdminLockScreen";
 import { FloatingPlayer } from "@/components/FloatingPlayer";
 import BranchSwitcher from "./BranchSwitcher";
 import SalonSwitcher from "./SalonSwitcher";
@@ -52,6 +53,8 @@ const NAV_ADMIN = [
 
 // Sections a manager can only open with the Admin (Owner) PIN — every attempt is logged
 const MANAGER_LOCKED = ["/staff", "/cctv", "/attendance", "/hire", "/messages", "/settings", "/staff-activities"];
+// Sections even the OWNER must unlock with the Owner PIN on shared devices
+const ADMIN_LOCKED = ["/settings", "/staff"];
 
 const NAV_STAFF = [
   { to: "/staff-portal", label: "My Dashboard", icon: LayoutDashboard, testid: "nav-staff-portal" },
@@ -102,7 +105,10 @@ export default function AppLayout() {
   // Manager Admin-PIN gate: sensitive sections render a lock screen until unlocked this session
   const [, setUnlockTick] = useState(0);
   const lockedPath = user?.role === "manager"
-    ? MANAGER_LOCKED.find((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`)) : null;
+    ? MANAGER_LOCKED.find((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`))
+    : user?.role === "admin"
+      ? ADMIN_LOCKED.find((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`))
+      : null;
   const isLockedNow = lockedPath && !sessionStorage.getItem(`mgr_unlock:${lockedPath}`);
 
   // Booking notification poller — only for owners/admins. Fires a chime + OS
@@ -293,9 +299,15 @@ export default function AppLayout() {
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5.5rem)" }}
         >
           {isLockedNow ? (
-            <ManagerLockScreen key={lockedPath} path={lockedPath}
-              label={NAV.find((i) => i.to === lockedPath)?.label || "This section"}
-              onUnlocked={() => { sessionStorage.setItem(`mgr_unlock:${lockedPath}`, "1"); setUnlockTick((v) => v + 1); }} />
+            user?.role === "admin" ? (
+              <AdminLockScreen key={lockedPath} path={lockedPath}
+                label={NAV.find((i) => i.to === lockedPath)?.label || "This section"}
+                onUnlocked={() => { sessionStorage.setItem(`mgr_unlock:${lockedPath}`, "1"); setUnlockTick((v) => v + 1); }} />
+            ) : (
+              <ManagerLockScreen key={lockedPath} path={lockedPath}
+                label={NAV.find((i) => i.to === lockedPath)?.label || "This section"}
+                onUnlocked={() => { sessionStorage.setItem(`mgr_unlock:${lockedPath}`, "1"); setUnlockTick((v) => v + 1); }} />
+            )
           ) : (
             <Outlet />
           )}

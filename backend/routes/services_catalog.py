@@ -355,17 +355,15 @@ async def generate_missing_service_images(user=Depends(require_admin)):
 
 @router.post("/services/{sid}/generate-image")
 async def generate_service_image(sid: str, user=Depends(require_admin)):
+    """Start a background paint job (long requests time out behind Cloudflare) — poll /services/image-jobs/{id}."""
     svc = await db.services.find_one({"id": sid}, {"_id": 0})
     if not svc:
         raise HTTPException(404, "Service not found")
     tenant_id = _current_tenant_id.get()
-    try:
-        img = await _generate_service_image_bytes(svc["name"], svc.get("category") or "Beauty")
-    except Exception as e:
-        raise HTTPException(502, f"Mira couldn't paint that one — please try again ({str(e)[:80]})")
-    url = await _store_service_image(tenant_id, img, svc["name"])
-    await db.services.update_one({"id": sid}, {"$set": {"image_url": url}})
-    return {"ok": True, "image_url": url}
+    jid = await _new_image_job(tenant_id)
+    asyncio.get_event_loop().create_task(
+        _run_image_job(jid, tenant_id, svc["name"], svc.get("category") or "Beauty", sid=sid))
+    return {"ok": True, "job_id": jid}
 
 
 class ImagePreviewIn(BaseModel):
@@ -375,14 +373,42 @@ class ImagePreviewIn(BaseModel):
 
 @router.post("/services/generate-image-preview")
 async def generate_service_image_preview(body: ImagePreviewIn, user=Depends(require_admin)):
-    """Paint an image for a NOT-yet-saved service (New Service modal) — returns the url to attach."""
+    """Background paint for a NOT-yet-saved service (New Service modal) — poll /services/image-jobs/{id}."""
     tenant_id = _current_tenant_id.get()
+    jid = await _new_image_job(tenant_id)
+    asyncio.get_event_loop().create_task(
+        _run_image_job(jid, tenant_id, body.name.strip(), body.category.strip() or "Beauty"))
+    return {"ok": True, "job_id": jid}
+
+
+async def _new_image_job(tenant_id: str) -> str:
+    jid = str(uuid.uuid4())
+    await _raw_db.mira_image_jobs.insert_one({
+        "id": jid, "tenant_id": tenant_id, "status": "running", "image_url": "", "error": "",
+        "created_at": datetime.now(timezone.utc).isoformat()})
+    return jid
+
+
+async def _run_image_job(jid: str, tenant_id: str, name: str, category: str, sid: str = ""):
     try:
-        img = await _generate_service_image_bytes(body.name.strip(), body.category.strip() or "Beauty")
+        img = await _generate_service_image_bytes(name, category)
+        url = await _store_service_image(tenant_id, img, name)
+        if sid:
+            await _raw_db.services.update_one({"id": sid, "tenant_id": tenant_id}, {"$set": {"image_url": url}})
+        await _raw_db.mira_image_jobs.update_one({"id": jid}, {"$set": {"status": "done", "image_url": url}})
     except Exception as e:
-        raise HTTPException(502, f"Mira couldn't paint that one — please try again ({str(e)[:80]})")
-    url = await _store_service_image(tenant_id, img, body.name.strip())
-    return {"ok": True, "image_url": url}
+        logging.error(f"mira image job {jid} failed: {e}")
+        await _raw_db.mira_image_jobs.update_one(
+            {"id": jid}, {"$set": {"status": "failed", "error": str(e)[:200]}})
+
+
+@router.get("/services/image-jobs/{jid}")
+async def image_job_status(jid: str, user=Depends(require_admin)):
+    job = await _raw_db.mira_image_jobs.find_one(
+        {"id": jid, "tenant_id": _current_tenant_id.get()}, {"_id": 0})
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return {"status": job["status"], "image_url": job.get("image_url") or "", "error": job.get("error") or ""}
 
 
 class CategoryRenameIn(BaseModel):

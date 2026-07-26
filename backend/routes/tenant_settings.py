@@ -131,12 +131,27 @@ class BranchIn(BaseModel):
             raise ValueError("Maps link must be a valid http(s) URL")
         return v
 
+def _branch_limit(t: dict) -> int:
+    """Paid branch allowance — set by Super Admin. Defaults to what the salon already has (min 1)."""
+    lim = t.get("branch_limit")
+    return int(lim) if lim else max(len(t.get("branches") or []), 1)
+
 @router.get("/branches")
 async def list_branches(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     return t.get("branches", [])
 
+@router.get("/branches/limit")
+async def branch_limit_info(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return {"limit": _branch_limit(t), "used": len(t.get("branches") or [])}
+
 @router.post("/branches")
 async def add_branch(body: BranchIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    branches = t.get("branches") or []
+    limit = _branch_limit(t)
+    if len(branches) >= limit:
+        raise HTTPException(
+            403, f"Your subscription covers {limit} branch{'es' if limit != 1 else ''}. "
+                 "Contact Miracurl HQ to add more branches once the payment is done.")
     branch = {"id": str(uuid.uuid4()), **body.model_dump()}
     await db.tenants.update_one({"id": t["id"]}, {"$push": {"branches": branch}})
     return branch

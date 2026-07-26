@@ -30,6 +30,7 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
     name: tenant.name || "", location: tenant.location || "", phone: tenant.phone || "",
     salon_email: tenant.salon_email || "", owner_name: tenant.owner_name || "",
     owner_email: tenant.owner_email || "", whatsapp_number: tenant.whatsapp_number || "",
+    branch_limit: tenant.branch_limit != null ? String(tenant.branch_limit) : "",
   });
   const [busy, setBusy] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -79,8 +80,13 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
         name: tenant.name, location: tenant.location, phone: tenant.phone,
         salon_email: tenant.salon_email, owner_name: tenant.owner_name,
         owner_email: tenant.owner_email, whatsapp_number: tenant.whatsapp_number,
+        branch_limit: tenant.branch_limit != null ? String(tenant.branch_limit) : "",
       };
       Object.entries(form).forEach(([k, v]) => { if ((v || "") !== (src[k] || "")) patch[k] = v; });
+      if ("branch_limit" in patch) {
+        if (!String(patch.branch_limit).trim()) delete patch.branch_limit;
+        else patch.branch_limit = Math.max(1, parseInt(patch.branch_limit, 10) || 1);
+      }
       if (Object.keys(patch).length === 0) { toast.info("Nothing changed"); setBusy(false); return; }
       await api.put(`/super-admin/tenants/${tenant.id}`, patch);
       toast.success("Salon details updated ✦");
@@ -167,6 +173,9 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
               <input data-testid="edit-tenant-salon-email" type="email" value={form.salon_email} onChange={set("salon_email")} className={inputCls} /></div>
             <div><label className="text-xs text-slate-500 font-medium">Owner name</label>
               <input data-testid="edit-tenant-owner-name" value={form.owner_name} onChange={set("owner_name")} className={inputCls} /></div>
+            <div><label className="text-xs text-slate-500 font-medium">Branch limit (paid allowance)</label>
+              <input data-testid="edit-tenant-branch-limit" type="number" min="1" max="50" value={form.branch_limit} onChange={set("branch_limit")} placeholder="e.g. 5" className={inputCls} />
+              <p className="text-[10px] text-slate-400 mt-1">Max branches the salon can add in Settings — raise it after payment.</p></div>
             <div className="sm:col-span-2"><label className="text-xs text-slate-500 font-medium">Owner login email</label>
               <input data-testid="edit-tenant-owner-email" type="email" value={form.owner_email} onChange={set("owner_email")} className={inputCls} />
               <p className="text-[10px] text-amber-600 mt-1">⚠ Changing this changes the owner&apos;s LOGIN email (applies to all their linked salons).</p></div>

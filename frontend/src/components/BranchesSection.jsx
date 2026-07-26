@@ -7,12 +7,14 @@ const EMPTY = { name: "", address: "", phone: "", maps_url: "" };
 
 export const BranchesSection = () => {
   const [branches, setBranches] = useState([]);
+  const [limitInfo, setLimitInfo] = useState(null); // {limit, used}
   const [modal, setModal] = useState(null); // {editing: branch|null}
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
     api.get("/branches").then(r => setBranches(r.data)).catch(() => {});
+    api.get("/branches/limit").then(r => setLimitInfo(r.data)).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -49,8 +51,19 @@ export const BranchesSection = () => {
       <div className="flex items-center justify-between gap-3 mb-1">
         <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
           <MapPin className="w-5 h-5 text-sky-600" /> Branch locations
+          {limitInfo && (
+            <span data-testid="branch-limit-badge" className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${limitInfo.used >= limitInfo.limit ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-sky-50 text-sky-700 border-sky-100"}`}>
+              {limitInfo.used} / {limitInfo.limit} used
+            </span>
+          )}
         </h2>
-        <button data-testid="add-branch-btn" onClick={() => openModal()} className="btn-blue text-sm flex items-center gap-1.5"><Plus className="w-4 h-4" /> Add Branch</button>
+        {limitInfo && limitInfo.used >= limitInfo.limit ? (
+          <span data-testid="branch-limit-reached" className="text-[11px] text-amber-600 font-semibold text-right">
+            Branch limit reached — contact Miracurl HQ to add more 🏢
+          </span>
+        ) : (
+          <button data-testid="add-branch-btn" onClick={() => openModal()} className="btn-blue text-sm flex items-center gap-1.5"><Plus className="w-4 h-4" /> Add Branch</button>
+        )}
       </div>
       <p className="text-xs text-slate-500 mb-4">All branches appear in the “Our Locations” section of your public booking page, with address, phone and directions link.</p>
 

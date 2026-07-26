@@ -2,10 +2,23 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-26.40"
-BUILD_TIME = "26 Jul 2026, 11:00 AM IST"
+BUILD = "2026-07-27.41"
+BUILD_TIME = "27 Jul 2026, 12:00 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-27 (Gifting, reorder & owner security)",
+        "changes": [
+            "💬 WhatsApp gifting — buyers can add the recipient's WhatsApp number and send the gift card straight to their chat after payment (also from the receipt email)",
+            "↕️ Category reorder — drag your service categories into any order; the Services page and your public booking page follow it instantly",
+            "📊 Gift card analytics — Settings → Gift Cards now shows a 6-month sales vs redemptions chart plus balances expiring each month",
+            "✨ Mira paints new services too — 'Let Mira paint this' now works while creating a service, and painting runs in the background so slow connections never error out",
+            "🔔 Notifications you can clear — Super Admin notifications mark as read on click, can be dismissed, with a one-tap 'Mark all as read'",
+            "🔐 Owner PIN lock — Settings and Staff now ask for your Owner PIN on shared devices (set the PIN in Settings → Security)",
+            "🏢 Branch limits — salons can add locations only up to their paid branch allowance; Miracurl HQ raises the limit after payment",
+            "🎨 Polish — branch dropdown matches the dark header, and the Day/Upcoming appointment tabs no longer shift around",
+        ],
+    },
     {
         "date": "2026-07-26 (Category editing & service disable)",
         "changes": [

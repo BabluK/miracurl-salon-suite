@@ -54,6 +54,7 @@ class TenantUpdateIn(BaseModel):
     owner_name: Optional[str] = None
     owner_email: Optional[str] = None
     owner_phone: Optional[str] = None
+    branch_limit: Optional[int] = None
 
 async def resolve_tenant_from_slug(slug: str) -> dict:
     """For PUBLIC endpoints that take slug in the URL path."""
