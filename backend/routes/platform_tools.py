@@ -97,6 +97,33 @@ async def db_collections(admin=Depends(require_super_admin)):
          "purge_protected": n in PURGE_PROTECTED} for n in names]}
 
 
+async def run_db_health_audit() -> dict:
+    """Count docs whose tenant_id references a deleted tenant. Cached in system_flags."""
+    tids = [t["id"] async for t in _raw_db.tenants.find({}, {"_id": 0, "id": 1})]
+    orphans, per = 0, {}
+    for c in await _raw_db.list_collection_names():
+        if c in ("tenants", "meta", "system_flags"):
+            continue
+        n = await _raw_db[c].count_documents(
+            {"tenant_id": {"$exists": True, "$ne": None, "$nin": tids}})
+        if n:
+            per[c] = n
+            orphans += n
+    result = {"orphans": orphans, "per_collection": per, "tenants": len(tids),
+              "checked_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.system_flags.update_one(
+        {"key": "db_health"}, {"$set": {"key": "db_health", **result}}, upsert=True)
+    return result
+
+
+@router.get("/super/db/health")
+async def db_health(refresh: bool = False, admin=Depends(require_super_admin)):
+    flag = await _raw_db.system_flags.find_one({"key": "db_health"}, {"_id": 0})
+    if refresh or not flag:
+        flag = await run_db_health_audit()
+    return flag
+
+
 @router.get("/super/db/{coll}/docs")
 async def db_docs(coll: str, skip: int = 0, limit: int = 20, q: str = "",
                   admin=Depends(require_super_admin)):

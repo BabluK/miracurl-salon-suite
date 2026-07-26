@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Database, Trash2, RefreshCw, Search, ShieldAlert, ChevronLeft, ChevronRight } from "lucide-react";
+import { Database, Trash2, RefreshCw, Search, ShieldAlert, ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
 
 const PAGE = 20;
 
@@ -13,9 +13,18 @@ export const DatabasePanel = () => {
   const [skip, setSkip] = useState(0);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState(null);
+  const [health, setHealth] = useState(null);
+  const [auditing, setAuditing] = useState(false);
+
+  const loadHealth = (refresh = false) => {
+    if (refresh) setAuditing(true);
+    api.get("/super/db/health", { params: refresh ? { refresh: true } : {} })
+      .then(r => setHealth(r.data)).catch(() => {})
+      .finally(() => setAuditing(false));
+  };
 
   const loadColls = () => { api.get("/super/db/collections").then(r => setColls(r.data.collections)).catch(() => toast.error("Couldn't load collections")); };
-  useEffect(() => { loadColls(); }, []);
+  useEffect(() => { loadColls(); loadHealth(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadDocs = (name, newSkip = 0, query = q) => {
     api.get(`/super/db/${name}/docs`, { params: { skip: newSkip, limit: PAGE, q: query } })
@@ -61,9 +70,24 @@ export const DatabasePanel = () => {
 
   return (
     <div className="space-y-4" data-testid="database-panel">
-      <div>
-        <h1 className="font-playfair text-3xl flex items-center gap-2"><Database className="w-6 h-6 text-sky-500" /> Database</h1>
-        <p className="text-slate-500 text-sm mt-1">Browse every table, inspect rows and clean up data. Deletions are permanent — use with care.</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="font-playfair text-3xl flex items-center gap-2"><Database className="w-6 h-6 text-sky-500" /> Database</h1>
+          <p className="text-slate-500 text-sm mt-1">Browse every table, inspect rows and clean up data. Deletions are permanent — use with care.</p>
+        </div>
+        {health && (
+          <button onClick={() => loadHealth(true)} disabled={auditing} title="Weekly auto-audit: docs pointing at deleted salons. Click to re-run now."
+            data-testid="db-health-badge"
+            className={`inline-flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-full border transition ${health.orphans === 0
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+              : "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"}`}>
+            {auditing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+            {health.orphans === 0
+              ? `Healthy · 0 orphan records · ${health.tenants} tenants`
+              : `⚠ ${health.orphans} orphan records found`}
+            <span className="font-normal opacity-70">· audited {(health.checked_at || "").slice(0, 10)}</span>
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4 items-start">

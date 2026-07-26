@@ -311,6 +311,37 @@ async def _feedback_reminder_scheduler() -> None:
         await asyncio.sleep(6 * 3600)
 
 
+async def _salon_digest_scheduler() -> None:
+    """Every 15 min: after 8 AM IST send each salon owner their morning digest (once per day)."""
+    from routes.salon_digest import send_salon_daily_digests
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if 8 <= ist_now.hour < 12:
+                n = await send_salon_daily_digests()
+                if n:
+                    logging.info(f"salon daily digests sent: {n}")
+        except Exception as e:
+            logging.error(f"salon digest scheduler error: {e}")
+        await asyncio.sleep(900)
+
+
+async def _db_health_scheduler() -> None:
+    """Every 12h: run the weekly orphan-record audit if the last one is older than 7 days."""
+    from routes.platform_tools import run_db_health_audit
+    while True:
+        try:
+            flag = await _raw_db.system_flags.find_one({"key": "db_health"})
+            last = (flag or {}).get("checked_at") or ""
+            week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            if not last or last < week_ago:
+                out = await run_db_health_audit()
+                logging.info(f"db health audit: {out}")
+        except Exception as e:
+            logging.error(f"db health scheduler error: {e}")
+        await asyncio.sleep(12 * 3600)
+
+
 async def _lead_heat_scheduler() -> None:
     """Every Sunday (after 08:00 IST) refresh Google data + re-score all Mira leads. Idempotent per week."""
     from routes.lead_gen import run_lead_heat_refresh

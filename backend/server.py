@@ -75,6 +75,7 @@ from routes.id_cards import router as id_cards_router  # noqa: E402
 from routes.releases import router as releases_router  # noqa: E402
 from routes.testimonials import router as testimonials_router  # noqa: E402
 from routes.feedback import router as feedback_router  # noqa: E402
+from routes.salon_digest import router as salon_digest_router  # noqa: E402
 from routes.diagnostics import router as diagnostics_router  # noqa: E402
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 from routes.day_offers import router as day_offers_router  # noqa: E402
@@ -98,7 +99,7 @@ from schedulers import (  # noqa: E402
     _lead_followup_scheduler, _staff_exit_scheduler, _sms_reminder_scheduler,
     _gift_card_scheduler, _mira_auto_call_scheduler, _mira_digest_scheduler,
     _lead_heat_scheduler, _callback_redial_scheduler, _phone_backfill_task, _weekly_win_scheduler,
-    _feedback_reminder_scheduler,
+    _feedback_reminder_scheduler, _salon_digest_scheduler, _db_health_scheduler,
 )
 
 for _r in (
@@ -114,7 +115,7 @@ for _r in (
     testimonials_router, diagnostics_router, subscriptions_router, day_offers_router,
     cctv_router, hiring_router, hq_notifications_router, winback_router, payments_intl_router,
     employee_portal_router, hq_documents_router, mira_builder_router, manager_access_router,
-    setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router,
+    setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router, salon_digest_router,
 ):
     api.include_router(_r)
 
@@ -139,6 +140,8 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_callback_redial_scheduler())
     asyncio.get_event_loop().create_task(_weekly_win_scheduler())
     asyncio.get_event_loop().create_task(_feedback_reminder_scheduler())
+    asyncio.get_event_loop().create_task(_salon_digest_scheduler())
+    asyncio.get_event_loop().create_task(_db_health_scheduler())
     asyncio.get_event_loop().create_task(_phone_backfill_task())
 
     async def _warm_storage():
