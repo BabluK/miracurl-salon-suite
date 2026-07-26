@@ -679,6 +679,28 @@ def _friendly_error(err: str) -> str:
     return (err or "")[:90]
 
 
+@router.get("/super-admin/mira-calls/scheduled")
+async def scheduled_calls(user=Depends(require_super_admin)):
+    """Who's queued for a Mira call and when she'll ring them."""
+    rows = await _raw_db.mira_leads.find(
+        {"call_result": "callback", "callback_at": {"$nin": ["", None]},
+         "callback_redialed": {"$ne": True}, "do_not_call": {"$ne": True}},
+        {"_id": 0, "id": 1, "name": 1, "city": 1, "phone": 1, "callback_at": 1, "score": 1}
+    ).sort("callback_at", 1).to_list(100)
+    return {"items": rows}
+
+
+@router.post("/super-admin/mira-calls/scheduled/{lid}/cancel")
+async def cancel_scheduled_call(lid: str, user=Depends(require_super_admin)):
+    r = await _raw_db.mira_leads.update_one(
+        {"id": lid, "call_result": "callback"},
+        {"$set": {"call_result": "callback_cancelled", "callback_redialed": True},
+         "$unset": {"callback_at": ""}})
+    if not r.matched_count:
+        raise HTTPException(404, "No scheduled call found for this lead")
+    return {"ok": True}
+
+
 @router.get("/super-admin/mira-calls")
 async def list_calls(user=Depends(require_super_admin)):
     rows = await _raw_db.mira_call_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)

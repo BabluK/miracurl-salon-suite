@@ -236,6 +236,60 @@ function CallHistoryPanel() {
   );
 }
 
+function ScheduledCallsPanel() {
+  const [items, setItems] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  const load = () => api.get("/super-admin/mira-calls/scheduled").then(r => setItems(r.data.items)).catch(() => {});
+  useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, []);
+
+  const cancel = async (l) => {
+    if (!window.confirm(`Cancel Mira's scheduled call to ${l.name || l.phone}?`)) return;
+    try {
+      await api.post(`/super-admin/mira-calls/scheduled/${l.id}/cancel`);
+      toast.success(`Call to ${l.name || "lead"} cancelled — Mira won't ring them`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't cancel"); }
+  };
+
+  const when = (iso) => {
+    try {
+      const d = new Date(iso);
+      const mins = Math.round((d - Date.now()) / 60000);
+      const rel = mins <= 0 ? "due now" : mins < 60 ? `in ${mins}m` : mins < 1440 ? `in ${Math.round(mins / 60)}h` : `in ${Math.round(mins / 1440)}d`;
+      return `${d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} IST · ${rel}`;
+    } catch { return iso; }
+  };
+
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200" data-testid="scheduled-calls-panel">
+      <button onClick={() => setOpen(o => !o)} data-testid="scheduled-calls-toggle"
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700">
+        <span>⏰ Scheduled Calls · {items.length} queued — who Mira will ring next</span>
+        <span className="text-slate-400">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-2 max-h-72 overflow-y-auto">
+          {items.map(l => (
+            <div key={l.id} className="border border-slate-100 rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap" data-testid={`scheduled-call-${l.id}`}>
+              <span className="text-xs font-semibold text-slate-700">{l.name || l.phone}</span>
+              {l.city && <span className="text-[10px] text-slate-400">{l.city}</span>}
+              <span className="text-[10px] text-slate-400 font-mono">{l.phone}</span>
+              {typeof l.score === "number" && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">🔥 {l.score}</span>}
+              <span className="text-[10px] font-semibold text-sky-600 ml-auto">📞 {when(l.callback_at)}</span>
+              <button onClick={() => cancel(l)} data-testid={`cancel-scheduled-${l.id}`}
+                className="text-[10px] font-bold px-2.5 py-1 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50">
+                ✕ Cancel
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LeadRow({ lead, onRefresh }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
@@ -644,6 +698,8 @@ export function MiraLeadAgent() {
       )}
 
       <CallHistoryPanel />
+
+      <ScheduledCallsPanel />
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2" data-testid="lead-filter-tabs">

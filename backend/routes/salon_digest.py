@@ -39,6 +39,11 @@ async def _digest_data(tid: str) -> dict:
         if i.get("staff_name"):
             by_staff[i["staff_name"]] = by_staff.get(i["staff_name"], 0) + (i.get("total") or 0)
     top_staff = max(by_staff.items(), key=lambda kv: kv[1]) if by_staff else None
+    lw = yday - timedelta(days=7)
+    ls, le = _utc_window_for_ist_day(lw)
+    lw_invs = await _raw_db.invoices.find(
+        {"tenant_id": tid, "created_at": {"$gte": ls, "$lt": le}}, {"_id": 0, "total": 1}).to_list(500)
+    lw_revenue = sum(i.get("total") or 0 for i in lw_invs)
     y_appts = await _raw_db.appointments.count_documents(
         {"tenant_id": tid, "scheduled_at": {"$gte": ys, "$lt": ye}, "status": {"$ne": "cancelled"}})
     t_appts = await _raw_db.appointments.find(
@@ -48,7 +53,19 @@ async def _digest_data(tid: str) -> dict:
     pending_gifts = await _raw_db.gift_cards.count_documents(
         {"tenant_id": tid, "status": "awaiting_confirmation"})
     return {"yday": str(yday), "revenue": revenue, "bills": len(invs), "y_appts": y_appts,
+            "lw_revenue": lw_revenue,
             "top_staff": top_staff, "t_appts": t_appts, "pending_gifts": pending_gifts}
+
+
+def _trend_badge(revenue: float, lw_revenue: float) -> str:
+    """▲/▼ vs the same day last week."""
+    if lw_revenue <= 0:
+        return ('<span style="font-size:11px;color:#0e7490;font-weight:bold">✦ new</span>'
+                if revenue > 0 else "")
+    pct = round((revenue - lw_revenue) / lw_revenue * 100)
+    if pct >= 0:
+        return f'<span style="font-size:11px;color:#059669;font-weight:bold">▲ {pct}% vs last week</span>'
+    return f'<span style="font-size:11px;color:#dc2626;font-weight:bold">▼ {abs(pct)}% vs last week</span>'
 
 
 def _digest_html(t: dict, d: dict) -> str:
@@ -76,7 +93,8 @@ def _digest_html(t: dict, d: dict) -> str:
     <table width="100%" cellspacing="8"><tr>
       <td style="background:#f8f6f1;border-radius:12px;padding:14px;text-align:center">
         <div style="font-size:22px;font-weight:bold;color:#1a1a2e">{cur}{d['revenue']:g}</div>
-        <div style="font-size:11px;color:#888">Yesterday's revenue · {d['bills']} bills</div></td>
+        <div style="font-size:11px;color:#888">Yesterday's revenue · {d['bills']} bills</div>
+        <div style="margin-top:2px">{_trend_badge(d['revenue'], d.get('lw_revenue') or 0)}</div></td>
       <td style="background:#f8f6f1;border-radius:12px;padding:14px;text-align:center">
         <div style="font-size:22px;font-weight:bold;color:#1a1a2e">{d['y_appts']}</div>
         <div style="font-size:11px;color:#888">Bookings served yesterday</div></td>
