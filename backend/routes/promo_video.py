@@ -65,6 +65,7 @@ async def create_promo_video(body: PromoIn, request: Request, admin=Depends(requ
     await _raw_db.promo_videos.insert_one({
         "id": job_id, "status": "generating", "progress": "Mira is writing the script…",
         "focus": body.focus, "video_url": "", "error": "", "base_url": base_url,
+        "params": body.model_dump(),
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     asyncio.create_task(_generate(job_id, body))
@@ -588,12 +589,24 @@ async def weekly_promo_scheduler():
     # jobs whose last heartbeat is older than the stale window.
     try:
         cutoff = (datetime.now(timezone.utc) - timedelta(minutes=STALE_MINUTES)).isoformat()
-        await _raw_db.promo_videos.update_many(
+        stale = await _raw_db.promo_videos.find(
             {"status": "generating",
              "$or": [{"updated_at": {"$lt": cutoff}},
                      {"updated_at": {"$exists": False}, "created_at": {"$lt": cutoff}}]},
-            {"$set": {"status": "failed",
-                      "error": "Generation was interrupted by a server restart. Please click Generate again."}})
+            {"_id": 0}).to_list(20)
+        hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        for j in stale:
+            if j.get("params") and j.get("created_at", "") >= hour_ago:
+                # Recent job killed by a deploy/restart — auto-resume instead of failing.
+                await _raw_db.promo_videos.update_one({"id": j["id"]}, {"$set": {
+                    "progress": "Resumed after a server restart — regenerating…",
+                    "updated_at": datetime.now(timezone.utc).isoformat()}})
+                asyncio.create_task(_generate(j["id"], PromoIn(**j["params"])))
+                log.info(f"promo job {j['id']} auto-resumed after restart")
+            else:
+                await _raw_db.promo_videos.update_one({"id": j["id"]}, {"$set": {
+                    "status": "failed",
+                    "error": "Generation was interrupted by a server restart. Please click Generate again."}})
     except Exception as e:
         log.error("stale promo cleanup failed: %s", e)
     while True:

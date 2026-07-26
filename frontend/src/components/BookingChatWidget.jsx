@@ -102,7 +102,12 @@ function AiTab({ slug }) {
     sessionStorage.setItem(k, sidRef.current);
   }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
-  useEffect(() => () => { audioRef.current?.pause(); }, []);
+  // Closing the panel fully silences Mira: stop her voice AND the mic/hands-free loop.
+  useEffect(() => () => {
+    handsFreeRef.current = false;
+    audioRef.current?.pause();
+    stopRecording();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Voice-first: as soon as Mira opens, she speaks the greeting and starts listening hands-free.
   useEffect(() => {

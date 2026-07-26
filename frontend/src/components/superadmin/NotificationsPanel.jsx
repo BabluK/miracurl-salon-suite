@@ -88,9 +88,9 @@ export function NotificationsPanel({ feed, onGoTab, onRefresh }) {
               <span className={`block text-sm ${isUnread(i) ? "font-semibold text-slate-900" : "text-slate-700"}`}>{i.title}</span>
               {i.body && <span className="block text-xs text-slate-500 truncate">{i.body}</span>}
               {i.invite_id && i.email && (
-                <span onClick={(e) => sendPicker(e, i)} data-testid={`notif-slot-picker-${i.id}`}
-                  className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition ${sentIds[i.id] ? "bg-emerald-100 text-emerald-600" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
-                  📅 {sentIds[i.id] ? "Time-picker sent ✓" : "Send time-picker email"}
+                <span onClick={(e) => (sentIds[i.id] || i.picker_sent) ? e.stopPropagation() : sendPicker(e, i)} data-testid={`notif-slot-picker-${i.id}`}
+                  className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold cursor-pointer transition ${(sentIds[i.id] || i.picker_sent) ? "bg-emerald-100 text-emerald-600" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
+                  📅 {(sentIds[i.id] || i.picker_sent) ? "Time-picker sent ✓" : "Send time-picker email"}
                 </span>
               )}
             </span>

@@ -63,6 +63,16 @@ export function HqInbox({ onUnreadChange }) {
     await load();
   }
 
+  const [fbSent, setFbSent] = useState({});
+  async function sendFeedback(m) {
+    try {
+      const { data } = await api.post("/super-admin/feedback-requests", {
+        tenant_id: m.tenant_id, context: (m.subject || "").slice(0, 120) });
+      setFbSent(s => ({ ...s, [m.id]: true }));
+      toast.success(data.email_sent ? "Feedback link emailed to the owner 💛" : "Feedback link created (email delivery failed) — copy: " + data.link);
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send the feedback link"); }
+  }
+
   if (!items) return <div className="text-slate-500 p-4">Loading inbox…</div>;
   return (
     <div className="card-light" data-testid="hq-inbox">
@@ -93,6 +103,14 @@ export function HqInbox({ onUnreadChange }) {
               )}
             </div>
             <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">{m.message}</p>
+            {m.tenant_id && (
+              <button data-testid={`hq-send-feedback-${m.id}`} onClick={() => sendFeedback(m)} disabled={fbSent[m.id]}
+                className={`mt-2.5 text-[11px] font-bold px-3 py-1.5 rounded-full border transition ${fbSent[m.id]
+                  ? "bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default"
+                  : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"}`}>
+                {fbSent[m.id] ? "✓ Feedback link sent" : "💛 Resolved — send feedback link"}
+              </button>
+            )}
             {(m.attachments || []).length > 0 && (
               <div className="text-[11px] text-slate-500 mt-2">📎 {m.attachments.join(", ")} <span className="text-slate-400">(attached in the email copy)</span></div>
             )}

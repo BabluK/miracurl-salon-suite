@@ -98,6 +98,7 @@ async def _demo_items(since: str) -> list:
                           "title": f"Demo requested — {who}{salon}",
                           "body": when,
                           "invite_id": r["id"], "email": r.get("email"),
+                          "picker_sent": bool(r.get("slot_picker_sent_at")),
                           "at": r["demo_requested_at"], "tab": "lead-email",
                           "unread": not r.get("seen_by_hq_req", True)})
         elif r.get("opened_at"):
@@ -105,6 +106,7 @@ async def _demo_items(since: str) -> list:
                           "title": f"Demo invite opened — {who}{salon}",
                           "body": f"{r.get('email')} opened your invitation email",
                           "invite_id": r["id"], "email": r.get("email"),
+                          "picker_sent": bool(r.get("slot_picker_sent_at")),
                           "at": r["opened_at"], "tab": "lead-email",
                           "unread": not r.get("seen_by_hq_open", True)})
     return items
@@ -154,6 +156,7 @@ async def hq_notifications(user=Depends(require_super_admin)):
         if i["id"] in reads:
             i["unread"] = False
     items.sort(key=lambda x: x.get("at") or "", reverse=True)
+    items.sort(key=lambda x: 0 if x.get("unread") else 1)  # unread first, read sink below
     unread = sum(1 for i in items if i.get("unread"))
     return {"items": items[:80], "unread": unread}
 

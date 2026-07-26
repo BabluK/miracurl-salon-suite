@@ -88,6 +88,20 @@ class TenantMiraAskIn(BaseModel):
     last_mira: str = Field("", max_length=600)
 
 
+async def _catalog_context() -> str:
+    """Full service menu + staff roster so Mira truly knows THIS salon."""
+    services = await db.services.find(
+        {"active": {"$ne": False}},
+        {"_id": 0, "name": 1, "category": 1, "price": 1, "duration_min": 1}).to_list(200)
+    staff = await db.staff.find(
+        {"active": {"$ne": False}}, {"_id": 0, "name": 1, "role": 1}).to_list(50)
+    svc = "\n".join(
+        f"- {s.get('name')} [{s.get('category') or 'General'}] ₹{s.get('price') or 0:g} · {s.get('duration_min') or 0} min"
+        for s in services) or "(no services listed)"
+    stf = "\n".join(f"- {s.get('name')} ({s.get('role') or 'stylist'})" for s in staff) or "(no staff listed)"
+    return f"SERVICE MENU:\n{svc}\n\nSTAFF TEAM:\n{stf}"
+
+
 @router.post("/tenant/mira/ask")
 async def tenant_mira_ask(body: TenantMiraAskIn, user=Depends(require_tenant_admin)):
     from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -95,9 +109,12 @@ async def tenant_mira_ask(body: TenantMiraAskIn, user=Depends(require_tenant_adm
     if not key:
         raise HTTPException(500, "AI key not configured")
     snap = await _salon_snapshot()
+    catalog = await _catalog_context()
     chat = LlmChat(api_key=key, session_id=f"tenant-mira-{user.get('tenant_id', '')[:12]}",
                    system_message=(
                        "You are Mira, this salon's dedicated AI manager inside the Miracurl Suite dashboard. "
+                       "You know THIS salon's full service menu and staff team (provided below) — answer questions "
+                       "about services, prices, durations and staff precisely from it; never invent items. "
                        "Answer the salon owner's question in ONE or TWO short spoken-style sentences using the "
                        "live salon snapshot provided. Be a proactive consultant: if bookings are low suggest a "
                        "promo or win-back campaign; if reviews are unread suggest replying; celebrate good revenue. "
@@ -106,6 +123,7 @@ async def tenant_mira_ask(body: TenantMiraAskIn, user=Depends(require_tenant_adm
                        "(Good morning before 12 PM, Good afternoon 12–5 PM, Good evening after 5 PM); never guess. "
                        "LANGUAGE: reply in the SAME language the owner used — English or Hindi (Devanagari). "
                        "Hinglish counts as Hindi. "
+                       f"\n\n{catalog}\n\n"
                        'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab path or empty>"}'
                    )).with_model("openai", "gpt-4o-mini")
     prev = f'Previous Mira message: "{body.last_mira.strip()[:200]}"\n' if body.last_mira.strip() else ""
