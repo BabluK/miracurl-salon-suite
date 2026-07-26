@@ -177,15 +177,32 @@ export default function GiftCardPublic() {
           <div className="mt-10 bg-white/5 border border-white/10 rounded-3xl p-8 text-center" data-testid="gift-upi-panel">
             <h2 className="font-playfair text-2xl">Pay ₹{finalAmount} via UPI</h2>
             <p className="text-xs text-white/50 mt-1">GPay · PhonePe · Paytm · any UPI app</p>
-            <div className="mt-5 inline-flex items-center gap-2 bg-white/10 rounded-xl px-5 py-3 font-mono text-gold text-lg" data-testid="gift-upi-id">
+            {upiOrder.qr_b64 && (
+              <div className="mt-5 flex flex-col items-center" data-testid="gift-upi-qr">
+                <div className="bg-white p-2.5 rounded-2xl">
+                  <img src={`data:image/png;base64,${upiOrder.qr_b64}`} alt="Scan to pay via UPI" className="w-44 h-44" />
+                </div>
+                <p className="text-[11px] text-white/50 mt-2">📱 Scan with GPay, PhonePe or any UPI app to pay ₹{finalAmount}</p>
+              </div>
+            )}
+            <div className="mt-4 inline-flex items-center gap-2 bg-white/10 rounded-xl px-5 py-3 font-mono text-gold text-lg" data-testid="gift-upi-id">
               {upiOrder.upi_id}
               <button onClick={() => { navigator.clipboard.writeText(upiOrder.upi_id); setCopied(true); toast.success("UPI ID copied"); }} data-testid="gift-upi-copy">
                 {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
-            <div className="mt-4">
-              <a href={upiOrder.upi_link} className="btn-gold inline-flex items-center gap-2" data-testid="gift-upi-open">Open UPI app to pay ₹{finalAmount}</a>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+              <a href={upiOrder.gpay_link || upiOrder.upi_link} data-testid="gift-upi-gpay"
+                className="inline-flex items-center gap-1.5 bg-white text-black font-bold text-sm rounded-full px-5 py-2.5 hover:bg-white/90">
+                <span className="font-black" style={{ color: "#4285F4" }}>G</span> Pay with GPay
+              </a>
+              <a href={upiOrder.phonepe_link || upiOrder.upi_link} data-testid="gift-upi-phonepe"
+                className="inline-flex items-center gap-1.5 text-white font-bold text-sm rounded-full px-5 py-2.5" style={{ background: "#5f259f" }}>
+                ▮ PhonePe
+              </a>
+              <a href={upiOrder.upi_link} className="btn-gold inline-flex items-center gap-2 !py-2.5 !text-sm" data-testid="gift-upi-open">Any UPI app</a>
             </div>
+            <p className="text-[10px] text-white/35 mt-2">App buttons work on your phone — on a computer, scan the QR above.</p>
             <div className="mt-6 max-w-sm mx-auto text-left">
               <label className="text-[11px] uppercase tracking-wider text-white/40">UPI transaction ID (optional, speeds up confirmation)</label>
               <input value={upiRef} onChange={(e) => setUpiRef(e.target.value)} placeholder="e.g. 4172XXXXXXXX" className={inputCls + " mt-1"} data-testid="gift-upi-ref" />

@@ -1,6 +1,8 @@
 """Gift Cards: public purchase (occasion e-cards) + salon payment config + POS redemption."""
 import hashlib
 import hmac
+import io
+import base64
 import html as html_lib
 import os
 import re
@@ -148,8 +150,22 @@ def _gift_payment_init(gc: dict, t: dict, s: dict, key_id: str, key_secret: str)
                 "salon_name": t.get("name")}
     upi = s["upi_id"]
     pn = re.sub(r"[^A-Za-z0-9 ]", "", t.get("name") or "Salon")[:40]
-    return {"upi_id": upi,
-            "upi_link": f"upi://pay?pa={upi}&pn={pn.replace(' ', '%20')}&am={amount:.2f}&cu=INR&tn=GiftCard"}
+    upi_uri = f"upi://pay?pa={upi}&pn={pn.replace(' ', '%20')}&am={amount:.2f}&cu=INR&tn=GiftCard"
+    tail = upi_uri.split("upi://", 1)[1]  # pay?pa=...
+    return {"upi_id": upi, "upi_link": upi_uri,
+            "gpay_link": f"tez://upi/{tail}",
+            "phonepe_link": f"phonepe://{tail}",
+            "paytm_link": f"paytmmp://{tail}",
+            "qr_b64": _upi_qr_b64(upi_uri)}
+
+
+def _upi_qr_b64(data: str) -> str:
+    """PNG QR of the upi:// URI so desktop buyers can scan with any UPI app."""
+    import qrcode
+    img = qrcode.make(data, box_size=7, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
 
 
 @router.post("/public/gift-cards/{slug}/order")

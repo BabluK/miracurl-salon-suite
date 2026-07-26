@@ -1071,3 +1071,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - (9) Promo video: job doc stores params; startup stale cleanup auto-RESUMES generating jobs <1h old (asyncio task re-runs _generate) instead of failing — deploys no longer permanently kill in-flight videos. Older jobs still fail with clear message.
 - (10) HQ notifications: unread sorted above read; demo items carry persisted picker_sent (slot_picker_sent_at) → "Time-picker sent ✓" persists across reloads; CTA click-through blocked once sent.
 - Testing: iteration_88.json — 8/8 backend, 3/3 frontend flows PASS. Test testimonials/feedback docs cleaned from DB.
+
+## 2026-07-26 — Gift card UPI: QR code + GPay/PhonePe buttons
+- Order response (UPI branch, gift_cards.py) now returns qr_b64 (PNG QR of the upi:// URI via python qrcode lib), gpay_link (tez://upi/pay?...), phonepe_link (phonepe://pay?...), paytm_link.
+- GiftCardPublic UPI panel: white-backed scannable QR (gift-upi-qr), GPay (gift-upi-gpay) / PhonePe (gift-upi-phonepe) / Any-UPI buttons, note that app buttons are for phones & QR for desktop. Verified via curl (valid PNG) + screenshot.
+- Preview salon UPI id is testsalon@upi; production carries the real VPA from gift card settings.
