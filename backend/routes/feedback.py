@@ -4,7 +4,7 @@ import os
 import uuid
 import html as html_lib
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -14,6 +14,39 @@ from security import require_super_admin, public_rate_limit
 
 log = logging.getLogger("feedback")
 router = APIRouter()
+
+
+async def send_feedback_reminders() -> int:
+    """Nudge owners who haven't answered their feedback link after 3 days (one reminder only)."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+    rows = await _raw_db.feedback_requests.find(
+        {"status": "sent", "created_at": {"$lt": cutoff}, "reminded_at": {"$exists": False}},
+        {"_id": 0}).to_list(50)
+    if not rows:
+        return 0
+    from email_service import _send_email
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    sent = 0
+    for fr in rows:
+        await _raw_db.feedback_requests.update_one(
+            {"id": fr["id"]}, {"$set": {"reminded_at": datetime.now(timezone.utc).isoformat()}})
+        if not fr.get("owner_email"):
+            continue
+        salon = html_lib.escape(fr.get("tenant_name") or "your salon")
+        link = f"{base}/feedback/{fr['id']}"
+        res = await _send_email(
+            [fr["owner_email"]], "Quick reminder — 30 seconds of feedback? 💛 (Miracurl Suite)",
+            f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+            <h2 style="color:#1a1a2e">We'd still love your feedback ⭐</h2>
+            <p>Hi! A few days ago we resolved your request for <b>{salon}</b>. If you have 30 seconds,
+            your rating helps us serve you better.</p>
+            <p style="margin-top:18px"><a href="{link}" style="background:#1a1a2e;color:#f5c542;text-decoration:none;
+            font-weight:bold;padding:13px 26px;border-radius:26px;display:inline-block">⭐ Share your feedback</a></p>
+            <p style="font-size:12px;color:#888;margin-top:14px">This is the only reminder we'll send — promise 💛</p>
+            </div>""")
+        if res.get("sent"):
+            sent += 1
+    return sent
 
 
 class FeedbackRequestIn(BaseModel):

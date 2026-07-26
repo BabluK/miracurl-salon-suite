@@ -181,9 +181,11 @@ export const GiftCardsCard = () => {
                 </span>
                 {gc.payment_proof_url && (
                   <a href={`${process.env.REACT_APP_BACKEND_URL}${gc.payment_proof_url}`} target="_blank" rel="noreferrer"
-                    data-testid={`gift-proof-${gc.id}`}
-                    className="text-[10px] font-bold text-sky-600 hover:text-sky-800 border border-sky-200 bg-sky-50 rounded-lg px-2 py-1.5">
-                    📎 Payment proof
+                    data-testid={`gift-proof-${gc.id}`} title="Open full payment screenshot"
+                    className="block border border-sky-200 rounded-lg overflow-hidden hover:border-sky-400 transition">
+                    <img src={`${process.env.REACT_APP_BACKEND_URL}${gc.payment_proof_url}`} alt="Payment proof"
+                      className="w-12 h-16 object-cover" loading="lazy" />
+                    <span className="block text-[8px] text-center font-bold text-sky-600 bg-sky-50 py-0.5">📎 PROOF</span>
                   </a>
                 )}
                 {gc.status === "awaiting_confirmation" && (

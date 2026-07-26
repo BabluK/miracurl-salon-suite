@@ -1082,3 +1082,7 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Payment proof: UpiPaidIn.proof_b64 (data URL, ≤5MB, PNG/JPG/WEBP magic-validated) → _store_payment_proof() saves to object storage (kind gift-payment-proof, uploads collection) → gc.payment_proof_url=/api/files/{fid}. GiftCardPublic: dashed "Attach payment screenshot" upload (gift-proof-upload). Admin GiftCardsCard rows show "📎 Payment proof" link (gift-proof-{id}). Verified E2E: upload→storage→serving 200 image/png.
 - Feedback Dashboard: GET /super-admin/feedback-requests now returns {items, stats{total, submitted, avg_rating, published, unhappy, pending_followup}}; POST /super-admin/feedback-requests/{fid}/follow-up emails a check-in + sets followed_up. New superadmin/FeedbackPanel.jsx tab "Feedback" (Star icon) in SuperAdmin.jsx: 5 stat cards, rows w/ stars, comments, "Follow up" btn for ≤3★, "🌟 On landing page" tag for published. Verified E2E (2★ → pending_followup 1 → follow-up → 0; low rating not published).
 - All test docs cleaned from DB after testing.
+
+## 2026-07-26 — Feedback reminders + inline proof thumbnails
+- send_feedback_reminders() in feedback.py: status=sent, created_at >3d, no reminded_at → one-time nudge email with link, sets reminded_at (idempotent, verified). _feedback_reminder_scheduler (6h loop) added to schedulers.py + server.py startup.
+- GiftCardsCard proof link → inline 48x64 thumbnail (img w/ 📎 PROOF label) clickable to full screenshot. Verified via screenshot with seeded proof order (cleaned after).

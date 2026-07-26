@@ -98,6 +98,7 @@ from schedulers import (  # noqa: E402
     _lead_followup_scheduler, _staff_exit_scheduler, _sms_reminder_scheduler,
     _gift_card_scheduler, _mira_auto_call_scheduler, _mira_digest_scheduler,
     _lead_heat_scheduler, _callback_redial_scheduler, _phone_backfill_task, _weekly_win_scheduler,
+    _feedback_reminder_scheduler,
 )
 
 for _r in (
@@ -137,6 +138,7 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_lead_heat_scheduler())
     asyncio.get_event_loop().create_task(_callback_redial_scheduler())
     asyncio.get_event_loop().create_task(_weekly_win_scheduler())
+    asyncio.get_event_loop().create_task(_feedback_reminder_scheduler())
     asyncio.get_event_loop().create_task(_phone_backfill_task())
 
     async def _warm_storage():

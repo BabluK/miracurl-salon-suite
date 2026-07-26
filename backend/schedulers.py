@@ -298,6 +298,19 @@ async def _mira_digest_scheduler() -> None:
         await asyncio.sleep(900)
 
 
+async def _feedback_reminder_scheduler() -> None:
+    """Every 6h: nudge salon owners who haven't answered their feedback link after 3 days."""
+    from routes.feedback import send_feedback_reminders
+    while True:
+        try:
+            n = await send_feedback_reminders()
+            if n:
+                logging.info(f"feedback reminders sent: {n}")
+        except Exception as e:
+            logging.error(f"feedback reminder scheduler error: {e}")
+        await asyncio.sleep(6 * 3600)
+
+
 async def _lead_heat_scheduler() -> None:
     """Every Sunday (after 08:00 IST) refresh Google data + re-score all Mira leads. Idempotent per week."""
     from routes.lead_gen import run_lead_heat_refresh
