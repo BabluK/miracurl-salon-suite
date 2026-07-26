@@ -144,6 +144,37 @@ async def list_branches(user=Depends(require_tenant_admin), t=Depends(current_te
 async def branch_limit_info(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     return {"limit": _branch_limit(t), "used": len(t.get("branches") or [])}
 
+@router.post("/branches/request-more")
+async def request_more_branches(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """One-tap upsell: salon at its branch limit asks HQ to raise it — lands in HQ Inbox + email."""
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    dup = await _raw_db.hq_messages.find_one({
+        "tenant_id": t["id"], "subject": {"$regex": "^Branch limit increase"},
+        "created_at": {"$gte": since}}, {"_id": 1})
+    if dup:
+        return {"ok": True, "already": True}
+    limit, used = _branch_limit(t), len(t.get("branches") or [])
+    subject = f"Branch limit increase request — {t['name']}"
+    message = (f"{t['name']} ({t['slug']}) has reached its branch allowance ({used}/{limit} used) "
+               f"and wants to add more branches. Owner: {t.get('owner_email') or user.get('email')}. "
+               "Raise the limit in Edit Tenant → Branch limit once payment is confirmed.")
+    await _raw_db.hq_messages.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_name": t["name"],
+        "from_email": user.get("email", ""), "subject": subject, "message": message,
+        "attachments": [], "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()})
+    try:
+        from email_service import _send_email
+        await _send_email(
+            [os.environ.get("HQ_EMAIL", "admin@miracurl.com")],
+            f"[Miracurl HQ] {subject}",
+            f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+            <h2 style="color:#1a1a2e">🏢 Branch limit increase request</h2>
+            <p>{html_lib.escape(message)}</p></div>""")
+    except Exception as e:
+        logging.warning(f"branch upsell email failed: {e}")
+    return {"ok": True}
+
 @router.post("/branches")
 async def add_branch(body: BranchIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     branches = t.get("branches") or []

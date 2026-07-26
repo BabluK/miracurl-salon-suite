@@ -4,15 +4,16 @@ import { toast } from "sonner";
 import { Lock, Loader2, ShieldCheck } from "lucide-react";
 
 // Owner-PIN gate for sensitive admin sections (Settings, Staff).
-// Auto-unlocks when no security PIN is configured yet.
+// Every attempt is logged (visible in Staff Activities). Auto-unlocks when no PIN is set.
 export const AdminLockScreen = ({ path, label, onUnlocked }) => {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    api.get("/settings/security-pin")
-      .then(r => { if (!r.data.set) onUnlocked(); else setChecking(false); })
+    // logs the attempt; auto-unlocks if no PIN is configured
+    api.post("/manager/section-access", { section: path })
+      .then(r => { if (r.data.ok) onUnlocked(); else setChecking(false); })
       .catch(() => onUnlocked());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
@@ -21,9 +22,8 @@ export const AdminLockScreen = ({ path, label, onUnlocked }) => {
     if (!pin.trim()) return;
     setBusy(true);
     try {
-      await api.post("/branch-switch/owner-pin", { pin: pin.trim() });
-      toast.success(`${label} unlocked ✦`);
-      onUnlocked();
+      const { data } = await api.post("/manager/section-access", { section: path, pin: pin.trim() });
+      if (data.ok) { toast.success(`${label} unlocked ✦`); onUnlocked(); }
     } catch (e) {
       toast.error(e.response?.data?.detail || "Incorrect Owner PIN");
       setPin("");

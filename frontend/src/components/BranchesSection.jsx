@@ -11,6 +11,15 @@ export const BranchesSection = () => {
   const [modal, setModal] = useState(null); // {editing: branch|null}
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [requested, setRequested] = useState(false);
+
+  async function requestMore() {
+    try {
+      const { data } = await api.post("/branches/request-more");
+      setRequested(true);
+      toast.success(data.already ? "Already requested — HQ will contact you soon ✦" : "Request sent to Miracurl HQ — they'll contact you to add more branches 🏢");
+    } catch { toast.error("Couldn't send the request — try again"); }
+  }
 
   const load = useCallback(() => {
     api.get("/branches").then(r => setBranches(r.data)).catch(() => {});
@@ -58,9 +67,12 @@ export const BranchesSection = () => {
           )}
         </h2>
         {limitInfo && limitInfo.used >= limitInfo.limit ? (
-          <span data-testid="branch-limit-reached" className="text-[11px] text-amber-600 font-semibold text-right">
-            Branch limit reached — contact Miracurl HQ to add more 🏢
-          </span>
+          <button data-testid="request-more-branches-btn" onClick={requestMore} disabled={requested}
+            className={`text-xs font-bold rounded-full px-4 py-2 border transition ${requested
+              ? "bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default"
+              : "bg-amber-500 text-white border-amber-500 hover:bg-amber-600"}`}>
+            {requested ? "✓ Requested — HQ will contact you" : "🏢 Request more branches"}
+          </button>
         ) : (
           <button data-testid="add-branch-btn" onClick={() => openModal()} className="btn-blue text-sm flex items-center gap-1.5"><Plus className="w-4 h-4" /> Add Branch</button>
         )}

@@ -39,9 +39,10 @@ async def _log(t, user, section: str, action: str):
 
 @router.post("/section-access")
 async def section_access(body: AccessIn, user=Depends(get_current_user), t=Depends(current_tenant)):
-    if user.get("role") in ("admin", "super_admin"):
+    role = user.get("role")
+    if role == "super_admin":
         return {"ok": True}
-    if user.get("role") != "manager":
+    if role not in ("manager", "admin"):
         raise HTTPException(403, "Not allowed")
     ph = (t or {}).get("security_pin_hash")
     if not ph:
