@@ -67,6 +67,7 @@ import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import Refund from "@/pages/Refund";
 import GiftCardPublic from "@/pages/GiftCardPublic";
+import PayLinkPublic from "@/pages/PayLinkPublic";
 import FeedbackPublic from "@/pages/FeedbackPublic";
 import Settings from "@/pages/Settings";
 import Assistant from "@/pages/Assistant";
@@ -182,6 +183,7 @@ export default function App() {
             <Route path="/book/:slug" element={<BookPublic />} />
             <Route path="/gift/:slug" element={<GiftCardPublic />} />
             <Route path="/gift" element={<GiftCardPublic />} />
+            <Route path="/pay/:token" element={<PayLinkPublic />} />
             <Route path="/feedback/:token" element={<FeedbackPublic />} />
             <Route path="/salon/:slug" element={<SalonPublic />} />
             <Route path="/employee" element={<EmployeePortal />} />

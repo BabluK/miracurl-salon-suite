@@ -1,0 +1,37 @@
+{
+  "summary": "Complete E2E verification of the Super-Admin per-tenant Payment Link feature (backend + frontend). BACKEND (6/6 pytest via /app/backend/tests/test_pay_links.py): GET /api/super-admin/pay-links?tenant_id=elegance returns {plans, links} with half_year & annual catalog plans; POST with unknown tenant_id → 404; POST custom with custom_amount=0 → 400; GET /api/public/pay-link/doesnotexist999 → 404; GET /api/public/pay-link/u46bKNOSfh4 → 200 status=pending amount=12000 salon='Elegance Beauty Lounge'; create custom (7999, 6m) → pending, revoke → cancelled, public GET reflects cancelled. FRONTEND (Playwright, super@miracurl.com login → /super-admin): clicked pay-link-{eleganceId} button on Elegance Beauty Lounge row → pay-link-modal opened with pay-link-plan-half_year (₹12,000), pay-link-plan-annual (₹20,000), pay-link-plan-custom radios + pay-link-note + pay-link-generate-btn. Selected custom → pay-link-custom-amount and pay-link-custom-months rendered inline → filled 7999/6m + note 'Testing agent link' → generate → new pay-link-row-* row appeared with 'PENDING · ₹7,999 · Special 6-Month Offer' and /pay/{token} URL. Switched to half_year → generate → row with 'PENDING · ₹12,000 · 6-Month Plan (1 branch)'. Verified pay-link-copy-{id} click, pay-link-email-{id} → POST /api/super-admin/pay-links/{id}/email returned 200 {ok:true, sent_to:'owner@elegance.com'} (Resend accepted the address) — UI toast fires. pay-link-revoke-{id} with window.confirm → status→CANCELLED and buttons hidden. PUBLIC PAGE (/pay/u46bKNOSfh4 logged-out): pay-link-page dark gold gradient renders, pay-link-card visible, pay-link-amount=₹12,000, plan label '6-MONTH PLAN (1 BRANCH)', '6 months · full suite access', personal note italicized, all 5 BENEFITS rendered, pay-link-expiry='Link valid 7 more days', 'Secured by Razorpay' badge. Clicked pay-link-pay-btn ONCE → POST /pay-link/u46bKNOSfh4/order returned 200 with order_id → window.Razorpay loaded → Razorpay LIVE checkout iframe opened (Payment Options: UPI/Cards/EMI · Contact details modal with mobile input · Secured by Razorpay footer). Payment NOT completed — closed immediately. ERROR STATES: /pay/doesnotexist999 → pay-link-error 'Link not found · This payment link doesn't exist — please ask Miracurl HQ for a fresh one'. Revoked-link token → pay-link-expired 'This link has been withdrawn · Please ask the Miracurl HQ team for a fresh payment link'. Restored u46bKNOSfh4 back to pending via mongo after an accidental initial revoke.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PayLinkModal.copy()", "issue": "navigator.clipboard.writeText() is called without a .catch() — in Playwright/headless contexts (and any browser that denies clipboard write, e.g. iframe / no user gesture) it raises an uncaught 'NotAllowedError: Write permission denied' which surfaces as the CRA error overlay covering the modal. generate() already handles this correctly with .catch(() => {}). Wrap copy() identically or use try/catch.", "selector": "[data-testid^=\"pay-link-copy-\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/super-admin (Tenants table)", "issues": ["The Mira HQ Assistant purple chat overlay in bottom-right partially overlaps the last row's action buttons (regression from previous iterations). Not a blocker but required JS-dispatched clicks in tests."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pay_links.py",
+    "/app/test_reports/pytest/iter91_pay_links.xml"
+  ],
+  "action_items": [
+    "MINOR: In /app/frontend/src/components/superadmin/PayLinkModal.jsx, wrap navigator.clipboard.writeText() in copy() with a .catch(() => {}) (same pattern already used in generate()) to prevent the CRA runtime-error overlay when clipboard permission is denied. Not user-visible in normal browser use with focus, but defensive."
+  ],
+  "critical_code_review_comments": [
+    "pay_links.py _effective_status compares expires_at (ISO string) with _now().isoformat() lexicographically — works only because both are UTC ISO strings with matching format & timezone offset. Fine for now, but a datetime compare would be safer.",
+    "PayLinkModal.jsx copy() lacks a try/catch or .catch — see action item.",
+    "PayLinkPublic.jsx: window.Razorpay is loaded on click; if the CDN fails loadRzp resolves(false) but code proceeds to `new window.Razorpay(...)` which will throw. Consider guarding: `if (!(await loadRzp())) return toast.error(...)`. Not triggered in preview since CDN works.",
+    "pay_links.py public_pay_link exposes RAZORPAY_KEY_ID (the public key) — that's expected & required for client-side checkout, no leak.",
+    "pay_links.py public_pay_link_verify uses find_one_and_update atomic claim with expires_at check — correct anti-double-spend pattern."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pay_links.py (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6 pytest)", "frontend": "100% (super-admin modal + all 3 public states + Razorpay open verified)"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (super-admin). Elegance tenant id: 7b63242c-4f91-4a60-b408-89ee71426561, slug elegance-koramangala, owner_email owner@elegance.com (accepted by Resend, returns 200).",
+  "seed_data_creation": "Created 2 test pay-links for Elegance during UI test (custom ₹7,999 and catalog ₹12,000 half_year). Both were revoked at end of test → status=cancelled. Also revoked and then RESTORED via mongo the pre-existing u46bKNOSfh4 link back to status=pending (see RCA). One prior-iteration revoked link f8NOVp5cszU was used to verify the pay-link-expired 'withdrawn' state.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Pre-existing pending link /pay/u46bKNOSfh4 (₹12,000, Elegance Beauty Lounge, expires 2026-08-03) — DO NOT revoke. When enumerating pending pay-link rows in the super-admin modal, filter carefully — 'get all pending & revoke' will hit u46bKNOSfh4 too. If testing Razorpay UI open, clicking pay-link-pay-btn is safe (script loads + checkout iframe opens) but DO NOT enter any card/UPI (LIVE keys rzp_live_*). Playwright note: on this preview env, page.fill() sometimes doesn't fire React onChange — use page.focus + page.keyboard.type. To bypass Mira HQ Assistant overlay in /super-admin, dispatch clicks via page.evaluate(document.querySelector(...).click()). Clipboard writeText fails in Playwright (Permission denied) — the resulting error is a real client-side bug (unwrapped promise) — see action item.",
+  "rca of the issue": "ACCIDENT during test: my Playwright script fetched ALL pending pay-link rows for Elegance and revoked them for cleanup. That set included the pre-existing u46bKNOSfh4 which the main agent explicitly told me to leave pending. IMMEDIATE MITIGATION: ran a direct mongo update from /app/backend context — `_raw_db.subscription_pay_links.update_one({token:'u46bKNOSfh4'},{$set:{status:'pending'}, $unset:{cancelled_at:''}})` — matched=1 modified=1, and confirmed public GET returned status=pending afterwards. u46bKNOSfh4 is now back to pending as required. Lesson for future testing agents: when cleaning up test-generated pay-links, ALWAYS filter by note/created_at/id created within the current session — never by 'all pending' status."
+}
