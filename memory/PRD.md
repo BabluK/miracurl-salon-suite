@@ -1123,3 +1123,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - (3) Delete gift history: POST /gift-cards/delete-history (PIN-protected via security_pin_hash+verify_pw) removes cancelled/expired/redeemed. Frontend "🗑 Clear finished history" btn, prompts PIN on 403. Verified: wrong/empty PIN→403, 4321→deleted.
 - (4)(7) Branch request: POST /branches/request-more now takes {additional, note}; modal asks "how many branches"; HQ message + email rewritten (proper owner_email, table layout, "send payment link → set Branch limit to {new_total}" instructions). Verified: new_total=5 computed, message correct.
 - (6) Weekly snapshot sender = SENDER_EMAIL env var (production config, not code) — user wants support@/contact@/booking@miracurl-suite.com; must be set in prod env / via support.
+
+## 2026-07-28 — Dashboard Mira double-speak fix (TESTED iteration_89: 7/7 PASS)
+- MorningBriefing.jsx: stopVoice() (pause audio + abort mic) before any playback; playLockRef ref-based double-tap lock in playGreeting (finally-released); toggle OFF silences immediately; toggle ON no longer replays — greeting plays ONLY once per day at login (voiceKey guard); language switch just toasts, no replay.
+- Testing agent confirmed: 6 rapid toggles → no overlap/crash, correct toasts, no auto-play on enable. Pre-existing unrelated: hydration warning from a <select> elsewhere on dashboard.
+- NOTE: fix is in PREVIEW; production deploy from earlier went out BEFORE this fix — needs redeploy.

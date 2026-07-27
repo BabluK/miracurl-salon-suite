@@ -17,6 +17,7 @@ export function MorningBriefing() {
   const [lang, setLang] = useState(() => localStorage.getItem("mira_lang") || "en");
   const recRef = useRef(null);
   const audioRef = useRef(null);
+  const playLockRef = useRef(false);
   const briefRef = useRef(null);
   const vendorIdRef = useRef("");
 
@@ -84,7 +85,8 @@ export function MorningBriefing() {
   }
 
   async function playGreeting(manual = false, useLang = lang) {
-    if (voiceState === "loading") return; // ignore rapid double-taps
+    if (playLockRef.current) return; // ignore rapid double-taps
+    playLockRef.current = true;
     stopVoice(); // never stack two voices
     setVoiceState("loading");
     try {
@@ -102,6 +104,8 @@ export function MorningBriefing() {
     } catch {
       setVoiceState(manual ? "idle" : "blocked");
       if (manual) toast.error("Couldn't play the greeting");
+    } finally {
+      playLockRef.current = false;
     }
   }
 
