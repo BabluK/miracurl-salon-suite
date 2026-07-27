@@ -240,7 +240,7 @@ export default function StaffRegistry() {
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  <a href={`${API}/public/registry/${p.staff_code}/pdf`} target="_blank" rel="noreferrer" data-testid={`registry-pdf-${p.staff_code}`}
+                  <a href={`${API}/public/registry/${p.staff_code}/pdf?name=${encodeURIComponent(p.name || "")}`} target="_blank" rel="noreferrer" data-testid={`registry-pdf-${p.staff_code}`}
                     className="text-xs py-1.5 px-3 rounded-md bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 inline-flex items-center gap-1">
                     <FileDown className="w-3 h-3" /> Badge PDF
                   </a>

@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-28.42"
-BUILD_TIME = "28 Jul 2026, 10:00 AM IST"
+BUILD = "2026-07-29.43"
+BUILD_TIME = "29 Jul 2026, 10:00 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-29 (Preview before you pay & call controls)",
+        "changes": [
+            "💌 Gift card email preview — buyers can now see the exact e-card email (design, quote & message) before they pay, straight from the gift card page",
+            "🪪 Staff Registry fix — the Badge PDF button on your Staff Registry page downloads instantly again (no more 'enter the staff member's name' error)",
+            "🔊 Hear it again — replay Mira's daily greeting on the Dashboard anytime with the new replay button, plus a Stop control while she speaks",
+            "Super Admin: ⏰ Reschedule Mira's queued calls — move any scheduled lead call to a new time instead of cancelling it",
+        ],
+    },
     {
         "date": "2026-07-28 (Gift card glow-up & stability)",
         "changes": [
