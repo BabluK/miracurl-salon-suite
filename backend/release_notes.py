@@ -2,10 +2,23 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-27.41"
-BUILD_TIME = "27 Jul 2026, 12:00 PM IST"
+BUILD = "2026-07-28.42"
+BUILD_TIME = "28 Jul 2026, 10:00 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-07-28 (Gift card glow-up & stability)",
+        "changes": [
+            "💌 Beautiful occasion gift cards — every occasion (Diwali 🪔, Birthday 🎂, Valentine's ❤️ …) now carries its own heartfelt quote, a 'Why you'll love this salon' section and a warm sign-off",
+            "🙏 Buyers get a heartfelt 'Thank you for choosing us' email after gifting",
+            "⏳ Gift cards nearing expiry now remind the recipient 7 days before, so no balance goes to waste",
+            "🗑 Clear finished gift-card history (cancelled/expired/redeemed) — Owner-PIN protected",
+            "🏢 'Request more branches' now asks how many you need and sends HQ a clean request — HQ replies with a payment link, then unlocks your new limit",
+            "🔒 UPI 'I have paid' stays locked until a transaction ID or payment screenshot is attached — cleaner proof for salons",
+            "🛡 Fixed the browser-crash on Super Admin login — Mira's voice now activates only when you tap her mic",
+            "📅 Gift card dates now read naturally (e.g. '23 Jan 2027') and follow your validity setting exactly",
+        ],
+    },
     {
         "date": "2026-07-27 (Gifting, reorder & owner security)",
         "changes": [
