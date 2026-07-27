@@ -1148,3 +1148,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Fixed testing-agent LOW issue: clipboard writeText .catch in copy(). BUILD bumped to 2026-07-29.44 with pay-links in release notes (Super Admin-prefixed → hidden from owner popup).
 - A pending demo link exists in preview: /pay/u46bKNOSfh4 (Elegance, ₹12,000).
 - NEEDS REDEPLOY to reach production.
+
+## 2026-07-27 (later 3) — Pay-link Paid Alert + Auto Follow-Up (self-tested via direct invocation, Resend delivered@resend.dev)
+- `_hq_paid_alert_email` in pay_links.py: on verify success, HQ_EMAIL (backend/.env = miracurlunisexsaloon@gmail.com) gets an instant "💰 {salon} just paid ₹X" email with amount/plan/end-date/owner/Razorpay ref. Fire-and-forget try/except.
+- `send_pay_link_reminders()` in pay_links.py: pending links expiring within 2 days + owner_email + reminder_sent≠True → one warm Mira reminder email with CTA (base = APP_PUBLIC_URL). Idempotent flag `reminder_sent`. Hooked into the hourly `_gift_card_scheduler` in schedulers.py (no new startup task needed).
+- Tested: reminder fired once, second run 0; HQ alert sent without exception. NEEDS REDEPLOY.

@@ -234,6 +234,69 @@ async def _thank_you_email(link: dict, end_date: str) -> None:
         <p style="font-size:13px;color:#333;margin-top:14px">With warmth,<br/><b>The Miracurl Team</b></p></div>""")
 
 
+async def _hq_paid_alert_email(link: dict, end_date: str, payment_id: str) -> None:
+    """The moment a salon pays through a link, HQ gets an instant email."""
+    import os
+    from email_service import _send_email
+    hq = os.environ.get("HQ_EMAIL")
+    if not hq:
+        return
+    salon = html_lib.escape(link["salon_name"])
+    await _send_email(
+        [hq], f"💰 {salon} just paid ₹{link['amount']:,.0f} via your payment link!",
+        f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+        <h2 style="color:#1c1c22">Cha-ching! 🎉</h2>
+        <p><b>{salon}</b> just completed payment through the HQ payment link you sent.</p>
+        <table style="font-size:14px;border-collapse:collapse;margin:14px 0">
+          <tr><td style="padding:5px 14px 5px 0;color:#888">Amount</td><td><b>₹{link['amount']:,.0f}</b></td></tr>
+          <tr><td style="padding:5px 14px 5px 0;color:#888">Plan</td><td>{html_lib.escape(link['plan_label'])}</td></tr>
+          <tr><td style="padding:5px 14px 5px 0;color:#888">Active till</td><td><b>{end_date}</b></td></tr>
+          <tr><td style="padding:5px 14px 5px 0;color:#888">Owner</td><td>{html_lib.escape(link.get('owner_email') or '—')}</td></tr>
+          <tr><td style="padding:5px 14px 5px 0;color:#888">Razorpay ref</td><td style="font-family:monospace;font-size:12px">{html_lib.escape(payment_id)}</td></tr>
+        </table>
+        <p style="font-size:13px;color:#555">Their subscription is already activated automatically — nothing to do on your side.
+        The full record is in Super Admin → Billing &amp; Subscriptions. ✨</p></div>""")
+
+
+async def send_pay_link_reminders() -> int:
+    """Mira's gentle nudge: pending links expiring within 2 days get one reminder email."""
+    import os
+    from email_service import _send_email
+    now = _now()
+    soon = (now + timedelta(days=2)).isoformat()
+    rows = await _raw_db.subscription_pay_links.find(
+        {"status": "pending", "expires_at": {"$gt": now.isoformat(), "$lte": soon},
+         "reminder_sent": {"$ne": True}, "owner_email": {"$nin": ["", None]}},
+        {"_id": 0}).to_list(100)
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    sent = 0
+    for link in rows:
+        await _raw_db.subscription_pay_links.update_one(
+            {"id": link["id"]}, {"$set": {"reminder_sent": True, "reminded_at": now.isoformat()}})
+        salon = html_lib.escape(link["salon_name"])
+        url = f"{base}/pay/{link['token']}"
+        expires = datetime.fromisoformat(link["expires_at"]).strftime("%d %b %Y")
+        res = await _send_email(
+            [link["owner_email"]],
+            f"⏳ {salon} — your exclusive Miracurl plan link expires soon",
+            f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+            <h2 style="color:#1c1c22">A gentle reminder from Mira ✦</h2>
+            <p>Hi! Just a friendly nudge — the special <b>{html_lib.escape(link['plan_label'])}</b> at
+            <b>₹{link['amount']:,.0f}</b> that our team reserved for <b>{salon}</b> is still waiting for you,
+            and this personal link expires on <b>{expires}</b>.</p>
+            <p>We'd truly love to have you onboard — activating takes under a minute:</p>
+            <p style="text-align:center;margin:22px 0">
+              <a href="{url}" style="background:linear-gradient(120deg,#d4af37,#b45309);color:#fff;text-decoration:none;
+                 font-weight:bold;font-size:15px;padding:14px 34px;border-radius:30px;display:inline-block">
+                 Activate my plan — ₹{link['amount']:,.0f} →</a></p>
+            <p style="font-size:12px;color:#888;text-align:center">Secure payment via Razorpay · UPI / Card / NetBanking</p>
+            <p style="font-size:13px;color:#333">If anything is holding you back, simply reply to this email —
+            we're really happy to help. 💛<br/><b>The Miracurl Team</b></p></div>""")
+        if res.get("sent"):
+            sent += 1
+    return sent
+
+
 @router.post("/public/pay-link/{token}/verify")
 async def public_pay_link_verify(body: PayLinkVerifyIn, token: str, request: Request):
     public_rate_limit(request, key_suffix="pay-link-verify", limit=10, window_sec=600)
@@ -274,5 +337,9 @@ async def public_pay_link_verify(body: PayLinkVerifyIn, token: str, request: Req
         await _thank_you_email(link, sub["end_date"])
     except Exception as e:
         log.warning("pay-link thank-you email failed: %s", e)
+    try:
+        await _hq_paid_alert_email(link, sub["end_date"], body.razorpay_payment_id)
+    except Exception as e:
+        log.warning("pay-link HQ paid-alert email failed: %s", e)
     return {"ok": True, "salon_name": link["salon_name"], "plan_label": link["plan_label"],
             "end_date": sub["end_date"]}
