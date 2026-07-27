@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-29.46"
+BUILD = "2026-07-29.47"
 BUILD_TIME = "29 Jul 2026, 10:00 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-29 (Preview before you pay & call controls)",
         "changes": [
+            "📲 Customer SMS everywhere — booking confirmations (online & in-salon bookings), billing receipts and 24-hour reminders now go out by SMS for every salon (each SMS uses 1 SMS point — ask HQ to top up your balance)",
             "🔐 Security hardening (full audit passed) — staff-portal password resets now require a 6-digit email verification code (Aadhaar alone is no longer enough), public registry phone lookups need the staff member's badge name, and the salon-isolation layer got an extra fail-closed lock so no salon can ever see another salon's data",
             "📊 Honest dashboard numbers — 'Total Customers' now counts only real CRM guests (hidden incomplete public-booking entries no longer inflate it), and 'Pending Review Requests' shows exactly the recent completed visits the review blast would reach",
             "Super Admin: 🧹 Deep clean upgrade — the per-salon cleanup now also finds 'ghost guests' (never completed a visit, no upcoming booking) and orphan bookings whose customer was deleted; wallet/invoice customers stay fully protected",

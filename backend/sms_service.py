@@ -90,3 +90,19 @@ async def send_sms(to_phone: str, body: str) -> dict:
     if provider == "msg91":
         return await _send_msg91(to, body)
     return await _send_twilio(to, body)
+
+
+async def send_tenant_sms(tenant_id: str, to_phone: str, body: str) -> dict:
+    """Point-metered customer SMS: burns 1 sms_point from the tenant, refunds on failure."""
+    if not sms_configured():
+        return {"sent": False, "error": "not_configured"}
+    from database import _raw_db
+    r = await _raw_db.tenants.update_one(
+        {"id": tenant_id, "sms_points": {"$gte": 1}}, {"$inc": {"sms_points": -1}})
+    if r.modified_count == 0:
+        log.info("sms skipped (no sms_points) tenant=%s", tenant_id)
+        return {"sent": False, "error": "no_sms_points"}
+    res = await send_sms(to_phone, body)
+    if not res.get("sent"):
+        await _raw_db.tenants.update_one({"id": tenant_id}, {"$inc": {"sms_points": 1}})
+    return res

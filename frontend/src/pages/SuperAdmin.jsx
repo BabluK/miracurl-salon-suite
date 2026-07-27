@@ -240,7 +240,7 @@ export default function SuperAdmin() {
   }
 
   async function creditSms(t) {
-    const val = window.prompt(`Add SMS points for ${t.name} (current balance: ${t.sms_points || 0})\n1 point = 1 billing SMS`, "100");
+    const val = window.prompt(`Add SMS points for ${t.name} (current balance: ${t.sms_points || 0})\n1 point = 1 customer SMS (booking confirmations, billing receipts, 24h reminders)`, "100");
     if (!val) return;
     const points = parseInt(val, 10);
     if (!points || points < 1) { toast.error("Enter a positive number of points"); return; }

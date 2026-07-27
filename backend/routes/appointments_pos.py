@@ -79,6 +79,20 @@ async def create_appointment(body: AppointmentIn, user=Depends(get_current_user)
         notes=body.notes, total=total,
     ).model_dump()
     await db.appointments.insert_one(a)
+    if cust.get("phone"):
+        from sms_service import send_tenant_sms, sms_configured
+        if sms_configured():
+            t = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "id": 1, "name": 1})
+            if t:
+                try:
+                    dt = datetime.fromisoformat(str(body.scheduled_at).replace("Z", "+00:00"))
+                    when = dt.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
+                except ValueError:
+                    when = str(body.scheduled_at)
+                asyncio.create_task(send_tenant_sms(
+                    t["id"], cust["phone"],
+                    f"{t.get('name') or 'Your salon'}: Hi {cust['name']}, your booking is CONFIRMED! "
+                    f"{', '.join(s['name'] for s in services)} on {when} with {staff['name']}. See you soon!"))
     return _clean(a)
 
 

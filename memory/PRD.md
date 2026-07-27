@@ -1169,3 +1169,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
   - P3: public registry PHONE lookup now requires badge-name verifier like staff-code (_NAME_REQUIRED_MSG generalized; RegistryPublic placeholder updated; UI already sent name). Tested 400/200.
   - Deferred (acceptable/backlog): signed expiring URLs for /api/files payment-proof images; account-wide login-attempt backstop.
 - integration_playbook_expert consulted for the OTP reset flow per auth protocol. BUILD → 2026-07-29.46 with owner-facing security note. NEEDS REDEPLOY + TIER UPGRADE.
+
+## 2026-07-27 (later 6) — Customer SMS everywhere (self-tested: helper logic + API e2e)
+- **User report**: pays for Twilio but no SMS reaching customers; wants booking-details SMS + billing SMS "wherever required".
+- **RCA**: billing-receipt SMS already existed in `_send_billing_receipts` (burns 1 `sms_points`) — user's tenants likely have 0 points; booking-confirmation SMS + 24h reminders were gated to NON-INR salons only.
+- **Changes**: new `send_tenant_sms(tenant_id, phone, body)` in sms_service.py (atomic 1-point deduct, refund on send failure — tested: 0 points → skipped, invalid phone → refunded). Public booking SMS now for ALL salons (public_site.py). NEW in-app appointment-creation SMS (appointments_pos.py, IST-formatted). Reminder scheduler now covers all salons w/ point metering (schedulers.py). SuperAdmin credit prompt text updated. BUILD → 2026-07-29.47 with owner-facing note.
+- **IMPORTANT OPERATIONAL**: SMS only sends when the tenant has sms_points > 0 — user must credit points in PRODUCTION Super Admin (💬 button per tenant row) after redeploy. Provider selection: SMS_PROVIDER env (msg91 w/ DLT or twilio). No real SMS were sent during testing.
