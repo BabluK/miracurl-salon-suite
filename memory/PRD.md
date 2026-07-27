@@ -1128,3 +1128,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MorningBriefing.jsx: stopVoice() (pause audio + abort mic) before any playback; playLockRef ref-based double-tap lock in playGreeting (finally-released); toggle OFF silences immediately; toggle ON no longer replays — greeting plays ONLY once per day at login (voiceKey guard); language switch just toasts, no replay.
 - Testing agent confirmed: 6 rapid toggles → no overlap/crash, correct toasts, no auto-play on enable. Pre-existing unrelated: hydration warning from a <select> elsewhere on dashboard.
 - NOTE: fix is in PREVIEW; production deploy from earlier went out BEFORE this fix — needs redeploy.
+
+## 2026-07-27 — Silent redeploy + 3 backlog features (TESTED iteration_90: 100% PASS)
+- **Silent redeploy to production** (miracurl-suite.com) — pushed the voice-overlap + Staff ID registry fixes, no version bump / no What's-New popup, per user choice.
+- **Gift Card Email Preview (P1)**: public `GET /api/public/gift-cards/{slug}/preview-email` (occasion/amount/names/message params, masked code GC-••••-••••, logo resolved against the requesting origin so it renders in preview AND prod). GiftCardPublic.jsx: "💌 See the exact email they'll receive" button (gift-email-preview-btn) opens a sandboxed-iframe modal (gift-email-preview-modal/-frame/-close).
+- **Reschedule Mira Calls (P2)**: `POST /api/super-admin/mira-calls/scheduled/{lid}/reschedule` {callback_at ISO} — future-time + validity checks (400) and 404 on unknown/cancelled leads. ScheduledCallsPanel: "⏰ Move" per row → inline datetime-local + Save (reschedule-scheduled-*/-input-*/-save-*). Panel max-h bumped 72→96 (testing-agent design note).
+- **Briefing Replay (P2)**: MorningBriefing.jsx — "Hear it again" (voice-replay-btn) shown when idle, "■ Stop" (voice-stop-btn) while speaking; playLockRef double-tap guard verified (no overlap).
+- NOTE: the 3 new features are in PREVIEW only — the redeploy above was queued before these edits. Next redeploy pushes them live.

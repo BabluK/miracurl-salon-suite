@@ -292,7 +292,7 @@ function ScheduledCallsPanel() {
         <span className="text-slate-400">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
-        <div className="px-4 pb-4 space-y-2 max-h-72 overflow-y-auto">
+        <div className="px-4 pb-4 space-y-2 max-h-96 overflow-y-auto">
           {items.map(l => (
             <div key={l.id} className="border border-slate-100 rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap" data-testid={`scheduled-call-${l.id}`}>
               <span className="text-xs font-semibold text-slate-700">{l.name || l.phone}</span>
