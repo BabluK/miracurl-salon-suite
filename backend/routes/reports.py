@@ -51,8 +51,10 @@ async def _dashboard_review_stats() -> dict:
     all_reviews = await db.reviews.find({}, {"_id": 0, "rating": 1}).to_list(2000)
     count = len(all_reviews)
     avg = round(sum(r["rating"] for r in all_reviews) / count, 2) if count else 0
-    pending = await db.appointments.count_documents({"status": "completed"}) - count
-    return {"avg_rating": avg, "review_count": count, "pending_reviews": max(0, pending)}
+    # Pending = the same list the "review blast" sends to: recent completed visits with a
+    # real, still-existing customer — not an all-time count that ghosts can inflate.
+    pending = len(await _blast_targets())
+    return {"avg_rating": avg, "review_count": count, "pending_reviews": pending}
 
 
 async def _dashboard_revenue_trend(days: int = 7) -> list:
@@ -150,7 +152,7 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin)):
         "today_bookings": len(appts_today),
         "today_invoices": len(invoices_today),
         "month_revenue": round(sum(inv["total"] for inv in invoices_month), 2),
-        "total_customers": await db.customers.count_documents({}),
+        "total_customers": await db.customers.count_documents({"crm_status": {"$ne": "pending"}}),
         "active_staff": await db.staff.count_documents({"active": True}),
         "low_stock_count": len(low_stock),
         "low_stock_items": low_stock[:10],
@@ -426,11 +428,9 @@ async def mark_tips_paid(staff_id: str, user=Depends(require_admin)):
     return {"ok": True, "amount": amount, "count": len(pending)}
 
 
-@router.get("/reviews/blast-targets")
-async def reviews_blast_targets(user=Depends(get_current_user)):
-    """Completed appointments that haven't received a review yet, with customer phone + share URL.
-    Used by the Dashboard 'Send review-request blast' button. Limited to past 14 days so we don't
-    spam old customers."""
+async def _blast_targets() -> list:
+    """Completed appointments (last 14 days) without a review, joined with a still-existing
+    customer that has a phone. Shared by the blast endpoint and the Dashboard pending count."""
     since = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
     completed = await db.appointments.find(
         {"status": "completed", "scheduled_at": {"$gte": since}}, {"_id": 0},
@@ -460,6 +460,15 @@ async def reviews_blast_targets(user=Depends(get_current_user)):
             "staff_name": a.get("staff_name"),
             "scheduled_at": a["scheduled_at"],
         })
+    return targets
+
+
+@router.get("/reviews/blast-targets")
+async def reviews_blast_targets(user=Depends(get_current_user)):
+    """Completed appointments that haven't received a review yet, with customer phone + share URL.
+    Used by the Dashboard 'Send review-request blast' button. Limited to past 14 days so we don't
+    spam old customers."""
+    targets = await _blast_targets()
     return {"count": len(targets), "targets": targets}
 
 

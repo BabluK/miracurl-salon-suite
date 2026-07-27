@@ -13,7 +13,7 @@ export function DummyCleanupModal({ tenant, onClose }) {
   }, [tenant.id, onClose]);
 
   const purge = async () => {
-    if (!window.confirm(`Permanently delete ${preview.appointments} bookings and ${preview.customers} customers from ${tenant.name}? This cannot be undone.`)) return;
+    if (!window.confirm(`Permanently delete ${preview.appointments + (preview.orphan_appointments || 0)} bookings and ${preview.customers + (preview.ghost_customers || 0)} customers from ${tenant.name}? This cannot be undone.`)) return;
     setBusy(true);
     try {
       const { data } = await api.post(`/super-admin/dummy-data/${tenant.id}/purge`);
@@ -24,7 +24,7 @@ export function DummyCleanupModal({ tenant, onClose }) {
     } finally { setBusy(false); }
   };
 
-  const total = preview ? preview.appointments + preview.customers : 0;
+  const total = preview ? preview.appointments + preview.customers + (preview.ghost_customers || 0) + (preview.orphan_appointments || 0) : 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" data-testid="dummy-cleanup-modal">
@@ -33,7 +33,7 @@ export function DummyCleanupModal({ tenant, onClose }) {
           <h2 className="text-lg font-semibold flex items-center gap-2"><Eraser className="w-5 h-5 text-rose-500" /> Clean test data — {tenant.name}</h2>
           <button onClick={onClose} data-testid="dummy-cleanup-close" className="p-1.5 rounded hover:bg-slate-100"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-xs text-slate-500 mt-1">Finds bookings & customers with test/dummy NAMES (e.g. “Test”, “Dummy”). Customers with wallet money or invoices are never touched.</p>
+        <p className="text-xs text-slate-500 mt-1">Finds test/dummy NAMES, <b>ghost guests</b> (never completed a visit, no upcoming booking) and <b>orphan bookings</b> (customer no longer exists). Customers with wallet money or invoices are never touched.</p>
 
         {!preview ? (
           <div className="flex items-center gap-2 text-sm text-slate-500 py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Scanning…</div>
@@ -48,7 +48,23 @@ export function DummyCleanupModal({ tenant, onClose }) {
                 <div className="text-2xl font-bold text-rose-600" data-testid="dummy-cust-count">{preview.customers}</div>
                 <div className="text-[11px] uppercase tracking-wider text-slate-400">Dummy customers</div>
               </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 text-center">
+                <div className="text-2xl font-bold text-amber-600" data-testid="ghost-cust-count">{preview.ghost_customers || 0}</div>
+                <div className="text-[11px] uppercase tracking-wider text-slate-400">Ghost guests</div>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 text-center">
+                <div className="text-2xl font-bold text-amber-600" data-testid="orphan-appt-count">{preview.orphan_appointments || 0}</div>
+                <div className="text-[11px] uppercase tracking-wider text-slate-400">Orphan bookings</div>
+              </div>
             </div>
+            {(preview.ghost_samples || []).length > 0 && (
+              <div className="mt-4">
+                <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1.5">Sample ghost guests (pending, never visited)</div>
+                <div className="space-y-1 text-xs text-slate-600">
+                  {preview.ghost_samples.map((c, i) => <div key={i}>• {c.name} — {c.phone || "no phone"}</div>)}
+                </div>
+              </div>
+            )}
             {preview.customer_samples.length > 0 && (
               <div className="mt-4">
                 <div className="text-[11px] uppercase tracking-wider text-slate-400 mb-1.5">Sample customers</div>

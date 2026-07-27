@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-29.44"
+BUILD = "2026-07-29.45"
 BUILD_TIME = "29 Jul 2026, 10:00 AM IST"
 
 RELEASES = [
     {
         "date": "2026-07-29 (Preview before you pay & call controls)",
         "changes": [
+            "📊 Honest dashboard numbers — 'Total Customers' now counts only real CRM guests (hidden incomplete public-booking entries no longer inflate it), and 'Pending Review Requests' shows exactly the recent completed visits the review blast would reach",
+            "Super Admin: 🧹 Deep clean upgrade — the per-salon cleanup now also finds 'ghost guests' (never completed a visit, no upcoming booking) and orphan bookings whose customer was deleted; wallet/invoice customers stay fully protected",
             "💌 Gift card email preview — buyers can now see the exact e-card email (design, quote & message) before they pay, straight from the gift card page",
             "🪪 Staff Registry fix — the Badge PDF button on your Staff Registry page downloads instantly again (no more 'enter the staff member's name' error)",
             "🔊 Hear it again — replay Mira's daily greeting on the Dashboard anytime with the new replay button, plus a Stop control while she speaks",
