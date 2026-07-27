@@ -77,7 +77,15 @@ export function MorningBriefing() {
     } catch { setVoiceState("idle"); }
   }
 
+  function stopVoice() {
+    try { audioRef.current?.pause(); audioRef.current = null; } catch { /* gone */ }
+    try { recRef.current?.abort?.(); recRef.current?.stop?.(); } catch { /* gone */ }
+    setVoiceState("idle");
+  }
+
   async function playGreeting(manual = false, useLang = lang) {
+    if (voiceState === "loading") return; // ignore rapid double-taps
+    stopVoice(); // never stack two voices
     setVoiceState("loading");
     try {
       const endpoint = isEvening ? "/reports/evening-briefing/audio" : "/reports/morning-briefing/audio";
@@ -120,10 +128,11 @@ export function MorningBriefing() {
   async function toggleVoice() {
     const next = !voiceOn;
     setVoiceOn(next);
+    if (!next) stopVoice(); // turning OFF silences Mira immediately
     try {
       await api.put("/settings/voice-greeting", { enabled: next });
       toast.success(next ? "Mira will greet you aloud on your first login each day ✦" : "Voice greeting turned off");
-      if (next) playGreeting(true);
+      // No replay here — she speaks once at login only (localStorage voiceKey guard)
     } catch {
       setVoiceOn(!next);
       toast.error("Couldn't save the preference");
@@ -133,8 +142,8 @@ export function MorningBriefing() {
   function switchLang(l) {
     setLang(l);
     localStorage.setItem("mira_lang", l);
-    if (voiceOn) playGreeting(true, l);
-    else toast.success(l === "hi" ? "मीरा अब हिंदी में बोलेगी ✦" : "Mira will speak in English ✦");
+    stopVoice();
+    toast.success(l === "hi" ? "मीरा अब हिंदी में बोलेगी ✦" : "Mira will speak in English ✦");
   }
 
   if (dismissed || !brief) return null;

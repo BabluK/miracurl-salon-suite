@@ -1,0 +1,26 @@
+{
+  "summary": "Frontend-only verification of Mira voice greeting double-tap / overlap bug fix on the salon-admin Dashboard MorningBriefing card. Logged in as admin@miracurl.com (tenant miracurl-marathahalli via ?tenant= query), dismissed the What's-New modal, cleared mira_briefing_/mira_voice_ localStorage keys so briefing renders fresh, then exercised the voice toggle, language chips, and briefing content. All assertions from the review request passed: (1) rapid 6-click toggling produced no crashes, no overlapping audio, and the switch settled correctly (aria-checked=true after 6 clicks, matches initial); (2) toggling ON shows the exact toast 'Mira will greet you aloud on your first login each day ✦' AND does NOT trigger playback (voiceState stays idle — no 'Mira is speaking' or 'warming up' indicator); (3) toggling OFF shows 'Voice greeting turned off' toast; (4) language chip switch to Hindi shows 'मीरा अब हिंदी में बोलेगी ✦' toast and does NOT start audio playback; (5) briefing content (greeting, staff-today, low-stock, notifications) renders fully; (6) no new JS errors introduced by the fix. voice-play-btn was not exposed during this run because voiceState never entered 'blocked' state (headless Chromium autoplay policy allowed the initial greeting attempt to resolve without falling into the tap-to-play fallback) — the loading-guard code path is still protected in code (playGreeting early-returns while voiceState==='loading').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (pre-existing, unrelated to this fix)", "issues": ["React hydration warning: <span> cannot be a child of <option> — originates from a <select> elsewhere on the dashboard, NOT from MorningBriefing.jsx", "A handful of 401s in the console occur on the login page BEFORE authentication completes (background /api calls before cookie is set); they disappear after login and are unrelated to the voice toggle fix"]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MorningBriefing.jsx uses `new Audio()` (detached, not in DOM) so document.querySelectorAll('audio').length always returns 0 — that's fine for correctness but consider tracking playback via audioRef only (which the fix already does).",
+    "playGreeting's loading-guard (`if (voiceState === 'loading') return`) relies on React state which is async; a very fast double-tap COULD in theory bypass it before React commits. In practice the stopVoice()+audioRef reassignment in the same call still ensures only one audio object is kept alive, so the observable bug (overlap) is fixed. A useRef-based lock would be marginally safer.",
+    "Consider replacing playGreeting's `catch` that sets state to 'blocked' with a check on the actual Error (autoplay vs network) so headless / server errors don't mislabel the UI."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% (7/7 review-request checks)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, tenant via ?tenant=miracurl-marathahalli (X-Tenant-Slug picked from URL param by /app/frontend/src/lib/api.js)",
+  "seed_data_creation": "None (only localStorage keys mira_briefing_* and mira_voice_* were cleared to force briefing to re-render)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login form has no visible tenant field — append ?tenant=miracurl-marathahalli to /login to seed the tenant slug into localStorage/api client. After login the briefing card may already be dismissed for the day; clear localStorage keys starting with 'mira_briefing' and 'mira_voice', then reload. The MorningBriefing voice toggle lives at data-testid='voice-greeting-toggle' (label wraps a button[role='switch']) — click that inner switch. Language chips: data-testid='mira-lang-en' / 'mira-lang-hi'. The 'voice-play-btn' only appears when voiceState==='blocked' (autoplay was rejected); in headless Chromium autoplay is typically allowed so this button often will not render — that's expected, not a bug.",
+  "rca of the issue": "N/A — this iteration verified an already-applied fix. Fix confirmed working: stopVoice() pauses audioRef and aborts mic before any new playback; playGreeting early-returns on voiceState==='loading' to swallow rapid double-taps; toggleVoice OFF calls stopVoice() and ON no longer replays (only the initial-load useEffect calls playGreeting, gated by localStorage voiceKey per day); switchLang only stops audio + shows a toast."
+}
