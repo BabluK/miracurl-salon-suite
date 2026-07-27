@@ -36,7 +36,7 @@ export default function PayLinkModal({ tenant, onClose }) {
   };
 
   const copy = (l) => {
-    navigator.clipboard.writeText(`${window.location.origin}/pay/${l.token}`);
+    navigator.clipboard?.writeText(`${window.location.origin}/pay/${l.token}`).catch(() => {});
     toast.success("Link copied");
   };
 

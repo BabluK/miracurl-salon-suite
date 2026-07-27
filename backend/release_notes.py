@@ -2,7 +2,7 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-29.43"
+BUILD = "2026-07-29.44"
 BUILD_TIME = "29 Jul 2026, 10:00 AM IST"
 
 RELEASES = [
@@ -13,6 +13,7 @@ RELEASES = [
             "🪪 Staff Registry fix — the Badge PDF button on your Staff Registry page downloads instantly again (no more 'enter the staff member's name' error)",
             "🔊 Hear it again — replay Mira's daily greeting on the Dashboard anytime with the new replay button, plus a Stop control while she speaks",
             "Super Admin: ⏰ Reschedule Mira's queued calls — move any scheduled lead call to a new time instead of cancelling it",
+            "Super Admin: 💳 Per-tenant subscription payment links — pick a plan or a custom deal price, copy the link or send a designed onboarding email; the salon pays via Razorpay and their plan activates instantly with an HQ notification",
         ],
     },
     {
