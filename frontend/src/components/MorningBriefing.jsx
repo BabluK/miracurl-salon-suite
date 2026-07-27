@@ -206,7 +206,20 @@ export function MorningBriefing() {
                 <Volume2 className="w-3 h-3" /> {isEvening ? "Play Mira's evening reflection" : "Play Mira's greeting"}
               </button>
             )}
-            {voiceState === "playing" && <span className="text-[11px] text-emerald-600 flex items-center gap-1"><Volume2 className="w-3 h-3" /> Mira is speaking…</span>}
+            {voiceState === "idle" && (
+              <button data-testid="voice-replay-btn" onClick={() => playGreeting(true)}
+                title={isEvening ? "Replay Mira's evening reflection" : "Replay Mira's greeting"}
+                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border border-amber-400 text-amber-700 font-medium hover:bg-amber-100">
+                <Volume2 className="w-3 h-3" /> Hear it again
+              </button>
+            )}
+            {voiceState === "playing" && (
+              <span className="text-[11px] text-emerald-600 flex items-center gap-1">
+                <Volume2 className="w-3 h-3" /> Mira is speaking…
+                <button data-testid="voice-stop-btn" onClick={stopVoice} title="Stop Mira"
+                  className="ml-1 text-[10px] px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50">■ Stop</button>
+              </span>
+            )}
             {voiceState === "listening" && (
               <span className="text-[11px] text-rose-600 flex items-center gap-1 animate-pulse" data-testid="mira-listening">
                 <Mic className="w-3 h-3" /> {lang === "hi" ? "मीरा सुन रही है — बोलिए 'मेल' या 'व्हाट्सएप'" : "Mira is listening — say 'Mail' or 'WhatsApp'"}

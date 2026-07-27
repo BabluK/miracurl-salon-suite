@@ -149,6 +149,18 @@ export default function GiftCardPublic() {
     finally { setBusy(false); }
   };
 
+  const [emailPreview, setEmailPreview] = useState(null); // null | "loading" | html
+
+  const previewEmail = async () => {
+    setEmailPreview("loading");
+    try {
+      const { data } = await API.get(`/${slug}/preview-email`, {
+        params: { occasion: occKey, amount: finalAmount || 1000, recipient_name: f.recipient_name, buyer_name: f.buyer_name, message: f.message },
+      });
+      setEmailPreview(data.html);
+    } catch { toast.error("Couldn't load the preview"); setEmailPreview(null); }
+  };
+
   const inputCls = "w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-gold focus:outline-none";
   const canRzp = cfg?.payment?.razorpay;
   const canUpi = cfg?.payment?.upi;
@@ -295,6 +307,10 @@ export default function GiftCardPublic() {
               <div className="sm:sticky sm:top-6">
                 <h3 className="text-[11px] uppercase tracking-[0.25em] text-gold mb-3">Preview</h3>
                 <CardPreview cfg={cfg} occ={occ} amount={finalAmount} recipient={f.recipient_name} buyer={f.buyer_name} />
+                <button onClick={previewEmail} disabled={emailPreview === "loading"} data-testid="gift-email-preview-btn"
+                  className="w-full mt-3 text-xs text-white/60 hover:text-gold border border-white/15 hover:border-gold/50 rounded-full py-2.5 transition-colors disabled:opacity-50">
+                  {emailPreview === "loading" ? "Loading preview…" : "💌 See the exact email they'll receive"}
+                </button>
                 <div className="mt-5 space-y-2.5">
                   {canRzp && (
                     <button onClick={payRazorpay} disabled={busy} data-testid="gift-pay-razorpay"
@@ -316,6 +332,24 @@ export default function GiftCardPublic() {
           </>
         )}
       </div>
+
+      {emailPreview && emailPreview !== "loading" && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" data-testid="gift-email-preview-modal"
+          onClick={() => setEmailPreview(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-200">
+              <div>
+                <div className="text-sm font-bold text-neutral-800">💌 This is the email {f.recipient_name || "they"}'ll receive</div>
+                <div className="text-[10px] text-neutral-500">The real gift-card code appears after payment</div>
+              </div>
+              <button onClick={() => setEmailPreview(null)} data-testid="gift-email-preview-close"
+                className="text-neutral-400 hover:text-neutral-700 text-xl leading-none px-2">✕</button>
+            </div>
+            <iframe title="Gift card email preview" sandbox="" srcDoc={`<body style="margin:16px;background:#fff">${emailPreview}</body>`}
+              className="flex-1 w-full min-h-[60vh]" data-testid="gift-email-preview-frame" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

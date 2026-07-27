@@ -701,6 +701,30 @@ async def cancel_scheduled_call(lid: str, user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+class RescheduleCallIn(BaseModel):
+    callback_at: str  # UTC ISO timestamp
+
+
+@router.post("/super-admin/mira-calls/scheduled/{lid}/reschedule")
+async def reschedule_scheduled_call(lid: str, body: RescheduleCallIn, user=Depends(require_super_admin)):
+    """Move a queued Mira call to a different time instead of cancelling it."""
+    try:
+        dt = datetime.fromisoformat(body.callback_at.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(400, "Invalid date/time")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    if dt <= datetime.now(timezone.utc):
+        raise HTTPException(400, "Pick a time in the future")
+    new_at = dt.astimezone(timezone.utc).isoformat()
+    r = await _raw_db.mira_leads.update_one(
+        {"id": lid, "call_result": "callback", "callback_redialed": {"$ne": True}},
+        {"$set": {"callback_at": new_at}})
+    if not r.matched_count:
+        raise HTTPException(404, "No scheduled call found for this lead")
+    return {"ok": True, "callback_at": new_at}
+
+
 @router.get("/super-admin/mira-calls")
 async def list_calls(user=Depends(require_super_admin)):
     rows = await _raw_db.mira_call_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)

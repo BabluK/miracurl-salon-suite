@@ -239,6 +239,9 @@ function CallHistoryPanel() {
 function ScheduledCallsPanel() {
   const [items, setItems] = useState(null);
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState("");
+  const [editVal, setEditVal] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const load = () => api.get("/super-admin/mira-calls/scheduled").then(r => setItems(r.data.items)).catch(() => {});
   useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, []);
@@ -250,6 +253,25 @@ function ScheduledCallsPanel() {
       toast.success(`Call to ${l.name || "lead"} cancelled — Mira won't ring them`);
       load();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't cancel"); }
+  };
+
+  const startEdit = (l) => {
+    setEditId(l.id);
+    const d = new Date(l.callback_at);
+    const pad = (n) => String(n).padStart(2, "0");
+    setEditVal(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+  };
+
+  const saveReschedule = async (l) => {
+    if (!editVal) { toast.error("Pick the new date & time"); return; }
+    setSaving(true);
+    try {
+      await api.post(`/super-admin/mira-calls/scheduled/${l.id}/reschedule`, { callback_at: new Date(editVal).toISOString() });
+      toast.success(`Mira will now ring ${l.name || "the lead"} at the new time ⏰`);
+      setEditId("");
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't reschedule"); }
+    finally { setSaving(false); }
   };
 
   const when = (iso) => {
@@ -278,10 +300,27 @@ function ScheduledCallsPanel() {
               <span className="text-[10px] text-slate-400 font-mono">{l.phone}</span>
               {typeof l.score === "number" && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">🔥 {l.score}</span>}
               <span className="text-[10px] font-semibold text-sky-600 ml-auto">📞 {when(l.callback_at)}</span>
+              <button onClick={() => (editId === l.id ? setEditId("") : startEdit(l))} data-testid={`reschedule-scheduled-${l.id}`}
+                className="text-[10px] font-bold px-2.5 py-1 rounded-full border border-sky-200 text-sky-600 hover:bg-sky-50">
+                ⏰ Move
+              </button>
               <button onClick={() => cancel(l)} data-testid={`cancel-scheduled-${l.id}`}
                 className="text-[10px] font-bold px-2.5 py-1 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50">
                 ✕ Cancel
               </button>
+              {editId === l.id && (
+                <div className="w-full flex items-center gap-2 mt-1" data-testid={`reschedule-form-${l.id}`}>
+                  <input type="datetime-local" value={editVal} onChange={(e) => setEditVal(e.target.value)}
+                    min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                    data-testid={`reschedule-input-${l.id}`}
+                    className="text-[11px] px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700" />
+                  <button onClick={() => saveReschedule(l)} disabled={saving} data-testid={`reschedule-save-${l.id}`}
+                    className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-sky-500 text-white hover:bg-sky-600 disabled:opacity-50">
+                    {saving ? "Saving…" : "✓ Save new time"}
+                  </button>
+                  <button onClick={() => setEditId("")} className="text-[10px] text-slate-400 hover:text-slate-600">Cancel</button>
+                </div>
+              )}
             </div>
           ))}
         </div>

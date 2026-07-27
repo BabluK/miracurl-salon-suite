@@ -109,6 +109,29 @@ async def gift_card_config(slug: str):
                         "upi_id": s["upi_id"]}}
 
 
+@router.get("/public/gift-cards/{slug}/preview-email")
+async def gift_card_preview_email(request: Request, slug: str, occasion: str = "just-because",
+                                  amount: float = 1000, recipient_name: str = "", buyer_name: str = "",
+                                  message: str = ""):
+    """Exact e-card email HTML the recipient will receive — code masked until purchase."""
+    t = await _tenant_by_slug(slug)
+    if (t.get("logo_url") or "").startswith("/"):
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+        proto = request.headers.get("x-forwarded-proto") or "https"
+        if host:
+            t = {**t, "logo_url": f"{proto}://{host}{t['logo_url']}"}
+    s = _gc_settings(t)
+    occ_key = occasion if occasion in _OCC else "just-because"
+    amt = min(max(float(amount or 1000), 50), 100000)
+    gc = {"occasion": occ_key, "amount": amt, "currency": t.get("currency") or "INR",
+          "code": "GC-\u2022\u2022\u2022\u2022-\u2022\u2022\u2022\u2022",
+          "recipient_name": (recipient_name or "Someone Special")[:80],
+          "buyer_name": (buyer_name or "A friend")[:80], "message": (message or "")[:400],
+          "expires_at": (datetime.now(timezone.utc).date() + timedelta(days=s["validity_days"])).isoformat(),
+          "tenant_slug": slug}
+    return {"html": _ecard_html(gc, t)}
+
+
 class GiftOrderIn(BaseModel):
     occasion: str
     amount: float = Field(gt=0, le=100000)

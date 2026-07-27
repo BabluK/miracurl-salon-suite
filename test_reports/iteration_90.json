@@ -1,0 +1,27 @@
+{
+  "summary": "End-to-end verification of the 3 new features in the review request. All backend endpoints and frontend flows passed. (1) Gift Card Email Preview: modal opens with iframe, salon logo loads (naturalWidth=1024 from https://.../api/files/...), 'GC-••••-••••' masked code visible, occasion quote text visible ('May your special day sparkle...'), buyer_name propagates into e-card ('Rahul has sent you...'), changing occasion Birthday→Anniversary re-renders new quote ('Here's to love that keeps growing lovelier...'), close via gift-email-preview-close AND overlay-click both dismiss modal, gift-pay-razorpay + gift-pay-upi buttons still render (regression). (2) Reschedule scheduled Mira call: as super-admin at /super-admin → Mira Lead Agent, scheduled-calls-panel visible with seeded 'Test Resched Salon' (test-resched-4194b5). Expand toggle → reschedule-scheduled-* → inline reschedule-form-* appears → filled datetime-local with 2026-08-15T14:30 → save returns 200 and panel refreshes showing '15 Aug'. Past-date (2020-01-01) rejected with 400 and toast contains 'future'. Cancel LAST via cancel-scheduled-* → toast 'Call to Test Resched Salon cancelled — Mira won't ring them' and lead removed from panel. (3) Briefing replay: dashboard morning-briefing-card visible, voice-replay-btn 'Hear it again' visible when idle, click → GET /api/reports/morning-briefing/audio?lang=en 200 within ~2s, state transitions to 'Mira is warming up…/speaking…' with voice-stop-btn visible, clicking Stop returns to idle (replay btn reappears). Rapid double-click did NOT produce overlapping audio (playLockRef guard held). Backend preview-email endpoint: HTTP 200, HTML contains 'Priya', 'GC-••••-••••', absolute logo URL https://hair-hub-system.preview.emergentagent.com/api/files/4e079c13-... (verified via curl).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Super-admin → Mira Lead Agent (Scheduled Calls panel)", "issues": ["The '⏰ Move' and '✕ Cancel' buttons wrap to the next row inside the scheduled-call item and the panel's max-h-72 overflow-y-auto container can hide them below the fold on smaller viewports — required scroll_into_view to click. Consider making the button row visible-by-default or bumping max-h."]},
+      {"screen": "Super-admin dashboard", "issues": ["Mira HQ Assistant chat overlay in bottom-right partially overlaps the Scheduled Calls panel controls on 1440px viewports (had to use JS-dispatched click to bypass). Consider a smaller minimized state or a docked variant."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MiraLeadAgent.jsx ScheduledCallsPanel: the reschedule-input datetime-local uses HTML5 `min` attribute set to now+60s, which is good, but the server still validates past times (returns 400 with 'Pick a time in the future'). Consider adding a client-side pre-check before firing POST — currently a user could tamper via devtools (verified during test using JS setter) and the server correctly rejects, so defence-in-depth is fine.",
+    "GiftCardPublic.jsx previewEmail sends recipient_name/buyer_name via query params — verified backend renders them. No changes needed.",
+    "MorningBriefing.jsx: audio endpoint takes ~2s in preview env; the 'Mira is warming up…' state transitions cleanly to 'speaking…' — works well. Double-click guard via playLockRef holds; no overlapping audio observed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (preview-email 200 + logo absolute, reschedule 200 happy / 400 past / 400 invalid, cancel worked)", "frontend": "100% (3/3 features passed end-to-end)"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 and admin@miracurl.com / q6QY@tn3p#9DtL (tenant miracurl-marathahalli — pass via ?tenant= URL param or normal login). Also test lead 'test-resched-4194b5' was cancelled from panel per instructions.",
+  "seed_data_creation": "None — used the seeded lead test-resched-4194b5, which was cancelled via UI at the very end of the reschedule test (per main agent's explicit instruction that cancelling via UI is acceptable). The mira_leads doc for that lead is still in DB but call_result marked cancelled.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Playwright quirk: page.fill() on this app's controlled email/text inputs sometimes fails to trigger the React onChange (DOM value shows blank on next read). Workaround: use `await page.focus(sel); await page.keyboard.type(text, delay=10);` for login and any critical input flow. For the datetime-local input inside the scheduled-calls panel, page.locator(...).fill() DID work correctly (fill('2026-08-15T14:30')). To bypass HTML5 min-attribute constraint for testing past-date rejection, use the native input value setter + input event via page.evaluate. The Mira HQ Assistant chat overlay in super-admin dashboard can intercept clicks on the right-side buttons of Scheduled Calls panel — use page.evaluate with .click() to dispatch directly, or close the chat first. The seeded test lead 'test-resched-4194b5' has been cancelled via UI (call_result=cancelled) — if you need to retest reschedule flow, re-seed a new callback lead.",
+  "rca of the issue": "N/A — no bugs found. All 3 features work per spec."
+}
