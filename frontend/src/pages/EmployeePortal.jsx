@@ -17,8 +17,9 @@ const inputCls = "w-full bg-white/5 border border-white/15 rounded-lg px-4 py-3 
 
 function AuthForms({ onAuthed, onEnded }) {
   const [mode, setMode] = useState("login"); // login | register | reset
-  const [f, setF] = useState({ phone: "", aadhaar: "", password: "" });
+  const [f, setF] = useState({ phone: "", aadhaar: "", password: "", code: "" });
   const [busy, setBusy] = useState(false);
+  const [codeSentTo, setCodeSentTo] = useState(""); // reset step 2 when set
   const set = (k) => (e) => setF(prev => ({ ...prev, [k]: e.target.value }));
 
   const submit = async (e) => {
@@ -33,9 +34,15 @@ function AuthForms({ onAuthed, onEnded }) {
         const { data } = await http.post("/employee/register", { phone: f.phone, aadhaar: f.aadhaar, password: f.password });
         toast.success(`Registered! Welcome, ${data.name} (${data.staff_code})`);
         onAuthed();
+      } else if (!codeSentTo) {
+        const { data } = await http.post("/employee/reset-password/request", { phone: f.phone, aadhaar: f.aadhaar });
+        setCodeSentTo(data.sent_to);
+        toast.success(`Verification code sent to ${data.sent_to} — check your inbox`);
       } else {
-        await http.post("/employee/reset-password", { phone: f.phone, aadhaar: f.aadhaar, new_password: f.password });
+        await http.post("/employee/reset-password", { phone: f.phone, aadhaar: f.aadhaar, code: f.code.trim(), new_password: f.password });
         toast.success("Password reset — please log in");
+        setCodeSentTo("");
+        setF(prev => ({ ...prev, code: "", password: "" }));
         setMode("login");
       }
     } catch (err) {
@@ -52,7 +59,7 @@ function AuthForms({ onAuthed, onEnded }) {
     <div className="w-full max-w-md mx-auto bg-white/[0.04] border border-white/10 rounded-2xl p-6 sm:p-8 backdrop-blur-md" data-testid="employee-auth-card">
       <div className="flex rounded-full bg-white/5 border border-white/10 p-1 mb-6 text-xs">
         {[["login", "Login"], ["register", "Register"], ["reset", "Reset Password"]].map(([m, l]) => (
-          <button key={m} type="button" onClick={() => setMode(m)} data-testid={`emp-tab-${m}`}
+          <button key={m} type="button" onClick={() => { setMode(m); setCodeSentTo(""); }} data-testid={`emp-tab-${m}`}
             className={`flex-1 py-2 rounded-full transition ${mode === m ? "bg-amber-400 text-black font-semibold" : "text-white/60"}`}>{l}</button>
         ))}
       </div>
@@ -61,19 +68,30 @@ function AuthForms({ onAuthed, onEnded }) {
         {mode !== "login" && (
           <input required data-testid="emp-aadhaar-input" className={inputCls} placeholder="Aadhaar number (12 digits)" value={f.aadhaar} onChange={set("aadhaar")} inputMode="numeric" maxLength={14} />
         )}
-        <input required data-testid="emp-password-input" className={inputCls} type="password" minLength={mode === "login" ? 1 : 8}
-          placeholder={mode === "reset" ? "New password (min 8 chars)" : mode === "register" ? "Create password (min 8 chars)" : "Password"}
-          value={f.password} onChange={set("password")} />
+        {mode === "reset" && codeSentTo && (
+          <input required data-testid="emp-code-input" className={inputCls} placeholder={`6-digit code sent to ${codeSentTo}`}
+            value={f.code} onChange={set("code")} inputMode="numeric" maxLength={6} minLength={6} />
+        )}
+        {(mode !== "reset" || codeSentTo) && (
+          <input required data-testid="emp-password-input" className={inputCls} type="password" minLength={mode === "login" ? 1 : 8}
+            placeholder={mode === "reset" ? "New password (min 8 chars)" : mode === "register" ? "Create password (min 8 chars)" : "Password"}
+            value={f.password} onChange={set("password")} />
+        )}
         <button disabled={busy} data-testid="emp-submit-btn"
           className="w-full py-3 rounded-lg bg-gradient-to-r from-amber-400 to-rose-300 text-black font-semibold text-sm hover:opacity-90 transition disabled:opacity-50">
-          {busy ? "Please wait…" : mode === "login" ? "Log in" : mode === "register" ? "Verify & Register" : "Reset password"}
+          {busy ? "Please wait…" : mode === "login" ? "Log in" : mode === "register" ? "Verify & Register"
+            : codeSentTo ? "Reset password" : "Send verification code"}
         </button>
+        {mode === "reset" && codeSentTo && (
+          <button type="button" data-testid="emp-resend-code-btn" onClick={() => setCodeSentTo("")}
+            className="w-full text-[11px] text-white/40 hover:text-white/70">Didn't get it? Send a new code</button>
+        )}
       </form>
       <p className="text-[11px] text-white/40 mt-4 leading-relaxed">
         {mode === "register"
           ? "Only staff onboarded in the Miracurl registry can register — your mobile and Aadhaar must match our records. Not registered? Contact the Miracurl Admin team."
           : mode === "reset"
-            ? "Verify with your registered mobile + Aadhaar to set a new password."
+            ? "Verify with your registered mobile + Aadhaar — we'll email a 6-digit code to the address on your staff profile before the password changes."
             : "Use the mobile number you registered with. New here? Use the Register tab."}
       </p>
       <p className="text-[11px] text-white/30 mt-3 text-center">

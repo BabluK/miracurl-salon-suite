@@ -532,7 +532,7 @@ def _name_matches(emp_name: str, given: str) -> bool:
     return g == n or g in n.split() or n.startswith(g)
 
 
-_NAME_REQUIRED_MSG = ("To verify a Staff ID, also enter the staff member's name exactly as printed "
+_NAME_REQUIRED_MSG = ("To verify this staff member, also enter their name exactly as printed "
                       "on their badge (first name is enough).")
 
 
@@ -565,6 +565,8 @@ async def registry_public_search(q: str, request: Request, name: str = ""):
         return await _registry_profile(emp, redact=True)
     if len(digits) >= 10:
         emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{digits[-10:]}$"}}, {"_id": 0})
+        if emp and not _name_matches(emp.get("name", ""), name):
+            raise HTTPException(400, _NAME_REQUIRED_MSG)
     if not emp:
         raise HTTPException(404, "No staff found. Use their 12-digit Aadhaar, 10-digit phone, or Staff ID (STF-xxxxx)")
     _check_consent(emp)

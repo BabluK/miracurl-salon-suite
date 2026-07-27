@@ -256,7 +256,7 @@ export default function RegistryPublic() {
               <input
                 data-testid="public-registry-name-input"
                 value={name} onChange={e => setName(e.target.value)}
-                placeholder="Staff member's name as printed on the badge (required for Staff ID search)"
+                placeholder="Staff member's name as printed on the badge (required for Staff ID & phone search)"
                 className="w-full bg-white border border-rose-200 rounded-xl px-4 py-3 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-pink-400 transition"
               />
             )}

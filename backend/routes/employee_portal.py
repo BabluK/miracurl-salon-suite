@@ -2,6 +2,8 @@
 manage their profile and apply to salon job openings. Separate cookie from salon auth."""
 import re
 import uuid
+import secrets
+import hashlib
 import jwt
 from datetime import datetime, timezone, timedelta
 
@@ -112,7 +114,13 @@ class LoginIn(BaseModel):
 class ResetIn(BaseModel):
     phone: str = Field(..., min_length=10, max_length=15)
     aadhaar: str = Field(..., min_length=12, max_length=14)
+    code: str = Field(..., min_length=6, max_length=6)
     new_password: str = Field(..., min_length=8, max_length=72)
+
+
+class ResetRequestIn(BaseModel):
+    phone: str = Field(..., min_length=10, max_length=15)
+    aadhaar: str = Field(..., min_length=12, max_length=14)
 
 
 @router.post("/employee/register")
@@ -162,6 +170,49 @@ async def employee_login(body: LoginIn, request: Request, response: Response):
     return {"ok": True, "name": emp.get("name") if emp else ""}
 
 
+def _mask_email(email: str) -> str:
+    local, _, domain = email.partition("@")
+    return f"{local[:1]}***@{domain}" if domain else "your email"
+
+
+@router.post("/employee/reset-password/request")
+async def employee_reset_request(body: ResetRequestIn, request: Request):
+    """Step 1 of reset: verify phone + Aadhaar, then email a one-time code.
+    Aadhaar alone is NOT a reset secret — salons hold it too (SEC audit)."""
+    public_rate_limit(request, key_suffix="emp-reset-otp", limit=3, window_sec=900)
+    emp = await _find_registry_emp_by_phone(body.phone)
+    if not emp:
+        raise HTTPException(404, NOT_REGISTERED_MSG)
+    if not _verify_aadhaar(emp, body.aadhaar):
+        raise HTTPException(403, "Your details don't match our records. Please check your Aadhaar number or contact the Miracurl Admin team.")
+    if not await _raw_db.employee_accounts.find_one({"employee_id": emp["id"]}, {"_id": 1}):
+        raise HTTPException(400, "No account yet for this number — please register first")
+    email = (emp.get("email") or "").strip()
+    if not email:
+        raise HTTPException(400, "There's no email on your staff profile, so we can't send a verification code. Please contact the Miracurl Admin team to reset your password.")
+    code = f"{secrets.randbelow(1000000):06d}"
+    now = datetime.now(timezone.utc)
+    await _raw_db.employee_reset_codes.delete_many({"employee_id": emp["id"]})
+    await _raw_db.employee_reset_codes.insert_one({
+        "id": str(uuid.uuid4()), "employee_id": emp["id"],
+        "code_hash": hashlib.sha256(code.encode()).hexdigest(),
+        "expires_at": (now + timedelta(minutes=10)).isoformat(),
+        "attempts": 0, "created_at": now.isoformat()})
+    from email_service import _send_email
+    res = await _send_email(
+        [email], "Your Miracurl staff portal verification code",
+        f"""<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;color:#333">
+        <h2 style="color:#1c1c22">Password reset code</h2>
+        <p>Hi {emp.get('name') or 'there'}, use this code to reset your Miracurl staff portal password:</p>
+        <div style="font-size:34px;font-weight:bold;letter-spacing:8px;text-align:center;
+             background:#faf6ec;border-radius:12px;padding:16px;margin:16px 0">{code}</div>
+        <p style="font-size:12px;color:#888">The code expires in 10 minutes. If you didn't request this,
+        you can safely ignore this email — your password stays unchanged.</p></div>""")
+    if not res.get("sent"):
+        raise HTTPException(502, "Couldn't send the verification email right now — please try again in a minute.")
+    return {"ok": True, "sent_to": _mask_email(email)}
+
+
 @router.post("/employee/reset-password")
 async def employee_reset_password(body: ResetIn, request: Request):
     public_rate_limit(request, key_suffix="emp-reset", limit=5, window_sec=900)
@@ -170,6 +221,17 @@ async def employee_reset_password(body: ResetIn, request: Request):
         raise HTTPException(404, NOT_REGISTERED_MSG)
     if not _verify_aadhaar(emp, body.aadhaar):
         raise HTTPException(403, "Your details don't match our records. Please check your Aadhaar number or contact the Miracurl Admin team.")
+    now = datetime.now(timezone.utc)
+    rec = await _raw_db.employee_reset_codes.find_one({"employee_id": emp["id"]}, {"_id": 0})
+    if not rec or rec["expires_at"] < now.isoformat():
+        raise HTTPException(400, "Verification code expired or not requested — tap 'Send code' again")
+    if rec.get("attempts", 0) >= 5:
+        await _raw_db.employee_reset_codes.delete_one({"id": rec["id"]})
+        raise HTTPException(400, "Too many wrong codes — please request a fresh code")
+    if hashlib.sha256(body.code.strip().encode()).hexdigest() != rec["code_hash"]:
+        await _raw_db.employee_reset_codes.update_one({"id": rec["id"]}, {"$inc": {"attempts": 1}})
+        raise HTTPException(400, "Incorrect verification code")
+    await _raw_db.employee_reset_codes.delete_one({"id": rec["id"]})
     res = await _raw_db.employee_accounts.update_one(
         {"employee_id": emp["id"]},
         {"$set": {"password_hash": hash_pw(body.new_password),

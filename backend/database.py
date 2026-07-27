@@ -65,8 +65,13 @@ class TenantCollection:
     async def delete_many(self, q: dict, *a: Any, **kw: Any) -> Any: return await self._coll.delete_many(self._scope(q), *a, **kw)
     async def count_documents(self, q: Optional[dict] = None, *a: Any, **kw: Any) -> int: return await self._coll.count_documents(self._scope(q or {}), *a, **kw)
     def aggregate(self, pipeline: list, *a: Any, **kw: Any) -> Any:
-        if self._scoped and _current_tenant_id.get() is not None:
-            pipeline = [{"$match": {"tenant_id": _current_tenant_id.get()}}] + list(pipeline)
+        if self._scoped:
+            tid = _current_tenant_id.get()
+            if tid is not None:
+                pipeline = [{"$match": {"tenant_id": tid}}] + list(pipeline)
+            elif not _super_admin_ok.get():
+                # Fail closed: no tenant context and not a super-admin flow -> match nothing.
+                pipeline = [{"$match": {"tenant_id": "__NO_TENANT_CONTEXT__"}}] + list(pipeline)
         return self._coll.aggregate(pipeline, *a, **kw)
     def create_index(self, *a: Any, **kw: Any) -> Any: return self._coll.create_index(*a, **kw)
 
