@@ -12,12 +12,15 @@ export const BranchesSection = () => {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [askCount, setAskCount] = useState(false);
+  const [addN, setAddN] = useState(1);
+  const [note, setNote] = useState("");
 
   async function requestMore() {
     try {
-      const { data } = await api.post("/branches/request-more");
-      setRequested(true);
-      toast.success(data.already ? "Already requested — HQ will contact you soon ✦" : "Request sent to Miracurl HQ — they'll contact you to add more branches 🏢");
+      const { data } = await api.post("/branches/request-more", { additional: Number(addN) || 1, note });
+      setRequested(true); setAskCount(false);
+      toast.success(data.already ? "Already requested — HQ will contact you soon ✦" : `Request sent to Miracurl HQ for ${data.additional} more branch(es) — they'll email you a payment link 🏢`);
     } catch { toast.error("Couldn't send the request — try again"); }
   }
 
@@ -67,16 +70,33 @@ export const BranchesSection = () => {
           )}
         </h2>
         {limitInfo && limitInfo.used >= limitInfo.limit ? (
-          <button data-testid="request-more-branches-btn" onClick={requestMore} disabled={requested}
+          <button data-testid="request-more-branches-btn" onClick={() => setAskCount(true)} disabled={requested}
             className={`text-xs font-bold rounded-full px-4 py-2 border transition ${requested
               ? "bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default"
               : "bg-amber-500 text-white border-amber-500 hover:bg-amber-600"}`}>
-            {requested ? "✓ Requested — HQ will contact you" : "🏢 Request more branches"}
+            {requested ? "✓ Requested — HQ will send a payment link" : "🏢 Request more branches"}
           </button>
         ) : (
           <button data-testid="add-branch-btn" onClick={() => openModal()} className="btn-blue text-sm flex items-center gap-1.5"><Plus className="w-4 h-4" /> Add Branch</button>
         )}
       </div>
+
+      {askCount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setAskCount(false)}>
+          <div className="card-light w-full max-w-sm mx-4" onClick={e => e.stopPropagation()} data-testid="branch-request-modal">
+            <h3 className="font-playfair text-xl mb-1">Request more branches</h3>
+            <p className="text-xs text-slate-500 mb-4">Tell Miracurl HQ how many extra branches you need. They'll email you a payment link for the new pricing — once paid, the branches unlock. 🏢</p>
+            <label className="text-xs font-semibold text-slate-600">How many branches to add?</label>
+            <input type="number" min="1" max="50" value={addN} onChange={e => setAddN(e.target.value)} data-testid="branch-request-count" className="input-light w-full mt-1" />
+            <label className="text-xs font-semibold text-slate-600 mt-3 block">Anything to add? (optional)</label>
+            <textarea rows={2} value={note} onChange={e => setNote(e.target.value)} data-testid="branch-request-note" placeholder="e.g. opening 2 new outlets next month" className="input-light w-full mt-1" />
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setAskCount(false)} className="flex-1 border border-slate-200 rounded-xl py-2.5 text-sm text-slate-500 hover:bg-slate-50">Cancel</button>
+              <button onClick={requestMore} data-testid="branch-request-send" className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl py-2.5 text-sm">Send request to HQ</button>
+            </div>
+          </div>
+        </div>
+      )}
       <p className="text-xs text-slate-500 mb-4">All branches appear in the “Our Locations” section of your public booking page, with address, phone and directions link.</p>
 
       {branches.length === 0 ? (

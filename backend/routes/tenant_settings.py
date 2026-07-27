@@ -144,9 +144,15 @@ async def list_branches(user=Depends(require_tenant_admin), t=Depends(current_te
 async def branch_limit_info(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     return {"limit": _branch_limit(t), "used": len(t.get("branches") or [])}
 
+class BranchRequestIn(BaseModel):
+    additional: int = Field(1, ge=1, le=50)
+    note: str = Field("", max_length=300)
+
+
 @router.post("/branches/request-more")
-async def request_more_branches(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """One-tap upsell: salon at its branch limit asks HQ to raise it — lands in HQ Inbox + email."""
+async def request_more_branches(body: BranchRequestIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Salon at its branch limit asks HQ to add N more branches — lands in HQ Inbox + email.
+    HQ replies with a payment link; once paid, HQ raises branch_limit and the salon can add them."""
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     dup = await _raw_db.hq_messages.find_one({
         "tenant_id": t["id"], "subject": {"$regex": "^Branch limit increase"},
@@ -154,13 +160,20 @@ async def request_more_branches(user=Depends(require_tenant_admin), t=Depends(cu
     if dup:
         return {"ok": True, "already": True}
     limit, used = _branch_limit(t), len(t.get("branches") or [])
+    owner = t.get("owner_email") or user.get("email") or "—"
+    new_total = limit + body.additional
     subject = f"Branch limit increase request — {t['name']}"
-    message = (f"{t['name']} ({t['slug']}) has reached its branch allowance ({used}/{limit} used) "
-               f"and wants to add more branches. Owner: {t.get('owner_email') or user.get('email')}. "
-               "Raise the limit in Edit Tenant → Branch limit once payment is confirmed.")
+    message = (f"{t['name']} ({t['slug']}) wants to add {body.additional} more "
+               f"branch{'es' if body.additional != 1 else ''} (currently {used}/{limit} used, "
+               f"new total requested: {new_total}). "
+               + (f"Note from salon: \"{body.note.strip()}\". " if body.note.strip() else "")
+               + f"Requested by {owner}. Next step: send a payment link for the {body.additional} extra "
+               f"branch{'es' if body.additional != 1 else ''}; after payment, set Edit Tenant → Branch limit to {new_total}.")
     await _raw_db.hq_messages.insert_one({
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_name": t["name"],
-        "from_email": user.get("email", ""), "subject": subject, "message": message,
+        "from_email": owner, "subject": subject, "message": message,
+        "branch_request": {"additional": body.additional, "current_limit": limit,
+                           "used": used, "new_total": new_total},
         "attachments": [], "read": False,
         "created_at": datetime.now(timezone.utc).isoformat()})
     try:
@@ -169,11 +182,19 @@ async def request_more_branches(user=Depends(require_tenant_admin), t=Depends(cu
             [os.environ.get("HQ_EMAIL", "admin@miracurl.com")],
             f"[Miracurl HQ] {subject}",
             f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
-            <h2 style="color:#1a1a2e">🏢 Branch limit increase request</h2>
-            <p>{html_lib.escape(message)}</p></div>""")
+            <h2 style="color:#1a1a2e">🏢 New branch request</h2>
+            <table style="font-size:14px;border-collapse:collapse">
+              <tr><td style="padding:4px 12px 4px 0;color:#888">Salon</td><td><b>{html_lib.escape(t['name'])}</b> ({html_lib.escape(t['slug'])})</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#888">Requested by</td><td>{html_lib.escape(owner)}</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#888">Current</td><td>{used}/{limit} branches used</td></tr>
+              <tr><td style="padding:4px 12px 4px 0;color:#888">Wants to add</td><td><b>{body.additional}</b> more → new total <b>{new_total}</b></td></tr>
+            </table>
+            {f'<p style="font-size:13px;color:#555;margin-top:10px">Note: "{html_lib.escape(body.note.strip())}"</p>' if body.note.strip() else ''}
+            <p style="font-size:13px;color:#555;margin-top:14px">➡️ Send a payment link for the extra branches. Once paid,
+            open <b>Edit Tenant → Branch limit</b> and set it to <b>{new_total}</b>.</p></div>""")
     except Exception as e:
         logging.warning(f"branch upsell email failed: {e}")
-    return {"ok": True}
+    return {"ok": True, "additional": body.additional, "new_total": new_total}
 
 @router.post("/branches")
 async def add_branch(body: BranchIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):

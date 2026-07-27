@@ -118,6 +118,18 @@ export default function GiftCardPublic() {
 
   const [proofB64, setProofB64] = useState("");
   const [proofName, setProofName] = useState("");
+  const [payTapped, setPayTapped] = useState(false);
+
+  useEffect(() => {
+    // Buyer returns from GPay/PhonePe → nudge them to add proof
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && payTapped && !proofB64 && !upiRef.trim()) {
+        toast.info("Paid? Add your UPI transaction ID or payment screenshot below to unlock the confirm button ⬇");
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [payTapped, proofB64, upiRef]);
 
   const onProofFile = (e) => {
     const file = e.target.files?.[0];
@@ -203,7 +215,7 @@ export default function GiftCardPublic() {
                 {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5" onClickCapture={() => setPayTapped(true)}>
               <a href={upiOrder.gpay_link || upiOrder.upi_link} data-testid="gift-upi-gpay"
                 className="inline-flex items-center gap-1.5 bg-white text-black font-bold text-sm rounded-full px-5 py-2.5 hover:bg-white/90">
                 <span className="font-black" style={{ color: "#4285F4" }}>G</span> Pay with GPay
@@ -216,18 +228,21 @@ export default function GiftCardPublic() {
             </div>
             <p className="text-[10px] text-white/35 mt-2">App buttons work on your phone — on a computer, scan the QR above.</p>
             <div className="mt-6 max-w-sm mx-auto text-left">
-              <label className="text-[11px] uppercase tracking-wider text-white/40">UPI transaction ID (optional, speeds up confirmation)</label>
+              <p className="text-[11px] text-white/60 mb-2 text-center">After paying, add <b className="text-gold">one proof</b> below — transaction ID <i>or</i> screenshot — to unlock the confirm button 🔒</p>
+              <label className="text-[11px] uppercase tracking-wider text-white/40">UPI transaction ID</label>
               <input value={upiRef} onChange={(e) => setUpiRef(e.target.value)} placeholder="e.g. 4172XXXXXXXX" className={inputCls + " mt-1"} data-testid="gift-upi-ref" />
-              <label className="block mt-3 text-[11px] uppercase tracking-wider text-white/40">Payment screenshot (recommended — fastest confirmation)</label>
+              <label className="block mt-3 text-[11px] uppercase tracking-wider text-white/40">Or payment screenshot (fastest confirmation)</label>
               <label data-testid="gift-proof-upload" className={`mt-1 flex items-center justify-center gap-2 border border-dashed rounded-xl px-4 py-3 text-xs cursor-pointer transition ${proofName ? "border-emerald-400/60 text-emerald-300 bg-emerald-500/10" : "border-white/20 text-white/50 hover:border-gold/60 hover:text-gold"}`}>
                 <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onProofFile} />
                 {proofName ? `📎 ${proofName} ✓ attached` : "📎 Attach your GPay/PhonePe payment screenshot"}
               </label>
-              <button onClick={confirmUpiPaid} disabled={busy} data-testid="gift-upi-paid-btn"
-                className="w-full mt-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl py-3 text-sm disabled:opacity-50">
-                {busy ? "Submitting…" : "✓ I have paid — send the gift card"}
+              <button onClick={confirmUpiPaid} disabled={busy || (!proofB64 && upiRef.trim().length < 6)} data-testid="gift-upi-paid-btn"
+                className="w-full mt-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl py-3 text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                {busy ? "Submitting…"
+                  : (!proofB64 && upiRef.trim().length < 6) ? "🔒 Add transaction ID or screenshot to confirm"
+                  : "✓ I have paid — send the gift card"}
               </button>
-              <p className="text-[10px] text-white/35 mt-2 text-center">The salon confirms the payment, then the card is emailed to {f.recipient_email}.</p>
+              <p className="text-[10px] text-white/35 mt-2 text-center">The salon verifies your proof, then the card is emailed to {f.recipient_email}.</p>
             </div>
           </div>
         ) : (

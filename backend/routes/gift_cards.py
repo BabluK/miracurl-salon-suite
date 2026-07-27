@@ -26,18 +26,30 @@ MAIN_TENANT_SLUG = "miracurl-marathahalli"
 _EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}")
 
 OCCASIONS = [
-    {"key": "birthday", "label": "Birthday", "emoji": "🎂", "grad": ["#f43f5e", "#fb923c"]},
-    {"key": "anniversary", "label": "Anniversary", "emoji": "💍", "grad": ["#a855f7", "#ec4899"]},
-    {"key": "valentine", "label": "Valentine's Day", "emoji": "❤️", "grad": ["#e11d48", "#f472b6"]},
-    {"key": "mothers-day", "label": "Mother's Day", "emoji": "💐", "grad": ["#ec4899", "#f9a8d4"]},
-    {"key": "fathers-day", "label": "Father's Day", "emoji": "👔", "grad": ["#0ea5e9", "#6366f1"]},
-    {"key": "diwali", "label": "Diwali", "emoji": "🪔", "grad": ["#f59e0b", "#dc2626"]},
-    {"key": "christmas", "label": "Christmas", "emoji": "🎄", "grad": ["#16a34a", "#dc2626"]},
-    {"key": "new-year", "label": "New Year", "emoji": "🎉", "grad": ["#6366f1", "#a855f7"]},
-    {"key": "wedding", "label": "Wedding", "emoji": "👰", "grad": ["#d4af37", "#f5e6c8"]},
-    {"key": "thank-you", "label": "Thank You", "emoji": "🙏", "grad": ["#0d9488", "#22d3ee"]},
-    {"key": "congratulations", "label": "Congratulations", "emoji": "🎊", "grad": ["#f59e0b", "#84cc16"]},
-    {"key": "just-because", "label": "Just Because", "emoji": "✨", "grad": ["#d4af37", "#b45309"]},
+    {"key": "birthday", "label": "Birthday", "emoji": "🎂", "grad": ["#f43f5e", "#fb923c"],
+     "quote": "May your special day sparkle as brightly as you do. Happy Birthday! 🎉✨"},
+    {"key": "anniversary", "label": "Anniversary", "emoji": "💍", "grad": ["#a855f7", "#ec4899"],
+     "quote": "Here's to love that keeps growing lovelier with every year. Happy Anniversary! 💕"},
+    {"key": "valentine", "label": "Valentine's Day", "emoji": "❤️", "grad": ["#e11d48", "#f472b6"],
+     "quote": "A little pampering for someone who holds my whole heart. Happy Valentine's Day! 💘"},
+    {"key": "mothers-day", "label": "Mother's Day", "emoji": "💐", "grad": ["#ec4899", "#f9a8d4"],
+     "quote": "For the woman who gives everything — a day of pure pampering, just for you. 💝"},
+    {"key": "fathers-day", "label": "Father's Day", "emoji": "👔", "grad": ["#0ea5e9", "#6366f1"],
+     "quote": "You deserve to relax and be looked after. Happy Father's Day! 👏"},
+    {"key": "diwali", "label": "Diwali", "emoji": "🪔", "grad": ["#f59e0b", "#dc2626"],
+     "quote": "May this Diwali light up your life with joy, glow and good fortune. ✨🪔 Shubh Deepavali!"},
+    {"key": "christmas", "label": "Christmas", "emoji": "🎄", "grad": ["#16a34a", "#dc2626"],
+     "quote": "Wishing you a season of warmth, sparkle and self-care. Merry Christmas! 🎄"},
+    {"key": "new-year", "label": "New Year", "emoji": "🎉", "grad": ["#6366f1", "#a855f7"],
+     "quote": "New year, fresh glow. Here's to a gorgeous year ahead! 🥂✨"},
+    {"key": "wedding", "label": "Wedding", "emoji": "👰", "grad": ["#d4af37", "#f5e6c8"],
+     "quote": "Look and feel radiant for your big day and beyond. Congratulations! 💍"},
+    {"key": "thank-you", "label": "Thank You", "emoji": "🙏", "grad": ["#0d9488", "#22d3ee"],
+     "quote": "A small token of my gratitude — treat yourself, you've earned it. 🙏"},
+    {"key": "congratulations", "label": "Congratulations", "emoji": "🎊", "grad": ["#f59e0b", "#84cc16"],
+     "quote": "Celebrating you and your big win with a little luxury! Congratulations! 🎊"},
+    {"key": "just-because", "label": "Just Because", "emoji": "✨", "grad": ["#d4af37", "#b45309"],
+     "quote": "No reason needed — you simply deserve something lovely today. ✨"},
 ]
 _OCC = {o["key"]: o for o in OCCASIONS}
 DEFAULT_AMOUNTS = [500, 1000, 2000, 5000]
@@ -267,6 +279,8 @@ async def gift_card_upi_paid(gcid: str, body: UpiPaidIn, request: Request):
         raise HTTPException(404, "Order not found")
     if gc["status"] != "pending_payment":
         return {"ok": True, "status": gc["status"]}
+    if len(body.upi_ref.strip()) < 6 and not body.proof_b64.strip():
+        raise HTTPException(400, "Add your UPI transaction ID or payment screenshot as proof of payment")
     proof_url = ""
     if body.proof_b64.strip():
         proof_url = await _store_payment_proof(gc, body.proof_b64.strip())
@@ -326,6 +340,25 @@ def _gift_whatsapp_url(gc: dict, t: dict) -> str:
     return f"https://wa.me/{wa_phone}?text={quote(msg)}"
 
 
+def _fmt_date(iso: str) -> str:
+    """2027-01-23 → 23 Jan 2027."""
+    try:
+        return datetime.strptime(iso[:10], "%Y-%m-%d").strftime("%d %b %Y")
+    except Exception:
+        return iso or ""
+
+
+def _why_choose_us(t: dict) -> str:
+    salon = html_lib.escape(t.get("name") or "our salon")
+    return f"""<div style="background:#faf6ec;border-radius:14px;padding:18px 20px;margin:18px 0">
+      <div style="font-size:13px;font-weight:bold;color:#1c1c22;margin-bottom:8px">Why you'll love {salon} ✨</div>
+      <div style="font-size:13px;color:#555;line-height:1.9">
+        ✂️ Expert, friendly stylists who listen<br/>
+        🌿 Premium products &amp; spotless, relaxing salon<br/>
+        💖 Personalised care for every guest<br/>
+        ⭐ Loved by our regulars — now it's your turn</div></div>"""
+
+
 def _ecard_html(gc: dict, t: dict) -> str:
     occ = _OCC.get(gc["occasion"], _OCC["just-because"])
     g1, g2 = occ["grad"]
@@ -337,6 +370,8 @@ def _ecard_html(gc: dict, t: dict) -> str:
     logo = (f'<img src="{logo_url}" alt="{salon}" style="max-height:54px;max-width:180px;margin-bottom:8px" />'
             if logo_url else
             f'<div style="font-size:26px;font-weight:bold;color:#fff;margin-bottom:6px">{salon}</div>')
+    quote = (f'<p style="font-family:Georgia,serif;font-style:italic;font-size:15px;color:#fff;'
+             f'opacity:.95;margin:14px 22px 0;line-height:1.6">{occ.get("quote", "")}</p>')
     msg = (f'<p style="font-style:italic;color:#555;border-left:3px solid {g1};padding-left:12px;margin:18px 0">'
            f'"{html_lib.escape(gc["message"])}"</p>') if gc.get("message") else ""
     return f"""
@@ -345,20 +380,23 @@ def _ecard_html(gc: dict, t: dict) -> str:
         {logo}
         <div style="font-size:40px;line-height:1">{occ["emoji"]}</div>
         <div style="color:#fff;font-size:13px;letter-spacing:3px;text-transform:uppercase;margin-top:8px;opacity:.9">{occ["label"]} Gift Card</div>
-        <div style="color:#fff;font-size:44px;font-weight:bold;margin:10px 0">{_cur(gc)}{gc["amount"]:g}</div>
+        {quote}
+        <div style="color:#fff;font-size:44px;font-weight:bold;margin:14px 0 10px">{_cur(gc)}{gc["amount"]:g}</div>
         <div style="display:inline-block;background:rgba(255,255,255,.92);border-radius:12px;padding:12px 26px;margin-top:6px">
           <div style="font-size:10px;letter-spacing:2px;color:#888;text-transform:uppercase">Gift card code</div>
           <div style="font-family:'Courier New',monospace;font-size:22px;font-weight:bold;color:#1c1c22;letter-spacing:2px">{gc["code"]}</div>
         </div>
-        <div style="color:rgba(255,255,255,.85);font-size:11px;margin-top:12px">Valid till {gc["expires_at"]} · Redeem at {salon}{(" · " + html_lib.escape(t.get("location"))) if t.get("location") else ""}</div>
+        <div style="color:rgba(255,255,255,.85);font-size:11px;margin-top:12px">Valid till {_fmt_date(gc["expires_at"])} · Redeem at {salon}{(" · " + html_lib.escape(t.get("location"))) if t.get("location") else ""}</div>
       </div>
       <div style="padding:24px 8px;color:#333">
         <p>Dear <b>{html_lib.escape(gc["recipient_name"])}</b>,</p>
         <p><b>{html_lib.escape(gc["buyer_name"])}</b> has sent you a {occ["label"]} gift card for
            <b>{salon}</b> worth <b>{_cur(gc)}{gc["amount"]:g}</b>! 🎁</p>
         {msg}
+        {_why_choose_us(t)}
         <p style="font-size:13px;color:#666">Simply show the code above at the salon — it works across any
            services until the balance runs out. Book your pampering session below ✂️</p>
+        <p style="font-size:13px;color:#333;margin-top:14px">With love,<br/><b>The {salon} family</b> 💛</p>
       </div>
     </div>"""
 
@@ -383,14 +421,16 @@ async def _email_buyer_receipt(gc: dict, t: dict, scheduled: bool, wa_url: str =
         text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">
         💬 Send it to {html_lib.escape(gc['recipient_name'])} on WhatsApp too</a></p>""" if wa_url else "")
     await _send_email(
-        [gc["buyer_email"]], f"🎁 Your gift card for {gc['recipient_name']} is confirmed",
+        [gc["buyer_email"]], f"🎁 Thank you! Your gift card for {gc['recipient_name']} is confirmed",
         f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
-        <h2 style="color:#1c1c22">Gift card confirmed 🎁</h2>
-        <p>Hi {html_lib.escape(gc['buyer_name'])}, your <b>{_cur(gc)}{gc['amount']:g}</b>
+        <h2 style="color:#1c1c22">Thank you for choosing {html_lib.escape(t.get('name') or 'us')} 💛</h2>
+        <p>Hi {html_lib.escape(gc['buyer_name'])}, what a lovely gesture! Your <b>{_cur(gc)}{gc['amount']:g}</b>
         {_OCC.get(gc['occasion'], _OCC['just-because'])['label']} gift card for
         <b>{html_lib.escape(t.get('name') or '')}</b> is confirmed. {when}</p>
         {wa_btn}
-        <p style="font-size:12px;color:#888">Valid till {gc.get('expires_at')} · Redeemable in-salon against any services.</p>
+        <p style="font-size:13px;color:#555;margin-top:16px">It means the world that you trusted us to make
+        {html_lib.escape(gc['recipient_name'])}'s day special. We'll take wonderful care of them. ✨</p>
+        <p style="font-size:12px;color:#888">Valid till {_fmt_date(gc.get('expires_at') or '')} · Redeemable in-salon against any services.</p>
         </div>""")
 
 
@@ -409,6 +449,34 @@ async def deliver_scheduled_gift_cards() -> int:
     await _raw_db.gift_cards.update_many(
         {"status": "active", "expires_at": {"$lt": today}, "balance": {"$gt": 0}},
         {"$set": {"status": "expired"}})
+    await _remind_expiring_gift_cards()
+    return sent
+
+
+async def _remind_expiring_gift_cards() -> int:
+    """Email the recipient 7 days before an active card with balance expires (once)."""
+    target = (datetime.now(timezone.utc).date() + timedelta(days=7)).isoformat()
+    rows = await _raw_db.gift_cards.find(
+        {"status": "active", "balance": {"$gt": 0}, "expires_at": {"$regex": f"^{target}"},
+         "expiry_reminded": {"$ne": True}}, {"_id": 0}).to_list(200)
+    from email_service import _send_email
+    sent = 0
+    for gc in rows:
+        await _raw_db.gift_cards.update_one({"id": gc["id"]}, {"$set": {"expiry_reminded": True}})
+        t = await _raw_db.tenants.find_one({"id": gc["tenant_id"]}, {"_id": 0}) or {}
+        base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+        salon = html_lib.escape(t.get("name") or "the salon")
+        res = await _send_email(
+            [gc["recipient_email"]], f"⏳ Your {salon} gift card expires in 7 days",
+            f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+            <h2 style="color:#1c1c22">Don't let your treat slip away ⏳</h2>
+            <p>Hi {html_lib.escape(gc['recipient_name'])}, your gift card for <b>{salon}</b> still has
+            <b>{_cur(gc)}{gc['balance']:g}</b> — but it expires on <b>{_fmt_date(gc['expires_at'])}</b> (7 days away).</p>
+            <p style="font-family:'Courier New',monospace;font-size:18px;font-weight:bold">Code: {gc['code']}</p>
+            <p>Treat yourself before it's gone ✨</p></div>""",
+            book_url=f"{base}/book/{gc['tenant_slug']}", book_label="Book now ✦")
+        if res.get("sent"):
+            sent += 1
     return sent
 
 
@@ -528,6 +596,23 @@ async def confirm_gift_card(gcid: str, user=Depends(require_tenant_admin), t=Dep
         raise HTTPException(400, f"Order is already {gc['status']}")
     await _raw_db.gift_cards.update_one({"id": gcid}, {"$set": {"paid_at": _now(), "confirmed_by": user["id"]}})
     return await _issue_gift_card(gcid)
+
+
+class DeleteHistoryIn(BaseModel):
+    pin: str = ""
+
+
+@router.post("/gift-cards/delete-history")
+async def delete_gift_history(body: DeleteHistoryIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner-PIN protected: clear finished gift-card history (cancelled/expired/fully-redeemed)."""
+    from security import verify_pw
+    ph = t.get("security_pin_hash")
+    if ph:
+        if not body.pin.strip() or not verify_pw(body.pin.strip(), ph):
+            raise HTTPException(403, "Incorrect Owner PIN")
+    r = await _raw_db.gift_cards.delete_many(
+        {"tenant_id": t["id"], "status": {"$in": ["cancelled", "expired", "redeemed"]}})
+    return {"ok": True, "deleted": r.deleted_count}
 
 
 @router.post("/gift-cards/{gcid}/cancel")

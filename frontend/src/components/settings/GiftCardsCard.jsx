@@ -30,6 +30,26 @@ export const GiftCardsCard = () => {
     setTenant(c.data);
     api.get("/gift-cards/analytics").then(r => setAnalytics(r.data)).catch(() => {});
   }, []);
+
+  async function deleteHistory() {
+    if (!window.confirm("Clear all finished gift cards (cancelled, expired, fully redeemed)? Active cards stay. This can't be undone.")) return;
+    const doDelete = async (pin) => api.post("/gift-cards/delete-history", { pin });
+    try {
+      const { data } = await doDelete("");
+      toast.success(`Cleared ${data.deleted} finished gift card(s)`);
+      load();
+    } catch (e) {
+      if (e.response?.status === 403) {
+        const pin = window.prompt("Enter your Owner PIN to clear gift card history:") || "";
+        if (!pin) return;
+        try {
+          const { data } = await doDelete(pin);
+          toast.success(`Cleared ${data.deleted} finished gift card(s)`);
+          load();
+        } catch (e2) { toast.error(e2.response?.data?.detail || "Incorrect Owner PIN"); }
+      } else { toast.error(e.response?.data?.detail || "Couldn't clear history"); }
+    }
+  }
   useEffect(() => { load().catch(() => {}); }, [load]);
 
   const save = async () => {
@@ -161,6 +181,10 @@ export const GiftCardsCard = () => {
             <span>💰 Revenue: <b>₹{list.stats.revenue}</b></span>
             <span>🪙 Unredeemed balance: <b>₹{list.stats.outstanding}</b></span>
             {list.stats.awaiting > 0 && <span className="text-amber-600 font-bold">⏳ {list.stats.awaiting} awaiting your payment confirmation</span>}
+            <button onClick={deleteHistory} data-testid="gift-delete-history-btn"
+              className="ml-auto text-[11px] font-bold text-rose-600 hover:text-rose-800 border border-rose-200 bg-rose-50 rounded-full px-3 py-1">
+              🗑 Clear finished history
+            </button>
           </div>
           <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
             {list.items.length === 0 && <p className="text-xs text-slate-400">No gift cards yet — share your gift page link above 💛</p>}

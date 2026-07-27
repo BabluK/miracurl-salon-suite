@@ -20,7 +20,7 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
   const handleVoiceRef = useRef(() => {});
   const noSpeechRef = useRef(0);
   const wakeRef = useRef(null);
-  const wakeOnRef = useRef(localStorage.getItem("mira_wake") !== "0");
+  const wakeOnRef = useRef(localStorage.getItem("mira_wake") === "1");
   const [wakeOn, setWakeOn] = useState(wakeOnRef.current);
   const langRef = useRef(localStorage.getItem("mira_lang") || "en");
   const [miraLang, setMiraLang] = useState(langRef.current);
@@ -76,9 +76,11 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
   };
 
   useEffect(() => {
-    const t = setTimeout(() => startWake(), 1500);
-    return () => { clearTimeout(t); stopWake(); };
-  }, [startWake, stopWake]);
+    // Do NOT auto-start the mic on mount — browsers (esp. mobile) crash/kill tabs
+    // that grab the mic + autoplay audio without a user gesture. Wake word starts
+    // only after the user explicitly toggles it on (toggleWake = a user gesture).
+    return () => { stopWake(); };
+  }, [stopWake]);
 
   const setConvoMode = useCallback((v) => {
     convoRef.current = v;
@@ -145,7 +147,7 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
       sessionStorage.setItem("mira_open", "1");
       setMsgs([{ role: "mira", text: data.text }]);
       setOpen(true);
-      speak(data.text, true);
+      // No autoplay on login — show the greeting; user taps 🔊 to hear it (avoids mobile tab crash).
     });
     return () => { alive = false; };
   }, [speak]);
