@@ -61,6 +61,49 @@ async def new_bookings(since: str, _=Depends(require_tenant_admin)):
     }
 
 
+def _ist_when(raw) -> str:
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        return dt.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
+    except ValueError:
+        return str(raw or "")
+
+
+async def _tenant_for_sms(user: dict):
+    from sms_service import sms_configured
+    if not sms_configured():
+        return None
+    return await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "id": 1, "name": 1})
+
+
+def _queue_sms(t: dict, phone: str, text: str, kind: str) -> None:
+    from sms_service import send_tenant_sms
+    asyncio.create_task(send_tenant_sms(t["id"], phone, text, kind=kind))
+
+
+async def _send_booking_sms(user: dict, cust: dict, staff: dict, services: list, scheduled_at) -> None:
+    if not cust.get("phone"):
+        return
+    t = await _tenant_for_sms(user)
+    if not t:
+        return
+    _queue_sms(t, cust["phone"],
+               f"{t.get('name') or 'Your salon'}: Hi {cust['name']}, your booking is CONFIRMED! "
+               f"{', '.join(s['name'] for s in services)} on {_ist_when(scheduled_at)} with {staff['name']}. See you soon!",
+               "booking")
+
+
+async def _send_cancellation_sms(user: dict, appt: dict, phone: str) -> None:
+    t = await _tenant_for_sms(user)
+    if not t:
+        return
+    _queue_sms(t, phone,
+               f"{t.get('name') or 'Your salon'}: Hi {appt.get('customer_name', '')}, your booking "
+               f"({', '.join(appt.get('service_names') or ['appointment'])}) on {_ist_when(appt.get('scheduled_at'))} "
+               "has been CANCELLED. Reply or call us to rebook anytime.",
+               "cancellation")
+
+
 @router.post("/appointments")
 async def create_appointment(body: AppointmentIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
@@ -79,21 +122,7 @@ async def create_appointment(body: AppointmentIn, user=Depends(get_current_user)
         notes=body.notes, total=total,
     ).model_dump()
     await db.appointments.insert_one(a)
-    if cust.get("phone"):
-        from sms_service import send_tenant_sms, sms_configured
-        if sms_configured():
-            t = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "id": 1, "name": 1})
-            if t:
-                try:
-                    dt = datetime.fromisoformat(str(body.scheduled_at).replace("Z", "+00:00"))
-                    when = dt.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
-                except ValueError:
-                    when = str(body.scheduled_at)
-                asyncio.create_task(send_tenant_sms(
-                    t["id"], cust["phone"],
-                    f"{t.get('name') or 'Your salon'}: Hi {cust['name']}, your booking is CONFIRMED! "
-                    f"{', '.join(s['name'] for s in services)} on {when} with {staff['name']}. See you soon!",
-                    kind="booking"))
+    await _send_booking_sms(user, cust, staff, services, body.scheduled_at)
     return _clean(a)
 
 
@@ -167,21 +196,7 @@ async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(g
         whatsapp_url, wa_request_created = await _appt_confirmation_whatsapp(appt, phone, aid, user)
 
     if body.status == "cancelled" and phone:
-        from sms_service import send_tenant_sms, sms_configured
-        if sms_configured():
-            t = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "id": 1, "name": 1})
-            if t:
-                try:
-                    dt = datetime.fromisoformat(str(appt["scheduled_at"]).replace("Z", "+00:00"))
-                    when = dt.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
-                except ValueError:
-                    when = str(appt.get("scheduled_at", ""))
-                asyncio.create_task(send_tenant_sms(
-                    t["id"], phone,
-                    f"{t.get('name') or 'Your salon'}: Hi {appt.get('customer_name', '')}, your booking "
-                    f"({', '.join(appt.get('service_names') or ['appointment'])}) on {when} has been CANCELLED. "
-                    "Reply or call us to rebook anytime.",
-                    kind="cancellation"))
+        await _send_cancellation_sms(user, appt, phone)
 
     if body.status == "completed" and not appt.get("crm_counted"):
         await _crm_count_completed_appt(appt, phone, aid)

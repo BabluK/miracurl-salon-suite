@@ -16,9 +16,35 @@ def _has_dummy_name(name: str | None) -> bool:
     return bool(_DUMMY_NAME.search(name or ""))
 
 
+async def _is_protected(tenant_id: str, c: dict) -> bool:
+    """Customers with wallet money or invoices are never cleanup candidates."""
+    if float(c.get("wallet_balance") or 0) > 0:
+        return True
+    return bool(await _raw_db.invoices.count_documents(
+        {"tenant_id": tenant_id, "customer_id": c["id"]}, limit=1))
+
+
+async def _dummy_customers(tenant_id: str, custs: list) -> list:
+    out = []
+    for c in custs:
+        if _has_dummy_name(c.get("name")) and not await _is_protected(tenant_id, c):
+            out.append(c)
+    return out
+
+
+async def _ghost_customers(tenant_id: str, custs: list, dummy_ids: set, active_cust_ids: set) -> list:
+    """'pending' guests who never completed a visit and have no upcoming booking."""
+    out = []
+    for c in custs:
+        if c.get("crm_status") != "pending" or c["id"] in dummy_ids or c["id"] in active_cust_ids:
+            continue
+        if not await _is_protected(tenant_id, c):
+            out.append(c)
+    return out
+
+
 async def _scan(tenant_id: str) -> dict:
-    """Dummy = test-pattern NAME. Ghost = 'pending' guest who never completed a visit and has
-    no upcoming booking. Customers with wallet money or invoices are never touched.
+    """Dummy = test-pattern NAME. Ghost = incomplete pending guest.
     Orphan bookings = appointments whose customer record no longer exists."""
     custs = await _raw_db.customers.find(
         {"tenant_id": tenant_id},
@@ -28,26 +54,13 @@ async def _scan(tenant_id: str) -> dict:
         {"_id": 0, "id": 1, "customer_id": 1, "customer_name": 1, "scheduled_at": 1, "status": 1},
     ).to_list(20000)
 
-    async def _protected(c: dict) -> bool:
-        if float(c.get("wallet_balance") or 0) > 0:
-            return True
-        return bool(await _raw_db.invoices.count_documents(
-            {"tenant_id": tenant_id, "customer_id": c["id"]}, limit=1))
-
-    dummy_custs = [c for c in custs if _has_dummy_name(c.get("name")) and not await _protected(c)]
+    dummy_custs = await _dummy_customers(tenant_id, custs)
     dummy_cust_ids = {c["id"] for c in dummy_custs}
-
     active_cust_ids = {a.get("customer_id") for a in appts if a.get("status") in _ACTIVE_APPT_STATUSES}
-    ghost_custs = []
-    for c in custs:
-        if c.get("crm_status") != "pending" or c["id"] in dummy_cust_ids or c["id"] in active_cust_ids:
-            continue
-        if not await _protected(c):
-            ghost_custs.append(c)
-    ghost_cust_ids = {c["id"] for c in ghost_custs}
+    ghost_custs = await _ghost_customers(tenant_id, custs, dummy_cust_ids, active_cust_ids)
 
     all_cust_ids = {c["id"] for c in custs}
-    removable_ids = dummy_cust_ids | ghost_cust_ids
+    removable_ids = dummy_cust_ids | {c["id"] for c in ghost_custs}
     dummy_appts = [a for a in appts
                    if a.get("customer_id") in removable_ids or _has_dummy_name(a.get("customer_name"))]
     orphan_appts = [a for a in appts if a.get("customer_id") and a["customer_id"] not in all_cust_ids]

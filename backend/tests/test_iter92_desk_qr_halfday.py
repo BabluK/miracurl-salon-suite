@@ -240,19 +240,17 @@ class TestSmsPacks:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 5) WA PITCH — no DEMO_VIDEO_URL env → no video line
+# 5) WA PITCH — video line always present (defaults to /miracurl-demo-60s.mp4)
 # ═══════════════════════════════════════════════════════════════════
 class TestWaPitch:
-    def test_wa_message_has_links_no_video(self, super_admin):
+    def test_wa_message_has_links_and_video(self, super_admin):
         lead = asyncio.get_event_loop().run_until_complete(
             DB.mira_leads.find_one({"phone": {"$regex": r"\d"}}, {"_id": 0, "id": 1}))
         assert lead, "no mira_leads with phone in DB"
         r = super_admin.get(f"{BASE}/api/super-admin/mira-leads/{lead['id']}/whatsapp")
         assert r.status_code == 200, r.text[:300]
         msg = r.json()["message"]
-        # No video line since DEMO_VIDEO_URL is unset
-        assert "walkthrough video" not in msg.lower(), msg
-        assert "🎥" not in msg, msg
-        # But all links present
+        assert "walkthrough video" in msg.lower(), msg
+        assert "miracurl-demo-60s.mp4" in msg or "DEMO_VIDEO_URL" not in msg, msg
         for expect in ("/demo", "/signup-salon", "/staff-registry", "/miracurl-screens-tour.pdf"):
             assert expect in msg, f"missing {expect} in message:\n{msg}"
