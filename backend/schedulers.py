@@ -245,12 +245,16 @@ async def _lead_followup_scheduler() -> None:
 
 
 async def _late_alert_scheduler() -> None:
+    from routes.staff_portal import run_half_day_noshow_marker
     while True:
         try:
             if 7 <= datetime.now(IST_TZ).hour <= 20:
                 out = await _run_late_alerts()
                 if out.get("late_emails") or out.get("owner_summaries"):
                     logging.info(f"late alerts run: {out}")
+                marked = await run_half_day_noshow_marker()
+                if marked:
+                    logging.info(f"half-day no-show marker: marked {marked} staff")
         except Exception as e:
             logging.error(f"late alert scheduler error: {e}")
         await asyncio.sleep(300)

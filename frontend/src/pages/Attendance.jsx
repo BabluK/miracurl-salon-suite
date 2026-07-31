@@ -4,8 +4,10 @@ import pinApi from "@/lib/ownerPin";
 import { getSelectedBranch } from "@/lib/branch";
 import { toast } from "sonner";
 import {
-  Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin,
+  Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin, QrCode,
 } from "lucide-react";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 function fmtTime(iso) {
   if (!iso) return "—";
@@ -39,6 +41,7 @@ export default function Attendance() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // {sid, name} for history modal
+  const [showQr, setShowQr] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -87,6 +90,25 @@ export default function Attendance() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button data-testid="desk-qr-btn" onClick={() => setShowQr(true)}
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50">
+            <QrCode className="w-3.5 h-3.5" /> Desk QR
+          </button>
+          {showQr && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" data-testid="desk-qr-modal" onClick={() => setShowQr(false)}>
+              <div className="bg-white rounded-2xl p-6 text-center max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                <h3 className="font-playfair text-xl">Staff Check-in QR</h3>
+                <p className="text-xs text-slate-500 mt-1">Print & keep this at the salon desk — staff scan it with their phone camera to check in instantly (no GPS needed). Late fines & half-day rules still apply.</p>
+                <img src={`${API}/attendance/desk-qr`} alt="Staff check-in desk QR" data-testid="desk-qr-img"
+                  className="w-56 h-56 mx-auto my-4 border border-slate-200 rounded-xl" />
+                <div className="flex gap-2 justify-center">
+                  <a href={`${API}/attendance/desk-qr`} target="_blank" rel="noreferrer" data-testid="desk-qr-print"
+                    className="text-xs px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50">Open full size / print</a>
+                  <button onClick={() => setShowQr(false)} data-testid="desk-qr-close" className="text-xs px-4 py-2 rounded-full bg-slate-900 text-white">Done</button>
+                </div>
+              </div>
+            </div>
+          )}
           <Calendar className="w-4 h-4 text-slate-500" />
           <input
             data-testid="attendance-date-input"
@@ -164,6 +186,12 @@ export default function Attendance() {
                   </td>
                   <td>
                     <div className="flex flex-col gap-0.5 text-[11px]">
+                      {r.half_day && (
+                        <span className="text-amber-700 font-semibold" data-testid={`half-day-${r.staff_id}`}>
+                          ½ day {r.no_show && !r.check_in_at ? "(no show)" : "(3h+ late)"} −₹{r.half_day_deduction}
+                        </span>
+                      )}
+                      {r.check_in_method === "qr" && <span className="text-sky-600">via desk QR</span>}
                       {r.late_penalty > 0 && (
                         <span className="text-red-600 flex items-center gap-1.5" data-testid={`late-fine-${r.staff_id}`}>
                           −₹{r.late_penalty} ({r.late_minutes}m late)

@@ -557,12 +557,14 @@ async def registry_public_search(q: str, request: Request, name: str = ""):
             raise HTTPException(400, _NAME_REQUIRED_MSG)
         return await _registry_profile(emp, current_only=True, redact=True, show_aadhaar=False)
     # 12-digit query = Aadhaar (permanent ID) → full cross-salon history
+    # 12-digit query: Aadhaar first; "91"-prefixed mobile numbers fall through to phone lookup
     if len(digits) == 12:
         emp = await _raw_db.registry_employees.find_one({"aadhaar_hash": _aadhaar_fp(digits)}, {"_id": 0})
-        if not emp:
+        if not emp and not digits.startswith("91"):
             raise HTTPException(404, "No staff found with that Aadhaar number — check all 12 digits")
-        _check_consent(emp)
-        return await _registry_profile(emp, redact=True)
+        if emp:
+            _check_consent(emp)
+            return await _registry_profile(emp, redact=True)
     if len(digits) >= 10:
         emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{digits[-10:]}$"}}, {"_id": 0})
         if emp and not _name_matches(emp.get("name", ""), name):

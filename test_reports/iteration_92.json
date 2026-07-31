@@ -1,0 +1,24 @@
+{
+  "summary": "Iter 92 — verified registry +91 phone fix, Desk QR check-in, half-day rule (check-in path + payroll), SMS packs regression, WA pitch (no DEMO_VIDEO_URL). Backend: 15/15 pytest passed in /app/backend/tests/test_iter92_desk_qr_halfday.py. Frontend Playwright: admin login → /attendance → Desk QR button opens desk-qr-modal, desk-qr-img loads real PNG (naturalWidth=450), desk-qr-print href='https://hair-hub-system.preview.emergentagent.com/api/attendance/desk-qr', desk-qr-close closes cleanly. After injecting a half-day check-in for Priya, roster row shows testid half-day-3cdf66d1-... with text '½ day (3h+ late) −₹333.33' and 'via desk QR' caption. Note the noshow scheduler also produced correct '½ day (no show) −₹0' rows for 5 other staff whose monthly_base_salary=0 — this is expected behaviour (deduction=base/30/2).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter92_desk_qr_halfday.py",
+    "/app/test_reports/pytest/iter92.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "staff_portal.py:342 — qr_ok compares to (attendance_qr_token or '\\x00'). Safe placeholder, but if a tenant's token happens to be empty string, an attacker sending qr_token:'\\x00' would still fail (0-byte != \\x00). Consider explicit 'if not t.get(\"attendance_qr_token\"): qr_ok=False' for clarity.",
+    "staff_portal.py:353 — 'if distance_m is None and not qr_ok: penalty=0.0'. When the salon has NO geo-fence configured (f_lat None) AND the staff sends no lat/lng and no qr_token, check-in currently succeeds and only zeroes the fine. That's probably intended for salons without a fence, but note there's no auditable proof of on-site presence in that case.",
+    "staff_portal.py:466 run_half_day_noshow_marker iterates ALL active staff across ALL tenants in a single loop and uses each staff's own shift_start with the same now_ist. Correct, but O(N) per run — fine for now, watch as tenant count grows.",
+    "registry.py:568 — 'if len(digits) >= 10' path relies on regex $ anchor to last 10 digits; works for +91/91 prefixes. However if a staff row's phone field contains formatting (spaces/dashes), the regex won't match. Consider normalising phone on write."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter92_desk_qr_halfday.py (new)"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (desk QR modal + half-day badge verified)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug: miracurl-marathahalli); priya.staff@miracurl.com / Staff@5678 (staff portal); super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "During test: (a) Priya's shift_start temporarily set to '00:05' + monthly_base_salary to 20000 (restored via fixture teardown), (b) today's Priya attendance row inserted for frontend badge test (deleted after). All seed data cleaned. Existing Verify Bugtest (STF-00133) registry employee left untouched. No SMS or booking flows triggered.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Playwright login quirk: use query_selector_all('input') → inputs[0].fill / inputs[1].fill (page.fill sometimes doesn't fire React onChange in this preview). Dashboard shows a What's New modal on first visit — dismiss with button:has-text('Got it') before interacting. Registry public search is rate-limited 10/600s per IP; the iter92 test uses exactly 6 requests. sms-packs order body key is 'pack' with value pack_199|pack_499|pack_999 (not 'pack_id'). Roster endpoint is /api/attendance/today with response {roster: [...]} not 'rows'. QR check-in path in staff_check_in correctly sets check_in_method='qr', half_day=true, half_day_deduction=333.33 (on 20k base salary), late_penalty=0. _compute_salary_for_month correctly includes half_day_deduction_total in deductions_total. WA pitch _wa_message omits the video line when DEMO_VIDEO_URL env is unset (currently unset in backend/.env).",
+  "rca of the issue": "N/A — all reported bug-fixes and new features verified working."
+}

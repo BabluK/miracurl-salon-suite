@@ -102,9 +102,10 @@ export default function StaffPortal() {
   async function checkIn() {
     setBusy(true);
     try {
-      const pos = await getPosition();
-      await api.post("/staff/me/check-in", pos || {});
-      toast.success("Checked in ✦ Have a great shift");
+      const qrToken = new URLSearchParams(window.location.search).get("qr") || "";
+      const pos = qrToken ? null : await getPosition();
+      await api.post("/staff/me/check-in", { ...(pos || {}), ...(qrToken ? { qr_token: qrToken } : {}) });
+      toast.success(qrToken ? "Checked in via desk QR ✦ Have a great shift" : "Checked in ✦ Have a great shift");
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Check-in failed");

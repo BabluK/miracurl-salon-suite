@@ -2,7 +2,7 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-29.48"
+BUILD = "2026-07-29.49"
 BUILD_TIME = "29 Jul 2026, 10:00 AM IST"
 
 RELEASES = [
@@ -10,6 +10,9 @@ RELEASES = [
         "date": "2026-07-29 (Preview before you pay & call controls)",
         "changes": [
             "📲 Customer SMS everywhere — booking confirmations (online & in-salon bookings), billing receipts and 24-hour reminders now go out by SMS for every salon (each SMS uses 1 SMS point — ask HQ to top up your balance)",
+            "🪪 Staff verify fix — phone numbers entered with +91 now find the staff member correctly in the public registry",
+            "⏱️ Half-day rule — staff who don't check in within 3 hours of shift start are auto-marked half-day with the deduction (half of one day's salary) applied in payroll; approved leaves & week-offs are skipped",
+            "📷 Desk QR check-in — print the new QR from the Attendance page; staff scan it at the salon desk to check in instantly when GPS fails (works in the staff portal too)",
             "❌ Cancellation SMS — customers automatically get a text when their booking is cancelled, with an invite to rebook",
             "Super Admin: 📜 SMS delivery log — tap any salon's SMS balance to see every text sent, failed or skipped, with reasons",
             "Super Admin: ⚠️ Low-balance alerts — HQ gets an email when a salon's SMS points drop under 20, plus WhatsApp lead pitches now include the live demo, salon signup, staff registry and screens-tour links",

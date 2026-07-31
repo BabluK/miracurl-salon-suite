@@ -176,12 +176,20 @@ IST_TZ = timezone(timedelta(hours=5, minutes=30))
 GRACE_MINUTES = 10          # default grace — admin can override per tenant
 LATE_FINE_TIERS_DEFAULT = {"grace_minutes": GRACE_MINUTES, "fine_5": 50.0, "fine_10": 100.0, "fine_15": 150.0, "fine_30": 300.0}
 GEO_FENCE_M = 200           # check-in blocked beyond this distance from salon
+HALF_DAY_AFTER_MIN = 180    # no check-in 3h past shift start -> half-day salary deduction
+
+
+def _half_day_amount(staff: dict) -> float:
+    """Half of one day's salary: (monthly base / 30) / 2."""
+    base = float(staff.get("monthly_base_salary") or 0)
+    return round(base / 30 / 2, 2)
 AUTO_CHECKOUT_HOURS = 12    # forgot to check out — shift auto-closes at 12h
 
 
 class GeoIn(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
+    qr_token: Optional[str] = None
 
 
 def _parse_hhmm(val, fallback: str) -> tuple:
@@ -331,22 +339,28 @@ async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff)
     if existing and existing.get("check_in_at"):
         return existing
     distance_m = None
+    qr_ok = bool(geo.qr_token) and geo.qr_token == (t.get("attendance_qr_token") or "\x00")
     f_lat, f_lng, f_label = _fence_for(s, t)
-    if f_lat is not None:
+    if f_lat is not None and not qr_ok:
         if geo.lat is None or geo.lng is None:
-            raise HTTPException(400, "Location required — please allow GPS access in your browser to check in.")
+            raise HTTPException(400, "Location required — please allow GPS access in your browser to check in (or scan the salon desk QR).")
         distance_m = round(_haversine_m(geo.lat, geo.lng, f_lat, f_lng), 1)
         if distance_m > GEO_FENCE_M:
             raise HTTPException(403, f"You appear to be {int(distance_m)}m from {f_label}. Check-in is allowed only within {GEO_FENCE_M}m.")
     now = datetime.now(timezone.utc)
     late_min, penalty = _late_penalty_for(s, now.astimezone(IST_TZ), t)
-    # Fines only for geo-verified, on-site check-ins. If the salon hasn't pinned
-    # its GPS location yet, we record the time but never auto-fine.
-    if distance_m is None:
+    # Fines only for verified on-site check-ins (GPS inside the fence, or the desk QR).
+    if distance_m is None and not qr_ok:
         penalty = 0.0
+    half_day = late_min >= HALF_DAY_AFTER_MIN
+    if half_day:
+        penalty = 0.0  # half-day deduction replaces the late fine
     fields = {
         "check_in_at": now.isoformat(),
         "late_minutes": late_min, "late_penalty": penalty,
+        "half_day": half_day,
+        "half_day_deduction": _half_day_amount(s) if half_day else 0.0,
+        "check_in_method": "qr" if qr_ok else "gps",
         "check_in_lat": geo.lat, "check_in_lng": geo.lng, "check_in_distance_m": distance_m,
     }
     if existing:
@@ -425,6 +439,63 @@ async def staff_my_attendance(month: Optional[str] = None, s=Depends(_current_st
     }
 
 
+@router.get("/attendance/desk-qr")
+async def attendance_desk_qr(request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Printable salon-desk QR — staff scan it to check in without GPS."""
+    import qrcode
+    token = t.get("attendance_qr_token")
+    if not token:
+        token = secrets.token_urlsafe(12)
+        await db.tenants.update_one({"id": t["id"]}, {"$set": {"attendance_qr_token": token}})
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+    proto = request.headers.get("x-forwarded-proto") or "https"
+    img = qrcode.make(f"{proto}://{host}/staff-portal?qr={token}")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="image/png")
+
+
+async def run_half_day_noshow_marker() -> int:
+    """No check-in 3h past shift start (IST) -> mark half-day + salary deduction. Idempotent.
+    Skips week-offs, approved leaves and already-marked/checked-in staff."""
+    now_ist = datetime.now(IST_TZ)
+    today = now_ist.date().isoformat()
+    weekday = now_ist.strftime("%A").lower()
+    marked = 0
+    async for s in _raw_db.staff.find(
+            {"active": True},
+            {"_id": 0, "id": 1, "name": 1, "tenant_id": 1, "shift_start": 1,
+             "week_off_day": 1, "monthly_base_salary": 1}):
+        if (s.get("week_off_day") or "").lower() == weekday:
+            continue
+        h, m = _parse_hhmm(s.get("shift_start"), "10:00")
+        cutoff = now_ist.replace(hour=h, minute=m, second=0, microsecond=0) + timedelta(minutes=HALF_DAY_AFTER_MIN)
+        if now_ist < cutoff:
+            continue
+        rec = await _raw_db.attendance.find_one(
+            {"staff_id": s["id"], "date": today}, {"_id": 0, "id": 1, "check_in_at": 1, "half_day": 1})
+        if rec and (rec.get("check_in_at") or rec.get("half_day")):
+            continue
+        on_leave = await _raw_db.leave_requests.find_one(
+            {"staff_id": s["id"], "status": "approved",
+             "from_date": {"$lte": today}, "to_date": {"$gte": today}}, {"_id": 1})
+        if on_leave:
+            continue
+        ded = _half_day_amount(s)
+        sets = {"half_day": True, "half_day_deduction": ded, "no_show": True}
+        if rec:
+            await _raw_db.attendance.update_one({"id": rec["id"]}, {"$set": sets})
+        else:
+            await _raw_db.attendance.insert_one({
+                "id": str(uuid.uuid4()), "staff_id": s["id"], "staff_name": s.get("name"),
+                "tenant_id": s["tenant_id"], "date": today, "check_in_at": None,
+                "check_out_at": None, "late_minutes": 0, "late_penalty": 0.0, **sets,
+                "created_at": datetime.now(timezone.utc).isoformat()})
+        marked += 1
+    return marked
+
+
 # ---- Admin attendance oversight ----
 
 def _roster_row(s: dict, rec: Optional[dict], now: datetime) -> dict:
@@ -460,6 +531,10 @@ def _roster_row(s: dict, rec: Optional[dict], now: datetime) -> dict:
         "overtime_hours": r.get("overtime_hours") or 0,
         "overtime_pay": r.get("overtime_pay") or 0,
         "auto_checked_out": bool(r.get("auto_checked_out")),
+        "half_day": bool(r.get("half_day")),
+        "half_day_deduction": r.get("half_day_deduction") or 0,
+        "no_show": bool(r.get("no_show")),
+        "check_in_method": r.get("check_in_method") or "",
     }
 
 
@@ -574,6 +649,8 @@ def _attendance_month_totals(recs: list) -> dict:
         "overtime_total": round(sum(float(r.get("overtime_pay") or 0) for r in recs), 2),
         "late_penalty_total": round(sum(float(r.get("late_penalty") or 0) for r in recs), 2),
         "late_days": sum(1 for r in recs if (r.get("late_penalty") or 0) > 0),
+        "half_days": sum(1 for r in recs if r.get("half_day")),
+        "half_day_deduction_total": round(sum(float(r.get("half_day_deduction") or 0) for r in recs), 2),
     }
 
 
@@ -612,7 +689,7 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         {"staff_id": staff["id"], "month": f"{year:04d}-{month:02d}"}, {"_id": 0}).to_list(5)
     advance_total = round(sum(float(a.get("amount") or 0) for a in adv_rows), 2)
     base = float(staff.get("monthly_base_salary") or 0)
-    deductions_total = round(att["late_penalty_total"] + advance_total, 2)
+    deductions_total = round(att["late_penalty_total"] + advance_total + att["half_day_deduction_total"], 2)
     total = round(base + commission + product_commission + target_bonus + att["overtime_total"] - deductions_total, 2)
     return {
         "period": f"{year:04d}-{month:02d}",
