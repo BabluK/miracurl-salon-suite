@@ -21,18 +21,21 @@ YT_CHANNEL = os.environ.get("YT_CHANNEL", "youtube.com/@miracurl_unisex_saloon74
 def font(sz, bold=True):
     return ImageFont.truetype(FONT_B if bold else FONT_R, sz)
 
-def card(path, lines, subs):
-    img = Image.new("RGB", (W, H), DARK)
-    d = ImageDraw.Draw(img)
-    d.text((W//2, 300), "MIRACURL", font=font(110), fill=GOLD, anchor="mm")
-    d.text((W//2, 400), "AI  SALON  SUITE", font=font(36, False), fill=(200, 200, 205), anchor="mm")
-    y = 560
-    for ln in lines:
-        d.text((W//2, y), ln, font=font(56), fill=(245, 245, 245), anchor="mm"); y += 90
-    y += 30
-    for s in subs:
-        d.text((W//2, y), s, font=font(34, False), fill=GOLD, anchor="mm"); y += 60
-    img.save(path)
+def branded_card(bg, out, subs):
+    img = Image.open(bg).convert("RGB")
+    scale = max(W / img.width, H / img.height)
+    img = img.resize((round(img.width * scale), round(img.height * scale)))
+    x, y = (img.width - W) // 2, (img.height - H) // 2
+    img = img.crop((x, y, x + W, y + H))
+    d = ImageDraw.Draw(img, "RGBA")
+    if subs:
+        band_h = 58 * len(subs) + 42
+        d.rectangle([0, H - band_h, W, H], fill=(8, 8, 10, 175))
+        d.rectangle([0, H - band_h, W, H - band_h + 3], fill=GOLD + (255,))
+        yy = H - band_h + 48
+        for s in subs:
+            d.text((W // 2, yy), s, font=font(32, False), fill=GOLD, anchor="mm"); yy += 58
+    img.save(out)
 
 def caption(src, dst, title, sub):
     img = Image.open(src).convert("RGB").resize((W, H))
@@ -127,10 +130,11 @@ def build(slides, narrations, out_path, prefix):
     print(out_path, round(os.path.getsize(out_path)/1048576, 2), "MB, duration", round(dur_of(out_path), 1), "s")
 
 def main():
-    card(f"{D}/r__title.png", ["Run your entire salon", "from one screen"], ["The complete feature tour  \u2022  miracurl-suite.com"])
-    card(f"{D}/r__end.png", ["Start your free trial today"],
-         ["Register:  miracurl-suite.com/signup-salon", "Live demo:  miracurl-suite.com/demo",
-          f"YouTube:  {YT_CHANNEL}", "The Miracurl team is happy to onboard you"])
+    branded_card(f"{D}/intro_bg.jpg", f"{D}/r__title.png",
+                 ["The complete feature tour  \u2022  miracurl-suite.com"])
+    branded_card(f"{D}/outro_bg.jpg", f"{D}/r__end.png",
+                 ["Register:  miracurl-suite.com/signup-salon   \u2022   Live demo:  miracurl-suite.com/demo",
+                  f"YouTube:  {YT_CHANNEL}  \u2022  The Miracurl team is happy to onboard you"])
     for name, title, sub, _f, _s in FULL:
         if name.startswith("_"):
             continue

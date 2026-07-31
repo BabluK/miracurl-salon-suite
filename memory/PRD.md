@@ -1232,3 +1232,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - **GiftCardPublic.jsx**: background restyled to match Login page — white bg, fixed rose-gold radial blobs, gold dash-sparkles; full light-theme conversion (slate text, white inputs/cards w/ shadows, amber-700 step headings, light toaster). CardPreview gradient card untouched.
 - Verified via screenshots: hero + video card render, lightbox opens/plays/closes, gift page fully readable in light theme.
 - REMINDER TO USER: production pod memory must be upgraded >512Mi (OOMKilled 520s). NEEDS REDEPLOY for landing changes.
+
+## 2026-07-31 (later 8) — Premium branded video intro/outro cards (frame-verified)
+- User disliked the plain gold-text-on-black title card. Generated two cinematic branded scenes (luxury dark salon w/ glowing gold MIRACURL AI SALON SUITE signage): intro "Run Your Entire Salon From One Screen", outro "Start Your Free Trial Today". Saved as /app/scripts/tour_shots/{intro_bg,outro_bg}.jpg.
+- make_tour_videos.py: `card()` replaced by `branded_card(bg, out, subs)` — cover-crops bg to 1920x1080 + gold-topped dark info strip (intro: tour+URL line; outro: register/demo/YouTube lines). Both videos rebuilt (full 128.6s / 8.7MB, short 45s / 4.75MB) into frontend/public. Verified via extracted first/last frames.
+- NEEDS REDEPLOY to reach miracurl-suite.com production.
