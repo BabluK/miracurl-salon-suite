@@ -1217,3 +1217,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - **Test updated**: test_iter92 TestWaPitch now asserts the video line IS present (intentional behavior change from user request).
 - **Deferred (documented, low value/high churn)**: `_build_invoice_doc` 9-arg dataclass, lead_gen module split (complexity 13, below threshold pain), server.py import count (route registration is one-line-per-router boilerplate), type-hint coverage drive.
 - Verified: booking + cancellation SMS via new helpers (point refunded on invalid number), cleanup scan intact.
+
+## 2026-07-31 (later 5) — Renewal Nudge Email (self-tested: nudge fired, idempotent, email delivered)
+- `send_renewal_nudges()` in pay_links.py, hooked into hourly `_gift_card_scheduler`: active tenants with subscription_end_date within 7 days + owner_email → auto-creates a pay link (tenant's own plan if single-branch INR catalog, else half_year fallback, fresh catalog price) with created_by='auto-renewal-nudge' → sends gold-CTA renewal email. Idempotent via tenant.renewal_nudged_for = end_date. Link base = APP_PUBLIC_URL.
+- Staff portal "reset every 12h" user question: answered — attendance is per-date (auto-resets at midnight), late banner clears on check-in, sessions auto-refresh (8h access/7d refresh). No defect found; half-day auto-mark handles 3h+ no-shows.
+- BUILD → 2026-07-29.53. NEEDS REDEPLOY.

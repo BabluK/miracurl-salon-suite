@@ -184,6 +184,66 @@ async def email_pay_link(pid: str, request: Request, user=Depends(require_super_
     return {"ok": True, "sent_to": link["owner_email"]}
 
 
+async def send_renewal_nudges() -> int:
+    """7 days before subscription_end_date: auto-create a renewal pay link + email the owner. Once per end date."""
+    import os
+    from email_service import _send_email
+    now = _now()
+    today = now.date().isoformat()
+    soon = (now.date() + timedelta(days=7)).isoformat()
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    sent = 0
+    tenants = await _raw_db.tenants.find(
+        {"status": "active", "subscription_end_date": {"$gte": today, "$lte": soon},
+         "owner_email": {"$nin": ["", None]}},
+        {"_id": 0, "id": 1, "slug": 1, "name": 1, "owner_email": 1, "plan": 1,
+         "subscription_end_date": 1, "renewal_nudged_for": 1}).to_list(200)
+    for t in tenants:
+        if t.get("renewal_nudged_for") == t["subscription_end_date"]:
+            continue
+        await _raw_db.tenants.update_one(
+            {"id": t["id"]}, {"$set": {"renewal_nudged_for": t["subscription_end_date"]}})
+        plan_key = t.get("plan") if t.get("plan") in PLAN_CATALOG else "half_year"
+        info = PLAN_CATALOG.get(plan_key) or {}
+        if info.get("currency") or int(info.get("branches") or 1) != 1:
+            plan_key = "half_year"
+        info = await _fresh_plan_or_400(plan_key)
+        link = {
+            "id": str(uuid.uuid4()), "token": secrets.token_urlsafe(8),
+            "tenant_id": t["id"], "tenant_slug": t["slug"], "salon_name": t.get("name") or t["slug"],
+            "owner_email": t["owner_email"], "plan": plan_key, "plan_label": info["label"],
+            "amount": float(info["price"]), "duration_days": info["duration_days"],
+            "note": "Renewal — thank you for being with Miracurl 💛",
+            "status": "pending", "expires_at": (now + timedelta(days=LINK_VALID_DAYS)).isoformat(),
+            "created_at": now.isoformat(), "created_by": "auto-renewal-nudge",
+        }
+        await _raw_db.subscription_pay_links.insert_one({**link})
+        end_nice = datetime.fromisoformat(t["subscription_end_date"] + "T00:00:00").strftime("%d %b %Y")
+        url = f"{base}/pay/{link['token']}"
+        salon = html_lib.escape(link["salon_name"])
+        res = await _send_email(
+            [t["owner_email"]],
+            f"⏳ {link['salon_name']} — your Miracurl plan ends on {end_nice}. Renew in one tap",
+            f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+            <h2 style="color:#1c1c22">Time flies, {salon} ✨</h2>
+            <p>Your Miracurl subscription ends on <b>{end_nice}</b>. Renew now so bookings, SMS,
+            payroll and Mira keep running without a single interruption.</p>
+            <div style="background:#faf6ec;border-radius:14px;padding:16px 20px;margin:16px 0;text-align:center">
+              <div style="font-size:12px;letter-spacing:2px;color:#888;text-transform:uppercase">{html_lib.escape(link['plan_label'])}</div>
+              <div style="font-size:32px;font-weight:bold;color:#1c1c22">₹{link['amount']:,.0f}</div>
+            </div>
+            <p style="text-align:center;margin:22px 0">
+              <a href="{url}" style="background:linear-gradient(120deg,#d4af37,#b45309);color:#fff;text-decoration:none;
+                 font-weight:bold;font-size:16px;padding:15px 38px;border-radius:30px;display:inline-block">
+                 Renew now — pay ₹{link['amount']:,.0f} securely →</a></p>
+            <p style="font-size:12px;color:#888;text-align:center">Secure payment via Razorpay · UPI / Card / NetBanking
+            · Your plan activates instantly after payment.</p>
+            <p style="font-size:13px;color:#333">With warmth,<br/><b>The Miracurl Team</b> 💛</p></div>""")
+        if res.get("sent"):
+            sent += 1
+    return sent
+
+
 # ---------------- public: tenant opens the link & pays ----------------
 
 @router.get("/public/pay-link/{token}")
