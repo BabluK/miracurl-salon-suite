@@ -14,6 +14,26 @@ function newSid() {
   return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`).slice(0, 36);
 }
 
+function TourVideoCard() {
+  const [play, setPlay] = useState(false);
+  return (
+    <div className="bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 overflow-hidden mb-5" data-testid="tour-video-card">
+      {play ? (
+        <video src="/miracurl-full-tour.mp4" controls autoPlay playsInline className="w-full aspect-video bg-black" data-testid="tour-video-player" />
+      ) : (
+        <button onClick={() => setPlay(true)} data-testid="tour-video-play"
+          className="relative w-full aspect-video bg-gradient-to-br from-[#1c1c22] to-[#3b2f4d] flex flex-col items-center justify-center gap-3 group">
+          <span className="text-[#d4af37] font-bold tracking-[0.25em] text-lg">MIRACURL</span>
+          <span className="w-16 h-16 rounded-full bg-white/95 flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+            <span className="ml-1 border-y-[12px] border-y-transparent border-l-[20px] border-l-pink-600" />
+          </span>
+          <span className="text-white/85 text-sm font-medium">▶ Watch the 2-minute tour — every feature, narrated by Mira</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MiraDemoChat({ onBooked }) {
   const [msgs, setMsgs] = useState([{ role: "ai", text: "Hi, I'm Mira ✦ I can book your free live demo in under a minute — no forms needed.\n\nJust tell me: what day and time suits you, and may I know your name?" }]);
   const [input, setInput] = useState("");
@@ -160,6 +180,8 @@ export default function PublicDemo() {
             )}
           </div>
         )}
+
+        {!done && <TourVideoCard />}
 
         {!done && (
           <div className="bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 overflow-hidden">

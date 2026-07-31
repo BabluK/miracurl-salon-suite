@@ -1222,3 +1222,6 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - `send_renewal_nudges()` in pay_links.py, hooked into hourly `_gift_card_scheduler`: active tenants with subscription_end_date within 7 days + owner_email → auto-creates a pay link (tenant's own plan if single-branch INR catalog, else half_year fallback, fresh catalog price) with created_by='auto-renewal-nudge' → sends gold-CTA renewal email. Idempotent via tenant.renewal_nudged_for = end_date. Link base = APP_PUBLIC_URL.
 - Staff portal "reset every 12h" user question: answered — attendance is per-date (auto-resets at midnight), late banner clears on check-in, sessions auto-refresh (8h access/7d refresh). No defect found; half-day auto-mark handles 3h+ no-shows.
 - BUILD → 2026-07-29.53. NEEDS REDEPLOY.
+
+## 2026-07-31 (later 6) — Tour video player on /demo page (screenshot-verified)
+- `TourVideoCard` in PublicDemo.jsx: branded MIRACURL poster + play button above the demo booking widget; click swaps to <video controls autoPlay> playing /miracurl-full-tour.mp4. testids: tour-video-card/-play/-player. Hidden after a demo is booked (done state).
