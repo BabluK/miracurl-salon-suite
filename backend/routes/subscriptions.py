@@ -1058,9 +1058,18 @@ class SmsPointsIn(BaseModel):
     points: int = Field(..., ge=1, le=100000)
 
 
+@router.get("/super-admin/sms-log")
+async def sms_delivery_log(tenant_id: str = "", user=Depends(require_super_admin)):
+    """Per-salon SMS delivery log — every attempt (sent/failed) with reason."""
+    q = {"tenant_id": tenant_id} if tenant_id else {}
+    rows = await _raw_db.sms_log.find(q, {"_id": 0}).sort("created_at", -1).to_list(100)
+    sent = sum(1 for r in rows if r.get("sent"))
+    return {"items": rows, "sent": sent, "failed": len(rows) - sent}
+
+
 @router.post("/super-admin/tenants/{tid}/sms-points")
 async def credit_sms_points(tid: str, body: SmsPointsIn, user=Depends(require_super_admin)):
-    """Super-admin credits SMS points to a tenant (1 point = 1 billing SMS)."""
+    """Super-admin credits SMS points to a tenant (1 point = 1 customer SMS)."""
     t = await db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1})
     if not t:
         raise HTTPException(404, "Tenant not found")

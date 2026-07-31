@@ -92,7 +92,8 @@ async def create_appointment(body: AppointmentIn, user=Depends(get_current_user)
                 asyncio.create_task(send_tenant_sms(
                     t["id"], cust["phone"],
                     f"{t.get('name') or 'Your salon'}: Hi {cust['name']}, your booking is CONFIRMED! "
-                    f"{', '.join(s['name'] for s in services)} on {when} with {staff['name']}. See you soon!"))
+                    f"{', '.join(s['name'] for s in services)} on {when} with {staff['name']}. See you soon!",
+                    kind="booking"))
     return _clean(a)
 
 
@@ -164,6 +165,23 @@ async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(g
 
     if body.status == "confirmed" and phone:
         whatsapp_url, wa_request_created = await _appt_confirmation_whatsapp(appt, phone, aid, user)
+
+    if body.status == "cancelled" and phone:
+        from sms_service import send_tenant_sms, sms_configured
+        if sms_configured():
+            t = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "id": 1, "name": 1})
+            if t:
+                try:
+                    dt = datetime.fromisoformat(str(appt["scheduled_at"]).replace("Z", "+00:00"))
+                    when = dt.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%d %b %Y, %I:%M %p")
+                except ValueError:
+                    when = str(appt.get("scheduled_at", ""))
+                asyncio.create_task(send_tenant_sms(
+                    t["id"], phone,
+                    f"{t.get('name') or 'Your salon'}: Hi {appt.get('customer_name', '')}, your booking "
+                    f"({', '.join(appt.get('service_names') or ['appointment'])}) on {when} has been CANCELLED. "
+                    "Reply or call us to rebook anytime.",
+                    kind="cancellation"))
 
     if body.status == "completed" and not appt.get("crm_counted"):
         await _crm_count_completed_appt(appt, phone, aid)

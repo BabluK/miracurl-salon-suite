@@ -7,6 +7,8 @@ MSG91_SENDER_ID and MSG91_FLOW_ID are all set (Flow template must contain a
 import asyncio
 import logging
 import os
+import uuid
+from datetime import datetime, timezone
 
 log = logging.getLogger("sms")
 MSG91_FLOW_URL = "https://control.msg91.com/api/v5/flow"
@@ -92,17 +94,36 @@ async def send_sms(to_phone: str, body: str) -> dict:
     return await _send_twilio(to, body)
 
 
-async def send_tenant_sms(tenant_id: str, to_phone: str, body: str) -> dict:
-    """Point-metered customer SMS: burns 1 sms_point from the tenant, refunds on failure."""
-    if not sms_configured():
-        return {"sent": False, "error": "not_configured"}
+async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = "general") -> dict:
+    """Point-metered customer SMS: burns 1 sms_point from the tenant, refunds on failure.
+    Every attempt is recorded in sms_log for the HQ delivery log."""
     from database import _raw_db
+
+    async def _log(res: dict) -> None:
+        try:
+            await _raw_db.sms_log.insert_one({
+                "id": str(uuid.uuid4()), "tenant_id": tenant_id, "phone": to_phone,
+                "kind": kind, "preview": body[:90], "sent": bool(res.get("sent")),
+                "error": res.get("error"), "sid": res.get("sid"),
+                "created_at": datetime.now(timezone.utc).isoformat()})
+        except Exception as e:  # noqa: BLE001 — logging must never break sending
+            log.warning("sms_log write failed: %s", e)
+
+    if not sms_configured():
+        res = {"sent": False, "error": "not_configured"}
+        await _log(res)
+        return res
     r = await _raw_db.tenants.update_one(
         {"id": tenant_id, "sms_points": {"$gte": 1}}, {"$inc": {"sms_points": -1}})
     if r.modified_count == 0:
         log.info("sms skipped (no sms_points) tenant=%s", tenant_id)
-        return {"sent": False, "error": "no_sms_points"}
+        res = {"sent": False, "error": "no_sms_points"}
+        await _log(res)
+        return res
     res = await send_sms(to_phone, body)
     if not res.get("sent"):
         await _raw_db.tenants.update_one({"id": tenant_id}, {"$inc": {"sms_points": 1}})
+    fresh = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "sms_points": 1})
+    res["points_left"] = int((fresh or {}).get("sms_points") or 0)
+    await _log(res)
     return res

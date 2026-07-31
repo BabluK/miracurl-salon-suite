@@ -8,7 +8,6 @@ from fastapi import HTTPException
 
 from database import db
 from utils import _pay_label
-from sms_service import send_sms
 
 
 async def _gen_invoice_no():
@@ -214,17 +213,9 @@ async def _send_billing_receipts(inv: dict, cust: dict, tenant_doc: Optional[dic
         elif not t.get("id"):
             out["sms"] = {"sent": False, "error": "no_tenant"}
         else:
-            r = await db.tenants.update_one(
-                {"id": t["id"], "sms_points": {"$gte": 1}}, {"$inc": {"sms_points": -1}})
-            if r.modified_count == 0:
-                out["sms"] = {"sent": False, "error": "no_sms_points"}
-            else:
-                res = await send_sms(cust["phone"], _receipt_sms_text(t, inv, points_earned))
-                if not res.get("sent"):
-                    await db.tenants.update_one({"id": t["id"]}, {"$inc": {"sms_points": 1}})
-                fresh = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "sms_points": 1})
-                res["points_left"] = int((fresh or {}).get("sms_points") or 0)
-                out["sms"] = res
+            from sms_service import send_tenant_sms
+            out["sms"] = await send_tenant_sms(
+                t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind="billing")
     except Exception as e:  # noqa: BLE001
         out["sms"] = {"sent": False, "error": str(e)[:200]}
     return out

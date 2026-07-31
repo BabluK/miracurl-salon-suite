@@ -129,7 +129,7 @@ export function InquiriesPanel({ onNewCount, onConvert }) {
                   )}
                   <a href={`tel:+91${i.phone}`} title="Call" data-testid={`inquiry-call-${i.id}`}
                     className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-sky-50 hover:text-sky-600"><Phone className="w-4 h-4" /></a>
-                  <a href={`https://wa.me/91${i.phone}?text=${encodeURIComponent(`Hi ${i.name.split(" ")[0]}! This is the Miracurl team — thanks for your interest in our salon suite. When's a good time for a quick demo?`)}`}
+                  <a href={`https://wa.me/91${i.phone}?text=${encodeURIComponent(`Hi ${i.name.split(" ")[0]}! This is the Miracurl team — thanks for your interest in our salon suite. 🎬 Try the live demo right now: https://miracurl-suite.com/demo\n🏪 Register your salon: https://miracurl-suite.com/signup-salon\n📱 App screens tour: https://miracurl-suite.com/miracurl-screens-tour.pdf\n\nWhen's a good time for a quick guided demo?`)}`}
                     target="_blank" rel="noreferrer" title="WhatsApp" data-testid={`inquiry-wa-${i.id}`}
                     className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600"><MessageCircle className="w-4 h-4" /></a>
                   <a href={gcalLink(i)} target="_blank" rel="noreferrer" title="Schedule Google Calendar demo invite" data-testid={`inquiry-gcal-${i.id}`}

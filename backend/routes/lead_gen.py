@@ -911,7 +911,11 @@ async def _wa_message(lead: dict) -> str:
             "WhatsApp marketing & automation, staff attendance & payroll, memberships and GST billing.\n\n"
             f"💰 Plans start at Rs.{half:,} for 6 months — *best value: Annual at Rs.{annual:,}* "
             "(multi-branch discounts available!)\n\n"
-            f"📎 Full brochure with all details: {base}/api/public/brochure.pdf\n"
+            f"🎬 *Live demo* (try it right now): {base}/demo\n"
+            f"🏪 Register your salon: {base}/signup-salon\n"
+            f"🪪 Staff register & verify: {base}/staff-registry\n"
+            f"📱 App screens tour (PDF): {base}/miracurl-screens-tour.pdf\n"
+            f"📎 Full brochure: {base}/api/public/brochure.pdf\n"
             f"🌐 {base}\n\n"
             "Reply here for a *free 15-minute live demo* — I'd love to show you around! ✨")
 

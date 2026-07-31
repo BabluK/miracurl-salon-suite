@@ -1,6 +1,7 @@
 """Background schedulers (extracted from server.py). Registered in server.on_startup."""
 import asyncio  # noqa: F401
 import logging  # noqa: F401
+import os
 from datetime import datetime, timezone, timedelta  # noqa: F401
 
 from database import db, _raw_db, _current_tenant_id  # noqa: F401
@@ -56,8 +57,32 @@ async def _sms_reminder_scheduler() -> None:
                             when = a["scheduled_at"][:16].replace("T", " at ")
                             await send_tenant_sms(a["tenant_id"], cust["phone"],
                                            f"Reminder from {t.get('name') or 'your salon'}: "
-                                           f"{', '.join(a.get('service_names') or ['your appointment'])} tomorrow, {when}. Reply/call to reschedule.")
+                                           f"{', '.join(a.get('service_names') or ['your appointment'])} tomorrow, {when}. Reply/call to reschedule.",
+                                           kind="reminder")
                         await _raw_db.appointments.update_one({"id": a["id"]}, {"$set": {"sms_reminder_sent": True}})
+                # Low-balance alert: email HQ once per tenant per day when points dip under 20
+                today = datetime.now(_tzmod.utc).date().isoformat()
+                low = await _raw_db.tenants.find(
+                    {"sms_points": {"$lt": 20}, "sms_low_alert_date": {"$ne": today}},
+                    {"_id": 0, "id": 1, "name": 1, "sms_points": 1}).to_list(50)
+                alerts = []
+                for t in low:
+                    if await _raw_db.sms_log.count_documents({"tenant_id": t["id"]}, limit=1):
+                        alerts.append(t)
+                    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"sms_low_alert_date": today}})
+                hq = os.environ.get("HQ_EMAIL")
+                if alerts and hq:
+                    from email_service import _send_email
+                    rows_html = "".join(
+                        f"<tr><td style='padding:6px 16px 6px 0'>{t.get('name') or t['id']}</td>"
+                        f"<td><b>{int(t.get('sms_points') or 0)} points left</b></td></tr>" for t in alerts)
+                    await _send_email(
+                        [hq], f"⚠️ SMS balance running low — {len(alerts)} salon(s) under 20 points",
+                        f"""<div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;color:#333">
+                        <h3 style="color:#1c1c22">SMS points running low</h3>
+                        <table style="font-size:14px;border-collapse:collapse">{rows_html}</table>
+                        <p style="font-size:13px;color:#555;margin-top:12px">Top up in Super Admin → the 💬 button
+                        on each salon row, so booking confirmations, receipts and reminders keep reaching customers.</p></div>""")
         except Exception as e:
             logging.error(f"sms reminder scheduler error: {e}")
         await asyncio.sleep(1800)

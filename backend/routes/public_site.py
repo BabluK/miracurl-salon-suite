@@ -379,7 +379,8 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
             when = appt["scheduled_at"][:16].replace("T", " at ")
             asyncio.create_task(send_tenant_sms(
                 t_doc["id"], body.customer_phone,
-                f"{t_doc.get('name') or 'Your salon'}: booking confirmed! {', '.join(s['name'] for s in services)} on {when} with {staff['name']}. See you there!"))
+                f"{t_doc.get('name') or 'Your salon'}: booking confirmed! {', '.join(s['name'] for s in services)} on {when} with {staff['name']}. See you there!",
+                kind="booking"))
 
     return {
         "appointment": appt,

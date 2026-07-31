@@ -7,6 +7,7 @@ import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receip
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import PayLinkModal from "@/components/superadmin/PayLinkModal";
+import SmsLogModal from "@/components/superadmin/SmsLogModal";
 import BillingPanel from "./BillingPanel";
 import { SmsCreditLog } from "@/components/superadmin/SmsCreditLog";
 import { DummyCleanupModal } from "@/components/superadmin/DummyCleanupModal";
@@ -103,6 +104,7 @@ export default function SuperAdmin() {
   const [diagFor, setDiagFor] = useState(null); // tenant being diagnosed
   const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [payLinkFor, setPayLinkFor] = useState(null); // tenant getting a payment link
+  const [smsLogFor, setSmsLogFor] = useState(null); // tenant whose SMS log is open
   const [cleanFor, setCleanFor] = useState(null); // tenant being cleaned of dummy data
   const [tab, setTab] = useState("tenants"); // tenants | billing
   const [notifFeed, setNotifFeed] = useState(null);
@@ -489,7 +491,7 @@ export default function SuperAdmin() {
                   <td><HealthBadge t={t} /><RenewalNudge t={t} /></td>
                   <td>
                     <div className="flex items-center gap-1.5">
-                      <span data-testid={`sms-balance-${t.id}`} className={`text-xs font-bold ${(t.sms_points || 0) < 20 ? "text-amber-600" : "text-emerald-700"}`}>{t.sms_points || 0}</span>
+                      <button data-testid={`sms-balance-${t.id}`} onClick={() => setSmsLogFor(t)} title="View SMS delivery log" className={`text-xs font-bold hover:underline ${(t.sms_points || 0) < 20 ? "text-amber-600" : "text-emerald-700"}`}>{t.sms_points || 0}</button>
                       <button data-testid={`sms-points-${t.id}`} onClick={() => creditSms(t)} title="Credit SMS points"
                         className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition">+ Add</button>
                     </div>
@@ -605,6 +607,8 @@ export default function SuperAdmin() {
       )}
 
       {payLinkFor && <PayLinkModal tenant={payLinkFor} onClose={() => setPayLinkFor(null)} />}
+
+      {smsLogFor && <SmsLogModal tenant={smsLogFor} onClose={() => setSmsLogFor(null)} />}
 
       {editFor && (
         <EditTenantModal
