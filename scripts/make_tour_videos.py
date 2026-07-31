@@ -16,7 +16,7 @@ FF = imageio_ffmpeg.get_ffmpeg_exe()
 FONT_B = "/root/.venv/lib/python3.11/site-packages/reportlab/fonts/VeraBd.ttf"
 FONT_R = "/root/.venv/lib/python3.11/site-packages/reportlab/fonts/Vera.ttf"
 GOLD, DARK = (212, 175, 55), (14, 14, 16)
-YT_CHANNEL = os.environ.get("YT_CHANNEL", "Search 'Miracurl Suite' on YouTube")
+YT_CHANNEL = os.environ.get("YT_CHANNEL", "youtube.com/@miracurl_unisex_saloon7423")
 
 def font(sz, bold=True):
     return ImageFont.truetype(FONT_B if bold else FONT_R, sz)

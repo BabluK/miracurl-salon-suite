@@ -1058,6 +1058,22 @@ class SmsPointsIn(BaseModel):
     points: int = Field(..., ge=1, le=100000)
 
 
+class GraceIn(BaseModel):
+    days: int = 30
+
+
+@router.post("/super-admin/tenants/{tid}/grace")
+async def extend_grace(tid: str, body: GraceIn, user=Depends(require_super_admin)):
+    """HQ courtesy: extend a tenant's post-expiry grace window (login stays open till then)."""
+    if not 1 <= body.days <= 365:
+        raise HTTPException(400, "Days must be 1-365")
+    until = (datetime.now(timezone.utc).date() + timedelta(days=body.days)).isoformat()
+    r = await db.tenants.update_one({"id": tid}, {"$set": {"grace_until": until}})
+    if not r.matched_count:
+        raise HTTPException(404, "Tenant not found")
+    return {"ok": True, "grace_until": until}
+
+
 @router.get("/super-admin/sms-log")
 async def sms_delivery_log(tenant_id: str = "", user=Depends(require_super_admin)):
     """Per-salon SMS delivery log — every attempt (sent/failed) with reason."""

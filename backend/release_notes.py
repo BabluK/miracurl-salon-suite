@@ -2,7 +2,7 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-29.51"
+BUILD = "2026-07-29.52"
 BUILD_TIME = "29 Jul 2026, 10:00 AM IST"
 
 RELEASES = [
@@ -15,6 +15,7 @@ RELEASES = [
             "📷 Desk QR check-in — print the new QR from the Attendance page; staff scan it at the salon desk to check in instantly when GPS fails (works in the staff portal too)",
             "↩️ Half-day waive — wrongly-applied half-day marks can be reversed with one tap on the Attendance page (owner PIN protected, full audit trail)",
             "🔒 Stronger sign-in — untick 'Keep me signed in' at login and your session ends when the browser closes, so shared computers always ask for the password",
+            "⏰ Renewal reminders & grace — paid salons now get the same gentle popup in the last week before their subscription ends and during the courtesy grace period; after grace runs out, login shows a clear 'subscription expired — contact the Miracurl team' message",
             "📖 Smoother booking — the online booking page now scrolls to the top automatically at every step, and the staff verify portal asks for the badge name right where you need it",
             "Super Admin: 🎥 60-second walkthrough video (real app screens) auto-included in every WhatsApp lead pitch and inquiry reply — now with Mira's voice narration, plus a full 2-minute feature tour at /miracurl-full-tour.mp4 ready for YouTube",
             "Super Admin: 📈 Payment-link conversion tracker — see Sent / Opened / Paid / Conversion % at a glance, with an 'opened' chip on every link the owner has viewed",

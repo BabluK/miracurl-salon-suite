@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/lib/api";
 import { Sparkles, CreditCard } from "lucide-react";
 
 export const TrialReminder = () => {
@@ -10,20 +11,32 @@ export const TrialReminder = () => {
   const [info, setInfo] = useState(null);
 
   useEffect(() => {
-    if (!tenant || tenant.status !== "trial") return;
-    const endRaw = tenant.trial_end_date || tenant.trial_ends_at;
-    if (!endRaw) return;
-    const end = new Date(`${String(endRaw).slice(0, 10)}T23:59:59`);
-    const days = Math.ceil((end - new Date()) / 86400000);
-    // Early in the trial: one-time welcome popup. Last 7 days: once-a-day reminder.
-    const key = days > 7
-      ? `trial_welcome_${tenant.id || tenant.slug}`
-      : `trial_popup_${new Date().toISOString().slice(0, 10)}`;
-    try {
-      if (localStorage.getItem(key)) return;
-      localStorage.setItem(key, "1");
-    } catch { /* private mode */ }
-    setInfo({ days, endDate: end.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) });
+    if (!tenant) return;
+    const isTrial = tenant.status === "trial";
+    const applyDays = (endRaw, paid) => {
+      if (!endRaw) return;
+      const end = new Date(`${String(endRaw).slice(0, 10)}T23:59:59`);
+      const days = Math.ceil((end - new Date()) / 86400000);
+      if (paid && days > 7) return; // paid salons: only warn in the last week / after expiry
+      const key = !paid && days > 7
+        ? `trial_welcome_${tenant.id || tenant.slug}`
+        : `${paid ? "renewal" : "trial"}_popup_${new Date().toISOString().slice(0, 10)}`;
+      try {
+        if (localStorage.getItem(key)) return;
+        localStorage.setItem(key, "1");
+      } catch { /* private mode */ }
+      setInfo({ days, paid, endDate: end.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) });
+    };
+    if (isTrial) {
+      applyDays(tenant.trial_end_date || tenant.trial_ends_at, false);
+    } else if (tenant.subscription_end_date) {
+      applyDays(tenant.subscription_end_date, true);
+    } else {
+      // tenant object may be slim — ask the billing endpoint (admins/managers only; ignore errors)
+      api.get("/billing/subscription-status")
+        .then(({ data }) => { if (data.source === "subscription") applyDays(data.end_date, true); })
+        .catch(() => {});
+    }
   }, [tenant]);
 
   if (!info) return null;
@@ -33,9 +46,17 @@ export const TrialReminder = () => {
         <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center text-white mb-4">
           <Sparkles className="w-7 h-7" />
         </div>
-        <h3 className="font-playfair text-2xl text-slate-800">{info.days > 7 ? "Welcome to Miracurl ✦" : "A gentle reminder ✦"}</h3>
+        <h3 className="font-playfair text-2xl text-slate-800">{info.paid ? (info.days >= 0 ? "Renewal reminder ✦" : "Grace period active ✦") : info.days > 7 ? "Welcome to Miracurl ✦" : "A gentle reminder ✦"}</h3>
         <p className="text-sm text-slate-600 mt-3 leading-relaxed" data-testid="trial-reminder-message">
-          {info.days > 7 ? (
+          {info.paid ? (
+            info.days >= 0 ? (
+              <>Your subscription ends on <b className="text-slate-800">{info.endDate}</b>{info.days > 0 ? <> — <b>{info.days} day{info.days === 1 ? "" : "s"}</b> to go</> : <> — <b>today</b></>}.
+                Renew now so bookings, SMS and Mira keep running without interruption 💜</>
+            ) : (
+              <>Your subscription ended on <b className="text-slate-800">{info.endDate}</b>. You're currently in a courtesy <b>grace period</b> —
+                please renew soon or contact the Miracurl team, otherwise access will be paused 💜</>
+            )
+          ) : info.days > 7 ? (
             <>Your salon is all set! You're on a <b>free trial</b> until <b className="text-slate-800">{info.endDate}</b> ({info.days} days).
               Explore everything — bookings, POS, reports & more. Subscribe anytime to keep it running without interruption 💜</>
           ) : info.days >= 0 ? (

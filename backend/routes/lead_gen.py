@@ -914,6 +914,7 @@ async def _wa_message(lead: dict) -> str:
             f"💰 Plans start at Rs.{half:,} for 6 months — *best value: Annual at Rs.{annual:,}* "
             "(multi-branch discounts available!)\n\n"
             + video_line +
+            f"▶️ Our YouTube channel: youtube.com/@miracurl_unisex_saloon7423\n"
             f"🎬 *Live demo* (try it right now): {base}/demo\n"
             f"🏪 Register your salon: {base}/signup-salon\n"
             f"🪪 Staff register & verify: {base}/staff-registry\n"

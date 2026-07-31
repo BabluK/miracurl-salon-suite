@@ -5,7 +5,7 @@ import os
 import re
 import secrets
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import Optional
 
 import jwt
@@ -33,6 +33,41 @@ class LoginIn(BaseModel):
     email: EmailStr
     password: str
     remember: bool = False
+
+
+GRACE_DAYS = 60  # HQ courtesy window after expiry before login is blocked
+
+
+async def _subscription_gate(user: dict) -> None:
+    """Block login for salons whose subscription/trial expired beyond the grace window."""
+    if user.get("role") == "super_admin" or not user.get("tenant_id"):
+        return
+    t = await db.tenants.find_one(
+        {"id": user["tenant_id"]},
+        {"_id": 0, "status": 1, "subscription_end_date": 1, "trial_end_date": 1,
+         "trial_ends_at": 1, "grace_until": 1})
+    if not t:
+        return
+    expired_msg = ("Your subscription has expired. Please contact the Miracurl team "
+                   "to renew and reactivate your salon.")
+    if t.get("status") == "suspended":
+        raise HTTPException(403, expired_msg)
+    end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
+    if not end:
+        return
+    try:
+        end_d = date.fromisoformat(str(end)[:10])
+    except ValueError:
+        return
+    limit = end_d + timedelta(days=GRACE_DAYS)
+    if t.get("grace_until"):
+        try:
+            limit = max(limit, date.fromisoformat(str(t["grace_until"])[:10]))
+        except ValueError:
+            pass
+    if date.today() > limit:
+        raise HTTPException(403, f"Your subscription expired on {end_d.strftime('%d %b %Y')}. "
+                                 "Please contact the Miracurl team to renew and reactivate your salon.")
 
 class ForgotIn(BaseModel):
     email: EmailStr
@@ -364,6 +399,7 @@ async def login(body: LoginIn, request: Request, response: Response):
     if user.get("disabled"):
         raise HTTPException(403, "Your account has been disabled by the salon admin. Please contact them.")
     await db.login_attempts.delete_one({"identifier": ident})
+    await _subscription_gate(user)
     access = make_access(user["id"], email)
     refresh = make_refresh(user["id"])
     set_auth_cookies(response, access, refresh, persistent=body.remember)
