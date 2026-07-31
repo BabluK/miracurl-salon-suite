@@ -75,6 +75,19 @@ export default function Attendance() {
     }
   }
 
+  async function waiveHalfDay(r) {
+    if (!r.record_id) return;
+    const note = window.prompt(`Waive the ½-day mark (−₹${r.half_day_deduction}) for ${r.name}? Add a short reason:`, "Applied by mistake");
+    if (note === null) return;
+    try {
+      await pinApi.post(`/attendance/${r.record_id}/waive-half-day`, { note });
+      toast.success(`Half-day waived for ${r.name}`);
+      load();
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Couldn't waive half-day");
+    }
+  }
+
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -187,8 +200,14 @@ export default function Attendance() {
                   <td>
                     <div className="flex flex-col gap-0.5 text-[11px]">
                       {r.half_day && (
-                        <span className="text-amber-700 font-semibold" data-testid={`half-day-${r.staff_id}`}>
+                        <span className="text-amber-700 font-semibold flex items-center gap-1.5" data-testid={`half-day-${r.staff_id}`}>
                           ½ day {r.no_show && !r.check_in_at ? "(no show)" : "(3h+ late)"} −₹{r.half_day_deduction}
+                          <button
+                            data-testid={`waive-half-day-${r.staff_id}`}
+                            title="Waive this half-day (wrongly applied)"
+                            onClick={() => waiveHalfDay(r)}
+                            className="text-[9px] uppercase px-1.5 py-0.5 rounded border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-300"
+                          >waive</button>
                         </span>
                       )}
                       {r.check_in_method === "qr" && <span className="text-sky-600">via desk QR</span>}

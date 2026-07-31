@@ -52,13 +52,16 @@ def _reject_if_token_predates_password_change(payload: dict, user: dict):
     if float(payload.get("iat", 0)) < pca_ts:
         raise HTTPException(401, "Session expired — please sign in again")
 
-def set_auth_cookies(resp: Response, access: str, refresh: str):
+def set_auth_cookies(resp: Response, access: str, refresh: str, persistent: bool = True):
     # Secure=True is required by browsers when SameSite is Lax on cross-origin
     # requests over HTTPS. In dev over plain HTTP the cookie is still delivered
     # because same-origin. Env override for special testing setups.
+    # persistent=False -> session cookies: browser close = signed out (password asked again).
     _sec = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
-    resp.set_cookie("access_token", access, httponly=True, secure=_sec, samesite="lax", max_age=28800, path="/")
-    resp.set_cookie("refresh_token", refresh, httponly=True, secure=_sec, samesite="lax", max_age=604800, path="/")
+    resp.set_cookie("access_token", access, httponly=True, secure=_sec, samesite="lax",
+                    max_age=28800 if persistent else None, path="/")
+    resp.set_cookie("refresh_token", refresh, httponly=True, secure=_sec, samesite="lax",
+                    max_age=604800 if persistent else None, path="/")
 
 def _extract_bearer_token(request: Request) -> Optional[str]:
     token = request.cookies.get("access_token")

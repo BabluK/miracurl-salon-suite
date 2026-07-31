@@ -2,7 +2,7 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-29.49"
+BUILD = "2026-07-29.50"
 BUILD_TIME = "29 Jul 2026, 10:00 AM IST"
 
 RELEASES = [
@@ -13,6 +13,10 @@ RELEASES = [
             "🪪 Staff verify fix — phone numbers entered with +91 now find the staff member correctly in the public registry",
             "⏱️ Half-day rule — staff who don't check in within 3 hours of shift start are auto-marked half-day with the deduction (half of one day's salary) applied in payroll; approved leaves & week-offs are skipped",
             "📷 Desk QR check-in — print the new QR from the Attendance page; staff scan it at the salon desk to check in instantly when GPS fails (works in the staff portal too)",
+            "↩️ Half-day waive — wrongly-applied half-day marks can be reversed with one tap on the Attendance page (owner PIN protected, full audit trail)",
+            "🔒 Stronger sign-in — untick 'Keep me signed in' at login and your session ends when the browser closes, so shared computers always ask for the password",
+            "📖 Smoother booking — the online booking page now scrolls to the top automatically at every step, and the staff verify portal asks for the badge name right where you need it",
+            "Super Admin: 🎥 60-second walkthrough video (real app screens) auto-included in every WhatsApp lead pitch and inquiry reply",
             "❌ Cancellation SMS — customers automatically get a text when their booking is cancelled, with an invite to rebook",
             "Super Admin: 📜 SMS delivery log — tap any salon's SMS balance to see every text sent, failed or skipped, with reasons",
             "Super Admin: ⚠️ Low-balance alerts — HQ gets an email when a salon's SMS points drop under 20, plus WhatsApp lead pitches now include the live demo, salon signup, staff registry and screens-tour links",

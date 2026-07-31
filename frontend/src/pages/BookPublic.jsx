@@ -113,6 +113,7 @@ export default function BookPublic() {
   const PUBLIC = useMemo(() => axios.create({ baseURL: `${BACKEND_URL}/api/public` }), []);
 
   const [step, setStep] = useState(0);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
   const [salon, setSalon] = useState(null);
   const [services, setServices] = useState([]);
   const [dayOffer, setDayOffer] = useState(null);

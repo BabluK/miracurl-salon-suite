@@ -906,8 +906,8 @@ async def _wa_message(lead: dict) -> str:
         intro += f"Came across your salon in {lead.get('city', '')} — {lead['rating']}⭐{reviews} is truly impressive!\n\n"
     else:
         intro += f"Came across your salon in {lead.get('city', '')} and had to reach out!\n\n"
-    video = os.environ.get("DEMO_VIDEO_URL", "")
-    video_line = f"🎥 60-sec walkthrough video: {video}\n" if video else ""
+    video = os.environ.get("DEMO_VIDEO_URL") or f"{base}/miracurl-demo-60s.mp4"
+    video_line = f"🎥 60-sec walkthrough video: {video}\n"
     return (intro +
             "I'm Mira from *Miracurl Suite* — the all-in-one salon platform: online booking, "
             "WhatsApp marketing & automation, staff attendance & payroll, memberships and GST billing.\n\n"

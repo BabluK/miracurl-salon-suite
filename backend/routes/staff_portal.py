@@ -318,6 +318,23 @@ async def waive_late_fine(rec_id: str, body: WaiveFineIn, admin=Depends(require_
     return {"ok": True, "waived_amount": fine}
 
 
+@router.post("/attendance/{rec_id}/waive-half-day")
+async def waive_half_day(rec_id: str, body: WaiveFineIn, admin=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
+    """Correct a wrongly-applied half-day mark — clears the deduction, keeps an audit trail."""
+    rec = await db.attendance.find_one({"id": rec_id}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Attendance record not found")
+    if not rec.get("half_day"):
+        raise HTTPException(400, "No half-day mark on this record")
+    ded = float(rec.get("half_day_deduction") or 0)
+    await db.attendance.update_one({"id": rec_id}, {"$set": {
+        "half_day": False, "half_day_deduction": 0.0, "no_show": False,
+        "half_day_waived": ded, "half_day_waived_by": admin.get("email"),
+        "half_day_waived_note": body.note.strip(),
+        "half_day_waived_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "waived_amount": ded}
+
+
 def _fence_for(staff: dict, tenant: dict):
     """(lat, lng, label) the staff must check in near — their branch first, else main salon."""
     if staff.get("branch"):

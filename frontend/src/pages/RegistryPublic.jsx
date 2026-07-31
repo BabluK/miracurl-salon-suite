@@ -170,6 +170,9 @@ export default function RegistryPublic() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const isStaffId = /^stf-?\d*/i.test(q.trim());
+  const qDigits = q.replace(/\D/g, "");
+  const looksAadhaar = qDigits.length === 12 && !qDigits.startsWith("91");
+  const needsName = isStaffId || (qDigits.length >= 10 && !looksAadhaar);
 
   async function runSearch(qv, nv) {
     setLoading(true); setError(""); setProfile(null);
@@ -188,6 +191,11 @@ export default function RegistryPublic() {
   async function search(e) {
     e.preventDefault();
     if (!q.trim()) return;
+    if (needsName && !name.trim()) {
+      setError("Almost there — type the staff member's name (as printed on the badge) in the box below, then tap Verify.");
+      document.querySelector('[data-testid="public-registry-name-input"]')?.focus();
+      return;
+    }
     runSearch(q, name);
   }
 
@@ -252,7 +260,7 @@ export default function RegistryPublic() {
                 {loading ? "Searching…" : "Verify"}
               </button>
             </div>
-            {isStaffId && (
+            {needsName && (
               <input
                 data-testid="public-registry-name-input"
                 value={name} onChange={e => setName(e.target.value)}

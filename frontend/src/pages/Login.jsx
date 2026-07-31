@@ -42,7 +42,7 @@ export default function Login() {
     e.preventDefault();
     setBusy(true); setErr("");
     let res;
-    if (mode === "login") res = await login(email, password);
+    if (mode === "login") res = await login(email, password, remember);
     else if (mode === "signup") res = await register(name, email, password);
     else {
       res = await forgot(email, personalEmail);
@@ -202,7 +202,7 @@ export default function Login() {
                     data-testid="login-remember-checkbox"
                     className="w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-300"
                   />
-                  Remember my email
+                  Keep me signed in on this device
                 </label>
                 <button
                   type="button"

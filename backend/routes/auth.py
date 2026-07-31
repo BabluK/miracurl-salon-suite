@@ -32,6 +32,7 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+    remember: bool = False
 
 class ForgotIn(BaseModel):
     email: EmailStr
@@ -365,7 +366,7 @@ async def login(body: LoginIn, request: Request, response: Response):
     await db.login_attempts.delete_one({"identifier": ident})
     access = make_access(user["id"], email)
     refresh = make_refresh(user["id"])
-    set_auth_cookies(response, access, refresh)
+    set_auth_cookies(response, access, refresh, persistent=body.remember)
     user.pop("password_hash", None)
     user.pop("_id", None)
     await _attach_salons(user)
