@@ -1237,3 +1237,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - User disliked the plain gold-text-on-black title card. Generated two cinematic branded scenes (luxury dark salon w/ glowing gold MIRACURL AI SALON SUITE signage): intro "Run Your Entire Salon From One Screen", outro "Start Your Free Trial Today". Saved as /app/scripts/tour_shots/{intro_bg,outro_bg}.jpg.
 - make_tour_videos.py: `card()` replaced by `branded_card(bg, out, subs)` — cover-crops bg to 1920x1080 + gold-topped dark info strip (intro: tour+URL line; outro: register/demo/YouTube lines). Both videos rebuilt (full 128.6s / 8.7MB, short 45s / 4.75MB) into frontend/public. Verified via extracted first/last frames.
 - NEEDS REDEPLOY to reach miracurl-suite.com production.
+
+## 2026-07-31 (later 9) — Security Audit #2 (CONDITIONAL PASS — no Critical/High)
+- Full audit of auth, tenant isolation, payments, webhooks, uploads, public endpoints: no cross-tenant leakage, payment signatures + server-side amounts verified, JWT HS256 pinned w/ revocation, webhooks all signature-verified, no hardcoded secrets.
+- FIXED SEC-001 (LOW): gift-card preview-email endpoint now rate-limited — public_rate_limit "gift-preview" 20/10min (gift_cards.py:117). Curl-verified: 20x 200 then 429.
+- OPEN SEC-002 (LOW, product decision pending): desk-QR check-in (staff_portal.py:359) accepts valid QR token without GPS fence — a copied/photographed QR allows remote check-in. Options: rotate QR token daily, or require GPS too. AWAITING USER CHOICE.
+- Hardening backlog (P3): encrypt tenant razorpay_key_secret at rest (gift_cards.py:535); non-obvious super-admin email (seeds.py:92, lockout already active); serve Mira Studio published sites on isolated origin.
+- Coverage note: AI/marketing modules (mira_*, social_connect, promo_*, veo_studio, lead_gen) sampled, not line-by-line.

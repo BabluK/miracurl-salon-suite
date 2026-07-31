@@ -114,6 +114,7 @@ async def gift_card_preview_email(request: Request, slug: str, occasion: str = "
                                   amount: float = 1000, recipient_name: str = "", buyer_name: str = "",
                                   message: str = ""):
     """Exact e-card email HTML the recipient will receive — code masked until purchase."""
+    public_rate_limit(request, "gift-preview", limit=20, window_sec=600)
     t = await _tenant_by_slug(slug)
     if (t.get("logo_url") or "").startswith("/"):
         host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
