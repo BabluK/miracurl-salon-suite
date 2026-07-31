@@ -1,114 +1,70 @@
 {
-  "theme": "dark",
-  "archetype": "Luxury (Premium, Depth, Mystery) blended with High-Tech AI.",
+  "project_name": "Miracurl SaaS Landing Page",
+  "theme_strategy": "Premium Dark Theme (Archetype 5: Luxury mixed with Tech). Focus on depth, mystery, and high-end aesthetics suitable for premium salons, elevated with smart AI technological undertones.",
   "typography": {
-    "fonts": {
-      "headings": "'Cormorant Garamond', serif",
-      "body": "'Outfit', sans-serif",
-      "code": "'JetBrains Mono', monospace"
-    },
-    "hierarchy": {
-      "h1": "text-5xl sm:text-6xl tracking-tighter font-medium text-white",
-      "h2": "text-3xl sm:text-4xl tracking-tight font-medium text-white",
-      "h3": "text-xl sm:text-2xl font-medium text-white/90",
-      "body": "text-base leading-relaxed text-white/70",
-      "labels": "text-xs tracking-[0.2em] uppercase text-white/50 font-semibold"
-    },
-    "pairing_strategy": "The 'Old Money Tech' approach: High-end luxury Serif (Cormorant Garamond) for expressive headlines ('What would you like to build today?'), paired with a sleek, sterile geometric Sans (Outfit) for UI widgets, tech data, and body copy."
-  },
-  "colors": {
-    "palette": {
-      "base": {
-        "background": "#0A0809",
-        "surface": "#141012",
-        "surface_glass": "rgba(20, 16, 18, 0.6)",
-        "border": "rgba(255, 255, 255, 0.08)"
-      },
-      "accents": {
-        "gold": "#D4AF37",
-        "gold_light": "#F3E5AB",
-        "pink_bright": "#FF4081",
-        "pink_deep": "#D81B60",
-        "gradient_primary": "linear-gradient(135deg, #D81B60 0%, #FF4081 50%, #D4AF37 100%)"
-      },
-      "text": {
-        "primary": "#FDFBF7",
-        "secondary": "#A69F9B",
-        "disabled": "rgba(166, 159, 155, 0.4)"
-      }
-    },
-    "rules": [
-      "No pure #000000. Base background is #0A0809 (Obsidian tinted with extreme deep burgundy/brown for a warm luxury feel).",
-      "Gradients are reserved strictly for primary CTA buttons, active state highlights, and magical AI text spans.",
-      "Hover states must shift to a lighter hue of the active state with increased contrast."
-    ]
-  },
-  "visual_enhancers": {
-    "glassmorphism": "The 'Crystal' Variant. Use backdrop-blur-xl with bg-white/5 (Dark Mode). Mandatory 1px delicate inner stroke (border-white/10). shadow-[0_8px_32px_rgba(0,0,0,0.5)].",
-    "borders": "1px solid border-white/5 for default containers. For the AI Prompt Textarea, use a glowing tracing beam effect or a subtle pink/gold gradient border to indicate 'magic'.",
-    "shadows": "Deep ambient shadows. shadow-2xl for modals. Colored glow shadows (shadow-[0_0_30px_rgba(216,27,96,0.2)]) around primary AI input."
-  },
-  "components": {
-    "buttons": {
-      "primary": "Pill-shaped (rounded-full), bg-gradient-to-r from-[#D81B60] via-[#FF4081] to-[#D4AF37], text-white font-medium, hover:opacity-90 hover:shadow-[0_0_20px_rgba(255,64,129,0.4)] transition-all.",
-      "secondary": "Pill-shaped, bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all.",
-      "ghost": "Transparent background, text-white/70 hover:text-white hover:bg-white/5 transition-all."
-    },
-    "tabs": "Segmented pill controls. Outer container rounded-full bg-white/5 p-1. Active tab rounded-full bg-white/10 text-white shadow-sm. Inactive text-white/50.",
-    "inputs": {
-      "prompt_textarea": "Massive padding (p-6), text-lg or xl, glassmorphic background (bg-black/40 backdrop-blur-2xl), 1px border-white/10. Focus ring: 2px solid #D4AF37 or pink-gold gradient. Rounded-2xl to 3xl."
-    },
-    "modals": "Auth & Buy Credits Modals. Heavy backdrop-blur-sm on overlay. Modal surface bg-[#141012] border border-white/10, rounded-3xl."
-  },
-  "grids": {
-    "system": "The Bento Grid Protocol (Universal)",
-    "feature_cards": "Mode A 'Tetris' Grid for the feature comparison area. Wide gap-8. Mix col-span-8 and col-span-4 to create asymmetry.",
-    "workspace": "High Density Grid for the Builder workspace. 3-column layout where Sidebar is col-span-1, Live Preview is col-span-2 or 3."
-  },
-  "layouts": {
-    "page_structure": "Navbar fixed top z-50. Hero section min-h-[80vh] flex flex-col justify-center items-center relative. Then structural sections for tools and deployment.",
-    "spacing": "Generous Spacing. Use p-8, p-12, p-24 for section paddings. Container max-w-7xl mx-auto.",
-    "alignment": "Hero centered for impact. Data/Tools left-aligned for functionality."
-  },
-  "motion": {
-    "animations": {
-      "hover": "transform scale-105 duration-300 ease-out",
-      "entrance": "fade-in, slide-up staggered lists.",
-      "ai_processing": "Pulse and glowing tracing beams on pipeline stages (Planner -> Design -> Frontend -> Testing -> Deployment)."
-    },
-    "rules": "Micro-animations on every interaction. No 'transition-all'. Respect prefers-reduced-motion."
-  },
-  "accessibility": {
-    "contrast": "Ensure text over gradients uses text-shadow or sufficiently dark colors if inverted. Body text vs #141012 must exceed 4.5:1 ratio.",
-    "focus": "focus-visible:ring-2 focus-visible:ring-[#D4AF37] focus-visible:outline-none.",
-    "testing": "All interactive elements MUST include data-testid."
-  },
-  "media": {
-    "background_strategy": "Use dark salon photography heavily darkened (bg-black/60 to 80 overlay) as a rich textural background for the Hero. Do not let details clash with the UI.",
-    "image_urls": {
-      "hero_background": {
-        "url": "https://images.unsplash.com/photo-1617351165725-ec1c8ca2bf67?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxkYXJrJTIwbHV4dXJ5JTIwc2Fsb24lMjBpbnRlcmlvcnxlbnwwfHx8fDE3ODQxMDI1Njl8MA&ixlib=rb-4.1.0&q=85",
-        "description": "Dark luxury salon interior. Use as hero background with a heavy radial black gradient overlay (bg-black/80) so only the edges show.",
-        "category": "Hero Background"
-      },
-      "texture_overlay": {
-        "url": "https://images.unsplash.com/photo-1760172287483-02d382f63a6f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODh8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGRhcmslMjBnb2xkJTIwbHV4dXJ5JTIwdGV4dHVyZXxlbnwwfHx8fDE3ODQxMDI1Njl8MA&ixlib=rb-4.1.0&q=85",
-        "description": "Abstract dark gold texture. Use inside feature cards as a subtle background pattern with low opacity (10-20%).",
-        "category": "Card Background Pattern"
-      }
+    "headings": "Playfair Display",
+    "body": "Outfit",
+    "rules": {
+      "h1": "text-5xl sm:text-6xl lg:text-7xl tracking-tight font-light text-white",
+      "h2": "text-4xl sm:text-5xl tracking-tight font-light text-white",
+      "h3": "text-2xl sm:text-3xl font-medium text-white",
+      "body": "text-base sm:text-lg leading-relaxed text-white/70",
+      "labels": "text-xs uppercase tracking-[0.2em] text-white/50"
     }
   },
-  "3d_libraries": {
-    "recommendation": "Use framer-motion for UI transitions and react-fast-marquee for subtle 'Live Deployments' feed. TSParticles can be used in the hero background for elegant 'gold dust' floating particles to symbolize AI generation, keeping it extremely subtle."
+  "colors": {
+    "background_base": "#050505",
+    "surface_elevated": "#0F0F10",
+    "surface_glass": "rgba(20, 20, 20, 0.65)",
+    "primary": "#DFB78C",
+    "primary_hover": "#EAD3B3",
+    "accent_ai": "#E35A89",
+    "text_main": "#FFFFFF",
+    "text_muted": "#A1A1AA",
+    "border_subtle": "rgba(255, 255, 255, 0.08)"
   },
-  "instructions_to_main_agent": {
-    "directive_1": "You must implement the Mira AI Studio at /mira.ai as a polished, luxury SaaS platform. Incorporate the existing Miracurl brand identity (Gold/Pink-gradient, Serif Headings, Dark Mode) but elevate it for a high-tech AI builder.",
-    "directive_2": "Build out ALL key functionalities: Navbar with credits (e.g., '🪙 50 Credits'), Hero with 'What would you like to build today?' heading, pill-shaped build-type tabs, a massive glowing AI prompt textarea with example chips, and a split workspace (Sidebar menu + Live Preview Iframe + Pipeline Progress).",
-    "directive_3": "Create Auth Modal (Register/Login) and Razorpay Buy Credits Modal with detailed tiers. Add 'data-testid' to every interactive button and input.",
-    "directive_4": "Do NOT use pure #000000 or generic SaaS blue. Use the provided luxury dark palette.",
-    "directive_5": "Never use transparent headers over images without a glassmorphism backdrop filter.",
-    "directive_6": "Implement all icons using lucide-react unless instructed otherwise. Use sonner for toast notifications (e.g., 'Website built successfully!', 'Credits purchased!')."
+  "visual_enhancers": {
+    "surfaces": "Use Crystal Glassmorphism (backdrop-blur-xl bg-black/60) for sticky headers, modals, and the video thumbnail overlay. Always include a 1px border-white/10 to ground the glass.",
+    "textures_and_glows": "No full-screen gradients. Apply a subtle radial glow (accent_ai color, 15% opacity, max-w-lg) behind the video thumbnail or key AI features to signify 'smart AI'.",
+    "spacing": "Generous spacing. Use py-24 or py-32 for main sections. Let the content breathe.",
+    "motion": "Micro-interactions on hover for cards (slight lift, border glow). Smooth fade-in on scroll. Video play button should have a 'tracing beam' or soft pulse effect."
   },
-  "GENERAL UI UX DESIGN GUIDELINES": "1. Fusion over Imitation: Break category conventions by bringing salon luxury into a technical AI builder. 2. Emotion First: Make the user feel powerful and premium. 3. Content is King: Every step of the pipeline must tell the story of creation. 4. Zoom in: Use close-ups and heavy contrast. 5. Negative Space: Give the massive prompt area room to breathe. 6. Contrast: Soft pink/gold glows against hard dark matte backgrounds.",
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.\n- Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients\n- Don't make generic centered layouts, simplistic gradients, and uniform styling.\n- Create depth through layered design elements with z-index hierarchy\n- Use glass-morphism effects with backdrop filters (12-24px blur)\n- You MUST NOT apply universal transition. Eg: `transition: all`. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms\n- You MUST NOT center align the app container, ie do not add `.App { text-align: center; }` in the css file. This disrupts the human natural reading flow of text\n- Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style\n- NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯 etc for icons.\n- Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.\n- Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.\n- Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.\n- Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN\n- Prioritize using pre-existing components from src/components/ui when applicable\n- Use sonner for toasts, located in /app/src/components/ui/sonner.tsx"
+  "layouts_and_sections": {
+    "referral_banner": "If '?ref=' exists in URL, show a slim, elegant banner at the very top (bg-[#DFB78C] text-black text-sm py-2 px-4 text-center).",
+    "sticky_nav": "Crystal Glass header (z-50) fixed to top. Contains BrandMark Logo, Mira AI Studio, Features, Pricing, Verify Staff, Sign In, and 'Start free trial' CTA.",
+    "hero_section": "Immersive hero layout. Background uses 'hero_ai_background' heavily muted by bg-black/80 overlay to ensure maximum text contrast. Centralized H1 and subheadline. Two CTAs (Primary pill, Secondary outline). At the bottom of the hero, breaking the grid into the next section, is the floating video thumbnail card.",
+    "video_thumbnail_treatment": "A large, cinematic glassmorphic card (aspect-video) placed overlapping the bottom of the hero section. Uses 'salon_interior' or 'hero_ai_background' as the thumbnail image. Includes a prominent play icon with a glowing pulse in the center. On click, triggers a Dialog/Modal containing a full-screen HTML5 video player for '/miracurl-full-tour.mp4'.",
+    "stats_strip": "4-column grid immediately following the hero. Subtle border-r border-white/10 between items (except last). Includes: ₹0 setup, 90 sec to go live, 24/7 AI receptionist, 0% booking commission.",
+    "features_bento": "Asymmetric Bento grid (grid-cols-1 md:grid-cols-12) for the top features (Mira AI, Smart POS, Staff Registry, Online Booking). Sub-features (9 items) can be a 3-column dense grid below.",
+    "reusable_components": "Maintain existing components (DemoCarousel, MiraStudioShowcase, SoftwareFlowSection, TrustedPartnersSection, SalesChatWidget) but map them to the new dark/gold color palette and typography rules.",
+    "testimonials": "Live partner grid using 'owner_portrait', left-aligned, showing authentic salon owners.",
+    "pricing_section": "Clean UI with a Region Toggle (India ₹ / International $). India: 4 columns. International: 3 columns. Below pricing, add an Enterprise block (full width) offering 'Book a Demo' and 'WhatsApp chat'."
+  },
+  "components_to_implement": [
+    "Dialog component for full-screen video player",
+    "Tabs component for pricing toggle",
+    "Button component (customized to pill shape with new colors)",
+    "Icons (Lucide React or Phosphor Icons)"
+  ],
+  "accessibility": {
+    "contrast": "Text over backgrounds must exceed 4.5:1 ratio. Ensure CTAs use dark text (#050505) over the primary gold (#DFB78C) for readability.",
+    "data_testid": "Apply data-testid to all interactive elements (e.g., data-testid='hero-video-play', data-testid='start-free-trial', data-testid='pricing-toggle-inr')."
+  },
+  "image_urls": {
+    "hero_ai_background": "https://images.unsplash.com/photo-1644088379091-d574269d422f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTV8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdsb3dpbmclMjBzbWFydCUyMGFpJTIwbmV0d29yayUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc4NTQ5Mjk5OXww&ixlib=rb-4.1.0&q=85",
+    "salon_interior": "https://images.unsplash.com/photo-1599696848652-f0ff23bc911f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBzYWxvbiUyMGludGVyaW9yJTIwZGFyayUyMG1vb2R5fGVufDB8fHx8MTc4NTQ5Mjk5OXww&ixlib=rb-4.1.0&q=85",
+    "stylist_working": "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBzYWxvbiUyMHN0eWxpc3QlMjB3b3JraW5nfGVufDB8fHx8MTc4NTQ5Mjk5OXww&ixlib=rb-4.1.0&q=85",
+    "owner_portrait": "https://images.unsplash.com/photo-1662850886700-4ec19bd30d11?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwY29uZmlkZW50JTIwc2Fsb24lMjBvd25lciUyMHBvcnRyYWl0fGVufDB8fHx8MTc4NTQ5Mjk5OXww&ixlib=rb-4.1.0&q=85"
+  },
+  "universal_guidelines_for_main_agent": [
+    "Do NOT use complete transparent backgrounds for headers, overlays, or dropdowns. Always use backdrop-blur with a background color (e.g. bg-black/60).",
+    "Do NOT apply universal transition (e.g., transition: all). Add transitions for specific properties to avoid breaking transforms.",
+    "Avoid generic centered layouts. Align content to the left for better readability, except for hero headers.",
+    "Use modern pill-shaped buttons.",
+    "No AI emoji placeholders.",
+    "Include data-testid on all interactive elements.",
+    "Use 'sonner' for toasts.",
+    "Create components as .js files (not .tsx) inside src/components/ui/ matching existing project conventions."
+  ],
+  "instructions_to_main_agent": "Perform a comprehensive redesign for the Miracurl landing page. Apply the Premium Dark Theme blueprint. Implement a custom video thumbnail that sits overlapping the hero and the next section. Use 'salon_interior' or 'hero_ai_background' as the poster image. This thumbnail must open '/miracurl-full-tour.mp4' in a fullscreen Modal/Dialog upon click. Integrate existing reusable components smoothly into the new dark layout, verify the presence of '?ref=' to conditionally render a referral banner, and apply all specified layout rules."
 }
