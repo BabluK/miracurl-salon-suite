@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { Calendar, Receipt, Star, ArrowRight, Check, Sparkles, MessageSquare, Scissors, Gift, ShieldCheck, Wand2, MapPin, UserCog, Mic, BadgePercent, Zap, BarChart3, Package } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Calendar, Receipt, Star, ArrowRight, Check, Sparkles, MessageSquare, Scissors, Gift, ShieldCheck, Wand2, MapPin, UserCog, Mic, BadgePercent, Zap, BarChart3, Package, Play, X } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 import SalesChatWidget from "@/components/SalesChatWidget";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
@@ -12,7 +12,8 @@ import api from "@/lib/api";
 import { detectRegion } from "@/lib/region";
 
 const IMG = {
-  hero: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/5f277bf6c250f088f3edd106c237e68fc45cb57e393b44d9d947c28d4668ebdb.png",
+  hero: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/98878cd0ea553bd4df7cc6ca3c05eaea3bd83533c44c0b7b2785932491d9d440.jpeg",
+  videoPoster: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/394d0556e2556ee48e48994393cc5d31c76c9d7a2c7b34c01b50bd6d2995cee9.jpeg",
   mira: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/0edf7cea5fd92564bf4bc69be15455570ba5f75f85561ee7bd0cdca2578254cc.png",
   pos: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/65e892308ec77806aafab7631f043393928bd5918a8b0fc0debb8ee8782bc338.png",
 };
@@ -108,7 +109,7 @@ function TrustedPartnersSection() {
           <p className="text-sm text-white/50 mt-3 max-w-xl">Salons already growing on Miracurl — rated by their own customers.</p>
         </div>
         <Link to="/partners" data-testid="view-all-partners-link"
-          className="inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 transition font-medium">
+          className="inline-flex items-center gap-1.5 text-xs text-[#DFB78C] hover:text-[#EAD3B3] transition-colors font-medium">
           View all partners <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
@@ -117,9 +118,34 @@ function TrustedPartnersSection() {
   );
 }
 
+function VideoLightbox({ open, onClose }) {
+  const onKey = useCallback((e) => { if (e.key === "Escape") onClose(); }, [onClose]);
+  useEffect(() => {
+    if (!open) return;
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, [open, onKey]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 sm:p-10" data-testid="tour-video-lightbox" onClick={onClose}>
+      <button onClick={onClose} data-testid="tour-video-close"
+        className="absolute top-5 right-5 z-10 w-11 h-11 rounded-full bg-white/10 border border-white/20 text-white flex items-center justify-center hover:bg-white/20 transition-colors">
+        <X className="w-5 h-5" />
+      </button>
+      <div className="w-full max-w-6xl" onClick={(e) => e.stopPropagation()}>
+        <video src="/miracurl-full-tour.mp4" controls autoPlay playsInline data-testid="tour-video-player"
+          className="w-full rounded-2xl border border-white/15 shadow-[0_40px_120px_-20px_rgba(223,183,140,0.25)]" />
+        <p className="text-center text-xs text-white/50 mt-4">Miracurl — the complete 2-minute product tour</p>
+      </div>
+    </div>
+  );
+}
+
 export default function Landing() {
   const [refSlug, setRefSlug] = useState(null);
   const [catalog, setCatalog] = useState(null);
+  const [videoOpen, setVideoOpen] = useState(false);
   const [region, setRegion] = useState(() => {
     try { return localStorage.getItem("miracurl_region") || detectRegion(); } catch { return "in"; }
   }); // in | intl
@@ -147,14 +173,21 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white font-outfit" data-testid="landing-page">
+    <div className="min-h-screen bg-[#050505] text-white font-outfit" data-testid="landing-page">
+      {/* Referral banner — slim, elegant, top of everything */}
+      {refSlug && (
+        <div className="bg-[#DFB78C] text-black text-sm py-2 px-4 text-center font-medium" data-testid="landing-ref-banner">
+          <Gift className="w-4 h-4 inline -mt-0.5 mr-1.5" /> Referred by <b>{refSlug}</b> — they'll earn ₹1,000 when you sign up.
+        </div>
+      )}
+
       {/* Nav — crystal glass */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/60 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 py-4 flex items-center justify-between">
           <BrandMark variant="dark" size="md" />
           <div className="flex items-center gap-3 sm:gap-7 text-sm">
             <Link to="/mira.ai" data-testid="nav-mira-studio-link"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-300/40 bg-amber-300/10 text-amber-300 hover:bg-amber-300/20 font-medium transition-colors">
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DFB78C]/40 bg-[#DFB78C]/10 text-[#DFB78C] hover:bg-[#DFB78C]/20 font-medium transition-colors">
               ✦ Mira AI Studio
             </Link>
             <a href="#features" data-testid="nav-features-link" className="hidden sm:block text-white/70 hover:text-white transition-colors">Features</a>
@@ -162,59 +195,82 @@ export default function Landing() {
             <Link to="/staff-registry" data-testid="landing-verify-staff" className="hidden md:block text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Verify Staff — Free</Link>
             <Link to="/login" className="hidden sm:block text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign in</Link>
             <Link to="/signup-salon" data-testid="landing-cta-nav"
-                  className="px-4 py-2 rounded-full bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white text-xs sm:text-sm font-semibold hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(217,70,239,0.6)] transition-transform">
+                  className="px-4 py-2 rounded-full bg-[#DFB78C] text-[#050505] text-xs sm:text-sm font-bold hover:bg-[#EAD3B3] hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)] transition-transform">
               Start free trial
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero — cinematic */}
+      {/* Hero — cinematic with smart AI background */}
       <section className="relative overflow-hidden">
-        <img src={IMG.hero} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.92) 75%)" }} />
-        <div className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pt-24 sm:pt-36 pb-24 sm:pb-32 text-center">
-          <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white/5 border border-white/15 backdrop-blur text-amber-300 text-[11px] uppercase tracking-[0.2em] font-semibold">
+        <img src={IMG.hero} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/70" />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 20%, rgba(5,5,5,0.25) 0%, rgba(5,5,5,0.92) 80%)" }} />
+        <div className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pt-20 sm:pt-28 pb-44 sm:pb-56 text-center animate-fade-up">
+          <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-black/50 border border-white/15 backdrop-blur text-[#DFB78C] text-[11px] uppercase tracking-[0.2em] font-semibold">
             <Sparkles className="w-3 h-3" /> 7-Day Free Trial · No credit card
           </span>
-          <h1 className="font-playfair text-5xl sm:text-6xl lg:text-7xl tracking-tight mt-8 leading-[1.05]">
+          <h1 className="font-playfair text-5xl sm:text-6xl lg:text-7xl tracking-tight font-light mt-8 leading-[1.05]">
             The Gold Standard<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-300 to-fuchsia-400">for Modern Salons ✦</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#EAD3B3] via-[#DFB78C] to-[#E35A89]">for Modern Salons ✦</span>
           </h1>
-          <p className="text-neutral-400 text-lg md:text-xl mt-7 max-w-2xl mx-auto font-light">
+          <p className="text-white/70 text-lg md:text-xl mt-7 max-w-2xl mx-auto font-light">
             Appointments, POS billing, CRM, staff payroll and Mira AI — one premium suite,
             built for Indian salons. Replace your notebook in 90 seconds.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
             <Link to="/signup-salon" data-testid="landing-cta-hero"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white font-semibold hover:-translate-y-1 shadow-[0_16px_40px_-10px_rgba(217,70,239,0.65)] transition-transform text-base">
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#DFB78C] text-[#050505] font-bold hover:bg-[#EAD3B3] hover:-translate-y-1 shadow-[0_16px_40px_-10px_rgba(223,183,140,0.6)] transition-transform text-base">
               Start your free trial <ArrowRight className="w-4 h-4" />
             </Link>
             <Link to="/book/miracurl-marathahalli" data-testid="landing-demo-btn"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full border border-white/20 text-white/85 font-medium hover:bg-white/5 hover:-translate-y-1 transition-transform">
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full border border-white/25 bg-black/30 backdrop-blur text-white/90 font-medium hover:bg-white/10 hover:-translate-y-1 transition-transform">
               See a live booking page
             </Link>
           </div>
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-neutral-500">
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-white/50">
             {["Unlimited bookings", "GST billing built-in", "WhatsApp share built-in"].map(t => (
               <span key={t} className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /> {t}</span>
             ))}
           </div>
-          {refSlug && (
-            <div className="mt-8 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-400/10 border border-amber-300/30 text-amber-200 text-sm" data-testid="landing-ref-banner">
-              <Gift className="w-4 h-4" /> Referred by <b className="mx-1">{refSlug}</b> — they'll earn ₹1,000 when you sign up.
-            </div>
-          )}
         </div>
       </section>
 
+      {/* Floating tour video card — overlaps hero into the next section */}
+      <section className="relative z-20 max-w-4xl mx-auto px-6 sm:px-10 -mt-32 sm:-mt-44">
+        <div className="relative">
+          <div className="pointer-events-none absolute -inset-10 mx-auto max-w-lg rounded-full bg-[#E35A89]/15 blur-3xl" aria-hidden="true" />
+          <button onClick={() => setVideoOpen(true)} data-testid="hero-video-play"
+            className="group relative block w-full aspect-video rounded-3xl overflow-hidden border border-white/15 bg-black/60 backdrop-blur-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.9)] hover:border-[#DFB78C]/50 transition-colors">
+            <img src={IMG.videoPoster} alt="Miracurl product tour preview" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-95 group-hover:scale-[1.02] transition-transform duration-700" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30" />
+            <span className="absolute inset-0 flex items-center justify-center">
+              <span className="relative flex items-center justify-center">
+                <span className="absolute w-24 h-24 rounded-full bg-[#DFB78C]/30 animate-ping" style={{ animationDuration: "2.2s" }} />
+                <span className="relative w-20 h-20 rounded-full bg-[#DFB78C] text-[#050505] flex items-center justify-center shadow-[0_0_50px_rgba(223,183,140,0.6)] group-hover:scale-110 transition-transform duration-300">
+                  <Play className="w-8 h-8 ml-1 fill-current" />
+                </span>
+              </span>
+            </span>
+            <span className="absolute bottom-5 left-5 right-5 flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/60 backdrop-blur border border-white/15 text-sm text-white/90 font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-[#DFB78C]" /> Watch the full product tour
+              </span>
+              <span className="px-3 py-1.5 rounded-full bg-black/60 backdrop-blur border border-white/15 text-xs text-white/70 font-mono">2:00</span>
+            </span>
+          </button>
+        </div>
+      </section>
+      <VideoLightbox open={videoOpen} onClose={() => setVideoOpen(false)} />
+
       {/* Stats strip */}
-      <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 -mt-10 pb-8">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[{ v: "₹0", l: "Setup cost" }, { v: "90 sec", l: "To go live" }, { v: "24/7", l: "AI receptionist" }, { v: "0%", l: "Booking commission" }].map(s => (
-            <div key={s.l} className="bg-white/[0.03] backdrop-blur-md rounded-2xl border border-white/10 px-4 py-5 text-center hover:bg-white/[0.06] transition-colors">
-              <div className="text-2xl sm:text-3xl font-bold font-playfair text-amber-200">{s.v}</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 mt-1.5">{s.l}</div>
+      <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 mt-16 pb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+          {[{ v: "₹0", l: "Setup cost" }, { v: "90 sec", l: "To go live" }, { v: "24/7", l: "AI receptionist" }, { v: "0%", l: "Booking commission" }].map((s, i) => (
+            <div key={s.l} className={`px-4 py-6 text-center hover:bg-white/[0.04] transition-colors ${i < 3 ? "sm:border-r sm:border-white/10" : ""} ${i % 2 === 0 ? "border-r border-white/10 sm:border-r" : ""} ${i < 2 ? "border-b border-white/10 sm:border-b-0" : ""}`}>
+              <div className="text-2xl sm:text-3xl font-playfair text-[#DFB78C]">{s.v}</div>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1.5">{s.l}</div>
             </div>
           ))}
         </div>
@@ -225,50 +281,50 @@ export default function Landing() {
       {/* Features — bento grid */}
       <section id="features" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 py-24">
         <div className="text-left mb-14 max-w-2xl">
-          <Label className="text-fuchsia-400">Everything you need</Label>
-          <h2 className="font-playfair text-4xl sm:text-5xl mt-4">Built for how Indian salons <em className="text-amber-200 not-italic font-playfair">actually</em> work</h2>
+          <Label className="text-[#E35A89]">Everything you need</Label>
+          <h2 className="font-playfair text-4xl sm:text-5xl font-light mt-4">Built for how Indian salons <em className="text-[#DFB78C] not-italic font-playfair">actually</em> work</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
           {/* Mira AI — large card */}
-          <div className="md:col-span-8 md:row-span-2 relative overflow-hidden rounded-3xl bg-white/[0.03] border border-white/10 group hover:bg-white/[0.06] transition-colors" data-testid="feature-mira-ai">
+          <div className="md:col-span-8 md:row-span-2 relative overflow-hidden rounded-3xl bg-[#0F0F10] border border-white/10 group hover:border-[#DFB78C]/30 transition-colors" data-testid="feature-mira-ai">
             <img src={IMG.mira} alt="" aria-hidden="true" className="absolute right-0 bottom-0 w-2/3 md:w-1/2 object-contain opacity-80 group-hover:scale-105 transition-transform duration-700" />
             <div className="relative p-8 md:p-12 max-w-md">
-              <span className="inline-flex items-center gap-1.5 text-amber-300 text-[11px] uppercase tracking-[0.2em] font-semibold"><Sparkles className="w-3.5 h-3.5" /> Your AI employee</span>
+              <span className="inline-flex items-center gap-1.5 text-[#DFB78C] text-[11px] uppercase tracking-[0.2em] font-semibold"><Sparkles className="w-3.5 h-3.5" /> Your AI employee</span>
               <h3 className="font-playfair text-3xl md:text-4xl mt-3">Mira AI ✦</h3>
-              <p className="text-neutral-400 mt-4 leading-relaxed">Voice briefings in English &amp; Hindi, AI poster studio, review replies — and a 24/7 booking agent that chats with your clients and fills your calendar.</p>
+              <p className="text-white/60 mt-4 leading-relaxed">Voice briefings in English &amp; Hindi, AI poster studio, review replies — and a 24/7 booking agent that chats with your clients and fills your calendar.</p>
               <div className="flex flex-wrap gap-2 mt-6">
                 {[[Mic, "Voice booking"], [Calendar, "Slot-aware"], [BadgePercent, "Upsells offers"]].map(([I, t]) => (
-                  <span key={t} className="inline-flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-full px-3 py-1.5 text-xs text-white/80"><I className="w-3.5 h-3.5 text-fuchsia-400" /> {t}</span>
+                  <span key={t} className="inline-flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-full px-3 py-1.5 text-xs text-white/80"><I className="w-3.5 h-3.5 text-[#E35A89]" /> {t}</span>
                 ))}
               </div>
               <a href="/book/miracurl-marathahalli" target="_blank" rel="noreferrer" data-testid="mira-try-live-btn"
-                 className="inline-flex items-center gap-2 mt-8 px-5 py-2.5 rounded-full bg-amber-300 text-black font-semibold text-sm hover:-translate-y-0.5 transition-transform">
+                 className="inline-flex items-center gap-2 mt-8 px-5 py-2.5 rounded-full bg-[#DFB78C] text-[#050505] font-semibold text-sm hover:bg-[#EAD3B3] hover:-translate-y-0.5 transition-transform">
                 Try Mira live <ArrowRight className="w-4 h-4" />
               </a>
             </div>
           </div>
           {/* Smart POS */}
-          <div className="md:col-span-4 relative overflow-hidden rounded-3xl bg-white/[0.03] border border-white/10 group hover:bg-white/[0.06] transition-colors min-h-[220px]" data-testid="feature-smart-pos">
+          <div className="md:col-span-4 relative overflow-hidden rounded-3xl bg-[#0F0F10] border border-white/10 group hover:border-[#DFB78C]/30 transition-colors min-h-[220px]" data-testid="feature-smart-pos">
             <img src={IMG.pos} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-55 transition-opacity duration-500" />
             <div className="relative p-8">
-              <Receipt className="w-6 h-6 text-amber-300" />
+              <Receipt className="w-6 h-6 text-[#DFB78C]" />
               <h3 className="font-playfair text-2xl mt-3">Smart POS</h3>
-              <p className="text-neutral-400 text-sm mt-2">GST billing, thermal receipts with Google-review QR, multi-stylist invoices.</p>
+              <p className="text-white/60 text-sm mt-2">GST billing, thermal receipts with Google-review QR, multi-stylist invoices.</p>
             </div>
           </div>
           {/* Staff Registry */}
-          <div className="md:col-span-4 rounded-3xl bg-white/[0.03] border border-white/10 p-8 hover:bg-white/[0.06] transition-colors" data-testid="feature-staff-registry">
+          <div className="md:col-span-4 rounded-3xl bg-[#0F0F10] border border-white/10 p-8 hover:border-[#DFB78C]/30 transition-colors" data-testid="feature-staff-registry">
             <ShieldCheck className="w-6 h-6 text-emerald-400" />
             <h3 className="font-playfair text-2xl mt-3">Staff Registry</h3>
-            <p className="text-neutral-400 text-sm mt-2">Aadhaar-verified cross-salon history, geo-fenced attendance, auto badges + PDF.</p>
+            <p className="text-white/60 text-sm mt-2">Aadhaar-verified cross-salon history, geo-fenced attendance, auto badges + PDF.</p>
           </div>
           {/* Wide booking card */}
-          <div className="md:col-span-12 rounded-3xl bg-gradient-to-r from-white/[0.05] to-fuchsia-500/[0.06] border border-white/10 p-8 md:p-10 flex flex-col md:flex-row md:items-center gap-6 hover:border-fuchsia-500/30 transition-colors" data-testid="feature-online-booking">
+          <div className="md:col-span-12 rounded-3xl bg-gradient-to-r from-[#0F0F10] to-[#E35A89]/[0.08] border border-white/10 p-8 md:p-10 flex flex-col md:flex-row md:items-center gap-6 hover:border-[#E35A89]/30 transition-colors" data-testid="feature-online-booking">
             <div className="flex-1">
               <h3 className="font-playfair text-2xl md:text-3xl">24/7 Online Booking · PWA Apps · Loyalty</h3>
-              <p className="text-neutral-400 text-sm mt-2 max-w-2xl">Your own /book page clients install like an app. Loyalty points, memberships, packages and birthday emails keep them coming back.</p>
+              <p className="text-white/60 text-sm mt-2 max-w-2xl">Your own /book page clients install like an app. Loyalty points, memberships, packages and birthday emails keep them coming back.</p>
             </div>
-            <Link to="/signup-salon" className="shrink-0 inline-flex items-center gap-2 px-6 py-3 rounded-full border border-fuchsia-400/50 text-fuchsia-300 text-sm font-semibold hover:bg-fuchsia-500/10 transition-colors" data-testid="feature-booking-cta">
+            <Link to="/signup-salon" className="shrink-0 inline-flex items-center gap-2 px-6 py-3 rounded-full border border-[#E35A89]/50 text-[#E35A89] text-sm font-semibold hover:bg-[#E35A89]/10 transition-colors" data-testid="feature-booking-cta">
               Get your page <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -276,10 +332,10 @@ export default function Landing() {
           {SMALL_FEATURES.map(f => {
             const I = f.icon;
             return (
-              <div key={f.title} className="md:col-span-4 rounded-3xl bg-white/[0.03] border border-white/10 p-7 hover:bg-white/[0.06] hover:-translate-y-1 transition-all duration-300" data-testid={`feature-${f.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
-                <I className="w-5 h-5 text-amber-300" />
+              <div key={f.title} className="md:col-span-4 rounded-3xl bg-[#0F0F10] border border-white/10 p-7 hover:border-[#DFB78C]/30 hover:-translate-y-1 transition-transform duration-300" data-testid={`feature-${f.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+                <I className="w-5 h-5 text-[#DFB78C]" />
                 <h3 className="font-playfair text-xl mt-3">{f.title}</h3>
-                <p className="text-neutral-500 text-sm mt-2 leading-relaxed">{f.desc}</p>
+                <p className="text-white/50 text-sm mt-2 leading-relaxed">{f.desc}</p>
               </div>
             );
           })}
@@ -294,18 +350,18 @@ export default function Landing() {
 
       {/* Testimonials — editorial */}
       <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-24">
-        <Label className="text-amber-300">Salon owners on Miracurl</Label>
+        <Label className="text-[#DFB78C]">Salon owners on Miracurl</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
           {testimonials.map((t, i) => (
             <figure key={t.name} data-testid={`testimonial-card-${i + 1}`}
-                    className="rounded-3xl bg-white/[0.03] border border-white/10 p-8 hover:bg-white/[0.06] transition-colors">
-              <div className="flex gap-1 text-amber-300">{["s1", "s2", "s3", "s4", "s5"].map(s => <Star key={s} className="w-4 h-4 fill-amber-300" />)}</div>
+                    className="rounded-3xl bg-[#0F0F10] border border-white/10 p-8 hover:border-[#DFB78C]/30 transition-colors">
+              <div className="flex gap-1 text-[#DFB78C]">{["s1", "s2", "s3", "s4", "s5"].map(s => <Star key={s} className="w-4 h-4 fill-[#DFB78C]" />)}</div>
               <blockquote className="font-playfair text-xl md:text-2xl leading-relaxed mt-4 text-white/90">"{t.quote}"</blockquote>
               <figcaption className="flex items-center gap-3 mt-6">
                 <img src={t.img} alt={t.name} className="w-11 h-11 rounded-full object-cover border border-white/20" />
                 <div>
                   <div className="text-sm font-semibold">{t.name}</div>
-                  <div className="text-xs text-neutral-500">{t.role}</div>
+                  <div className="text-xs text-white/50">{t.role}</div>
                 </div>
               </figcaption>
             </figure>
@@ -319,14 +375,14 @@ export default function Landing() {
       {/* Pricing */}
       <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 pb-24">
         <div className="text-center mb-14">
-          <Label className="text-fuchsia-400">Pricing</Label>
-          <h2 className="font-playfair text-4xl sm:text-5xl mt-4">Simple, salon-friendly</h2>
-          <p className="text-neutral-500 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Pay once, use everything.</p>
+          <Label className="text-[#E35A89]">Pricing</Label>
+          <h2 className="font-playfair text-4xl sm:text-5xl font-light mt-4">Simple, salon-friendly</h2>
+          <p className="text-white/50 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Pay once, use everything.</p>
           <div className="inline-flex items-center gap-1 mt-7 p-1 rounded-full bg-white/5 border border-white/10" data-testid="pricing-region-toggle">
             {[["in", "🇮🇳 India · ₹"], ["intl", "🌍 International · $"]].map(([k, l]) => (
               <button key={k} data-testid={`pricing-region-${k}`} onClick={() => pickRegion(k)}
                 className={`px-5 py-2 rounded-full text-xs font-semibold transition-colors ${region === k
-                  ? "bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white"
+                  ? "bg-[#DFB78C] text-[#050505]"
                   : "text-white/60 hover:text-white"}`}>
                 {l}
               </button>
@@ -337,25 +393,25 @@ export default function Landing() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {plans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
-                 className={`rounded-3xl p-7 relative bg-white/[0.03] border transition-colors ${p.primary
-                   ? "border-fuchsia-500/50 shadow-[0_0_40px_rgba(217,70,239,0.18)]"
-                   : "border-white/10 hover:bg-white/[0.06]"}`}>
-              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white text-[10px] uppercase tracking-widest font-bold">Best value</div>}
-              <div className="text-xs uppercase tracking-[0.2em] text-neutral-500 font-semibold">{p.title}</div>
+                 className={`rounded-3xl p-7 relative bg-[#0F0F10] border transition-colors ${p.primary
+                   ? "border-[#DFB78C]/60 shadow-[0_0_40px_rgba(223,183,140,0.15)]"
+                   : "border-white/10 hover:border-white/25"}`}>
+              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#DFB78C] text-[#050505] text-[10px] uppercase tracking-widest font-bold">Best value</div>}
+              <div className="text-xs uppercase tracking-[0.2em] text-white/40 font-semibold">{p.title}</div>
               <div className="mt-4 flex items-end gap-2">
-                <span className="text-4xl font-bold font-playfair text-amber-200">{p.price}</span>
+                <span className="text-4xl font-bold font-playfair text-[#DFB78C]">{p.price}</span>
               </div>
-              <div className="text-xs text-neutral-500 mt-1">{p.per}</div>
+              <div className="text-xs text-white/40 mt-1">{p.per}</div>
               <ul className="mt-6 space-y-2.5">
                 {p.items.map(i => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-neutral-400">
+                  <li key={i} className="flex items-start gap-2 text-sm text-white/60">
                     <Check className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" /> {i}
                   </li>
                 ))}
               </ul>
               <Link to="/signup-salon?region=in" data-testid={`plan-cta-${p.key}`}
                     className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
-                      ? "bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white shadow-[0_10px_28px_-8px_rgba(217,70,239,0.6)]"
+                      ? "bg-[#DFB78C] text-[#050505] hover:bg-[#EAD3B3] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
                       : "border border-white/15 text-white/85 hover:bg-white/5"}`}>
                 {p.cta} <ArrowRight className="w-4 h-4" />
               </Link>
@@ -367,53 +423,53 @@ export default function Landing() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
           {intlPlans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
-                 className={`rounded-3xl p-7 relative bg-white/[0.03] border transition-colors ${p.primary
-                   ? "border-fuchsia-500/50 shadow-[0_0_40px_rgba(217,70,239,0.18)]"
-                   : "border-white/10 hover:bg-white/[0.06]"}`}>
-              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white text-[10px] uppercase tracking-widest font-bold">Most popular</div>}
-              <div className="text-xs uppercase tracking-[0.2em] text-neutral-500 font-semibold">{p.title}</div>
+                 className={`rounded-3xl p-7 relative bg-[#0F0F10] border transition-colors ${p.primary
+                   ? "border-[#DFB78C]/60 shadow-[0_0_40px_rgba(223,183,140,0.15)]"
+                   : "border-white/10 hover:border-white/25"}`}>
+              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#DFB78C] text-[#050505] text-[10px] uppercase tracking-widest font-bold">Most popular</div>}
+              <div className="text-xs uppercase tracking-[0.2em] text-white/40 font-semibold">{p.title}</div>
               <div className="mt-4 flex items-end gap-2">
-                <span className="text-4xl font-bold font-playfair text-amber-200">{fmtUSD(p.monthly)}</span>
-                <span className="text-sm text-neutral-500 mb-1.5">/mo</span>
+                <span className="text-4xl font-bold font-playfair text-[#DFB78C]">{fmtUSD(p.monthly)}</span>
+                <span className="text-sm text-white/40 mb-1.5">/mo</span>
               </div>
-              <div className="text-xs text-neutral-500 mt-2 space-y-0.5">
-                <div>6 months: <b className="text-neutral-300">{fmtUSD(p.half)}</b> <span className="text-emerald-400">save {fmtUSD(p.monthly * 6 - p.half)}</span></div>
-                <div>1 year: <b className="text-neutral-300">{fmtUSD(p.annual)}</b> <span className="text-emerald-400">save {fmtUSD(p.monthly * 12 - p.annual)}</span></div>
+              <div className="text-xs text-white/40 mt-2 space-y-0.5">
+                <div>6 months: <b className="text-white/80">{fmtUSD(p.half)}</b> <span className="text-emerald-400">save {fmtUSD(p.monthly * 6 - p.half)}</span></div>
+                <div>1 year: <b className="text-white/80">{fmtUSD(p.annual)}</b> <span className="text-emerald-400">save {fmtUSD(p.monthly * 12 - p.annual)}</span></div>
               </div>
               <ul className="mt-6 space-y-2.5">
                 {p.items.map(i => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-neutral-400">
+                  <li key={i} className="flex items-start gap-2 text-sm text-white/60">
                     <Check className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" /> {i}
                   </li>
                 ))}
               </ul>
               <Link to="/signup-salon?region=intl" data-testid={`plan-cta-${p.key}`}
                     className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
-                      ? "bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white shadow-[0_10px_28px_-8px_rgba(217,70,239,0.6)]"
+                      ? "bg-[#DFB78C] text-[#050505] hover:bg-[#EAD3B3] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
                       : "border border-white/15 text-white/85 hover:bg-white/5"}`}>
                 Start free trial <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           ))}
         </div>
-        <div className="max-w-5xl mx-auto mt-6 rounded-2xl border border-amber-300/25 bg-amber-300/[0.05] p-6 sm:p-8" data-testid="plan-intl-enterprise">
+        <div className="max-w-5xl mx-auto mt-6 rounded-2xl border border-[#DFB78C]/25 bg-[#DFB78C]/[0.05] p-6 sm:p-8" data-testid="plan-intl-enterprise">
           <div className="flex flex-col lg:flex-row gap-6 lg:items-center">
             <div className="flex-1">
-              <p className="text-[11px] uppercase tracking-[3px] text-amber-300/80 font-semibold">Managing 5+ branches?</p>
+              <p className="text-[11px] uppercase tracking-[3px] text-[#DFB78C]/80 font-semibold">Managing 5+ branches?</p>
               <h3 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">Enterprise for Multi-Branch Chains</h3>
-              <p className="text-sm text-neutral-400 mt-1.5">
-                Starting from <b className="text-amber-300">{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 499)}/month</b> — or custom annual contracts tailored to your chain.
+              <p className="text-sm text-white/60 mt-1.5">
+                Starting from <b className="text-[#DFB78C]">{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 499)}/month</b> — or custom annual contracts tailored to your chain.
               </p>
               <ul className="mt-4 grid sm:grid-cols-3 gap-2.5">
                 {["Centralized bookings & billing", "AI marketing on autopilot", "Unlimited staff & branches"].map(f => (
-                  <li key={f} className="flex items-start gap-2 text-[13px] text-neutral-300">
-                    <Check className="w-4 h-4 text-amber-300 mt-0.5 flex-shrink-0" /> {f}
+                  <li key={f} className="flex items-start gap-2 text-[13px] text-white/70">
+                    <Check className="w-4 h-4 text-[#DFB78C] mt-0.5 flex-shrink-0" /> {f}
                   </li>
                 ))}
               </ul>
               <div className="mt-5 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] pl-1.5 pr-4 py-1.5" data-testid="enterprise-consultant-chip">
-                <span className="w-8 h-8 rounded-full bg-amber-300/20 text-amber-300 flex items-center justify-center text-sm">👨‍💼</span>
-                <span className="text-[12px] text-neutral-300 leading-tight">
+                <span className="w-8 h-8 rounded-full bg-[#DFB78C]/20 text-[#DFB78C] flex items-center justify-center text-sm">👨‍💼</span>
+                <span className="text-[12px] text-white/70 leading-tight">
                   <b className="text-white">Bablu Kumar</b> · Enterprise Consultant
                   <span className="block text-[10px] text-emerald-400">● Usually replies within 5 minutes</span>
                 </span>
@@ -421,37 +477,43 @@ export default function Landing() {
             </div>
             <div className="flex flex-col gap-3 lg:w-72 flex-shrink-0">
               <Link to="/demo" data-testid="enterprise-book-demo"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-neutral-900 bg-gradient-to-r from-amber-300 to-yellow-500 shadow-[0_0_26px_-6px_rgba(251,191,36,0.65)] hover:shadow-[0_0_36px_-4px_rgba(251,191,36,0.9)] hover:-translate-y-0.5 transition-all">
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-[#050505] bg-[#DFB78C] shadow-[0_0_26px_-6px_rgba(223,183,140,0.65)] hover:bg-[#EAD3B3] hover:-translate-y-0.5 transition-transform">
                 📞 Book a Demo
               </Link>
               <a href={`https://wa.me/918217072523?text=${encodeURIComponent("Hi! I run a multi-branch salon chain and I'd like to know about Miracurl Enterprise plans.")}`}
                 target="_blank" rel="noreferrer" data-testid="enterprise-whatsapp"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-white bg-[#25D366] shadow-[0_0_22px_-8px_rgba(37,211,102,0.7)] hover:shadow-[0_0_30px_-6px_rgba(37,211,102,0.95)] hover:-translate-y-0.5 transition-all">
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-white bg-[#25D366] shadow-[0_0_22px_-8px_rgba(37,211,102,0.7)] hover:-translate-y-0.5 transition-transform">
                 💬 Chat on WhatsApp
               </a>
               <button onClick={() => window.dispatchEvent(new Event("open-sales-chat"))} data-testid="enterprise-ask-mira"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-[13px] font-semibold text-amber-300 border border-amber-300/40 hover:bg-amber-300/10 transition-colors">
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-[13px] font-semibold text-[#DFB78C] border border-[#DFB78C]/40 hover:bg-[#DFB78C]/10 transition-colors">
                 ✦ Ask Mira — instant answers
               </button>
             </div>
           </div>
         </div>
-        <p className="text-center text-[11px] text-neutral-600 mt-5">Prices in USD for clients outside India (US, UK, UAE, Canada, Australia & more). Billed via secure international payment link.</p>
+        <p className="text-center text-[11px] text-white/35 mt-5">Prices in USD for clients outside India (US, UK, UAE, Canada, Australia & more). Billed via secure international payment link.</p>
         </>
         )}
       </section>
 
       {/* Final CTA */}
       <section className="relative z-10 max-w-4xl mx-auto px-6 sm:px-10 pb-24">
-        <div className="rounded-3xl p-10 sm:p-16 text-center relative overflow-hidden border border-amber-300/20"
-             style={{ background: "linear-gradient(135deg, rgba(217,70,239,0.14) 0%, rgba(234,179,8,0.10) 100%)" }}>
-          <Zap className="w-10 h-10 mx-auto text-amber-300" />
-          <h2 className="font-playfair text-3xl sm:text-5xl mt-5">Ready to bring your salon online?</h2>
-          <p className="text-neutral-400 mt-4 max-w-xl mx-auto">Set up in 90 seconds. Cancel anytime in your trial. Pay only when it works.</p>
-          <Link to="/signup-salon" data-testid="landing-cta-footer"
-                className="inline-flex items-center gap-2 mt-9 px-8 py-4 rounded-full bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white font-bold hover:-translate-y-1 transition-transform shadow-[0_16px_40px_-10px_rgba(217,70,239,0.65)]">
-            Start free trial <ArrowRight className="w-4 h-4" />
-          </Link>
+        <div className="rounded-3xl p-10 sm:p-16 text-center relative overflow-hidden border border-[#DFB78C]/20"
+             style={{ background: "linear-gradient(135deg, rgba(227,90,137,0.12) 0%, rgba(223,183,140,0.10) 100%)" }}>
+          <Zap className="w-10 h-10 mx-auto text-[#DFB78C]" />
+          <h2 className="font-playfair text-3xl sm:text-5xl font-light mt-5">Ready to bring your salon online?</h2>
+          <p className="text-white/60 mt-4 max-w-xl mx-auto">Set up in 90 seconds. Cancel anytime in your trial. Pay only when it works.</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-9">
+            <Link to="/signup-salon" data-testid="landing-cta-footer"
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#DFB78C] text-[#050505] font-bold hover:bg-[#EAD3B3] hover:-translate-y-1 transition-transform shadow-[0_16px_40px_-10px_rgba(223,183,140,0.6)]">
+              Start free trial <ArrowRight className="w-4 h-4" />
+            </Link>
+            <button onClick={() => setVideoOpen(true)} data-testid="footer-watch-tour-btn"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full border border-white/20 text-white/85 font-medium hover:bg-white/5 transition-colors">
+              <Play className="w-4 h-4 text-[#DFB78C] fill-[#DFB78C]" /> Watch the 2-min tour
+            </button>
+          </div>
         </div>
       </section>
 
@@ -459,11 +521,11 @@ export default function Landing() {
       <footer className="relative z-10 border-t border-white/10 pt-16 pb-10 overflow-hidden">
         <div className="max-w-7xl mx-auto px-6 sm:px-10">
           <div className="font-playfair text-[13vw] md:text-[10vw] leading-none text-white/[0.06] select-none whitespace-nowrap" aria-hidden="true">
-            MIRACURL <span className="text-amber-300/20">✦</span>
+            MIRACURL <span className="text-[#DFB78C]/20">✦</span>
           </div>
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500">
-            <div className="flex items-center gap-2"><Scissors className="w-3.5 h-3.5 text-fuchsia-400" /> © Miracurl Salon Suite · Marathahalli, Bangalore</div>
-            <div className="flex items-center gap-5">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/40">
+            <div className="flex items-center gap-2"><Scissors className="w-3.5 h-3.5 text-[#E35A89]" /> © Miracurl Salon Suite · Marathahalli, Bangalore</div>
+            <div className="flex items-center gap-5 flex-wrap justify-center">
               <Link to="/login" className="hover:text-white transition-colors">Sign in</Link>
               <Link to="/signup-salon" className="hover:text-white transition-colors">Free trial</Link>
               <a href="#features" className="hover:text-white transition-colors">Features</a>
@@ -472,7 +534,7 @@ export default function Landing() {
               <Link to="/terms-of-service" className="hover:text-white transition-colors" data-testid="footer-terms-link">Terms</Link>
               <Link to="/privacy-policy" className="hover:text-white transition-colors" data-testid="footer-privacy-link">Privacy</Link>
               <Link to="/refund-policy" className="hover:text-white transition-colors" data-testid="footer-refund-link">Refunds</Link>
-              <Link to="/mira.ai" className="text-amber-300/70 hover:text-amber-300 transition-colors">Mira AI Studio ✦</Link>
+              <Link to="/mira.ai" className="text-[#DFB78C]/70 hover:text-[#DFB78C] transition-colors">Mira AI Studio ✦</Link>
             </div>
           </div>
         </div>

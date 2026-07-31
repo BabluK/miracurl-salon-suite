@@ -5,7 +5,7 @@ import { Gift, ArrowLeft, Loader2, Copy, Check, Sparkles } from "lucide-react";
 import { toast, Toaster } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const TOASTER_STYLE = { background: "#121212", color: "#fff", border: "1px solid rgba(212,175,55,0.3)" };
+const TOASTER_STYLE = { background: "#ffffff", color: "#1e293b", border: "1px solid rgba(212,175,55,0.4)" };
 
 const loadRzp = () => new Promise((res) => {
   if (window.Razorpay) return res(true);
@@ -161,42 +161,53 @@ export default function GiftCardPublic() {
     } catch { toast.error("Couldn't load the preview"); setEmailPreview(null); }
   };
 
-  const inputCls = "w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-gold focus:outline-none";
+  const inputCls = "w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-gold focus:outline-none shadow-sm";
   const canRzp = cfg?.payment?.razorpay;
   const canUpi = cfg?.payment?.upi;
 
-  if (!cfg) return <div className="min-h-screen bg-[#080809] flex items-center justify-center"><Loader2 className="w-8 h-8 text-gold animate-spin" /></div>;
+  if (!cfg) return <div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="w-8 h-8 text-gold animate-spin" /></div>;
 
   return (
-    <div className="min-h-screen bg-[#080809] text-white" data-testid="gift-card-page">
-      <Toaster theme="dark" position="top-center" toastOptions={{ style: TOASTER_STYLE }} />
-      <div className="max-w-3xl mx-auto px-5 py-8 sm:py-12">
-        <Link to={`/book/${slug}`} className="inline-flex items-center gap-1.5 text-xs text-white/50 hover:text-gold transition-colors" data-testid="gift-back-link">
+    <div className="min-h-screen relative overflow-hidden bg-white text-slate-800" data-testid="gift-card-page">
+      {/* Decorative rose-gold gradient blobs — matching the login page */}
+      <div className="pointer-events-none fixed -right-32 -bottom-32 w-[640px] h-[640px] rounded-full opacity-90"
+           style={{ background: "radial-gradient(circle at 30% 30%, #e8918f 0%, #d4af37 40%, #ec4899 75%, transparent 100%)" }} />
+      <div className="pointer-events-none fixed -left-40 -bottom-44 w-[520px] h-[520px] rounded-full opacity-80"
+           style={{ background: "radial-gradient(circle at 60% 40%, #f5d78e 0%, #e8a0a8 45%, #d4af37 80%, transparent 100%)" }} />
+      {/* AI sparkles drifting over the page */}
+      <div className="pointer-events-none fixed inset-0" aria-hidden="true">
+        {[["12%","18%","0s"],["85%","12%","1.2s"],["70%","30%","2.1s"],["20%","65%","0.7s"],["90%","55%","1.8s"],["45%","10%","2.6s"],["8%","42%","3.2s"],["60%","75%","1.5s"]].map(([l,t,d]) => (
+          <span key={l+t} className="dash-sparkle dash-sparkle-gold" style={{ left: l, top: t, width: 5, height: 5, animationDelay: d, animationDuration: "4s" }} />
+        ))}
+      </div>
+      <Toaster theme="light" position="top-center" toastOptions={{ style: TOASTER_STYLE }} />
+      <div className="relative z-10 max-w-3xl mx-auto px-5 py-8 sm:py-12">
+        <Link to={`/book/${slug}`} className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-gold transition-colors" data-testid="gift-back-link">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to {cfg.salon.name}
         </Link>
         <div className="mt-5 flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gold to-amber-700 flex items-center justify-center"><Gift className="w-6 h-6 text-black" /></div>
           <div>
-            <h1 className="font-playfair text-3xl sm:text-4xl">Gift Card for a Loved One</h1>
-            <p className="text-xs text-white/50 mt-1">{cfg.salon.name}{cfg.salon.location ? ` · ${cfg.salon.location}` : ""} · valid {cfg.validity_days} days · redeemable on any service</p>
+            <h1 className="font-playfair text-3xl sm:text-4xl text-slate-800">Gift Card for a Loved One</h1>
+            <p className="text-xs text-slate-500 mt-1">{cfg.salon.name}{cfg.salon.location ? ` · ${cfg.salon.location}` : ""} · valid {cfg.validity_days} days · redeemable on any service</p>
           </div>
         </div>
 
         {done ? (
-          <div className="mt-10 text-center bg-white/5 border border-gold/30 rounded-3xl p-10" data-testid="gift-success">
+          <div className="mt-10 text-center bg-white ring-1 ring-slate-100 border border-gold/30 rounded-3xl p-10 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.15)]" data-testid="gift-success">
             <div className="text-5xl">{done.status === "awaiting_confirmation" ? "⏳" : "🎉"}</div>
             {done.status === "awaiting_confirmation" ? (
               <>
                 <h2 className="font-playfair text-2xl mt-3">Payment submitted!</h2>
-                <p className="text-sm text-white/60 mt-2 max-w-md mx-auto">The salon will confirm your UPI payment shortly — then the gift card is emailed straight to <b className="text-white">{f.recipient_email}</b> with its unique code.</p>
+                <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">The salon will confirm your UPI payment shortly — then the gift card is emailed straight to <b className="text-slate-800">{f.recipient_email}</b> with its unique code.</p>
               </>
             ) : (
               <>
                 <h2 className="font-playfair text-2xl mt-3">{done.status === "scheduled" ? "Gift scheduled! 💌" : "Gift card sent! 🎁"}</h2>
-                <p className="text-sm text-white/60 mt-2 max-w-md mx-auto">
+                <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
                   {done.status === "scheduled"
-                    ? <>It will be delivered to <b className="text-white">{f.recipient_email}</b> on <b className="text-gold">{done.send_on}</b>.</>
-                    : <>The e-gift card is on its way to <b className="text-white">{f.recipient_email}</b>. Code: <b className="font-mono text-gold">{done.code}</b></>}
+                    ? <>It will be delivered to <b className="text-slate-800">{f.recipient_email}</b> on <b className="text-gold">{done.send_on}</b>.</>
+                    : <>The e-gift card is on its way to <b className="text-slate-800">{f.recipient_email}</b>. Code: <b className="font-mono text-gold">{done.code}</b></>}
                   {" "}Valid till {done.expires_at}.
                 </p>
                 {done.whatsapp_url && (
@@ -210,18 +221,18 @@ export default function GiftCardPublic() {
             <Link to={`/book/${slug}`} className="btn-gold inline-flex items-center gap-2 mt-6">Book an appointment <Sparkles className="w-4 h-4" /></Link>
           </div>
         ) : upiOrder ? (
-          <div className="mt-10 bg-white/5 border border-white/10 rounded-3xl p-8 text-center" data-testid="gift-upi-panel">
-            <h2 className="font-playfair text-2xl">Pay ₹{finalAmount} via UPI</h2>
-            <p className="text-xs text-white/50 mt-1">GPay · PhonePe · Paytm · any UPI app</p>
+          <div className="mt-10 bg-white ring-1 ring-slate-100 rounded-3xl p-8 text-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.15)]" data-testid="gift-upi-panel">
+            <h2 className="font-playfair text-2xl text-slate-800">Pay ₹{finalAmount} via UPI</h2>
+            <p className="text-xs text-slate-500 mt-1">GPay · PhonePe · Paytm · any UPI app</p>
             {upiOrder.qr_b64 && (
               <div className="mt-5 flex flex-col items-center" data-testid="gift-upi-qr">
-                <div className="bg-white p-2.5 rounded-2xl">
+                <div className="bg-white p-2.5 rounded-2xl ring-1 ring-slate-200 shadow-sm">
                   <img src={`data:image/png;base64,${upiOrder.qr_b64}`} alt="Scan to pay via UPI" className="w-44 h-44" />
                 </div>
-                <p className="text-[11px] text-white/50 mt-2">📱 Scan with GPay, PhonePe or any UPI app to pay ₹{finalAmount}</p>
+                <p className="text-[11px] text-slate-500 mt-2">📱 Scan with GPay, PhonePe or any UPI app to pay ₹{finalAmount}</p>
               </div>
             )}
-            <div className="mt-4 inline-flex items-center gap-2 bg-white/10 rounded-xl px-5 py-3 font-mono text-gold text-lg" data-testid="gift-upi-id">
+            <div className="mt-4 inline-flex items-center gap-2 bg-slate-100 rounded-xl px-5 py-3 font-mono text-amber-700 text-lg" data-testid="gift-upi-id">
               {upiOrder.upi_id}
               <button onClick={() => { navigator.clipboard.writeText(upiOrder.upi_id); setCopied(true); toast.success("UPI ID copied"); }} data-testid="gift-upi-copy">
                 {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -229,7 +240,7 @@ export default function GiftCardPublic() {
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5" onClickCapture={() => setPayTapped(true)}>
               <a href={upiOrder.gpay_link || upiOrder.upi_link} data-testid="gift-upi-gpay"
-                className="inline-flex items-center gap-1.5 bg-white text-black font-bold text-sm rounded-full px-5 py-2.5 hover:bg-white/90">
+                className="inline-flex items-center gap-1.5 bg-white border border-slate-300 text-black font-bold text-sm rounded-full px-5 py-2.5 hover:bg-slate-50 shadow-sm">
                 <span className="font-black" style={{ color: "#4285F4" }}>G</span> Pay with GPay
               </a>
               <a href={upiOrder.phonepe_link || upiOrder.upi_link} data-testid="gift-upi-phonepe"
@@ -238,13 +249,13 @@ export default function GiftCardPublic() {
               </a>
               <a href={upiOrder.upi_link} className="btn-gold inline-flex items-center gap-2 !py-2.5 !text-sm" data-testid="gift-upi-open">Any UPI app</a>
             </div>
-            <p className="text-[10px] text-white/35 mt-2">App buttons work on your phone — on a computer, scan the QR above.</p>
+            <p className="text-[10px] text-slate-400 mt-2">App buttons work on your phone — on a computer, scan the QR above.</p>
             <div className="mt-6 max-w-sm mx-auto text-left">
-              <p className="text-[11px] text-white/60 mb-2 text-center">After paying, add <b className="text-gold">one proof</b> below — transaction ID <i>or</i> screenshot — to unlock the confirm button 🔒</p>
-              <label className="text-[11px] uppercase tracking-wider text-white/40">UPI transaction ID</label>
+              <p className="text-[11px] text-slate-500 mb-2 text-center">After paying, add <b className="text-amber-700">one proof</b> below — transaction ID <i>or</i> screenshot — to unlock the confirm button 🔒</p>
+              <label className="text-[11px] uppercase tracking-wider text-slate-400">UPI transaction ID</label>
               <input value={upiRef} onChange={(e) => setUpiRef(e.target.value)} placeholder="e.g. 4172XXXXXXXX" className={inputCls + " mt-1"} data-testid="gift-upi-ref" />
-              <label className="block mt-3 text-[11px] uppercase tracking-wider text-white/40">Or payment screenshot (fastest confirmation)</label>
-              <label data-testid="gift-proof-upload" className={`mt-1 flex items-center justify-center gap-2 border border-dashed rounded-xl px-4 py-3 text-xs cursor-pointer transition ${proofName ? "border-emerald-400/60 text-emerald-300 bg-emerald-500/10" : "border-white/20 text-white/50 hover:border-gold/60 hover:text-gold"}`}>
+              <label className="block mt-3 text-[11px] uppercase tracking-wider text-slate-400">Or payment screenshot (fastest confirmation)</label>
+              <label data-testid="gift-proof-upload" className={`mt-1 flex items-center justify-center gap-2 border border-dashed rounded-xl px-4 py-3 text-xs cursor-pointer transition ${proofName ? "border-emerald-400 text-emerald-700 bg-emerald-50" : "border-slate-300 text-slate-500 hover:border-gold hover:text-amber-700"}`}>
                 <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onProofFile} />
                 {proofName ? `📎 ${proofName} ✓ attached` : "📎 Attach your GPay/PhonePe payment screenshot"}
               </label>
@@ -254,61 +265,61 @@ export default function GiftCardPublic() {
                   : (!proofB64 && upiRef.trim().length < 6) ? "🔒 Add transaction ID or screenshot to confirm"
                   : "✓ I have paid — send the gift card"}
               </button>
-              <p className="text-[10px] text-white/35 mt-2 text-center">The salon verifies your proof, then the card is emailed to {f.recipient_email}.</p>
+              <p className="text-[10px] text-slate-400 mt-2 text-center">The salon verifies your proof, then the card is emailed to {f.recipient_email}.</p>
             </div>
           </div>
         ) : (
           <>
-            <h3 className="text-[11px] uppercase tracking-[0.25em] text-gold mt-10 mb-3">1 · Pick the occasion</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.25em] text-amber-700 mt-10 mb-3 font-semibold">1 · Pick the occasion</h3>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
               {cfg.occasions.map((o) => (
                 <button key={o.key} onClick={() => setOccKey(o.key)} data-testid={`gift-occasion-${o.key}`}
-                  className={`rounded-2xl px-2 py-3.5 text-center border transition-all ${occKey === o.key ? "border-gold bg-gold/10 scale-[1.03]" : "border-white/10 bg-white/[0.03] hover:border-white/30"}`}>
+                  className={`rounded-2xl px-2 py-3.5 text-center border transition-all ${occKey === o.key ? "border-gold bg-gold/10 scale-[1.03] shadow-md" : "border-slate-200 bg-white hover:border-gold/50 shadow-sm"}`}>
                   <div className="text-2xl">{o.emoji}</div>
-                  <div className="text-[11px] mt-1 text-white/80">{o.label}</div>
+                  <div className="text-[11px] mt-1 text-slate-600">{o.label}</div>
                 </button>
               ))}
             </div>
 
-            <h3 className="text-[11px] uppercase tracking-[0.25em] text-gold mt-9 mb-3">2 · Choose the amount</h3>
+            <h3 className="text-[11px] uppercase tracking-[0.25em] text-amber-700 mt-9 mb-3 font-semibold">2 · Choose the amount</h3>
             <div className="flex flex-wrap gap-2.5">
               {cfg.amounts.map((a) => (
                 <button key={a} onClick={() => { setAmount(a); setCustom(""); }} data-testid={`gift-amount-${a}`}
-                  className={`px-6 py-3 rounded-full border font-bold text-sm transition-all ${!custom && amount === a ? "border-gold bg-gold text-black" : "border-white/15 bg-white/[0.03] hover:border-white/40"}`}>
+                  className={`px-6 py-3 rounded-full border font-bold text-sm transition-all ${!custom && amount === a ? "border-gold bg-gold text-black shadow-md" : "border-slate-200 bg-white text-slate-700 hover:border-gold/60 shadow-sm"}`}>
                   ₹{a}
                 </button>
               ))}
               <input type="number" min={50} max={100000} value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Custom ₹"
-                data-testid="gift-amount-custom" className="w-32 bg-white/5 border border-white/15 rounded-full px-5 py-3 text-sm focus:border-gold focus:outline-none" />
+                data-testid="gift-amount-custom" className="w-32 bg-white border border-slate-200 rounded-full px-5 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-gold focus:outline-none shadow-sm" />
             </div>
 
             <div className="mt-9 grid sm:grid-cols-2 gap-7 items-start">
               <div>
-                <h3 className="text-[11px] uppercase tracking-[0.25em] text-gold mb-3">3 · The details</h3>
+                <h3 className="text-[11px] uppercase tracking-[0.25em] text-amber-700 mb-3 font-semibold">3 · The details</h3>
                 <div className="space-y-2.5">
                   <input value={f.buyer_name} onChange={set("buyer_name")} placeholder="Your name *" data-testid="gift-buyer-name" className={inputCls} />
                   <input type="email" value={f.buyer_email} onChange={set("buyer_email")} placeholder="Your email *" data-testid="gift-buyer-email" className={inputCls} />
                   <input value={f.buyer_phone} onChange={set("buyer_phone")} placeholder="Your phone" data-testid="gift-buyer-phone" className={inputCls} />
-                  <div className="h-px bg-white/10 my-1" />
+                  <div className="h-px bg-slate-200 my-1" />
                   <input value={f.recipient_name} onChange={set("recipient_name")} placeholder="Recipient's name *" data-testid="gift-recipient-name" className={inputCls} />
                   <input type="email" value={f.recipient_email} onChange={set("recipient_email")} placeholder="Recipient's email * (card is sent here)" data-testid="gift-recipient-email" className={inputCls} />
                   <input type="tel" value={f.recipient_whatsapp} onChange={set("recipient_whatsapp")} placeholder="Recipient's WhatsApp (optional — send it there too 💬)" data-testid="gift-recipient-whatsapp" className={inputCls} />
                   <textarea rows={2} maxLength={400} value={f.message} onChange={set("message")} placeholder={`Personal message — e.g. "Happy ${occ?.label || "day"}! Treat yourself 💛"`} data-testid="gift-message" className={inputCls} />
                   <div className="flex items-center gap-3 pt-1">
                     <button onClick={() => setSendLater(false)} data-testid="gift-send-now"
-                      className={`px-4 py-2 rounded-full text-xs font-semibold border ${!sendLater ? "border-gold bg-gold/15 text-gold" : "border-white/15 text-white/60"}`}>Send now</button>
+                      className={`px-4 py-2 rounded-full text-xs font-semibold border ${!sendLater ? "border-gold bg-gold/15 text-amber-700" : "border-slate-300 text-slate-500"}`}>Send now</button>
                     <button onClick={() => setSendLater(true)} data-testid="gift-send-later"
-                      className={`px-4 py-2 rounded-full text-xs font-semibold border ${sendLater ? "border-gold bg-gold/15 text-gold" : "border-white/15 text-white/60"}`}>Send on the day 📅</button>
+                      className={`px-4 py-2 rounded-full text-xs font-semibold border ${sendLater ? "border-gold bg-gold/15 text-amber-700" : "border-slate-300 text-slate-500"}`}>Send on the day 📅</button>
                     {sendLater && <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={sendOn} onChange={(e) => setSendOn(e.target.value)}
-                      data-testid="gift-send-date" className="bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-xs focus:border-gold focus:outline-none" />}
+                      data-testid="gift-send-date" className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:border-gold focus:outline-none shadow-sm" />}
                   </div>
                 </div>
               </div>
               <div className="sm:sticky sm:top-6">
-                <h3 className="text-[11px] uppercase tracking-[0.25em] text-gold mb-3">Preview</h3>
+                <h3 className="text-[11px] uppercase tracking-[0.25em] text-amber-700 mb-3 font-semibold">Preview</h3>
                 <CardPreview cfg={cfg} occ={occ} amount={finalAmount} recipient={f.recipient_name} buyer={f.buyer_name} />
                 <button onClick={previewEmail} disabled={emailPreview === "loading"} data-testid="gift-email-preview-btn"
-                  className="w-full mt-3 text-xs text-white/60 hover:text-gold border border-white/15 hover:border-gold/50 rounded-full py-2.5 transition-colors disabled:opacity-50">
+                  className="w-full mt-3 text-xs text-slate-500 hover:text-amber-700 border border-slate-300 hover:border-gold rounded-full py-2.5 transition-colors disabled:opacity-50 bg-white shadow-sm">
                   {emailPreview === "loading" ? "Loading preview…" : "💌 See the exact email they'll receive"}
                 </button>
                 <div className="mt-5 space-y-2.5">
@@ -320,12 +331,12 @@ export default function GiftCardPublic() {
                   )}
                   {canUpi && (
                     <button onClick={payUpi} disabled={busy} data-testid="gift-pay-upi"
-                      className="w-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-300 font-bold rounded-full py-3 text-sm hover:bg-emerald-500/20 disabled:opacity-50">
+                      className="w-full border border-emerald-300 bg-emerald-50 text-emerald-700 font-bold rounded-full py-3 text-sm hover:bg-emerald-100 disabled:opacity-50 shadow-sm">
                       Pay via UPI · GPay / PhonePe {canRzp ? "(direct to salon)" : ""}
                     </button>
                   )}
-                  {!canRzp && !canUpi && <p className="text-xs text-amber-300/80 text-center" data-testid="gift-no-payment">This salon hasn't enabled gift card payments yet — please contact them directly.</p>}
-                  <p className="text-[10px] text-white/35 text-center">The e-gift card with a unique code is emailed {sendLater ? "on the chosen day" : "instantly after payment"}.</p>
+                  {!canRzp && !canUpi && <p className="text-xs text-amber-600 text-center" data-testid="gift-no-payment">This salon hasn't enabled gift card payments yet — please contact them directly.</p>}
+                  <p className="text-[10px] text-slate-400 text-center">The e-gift card with a unique code is emailed {sendLater ? "on the chosen day" : "instantly after payment"}.</p>
                 </div>
               </div>
             </div>

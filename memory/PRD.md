@@ -1225,3 +1225,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 
 ## 2026-07-31 (later 6) — Tour video player on /demo page (screenshot-verified)
 - `TourVideoCard` in PublicDemo.jsx: branded MIRACURL poster + play button above the demo booking widget; click swaps to <video controls autoPlay> playing /miracurl-full-tour.mp4. testids: tour-video-card/-play/-player. Hidden after a demo is booked (done state).
+
+## 2026-07-31 (later 7) — Landing page premium redesign + tour video in hero + Gift Card light theme (screenshot-verified)
+- **Landing.jsx full redesign** (design_agent blueprint: Premium Dark, base #050505, gold #DFB78C, pink accent #E35A89): new AI-generated hero background (smart-AI salon interior), font-light Playfair H1/H2, gold pill CTAs w/ dark text, referral banner moved to slim gold top bar, stats strip w/ divider borders, bento recolored, pricing/testimonials/enterprise recolored (all logic + testids preserved).
+- **Hero tour video**: floating aspect-video glass card overlapping hero (-mt-32/44), AI-generated laptop-dashboard poster, pulsing gold play button, "2:00" chip → fullscreen lightbox (VideoLightbox) playing /miracurl-full-tour.mp4 (autoplay, Esc/backdrop/X close, body scroll lock). Second "Watch the 2-min tour" button in final CTA. testids: hero-video-play, tour-video-lightbox/-player/-close, footer-watch-tour-btn.
+- **GiftCardPublic.jsx**: background restyled to match Login page — white bg, fixed rose-gold radial blobs, gold dash-sparkles; full light-theme conversion (slate text, white inputs/cards w/ shadows, amber-700 step headings, light toaster). CardPreview gradient card untouched.
+- Verified via screenshots: hero + video card render, lightbox opens/plays/closes, gift page fully readable in light theme.
+- REMINDER TO USER: production pod memory must be upgraded >512Mi (OOMKilled 520s). NEEDS REDEPLOY for landing changes.
