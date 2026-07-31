@@ -2,7 +2,7 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-29.50"
+BUILD = "2026-07-29.51"
 BUILD_TIME = "29 Jul 2026, 10:00 AM IST"
 
 RELEASES = [
@@ -16,7 +16,8 @@ RELEASES = [
             "↩️ Half-day waive — wrongly-applied half-day marks can be reversed with one tap on the Attendance page (owner PIN protected, full audit trail)",
             "🔒 Stronger sign-in — untick 'Keep me signed in' at login and your session ends when the browser closes, so shared computers always ask for the password",
             "📖 Smoother booking — the online booking page now scrolls to the top automatically at every step, and the staff verify portal asks for the badge name right where you need it",
-            "Super Admin: 🎥 60-second walkthrough video (real app screens) auto-included in every WhatsApp lead pitch and inquiry reply",
+            "Super Admin: 🎥 60-second walkthrough video (real app screens) auto-included in every WhatsApp lead pitch and inquiry reply — now with Mira's voice narration, plus a full 2-minute feature tour at /miracurl-full-tour.mp4 ready for YouTube",
+            "Super Admin: 📈 Payment-link conversion tracker — see Sent / Opened / Paid / Conversion % at a glance, with an 'opened' chip on every link the owner has viewed",
             "❌ Cancellation SMS — customers automatically get a text when their booking is cancelled, with an invite to rebook",
             "Super Admin: 📜 SMS delivery log — tap any salon's SMS balance to see every text sent, failed or skipped, with reasons",
             "Super Admin: ⚠️ Low-balance alerts — HQ gets an email when a salon's SMS points drop under 20, plus WhatsApp lead pitches now include the live demo, salon signup, staff registry and screens-tour links",

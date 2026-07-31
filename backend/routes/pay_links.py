@@ -61,7 +61,17 @@ async def list_pay_links(tenant_id: str = "", user=Depends(require_super_admin))
     rows = await _raw_db.subscription_pay_links.find(q, {"_id": 0}).sort("created_at", -1).to_list(100)
     for r in rows:
         r["status"] = _effective_status(r)
-    return {"plans": _link_plans(), "links": rows, "valid_days": LINK_VALID_DAYS,
+    all_rows = rows if tenant_id else rows
+    if tenant_id:  # stats always across ALL links so HQ sees global conversion
+        all_rows = await _raw_db.subscription_pay_links.find({}, {"_id": 0, "status": 1, "opened_at": 1,
+                                                                  "amount": 1, "expires_at": 1}).to_list(500)
+        for r in all_rows:
+            r["status"] = _effective_status(r)
+    paid = [r for r in all_rows if r["status"] == "paid"]
+    stats = {"total": len(all_rows), "opened": sum(1 for r in all_rows if r.get("opened_at")),
+             "paid": len(paid), "revenue": round(sum(float(r.get("amount") or 0) for r in paid), 2),
+             "conversion_pct": round(len(paid) * 100 / len(all_rows), 1) if all_rows else 0}
+    return {"plans": _link_plans(), "links": rows, "stats": stats, "valid_days": LINK_VALID_DAYS,
             "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"), "enabled": bool(RAZORPAY_KEY_ID)}
 
 
@@ -182,6 +192,10 @@ async def public_pay_link(token: str, request: Request):
     link = await _raw_db.subscription_pay_links.find_one({"token": token}, {"_id": 0})
     if not link:
         raise HTTPException(404, "This payment link doesn't exist — please ask Miracurl HQ for a fresh one")
+    if link["status"] == "pending" and not link.get("opened_at"):
+        await _raw_db.subscription_pay_links.update_one(
+            {"id": link["id"], "opened_at": {"$exists": False}},
+            {"$set": {"opened_at": _now().isoformat()}})
     return {"status": _effective_status(link), "salon_name": link["salon_name"],
             "plan_label": link["plan_label"], "amount": link["amount"],
             "months": round(link["duration_days"] / 30.5), "note": link.get("note") or "",

@@ -1,0 +1,8 @@
+file '/app/scripts/tour_shots/sc0.mp4'
+file '/app/scripts/tour_shots/sc1.mp4'
+file '/app/scripts/tour_shots/sc2.mp4'
+file '/app/scripts/tour_shots/sc3.mp4'
+file '/app/scripts/tour_shots/sc4.mp4'
+file '/app/scripts/tour_shots/sc5.mp4'
+file '/app/scripts/tour_shots/sc6.mp4'
+file '/app/scripts/tour_shots/sc7.mp4'

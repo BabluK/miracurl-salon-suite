@@ -69,6 +69,17 @@ export default function PayLinkModal({ tenant, onClose }) {
 
         {!data ? <div className="py-8 text-center text-slate-400 text-sm">Loading…</div> : (
           <>
+            {data.stats && (
+              <div className="grid grid-cols-4 gap-2 mt-4" data-testid="pay-link-stats">
+                {[["Sent", data.stats.total, "text-slate-700"], ["Opened", data.stats.opened, "text-sky-600"],
+                  ["Paid", data.stats.paid, "text-emerald-600"], ["Conv.", `${data.stats.conversion_pct}%`, "text-amber-600"]].map(([l, v, c]) => (
+                  <div key={l} className="rounded-xl border border-slate-100 bg-slate-50/50 py-2 text-center">
+                    <div className={`text-lg font-bold ${c}`}>{v}</div>
+                    <div className="text-[9px] uppercase tracking-wider text-slate-400">{l}</div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="mt-4 space-y-2">
               {data.plans.map(p => (
                 <label key={p.key} data-testid={`pay-link-plan-${p.key}`}
@@ -114,6 +125,7 @@ export default function PayLinkModal({ tenant, onClose }) {
                         <span className="font-semibold">₹{Number(l.amount).toLocaleString("en-IN")}</span>
                         <span className="text-slate-500">{l.plan_label}</span>
                         {l.emailed_at && <span className="text-[10px] text-sky-600" title={`Emailed to ${l.emailed_to}`}>📧 emailed</span>}
+                        {l.opened_at && l.status === "pending" && <span className="text-[10px] text-violet-600" title={`Opened ${l.opened_at.slice(0, 16).replace("T", " ")}`}>👀 opened</span>}
                         <span className="ml-auto flex items-center gap-1">
                           {l.status === "pending" && (
                             <>
