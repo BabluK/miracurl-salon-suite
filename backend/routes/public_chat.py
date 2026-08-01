@@ -618,13 +618,13 @@ async def public_chat_send(slug: str, thread_id: str, body: ChatSendIn, request:
 
 # ---------------- Mira AI Inquiries (unavailable product/service requests) ----------------
 @router.get("/ai-inquiries")
-async def list_ai_inquiries(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def list_ai_inquiries(user=Depends(require_admin), t=Depends(current_tenant)):
     rows = await _raw_db.ai_inquiries.find({"tenant_id": t["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return {"inquiries": rows, "new_count": sum(1 for r in rows if r.get("status") == "new")}
 
 
 @router.post("/ai-inquiries/{iid}/done")
-async def ai_inquiry_done(iid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def ai_inquiry_done(iid: str, user=Depends(require_admin), t=Depends(current_tenant)):
     row = await _raw_db.ai_inquiries.find_one({"id": iid, "tenant_id": t["id"]}, {"_id": 0, "status": 1})
     if not row:
         raise HTTPException(404, "Inquiry not found")
@@ -634,7 +634,7 @@ async def ai_inquiry_done(iid: str, user=Depends(require_tenant_admin), t=Depend
 
 
 @router.delete("/ai-inquiries/{iid}")
-async def ai_inquiry_delete(iid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def ai_inquiry_delete(iid: str, user=Depends(require_admin), t=Depends(current_tenant)):
     res = await _raw_db.ai_inquiries.delete_one({"id": iid, "tenant_id": t["id"]})
     if not res.deleted_count:
         raise HTTPException(404, "Inquiry not found")
@@ -642,16 +642,16 @@ async def ai_inquiry_delete(iid: str, user=Depends(require_tenant_admin), t=Depe
 
 
 @router.get("/owner-chats")
-async def owner_chats(user=Depends(require_tenant_admin)):
+async def owner_chats(user=Depends(require_admin)):
     return await db.chat_threads.find({}, {"_id": 0, "session_key": 0}).sort("last_at", -1).to_list(200)
 
 @router.get("/owner-chats/unread-count")
-async def owner_chats_unread(user=Depends(require_tenant_admin)):
+async def owner_chats_unread(user=Depends(require_admin)):
     rows = await db.chat_threads.find({"unread_admin": {"$gt": 0}}, {"_id": 0, "unread_admin": 1}).to_list(500)
     return {"unread": sum(int(r.get("unread_admin") or 0) for r in rows)}
 
 @router.get("/owner-chats/{thread_id}/messages")
-async def owner_chat_messages(thread_id: str, user=Depends(require_tenant_admin)):
+async def owner_chat_messages(thread_id: str, user=Depends(require_admin)):
     th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0, "session_key": 0})
     if not th:
         raise HTTPException(404, "Chat not found")
@@ -660,7 +660,7 @@ async def owner_chat_messages(thread_id: str, user=Depends(require_tenant_admin)
     return {"thread": th, "messages": msgs}
 
 @router.post("/owner-chats/{thread_id}/reply")
-async def owner_chat_reply(thread_id: str, body: ChatSendIn, user=Depends(require_tenant_admin)):
+async def owner_chat_reply(thread_id: str, body: ChatSendIn, user=Depends(require_admin)):
     th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0})
     if not th:
         raise HTTPException(404, "Chat not found")

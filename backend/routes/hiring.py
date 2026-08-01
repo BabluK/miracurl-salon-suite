@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from database import db, _raw_db
-from security import require_super_admin, require_tenant_admin, current_tenant, require_owner_pin, public_rate_limit
+from security import require_super_admin, require_admin, current_tenant, require_owner_pin, public_rate_limit
 
 log = logging.getLogger("hiring")
 router = APIRouter()
@@ -43,7 +43,7 @@ class HiringRequestIn(BaseModel):
 
 
 @router.post("/hiring/requests")
-async def create_request(body: HiringRequestIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def create_request(body: HiringRequestIn, user=Depends(require_admin), t=Depends(current_tenant)):
     if body.urgency not in URGENCY:
         raise HTTPException(400, f"urgency must be one of {URGENCY}")
     doc = {
@@ -58,7 +58,7 @@ async def create_request(body: HiringRequestIn, user=Depends(require_tenant_admi
 
 
 @router.get("/hiring/requests")
-async def my_requests(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def my_requests(user=Depends(require_admin), t=Depends(current_tenant)):
     """Owner sees their requests + only HQ-curated candidates (status beyond 'applied')."""
     reqs = await _raw_db.hiring_requests.find(
         {"tenant_id": t["id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
@@ -74,7 +74,7 @@ async def my_requests(user=Depends(require_tenant_admin), t=Depends(current_tena
 
 
 @router.post("/hiring/requests/{rid}/close")
-async def close_request(rid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def close_request(rid: str, user=Depends(require_admin), t=Depends(current_tenant)):
     res = await _raw_db.hiring_requests.update_one(
         {"id": rid, "tenant_id": t["id"]}, {"$set": {"status": "closed", "closed_at": _now()}})
     if res.matched_count == 0:
@@ -83,7 +83,7 @@ async def close_request(rid: str, user=Depends(require_tenant_admin), t=Depends(
 
 
 @router.delete("/hiring/requests/{rid}")
-async def delete_request(rid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant),
+async def delete_request(rid: str, user=Depends(require_admin), t=Depends(current_tenant),
                          _pin=Depends(require_owner_pin)):
     """Owner deletes a CLOSED hiring request (and its applications). Owner PIN protected."""
     req = await _raw_db.hiring_requests.find_one({"id": rid, "tenant_id": t["id"]}, {"_id": 0})

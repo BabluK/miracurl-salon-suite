@@ -1,0 +1,35 @@
+{
+  "summary": "Full backend + frontend verification of (1) branch-locked manager logins and (2) manager section access. 23/23 pytest backend tests PASS. Frontend UI: manager sees locked branch chip and NO branch switcher; PIN gate (4321) unlocks Attendance/Staff for the manager and shows only AECS staff on attendance; admin has branch-switcher, no locked chip, POS loads normally, and /staff Managers section shows two manager rows with per-row branch dropdowns (data-testid manager-branch-<uid>) + Add Manager modal with manager-branch-input select.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_scenarios_executed": [
+    {"case": "Manager attendance/today branch lock (no param, with ?branch=SomethingElse)", "result": "PASS — only 'Miracurl — AECS Layout, Brookefield' rows returned; branch= override ignored server-side"},
+    {"case": "Manager /api/reports/dashboard", "result": "PASS 200"},
+    {"case": "Manager reads: /api/staff, /api/cctv/config, /api/ai-inquiries, /api/settings/late-fines, /api/hiring/requests, /api/attendance/desk-qr", "result": "PASS — all 200; staff response has no salary/salary_monthly fields; desk-qr returns image/png"},
+    {"case": "Manager 403 on /api/managers GET and POST", "result": "PASS 403 for both"},
+    {"case": "Admin regressions (same endpoints)", "result": "PASS 200 for all; /api/managers list contains aecs.manager row with uid"},
+    {"case": "Admin attendance/today shows all branches (>= manager view)", "result": "PASS — unfiltered admin roster size >= branch-filtered"},
+    {"case": "PATCH /api/managers/{uid}/branch validation", "result": "PASS — 'NotARealBranch' returns 400; clear ('') and restore ('Miracurl — AECS Layout, Brookefield') both 200. Branch restored at end."},
+    {"case": "POS regression GET /api/pos/offers", "result": "PASS 200"},
+    {"case": "FE manager login → locked chip + no switcher", "result": "PASS — data-testid=branch-locked-chip shows '🔒 Miracurl — AECS Layout, Brookefield'; branch-switcher count=0"},
+    {"case": "FE PIN gate → Attendance", "result": "PASS — clicking Attendance shows 'Attendance is protected' modal, PIN 4321 unlocks, roster limited to AECS staff (AECS Desk manager row visible; branch chip 'Miracurl — AECS Layout, Brookefield')"},
+    {"case": "FE PIN gate → Staff", "result": "PASS — Staff page loads Team Management grid (Priya, Rahul, Anjali, Karan, etc.)"},
+    {"case": "FE admin branch switcher + no chip", "result": "PASS — data-testid=branch-switcher count=1, branch-locked-chip count=0"},
+    {"case": "FE /staff ManagersSection", "result": "PASS — data-testid=managers-section present; two manager rows with data-testid=manager-branch-<uid>; AECS Desk row value='Miracurl — AECS Layout, Brookefield', Salon Manager value=''; Add Manager modal shows manager-branch-input select with options '🌐 All branches (not locked)' and '🔒 Miracurl — AECS Layout, Brookefield only'"},
+    {"case": "FE Admin POS still loads", "result": "PASS — POS page renders services catalog, tip, gift card input, payment methods"}
+  ],
+  "test_report_links": ["/app/backend/tests/test_iter94_manager_access.py", "/app/test_reports/pytest/iter94.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Pre-existing React hydration warning: <span> cannot be a child of <option> in POS InvoiceHeader branch <select> and ManagersSection branch <select>. Not part of this diff but affects both spots — likely the emergent visual-editor injecting <span data-ve-dynamic> inside <option>. Consider unwrapping the label expression so no span is rendered inside options.",
+    "Manager section console shows several 403s on /staff (e.g. StaffLeaderboard / LeaveApprovals / PendingSignups panels) — expected because these owner-only panels still fetch even though manager sees the page; UI degrades gracefully. Consider conditionally rendering/fetching for role==='manager' to silence console noise."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter94_manager_access.py"],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "100% (7/7 flows)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL; aecs.manager@miracurl.com / Mgr@12345; Owner PIN 4321; tenant miracurl-marathahalli",
+  "seed_data_creation": "None. Branch value on aecs.manager toggled '' then restored to 'Miracurl — AECS Layout, Brookefield' as instructed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Manager AECS Desk uid = a9f45b13-341c-4990-96a6-5dc616157707. Second manager (Salon Manager, all-branches) uid = 52b955fd-884a-45d9-83a7-b6891969d768. Hiring endpoint path is /api/hiring/requests (not /api/hire/jobs). attendance/today response shape is {date, total_staff, on_shift, completed, absent, on_leave, roster:[{...,branch}]}.",
+  "rca of the issue": "n/a — verification pass, both features working end-to-end."
+}

@@ -53,7 +53,7 @@ class VoiceGreetingIn(BaseModel):
 
 
 @router.put("/settings/voice-greeting")
-async def set_voice_greeting(body: VoiceGreetingIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def set_voice_greeting(body: VoiceGreetingIn, user=Depends(require_admin), t=Depends(current_tenant)):
     await db.tenants.update_one({"id": t["id"]}, {"$set": {"voice_greeting_enabled": body.enabled}})
     return {"enabled": body.enabled}
 
@@ -64,12 +64,12 @@ class BirthdayOfferIn(BaseModel):
 
 
 @router.get("/settings/birthday-offer")
-async def get_birthday_offer(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def get_birthday_offer(user=Depends(require_admin), t=Depends(current_tenant)):
     return {"enabled": t.get("birthday_emails_enabled", True), "offer_text": t.get("birthday_offer_text") or ""}
 
 
 @router.put("/settings/birthday-offer")
-async def set_birthday_offer(body: BirthdayOfferIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def set_birthday_offer(body: BirthdayOfferIn, user=Depends(require_admin), t=Depends(current_tenant)):
     await db.tenants.update_one(
         {"id": t["id"]},
         {"$set": {"birthday_emails_enabled": body.enabled, "birthday_offer_text": body.offer_text.strip()}})
@@ -89,7 +89,7 @@ class TenantGeoIn(BaseModel):
 
 
 @router.put("/tenants/current/geo")
-async def set_tenant_geo(body: TenantGeoIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def set_tenant_geo(body: TenantGeoIn, admin=Depends(require_admin), t=Depends(current_tenant)):
     """Pin GPS for the main salon or a specific branch — staff check-in is geo-fenced to 200m."""
     if body.branch:
         res = await db.tenants.update_one(
@@ -105,7 +105,7 @@ async def set_tenant_geo(body: TenantGeoIn, admin=Depends(require_tenant_admin),
 
 
 @router.delete("/tenants/current/geo")
-async def clear_tenant_geo(branch: Optional[str] = None, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def clear_tenant_geo(branch: Optional[str] = None, admin=Depends(require_admin), t=Depends(current_tenant)):
     if branch:
         await db.tenants.update_one(
             {"id": t["id"], "branches.name": branch},
@@ -137,11 +137,11 @@ def _branch_limit(t: dict) -> int:
     return int(lim) if lim else max(len(t.get("branches") or []), 1)
 
 @router.get("/branches")
-async def list_branches(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def list_branches(user=Depends(require_admin), t=Depends(current_tenant)):
     return t.get("branches", [])
 
 @router.get("/branches/limit")
-async def branch_limit_info(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def branch_limit_info(user=Depends(require_admin), t=Depends(current_tenant)):
     return {"limit": _branch_limit(t), "used": len(t.get("branches") or [])}
 
 class BranchRequestIn(BaseModel):
@@ -150,7 +150,7 @@ class BranchRequestIn(BaseModel):
 
 
 @router.post("/branches/request-more")
-async def request_more_branches(body: BranchRequestIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def request_more_branches(body: BranchRequestIn, user=Depends(require_admin), t=Depends(current_tenant)):
     """Salon at its branch limit asks HQ to add N more branches — lands in HQ Inbox + email.
     HQ replies with a payment link; once paid, HQ raises branch_limit and the salon can add them."""
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
@@ -197,7 +197,7 @@ async def request_more_branches(body: BranchRequestIn, user=Depends(require_tena
     return {"ok": True, "additional": body.additional, "new_total": new_total}
 
 @router.post("/branches")
-async def add_branch(body: BranchIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def add_branch(body: BranchIn, user=Depends(require_admin), t=Depends(current_tenant)):
     branches = t.get("branches") or []
     limit = _branch_limit(t)
     if len(branches) >= limit:
@@ -209,7 +209,7 @@ async def add_branch(body: BranchIn, user=Depends(require_tenant_admin), t=Depen
     return branch
 
 @router.put("/branches/{bid}")
-async def update_branch(bid: str, body: BranchIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def update_branch(bid: str, body: BranchIn, user=Depends(require_admin), t=Depends(current_tenant)):
     res = await db.tenants.update_one(
         {"id": t["id"], "branches.id": bid},
         {"$set": {f"branches.$.{k}": v for k, v in body.model_dump().items()}})
@@ -218,7 +218,7 @@ async def update_branch(bid: str, body: BranchIn, user=Depends(require_tenant_ad
     return {"ok": True}
 
 @router.delete("/branches/{bid}")
-async def delete_branch(bid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def delete_branch(bid: str, user=Depends(require_admin), t=Depends(current_tenant)):
     await db.tenants.update_one({"id": t["id"]}, {"$pull": {"branches": {"id": bid}}})
     return {"ok": True}
 
@@ -227,7 +227,7 @@ class LogoGenIn(BaseModel):
     style: str = Field("luxury gold minimal", max_length=200)
 
 @router.post("/branding/logo/generate")
-async def generate_logo(body: LogoGenIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def generate_logo(body: LogoGenIn, user=Depends(require_admin), t=Depends(current_tenant)):
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
@@ -262,7 +262,7 @@ class LogoApplyIn(BaseModel):
     url: str = Field("", max_length=500)
 
 @router.post("/branding/logo/apply")
-async def apply_logo(body: LogoApplyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def apply_logo(body: LogoApplyIn, user=Depends(require_admin), t=Depends(current_tenant)):
     url = body.url.strip()
     if url and not (url.startswith("/api/files/") or url.startswith("http")):
         raise HTTPException(400, "Invalid logo URL")
@@ -290,7 +290,7 @@ class TaxSettingsIn(BaseModel):
 
 
 @router.get("/settings/tax")
-async def get_tax_settings(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def get_tax_settings(user=Depends(require_admin), t=Depends(current_tenant)):
     return {
         "tax_enabled": bool(t.get("tax_enabled", False)),
         "gst_number": t.get("gst_number") or "",
@@ -300,7 +300,7 @@ async def get_tax_settings(user=Depends(require_tenant_admin), t=Depends(current
 
 
 @router.put("/settings/tax")
-async def update_tax_settings(body: TaxSettingsIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def update_tax_settings(body: TaxSettingsIn, user=Depends(require_admin), t=Depends(current_tenant)):
     # If owner wants to charge tax, they MUST provide GSTIN + rate > 0
     if body.tax_enabled:
         if not body.gst_number:
@@ -386,7 +386,7 @@ class BrandingIn(BaseModel):
 
 
 @router.get("/settings/branding")
-async def get_branding(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def get_branding(user=Depends(require_admin), t=Depends(current_tenant)):
     return {
         "name": t.get("name", ""),
         "slug": t.get("slug", ""),
@@ -401,7 +401,7 @@ async def get_branding(user=Depends(require_tenant_admin), t=Depends(current_ten
 
 
 @router.put("/settings/branding")
-async def update_branding(body: BrandingIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def update_branding(body: BrandingIn, user=Depends(require_admin), t=Depends(current_tenant)):
     update = {k: v for k, v in body.model_dump(exclude_none=True).items()}
     if not update:
         return {"ok": True}
@@ -410,7 +410,7 @@ async def update_branding(body: BrandingIn, user=Depends(require_tenant_admin), 
 
 
 @router.get("/dashboard/reminders")
-async def upcoming_reminders(user=Depends(require_tenant_admin)):
+async def upcoming_reminders(user=Depends(require_admin)):
     """Appointments in the next 24 hours that the salon admin can WhatsApp a reminder for."""
     now = datetime.now(timezone.utc)
     horizon = now + timedelta(hours=26)  # small buffer so 'tomorrow same time' still appears
@@ -448,7 +448,7 @@ async def upcoming_reminders(user=Depends(require_tenant_admin)):
 
 
 @router.post("/dashboard/reminders/{aid}/mark-sent")
-async def mark_reminder_sent(aid: str, user=Depends(require_tenant_admin)):
+async def mark_reminder_sent(aid: str, user=Depends(require_admin)):
     """Owner clicked the WhatsApp button — flag the appointment so it stops showing in the list."""
     res = await db.appointments.update_one(
         {"id": aid},

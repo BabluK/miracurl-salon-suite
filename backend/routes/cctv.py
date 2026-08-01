@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from security import require_tenant_admin, current_tenant
+from security import require_admin, current_tenant
 
 router = APIRouter()
 log = logging.getLogger("cctv")
@@ -50,7 +50,7 @@ async def _get_cfg(tenant_id: str) -> dict:
 
 
 @router.get("/cctv/config")
-async def get_config(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def get_config(user=Depends(require_admin), t=Depends(current_tenant)):
     cfg = await _get_cfg(t["id"])
     cfg.pop("last_frame_b64", None)
     cfg["password"] = "••••••" if cfg.get("password") else ""
@@ -69,7 +69,7 @@ class CctvConfigIn(BaseModel):
 
 
 @router.put("/cctv/config")
-async def put_config(body: CctvConfigIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def put_config(body: CctvConfigIn, user=Depends(require_admin), t=Depends(current_tenant)):
     if body.mode not in ("device", "snapshot_url"):
         raise HTTPException(400, "mode must be 'device' or 'snapshot_url'")
     if body.mode == "snapshot_url" and body.snapshot_url:
@@ -161,7 +161,7 @@ class FrameIn(BaseModel):
 
 
 @router.post("/cctv/analyze-frame")
-async def analyze_frame(body: FrameIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def analyze_frame(body: FrameIn, user=Depends(require_admin), t=Depends(current_tenant)):
     """Capture-mode upload: one JPEG frame (base64) from the salon tablet/phone."""
     b64 = body.image_base64.split(",", 1)[-1].strip()
     if not b64 or len(b64) > MAX_FRAME_B64:
@@ -210,7 +210,7 @@ async def _fetch_snapshot(cfg: dict) -> str:
 
 
 @router.post("/cctv/test-snapshot")
-async def test_snapshot(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def test_snapshot(user=Depends(require_admin), t=Depends(current_tenant)):
     """Fetch one frame from the configured snapshot URL and analyze it immediately."""
     cfg = await _get_cfg(t["id"])
     if not cfg.get("snapshot_url"):
@@ -225,7 +225,7 @@ async def test_snapshot(user=Depends(require_tenant_admin), t=Depends(current_te
 
 
 @router.get("/cctv/latest")
-async def latest(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def latest(user=Depends(require_admin), t=Depends(current_tenant)):
     cfg = await _raw_db.cctv_config.find_one({"tenant_id": t["id"]}, {"_id": 0}) or {}
     obs = await _raw_db.cctv_observations.find_one(
         {"tenant_id": t["id"]}, {"_id": 0}, sort=[("at", -1)])

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import log from "@/lib/log";
 import api, { formatApiError, setTenantSlug, detectTenantSlug } from "@/lib/api";
+import { setSelectedBranch } from "@/lib/branch";
 
 const AuthContext = createContext(null);
 
@@ -48,6 +49,7 @@ export function AuthProvider({ children }) {
         const { data } = await api.get("/auth/me");
         if (cancelled) return;
         setUser(data);
+        if (data.role === "manager" && data.branch) setSelectedBranch(data.branch);
         if (data.role === "super_admin") return;
         const t = await fetchCurrentTenant();
         if (cancelled || !t) return;
@@ -69,6 +71,7 @@ export function AuthProvider({ children }) {
 
   const afterAuth = useCallback(async (data) => {
     setUser(data.user);
+    if (data.user.role === "manager" && data.user.branch) setSelectedBranch(data.user.branch);
     if (data.user.role === "super_admin") {
       setTenant(null);
       clearTenantStorage();

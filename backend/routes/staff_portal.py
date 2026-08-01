@@ -28,6 +28,7 @@ from security import (  # noqa: F401
     hash_pw, verify_pw, get_current_user, require_admin, public_rate_limit,
     durable_rate_limit, ai_daily_quota, require_super_admin, require_tenant_admin,
     current_tenant, require_owner_pin, _pin_attempt_guard, _pin_attempt_fail, _pin_attempt_clear,
+    branch_lock,
 )
 from models import (  # noqa: F401
     Tenant, Customer, Appointment, REVIEW_REWARD_CREDITS, MAX_CUSTOMER_CREDIT,
@@ -241,12 +242,12 @@ class LateFineSettingsIn(BaseModel):
 
 
 @router.get("/settings/late-fines")
-async def get_late_fine_settings(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def get_late_fine_settings(user=Depends(require_admin), t=Depends(current_tenant)):
     return {**_late_fine_rules(t), "geo_fence_m": int(t.get("geo_fence_m") or GEO_FENCE_M)}
 
 
 @router.put("/settings/late-fines")
-async def save_late_fine_settings(body: LateFineSettingsIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def save_late_fine_settings(body: LateFineSettingsIn, user=Depends(require_admin), t=Depends(current_tenant)):
     data = body.model_dump()
     fence = data.pop("geo_fence_m")
     await db.tenants.update_one({"id": t["id"]}, {"$set": {"late_fines": data, "geo_fence_m": fence}})
@@ -307,7 +308,7 @@ class WaiveFineIn(BaseModel):
 
 
 @router.post("/attendance/{rec_id}/waive-fine")
-async def waive_late_fine(rec_id: str, body: WaiveFineIn, admin=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
+async def waive_late_fine(rec_id: str, body: WaiveFineIn, admin=Depends(require_admin), _pin=Depends(require_owner_pin)):
     """Correct a wrongly-applied late fine — zeroes the deduction, keeps an audit trail."""
     rec = await db.attendance.find_one({"id": rec_id}, {"_id": 0})
     if not rec:
@@ -323,7 +324,7 @@ async def waive_late_fine(rec_id: str, body: WaiveFineIn, admin=Depends(require_
 
 
 @router.post("/attendance/{rec_id}/waive-half-day")
-async def waive_half_day(rec_id: str, body: WaiveFineIn, admin=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
+async def waive_half_day(rec_id: str, body: WaiveFineIn, admin=Depends(require_admin), _pin=Depends(require_owner_pin)):
     """Correct a wrongly-applied half-day mark — clears the deduction, keeps an audit trail."""
     rec = await db.attendance.find_one({"id": rec_id}, {"_id": 0})
     if not rec:
@@ -347,7 +348,7 @@ class ManualAttnIn(BaseModel):
 
 
 @router.post("/attendance/manual")
-async def manual_attendance(body: ManualAttnIn, admin=Depends(require_tenant_admin),
+async def manual_attendance(body: ManualAttnIn, admin=Depends(require_admin),
                             _pin=Depends(require_owner_pin), t=Depends(current_tenant)):
     """Owner marks attendance on behalf of staff (PIN-gated). No GPS needed — owner attests presence."""
     staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0})
@@ -532,7 +533,7 @@ async def staff_my_attendance(month: Optional[str] = None, s=Depends(_current_st
 
 @router.get("/attendance/desk-qr")
 async def attendance_desk_qr(request: Request, style: str = "poster",
-                             user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+                             user=Depends(require_admin), t=Depends(current_tenant)):
     """Printable salon-desk QR — staff scan it to check in without GPS. style=poster (branded) | raw."""
     import qrcode
     from PIL import Image, ImageDraw, ImageFont
@@ -662,7 +663,7 @@ def _roster_row(s: dict, rec: Optional[dict], now: datetime) -> dict:
 @router.get("/attendance/today")
 async def attendance_today(date: Optional[str] = None,
                            branch: Optional[str] = None,
-                           _=Depends(require_tenant_admin)):
+                           user=Depends(require_admin)):
     """
     Roster for a given day (defaults to today).
     Returns EVERY active staff member with their current check-in/out state,
@@ -670,6 +671,7 @@ async def attendance_today(date: Optional[str] = None,
     hasn't checked in yet.
     """
     day = (date or datetime.now(timezone.utc).date().isoformat()).strip()
+    branch = branch_lock(user, branch)
     try:
         datetime.strptime(day, "%Y-%m-%d")
     except ValueError:
@@ -711,7 +713,7 @@ async def attendance_today(date: Optional[str] = None,
 
 @router.get("/attendance/staff/{sid}")
 async def attendance_by_staff(sid: str, month: Optional[str] = None,
-                              _=Depends(require_tenant_admin)):
+                              _=Depends(require_admin)):
     """Admin view: attendance history for a single staff member for a month."""
     from calendar import monthrange
     now = datetime.now(timezone.utc)

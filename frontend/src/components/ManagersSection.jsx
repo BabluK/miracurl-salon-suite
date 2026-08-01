@@ -1,12 +1,15 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { ShieldCheck, Plus, KeyRound, Trash2, X } from "lucide-react";
+import { ShieldCheck, Plus, KeyRound, Trash2, X, GitBranch } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 export const ManagersSection = ({ onCredential }) => {
+  const { tenant } = useAuth();
+  const branches = tenant?.branches || [];
   const [managers, setManagers] = useState([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", role: "Manager", phone: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true });
+  const [form, setForm] = useState({ name: "", email: "", role: "Manager", phone: "", branch: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
@@ -23,6 +26,7 @@ export const ManagersSection = ({ onCredential }) => {
         email: form.email.trim().toLowerCase(),
         role: form.role.trim() || "Manager",
         phone: form.phone.trim(),
+        branch: form.branch,
         specialties: form.specialties.split(",").map(s => s.trim()).filter(Boolean),
         commission_pct: Number(form.commission_pct) || 0,
         monthly_base_salary: Number(form.monthly_base_salary) || 0,
@@ -30,7 +34,7 @@ export const ManagersSection = ({ onCredential }) => {
       });
       onCredential({ name: data.name, email: data.email, temp_password: data.temp_password });
       setOpen(false);
-      setForm({ name: "", email: "", role: "Manager", phone: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true });
+      setForm({ name: "", email: "", role: "Manager", phone: "", branch: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true });
       load();
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Couldn't create manager");
@@ -44,6 +48,16 @@ export const ManagersSection = ({ onCredential }) => {
       onCredential({ name: m.name, email: data.email, temp_password: data.temp_password });
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Reset failed");
+    }
+  }
+
+  async function setBranch(m, branch) {
+    try {
+      await api.patch(`/managers/${m.id}/branch`, { branch });
+      toast.success(branch ? `${m.name} locked to ${branch} — they'll only see that branch` : `${m.name} can now see all branches`);
+      load();
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't update branch");
     }
   }
 
@@ -87,6 +101,16 @@ export const ManagersSection = ({ onCredential }) => {
                 <div className="text-sm font-semibold text-slate-800">{m.name}</div>
                 <div className="text-xs text-slate-500">{m.email}</div>
               </div>
+              {branches.length > 0 && (
+                <div className="flex items-center gap-1.5 shrink-0" title="Lock this login to one branch — they'll only see that branch's data">
+                  <GitBranch className="w-3.5 h-3.5 text-slate-400" />
+                  <select data-testid={`manager-branch-${m.id}`} value={m.branch || ""} onChange={e => setBranch(m, e.target.value)}
+                    className={`text-xs border rounded-lg px-2 py-1.5 bg-white max-w-[170px] ${m.branch ? "border-violet-300 text-violet-700 font-semibold" : "border-slate-200 text-slate-500"}`}>
+                    <option value="">🌐 All branches</option>
+                    {branches.map(b => <option key={b.id || b.name} value={b.name}>🔒 {b.name}</option>)}
+                  </select>
+                </div>
+              )}
               {m.must_change_password && (
                 <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">Awaiting first login</span>
               )}
@@ -133,6 +157,16 @@ export const ManagersSection = ({ onCredential }) => {
                 <label className="text-xs text-slate-500 mb-1 block">Login email *</label>
                 <input data-testid="manager-email-input" required type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="input-light w-full" placeholder="manager@yoursalon.com" />
               </div>
+              {branches.length > 0 && (
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">Branch (lock this login to one location)</label>
+                  <select data-testid="manager-branch-input" value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))} className="input-light w-full">
+                    <option value="">🌐 All branches (not locked)</option>
+                    {branches.map(b => <option key={b.id || b.name} value={b.name}>🔒 {b.name} only</option>)}
+                  </select>
+                  <p className="text-[11px] text-slate-500 mt-1">A branch-locked login only ever sees its own branch — no switching. Only your owner login can switch branches (PIN protected).</p>
+                </div>
+              )}
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">Specialties (comma separated)</label>
                 <input data-testid="manager-specialties-input" value={form.specialties} onChange={e => setForm(f => ({ ...f, specialties: e.target.value }))} className="input-light w-full" placeholder="Hair Color, Bridal Makeup" />

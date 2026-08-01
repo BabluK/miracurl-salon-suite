@@ -172,6 +172,13 @@ async def require_admin(user=Depends(get_current_user)):
         raise HTTPException(403, "Admin role required")
     return user
 
+
+def branch_lock(user, branch):
+    """Branch-locked manager logins may only ever query their own branch."""
+    if (user or {}).get("role") == "manager" and (user or {}).get("branch"):
+        return user["branch"]
+    return branch
+
 # ---- In-memory rate limit for public booking ----
 _RATE_BUCKET: dict = {}
 

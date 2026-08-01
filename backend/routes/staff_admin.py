@@ -99,7 +99,7 @@ async def auto_close_departed_staff() -> dict:
 
 
 @router.get("/staff/previous")
-async def previous_staff_list(user=Depends(require_tenant_admin)):
+async def previous_staff_list(user=Depends(require_admin)):
     """Staff who left — kept in this list for 6 months. Registry history is permanent."""
     cutoff = (datetime.now(timezone.utc) - timedelta(days=183)).date().isoformat()
     rows = await db.staff.find(
@@ -133,7 +133,7 @@ async def _downgrade_registry_rating(s: dict, letter_type: str, reason: str):
 
 @router.post("/staff/previous/{sid}/relieving-letter")
 async def send_relieving_letter(sid: str, body: RelievingIn,
-                                user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+                                user=Depends(require_admin), t=Depends(current_tenant)):
     """Owner issues a relieving/termination letter PDF (salon letterhead) to a departed
     staff member's personal email. Terminated/absconded also lowers their public registry rating."""
     from services.pdf import _render_relieving_letter_pdf, RELIEVING_TEMPLATES
@@ -169,7 +169,7 @@ async def send_relieving_letter(sid: str, body: RelievingIn,
 
 
 @router.delete("/staff/previous/{sid}")
-async def previous_staff_delete(sid: str, user=Depends(require_tenant_admin)):
+async def previous_staff_delete(sid: str, user=Depends(require_admin)):
     """Remove an entry from the Previous Staff list (registry history stays intact)."""
     res = await db.staff.update_one({"id": sid, "former": True}, {"$set": {"former_hidden": True}})
     if not res.matched_count:
@@ -178,7 +178,7 @@ async def previous_staff_delete(sid: str, user=Depends(require_tenant_admin)):
 
 
 @router.post("/staff/previous/{sid}/rehire")
-async def previous_staff_rehire(sid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def previous_staff_rehire(sid: str, user=Depends(require_admin), t=Depends(current_tenant)):
     """Welcome them back: fresh staff ID for the new stint; the registry links it to
     their permanent history automatically (same registry employee, new employment)."""
     old = await db.staff.find_one({"id": sid, "former": True}, {"_id": 0})
@@ -220,18 +220,18 @@ def _staff_write_payload(body: StaffIn) -> dict:
 
 
 @router.post("/staff")
-async def create_staff(body: StaffIn, user=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
+async def create_staff(body: StaffIn, user=Depends(require_admin), _pin=Depends(require_owner_pin)):
     s = Staff(**_staff_write_payload(body)).model_dump()
     await db.staff.insert_one(s)
     return _clean({k: v for k, v in s.items() if k != "aadhaar_hash"})
 
 @router.put("/staff/{sid}")
-async def update_staff(sid: str, body: StaffIn, user=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
+async def update_staff(sid: str, body: StaffIn, user=Depends(require_admin), _pin=Depends(require_owner_pin)):
     await db.staff.update_one({"id": sid}, {"$set": _staff_write_payload(body)})
     return await db.staff.find_one({"id": sid}, {"_id": 0, "aadhaar_hash": 0})
 
 @router.delete("/staff/{sid}")
-async def delete_staff(sid: str, user=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
+async def delete_staff(sid: str, user=Depends(require_admin), _pin=Depends(require_owner_pin)):
     # If the staff has a linked user (login credential), also delete the login
     # so the deleted staff cannot access the salon.
     s = await db.staff.find_one({"id": sid}, {"_id": 0, "user_id": 1})
@@ -248,7 +248,7 @@ class AdvanceIn(BaseModel):
 
 
 @router.post("/staff/{sid}/advance")
-async def give_advance(sid: str, body: AdvanceIn, admin=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
+async def give_advance(sid: str, body: AdvanceIn, admin=Depends(require_admin), _pin=Depends(require_owner_pin)):
     """One advance per staff per month, only after the 15th, capped at staff.max_advance.
     Auto-deducted from that month's salary slip."""
     staff = await db.staff.find_one({"id": sid}, {"_id": 0})
@@ -275,13 +275,13 @@ async def give_advance(sid: str, body: AdvanceIn, admin=Depends(require_tenant_a
 
 
 @router.get("/staff/{sid}/advances")
-async def list_advances(sid: str, admin=Depends(require_tenant_admin)):
+async def list_advances(sid: str, admin=Depends(require_admin)):
     rows = await db.advances.find({"staff_id": sid}, {"_id": 0}).sort("created_at", -1).to_list(24)
     return rows
 
 
 @router.delete("/staff/{sid}/advance/{aid}")
-async def delete_advance(sid: str, aid: str, admin=Depends(require_tenant_admin), _pin=Depends(require_owner_pin)):
+async def delete_advance(sid: str, aid: str, admin=Depends(require_admin), _pin=Depends(require_owner_pin)):
     """Undo a mistakenly-recorded advance — allowed only within the same month."""
     month = datetime.now(IST_TZ).strftime("%Y-%m")
     res = await db.advances.delete_one({"id": aid, "staff_id": sid, "month": month})
@@ -310,7 +310,7 @@ class StaffTransferIn(BaseModel):
 
 @router.post("/staff/{sid}/transfer")
 async def transfer_staff(sid: str, body: StaffTransferIn,
-                         admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+                         admin=Depends(require_admin), t=Depends(current_tenant)):
     """Move a staff member (profile + portal login) to another salon the SAME owner controls.
     Their booking-portal visibility follows automatically; history stays with the old branch."""
     owned = set(admin.get("tenant_ids") or [])
@@ -341,7 +341,7 @@ async def transfer_staff(sid: str, body: StaffTransferIn,
 @router.post("/staff/{sid}/create-login")
 async def create_staff_login(
     sid: str, body: StaffLoginCreateIn,
-    admin=Depends(require_tenant_admin), t=Depends(current_tenant),
+    admin=Depends(require_admin), t=Depends(current_tenant),
 ):
     """Create a login credential for a staff member. Returns a one-time temp
     password to share with the staff — they'll be forced to change it on first
@@ -379,7 +379,7 @@ async def create_staff_login(
 
 
 @router.post("/staff/{sid}/reset-login")
-async def reset_staff_login(sid: str, admin=Depends(require_tenant_admin)):
+async def reset_staff_login(sid: str, admin=Depends(require_admin)):
     """Regenerate a one-time temp password for a staff who ALREADY has a login
     (e.g. the owner lost the original). Forces a password change on next login."""
     s = await db.staff.find_one({"id": sid}, {"_id": 0})
@@ -407,6 +407,7 @@ class ManagerCreateIn(BaseModel):
     email: str
     role: str = "Manager"
     phone: str = ""
+    branch: str = Field("", max_length=120)
     specialties: List[str] = []
     commission_pct: float = 10.0
     monthly_base_salary: float = 0.0
@@ -435,6 +436,7 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
     new_user = {
         "id": str(uuid.uuid4()), "email": body.email, "name": body.name.strip(),
         "role": "manager", "tenant_id": t["id"], "status": "active", "disabled": False,
+        "branch": body.branch.strip(),
         "password_hash": hash_pw(temp_pw), "must_change_password": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -447,9 +449,28 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
         monthly_base_salary=body.monthly_base_salary, salary_visible=body.salary_visible,
         user_id=new_user["id"],
     ).model_dump()
+    staff_doc["branch"] = body.branch.strip()
     await db.staff.insert_one(staff_doc)
     return {"ok": True, "id": new_user["id"], "email": body.email, "name": new_user["name"],
             "temp_password": temp_pw, "must_change_password": True}
+
+class ManagerBranchIn(BaseModel):
+    branch: str = Field("", max_length=120)
+
+
+@router.patch("/managers/{uid}/branch")
+async def set_manager_branch(uid: str, body: ManagerBranchIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Lock (or unlock with empty) a manager login to one branch."""
+    branch = body.branch.strip()
+    if branch and branch not in [b.get("name") for b in (t.get("branches") or [])]:
+        raise HTTPException(400, "Unknown branch")
+    res = await _raw_db.users.update_one(
+        {"id": uid, "tenant_id": t["id"], "role": "manager"}, {"$set": {"branch": branch}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Manager not found")
+    await db.staff.update_one({"user_id": uid}, {"$set": {"branch": branch}})
+    return {"ok": True, "branch": branch}
+
 
 @router.post("/managers/{uid}/reset")
 async def reset_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
@@ -493,12 +514,12 @@ async def create_whatsapp_request(body: WhatsAppRequestIn, user=Depends(get_curr
     return {"ok": True, "id": doc["id"], "status": "pending"}
 
 @router.get("/whatsapp-requests")
-async def list_whatsapp_requests(status: str = "pending", admin=Depends(require_tenant_admin)):
+async def list_whatsapp_requests(status: str = "pending", admin=Depends(require_admin)):
     q = {} if status == "all" else {"status": status}
     return await db.whatsapp_requests.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
 
 @router.get("/whatsapp-requests/pending-count")
-async def whatsapp_pending_count(admin=Depends(require_tenant_admin)):
+async def whatsapp_pending_count(admin=Depends(require_admin)):
     return {"count": await db.whatsapp_requests.count_documents({"status": "pending"})}
 
 @router.post("/whatsapp-requests/{rid}/approve")
@@ -526,7 +547,7 @@ async def reject_whatsapp_request(rid: str, admin=Depends(require_tenant_admin))
 
 
 @router.post("/staff/{sid}/toggle-active")
-async def toggle_staff_active(sid: str, admin=Depends(require_tenant_admin)):
+async def toggle_staff_active(sid: str, admin=Depends(require_admin)):
     """Enable/disable a staff record + their login (if any). Disabled staff
     cannot log in; the record is preserved for historical reports."""
     s = await db.staff.find_one({"id": sid}, {"_id": 0})

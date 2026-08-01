@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from database import db, _raw_db
-from security import get_current_user, require_admin, require_tenant_admin, require_owner_pin, current_tenant
+from security import get_current_user, require_admin, require_tenant_admin, require_owner_pin, current_tenant, branch_lock
 
 router = APIRouter()
 
@@ -139,6 +139,7 @@ async def staff_performance(user=Depends(get_current_user)):
 
 @router.get("/reports/dashboard")
 async def dashboard(branch: Optional[str] = None, user=Depends(require_admin)):
+    branch = branch_lock(user, branch)
     today = datetime.now(timezone.utc).date().isoformat()
     month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
     branch_flt = {"branch_name": branch} if branch else {}
