@@ -531,20 +531,48 @@ async def staff_my_attendance(month: Optional[str] = None, s=Depends(_current_st
 
 
 @router.get("/attendance/desk-qr")
-async def attendance_desk_qr(request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Printable salon-desk QR — staff scan it to check in without GPS."""
+async def attendance_desk_qr(request: Request, style: str = "poster",
+                             user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Printable salon-desk QR — staff scan it to check in without GPS. style=poster (branded) | raw."""
     import qrcode
+    from PIL import Image, ImageDraw, ImageFont
     token = t.get("attendance_qr_token")
     if not token:
         token = secrets.token_urlsafe(12)
         await db.tenants.update_one({"id": t["id"]}, {"$set": {"attendance_qr_token": token}})
     host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
     proto = request.headers.get("x-forwarded-proto") or "https"
-    img = qrcode.make(f"{proto}://{host}/staff-portal?qr={token}")
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H, border=1)
+    qr.add_data(f"{proto}://{host}/staff-portal?qr={token}")
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="#111111", back_color="white").convert("RGB")
+    bg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "qr_poster_bg.jpg")
+    if style == "raw" or not os.path.exists(bg_path):
+        buf = io.BytesIO()
+        qr_img.resize((640, 640), Image.NEAREST).save(buf, format="PNG")
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="image/png")
+    poster = Image.open(bg_path).convert("RGB")  # 848x1264, white panel x178-669 y412-890
+    qr_size = 430
+    qr_img = qr_img.resize((qr_size, qr_size), Image.NEAREST)
+    px = 178 + (669 - 178 - qr_size) // 2
+    py = 412 + (890 - 412 - qr_size) // 2
+    poster.paste(qr_img, (px, py))
+    d = ImageDraw.Draw(poster)
+    name = (t.get("name") or "").upper()
+    if name:
+        try:
+            fnt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf", 34)
+            fnt_s = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 18)
+            d.text((poster.width // 2, poster.height - 92), name, font=fnt, fill=(212, 175, 55), anchor="mm")
+            d.text((poster.width // 2, poster.height - 54), "Powered by Miracurl", font=fnt_s, fill=(150, 150, 155), anchor="mm")
+        except OSError:
+            pass
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    poster.save(buf, format="PNG")
     buf.seek(0)
-    return StreamingResponse(buf, media_type="image/png")
+    return StreamingResponse(buf, media_type="image/png",
+                             headers={"Content-Disposition": 'inline; filename="staff-checkin-qr.png"'})
 
 
 async def run_half_day_noshow_marker() -> int:

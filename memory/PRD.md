@@ -1274,3 +1274,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - GeoFenceCard banner on Attendance now shows the live fence value (was hardcoded 200m) + pointer to Settings.
 - Verified: GET/PUT fence, 422 @600, staff check-in passes @420m w/ fence 450, roster fields, Settings save UI, badges render. Tenant fines restored to original (grace 7 / 55/110/165/320, fence 300).
 - NEEDS REDEPLOY.
+
+## 2026-08-01 (later 4) — Branded Staff Check-in QR Poster + Download (verified)
+- AI-generated luxury poster bg saved at /app/backend/assets/qr_poster_bg.jpg (848x1264, white QR panel x178-669 y412-890).
+- /api/attendance/desk-qr now composites live QR (ERROR_CORRECT_H) into the poster + salon name (LiberationSerif-Bold gold) + "Powered by Miracurl" at bottom; ?style=raw returns plain 640px QR. Content-Disposition filename staff-checkin-qr.png.
+- Attendance Desk QR modal: shows poster, new "Download poster" button (desk-qr-download, fetch blob w/ credentials), keeps print/open. lucide Download icon imported.
+- Verified: poster PNG 200, QR decodes via pyzbar (installed libzbar0 in preview) to /staff-portal?qr=<token>, UI download produced staff-checkin-qr.png.
+- NEEDS REDEPLOY. Note: assets/ folder must ship with backend (it's in /app/backend/assets — included in repo).
