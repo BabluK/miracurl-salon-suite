@@ -1294,3 +1294,12 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - StaffPortal: playCheckinGreeting(profile.name) on check-in success (button, QR auto, scanner), playCheckoutGreeting on check-out.
 - Verified: QR auto check-in → check-out full cycle, no console errors. Priya's test attendance cleaned from preview DB.
 - NEEDS REDEPLOY.
+
+## 2026-08-01 (later 7) — Branch-locked manager logins + Manager PIN section access (testing agent 30/30 PASS, iteration_94)
+- Branch lock: users.branch on manager accounts. security.branch_lock(user, branch) forces manager's branch server-side on reports/dashboard + attendance/today (param override ignored — verified). AuthContext setSelectedBranch on login/me; BranchSwitcher renders 🔒 locked chip (branch-locked-chip) for branch-locked managers (no dropdown); admin unchanged (PIN switcher).
+- Manager mgmt: ManagerCreateIn.branch; PATCH /api/managers/{uid}/branch (validates against tenant.branches, syncs staff.branch); ManagersSection.jsx: branch select in create form (manager-branch-input) + per-row dropdown (manager-branch-<uid>).
+- Manager section access (user: "give all access with PIN — Staff, Attendance, AI CCTV, Staff Hire, Messages, Settings, Staff activities"): frontend PIN gate pre-existed (AppLayout MANAGER_LOCKED); switched backend deps require_tenant_admin→require_admin in staff_admin.py (EXCEPT /managers CRUD + WhatsApp approve/reject = owner-only), staff_portal.py attendance section (waives/manual still owner-PIN), cctv.py, hiring.py, tenant_settings.py, public_chat.py. Salary fields still stripped for managers (SEC-001).
+- GOTCHA: python one-liner truncated cctv.py (open-for-write evaluated before read) — restored via git checkout; lesson: never open same file for w while reading in one expression.
+- Advisory (P3 backlog): pre-existing hydration warning <span> in <option> (visual-editor); manager /staff console 403 noise from owner-only panels (graceful).
+- Preview test manager: aecs.manager@miracurl.com / Mgr@12345 (branch-locked to 'Miracurl — AECS Layout, Brookefield').
+- NEEDS REDEPLOY. Post-deploy user action: Staff → Managers → set each existing login's branch dropdown (AECS / Munnekolala).
