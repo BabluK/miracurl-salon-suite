@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
+import { ManualAttendanceModal } from "@/components/ManualAttendanceModal";
 import { getSelectedBranch } from "@/lib/branch";
 import { toast } from "sonner";
 import {
@@ -42,6 +43,7 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // {sid, name} for history modal
   const [showQr, setShowQr] = useState(false);
+  const [showManual, setShowManual] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +105,13 @@ export default function Attendance() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button data-testid="manual-attendance-btn" onClick={() => setShowManual(true)}
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-full bg-slate-900 text-white hover:bg-slate-700">
+            <UserCheck className="w-3.5 h-3.5" /> Manual Check-In
+          </button>
+          {showManual && (
+            <ManualAttendanceModal roster={data?.roster || []} onClose={() => setShowManual(false)} onDone={load} />
+          )}
           <button data-testid="desk-qr-btn" onClick={() => setShowQr(true)}
             className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50">
             <QrCode className="w-3.5 h-3.5" /> Desk QR

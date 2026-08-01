@@ -1259,3 +1259,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Seeded preview test data: day offer 'Weekend Glow Special' 20% today, revived 2 mira packages (expires +30d).
 - Full checkout regression w/ offer+package passed (INV-202608-0134). Owner PIN 4321 gates Settings gift section.
 - NEEDS REDEPLOY for production.
+
+## 2026-08-01 (later 2) — Staff check-in geo fix + Manual Admin Attendance (curl + screenshot verified)
+- User (production): on-site staff got "You appear to be XXXm from the salon" 403. Fixes in staff_portal.py:
+  1) GEO_FENCE_M 200→300 (tenant override via tenants.geo_fence_m), 2) GeoIn.accuracy + slack: allowed if distance − min(accuracy,200) ≤ fence (forgives indoor GPS drift; StaffPortal.jsx now sends coords.accuracy), 3) 403 message now tells owner to re-pin salon location in Settings or use desk QR.
+- NEW POST /api/attendance/manual {staff_id, action check_in|check_out, time HH:MM IST today, note} — require_tenant_admin + require_owner_pin (X-Owner-Pin). check_in: computes late fine/half-day from given time, method "manual_admin", marked_by/marked_note audit; blocks dup/future time. check_out: needs prior check-in, computes hours_worked + overtime.
+- NEW ManualAttendanceModal.jsx + "Manual Check-In" button on Attendance page (manual-attendance-btn): action toggle, eligible-staff filter (not-checked-in vs on-shift), IST time default-now, note; uses pinApi (PIN dialog auto).
+- Curl-verified: PIN gate 403, check-in w/ fine calc, dup 400, future 400, out-before-in 400, checkout hours=1.0; geo slack pass @378m/acc150 & 403 @1000m w/ new hint. Screenshot: modal OK (7 check-in eligible / 1 check-out eligible).
+- NEEDS REDEPLOY. Advise user: verify salon pin-drop coordinates in Settings if staff are still blocked at exact location.

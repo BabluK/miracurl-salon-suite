@@ -175,7 +175,7 @@ async def reject_leave_request(rid: str, body: LeaveDecisionIn = LeaveDecisionIn
 IST_TZ = timezone(timedelta(hours=5, minutes=30))
 GRACE_MINUTES = 10          # default grace — admin can override per tenant
 LATE_FINE_TIERS_DEFAULT = {"grace_minutes": GRACE_MINUTES, "fine_5": 50.0, "fine_10": 100.0, "fine_15": 150.0, "fine_30": 300.0}
-GEO_FENCE_M = 200           # check-in blocked beyond this distance from salon
+GEO_FENCE_M = 300           # check-in blocked beyond this distance from salon (tenant override: geo_fence_m)
 HALF_DAY_AFTER_MIN = 180    # no check-in 3h past shift start -> half-day salary deduction
 
 
@@ -189,6 +189,7 @@ AUTO_CHECKOUT_HOURS = 12    # forgot to check out — shift auto-closes at 12h
 class GeoIn(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
+    accuracy: Optional[float] = None
     qr_token: Optional[str] = None
 
 
@@ -335,6 +336,71 @@ async def waive_half_day(rec_id: str, body: WaiveFineIn, admin=Depends(require_t
     return {"ok": True, "waived_amount": ded}
 
 
+class ManualAttnIn(BaseModel):
+    staff_id: str
+    action: str = Field(..., pattern="^(check_in|check_out)$")
+    time: str = Field(..., pattern=r"^\d{2}:\d{2}$")  # HH:MM IST, today
+    note: str = Field("", max_length=200)
+
+
+@router.post("/attendance/manual")
+async def manual_attendance(body: ManualAttnIn, admin=Depends(require_tenant_admin),
+                            _pin=Depends(require_owner_pin), t=Depends(current_tenant)):
+    """Owner marks attendance on behalf of staff (PIN-gated). No GPS needed — owner attests presence."""
+    staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0})
+    if not staff:
+        raise HTTPException(404, "Staff member not found")
+    h, m = map(int, body.time.split(":"))
+    if h > 23 or m > 59:
+        raise HTTPException(400, "Invalid time")
+    now_ist = datetime.now(IST_TZ)
+    when_ist = now_ist.replace(hour=h, minute=m, second=0, microsecond=0)
+    if when_ist > now_ist:
+        raise HTTPException(400, "Time can't be in the future")
+    when_utc = when_ist.astimezone(timezone.utc)
+    today = datetime.now(timezone.utc).date().isoformat()
+    rec = await db.attendance.find_one({"staff_id": staff["id"], "date": today}, {"_id": 0})
+    audit = {"marked_by": admin.get("email"), "marked_note": body.note.strip(),
+             "marked_at": datetime.now(timezone.utc).isoformat()}
+    if body.action == "check_in":
+        if rec and rec.get("check_in_at"):
+            raise HTTPException(400, f"{staff.get('name')} is already checked in today.")
+        late_min, penalty = _late_penalty_for(staff, when_ist, t)
+        half_day = late_min >= HALF_DAY_AFTER_MIN
+        fields = {"check_in_at": when_utc.isoformat(),
+                  "late_minutes": late_min,
+                  "late_penalty": 0.0 if half_day else penalty,
+                  "half_day": half_day,
+                  "half_day_deduction": _half_day_amount(staff) if half_day else 0.0,
+                  "no_show": False,
+                  "check_in_method": "manual_admin",
+                  "check_in_lat": None, "check_in_lng": None, "check_in_distance_m": None,
+                  **audit}
+        if rec:
+            await db.attendance.update_one({"staff_id": staff["id"], "date": today}, {"$set": fields})
+        else:
+            await db.attendance.insert_one({
+                "id": str(uuid.uuid4()), "staff_id": staff["id"], "staff_name": staff.get("name"),
+                "date": today, **fields, "check_out_at": None,
+                "created_at": datetime.now(timezone.utc).isoformat()})
+    else:
+        if not rec or not rec.get("check_in_at"):
+            raise HTTPException(400, f"{staff.get('name')} hasn't checked in today — check them in first.")
+        if rec.get("check_out_at"):
+            raise HTTPException(400, f"{staff.get('name')} is already checked out today.")
+        check_in = datetime.fromisoformat(rec["check_in_at"])
+        if when_utc <= check_in:
+            raise HTTPException(400, "Check-out time must be after the check-in time.")
+        hours = round((when_utc - check_in).total_seconds() / 3600, 2)
+        ot_h, ot_pay = _overtime_for(staff, when_ist)
+        await db.attendance.update_one(
+            {"staff_id": staff["id"], "date": today},
+            {"$set": {"check_out_at": when_utc.isoformat(), "hours_worked": hours,
+                      "overtime_hours": ot_h, "overtime_pay": ot_pay,
+                      "check_out_method": "manual_admin", **audit}})
+    return await db.attendance.find_one({"staff_id": staff["id"], "date": today}, {"_id": 0})
+
+
 def _fence_for(staff: dict, tenant: dict):
     """(lat, lng, label) the staff must check in near — their branch first, else main salon."""
     if staff.get("branch"):
@@ -362,8 +428,13 @@ async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff)
         if geo.lat is None or geo.lng is None:
             raise HTTPException(400, "Location required — please allow GPS access in your browser to check in (or scan the salon desk QR).")
         distance_m = round(_haversine_m(geo.lat, geo.lng, f_lat, f_lng), 1)
-        if distance_m > GEO_FENCE_M:
-            raise HTTPException(403, f"You appear to be {int(distance_m)}m from {f_label}. Check-in is allowed only within {GEO_FENCE_M}m.")
+        fence = int(t.get("geo_fence_m") or GEO_FENCE_M)
+        gps_slack = min(float(geo.accuracy or 0), 200)  # forgive indoor GPS drift, capped
+        if distance_m - gps_slack > fence:
+            raise HTTPException(403, (
+                f"You appear to be {int(distance_m)}m from {f_label}. Check-in is allowed only within {fence}m. "
+                "If you ARE at the salon: the saved salon map location may be wrong (owner can re-pin it in Settings), "
+                "or scan the salon desk QR to check in without GPS."))
     now = datetime.now(timezone.utc)
     late_min, penalty = _late_penalty_for(s, now.astimezone(IST_TZ), t)
     # Fines only for verified on-site check-ins (GPS inside the fence, or the desk QR).
