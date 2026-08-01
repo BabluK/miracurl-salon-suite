@@ -1244,3 +1244,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - OPEN SEC-002 (LOW, product decision pending): desk-QR check-in (staff_portal.py:359) accepts valid QR token without GPS fence — a copied/photographed QR allows remote check-in. Options: rotate QR token daily, or require GPS too. AWAITING USER CHOICE.
 - Hardening backlog (P3): encrypt tenant razorpay_key_secret at rest (gift_cards.py:535); non-obvious super-admin email (seeds.py:92, lockout already active); serve Mira Studio published sites on isolated origin.
 - Coverage note: AI/marketing modules (mira_*, social_connect, promo_*, veo_studio, lead_gen) sampled, not line-by-line.
+
+## 2026-08-01 — POS Gift Card balance transparency fix (curl + UI verified)
+- User report (production): ₹1000 card, applied ₹450 yesterday, today shows "bal ₹1000" and applied ₹750. Preview e2e trace proved redemption DOES deduct at POST /invoices with gift_card_code (tested: 1000→469 after ₹531 bill). Root cause of user confusion: POS "Apply" only VALIDATES (toast wrongly said "₹1000 balance applied"); deduction happens at checkout — yesterday's checkout likely completed without the code attached (or never completed).
+- Backend: /gift-cards/check now returns purchased_on (paid_at||created_at), redeemed_total, times_used, last_used_on, last_used_amount. redeem_gift_card made race-safe (conditional update on current balance, 409 on conflict).
+- Frontend POS: new GiftCardInfoModal (components/pos/) popup on Apply — taken-on date, original value, used-so-far, last applied, current balance, applied-to-this-bill, balance-after, valid-till, amber LOW BALANCE warning when card < bill (shows still-due amount), note "deducted only at checkout". Inline row: "−₹X this bill · bal ₹Y → ₹Z left" + Details button; persistent amber low-balance note; empty-cart toast guard; checkout success toast confirms "🎁 ₹X deducted · ₹Y left".
+- Gotcha hit: first import search_replace silently didn't persist → "GiftCardInfoModal is not defined" crash; re-added import. Screenshot-verified modal + inline row.
+- NEEDS REDEPLOY for production.

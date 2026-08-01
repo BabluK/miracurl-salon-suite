@@ -668,9 +668,16 @@ async def check_gift_card(body: GiftCheckIn, user=Depends(require_tenant_admin),
         return {"valid": False, "reason": f"Card is {gc['status']}"}
     if gc["balance"] <= 0:
         return {"valid": False, "reason": "No balance left on this card"}
+    reds = gc.get("redemptions") or []
+    last = reds[-1] if reds else None
     return {"valid": True, "balance": gc["balance"], "amount": gc["amount"],
             "recipient_name": gc["recipient_name"], "occasion": gc["occasion"],
-            "expires_at": gc.get("expires_at")}
+            "expires_at": gc.get("expires_at"),
+            "purchased_on": (gc.get("paid_at") or gc.get("created_at") or "")[:10] or None,
+            "redeemed_total": round(float(gc["amount"]) - float(gc["balance"]), 2),
+            "times_used": len(reds),
+            "last_used_on": (last.get("at") or "")[:10] if last else None,
+            "last_used_amount": last.get("amount") if last else None}
 
 
 async def redeem_gift_card(code: str, tenant_id: str, bill_total: float, invoice_id: str) -> dict:
@@ -686,10 +693,12 @@ async def redeem_gift_card(code: str, tenant_id: str, bill_total: float, invoice
         raise HTTPException(400, "Gift card has no usable balance")
     applied = round(min(float(gc["balance"]), float(bill_total)), 2)
     new_balance = round(gc["balance"] - applied, 2)
-    await _raw_db.gift_cards.update_one({"id": gc["id"]}, {
+    res = await _raw_db.gift_cards.update_one({"id": gc["id"], "balance": gc["balance"]}, {
         "$set": {"balance": new_balance,
                  "status": "redeemed" if new_balance <= 0 else "active"},
         "$push": {"redemptions": {"invoice_id": invoice_id, "amount": applied, "at": _now()}}})
+    if res.modified_count == 0:
+        raise HTTPException(409, "Gift card balance just changed — please re-apply the card")
     try:
         await _email_balance_update(gc, applied, new_balance)
     except Exception:

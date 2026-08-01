@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { printInvoice } from "@/components/pos/receipt";
 import AddGuestModal from "@/components/pos/AddGuestModal";
 import InvoiceReceiptModal from "@/components/pos/InvoiceReceiptModal";
+import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
 import { InvoiceHeader } from "@/components/pos/InvoiceHeader";
@@ -51,6 +52,7 @@ export default function POS() {
   const [tipStaffId, setTipStaffId] = useState("");
   const [gcCode, setGcCode] = useState("");
   const [gcInfo, setGcInfo] = useState(null);
+  const [gcModalOpen, setGcModalOpen] = useState(false);
   const guestBoxRef = useRef(null);
   const sym = curSym(tenant);
 
@@ -213,7 +215,15 @@ export default function POS() {
       const { data } = await api.post("/gift-cards/check", { code });
       if (!data.valid) { setGcInfo(null); toast.error(data.reason || "Invalid gift card"); return; }
       setGcInfo(data);
-      toast.success(`Gift card 🎁 ${sym}${data.balance} balance applied`);
+      setGcModalOpen(true);
+      const willApply = Math.min(data.balance, total);
+      if (total <= 0) {
+        toast.info(`Gift card valid — balance ${sym}${Number(data.balance).toFixed(0)}. Add items to the bill to apply it.`);
+      } else if (data.balance < total) {
+        toast.warning(`Low balance — card covers ${sym}${willApply.toFixed(0)}, ${sym}${(total - data.balance).toFixed(0)} still due`);
+      } else {
+        toast.success(`Gift card 🎁 ${sym}${willApply.toFixed(0)} will be applied · ${sym}${(data.balance - willApply).toFixed(0)} left after this bill`);
+      }
     } catch { toast.error("Couldn't check the gift card"); }
   }
 
@@ -247,6 +257,9 @@ export default function POS() {
         branch_id: branchId || null,
       });
       toast.success(`Invoice ${data.invoice_no} created${data.points_earned ? ` · +${data.points_earned} pts earned` : ""}`);
+      if (data.gift_card_applied > 0) {
+        toast.success(`🎁 ${sym}${Number(data.gift_card_applied).toFixed(0)} deducted from gift card · ${sym}${Number(data.gift_card_balance_left || 0).toFixed(0)} balance left`, { duration: 8000 });
+      }
       const rc = data.receipts || {};
       if (rc.email?.sent) toast.info("📧 Receipt emailed to the guest");
       if (rc.sms?.sent) toast.info(`📱 SMS receipt sent · ${rc.sms.points_left} SMS points left`);
@@ -341,13 +354,20 @@ export default function POS() {
               {gcInfo && (
                 <>
                   <span className="text-xs text-emerald-600 font-semibold" data-testid="pos-gift-card-applied">
-                    −{sym}{giftApplied.toFixed(0)} applied ({gcInfo.recipient_name} · bal {sym}{gcInfo.balance})
+                    −{sym}{giftApplied.toFixed(0)} this bill · bal {sym}{Number(gcInfo.balance).toFixed(0)} → {sym}{Math.max(0, gcInfo.balance - giftApplied).toFixed(0)} left
                   </span>
+                  <button onClick={() => setGcModalOpen(true)} data-testid="pos-gift-card-details"
+                    className="text-[10px] text-fuchsia-600 font-semibold underline underline-offset-2">Details</button>
                   <button onClick={() => { setGcInfo(null); setGcCode(""); }} className="text-[10px] text-rose-500 font-semibold" data-testid="pos-gift-card-remove">Remove</button>
                   <span className="ml-auto text-sm font-bold text-slate-800">Due: {sym}{dueAfterGift.toFixed(0)}</span>
                 </>
               )}
             </div>
+            {gcInfo && dueAfterGift > 0 && (
+              <p className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5" data-testid="pos-gift-card-low-note">
+                ⚠ Card balance {sym}{Number(gcInfo.balance).toFixed(0)} doesn't cover the full bill — collect {sym}{dueAfterGift.toFixed(0)} via cash/card/UPI.
+              </p>
+            )}
           </div>
 
           <PaymentSection
@@ -370,6 +390,14 @@ export default function POS() {
             setAddGuestOpen(false);
             toast.success(`Added ${newCust.name}`);
           }}
+        />
+      )}
+
+      {gcModalOpen && gcInfo && (
+        <GiftCardInfoModal
+          gcInfo={gcInfo} gcCode={gcCode.trim().toUpperCase()}
+          giftApplied={giftApplied} dueAfterGift={dueAfterGift} sym={sym}
+          onClose={() => setGcModalOpen(false)}
         />
       )}
 
