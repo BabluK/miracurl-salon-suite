@@ -4,6 +4,7 @@ const TAB_BUTTONS = [
   { k: "services", label: "Add Service", live: true },
   { k: "products", label: "Add Product", live: true },
   { k: "package", label: "Add Package", live: true },
+  { k: "offers", label: "Offers & Plans", live: true },
   { k: "giftcard", label: "Add GiftCard", live: false },
   { k: "membership", label: "Add Membership", live: true },
 ];

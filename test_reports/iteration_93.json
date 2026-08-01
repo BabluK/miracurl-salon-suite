@@ -1,0 +1,33 @@
+{
+  "summary": "Frontend regression for 3 salon POS/Settings changes: (a) Disc% + coupon input visibility fix, (b) new POS 'Offers & Plans' tab (Mira day offers + live Mira packages), (c) Gift Card History modal in Settings. All 8 scenarios in the review request PASS end-to-end. Full checkout with offer+mira-package created invoice INV-202608-0134 successfully.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_scenarios_executed": [
+    {"case": "Disc% input visibility (cart-line-disc-0)", "result": "PASS - typed '10', computed color rgb(30,41,59) (text-slate-800) on light bg rgb(248,250,252); line total updated to ₹212 (200 - 10% + 18% tax)"},
+    {"case": "Coupon input visibility (pos-coupon-input)", "result": "PASS - typed 'HELL0123', dark text visible on light input"},
+    {"case": "Offers & Plans tab (pos-tab-offers) + panel (pos-offers-panel)", "result": "PASS - shows 'Weekend Glow Special' (20% OFF) under Today's Mira Offers, plus 'Glamourous Bliss Package' and 'Men's Ultimate Grooming Package' under Mira Packages (live)"},
+    {"case": "Apply offer button (pos-offer-apply-<id>)", "result": "PASS - toast 'Weekend Glow Special — 20% off applied to this bill', orange chip pos-offer-discount shows '🔥 Weekend Glow Special −₹36' (20% of ₹180 discounted subtotal for Henna alone). Remove testid (pos-offer-remove-<id>) rendered."},
+    {"case": "Add Mira package (pos-mira-pkg-add-<id>)", "result": "PASS - toast 'Glamourous Bliss Package added at ₹8720', cart line '<name> (package)' created at ₹8720; button label becomes 'In bill' and disabled=True"},
+    {"case": "Full checkout with offer + mira package", "result": "PASS - guest Rahul Mehta selected, both lines assigned stylist, Create & Complete produced INV-202608-0134. Receipt modal shows Subtotal ₹8920, Discount −₹1784 (20% of 8920, offer discount included), Tax ₹1284.48, Total ₹8420.48. Success toast 'Invoice INV-202608-0134 created · +840 pts earned'. No 500 errors."},
+    {"case": "Gift Card History (Settings, gift-history-<id>)", "result": "PASS - after Owner PIN (4321) unlock, clicking history btn on card matching GC-67A0-1C57 (data-testid uses card UUID gift-history-819d2714-...) opens gift-history-modal showing code GC-67A0-1C57, Taken 2026-07-23, Balance ₹528, Valid till 2027-01-19, and gift-history-row-0 with '23 Jul 2026 INV-202607-0129 Guest: TEST Cust −₹472 bal ₹528'. Close (X) works."},
+    {"case": "Gift card apply in POS regression", "result": "PASS - GC-67A0-1C57 in pos-gift-card-input + pos-gift-card-apply opens gift-card-info-modal (balance ₹528, valid till, etc.); gc-info-ok-btn (Got it) closes modal."}
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Non-blocking existing React hydration warning: '<span> cannot be a child of <option>' — appears in stylist dropdown (not part of this diff, pre-existing).",
+    "Settings gift-card history data-testid pattern is `gift-history-<uuid>` (card DB id), not `gift-history-GC-67A0-1C57` as suggested in the task description. Behaviour is correct; only naming differs. Consider adding a secondary data-testid using the human-readable code to match test expectations."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (per request)", "frontend": "100% (8/8 scenarios PASS)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, Owner PIN 4321, tenant miracurl-marathahalli",
+  "seed_data_creation": "None; used existing seeded offer, packages, and gift card GC-67A0-1C57 in preview DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 3 fixes in review are verified working. Only cosmetic note: Settings gift-card History button uses uuid in data-testid; the row containing the GC- code text is what identifies it visually. Owner PIN 4321 is required to enter /settings.",
+  "rca of the issue": "n/a — verification pass, no bugs found."
+}

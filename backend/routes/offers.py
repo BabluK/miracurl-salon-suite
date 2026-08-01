@@ -165,6 +165,21 @@ async def delete_coupon(cid: str, user=Depends(require_tenant_admin)):
     await db.coupons.delete_one({"id": cid})
     return {"ok": True}
 
+@router.get("/pos/offers")
+async def pos_offers(user=Depends(get_current_user), t=Depends(current_tenant)):
+    """POS billing: live Mira packages + today's accepted offers (daily & flash) in one call."""
+    from routes.packages import _live_filter
+    from routes.day_offers import _today_ist
+    mira = await _raw_db.mira_packages.find(
+        _live_filter(t["id"]), {"_id": 0}).sort("published_at", -1).to_list(20)
+    today = _today_ist().date().isoformat()
+    offers = await _raw_db.day_offers.find(
+        {"tenant_id": t["id"], "date": today, "status": "accepted"},
+        {"_id": 0, "id": 1, "title": 1, "offer_text": 1, "discount_pct": 1,
+         "services": 1, "kind": 1}).to_list(10)
+    return {"mira_packages": mira, "day_offers": offers}
+
+
 @router.get("/customers/{cid}/benefits")
 async def customer_benefits(cid: str, user=Depends(get_current_user), t=Depends(current_tenant)):
     cust = await db.customers.find_one({"id": cid}, {"_id": 0, "loyalty_points": 1, "referral_credit": 1, "dob": 1, "anniversary": 1})

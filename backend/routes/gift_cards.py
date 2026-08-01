@@ -610,6 +610,37 @@ async def list_gift_cards(user=Depends(require_tenant_admin), t=Depends(current_
     return {"items": rows, "stats": stats}
 
 
+@router.get("/gift-cards/{gcid}/history")
+async def gift_card_history(gcid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Full audit trail of a card: purchase info + every POS redemption with invoice + running balance."""
+    gc = await _raw_db.gift_cards.find_one(
+        {"id": gcid, "tenant_id": t["id"]},
+        {"_id": 0, "razorpay_key_id": 0, "razorpay_key_secret": 0})
+    if not gc:
+        raise HTTPException(404, "Gift card not found")
+    reds = gc.get("redemptions") or []
+    inv_ids = [r.get("invoice_id") for r in reds if r.get("invoice_id")]
+    invs = await _raw_db.invoices.find(
+        {"id": {"$in": inv_ids}, "tenant_id": t["id"]},
+        {"_id": 0, "id": 1, "invoice_no": 1, "customer_name": 1}).to_list(200) if inv_ids else []
+    imap = {i["id"]: i for i in invs}
+    running = float(gc["amount"])
+    history = []
+    for r in reds:
+        running = round(running - float(r.get("amount") or 0), 2)
+        inv = imap.get(r.get("invoice_id"), {})
+        history.append({"at": r.get("at"), "amount": r.get("amount"),
+                        "balance_after": running,
+                        "invoice_no": inv.get("invoice_no"),
+                        "customer_name": inv.get("customer_name")})
+    return {"card": {"code": gc.get("code"), "amount": gc["amount"], "balance": gc["balance"],
+                     "status": gc["status"], "occasion": gc.get("occasion"),
+                     "buyer_name": gc.get("buyer_name"), "recipient_name": gc.get("recipient_name"),
+                     "purchased_on": (gc.get("paid_at") or gc.get("created_at") or "")[:10] or None,
+                     "expires_at": gc.get("expires_at")},
+            "history": history}
+
+
 @router.post("/gift-cards/{gcid}/confirm")
 async def confirm_gift_card(gcid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Owner confirms UPI money received → card issued + emailed."""

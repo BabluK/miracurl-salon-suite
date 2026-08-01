@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Gift, Loader2, Copy } from "lucide-react";
+import { Gift, Loader2, Copy, History, X } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
@@ -22,6 +22,15 @@ export const GiftCardsCard = () => {
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState("");
   const [analytics, setAnalytics] = useState(null);
+  const [hist, setHist] = useState(null); // null | "loading" | {card, history}
+
+  const openHistory = async (gc) => {
+    setHist("loading");
+    try {
+      const { data } = await api.get(`/gift-cards/${gc.id}/history`);
+      setHist(data);
+    } catch { toast.error("Couldn't load the card history"); setHist(null); }
+  };
 
   const load = useCallback(async () => {
     const [a, b, c] = await Promise.all([api.get("/gift-cards/settings"), api.get("/gift-cards"), api.get("/tenants/current")]);
@@ -218,12 +227,72 @@ export const GiftCardsCard = () => {
                     {busyId === gc.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "✓ Money received — send card"}
                   </button>
                 )}
+                {gc.code && (
+                  <button onClick={() => openHistory(gc)} data-testid={`gift-history-${gc.id}`} title="Full redemption history"
+                    className="text-[10px] text-sky-600 hover:text-sky-800 font-semibold inline-flex items-center gap-1 border border-sky-200 bg-sky-50 rounded-full px-2 py-1">
+                    <History className="w-3 h-3" /> History
+                  </button>
+                )}
                 {["awaiting_confirmation", "active", "scheduled"].includes(gc.status) && (
                   <button onClick={() => cancel(gc)} disabled={busyId === gc.id} data-testid={`gift-cancel-${gc.id}`}
                     className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold">Cancel</button>
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {hist && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" data-testid="gift-history-modal" onClick={() => setHist(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {hist === "loading" ? (
+              <div className="p-10 flex justify-center"><Loader2 className="w-6 h-6 text-gold animate-spin" /></div>
+            ) : (
+              <>
+                <div className="bg-gradient-to-r from-amber-400 to-yellow-600 px-5 py-4 flex items-center justify-between">
+                  <div className="text-black">
+                    <div className="font-bold text-sm font-mono">{hist.card.code}</div>
+                    <div className="text-[11px] opacity-80">
+                      ₹{hist.card.amount} · {hist.card.occasion} · {hist.card.buyer_name} → {hist.card.recipient_name}
+                    </div>
+                  </div>
+                  <button onClick={() => setHist(null)} className="text-black/60 hover:text-black" data-testid="gift-history-close"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="px-5 py-4">
+                  <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                    {[["Taken on", hist.card.purchased_on || "—"], ["Balance", `₹${hist.card.balance}`], ["Valid till", hist.card.expires_at || "—"]].map(([l, v]) => (
+                      <div key={l} className="bg-slate-50 rounded-xl py-2.5">
+                        <div className="text-[10px] uppercase tracking-wider text-slate-400">{l}</div>
+                        <div className="text-sm font-bold text-slate-800 mt-0.5">{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-2">Redemption history</div>
+                  {hist.history.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-4 text-center" data-testid="gift-history-empty">Never redeemed yet — full ₹{hist.card.balance} available.</p>
+                  ) : (
+                    <div className="max-h-64 overflow-y-auto divide-y divide-slate-100" data-testid="gift-history-rows">
+                      {hist.history.map((h, i) => (
+                        <div key={i} className="py-2.5 flex items-center justify-between gap-3" data-testid={`gift-history-row-${i}`}>
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-slate-700">
+                              {h.at ? new Date(h.at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                              {h.invoice_no && <span className="font-mono text-sky-600 ml-2">{h.invoice_no}</span>}
+                            </div>
+                            {h.customer_name && <div className="text-[10px] text-slate-400 truncate">Guest: {h.customer_name}</div>}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-sm font-bold text-rose-600">−₹{Number(h.amount).toFixed(0)}</div>
+                            <div className="text-[10px] text-slate-400">bal ₹{Number(h.balance_after).toFixed(0)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

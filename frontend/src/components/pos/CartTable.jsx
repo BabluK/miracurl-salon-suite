@@ -4,6 +4,7 @@ export function CartTable({
   cart, staff, taxEnabled, taxPct, updateLine, setLineStaff, removeLine,
   couponCode, setCouponCode, setCouponInfo, checkCoupon, couponInfo,
   membershipDiscount, couponDiscount, pointsUsed, totalDiscount, tax, total, sym = "₹",
+  offerApplied, offerDiscount = 0,
 }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -57,7 +58,7 @@ export function CartTable({
                       data-testid={`cart-line-disc-${i}`}
                       value={c.disc_pct || 0}
                       onChange={e => updateLine(i, { disc_pct: Math.min(100, Math.max(0, Number(e.target.value || 0))) })}
-                      className="w-14 text-right py-1 px-2 rounded bg-slate-50 border border-slate-200 text-xs"
+                      className="w-14 text-right py-1 px-2 rounded bg-slate-50 border border-slate-200 text-xs text-slate-800 font-semibold"
                     />
                   </td>
                   {taxEnabled && <td className="px-3 py-3 text-right text-slate-500">{sym}{lineTax.toFixed(0)}</td>}
@@ -84,12 +85,13 @@ export function CartTable({
             onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponInfo(null); }}
             onKeyDown={e => e.key === "Enter" && checkCoupon()}
             placeholder="Coupon code"
-            className="w-28 px-2 py-1 rounded border border-slate-200 bg-slate-50 text-xs font-mono uppercase"
+            className="w-28 px-2 py-1 rounded border border-slate-200 bg-slate-50 text-xs font-mono uppercase text-slate-800"
           />
           <button type="button" data-testid="pos-coupon-apply-btn" onClick={checkCoupon} className="text-xs text-sky-600 font-medium hover:underline">Apply</button>
         </span>
         {membershipDiscount > 0 && <span className="text-violet-600" data-testid="pos-membership-discount">👑 −{sym}{membershipDiscount.toFixed(0)}</span>}
         {couponDiscount > 0 && <span className="text-emerald-600" data-testid="pos-coupon-discount">🎟 {couponInfo.code} −{sym}{couponDiscount.toFixed(0)}</span>}
+        {offerDiscount > 0 && <span className="text-orange-600" data-testid="pos-offer-discount">🔥 {offerApplied?.title || "Offer"} −{sym}{offerDiscount.toFixed(0)}</span>}
         {pointsUsed > 0 && <span className="text-amber-600" data-testid="pos-points-discount">🪙 −{sym}{pointsUsed.toFixed(0)}</span>}
         <span>Discount: <span className="font-semibold text-slate-800">{sym}{totalDiscount.toFixed(0)}</span></span>
         {taxEnabled && (

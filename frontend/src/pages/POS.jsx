@@ -10,6 +10,7 @@ import InvoiceReceiptModal from "@/components/pos/InvoiceReceiptModal";
 import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
+import { OffersPanel } from "@/components/pos/OffersPanel";
 import { InvoiceHeader } from "@/components/pos/InvoiceHeader";
 import { CartTable } from "@/components/pos/CartTable";
 import { TipSection } from "@/components/pos/TipSection";
@@ -53,6 +54,8 @@ export default function POS() {
   const [gcCode, setGcCode] = useState("");
   const [gcInfo, setGcInfo] = useState(null);
   const [gcModalOpen, setGcModalOpen] = useState(false);
+  const [posOffers, setPosOffers] = useState({ mira_packages: [], day_offers: [] });
+  const [offerApplied, setOfferApplied] = useState(null);
   const guestBoxRef = useRef(null);
   const sym = curSym(tenant);
 
@@ -71,6 +74,7 @@ export default function POS() {
     api.get("/products").then(r => setProducts(r.data.filter(p => (p.product_type || "retail") !== "in_house")));
     api.get("/packages").then(r => setPackages(r.data.filter(p => p.active))).catch(() => {});
     api.get("/memberships").then(r => setMemberships(r.data.filter(m => m.active))).catch(() => {});
+    api.get("/pos/offers").then(r => setPosOffers(r.data)).catch(() => {});
     api.get("/staff").then(r => setStaff(r.data));
     api.get("/settings/tax")
       .then(r => { setTaxEnabled(!!r.data.tax_enabled); setTaxPct(Number(r.data.tax_pct || 0)); })
@@ -168,6 +172,18 @@ export default function POS() {
     setCart(prev => [...prev, { type: "package_redeem", ref_id: p.id, name: `${p.service_name} (package session)`, qty: 1, price: 0, disc_pct: 0, staff_id: "", staff_name: "" }]);
     toast.success(`Session from '${p.package_name}' added at ${sym}0`);
   }
+  function addMiraPackage(p) {
+    if (cart.some(c => c.type === "mira_package" && c.ref_id === p.id)) { toast.info("Package already in the bill"); return; }
+    setCart(prev => [...prev, {
+      type: "mira_package", ref_id: p.id, name: `${p.name} (package)`,
+      qty: 1, price: Number(p.package_price), disc_pct: 0, staff_id: "", staff_name: "",
+    }]);
+    toast.success(`🎀 '${p.name}' added at ${sym}${Number(p.package_price).toFixed(0)}`);
+  }
+  function applyOffer(o) {
+    setOfferApplied({ id: o.id, title: o.title, pct: Number(o.discount_pct) });
+    toast.success(`🔥 '${o.title}' — ${o.discount_pct}% off applied to this bill`);
+  }
   function updateLine(i, patch) { setCart(cart.map((c, idx) => idx === i ? { ...c, ...patch } : c)); }
   function setLineStaff(i, sid) {
     const s = staff.find(x => x.id === sid);
@@ -183,11 +199,12 @@ export default function POS() {
   const membershipDiscount = benefits?.membership ? servicesSubtotal * benefits.membership.discount_pct / 100 : 0;
   const afterMemb = Math.max(0, subtotal - lineDiscount - membershipDiscount);
   const couponDiscount = couponInfo ? (couponInfo.type === "percent" ? afterMemb * couponInfo.value / 100 : Math.min(couponInfo.value, afterMemb)) : 0;
+  const offerDiscount = offerApplied ? Math.max(0, (afterMemb - couponDiscount)) * offerApplied.pct / 100 : 0;
   const loyaltyRules = benefits?.loyalty_rules || {};
   const redeemCap = Number(loyaltyRules.max_redeem_per_visit) > 0 ? Number(loyaltyRules.max_redeem_per_visit) : Infinity;
   const canRedeem = subtotal >= Number(loyaltyRules.min_bill_to_redeem || 0);
-  const pointsUsed = canRedeem ? Math.min(redeemPoints || 0, benefits?.loyalty_points || 0, redeemCap, Math.max(0, afterMemb - couponDiscount)) : 0;
-  const totalDiscount = lineDiscount + membershipDiscount + couponDiscount + pointsUsed;
+  const pointsUsed = canRedeem ? Math.min(redeemPoints || 0, benefits?.loyalty_points || 0, redeemCap, Math.max(0, afterMemb - couponDiscount - offerDiscount)) : 0;
+  const totalDiscount = lineDiscount + membershipDiscount + couponDiscount + offerDiscount + pointsUsed;
   const taxable = Math.max(0, subtotal - totalDiscount);
   const tax = taxable * taxPct / 100;
   const total = taxable + tax;
@@ -231,6 +248,7 @@ export default function POS() {
     setCart([]); setOrderNotes(""); setStaffId("");
     setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("cash");
     setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
+    setOfferApplied(null);
     setGcCode(""); setGcInfo(null);
     setTipPct(null); setCustomTip(0); setTipStaffId("");
   }
@@ -246,7 +264,7 @@ export default function POS() {
           type, ref_id, name, qty, price,
           staff_id: staff_id || null, staff_name: staff_name || null,
         })),
-        discount: lineDiscount,
+        discount: lineDiscount + offerDiscount,
         tax_pct: taxPct,
         payment_mode: payment,
         redeem_points: pointsUsed,
@@ -309,10 +327,18 @@ export default function POS() {
       <POSHeader q={q} setQ={setQ} mode={mode} setMode={setMode} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {mode === "offers" ? (
+          <OffersPanel
+            offers={posOffers} offerApplied={offerApplied} sym={sym} cart={cart}
+            onApplyOffer={applyOffer} onRemoveOffer={() => setOfferApplied(null)}
+            onAddPackage={addMiraPackage}
+          />
+        ) : (
         <CatalogPanel
           mode={mode} categories={categories} category={category}
           setCategory={setCategory} filtered={filtered} onAdd={addToCart}
         />
+        )}
 
         <div className="lg:col-span-7 xl:col-span-8 space-y-4">
           <InvoiceHeader
@@ -333,6 +359,7 @@ export default function POS() {
             updateLine={updateLine} setLineStaff={setLineStaff} removeLine={removeLine}
             couponCode={couponCode} setCouponCode={setCouponCode} setCouponInfo={setCouponInfo}
             checkCoupon={checkCoupon} couponInfo={couponInfo}
+            offerApplied={offerApplied} offerDiscount={offerDiscount}
             membershipDiscount={membershipDiscount} couponDiscount={couponDiscount}
             pointsUsed={pointsUsed} totalDiscount={totalDiscount} tax={tax} total={total}
           />
