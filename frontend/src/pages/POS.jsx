@@ -20,7 +20,7 @@ import { curSym } from "@/lib/currency";
 const ITEM_TYPE_BY_MODE = { services: "service", products: "product", package: "package", membership: "membership" };
 
 export default function POS() {
-  const { tenant } = useAuth();
+  const { tenant, user } = useAuth();
   const [mode, setMode] = useState("services"); // services | products | package | membership
   const [services, setServices] = useState([]);
   const [products, setProducts] = useState([]);
@@ -58,6 +58,17 @@ export default function POS() {
   const [offerApplied, setOfferApplied] = useState(null);
   const guestBoxRef = useRef(null);
   const sym = curSym(tenant);
+  const lockedBranchId = (user?.role === "manager" && user?.branch)
+    ? ((tenant?.branches || []).find(b => b.name === user.branch)?.id || null)
+    : null;
+
+  useEffect(() => {
+    if (lockedBranchId && branchId !== lockedBranchId) {
+      setBranchId(lockedBranchId);
+      try { localStorage.setItem("pos_branch", lockedBranchId); } catch { /* private mode */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockedBranchId]);
 
   const loadCustomers = useCallback(() => {
     api.get("/customers")
@@ -342,7 +353,7 @@ export default function POS() {
 
         <div className="lg:col-span-7 xl:col-span-8 space-y-4">
           <InvoiceHeader
-            tenant={tenant} branchId={branchId} onBranchChange={changeBranch}
+            tenant={tenant} branchId={branchId} onBranchChange={changeBranch} branchLocked={!!lockedBranchId}
             guestBoxRef={guestBoxRef} guestQuery={guestQuery} setGuestQuery={setGuestQuery}
             customerId={customerId} setCustomerId={setCustomerId}
             guestOpen={guestOpen} setGuestOpen={setGuestOpen} guestMatches={guestMatches}

@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from starlette.responses import StreamingResponse
 
 from database import db, _current_tenant_id, _clean
-from security import get_current_user, require_tenant_admin, current_tenant
+from security import get_current_user, require_tenant_admin, current_tenant, branch_lock
 from models import (
     Appointment, AppointmentIn, AppointmentStatusIn, Customer,
     Invoice, InvoiceIn, MAX_CUSTOMER_CREDIT, REFERRAL_REWARD_REFERRER,
@@ -364,6 +364,11 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
 
     await _validate_package_redeem_items(body.items, cust)
     ctx = await _resolve_billing_context(body, cust)
+    locked_branch = branch_lock(user, None)
+    if locked_branch:
+        b = next((x for x in (ctx["tenant_doc"].get("branches") or []) if x.get("name") == locked_branch), None)
+        if b:
+            ctx["branch"] = b
     totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]
 
     if body.payment_mode == "salon_wallet":

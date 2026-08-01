@@ -1,7 +1,7 @@
 import { Search, X, UserPlus, Calendar, MapPin } from "lucide-react";
 
 export function InvoiceHeader({
-  tenant, branchId, onBranchChange,
+  tenant, branchId, onBranchChange, branchLocked = false,
   guestBoxRef, guestQuery, setGuestQuery, customerId, setCustomerId,
   guestOpen, setGuestOpen, guestMatches, selectGuest, clearGuest, onAddGuest,
   staff, staffId, setStaffId, customer, cartHasItems,
@@ -19,8 +19,9 @@ export function InvoiceHeader({
                 data-testid="pos-branch-select"
                 value={branchId}
                 onChange={e => onBranchChange(e.target.value)}
-                className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-200 max-w-[220px]"
-                title="Bills are tagged to this branch for per-branch collection reports"
+                disabled={branchLocked}
+                className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-200 max-w-[220px] disabled:opacity-80 disabled:cursor-not-allowed"
+                title={branchLocked ? "Your login is locked to this branch — every bill is tagged to it" : "Bills are tagged to this branch for per-branch collection reports"}
               >
                 <option value="">Main — {tenant?.location || "primary location"}</option>
                 {tenant.branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}

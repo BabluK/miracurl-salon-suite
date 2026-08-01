@@ -60,6 +60,7 @@ def _render_invoice_pdf(inv: dict, tenant: dict) -> bytes:
     c.setFont("Helvetica", 9)
     created = str(inv.get("created_at") or "")[:16].replace("T", " ")
     for label, val in (("Invoice", inv.get("invoice_no")), ("Date", created),
+                       ("Branch", inv.get("branch_name") or "Main"),
                        ("Customer", inv.get("customer_name")), ("Payment", _pay_label(inv.get("payment_mode")))):
         if val:
             c.setFillColorRGB(*MUTED)
