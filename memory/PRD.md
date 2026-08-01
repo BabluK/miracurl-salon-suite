@@ -1281,3 +1281,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Attendance Desk QR modal: shows poster, new "Download poster" button (desk-qr-download, fetch blob w/ credentials), keeps print/open. lucide Download icon imported.
 - Verified: poster PNG 200, QR decodes via pyzbar (installed libzbar0 in preview) to /staff-portal?qr=<token>, UI download produced staff-checkin-qr.png.
 - NEEDS REDEPLOY. Note: assets/ folder must ship with backend (it's in /app/backend/assets — included in repo).
+
+## 2026-08-01 (later 5) — Instant QR check-in + in-portal QR scanner (verified)
+- QR path already bypassed GPS server-side; now truly instant: StaffPortal auto-checks-in on load when URL has ?qr=<token> (autoQrTried ref guards single fire; skips if already checked in). Verified live: opening /staff-portal?qr=... checked Priya in with zero clicks.
+- NEW in-portal fallback: "Scan desk QR — instant check-in (no GPS)" button (scan-qr-checkin-btn, visible only when not checked in) opens QrScanCheckIn.jsx camera modal (html5-qrcode@2.3.8 added via yarn; extracts qr param from scanned URL or accepts raw token) → checkIn(token). Camera-denied shows friendly error.
+- checkIn(scannedToken) refactor; on GPS 403 failure a tip toast suggests the QR scanner.
+- Verified: curl qr_token-only check-in (method "qr", no coords), auto check-in via URL, scanner modal open/feed/close. Priya's attendance today = QR check-in (late fine ₹320 per rules).
+- NEEDS REDEPLOY.

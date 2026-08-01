@@ -1,11 +1,12 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import api, { API, formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Clock, LogIn, LogOut, IndianRupee, Download, User as UserIcon,
-  Calendar, Sparkles, CheckCircle2, TrendingUp, FileText, Camera,
+  Calendar, Sparkles, CheckCircle2, TrendingUp, FileText, Camera, QrCode,
 } from "lucide-react";
 import { PlannedLeaveCard } from "@/components/staff/PlannedLeaveCard";
+import { QrScanCheckIn } from "@/components/QrScanCheckIn";
 
 function monthOptions(count = 6) {
   const now = new Date();
@@ -58,6 +59,8 @@ export default function StaffPortal() {
   const [slipLoading, setSlipLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lateInfo, setLateInfo] = useState(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const autoQrTried = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -99,18 +102,31 @@ export default function StaffPortal() {
     return () => { cancelled = true; };
   }, [month, profile]);
 
-  async function checkIn() {
+  async function checkIn(scannedToken) {
     setBusy(true);
     try {
-      const qrToken = new URLSearchParams(window.location.search).get("qr") || "";
+      const qrToken = scannedToken || new URLSearchParams(window.location.search).get("qr") || "";
       const pos = qrToken ? null : await getPosition();
       await api.post("/staff/me/check-in", { ...(pos || {}), ...(qrToken ? { qr_token: qrToken } : {}) });
-      toast.success(qrToken ? "Checked in via desk QR ✦ Have a great shift" : "Checked in ✦ Have a great shift");
+      toast.success(qrToken ? "✅ Checked in via desk QR — instant, no GPS needed ✦" : "Checked in ✦ Have a great shift");
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Check-in failed");
+      if (!scannedToken && e.response?.status === 403) {
+        toast.info("Tip: tap 'Scan desk QR' below to check in instantly without GPS.", { duration: 8000 });
+      }
     } finally { setBusy(false); }
   }
+
+  // Arrived via the desk QR link → check in instantly, no button press needed
+  useEffect(() => {
+    const qrTok = new URLSearchParams(window.location.search).get("qr");
+    if (!qrTok || autoQrTried.current || !attendance) return;
+    if (attendance.today?.check_in_at) { autoQrTried.current = true; return; }
+    autoQrTried.current = true;
+    checkIn(qrTok);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendance]);
 
   async function checkOut() {
     setBusy(true);
@@ -257,7 +273,7 @@ export default function StaffPortal() {
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
-            onClick={checkIn}
+            onClick={() => checkIn()}
             disabled={busy || checkedIn}
             data-testid="check-in-btn"
             className={`inline-flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-md text-sm transition ${
@@ -279,6 +295,21 @@ export default function StaffPortal() {
             {checkedOut ? "Checked out" : "Check out"}
           </button>
         </div>
+        {!checkedIn && (
+          <button
+            onClick={() => setShowScanner(true)}
+            data-testid="scan-qr-checkin-btn"
+            className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-medium border border-gold/40 text-gold hover:bg-gold/10 transition"
+          >
+            <QrCode className="w-4 h-4" /> Scan desk QR — instant check-in (no GPS)
+          </button>
+        )}
+        {showScanner && (
+          <QrScanCheckIn
+            onScan={(token) => { setShowScanner(false); checkIn(token); }}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
       </div>
 
       <PlannedLeaveCard />
