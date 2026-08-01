@@ -1267,3 +1267,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - NEW ManualAttendanceModal.jsx + "Manual Check-In" button on Attendance page (manual-attendance-btn): action toggle, eligible-staff filter (not-checked-in vs on-shift), IST time default-now, note; uses pinApi (PIN dialog auto).
 - Curl-verified: PIN gate 403, check-in w/ fine calc, dup 400, future 400, out-before-in 400, checkout hours=1.0; geo slack pass @378m/acc150 & 403 @1000m w/ new hint. Screenshot: modal OK (7 check-in eligible / 1 check-out eligible).
 - NEEDS REDEPLOY. Advise user: verify salon pin-drop coordinates in Settings if staff are still blocked at exact location.
+
+## 2026-08-01 (later 3) — Fence Size Setting + Manual Mark Badge (curl + screenshot verified)
+- /settings/late-fines GET/PUT extended with geo_fence_m (100–500 validated, 422 outside range; stored on tenants.geo_fence_m root, check-in reads it). AttendanceFinesCard: new "Check-in radius / geo-fence (meters)" input (geo-fence-input) — NOTE: /settings page is Owner-PIN gated (unlock 4321 in preview).
+- Attendance roster: _roster_row now returns check_out_method + marked_by; rows show amber "BY OWNER" badge (manual-badge-<staff_id>, title = marked by email) on manual check-in AND check-out, plus tiny "qr" tag for desk-QR check-ins.
+- GeoFenceCard banner on Attendance now shows the live fence value (was hardcoded 200m) + pointer to Settings.
+- Verified: GET/PUT fence, 422 @600, staff check-in passes @420m w/ fence 450, roster fields, Settings save UI, badges render. Tenant fines restored to original (grace 7 / 55/110/165/320, fence 300).
+- NEEDS REDEPLOY.

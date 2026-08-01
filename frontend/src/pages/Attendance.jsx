@@ -200,8 +200,23 @@ export default function Attendance() {
                       <span className="ml-2 text-[10px] text-slate-400 italic">no login</span>
                     )}
                   </td>
-                  <td className="tabular-nums">{fmtTime(r.check_in_at)}</td>
-                  <td className="tabular-nums">{fmtTime(r.check_out_at)}</td>
+                  <td className="tabular-nums">
+                    {fmtTime(r.check_in_at)}
+                    {r.check_in_method === "manual_admin" && (
+                      <span data-testid={`manual-badge-${r.staff_id}`} title={r.marked_by ? `Marked by ${r.marked_by}` : "Marked by owner"}
+                        className="ml-1.5 inline-flex items-center text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">by owner</span>
+                    )}
+                    {r.check_in_method === "qr" && (
+                      <span className="ml-1.5 text-[9px] uppercase text-sky-500 font-semibold" title="Checked in via desk QR">qr</span>
+                    )}
+                  </td>
+                  <td className="tabular-nums">
+                    {fmtTime(r.check_out_at)}
+                    {r.check_out_method === "manual_admin" && (
+                      <span title={r.marked_by ? `Marked by ${r.marked_by}` : "Marked by owner"}
+                        className="ml-1.5 inline-flex items-center text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">by owner</span>
+                    )}
+                  </td>
                   <td className="tabular-nums font-medium">
                     {r.hours > 0 ? `${r.hours}h` : "—"}
                     {r.auto_checked_out && <span className="ml-1 text-[9px] text-amber-600 uppercase">auto</span>}
@@ -274,9 +289,11 @@ function GeoFenceCard() {
   const [tenant, setTenant] = useState(null);
   const [busy, setBusy] = useState(false);
   const [target, setTarget] = useState(""); // "" = main salon, else branch name
+  const [fenceM, setFenceM] = useState(300);
 
   const load = useCallback(async () => {
     try { const { data } = await api.get("/tenants/current"); setTenant(data); } catch { /* non-admin */ }
+    try { const { data } = await api.get("/settings/late-fines"); setFenceM(data.geo_fence_m || 300); } catch { /* default */ }
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -293,7 +310,7 @@ function GeoFenceCard() {
       async (p) => {
         try {
           await api.put("/tenants/current/geo", { latitude: p.coords.latitude, longitude: p.coords.longitude, branch: target || null });
-          toast.success(`Location pinned for ${label} — check-in geo-fenced to 200m`);
+          toast.success(`Location pinned for ${label} — check-in geo-fenced to ${fenceM}m`);
           load();
         } catch (e) {
           toast.error(formatApiError(e.response?.data?.detail) || "Couldn't save location");
@@ -333,7 +350,7 @@ function GeoFenceCard() {
           </div>
           <div className="text-xs text-slate-500 mt-0.5">
             {isSet
-              ? `Staff assigned to ${label} can only check in within 200m (pinned at ${Number(cur.latitude).toFixed(4)}, ${Number(cur.longitude).toFixed(4)}). Late fines are active.`
+              ? `Staff assigned to ${label} can only check in within ${fenceM}m (pinned at ${Number(cur.latitude).toFixed(4)}, ${Number(cur.longitude).toFixed(4)}). Late fines are active. Adjust the radius in Settings → Late check-in fines.`
               : `Not pinned for ${label} — those staff can check in from anywhere and NO late fines apply. Stand at ${label} and pin its location.`}
           </div>
         </div>

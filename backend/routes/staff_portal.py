@@ -237,17 +237,20 @@ class LateFineSettingsIn(BaseModel):
     fine_10: float = Field(100, ge=0, le=100000)
     fine_15: float = Field(150, ge=0, le=100000)
     fine_30: float = Field(300, ge=0, le=100000)
+    geo_fence_m: int = Field(300, ge=100, le=500)
 
 
 @router.get("/settings/late-fines")
 async def get_late_fine_settings(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    return _late_fine_rules(t)
+    return {**_late_fine_rules(t), "geo_fence_m": int(t.get("geo_fence_m") or GEO_FENCE_M)}
 
 
 @router.put("/settings/late-fines")
 async def save_late_fine_settings(body: LateFineSettingsIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    await db.tenants.update_one({"id": t["id"]}, {"$set": {"late_fines": body.model_dump()}})
-    return body.model_dump()
+    data = body.model_dump()
+    fence = data.pop("geo_fence_m")
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"late_fines": data, "geo_fence_m": fence}})
+    return {**data, "geo_fence_m": fence}
 
 
 # OT policy: every completed 30-min block past shift end earns ₹50 by default.
@@ -623,6 +626,8 @@ def _roster_row(s: dict, rec: Optional[dict], now: datetime) -> dict:
         "half_day_deduction": r.get("half_day_deduction") or 0,
         "no_show": bool(r.get("no_show")),
         "check_in_method": r.get("check_in_method") or "",
+        "check_out_method": r.get("check_out_method") or "",
+        "marked_by": r.get("marked_by") or "",
     }
 
 

@@ -13,7 +13,7 @@ const TIERS = [
 ];
 
 export function AttendanceFinesCard() {
-  const [rules, setRules] = useState({ grace_minutes: 10, fine_5: 50, fine_10: 100, fine_15: 150, fine_30: 300 });
+  const [rules, setRules] = useState({ grace_minutes: 10, fine_5: 50, fine_10: 100, fine_15: 150, fine_30: 300, geo_fence_m: 300 });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -32,6 +32,7 @@ export function AttendanceFinesCard() {
         fine_10: Number(rules.fine_10) || 0,
         fine_15: Number(rules.fine_15) || 0,
         fine_30: Number(rules.fine_30) || 0,
+        geo_fence_m: Math.min(500, Math.max(100, parseInt(rules.geo_fence_m, 10) || 300)),
       };
       const { data } = await api.put("/settings/late-fines", payload);
       setRules(data);
@@ -69,6 +70,12 @@ export function AttendanceFinesCard() {
               onChange={e => setField(t.key, e.target.value)} className={inputCls} />
           </div>
         ))}
+        <div>
+          <label className="text-xs text-slate-500 font-medium">Check-in radius / geo-fence (meters)</label>
+          <input data-testid="geo-fence-input" type="number" min="100" max="500" step="50" value={rules.geo_fence_m}
+            onChange={e => setField("geo_fence_m", e.target.value)} className={inputCls} />
+          <p className="text-[11px] text-slate-400 mt-1">Staff must be within this distance of the salon to check in with GPS (100–500m). Larger = more forgiving of weak indoor GPS.</p>
+        </div>
       </div>
 
       <div className="mt-5 flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
