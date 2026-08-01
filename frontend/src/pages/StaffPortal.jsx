@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { PlannedLeaveCard } from "@/components/staff/PlannedLeaveCard";
 import { QrScanCheckIn } from "@/components/QrScanCheckIn";
+import { playCheckinGreeting, playCheckoutGreeting } from "@/lib/checkinSound";
 
 function monthOptions(count = 6) {
   const now = new Date();
@@ -109,6 +110,7 @@ export default function StaffPortal() {
       const pos = qrToken ? null : await getPosition();
       await api.post("/staff/me/check-in", { ...(pos || {}), ...(qrToken ? { qr_token: qrToken } : {}) });
       toast.success(qrToken ? "✅ Checked in via desk QR — instant, no GPS needed ✦" : "Checked in ✦ Have a great shift");
+      playCheckinGreeting(profile?.name);
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Check-in failed");
@@ -134,6 +136,7 @@ export default function StaffPortal() {
       const pos = await getPosition();
       await api.post("/staff/me/check-out", pos || {});
       toast.success("Checked out — see you tomorrow");
+      playCheckoutGreeting(profile?.name);
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Check-out failed");

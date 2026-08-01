@@ -1288,3 +1288,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - checkIn(scannedToken) refactor; on GPS 403 failure a tip toast suggests the QR scanner.
 - Verified: curl qr_token-only check-in (method "qr", no coords), auto check-in via URL, scanner modal open/feed/close. Priya's attendance today = QR check-in (late fine ₹320 per rules).
 - NEEDS REDEPLOY.
+
+## 2026-08-01 (later 6) — Check-in chime + spoken greeting (verified)
+- New /app/frontend/src/lib/checkinSound.js: Web Audio C5-E5-G5 rising chime (falling for checkout) + SpeechSynthesis greeting (time-of-day + first name, en-IN/GB voice preferred), all try/catch no-op if browser blocks audio.
+- StaffPortal: playCheckinGreeting(profile.name) on check-in success (button, QR auto, scanner), playCheckoutGreeting on check-out.
+- Verified: QR auto check-in → check-out full cycle, no console errors. Priya's test attendance cleaned from preview DB.
+- NEEDS REDEPLOY.
