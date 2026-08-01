@@ -1303,3 +1303,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Advisory (P3 backlog): pre-existing hydration warning <span> in <option> (visual-editor); manager /staff console 403 noise from owner-only panels (graceful).
 - Preview test manager: aecs.manager@miracurl.com / Mgr@12345 (branch-locked to 'Miracurl — AECS Layout, Brookefield').
 - NEEDS REDEPLOY. Post-deploy user action: Staff → Managers → set each existing login's branch dropdown (AECS / Munnekolala).
+
+## 2026-08-01 (later 8) — Branch on receipts + Promote/Demote Manager (curl + UI verified)
+- BRANCH ON RECEIPTS: pdf.py receipt now prints "Branch: <name or Main>" row (verified via pypdf text extract). InvoiceReceiptModal already showed it. Server: create_invoice forces ctx["branch"] for branch-locked managers via branch_lock (curl: manager invoice auto-tagged AECS w/o branch_id). POS: lockedBranchId auto-selects+disables pos-branch-select for locked managers (InvoiceHeader branchLocked prop).
+- PROMOTE/DEMOTE: POST /api/staff/{sid}/promote (owner PIN): staff w/ existing login → role upgraded to manager (same creds) + optional branch; staff w/o login → new manager user + temp password (mode created). Guards: 400 already-manager, 400 email dup/missing, 400 unknown branch. POST /api/managers/{uid}/demote (owner PIN): role→staff, branch cleared, staff_id linked (keeps login + staff profile); 400 if no staff profile.
+- UI: StaffCard Promote button (promote-staff-<id>) / Manager badge (manager-badge-<id>, needs managers list — hidden for manager role); PromoteModal.jsx (upgrade note vs email input + branch select, pinApi); ManagersSection Demote button (demote-manager-<id>, pinApi + confirm), onChanged→Staff.load.
+- Verified: PIN 403, create-promote w/ temp pw, dup 400, demote role flip, upgrade-promote, UI modal + badges (7 promote/1 badge/2 demote). GOTCHA: bash `UID` is readonly — use MUID in scripts.
+- Preview side effect: Rahul Verma now has staff login promo.test@miracurl.com (temp password flow, role staff).
+- NEEDS REDEPLOY.

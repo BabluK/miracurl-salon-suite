@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { ShieldCheck, Plus, KeyRound, Trash2, X, GitBranch } from "lucide-react";
+import { ShieldCheck, Plus, KeyRound, Trash2, X, GitBranch, UserMinus } from "lucide-react";
+import pinApi from "@/lib/ownerPin";
 import { useAuth } from "@/context/AuthContext";
 
-export const ManagersSection = ({ onCredential }) => {
+export const ManagersSection = ({ onCredential, onChanged }) => {
   const { tenant } = useAuth();
   const branches = tenant?.branches || [];
   const [managers, setManagers] = useState([]);
@@ -58,6 +59,18 @@ export const ManagersSection = ({ onCredential }) => {
       load();
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Couldn't update branch");
+    }
+  }
+
+  async function demote(m) {
+    if (!window.confirm(`Demote ${m.name} back to staff? They keep their login & staff profile, but lose manager access.`)) return;
+    try {
+      await pinApi.post(`/managers/${m.id}/demote`);
+      toast.success(`${m.name} is now regular staff again`);
+      load();
+      onChanged?.();
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't demote");
     }
   }
 
@@ -121,6 +134,10 @@ export const ManagersSection = ({ onCredential }) => {
                   className="text-xs py-1.5 px-3 rounded-md bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 inline-flex items-center gap-1"
                 >
                   <KeyRound className="w-3 h-3" /> Reset password
+                </button>
+                <button data-testid={`demote-manager-${m.id}`} onClick={() => demote(m)} title="Demote back to staff (keeps login & staff profile)"
+                  className="text-xs py-1.5 px-3 rounded-md bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 inline-flex items-center gap-1">
+                  <UserMinus className="w-3 h-3" /> Demote
                 </button>
                 <button data-testid={`delete-manager-${m.id}`} onClick={() => remove(m)} className="p-1.5 text-slate-500 hover:text-red-500 transition">
                   <Trash2 className="w-4 h-4" />

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ManagersSection } from "@/components/ManagersSection";
 import { useAuth } from "@/context/AuthContext";
 import { StaffCard } from "@/components/staff/StaffCard";
+import { PromoteModal } from "@/components/staff/PromoteModal";
 import { StaffFormModal } from "@/components/staff/StaffFormModal";
 import { AdvanceModal } from "@/components/staff/AdvanceModal";
 import { TempCredModal } from "@/components/staff/TempCredModal";
@@ -49,11 +50,17 @@ export default function Staff() {
   const [tempCred, setTempCred] = useState(null); // {name, email, temp_password, phone}
   const [advanceFor, setAdvanceFor] = useState(null); // staff for advance modal
   const [lbKey, setLbKey] = useState(0);
+  const [promoteFor, setPromoteFor] = useState(null);
+  const [managerUserIds, setManagerUserIds] = useState([]);
 
   const load = useCallback(async () => {
     const { data } = await api.get("/staff");
     setList(data);
     setLbKey(k => k + 1);
+    try {
+      const m = await api.get("/managers");
+      setManagerUserIds(m.data.map(x => x.id));
+    } catch { /* manager role can't list managers */ }
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -178,6 +185,8 @@ export default function Staff() {
             onResetLogin={resetLogin}
             onToggleActive={toggleActive}
             onDelete={remove}
+            isManager={!!s.user_id && managerUserIds.includes(s.user_id)}
+            onPromote={setPromoteFor}
           />
         ))}
         {list.length === 0 && (
@@ -214,7 +223,12 @@ export default function Staff() {
 
       <LeaveApprovalsPanel />
 
-      <ManagersSection onCredential={setTempCred} />
+      <ManagersSection onCredential={setTempCred} onChanged={load} />
+
+      {promoteFor && (
+        <PromoteModal staff={promoteFor} onClose={() => setPromoteFor(null)}
+          onDone={(cred) => { if (cred) setTempCred(cred); load(); }} />
+      )}
 
       {list.some(s => s.bank_details && (s.bank_details.bank_name || s.bank_details.ifsc || s.bank_details.account_holder)) && (
         <div className="card-light" data-testid="staff-bank-details-card">

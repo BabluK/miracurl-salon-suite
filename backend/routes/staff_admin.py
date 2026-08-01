@@ -472,6 +472,70 @@ async def set_manager_branch(uid: str, body: ManagerBranchIn, admin=Depends(requ
     return {"ok": True, "branch": branch}
 
 
+class PromoteIn(BaseModel):
+    email: Optional[EmailStr] = None
+    branch: str = Field("", max_length=120)
+
+
+@router.post("/staff/{sid}/promote")
+async def promote_staff(sid: str, body: PromoteIn, admin=Depends(require_tenant_admin),
+                        _pin=Depends(require_owner_pin), t=Depends(current_tenant)):
+    """Promote an existing staff member to Manager — upgrades their portal login,
+    or creates a fresh manager login if they never had one. Keeps all staff history."""
+    s = await db.staff.find_one({"id": sid}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Staff member not found")
+    branch = body.branch.strip()
+    if branch and branch not in [b.get("name") for b in (t.get("branches") or [])]:
+        raise HTTPException(400, "Unknown branch")
+    if s.get("user_id"):
+        u = await _raw_db.users.find_one({"id": s["user_id"], "tenant_id": t["id"]}, {"_id": 0})
+        if not u:
+            raise HTTPException(400, "Linked login not found — use 'Give login' first")
+        if u.get("role") == "manager":
+            raise HTTPException(400, f"{s.get('name')} is already a manager")
+        await _raw_db.users.update_one({"id": u["id"]}, {"$set": {"role": "manager", "branch": branch}})
+        if branch:
+            await db.staff.update_one({"id": sid}, {"$set": {"branch": branch}})
+        return {"ok": True, "mode": "upgraded", "email": u["email"], "branch": branch}
+    email = (body.email or "").lower().strip()
+    if not email:
+        raise HTTPException(400, "This staff has no login yet — provide a login email to create one")
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(400, "Email already registered")
+    temp_pw = _generate_temp_password()
+    new_user = {
+        "id": str(uuid.uuid4()), "email": email, "name": s.get("name") or "Manager",
+        "role": "manager", "tenant_id": t["id"], "status": "active", "disabled": False,
+        "branch": branch, "staff_id": sid,
+        "password_hash": hash_pw(temp_pw), "must_change_password": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(new_user)
+    upd = {"user_id": new_user["id"], "email": email}
+    if branch:
+        upd["branch"] = branch
+    await db.staff.update_one({"id": sid}, {"$set": upd})
+    return {"ok": True, "mode": "created", "email": email, "temp_password": temp_pw, "branch": branch}
+
+
+@router.post("/managers/{uid}/demote")
+async def demote_manager(uid: str, admin=Depends(require_tenant_admin),
+                         _pin=Depends(require_owner_pin), t=Depends(current_tenant)):
+    """Demote a manager back to staff — keeps their login & staff profile, drops manager powers."""
+    u = await _raw_db.users.find_one({"id": uid, "tenant_id": t["id"], "role": "manager"}, {"_id": 0})
+    if not u:
+        raise HTTPException(404, "Manager not found")
+    staff = await db.staff.find_one({"user_id": uid}, {"_id": 0, "id": 1})
+    sets = {"role": "staff", "branch": ""}
+    if staff and not u.get("staff_id"):
+        sets["staff_id"] = staff["id"]
+    if not staff and not u.get("staff_id"):
+        raise HTTPException(400, "No staff profile linked to this login — use Remove instead of Demote")
+    await _raw_db.users.update_one({"id": uid}, {"$set": sets})
+    return {"ok": True, "email": u["email"]}
+
+
 @router.post("/managers/{uid}/reset")
 async def reset_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     u = await _raw_db.users.find_one({"id": uid, "tenant_id": t["id"], "role": "manager"}, {"_id": 0, "email": 1})

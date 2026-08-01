@@ -1,6 +1,6 @@
-import { Edit3, Trash2, Phone, Mail, Percent, IndianRupee, KeyRound, Power, Clock } from "lucide-react";
+import { Edit3, Trash2, Phone, Mail, Percent, IndianRupee, KeyRound, Power, Clock, ShieldCheck } from "lucide-react";
 
-export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete }) {
+export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete, isManager = false, onPromote }) {
   return (
     <div data-testid={`staff-card-${s.id}`} className="card-light text-center group hover:border-sky-300 transition-all">
       <div className="relative inline-block">
@@ -80,6 +80,20 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
             <KeyRound className="w-3 h-3" /> Reset password
           </button>
         )}
+        {onPromote && (isManager ? (
+          <span data-testid={`manager-badge-${s.id}`} className="text-xs py-1.5 px-3 rounded-md bg-violet-50 border border-violet-200 text-violet-700 inline-flex items-center gap-1" title="This staff has a Manager login">
+            <ShieldCheck className="w-3 h-3" /> Manager
+          </span>
+        ) : (
+          <button
+            data-testid={`promote-staff-${s.id}`}
+            onClick={() => onPromote(s)}
+            className="text-xs py-1.5 px-3 rounded-md bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 inline-flex items-center gap-1"
+            title="Promote to Manager — keeps all their staff history (PIN protected)"
+          >
+            <ShieldCheck className="w-3 h-3" /> Promote
+          </button>
+        ))}
         <button
           data-testid={`toggle-active-${s.id}`}
           onClick={() => onToggleActive(s)}
