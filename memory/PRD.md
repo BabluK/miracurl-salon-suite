@@ -1251,3 +1251,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Frontend POS: new GiftCardInfoModal (components/pos/) popup on Apply — taken-on date, original value, used-so-far, last applied, current balance, applied-to-this-bill, balance-after, valid-till, amber LOW BALANCE warning when card < bill (shows still-due amount), note "deducted only at checkout". Inline row: "−₹X this bill · bal ₹Y → ₹Z left" + Details button; persistent amber low-balance note; empty-cart toast guard; checkout success toast confirms "🎁 ₹X deducted · ₹Y left".
 - Gotcha hit: first import search_replace silently didn't persist → "GiftCardInfoModal is not defined" crash; re-added import. Screenshot-verified modal + inline row.
 - NEEDS REDEPLOY for production.
+
+## 2026-08-01 (later) — POS discount visibility + Offers & Plans tab + Gift Card History (testing agent 8/8 PASS, iteration_93)
+- FIX: global CSS `input{color:#fff}` made Disc% (cart-line-disc-N) and coupon inputs invisible (white on bg-slate-50) — added text-slate-800.
+- NEW "Offers & Plans" POS tab (POSHeader k=offers → OffersPanel.jsx): shows today's accepted Mira day offers (apply pct → offerDiscount, orange 🔥 chip in CartTable, sent in invoice `discount` field) + live Mira packages (add to cart as type "mira_package" at package_price; benefit processing safely ignores this type). Backend GET /api/pos/offers (offers.py, get_current_user) = _live_filter mira_packages + today-IST accepted day_offers.
+- NEW Gift Card History: GET /api/gift-cards/{id}/history (purchase info + redemptions joined w/ invoice_no/customer, running balance_after). Settings GiftCardsCard: History button per card (gift-history-<uuid>) → modal (gift-history-modal) w/ taken-on/balance/valid-till + redemption rows.
+- Seeded preview test data: day offer 'Weekend Glow Special' 20% today, revived 2 mira packages (expires +30d).
+- Full checkout regression w/ offer+package passed (INV-202608-0134). Owner PIN 4321 gates Settings gift section.
+- NEEDS REDEPLOY for production.
