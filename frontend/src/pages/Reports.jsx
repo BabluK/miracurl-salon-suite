@@ -7,7 +7,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { EditInvoiceModal } from "@/components/EditInvoiceModal";
 import { useAuth } from "@/context/AuthContext";
 import { curSym } from "@/lib/currency";
-import { getSelectedBranch } from "@/lib/branch";
 
 const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
 const PIE_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", color: "#0f172a" };
@@ -22,6 +21,7 @@ export default function Reports() {
   const [commission, setCommission] = useState(null);
   const [tips, setTips] = useState(null);
   const [pct, setPct] = useState(0);
+  const [repBranch, setRepBranch] = useState("");
   const [rateUnlocked, setRateUnlocked] = useState(() => sessionStorage.getItem("commission_rate_unlock") === "1");
   const [erasing, setErasing] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -58,7 +58,7 @@ export default function Reports() {
 
   const load = useCallback(async () => {
     try {
-      const a = await api.get(`/reports/sales?start=${start}&end=${end}&branch=${encodeURIComponent(getSelectedBranch() || "")}`);
+      const a = await api.get(`/reports/sales?start=${start}&end=${end}&branch=${encodeURIComponent(repBranch)}`);
       setData(a.data);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't load sales report");
@@ -73,7 +73,7 @@ export default function Reports() {
       const c = await api.get(`/reports/staff-tips?start=${start}&end=${end}`);
       setTips(c.data);
     } catch { /* tips report optional */ }
-  }, [start, end, pct]);
+  }, [start, end, pct, repBranch]);
   useEffect(() => { load(); }, [load]);
 
   const sym = curSym(tenant);
@@ -95,6 +95,14 @@ export default function Reports() {
           <div>
             <label className="label-light block mb-1">To</label>
             <input data-testid="report-end" type="date" className="input-light" value={end} onChange={e => setEnd(e.target.value)} />
+          </div>
+          <div>
+            <label className="label-light block mb-1">Salon / Branch</label>
+            <select data-testid="report-branch-filter" className="input-light text-slate-800" value={repBranch} onChange={e => setRepBranch(e.target.value)}>
+              <option value="">🌐 All salons</option>
+              <option value="__main__">Main salon only</option>
+              {(tenant?.branches || []).map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
+            </select>
           </div>
         </div>
       </div>

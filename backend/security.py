@@ -319,6 +319,15 @@ async def require_owner_pin(request: Request, user=Depends(get_current_user), t=
     await _pin_attempt_guard(t["id"])
     if not verify_pw(pin, ph):
         await _pin_attempt_fail(t["id"])
+        try:
+            await _raw_db.manager_activity_logs.insert_one({
+                "id": str(uuid.uuid4()), "tenant_id": t["id"],
+                "user_id": user.get("id", ""), "name": user.get("name") or user.get("email", ""),
+                "email": user.get("email", ""), "role": user.get("role", ""),
+                "section": "Owner PIN", "action": "wrong_pin",
+                "at": datetime.now(timezone.utc).isoformat()})
+        except Exception:  # noqa: BLE001
+            pass
         raise HTTPException(403, "OWNER_PIN_REQUIRED")
     await _pin_attempt_clear(t["id"])
     return True

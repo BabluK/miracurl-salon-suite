@@ -1,4 +1,5 @@
 import api from "./api";
+import { toast } from "sonner";
 
 let cachedPin = null;
 let pinPromise = null;
@@ -62,7 +63,8 @@ async function withPin(method, url, data) {
       } catch (e2) {
         if (e2.response?.status === 403 && e2.response?.data?.detail === "OWNER_PIN_REQUIRED") {
           cachedPin = null;
-          e2.response.data.detail = "Incorrect Owner PIN — action blocked";
+          e2.response.data.detail = "Incorrect Owner PIN — please contact your Salon Admin team";
+          toast.error("Incorrect PIN — please contact your Salon Admin team", { duration: 6000 });
         }
         throw e2;
       }

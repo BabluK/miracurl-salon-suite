@@ -1322,3 +1322,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - BACKLOG (from tester): voiding a wallet/loyalty-paid bill doesn't refund wallet balance (P2); pre-existing hydration warning span-in-option (visual editor).
 - PROD GUIDANCE: after redeploy, owner should assign branch locks to managers; old bills are Main-tagged — pick "Main salon only" to see them.
 - NEEDS REDEPLOY.
+
+## 2026-08-02 (later) — Empty sales report fix + registry 403 + wrong-PIN popup & audit (curl + screenshot verified)
+- Sales report empty in prod because it silently inherited header branch selection while bills are Main-tagged. Reports page now has an explicit "Salon / Branch" filter (report-branch-filter: All salons default / Main salon only / branches); repBranch state in load deps. Verified: All ₹251,418 / Main ₹249,300 / AECS ₹2,118.
+- "Couldn't load registry": GET /registry/employees was require_tenant_admin → 403 for managers; switched to require_admin (PII redaction for trial salons unchanged). Manager 200 verified.
+- Wrong Owner PIN: ownerPin.js now toasts "Incorrect PIN — please contact your Salon Admin team" (6s) and error detail updated; security.require_owner_pin logs failed attempts into manager_activity_logs (section "Owner PIN", action "wrong_pin") → visible in Staff Activities audit (endpoint /api/manager/activity-logs). Verified log entry.
+- Staff salary/commission report unchanged (PIN-gated, loads with correct PIN; default pct now 0).
+- NEEDS REDEPLOY.

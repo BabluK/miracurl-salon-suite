@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Resp
 from pydantic import BaseModel, Field, field_validator
 
 from database import _raw_db
-from security import jwt_secret, require_tenant_admin, require_super_admin, current_tenant, public_rate_limit
+from security import jwt_secret, require_tenant_admin, require_admin, require_super_admin, current_tenant, public_rate_limit
 from services.pdf import _build_registry_pdf
 
 router = APIRouter()
@@ -379,7 +379,7 @@ async def registry_update_employee(eid: str, body: RegistryEmployeeUpdateIn, adm
     return {"ok": True}
 
 @router.get("/registry/employees")
-async def registry_list_employees(q: Optional[str] = None, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def registry_list_employees(q: Optional[str] = None, admin=Depends(require_admin), t=Depends(current_tenant)):
     # Contact & address details only for PAID salons (or HQ). Instant free-trial
     # signups get the redacted view — blocks bulk PII harvesting (SEC-001).
     redact = admin.get("role") != "super_admin" and t.get("status") != "active"
