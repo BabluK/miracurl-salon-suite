@@ -5,7 +5,7 @@ import { ManualAttendanceModal } from "@/components/ManualAttendanceModal";
 import { getSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import { toast } from "sonner";
 import {
-  Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin, QrCode, Download,
+  Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin, QrCode, Download, Mail,
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -145,6 +145,16 @@ export default function Attendance() {
               </div>
             </div>
           )}
+          <button data-testid="attendance-email-month-btn" onClick={async () => {
+            try {
+              const { data } = await api.post("/reports/attendance-month/email");
+              toast.success(data.ok ? `Monthly attendance sheet emailed to ${data.recipients.join(", ")}` : (data.error || "Email failed"));
+            } catch (e) { toast.error(formatApiError(e.response?.data?.detail) || "Couldn't send"); }
+          }}
+            title="Email me this month's per-staff sheet of half-days, lates & fines (also sent automatically on the 1st)"
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50">
+            <Mail className="w-3.5 h-3.5" /> Email monthly sheet
+          </button>
           <Calendar className="w-4 h-4 text-slate-500" />
           <input
             data-testid="attendance-date-input"

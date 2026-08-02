@@ -1,4 +1,5 @@
-import { Edit3, Trash2, Phone, Mail, Percent, IndianRupee, KeyRound, Power, Clock, ShieldCheck } from "lucide-react";
+import { Edit3, Trash2, Phone, Mail, Percent, IndianRupee, KeyRound, Power, Clock, ShieldCheck, FileDown } from "lucide-react";
+import { API } from "@/lib/api";
 
 export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete, isManager = false, onPromote, mainLabel = "Main salon" }) {
   return (
@@ -59,6 +60,16 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
         >
           <IndianRupee className="w-3 h-3" /> Advance
         </button>
+        {!isManager && (
+          <button
+            data-testid={`salary-slip-${s.id}`}
+            onClick={() => window.open(`${API}/staff/${s.id}/salary-slip.pdf`, "_blank")}
+            className="text-xs py-1.5 px-3 rounded-md bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 inline-flex items-center gap-1"
+            title="Download this month's salary slip (commissions, fines & advances combined)"
+          >
+            <FileDown className="w-3 h-3" /> Slip
+          </button>
+        )}
         {!s.user_id ? (
           <button
             data-testid={`create-login-${s.id}`}

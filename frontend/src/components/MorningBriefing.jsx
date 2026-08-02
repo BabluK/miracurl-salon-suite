@@ -5,8 +5,11 @@ import { toast } from "sonner";
 import { openWhatsApp } from "@/lib/share";
 import { Sun, Moon, Sunset, Send, Plus, X, Loader2, Volume2, Mic, MessageCircle, Mail, Bell, Music } from "lucide-react";
 import { VendorAddForm } from "@/components/briefing/VendorAddForm";
+import { useAuth } from "@/context/AuthContext";
 
 export function MorningBriefing() {
+  const { user } = useAuth();
+  const isManager = user?.role === "manager";
   const [brief, setBrief] = useState(null);
   const [dismissed, setDismissed] = useState(false);
   const [vendorId, setVendorId] = useState("");
@@ -186,6 +189,7 @@ export function MorningBriefing() {
 
           {/* voice + language controls */}
           <div className="flex flex-wrap items-center gap-2 mt-2">
+            {!isManager && (
             <label className="inline-flex items-center gap-2 cursor-pointer select-none" data-testid="voice-greeting-toggle">
               <button type="button" role="switch" aria-checked={voiceOn} onClick={toggleVoice}
                 className={`relative inline-flex h-5 w-9 rounded-full transition ${voiceOn ? "bg-amber-500" : "bg-slate-300"}`}>
@@ -193,6 +197,7 @@ export function MorningBriefing() {
               </button>
               <span className="text-[11px] text-slate-600 font-medium">Enable Mira AI voice greeting</span>
             </label>
+            )}
             <div className="inline-flex rounded-full border border-amber-300 overflow-hidden" data-testid="mira-lang-toggle">
               <button onClick={() => switchLang("en")} data-testid="mira-lang-en"
                 className={`text-[11px] px-2.5 py-1 font-medium ${lang === "en" ? "bg-amber-500 text-white" : "text-amber-700 hover:bg-amber-100"}`}>English</button>
@@ -318,15 +323,19 @@ export function MorningBriefing() {
                     className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-medium disabled:opacity-50">
                     {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />} Mail
                   </button>
+                  {!isManager && (
                   <button data-testid="briefing-send-whatsapp-btn" onClick={doSendWhatsApp} disabled={!low.length}
                     className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium disabled:opacity-50">
                     <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
                   </button>
+                  )}
+                  {!isManager && (
                   <button data-testid="mira-mic-btn" onClick={() => startListening(lang)} disabled={voiceState === "listening"}
                     title="Answer Mira by voice — say Mail or WhatsApp"
                     className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-amber-400 text-amber-700 hover:bg-amber-50 font-medium disabled:opacity-50">
                     <Mic className="w-3.5 h-3.5" /> {voiceState === "listening" ? "Listening…" : "Answer by voice"}
                   </button>
+                  )}
                   {brief.vendors.length > 1 && (
                     <button data-testid="briefing-send-all-btn" onClick={async () => {
                       setSending(true);

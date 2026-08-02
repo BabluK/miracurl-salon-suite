@@ -6,7 +6,7 @@ load_dotenv(ROOT_DIR / '.env')
 import os
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import FastAPI, APIRouter, Request
 from starlette.middleware.cors import CORSMiddleware
@@ -270,6 +270,33 @@ async def on_startup():
                             {"$set": {"sent": out["sent"], "failed": out["failed"],
                                       "finished_at": datetime.now(timezone.utc).isoformat()}})
                         logging.info(f"Auto monthly reports for {out['month']}: {out['sent']} sent, {out['failed']} failed")
+                    if not await _raw_db.monthly_attendance_runs.find_one({"month": key}):
+                        await _raw_db.monthly_attendance_runs.insert_one(
+                            {"month": key, "started_at": datetime.now(timezone.utc).isoformat()})
+                        from routes.staff_portal import _attendance_month_rows
+                        from email_service import _send_email, _attendance_month_html
+                        prev = now_ist.replace(day=1) - timedelta(days=1)
+                        label = prev.strftime("%B %Y")
+                        sent = 0
+                        for t in await _raw_db.tenants.find(
+                                {"status": {"$in": ["active", "trial"]}}, {"_id": 0}).to_list(500):
+                            recips = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
+                            if not recips:
+                                continue
+                            _current_tenant_id.set(t["id"])
+                            try:
+                                rows = await _attendance_month_rows(prev.year, prev.month)
+                            finally:
+                                _current_tenant_id.set(None)
+                            if not any(r["days_present"] or r["half_days"] for r in rows):
+                                continue
+                            st = await _send_email(
+                                recips, f"🗓️ Staff attendance summary — {label} · {t.get('name', '')}",
+                                _attendance_month_html(t, label, rows))
+                            sent += 1 if st.get("sent") else 0
+                        await _raw_db.monthly_attendance_runs.update_one(
+                            {"month": key}, {"$set": {"sent": sent, "finished_at": datetime.now(timezone.utc).isoformat()}})
+                        logging.info(f"Auto monthly ATTENDANCE emails for {label}: {sent} sent")
             except Exception as e:
                 logging.getLogger("monthly_report").error(f"auto report loop error: {e}")
             await asyncio.sleep(3600)

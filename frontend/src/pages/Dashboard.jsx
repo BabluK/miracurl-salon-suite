@@ -106,7 +106,7 @@ export default function Dashboard() {
       <DashboardAurora />
       <RenewalBanner sub={subStatus} />
       {isOwner && <MySalonsOverview />}
-      {isOwner && <MorningBriefing />}
+      {(isOwner || user?.role === "manager") && <MorningBriefing />}
       {isOwner && <SetupBanner />}
       {isOwner && <MiraSocialNudge />}
       {isOwner && <MiraDayOffer />}

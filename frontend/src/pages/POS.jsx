@@ -299,7 +299,7 @@ export default function POS() {
       const rc = data.receipts || {};
       if (rc.email?.sent) toast.info("📧 Receipt emailed to the guest");
       if (rc.sms?.sent) toast.info(`📱 SMS receipt sent · ${rc.sms.points_left} SMS points left`);
-      if (rc.whatsapp_url) {
+      if (rc.whatsapp_url && user?.role !== "manager") {
         toast.success("💬 Send the receipt + review link on WhatsApp?", {
           duration: 12000,
           action: { label: "Open WhatsApp", onClick: () => window.open(rc.whatsapp_url, "_blank") },
@@ -455,7 +455,7 @@ export default function POS() {
           onEmailSaved={(cid, email) => setCustomers(prev => prev.map(c => (c.id === cid ? { ...c, email } : c)))}
           onClose={() => setLastInvoice(null)}
           onPrint={() => printInvoice(lastInvoice, tenant)}
-          onShare={() => shareInvoiceWhatsApp(lastInvoice)}
+          onShare={user?.role === "manager" ? null : () => shareInvoiceWhatsApp(lastInvoice)}
         />
       )}
     </div>

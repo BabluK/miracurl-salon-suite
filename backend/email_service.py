@@ -301,6 +301,31 @@ _REPORT_SHELL = ('<table width="100%" cellpadding="0" cellspacing="0" style="bac
                  '{body}</table></td></tr></table>')
 
 
+def _attendance_month_html(t: dict, month_label: str, rows: list) -> str:
+    def td(v, align="left", extra=""):
+        return f'<td style="padding:7px 10px;border-bottom:1px solid #f0e6ee;font-size:13px;text-align:{align};{extra}">{v}</td>'
+    body_rows = ""
+    for r in rows:
+        fines = f"₹{r['total_fines']:.0f}" if r["total_fines"] else "—"
+        body_rows += ("<tr>"
+                      + td(f"<b>{r['name']}</b><br><span style='color:#999;font-size:11px'>{r['role']}{(' · ' + r['branch']) if r['branch'] else ''}</span>")
+                      + td(r["days_present"], "center")
+                      + td(r["half_days"] or "—", "center", "color:#b45309;" if r["half_days"] else "")
+                      + td(f"{r['late_count']}× ({r['late_minutes']} min)" if r["late_count"] else "—", "center")
+                      + td(fines, "right", "color:#dc2626;font-weight:600;" if r["total_fines"] else "")
+                      + "</tr>")
+    th = 'style="padding:8px 10px;background:#1a1a2e;color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.06em;"'
+    return f"""<div style="font-family:Georgia,serif;max-width:640px;margin:0 auto;color:#333">
+      <h2 style="color:#1a1a2e;margin-bottom:2px">🗓️ Staff attendance summary — {month_label}</h2>
+      <p style="color:#777;font-size:13px;margin-top:2px">{t.get('name', '')} · per-staff half-days, lates and fines in one sheet.</p>
+      <table style="border-collapse:collapse;width:100%;margin-top:12px">
+        <tr><th {th} align="left">Staff</th><th {th}>Days present</th><th {th}>Half-days</th><th {th}>Lates</th><th {th} align="right">Fines</th></tr>
+        {body_rows or '<tr><td colspan="5" style="padding:14px;text-align:center;color:#999">No attendance records this month.</td></tr>'}
+      </table>
+      <p style="font-size:12px;color:#999;margin-top:14px">Fines = late fines + half-day deductions. Full details per staff are on your Attendance page. ✦ Miracurl</p>
+    </div>"""
+
+
 def _monthly_report_html(t: dict, month_label: str, stats: dict) -> str:
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     chip = _growth_chip(stats["revenue"], float(stats.get("prev_revenue") or 0), "previous month")

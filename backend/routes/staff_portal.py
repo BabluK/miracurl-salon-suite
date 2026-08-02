@@ -921,6 +921,60 @@ async def staff_leaderboard(month: Optional[str] = None, user=Depends(require_te
     return {"period": f"{y:04d}-{m:02d}", "rows": rows}
 
 
+async def _attendance_month_rows(y: int, m: int) -> list:
+    """Per-staff month sheet: presence, half-days, lates and fines."""
+    prefix = f"{y:04d}-{m:02d}"
+    staff_list = await db.staff.find(
+        {"active": {"$ne": False}}, {"_id": 0, "id": 1, "name": 1, "role": 1, "branch": 1}).to_list(300)
+    recs = await db.attendance.find({"date": {"$regex": f"^{prefix}"}}, {"_id": 0}).to_list(4000)
+    by_sid = {}
+    for r in recs:
+        by_sid.setdefault(r["staff_id"], []).append(r)
+    rows = []
+    for s in staff_list:
+        rs = by_sid.get(s["id"], [])
+        late_fines = round(sum(float(r.get("late_penalty") or 0) for r in rs), 2)
+        half_deduct = round(sum(float(r.get("half_day_deduction") or 0) for r in rs), 2)
+        rows.append({
+            "staff_id": s["id"], "name": s.get("name") or "", "role": s.get("role") or "",
+            "branch": s.get("branch") or "",
+            "days_present": sum(1 for r in rs if r.get("check_in_at")),
+            "half_days": sum(1 for r in rs if r.get("half_day")),
+            "late_count": sum(1 for r in rs if (r.get("late_minutes") or 0) > 0),
+            "late_minutes": sum(int(r.get("late_minutes") or 0) for r in rs),
+            "late_fines": late_fines,
+            "half_day_deductions": half_deduct,
+            "total_fines": round(late_fines + half_deduct, 2),
+        })
+    rows.sort(key=lambda r: r["name"])
+    return rows
+
+
+@router.get("/reports/attendance-month")
+async def attendance_month_report(month: Optional[str] = None, user=Depends(require_tenant_admin)):
+    y, m = _parse_month(month)
+    return {"period": f"{y:04d}-{m:02d}", "rows": await _attendance_month_rows(y, m)}
+
+
+@router.post("/reports/attendance-month/email")
+async def email_attendance_month_report(month: Optional[str] = None,
+                                        user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from email_service import _send_email, _attendance_month_html
+    y, m = _parse_month(month)
+    rows = await _attendance_month_rows(y, m)
+    label = datetime(y, m, 1).strftime("%B %Y")
+    recipients = [e for e in {t.get("owner_email"), user.get("email")} if e]
+    if not recipients:
+        raise HTTPException(400, "No owner email on file")
+    status = await _send_email(
+        recipients, f"🗓️ Staff attendance summary — {label} · {t.get('name', '')}",
+        _attendance_month_html(t, label, rows))
+    out = {"ok": bool(status.get("sent")), "recipients": recipients, "rows": len(rows)}
+    if status.get("error"):
+        out["error"] = status["error"]
+    return out
+
+
 @router.get("/staff/me/salary-slip")
 async def staff_my_salary_slip(month: Optional[str] = None,
                                s=Depends(_current_staff),
@@ -942,6 +996,24 @@ async def staff_my_salary_slip_pdf(month: Optional[str] = None,
     slip = await _compute_salary_for_month(s, y, m, t)
     pdf_bytes = _render_salary_slip_pdf(slip)
     fname = f"salary-slip-{slip['staff']['name'].replace(' ', '-').lower()}-{slip['period']}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@router.get("/staff/{sid}/salary-slip.pdf")
+async def staff_salary_slip_pdf_admin(sid: str, month: Optional[str] = None,
+                                      admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner/admin downloads any staff member's monthly salary slip (commissions + fines + advances)."""
+    s = await db.staff.find_one({"id": sid}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Staff member not found")
+    y, m = _parse_month(month)
+    slip = await _compute_salary_for_month(s, y, m, t)
+    pdf_bytes = _render_salary_slip_pdf(slip)
+    fname = f"salary-slip-{(slip['staff']['name'] or 'staff').replace(' ', '-').lower()}-{slip['period']}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",

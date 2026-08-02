@@ -119,7 +119,9 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
         <div className="flex items-center gap-2 mt-3">
           <button data-testid="invoice-print-btn" onClick={onPrint} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Printer className="w-3.5 h-3.5" /> Print</button>
           <button data-testid="invoice-pdf-btn" onClick={downloadPdf} disabled={pdfBusy} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5 disabled:opacity-50">{pdfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />} PDF</button>
-          <button data-testid="invoice-whatsapp-btn" onClick={onShare} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> WhatsApp</button>
+          {onShare && (
+            <button data-testid="invoice-whatsapp-btn" onClick={onShare} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> WhatsApp</button>
+          )}
           <button data-testid="invoice-close-btn" onClick={onClose} className="flex-1 px-3 py-2 rounded-lg bg-sky-500 text-white text-xs font-medium hover:bg-sky-600">Close</button>
         </div>
       </div>

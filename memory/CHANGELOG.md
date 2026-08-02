@@ -1302,3 +1302,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Testing agent iteration_96: 15/15 backend PASS + frontend PASS (it also fixed missing mainSalonLabel import in Staff.jsx). Branch rename cascade, case-insensitive matching, geo from-link (URL/short/place-text), branding maps_url, staff fence all green.
 - What's New popup: /api/whats-new now allowed for managers too (was admin-only 403). New RELEASES entry "2026-08-02" + BUILD bump to 2026-08-02.54 → popup will re-appear for every console after prod redeploy. Super Admin → Deployments tab auto-syncs the new entry (43 releases).
 - PROD: needs REDEPLOY to take effect.
+
+## Iter 127 (2 Aug 2026) — Manager WhatsApp restriction + salary slips + monthly attendance email + briefing for managers
+- HIGH: Managers can no longer send bills via WhatsApp (POS receipt toast + InvoiceReceiptModal WhatsApp button hidden for role=manager; onShare passed as null). Email + SMS receipts remain automatic for everyone.
+- Admin salary slip: GET /api/staff/{sid}/salary-slip.pdf (require_tenant_admin; placed AFTER /staff/me routes to avoid shadowing). "Slip" download button on each StaffCard (hidden for managers). Tested: 200 PDF, manager 403, staff self-slip still 200.
+- Monthly attendance email: _attendance_month_rows() (per-staff days present/half-days/lates/fines) + GET /api/reports/attendance-month + POST /api/reports/attendance-month/email (tested ok:true). _attendance_month_html in email_service.py. Auto-scheduler in server.py monthly loop (guard: monthly_attendance_runs meta) emails every active/trial tenant owner on the 1st ≥9AM IST. "Email monthly sheet" button added to Attendance header.
+- Mira daily briefing now shows for MANAGER logins too (Dashboard gate widened) — with vendor WhatsApp button, Answer-by-voice mic and voice-greeting toggle hidden for managers (Mail/Email-all-vendors allowed). Playwright-verified as aecs.manager.
