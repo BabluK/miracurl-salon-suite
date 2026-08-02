@@ -104,7 +104,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
 
       {managers.length === 0 ? (
         <div className="text-slate-400 text-sm py-6 text-center border border-dashed border-slate-200 rounded-xl" data-testid="managers-empty">
-          No managers yet — add one to delegate daily operations safely.
+          No managers yet. Already added your manager as a staff member? Use the <b>Promote</b> button on their staff card above — their login, branch and history carry over. Or add a fresh manager login here.
         </div>
       ) : (
         <div className="space-y-2">

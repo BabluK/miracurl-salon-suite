@@ -91,7 +91,7 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
             className="text-xs py-1.5 px-3 rounded-md bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 inline-flex items-center gap-1"
             title="Promote to Manager — keeps all their staff history (PIN protected)"
           >
-            <ShieldCheck className="w-3 h-3" /> Promote
+            <ShieldCheck className="w-3 h-3" /> {/^manager/i.test((s.role || "").trim()) ? "Make Manager Login" : "Promote"}
           </button>
         ))}
         <button

@@ -1337,3 +1337,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Verified: main-locked manager → dashboard/sales = Main-only (₹249,300), roster MAIN only; by_month rows correct; admin UI monthly table renders. Preview manager restored to AECS lock.
 - PROD ACTION for user: set Marathahalli manager's branch dropdown to "🏠 Main salon only" after redeploy.
 - NEEDS REDEPLOY.
+
+## 2026-08-02 (later 3) — Manager section clarity (verified via screenshot)
+- User confusion (prod): staff titled "Manager" showed "Give login" and Managers section said "No managers yet" — because Managers section lists manager LOGINS (users role=manager), not staff job titles; their production people are staff records without manager logins (Promote feature not yet deployed there).
+- UI: Managers empty-state now points to the Promote button; StaffCard promote label becomes "Make Manager Login" when staff job title starts with "manager". Verified: Staff page shows Promote on all cards, "Manager" badge on already-promoted (AECS Desk).
+- NEEDS REDEPLOY. Prod steps for user: redeploy → Staff page → Promote on their manager staff → set branch lock (AECS name or 🏠 Main salon only for Marathahalli).
