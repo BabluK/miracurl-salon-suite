@@ -1,6 +1,6 @@
 import { Edit3, Trash2, Phone, Mail, Percent, IndianRupee, KeyRound, Power, Clock, ShieldCheck } from "lucide-react";
 
-export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete, isManager = false, onPromote }) {
+export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete, isManager = false, onPromote, mainLabel = "Main salon" }) {
   return (
     <div data-testid={`staff-card-${s.id}`} className="card-light text-center group hover:border-sky-300 transition-all">
       <div className="relative inline-block">
@@ -23,11 +23,9 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
           {s.week_off_day && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[9px] font-semibold uppercase">off: {s.week_off_day.slice(0, 3)}</span>}
           {Number(s.overtime_rate) > 0 && <span className="text-violet-600">· OT ₹{s.overtime_rate}/hr</span>}
         </div>
-        {s.branch && (
-          <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-medium max-w-full truncate" data-testid={`branch-tag-${s.id}`} title={s.branch}>
-            📍 {s.branch}
-          </div>
-        )}
+        <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-medium max-w-full truncate" data-testid={`branch-tag-${s.id}`} title={s.branch || mainLabel}>
+          📍 {s.branch || mainLabel}
+        </div>
         {s.serving_notice && (
           <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-700 font-medium" data-testid={`notice-badge-${s.id}`}>
             Serving notice{s.last_working_day ? ` · last day ${s.last_working_day}` : ""}

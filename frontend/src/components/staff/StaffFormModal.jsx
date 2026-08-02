@@ -100,7 +100,7 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
               <div>
                 <label className="label-light block mb-1">Assigned branch</label>
                 <select data-testid="staff-branch-select" className="input-light" value={form.branch || ""} onChange={e => setForm({ ...form, branch: e.target.value })}>
-                  <option value="">Main salon (no branch tag)</option>
+                  <option value="">🏠 Main salon (this location)</option>
                   {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
                 </select>
                 <p className="text-[10px] text-slate-400 mt-1">Staff gets this branch tag & must check in at THIS branch&apos;s GPS location</p>

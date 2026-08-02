@@ -1342,3 +1342,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - User confusion (prod): staff titled "Manager" showed "Give login" and Managers section said "No managers yet" — because Managers section lists manager LOGINS (users role=manager), not staff job titles; their production people are staff records without manager logins (Promote feature not yet deployed there).
 - UI: Managers empty-state now points to the Promote button; StaffCard promote label becomes "Make Manager Login" when staff job title starts with "manager". Verified: Staff page shows Promote on all cards, "Manager" badge on already-promoted (AECS Desk).
 - NEEDS REDEPLOY. Prod steps for user: redeploy → Staff page → Promote on their manager staff → set branch lock (AECS name or 🏠 Main salon only for Marathahalli).
+
+## 2026-08-02 (later 4) — Staff location tags always visible (screenshot verified)
+- User (prod, AECS tenant): staff showed no location tag because AECS is that tenant's MAIN salon (branch field empty = main). StaffCard now always renders 📍 tag: s.branch OR mainLabel ("Main salon — {tenant.location}", passed from Staff.jsx). StaffFormModal dropdown label "Main salon (no branch tag)" → "🏠 Main salon (this location)".
+- Verified: cards show "📍 Main salon — Marathahalli" / "📍 Miracurl — AECS Layout, Brookefield".
+- NEEDS REDEPLOY.
