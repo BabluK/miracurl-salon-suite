@@ -150,6 +150,10 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
               className="w-full bg-slate-900 text-white rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save changes
             </button>
+            <button onClick={voidBill} disabled={busy} data-testid="edit-invoice-void-btn"
+              className="w-full border border-rose-300 bg-rose-50 text-rose-600 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-rose-100">
+              <Trash2 className="w-3.5 h-3.5" /> Void this bill (wrongly punched — removes it from reports)
+            </button>
           </>
         )}
       </div>

@@ -1311,3 +1311,14 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Verified: PIN 403, create-promote w/ temp pw, dup 400, demote role flip, upgrade-promote, UI modal + badges (7 promote/1 badge/2 demote). GOTCHA: bash `UID` is readonly — use MUID in scripts.
 - Preview side effect: Rahul Verma now has staff login promo.test@miracurl.com (temp password flow, role staff).
 - NEEDS REDEPLOY.
+
+## 2026-08-02 — Batch: dashboard zeros, POS guards/discount, sales branch filter, void bill, commission 0%, switch modal (testing agent 8/8 backend + 9/10 UI → 10/10 after fix, iteration_95)
+- #1 Manager ₹0 dashboards: cause = bills tagged Main while branch filter active. Added _branch_query w/ special "__main__" (branch_name in [None,""]) in reports.py; BranchSwitcher new "Main salon only" option; dashboard+sales exclude status:"voided".
+- #2 POS: checkout blocked when any service line lacks staff_id (toast lists items); "Coupon" label added; NEW "Overall disc (₹)" flat bill discount (overallDisc → totals chain + invoice discount payload, chip pos-overall-discount-chip).
+- #3 /api/reports/sales: branch param + branch_lock + __main__; Reports.jsx passes getSelectedBranch(). Branch Performance section already shows per-salon split.
+- #4 Edit Bill: editor dropdown options were WHITE-ON-WHITE (global select color CSS) — added text-slate-800; staffList now objects; per-service-line stylist select (edit-invoice-stylist-N, saves staff_id/staff_name via PUT); NEW void: POST /api/invoices/{id}/void (require_admin + owner PIN, audit in invoice_edits action:"void", 400 if re-void) + red "Void this bill" button on BOTH locked and normal bills (testing agent found it missing on normal — fixed after).
+- #5 Per-stylist commission default pct 30 → 0 (backend param + Reports useState).
+- #6 BranchSwitchModal: max-h-[85vh] overflow-y-auto + placeholder:text-slate-400.
+- BACKLOG (from tester): voiding a wallet/loyalty-paid bill doesn't refund wallet balance (P2); pre-existing hydration warning span-in-option (visual editor).
+- PROD GUIDANCE: after redeploy, owner should assign branch locks to managers; old bills are Main-tagged — pick "Main salon only" to see them.
+- NEEDS REDEPLOY.
