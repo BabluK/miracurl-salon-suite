@@ -12,7 +12,7 @@ const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
 const PIE_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", color: "#0f172a" };
 
 export default function Reports() {
-  const { tenant } = useAuth();
+  const { tenant, user } = useAuth();
   const today = new Date().toISOString().slice(0, 10);
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
   const [start, setStart] = useState(monthAgo);
@@ -98,11 +98,17 @@ export default function Reports() {
           </div>
           <div>
             <label className="label-light block mb-1">Salon / Branch</label>
-            <select data-testid="report-branch-filter" className="input-light text-slate-800" value={repBranch} onChange={e => setRepBranch(e.target.value)}>
-              <option value="">🌐 All salons</option>
-              <option value="__main__">Main salon only</option>
-              {(tenant?.branches || []).map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
-            </select>
+            {user?.role === "manager" ? (
+              <div className="input-light text-slate-600 bg-slate-50 cursor-not-allowed" data-testid="report-branch-locked">
+                🔒 {user?.branch === "__main__" ? "Main salon" : (user?.branch || "Your salon")}
+              </div>
+            ) : (
+              <select data-testid="report-branch-filter" className="input-light text-slate-800" value={repBranch} onChange={e => setRepBranch(e.target.value)}>
+                <option value="">🌐 All salons</option>
+                <option value="__main__">Main salon only</option>
+                {(tenant?.branches || []).map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
+              </select>
+            )}
           </div>
         </div>
       </div>
@@ -159,6 +165,33 @@ export default function Reports() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {(data.by_month || []).length > 0 && (
+            <div className="card-light" data-testid="monthly-revenue-card">
+              <div className="label-light">Month by Month</div>
+              <h3 className="font-playfair text-xl mt-1 mb-3">Monthly Revenue</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                      <th className="py-2">Month</th><th className="py-2 text-right">Bills</th><th className="py-2 text-right">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.by_month.map(m => (
+                      <tr key={m.month} className="border-b border-slate-50" data-testid={`month-row-${m.month}`}>
+                        <td className="py-2 font-semibold text-slate-700">
+                          {new Date(m.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+                        </td>
+                        <td className="py-2 text-right text-slate-500">{m.invoices}</td>
+                        <td className="py-2 text-right font-bold text-slate-800">{sym}{Number(m.revenue).toLocaleString("en-IN")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

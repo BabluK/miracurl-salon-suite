@@ -462,13 +462,13 @@ class ManagerBranchIn(BaseModel):
 async def set_manager_branch(uid: str, body: ManagerBranchIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Lock (or unlock with empty) a manager login to one branch."""
     branch = body.branch.strip()
-    if branch and branch not in [b.get("name") for b in (t.get("branches") or [])]:
+    if branch and branch != "__main__" and branch not in [b.get("name") for b in (t.get("branches") or [])]:
         raise HTTPException(400, "Unknown branch")
     res = await _raw_db.users.update_one(
         {"id": uid, "tenant_id": t["id"], "role": "manager"}, {"$set": {"branch": branch}})
     if res.matched_count == 0:
         raise HTTPException(404, "Manager not found")
-    await db.staff.update_one({"user_id": uid}, {"$set": {"branch": branch}})
+    await db.staff.update_one({"user_id": uid}, {"$set": {"branch": "" if branch == "__main__" else branch}})
     return {"ok": True, "branch": branch}
 
 
@@ -486,7 +486,7 @@ async def promote_staff(sid: str, body: PromoteIn, admin=Depends(require_tenant_
     if not s:
         raise HTTPException(404, "Staff member not found")
     branch = body.branch.strip()
-    if branch and branch not in [b.get("name") for b in (t.get("branches") or [])]:
+    if branch and branch != "__main__" and branch not in [b.get("name") for b in (t.get("branches") or [])]:
         raise HTTPException(400, "Unknown branch")
     if s.get("user_id"):
         u = await _raw_db.users.find_one({"id": s["user_id"], "tenant_id": t["id"]}, {"_id": 0})

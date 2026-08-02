@@ -285,12 +285,16 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
     avg_rating = round(sum(r.get("rating", 0) for r in reviews) / len(reviews), 1) if reviews else None
     by_mode = {}
     by_branch = {}
+    by_month = {}
     total_revenue = 0.0
     for inv in invs:
         by_mode[inv["payment_mode"]] = by_mode.get(inv["payment_mode"], 0) + inv["total"]
         b = by_branch.setdefault(inv.get("branch_name") or "Main", {"revenue": 0.0, "invoices": 0})
         b["revenue"] += inv["total"]
         b["invoices"] += 1
+        m = by_month.setdefault((inv.get("created_at") or "")[:7], {"revenue": 0.0, "invoices": 0})
+        m["revenue"] += inv["total"]
+        m["invoices"] += 1
         total_revenue += inv["total"]
     return {
         "total_invoices": len(invs),
@@ -301,6 +305,9 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
         "by_branch": sorted(
             [{"branch": k, "revenue": round(v["revenue"], 2), "invoices": v["invoices"]} for k, v in by_branch.items()],
             key=lambda x: -x["revenue"]),
+        "by_month": sorted(
+            [{"month": k, "revenue": round(v["revenue"], 2), "invoices": v["invoices"]} for k, v in by_month.items() if k],
+            key=lambda x: x["month"], reverse=True),
         "invoices": invs[:200],
     }
 

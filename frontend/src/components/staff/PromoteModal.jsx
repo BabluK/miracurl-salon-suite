@@ -63,6 +63,7 @@ export function PromoteModal({ staff, onClose, onDone }) {
               <select value={branch} onChange={(e) => setBranch(e.target.value)} data-testid="promote-branch-select"
                 className="input-light w-full mt-1 py-2.5">
                 <option value="">🌐 All branches (not locked)</option>
+                <option value="__main__">🏠 Main salon only</option>
                 {branches.map(b => <option key={b.id || b.name} value={b.name}>🔒 {b.name} only</option>)}
               </select>
             </div>

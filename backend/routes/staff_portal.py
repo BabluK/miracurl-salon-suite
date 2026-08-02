@@ -680,7 +680,7 @@ async def attendance_today(date: Optional[str] = None,
 
     staff_q = {"active": True}
     if branch:
-        staff_q["branch"] = branch
+        staff_q["branch"] = {"$in": [None, ""]} if branch == "__main__" else branch
     staff_list = await db.staff.find(
         staff_q,
         {"_id": 0, "id": 1, "name": 1, "role": 1, "image_url": 1, "user_id": 1, "phone": 1, "branch": 1},

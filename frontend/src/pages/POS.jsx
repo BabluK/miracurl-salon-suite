@@ -60,11 +60,11 @@ export default function POS() {
   const guestBoxRef = useRef(null);
   const sym = curSym(tenant);
   const lockedBranchId = (user?.role === "manager" && user?.branch)
-    ? ((tenant?.branches || []).find(b => b.name === user.branch)?.id || null)
+    ? (user.branch === "__main__" ? "" : ((tenant?.branches || []).find(b => b.name === user.branch)?.id || null))
     : null;
 
   useEffect(() => {
-    if (lockedBranchId && branchId !== lockedBranchId) {
+    if (lockedBranchId !== null && branchId !== lockedBranchId) {
       setBranchId(lockedBranchId);
       try { localStorage.setItem("pos_branch", lockedBranchId); } catch { /* private mode */ }
     }
@@ -360,7 +360,7 @@ export default function POS() {
 
         <div className="lg:col-span-7 xl:col-span-8 space-y-4">
           <InvoiceHeader
-            tenant={tenant} branchId={branchId} onBranchChange={changeBranch} branchLocked={!!lockedBranchId}
+            tenant={tenant} branchId={branchId} onBranchChange={changeBranch} branchLocked={lockedBranchId !== null}
             guestBoxRef={guestBoxRef} guestQuery={guestQuery} setGuestQuery={setGuestQuery}
             customerId={customerId} setCustomerId={setCustomerId}
             guestOpen={guestOpen} setGuestOpen={setGuestOpen} guestMatches={guestMatches}

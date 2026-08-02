@@ -1329,3 +1329,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Wrong Owner PIN: ownerPin.js now toasts "Incorrect PIN — please contact your Salon Admin team" (6s) and error detail updated; security.require_owner_pin logs failed attempts into manager_activity_logs (section "Owner PIN", action "wrong_pin") → visible in Staff Activities audit (endpoint /api/manager/activity-logs). Verified log entry.
 - Staff salary/commission report unchanged (PIN-gated, loads with correct PIN; default pct now 0).
 - NEEDS REDEPLOY.
+
+## 2026-08-02 (later 2) — Main-salon manager lock + monthly revenue + manager report scope (curl + screenshot verified)
+- ROOT CAUSE Marathahalli manager ₹0: Marathahalli is the MAIN salon; locks previously only supported branch names. Added special "__main__" lock: valid in PATCH /managers/{uid}/branch + promote (staff.branch synced as ""), _branch_query maps to branch_name in [None,""], attendance_today staff_q branch $in [None,""], POS lockedBranchId "" + disabled select, invoice creation forces ctx.branch=None, BranchSwitcher chip shows "Main salon". Dropdown option "🏠 Main salon only" added in ManagersSection (row+form) and PromoteModal.
+- Sales report: new by_month aggregation (month, revenue, invoices desc) + "Monthly Revenue" table on Reports (monthly-revenue-card, month-row-YYYY-MM).
+- User rule: ONLY admin sees all-branch reports. Reports salon filter hidden for role=manager (locked chip report-branch-locked); server branch_lock enforces for locked managers.
+- Verified: main-locked manager → dashboard/sales = Main-only (₹249,300), roster MAIN only; by_month rows correct; admin UI monthly table renders. Preview manager restored to AECS lock.
+- PROD ACTION for user: set Marathahalli manager's branch dropdown to "🏠 Main salon only" after redeploy.
+- NEEDS REDEPLOY.

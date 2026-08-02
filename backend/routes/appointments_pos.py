@@ -366,9 +366,12 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     ctx = await _resolve_billing_context(body, cust)
     locked_branch = branch_lock(user, None)
     if locked_branch:
-        b = next((x for x in (ctx["tenant_doc"].get("branches") or []) if x.get("name") == locked_branch), None)
-        if b:
-            ctx["branch"] = b
+        if locked_branch == "__main__":
+            ctx["branch"] = None
+        else:
+            b = next((x for x in (ctx["tenant_doc"].get("branches") or []) if x.get("name") == locked_branch), None)
+            if b:
+                ctx["branch"] = b
     totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]
 
     if body.payment_mode == "salon_wallet":

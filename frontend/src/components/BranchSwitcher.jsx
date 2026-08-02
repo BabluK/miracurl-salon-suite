@@ -38,7 +38,7 @@ export const BranchSwitcher = () => {
         title="This login is locked to your branch — only the owner can switch branches.">
         <GitBranch className="w-3.5 h-3.5 text-white/40 hidden sm:block" />
         <span className="bg-white/5 border border-white/10 rounded-full px-3 py-1 text-xs text-white/80 max-w-[150px] truncate">
-          🔒 {user.branch}
+          🔒 {user.branch === "__main__" ? "Main salon" : user.branch}
         </span>
       </div>
     );
