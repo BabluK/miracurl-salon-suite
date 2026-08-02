@@ -343,7 +343,7 @@ function GeoFenceCard() {
     setLinkBusy(true);
     try {
       const { data } = await api.post("/tenants/current/geo/from-link", { url, branch: target || null });
-      toast.success(`Location saved for ${label} (${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}) — fence ${fenceM}m`);
+      toast.success(`Location saved for ${label}${data.resolved ? ` — ${data.resolved}` : ""} (${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}) — fence ${fenceM}m`);
       setMapsLink("");
       load();
     } catch (e) {
@@ -373,7 +373,7 @@ function GeoFenceCard() {
               {branches.length > 0 && (
                 <select data-testid="geo-target-select" value={target} onChange={e => setTarget(e.target.value)}
                   className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white max-w-[220px]">
-                  <option value="">Main salon</option>
+                  <option value="">Main salon{tenant?.location ? ` (${tenant.location})` : ""}</option>
                   {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}{b.latitude != null ? " ✓" : ""}</option>)}
                 </select>
               )}
@@ -401,7 +401,7 @@ function GeoFenceCard() {
           value={mapsLink}
           onChange={e => setMapsLink(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") saveFromLink(); }}
-          placeholder={`Paste Google Maps link for ${label} (e.g. https://maps.app.goo.gl/… or full maps URL)`}
+          placeholder={`Paste Google Maps link for ${label}, or type its name & area (e.g. Miracurl Salon Marathahalli)`}
           className="input-light text-xs flex-1 min-w-0"
         />
         <button data-testid="geo-maps-link-save-btn" onClick={saveFromLink} disabled={linkBusy || !mapsLink.trim()}
@@ -410,7 +410,7 @@ function GeoFenceCard() {
         </button>
       </div>
       <div className="text-[11px] text-slate-400 -mt-1">
-        In Google Maps: search your salon → Share → Copy link, then paste it here. Works with short links (maps.app.goo.gl) and full browser URLs.
+        In Google Maps: search your salon → Share → Copy link, then paste it here — or just type the salon name + area. Works with short links (maps.app.goo.gl) and full browser URLs.
       </div>
       {isSet && (
         <div className="rounded-lg overflow-hidden border border-slate-200" data-testid="geo-map-preview">

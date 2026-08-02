@@ -55,7 +55,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
   async function setBranch(m, branch) {
     try {
       await api.patch(`/managers/${m.id}/branch`, { branch });
-      toast.success(branch ? `${m.name} locked to ${branch} — they'll only see that branch` : `${m.name} can now see all branches`);
+      toast.success(branch ? `${m.name} locked to ${branch === "__main__" ? "the main salon" : branch} — they'll only see that branch` : `${m.name} can now see all branches`);
       load();
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Couldn't update branch");
@@ -118,9 +118,9 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
                 <div className="flex items-center gap-1.5 shrink-0" title="Lock this login to one branch — they'll only see that branch's data">
                   <GitBranch className="w-3.5 h-3.5 text-slate-400" />
                   <select data-testid={`manager-branch-${m.id}`} value={m.branch || ""} onChange={e => setBranch(m, e.target.value)}
-                    className={`text-xs border rounded-lg px-2 py-1.5 bg-white max-w-[170px] ${m.branch ? "border-violet-300 text-violet-700 font-semibold" : "border-slate-200 text-slate-500"}`}>
+                    className={`text-xs border rounded-lg px-2 py-1.5 bg-white max-w-[230px] ${m.branch ? "border-violet-300 text-violet-700 font-semibold" : "border-slate-200 text-slate-500"}`}>
                     <option value="">🌐 All branches</option>
-                    <option value="__main__">🏠 Main salon only</option>
+                    <option value="__main__">🏠 {tenant?.name || "Main salon"}{tenant?.location ? ` — ${tenant.location}` : ""} (Main)</option>
                     {branches.map(b => <option key={b.id || b.name} value={b.name}>🔒 {b.name}</option>)}
                   </select>
                 </div>
@@ -180,7 +180,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
                   <label className="text-xs text-slate-500 mb-1 block">Branch (lock this login to one location)</label>
                   <select data-testid="manager-branch-input" value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))} className="input-light w-full">
                     <option value="">🌐 All branches (not locked)</option>
-                    <option value="__main__">🏠 Main salon only</option>
+                    <option value="__main__">🏠 {tenant?.name || "Main salon"}{tenant?.location ? ` — ${tenant.location}` : ""} (Main only)</option>
                     {branches.map(b => <option key={b.id || b.name} value={b.name}>🔒 {b.name} only</option>)}
                   </select>
                   <p className="text-[11px] text-slate-500 mt-1">A branch-locked login only ever sees its own branch — no switching. Only your owner login can switch branches (PIN protected).</p>

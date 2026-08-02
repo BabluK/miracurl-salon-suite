@@ -37,8 +37,8 @@ export const BranchSwitcher = () => {
       <div className="flex items-center gap-1.5 flex-shrink-0" data-testid="branch-locked-chip"
         title="This login is locked to your branch — only the owner can switch branches.">
         <GitBranch className="w-3.5 h-3.5 text-white/40 hidden sm:block" />
-        <span className="bg-white/5 border border-white/10 rounded-full px-3 py-1 text-xs text-white/80 max-w-[150px] truncate">
-          🔒 {user.branch === "__main__" ? "Main salon" : user.branch}
+        <span className="bg-white/5 border border-white/10 rounded-full px-3 py-1 text-xs text-white/80 max-w-[260px] truncate">
+          🔒 {user.branch === "__main__" ? `${tenant?.name || "Main salon"}${tenant?.location ? ` — ${tenant.location}` : ""} (Main)` : user.branch}
         </span>
       </div>
     );
@@ -75,7 +75,7 @@ export const BranchSwitcher = () => {
           title="Switch branch — owner approval required"
         >
           <option value="" className="bg-neutral-900 text-white">All branches</option>
-          <option value="__main__" className="bg-neutral-900 text-white">Main salon only</option>
+          <option value="__main__" className="bg-neutral-900 text-white">Main salon{tenant?.location ? ` (${tenant.location})` : ""}</option>
           {branches.map(b => (
             <option key={b.id || b.name} value={b.name} className="bg-neutral-900 text-white">{b.name}</option>
           ))}

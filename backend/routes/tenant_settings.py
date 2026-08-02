@@ -133,29 +133,90 @@ def _expand_short_link(url: str) -> str:
 
 
 class TenantGeoLinkIn(BaseModel):
-    url: str = Field(..., min_length=8, max_length=2000)
+    url: str = Field(..., min_length=3, max_length=2000)
     branch: Optional[str] = None
+
+
+async def _places_text_search(text: str):
+    """(lat, lng, name, address) via Google Places API (New) — or None."""
+    key = os.environ.get("GOOGLE_MAPS_API_KEY")
+    text = (text or "").strip()
+    if not key or not text:
+        return None
+    def _call():
+        return requests.post(
+            "https://places.googleapis.com/v1/places:searchText",
+            headers={"X-Goog-Api-Key": key,
+                     "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.location"},
+            json={"textQuery": text}, timeout=12).json()
+    try:
+        data = await asyncio.to_thread(_call)
+    except requests.RequestException:
+        return None
+    places = data.get("places") or []
+    if not places:
+        return None
+    p = places[0]
+    loc = p.get("location") or {}
+    if loc.get("latitude") is None:
+        return None
+    return (loc["latitude"], loc["longitude"],
+            (p.get("displayName") or {}).get("text", ""), p.get("formattedAddress", ""))
+
+
+def _place_query_from_url(url: str) -> str:
+    from urllib.parse import unquote_plus
+    m = re.search(r"/maps/place/([^/@?&]+)", url)
+    if m:
+        return unquote_plus(m.group(1)).replace("+", " ")
+    m = re.search(r"[?&]q=([^&]+)", url)
+    if m:
+        q = unquote_plus(m.group(1))
+        if not re.match(r"^-?\d", q):
+            return q
+    return ""
+
+
+async def _resolve_maps_input(text: str):
+    """Resolve a Google Maps URL, short link, or plain place-name text to
+    (lat, lng, resolved_label). Returns None when nothing can be located."""
+    from urllib.parse import unquote
+    raw = (text or "").strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    if parsed.scheme in ("http", "https"):
+        host = (parsed.netloc or "").lower()
+        if not any(h in host for h in ("google.", "goo.gl", "maps.app")):
+            raise HTTPException(400, "That doesn't look like a Google Maps link")
+        coords = _parse_maps_coords(raw)
+        work_url = raw
+        if not coords:
+            work_url = await asyncio.to_thread(_expand_short_link, raw)
+            coords = _parse_maps_coords(unquote(work_url))
+        if coords:
+            return coords[0], coords[1], ""
+        q = _place_query_from_url(unquote(work_url)) or _place_query_from_url(unquote(raw))
+        if q:
+            hit = await _places_text_search(q)
+            if hit:
+                return hit[0], hit[1], f"{hit[2]}, {hit[3]}".strip(", ")
+        return None
+    hit = await _places_text_search(raw)
+    if hit:
+        return hit[0], hit[1], f"{hit[2]}, {hit[3]}".strip(", ")
+    return None
 
 
 @router.post("/tenants/current/geo/from-link")
 async def set_tenant_geo_from_link(body: TenantGeoLinkIn, admin=Depends(require_admin), t=Depends(current_tenant)):
-    """Pin salon/branch GPS by pasting a Google Maps link (full URL or maps.app.goo.gl short link)."""
-    url = body.url.strip()
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise HTTPException(400, "Paste a valid Google Maps link (must start with https://)")
-    host = (parsed.netloc or "").lower()
-    if not any(h in host for h in ("google.", "goo.gl", "maps.app")):
-        raise HTTPException(400, "That doesn't look like a Google Maps link")
-    coords = _parse_maps_coords(url)
-    if not coords and any(h in host for h in ("goo.gl", "maps.app")):
-        from urllib.parse import unquote
-        expanded = await asyncio.to_thread(_expand_short_link, url)
-        coords = _parse_maps_coords(unquote(expanded))
-    if not coords:
-        raise HTTPException(400, "Couldn't find coordinates in that link. Open the location in Google Maps, "
-                                 "copy the full URL from the browser address bar, or use the Share → Copy link option.")
-    lat, lng = coords
+    """Pin salon/branch GPS from a Google Maps link (full or short URL) or a typed place name."""
+    found = await _resolve_maps_input(body.url)
+    if not found:
+        raise HTTPException(400, "Couldn't locate that. Paste the full Google Maps URL from your browser's "
+                                 "address bar, or simply type your salon name + area "
+                                 "(e.g. 'Miracurl Salon Marathahalli').")
+    lat, lng, resolved = found
     if body.branch:
         res = await db.tenants.update_one(
             {"id": t["id"], "branches.name": body.branch},
@@ -166,7 +227,7 @@ async def set_tenant_geo_from_link(body: TenantGeoLinkIn, admin=Depends(require_
         await db.tenants.update_one({"id": t["id"]}, {"$set": {
             "latitude": lat, "longitude": lng,
             "geo_set_at": datetime.now(timezone.utc).isoformat()}})
-    return {"ok": True, "latitude": lat, "longitude": lng, "branch": body.branch}
+    return {"ok": True, "latitude": lat, "longitude": lng, "branch": body.branch, "resolved": resolved}
 
 
 @router.delete("/tenants/current/geo")
@@ -265,12 +326,11 @@ async def _coords_from_maps_url(url: str):
     url = (url or "").strip()
     if not url:
         return None
-    coords = _parse_maps_coords(url)
-    if not coords:
-        from urllib.parse import unquote
-        expanded = await asyncio.to_thread(_expand_short_link, url)
-        coords = _parse_maps_coords(unquote(expanded))
-    return coords
+    try:
+        found = await _resolve_maps_input(url)
+    except HTTPException:
+        return None
+    return (found[0], found[1]) if found else None
 
 
 @router.post("/branches")
@@ -475,6 +535,7 @@ async def get_branding(user=Depends(require_admin), t=Depends(current_tenant)):
         "name": t.get("name", ""),
         "slug": t.get("slug", ""),
         "google_review_url": t.get("google_review_url") or "",
+        "maps_url": t.get("maps_url") or "",
         "hours": t.get("hours") or "",
         "phone": t.get("phone") or "",
         "location": t.get("location") or "",
@@ -489,6 +550,14 @@ async def update_branding(body: BrandingIn, user=Depends(require_admin), t=Depen
     update = {k: v for k, v in body.model_dump(exclude_none=True).items()}
     if not update:
         return {"ok": True}
+    if update.get("maps_url"):
+        try:
+            found = await _resolve_maps_input(update["maps_url"])
+        except HTTPException:
+            found = None
+        if found:
+            update["latitude"], update["longitude"] = found[0], found[1]
+            update["geo_set_at"] = datetime.now(timezone.utc).isoformat()
     await db.tenants.update_one({"id": t["id"]}, {"$set": update})
     return {"ok": True, **update}
 
