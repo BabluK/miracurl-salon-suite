@@ -3,7 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { GitBranch, KeyRound, UserCheck, X, Loader2 } from "lucide-react";
 
-const inputCls = "w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200";
+const inputCls = "w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200";
 
 function PinTab({ onApproved }) {
   const [pin, setPin] = useState("");
@@ -103,7 +103,7 @@ export function BranchSwitchModal({ pendingBranch, canUsePin, onClose, onApprove
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()} data-testid="branch-switch-modal">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl max-h-[85vh] overflow-y-auto my-auto" onClick={e => e.stopPropagation()} data-testid="branch-switch-modal">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
             <GitBranch className="w-4 h-4 text-amber-500" /> Switch to {pendingBranch || "All branches"}

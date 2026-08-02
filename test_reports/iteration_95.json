@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 95 batch fixes verified end-to-end. Backend: 8/8 pytest cases PASS covering dashboard/sales branch=__main__ + branch=<AECS>, voided bills excluded from dashboard + audited, PUT /invoices preserves item staff_id/staff_name, second void → 400, and /reports/staff-commission default pct=0.0. Frontend: POS 'Coupon' label + 'Overall disc (₹)' input work (typing 50 → chip appears, Grand Total drops by ₹50 + 18% tax adjust from ₹2,478 to ₹2,301), stylist-guard toast fires on checkout without stylist ('Select the stylist who did: Bridal Makeup') and no invoice is created. Header BranchSwitcher exposes 'Main salon only' (value __main__) alongside 'All branches' and 'Miracurl — AECS Layout, Brookefield'; selecting it prompts owner-pin-input, entering 4321 reloads dashboard cleanly. Reports → edit-invoice-btn opens EditInvoiceModal; 'Who is editing' select uses bg-white text-slate-800 (VISIBLE) and lists Owner + all staff; per-line stylist select edit-invoice-stylist-0 present. One issue found: edit-invoice-void-btn is NOT rendered on unlocked (normal cash/card/upi) bills — the review request explicitly says the Void button should be present on the Edit modal (and 'also on locked wallet bills'). The code path only renders the void button inside the `locked` branch of EditInvoiceModal.jsx (line 75), so admins can't void a regular wrongly-punched bill from the UI (backend endpoint works fine).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "EditInvoiceModal", "issue": "Void button only rendered when the bill is locked (wallet/points). On a normal cash/card/upi bill the modal shows Save changes only — no Void button visible. Review request expects the button on BOTH normal AND locked bills.", "selector": "[data-testid=\"edit-invoice-void-btn\"]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iter95_batch.py", "/app/test_reports/pytest/iter95.xml"],
+  "action_items": [
+    "In /app/frontend/src/components/EditInvoiceModal.jsx, render the Void button in the unlocked branch too (currently only inside the `locked` conditional at ~line 70-78). It should be shown alongside the Save Changes button (or at the top of the modal) so admins can void wrongly-punched normal bills without needing a wallet lock."
+  ],
+  "critical_code_review_comments": [
+    "Pre-existing hydration warning `<span> cannot be a child of <option>` still present on Dashboard MiraDayOffer + POS InvoiceHeader branch select (visual-editor injecting spans). Not part of this iteration's diff but noisy.",
+    "invoice_edits.py void_invoice audit entry uses field `action:'void'` correctly and inserts new doc — good. Consider also decrementing customer wallet/loyalty when voiding a wallet-paid bill (currently _validate_edit blocks wallet edits but void doesn't refund balances)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter95_batch.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "90% (9/10 flows) — void button missing on unlocked bills"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL; Owner PIN 4321; tenant miracurl-marathahalli",
+  "seed_data_creation": "Two TEST_ invoices created and voided during backend testing (customer fb48bf16-…). Both marked voided → excluded from revenue.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Correct edit button testid on Reports.jsx is data-testid=\"edit-invoice-btn-<invoice_id>\" (NOT edit-invoice-open-). Clicking it opens EditInvoiceModal locally; staff list load uses plain /staff (no PIN gate on load — PIN is only asked on Save/Void via pinApi). BranchSwitcher root is a DIV with data-testid=\"branch-switcher\", and the native <select> inside has data-testid=\"branch-switcher-select\" with options [\"\", \"__main__\", \"Miracurl — AECS Layout, Brookefield\"]. Switching to a different value triggers BranchSwitchModal which uses [data-testid=owner-pin-input]. POS cart-line stylist select testid is cart-line-staff-<idx>. Invoice POST requires each item to include ref_id — use \"adhoc\" for TEST items.",
+  "rca of the issue": "EditInvoiceModal.jsx wraps the void button inside `{locked ? (<>… voidBtn …</>) : (<>… saveBtn …</>)}` — the else (unlocked) branch never renders the void button. Fix: pull the Void button outside the ternary or add it to both branches. Backend POST /invoices/{id}/void already handles unlocked bills correctly (verified with test_create_void_and_audit)."
+}

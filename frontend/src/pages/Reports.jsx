@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { EditInvoiceModal } from "@/components/EditInvoiceModal";
 import { useAuth } from "@/context/AuthContext";
 import { curSym } from "@/lib/currency";
+import { getSelectedBranch } from "@/lib/branch";
 
 const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
 const PIE_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", color: "#0f172a" };
@@ -20,7 +21,7 @@ export default function Reports() {
   const [data, setData] = useState(null);
   const [commission, setCommission] = useState(null);
   const [tips, setTips] = useState(null);
-  const [pct, setPct] = useState(30);
+  const [pct, setPct] = useState(0);
   const [rateUnlocked, setRateUnlocked] = useState(() => sessionStorage.getItem("commission_rate_unlock") === "1");
   const [erasing, setErasing] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -57,7 +58,7 @@ export default function Reports() {
 
   const load = useCallback(async () => {
     try {
-      const a = await api.get(`/reports/sales?start=${start}&end=${end}`);
+      const a = await api.get(`/reports/sales?start=${start}&end=${end}&branch=${encodeURIComponent(getSelectedBranch() || "")}`);
       setData(a.data);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't load sales report");

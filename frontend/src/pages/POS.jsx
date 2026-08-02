@@ -56,6 +56,7 @@ export default function POS() {
   const [gcModalOpen, setGcModalOpen] = useState(false);
   const [posOffers, setPosOffers] = useState({ mira_packages: [], day_offers: [] });
   const [offerApplied, setOfferApplied] = useState(null);
+  const [overallDisc, setOverallDisc] = useState(0);
   const guestBoxRef = useRef(null);
   const sym = curSym(tenant);
   const lockedBranchId = (user?.role === "manager" && user?.branch)
@@ -211,11 +212,12 @@ export default function POS() {
   const afterMemb = Math.max(0, subtotal - lineDiscount - membershipDiscount);
   const couponDiscount = couponInfo ? (couponInfo.type === "percent" ? afterMemb * couponInfo.value / 100 : Math.min(couponInfo.value, afterMemb)) : 0;
   const offerDiscount = offerApplied ? Math.max(0, (afterMemb - couponDiscount)) * offerApplied.pct / 100 : 0;
+  const overallDiscount = Math.min(Math.max(0, Number(overallDisc) || 0), Math.max(0, afterMemb - couponDiscount - offerDiscount));
   const loyaltyRules = benefits?.loyalty_rules || {};
   const redeemCap = Number(loyaltyRules.max_redeem_per_visit) > 0 ? Number(loyaltyRules.max_redeem_per_visit) : Infinity;
   const canRedeem = subtotal >= Number(loyaltyRules.min_bill_to_redeem || 0);
-  const pointsUsed = canRedeem ? Math.min(redeemPoints || 0, benefits?.loyalty_points || 0, redeemCap, Math.max(0, afterMemb - couponDiscount - offerDiscount)) : 0;
-  const totalDiscount = lineDiscount + membershipDiscount + couponDiscount + offerDiscount + pointsUsed;
+  const pointsUsed = canRedeem ? Math.min(redeemPoints || 0, benefits?.loyalty_points || 0, redeemCap, Math.max(0, afterMemb - couponDiscount - offerDiscount - overallDiscount)) : 0;
+  const totalDiscount = lineDiscount + membershipDiscount + couponDiscount + offerDiscount + overallDiscount + pointsUsed;
   const taxable = Math.max(0, subtotal - totalDiscount);
   const tax = taxable * taxPct / 100;
   const total = taxable + tax;
@@ -259,12 +261,17 @@ export default function POS() {
     setCart([]); setOrderNotes(""); setStaffId("");
     setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("cash");
     setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
-    setOfferApplied(null);
+    setOfferApplied(null); setOverallDisc(0);
     setGcCode(""); setGcInfo(null);
     setTipPct(null); setCustomTip(0); setTipStaffId("");
   }
 
   async function checkout(complete = true) {
+    const missingStaff = cart.filter(c => c.type === "service" && !c.staff_id);
+    if (missingStaff.length > 0) {
+      toast.error(`Select the stylist who did: ${missingStaff.map(m => m.name).join(", ")}`);
+      return;
+    }
     if (!customerId) { toast.error("Please select a guest"); return; }
     if (cart.length === 0) { toast.error("Cart is empty"); return; }
     try {
@@ -275,7 +282,7 @@ export default function POS() {
           type, ref_id, name, qty, price,
           staff_id: staff_id || null, staff_name: staff_name || null,
         })),
-        discount: lineDiscount + offerDiscount,
+        discount: lineDiscount + offerDiscount + overallDiscount,
         tax_pct: taxPct,
         payment_mode: payment,
         redeem_points: pointsUsed,
@@ -371,6 +378,7 @@ export default function POS() {
             couponCode={couponCode} setCouponCode={setCouponCode} setCouponInfo={setCouponInfo}
             checkCoupon={checkCoupon} couponInfo={couponInfo}
             offerApplied={offerApplied} offerDiscount={offerDiscount}
+            overallDisc={overallDisc} setOverallDisc={setOverallDisc} overallDiscount={overallDiscount}
             membershipDiscount={membershipDiscount} couponDiscount={couponDiscount}
             pointsUsed={pointsUsed} totalDiscount={totalDiscount} tax={tax} total={total}
           />

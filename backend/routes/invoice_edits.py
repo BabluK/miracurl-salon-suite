@@ -90,6 +90,33 @@ async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_ad
     return _clean({**inv, **updates})
 
 
+class InvoiceVoidIn(BaseModel):
+    editor_name: str = Field(..., min_length=2, max_length=60)
+    reason: str = Field("", max_length=200)
+
+
+@router.post("/invoices/{inv_id}/void")
+async def void_invoice(inv_id: str, body: InvoiceVoidIn, user=Depends(require_admin),
+                       t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
+    """Mark a wrongly-punched bill as voided — excluded from all revenue reports. Audited."""
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    if inv.get("status") == "voided":
+        raise HTTPException(400, "This bill is already voided")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.invoices.update_one({"id": inv_id}, {"$set": {
+        "status": "voided", "voided_at": now,
+        "voided_by": body.editor_name.strip(), "void_reason": body.reason.strip()}})
+    await db.invoice_edits.insert_one({
+        "id": str(uuid.uuid4()), "invoice_id": inv_id, "invoice_no": inv["invoice_no"],
+        "customer_name": inv.get("customer_name", ""), "action": "void",
+        "editor_name": body.editor_name.strip(), "edited_by_account": user.get("email", ""),
+        "edited_at": now, "before": {"total": inv["total"], "status": inv.get("status") or "paid"},
+        "after": {"status": "voided", "reason": body.reason.strip()}})
+    return {"ok": True, "invoice_no": inv["invoice_no"]}
+
+
 @router.get("/invoice-edits")
 async def list_invoice_edits(user=Depends(require_admin), _pin=Depends(require_owner_pin)):
     return [_clean(e) for e in await db.invoice_edits.find({}, {"_id": 0}).sort("edited_at", -1).to_list(200)]

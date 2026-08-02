@@ -75,6 +75,7 @@ export const BranchSwitcher = () => {
           title="Switch branch — owner approval required"
         >
           <option value="" className="bg-neutral-900 text-white">All branches</option>
+          <option value="__main__" className="bg-neutral-900 text-white">Main salon only</option>
           {branches.map(b => (
             <option key={b.id || b.name} value={b.name} className="bg-neutral-900 text-white">{b.name}</option>
           ))}

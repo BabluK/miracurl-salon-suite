@@ -137,12 +137,18 @@ async def staff_performance(user=Depends(get_current_user)):
     return result
 
 
+def _branch_query(branch):
+    if branch == "__main__":
+        return {"branch_name": {"$in": [None, ""]}}
+    return {"branch_name": branch} if branch else {}
+
+
 @router.get("/reports/dashboard")
 async def dashboard(branch: Optional[str] = None, user=Depends(require_admin)):
     branch = branch_lock(user, branch)
     today = datetime.now(timezone.utc).date().isoformat()
     month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
-    branch_flt = {"branch_name": branch} if branch else {}
+    branch_flt = {**_branch_query(branch), "status": {"$ne": "voided"}}
     invoices_today = await db.invoices.find({"created_at": {"$regex": f"^{today}"}, **branch_flt}, {"_id": 0}).to_list(500)
     invoices_month = await db.invoices.find({"created_at": {"$regex": f"^{month_prefix}"}, **branch_flt}, {"_id": 0}).to_list(2000)
     appts_today = await db.appointments.find({"scheduled_at": {"$regex": f"^{today}"}}, {"_id": 0}).to_list(500)
@@ -268,10 +274,12 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
 
 
 @router.get("/reports/sales")
-async def sales_report(start: Optional[str] = None, end: Optional[str] = None, user=Depends(require_admin)):
-    flt = {}
+async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
+                       branch: Optional[str] = None, user=Depends(require_admin)):
+    branch = branch_lock(user, branch)
+    flt = {"status": {"$ne": "voided"}, **_branch_query(branch)}
     if start and end:
-        flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
+        flt["created_at"] = {"$gte": start, "$lte": end + "T23:59:59Z"}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
     reviews = await db.reviews.find(flt, {"_id": 0, "rating": 1}).to_list(2000)
     avg_rating = round(sum(r.get("rating", 0) for r in reviews) / len(reviews), 1) if reviews else None
@@ -319,7 +327,7 @@ def _commission_agg(invs: list) -> tuple:
 async def staff_commission_report(
     start: Optional[str] = None,
     end: Optional[str] = None,
-    pct: float = 30.0,
+    pct: float = 0.0,
     user=Depends(require_admin),
     _pin=Depends(require_owner_pin),
 ):

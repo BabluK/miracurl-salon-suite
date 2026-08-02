@@ -9,9 +9,9 @@ const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
 export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
   const [editor, setEditor] = useState("");
-  const [staffList, setStaffList] = useState(null);
+  const [staffList, setStaffList] = useState(null); // [{id,name}]
   useEffect(() => {
-    api.get("/staff").then(r => setStaffList(r.data.map(s => s.name))).catch(() => setStaffList([]));
+    api.get("/staff").then(r => setStaffList(r.data.map(s => ({ id: s.id, name: s.name })))).catch(() => setStaffList([]));
   }, []);
   const [mode, setMode] = useState(MODES.includes(invoice.payment_mode) ? invoice.payment_mode : "cash");
   const fixed = (invoice.membership_discount || 0) + (invoice.coupon_discount || 0) + (invoice.points_used || 0);
@@ -43,6 +43,22 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
     setBusy(false);
   };
 
+  const voidBill = async () => {
+    const who = editor.trim() || window.prompt("Who is voiding this bill? (name)") || "";
+    if (who.trim().length < 2) { toast.error("Name required for the audit trail"); return; }
+    const reason = window.prompt(`Void bill ${invoice.invoice_no}? It will be removed from all revenue reports.\n\nReason (e.g. wrongly punched):`) ;
+    if (reason === null) return;
+    setBusy(true);
+    try {
+      await pinApi.post(`/invoices/${invoice.id}/void`, { editor_name: who.trim(), reason: reason.trim() });
+      toast.success(`Bill ${invoice.invoice_no} voided — excluded from reports`);
+      onSaved();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Void failed");
+    }
+    setBusy(false);
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4" data-testid="edit-invoice-modal">
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4">
@@ -52,19 +68,25 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
         </div>
 
         {locked ? (
-          <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-4" data-testid="edit-invoice-locked">
-            🔒 This bill used the customer's wallet/loyalty balance and can't be edited — void it and re-bill instead.
-          </p>
+          <>
+            <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-4" data-testid="edit-invoice-locked">
+              🔒 This bill used the customer's wallet/loyalty balance and can't be edited — void it and re-bill instead.
+            </p>
+            <button onClick={voidBill} disabled={busy} data-testid="edit-invoice-void-btn"
+              className="w-full border border-rose-300 bg-rose-50 text-rose-600 rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 hover:bg-rose-100">
+              <Trash2 className="w-4 h-4" /> Void this bill (wrongly punched)
+            </button>
+          </>
         ) : (
           <>
             <div>
               <label className="text-xs font-semibold text-slate-500">Who is editing this bill? *</label>
               {staffList && staffList.length > 0 ? (
                 <select value={editor} onChange={e => setEditor(e.target.value)} data-testid="edit-invoice-editor-select"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 bg-white">
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 bg-white text-slate-800">
                   <option value="">— select who is editing —</option>
                   <option value="Owner">Owner</option>
-                  {staffList.map(n => <option key={n} value={n}>{n}</option>)}
+                  {staffList.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
                 </select>
               ) : (
                 <input value={editor} onChange={e => setEditor(e.target.value)} maxLength={60} placeholder="Staff / your name"
@@ -89,6 +111,18 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
               {items.map((it, idx) => (
                 <div key={idx} className="flex items-center gap-2 text-sm" data-testid={`edit-invoice-item-${idx}`}>
                   <span className="flex-1 truncate">{it.name}</span>
+                  {it.type === "service" && (
+                    <select value={it.staff_id || ""} data-testid={`edit-invoice-stylist-${idx}`}
+                      onChange={e => {
+                        const st = (staffList || []).find(s => s.id === e.target.value);
+                        setItems(its => its.map((x, i) => i === idx ? { ...x, staff_id: st?.id || null, staff_name: st?.name || null } : x));
+                      }}
+                      title="Stylist who did this service"
+                      className="w-28 border border-slate-200 rounded-lg px-1.5 py-1.5 text-xs bg-white text-slate-800">
+                      <option value="">Stylist?</option>
+                      {(staffList || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  )}
                   <input type="number" min={1} max={100} value={it.qty} onChange={e => setItem(idx, "qty", Math.max(1, Number(e.target.value)))}
                     className="w-14 border border-slate-200 rounded-lg px-2 py-1.5 text-center" data-testid={`edit-invoice-qty-${idx}`} />
                   <input type="number" min={0} value={it.price} onChange={e => setItem(idx, "price", Math.max(0, Number(e.target.value)))}
