@@ -449,7 +449,7 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
         monthly_base_salary=body.monthly_base_salary, salary_visible=body.salary_visible,
         user_id=new_user["id"],
     ).model_dump()
-    staff_doc["branch"] = body.branch.strip()
+    staff_doc["branch"] = "" if body.branch.strip() == "__main__" else body.branch.strip()
     await db.staff.insert_one(staff_doc)
     return {"ok": True, "id": new_user["id"], "email": body.email, "name": new_user["name"],
             "temp_password": temp_pw, "must_change_password": True}
@@ -496,7 +496,7 @@ async def promote_staff(sid: str, body: PromoteIn, admin=Depends(require_tenant_
             raise HTTPException(400, f"{s.get('name')} is already a manager")
         await _raw_db.users.update_one({"id": u["id"]}, {"$set": {"role": "manager", "branch": branch}})
         if branch:
-            await db.staff.update_one({"id": sid}, {"$set": {"branch": branch}})
+            await db.staff.update_one({"id": sid}, {"$set": {"branch": "" if branch == "__main__" else branch}})
         return {"ok": True, "mode": "upgraded", "email": u["email"], "branch": branch}
     email = (body.email or "").lower().strip()
     if not email:

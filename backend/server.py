@@ -210,6 +210,20 @@ async def on_startup():
                                            "at": datetime.now(timezone.utc).isoformat()})
             logging.info(f"Demo click fix: {len(false_pos)} scanner false-positives downgraded to 'clicked'")
 
+        # Heal staff docs that stored the literal "__main__" marker as their branch.
+        await _raw_db.staff.update_many({"branch": "__main__"}, {"$set": {"branch": ""}})
+
+        # Branch-name sync (idempotent, every boot): invoices carry a stable branch_id —
+        # re-stamp their branch_name from the CURRENT branch records so past renames
+        # never blank out branch revenue dashboards.
+        async for _t in _raw_db.tenants.find({"branches.0": {"$exists": True}},
+                                             {"_id": 0, "id": 1, "branches.id": 1, "branches.name": 1}):
+            for _b in _t.get("branches") or []:
+                if _b.get("id") and _b.get("name"):
+                    await _raw_db.invoices.update_many(
+                        {"tenant_id": _t["id"], "branch_id": _b["id"], "branch_name": {"$ne": _b["name"]}},
+                        {"$set": {"branch_name": _b["name"]}})
+
     async def _run_seeds():
         default_tenant = await seed_default_tenant()
         await backfill_tenant_ids(default_tenant["id"])

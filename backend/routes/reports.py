@@ -1,5 +1,6 @@
 """Reports & dashboards: staff performance, sales, daily, commissions, review blast targets."""
 import asyncio
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -137,18 +138,25 @@ async def staff_performance(user=Depends(get_current_user)):
     return result
 
 
-def _branch_query(branch):
+def _branch_query(branch, tenant=None):
     if branch == "__main__":
         return {"branch_name": {"$in": [None, ""]}}
-    return {"branch_name": branch} if branch else {}
+    if not branch:
+        return {}
+    ors = [{"branch_name": {"$regex": f"^\\s*{re.escape(branch.strip())}\\s*$", "$options": "i"}}]
+    b = next((x for x in ((tenant or {}).get("branches") or [])
+              if (x.get("name") or "").strip().casefold() == branch.strip().casefold()), None)
+    if b and b.get("id"):
+        ors.append({"branch_id": b["id"]})
+    return {"$or": ors}
 
 
 @router.get("/reports/dashboard")
-async def dashboard(branch: Optional[str] = None, user=Depends(require_admin)):
+async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t=Depends(current_tenant)):
     branch = branch_lock(user, branch)
     today = datetime.now(timezone.utc).date().isoformat()
     month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
-    branch_flt = {**_branch_query(branch), "status": {"$ne": "voided"}}
+    branch_flt = {**_branch_query(branch, t), "status": {"$ne": "voided"}}
     invoices_today = await db.invoices.find({"created_at": {"$regex": f"^{today}"}, **branch_flt}, {"_id": 0}).to_list(500)
     invoices_month = await db.invoices.find({"created_at": {"$regex": f"^{month_prefix}"}, **branch_flt}, {"_id": 0}).to_list(2000)
     appts_today = await db.appointments.find({"scheduled_at": {"$regex": f"^{today}"}}, {"_id": 0}).to_list(500)
@@ -275,9 +283,9 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
 
 @router.get("/reports/sales")
 async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
-                       branch: Optional[str] = None, user=Depends(require_admin)):
+                       branch: Optional[str] = None, user=Depends(require_admin), t=Depends(current_tenant)):
     branch = branch_lock(user, branch)
-    flt = {"status": {"$ne": "voided"}, **_branch_query(branch)}
+    flt = {"status": {"$ne": "voided"}, **_branch_query(branch, t)}
     if start and end:
         flt["created_at"] = {"$gte": start, "$lte": end + "T23:59:59Z"}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)

@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 96 review verified end-to-end. Backend: 15/15 pytest cases PASS covering (1) branch rename cascade to staff/users/invoices with round-trip restore, (2) /attendance/today branch matching is case + whitespace insensitive, __main__ isolates 8 staff with empty branch, no-param returns 15 total, (3) /reports/dashboard?branch=__main__ month_revenue=8951.48 and ?branch='Miracurl Unisex Family Salon- AECS' month_revenue=236 (was 118 + 2×59 test invoices), (4) branch-locked AECS manager POST /api/invoices now tags branch_name='Miracurl Unisex Family Salon- AECS' (matches current branch name via casefold, not the manager's stored value), (5) POST /api/tenants/current/geo/from-link accepts full maps URL (@lat,lng/!3d!4d), ?q=lat,lng, plain place-name text (Google Places live), rejects non-google URLs with 400, (6) GET/PUT /settings/branding maps_url updates tenant lat/lng, (7) staff GET /api/staff/me/fence returns fenced=true with label 'the salon' and fence_m>0. Final state restored: AECS branch name unchanged, main salon coords = 12.9482932/77.7049318. Frontend: BranchSwitcher, Attendance geo-target-select, and Reports report-branch-filter all render the '🏠 Miracurl Unisex Family Salon — Marathahalli (Main)' label; Reports __main__ shows 8,951 revenue and AECS shows 236. Attendance summary tiles (TOTAL STAFF / ON SHIFT / COMPLETED / ABSENT / ON LEAVE) render with real counts (not zeros). One critical FE bug found + fixed: /staff page threw ReferenceError 'mainSalonLabel is not defined' (missing import in Staff.jsx) — after fix, Managers section renders and Bablu row correctly shows value='__main__' with selectedText='🏠 Miracurl Unisex Family Salon — Marathahalli (Main)'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Staff.jsx", "issue": "FIXED — Staff.jsx line 191 uses mainSalonLabel(tenant) but never imported it, causing ReferenceError 'mainSalonLabel is not defined' and the entire /staff page (including Managers section) rendered as an ErrorBoundary. Added `import { mainSalonLabel } from '@/lib/branch'` at top of file.", "selector": "/staff page", "priority": "HIGH (was blocker)"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_scenarios_executed": [
+    {"case": "GET /attendance/today?branch=<AECS variant with whitespace/lowercase>", "result": "PASS — same count as exact-name (case+whitespace-insensitive regex works)"},
+    {"case": "GET /attendance/today?branch=__main__", "result": "PASS — only staff with empty branch (8 staff, within expected 6-15)"},
+    {"case": "PUT /branches/{aecs} rename → GET attendance under NEW name shows same staff; old name empty; restored", "result": "PASS — cascade updates staff.branch, users.branch, invoices.branch_name; restore works"},
+    {"case": "GET /reports/dashboard?branch=__main__ month_revenue", "result": "PASS — 8951.48"},
+    {"case": "GET /reports/dashboard?branch=<AECS>", "result": "PASS — month_revenue 236 (118 pre + 2×59 TEST invoices)"},
+    {"case": "GET /reports/sales?branch=<AECS>", "result": "PASS — by_branch only contains AECS rows"},
+    {"case": "POST /invoices as branch-locked manager tags AECS branch_name", "result": "PASS — branch_name = current AECS name (casefold match); appears in dashboard today_revenue"},
+    {"case": "POST /tenants/current/geo/from-link full URL / q= / plain-text (Google Places live) / non-google 400", "result": "PASS all 4 variants"},
+    {"case": "GET+PUT /settings/branding maps_url updates tenant lat/lng", "result": "PASS"},
+    {"case": "GET /staff/me/fence for priya.staff", "result": "PASS — fenced=true, label='the salon', fence_m>0"},
+    {"case": "FE header BranchSwitcher option label", "result": "PASS — '🏠 Miracurl Unisex Family Salon — Marathahalli (Main)'"},
+    {"case": "FE Attendance geo-target-select label + summary tiles", "result": "PASS — main label + TOTAL STAFF / ON SHIFT / COMPLETED / ABSENT / ON LEAVE tiles render"},
+    {"case": "FE Staff → Managers section", "result": "PASS AFTER FIX — 3 rows; Bablu row value='__main__' selectedText contains Marathahalli (Main); AECS Desk row locked to AECS; Salon Manager row = All branches"},
+    {"case": "FE Reports → report-branch-filter includes main option; selecting __main__ shows 8,951 revenue; AECS shows 236", "result": "PASS"}
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_iter96_branch_rename_cascade.py",
+    "/app/test_reports/pytest/iter96.xml"
+  ],
+  "action_items": [
+    "None blocking — Staff.jsx missing-import fix already applied by testing agent."
+  ],
+  "critical_code_review_comments": [
+    "Staff.jsx used mainSalonLabel(tenant) without importing it (line 191). Missing import means the page would crash for any admin as soon as StaffCard row was rendered. Root cause: this helper was recently added to StaffCard prop `mainLabel` but the import wasn't added to Staff.jsx. Applied fix: added `import { mainSalonLabel } from '@/lib/branch'` at top of Staff.jsx.",
+    "GEO_TARGET_OPTIONS on the Attendance page only shows main + AECS (no 'All branches' option) — this is intentional because geo can only be pinned to a specific branch, but confirm this matches product intent.",
+    "Pre-existing hydration warnings from visual editor <span data-ve-dynamic> inside <option> still noisy on POS branch select — not part of this diff."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/Staff.jsx",
+    "/app/backend/tests/test_iter96_branch_rename_cascade.py"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (6/6 flows) after Staff.jsx import fix"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL; aecs.manager@miracurl.com / Mgr@12345; priya.staff@miracurl.com / Staff@5678; Owner PIN 4321; tenant miracurl-marathahalli",
+  "seed_data_creation": "Two TEST_ invoices created by AECS manager during POST /invoices test (₹59 each, both tagged 'Miracurl Unisex Family Salon- AECS'). IDs: 14810958-32a0-4ba2-a3dd-b142b617b7a3 and 2b6a2df5-4e8c-4da1-9933-e549b9a85e8a. Not voided per review instructions.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Staff page inline PIN gate is NOT the [data-testid=owner-pin-input] modal — it uses a plain input inside a card labeled 'Staff is protected'. Selector: page.locator('input[inputmode=\"numeric\"], input[type=\"password\"], input[type=\"tel\"]').first + click 'Unlock with Owner PIN'. What's New modal ('Got it' button) re-appears on some navigations — always dismiss before interacting. Current AECS branch name is exactly 'Miracurl Unisex Family Salon- AECS' (note the hyphen with no space before AECS). Main salon coords restored to 12.9482932/77.7049318. Manager (Bablu) branch = __main__ so 'Miracurl Unisex Family Salon — Marathahalli (Main)' shows in Managers dropdown selectedText.",
+  "rca of the issue": "FRONTEND: Staff.jsx crashed with ReferenceError: mainSalonLabel is not defined because line 191 references mainSalonLabel(tenant) but the file never imported it from '@/lib/branch'. This caused the entire /staff route (Team Management grid, Requested Leave, Managers section, Staff Bank Details) to render an ErrorBoundary. Fix applied: added the missing import statement. All backend cascade/rename/geo/branding/staff-fence logic verified correct — no backend RCA needed."
+}

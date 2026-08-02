@@ -369,7 +369,9 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         if locked_branch == "__main__":
             ctx["branch"] = None
         else:
-            b = next((x for x in (ctx["tenant_doc"].get("branches") or []) if x.get("name") == locked_branch), None)
+            lb = locked_branch.strip().casefold()
+            b = next((x for x in (ctx["tenant_doc"].get("branches") or [])
+                      if (x.get("name") or "").strip().casefold() == lb), None)
             if b:
                 ctx["branch"] = b
     totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]

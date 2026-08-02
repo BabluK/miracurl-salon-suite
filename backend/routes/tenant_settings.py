@@ -350,6 +350,7 @@ async def add_branch(body: BranchIn, user=Depends(require_admin), t=Depends(curr
 
 @router.put("/branches/{bid}")
 async def update_branch(bid: str, body: BranchIn, user=Depends(require_admin), t=Depends(current_tenant)):
+    old = next((b for b in (t.get("branches") or []) if b.get("id") == bid), None)
     fields = {f"branches.$.{k}": v for k, v in body.model_dump().items()}
     coords = await _coords_from_maps_url(body.maps_url)
     if coords:
@@ -357,6 +358,17 @@ async def update_branch(bid: str, body: BranchIn, user=Depends(require_admin), t
     res = await db.tenants.update_one(
         {"id": t["id"], "branches.id": bid},
         {"$set": fields})
+    # Renamed? Cascade to everything joined by the old branch name so staff,
+    # manager locks, attendance boards and revenue reports don't go blank.
+    new_name = body.name.strip()
+    old_name = (old or {}).get("name") or ""
+    if old_name and new_name and old_name != new_name:
+        await db.staff.update_many({"branch": old_name}, {"$set": {"branch": new_name}})
+        await _raw_db.users.update_many(
+            {"tenant_id": t["id"], "branch": old_name}, {"$set": {"branch": new_name}})
+        await db.invoices.update_many(
+            {"$or": [{"branch_id": bid}, {"branch_name": old_name}]},
+            {"$set": {"branch_name": new_name}})
     if res.matched_count == 0:
         raise HTTPException(404, "Branch not found")
     return {"ok": True}

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError, API } from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
+import { mainSalonLabel } from "@/lib/branch";
 import { Plus, Landmark, CreditCard, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { ManagersSection } from "@/components/ManagersSection";
