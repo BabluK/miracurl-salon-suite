@@ -28,7 +28,7 @@ ADMIN_EMAIL = "admin@miracurl.com"
 ADMIN_PASS = "q6QY@tn3p#9DtL"
 MGR_EMAIL = "aecs.manager@miracurl.com"
 MGR_PASS = "Mgr@12345"
-LOCKED_BRANCH = "Miracurl — AECS Layout, Brookefield"
+LOCKED_BRANCH = "Miracurl Unisex Family Salon- AECS"
 
 
 def _login(email, password):

@@ -685,20 +685,18 @@ class GiftCheckIn(BaseModel):
     code: str
 
 
-@router.post("/gift-cards/check")
-async def check_gift_card(body: GiftCheckIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """POS: look up a gift card code before billing."""
-    gc = await _raw_db.gift_cards.find_one(
-        {"code": body.code.strip().upper(), "tenant_id": t["id"]}, {"_id": 0})
-    if not gc:
-        return {"valid": False, "reason": "Code not found for this salon"}
+def _gift_card_invalid_reason(gc: dict) -> Optional[str]:
     today = datetime.now(timezone.utc).date().isoformat()
     if gc["status"] == "expired" or (gc.get("expires_at") and gc["expires_at"] < today):
-        return {"valid": False, "reason": f"Card expired on {gc.get('expires_at')}"}
+        return f"Card expired on {gc.get('expires_at')}"
     if gc["status"] not in ("active", "scheduled"):
-        return {"valid": False, "reason": f"Card is {gc['status']}"}
+        return f"Card is {gc['status']}"
     if gc["balance"] <= 0:
-        return {"valid": False, "reason": "No balance left on this card"}
+        return "No balance left on this card"
+    return None
+
+
+def _gift_card_summary(gc: dict) -> dict:
     reds = gc.get("redemptions") or []
     last = reds[-1] if reds else None
     return {"valid": True, "balance": gc["balance"], "amount": gc["amount"],
@@ -709,6 +707,19 @@ async def check_gift_card(body: GiftCheckIn, user=Depends(require_tenant_admin),
             "times_used": len(reds),
             "last_used_on": (last.get("at") or "")[:10] if last else None,
             "last_used_amount": last.get("amount") if last else None}
+
+
+@router.post("/gift-cards/check")
+async def check_gift_card(body: GiftCheckIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """POS: look up a gift card code before billing."""
+    gc = await _raw_db.gift_cards.find_one(
+        {"code": body.code.strip().upper(), "tenant_id": t["id"]}, {"_id": 0})
+    if not gc:
+        return {"valid": False, "reason": "Code not found for this salon"}
+    reason = _gift_card_invalid_reason(gc)
+    if reason:
+        return {"valid": False, "reason": reason}
+    return _gift_card_summary(gc)
 
 
 async def redeem_gift_card(code: str, tenant_id: str, bill_total: float, invoice_id: str) -> dict:

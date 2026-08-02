@@ -334,7 +334,7 @@ async def _coords_from_maps_url(url: str):
 
 
 @router.post("/branches")
-async def add_branch(body: BranchIn, user=Depends(require_admin), t=Depends(current_tenant)):
+async def add_branch(body: BranchIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     branches = t.get("branches") or []
     limit = _branch_limit(t)
     if len(branches) >= limit:
@@ -349,7 +349,7 @@ async def add_branch(body: BranchIn, user=Depends(require_admin), t=Depends(curr
     return branch
 
 @router.put("/branches/{bid}")
-async def update_branch(bid: str, body: BranchIn, user=Depends(require_admin), t=Depends(current_tenant)):
+async def update_branch(bid: str, body: BranchIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     old = next((b for b in (t.get("branches") or []) if b.get("id") == bid), None)
     fields = {f"branches.$.{k}": v for k, v in body.model_dump().items()}
     coords = await _coords_from_maps_url(body.maps_url)
@@ -374,7 +374,7 @@ async def update_branch(bid: str, body: BranchIn, user=Depends(require_admin), t
     return {"ok": True}
 
 @router.delete("/branches/{bid}")
-async def delete_branch(bid: str, user=Depends(require_admin), t=Depends(current_tenant)):
+async def delete_branch(bid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     await db.tenants.update_one({"id": t["id"]}, {"$pull": {"branches": {"id": bid}}})
     return {"ok": True}
 
@@ -383,7 +383,7 @@ class LogoGenIn(BaseModel):
     style: str = Field("luxury gold minimal", max_length=200)
 
 @router.post("/branding/logo/generate")
-async def generate_logo(body: LogoGenIn, user=Depends(require_admin), t=Depends(current_tenant)):
+async def generate_logo(body: LogoGenIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
@@ -418,7 +418,7 @@ class LogoApplyIn(BaseModel):
     url: str = Field("", max_length=500)
 
 @router.post("/branding/logo/apply")
-async def apply_logo(body: LogoApplyIn, user=Depends(require_admin), t=Depends(current_tenant)):
+async def apply_logo(body: LogoApplyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     url = body.url.strip()
     if url and not (url.startswith("/api/files/") or url.startswith("http")):
         raise HTTPException(400, "Invalid logo URL")
@@ -558,7 +558,7 @@ async def get_branding(user=Depends(require_admin), t=Depends(current_tenant)):
 
 
 @router.put("/settings/branding")
-async def update_branding(body: BrandingIn, user=Depends(require_admin), t=Depends(current_tenant)):
+async def update_branding(body: BrandingIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     update = {k: v for k, v in body.model_dump(exclude_none=True).items()}
     if not update:
         return {"ok": True}

@@ -42,10 +42,10 @@ def test_public_config_default(public_client):
     r = public_client.get(f"{BASE_URL}/api/public/gift-cards/{SLUG}/config")
     assert r.status_code == 200
     d = r.json()
-    assert d["enabled"] == True
+    assert d["enabled"]
     assert len(d["occasions"]) == 12
     assert d["salon"]["name"]
-    assert d["payment"]["razorpay"] == True, "HQ Razorpay fallback should enable razorpay for main tenant"
+    assert d["payment"]["razorpay"], "HQ Razorpay fallback should enable razorpay for main tenant"
     assert isinstance(d["amounts"], list) and len(d["amounts"]) >= 1
 
 
@@ -76,7 +76,7 @@ def test_admin_set_upi_and_masked_secret(admin_client, public_client):
 
     # Public config now reflects UPI
     d2 = public_client.get(f"{BASE_URL}/api/public/gift-cards/{SLUG}/config").json()
-    assert d2["payment"]["upi"] == True
+    assert d2["payment"]["upi"]
     assert d2["payment"]["upi_id"] == "testsalon@upi"
 
 
@@ -195,7 +195,7 @@ def test_scheduled_delivery(public_client, admin_client):
     r = public_client.post(f"{BASE_URL}/api/public/gift-cards/{SLUG}/order", json=body)
     assert r.status_code == 200
     gcid = r.json()["gift_card_id"]
-    r = public_client.post(f"{BASE_URL}/api/public/gift-cards/{gcid}/upi-paid", json={"upi_ref": "SCH1"})
+    r = public_client.post(f"{BASE_URL}/api/public/gift-cards/{gcid}/upi-paid", json={"upi_ref": "SCHED12345"})
     assert r.status_code == 200
     r = admin_client.post(f"{BASE_URL}/api/gift-cards/{gcid}/confirm")
     assert r.status_code == 200
@@ -239,7 +239,7 @@ def test_pos_check_and_redeem(admin_client):
     r = admin_client.post(f"{BASE_URL}/api/gift-cards/check", json={"code": code})
     assert r.status_code == 200
     d = r.json()
-    assert d["valid"] == True
+    assert d["valid"]
     assert d["balance"] == 1000
 
     # Get a customer + a service
@@ -266,7 +266,7 @@ def test_pos_check_and_redeem(admin_client):
     # Recheck balance
     r = admin_client.post(f"{BASE_URL}/api/gift-cards/check", json={"code": code})
     d = r.json()
-    assert d["valid"] == True
+    assert d["valid"]
     assert abs(d["balance"] - left) < 0.01
     assert d["balance"] < 1000  # reduced
 
@@ -289,4 +289,4 @@ def test_cancel_makes_code_invalid(admin_client, public_client):
 
     r = admin_client.post(f"{BASE_URL}/api/gift-cards/check", json={"code": code})
     d = r.json()
-    assert d["valid"] == False
+    assert not d["valid"]

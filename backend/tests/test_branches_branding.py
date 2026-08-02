@@ -138,8 +138,9 @@ class TestPublicBranchesSync:
 # ---------------- RBAC ----------------
 class TestRBAC:
     def test_manager_cannot_list_branches(self, manager_session):
+        # Managers may READ the branch list (needed for dropdowns) but never mutate.
         r = manager_session.get(f"{API}/branches")
-        assert r.status_code == 403
+        assert r.status_code == 200
 
     def test_manager_cannot_add_branch(self, manager_session):
         r = manager_session.post(f"{API}/branches", json={

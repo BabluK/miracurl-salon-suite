@@ -1308,3 +1308,12 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Admin salary slip: GET /api/staff/{sid}/salary-slip.pdf (require_tenant_admin; placed AFTER /staff/me routes to avoid shadowing). "Slip" download button on each StaffCard (hidden for managers). Tested: 200 PDF, manager 403, staff self-slip still 200.
 - Monthly attendance email: _attendance_month_rows() (per-staff days present/half-days/lates/fines) + GET /api/reports/attendance-month + POST /api/reports/attendance-month/email (tested ok:true). _attendance_month_html in email_service.py. Auto-scheduler in server.py monthly loop (guard: monthly_attendance_runs meta) emails every active/trial tenant owner on the 1st ≥9AM IST. "Email monthly sheet" button added to Attendance header.
 - Mira daily briefing now shows for MANAGER logins too (Dashboard gate widened) — with vendor WhatsApp button, Answer-by-voice mic and voice-greeting toggle hidden for managers (Mail/Email-all-vendors allowed). Playwright-verified as aecs.manager.
+
+## Iter 128 (2 Aug 2026) — Code review fixes
+- Verified ruff F821: ZERO undefined variables (report's 49 were false positives; 'is' findings were inside prompt strings / valid `is not None`).
+- Refactored check_gift_card (complexity 15) into _gift_card_invalid_reason + _gift_card_summary; create_invoice (14) into _apply_locked_branch + _handle_wallet_payment. C901 clean. Live invoice + gift-check verified.
+- Fixed 9 E712 (`== True`) in tests via ruff --unsafe-fixes.
+- RBAC hardening: POST/PUT/DELETE /branches, /branding/logo/*, PUT /settings/branding now require_tenant_admin (owner-only) — old test caught managers creating branches (2 stray TEST_ManagerBlocked branches found & removed from preview data).
+- Test-data repairs after full-suite run: restored aecs.manager branch lock, manager@miracurl.com password, cleared login_attempts/rate_limits, removed stale Priya Aug-1 attendance; updated stale LOCKED_BRANCH constant (iter94) + gift-card UPI ref (6-char rule) + iter92 fixture cleans whole month.
+- Relevant suites green: branches_branding, iter92, iter94, iter96, iter85 (67 passed). Remaining old-iteration test failures are stale-data/rate-limit archaeology, not regressions.
+- Deferred (documented): complexity-13 refactors (gift_card_preview_email, _research_salon, lead_roi, _route_business_inbox), import splitting, type-hint coverage drive.

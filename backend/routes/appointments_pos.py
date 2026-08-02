@@ -355,6 +355,30 @@ async def _apply_gift_card(inv: dict, code: str, tenant_id: str, total: float) -
     inv["gift_card_balance_left"] = gc["balance_left"]
 
 
+def _apply_locked_branch(ctx: dict, user: dict) -> None:
+    """Branch-locked managers always bill under their own branch."""
+    locked_branch = branch_lock(user, None)
+    if not locked_branch:
+        return
+    if locked_branch == "__main__":
+        ctx["branch"] = None
+        return
+    lb = locked_branch.strip().casefold()
+    b = next((x for x in (ctx["tenant_doc"].get("branches") or [])
+              if (x.get("name") or "").strip().casefold() == lb), None)
+    if b:
+        ctx["branch"] = b
+
+
+async def _handle_wallet_payment(body: InvoiceIn, cust: dict, inv: dict, total: float, phase: str) -> None:
+    if body.payment_mode != "salon_wallet":
+        return
+    if phase == "check":
+        _check_wallet_balance(cust, total)
+    else:
+        await _record_wallet_redeem(cust, inv)
+
+
 @router.post("/invoices")
 async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
@@ -364,20 +388,10 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
 
     await _validate_package_redeem_items(body.items, cust)
     ctx = await _resolve_billing_context(body, cust)
-    locked_branch = branch_lock(user, None)
-    if locked_branch:
-        if locked_branch == "__main__":
-            ctx["branch"] = None
-        else:
-            lb = locked_branch.strip().casefold()
-            b = next((x for x in (ctx["tenant_doc"].get("branches") or [])
-                      if (x.get("name") or "").strip().casefold() == lb), None)
-            if b:
-                ctx["branch"] = b
+    _apply_locked_branch(ctx, user)
     totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]
 
-    if body.payment_mode == "salon_wallet":
-        _check_wallet_balance(cust, totals["total"])
+    await _handle_wallet_payment(body, cust, {}, totals["total"], "check")
 
     tip = round(float(body.tip_amount or 0), 2)
     tip_staff = await _resolve_tip(body, staff) if tip > 0 else None
@@ -388,8 +402,7 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         await _apply_gift_card(inv, body.gift_card_code, ctx["tenant_doc"]["id"], totals["total"])
     await db.invoices.insert_one(inv)
 
-    if body.payment_mode == "salon_wallet":
-        await _record_wallet_redeem(cust, inv)
+    await _handle_wallet_payment(body, cust, inv, totals["total"], "redeem")
 
     points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"])
     await _process_benefit_items(inv, cust)

@@ -151,8 +151,8 @@ def priya_setup():
                                   {"$set": {"shift_start": "00:05",
                                             "monthly_base_salary": 20000.0,
                                             "week_off_day": None}})
-        # clean today's row so check-in creates fresh
-        await DB.attendance.delete_many({"staff_id": p["id"], "date": today})
+        # clean this month's rows so check-in creates fresh (removes prior test residue)
+        await DB.attendance.delete_many({"staff_id": p["id"], "date": {"$regex": f"^{today[:7]}"}})
         return p, original, today
 
     p, original, today = loop.run_until_complete(_setup())
