@@ -412,6 +412,22 @@ function GeoFenceCard() {
       <div className="text-[11px] text-slate-400 -mt-1">
         In Google Maps: search your salon → Share → Copy link, then paste it here. Works with short links (maps.app.goo.gl) and full browser URLs.
       </div>
+      {isSet && (
+        <div className="rounded-lg overflow-hidden border border-slate-200" data-testid="geo-map-preview">
+          <iframe
+            title={`Pinned location of ${label}`}
+            src={`https://maps.google.com/maps?q=${cur.latitude},${cur.longitude}&z=17&output=embed`}
+            className="w-full h-44 block"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+          <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50 text-[11px] text-slate-500">
+            <span>Pin for {label} — staff must check in within {fenceM}m of this point. Wrong spot? Paste a new link above.</span>
+            <a href={`https://www.google.com/maps?q=${cur.latitude},${cur.longitude}`} target="_blank" rel="noreferrer"
+              className="text-sky-600 hover:underline shrink-0" data-testid="geo-map-open-link">Open in Google Maps</a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
