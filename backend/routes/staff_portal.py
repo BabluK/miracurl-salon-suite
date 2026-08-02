@@ -405,15 +405,38 @@ async def manual_attendance(body: ManualAttnIn, admin=Depends(require_admin),
     return await db.attendance.find_one({"staff_id": staff["id"], "date": today}, {"_id": 0})
 
 
+def _norm_branch(v) -> str:
+    return (v or "").strip().casefold()
+
+
 def _fence_for(staff: dict, tenant: dict):
-    """(lat, lng, label) the staff must check in near — their branch first, else main salon."""
-    if staff.get("branch"):
+    """(lat, lng, label) the staff must check in near — STRICTLY their tagged branch.
+    A branch-tagged staff is NEVER fenced against the main salon."""
+    sb = _norm_branch(staff.get("branch"))
+    if sb:
         for b in tenant.get("branches") or []:
-            if b.get("name") == staff["branch"] and b.get("latitude") is not None and b.get("longitude") is not None:
-                return b["latitude"], b["longitude"], b["name"]
+            if _norm_branch(b.get("name")) == sb:
+                if b.get("latitude") is not None and b.get("longitude") is not None:
+                    return b["latitude"], b["longitude"], b["name"]
+                return None, None, None  # branch exists but not pinned yet — no fence
+        return None, None, None  # tag doesn't match any branch record — no fence
     if tenant.get("latitude") is not None and tenant.get("longitude") is not None:
         return tenant["latitude"], tenant["longitude"], "the salon"
     return None, None, None
+
+
+@router.get("/staff/me/fence")
+async def staff_me_fence(s=Depends(_current_staff), t=Depends(current_tenant)):
+    """Where this staff member is geo-fenced for check-in (their branch, else main salon)."""
+    lat, lng, label = _fence_for(s, t)
+    branch = (s.get("branch") or "").strip()
+    return {
+        "fenced": lat is not None,
+        "label": label or branch or "the salon",
+        "branch": branch,
+        "latitude": lat, "longitude": lng,
+        "fence_m": int(t.get("geo_fence_m") or GEO_FENCE_M),
+    }
 
 
 @router.post("/staff/me/check-in")

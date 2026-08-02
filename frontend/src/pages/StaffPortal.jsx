@@ -3,7 +3,7 @@ import api, { API, formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Clock, LogIn, LogOut, IndianRupee, Download, User as UserIcon,
-  Calendar, Sparkles, CheckCircle2, TrendingUp, FileText, Camera, QrCode,
+  Calendar, Sparkles, CheckCircle2, TrendingUp, FileText, Camera, QrCode, MapPin,
 } from "lucide-react";
 import { PlannedLeaveCard } from "@/components/staff/PlannedLeaveCard";
 import { QrScanCheckIn } from "@/components/QrScanCheckIn";
@@ -31,15 +31,21 @@ function fmtTime(iso) {
   } catch { return "—"; }
 }
 
-function getPosition() {
+function getPositionOnce(opts) {
   return new Promise((resolve) => {
-    if (!navigator.geolocation) return resolve(null);
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      opts,
     );
   });
+}
+
+async function getPosition() {
+  if (!navigator.geolocation) return null;
+  const precise = await getPositionOnce({ enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+  if (precise) return precise;
+  return getPositionOnce({ enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 });
 }
 
 const MOTIVATION = [
@@ -60,6 +66,7 @@ export default function StaffPortal() {
   const [slipLoading, setSlipLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lateInfo, setLateInfo] = useState(null);
+  const [fence, setFence] = useState(null);
   const [showScanner, setShowScanner] = useState(false);
   const autoQrTried = useRef(false);
 
@@ -71,6 +78,7 @@ export default function StaffPortal() {
       ]);
       setProfile(p.data);
       setAttendance(a.data);
+      try { const { data } = await api.get("/staff/me/fence"); setFence(data); } catch { /* info-only */ }
       try {
         const { data } = await api.get("/staff/me/late-status");
         setLateInfo(data);
@@ -298,6 +306,17 @@ export default function StaffPortal() {
             {checkedOut ? "Checked out" : "Check out"}
           </button>
         </div>
+        {fence && (fence.fenced ? (
+          <div className="mt-3 flex items-center gap-1.5 text-xs text-white/50" data-testid="fence-info">
+            <MapPin className="w-3.5 h-3.5 text-gold shrink-0" />
+            Check-in location: <span className="text-white/80">{fence.label}</span> · within {fence.fence_m}m
+          </div>
+        ) : fence.branch ? (
+          <div className="mt-3 flex items-start gap-1.5 text-xs text-amber-300/80" data-testid="fence-warning">
+            <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>Your branch "{fence.branch}" has no pinned GPS location yet — you can check in from anywhere. Ask your owner to pin it (Attendance page → GPS check-in fence).</span>
+          </div>
+        ) : null)}
         {!checkedIn && (
           <button
             onClick={() => setShowScanner(true)}

@@ -1278,3 +1278,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 
 ## Iter 123 (16 Jul 2026) — HOT prospect prioritization
 - _score: +20 '🔥 500+ reviews, no website +20' bonus (highest-value prospects float to top of score-sorted list). Outreach prompt emphasizes lost repeat business for popular no-website salons. Frontend 🔥 HOT badge (lead-hot-badge-<id>) when reviews≥500 & no website. Existing leads rescored (Geetanjali Salon 50→70, now #1).
+
+## Iter 124 (2 Aug 2026) — Geo location via Google Maps link + strict branch fencing
+- NEW: POST /api/tenants/current/geo/from-link — paste any Google Maps link (full URL @lat,lng / !3d!4d / ?q= / ?ll=, or maps.app.goo.gl short links which are server-side expanded, coords URL-decoded). Pins main salon or a branch. Frontend: paste input + "Save from link" button in Attendance GeoFenceCard (geo-maps-link-input / geo-maps-link-save-btn testids). "Pin my current location" kept as secondary.
+- FIX (user-reported: staff couldn't GPS check-in, all forced to QR): _fence_for in staff_portal.py was silently falling back to MAIN salon coords when a staff's tagged branch had no pinned coords or name mismatched → branch staff always appeared 300m+ away → 403. Now STRICT: branch-tagged staff are only ever fenced against their own branch (case-insensitive/trimmed name match); if branch not pinned → no fence (not main salon).
+- NEW: GET /api/staff/me/fence — staff portal now shows "Check-in location: <branch/salon> · within Nm" (fence-info testid) or amber warning if their branch has no pinned location (fence-warning testid).
+- NEW: Branch add/update (POST/PUT /api/branches) auto-parses latitude/longitude from the branch's maps_url field (incl. short links).
+- IMPROVED: staff portal getPosition() retries with low-accuracy fallback after high-accuracy 15s timeout (indoor GPS reliability).
+- Tested: curl (all URL formats, error cases), python unit test of _fence_for (5 cases), Playwright E2E (staff portal fence line + admin save-from-link 200 + toast). NOTE: prod redeploy needed; owner must pin each branch (AECS layout, Munnekolala) via paste-link with branch selected in the geo card dropdown.

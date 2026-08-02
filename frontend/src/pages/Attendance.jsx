@@ -304,6 +304,8 @@ function GeoFenceCard() {
   const [busy, setBusy] = useState(false);
   const [target, setTarget] = useState(""); // "" = main salon, else branch name
   const [fenceM, setFenceM] = useState(300);
+  const [mapsLink, setMapsLink] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
 
   const load = useCallback(async () => {
     try { const { data } = await api.get("/tenants/current"); setTenant(data); } catch { /* non-admin */ }
@@ -335,6 +337,20 @@ function GeoFenceCard() {
     );
   }
 
+  async function saveFromLink() {
+    const url = mapsLink.trim();
+    if (!url) { toast.error("Paste a Google Maps link first"); return; }
+    setLinkBusy(true);
+    try {
+      const { data } = await api.post("/tenants/current/geo/from-link", { url, branch: target || null });
+      toast.success(`Location saved for ${label} (${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}) — fence ${fenceM}m`);
+      setMapsLink("");
+      load();
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Couldn't read that link");
+    } finally { setLinkBusy(false); }
+  }
+
   async function clear() {
     if (!window.confirm(`Remove the geo-fence for ${label}?`)) return;
     try {
@@ -345,37 +361,56 @@ function GeoFenceCard() {
   }
 
   return (
-    <div className="card-light flex flex-col sm:flex-row sm:items-center justify-between gap-3" data-testid="geo-fence-card">
-      <div className="flex items-start gap-3">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isSet ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
-          <MapPin className="w-4 h-4" />
+    <div className="card-light space-y-3" data-testid="geo-fence-card">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isSet ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
+            <MapPin className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
+              GPS check-in fence
+              {branches.length > 0 && (
+                <select data-testid="geo-target-select" value={target} onChange={e => setTarget(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white max-w-[220px]">
+                  <option value="">Main salon</option>
+                  {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}{b.latitude != null ? " ✓" : ""}</option>)}
+                </select>
+              )}
+              <span className={isSet ? "text-emerald-600" : "text-amber-600"}>{isSet ? "· ON" : "· OFF"}</span>
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {isSet
+                ? `Staff assigned to ${label} can only check in within ${fenceM}m (pinned at ${Number(cur.latitude).toFixed(4)}, ${Number(cur.longitude).toFixed(4)}). Late fines are active. Adjust the radius in Settings → Late check-in fines.`
+                : `Not pinned for ${label} — those staff can check in from anywhere and NO late fines apply. Paste the salon's Google Maps link below, or pin from the salon.`}
+            </div>
+          </div>
         </div>
-        <div>
-          <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
-            GPS check-in fence
-            {branches.length > 0 && (
-              <select data-testid="geo-target-select" value={target} onChange={e => setTarget(e.target.value)}
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white max-w-[220px]">
-                <option value="">Main salon</option>
-                {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}{b.latitude != null ? " ✓" : ""}</option>)}
-              </select>
-            )}
-            <span className={isSet ? "text-emerald-600" : "text-amber-600"}>{isSet ? "· ON" : "· OFF"}</span>
-          </div>
-          <div className="text-xs text-slate-500 mt-0.5">
-            {isSet
-              ? `Staff assigned to ${label} can only check in within ${fenceM}m (pinned at ${Number(cur.latitude).toFixed(4)}, ${Number(cur.longitude).toFixed(4)}). Late fines are active. Adjust the radius in Settings → Late check-in fines.`
-              : `Not pinned for ${label} — those staff can check in from anywhere and NO late fines apply. Stand at ${label} and pin its location.`}
-          </div>
+        <div className="flex gap-2 shrink-0">
+          <button data-testid="set-salon-geo-btn" onClick={setHere} disabled={busy} className="btn-slate text-xs py-2 px-3 flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5" /> {busy ? "Locating…" : "Pin my current location"}
+          </button>
+          {isSet && (
+            <button data-testid="clear-salon-geo-btn" onClick={clear} className="btn-slate text-xs py-2 px-3">Remove</button>
+          )}
         </div>
       </div>
-      <div className="flex gap-2 shrink-0">
-        <button data-testid="set-salon-geo-btn" onClick={setHere} disabled={busy} className="btn-blue text-xs py-2 px-3 flex items-center gap-1.5">
-          <MapPin className="w-3.5 h-3.5" /> {busy ? "Locating…" : isSet ? "Re-pin location" : "Pin location here"}
+      <div className="flex flex-col sm:flex-row gap-2 sm:items-center border-t border-slate-100 pt-3">
+        <input
+          data-testid="geo-maps-link-input"
+          value={mapsLink}
+          onChange={e => setMapsLink(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") saveFromLink(); }}
+          placeholder={`Paste Google Maps link for ${label} (e.g. https://maps.app.goo.gl/… or full maps URL)`}
+          className="input-light text-xs flex-1 min-w-0"
+        />
+        <button data-testid="geo-maps-link-save-btn" onClick={saveFromLink} disabled={linkBusy || !mapsLink.trim()}
+          className="btn-blue text-xs py-2 px-4 shrink-0 disabled:opacity-50">
+          {linkBusy ? "Reading link…" : isSet ? "Update from link" : "Save location from link"}
         </button>
-        {isSet && (
-          <button data-testid="clear-salon-geo-btn" onClick={clear} className="btn-slate text-xs py-2 px-3">Remove</button>
-        )}
+      </div>
+      <div className="text-[11px] text-slate-400 -mt-1">
+        In Google Maps: search your salon → Share → Copy link, then paste it here. Works with short links (maps.app.goo.gl) and full browser URLs.
       </div>
     </div>
   );

@@ -104,6 +104,71 @@ async def set_tenant_geo(body: TenantGeoIn, admin=Depends(require_admin), t=Depe
     return {"ok": True, "latitude": body.latitude, "longitude": body.longitude, "branch": body.branch}
 
 
+_GEO_LINK_PATTERNS = [
+    re.compile(r"!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)"),          # place pin (most precise)
+    re.compile(r"[?&]q=(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)"),      # ?q=lat,lng
+    re.compile(r"[?&]ll=(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)"),     # ?ll=lat,lng
+    re.compile(r"@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)"),              # /@lat,lng,zoom (viewport)
+    re.compile(r"loc:(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)"),
+]
+
+
+def _parse_maps_coords(url: str):
+    for pat in _GEO_LINK_PATTERNS:
+        m = pat.search(url)
+        if m:
+            lat, lng = float(m.group(1)), float(m.group(2))
+            if -90 <= lat <= 90 and -180 <= lng <= 180:
+                return lat, lng
+    return None
+
+
+def _expand_short_link(url: str) -> str:
+    try:
+        r = requests.get(url, allow_redirects=True, timeout=10,
+                         headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        return r.url or url
+    except requests.RequestException:
+        return url
+
+
+class TenantGeoLinkIn(BaseModel):
+    url: str = Field(..., min_length=8, max_length=2000)
+    branch: Optional[str] = None
+
+
+@router.post("/tenants/current/geo/from-link")
+async def set_tenant_geo_from_link(body: TenantGeoLinkIn, admin=Depends(require_admin), t=Depends(current_tenant)):
+    """Pin salon/branch GPS by pasting a Google Maps link (full URL or maps.app.goo.gl short link)."""
+    url = body.url.strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(400, "Paste a valid Google Maps link (must start with https://)")
+    host = (parsed.netloc or "").lower()
+    if not any(h in host for h in ("google.", "goo.gl", "maps.app")):
+        raise HTTPException(400, "That doesn't look like a Google Maps link")
+    coords = _parse_maps_coords(url)
+    if not coords and any(h in host for h in ("goo.gl", "maps.app")):
+        from urllib.parse import unquote
+        expanded = await asyncio.to_thread(_expand_short_link, url)
+        coords = _parse_maps_coords(unquote(expanded))
+    if not coords:
+        raise HTTPException(400, "Couldn't find coordinates in that link. Open the location in Google Maps, "
+                                 "copy the full URL from the browser address bar, or use the Share → Copy link option.")
+    lat, lng = coords
+    if body.branch:
+        res = await db.tenants.update_one(
+            {"id": t["id"], "branches.name": body.branch},
+            {"$set": {"branches.$.latitude": lat, "branches.$.longitude": lng}})
+        if res.matched_count == 0:
+            raise HTTPException(404, f"Branch '{body.branch}' not found")
+    else:
+        await db.tenants.update_one({"id": t["id"]}, {"$set": {
+            "latitude": lat, "longitude": lng,
+            "geo_set_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "latitude": lat, "longitude": lng, "branch": body.branch}
+
+
 @router.delete("/tenants/current/geo")
 async def clear_tenant_geo(branch: Optional[str] = None, admin=Depends(require_admin), t=Depends(current_tenant)):
     if branch:
@@ -196,6 +261,18 @@ async def request_more_branches(body: BranchRequestIn, user=Depends(require_admi
         logging.warning(f"branch upsell email failed: {e}")
     return {"ok": True, "additional": body.additional, "new_total": new_total}
 
+async def _coords_from_maps_url(url: str):
+    url = (url or "").strip()
+    if not url:
+        return None
+    coords = _parse_maps_coords(url)
+    if not coords:
+        from urllib.parse import unquote
+        expanded = await asyncio.to_thread(_expand_short_link, url)
+        coords = _parse_maps_coords(unquote(expanded))
+    return coords
+
+
 @router.post("/branches")
 async def add_branch(body: BranchIn, user=Depends(require_admin), t=Depends(current_tenant)):
     branches = t.get("branches") or []
@@ -205,14 +282,21 @@ async def add_branch(body: BranchIn, user=Depends(require_admin), t=Depends(curr
             403, f"Your subscription covers {limit} branch{'es' if limit != 1 else ''}. "
                  "Contact Miracurl HQ to add more branches once the payment is done.")
     branch = {"id": str(uuid.uuid4()), **body.model_dump()}
+    coords = await _coords_from_maps_url(body.maps_url)
+    if coords:
+        branch["latitude"], branch["longitude"] = coords
     await db.tenants.update_one({"id": t["id"]}, {"$push": {"branches": branch}})
     return branch
 
 @router.put("/branches/{bid}")
 async def update_branch(bid: str, body: BranchIn, user=Depends(require_admin), t=Depends(current_tenant)):
+    fields = {f"branches.$.{k}": v for k, v in body.model_dump().items()}
+    coords = await _coords_from_maps_url(body.maps_url)
+    if coords:
+        fields["branches.$.latitude"], fields["branches.$.longitude"] = coords
     res = await db.tenants.update_one(
         {"id": t["id"], "branches.id": bid},
-        {"$set": {f"branches.$.{k}": v for k, v in body.model_dump().items()}})
+        {"$set": fields})
     if res.matched_count == 0:
         raise HTTPException(404, "Branch not found")
     return {"ok": True}
