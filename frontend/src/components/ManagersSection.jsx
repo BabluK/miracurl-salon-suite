@@ -3,6 +3,7 @@ import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { ShieldCheck, Plus, KeyRound, Trash2, X, GitBranch, UserMinus } from "lucide-react";
 import pinApi from "@/lib/ownerPin";
+import { mainSalonLabel } from "@/lib/branch";
 import { useAuth } from "@/context/AuthContext";
 
 export const ManagersSection = ({ onCredential, onChanged }) => {
@@ -120,7 +121,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
                   <select data-testid={`manager-branch-${m.id}`} value={m.branch || ""} onChange={e => setBranch(m, e.target.value)}
                     className={`text-xs border rounded-lg px-2 py-1.5 bg-white max-w-[230px] ${m.branch ? "border-violet-300 text-violet-700 font-semibold" : "border-slate-200 text-slate-500"}`}>
                     <option value="">🌐 All branches</option>
-                    <option value="__main__">🏠 {tenant?.name || "Main salon"}{tenant?.location ? ` — ${tenant.location}` : ""} (Main)</option>
+                    <option value="__main__">🏠 {mainSalonLabel(tenant)} (Main)</option>
                     {branches.map(b => <option key={b.id || b.name} value={b.name}>🔒 {b.name}</option>)}
                   </select>
                 </div>
@@ -180,7 +181,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
                   <label className="text-xs text-slate-500 mb-1 block">Branch (lock this login to one location)</label>
                   <select data-testid="manager-branch-input" value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))} className="input-light w-full">
                     <option value="">🌐 All branches (not locked)</option>
-                    <option value="__main__">🏠 {tenant?.name || "Main salon"}{tenant?.location ? ` — ${tenant.location}` : ""} (Main only)</option>
+                    <option value="__main__">🏠 {mainSalonLabel(tenant)} (Main only)</option>
                     {branches.map(b => <option key={b.id || b.name} value={b.name}>🔒 {b.name} only</option>)}
                   </select>
                   <p className="text-[11px] text-slate-500 mt-1">A branch-locked login only ever sees its own branch — no switching. Only your owner login can switch branches (PIN protected).</p>

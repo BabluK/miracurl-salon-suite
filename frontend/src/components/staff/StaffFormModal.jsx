@@ -2,11 +2,12 @@ import { useState } from "react";
 import { X, IndianRupee, ArrowRightLeft, Loader2 } from "lucide-react";
 import ImageUploader from "@/components/ImageUploader";
 import { useAuth } from "@/context/AuthContext";
+import { mainSalonLabel } from "@/lib/branch";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
 export function StaffFormModal({ editing, form, setForm, branches, onClose, onSubmit, onPhotoUploaded, onTransferred }) {
-  const { user } = useAuth();
+  const { user, tenant } = useAuth();
   const otherSalons = (user?.salons || []).filter(s => s.id !== user?.tenant_id);
   const [transferTo, setTransferTo] = useState("");
   const [transferring, setTransferring] = useState(false);
@@ -100,7 +101,7 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
               <div>
                 <label className="label-light block mb-1">Assigned branch</label>
                 <select data-testid="staff-branch-select" className="input-light" value={form.branch || ""} onChange={e => setForm({ ...form, branch: e.target.value })}>
-                  <option value="">🏠 Main salon (this location)</option>
+                  <option value="">🏠 {mainSalonLabel(tenant)} (main location)</option>
                   {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
                 </select>
                 <p className="text-[10px] text-slate-400 mt-1">Staff gets this branch tag & must check in at THIS branch&apos;s GPS location</p>

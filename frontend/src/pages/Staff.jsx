@@ -187,7 +187,7 @@ export default function Staff() {
             onDelete={remove}
             isManager={!!s.user_id && managerUserIds.includes(s.user_id)}
             onPromote={setPromoteFor}
-            mainLabel={`Main salon${tenant?.location ? ` — ${tenant.location}` : ""}`}
+            mainLabel={mainSalonLabel(tenant)}
           />
         ))}
         {list.length === 0 && (

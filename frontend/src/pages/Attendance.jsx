@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { ManualAttendanceModal } from "@/components/ManualAttendanceModal";
-import { getSelectedBranch } from "@/lib/branch";
+import { getSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import { toast } from "sonner";
 import {
   Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin, QrCode, Download,
@@ -373,7 +373,7 @@ function GeoFenceCard() {
               {branches.length > 0 && (
                 <select data-testid="geo-target-select" value={target} onChange={e => setTarget(e.target.value)}
                   className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white max-w-[220px]">
-                  <option value="">Main salon{tenant?.location ? ` (${tenant.location})` : ""}</option>
+                  <option value="">🏠 {mainSalonLabel(tenant)} (Main)</option>
                   {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}{b.latitude != null ? " ✓" : ""}</option>)}
                 </select>
               )}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getSelectedBranch, setSelectedBranch } from "@/lib/branch";
+import { getSelectedBranch, setSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import api from "@/lib/api";
 import { GitBranch } from "lucide-react";
 import { BranchSwitchModal } from "@/components/BranchSwitchModal";
@@ -38,7 +38,7 @@ export const BranchSwitcher = () => {
         title="This login is locked to your branch — only the owner can switch branches.">
         <GitBranch className="w-3.5 h-3.5 text-white/40 hidden sm:block" />
         <span className="bg-white/5 border border-white/10 rounded-full px-3 py-1 text-xs text-white/80 max-w-[260px] truncate">
-          🔒 {user.branch === "__main__" ? `${tenant?.name || "Main salon"}${tenant?.location ? ` — ${tenant.location}` : ""} (Main)` : user.branch}
+          🔒 {user.branch === "__main__" ? `${mainSalonLabel(tenant)} (Main)` : user.branch}
         </span>
       </div>
     );
@@ -75,7 +75,7 @@ export const BranchSwitcher = () => {
           title="Switch branch — owner approval required"
         >
           <option value="" className="bg-neutral-900 text-white">All branches</option>
-          <option value="__main__" className="bg-neutral-900 text-white">Main salon{tenant?.location ? ` (${tenant.location})` : ""}</option>
+          <option value="__main__" className="bg-neutral-900 text-white">🏠 {mainSalonLabel(tenant)} (Main)</option>
           {branches.map(b => (
             <option key={b.id || b.name} value={b.name} className="bg-neutral-900 text-white">{b.name}</option>
           ))}

@@ -6,6 +6,7 @@ import { IndianRupee, DollarSign, FileText, Users, Percent, MapPin, Star, Lock, 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { EditInvoiceModal } from "@/components/EditInvoiceModal";
 import { useAuth } from "@/context/AuthContext";
+import { mainSalonLabel } from "@/lib/branch";
 import { curSym } from "@/lib/currency";
 
 const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
@@ -100,12 +101,12 @@ export default function Reports() {
             <label className="label-light block mb-1">Salon / Branch</label>
             {user?.role === "manager" ? (
               <div className="input-light text-slate-600 bg-slate-50 cursor-not-allowed" data-testid="report-branch-locked">
-                🔒 {user?.branch === "__main__" ? "Main salon" : (user?.branch || "Your salon")}
+                🔒 {user?.branch === "__main__" ? mainSalonLabel(tenant) : (user?.branch || "Your salon")}
               </div>
             ) : (
               <select data-testid="report-branch-filter" className="input-light text-slate-800" value={repBranch} onChange={e => setRepBranch(e.target.value)}>
                 <option value="">🌐 All salons</option>
-                <option value="__main__">Main salon only</option>
+                <option value="__main__">🏠 {mainSalonLabel(tenant)} (Main)</option>
                 {(tenant?.branches || []).map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
               </select>
             )}

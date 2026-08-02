@@ -12,3 +12,8 @@ export function setSelectedBranch(name) {
   } catch { /* private mode */ }
   window.dispatchEvent(new CustomEvent("branch-changed", { detail: name || "" }));
 }
+
+export function mainSalonLabel(tenant) {
+  const name = tenant?.name || "Main salon";
+  return tenant?.location ? `${name} — ${tenant.location}` : name;
+}
