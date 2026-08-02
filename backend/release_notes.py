@@ -2,10 +2,23 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-07-29.53"
-BUILD_TIME = "29 Jul 2026, 10:00 AM IST"
+BUILD = "2026-08-02.54"
+BUILD_TIME = "2 Aug 2026, 12:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-02 (Branch dashboards restored & location made easy)",
+        "changes": [
+            "🚑 Branch dashboards fixed — attendance board, active staff, check-in details and This-Month revenue now show correctly for the Main salon and every branch (records with older branch tags are counted under the Main salon automatically)",
+            "📍 Set your salon location by simply pasting a Google Maps link — or just typing your salon name + area (e.g. 'Miracurl Salon Marathahalli'); works for the Main salon and each branch from the Attendance page",
+            "🗺️ Live map preview — the GPS check-in fence card now shows the exact pinned spot on a real Google map so you can visually confirm it's right, with an 'Open in Google Maps' link",
+            "🏠 Clear salon names everywhere — 'Main salon' is now shown as your actual salon name + location (e.g. 'Miracurl Unisex Family Salon — Marathahalli') across staff cards, reports, attendance, manager dropdowns and the top bar",
+            "🧑‍💼 Manager check-ins fixed — staff assigned to a branch are geo-fenced to that branch's exact location; the staff portal now shows each person exactly which location they must check in from",
+            "✏️ Branch renames are safe now — renaming a branch automatically carries over all its staff, manager logins and past bills, so reports never go blank after a rename",
+            "⚙️ Settings fix — the 'Google Maps location link' in Salon Profile now saves AND loads back correctly, and saving it also pins your salon's GPS check-in fence in one step",
+            "🔔 This 'What's New' popup now appears for manager logins too, so your whole team knows what changed after every update",
+        ],
+    },
     {
         "date": "2026-07-29 (Preview before you pay & call controls)",
         "changes": [

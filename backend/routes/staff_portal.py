@@ -410,16 +410,16 @@ def _norm_branch(v) -> str:
 
 
 def _fence_for(staff: dict, tenant: dict):
-    """(lat, lng, label) the staff must check in near — STRICTLY their tagged branch.
-    A branch-tagged staff is NEVER fenced against the main salon."""
+    """(lat, lng, label) the staff must check in near. A staff tagged to a CONFIGURED
+    branch is fenced to that branch only; everyone else belongs to the main salon."""
     sb = _norm_branch(staff.get("branch"))
     if sb:
         for b in tenant.get("branches") or []:
             if _norm_branch(b.get("name")) == sb:
                 if b.get("latitude") is not None and b.get("longitude") is not None:
                     return b["latitude"], b["longitude"], b["name"]
-                return None, None, None  # branch exists but not pinned yet — no fence
-        return None, None, None  # tag doesn't match any branch record — no fence
+                return None, None, None  # their branch exists but isn't pinned — no fence
+    # No tag, or a legacy tag that isn't a configured branch → main salon staff.
     if tenant.get("latitude") is not None and tenant.get("longitude") is not None:
         return tenant["latitude"], tenant["longitude"], "the salon"
     return None, None, None
@@ -686,7 +686,8 @@ def _roster_row(s: dict, rec: Optional[dict], now: datetime) -> dict:
 @router.get("/attendance/today")
 async def attendance_today(date: Optional[str] = None,
                            branch: Optional[str] = None,
-                           user=Depends(require_admin)):
+                           user=Depends(require_admin),
+                           t=Depends(current_tenant)):
     """
     Roster for a given day (defaults to today).
     Returns EVERY active staff member with their current check-in/out state,
@@ -703,8 +704,13 @@ async def attendance_today(date: Optional[str] = None,
 
     staff_q = {"active": True}
     if branch:
-        staff_q["branch"] = ({"$in": [None, ""]} if branch == "__main__"
-                             else {"$regex": f"^\\s*{re.escape(branch.strip())}\\s*$", "$options": "i"})
+        if branch == "__main__":
+            # Main salon = staff NOT assigned to a configured branch (incl. legacy tags).
+            names = [b.get("name") for b in (t.get("branches") or []) if b.get("name")]
+            if names:
+                staff_q["branch"] = {"$nin": names}
+        else:
+            staff_q["branch"] = {"$regex": f"^\\s*{re.escape(branch.strip())}\\s*$", "$options": "i"}
     staff_list = await db.staff.find(
         staff_q,
         {"_id": 0, "id": 1, "name": 1, "role": 1, "image_url": 1, "user_id": 1, "phone": 1, "branch": 1},

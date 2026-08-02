@@ -140,7 +140,11 @@ async def staff_performance(user=Depends(get_current_user)):
 
 def _branch_query(branch, tenant=None):
     if branch == "__main__":
-        return {"branch_name": {"$in": [None, ""]}}
+        # Main salon = every record NOT tagged to a configured branch.
+        # (Real-world data carries legacy/free-form names, so an "empty only"
+        # filter silently blanks out dashboards — see prod RCA 2026-08-02.)
+        names = [b.get("name") for b in ((tenant or {}).get("branches") or []) if b.get("name")]
+        return {"branch_name": {"$nin": names}} if names else {}
     if not branch:
         return {}
     ors = [{"branch_name": {"$regex": f"^\\s*{re.escape(branch.strip())}\\s*$", "$options": "i"}}]

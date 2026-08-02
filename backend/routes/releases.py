@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from database import _raw_db
-from security import require_super_admin, require_tenant_admin
+from security import require_super_admin, require_tenant_admin, get_current_user
 from release_notes import RELEASES, BUILD, BUILD_TIME
 
 router = APIRouter()
@@ -15,8 +15,11 @@ _INTERNAL_PREFIXES = ("Super Admin:", "Deployments:", "Platform:", "Miracurl Tea
 
 
 @router.get("/whats-new")
-async def whats_new(user=Depends(require_tenant_admin)):
-    """Owner-facing highlights of the latest deployment — powers the 'What's New ✨' popup."""
+async def whats_new(user=Depends(get_current_user)):
+    """Highlights of the latest deployment — powers the 'What's New ✨' popup.
+    Shown to every console login: owner/admins, managers and super-admins."""
+    if user.get("role") not in ("admin", "manager", "super_admin"):
+        raise HTTPException(403, "Admin or manager role required")
     latest = RELEASES[0]
     highlights = [c for c in latest["changes"] if not c.startswith(_INTERNAL_PREFIXES)][:8]
     return {"build": BUILD, "date": latest["date"], "highlights": highlights}

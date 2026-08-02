@@ -1294,3 +1294,11 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Manager main-salon option now shows tenant name+location: "🏠 Miracurl Unisex Family Salon — Marathahalli (Main)" (ManagersSection row+form, BranchSwitcher locked chip & option, Attendance geo-target-select "Main salon (Marathahalli)").
 - Preview data: REAL coords set via Places search — main salon 12.9482932,77.7049318 (SGR Dental College Rd, Munnekolala/Marathahalli); AECS branch 12.9640015,77.7116893 (AECS Layout Main Rd). Manager Bablu (bablu@miracurl.com) created locked to __main__.
 - NOTE: cid-only links (maps.google.com/?cid=...) cannot be resolved (no name/coords; Google blocks server-side HTML scraping w/ consent page) → clear error telling user to paste address-bar URL or type salon name. PRODUCTION NEEDS REDEPLOY for all geo/manager fixes.
+
+## Iter 126 (2 Aug 2026) — PROD RCA fix: __main__ branch semantics + What's New for all consoles
+- Deployer RCA (/app/deployer-agent-docs/RCA_90203bb3...MD): prod staff carry legacy branch tags ("Miracurl Unisex Family Salon") + invoices tagged with real names → old `__main__ → {$in:[None,""]}` filter matched 0 rows → empty attendance boards & month_revenue=0. NOT infra (prod now tier_1 2Gi, no OOM).
+- FIX: `__main__` now means "NOT in any configured branch name" ($nin) in reports.py _branch_query(branch, tenant) and staff_portal attendance_today (added current_tenant dep). Legacy/free-form tags count as Main salon. Verified: legacy-tagged staff appears on main board; AECS board + revenue intact.
+- _fence_for: staff with a tag that isn't a configured branch → fenced to MAIN salon coords (they're main staff); configured-branch staff → their branch only.
+- Testing agent iteration_96: 15/15 backend PASS + frontend PASS (it also fixed missing mainSalonLabel import in Staff.jsx). Branch rename cascade, case-insensitive matching, geo from-link (URL/short/place-text), branding maps_url, staff fence all green.
+- What's New popup: /api/whats-new now allowed for managers too (was admin-only 403). New RELEASES entry "2026-08-02" + BUILD bump to 2026-08-02.54 → popup will re-appear for every console after prod redeploy. Super Admin → Deployments tab auto-syncs the new entry (43 releases).
+- PROD: needs REDEPLOY to take effect.
