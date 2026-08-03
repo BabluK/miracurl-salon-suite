@@ -274,6 +274,16 @@ async def platform_earnings(user=Depends(require_super_admin)):
                        "placement_fees_due": round(due_fees, 2)}}
 
 
+@router.get("/public/brochure.pdf")
+async def public_brochure_pdf(request: Request):
+    """Public Suite Overview brochure — linked from outreach emails instead of attaching PDFs."""
+    from security import public_rate_limit
+    public_rate_limit(request, "public-brochure", limit=30, window_sec=600)
+    pdf = await asyncio.to_thread(_doc_pdf, DOCS["suite_overview"])
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="miracurl-suite-overview.pdf"'})
+
+
 def suite_overview_attachment() -> dict:
     """Resend attachment dict for the Suite Overview PDF (welcome-email brochure)."""
     pdf = _doc_pdf(DOCS["suite_overview"])

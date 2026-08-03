@@ -17,8 +17,13 @@ export default function PayLinkModal({ tenant, onClose }) {
   const [months, setMonths] = useState(6);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState("");
+  const sym = data?.currency_symbol || "₹";
+  const locale = data?.currency === "USD" ? "en-US" : "en-IN";
 
-  const load = () => api.get(`/super-admin/pay-links?tenant_id=${tenant.id}`).then(r => setData(r.data)).catch(() => {});
+  const load = () => api.get(`/super-admin/pay-links?tenant_id=${tenant.id}`).then(r => {
+    setData(r.data);
+    if (r.data.plans?.length && !r.data.plans.some(p => p.key === "half_year")) setPlan(r.data.plans[0].key);
+  }).catch(() => {});
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tenant.id]);
 
   const generate = async () => {
@@ -86,7 +91,7 @@ export default function PayLinkModal({ tenant, onClose }) {
                   className={`flex items-center gap-3 border rounded-xl px-3 py-2.5 cursor-pointer text-sm ${plan === p.key ? "border-amber-400 bg-amber-50" : "border-slate-200 hover:border-slate-300"}`}>
                   <input type="radio" name="pl-plan" checked={plan === p.key} onChange={() => setPlan(p.key)} className="accent-amber-500" />
                   <span className="flex-1">{p.label}</span>
-                  <b>₹{p.price.toLocaleString("en-IN")}</b>
+                  <b>{sym}{p.price.toLocaleString(locale)}</b>
                 </label>
               ))}
               <label data-testid="pay-link-plan-custom"
@@ -95,7 +100,7 @@ export default function PayLinkModal({ tenant, onClose }) {
                 <span>Custom deal 🤝</span>
                 {plan === "custom" && (
                   <span className="flex items-center gap-2 ml-auto">
-                    <input type="number" min={1} value={amount} onChange={e => setAmount(e.target.value)} placeholder="₹ price"
+                    <input type="number" min={1} value={amount} onChange={e => setAmount(e.target.value)} placeholder={`${sym} price`}
                       data-testid="pay-link-custom-amount" className="w-24 input-light !py-1.5 text-xs" onClick={e => e.preventDefault()} />
                     <select value={months} onChange={e => setMonths(e.target.value)} data-testid="pay-link-custom-months" className="input-light !py-1.5 text-xs">
                       <option value={1}>1 month</option><option value={3}>3 months</option>
@@ -122,7 +127,7 @@ export default function PayLinkModal({ tenant, onClose }) {
                     <div key={l.id} className="border border-slate-200 rounded-xl px-3 py-2 text-xs" data-testid={`pay-link-row-${l.id}`}>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase ${STATUS_STYLE[l.status] || STATUS_STYLE.expired}`}>{l.status}</span>
-                        <span className="font-semibold">₹{Number(l.amount).toLocaleString("en-IN")}</span>
+                        <span className="font-semibold">{l.currency === "USD" ? "$" : "₹"}{Number(l.amount).toLocaleString(l.currency === "USD" ? "en-US" : "en-IN")}</span>
                         <span className="text-slate-500">{l.plan_label}</span>
                         {l.emailed_at && <span className="text-[10px] text-sky-600" title={`Emailed to ${l.emailed_to}`}>📧 emailed</span>}
                         {l.opened_at && l.status === "pending" && <span className="text-[10px] text-violet-600" title={`Opened ${l.opened_at.slice(0, 16).replace("T", " ")}`}>👀 opened</span>}

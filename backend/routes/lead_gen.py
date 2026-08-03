@@ -24,7 +24,7 @@ router = APIRouter()
 log = logging.getLogger("mira_leads")
 from routes.lead_common import (  # noqa: F401
     _live_plans, _lead_intl, _plans_for, _pricing_lines, _pricing_table_html,
-    _outreach_email_html, _lead_reply_to,
+    _outreach_email_html, _lead_reply_to, _lead_headers, _unsub_footer, _unsub_url,
 )
 
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"}
@@ -806,6 +806,36 @@ async def edit_lead(lid: str, body: LeadEditIn, user=Depends(require_super_admin
 _SCREENS_TOUR_PDF = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "miracurl-screens-tour.pdf")
 
 
+_UNSUB_HTML = """<html><body style="font-family:Georgia,serif;background:#efe9dc;padding:60px 16px;text-align:center">
+<div style="max-width:440px;margin:0 auto;background:#fdfbf7;border:1px solid #e6ddc8;border-radius:18px;padding:40px 30px">
+<div style="font-size:15px;letter-spacing:2px;color:#b08d3f">MIRACURL ✦ SUITE</div>
+<h2 style="color:#1c1c22;margin:18px 0 8px">You're unsubscribed</h2>
+<p style="color:#6a6a72;font-size:14px;line-height:1.7">We won't email you again. If this was a mistake, just reply to any of our previous emails.</p>
+</div></body></html>"""
+
+
+async def _mark_unsubscribed(lid: str) -> None:
+    await _raw_db.mira_leads.update_one(
+        {"id": lid}, {"$set": {"unsubscribed": True, "unsubscribed_at": _now()}})
+
+
+@router.get("/public/lead-unsubscribe/{lid}")
+async def lead_unsubscribe(lid: str, request: Request):
+    from security import public_rate_limit
+    public_rate_limit(request, "lead-unsub", limit=30, window_sec=600)
+    await _mark_unsubscribed(lid)
+    return Response(content=_UNSUB_HTML, media_type="text/html")
+
+
+@router.post("/public/lead-unsubscribe/{lid}")
+async def lead_unsubscribe_one_click(lid: str, request: Request):
+    """RFC 8058 one-click unsubscribe (triggered by Gmail/Yahoo unsubscribe buttons)."""
+    from security import public_rate_limit
+    public_rate_limit(request, "lead-unsub", limit=30, window_sec=600)
+    await _mark_unsubscribed(lid)
+    return {"ok": True}
+
+
 @router.get("/public/lead-track/{lid}/open.png")
 async def lead_track_open(lid: str, request: Request):
     from security import public_rate_limit
@@ -830,16 +860,15 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
         raise HTTPException(400, "No email address on this lead — add one first.")
     if lead.get("status") == "sent":
         raise HTTPException(400, "Already sent")
+    if lead.get("unsubscribed"):
+        raise HTTPException(400, "This lead unsubscribed — no further emails allowed.")
     from email_service import _send_email
-    from routes.hq_documents import suite_overview_attachment
     html = _outreach_email_html(lead, await _live_plans())
-    attachments = [await asyncio.to_thread(suite_overview_attachment)]
-    tour = screens_tour_attachment()
-    if tour:
-        attachments.append(tour)
+    # No attachments on cold outreach — attachments to unknown recipients are a top spam trigger.
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
-                               html, attachments=attachments, book_url="https://miracurl-suite.com/demo",
-                               reply_to=_lead_reply_to())
+                               html, book_url="https://miracurl-suite.com/demo",
+                               reply_to=_lead_reply_to(), headers=_lead_headers(lid),
+                               from_name="Mira at Miracurl")
     if not result.get("sent"):
         raise HTTPException(502, f"Send failed: {result.get('error')}")
     await _raw_db.mira_leads.update_one(
@@ -1057,16 +1086,18 @@ async def run_lead_followups() -> dict:
     sent = failed = 0
     plans = await _live_plans() if due else {}
     for lead in due:
+        if lead.get("unsubscribed"):
+            continue
         subject, body = _followup_email(lead, plans)
         base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
         html = ("".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
-                + f'<img src="{base}/api/public/lead-track/{lead["id"]}/open.png" width="1" height="1" style="display:block" alt="" />')
-        tour = screens_tour_attachment()
+                + f'<img src="{base}/api/public/lead-track/{lead["id"]}/open.png" width="1" height="1" style="display:block" alt="" />'
+                + _unsub_footer(lead["id"]))
         try:
             result = await _send_email([lead["email"]], subject, html,
-                                       attachments=[tour] if tour else None,
                                        book_url="https://miracurl-suite.com/demo",
-                                       reply_to=_lead_reply_to())
+                                       reply_to=_lead_reply_to(), headers=_lead_headers(lead["id"]),
+                                       from_name="Mira at Miracurl")
             if result.get("sent"):
                 await _raw_db.mira_leads.update_one(
                     {"id": lead["id"]}, {"$set": {"follow_up_sent_at": _now()}})
@@ -1105,16 +1136,18 @@ async def lead_remind(lid: str, user=Depends(require_super_admin)):
     """Manual gentle reminder to an already-sent lead — works whether or not they opened."""
     from email_service import _send_email
     lead = await _lead_with_email(lid)
+    if lead.get("unsubscribed"):
+        raise HTTPException(400, "This lead unsubscribed — no further emails allowed.")
     _rate_guard(lead, "last_reminder_at", "Reminder")
     subject, body = _followup_email(lead, await _live_plans())
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     html = ("".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())
-            + f'<img src="{base}/api/public/lead-track/{lid}/open.png" width="1" height="1" style="display:block" alt="" />')
-    tour = screens_tour_attachment()
+            + f'<img src="{base}/api/public/lead-track/{lid}/open.png" width="1" height="1" style="display:block" alt="" />'
+            + _unsub_footer(lid))
     result = await _send_email([lead["email"]], subject, html,
-                               attachments=[tour] if tour else None,
                                book_url="https://miracurl-suite.com/demo",
-                               reply_to=_lead_reply_to())
+                               reply_to=_lead_reply_to(), headers=_lead_headers(lid),
+                               from_name="Mira at Miracurl")
     if not result.get("sent"):
         raise HTTPException(502, f"Send failed: {result.get('error')}")
     await _raw_db.mira_leads.update_one({"id": lid}, {

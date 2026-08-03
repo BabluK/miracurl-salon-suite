@@ -456,70 +456,62 @@ export default function SuperAdmin() {
           )}
         </div>
 
-        {/* Tenant list */}
-        <div className="card-light p-0 overflow-x-auto">
-          <table className="luxe-table-light">
-            <thead><tr><th>Salon</th><th>Slug</th><th>Owner</th><th>Plan</th><th>Status</th><th>Health</th><th>SMS</th><th>Booking Link</th><th className="sticky right-0 bg-white z-10 text-right shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">Actions</th></tr></thead>
-            <tbody>
-              {filteredTenants.map(t => (
-                <tr key={t.id} data-testid={`tenant-row-${t.id}`}>
-                  <td>
-                    <div className="font-medium">{t.name}</div>
-                    <div className="text-[10px] text-slate-400">{t.location || "—"}</div>
-                  </td>
-                  <td className="font-mono text-xs text-sky-600">{t.slug}</td>
-                  <td className="text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span>{t.owner_email}</span>
+        {/* Tenant list — readable cards */}
+        <div className="space-y-3">
+          {filteredTenants.map(t => (
+            <div key={t.id} data-testid={`tenant-row-${t.id}`} className="card-light !p-4">
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-playfair font-semibold text-base truncate max-w-[340px]" title={t.name}>{t.name}</span>
+                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${PLAN_BADGE[t.plan] || ''}`}>{t.plan}</span>
+                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded ${STATUS_BADGE[t.status] || ''}`}>{t.status}</span>
+                    {t.currency && t.currency !== "INR" && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200" title={`International salon — pays in ${t.currency} via Stripe`}>🌍 {t.currency}</span>
+                    )}
+                    <HealthBadge t={t} /><RenewalNudge t={t} />
+                  </div>
+                  <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-1.5 text-xs text-slate-500">
+                    {t.location && <span className="truncate max-w-[260px]" title={t.location}>📍 {t.location}</span>}
+                    <span className="font-mono text-sky-600">{t.slug}</span>
+                    <span className="flex items-center gap-1.5 truncate max-w-[280px]">
+                      👤 {t.owner_email}
                       {(t.owner_salon_count || 1) > 1 && (
                         <span data-testid={`salon-count-${t.id}`} title={`This owner email manages ${t.owner_salon_count} salons`}
-                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-200">
-                          ×{t.owner_salon_count} salons
-                        </span>
+                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-200">×{t.owner_salon_count}</span>
                       )}
-                    </div>
-                    {t.salon_email && t.salon_email !== t.owner_email && (
-                      <div className="text-[10px] text-slate-400">salon: {t.salon_email}</div>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded border ${PLAN_BADGE[t.plan] || ''}`}>{t.plan}</span>
-                  </td>
-                  <td>
-                    <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded ${STATUS_BADGE[t.status] || ''}`}>{t.status}</span>
-                  </td>
-                  <td><HealthBadge t={t} /><RenewalNudge t={t} /></td>
-                  <td>
-                    <div className="flex items-center gap-1.5">
-                      <button data-testid={`sms-balance-${t.id}`} onClick={() => setSmsLogFor(t)} title="View SMS delivery log" className={`text-xs font-bold hover:underline ${(t.sms_points || 0) < 20 ? "text-amber-600" : "text-emerald-700"}`}>{t.sms_points || 0}</button>
-                      <button data-testid={`sms-points-${t.id}`} onClick={() => creditSms(t)} title="Credit SMS points"
-                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition">+ Add</button>
-                    </div>
-                  </td>
-                  <td>
-                    <a href={publicBookingUrl(t.slug)} target="_blank" rel="noreferrer" className="text-xs text-sky-600 hover:underline flex items-center gap-1" data-testid={`booking-link-${t.id}`}>
+                    </span>
+                    {t.salon_email && t.salon_email !== t.owner_email && <span className="truncate max-w-[220px]" title={`Salon email: ${t.salon_email}`}>✉️ {t.salon_email}</span>}
+                    <a href={publicBookingUrl(t.slug)} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline flex items-center gap-1" data-testid={`booking-link-${t.id}`}>
                       <ExternalLink className="w-3 h-3" /> /book/{t.slug}
                     </a>
-                  </td>
-                  <td className="sticky right-0 bg-white z-10 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
-                    <div className="flex items-center gap-1 justify-end">
-                      <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
-                      <button data-testid={`diagnose-tenant-${t.id}`} onClick={() => setDiagFor(t)} title="Diagnose — find why this salon feels slow & clear their cache" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Stethoscope className="w-3.5 h-3.5" /></button>
-                      <button data-testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit salon details, credentials & branch links" className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button data-testid={`pay-link-${t.id}`} onClick={() => setPayLinkFor(t)} title="Generate subscription payment link — tenant pays, plan activates" className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"><CreditCard className="w-3.5 h-3.5" /></button>
-                      <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
-                      <button data-testid={`clean-dummy-${t.id}`} onClick={() => setCleanFor(t)} title="Clean test/dummy bookings & customers" className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"><Eraser className="w-3.5 h-3.5" /></button>
-                      <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />
-                      <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
-                      <button data-testid={`permanent-delete-tenant-${t.id}`} onClick={() => permanentDeleteTenant(t)} title="Permanently delete (erase all data — irreversible)" className="p-1.5 text-slate-400 hover:text-white hover:bg-red-600 rounded"><Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {tenants.length === 0 && <tr><td colSpan="9" className="text-center text-slate-500 py-12">No tenants yet. Add your first salon!</td></tr>}
-              {tenants.length > 0 && filteredTenants.length === 0 && <tr><td colSpan="9" className="text-center text-slate-400 py-10">No {statusFilter} salons.</td></tr>}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-1.5 border border-slate-100 rounded-lg px-2.5 py-1.5" title="SMS points">
+                    <span className="text-[9px] uppercase tracking-wider text-slate-400">SMS</span>
+                    <button data-testid={`sms-balance-${t.id}`} onClick={() => setSmsLogFor(t)} title="View SMS delivery log" className={`text-xs font-bold hover:underline ${(t.sms_points || 0) < 20 ? "text-amber-600" : "text-emerald-700"}`}>{t.sms_points || 0}</button>
+                    <button data-testid={`sms-points-${t.id}`} onClick={() => creditSms(t)} title="Credit SMS points"
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition">+ Add</button>
+                  </div>
+                  <div className="flex items-center gap-0.5 border border-slate-100 rounded-lg px-1.5 py-1">
+                    <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
+                    <button data-testid={`diagnose-tenant-${t.id}`} onClick={() => setDiagFor(t)} title="Diagnose — find why this salon feels slow & clear their cache" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Stethoscope className="w-3.5 h-3.5" /></button>
+                    <button data-testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit salon details, credentials & branch links" className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button data-testid={`pay-link-${t.id}`} onClick={() => setPayLinkFor(t)} title="Generate subscription payment link — tenant pays, plan activates" className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"><CreditCard className="w-3.5 h-3.5" /></button>
+                    <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
+                    <button data-testid={`clean-dummy-${t.id}`} onClick={() => setCleanFor(t)} title="Clean test/dummy bookings & customers" className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"><Eraser className="w-3.5 h-3.5" /></button>
+                    <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />
+                    <span className="w-px h-4 bg-slate-200 mx-0.5" />
+                    <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button data-testid={`permanent-delete-tenant-${t.id}`} onClick={() => permanentDeleteTenant(t)} title="Permanently delete (erase all data — irreversible)" className="p-1.5 text-slate-400 hover:text-white hover:bg-red-600 rounded"><Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          {tenants.length === 0 && <div className="card-light text-center text-slate-500 py-12">No tenants yet. Add your first salon!</div>}
+          {tenants.length > 0 && filteredTenants.length === 0 && <div className="card-light text-center text-slate-400 py-10">No {statusFilter} salons.</div>}
         </div>
 
         <SmsCreditLog />

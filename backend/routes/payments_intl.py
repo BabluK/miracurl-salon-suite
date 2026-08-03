@@ -105,6 +105,9 @@ async def _settle_txn(session_id: str) -> None:
         return
     if rec.get("kind") == "subscription":
         await _activate_subscription(rec)
+    elif rec.get("kind") == "pay_link":
+        from routes.pay_links import settle_stripe_pay_link
+        await settle_stripe_pay_link(session_id)
     elif rec.get("appointment_id"):
         await _raw_db.appointments.update_one(
             {"id": rec["appointment_id"]},

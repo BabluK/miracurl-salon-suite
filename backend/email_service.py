@@ -46,7 +46,8 @@ def _brand_footer(book_url: str | None = None, book_label: str = "Book Now ✦")
 
 async def _send_email(to: list, subject: str, html: str, attachments: list | None = None,
                       reply_to: str | None = None, book_url: str | None = None,
-                      book_label: str = "Book Now ✦") -> dict:
+                      book_label: str = "Book Now ✦", headers: dict | None = None,
+                      from_name: str = "Miracurl") -> dict:
     key = os.environ.get("RESEND_API_KEY")
     if not key:
         return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
@@ -55,9 +56,11 @@ async def _send_email(to: list, subject: str, html: str, attachments: list | Non
         return {"sent": False, "error": "Email not configured (SENDER_EMAIL missing — set it to an address on your verified Resend domain, e.g. noreply@miracurl-suite.com)"}
     resend.api_key = key
     params = {
-        "from": f"Miracurl <{sender}>",
+        "from": f"{from_name} <{sender}>",
         "to": to, "subject": subject, "html": html + _brand_footer(book_url, book_label),
     }
+    if headers:
+        params["headers"] = headers
     reply_to = reply_to or os.environ.get("SUPPORT_REPLY_TO")
     if reply_to:
         params["reply_to"] = [reply_to]

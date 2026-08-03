@@ -36,9 +36,36 @@ export default function PayLinkPublic() {
       .catch((e) => setError(e.response?.data?.detail || "This payment link doesn't exist"));
   }, [token, API]);
 
+  // Returning from Stripe Checkout — poll until the payment settles.
+  useEffect(() => {
+    const sid = new URLSearchParams(window.location.search).get("session_id");
+    if (!sid || !link || link.status === "paid") return;
+    let tries = 0;
+    const poll = async () => {
+      try {
+        const { data } = await API.get(`/${token}/stripe-status/${sid}`);
+        if (data.status === "paid") {
+          setDone({ salon_name: link.salon_name, plan_label: link.plan_label, end_date: "" });
+          return;
+        }
+      } catch { /* keep polling */ }
+      if (++tries < 8) setTimeout(poll, 2500);
+    };
+    poll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [link?.status, token]);
+
+  const sym = link?.currency_symbol || "₹";
+  const fmtAmt = (v) => `${sym}${Number(v).toLocaleString(link?.currency === "INR" ? "en-IN" : "en-US")}`;
+
   const pay = async () => {
     setBusy(true);
     try {
+      if (link.gateway === "stripe") {
+        const { data: d } = await API.post(`/${token}/stripe-checkout`, { origin_url: window.location.origin });
+        window.location.href = d.checkout_url;
+        return;
+      }
       const { data: d } = await API.post(`/${token}/order`);
       await loadRzp();
       new window.Razorpay({
@@ -108,7 +135,7 @@ export default function PayLinkPublic() {
           Our team is really happy to onboard you — this exclusive plan was prepared just for your salon by Miracurl HQ ✨</p>
         <div className="inline-block bg-white/95 rounded-2xl px-8 py-4 mt-5">
           <div className="text-[10px] uppercase tracking-widest text-neutral-500">{link.plan_label}</div>
-          <div className="font-bold text-4xl text-neutral-900" data-testid="pay-link-amount">₹{Number(link.amount).toLocaleString("en-IN")}</div>
+          <div className="font-bold text-4xl text-neutral-900" data-testid="pay-link-amount">{fmtAmt(link.amount)}</div>
           <div className="text-[11px] text-neutral-500">{link.months} months · full suite access</div>
         </div>
         {link.note && <p className="text-sm italic text-gold/90 mt-4 max-w-sm mx-auto" data-testid="pay-link-note">"{link.note}"</p>}
@@ -118,10 +145,12 @@ export default function PayLinkPublic() {
         <button onClick={pay} disabled={busy} data-testid="pay-link-pay-btn"
           className="w-full btn-gold justify-center flex items-center gap-2 mt-6 !py-3.5 !text-base disabled:opacity-50">
           {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
-          Pay ₹{Number(link.amount).toLocaleString("en-IN")} securely · UPI / Card / NetBanking
+          {link.gateway === "stripe"
+            ? `Pay ${fmtAmt(link.amount)} securely by card`
+            : `Pay ${fmtAmt(link.amount)} securely · UPI / Card / NetBanking`}
         </button>
         <div className="flex items-center justify-center gap-3 mt-3 text-[10px] text-white/40">
-          <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Secured by Razorpay</span>
+          <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Secured by {link.gateway === "stripe" ? "Stripe" : "Razorpay"}</span>
           <span className="flex items-center gap-1" data-testid="pay-link-expiry"><Clock className="w-3 h-3" /> Link valid {daysLeft} more day{daysLeft === 1 ? "" : "s"}</span>
         </div>
         {link.test_mode && <p className="text-[10px] text-amber-300/70 mt-2">TEST mode — use card 4111 1111 1111 1111, any CVV, any future expiry.</p>}

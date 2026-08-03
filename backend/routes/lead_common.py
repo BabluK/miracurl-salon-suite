@@ -68,7 +68,7 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
         <div style="padding:0 34px">{_pricing_table_html(_plans_for(plans, _lead_intl(lead.get("city"))))}</div>
         <div style="padding:2px 34px 28px">
           <a href="{base}/demo" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:13px 32px;border-radius:999px;font-size:14px;letter-spacing:.6px">Book a free live demo ✦</a>
-          <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📎 The attached brochure covers every module of Miracurl Suite.</p>
+          <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📖 <a href="{base}/api/public/brochure.pdf" style="color:#b08d3f">View the full brochure</a> — it covers every module of Miracurl Suite.</p>
         </div>
         <div style="background:#1c1c22;padding:16px 34px;text-align:center">
           <span style="color:#e8c37f;font-size:15px;letter-spacing:2px">MIRACURL ✦ SUITE</span>
@@ -76,9 +76,28 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
         </div>
       </div>
       {pixel}
+      {_unsub_footer(lead.get("id", ""))}
     </div>"""
 
 
 def _lead_reply_to() -> str | None:
     """Replies land on the Resend inbound domain so the webhook can flag 🔥 Replied."""
     return os.environ.get("LEAD_REPLY_INBOX") or None
+
+
+def _unsub_url(lead_id: str) -> str:
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    return f"{base}/api/public/lead-unsubscribe/{lead_id}"
+
+
+def _lead_headers(lead_id: str) -> dict:
+    """One-click unsubscribe headers (RFC 8058) — required by Gmail/Yahoo bulk-sender rules."""
+    return {"List-Unsubscribe": f"<{_unsub_url(lead_id)}>",
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}
+
+
+def _unsub_footer(lead_id: str) -> str:
+    addr = os.environ.get("BUSINESS_POSTAL_ADDR", "Miracurl · Marathahalli, Bengaluru, KA, India")
+    return (f'<p style="font-size:11px;color:#9a9aa2;text-align:center;margin:14px 0 0;font-family:Georgia,serif">'
+            f'{_html.escape(addr)} · '
+            f'<a href="{_unsub_url(lead_id)}" style="color:#9a9aa2">Unsubscribe</a></p>')
