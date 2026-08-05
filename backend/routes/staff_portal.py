@@ -135,6 +135,43 @@ async def cancel_leave_request(rid: str, s=Depends(_current_staff)):
     return {"ok": True}
 
 
+class AdminLeaveIn(LeaveRequestIn):
+    staff_id: str = Field(..., max_length=64)
+
+
+@router.post("/leave-requests/admin-mark")
+async def admin_mark_leave(body: AdminLeaveIn, admin=Depends(require_admin)):
+    """Owner/admin/manager marks a staff member on leave (auto-approved) — hides them from
+    the booking page and shows 'On leave' on the attendance board for those dates."""
+    s = await db.staff.find_one({"id": body.staff_id}, {"_id": 0, "id": 1, "name": 1})
+    if not s:
+        raise HTTPException(404, "Staff member not found")
+    f, t = _parse_leave_dates(body.from_date, body.to_date)
+    overlap = await db.leave_requests.find_one({
+        "staff_id": s["id"], "status": {"$in": ["pending", "approved"]},
+        "from_date": {"$lte": t.isoformat()}, "to_date": {"$gte": f.isoformat()},
+    }, {"_id": 0, "id": 1, "status": 1})
+    if overlap:
+        if overlap["status"] == "pending":
+            await db.leave_requests.update_one(
+                {"id": overlap["id"]},
+                {"$set": {"status": "approved", "decided_by": admin.get("name") or admin.get("email"),
+                          "decided_at": datetime.now(timezone.utc).isoformat(),
+                          "admin_note": "Approved while marking leave"}})
+            return {"ok": True, "approved_existing": True}
+        raise HTTPException(400, f"{s['name']} already has approved leave overlapping these dates")
+    doc = {
+        "id": str(uuid.uuid4()), "staff_id": s["id"], "staff_name": s.get("name"),
+        "from_date": f.isoformat(), "to_date": t.isoformat(), "days": (t - f).days + 1,
+        "reason": (body.reason or "Marked by admin").strip(), "status": "approved",
+        "marked_by_admin": True, "decided_by": admin.get("name") or admin.get("email"),
+        "decided_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.leave_requests.insert_one(doc)
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+
 @router.get("/leave-requests")
 async def list_leave_requests(status: str = "pending", admin=Depends(require_tenant_admin)):
     q = {} if status == "all" else {"status": status}

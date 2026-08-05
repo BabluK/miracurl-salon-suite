@@ -179,6 +179,8 @@ export default function Attendance() {
 
       <GeoFenceCard />
 
+      <LeaveManager roster={data?.roster || []} onChanged={load} />
+
       {/* Roster table */}
       <div className="card-light p-0 overflow-x-auto" data-testid="attendance-roster">
         <table className="luxe-table-light min-w-[720px]">
@@ -562,6 +564,86 @@ function HistoryModal({ sid, staffName, onClose }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function LeaveManager({ roster, onChanged }) {
+  const [pending, setPending] = useState([]);
+  const [showMark, setShowMark] = useState(false);
+  const [staffId, setStaffId] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState("");
+  const load = () => api.get("/leave-requests?status=pending").then(r => setPending(r.data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  async function decide(rid, action) {
+    setBusy(rid);
+    try {
+      await api.post(`/leave-requests/${rid}/${action}`, {});
+      toast.success(action === "approve" ? "Leave approved — they'll show On leave" : "Leave rejected");
+      load(); onChanged?.();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail) || "Failed"); }
+    finally { setBusy(""); }
+  }
+
+  async function markLeave() {
+    if (!staffId || !from || !to) { toast.error("Pick staff and both dates"); return; }
+    setBusy("mark");
+    try {
+      await api.post("/leave-requests/admin-mark", { staff_id: staffId, from_date: from, to_date: to, reason });
+      toast.success("Leave marked — hidden from booking page & shown as On leave for those dates");
+      setShowMark(false); setStaffId(""); setFrom(""); setTo(""); setReason("");
+      load(); onChanged?.();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail) || "Couldn't mark leave"); }
+    finally { setBusy(""); }
+  }
+
+  return (
+    <div className="card-light" data-testid="leave-manager-card">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="font-medium text-sm flex items-center gap-2">
+          🌴 Leave
+          {pending.length > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{pending.length} pending</span>}
+        </div>
+        <button data-testid="mark-leave-btn" onClick={() => setShowMark(s => !s)}
+          className="btn-blue text-xs py-2 px-4">{showMark ? "Close" : "Mark leave"}</button>
+      </div>
+      {showMark && (
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mb-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
+          <select data-testid="mark-leave-staff" value={staffId} onChange={e => setStaffId(e.target.value)} className="input-light text-xs">
+            <option value="">Pick staff…</option>
+            {roster.map(r => <option key={r.staff_id} value={r.staff_id}>{r.name}</option>)}
+          </select>
+          <input data-testid="mark-leave-from" type="date" value={from} onChange={e => setFrom(e.target.value)} className="input-light text-xs" />
+          <input data-testid="mark-leave-to" type="date" value={to} onChange={e => setTo(e.target.value)} className="input-light text-xs" />
+          <input data-testid="mark-leave-reason" value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason (optional)" className="input-light text-xs" />
+          <button data-testid="mark-leave-save" onClick={markLeave} disabled={busy === "mark"}
+            className="btn-blue text-xs py-2 disabled:opacity-50">{busy === "mark" ? "Saving…" : "Save leave"}</button>
+        </div>
+      )}
+      {pending.length === 0 ? (
+        <p className="text-xs text-slate-400">No pending leave requests. Staff can apply from their portal — requests appear here for approval.</p>
+      ) : (
+        <div className="space-y-2">
+          {pending.map(r => (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 border border-slate-100 rounded-lg px-3 py-2" data-testid={`pending-leave-${r.id}`}>
+              <div className="text-xs text-slate-700">
+                <b>{r.staff_name}</b> · {r.from_date} → {r.to_date} ({r.days} day{r.days > 1 ? "s" : ""})
+                {r.reason && <span className="text-slate-400"> · {r.reason}</span>}
+              </div>
+              <div className="flex gap-2">
+                <button data-testid={`approve-leave-${r.id}`} disabled={busy === r.id} onClick={() => decide(r.id, "approve")}
+                  className="text-xs px-3 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">Approve</button>
+                <button data-testid={`reject-leave-${r.id}`} disabled={busy === r.id} onClick={() => decide(r.id, "reject")}
+                  className="text-xs px-3 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50">Reject</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

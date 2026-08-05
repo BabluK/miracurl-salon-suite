@@ -170,8 +170,8 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
 }
 
 export function StaffStep({ staff, staffId, onPick, date }) {
-  const weekday = (date ? new Date(date + "T00:00:00") : new Date())
-    .toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+  const day = date || new Date().toISOString().slice(0, 10);
+  const weekday = new Date(day + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
   return (
     <section className="space-y-6 animate-fade-up">
       <div>
@@ -192,7 +192,9 @@ export function StaffStep({ staff, staffId, onPick, date }) {
           <p className="text-xs text-ink-secondary mt-2">First available expert</p>
         </button>
         {staff.map(s => {
-          const offToday = (s.week_off_day || "").toLowerCase() === weekday;
+          const onLeave = (s.leaves || []).some(l => l.from <= day && day <= l.to);
+          const offToday = onLeave || (s.week_off_day || "").toLowerCase() === weekday;
+          const offLabel = onLeave ? "🌴 On leave" : "🏖️ Weekly off";
           return (
           <button
             key={s.id}
@@ -205,7 +207,7 @@ export function StaffStep({ staff, staffId, onPick, date }) {
             <div className="font-playfair text-xl mt-3">{s.name}</div>
             <p className="text-[10px] uppercase tracking-[0.2em] text-gold mt-1">{s.role}</p>
             {offToday ? (
-              <span className="inline-block mt-2 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-white/70" data-testid={`staff-week-off-${s.id}`}>🏖️ Weekly off {date ? "on this day" : "today"}</span>
+              <span className="inline-block mt-2 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-white/70" data-testid={`staff-week-off-${s.id}`}>{offLabel} {date ? "on this day" : "today"}</span>
             ) : (
               <div className="flex flex-wrap gap-1 justify-center mt-2">
                 {(s.specialties || []).slice(0, 3).map(sp => (

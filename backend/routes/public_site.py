@@ -174,7 +174,17 @@ async def public_service_category_order(slug: str):
 @router.get("/public/staff/{slug}")
 async def public_staff(slug: str):
     await resolve_tenant_from_slug(slug)
-    return await db.staff.find({"active": True}, {"_id": 0, "email": 0, "phone": 0, "commission_pct": 0}).to_list(500)
+    staff = await db.staff.find({"active": True}, {"_id": 0, "email": 0, "phone": 0, "commission_pct": 0}).to_list(500)
+    today = datetime.now(timezone.utc).date().isoformat()
+    leaves = await db.leave_requests.find(
+        {"status": "approved", "to_date": {"$gte": today}},
+        {"_id": 0, "staff_id": 1, "from_date": 1, "to_date": 1}).to_list(500)
+    by_sid = {}
+    for lv in leaves:
+        by_sid.setdefault(lv["staff_id"], []).append({"from": lv["from_date"], "to": lv["to_date"]})
+    for s in staff:
+        s["leaves"] = by_sid.get(s["id"], [])
+    return staff
 
 @router.get("/public/staff")
 async def public_staff_default():

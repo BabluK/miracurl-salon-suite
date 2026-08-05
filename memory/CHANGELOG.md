@@ -1331,3 +1331,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - REVIEW BLAST CHANNELS: new POST /api/reviews/blast-send {target_id, channel sms|email} — managers SMS ONLY (email→403, WA button hidden), admins get SMS + WhatsApp (client-side) + Email (if customer email). Targets now include customer email. "Send to all" for managers loops SMS. Tested: manager sms 200/email 403; admin modal shows all 3 buttons (Playwright).
 - REPLY INBOX: inbound webhook now stores last_reply_text/last_reply_at on leads; GET /api/super-admin/lead-replies; collapsible "📥 Reply Inbox" card in Mira Lead Agent panel with expandable reply body + mailto reply link.
 - NOTE: ReviewBlastModal.jsx got corrupted during an edit (duplicate tail) — repaired via python splice; webpack compiles clean.
+
+## Iter 131 (5 Aug 2026) — Leave requests in-app + admin mark-leave
+- Staff portal: new 🌴 Leave card (apply from→to + reason, list w/ status badges, cancel pending) using existing /staff/me/leave-requests endpoints.
+- Admin: POST /api/leave-requests/admin-mark {staff_id, from_date, to_date, reason} — auto-approved leave (overlap-guarded, approves overlapping pending instead). New LeaveManager card on Attendance page: pending requests w/ Approve/Reject + "Mark leave" form (staff select from roster).
+- Booking page: GET /public/staff/{slug} now attaches approved future leaves [{from,to}] per staff; StaffStep disables stylists on leave for the selected date ("🌴 On leave" tag), same as week-off.
+- Tested E2E via curl: admin-mark → board on_leave=1 + public leaves exposed; staff apply → pending → admin reject; Playwright: staff Leave card + form renders. Test data cleaned.
