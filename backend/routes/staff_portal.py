@@ -713,7 +713,8 @@ async def attendance_today(date: Optional[str] = None,
             staff_q["branch"] = {"$regex": f"^\\s*{re.escape(branch.strip())}\\s*$", "$options": "i"}
     staff_list = await db.staff.find(
         staff_q,
-        {"_id": 0, "id": 1, "name": 1, "role": 1, "image_url": 1, "user_id": 1, "phone": 1, "branch": 1},
+        {"_id": 0, "id": 1, "name": 1, "role": 1, "image_url": 1, "user_id": 1, "phone": 1,
+         "branch": 1, "week_off_day": 1},
     ).sort("name", 1).to_list(500)
     att = await db.attendance.find({"date": day}, {"_id": 0}).to_list(500)
     att_by_sid = {a["staff_id"]: a for a in att}
@@ -724,10 +725,14 @@ async def attendance_today(date: Optional[str] = None,
 
     roster = []
     now = datetime.now(timezone.utc)
+    day_weekday = datetime.strptime(day, "%Y-%m-%d").strftime("%A").lower()
     for s in staff_list:
         row = _roster_row(s, att_by_sid.get(s["id"]), now)
-        if row["status"] == "absent" and s["id"] in on_leave_ids:
-            row["status"] = "on_leave"
+        if row["status"] == "absent":
+            if s["id"] in on_leave_ids:
+                row["status"] = "on_leave"
+            elif (s.get("week_off_day") or "").lower() == day_weekday:
+                row["status"] = "week_off"
         roster.append(row)
 
     return {
@@ -737,6 +742,7 @@ async def attendance_today(date: Optional[str] = None,
         "completed": sum(1 for r in roster if r["status"] == "completed"),
         "absent": sum(1 for r in roster if r["status"] == "absent"),
         "on_leave": sum(1 for r in roster if r["status"] == "on_leave"),
+        "week_off": sum(1 for r in roster if r["status"] == "week_off"),
         "roster": roster,
     }
 
@@ -1310,8 +1316,12 @@ async def _run_late_alerts() -> dict:
         staff_list = await _raw_db.staff.find(
             {"tenant_id": t["id"], "status": {"$nin": ["inactive", "archived"]},
              "former": {"$ne": True}, "active": {"$ne": False}, "disabled": {"$ne": True}},
-            {"_id": 0, "id": 1, "name": 1, "email": 1, "personal_email": 1, "shift_start": 1, "image_url": 1}).to_list(300)
+            {"_id": 0, "id": 1, "name": 1, "email": 1, "personal_email": 1, "shift_start": 1,
+             "image_url": 1, "week_off_day": 1}).to_list(300)
+        weekday_now = ist.strftime("%A").lower()
         for s in staff_list:
+            if (s.get("week_off_day") or "").lower() == weekday_now:
+                continue  # weekly off — never flag as late
             h, m = _parse_hhmm(s.get("shift_start"), "10:00")
             mins = int((ist - ist.replace(hour=h, minute=m, second=0, microsecond=0)).total_seconds() // 60)
             if not (LATE_ALERT_GRACE_MIN <= mins <= 240):

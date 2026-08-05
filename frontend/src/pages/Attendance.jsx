@@ -35,6 +35,7 @@ const STATUS_STYLES = {
   completed: { label: "Completed", cls: "bg-sky-100 text-sky-700 border-sky-200", dot: "bg-sky-500" },
   absent: { label: "Not checked in", cls: "bg-slate-100 text-slate-600 border-slate-200", dot: "bg-slate-400" },
   on_leave: { label: "On leave", cls: "bg-violet-100 text-violet-700 border-violet-200", dot: "bg-violet-500" },
+  week_off: { label: "🏖️ Week off", cls: "bg-teal-50 text-teal-700 border-teal-200", dot: "bg-teal-500" },
 };
 
 export default function Attendance() {
@@ -167,12 +168,13 @@ export default function Attendance() {
       </div>
 
       {/* Summary tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <SummaryTile label="Total staff" value={data?.total_staff ?? 0} icon={UserCheck} tone="slate" testid="sum-total" />
         <SummaryTile label="On shift" value={data?.on_shift ?? 0} icon={Clock} tone="emerald" testid="sum-on-shift" />
         <SummaryTile label="Completed" value={data?.completed ?? 0} icon={CheckCircle2} tone="sky" testid="sum-completed" />
         <SummaryTile label="Absent" value={data?.absent ?? 0} icon={CircleAlert} tone="rose" testid="sum-absent" />
         <SummaryTile label="On leave" value={data?.on_leave ?? 0} icon={Calendar} tone="violet" testid="sum-on-leave" />
+        <SummaryTile label="Week off" value={data?.week_off ?? 0} icon={Calendar} tone="teal" testid="sum-week-off" />
       </div>
 
       <GeoFenceCard />
@@ -449,6 +451,7 @@ function SummaryTile({ label, value, icon: Icon, tone, testid }) {
     sky: "text-sky-600 bg-sky-100",
     rose: "text-rose-600 bg-rose-100",
     violet: "text-violet-600 bg-violet-100",
+    teal: "text-teal-600 bg-teal-100",
   };
   return (
     <div className="card-light" data-testid={testid}>

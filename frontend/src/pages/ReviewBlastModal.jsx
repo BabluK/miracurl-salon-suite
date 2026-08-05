@@ -5,6 +5,7 @@ import { X, MessageSquare, Send, CheckCircle2, Loader2, Star } from "lucide-reac
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { openWhatsApp } from "@/lib/share";
+import { useAuth } from "@/context/AuthContext";
 
 const REVIEW_MESSAGE = (firstName, link) =>
   `Hi ${firstName} ✦ Thank you for visiting Miracurl today!
@@ -15,9 +16,12 @@ ${link}
 Give us 4★ or 5★ and we'll add ₹50 credit to your account ✦`;
 
 export default function ReviewBlastModal({ onClose }) {
+  const { user } = useAuth();
+  const isManager = user?.role === "manager";
   const [loading, setLoading] = useState(true);
   const [targets, setTargets] = useState([]);
   const [sent, setSent] = useState(new Set());
+  const [busy, setBusy] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -39,7 +43,26 @@ export default function ReviewBlastModal({ onClose }) {
     if (ok) setSent(prev => new Set(prev).add(t.appointment_id));
   }
 
-  function sendAll() {
+  async function sendVia(t, channel) {
+    setBusy(t.appointment_id + channel);
+    try {
+      const { data } = await api.post("/reviews/blast-send", { target_id: t.appointment_id, channel });
+      toast.success(channel === "sms"
+        ? `SMS sent to ${t.customer_name}${data.points_left != null ? ` · ${data.points_left} SMS points left` : ""}`
+        : `Email sent to ${t.customer_name}`);
+      setSent(prev => new Set(prev).add(t.appointment_id));
+    } catch (e) {
+      toast.error(e.response?.data?.detail || `Couldn't send ${channel}`);
+    } finally { setBusy(""); }
+  }
+
+  async function sendAll() {
+    if (isManager) {
+      for (const t of targets.slice(0, 10)) {
+        if (!sent.has(t.appointment_id)) await sendVia(t, "sms");
+      }
+      return;
+    }
     if (targets.length > 10) {
       toast.error("Pop-ups are blocked beyond 10 tabs. Send first 10 and continue manually.");
     }
@@ -87,17 +110,31 @@ export default function ReviewBlastModal({ onClose }) {
                       <div className="text-xs text-sky-600 font-mono mt-0.5">{t.phone}</div>
                     </div>
                     <button
-                      onClick={() => send(t)}
-                      disabled={isSent}
-                      data-testid={`review-blast-send-${t.appointment_id}`}
+                      onClick={() => sendVia(t, "sms")}
+                      disabled={isSent || busy === t.appointment_id + "sms"}
+                      data-testid={`review-blast-sms-${t.appointment_id}`}
+                      title="Send review link by SMS"
                       className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
-                        isSent
-                          ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default"
-                          : "bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 shadow-sm"
+                        isSent ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default"
+                               : "bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 shadow-sm"
                       }`}
                     >
-                      {isSent ? <><CheckCircle2 className="w-3.5 h-3.5" /> Sent</> : <><Send className="w-3.5 h-3.5" /> Send</>}
+                      {isSent ? <><CheckCircle2 className="w-3.5 h-3.5" /> Sent</> : <><Send className="w-3.5 h-3.5" /> SMS</>}
                     </button>
+                    {!isManager && (
+                      <button onClick={() => send(t)} disabled={isSent}
+                        data-testid={`review-blast-send-${t.appointment_id}`} title="Open WhatsApp with the review message"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition disabled:opacity-40">
+                        <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
+                      </button>
+                    )}
+                    {!isManager && t.email && (
+                      <button onClick={() => sendVia(t, "email")} disabled={isSent || busy === t.appointment_id + "email"}
+                        data-testid={`review-blast-email-${t.appointment_id}`} title={`Email the review link to ${t.email}`}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 transition disabled:opacity-40">
+                        ✉️ Email
+                      </button>
+                    )}
                   </li>
                 );
               })}

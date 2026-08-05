@@ -169,7 +169,9 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
   );
 }
 
-export function StaffStep({ staff, staffId, onPick }) {
+export function StaffStep({ staff, staffId, onPick, date }) {
+  const weekday = (date ? new Date(date + "T00:00:00") : new Date())
+    .toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
   return (
     <section className="space-y-6 animate-fade-up">
       <div>
@@ -189,23 +191,31 @@ export function StaffStep({ staff, staffId, onPick }) {
           <p className="text-[10px] uppercase tracking-[0.2em] text-gold mt-1">We choose</p>
           <p className="text-xs text-ink-secondary mt-2">First available expert</p>
         </button>
-        {staff.map(s => (
+        {staff.map(s => {
+          const offToday = (s.week_off_day || "").toLowerCase() === weekday;
+          return (
           <button
             key={s.id}
             data-testid={`book-staff-${s.id}`}
-            onClick={() => onPick(s.id)}
-            className={`card-luxe text-center transition-all ${staffId === s.id ? "border-gold ring-2 ring-gold/30" : "hover:border-gold/40"}`}
+            onClick={() => !offToday && onPick(s.id)}
+            disabled={offToday}
+            className={`card-luxe text-center transition-all ${offToday ? "opacity-45 cursor-not-allowed grayscale" : staffId === s.id ? "border-gold ring-2 ring-gold/30" : "hover:border-gold/40"}`}
           >
             <img src={s.image_url || DEFAULT_STAFF_IMG} className="w-20 h-20 rounded-full object-cover mx-auto border-2 border-gold/40" alt={s.name} />
             <div className="font-playfair text-xl mt-3">{s.name}</div>
             <p className="text-[10px] uppercase tracking-[0.2em] text-gold mt-1">{s.role}</p>
-            <div className="flex flex-wrap gap-1 justify-center mt-2">
-              {(s.specialties || []).slice(0, 3).map(sp => (
-                <span key={sp} className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded">{sp}</span>
-              ))}
-            </div>
+            {offToday ? (
+              <span className="inline-block mt-2 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-white/70" data-testid={`staff-week-off-${s.id}`}>🏖️ Weekly off {date ? "on this day" : "today"}</span>
+            ) : (
+              <div className="flex flex-wrap gap-1 justify-center mt-2">
+                {(s.specialties || []).slice(0, 3).map(sp => (
+                  <span key={sp} className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded">{sp}</span>
+                ))}
+              </div>
+            )}
           </button>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

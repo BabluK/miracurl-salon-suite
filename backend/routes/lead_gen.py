@@ -1044,12 +1044,25 @@ async def resend_inbound_webhook(request: Request):
         return {"ok": True, "matched": False, "routed_inbox": inbox or None}
     await _raw_db.mira_leads.update_one(
         {"id": lead["id"], "replied_at": {"$exists": False}}, {"$set": {"replied_at": _now()}})
-    sets = {"reply_subject": str(data.get("subject") or "")[:200]}
+    sets = {"reply_subject": str(data.get("subject") or "")[:200],
+            "last_reply_text": str(data.get("text") or data.get("html") or "")[:3000],
+            "last_reply_at": _now()}
     if lead.get("status") not in ("demo", "customer"):
         sets["status"] = "replied"
     await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": sets})
     log.info("lead reply detected: %s (%s)", lead["name"], sender)
     return {"ok": True, "matched": True}
+
+
+@router.get("/super-admin/lead-replies")
+async def lead_replies(user=Depends(require_super_admin)):
+    """Reply Inbox — every lead that wrote back, newest first, with their message."""
+    rows = await _raw_db.mira_leads.find(
+        {"replied_at": {"$exists": True}},
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "city": 1, "status": 1,
+         "replied_at": 1, "last_reply_at": 1, "reply_subject": 1, "last_reply_text": 1},
+    ).sort("replied_at", -1).to_list(200)
+    return {"count": len(rows), "replies": rows}
 
 
 @router.delete("/super-admin/mira-leads/{lid}")

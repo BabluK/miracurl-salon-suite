@@ -10,6 +10,53 @@ const STATUS_STYLE = {
   researched: "bg-slate-100 text-slate-600", replied: "bg-orange-100 text-orange-700",
 };
 
+function ReplyInbox() {
+  const [data, setData] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(null);
+  useEffect(() => {
+    api.get("/super-admin/lead-replies").then(r => setData(r.data)).catch(() => setData({ count: 0, replies: [] }));
+  }, []);
+  if (!data) return null;
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200" data-testid="lead-reply-inbox">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-4 py-3.5" data-testid="reply-inbox-toggle">
+        <span className="flex items-center gap-2 font-semibold text-sm text-slate-800">
+          📥 Reply Inbox
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${data.count ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>{data.count}</span>
+        </span>
+        <span className="text-xs text-slate-400">{open ? "Hide ▲" : "Show ▼"}</span>
+      </button>
+      {open && (
+        <div className="border-t border-slate-100 divide-y divide-slate-50 max-h-96 overflow-y-auto">
+          {data.replies.length === 0 && (
+            <p className="text-sm text-slate-400 px-4 py-6 text-center">No replies yet. When a lead writes back, it appears here — nothing stays hidden in the mailbox.</p>
+          )}
+          {data.replies.map(r => (
+            <div key={r.id} className="px-4 py-3" data-testid={`reply-row-${r.id}`}>
+              <button onClick={() => setExpanded(expanded === r.id ? null : r.id)} className="w-full text-left">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm text-slate-800 truncate">{r.name} <span className="text-slate-400 font-normal">· {r.email}</span></span>
+                  <span className="text-[10px] text-slate-400 shrink-0">{r.replied_at ? new Date(r.replied_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : ""}</span>
+                </div>
+                <div className="text-xs text-slate-500 truncate mt-0.5">{r.reply_subject || "(no subject)"}</div>
+              </button>
+              {expanded === r.id && (
+                <div className="mt-2 text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-3 whitespace-pre-wrap max-h-44 overflow-y-auto">
+                  {r.last_reply_text || "Reply body wasn't captured for this one (older reply) — check the mailbox."}
+                  <div className="mt-2">
+                    <a href={`mailto:${r.email}?subject=Re: ${encodeURIComponent(r.reply_subject || "Miracurl Suite")}`} className="text-fuchsia-600 font-semibold hover:underline">Reply by email →</a>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RoiPanel({ roi }) {
   if (!roi || !roi.funnel) return null;
   const f = roi.funnel;
@@ -657,6 +704,8 @@ export function MiraLeadAgent() {
       <FunnelCards stats={stats} />
 
       <RoiPanel roi={roi} />
+
+      <ReplyInbox />
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-3">
         <div>

@@ -1,7 +1,9 @@
 """Reports & dashboards: staff performance, sales, daily, commissions, review blast targets."""
 import asyncio
+import os
 import re
 import uuid
+from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -463,6 +465,22 @@ async def _blast_targets() -> list:
     completed = await db.appointments.find(
         {"status": "completed", "scheduled_at": {"$gte": since}}, {"_id": 0},
     ).sort("scheduled_at", -1).to_list(200)
+    # POS walk-in bills count as completed visits too (many salons never use appointments).
+    invoices = await db.invoices.find(
+        {"created_at": {"$gte": since}, "status": {"$ne": "voided"}, "is_voided": {"$ne": True},
+         "customer_id": {"$nin": [None, ""]}},
+        {"_id": 0, "id": 1, "customer_id": 1, "items": 1, "staff_name": 1, "created_at": 1},
+    ).sort("created_at", -1).to_list(300)
+    seen_cust = {a["customer_id"] for a in completed}
+    for inv in invoices:
+        if inv["customer_id"] in seen_cust:
+            continue  # one ask per customer per fortnight
+        seen_cust.add(inv["customer_id"])
+        completed.append({
+            "id": inv["id"], "customer_id": inv["customer_id"],
+            "service_names": [i.get("name") for i in (inv.get("items") or []) if i.get("name")][:4],
+            "staff_name": inv.get("staff_name"), "scheduled_at": inv["created_at"],
+        })
     reviewed_ids = {
         r["appointment_id"]
         async for r in db.reviews.find({"appointment_id": {"$exists": True}}, {"_id": 0, "appointment_id": 1})
@@ -470,7 +488,8 @@ async def _blast_targets() -> list:
     cust_ids = list({a["customer_id"] for a in completed})
     cust_map = {
         c["id"]: c for c in
-        await db.customers.find({"id": {"$in": cust_ids}}, {"_id": 0, "id": 1, "phone": 1, "name": 1}).to_list(500)
+        await db.customers.find({"id": {"$in": cust_ids}},
+                                {"_id": 0, "id": 1, "phone": 1, "name": 1, "email": 1}).to_list(600)
     }
     targets = []
     for a in completed:
@@ -484,6 +503,7 @@ async def _blast_targets() -> list:
             "customer_id": cust["id"],
             "customer_name": cust["name"],
             "phone": cust["phone"],
+            "email": cust.get("email") or "",
             "service_names": a.get("service_names", []),
             "staff_name": a.get("staff_name"),
             "scheduled_at": a["scheduled_at"],
@@ -493,11 +513,46 @@ async def _blast_targets() -> list:
 
 @router.get("/reviews/blast-targets")
 async def reviews_blast_targets(user=Depends(get_current_user)):
-    """Completed appointments that haven't received a review yet, with customer phone + share URL.
-    Used by the Dashboard 'Send review-request blast' button. Limited to past 14 days so we don't
-    spam old customers."""
+    """Completed visits (appointments + POS bills) without a review yet — used by the review blast."""
     targets = await _blast_targets()
     return {"count": len(targets), "targets": targets}
+
+
+class BlastSendIn(BaseModel):
+    target_id: str = Field(..., max_length=64)
+    channel: str = Field(..., pattern="^(sms|email)$")
+
+
+@router.post("/reviews/blast-send")
+async def reviews_blast_send(body: BlastSendIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Send one review request by SMS or email. Managers: SMS only. Admin/owner: SMS + email
+    (WhatsApp opens client-side for admins)."""
+    if body.channel == "email" and user.get("role") not in ("admin", "super_admin"):
+        raise HTTPException(403, "Managers can send review requests by SMS only")
+    target = next((x for x in await _blast_targets() if x["appointment_id"] == body.target_id), None)
+    if not target:
+        raise HTTPException(404, "This visit is no longer pending a review")
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    link = f"{base}/review/{target['appointment_id']}"
+    first = (target["customer_name"] or "there").split(" ")[0]
+    if body.channel == "sms":
+        from sms_service import send_sms
+        res = await send_sms(target["phone"],
+                             f"Hi {first}! Thanks for visiting {t.get('name', 'us')} 💇 "
+                             f"We'd love your quick rating: {link}")
+        if not res.get("sent"):
+            raise HTTPException(502, res.get("error") or "SMS could not be sent")
+        return {"ok": True, "channel": "sms", "points_left": res.get("points_left")}
+    if not target.get("email"):
+        raise HTTPException(400, f"{target['customer_name']} has no email on file")
+    from email_service import _send_email
+    from routes.crm import _review_request_email_html
+    res = await _send_email([target["email"]],
+                            f"⭐ How was your visit to {t.get('name', 'the salon')}?",
+                            _review_request_email_html(t.get("name", ""), target["customer_name"], link))
+    if not res.get("sent"):
+        raise HTTPException(502, res.get("error") or "Email could not be sent")
+    return {"ok": True, "channel": "email"}
 
 
 
