@@ -2,10 +2,24 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-02.54"
-BUILD_TIME = "2 Aug 2026, 12:30 PM IST"
+BUILD = "2026-08-05.55"
+BUILD_TIME = "5 Aug 2026, 11:15 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-05 (Leave, week-offs & review requests that reach everyone)",
+        "changes": [
+            "🌴 Staff can now apply for leave from their portal (from–to dates + reason) and admins Approve/Reject right on the Attendance page — approved staff show 'On leave' automatically",
+            "📅 Admins can directly mark any staff on leave (from-date to to-date) — they disappear from the booking page and show 'On leave' for those exact dates",
+            "🏖️ Week-offs respected everywhere — staff on their weekly off show a 'Week off' badge (not 'Not checked in'), get no late-arrival emails, and are greyed out on the booking page for that day",
+            "⭐ Pending Review Requests fixed — walk-in POS bills now count (was 0 for salons that bill without appointments), so every recent guest appears for a review ask",
+            "📨 Review requests by SMS, WhatsApp & Email — managers send by SMS; owners/admins get all three buttons per customer",
+            "📥 Reply Inbox in Super Admin → Mira Lead Agent — every lead reply appears with its full message and a one-tap reply link",
+            "💵 US clients now see $ USD plans and pay by card via Stripe on payment links; Indian salons keep ₹ Razorpay",
+            "🗂️ Super Admin Tenants page redesigned into clean, readable cards per salon",
+            "✉️ Cold outreach made inbox-friendly — one-click unsubscribe, no attachments, human sender name (better deliverability to US clients)",
+        ],
+    },
     {
         "date": "2026-08-02 (Branch dashboards restored & location made easy)",
         "changes": [
