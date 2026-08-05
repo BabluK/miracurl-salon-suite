@@ -21,6 +21,7 @@ import { WinbackNudges } from "@/components/WinbackNudges";
 import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
 import { MiraSocialNudge } from "@/components/MiraSocialNudge";
 import { SetupBanner } from "@/components/SetupBanner";
+import { SmsPointsWidget } from "@/components/dashboard/SmsPointsWidget";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
 const CHART_TOOLTIP_STYLE = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' };
@@ -108,6 +109,7 @@ export default function Dashboard() {
       {isOwner && <MySalonsOverview />}
       {(isOwner || user?.role === "manager") && <MorningBriefing />}
       {isOwner && <SetupBanner />}
+      {isOwner && <SmsPointsWidget />}
       {isOwner && <MiraSocialNudge />}
       {isOwner && <MiraDayOffer />}
       {isOwner && <CircleBonusCard slug={tenant?.slug || "miracurl-marathahalli"} />}

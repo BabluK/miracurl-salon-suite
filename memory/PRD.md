@@ -1351,3 +1351,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 ## User preference (5 Aug 2026)
 - Grace Period button ALREADY EXISTS in Super Admin — never suggest it again.
 - User wants ONLY revenue-generating improvement suggestions in Next Action Items going forward.
+
+## 2026-08-05 — SMS Top-Up on Dashboard + Trial-to-Paid Nudges (user P0, revenue features)
+- Deleted duplicate /app/backend/routes/sms_topup.py (never registered); reused EXISTING /sms-packs flow in subscriptions.py (₹199/250, ₹499/700, ₹999/1500 — packs stay as already configured, user will use Twilio/MSG91).
+- Frontend: NEW components/dashboard/SmsPointsWidget.jsx on owner Dashboard — balance strip (amber when <50 pts) + "Buy SMS points" button opening a Dialog that reuses SmsPacksCard (full Razorpay pack purchase). testids: sms-points-widget, sms-points-balance, buy-sms-points-btn, sms-topup-dialog.
+- Backend: run_trial_nudges() in routes/pay_links.py — trial day 5/10/13 email to owner with own usage stats (month billed/bills or CRM customer count) + one-tap subscription pay link. Plan/price resolves EXACTLY like renewal nudges: tenant plan → PLAN_CATALOG fallback half_year → _fresh_plan_or_400 (super-admin plan overrides apply — verified ₹12,000 override used, not catalog price). Idempotent via trial_nudges collection (tenant_id+day). Sends only 9-20 IST. Hooked into _gift_card_scheduler (hourly) in schedulers.py.
+- Tested: simulated day-5 trial tenant → nudge record + pay link created, second run deduped (0 sent), public /api/public/pay-link/{token} resolved correctly, dashboard widget + dialog verified via screenshot (What's New modal must be dismissed first in automation).

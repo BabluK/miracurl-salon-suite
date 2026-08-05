@@ -268,6 +268,95 @@ async def send_renewal_nudges() -> int:
     return sent
 
 
+_TRIAL_NUDGE_DAYS = (5, 10, 13)
+
+
+async def run_trial_nudges() -> int:
+    """Trial day 5/10/13: email the owner their own usage stats + a one-tap pay link.
+    Plan/price resolves exactly like renewal nudges (super-admin plan overrides apply).
+    Idempotent via trial_nudges collection. Sends only 9-20 IST."""
+    from email_service import _send_email
+    now = _now()
+    ist_hour = (now + timedelta(hours=5, minutes=30)).hour
+    if not 9 <= ist_hour < 20:
+        return 0
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    sent = 0
+    async for t in _raw_db.tenants.find(
+            {"status": "trial", "owner_email": {"$nin": ["", None]}},
+            {"_id": 0, "id": 1, "slug": 1, "name": 1, "owner_email": 1, "owner_name": 1,
+             "plan": 1, "created_at": 1, "trial_ends_at": 1}):
+        try:
+            created = datetime.fromisoformat(str(t.get("created_at")).replace("Z", "+00:00"))
+        except Exception:
+            continue
+        day = (now.date() - created.date()).days
+        if day not in _TRIAL_NUDGE_DAYS:
+            continue
+        if await _raw_db.trial_nudges.find_one({"tenant_id": t["id"], "day": day}):
+            continue
+        plan_key = t.get("plan") if t.get("plan") in PLAN_CATALOG else "half_year"
+        info = PLAN_CATALOG.get(plan_key) or {}
+        if info.get("currency") or int(info.get("branches") or 1) != 1:
+            plan_key = "half_year"
+        info = await _fresh_plan_or_400(plan_key)
+        month = now.strftime("%Y-%m")
+        agg = await _raw_db.invoices.aggregate([
+            {"$match": {"tenant_id": t["id"], "created_at": {"$regex": f"^{month}"},
+                        "status": {"$ne": "voided"}}},
+            {"$group": {"_id": None, "total": {"$sum": "$total"}, "count": {"$sum": 1}}}]).to_list(1)
+        billed = round((agg[0]["total"] if agg else 0) or 0)
+        bills = (agg[0]["count"] if agg else 0) or 0
+        custs = await _raw_db.customers.count_documents({"tenant_id": t["id"]})
+        link = {
+            "id": str(uuid.uuid4()), "token": secrets.token_urlsafe(8),
+            "tenant_id": t["id"], "tenant_slug": t["slug"], "salon_name": t.get("name") or t["slug"],
+            "owner_email": t["owner_email"], "plan": plan_key, "plan_label": info["label"],
+            "amount": float(info["price"]), "duration_days": info["duration_days"],
+            "note": f"Trial day-{day} activation offer",
+            "status": "pending", "expires_at": (now + timedelta(days=LINK_VALID_DAYS)).isoformat(),
+            "created_at": now.isoformat(), "created_by": "trial-nudge",
+        }
+        await _raw_db.subscription_pay_links.insert_one({**link})
+        try:
+            trial_end = datetime.fromisoformat(str(t.get("trial_ends_at")).replace("Z", "+00:00"))
+            days_left = max(0, (trial_end.date() - now.date()).days)
+        except Exception:
+            days_left = max(0, 14 - day)
+        stats = (f"₹{billed:,} billed across {bills} bill{'s' if bills != 1 else ''} this month"
+                 if billed else f"{custs} customer{'s' if custs != 1 else ''} already in your CRM")
+        url = f"{base}/pay/{link['token']}"
+        salon = html_lib.escape(t.get("name") or t["slug"])
+        res = await _send_email(
+            [t["owner_email"]],
+            f"Day {day} of your Miracurl trial — {stats} 💛",
+            f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+            <h2 style="color:#1c1c22">Your salon is growing on Miracurl 🚀</h2>
+            <p>Hi {html_lib.escape(t.get('owner_name') or 'there')}, a quick snapshot from <b>{salon}</b>:</p>
+            <div style="background:#faf6ec;border:1px solid #eadfc8;border-radius:14px;padding:16px 20px;font-size:15px">
+              📈 <b>{stats}</b><br>👥 {custs} customers on file · 🗓 day {day} of your free trial ({days_left} day{'s' if days_left != 1 else ''} left)
+            </div>
+            <p>Keep bookings, SMS, payroll and Mira running without interruption — activate in one tap:</p>
+            <div style="background:#faf6ec;border-radius:14px;padding:16px 20px;margin:16px 0;text-align:center">
+              <div style="font-size:12px;letter-spacing:2px;color:#888;text-transform:uppercase">{html_lib.escape(link['plan_label'])}</div>
+              <div style="font-size:32px;font-weight:bold;color:#1c1c22">{_fmt_amt(link)}</div>
+            </div>
+            <p style="text-align:center;margin:22px 0">
+              <a href="{url}" style="background:linear-gradient(120deg,#d4af37,#b45309);color:#fff;text-decoration:none;
+                 font-weight:bold;font-size:16px;padding:15px 38px;border-radius:30px;display:inline-block">
+                 Activate my plan — pay {_fmt_amt(link)} securely →</a></p>
+            <p style="font-size:12px;color:#888;text-align:center">Secure payment via Razorpay · UPI / Card / NetBanking
+            · Your plan activates instantly after payment.</p>
+            <p style="font-size:13px;color:#333">With warmth,<br/><b>The Miracurl Team</b> 💛</p></div>""")
+        await _raw_db.trial_nudges.insert_one({
+            "tenant_id": t["id"], "day": day, "sent": bool(res.get("sent")),
+            "billed": billed, "customers": custs, "pay_link_token": link["token"],
+            "plan": plan_key, "amount": link["amount"], "at": now.isoformat()})
+        if res.get("sent"):
+            sent += 1
+    return sent
+
+
 # ---------------- public: tenant opens the link & pays ----------------
 
 @router.get("/public/pay-link/{token}")
