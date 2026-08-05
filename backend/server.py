@@ -79,6 +79,7 @@ from routes.salon_digest import router as salon_digest_router  # noqa: E402
 from routes.diagnostics import router as diagnostics_router  # noqa: E402
 from routes.subscriptions import router as subscriptions_router  # noqa: E402
 from routes.pay_links import router as pay_links_router  # noqa: E402
+from routes.passkeys import router as passkeys_router  # noqa: E402
 from routes.day_offers import router as day_offers_router  # noqa: E402
 from routes.cctv import router as cctv_router  # noqa: E402
 from routes.hiring import router as hiring_router  # noqa: E402
@@ -118,6 +119,7 @@ for _r in (
     employee_portal_router, hq_documents_router, mira_builder_router, manager_access_router,
     setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router, salon_digest_router,
     pay_links_router,
+    passkeys_router,
 ):
     api.include_router(_r)
 

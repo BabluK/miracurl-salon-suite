@@ -6,6 +6,28 @@ import { User, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import BrandMark from "@/components/BrandMark";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
+import { passkeySupported, registerPasskey, loginWithPasskey } from "@/lib/webauthn";
+
+const FOOTER_FEATURES = [
+  ["📅", "Appointments"], ["🧑‍🤝‍🧑", "Staff"], ["📦", "Inventory"], ["📣", "Marketing"],
+  ["📊", "Reports"], ["🧾", "POS & Billing"], ["✨", "Mira AI"], ["🎬", "Promo Studio"],
+  ["🤖", "AI Assistant"], ["🌐", "Online Booking"], ["🎁", "Gift Cards"], ["⭐", "Reviews"],
+];
+
+function LoginFeatureFooter() {
+  return (
+    <footer data-testid="login-feature-footer"
+      className="fixed bottom-0 inset-x-0 z-40 bg-white/90 backdrop-blur border-t border-slate-200">
+      <div className="max-w-6xl mx-auto px-3 py-2 flex items-center gap-x-5 gap-y-1 overflow-x-auto sm:flex-wrap sm:justify-center scrollbar-none">
+        {FOOTER_FEATURES.map(([icon, label]) => (
+          <span key={label} className="flex items-center gap-1.5 text-[11px] text-slate-500 whitespace-nowrap py-0.5">
+            <span className="text-sm">{icon}</span> {label}
+          </span>
+        ))}
+      </div>
+    </footer>
+  );
+}
 
 // Users routinely log in from the same browser; if they opt in, we remember
 // the *email only* (never the password) so the next visit is one field faster.
@@ -13,7 +35,7 @@ const REMEMBER_KEY = "miracurl_remember_email";
 const SUBMIT_LABELS = { login: "Login", signup: "Create Account", forgot: "Send Reset Link" };
 
 export default function Login() {
-  const { login, register, forgot } = useAuth();
+  const { login, register, forgot, refresh } = useAuth();
   const nav = useNavigate();
   const [mode, setMode] = useState("login"); // login | signup | forgot
   const [email, setEmail] = useState("");
@@ -60,6 +82,12 @@ export default function Login() {
         log.warn("[Login] localStorage write failed:", err2);
       }
       toast.success("Welcome back ✦");
+      if (passkeySupported() && !localStorage.getItem("pk_enrolled") && !localStorage.getItem("pk_declined")) {
+        try {
+          await registerPasskey();
+          toast.success("🔒 Fingerprint / Face ID login enabled on this device");
+        } catch { localStorage.setItem("pk_declined", "1"); }
+      }
       nav("/dashboard");
     }
     else if (String(res.error || "").includes("disabled by the salon admin")) setFarewell(true);
@@ -94,7 +122,8 @@ export default function Login() {
     : "Reset Password";
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-white" data-testid="login-page">
+    <div className="min-h-screen relative overflow-hidden bg-white pb-16" data-testid="login-page">
+      <LoginFeatureFooter />
       {/* Decorative rose-gold gradient blobs — matching the brand logo */}
       <div className="pointer-events-none absolute -right-32 -bottom-32 w-[640px] h-[640px] rounded-full opacity-90"
            style={{ background: "radial-gradient(circle at 30% 30%, #e8918f 0%, #d4af37 40%, #ec4899 75%, transparent 100%)" }} />
@@ -228,6 +257,28 @@ export default function Login() {
               {busy ? "Please wait..." : SUBMIT_LABELS[mode] || "Login"}
             </button>
           </form>
+
+          {mode === "login" && passkeySupported() && (
+            <button
+              type="button"
+              data-testid="fingerprint-login-btn"
+              onClick={async () => {
+                setErr("");
+                try {
+                  const res = await loginWithPasskey(email);
+                  await refresh?.();
+                  toast.success(`Welcome back, ${res.user?.name || ""} ✦`);
+                  window.location.href = "/dashboard";
+                } catch (e2) {
+                  setErr(e2?.response?.data?.detail || "Fingerprint login didn't work — use your password (it re-enables fingerprint for this device)");
+                }
+              }}
+              className="w-full mt-3 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold text-sm
+                         flex items-center justify-center gap-2 hover:border-rose-300 hover:text-rose-600 transition-all active:scale-[0.98]"
+            >
+              <span className="text-lg">🔒</span> Login with Fingerprint / Face ID
+            </button>
+          )}
 
           {mode === "login" ? (
             <p className="text-center text-sm text-slate-500 mt-6">
