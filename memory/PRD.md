@@ -1347,3 +1347,7 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - User (prod, AECS tenant): staff showed no location tag because AECS is that tenant's MAIN salon (branch field empty = main). StaffCard now always renders 📍 tag: s.branch OR mainLabel ("Main salon — {tenant.location}", passed from Staff.jsx). StaffFormModal dropdown label "Main salon (no branch tag)" → "🏠 Main salon (this location)".
 - Verified: cards show "📍 Main salon — Marathahalli" / "📍 Miracurl — AECS Layout, Brookefield".
 - NEEDS REDEPLOY.
+
+## User preference (5 Aug 2026)
+- Grace Period button ALREADY EXISTS in Super Admin — never suggest it again.
+- User wants ONLY revenue-generating improvement suggestions in Next Action Items going forward.
