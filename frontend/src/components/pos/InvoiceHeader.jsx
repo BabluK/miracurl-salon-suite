@@ -44,7 +44,7 @@ export function InvoiceHeader({
             type="text"
             autoComplete="off"
             spellCheck={false}
-            placeholder="Search by name or phone…"
+            placeholder="Search by name, phone or Member ID (MC-…)"
             value={guestQuery}
             onChange={e => {
               setGuestQuery(e.target.value);

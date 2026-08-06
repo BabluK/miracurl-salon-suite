@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-06.58"
-BUILD_TIME = "6 Aug 2026, 11:45 PM IST"
+BUILD = "2026-08-07.59"
+BUILD_TIME = "7 Aug 2026, 12:15 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-07 (Membership power-ups 💳)",
+        "changes": [
+            "🔎 POS Member Lookup — type or scan a Member ID (MC-…) in the guest box and the member is pulled up instantly, with their plan, discount and cashback shown; expired members trigger a renewal prompt",
+            "📊 Reports now include a Premium Memberships card — total & monthly sales, active members by tier, online vs at-salon split, expiring-soon count, cashback credited and outstanding wallet liability",
+            "🎂 Member birthdays got special — active members automatically receive a golden birthday email with their member perks and a one-tap booking link (regular guests still get the classic birthday wish)",
+        ],
+    },
     {
         "date": "2026-08-06 (Premium Membership launch 💳)",
         "changes": [

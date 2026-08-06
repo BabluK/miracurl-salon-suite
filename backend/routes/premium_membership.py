@@ -15,7 +15,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from security import require_tenant_admin, current_tenant, public_rate_limit
+from security import require_tenant_admin, current_tenant, public_rate_limit, get_current_user
 from routes.gift_cards import _pay_keys, _gc_settings, _tenant_by_slug, _upi_qr_b64
 
 router = APIRouter()
@@ -459,6 +459,65 @@ async def reject_member_order(oid: str, admin=Depends(require_tenant_admin), t=D
     if not r.modified_count:
         raise HTTPException(404, "Pending order not found")
     return {"ok": True}
+
+
+# ---------------- POS: instant member lookup ----------------
+
+@router.get("/pos/member-lookup/{member_id}")
+async def pos_member_lookup(member_id: str, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Billing staff type/scan a Member ID → guest + membership pulled up instantly."""
+    mid = member_id.strip().upper()
+    cm = await _raw_db.customer_memberships.find_one(
+        {"tenant_id": t["id"], "member_id": mid}, {"_id": 0})
+    if not cm:
+        raise HTTPException(404, "No member with this ID at your salon")
+    cust = await _raw_db.customers.find_one(
+        {"id": cm["customer_id"]},
+        {"_id": 0, "id": 1, "name": 1, "phone": 1, "email": 1,
+         "wallet_balance": 1, "loyalty_points": 1})
+    if not cust:
+        raise HTTPException(404, "Member's guest profile not found")
+    return {"customer": cust,
+            "membership": {"member_id": cm["member_id"], "plan": cm.get("name"),
+                           "tier": cm.get("tier") or "member",
+                           "status": "active" if (cm.get("expires_at") or "") > _now() else "expired",
+                           "expires_at": cm.get("expires_at"),
+                           "cashback_pct": cm.get("cashback_pct") or 0,
+                           "discount_pct": cm.get("discount_pct") or 0}}
+
+
+# ---------------- Reports: membership revenue ----------------
+
+@router.get("/reports/memberships")
+async def membership_report(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Membership sales, active members and outstanding cashback (wallet) liability."""
+    now = _now()
+    month = now[:7]
+    rows = await _raw_db.customer_memberships.find({"tenant_id": t["id"]}, {"_id": 0}).to_list(1000)
+    active = [r for r in rows if (r.get("expires_at") or "") > now]
+    sales_total = round(sum(float(r.get("amount") or 0) for r in rows), 2)
+    sales_month = round(sum(float(r.get("amount") or 0) for r in rows
+                            if (r.get("purchased_at") or "").startswith(month)), 2)
+    online = sum(1 for r in rows if r.get("source") == "online")
+    cb_agg = await _raw_db.wallet_txns.aggregate([
+        {"$match": {"tenant_id": t["id"], "type": "membership_cashback"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}, "n": {"$sum": 1}}}]).to_list(1)
+    cashback_paid = round((cb_agg[0]["total"] if cb_agg else 0) or 0, 2)
+    active_cust_ids = list({r["customer_id"] for r in active})
+    li_agg = await _raw_db.customers.aggregate([
+        {"$match": {"id": {"$in": active_cust_ids}}},
+        {"$group": {"_id": None, "total": {"$sum": {"$ifNull": ["$wallet_balance", 0]}}}}]).to_list(1)
+    liability = round((li_agg[0]["total"] if li_agg else 0) or 0, 2)
+    expiring_30 = sum(1 for r in active if (r.get("expires_at") or "") <=
+                      (datetime.now(timezone.utc) + timedelta(days=30)).isoformat())
+    by_tier = {}
+    for r in active:
+        by_tier[r.get("tier") or "custom"] = by_tier.get(r.get("tier") or "custom", 0) + 1
+    return {"sales_total": sales_total, "sales_this_month": sales_month,
+            "members_total": len(rows), "members_active": len(active),
+            "members_expired": len(rows) - len(active), "online": online, "pos": len(rows) - online,
+            "cashback_credited_total": cashback_paid, "wallet_liability_active_members": liability,
+            "expiring_in_30_days": expiring_30, "active_by_tier": by_tier}
 
 
 # ---------------- expiry reminders (7d + 1d, hourly sweep) ----------------

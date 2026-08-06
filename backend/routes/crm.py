@@ -164,6 +164,34 @@ async def reviews_request_now(user=Depends(require_tenant_admin), t=Depends(curr
 DEFAULT_BIRTHDAY_OFFER = "Free Hair Spa this week 🎂"
 
 
+def _member_birthday_html(t: dict, name: str, member: dict, offer: str, book_url: str) -> str:
+    """Golden birthday email for premium members — perks + one-tap booking link."""
+    import html as _h
+    nm, sn = _h.escape((name or "there").split(" ")[0]), _h.escape(t.get("name") or "your salon")
+    tier = _h.escape((member.get("tier") or "member").capitalize())
+    benefits = member.get("benefits") or []
+    perk = "Birthday Offer" if "Birthday Offer" in benefits else (benefits[0] if benefits else "a special member treat")
+    chips = "".join(
+        f"<span style='display:inline-block;background:#faf3dd;border:1px solid #e6d9a8;color:#8a6d1a;"
+        f"border-radius:14px;padding:3px 10px;font-size:11px;margin:2px'>{_h.escape(b)}</span>" for b in benefits)
+    return f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+    <div style="background:#15151b;border-radius:18px 18px 0 0;padding:26px 30px;text-align:center">
+      <div style="color:#d4af37;letter-spacing:3px;font-size:18px">{sn.upper()}</div>
+      <div style="font-size:34px;margin-top:10px">🎂✨</div>
+      <div style="color:#f4f1e8;font-size:22px;margin-top:8px">Happy Birthday, {nm}!</div>
+      <div style="color:#d4af37;font-size:12px;letter-spacing:2px;margin-top:6px">{tier.upper()} MEMBER · {_h.escape(member.get('member_id') or '')}</div>
+    </div>
+    <div style="background:#fff;border:1px solid #eee;border-top:0;border-radius:0 0 18px 18px;padding:26px 30px">
+      <p>As one of our <b>{tier}</b> members, your <b>{_h.escape(perk)}</b> is waiting for you — plus {_h.escape(offer or 'a little birthday pampering on us')}.</p>
+      {f"<div style='margin:12px 0'>{chips}</div>" if chips else ""}
+      <p style="text-align:center;margin:24px 0">
+        <a href="{book_url}" style="background:linear-gradient(120deg,#d4af37,#b45309);color:#fff;text-decoration:none;
+           font-weight:bold;padding:14px 36px;border-radius:30px;display:inline-block">Book my birthday visit →</a></p>
+      <p style="font-size:12px;color:#888;text-align:center">Show your Member ID {_h.escape(member.get('member_id') or '')} at the salon to claim your treat.</p>
+      <p>With love,<br/><b>{sn}</b> 💛</p>
+    </div></div>"""
+
+
 async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
     """Email birthday + anniversary wishes to guests whose special day is today (IST).
     Used by the daily scheduler AND the admin 'send now' button."""
@@ -186,13 +214,24 @@ async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
             custs = await _raw_db.customers.find(
                 {"tenant_id": t["id"], field: {"$regex": f"-{mmdd}$"},
                  "email": {"$exists": True, "$nin": [None, ""]}},
-                {"_id": 0, "name": 1, "email": 1}).to_list(200)
+                {"_id": 0, "id": 1, "name": 1, "email": 1}).to_list(200)
             for c in custs:
-                status = await _send_email(
-                    [c["email"]], subject_tpl.format(name=c["name"]),
-                    _birthday_email_html(t, c["name"], offer, book_url), book_url=book_url)
+                member = None
+                if field == "dob":
+                    member = await _raw_db.customer_memberships.find_one(
+                        {"tenant_id": t["id"], "customer_id": c["id"],
+                         "member_id": {"$exists": True, "$ne": ""},
+                         "expires_at": {"$gt": datetime.now(timezone.utc).isoformat()}}, {"_id": 0})
+                if member:
+                    subject = f"🎂 Happy Birthday {c['name']} — your member treat awaits ✦"
+                    html = _member_birthday_html(t, c["name"], member, offer, book_url)
+                else:
+                    subject = subject_tpl.format(name=c["name"])
+                    html = _birthday_email_html(t, c["name"], offer, book_url)
+                status = await _send_email([c["email"]], subject, html, book_url=book_url)
                 results.append({"tenant": t["name"], "customer": c["name"], "email": c["email"],
-                                "occasion": field, "sent": status.get("sent", False), "error": status.get("error")})
+                                "occasion": "member_birthday" if member else field,
+                                "sent": status.get("sent", False), "error": status.get("error")})
     sent = sum(1 for r in results if r["sent"])
     return {"date": ist.strftime("%Y-%m-%d"), "sent": sent, "failed": len(results) - sent, "results": results}
 

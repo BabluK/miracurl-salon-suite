@@ -1395,3 +1395,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - TESTED: backend self-test (activation, member page, card.pdf 8306b, cashback: INV-202608-0216 ₹2124 → ₹212.4 wallet, 10% membership discount co-applied) + testing agent iteration_98.json 100% pass (UPI e2e → admin approve → member MC-ZVHM-GS39-XNFP; renewal heading; plan form CRUD). Demo members in preview: MC-CAQJ-DFS6-4RUV (Platinum), MC-ZVHM-GS39-XNFP (Gold).
 - Known-not-bugs: buyer name overridden by existing customer on phone match (intended CRM behavior); HEAD /card.pdf 405 (GET fine).
 - BUILD 2026-08-06.58 released.
+
+## 2026-08-07 (round 6) — Membership power-ups (user picked 3)
+1. POS Member Lookup: GET /pos/member-lookup/{member_id} (any authed user, tenant-scoped) → customer + membership summary. POS.jsx effect: guestQuery matching MC-XXXX-XXXX-XXXX (debounced 400ms) auto-selects guest + toast (active: tier/discount/cashback; expired: renewal warning). InvoiceHeader placeholder mentions Member ID. Verified: typed ID → guest chip + 👑 Platinum benefit chip.
+2. Membership Revenue Report: GET /reports/memberships (admin) → sales_total/this month, active/expired counts, online vs pos, cashback_credited_total (wallet_txns type membership_cashback), wallet_liability_active_members (sum wallet_balance of active members), expiring_in_30_days, active_by_tier. Frontend components/reports/MembershipReportCard.jsx mounted in Reports.jsx after KPI grid (hidden when 0 members). Verified populated (₹17,000 / ₹212.4).
+3. Member Birthday Perk: crm.py _run_birthday_emails — dob customers with ACTIVE membership get _member_birthday_html (golden email: tier + member_id, benefits chips, booking CTA, "show Member ID to claim") with occasion "member_birthday"; others unchanged. Uses existing daily _birthday_scheduler (idempotent via system_flags). Verified path triggers (send blocked only by example.com test address).
+- BUILD 2026-08-07.59.

@@ -160,6 +160,27 @@ export default function POS() {
     setGuestQuery("");
     setGuestOpen(false);
   }
+
+  // Member ID lookup: typing/scanning MC-XXXX… pulls the guest up instantly
+  useEffect(() => {
+    const q = guestQuery.trim().toUpperCase().replace(/\s+/g, "");
+    if (customerId || !/^MC-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(q)) return;
+    const timer = setTimeout(() => {
+      api.get(`/pos/member-lookup/${encodeURIComponent(q)}`)
+        .then(r => {
+          selectGuest(r.data.customer);
+          const m = r.data.membership;
+          if (m.status === "active") {
+            toast.success(`💳 ${(m.tier || "").toUpperCase()} member — ${r.data.customer.name} · ${m.discount_pct}% off + ${m.cashback_pct}% cashback`);
+          } else {
+            toast.warning(`💳 ${r.data.customer.name} found — membership EXPIRED on ${new Date(m.expires_at).toLocaleDateString("en-IN")}. Offer a renewal!`);
+          }
+        })
+        .catch(() => toast.error("No member with this ID at your salon"));
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestQuery, customerId]);
   function changeBranch(id) {
     setBranchId(id);
     try { localStorage.setItem("pos_branch", id); } catch { /* private mode */ }

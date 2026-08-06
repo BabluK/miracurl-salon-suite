@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { IndianRupee, DollarSign, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2, Pencil, Heart } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { EditInvoiceModal } from "@/components/EditInvoiceModal";
+import { MembershipReportCard } from "@/components/reports/MembershipReportCard";
 import { useAuth } from "@/context/AuthContext";
 import { mainSalonLabel } from "@/lib/branch";
 import { curSym } from "@/lib/currency";
@@ -140,6 +141,8 @@ export default function Reports() {
               <div className="text-xs text-slate-500 mt-2">payment modes used</div>
             </div>
           </div>
+
+          <MembershipReportCard />
 
           {/* Branch performance — shown once bills are branch-tagged */}
           {(data.by_branch || []).length > 0 && (data.by_branch.length > 1 || data.by_branch[0].branch !== "Main") && (
