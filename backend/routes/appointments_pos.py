@@ -214,8 +214,9 @@ async def del_appointment(aid: str, user=Depends(get_current_user)):
 
 # ---------------- Invoices / POS ----------------
 @router.get("/invoices")
-async def list_invoices(user=Depends(get_current_user)):
-    return await db.invoices.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+async def list_invoices(status: Optional[str] = None, user=Depends(get_current_user)):
+    flt = {"status": status} if status else {}
+    return await db.invoices.find(flt, {"_id": 0}).sort("created_at", -1).to_list(500)
 
 
 class LoyaltySettingsIn(BaseModel):
@@ -380,6 +381,34 @@ async def _handle_wallet_payment(body: InvoiceIn, cust: dict, inv: dict, total: 
         await _record_wallet_redeem(cust, inv)
 
 
+class InvoiceCompleteIn(BaseModel):
+    payment_mode: str = "cash"
+
+
+@router.post("/invoices/{iid}/complete")
+async def complete_open_invoice(iid: str, body: InvoiceCompleteIn,
+                                user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Settle an OPEN bill: mark completed + apply points, stock, stats and member cashback."""
+    inv = await db.invoices.find_one({"id": iid}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    if inv.get("status") != "open":
+        raise HTTPException(400, "This bill is already completed")
+    cust = await db.customers.find_one({"id": inv["customer_id"]}, {"_id": 0})
+    if not cust:
+        raise HTTPException(400, "Guest not found")
+    await db.invoices.update_one(
+        {"id": iid}, {"$set": {"status": "completed", "payment_mode": body.payment_mode,
+                               "completed_at": datetime.now(timezone.utc).isoformat(),
+                               "completed_by": user.get("email")}})
+    inv["status"], inv["payment_mode"] = "completed", body.payment_mode
+    totals = {"total": float(inv.get("total") or 0), "points_used": 0, "referral_credit_used": 0}
+    needed = {i["ref_id"]: int(i.get("qty") or 1) for i in inv.get("items", []) if i.get("type") == "product"}
+    inv["points_earned"] = await _apply_post_invoice_effects(cust, totals, _loyalty_rules(t), needed)
+    inv["membership_cashback"] = await _apply_membership_cashback(inv, cust)
+    return _clean(inv)
+
+
 @router.post("/invoices")
 async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
@@ -399,6 +428,12 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
 
     inv = _build_invoice_doc(body, cust, staff, totals, coupon, branch,
                              tip, tip_staff, await _gen_invoice_no())
+    if body.status == "open":
+        # "Create" = save the bill only. No payments, stock, points, cashback or
+        # receipts until it's completed from Reports → recent bills.
+        inv["status"] = "open"
+        await db.invoices.insert_one(inv)
+        return _clean(inv)
     wallet_apply = 0.0
     if body.payment_mode != "salon_wallet" and float(body.wallet_apply or 0) > 0:
         wallet_apply = round(min(float(body.wallet_apply), totals["total"]), 2)

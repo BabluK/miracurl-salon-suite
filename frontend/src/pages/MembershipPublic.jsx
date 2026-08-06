@@ -45,6 +45,8 @@ export default function MembershipPublic() {
   if (cfg === null) return <div className="min-h-screen bg-[#0b0b0f] flex items-center justify-center text-white/60">Loading…</div>;
   if (cfg === false) return <div className="min-h-screen bg-[#0b0b0f] flex items-center justify-center text-white/60">Salon not found</div>;
 
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  const logo = cfg?.salon?.logo_url ? (cfg.salon.logo_url.startsWith("/api/") ? `${BACKEND_URL}${cfg.salon.logo_url}` : cfg.salon.logo_url) : "";
   const amount = plan?.custom ? Number(customAmt || 0) : Number(plan?.price || 0);
 
   async function order(payMethod) {
@@ -136,14 +138,22 @@ export default function MembershipPublic() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0b0f] text-white relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(60% 40% at 50% 0%, rgba(212,175,55,0.10), transparent 70%)" }} />
-      <div className="relative max-w-6xl mx-auto p-4 sm:p-8">
+    <div className="min-h-screen relative overflow-hidden bg-white text-slate-800">
+      <div className="pointer-events-none fixed -right-32 -bottom-32 w-[640px] h-[640px] rounded-full opacity-90"
+           style={{ background: "radial-gradient(circle at 30% 30%, #e8918f 0%, #d4af37 40%, #ec4899 75%, transparent 100%)" }} />
+      <div className="pointer-events-none fixed -left-40 -bottom-44 w-[520px] h-[520px] rounded-full opacity-80"
+           style={{ background: "radial-gradient(circle at 60% 40%, #f5d78e 0%, #e8a0a8 45%, #d4af37 80%, transparent 100%)" }} />
+      <div className="relative z-10 max-w-6xl mx-auto p-4 sm:p-8">
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 text-gold text-[11px] tracking-[0.35em] uppercase font-semibold"><Crown className="w-4 h-4" /> Premium Membership</div>
-          <h1 className="font-playfair text-4xl sm:text-5xl lg:text-6xl mt-3">{cfg.salon.name}</h1>
-          <p className="text-white/50 text-sm mt-3">{renewId ? `Renewing membership ${renewId} — pick your plan` : "Unlock exclusive benefits and enjoy premium care on every visit."}</p>
+          {logo ? (
+            <img src={logo} alt={cfg.salon.name} className="w-16 h-16 rounded-2xl object-cover mx-auto mb-3 ring-2 ring-gold/50 shadow-lg" data-testid="membership-salon-logo" />
+          ) : (
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gold to-amber-700 flex items-center justify-center mx-auto mb-3"><Crown className="w-7 h-7 text-black" /></div>
+          )}
+          <div className="inline-flex items-center gap-2 text-amber-600 text-[11px] tracking-[0.35em] uppercase font-semibold"><Crown className="w-4 h-4" /> Premium Membership</div>
+          <h1 className="font-playfair text-4xl sm:text-5xl lg:text-6xl mt-3 text-slate-800">{cfg.salon.name}</h1>
+          <p className="text-slate-500 text-sm mt-3">{renewId ? `Renewing membership ${renewId} — pick your plan` : "Unlock exclusive benefits and enjoy premium care on every visit."}</p>
           <div className="mx-auto mt-4 h-px w-56 bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
         </div>
 

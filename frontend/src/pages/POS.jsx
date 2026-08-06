@@ -9,6 +9,7 @@ import AddGuestModal from "@/components/pos/AddGuestModal";
 import InvoiceReceiptModal from "@/components/pos/InvoiceReceiptModal";
 import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
 import { MemberQrScanner } from "@/components/pos/MemberQrScanner";
+import { OpenBillsPanel } from "@/components/pos/OpenBillsPanel";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
 import { OffersPanel } from "@/components/pos/OffersPanel";
@@ -57,14 +58,37 @@ export default function POS() {
   const [memberCode, setMemberCode] = useState("");
   const [memberInfo, setMemberInfo] = useState(null);
   const [qrScanOpen, setQrScanOpen] = useState(false);
+  const [openBillsKey, setOpenBillsKey] = useState(0);
 
   function onQrDetected(text) {
     setQrScanOpen(false);
-    const m = String(text || "").toUpperCase().match(/MC-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/);
-    if (!m) { toast.error("That QR isn't a Miracurl member card"); return; }
-    setMemberCode(m[0]);
-    applyMemberCode(m[0]);
+    const up = String(text || "").toUpperCase();
+    const mc = up.match(/MC-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/);
+    const gc = up.match(/GC-[A-Z0-9-]{4,}/);
+    if (mc) { setMemberCode(mc[0]); applyMemberCode(mc[0]); return; }
+    if (gc) { setGcCode(gc[0]); checkGiftCard(gc[0]); return; }
+    toast.error("That QR isn't a Miracurl member or gift card");
   }
+
+  // Draft persistence: refresh/new tab must not lose an in-progress bill
+  useEffect(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem("pos_draft") || "null");
+      if (d?.cart?.length) {
+        setCart(d.cart); setCustomerId(d.customerId || ""); setGuestQuery(d.guestQuery || "");
+        setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment);
+        toast.info("📝 Unfinished bill restored — continue where you left off");
+      }
+    } catch { /* fresh start */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (cart.length) {
+      localStorage.setItem("pos_draft", JSON.stringify({ cart, customerId, guestQuery, orderNotes, payment }));
+    } else {
+      localStorage.removeItem("pos_draft");
+    }
+  }, [cart, customerId, guestQuery, orderNotes, payment]);
 
   async function applyMemberCode(codeArg) {
     const code = String(codeArg || memberCode).trim().toUpperCase().replace(/\s+/g, "");
@@ -303,8 +327,8 @@ export default function POS() {
     } catch { toast.error("Couldn't check coupon"); }
   }
 
-  async function checkGiftCard() {
-    const code = gcCode.trim().toUpperCase();
+  async function checkGiftCard(codeArg) {
+    const code = String(codeArg || gcCode).trim().toUpperCase();
     if (!code) { setGcInfo(null); return; }
     try {
       const { data } = await api.post("/gift-cards/check", { code });
@@ -356,8 +380,16 @@ export default function POS() {
         tip_staff_id: tipStaffId || staffId || null,
         gift_card_code: gcInfo ? gcCode.trim().toUpperCase() : null,
         wallet_apply: payment === "salon_wallet" ? 0 : Math.min(walletApply, dueAfterGift),
+        status: complete ? "completed" : "open",
         branch_id: branchId || null,
       });
+      if (!complete) {
+        toast.success(`Bill ${data.invoice_no} saved as OPEN 📋 — complete it anytime from the "Open bills" panel above`);
+        setOpenBillsKey(k => k + 1);
+        setLastInvoice(data);
+        clearAll();
+        return;
+      }
       toast.success(`Invoice ${data.invoice_no} created${data.points_earned ? ` · +${data.points_earned} pts earned` : ""}`);
       if (data.gift_card_applied > 0) {
         toast.success(`🎁 ${sym}${Number(data.gift_card_applied).toFixed(0)} deducted from gift card · ${sym}${Number(data.gift_card_balance_left || 0).toFixed(0)} balance left`, { duration: 8000 });
@@ -426,6 +458,7 @@ export default function POS() {
         )}
 
         <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+          <OpenBillsPanel sym={sym} refreshKey={openBillsKey} />
           <InvoiceHeader
             tenant={tenant} branchId={branchId} onBranchChange={changeBranch} branchLocked={lockedBranchId !== null}
             guestBoxRef={guestBoxRef} guestQuery={guestQuery} setGuestQuery={setGuestQuery}
@@ -462,8 +495,11 @@ export default function POS() {
               <span className="text-sm font-bold text-slate-700">🎁 Gift card</span>
               <input value={gcCode} onChange={(e) => setGcCode(e.target.value.toUpperCase())} placeholder="GC-XXXX-XXXX"
                 data-testid="pos-gift-card-input" className="w-40 font-mono text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-fuchsia-400" />
-              <button onClick={checkGiftCard} data-testid="pos-gift-card-apply"
+              <button onClick={() => checkGiftCard()} data-testid="pos-gift-card-apply"
                 className="bg-fuchsia-600 text-white text-xs font-bold rounded-lg px-3 py-2 hover:bg-fuchsia-500">Apply</button>
+              <button onClick={() => setQrScanOpen(true)} data-testid="pos-gift-card-scan"
+                title="Scan the gift card QR with the camera"
+                className="border border-fuchsia-300 text-fuchsia-600 text-xs font-bold rounded-lg px-3 py-2 hover:bg-fuchsia-50">📷 Scan</button>
               {gcInfo && (
                 <>
                   <span className="text-xs text-emerald-600 font-semibold" data-testid="pos-gift-card-applied">

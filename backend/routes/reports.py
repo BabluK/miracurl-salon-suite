@@ -65,7 +65,8 @@ async def _dashboard_revenue_trend(days: int = 7) -> list:
     for offset in range(days - 1, -1, -1):
         d = (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat()
         rows = await db.invoices.find(
-            {"created_at": {"$regex": f"^{d}"}}, {"_id": 0, "total": 1}).to_list(500)
+            {"created_at": {"$regex": f"^{d}"}, "status": {"$nin": ["voided", "open"]}},
+            {"_id": 0, "total": 1}).to_list(500)
         trend.append({"date": d, "revenue": round(sum(r["total"] for r in rows), 2)})
     return trend
 
@@ -108,7 +109,7 @@ async def staff_performance(user=Depends(get_current_user)):
     }
     since_utc = last_month_start.astimezone(timezone.utc).isoformat()
     invoices, staff_docs = await asyncio.gather(
-        db.invoices.find({"created_at": {"$gte": since_utc}},
+        db.invoices.find({"created_at": {"$gte": since_utc}, "status": {"$nin": ["voided", "open"]}},
                          {"_id": 0, "items": 1, "staff_id": 1, "staff_name": 1, "created_at": 1}).to_list(5000),
         db.staff.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(100),
     )
@@ -162,7 +163,7 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
     branch = branch_lock(user, branch)
     today = datetime.now(timezone.utc).date().isoformat()
     month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
-    branch_flt = {**_branch_query(branch, t), "status": {"$ne": "voided"}}
+    branch_flt = {**_branch_query(branch, t), "status": {"$nin": ["voided", "open"]}}
     invoices_today = await db.invoices.find({"created_at": {"$regex": f"^{today}"}, **branch_flt}, {"_id": 0}).to_list(500)
     invoices_month = await db.invoices.find({"created_at": {"$regex": f"^{month_prefix}"}, **branch_flt}, {"_id": 0}).to_list(2000)
     appts_today = await db.appointments.find({"scheduled_at": {"$regex": f"^{today}"}}, {"_id": 0}).to_list(500)
@@ -250,7 +251,7 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
     invoice count, new-guest count, and per-staff gross revenue.
     """
     day, utc_start, utc_end = _ist_day_window(date)
-    flt = {"created_at": {"$gte": utc_start, "$lte": utc_end}}
+    flt = {"created_at": {"$gte": utc_start, "$lte": utc_end}, "status": {"$nin": ["voided", "open"]}}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
 
     buckets, total = _payment_mode_buckets(invs)
