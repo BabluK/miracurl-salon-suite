@@ -2,10 +2,22 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-06.57"
-BUILD_TIME = "6 Aug 2026, 12:30 PM IST"
+BUILD = "2026-08-06.58"
+BUILD_TIME = "6 Aug 2026, 11:45 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-06 (Premium Membership launch 💳)",
+        "changes": [
+            "💳 Premium Membership is live — guests can buy Silver ₹5,000 / Gold ₹7,000 / Platinum ₹10,000 / Diamond ₹15,000 / Custom ₹5,000+ (12 months) right from your public booking page, paying by card or UPI",
+            "🪪 Every member gets a Member ID (MC-XXXX-XXXX-XXXX), a luxe digital membership card with QR, and a polished welcome email with the card PDF attached",
+            "💰 Wallet cashback on every bill — each plan's % lands straight into the member's wallet, spendable on any future visit; plans can also carry a service discount %",
+            "🔍 Scan the member QR (or open /member/ID) to instantly verify name, plan, status, expiry, wallet balance and points — with Renew and Download Card buttons",
+            "🧾 Offers & Plans → Memberships now shows ALL onboarded members — salon-sold (POS) and customer-purchased (online) — plus UPI payments awaiting your approval",
+            "⏳ Automatic expiry reminders — members get a renewal email 7 days and 1 day before their card expires, with a one-tap renew link that extends from their current expiry",
+            "⚙️ Plans are fully yours: edit price, cashback %, service discount %, benefits list, and choose which plans sell on the booking page",
+        ],
+    },
     {
         "date": "2026-08-06 (Temporary staff transfers, POS upgrades & smarter notifications)",
         "changes": [
