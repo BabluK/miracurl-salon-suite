@@ -127,9 +127,15 @@ export default function POS() {
   }, [categories, category]);
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    // typed search looks across ALL categories, not just the selected one
-    if (needle) return catalog.filter(i => `${i.name} ${i.category || ""}`.toLowerCase().includes(needle));
+    const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const tokens = norm(q).split(" ").filter(Boolean);
+    // typed search: every word must appear somewhere in name+category, across ALL categories
+    if (tokens.length) {
+      return catalog.filter(i => {
+        const hay = norm(`${i.name} ${i.category || ""}`);
+        return tokens.every(tk => hay.includes(tk));
+      });
+    }
     return catalog.filter(i =>
       (!categories.length || !category || (i.category || "Other") === category) &&
       (mode !== "services" || genderFilter === "all" ||
@@ -383,7 +389,7 @@ export default function POS() {
         <CatalogPanel
           mode={mode} categories={categories} category={category}
           setCategory={setCategory} filtered={filtered} onAdd={addToCart}
-          gender={genderFilter} setGender={setGenderFilter}
+          gender={genderFilter} setGender={setGenderFilter} q={q}
         />
         )}
 

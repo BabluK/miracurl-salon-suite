@@ -2,14 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-07.59"
-BUILD_TIME = "7 Aug 2026, 12:15 AM IST"
+BUILD = "2026-08-07.60"
+BUILD_TIME = "7 Aug 2026, 1:00 AM IST"
 
 RELEASES = [
     {
         "date": "2026-08-07 (Membership power-ups 💳)",
         "changes": [
             "🔎 POS Member Lookup — type or scan a Member ID (MC-…) in the guest box and the member is pulled up instantly, with their plan, discount and cashback shown; expired members trigger a renewal prompt",
+            "🔍 POS service search rebuilt — results now appear right at the top with a match count and category tags; multi-word searches like 'fruit facial' match across ALL categories, ignoring hyphens and extra spaces",
+            "📲 App updates now reach installed phones faster — the app checks for new versions every time it's opened, so new features appear without reinstalling",
             "📊 Reports now include a Premium Memberships card — total & monthly sales, active members by tier, online vs at-salon split, expiring-soon count, cashback credited and outstanding wallet liability",
             "🎂 Member birthdays got special — active members automatically receive a golden birthday email with their member perks and a one-tap booking link (regular guests still get the classic birthday wish)",
         ],

@@ -40,6 +40,13 @@ if ("serviceWorker" in navigator && window.location.protocol === "https:") {
       .then((reg) => {
         // If a new SW is already waiting, tell it to activate immediately.
         if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        // Actively check for new deploys: every 30 min AND whenever the
+        // (installed PWA) app comes back to the foreground.
+        const check = () => reg.update().catch(() => {});
+        setInterval(check, 30 * 60 * 1000);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") check();
+        });
         // Poll for updates so tabs left open pick up new deploys quickly.
         reg.addEventListener("updatefound", () => {
           const nw = reg.installing;
