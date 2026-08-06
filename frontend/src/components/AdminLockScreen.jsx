@@ -1,14 +1,22 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Lock, Loader2, ShieldCheck } from "lucide-react";
+import { Lock, Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
 
 // Owner-PIN gate for sensitive admin sections (Settings, Staff).
 // Every attempt is logged (visible in Staff Activities). Auto-unlocks when no PIN is set.
+// Wrong PIN (or backing out) returns the user to where they came from.
 export const AdminLockScreen = ({ path, label, onUnlocked }) => {
+  const navigate = useNavigate();
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(true);
+
+  const goBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/dashboard");
+  };
 
   useEffect(() => {
     // logs the attempt; auto-unlocks if no PIN is configured
@@ -25,8 +33,9 @@ export const AdminLockScreen = ({ path, label, onUnlocked }) => {
       const { data } = await api.post("/manager/section-access", { section: path, pin: pin.trim() });
       if (data.ok) { toast.success(`${label} unlocked ✦`); onUnlocked(); }
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Incorrect Owner PIN");
+      toast.error(`${e.response?.data?.detail || "Incorrect Owner PIN"} — returning you back`);
       setPin("");
+      setTimeout(goBack, 900);
     } finally { setBusy(false); }
   };
 
@@ -47,6 +56,10 @@ export const AdminLockScreen = ({ path, label, onUnlocked }) => {
         <button onClick={unlock} disabled={busy || !pin.trim()} data-testid="admin-pin-unlock-btn"
           className="mt-4 w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 disabled:opacity-50">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Unlock with Owner PIN
+        </button>
+        <button onClick={goBack} data-testid="admin-pin-go-back-btn"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 py-2">
+          <ArrowLeft className="w-4 h-4" /> Go back
         </button>
       </div>
     </div>

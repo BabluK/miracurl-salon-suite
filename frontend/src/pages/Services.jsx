@@ -22,9 +22,10 @@ export default function Services() {
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", category: "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true, bookable_online: true });
+  const [form, setForm] = useState({ name: "", category: "Skin", price: "", duration_min: "", description: "", image_url: "", trending: false, active: true, bookable_online: true, gender: "unisex" });
   const [newCat, setNewCat] = useState(false);
   const [activeCat, setActiveCat] = useState("All");
+  const [activeGender, setActiveGender] = useState("All");
   const [q, setQ] = useState("");
   const [qInput, setQInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -121,7 +122,7 @@ export default function Services() {
   function startNew() {
     const defCat = activeCat !== "All" ? activeCat : (allCats[0] || "");
     setEditing(null); setNewCat(!defCat);
-    setForm({ name: "", category: defCat, price: "", duration_min: "", description: "", image_url: "", trending: false, active: true, bookable_online: true });
+    setForm({ name: "", category: defCat, price: "", duration_min: "", description: "", image_url: "", trending: false, active: true, bookable_online: true, gender: "unisex" });
     setOpen(true);
   }
   function startEdit(s) { setEditing(s); setNewCat(false); setForm({ ...s, price: s.price, duration_min: s.duration_min }); setOpen(true); }
@@ -140,6 +141,21 @@ export default function Services() {
     if (!window.confirm("Delete this service?")) return;
     try { await api.delete(`/services/${id}`); toast.success("Deleted"); load(); }
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+  }
+
+  const GENDER_META = {
+    male: { label: "Men", icon: "👨", cls: "bg-sky-50 border-sky-200 text-sky-700" },
+    female: { label: "Women", icon: "👩", cls: "bg-rose-50 border-rose-200 text-rose-600" },
+    unisex: { label: "Unisex", icon: "⚥", cls: "bg-slate-50 border-slate-200 text-slate-500" },
+  };
+  async function cycleGender(s) {
+    const order = ["unisex", "male", "female"];
+    const next = order[(order.indexOf(s.gender || "unisex") + 1) % 3];
+    try {
+      await api.put(`/services/${s.id}`, { ...s, gender: next });
+      toast.success(`${s.name} → ${GENDER_META[next].icon} ${GENDER_META[next].label}`);
+      load();
+    } catch { toast.error("Couldn't update"); }
   }
 
   async function toggleActive(s) {
@@ -194,11 +210,12 @@ export default function Services() {
     const needle = norm(q);
     return list.filter(s => {
       if (activeCat !== "All" && s.category !== activeCat) return false;
+      if (activeGender !== "All" && (s.gender || "unisex") !== activeGender) return false;
       if (!needle) return true;
       const hay = norm(`${s.name} ${s.category} ${s.description || ""}`);
       return hay.includes(needle) || (needle.length >= 3 && isSubseq(needle, norm(`${s.category} ${s.name}`)));
     });
-  }, [list, activeCat, q]);
+  }, [list, activeCat, activeGender, q]);
   const filteredByCat = useMemo(() => filtered.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {}), [filtered]);
 
   return (
@@ -267,6 +284,21 @@ export default function Services() {
           ) : (
             <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 text-[10px] font-medium text-slate-400 border border-slate-200 rounded-md px-1.5 py-0.5 bg-slate-50">⌘K</kbd>
           )}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap" data-testid="services-gender-chips">
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">For</span>
+          {[["All", "✨ All"], ["male", "👨 Men"], ["female", "👩 Women"], ["unisex", "⚥ Unisex"]].map(([k, l]) => (
+            <button key={k} data-testid={`services-gender-chip-${k}`} onClick={() => setActiveGender(k)}
+              className={`inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200 ${activeGender === k
+                ? "bg-slate-900 text-amber-200 border-slate-900 shadow-md scale-[1.03]"
+                : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+              {l}
+              <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeGender === k ? "bg-white/20 text-amber-100" : "bg-slate-100 text-slate-500"}`}>
+                {k === "All" ? list.length : list.filter(s => (s.gender || "unisex") === k).length}
+              </span>
+            </button>
+          ))}
+          <span className="text-[10px] text-slate-400 hidden md:inline">Tap the 👨/👩/⚥ chip on any service to re-categorize it</span>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 snap-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid="services-cat-chips">
           {loading ? (
@@ -346,6 +378,12 @@ export default function Services() {
                     {s.description && <span className="truncate hidden sm:inline">· {s.description}</span>}
                   </div>
                 </div>
+                <button data-testid={`toggle-gender-${s.id}`} onClick={() => cycleGender(s)}
+                  title="Who is this service for? Tap to cycle: Unisex → Men → Women"
+                  className={`shrink-0 flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full border transition ${GENDER_META[s.gender || "unisex"].cls}`}>
+                  {GENDER_META[s.gender || "unisex"].icon}
+                  <span className="hidden sm:inline">{GENDER_META[s.gender || "unisex"].label}</span>
+                </button>
                 <button data-testid={`toggle-active-${s.id}`} onClick={() => toggleActive(s)}
                   title={s.active === false ? "Disabled — tap to enable" : "Active — tap to disable (hides everywhere until re-enabled)"}
                   className={`shrink-0 flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-full border transition ${s.active !== false ? "bg-sky-50 border-sky-200 text-sky-700" : "bg-slate-50 border-slate-200 text-slate-400"}`}>

@@ -87,6 +87,7 @@ class Service(BaseModel):
     trending: bool = False
     active: bool = True
     bookable_online: bool = True
+    gender: str = "unisex"  # male | female | unisex
 
 class ServiceIn(BaseModel):
     name: str
@@ -98,6 +99,7 @@ class ServiceIn(BaseModel):
     trending: bool = False
     active: bool = True
     bookable_online: bool = True
+    gender: str = "unisex"
 
 class Staff(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

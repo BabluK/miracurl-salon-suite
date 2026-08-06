@@ -5,9 +5,22 @@ function panelTitle(categories, category, mode) {
   return "All items";
 }
 
-export function CatalogPanel({ mode, categories, category, setCategory, filtered, onAdd }) {
+export function CatalogPanel({ mode, categories, category, setCategory, filtered, onAdd, gender = "all", setGender }) {
   return (
     <div className="lg:col-span-5 xl:col-span-4 space-y-4">
+      {mode === "services" && setGender && (
+        <div className="flex gap-2" data-testid="pos-gender-filter">
+          {[{ k: "all", l: "All guests" }, { k: "male", l: "👨 Men" }, { k: "female", l: "👩 Women" }].map(g => (
+            <button key={g.k} data-testid={`pos-gender-${g.k}`} onClick={() => setGender(g.k)}
+              className={`flex-1 rounded-full py-2 text-xs font-semibold border transition ${
+                gender === g.k
+                  ? "bg-slate-900 border-slate-900 text-amber-200 shadow"
+                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+              {g.l}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
         {categories.map(c => (
           <button

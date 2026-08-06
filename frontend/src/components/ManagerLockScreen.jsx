@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Lock, Loader2, ShieldCheck } from "lucide-react";
+import { Lock, Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
 
+// Admin-PIN gate for managers. Wrong PIN (or backing out) returns them to where
+// they came from — every visit and failed attempt is logged for the owner.
 export const ManagerLockScreen = ({ path, label, onUnlocked }) => {
+  const navigate = useNavigate();
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const goBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/dashboard");
+  };
 
   useEffect(() => {
     // logs the attempt; auto-unlocks if no PIN is configured
@@ -22,8 +31,9 @@ export const ManagerLockScreen = ({ path, label, onUnlocked }) => {
       const { data } = await api.post("/manager/section-access", { section: path, pin: pin.trim() });
       if (data.ok) { toast.success(`${label} unlocked ✦`); onUnlocked(); }
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Incorrect Admin PIN");
+      toast.error(`${e.response?.data?.detail || "Incorrect Admin PIN"} — this attempt was logged. Returning you back`);
       setPin("");
+      setTimeout(goBack, 900);
     } finally { setBusy(false); }
   };
 
@@ -42,6 +52,10 @@ export const ManagerLockScreen = ({ path, label, onUnlocked }) => {
         <button onClick={unlock} disabled={busy || !pin.trim()} data-testid="manager-pin-unlock-btn"
           className="mt-4 w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 disabled:opacity-50">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Unlock with Admin PIN
+        </button>
+        <button onClick={goBack} data-testid="manager-pin-go-back-btn"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 py-2">
+          <ArrowLeft className="w-4 h-4" /> Go back
         </button>
       </div>
     </div>

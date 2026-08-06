@@ -48,13 +48,15 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
   const brandName = tenant?.name || "Your Salon";
   const brandLoc = tenant?.location || "";
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()} data-testid="invoice-receipt-modal">
-        <div className="text-center pb-4 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh] overflow-hidden" onClick={e => e.stopPropagation()} data-testid="invoice-receipt-modal">
+        <div className="text-center px-6 pt-5 pb-4 border-b border-slate-100 shrink-0">
           <h3 className="text-2xl font-playfair text-sky-600" data-testid="receipt-brand">{brandName} ✦</h3>
           {brandLoc && <p className="text-xs text-slate-500">{brandLoc}</p>}
           <p className="text-[10px] text-slate-400 mt-1">{new Date(invoice.created_at).toLocaleString()}</p>
         </div>
+        {/* Scrollable middle — details + services; totals & actions stay locked below */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6" data-testid="receipt-scroll-area">
         <div className="py-4 space-y-2 text-sm">
           <Row label="Invoice #" value={<span className="font-mono">{invoice.invoice_no}</span>} />
           <Row label="Customer" value={invoice.customer_name} />
@@ -92,7 +94,7 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
             </div>
           </div>
         )}
-        <div className="border-t border-slate-100 pt-3 space-y-1 text-sm">
+        <div className="border-t border-slate-100 pt-3 pb-4 space-y-1 text-sm">
           {invoice.items.map((it, idx) => (
             <div key={`${it.type}:${it.ref_id}:${idx}`} className="flex justify-between">
               <div>
@@ -103,7 +105,10 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
             </div>
           ))}
         </div>
-        <div className="border-t border-slate-100 pt-3 mt-3 space-y-1 text-sm">
+        </div>
+        {/* Locked footer — totals always visible */}
+        <div className="shrink-0 px-6 pb-5 pt-3 border-t border-slate-200 bg-white shadow-[0_-6px_16px_-12px_rgba(15,23,42,0.25)]">
+        <div className="space-y-1 text-sm">
           <Row label="Subtotal" value={`${sym}${invoice.subtotal.toFixed(2)}`} />
           <Row label="Discount" value={`−${sym}${invoice.discount.toFixed(2)}`} />
           {Number(invoice.tax) > 0 && <Row label="Tax" value={`${sym}${invoice.tax.toFixed(2)}`} />}
@@ -123,6 +128,7 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
             <button data-testid="invoice-whatsapp-btn" onClick={onShare} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> WhatsApp</button>
           )}
           <button data-testid="invoice-close-btn" onClick={onClose} className="flex-1 px-3 py-2 rounded-lg bg-sky-500 text-white text-xs font-medium hover:bg-sky-600">Close</button>
+        </div>
         </div>
       </div>
     </div>

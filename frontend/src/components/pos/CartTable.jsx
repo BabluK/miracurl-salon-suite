@@ -51,7 +51,16 @@ export function CartTable({
                       <button onClick={() => updateLine(i, { qty: c.qty + 1 })} className="px-2 py-1 text-slate-500 hover:text-slate-800">+</button>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-right text-slate-700">{sym}{c.price.toFixed(0)}</td>
+                  <td className="px-3 py-3 text-right">
+                    <input
+                      type="number" min="0" step="10"
+                      data-testid={`cart-line-price-${i}`}
+                      value={c.price}
+                      onChange={e => updateLine(i, { price: Math.max(0, Number(e.target.value || 0)) })}
+                      title="Tap to edit the price for this bill only"
+                      className="w-20 text-right py-1 px-2 rounded bg-slate-50 border border-slate-200 text-xs text-slate-800 font-semibold focus:border-sky-400 focus:outline-none"
+                    />
+                  </td>
                   <td className="px-3 py-3 text-right text-slate-700">{sym}{sub.toFixed(0)}</td>
                   <td className="px-3 py-3 text-right">
                     <input

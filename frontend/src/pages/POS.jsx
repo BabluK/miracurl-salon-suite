@@ -33,6 +33,7 @@ export default function POS() {
   const [customers, setCustomers] = useState([]);
   const [staff, setStaff] = useState([]);
   const [category, setCategory] = useState(""); // selected left-column category
+  const [genderFilter, setGenderFilter] = useState("all"); // all | male | female
   const [q, setQ] = useState("");
   const [cart, setCart] = useState([]);
   const [customerId, setCustomerId] = useState("");
@@ -125,10 +126,16 @@ export default function POS() {
     if (categories.length && !categories.includes(category)) setCategory(categories[0]);
   }, [categories, category]);
 
-  const filtered = useMemo(() => catalog.filter(i =>
-    (!categories.length || !category || (i.category || "Other") === category) &&
-    (!q || i.name.toLowerCase().includes(q.toLowerCase())),
-  ), [catalog, categories, category, q]);
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    // typed search looks across ALL categories, not just the selected one
+    if (needle) return catalog.filter(i => `${i.name} ${i.category || ""}`.toLowerCase().includes(needle));
+    return catalog.filter(i =>
+      (!categories.length || !category || (i.category || "Other") === category) &&
+      (mode !== "services" || genderFilter === "all" ||
+        (i.gender || "unisex") === genderFilter || (i.gender || "unisex") === "unisex"),
+    );
+  }, [catalog, categories, category, q, mode, genderFilter]);
 
   const customer = useMemo(() => customers.find(c => c.id === customerId), [customers, customerId]);
 
@@ -355,6 +362,7 @@ export default function POS() {
         <CatalogPanel
           mode={mode} categories={categories} category={category}
           setCategory={setCategory} filtered={filtered} onAdd={addToCart}
+          gender={genderFilter} setGender={setGenderFilter}
         />
         )}
 

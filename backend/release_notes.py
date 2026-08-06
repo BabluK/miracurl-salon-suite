@@ -2,21 +2,24 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-06.56"
-BUILD_TIME = "6 Aug 2026, 10:00 AM IST"
+BUILD = "2026-08-06.57"
+BUILD_TIME = "6 Aug 2026, 12:30 PM IST"
 
 RELEASES = [
     {
-        "date": "2026-08-06 (Temporary staff transfers & smarter notifications)",
+        "date": "2026-08-06 (Temporary staff transfers, POS upgrades & smarter notifications)",
         "changes": [
             "🔁 Temporary staff transfer — send any staff to your other salon for exact dates (even just 1 day); they bill, check in and log in there, then return home AUTOMATICALLY after the last day",
-            "🏠 While away, they stay visible at the home salon with an 'On duty at…' badge (not billable there) plus a one-tap 'Bring back now' button",
             "🧾 Temporary Duty Log on the Staff page (admin-only) — see who worked at which salon, the dates, and exactly how much business they billed there",
             "🔔 One-time notification popup after login — the staff member and managers of BOTH branches are informed when a temporary duty starts and when it ends; you choose in-app only, + email, or + SMS at transfer time",
+            "👨👩 Services categorized for Men / Women / Unisex — filter chips on the Services page and in POS billing, one-tap re-categorize on any service, and a 'Who is it for?' picker when adding services",
+            "✏️ POS price is now editable per bill — haircut listed at ₹700 but charging ₹800 today? Just type the new price on the bill line",
+            "🔎 POS search fixed — typing 'Threading' (or any service) now finds it across ALL categories, not just the selected one",
+            "🧾 Receipt popup redesigned — long bills scroll smoothly while the Total stays locked at the bottom with the action buttons",
+            "🔒 Protected sections got stricter — a wrong Admin PIN now returns managers to where they came from (attempt logged for the owner), with a clear Go-back button",
             "✨ New transfer confirmation popup — staff photo, from → to salons, dates and exactly what will happen (replaces the plain browser alert)",
-            "📌 The Owner-PIN popup for salon switching now opens perfectly centered on screen",
             "💬 Buy SMS points right from your Dashboard — a balance strip (turns amber when low) with one-tap Razorpay top-up packs",
-            "Platform: Trial salons now get automatic day 5/10/13 nudge emails with their own usage stats + a one-tap activation pay link (plan pricing follows Super Admin overrides)",
+            "Platform: Trial salons now get automatic day 5/10/13 nudge emails with usage stats + a one-tap activation pay link (plan pricing follows Super Admin overrides)",
         ],
     },
     {
