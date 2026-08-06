@@ -292,7 +292,7 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
 async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
                        branch: Optional[str] = None, user=Depends(require_admin), t=Depends(current_tenant)):
     branch = branch_lock(user, branch)
-    flt = {"status": {"$ne": "voided"}, **_branch_query(branch, t)}
+    flt = {"status": {"$nin": ["voided", "open"]}, **_branch_query(branch, t)}
     if start and end:
         flt["created_at"] = {"$gte": start, "$lte": end + "T23:59:59Z"}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
@@ -359,9 +359,9 @@ async def staff_commission_report(
     Returns rows sorted desc by gross_revenue."""
     if pct < 0 or pct > 100:
         raise HTTPException(400, "pct must be between 0 and 100")
-    flt = {}
+    flt = {"status": {"$nin": ["voided", "open"]}}
     if start and end:
-        flt = {"created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
+        flt["created_at"] = {"$gte": start, "$lte": end + "T23:59:59Z"}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(5000)
 
     agg, unassigned = _commission_agg(invs)

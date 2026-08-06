@@ -1424,3 +1424,12 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MembershipPublic.jsx REBUILT to match user's mock: radial-gold dark bg (#0b0b0f), medallion badges + hexagon tier banners, corner ribbons, per-plan REAL benefits list (admin-editable in Offers & Plans = "additional free services"), validity on card (plan-validity-{tier}), Member Details + Payment Summary panel (Plan Amount/Validity/Total Payable, gold Pay Securely, UPI), trust strip. NO GST added (flat pricing kept). Verified via screenshots.
 - premium_membership.py: TIER_BENEFITS per-tier seed defaults (existing tenants keep their seeded/edited benefits).
 - yarn add jsqr. BUILD 2026-08-07.63.
+
+## 2026-08-06 (fork, round 11) — Open Bills panel + gift card scan + reports fix + email preview
+- VERIFIED already-shipped: POS draft persistence (localStorage pos_draft restores cart/guest/notes/payment on reload) and Create (status:open) vs Create & Complete buttons — both pass E2E (iteration_99).
+- NEW OpenBillsPanel.jsx at POS (amber strip above Invoice header): fetches GET /invoices?status=open, expandable rows (invoice no, guest, time, total), per-row payment-mode select + Complete → POST /invoices/{id}/complete (points/cashback/stock applied on completion). Panel hides at 0 bills. Toast on "Create" now points to the panel.
+- Backend: GET /invoices accepts ?status= filter. reports.py now EXCLUDES status:open from revenue everywhere: dashboard trend (L68), staff-performance (L112), dashboard (L166), daily (L254), sales (L295 — was missed on first pass, caught by testing agent), staff-commission (L362). Verified: sales total unchanged by open bill, +2124 only after completing.
+- Gift card 📷 Scan button at POS (pos-gift-card-scan) — same camera scanner, detects GC- codes (MC- for members). Fixed pre-existing bug: onClick={checkGiftCard} passed the click event as the code arg → now onClick={() => checkGiftCard()}.
+- MembershipPublic.jsx background verified: white + rose-gold blobs + salon logo (matches GiftCardPublic). Testing agent design note (optional): dark plan cards on white hero could get a lightening pass.
+- Showed user the Gold Membership welcome email (rendered actual template: dark gold member card block, Member ID, plan/cashback/validity table, "View my membership card" CTA, PDF card + QR PNG attachments).
+- Testing: iteration_99.json — frontend 6/6 flows pass; backend 7/7 after sales fix (re-verified via curl). BUILD pending redeploy by user.
