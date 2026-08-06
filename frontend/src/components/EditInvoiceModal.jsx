@@ -11,7 +11,7 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
   const [editor, setEditor] = useState("");
   const [staffList, setStaffList] = useState(null); // [{id,name}]
   useEffect(() => {
-    api.get("/staff").then(r => setStaffList(r.data.map(s => ({ id: s.id, name: s.name })))).catch(() => setStaffList([]));
+    api.get("/staff").then(r => setStaffList(r.data.filter(s => !s.away).map(s => ({ id: s.id, name: s.name })))).catch(() => setStaffList([]));
   }, []);
   const [mode, setMode] = useState(MODES.includes(invoice.payment_mode) ? invoice.payment_mode : "cash");
   const fixed = (invoice.membership_discount || 0) + (invoice.coupon_discount || 0) + (invoice.points_used || 0);

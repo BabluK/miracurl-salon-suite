@@ -57,7 +57,7 @@ export default function Appointments() {
 
   useEffect(() => {
     api.get("/customers").then(r => setCustomers(r.data));
-    api.get("/staff").then(r => setStaff(r.data));
+    api.get("/staff").then(r => setStaff(r.data.filter(s => !s.away)));
     api.get("/services").then(r => setServices(r.data));
   }, []);
 

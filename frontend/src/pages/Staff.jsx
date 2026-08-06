@@ -14,6 +14,7 @@ import { TempCredModal } from "@/components/staff/TempCredModal";
 import { LeaveApprovalsPanel } from "@/components/staff/LeaveApprovalsPanel";
 import { StaffLeaderboard } from "@/components/staff/StaffLeaderboard";
 import { PendingSignupsPanel } from "@/components/staff/PendingSignupsPanel";
+import { TempDutyLog } from "@/components/staff/TempDutyLog";
 
 const EMPTY_FORM = {
   name: "", role: "Stylist", phone: "", email: "", personal_email: "", specialties: "",
@@ -42,7 +43,8 @@ const buildStaffPayload = (form) => ({
 });
 
 export default function Staff() {
-  const { tenant } = useAuth();
+  const { tenant, user } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
   const branches = tenant?.branches || [];
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
@@ -152,6 +154,16 @@ export default function Staff() {
     }
   }
 
+  async function cancelTemp(s) {
+    try {
+      const { data } = await api.post(`/staff/${s.id}/temp-transfer/cancel`);
+      toast.success(`${data.staff} is back at ${data.returned_to} ✦`);
+      load();
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Couldn't cancel the transfer");
+    }
+  }
+
   async function photoUploaded(url) {
     if (!editing) { toast.success("Photo attached — it saves with the profile ✦"); return; }
     try {
@@ -188,6 +200,7 @@ export default function Staff() {
             onDelete={remove}
             isManager={!!s.user_id && managerUserIds.includes(s.user_id)}
             onPromote={setPromoteFor}
+            onCancelTemp={cancelTemp}
             mainLabel={mainSalonLabel(tenant)}
           />
         ))}
@@ -222,6 +235,8 @@ export default function Staff() {
       )}
 
       <StaffLeaderboard refreshKey={lbKey} />
+
+      {isAdmin && <TempDutyLog />}
 
       <LeaveApprovalsPanel />
 

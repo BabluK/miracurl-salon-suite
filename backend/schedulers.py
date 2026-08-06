@@ -102,6 +102,19 @@ async def _staff_exit_scheduler() -> None:
         await asyncio.sleep(6 * 3600)
 
 
+async def _temp_transfer_scheduler() -> None:
+    """Every 15 min: activate due temporary staff transfers and auto-return finished ones (IST dates)."""
+    from routes.staff_admin import run_temp_transfer_sweep
+    while True:
+        try:
+            out = await run_temp_transfer_sweep()
+            if out.get("activated") or out.get("returned"):
+                logging.info(f"temp transfer sweep: {out}")
+        except Exception as e:
+            logging.error(f"temp transfer scheduler error: {e}")
+        await asyncio.sleep(900)
+
+
 async def _weekly_report_scheduler() -> None:
     """Every Monday (after 09:00 IST) auto-email each active salon owner last
     week's business snapshot. Idempotent via system_flags."""

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/context/AuthContext";
 import api, { setTenantSlug } from "@/lib/api";
 import { toast } from "sonner";
@@ -71,7 +72,7 @@ export default function SalonSwitcher() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {pinFor && (
+      {pinFor && createPortal(
         <div className="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-4" data-testid="salon-switch-pin-modal">
           <div className="bg-white rounded-2xl p-5 w-full max-w-xs shadow-2xl">
             <p className="text-sm font-semibold text-slate-800 flex items-center gap-2"><KeyRound className="w-4 h-4 text-amber-500" /> Owner PIN required</p>
@@ -89,7 +90,8 @@ export default function SalonSwitcher() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

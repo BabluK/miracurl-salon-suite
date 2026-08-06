@@ -102,6 +102,7 @@ from schedulers import (  # noqa: E402
     _gift_card_scheduler, _mira_auto_call_scheduler, _mira_digest_scheduler,
     _lead_heat_scheduler, _callback_redial_scheduler, _phone_backfill_task, _weekly_win_scheduler,
     _feedback_reminder_scheduler, _salon_digest_scheduler, _db_health_scheduler,
+    _temp_transfer_scheduler,
 )
 
 for _r in (
@@ -136,6 +137,7 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_weekly_report_scheduler())
     asyncio.get_event_loop().create_task(_birthday_scheduler())
     asyncio.get_event_loop().create_task(_staff_exit_scheduler())
+    asyncio.get_event_loop().create_task(_temp_transfer_scheduler())
     asyncio.get_event_loop().create_task(_sms_reminder_scheduler())
     asyncio.get_event_loop().create_task(_gift_card_scheduler())
     asyncio.get_event_loop().create_task(_mira_auto_call_scheduler())

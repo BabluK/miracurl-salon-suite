@@ -5,21 +5,44 @@ import { useAuth } from "@/context/AuthContext";
 import { mainSalonLabel } from "@/lib/branch";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { TransferConfirmModal } from "@/components/staff/TransferConfirmModal";
+
+const tomorrowISO = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
 export function StaffFormModal({ editing, form, setForm, branches, onClose, onSubmit, onPhotoUploaded, onTransferred }) {
   const { user, tenant } = useAuth();
   const otherSalons = (user?.salons || []).filter(s => s.id !== user?.tenant_id);
   const [transferTo, setTransferTo] = useState("");
+  const [transferMode, setTransferMode] = useState("temporary");
+  const [tFrom, setTFrom] = useState(tomorrowISO());
+  const [tTo, setTTo] = useState(tomorrowISO());
+  const [confirming, setConfirming] = useState(false);
   const [transferring, setTransferring] = useState(false);
 
-  async function doTransfer() {
-    const target = otherSalons.find(s => s.id === transferTo);
+  const target = otherSalons.find(s => s.id === transferTo);
+
+  function askTransfer() {
     if (!target) { toast.error("Pick the salon to transfer to"); return; }
-    if (!window.confirm(`Transfer ${form.name || "this staff"} to "${target.name}"?\n\nTheir full profile, portal login and booking visibility move to that branch. They will no longer appear in this salon's booking portal or staff list.`)) return;
+    if (transferMode === "temporary" && (!tFrom || !tTo || tTo < tFrom)) {
+      toast.error("Pick valid From and To dates"); return;
+    }
+    setConfirming(true);
+  }
+
+  async function doTransfer() {
     setTransferring(true);
     try {
-      const { data } = await api.post(`/staff/${editing.id}/transfer`, { target_tenant_id: transferTo });
-      toast.success(`${data.staff} transferred to ${data.transferred_to.name} ✦`);
+      const payload = { target_tenant_id: transferTo, mode: transferMode };
+      if (transferMode === "temporary") { payload.from_date = tFrom; payload.to_date = tTo; }
+      const { data } = await api.post(`/staff/${editing.id}/transfer`, payload);
+      if (data.mode === "temporary") {
+        toast.success(data.active_now
+          ? `${data.staff} is now working at ${data.transferred_to.name} till ${data.to_date} ✦`
+          : `${data.staff} will move to ${data.transferred_to.name} on ${data.from_date} and return automatically ✦`);
+      } else {
+        toast.success(`${data.staff} transferred to ${data.transferred_to.name} ✦`);
+      }
+      setConfirming(false);
       onTransferred?.();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Transfer failed");
@@ -115,12 +138,41 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
                     <option value="">Choose salon…</option>
                     {otherSalons.map(s => <option key={s.id} value={s.id}>{s.name}{s.location ? ` — ${s.location}` : ""}</option>)}
                   </select>
-                  <button type="button" data-testid="staff-transfer-btn" onClick={doTransfer} disabled={transferring || !transferTo}
+                  <button type="button" data-testid="staff-transfer-btn" onClick={askTransfer} disabled={transferring || !transferTo}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-fuchsia-500 hover:bg-fuchsia-600 text-white text-xs font-semibold disabled:opacity-50 shrink-0">
                     {transferring ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRightLeft className="w-3.5 h-3.5" />} Transfer
                   </button>
                 </div>
-                <p className="text-[10px] text-fuchsia-600/80 mt-1">Moves their full profile + portal login + client booking visibility to that branch. History stays here.</p>
+                <div className="inline-flex rounded-full border border-fuchsia-200 overflow-hidden mt-2 bg-white">
+                  <button type="button" data-testid="transfer-mode-temporary" onClick={() => setTransferMode("temporary")}
+                    className={`text-[11px] px-3 py-1 font-medium ${transferMode === "temporary" ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                    🔁 Temporary
+                  </button>
+                  <button type="button" data-testid="transfer-mode-permanent" onClick={() => setTransferMode("permanent")}
+                    className={`text-[11px] px-3 py-1 font-medium ${transferMode === "permanent" ? "bg-fuchsia-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+                    Permanent
+                  </button>
+                </div>
+                {transferMode === "temporary" ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-0.5">From</label>
+                        <input data-testid="transfer-from-date" type="date" className="input-light text-xs" value={tFrom}
+                          min={new Date().toISOString().slice(0, 10)}
+                          onChange={e => { setTFrom(e.target.value); if (tTo < e.target.value) setTTo(e.target.value); }} />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-0.5">To (last day there)</label>
+                        <input data-testid="transfer-to-date" type="date" className="input-light text-xs" value={tTo}
+                          min={tFrom} onChange={e => setTTo(e.target.value)} />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-sky-700 mt-1.5">Works at that salon for these dates only — then <b>returns here automatically</b>. Shown here with an &ldquo;away&rdquo; badge meanwhile.</p>
+                  </>
+                ) : (
+                  <p className="text-[10px] text-fuchsia-600/80 mt-1.5">Moves their full profile + portal login + client booking visibility to that branch. History stays here.</p>
+                )}
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
@@ -209,6 +261,19 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
           </div>
         </form>
       </div>
+      {confirming && target && (
+        <TransferConfirmModal
+          staff={editing || form}
+          fromName={tenant?.name || "this salon"}
+          toName={target.name}
+          mode={transferMode}
+          fromDate={tFrom}
+          toDate={tTo}
+          busy={transferring}
+          onCancel={() => setConfirming(false)}
+          onConfirm={doTransfer}
+        />
+      )}
     </div>
   );
 }

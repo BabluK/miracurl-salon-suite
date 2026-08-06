@@ -87,7 +87,7 @@ export default function POS() {
     api.get("/packages").then(r => setPackages(r.data.filter(p => p.active))).catch(() => {});
     api.get("/memberships").then(r => setMemberships(r.data.filter(m => m.active))).catch(() => {});
     api.get("/pos/offers").then(r => setPosOffers(r.data)).catch(() => {});
-    api.get("/staff").then(r => setStaff(r.data));
+    api.get("/staff").then(r => setStaff(r.data.filter(s => !s.away)));
     api.get("/settings/tax")
       .then(r => { setTaxEnabled(!!r.data.tax_enabled); setTaxPct(Number(r.data.tax_pct || 0)); })
       .catch(() => { setTaxEnabled(false); setTaxPct(0); });

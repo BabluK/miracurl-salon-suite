@@ -1,7 +1,11 @@
 import { Edit3, Trash2, Phone, Mail, Percent, IndianRupee, KeyRound, Power, Clock, ShieldCheck, FileDown } from "lucide-react";
 import { API } from "@/lib/api";
 
-export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete, isManager = false, onPromote, mainLabel = "Main salon" }) {
+export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete, isManager = false, onPromote, onCancelTemp, mainLabel = "Main salon" }) {
+  const tt = s.temp_transfer;
+  const away = !!s.away;                                   // home view: working elsewhere right now
+  const guest = tt && tt.status === "active" && !away;      // target view: temporarily here
+  const upcoming = tt && tt.status === "scheduled" && !away; // home view: moving soon
   return (
     <div data-testid={`staff-card-${s.id}`} className="card-light text-center group hover:border-sky-300 transition-all">
       <div className="relative inline-block">
@@ -27,6 +31,21 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
         <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-medium max-w-full truncate" data-testid={`branch-tag-${s.id}`} title={s.branch || mainLabel}>
           📍 {s.branch || mainLabel}
         </div>
+        {away && (
+          <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-sky-50 border border-sky-300 text-sky-700 font-semibold" data-testid={`away-badge-${s.id}`}>
+            🔁 On duty at {tt?.target_name}{tt?.to_date ? ` · till ${tt.to_date}` : ""}
+          </div>
+        )}
+        {guest && (
+          <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-cyan-50 border border-cyan-300 text-cyan-700 font-semibold" data-testid={`guest-badge-${s.id}`}>
+            👋 Guest from {tt?.home_name}{tt?.to_date ? ` · till ${tt.to_date}` : ""}
+          </div>
+        )}
+        {upcoming && (
+          <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-violet-50 border border-violet-300 text-violet-700 font-semibold" data-testid={`upcoming-transfer-badge-${s.id}`}>
+            🔜 Moves to {tt?.target_name} on {tt?.from_date}
+          </div>
+        )}
         {s.serving_notice && (
           <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-700 font-medium" data-testid={`notice-badge-${s.id}`}>
             Serving notice{s.last_working_day ? ` · last day ${s.last_working_day}` : ""}
@@ -50,7 +69,23 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
           </div>
         )}
       </div>
+      {away ? (
+        <div className="mt-4">
+          <button data-testid={`return-now-${s.id}`} onClick={() => onCancelTemp?.(s)}
+            className="text-xs py-1.5 px-4 rounded-md bg-sky-600 hover:bg-sky-700 text-white font-semibold inline-flex items-center gap-1">
+            ↩︎ Bring back now
+          </button>
+          <p className="text-[10px] text-slate-400 mt-1.5">Returns automatically after {tt?.to_date}</p>
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center gap-1.5 justify-center mt-4">
+        {(guest || upcoming) && (
+          <button data-testid={`cancel-temp-${s.id}`} onClick={() => onCancelTemp?.(s)}
+            className="text-xs py-1.5 px-3 rounded-md bg-cyan-50 border border-cyan-200 text-cyan-700 hover:bg-cyan-100 inline-flex items-center gap-1"
+            title={guest ? "End the guest duty now — they return to their home salon" : "Cancel the upcoming move"}>
+            ↩︎ {guest ? "Return early" : "Cancel move"}
+          </button>
+        )}
         <button data-testid={`edit-staff-${s.id}`} onClick={() => onEdit(s)} className="btn-slate flex items-center gap-1 text-xs py-1.5 px-3"><Edit3 className="w-3 h-3" /> Edit</button>
         <button
           data-testid={`advance-staff-${s.id}`}
@@ -113,6 +148,7 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
         </button>
         <button data-testid={`delete-staff-${s.id}`} onClick={() => onDelete(s.id)} className="p-1.5 text-slate-500 hover:text-red-500 transition"><Trash2 className="w-4 h-4" /></button>
       </div>
+      )}
     </div>
   );
 }

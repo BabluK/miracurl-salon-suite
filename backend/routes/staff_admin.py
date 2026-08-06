@@ -63,7 +63,17 @@ async def list_staff(user=Depends(get_current_user)):
     proj = {"_id": 0, "aadhaar_hash": 0}
     if user.get("role") not in ("admin", "super_admin"):
         proj.update(_STAFF_SENSITIVE_FIELDS)  # SEC-001: staff/manager get no pay/bank/ID data
-    return await db.staff.find({"former": {"$ne": True}}, proj).to_list(500)
+    rows = await db.staff.find({"former": {"$ne": True}}, proj).to_list(500)
+    tid = user.get("tenant_id")
+    if tid:
+        # staff temporarily working at another salon still show at home with an "away" flag
+        away = await _raw_db.staff.find(
+            {"temp_transfer.home_tenant_id": tid, "temp_transfer.status": "active",
+             "former": {"$ne": True}}, proj).to_list(50)
+        for s in away:
+            s["away"] = True
+        rows += away
+    return rows
 
 
 # ── Previous staff (left / notice completed) — Settings section ──
@@ -306,13 +316,26 @@ def _generate_temp_password() -> str:
 
 class StaffTransferIn(BaseModel):
     target_tenant_id: str
+    mode: str = Field("permanent", pattern="^(permanent|temporary)$")
+    from_date: Optional[str] = None  # YYYY-MM-DD (temporary only)
+    to_date: Optional[str] = None
+
+
+def _move_staff_to(sid: str, s: dict, target_tid: str):
+    """Coroutine pair: move staff doc + linked login to the target tenant."""
+    ops = [_raw_db.staff.update_one({"id": sid}, {"$set": {"tenant_id": target_tid, "branch": ""}})]
+    if s.get("user_id"):
+        ops.append(_raw_db.users.update_one({"id": s["user_id"]}, {"$set": {"tenant_id": target_tid}}))
+    return ops
 
 
 @router.post("/staff/{sid}/transfer")
 async def transfer_staff(sid: str, body: StaffTransferIn,
                          admin=Depends(require_admin), t=Depends(current_tenant)):
     """Move a staff member (profile + portal login) to another salon the SAME owner controls.
-    Their booking-portal visibility follows automatically; history stays with the old branch."""
+    Permanent: full move, history stays with the old branch.
+    Temporary: works at the target salon between from_date and to_date (IST),
+    then AUTOMATICALLY returns home — shown at home with an 'away' badge meanwhile."""
     owned = set(admin.get("tenant_ids") or [])
     if admin.get("tenant_id"):
         owned.add(admin["tenant_id"])
@@ -327,15 +350,138 @@ async def transfer_staff(sid: str, body: StaffTransferIn,
     s = await db.staff.find_one({"id": sid}, {"_id": 0})
     if not s:
         raise HTTPException(404, "Staff member not found")
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    if body.mode == "temporary":
+        if s.get("temp_transfer"):
+            raise HTTPException(400, f"{s['name']} already has a temporary transfer — cancel it first")
+        fd, td = (body.from_date or "").strip(), (body.to_date or "").strip()
+        try:
+            datetime.fromisoformat(fd)
+            datetime.fromisoformat(td)
+        except ValueError:
+            raise HTTPException(400, "Pick valid From and To dates for a temporary transfer")
+        today = datetime.now(IST_TZ).date().isoformat()
+        if td < fd:
+            raise HTTPException(400, "End date must be on or after the start date")
+        if td < today:
+            raise HTTPException(400, "End date is already in the past")
+        tt = {"status": "scheduled", "home_tenant_id": t["id"], "home_name": t.get("name") or t.get("slug"),
+              "home_branch": s.get("branch") or "", "target_tenant_id": target_tid,
+              "target_name": target["name"], "from_date": fd, "to_date": td,
+              "created_by": admin.get("email"), "created_at": now_iso}
+        starts_now = fd <= today
+        if starts_now:
+            tt["status"] = "active"
+            for op in _move_staff_to(sid, s, target_tid):
+                await op
+        await _raw_db.staff.update_one({"id": sid}, {"$set": {"temp_transfer": tt}})
+        return {"ok": True, "staff": s["name"], "transferred_to": target, "mode": "temporary",
+                "active_now": starts_now, "from_date": fd, "to_date": td,
+                "login_moved": bool(s.get("user_id")) and starts_now}
+
+    for op in _move_staff_to(sid, s, target_tid):
+        await op
     await _raw_db.staff.update_one(
-        {"id": sid, "tenant_id": t["id"]},
-        {"$set": {"tenant_id": target_tid, "branch": "",
-                  "transferred_from": t["id"],
-                  "transferred_at": datetime.now(timezone.utc).isoformat()}})
-    if s.get("user_id"):
-        await _raw_db.users.update_one({"id": s["user_id"]}, {"$set": {"tenant_id": target_tid}})
-    return {"ok": True, "staff": s["name"], "transferred_to": target,
+        {"id": sid},
+        {"$set": {"transferred_from": t["id"], "transferred_at": now_iso},
+         "$unset": {"temp_transfer": ""}})
+    return {"ok": True, "staff": s["name"], "transferred_to": target, "mode": "permanent",
             "login_moved": bool(s.get("user_id"))}
+
+
+async def _staff_billed_at(tenant_id: str, staff_id: str, fd: str, td: str) -> tuple:
+    """Sum of non-voided bills by this staff at a salon between two dates (ISO strings)."""
+    if not (tenant_id and staff_id and fd and td):
+        return 0, 0
+    agg = await _raw_db.invoices.aggregate([
+        {"$match": {"tenant_id": tenant_id, "staff_id": staff_id, "status": {"$ne": "voided"},
+                    "created_at": {"$gte": fd, "$lte": td + "~"}}},
+        {"$group": {"_id": None, "total": {"$sum": "$total"}, "count": {"$sum": 1}}}]).to_list(1)
+    return round((agg[0]["total"] if agg else 0) or 0, 2), (agg[0]["count"] if agg else 0) or 0
+
+
+@router.get("/staff/temp-transfers/log")
+async def temp_transfer_log(admin=Depends(require_admin), t=Depends(current_tenant)):
+    """Admin-only: who worked at which salon temporarily + business they billed there."""
+    rows = []
+    cur = await _raw_db.staff.find(
+        {"$or": [{"temp_transfer.home_tenant_id": t["id"]},
+                 {"tenant_id": t["id"], "temp_transfer": {"$exists": True}}]},
+        {"_id": 0, "id": 1, "name": 1, "temp_transfer": 1}).to_list(50)
+    for s in cur:
+        tt = s["temp_transfer"]
+        billed, bills = await _staff_billed_at(tt.get("target_tenant_id"), s["id"],
+                                               tt.get("from_date"), tt.get("to_date"))
+        rows.append({"staff_name": s["name"], "target_name": tt.get("target_name"),
+                     "home_name": tt.get("home_name"), "from_date": tt.get("from_date"),
+                     "to_date": tt.get("to_date"), "status": tt.get("status"),
+                     "billed": billed, "bills": bills})
+    hist = await _raw_db.staff_transfer_log.find(
+        {"kind": "temp_return", "home_tenant_id": t["id"]},
+        {"_id": 0}).sort("returned_at", -1).to_list(30)
+    for h in hist:
+        rows.append({"staff_name": h.get("staff_name"), "target_name": h.get("target_name"),
+                     "home_name": h.get("home_name"), "from_date": h.get("from_date"),
+                     "to_date": h.get("to_date"), "status": "returned",
+                     "billed": h.get("billed", 0), "bills": h.get("bills", 0)})
+    return {"rows": rows}
+
+
+async def _return_temp_staff(s: dict) -> None:
+    tt = s.get("temp_transfer") or {}
+    billed, bills = await _staff_billed_at(tt.get("target_tenant_id"), s["id"],
+                                           tt.get("from_date"), tt.get("to_date"))
+    await _raw_db.staff.update_one(
+        {"id": s["id"]},
+        {"$set": {"tenant_id": tt.get("home_tenant_id"), "branch": tt.get("home_branch") or ""},
+         "$unset": {"temp_transfer": ""}})
+    if s.get("user_id"):
+        await _raw_db.users.update_one({"id": s["user_id"]}, {"$set": {"tenant_id": tt.get("home_tenant_id")}})
+    await _raw_db.staff_transfer_log.insert_one({
+        "id": str(uuid.uuid4()), "staff_id": s["id"], "staff_name": s.get("name"),
+        "kind": "temp_return", "billed": billed, "bills": bills,
+        **{k: tt.get(k) for k in ("home_tenant_id", "home_name", "target_tenant_id",
+                                  "target_name", "from_date", "to_date")},
+        "returned_at": datetime.now(timezone.utc).isoformat()})
+
+
+async def run_temp_transfer_sweep() -> dict:
+    """Activate temp transfers whose start date arrived; auto-return staff whose end date passed (IST)."""
+    today = datetime.now(IST_TZ).date().isoformat()
+    activated = returned = 0
+    async for s in _raw_db.staff.find(
+            {"temp_transfer.status": "scheduled", "temp_transfer.from_date": {"$lte": today},
+             "former": {"$ne": True}}, {"_id": 0}):
+        tt = s["temp_transfer"]
+        for op in _move_staff_to(s["id"], s, tt["target_tenant_id"]):
+            await op
+        await _raw_db.staff.update_one({"id": s["id"]}, {"$set": {"temp_transfer.status": "active"}})
+        activated += 1
+    async for s in _raw_db.staff.find(
+            {"temp_transfer.status": "active", "temp_transfer.to_date": {"$lt": today}}, {"_id": 0}):
+        await _return_temp_staff(s)
+        returned += 1
+    return {"activated": activated, "returned": returned}
+
+
+@router.post("/staff/{sid}/temp-transfer/cancel")
+async def cancel_temp_transfer(sid: str, admin=Depends(require_admin), t=Depends(current_tenant)):
+    """Cancel a scheduled temp transfer, or bring the staff back home right now."""
+    s = await _raw_db.staff.find_one({"id": sid, "temp_transfer": {"$exists": True}}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "No temporary transfer found for this staff")
+    tt = s["temp_transfer"]
+    owned = set(admin.get("tenant_ids") or [])
+    if admin.get("tenant_id"):
+        owned.add(admin["tenant_id"])
+    if admin.get("role") != "super_admin" and tt.get("home_tenant_id") not in owned and s.get("tenant_id") not in owned:
+        raise HTTPException(403, "This staff isn't linked to your salons")
+    if tt.get("status") == "active":
+        await _return_temp_staff(s)
+    else:
+        await _raw_db.staff.update_one({"id": sid}, {"$unset": {"temp_transfer": ""}})
+    return {"ok": True, "staff": s.get("name"), "returned_to": tt.get("home_name") or "home salon"}
 
 
 @router.post("/staff/{sid}/create-login")
