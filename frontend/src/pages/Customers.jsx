@@ -10,6 +10,7 @@ export default function Customers() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [walletFor, setWalletFor] = useState(null);
+  const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
   const [form, setForm] = useState({ name: "", phone: "", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" });
 
   const load = useCallback(async () => {
@@ -18,6 +19,33 @@ export default function Customers() {
   }, [q]);
   useEffect(() => { load(); }, [load]);
   const csvRef = useRef(null);
+
+  const istDay = (iso, offsetDays = 0) => {
+    const d = iso ? new Date(iso) : new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  };
+  const today = istDay(null), yesterday = istDay(null, -1), weekAgo = istDay(null, -6);
+  const counts = {
+    today: list.filter(c => c.created_at && istDay(c.created_at) === today).length,
+    yesterday: list.filter(c => c.created_at && istDay(c.created_at) === yesterday).length,
+    week: list.filter(c => c.created_at && istDay(c.created_at) >= weekAgo).length,
+  };
+  const visible = list.filter(c => {
+    if (dateFilter === "all") return true;
+    const d = c.created_at ? istDay(c.created_at) : "";
+    if (dateFilter === "today") return d === today;
+    if (dateFilter === "yesterday") return d === yesterday;
+    return d >= weekAgo;
+  });
+  const addedLabel = (iso) => {
+    if (!iso) return "—";
+    const d = istDay(iso);
+    const time = new Date(iso).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit" });
+    if (d === today) return `Today · ${time}`;
+    if (d === yesterday) return `Yesterday · ${time}`;
+    return new Date(iso).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
+  };
 
   async function exportCsv() {
     try {
@@ -87,20 +115,32 @@ export default function Customers() {
         </div>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input data-testid="customer-search" className="input-light pl-10" placeholder="Search by name or phone..." value={q} onChange={e => setQ(e.target.value)} />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative max-w-md flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input data-testid="customer-search" className="input-light pl-10" placeholder="Search by name or phone..." value={q} onChange={e => setQ(e.target.value)} />
+        </div>
+        <div className="flex gap-2" data-testid="crm-date-filters">
+          {[["all", "✨ All"], ["today", `📅 Today (${counts.today})`], ["yesterday", `Yesterday (${counts.yesterday})`], ["week", `Last 7 days (${counts.week})`]].map(([k, l]) => (
+            <button key={k} data-testid={`crm-filter-${k}`} onClick={() => setDateFilter(k)}
+              className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition ${dateFilter === k
+                ? "bg-slate-900 text-amber-200 border-slate-900 shadow"
+                : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="card-light p-0 overflow-x-auto">
-        <table className="luxe-table-light min-w-[720px]">
+        <table className="luxe-table-light min-w-[820px]">
           <thead>
             <tr>
-              <th>Customer</th><th>Contact</th><th>Gender</th><th>Visits</th><th>Spent</th><th>Loyalty</th><th>Wallet</th><th></th>
+              <th>Customer</th><th>Contact</th><th>Added</th><th>Gender</th><th>Visits</th><th>Spent</th><th>Loyalty</th><th>Wallet</th><th></th>
             </tr>
           </thead>
           <tbody>
-            {list.map(c => (
+            {visible.map(c => (
               <tr key={c.id} data-testid={`customer-row-${c.id}`}>
                 <td>
                   <div className="flex items-center gap-3">
@@ -137,8 +177,8 @@ export default function Customers() {
                 </td>
               </tr>
             ))}
-            {list.length === 0 && (
-              <tr><td colSpan="8" className="text-center text-slate-500 py-12">No customers yet. Add your first one!</td></tr>
+            {visible.length === 0 && (
+              <tr><td colSpan="9" className="text-center text-slate-500 py-12">{list.length ? "No customers in this date range." : "No customers yet. Add your first one!"}</td></tr>
             )}
           </tbody>
         </table>

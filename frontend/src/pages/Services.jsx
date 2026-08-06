@@ -507,6 +507,20 @@ export default function Services() {
                 <div><label className="label-light block mb-1">Duration (min)</label><input type="number" required className="input-light" value={form.duration_min} onChange={e => setForm({ ...form, duration_min: e.target.value })} /></div>
               </div>
               <div>
+                <label className="label-light block mb-1">Who is it for?</label>
+                <div className="grid grid-cols-3 gap-2" data-testid="service-gender-picker">
+                  {[["male", "👨 Men"], ["female", "👩 Women"], ["unisex", "⚥ Unisex"]].map(([k, l]) => (
+                    <button key={k} type="button" data-testid={`service-gender-${k}`}
+                      onClick={() => setForm({ ...form, gender: k })}
+                      className={`rounded-xl border-2 py-2 text-xs font-semibold transition ${(form.gender || "unisex") === k
+                        ? "border-sky-500 bg-sky-50 text-sky-700"
+                        : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
                 <label className="label-light block mb-1">Service image</label>
                 <ImageUploader
                   kind="service"

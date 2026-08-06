@@ -15,6 +15,7 @@ RELEASES = [
             "👨👩 Services categorized for Men / Women / Unisex — filter chips on the Services page and in POS billing, one-tap re-categorize on any service, and a 'Who is it for?' picker when adding services",
             "✏️ POS price is now editable per bill — haircut listed at ₹700 but charging ₹800 today? Just type the new price on the bill line",
             "🔎 POS search fixed — typing 'Threading' (or any service) now finds it across ALL categories, not just the selected one",
+            "📅 CRM now shows when each customer was added, with one-tap Today / Yesterday / Last-7-days filters — newest guests always on top",
             "🧾 Receipt popup redesigned — long bills scroll smoothly while the Total stays locked at the bottom with the action buttons",
             "🔒 Protected sections got stricter — a wrong Admin PIN now returns managers to where they came from (attempt logged for the owner), with a clear Go-back button",
             "✨ New transfer confirmation popup — staff photo, from → to salons, dates and exactly what will happen (replaces the plain browser alert)",

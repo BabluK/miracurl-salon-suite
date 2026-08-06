@@ -1371,3 +1371,14 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - FIXES during session: AppLayout had stray '/>}' garbage after component end (build break) — removed; NoticePopup import initially lost — re-added. manager@miracurl.com password re-hashed to Manager@1234 (was stale vs test_credentials.md).
 - Tested: curl (transfer app-channel → notices for staff+managers both tenants; end notices on return; mark-seen) + Playwright (manager login → popup centered 960/400, dismiss, reload → not shown again).
 - USER RULE: ALWAYS bump BUILD + add release_notes entry, and PUSH TO PRODUCTION (redeploy) after every change set — user said "don't miss".
+
+## 2026-08-06 (round 3) — POS/CRM/Services batch (user's 5+1 requests)
+1. InvoiceReceiptModal: flex-col max-h-[92vh]; middle receipt-scroll-area scrolls; footer (totals+buttons) locked with border/shadow. Verified via live 5-line bill.
+2. Manager/Admin lock screens: wrong PIN → toast + auto navigate back (history -1 else /dashboard) after 0.9s + "Go back" button (admin-pin-go-back-btn / manager-pin-go-back-btn). Attempts already logged by /manager/section-access. Testing agent PASSED.
+3. POS search: typed query searches name+category across ALL categories (POS.jsx filtered memo). PASSED.
+4. POS editable price: CartTable cart-line-price-{i} number input → updateLine price; backend trusts body.items prices. Verified: ₹2000→₹800 edit landed on invoice INV-202608-0215.
+5. Services gender: Service/ServiceIn schemas gender male|female|unisex; migration auto-tagged (regex; female checked first because \bmen\b safe); Services page: gender filter chips w/ counts (services-gender-chip-*), per-row cycle chip (toggle-gender-{id}), "Who is it for?" picker in form (service-gender-*); POS CatalogPanel chips pos-gender-{all,male,female} — filter shows selected + unisex.
+6. CRM (Customers.jsx): Added column (Today/Yesterday · time, IST) + date filter chips crm-filter-{all,today,yesterday,week} with counts; backend already sorted created_at desc.
+- release_notes BUILD 2026-08-06.57 with all entries.
+- CRITICAL LEARNING (recorded also below): search_replace with MULTIPLE PARALLEL EDITS to the SAME FILE occasionally duplicates the file tail → orphan JSX after component close = Babel "Missing semicolon" build break. Happened to AppLayout.jsx, Services.jsx (testing agent fixed, my gender-picker landed in the removed orphan tail and had to be re-added), Customers.jsx. FIX: check `tail` of edited JSX files after batch edits; prefer sequential edits for same-file batches.
+- Testing: iteration_97.json (agent) + self Playwright (POS bill e2e, CRM filters, gender picker). Agent's "POS checkout not firing" was NOT reproducible — root cause was guest search mismatch in their run.
