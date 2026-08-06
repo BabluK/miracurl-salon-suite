@@ -322,6 +322,10 @@ async def _gift_card_scheduler() -> None:
             tn = await run_trial_nudges()
             if tn:
                 logging.info(f"trial nudges: emailed {tn} trial owners with usage stats + pay link")
+            from routes.premium_membership import run_membership_expiry_reminders
+            mr = await run_membership_expiry_reminders()
+            if mr:
+                logging.info(f"membership expiry: emailed {mr} members a renewal reminder")
         except Exception as e:
             logging.error(f"gift card scheduler error: {e}")
         await asyncio.sleep(3600)

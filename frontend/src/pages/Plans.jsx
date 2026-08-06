@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { BadgePercent, Package as PackageIcon, Crown, Ticket, Plus, Trash2, Edit3, X } from "lucide-react";
+import { MembersPanel } from "@/components/offers/MembersPanel";
 
 const TABS = [
   { k: "packages", label: "Packages", icon: PackageIcon },
@@ -72,16 +73,23 @@ export default function Plans() {
           onEdit={p => setModal({ kind: "packages", item: p })} onDelete={p => remove("packages", p.id)} />
       )}
       {tab === "memberships" && (
+        <>
         <Grid empty="No memberships yet — e.g. 'Gold Member: 15% off for 6 months'." items={memberships} testPrefix="membership"
           render={m => (
             <>
               <div className="font-semibold text-slate-800 flex items-center gap-1.5"><Crown className="w-4 h-4 text-amber-500" /> {m.name}</div>
-              <div className="text-sm text-slate-500 mt-1">{m.discount_pct}% off all services</div>
-              <div className="text-lg font-bold text-violet-700 mt-2">₹{m.price}</div>
-              <div className="text-[11px] text-slate-400">Valid {m.validity_days} days {!m.active && "· INACTIVE"}</div>
+              <div className="text-sm text-slate-500 mt-1">
+                {m.discount_pct}% off services{Number(m.cashback_pct) > 0 && <> · {m.cashback_pct}% wallet cashback</>}
+              </div>
+              <div className="text-lg font-bold text-violet-700 mt-2">₹{m.price}{m.custom && "+"}</div>
+              <div className="text-[11px] text-slate-400">
+                Valid {m.validity_days} days {m.public_purchase && "· 🌐 On booking page"} {!m.active && "· INACTIVE"}
+              </div>
             </>
           )}
           onEdit={m => setModal({ kind: "memberships", item: m })} onDelete={m => remove("memberships", m.id)} />
+        <MembersPanel />
+        </>
       )}
       {tab === "coupons" && (
         <Grid empty="No coupons yet — e.g. FESTIVE20 = 20% off." items={coupons} testPrefix="coupon"
@@ -124,7 +132,7 @@ function Grid({ items, render, onEdit, onDelete, empty, testPrefix }) {
 
 const DEFAULTS = {
   packages: { name: "", price: "", service_id: "", sessions: 5, validity_days: 365, active: true },
-  memberships: { name: "", price: "", discount_pct: 10, validity_days: 180, active: true },
+  memberships: { name: "", price: "", discount_pct: 10, validity_days: 180, active: true, cashback_pct: 0, benefits: [], public_purchase: false },
   coupons: { code: "", type: "percent", value: 10, expires_at: "", max_uses: "", active: true },
 };
 
@@ -139,7 +147,14 @@ function PlanModal({ kind, item, services, onClose, onSaved }) {
     try {
       const payload = { ...f };
       if (kind === "packages") { payload.price = parseFloat(f.price); payload.sessions = parseInt(f.sessions); payload.validity_days = parseInt(f.validity_days); }
-      if (kind === "memberships") { payload.price = parseFloat(f.price); payload.discount_pct = parseFloat(f.discount_pct); payload.validity_days = parseInt(f.validity_days); }
+      if (kind === "memberships") {
+        payload.price = parseFloat(f.price); payload.discount_pct = parseFloat(f.discount_pct);
+        payload.validity_days = parseInt(f.validity_days);
+        payload.cashback_pct = parseFloat(f.cashback_pct || 0);
+        payload.benefits = typeof f.benefits === "string"
+          ? f.benefits.split(",").map(b => b.trim()).filter(Boolean)
+          : (f.benefits || []);
+      }
       if (kind === "coupons") { payload.value = parseFloat(f.value); payload.max_uses = f.max_uses ? parseInt(f.max_uses) : null; payload.expires_at = f.expires_at || null; }
       if (item) await api.put(`/${kind}/${item.id}`, payload);
       else await api.post(`/${kind}`, payload);
@@ -181,11 +196,24 @@ function PlanModal({ kind, item, services, onClose, onSaved }) {
           </>
         )}
         {kind === "memberships" && (
+          <>
           <div className="grid grid-cols-3 gap-2">
             <Field label="Discount %"><input data-testid="plan-discount-input" type="number" min="1" max="90" className="inp" value={f.discount_pct} onChange={e => set("discount_pct", e.target.value)} /></Field>
             <Field label="Price ₹ *"><input data-testid="plan-price-input" type="number" required min="1" className="inp" value={f.price} onChange={e => set("price", e.target.value)} /></Field>
             <Field label="Valid (days)"><input type="number" min="1" className="inp" value={f.validity_days} onChange={e => set("validity_days", e.target.value)} /></Field>
           </div>
+          <Field label="Wallet cashback % (premium perk — every bill credits this % to the member's wallet)">
+            <input data-testid="plan-cashback-input" type="number" min="0" max="50" className="inp" value={f.cashback_pct} onChange={e => set("cashback_pct", e.target.value)} />
+          </Field>
+          <Field label="Benefits (comma separated — shown on the member's card)">
+            <input data-testid="plan-benefits-input" className="inp" placeholder="Birthday Offer, Priority Booking, Free Hair Wash"
+              value={Array.isArray(f.benefits) ? f.benefits.join(", ") : (f.benefits || "")} onChange={e => set("benefits", e.target.value)} />
+          </Field>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={!!f.public_purchase} onChange={e => set("public_purchase", e.target.checked)} data-testid="plan-public-checkbox" />
+            Sell on the public booking page (💳 Premium Membership)
+          </label>
+          </>
         )}
         {kind === "coupons" && (
           <>

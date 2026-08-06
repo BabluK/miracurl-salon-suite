@@ -1,0 +1,506 @@
+"""Premium Membership: public purchase (booking page), member cards + QR,
+welcome emails, admin members view, UPI approvals and expiry reminders."""
+import base64
+import hashlib
+import hmac
+import io
+import re
+import secrets
+import uuid
+from datetime import datetime, timezone, timedelta
+
+import razorpay as _razorpay
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+
+from database import _raw_db
+from security import require_tenant_admin, current_tenant, public_rate_limit
+from routes.gift_cards import _pay_keys, _gc_settings, _tenant_by_slug, _upi_qr_b64
+
+router = APIRouter()
+
+_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}")
+_ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+DEFAULT_BENEFITS = ["Birthday Offer", "Priority Booking", "Free Consultation"]
+DEFAULT_PLANS = [
+    {"tier": "silver", "name": "Silver", "price": 5000, "cashback_pct": 5, "discount_pct": 5},
+    {"tier": "gold", "name": "Gold", "price": 7000, "cashback_pct": 7, "discount_pct": 7},
+    {"tier": "platinum", "name": "Platinum", "price": 10000, "cashback_pct": 10, "discount_pct": 10},
+    {"tier": "diamond", "name": "Diamond", "price": 15000, "cashback_pct": 15, "discount_pct": 15},
+    {"tier": "custom", "name": "Custom", "price": 5000, "cashback_pct": 5, "discount_pct": 5,
+     "custom": True, "min_price": 5000},
+]
+TIER_COLORS = {"silver": "#94a3b8", "gold": "#d4af37", "platinum": "#8b5cf6",
+               "diamond": "#22d3ee", "custom": "#f59e0b"}
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def gen_member_id() -> str:
+    grp = lambda: "".join(secrets.choice(_ID_ALPHABET) for _ in range(4))  # noqa: E731
+    return f"MC-{grp()}-{grp()}-{grp()}"
+
+
+async def _unique_member_id() -> str:
+    mid = gen_member_id()
+    while await _raw_db.customer_memberships.find_one({"member_id": mid}, {"_id": 1}):
+        mid = gen_member_id()
+    return mid
+
+
+async def _ensure_premium_plans(t: dict) -> list:
+    """Seed the 5 default premium plans for a salon the first time; idempotent."""
+    existing = await _raw_db.memberships.find(
+        {"tenant_id": t["id"], "public_purchase": True}, {"_id": 0}).to_list(20)
+    if existing:
+        return existing
+    rows = []
+    for p in DEFAULT_PLANS:
+        rows.append({"id": str(uuid.uuid4()), "tenant_id": t["id"], "name": p["name"],
+                     "tier": p["tier"], "price": float(p["price"]),
+                     "discount_pct": float(p["discount_pct"]), "cashback_pct": float(p["cashback_pct"]),
+                     "validity_days": 365, "benefits": list(DEFAULT_BENEFITS),
+                     "custom": bool(p.get("custom")), "min_price": float(p.get("min_price") or 0),
+                     "public_purchase": True, "active": True, "created_at": _now()})
+    await _raw_db.memberships.insert_many([{**r} for r in rows])
+    return rows
+
+
+# ---------------- public: config + order + verify ----------------
+
+@router.get("/public/membership/{slug}/config")
+async def membership_config(slug: str):
+    t = await _tenant_by_slug(slug)
+    s = _gc_settings(t)
+    key_id, key_secret = _pay_keys(t)
+    plans = await _ensure_premium_plans(t)
+    plans = [p for p in plans if p.get("active", True)]
+    plans.sort(key=lambda p: (bool(p.get("custom")), float(p.get("price") or 0)))
+    return {"salon": {"name": t.get("name"), "logo_url": t.get("logo_url") or "",
+                      "location": t.get("location") or "", "slug": t["slug"]},
+            "plans": [{k: p.get(k) for k in ("id", "name", "tier", "price", "cashback_pct",
+                                             "discount_pct", "validity_days", "benefits",
+                                             "custom", "min_price")} for p in plans],
+            "payment": {"razorpay": bool(key_id and key_secret), "upi": bool(s["upi_id"]),
+                        "upi_id": s["upi_id"]}}
+
+
+class MemberOrderIn(BaseModel):
+    plan_id: str
+    amount: float = Field(0, ge=0, le=500000)  # custom plans only
+    name: str = Field(..., min_length=2, max_length=80)
+    phone: str = Field(..., min_length=8, max_length=15)
+    email: str
+    pay_method: str  # razorpay | upi
+    renew_member_id: str = ""
+
+
+@router.post("/public/membership/{slug}/order")
+async def membership_order(slug: str, body: MemberOrderIn, request: Request):
+    public_rate_limit(request, "member-order", limit=10, window_sec=600)
+    t = await _tenant_by_slug(slug)
+    s = _gc_settings(t)
+    key_id, key_secret = _pay_keys(t)
+    if body.pay_method == "razorpay" and not (key_id and key_secret):
+        raise HTTPException(400, "Online card/UPI payment is not enabled at this salon")
+    if body.pay_method == "upi" and not s["upi_id"]:
+        raise HTTPException(400, "UPI payment is not enabled at this salon")
+    if body.pay_method not in ("razorpay", "upi"):
+        raise HTTPException(400, "Unknown payment method")
+    if not _EMAIL_RE.fullmatch(body.email.strip().lower()):
+        raise HTTPException(400, "Enter a valid email — your membership card is sent there")
+    plan = await _raw_db.memberships.find_one(
+        {"id": body.plan_id, "tenant_id": t["id"], "active": {"$ne": False}}, {"_id": 0})
+    if not plan:
+        raise HTTPException(404, "Membership plan not found")
+    amount = float(plan["price"])
+    if plan.get("custom"):
+        amount = round(float(body.amount or 0), 2)
+        if amount < float(plan.get("min_price") or 5000):
+            raise HTTPException(400, f"Custom membership starts at ₹{int(plan.get('min_price') or 5000):,}")
+    if body.renew_member_id:
+        cm = await _raw_db.customer_memberships.find_one(
+            {"member_id": body.renew_member_id.strip().upper(), "tenant_id": t["id"]}, {"_id": 1})
+        if not cm:
+            raise HTTPException(404, "Member ID not found for renewal")
+    order = {"id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_slug": t["slug"],
+             "plan_id": plan["id"], "plan_name": plan["name"], "tier": plan.get("tier") or "custom",
+             "amount": amount, "cashback_pct": float(plan.get("cashback_pct") or 0),
+             "discount_pct": float(plan.get("discount_pct") or 0),
+             "benefits": plan.get("benefits") or list(DEFAULT_BENEFITS),
+             "validity_days": int(plan.get("validity_days") or 365),
+             "buyer_name": body.name.strip()[:80], "buyer_phone": re.sub(r"\D", "", body.phone)[:15],
+             "buyer_email": body.email.strip().lower(),
+             "renew_member_id": body.renew_member_id.strip().upper(),
+             "pay_method": body.pay_method, "status": "pending_payment", "created_at": _now()}
+    if body.pay_method == "razorpay":
+        rzp = _razorpay.Client(auth=(key_id, key_secret))
+        rz = rzp.order.create({"amount": int(round(amount * 100)), "currency": "INR",
+                               "receipt": f"mem_{order['id'][:30]}",
+                               "notes": {"membership_order_id": order["id"], "tenant_slug": t["slug"]}})
+        order["razorpay_order_id"] = rz["id"]
+        resp = {"order_id": order["id"], "razorpay_order_id": rz["id"], "key_id": key_id,
+                "amount": rz["amount"], "salon_name": t.get("name")}
+    else:
+        upi = s["upi_id"]
+        pn = re.sub(r"[^A-Za-z0-9 ]", "", t.get("name") or "Salon")[:40]
+        upi_uri = f"upi://pay?pa={upi}&pn={pn.replace(' ', '%20')}&am={amount:.2f}&cu=INR&tn=Membership"
+        tail = upi_uri.split("upi://", 1)[1]
+        resp = {"order_id": order["id"], "upi_id": upi, "upi_link": upi_uri,
+                "gpay_link": f"tez://upi/{tail}", "phonepe_link": f"phonepe://{tail}",
+                "paytm_link": f"paytmmp://{tail}", "qr_b64": _upi_qr_b64(upi_uri)}
+    await _raw_db.membership_orders.insert_one({**order})
+    return resp
+
+
+class RzpVerifyIn(BaseModel):
+    razorpay_order_id: str = Field(..., min_length=1, max_length=120)
+    razorpay_payment_id: str = Field("", max_length=120)
+    razorpay_signature: str = Field("", max_length=256)
+
+
+@router.post("/public/membership/verify")
+async def membership_verify(body: RzpVerifyIn, request: Request):
+    public_rate_limit(request, "member-verify", limit=20, window_sec=600)
+    o = await _raw_db.membership_orders.find_one({"razorpay_order_id": body.razorpay_order_id}, {"_id": 0})
+    if not o:
+        raise HTTPException(404, "Order not found")
+    if o["status"] != "pending_payment":
+        return {"ok": True, "status": o["status"], "member_id": o.get("member_id", "")}
+    t = await _raw_db.tenants.find_one({"id": o["tenant_id"]}, {"_id": 0})
+    _, key_secret = _pay_keys(t)
+    payload = f"{body.razorpay_order_id}|{body.razorpay_payment_id}".encode()
+    expected = hmac.new(key_secret.encode(), payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, body.razorpay_signature):
+        raise HTTPException(400, "Payment signature verification failed")
+    await _raw_db.membership_orders.update_one(
+        {"id": o["id"]}, {"$set": {"razorpay_payment_id": body.razorpay_payment_id, "paid_at": _now()}})
+    return await _activate_membership(o["id"])
+
+
+class MemberUpiPaidIn(BaseModel):
+    upi_ref: str = Field(..., min_length=6, max_length=60)
+
+
+@router.post("/public/membership/{oid}/upi-paid")
+async def membership_upi_paid(oid: str, body: MemberUpiPaidIn, request: Request):
+    public_rate_limit(request, "member-upi-paid", limit=10, window_sec=600)
+    o = await _raw_db.membership_orders.find_one({"id": oid}, {"_id": 0})
+    if not o:
+        raise HTTPException(404, "Order not found")
+    if o["status"] != "pending_payment":
+        return {"ok": True, "status": o["status"]}
+    await _raw_db.membership_orders.update_one(
+        {"id": oid}, {"$set": {"status": "awaiting_confirmation", "upi_ref": body.upi_ref.strip()[:60],
+                               "upi_claimed_at": _now()}})
+    return {"ok": True, "status": "awaiting_confirmation"}
+
+
+# ---------------- activation ----------------
+
+async def _find_or_create_customer(o: dict) -> dict:
+    cust = await _raw_db.customers.find_one(
+        {"tenant_id": o["tenant_id"], "phone": o["buyer_phone"]}, {"_id": 0})
+    if cust:
+        if o.get("buyer_email") and not cust.get("email"):
+            await _raw_db.customers.update_one({"id": cust["id"]}, {"$set": {"email": o["buyer_email"]}})
+        return cust
+    cust = {"id": str(uuid.uuid4()), "tenant_id": o["tenant_id"], "name": o["buyer_name"],
+            "phone": o["buyer_phone"], "email": o["buyer_email"], "gender": "Other",
+            "visits": 0, "total_spent": 0.0, "loyalty_points": 0, "wallet_balance": 0.0,
+            "crm_status": "active", "source": "membership", "created_at": _now()}
+    await _raw_db.customers.insert_one({**cust})
+    return cust
+
+
+async def _activate_membership(oid: str) -> dict:
+    o = await _raw_db.membership_orders.find_one({"id": oid}, {"_id": 0})
+    t = await _raw_db.tenants.find_one({"id": o["tenant_id"]}, {"_id": 0})
+    cust = await _find_or_create_customer(o)
+    now = datetime.now(timezone.utc)
+    days = int(o.get("validity_days") or 365)
+    renewed = False
+    if o.get("renew_member_id"):
+        cm = await _raw_db.customer_memberships.find_one(
+            {"member_id": o["renew_member_id"], "tenant_id": o["tenant_id"]}, {"_id": 0})
+        if cm:
+            renewed = True
+            try:
+                cur_end = datetime.fromisoformat(cm["expires_at"])
+            except Exception:
+                cur_end = now
+            new_end = (max(now, cur_end) + timedelta(days=days)).isoformat()
+            await _raw_db.customer_memberships.update_one(
+                {"id": cm["id"]},
+                {"$set": {"expires_at": new_end, "name": o["plan_name"], "tier": o["tier"],
+                          "discount_pct": o["discount_pct"], "cashback_pct": o["cashback_pct"],
+                          "benefits": o["benefits"], "amount": o["amount"], "renewed_at": _now()},
+                 "$unset": {"reminded_7d": "", "reminded_1d": ""}})
+            cm.update({"expires_at": new_end, "tier": o["tier"], "name": o["plan_name"]})
+            member_id = cm["member_id"]
+    if not renewed:
+        member_id = await _unique_member_id()
+        cm = {"id": str(uuid.uuid4()), "tenant_id": o["tenant_id"], "customer_id": cust["id"],
+              "customer_name": cust["name"], "membership_id": o["plan_id"], "name": o["plan_name"],
+              "tier": o["tier"], "member_id": member_id, "amount": o["amount"],
+              "discount_pct": o["discount_pct"], "cashback_pct": o["cashback_pct"],
+              "benefits": o["benefits"], "source": "online",
+              "expires_at": (now + timedelta(days=days)).isoformat(),
+              "purchased_at": _now(), "order_id": o["id"]}
+        await _raw_db.customer_memberships.insert_one({**cm})
+    await _raw_db.membership_orders.update_one(
+        {"id": oid}, {"$set": {"status": "activated", "member_id": member_id,
+                               "customer_id": cust["id"], "activated_at": _now()}})
+    try:
+        await send_membership_welcome_email(cm, cust, t, renewed=renewed)
+    except Exception:
+        pass
+    return {"ok": True, "status": "activated", "member_id": member_id,
+            "expires_at": cm["expires_at"], "plan": o["plan_name"], "renewed": renewed}
+
+
+# ---------------- card PDF + QR + email ----------------
+
+def _member_qr_png(member_id: str) -> bytes:
+    import os
+    import qrcode
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    img = qrcode.make(f"{base}/member/{member_id}", box_size=8, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _render_member_card_pdf(cm: dict, cust: dict, t: dict, qr_png: bytes) -> bytes:
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas as _canvas
+    W, H = 486, 306  # credit-card ratio, generous
+    buf = io.BytesIO()
+    c = _canvas.Canvas(buf, pagesize=(W, H))
+    c.setFillColorRGB(0.10, 0.10, 0.13)
+    c.rect(0, 0, W, H, stroke=0, fill=1)
+    gold = (0.83, 0.69, 0.22)
+    tier_hex = TIER_COLORS.get(cm.get("tier") or "custom", "#d4af37").lstrip("#")
+    tr, tg, tb = (int(tier_hex[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    c.setStrokeColorRGB(*gold)
+    c.setLineWidth(2)
+    c.roundRect(10, 10, W - 20, H - 20, 14, stroke=1, fill=0)
+    c.setFillColorRGB(*gold)
+    c.setFont("Helvetica-Bold", 17)
+    c.drawString(30, H - 46, "MIRACURL SUITE")
+    c.setFillColorRGB(0.85, 0.85, 0.88)
+    c.setFont("Helvetica", 9)
+    c.drawString(30, H - 62, "Premium Membership Card")
+    c.setFillColorRGB(tr, tg, tb)
+    c.setFont("Helvetica-Bold", 13)
+    c.drawString(30, H - 88, f"{(cm.get('tier') or 'member').upper()} MEMBER")
+    def lbl(x, y, label, value, size=12):
+        c.setFillColorRGB(0.55, 0.55, 0.6)
+        c.setFont("Helvetica", 7.5)
+        c.drawString(x, y, label.upper())
+        c.setFillColorRGB(0.95, 0.95, 0.97)
+        c.setFont("Helvetica-Bold", size)
+        c.drawString(x, y - 15, value)
+    lbl(30, H - 116, "Name", (cust.get("name") or "")[:28], 13)
+    lbl(30, H - 156, "Member ID", cm.get("member_id") or "", 12)
+    try:
+        start = datetime.fromisoformat(cm.get("purchased_at", _now())).strftime("%d %b %Y")
+        end = datetime.fromisoformat(cm["expires_at"]).strftime("%d %b %Y")
+    except Exception:
+        start, end = "", ""
+    lbl(30, H - 196, "Validity", f"{start}  to  {end}", 10)
+    lbl(30, H - 232, "Salon", (t.get("name") or "")[:36], 10)
+    c.drawImage(ImageReader(io.BytesIO(qr_png)), W - 140, 42, 106, 106, mask="auto")
+    c.setFillColorRGB(0.55, 0.55, 0.6)
+    c.setFont("Helvetica", 7)
+    c.drawCentredString(W - 87, 30, "Scan to verify membership")
+    c.setFont("Helvetica-Oblique", 7.5)
+    c.drawString(30, 22, "Powered by Miracurl Suite")
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+async def send_membership_welcome_email(cm: dict, cust: dict, t: dict, renewed: bool = False) -> dict:
+    from email_service import _send_email
+    import html as html_lib
+    import os
+    email = cust.get("email") or ""
+    if not email:
+        return {"sent": False, "error": "no email"}
+    qr = _member_qr_png(cm["member_id"])
+    pdf = _render_member_card_pdf(cm, cust, t, qr)
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    url = f"{base}/member/{cm['member_id']}"
+    try:
+        end = datetime.fromisoformat(cm["expires_at"]).strftime("%d %b %Y")
+    except Exception:
+        end = cm.get("expires_at", "")
+    tier = (cm.get("tier") or "member").capitalize()
+    salon = html_lib.escape(t.get("name") or "your salon")
+    first = html_lib.escape((cust.get("name") or "there").split(" ")[0])
+    verb = "renewed" if renewed else "activated"
+    html = f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+    <h2 style="color:#1c1c22">🎉 {'Membership Renewed!' if renewed else 'Welcome to Miracurl Premium Membership'}</h2>
+    <p>Hi {first},</p>
+    <p>Congratulations! Your <b>{html_lib.escape(cm.get('name') or tier)}</b> membership at <b>{salon}</b> has been {verb} successfully.</p>
+    <div style="background:#1c1c22;border-radius:16px;padding:22px 26px;color:#eee;margin:18px 0">
+      <div style="color:#d4af37;font-weight:bold;letter-spacing:2px">MIRACURL SUITE ✦ {tier.upper()} MEMBER</div>
+      <table style="margin-top:12px;font-size:14px;color:#ddd">
+        <tr><td style="color:#888;padding:3px 18px 3px 0">Member ID</td><td><b style="letter-spacing:1px">{cm['member_id']}</b></td></tr>
+        <tr><td style="color:#888;padding:3px 18px 3px 0">Plan</td><td>{html_lib.escape(cm.get('name') or tier)} · ₹{int(cm.get('amount') or 0):,}</td></tr>
+        <tr><td style="color:#888;padding:3px 18px 3px 0">Cashback</td><td>{cm.get('cashback_pct') or 0:g}% to your wallet on every bill</td></tr>
+        <tr><td style="color:#888;padding:3px 18px 3px 0">Valid till</td><td>{end}</td></tr>
+      </table>
+    </div>
+    <p>Show your <b>Membership QR</b> (attached) or your Member ID whenever you visit. Check your live balance & points anytime:</p>
+    <p style="text-align:center;margin:20px 0"><a href="{url}" style="background:linear-gradient(120deg,#d4af37,#b45309);color:#fff;
+       text-decoration:none;font-weight:bold;padding:13px 34px;border-radius:30px;display:inline-block">View my membership card →</a></p>
+    <p style="font-size:12px;color:#888">Your digital membership card (PDF) and QR code are attached.</p>
+    <p>Thank you,<br/><b>{salon}</b> · Miracurl Suite 💛</p></div>"""
+    return await _send_email(
+        [email],
+        f"🎉 {'Your membership is renewed' if renewed else 'Welcome to Miracurl Premium Membership'} — {cm['member_id']}",
+        html,
+        attachments=[
+            {"filename": f"membership-card-{cm['member_id']}.pdf", "content": base64.b64encode(pdf).decode()},
+            {"filename": f"membership-qr-{cm['member_id']}.png", "content": base64.b64encode(qr).decode()},
+        ])
+
+
+# ---------------- public: member verify page + card download ----------------
+
+async def _member_bundle(member_id: str) -> tuple:
+    cm = await _raw_db.customer_memberships.find_one(
+        {"member_id": member_id.strip().upper()}, {"_id": 0})
+    if not cm:
+        raise HTTPException(404, "Membership not found")
+    cust = await _raw_db.customers.find_one({"id": cm["customer_id"]}, {"_id": 0}) or {}
+    t = await _raw_db.tenants.find_one({"id": cm["tenant_id"]}, {"_id": 0}) or {}
+    return cm, cust, t
+
+
+@router.get("/public/member/{member_id}")
+async def public_member(member_id: str, request: Request):
+    public_rate_limit(request, "member-view", limit=60, window_sec=600)
+    cm, cust, t = await _member_bundle(member_id)
+    active = cm.get("expires_at", "") > _now()
+    return {"member_id": cm["member_id"], "name": cust.get("name") or cm.get("customer_name"),
+            "plan": cm.get("name"), "tier": cm.get("tier") or "member",
+            "status": "Active" if active else "Expired", "amount": cm.get("amount") or 0,
+            "purchased_at": cm.get("purchased_at"), "expires_at": cm.get("expires_at"),
+            "cashback_pct": cm.get("cashback_pct") or 0, "discount_pct": cm.get("discount_pct") or 0,
+            "benefits": cm.get("benefits") or [], "wallet_balance": cust.get("wallet_balance") or 0,
+            "loyalty_points": cust.get("loyalty_points") or 0,
+            "qr_b64": base64.b64encode(_member_qr_png(cm["member_id"])).decode(),
+            "salon": {"name": t.get("name"), "slug": t.get("slug"), "logo_url": t.get("logo_url") or ""}}
+
+
+@router.get("/public/member/{member_id}/card.pdf")
+async def public_member_card_pdf(member_id: str, request: Request):
+    public_rate_limit(request, "member-card-pdf", limit=20, window_sec=600)
+    cm, cust, t = await _member_bundle(member_id)
+    pdf = _render_member_card_pdf(cm, cust, t, _member_qr_png(cm["member_id"]))
+    return Response(content=pdf, media_type="application/pdf", headers={
+        "Content-Disposition": f'attachment; filename="membership-card-{cm["member_id"]}.pdf"'})
+
+
+# ---------------- admin: members list + UPI approvals ----------------
+
+@router.get("/premium-membership/members")
+async def list_members(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """All onboarded members — salon-sold (POS) and customer-purchased (online)."""
+    rows = await _raw_db.customer_memberships.find(
+        {"tenant_id": t["id"]}, {"_id": 0}).sort("purchased_at", -1).to_list(300)
+    cust_ids = list({r["customer_id"] for r in rows})
+    custs = {c["id"]: c async for c in _raw_db.customers.find(
+        {"id": {"$in": cust_ids}}, {"_id": 0, "id": 1, "phone": 1, "wallet_balance": 1, "loyalty_points": 1})}
+    now = _now()
+    out = []
+    for r in rows:
+        c = custs.get(r["customer_id"], {})
+        out.append({"member_id": r.get("member_id") or "", "customer_name": r.get("customer_name"),
+                    "phone": c.get("phone") or "", "plan": r.get("name"), "tier": r.get("tier") or "",
+                    "amount": r.get("amount") or 0, "source": r.get("source") or "pos",
+                    "purchased_at": r.get("purchased_at"), "expires_at": r.get("expires_at"),
+                    "status": "active" if (r.get("expires_at") or "") > now else "expired",
+                    "cashback_pct": r.get("cashback_pct") or 0, "discount_pct": r.get("discount_pct") or 0,
+                    "wallet_balance": c.get("wallet_balance") or 0, "loyalty_points": c.get("loyalty_points") or 0})
+    pending = await _raw_db.membership_orders.find(
+        {"tenant_id": t["id"], "status": "awaiting_confirmation"},
+        {"_id": 0, "id": 1, "buyer_name": 1, "buyer_phone": 1, "plan_name": 1, "amount": 1,
+         "upi_ref": 1, "upi_claimed_at": 1}).sort("upi_claimed_at", -1).to_list(50)
+    return {"members": out, "pending_upi": pending}
+
+
+@router.post("/premium-membership/orders/{oid}/approve")
+async def approve_member_order(oid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    o = await _raw_db.membership_orders.find_one({"id": oid, "tenant_id": t["id"]}, {"_id": 0})
+    if not o:
+        raise HTTPException(404, "Order not found")
+    if o["status"] == "activated":
+        return {"ok": True, "status": "activated", "member_id": o.get("member_id")}
+    if o["status"] != "awaiting_confirmation":
+        raise HTTPException(400, f"Order is {o['status']}")
+    await _raw_db.membership_orders.update_one(
+        {"id": oid}, {"$set": {"approved_by": admin.get("email"), "paid_at": _now()}})
+    return await _activate_membership(oid)
+
+
+@router.post("/premium-membership/orders/{oid}/reject")
+async def reject_member_order(oid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    r = await _raw_db.membership_orders.update_one(
+        {"id": oid, "tenant_id": t["id"], "status": "awaiting_confirmation"},
+        {"$set": {"status": "rejected", "rejected_by": admin.get("email"), "rejected_at": _now()}})
+    if not r.modified_count:
+        raise HTTPException(404, "Pending order not found")
+    return {"ok": True}
+
+
+# ---------------- expiry reminders (7d + 1d, hourly sweep) ----------------
+
+async def run_membership_expiry_reminders() -> int:
+    import os
+    now = datetime.now(timezone.utc)
+    ist_hour = (now + timedelta(hours=5, minutes=30)).hour
+    if not 9 <= ist_hour < 20:
+        return 0
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    sent = 0
+    for days, flag in ((7, "reminded_7d"), (1, "reminded_1d")):
+        lo, hi = now.isoformat(), (now + timedelta(days=days)).isoformat()
+        async for cm in _raw_db.customer_memberships.find(
+                {"member_id": {"$exists": True, "$ne": ""}, flag: {"$ne": True},
+                 "expires_at": {"$gt": lo, "$lte": hi}}, {"_id": 0}):
+            await _raw_db.customer_memberships.update_one({"id": cm["id"]}, {"$set": {flag: True}})
+            cust = await _raw_db.customers.find_one({"id": cm["customer_id"]}, {"_id": 0}) or {}
+            if not cust.get("email"):
+                continue
+            t = await _raw_db.tenants.find_one({"id": cm["tenant_id"]}, {"_id": 0}) or {}
+            from email_service import _send_email
+            import html as html_lib
+            try:
+                end = datetime.fromisoformat(cm["expires_at"]).strftime("%d %b %Y")
+            except Exception:
+                end = cm.get("expires_at", "")
+            renew_url = f"{base}/membership/{t.get('slug')}?renew={cm['member_id']}"
+            first = html_lib.escape((cust.get("name") or "there").split(" ")[0])
+            res = await _send_email(
+                [cust["email"]],
+                f"⏳ Your {cm.get('name') or 'membership'} expires on {end} — renew in one tap",
+                f"""<div style="font-family:Georgia,serif;max-width:540px;margin:0 auto;color:#333">
+                <h2 style="color:#1c1c22">Don't lose your member perks, {first} ✦</h2>
+                <p>Your <b>{html_lib.escape(cm.get('name') or 'Premium')}</b> membership at
+                <b>{html_lib.escape(t.get('name') or 'your salon')}</b> (ID <b>{cm['member_id']}</b>)
+                expires on <b>{end}</b> — that's {'tomorrow' if days == 1 else f'in {days} days'}.</p>
+                <p>Renew now to keep your {cm.get('cashback_pct') or 0:g}% wallet cashback and member benefits running without a break:</p>
+                <p style="text-align:center;margin:22px 0"><a href="{renew_url}" style="background:linear-gradient(120deg,#d4af37,#b45309);
+                   color:#fff;text-decoration:none;font-weight:bold;padding:14px 36px;border-radius:30px;display:inline-block">Renew my membership →</a></p>
+                <p style="font-size:12px;color:#888">Renewing extends your validity from your current expiry date — you never lose paid days.</p></div>""")
+            if res.get("sent"):
+                sent += 1
+    return sent

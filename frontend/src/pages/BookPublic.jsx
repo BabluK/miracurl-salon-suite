@@ -315,6 +315,11 @@ export default function BookPublic() {
             🎁 Gift Card for a Loved One
             <span className="text-[9px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
           </Link>
+          <Link to={`/membership/${slug}`} data-testid="hero-membership-btn"
+            className="mt-2 inline-flex items-center gap-2 w-fit px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-600/30 to-yellow-500/20 backdrop-blur-md border border-gold/40 text-sm font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
+            💳 Premium Membership — earn cashback every visit
+            <span className="text-[9px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
+          </Link>
         </div>
       </header>
 

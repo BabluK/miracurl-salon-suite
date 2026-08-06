@@ -123,6 +123,29 @@ def _loyalty_rules(tenant_doc: Optional[dict]) -> dict:
     return {**LOYALTY_DEFAULTS, **{k: v for k, v in saved.items() if k in LOYALTY_DEFAULTS}}
 
 
+async def _apply_membership_cashback(inv: dict, cust: dict) -> float:
+    """Premium membership perk: X% of the bill (excluding membership purchase lines)
+    lands back in the customer's wallet as spendable balance."""
+    m = await _active_membership(cust["id"])
+    pct = float((m or {}).get("cashback_pct") or 0)
+    if not m or pct <= 0:
+        return 0.0
+    base = float(inv.get("total") or 0) - sum(
+        float(i.get("price") or 0) * int(i.get("qty") or 1)
+        for i in inv.get("items", []) if i.get("type") == "membership")
+    cashback = round(max(0.0, base) * pct / 100, 2)
+    if cashback <= 0:
+        return 0.0
+    await db.customers.update_one({"id": cust["id"]}, {"$inc": {"wallet_balance": cashback}})
+    await db.wallet_txns.insert_one({
+        "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust.get("name"),
+        "type": "membership_cashback", "amount": cashback, "bonus": 0,
+        "note": f"{pct:g}% member cashback on {inv.get('invoice_no')}",
+        "invoice_id": inv.get("id"), "member_id": m.get("member_id") or "",
+        "at": datetime.now(timezone.utc).isoformat()})
+    return cashback
+
+
 async def _process_benefit_items(inv: dict, cust: dict):
     """Create package/membership records for purchases; consume redeemed sessions."""
     now = datetime.now(timezone.utc)
@@ -140,11 +163,26 @@ async def _process_benefit_items(inv: dict, cust: dict):
         elif it["type"] == "membership":
             m = await db.memberships.find_one({"id": it["ref_id"]}, {"_id": 0})
             if m:
-                await db.customer_memberships.insert_one({
+                from routes.premium_membership import _unique_member_id, send_membership_welcome_email
+                member_id = await _unique_member_id()
+                cm = {
                     "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
-                    "membership_id": m["id"], "name": m["name"], "discount_pct": float(m["discount_pct"]),
+                    "membership_id": m["id"], "name": m["name"], "tier": m.get("tier") or "custom",
+                    "member_id": member_id, "amount": float(it["price"]) * int(it.get("qty") or 1),
+                    "discount_pct": float(m["discount_pct"]),
+                    "cashback_pct": float(m.get("cashback_pct") or 0),
+                    "benefits": m.get("benefits") or [], "source": "pos",
                     "expires_at": (now + timedelta(days=int(m.get("validity_days") or 180))).isoformat(),
-                    "purchased_at": now.isoformat(), "invoice_id": inv["id"]})
+                    "purchased_at": now.isoformat(), "invoice_id": inv["id"]}
+                await db.customer_memberships.insert_one(cm)
+                if cust.get("email"):
+                    try:
+                        from database import _raw_db
+                        saved = await db.customer_memberships.find_one({"id": cm["id"]}, {"_id": 0})
+                        t = await _raw_db.tenants.find_one({"id": (saved or {}).get("tenant_id")}, {"_id": 0})
+                        await send_membership_welcome_email(saved or cm, cust, t or {})
+                    except Exception:
+                        pass
         elif it["type"] == "package_redeem":
             await db.customer_packages.update_one(
                 {"id": it["ref_id"], "sessions_left": {"$gt": 0}}, {"$inc": {"sessions_left": -1}})

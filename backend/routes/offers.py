@@ -61,6 +61,12 @@ class MembershipIn(BaseModel):
     discount_pct: float = Field(..., gt=0, le=90)
     validity_days: int = Field(180, ge=1, le=1825)
     active: bool = True
+    cashback_pct: float = Field(0, ge=0, le=50)
+    benefits: list = []
+    tier: str = ""
+    custom: bool = False
+    min_price: float = Field(0, ge=0)
+    public_purchase: bool = False
 
 class CouponIn(BaseModel):
     code: str = Field(..., min_length=3, max_length=20)

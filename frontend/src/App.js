@@ -67,6 +67,8 @@ import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import Refund from "@/pages/Refund";
 import GiftCardPublic from "@/pages/GiftCardPublic";
+import MembershipPublic from "@/pages/MembershipPublic";
+import MemberCardPublic from "@/pages/MemberCardPublic";
 import PayLinkPublic from "@/pages/PayLinkPublic";
 import FeedbackPublic from "@/pages/FeedbackPublic";
 import Settings from "@/pages/Settings";
@@ -182,6 +184,8 @@ export default function App() {
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
             <Route path="/gift/:slug" element={<GiftCardPublic />} />
+            <Route path="/membership/:slug" element={<MembershipPublic />} />
+            <Route path="/member/:memberId" element={<MemberCardPublic />} />
             <Route path="/gift" element={<GiftCardPublic />} />
             <Route path="/pay/:token" element={<PayLinkPublic />} />
             <Route path="/feedback/:token" element={<FeedbackPublic />} />

@@ -20,6 +20,7 @@ from services.billing import (
     _gen_invoice_no, _check_stock_or_400, _validate_coupon, _consume_coupon,
     _active_membership, _compute_invoice_totals, _loyalty_rules,
     _process_benefit_items, _validate_package_redeem_items, _send_billing_receipts,
+    _apply_membership_cashback,
 )
 from services.pdf import _render_invoice_pdf
 
@@ -408,5 +409,6 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     await _process_benefit_items(inv, cust)
 
     inv["points_earned"] = points_earned
+    inv["membership_cashback"] = await _apply_membership_cashback(inv, cust)
     inv["receipts"] = await _send_billing_receipts(inv, cust, ctx["tenant_doc"], points_earned)
     return _clean(inv)
