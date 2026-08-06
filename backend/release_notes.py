@@ -13,6 +13,7 @@ RELEASES = [
             "🧾 Temporary Duty Log on the Staff page (admin-only) — see who worked at which salon, the dates, and exactly how much business they billed there",
             "🔔 One-time notification popup after login — the staff member and managers of BOTH branches are informed when a temporary duty starts and when it ends; you choose in-app only, + email, or + SMS at transfer time",
             "👨👩 Services categorized for Men / Women / Unisex — filter chips on the Services page and in POS billing, one-tap re-categorize on any service, and a 'Who is it for?' picker when adding services",
+            "📖 Public booking page: the Everyone / Women / Men tabs now follow YOUR categorization from the Services page — guests instantly see the services meant for them",
             "✏️ POS price is now editable per bill — haircut listed at ₹700 but charging ₹800 today? Just type the new price on the bill line",
             "🔎 POS search fixed — typing 'Threading' (or any service) now finds it across ALL categories, not just the selected one",
             "📅 CRM now shows when each customer was added, with one-tap Today / Yesterday / Last-7-days filters — newest guests always on top",

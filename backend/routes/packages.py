@@ -24,7 +24,15 @@ _WOMEN_RE = re.compile(r"\b(women|woman|female|ladies|lady|girls?|bridal|bride|s
 
 
 def _service_gender(s: dict) -> str:
-    """men / women / unisex — from the service name + category text."""
+    """men / women / unisex — prefers the owner-curated `gender` field (Services page);
+    falls back to inferring from the service name + category text."""
+    g = (s.get("gender") or "").lower()
+    if g in ("male", "men"):
+        return "men"
+    if g in ("female", "women"):
+        return "women"
+    if g == "unisex":
+        return "unisex"
     text = f"{s.get('name', '')} {s.get('category', '')}"
     m, w = bool(_MEN_RE.search(text)), bool(_WOMEN_RE.search(text))
     if m and not w:

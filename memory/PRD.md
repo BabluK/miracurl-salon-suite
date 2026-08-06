@@ -1382,3 +1382,7 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - release_notes BUILD 2026-08-06.57 with all entries.
 - CRITICAL LEARNING (recorded also below): search_replace with MULTIPLE PARALLEL EDITS to the SAME FILE occasionally duplicates the file tail → orphan JSX after component close = Babel "Missing semicolon" build break. Happened to AppLayout.jsx, Services.jsx (testing agent fixed, my gender-picker landed in the removed orphan tail and had to be re-added), Customers.jsx. FIX: check `tail` of edited JSX files after batch edits; prefer sequential edits for same-file batches.
 - Testing: iteration_97.json (agent) + self Playwright (POS bill e2e, CRM filters, gender picker). Agent's "POS checkout not firing" was NOT reproducible — root cause was guest search mismatch in their run.
+
+## 2026-08-06 (round 4) — Booking gender tabs wired to curated data
+- routes/packages.py _service_gender(): now prefers stored service.gender (male→men, female→women, unisex) over the name heuristic (fallback kept for legacy). Public booking page's existing Everyone/Women/Men toggle (book-gender-toggle in BookPublic.steps.jsx) + package audience pools now follow owner's Services-page categorization.
+- Verified via curl (/api/public/services gender counts follow DB) + Playwright (Men tab hides Bridal Makeup, Women shows it).
