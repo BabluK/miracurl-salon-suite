@@ -3,7 +3,7 @@ import { PAY_LABELS } from "@/components/pos/payLabels";
 
 const PAYMENT_MODES = Object.entries(PAY_LABELS).map(([k, label]) => ({ k, label }));
 
-export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment, onClear, onCheckout, walletBalance, sym = "₹" }) {
+export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment, onClear, onCheckout, walletBalance, due = 0, walletApply = 0, setWalletApply = () => {}, sym = "₹" }) {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -41,6 +41,27 @@ export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment,
             <div className="mt-2 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5" data-testid="pos-wallet-balance">
               Wallet balance: {sym}{Number(walletBalance || 0).toLocaleString("en-IN")}
             </div>
+          )}
+          {Number(walletBalance) > 0 && payment !== "salon_wallet" && due > 0 && (
+            walletApply > 0 ? (
+              <div className="mt-2 flex items-center justify-between gap-2 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-lg px-2.5 py-2" data-testid="pos-wallet-applied">
+                <span>💰 {sym}{Number(walletApply).toLocaleString("en-IN")} from wallet · due {sym}{Math.max(0, due - walletApply).toLocaleString("en-IN")} via {PAY_LABELS[payment] || payment}</span>
+                <button data-testid="pos-wallet-remove" onClick={() => setWalletApply(0)} className="text-emerald-700 hover:text-red-500 font-bold">✕</button>
+              </div>
+            ) : (
+              <button
+                data-testid="pos-wallet-apply-btn"
+                onClick={() => {
+                  if (Number(walletBalance) >= due) setPayment("salon_wallet");
+                  else setWalletApply(Math.min(Number(walletBalance), due));
+                }}
+                className="mt-2 w-full text-[11px] font-bold text-emerald-800 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-lg px-2.5 py-2 hover:from-emerald-100 hover:to-teal-100 transition text-left"
+                title={Number(walletBalance) >= due ? "Wallet covers the whole bill — one tap pays it fully" : "Applies the full wallet balance; the rest is collected via the selected mode"}
+              >
+                💰 Pay from wallet — {sym}{Number(walletBalance).toLocaleString("en-IN")} available
+                {Number(walletBalance) < due && <span className="block font-medium text-emerald-600">covers part of {sym}{due.toLocaleString("en-IN")} · rest via {PAY_LABELS[payment] || payment}</span>}
+              </button>
+            )
           )}
         </div>
       </div>

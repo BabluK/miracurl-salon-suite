@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-07.60"
-BUILD_TIME = "7 Aug 2026, 1:00 AM IST"
+BUILD = "2026-08-07.62"
+BUILD_TIME = "7 Aug 2026, 3:00 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-07 (Wallet Pay at POS 💰)",
+        "changes": [
+            "💳 Membership row on the bill — right under Gift card, staff can type/scan a Member ID (MC-…) and Apply: the guest is pulled up instantly with their tier, auto-discount, cashback % and wallet balance shown (expired members get a renewal prompt)",
+            "💰 Wallet Pay at POS — when a guest has wallet balance, a one-tap 'Pay from wallet' button appears in Payment Details: covers the whole bill if the balance is enough, or applies the full balance and collects the rest via cash/card/UPI",
+            "🧾 Receipts now show '💰 Paid from wallet' as its own line so guests see exactly how their balance was used",
+            "💎 Membership plan cards redesigned — tier badges, 'MOST POPULAR' and 'BEST VALUE' ribbons, benefit checklists and glowing selection states",
+        ],
+    },
     {
         "date": "2026-08-07 (Membership power-ups 💳)",
         "changes": [

@@ -1407,3 +1407,13 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - POS.jsx filtered: token-based normalized match (lowercase, non-alnum→space, every token must appear in name+category). CatalogPanel.jsx REWRITTEN: while searching, category grid + gender chips hide and a '🔎 Results for "q" (n)' panel shows at top with per-item category tags + helpful empty state (pos-catalog-title / pos-catalog-empty testids).
 - index.js SW registration: reg.update() every 30 min + on visibilitychange visible (installed PWAs pick up deploys on app open). sw.js CACHE bumped v9→v10.
 - Verified: multi-word "bridal makeup" from another category → 1 result at top. BUILD 2026-08-07.60.
+
+## 2026-08-07 (round 8) — Wallet Pay at POS + membership plan card redesign
+- models.py InvoiceIn +wallet_apply (0-1000000). appointments_pos.create_invoice: partial wallet apply (clamped to total, guard vs balance, inv.wallet_applied set pre-insert, deduct + wallet_txns type redeem post-insert; ignored when payment_mode salon_wallet). Verified: INV-202608-0217 ₹100 applied, guard "Wallet has only ₹240", wallet 212.4-100+127.44cb=239.84 ✓.
+- PaymentSection.jsx: one-tap wallet panel (pos-wallet-apply-btn: balance>=due → salon_wallet mode, else partial walletApply; pos-wallet-applied chip w/ remove + due-via-mode text). POS.jsx walletApply state (reset in clearAll), payload wallet_apply=min(walletApply, dueAfterGift). InvoiceReceiptModal: "💰 Paid from wallet" row (invoice.wallet_applied).
+- MembershipPublic.jsx plan cards REDESIGNED: tier gradient top bars + corner glow, tier badges (🥈🥇💎👑✨), rotated ribbons (platinum MOST POPULAR / diamond BEST VALUE), benefit checklists, gradient "Selected ✦" CTA, hover lift. Verified via screenshot.
+- BUILD 2026-08-07.61.
+
+## 2026-08-07 (round 9) — 💳 Membership row on POS bill (like Gift card row)
+- POS.jsx: memberCode/memberInfo state + applyMemberCode() (validates MC- prefix, GET /pos/member-lookup, selectGuest, toast). UI row inside pos-gift-card-box below gift card: pos-membership-input / pos-membership-apply / pos-membership-applied chip (tier, X% off auto-applied, cashback, wallet) / pos-membership-remove. Cleared in clearAll. Verified via screenshot (apply + guest pull-up + bad-ID error).
+- BUILD 2026-08-07.62.

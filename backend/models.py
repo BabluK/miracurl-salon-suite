@@ -136,6 +136,7 @@ class InvoiceIn(BaseModel):
     tip_amount: float = Field(0, ge=0, le=100000)
     tip_staff_id: Optional[str] = None
     gift_card_code: Optional[str] = None
+    wallet_apply: float = Field(0, ge=0, le=1000000)
     appointment_id: Optional[str] = None
     branch_id: Optional[str] = None
 

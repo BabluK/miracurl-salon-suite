@@ -53,6 +53,26 @@ export default function POS() {
   const [customTip, setCustomTip] = useState(0);
   const [tipStaffId, setTipStaffId] = useState("");
   const [gcCode, setGcCode] = useState("");
+  const [memberCode, setMemberCode] = useState("");
+  const [memberInfo, setMemberInfo] = useState(null);
+
+  async function applyMemberCode() {
+    const code = memberCode.trim().toUpperCase().replace(/\s+/g, "");
+    if (!/^MC-/.test(code)) { toast.error("Member IDs start with MC- (e.g. MC-A7F9-K2T8-X4Q1)"); return; }
+    try {
+      const { data } = await api.get(`/pos/member-lookup/${encodeURIComponent(code)}`);
+      setMemberInfo(data);
+      selectGuest(data.customer);
+      if (data.membership.status === "active") {
+        toast.success(`👑 ${data.membership.tier.toUpperCase()} member — ${data.customer.name} pulled up. ${data.membership.discount_pct}% off applies automatically.`);
+      } else {
+        toast.warning(`${data.customer.name} found — membership EXPIRED on ${new Date(data.membership.expires_at).toLocaleDateString("en-IN")}.`);
+      }
+    } catch (e) {
+      setMemberInfo(null);
+      toast.error(e.response?.data?.detail || "No member with this ID at your salon");
+    }
+  }
   const [gcInfo, setGcInfo] = useState(null);
   const [gcModalOpen, setGcModalOpen] = useState(false);
   const [posOffers, setPosOffers] = useState({ mira_packages: [], day_offers: [] });
@@ -259,6 +279,7 @@ export default function POS() {
   const giftApplied = gcInfo ? Math.min(gcInfo.balance, total) : 0;
   const grandTotal = total + tipAmount;
   const dueAfterGift = Math.max(0, grandTotal - giftApplied);
+  const [walletApply, setWalletApply] = useState(0);
 
   async function checkCoupon() {
     const code = couponCode.trim().toUpperCase();
@@ -296,7 +317,7 @@ export default function POS() {
     setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("cash");
     setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
     setOfferApplied(null); setOverallDisc(0);
-    setGcCode(""); setGcInfo(null);
+    setGcCode(""); setGcInfo(null); setWalletApply(0); setMemberCode(""); setMemberInfo(null);
     setTipPct(null); setCustomTip(0); setTipStaffId("");
   }
 
@@ -324,6 +345,7 @@ export default function POS() {
         tip_amount: tipAmount,
         tip_staff_id: tipStaffId || staffId || null,
         gift_card_code: gcInfo ? gcCode.trim().toUpperCase() : null,
+        wallet_apply: payment === "salon_wallet" ? 0 : Math.min(walletApply, dueAfterGift),
         branch_id: branchId || null,
       });
       toast.success(`Invoice ${data.invoice_no} created${data.points_earned ? ` · +${data.points_earned} pts earned` : ""}`);
@@ -449,12 +471,30 @@ export default function POS() {
                 ⚠ Card balance {sym}{Number(gcInfo.balance).toFixed(0)} doesn't cover the full bill — collect {sym}{dueAfterGift.toFixed(0)} via cash/card/UPI.
               </p>
             )}
+            <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-slate-100" data-testid="pos-membership-box">
+              <span className="text-sm font-bold text-slate-700">💳 Membership</span>
+              <input value={memberCode} onChange={(e) => setMemberCode(e.target.value.toUpperCase())} placeholder="MC-XXXX-XXXX-XXXX"
+                data-testid="pos-membership-input" className="w-48 font-mono text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-400" />
+              <button onClick={applyMemberCode} data-testid="pos-membership-apply"
+                className="bg-amber-500 text-white text-xs font-bold rounded-lg px-3 py-2 hover:bg-amber-400">Apply</button>
+              {memberInfo && (
+                <>
+                  <span className={`text-xs font-semibold ${memberInfo.membership.status === "active" ? "text-emerald-600" : "text-rose-500"}`} data-testid="pos-membership-applied">
+                    {memberInfo.membership.status === "active"
+                      ? <>👑 {memberInfo.customer.name} · {(memberInfo.membership.tier || "").toUpperCase()} — {memberInfo.membership.discount_pct}% off auto-applied · {memberInfo.membership.cashback_pct}% cashback · wallet {sym}{Number(memberInfo.customer.wallet_balance || 0).toFixed(0)}</>
+                      : <>⚠ {memberInfo.customer.name} — membership EXPIRED. Offer a renewal!</>}
+                  </span>
+                  <button onClick={() => { setMemberInfo(null); setMemberCode(""); }} className="text-[10px] text-rose-500 font-semibold" data-testid="pos-membership-remove">Remove</button>
+                </>
+              )}
+            </div>
           </div>
 
           <PaymentSection
             orderNotes={orderNotes} setOrderNotes={setOrderNotes}
             payment={payment} setPayment={setPayment} sym={sym}
             walletBalance={customers.find(c => c.id === customerId)?.wallet_balance || 0}
+            due={dueAfterGift} walletApply={walletApply} setWalletApply={setWalletApply}
             onClear={clearAll} onCheckout={checkout}
           />
         </div>

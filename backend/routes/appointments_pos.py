@@ -399,11 +399,25 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
 
     inv = _build_invoice_doc(body, cust, staff, totals, coupon, branch,
                              tip, tip_staff, await _gen_invoice_no())
+    wallet_apply = 0.0
+    if body.payment_mode != "salon_wallet" and float(body.wallet_apply or 0) > 0:
+        wallet_apply = round(min(float(body.wallet_apply), totals["total"]), 2)
+        bal = float(cust.get("wallet_balance") or 0)
+        if bal < wallet_apply:
+            raise HTTPException(400, f"Wallet has only ₹{bal:.0f} — can't apply ₹{wallet_apply:.0f}")
+        inv["wallet_applied"] = wallet_apply
     if body.gift_card_code:
         await _apply_gift_card(inv, body.gift_card_code, ctx["tenant_doc"]["id"], totals["total"])
     await db.invoices.insert_one(inv)
 
     await _handle_wallet_payment(body, cust, inv, totals["total"], "redeem")
+    if wallet_apply:
+        await db.customers.update_one({"id": cust["id"]}, {"$inc": {"wallet_balance": -wallet_apply}})
+        await db.wallet_txns.insert_one({
+            "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
+            "type": "redeem", "credit": -wallet_apply,
+            "label": f"Applied on bill {inv['invoice_no']} (rest via {body.payment_mode})",
+            "invoice_id": inv["id"], "created_at": datetime.now(timezone.utc).isoformat()})
 
     points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"])
     await _process_benefit_items(inv, cust)

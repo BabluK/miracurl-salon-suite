@@ -119,6 +119,9 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
               <div className="flex justify-between font-bold text-lg pt-1" data-testid="receipt-total-incl-tip"><span>Total incl. tip</span><span className="text-rose-600">{sym}{(invoice.total + invoice.tip).toFixed(2)}</span></div>
             </>
           )}
+          {Number(invoice.wallet_applied) > 0 && (
+            <Row label="💰 Paid from wallet" value={<span className="text-emerald-600 font-semibold">−{sym}{Number(invoice.wallet_applied).toFixed(2)}</span>} />
+          )}
         </div>
         <ThermalPrintButton invoice={invoice} tenant={tenant} />
         <div className="flex items-center gap-2 mt-3">

@@ -17,12 +17,13 @@ const loadRzp = () => new Promise((res) => {
 });
 
 const TIER_STYLE = {
-  silver: { grad: "from-slate-400 to-slate-600", chip: "bg-slate-100 text-slate-700" },
-  gold: { grad: "from-amber-400 to-yellow-600", chip: "bg-amber-100 text-amber-800" },
-  platinum: { grad: "from-violet-400 to-purple-600", chip: "bg-violet-100 text-violet-700" },
-  diamond: { grad: "from-cyan-400 to-sky-600", chip: "bg-cyan-100 text-cyan-700" },
-  custom: { grad: "from-orange-400 to-rose-500", chip: "bg-orange-100 text-orange-700" },
+  silver:   { grad: "from-slate-300 via-slate-400 to-slate-600", chip: "bg-slate-200 text-slate-800", glow: "rgba(148,163,184,0.35)", icon: "🥈" },
+  gold:     { grad: "from-amber-300 via-yellow-400 to-amber-600", chip: "bg-amber-200 text-amber-900", glow: "rgba(212,175,55,0.45)", icon: "🥇" },
+  platinum: { grad: "from-violet-300 via-purple-400 to-violet-700", chip: "bg-violet-200 text-violet-900", glow: "rgba(139,92,246,0.45)", icon: "💎" },
+  diamond:  { grad: "from-cyan-300 via-sky-400 to-cyan-700", chip: "bg-cyan-200 text-cyan-900", glow: "rgba(34,211,238,0.45)", icon: "👑" },
+  custom:   { grad: "from-orange-300 via-rose-400 to-rose-600", chip: "bg-orange-200 text-orange-900", glow: "rgba(251,146,60,0.4)", icon: "✨" },
 };
+const TIER_RIBBON = { platinum: "⭐ MOST POPULAR", diamond: "👑 BEST VALUE" };
 
 export default function MembershipPublic() {
   const { slug } = useParams();
@@ -137,18 +138,38 @@ export default function MembershipPublic() {
           <p className="text-white/50 text-sm mt-2">{renewId ? `Renewing membership ${renewId} — pick your plan` : "Earn wallet cashback + member-only perks on every visit."}</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-8" data-testid="membership-plans">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8" data-testid="membership-plans">
           {cfg.plans.map(p => {
             const st = TIER_STYLE[p.tier] || TIER_STYLE.custom;
             const sel = plan?.id === p.id;
+            const ribbon = TIER_RIBBON[p.tier];
             return (
               <button key={p.id} data-testid={`membership-plan-${p.tier}`} onClick={() => setPlan(p)}
-                className={`text-left rounded-2xl border-2 p-4 transition ${sel ? "border-gold bg-white/10 shadow-gold-glow" : "border-white/10 bg-white/5 hover:border-white/30"}`}>
-                <div className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${st.chip}`}>{p.name}</div>
-                <div className="text-2xl font-bold mt-2">{p.custom ? `₹${(p.min_price || 5000).toLocaleString("en-IN")}+` : `₹${p.price.toLocaleString("en-IN")}`}</div>
-                <div className="text-[11px] text-white/50 mt-1">12 months</div>
-                <div className="text-xs text-gold mt-2 flex items-center gap-1"><Sparkles className="w-3 h-3" /> {p.cashback_pct}% wallet cashback</div>
-                {p.discount_pct > 0 && <div className="text-[11px] text-white/60 mt-0.5">{p.discount_pct}% off services</div>}
+                className={`relative text-left rounded-2xl p-[1.5px] transition-transform duration-200 hover:-translate-y-1 ${ribbon ? "lg:-mt-3" : ""}`}
+                style={{ background: sel ? `linear-gradient(140deg, ${st.glow}, rgba(255,255,255,0.06))` : "rgba(255,255,255,0.08)", boxShadow: sel ? `0 0 34px ${st.glow}` : "none" }}>
+                <div className="rounded-2xl bg-[#141419] h-full p-4 pt-5 overflow-hidden relative">
+                  <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${st.grad}`} />
+                  <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br ${st.grad} opacity-15 blur-xl pointer-events-none`} />
+                  {ribbon && (
+                    <div className={`absolute top-3 right-[-34px] rotate-45 text-[8px] font-bold tracking-wider text-black bg-gradient-to-r ${st.grad} px-9 py-1`}>{ribbon}</div>
+                  )}
+                  <div className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${st.chip}`}>
+                    {st.icon} {p.name}
+                  </div>
+                  <div className="text-[26px] leading-tight font-bold mt-3">
+                    {p.custom ? `₹${(p.min_price || 5000).toLocaleString("en-IN")}+` : `₹${p.price.toLocaleString("en-IN")}`}
+                  </div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-wider">12 months validity</div>
+                  <ul className="mt-3 space-y-1.5 text-[11px] text-white/75">
+                    <li className="flex items-center gap-1.5"><span className="text-gold">💰</span> {p.cashback_pct}% wallet cashback</li>
+                    {p.discount_pct > 0 && <li className="flex items-center gap-1.5"><span className="text-gold">✂️</span> {p.discount_pct}% off services</li>}
+                    <li className="flex items-center gap-1.5"><span className="text-gold">🪪</span> Digital card + QR</li>
+                    <li className="flex items-center gap-1.5"><span className="text-gold">🎂</span> Birthday member perks</li>
+                  </ul>
+                  <div className={`mt-4 rounded-full text-center text-xs font-bold py-2 transition ${sel ? `bg-gradient-to-r ${st.grad} text-black` : "border border-white/20 text-white/70"}`}>
+                    {sel ? "Selected ✦" : "Choose plan"}
+                  </div>
+                </div>
               </button>
             );
           })}
