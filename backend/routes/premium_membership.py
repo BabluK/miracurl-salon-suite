@@ -24,6 +24,13 @@ _EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}")
 _ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
 DEFAULT_BENEFITS = ["Birthday Offer", "Priority Booking", "Free Consultation"]
+TIER_BENEFITS = {
+    "silver": ["Birthday Offer", "Priority Booking"],
+    "gold": ["Birthday Offer", "Priority Booking", "Free Consultation", "Free Hair Wash"],
+    "platinum": ["Birthday Offer", "Priority Booking", "Free Consultation", "Free Hair Wash", "Free Hair Spa (once)"],
+    "diamond": ["Birthday Offer", "Priority Booking", "Free Consultation", "Free Hair Wash", "Free Hair Spa (once)", "Dedicated Manager"],
+    "custom": ["Birthday Offer", "Priority Booking", "Salon-defined perks"],
+}
 DEFAULT_PLANS = [
     {"tier": "silver", "name": "Silver", "price": 5000, "cashback_pct": 5, "discount_pct": 5},
     {"tier": "gold", "name": "Gold", "price": 7000, "cashback_pct": 7, "discount_pct": 7},
@@ -63,7 +70,7 @@ async def _ensure_premium_plans(t: dict) -> list:
         rows.append({"id": str(uuid.uuid4()), "tenant_id": t["id"], "name": p["name"],
                      "tier": p["tier"], "price": float(p["price"]),
                      "discount_pct": float(p["discount_pct"]), "cashback_pct": float(p["cashback_pct"]),
-                     "validity_days": 365, "benefits": list(DEFAULT_BENEFITS),
+                     "validity_days": 365, "benefits": TIER_BENEFITS.get(p["tier"], list(DEFAULT_BENEFITS)),
                      "custom": bool(p.get("custom")), "min_price": float(p.get("min_price") or 0),
                      "public_purchase": True, "active": True, "created_at": _now()})
     await _raw_db.memberships.insert_many([{**r} for r in rows])

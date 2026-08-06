@@ -8,6 +8,7 @@ import { printInvoice } from "@/components/pos/receipt";
 import AddGuestModal from "@/components/pos/AddGuestModal";
 import InvoiceReceiptModal from "@/components/pos/InvoiceReceiptModal";
 import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
+import { MemberQrScanner } from "@/components/pos/MemberQrScanner";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
 import { OffersPanel } from "@/components/pos/OffersPanel";
@@ -55,9 +56,18 @@ export default function POS() {
   const [gcCode, setGcCode] = useState("");
   const [memberCode, setMemberCode] = useState("");
   const [memberInfo, setMemberInfo] = useState(null);
+  const [qrScanOpen, setQrScanOpen] = useState(false);
 
-  async function applyMemberCode() {
-    const code = memberCode.trim().toUpperCase().replace(/\s+/g, "");
+  function onQrDetected(text) {
+    setQrScanOpen(false);
+    const m = String(text || "").toUpperCase().match(/MC-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/);
+    if (!m) { toast.error("That QR isn't a Miracurl member card"); return; }
+    setMemberCode(m[0]);
+    applyMemberCode(m[0]);
+  }
+
+  async function applyMemberCode(codeArg) {
+    const code = String(codeArg || memberCode).trim().toUpperCase().replace(/\s+/g, "");
     if (!/^MC-/.test(code)) { toast.error("Member IDs start with MC- (e.g. MC-A7F9-K2T8-X4Q1)"); return; }
     try {
       const { data } = await api.get(`/pos/member-lookup/${encodeURIComponent(code)}`);
@@ -477,6 +487,9 @@ export default function POS() {
                 data-testid="pos-membership-input" className="w-48 font-mono text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-400" />
               <button onClick={applyMemberCode} data-testid="pos-membership-apply"
                 className="bg-amber-500 text-white text-xs font-bold rounded-lg px-3 py-2 hover:bg-amber-400">Apply</button>
+              <button onClick={() => setQrScanOpen(true)} data-testid="pos-membership-scan"
+                title="Scan the member's QR with the camera"
+                className="border border-amber-300 text-amber-600 text-xs font-bold rounded-lg px-3 py-2 hover:bg-amber-50">📷 Scan</button>
               {memberInfo && (
                 <>
                   <span className={`text-xs font-semibold ${memberInfo.membership.status === "active" ? "text-emerald-600" : "text-rose-500"}`} data-testid="pos-membership-applied">
@@ -521,6 +534,8 @@ export default function POS() {
           onClose={() => setGcModalOpen(false)}
         />
       )}
+
+      {qrScanOpen && <MemberQrScanner onDetected={onQrDetected} onClose={() => setQrScanOpen(false)} />}
 
       {lastInvoice && (
         <InvoiceReceiptModal

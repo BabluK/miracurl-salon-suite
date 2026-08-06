@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import { Crown, Loader2, CheckCircle2, Sparkles } from "lucide-react";
+import { Crown, Loader2, CheckCircle2, Lock, User, CreditCard, ShieldCheck, QrCode, IdCard, BadgeCheck } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PUBLIC = axios.create({ baseURL: `${API}/public` });
@@ -16,14 +16,14 @@ const loadRzp = () => new Promise((res) => {
   document.body.appendChild(s);
 });
 
-const TIER_STYLE = {
-  silver:   { grad: "from-slate-300 via-slate-400 to-slate-600", chip: "bg-slate-200 text-slate-800", glow: "rgba(148,163,184,0.35)", icon: "🥈" },
-  gold:     { grad: "from-amber-300 via-yellow-400 to-amber-600", chip: "bg-amber-200 text-amber-900", glow: "rgba(212,175,55,0.45)", icon: "🥇" },
-  platinum: { grad: "from-violet-300 via-purple-400 to-violet-700", chip: "bg-violet-200 text-violet-900", glow: "rgba(139,92,246,0.45)", icon: "💎" },
-  diamond:  { grad: "from-cyan-300 via-sky-400 to-cyan-700", chip: "bg-cyan-200 text-cyan-900", glow: "rgba(34,211,238,0.45)", icon: "👑" },
-  custom:   { grad: "from-orange-300 via-rose-400 to-rose-600", chip: "bg-orange-200 text-orange-900", glow: "rgba(251,146,60,0.4)", icon: "✨" },
+const TIERS = {
+  silver:   { medal: "from-slate-200 via-slate-400 to-slate-600", banner: "from-slate-400 to-slate-600", text: "text-slate-200", glow: "rgba(148,163,184,0.35)", icon: "⭐" },
+  gold:     { medal: "from-yellow-200 via-amber-400 to-amber-700", banner: "from-amber-400 to-yellow-600", text: "text-amber-200", glow: "rgba(212,175,55,0.45)", icon: "⭐" },
+  platinum: { medal: "from-violet-300 via-purple-500 to-violet-800", banner: "from-violet-500 to-purple-700", text: "text-violet-200", glow: "rgba(139,92,246,0.5)", icon: "👑" },
+  diamond:  { medal: "from-cyan-200 via-sky-400 to-cyan-700", banner: "from-cyan-400 to-sky-600", text: "text-cyan-200", glow: "rgba(34,211,238,0.45)", icon: "💎" },
+  custom:   { medal: "from-orange-200 via-amber-500 to-rose-700", banner: "from-orange-400 to-rose-600", text: "text-orange-200", glow: "rgba(251,146,60,0.4)", icon: "✨" },
 };
-const TIER_RIBBON = { platinum: "⭐ MOST POPULAR", diamond: "👑 BEST VALUE" };
+const RIBBON = { platinum: "MOST POPULAR", diamond: "BEST VALUE" };
 
 export default function MembershipPublic() {
   const { slug } = useParams();
@@ -34,16 +34,16 @@ export default function MembershipPublic() {
   const [customAmt, setCustomAmt] = useState(5000);
   const [form, setForm] = useState({ name: "", phone: "", email: "" });
   const [busy, setBusy] = useState(false);
-  const [upi, setUpi] = useState(null); // upi order response
+  const [upi, setUpi] = useState(null);
   const [upiRef, setUpiRef] = useState("");
-  const [done, setDone] = useState(null); // activation result
+  const [done, setDone] = useState(null);
 
   useEffect(() => {
     PUBLIC.get(`/membership/${slug}/config`).then(r => setCfg(r.data)).catch(() => setCfg(false));
   }, [slug]);
 
-  if (cfg === null) return <div className="min-h-screen bg-bg-base flex items-center justify-center text-white/60">Loading…</div>;
-  if (cfg === false) return <div className="min-h-screen bg-bg-base flex items-center justify-center text-white/60">Salon not found</div>;
+  if (cfg === null) return <div className="min-h-screen bg-[#0b0b0f] flex items-center justify-center text-white/60">Loading…</div>;
+  if (cfg === false) return <div className="min-h-screen bg-[#0b0b0f] flex items-center justify-center text-white/60">Salon not found</div>;
 
   const amount = plan?.custom ? Number(customAmt || 0) : Number(plan?.price || 0);
 
@@ -107,7 +107,7 @@ export default function MembershipPublic() {
   if (done) {
     const pending = done.status === "awaiting_confirmation";
     return (
-      <div className="min-h-screen bg-bg-base text-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#0b0b0f] text-white flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white/5 border border-white/10 rounded-3xl p-8 text-center" data-testid="membership-success">
           <CheckCircle2 className="w-14 h-14 mx-auto text-gold" />
           <h2 className="font-playfair text-3xl mt-4">{pending ? "Payment submitted ✦" : renewId ? "Membership renewed! 🎉" : "You're a member! 🎉"}</h2>
@@ -121,6 +121,12 @@ export default function MembershipPublic() {
               </div>
               <Link to={`/member/${done.member_id}`} data-testid="view-member-card-link"
                 className="mt-5 inline-block bg-gold text-bg-base font-semibold px-6 py-3 rounded-full">View my membership card →</Link>
+              <a data-testid="wa-my-card"
+                href={`https://wa.me/?text=${encodeURIComponent(`🎉 My ${(plan?.name || "Premium").toUpperCase()} membership at ${cfg.salon.name} is active ✦\n🪪 Member ID: ${done.member_id}\nCard & QR: ${window.location.origin}/member/${done.member_id}`)}`}
+                target="_blank" rel="noreferrer"
+                className="mt-3 block text-emerald-400 text-sm font-semibold hover:text-emerald-300">
+                📲 Save my card on WhatsApp →
+              </a>
             </>
           )}
           <div className="mt-6"><Link to={`/book/${slug}`} className="text-white/50 text-sm hover:text-white">← Back to {cfg.salon.name}</Link></div>
@@ -130,44 +136,56 @@ export default function MembershipPublic() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-base text-white p-4 sm:p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 text-gold text-xs tracking-[0.3em] uppercase"><Crown className="w-4 h-4" /> Premium Membership</div>
-          <h1 className="font-playfair text-4xl sm:text-5xl mt-2">{cfg.salon.name}</h1>
-          <p className="text-white/50 text-sm mt-2">{renewId ? `Renewing membership ${renewId} — pick your plan` : "Earn wallet cashback + member-only perks on every visit."}</p>
+    <div className="min-h-screen bg-[#0b0b0f] text-white relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(60% 40% at 50% 0%, rgba(212,175,55,0.10), transparent 70%)" }} />
+      <div className="relative max-w-6xl mx-auto p-4 sm:p-8">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 text-gold text-[11px] tracking-[0.35em] uppercase font-semibold"><Crown className="w-4 h-4" /> Premium Membership</div>
+          <h1 className="font-playfair text-4xl sm:text-5xl lg:text-6xl mt-3">{cfg.salon.name}</h1>
+          <p className="text-white/50 text-sm mt-3">{renewId ? `Renewing membership ${renewId} — pick your plan` : "Unlock exclusive benefits and enjoy premium care on every visit."}</p>
+          <div className="mx-auto mt-4 h-px w-56 bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8" data-testid="membership-plans">
+        {/* Plan cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-10" data-testid="membership-plans">
           {cfg.plans.map(p => {
-            const st = TIER_STYLE[p.tier] || TIER_STYLE.custom;
+            const st = TIERS[p.tier] || TIERS.custom;
             const sel = plan?.id === p.id;
-            const ribbon = TIER_RIBBON[p.tier];
+            const ribbon = RIBBON[p.tier];
             return (
               <button key={p.id} data-testid={`membership-plan-${p.tier}`} onClick={() => setPlan(p)}
-                className={`relative text-left rounded-2xl p-[1.5px] transition-transform duration-200 hover:-translate-y-1 ${ribbon ? "lg:-mt-3" : ""}`}
-                style={{ background: sel ? `linear-gradient(140deg, ${st.glow}, rgba(255,255,255,0.06))` : "rgba(255,255,255,0.08)", boxShadow: sel ? `0 0 34px ${st.glow}` : "none" }}>
-                <div className="rounded-2xl bg-[#141419] h-full p-4 pt-5 overflow-hidden relative">
-                  <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${st.grad}`} />
-                  <div className={`absolute -top-10 -right-10 w-28 h-28 rounded-full bg-gradient-to-br ${st.grad} opacity-15 blur-xl pointer-events-none`} />
+                className={`relative text-left rounded-2xl p-[1.5px] transition-transform duration-200 hover:-translate-y-1 ${ribbon === "MOST POPULAR" ? "lg:-mt-3 lg:mb-[-12px]" : ""}`}
+                style={{ background: sel ? `linear-gradient(150deg, ${st.glow}, rgba(255,255,255,0.05))` : "rgba(255,255,255,0.08)", boxShadow: sel ? `0 0 40px ${st.glow}` : "none" }}>
+                <div className="rounded-2xl bg-[#131318] h-full px-4 pb-4 pt-6 overflow-hidden relative text-center">
                   {ribbon && (
-                    <div className={`absolute top-3 right-[-34px] rotate-45 text-[8px] font-bold tracking-wider text-black bg-gradient-to-r ${st.grad} px-9 py-1`}>{ribbon}</div>
+                    <div className={`absolute top-0 right-0 text-[8px] font-bold tracking-widest text-white bg-gradient-to-r ${st.banner} px-2.5 py-1 rounded-bl-xl`}>{ribbon}</div>
                   )}
-                  <div className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${st.chip}`}>
-                    {st.icon} {p.name}
+                  {/* medallion */}
+                  <div className={`mx-auto w-14 h-14 rounded-full bg-gradient-to-br ${st.medal} flex items-center justify-center text-xl shadow-lg`} style={{ boxShadow: `0 6px 22px ${st.glow}` }}>
+                    {st.icon}
                   </div>
-                  <div className="text-[26px] leading-tight font-bold mt-3">
+                  {/* tier banner */}
+                  <div className={`mx-auto -mt-1 mt-2 w-fit bg-gradient-to-r ${st.banner} text-black/90 text-[10px] font-extrabold uppercase tracking-[0.2em] px-4 py-1`}
+                    style={{ clipPath: "polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%)" }}>
+                    {p.name}
+                  </div>
+                  <div className="text-[27px] leading-tight font-bold mt-3">
                     {p.custom ? `₹${(p.min_price || 5000).toLocaleString("en-IN")}+` : `₹${p.price.toLocaleString("en-IN")}`}
                   </div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-wider">12 months validity</div>
-                  <ul className="mt-3 space-y-1.5 text-[11px] text-white/75">
-                    <li className="flex items-center gap-1.5"><span className="text-gold">💰</span> {p.cashback_pct}% wallet cashback</li>
-                    {p.discount_pct > 0 && <li className="flex items-center gap-1.5"><span className="text-gold">✂️</span> {p.discount_pct}% off services</li>}
-                    <li className="flex items-center gap-1.5"><span className="text-gold">🪪</span> Digital card + QR</li>
-                    <li className="flex items-center gap-1.5"><span className="text-gold">🎂</span> Birthday member perks</li>
+                  <div className="text-[9px] text-white/45 uppercase tracking-[0.25em] mt-1" data-testid={`plan-validity-${p.tier}`}>
+                    {p.validity_days % 365 === 0 ? `${p.validity_days / 365 * 12} months validity` : `${p.validity_days} days validity`}
+                  </div>
+                  <ul className="mt-4 space-y-2 text-[11px] text-white/80 text-left" data-testid={`plan-benefits-${p.tier}`}>
+                    <li className="flex items-start gap-1.5"><span className={st.text}>💰</span> {p.cashback_pct}% wallet cashback</li>
+                    {p.discount_pct > 0 && <li className="flex items-start gap-1.5"><span className={st.text}>✂️</span> {p.discount_pct}% off on services</li>}
+                    {(p.benefits || []).map((b, i) => (
+                      <li key={i} className="flex items-start gap-1.5"><span className={st.text}>✓</span> {b}</li>
+                    ))}
+                    <li className="flex items-start gap-1.5"><span className={st.text}>🪪</span> Digital card + QR</li>
                   </ul>
-                  <div className={`mt-4 rounded-full text-center text-xs font-bold py-2 transition ${sel ? `bg-gradient-to-r ${st.grad} text-black` : "border border-white/20 text-white/70"}`}>
-                    {sel ? "Selected ✦" : "Choose plan"}
+                  <div className={`mt-4 rounded-full text-center text-xs font-bold py-2.5 transition flex items-center justify-center gap-1.5 ${sel ? `bg-gradient-to-r ${st.banner} text-white` : "border border-white/20 text-white/70"}`}>
+                    {sel ? <>Selected <BadgeCheck className="w-3.5 h-3.5" /></> : "Choose Plan"}
                   </div>
                 </div>
               </button>
@@ -175,39 +193,62 @@ export default function MembershipPublic() {
           })}
         </div>
 
+        {/* Member details + payment summary */}
         {plan && !upi && (
-          <div className="max-w-md mx-auto bg-white/5 border border-white/10 rounded-3xl p-6 space-y-3" data-testid="membership-buyer-form">
-            {plan.custom && (
-              <div>
-                <label className="text-xs text-white/50 block mb-1">Membership amount (min ₹{(plan.min_price || 5000).toLocaleString("en-IN")})</label>
-                <input data-testid="membership-custom-amount" type="number" min={plan.min_price || 5000} step="500" value={customAmt}
-                  onChange={e => setCustomAmt(e.target.value)}
-                  className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-white focus:border-gold outline-none" />
+          <div className="max-w-4xl mx-auto bg-white/[0.04] border border-white/10 rounded-3xl p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-8" data-testid="membership-buyer-form">
+            <div>
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-9 h-9 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center"><User className="w-4 h-4 text-gold" /></div>
+                <h3 className="font-semibold">Member Details</h3>
               </div>
-            )}
-            <input data-testid="membership-name" placeholder="Your full name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-              className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:border-gold outline-none" />
-            <input data-testid="membership-phone" placeholder="Phone number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
-              className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:border-gold outline-none" />
-            <input data-testid="membership-email" type="email" placeholder="Email (card is sent here)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-              className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:border-gold outline-none" />
-            <div className="pt-2 space-y-2">
+              <div className="space-y-3">
+                {plan.custom && (
+                  <input data-testid="membership-custom-amount" type="number" min={plan.min_price || 5000} step="500" value={customAmt}
+                    onChange={e => setCustomAmt(e.target.value)} placeholder={`Amount (min ₹${(plan.min_price || 5000).toLocaleString("en-IN")})`}
+                    className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3.5 text-white placeholder:text-white/30 focus:border-gold outline-none" />
+                )}
+                <input data-testid="membership-name" placeholder="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+                  className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3.5 text-white placeholder:text-white/30 focus:border-gold outline-none" />
+                <input data-testid="membership-phone" placeholder="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
+                  className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3.5 text-white placeholder:text-white/30 focus:border-gold outline-none" />
+                <input data-testid="membership-email" type="email" placeholder="Email Address (Card will be sent here)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
+                  className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3.5 text-white placeholder:text-white/30 focus:border-gold outline-none" />
+                <p className="text-[11px] text-white/40 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-gold" /> Your data is safe and secure with us.</p>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center"><CreditCard className="w-4 h-4 text-gold" /></div>
+                  <h3 className="font-semibold">Payment Summary</h3>
+                </div>
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gradient-to-r ${(TIERS[plan.tier] || TIERS.custom).banner} text-white`}>{plan.name} plan</span>
+              </div>
+              <div className="space-y-2.5 text-sm border-b border-white/10 pb-4">
+                <div className="flex justify-between text-white/70"><span>Plan Amount</span><span>₹{Number(amount || 0).toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between text-white/70"><span>Validity</span><span>{plan.validity_days % 365 === 0 ? `${plan.validity_days / 365 * 12} months` : `${plan.validity_days} days`}</span></div>
+              </div>
+              <div className="flex justify-between items-center py-4">
+                <span className="font-semibold">Total Payable</span>
+                <span className="text-2xl font-bold text-gold" data-testid="membership-total">₹{Number(amount || 0).toLocaleString("en-IN")}</span>
+              </div>
               {cfg.payment.razorpay && (
                 <button data-testid="membership-pay-razorpay" onClick={payRazorpay} disabled={busy}
-                  className="w-full bg-gold text-bg-base font-bold py-3.5 rounded-full flex items-center justify-center gap-2 disabled:opacity-60">
-                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
-                  Pay ₹{Number(amount || 0).toLocaleString("en-IN")} securely
+                  className="w-full bg-gradient-to-r from-gold to-amber-600 text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-amber-900/30">
+                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                  Pay ₹{Number(amount || 0).toLocaleString("en-IN")} Securely
                 </button>
               )}
               {cfg.payment.upi && (
                 <button data-testid="membership-pay-upi" onClick={payUpi} disabled={busy}
-                  className="w-full border border-white/20 text-white/90 font-semibold py-3 rounded-full hover:border-gold/60 disabled:opacity-60">
+                  className="w-full mt-2.5 border border-white/20 text-white/90 font-semibold py-3 rounded-2xl hover:border-gold/60 disabled:opacity-60">
                   Pay via UPI ({cfg.payment.upi_id})
                 </button>
               )}
               {!cfg.payment.razorpay && !cfg.payment.upi && (
                 <p className="text-center text-white/50 text-sm">Online purchase isn&apos;t enabled yet — please ask at the salon reception.</p>
               )}
+              <p className="text-[10px] text-white/40 text-center mt-3">🔒 Secure payment · You&apos;ll receive your digital membership card instantly on email &amp; WhatsApp.</p>
             </div>
           </div>
         )}
@@ -216,7 +257,7 @@ export default function MembershipPublic() {
           <div className="max-w-md mx-auto bg-white/5 border border-white/10 rounded-3xl p-6 text-center space-y-4" data-testid="membership-upi-panel">
             <h3 className="font-playfair text-2xl">Pay ₹{Number(amount).toLocaleString("en-IN")} via UPI</h3>
             {upi.qr_b64 && <img src={`data:image/png;base64,${upi.qr_b64}`} alt="UPI QR" className="w-44 h-44 mx-auto rounded-xl bg-white p-2" />}
-            <p className="text-white/50 text-xs">Scan with any UPI app, or tap: </p>
+            <p className="text-white/50 text-xs">Scan with any UPI app, or tap:</p>
             <div className="flex justify-center gap-2 text-xs">
               <a className="px-3 py-2 rounded-full bg-white/10" href={upi.gpay_link}>GPay</a>
               <a className="px-3 py-2 rounded-full bg-white/10" href={upi.phonepe_link}>PhonePe</a>
@@ -228,6 +269,21 @@ export default function MembershipPublic() {
               className="w-full bg-gold text-bg-base font-bold py-3 rounded-full disabled:opacity-60">I have paid — submit</button>
           </div>
         )}
+
+        {/* Trust strip */}
+        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mt-10 pt-6 border-t border-white/10 text-left" data-testid="membership-trust-strip">
+          {[
+            { Icon: IdCard, h: "Instant Digital Card", s: "Get your card on email" },
+            { Icon: QrCode, h: "QR Code Access", s: "Scan & enjoy benefits" },
+            { Icon: ShieldCheck, h: "Secure & Safe", s: "100% secure payments" },
+            { Icon: BadgeCheck, h: "Wallet Cashback", s: "Earn on every visit" },
+          ].map(({ Icon, h, s }) => (
+            <div key={h} className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full bg-gold/10 border border-gold/25 flex items-center justify-center shrink-0"><Icon className="w-4 h-4 text-gold" /></div>
+              <div><div className="text-xs font-semibold">{h}</div><div className="text-[10px] text-white/45">{s}</div></div>
+            </div>
+          ))}
+        </div>
 
         <div className="text-center mt-10">
           <Link to={`/book/${slug}`} className="text-white/40 text-sm hover:text-white">← Back to booking</Link>

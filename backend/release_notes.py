@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-07.62"
-BUILD_TIME = "7 Aug 2026, 3:00 AM IST"
+BUILD = "2026-08-07.63"
+BUILD_TIME = "7 Aug 2026, 4:30 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-07 (QR scan, WhatsApp cards & a stunning membership page 💎)",
+        "changes": [
+            "📷 Camera QR scan at POS — tap Scan next to the Membership box and point the camera at the member's card QR; the guest is pulled up instantly",
+            "💬 WhatsApp card delivery — a one-tap WhatsApp button next to every member (Offers & Plans → Memberships) sends their card link, Member ID and validity; buyers also get a 'Save my card on WhatsApp' button right after purchase",
+            "💎 Membership page redesigned — medallion tier badges, MOST POPULAR / BEST VALUE ribbons, each plan's full benefit list (edit benefits & free services per plan in Offers & Plans), validity shown on every card, and a polished Member Details + Payment Summary checkout",
+        ],
+    },
     {
         "date": "2026-08-07 (Wallet Pay at POS 💰)",
         "changes": [

@@ -10,6 +10,14 @@ const TIER_CHIP = {
 };
 const fmt = (d) => { try { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); } catch { return d || "—"; } };
 
+const waCardLink = (r) => {
+  const base = window.location.origin;
+  const msg = `🎉 Hi ${r.customer_name}! Your ${String(r.tier || "").toUpperCase()} membership card is ready ✦\n\n🪪 Member ID: ${r.member_id}\n💳 Plan: ${r.plan}\n📅 Valid till: ${fmt(r.expires_at)}\n\nView & download your card (with QR):\n${base}/member/${r.member_id}\n\nShow the QR or your Member ID on every visit to enjoy your perks 💛`;
+  const digits = String(r.phone || "").replace(/\D/g, "");
+  const to = digits.length === 10 ? `91${digits}` : digits;
+  return `https://wa.me/${to}?text=${encodeURIComponent(msg)}`;
+};
+
 // All onboarded members — sold at POS by the salon or purchased online by the customer.
 export function MembersPanel() {
   const [data, setData] = useState({ members: [], pending_upi: [] });
@@ -66,6 +74,7 @@ export function MembersPanel() {
                   <th className="py-2 pr-3">Member</th><th className="py-2 pr-3">Member ID</th><th className="py-2 pr-3">Plan</th>
                   <th className="py-2 pr-3">Source</th><th className="py-2 pr-3">Validity</th><th className="py-2 pr-3">Status</th>
                   <th className="py-2 text-right">Wallet · Points</th>
+                  <th className="py-2 pl-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -89,6 +98,15 @@ export function MembersPanel() {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-600"}`}>{r.status}</span>
                     </td>
                     <td className="py-2 text-right text-slate-700 font-semibold">₹{Number(r.wallet_balance).toLocaleString("en-IN")} <span className="text-slate-400 font-normal">· {r.loyalty_points} pts</span></td>
+                    <td className="py-2 pl-2 text-right">
+                      {r.member_id && r.phone && (
+                        <a data-testid={`wa-card-${i}`} href={waCardLink(r)} target="_blank" rel="noreferrer"
+                          title="Send the membership card & QR link on WhatsApp"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1 hover:bg-emerald-100">
+                          💬 Card
+                        </a>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

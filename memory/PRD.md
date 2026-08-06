@@ -1417,3 +1417,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 ## 2026-08-07 (round 9) — 💳 Membership row on POS bill (like Gift card row)
 - POS.jsx: memberCode/memberInfo state + applyMemberCode() (validates MC- prefix, GET /pos/member-lookup, selectGuest, toast). UI row inside pos-gift-card-box below gift card: pos-membership-input / pos-membership-apply / pos-membership-applied chip (tier, X% off auto-applied, cashback, wallet) / pos-membership-remove. Cleared in clearAll. Verified via screenshot (apply + guest pull-up + bad-ID error).
 - BUILD 2026-08-07.62.
+
+## 2026-08-07 (round 10) — QR scan + WhatsApp cards + membership page v3
+- MemberQrScanner.jsx (jsQR + BarcodeDetector fallback, getUserMedia environment cam, graceful no-camera msg). POS: 📷 Scan btn (pos-membership-scan) → onQrDetected extracts MC- pattern → applyMemberCode(code) (now takes optional arg). Verified modal open/close.
+- WhatsApp card delivery: MembersPanel per-row 💬 Card button (wa.me/<91phone>?text= member id/plan/validity/card link); MembershipPublic success screen "Save my card on WhatsApp" (wa-my-card).
+- MembershipPublic.jsx REBUILT to match user's mock: radial-gold dark bg (#0b0b0f), medallion badges + hexagon tier banners, corner ribbons, per-plan REAL benefits list (admin-editable in Offers & Plans = "additional free services"), validity on card (plan-validity-{tier}), Member Details + Payment Summary panel (Plan Amount/Validity/Total Payable, gold Pay Securely, UPI), trust strip. NO GST added (flat pricing kept). Verified via screenshots.
+- premium_membership.py: TIER_BENEFITS per-tier seed defaults (existing tenants keep their seeded/edited benefits).
+- yarn add jsqr. BUILD 2026-08-07.63.
