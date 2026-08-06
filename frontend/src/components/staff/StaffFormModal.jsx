@@ -16,6 +16,7 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
   const [transferMode, setTransferMode] = useState("temporary");
   const [tFrom, setTFrom] = useState(tomorrowISO());
   const [tTo, setTTo] = useState(tomorrowISO());
+  const [notifyChannel, setNotifyChannel] = useState("app");
   const [confirming, setConfirming] = useState(false);
   const [transferring, setTransferring] = useState(false);
 
@@ -32,7 +33,7 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
   async function doTransfer() {
     setTransferring(true);
     try {
-      const payload = { target_tenant_id: transferTo, mode: transferMode };
+      const payload = { target_tenant_id: transferTo, mode: transferMode, notify_channel: notifyChannel };
       if (transferMode === "temporary") { payload.from_date = tFrom; payload.to_date = tTo; }
       const { data } = await api.post(`/staff/${editing.id}/transfer`, payload);
       if (data.mode === "temporary") {
@@ -269,6 +270,8 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
           mode={transferMode}
           fromDate={tFrom}
           toDate={tTo}
+          notifyChannel={notifyChannel}
+          onNotifyChannel={setNotifyChannel}
           busy={transferring}
           onCancel={() => setConfirming(false)}
           onConfirm={doTransfer}

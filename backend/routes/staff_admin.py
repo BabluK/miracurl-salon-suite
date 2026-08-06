@@ -319,6 +319,7 @@ class StaffTransferIn(BaseModel):
     mode: str = Field("permanent", pattern="^(permanent|temporary)$")
     from_date: Optional[str] = None  # YYYY-MM-DD (temporary only)
     to_date: Optional[str] = None
+    notify_channel: str = Field("app", pattern="^(app|email|sms)$")
 
 
 def _move_staff_to(sid: str, s: dict, target_tid: str):
@@ -369,6 +370,7 @@ async def transfer_staff(sid: str, body: StaffTransferIn,
         tt = {"status": "scheduled", "home_tenant_id": t["id"], "home_name": t.get("name") or t.get("slug"),
               "home_branch": s.get("branch") or "", "target_tenant_id": target_tid,
               "target_name": target["name"], "from_date": fd, "to_date": td,
+              "notify_channel": body.notify_channel,
               "created_by": admin.get("email"), "created_at": now_iso}
         starts_now = fd <= today
         if starts_now:
@@ -376,6 +378,10 @@ async def transfer_staff(sid: str, body: StaffTransferIn,
             for op in _move_staff_to(sid, s, target_tid):
                 await op
         await _raw_db.staff.update_one({"id": sid}, {"$set": {"temp_transfer": tt}})
+        try:
+            await _notify_temp_transfer(s, tt, "start")
+        except Exception as e:  # noqa: BLE001 — notifications must never block the transfer
+            logging.error(f"temp transfer notify failed: {e}")
         return {"ok": True, "staff": s["name"], "transferred_to": target, "mode": "temporary",
                 "active_now": starts_now, "from_date": fd, "to_date": td,
                 "login_moved": bool(s.get("user_id")) and starts_now}
@@ -428,6 +434,75 @@ async def temp_transfer_log(admin=Depends(require_admin), t=Depends(current_tena
     return {"rows": rows}
 
 
+async def _notify_temp_transfer(s: dict, tt: dict, phase: str) -> None:
+    """Notify the staff member + managers/admins of BOTH branches when a temporary
+    move starts or ends. Always drops a one-time in-app notice; the admin's chosen
+    channel adds email or SMS on top."""
+    from email_service import _send_email
+    from sms_service import send_tenant_sms
+    channel = tt.get("notify_channel") or "app"
+    start = phase == "start"
+    when = tt.get("from_date") if tt.get("from_date") == tt.get("to_date") \
+        else f"{tt.get('from_date')} to {tt.get('to_date')}"
+    if start:
+        title = "Temporary duty assigned ✦"
+        staff_msg = (f"You'll be working at {tt['target_name']} ({when}). Check in there during these dates — "
+                     f"you'll be moved back to {tt['home_name']} automatically after {tt['to_date']}.")
+        mgr_msg = (f"{s['name']} is on temporary duty at {tt['target_name']} ({when}). "
+                   f"Home salon: {tt['home_name']}. They return automatically after {tt['to_date']}.")
+    else:
+        title = "Temporary duty ended ✦"
+        staff_msg = f"Welcome back! Your temporary duty at {tt['target_name']} has ended — you're back at {tt['home_name']}."
+        mgr_msg = f"{s['name']}'s temporary duty at {tt['target_name']} has ended — their profile is back at {tt['home_name']}."
+    now = datetime.now(timezone.utc).isoformat()
+    mgrs = await _raw_db.users.find(
+        {"tenant_id": {"$in": [tt.get("home_tenant_id"), tt.get("target_tenant_id")]},
+         "role": {"$in": ["manager", "admin"]}, "disabled": {"$ne": True}},
+        {"_id": 0, "id": 1, "email": 1}).to_list(50)
+    notices = []
+    if s.get("user_id"):
+        notices.append({"id": str(uuid.uuid4()), "user_id": s["user_id"], "title": title,
+                        "message": staff_msg, "kind": "temp_transfer", "seen": False, "created_at": now})
+    for m in mgrs:
+        if m["id"] == s.get("user_id"):
+            continue
+        notices.append({"id": str(uuid.uuid4()), "user_id": m["id"], "title": title,
+                        "message": mgr_msg, "kind": "temp_transfer", "seen": False, "created_at": now})
+    if notices:
+        await _raw_db.user_notices.insert_many(notices)
+    if channel == "app":
+        return
+    def _html(msg: str) -> str:
+        return (f"<div style='font-family:Georgia,serif;max-width:520px;margin:0 auto;color:#333'>"
+                f"<h3 style='color:#1c1c22'>{html_lib.escape(title)}</h3><p>{html_lib.escape(msg)}</p>"
+                f"<p style='font-size:12px;color:#999'>— Miracurl Suite</p></div>")
+    mgr_emails = sorted({m["email"] for m in mgrs if m.get("email") and m["id"] != s.get("user_id")})
+    if mgr_emails:
+        await _send_email(mgr_emails, f"{title.rstrip(' ✦')}: {s['name']} — {tt['target_name']}", _html(mgr_msg))
+    staff_email = s.get("personal_email") or s.get("email")
+    if channel == "email" and staff_email:
+        await _send_email([staff_email], f"{title.rstrip(' ✦')} — {tt['target_name']}", _html(staff_msg))
+    elif channel == "sms" and s.get("phone"):
+        await send_tenant_sms(tt.get("home_tenant_id"), s["phone"],
+                              f"Miracurl: {staff_msg}", kind="staff_transfer")
+
+
+@router.get("/notices/unseen")
+async def unseen_notices(user=Depends(get_current_user)):
+    """One-time login notices for the current user (temp transfers etc.)."""
+    rows = await _raw_db.user_notices.find(
+        {"user_id": user["id"], "seen": False}, {"_id": 0}).sort("created_at", -1).to_list(10)
+    return {"items": rows}
+
+
+@router.post("/notices/mark-seen")
+async def mark_notices_seen(user=Depends(get_current_user)):
+    await _raw_db.user_notices.update_many(
+        {"user_id": user["id"], "seen": False},
+        {"$set": {"seen": True, "seen_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True}
+
+
 async def _return_temp_staff(s: dict) -> None:
     tt = s.get("temp_transfer") or {}
     billed, bills = await _staff_billed_at(tt.get("target_tenant_id"), s["id"],
@@ -444,6 +519,10 @@ async def _return_temp_staff(s: dict) -> None:
         **{k: tt.get(k) for k in ("home_tenant_id", "home_name", "target_tenant_id",
                                   "target_name", "from_date", "to_date")},
         "returned_at": datetime.now(timezone.utc).isoformat()})
+    try:
+        await _notify_temp_transfer(s, tt, "end")
+    except Exception as e:  # noqa: BLE001
+        logging.error(f"temp transfer end-notify failed: {e}")
 
 
 async def run_temp_transfer_sweep() -> dict:

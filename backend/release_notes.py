@@ -2,10 +2,23 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-05.55"
-BUILD_TIME = "5 Aug 2026, 11:15 AM IST"
+BUILD = "2026-08-06.56"
+BUILD_TIME = "6 Aug 2026, 10:00 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-06 (Temporary staff transfers & smarter notifications)",
+        "changes": [
+            "🔁 Temporary staff transfer — send any staff to your other salon for exact dates (even just 1 day); they bill, check in and log in there, then return home AUTOMATICALLY after the last day",
+            "🏠 While away, they stay visible at the home salon with an 'On duty at…' badge (not billable there) plus a one-tap 'Bring back now' button",
+            "🧾 Temporary Duty Log on the Staff page (admin-only) — see who worked at which salon, the dates, and exactly how much business they billed there",
+            "🔔 One-time notification popup after login — the staff member and managers of BOTH branches are informed when a temporary duty starts and when it ends; you choose in-app only, + email, or + SMS at transfer time",
+            "✨ New transfer confirmation popup — staff photo, from → to salons, dates and exactly what will happen (replaces the plain browser alert)",
+            "📌 The Owner-PIN popup for salon switching now opens perfectly centered on screen",
+            "💬 Buy SMS points right from your Dashboard — a balance strip (turns amber when low) with one-tap Razorpay top-up packs",
+            "Platform: Trial salons now get automatic day 5/10/13 nudge emails with their own usage stats + a one-tap activation pay link (plan pricing follows Super Admin overrides)",
+        ],
+    },
     {
         "date": "2026-08-05 (Leave, week-offs & review requests that reach everyone)",
         "changes": [

@@ -1,12 +1,12 @@
 import { createPortal } from "react-dom";
-import { ArrowRight, Store, CalendarDays, Loader2, ArrowRightLeft, Undo2 } from "lucide-react";
+import { ArrowRight, Store, CalendarDays, Loader2, ArrowRightLeft, Undo2, BellRing, Mail, MessageSquare } from "lucide-react";
 
 const fmtDate = (d) => {
   try { return new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }); }
   catch { return d; }
 };
 
-export function TransferConfirmModal({ staff, fromName, toName, mode, fromDate, toDate, busy, onCancel, onConfirm }) {
+export function TransferConfirmModal({ staff, fromName, toName, mode, fromDate, toDate, notifyChannel, onNotifyChannel, busy, onCancel, onConfirm }) {
   const temp = mode === "temporary";
   const oneDay = temp && fromDate === toDate;
   return createPortal(
@@ -55,6 +55,30 @@ export function TransferConfirmModal({ staff, fromName, toName, mode, fromDate, 
               </>
             )}
           </ul>
+
+          {temp && onNotifyChannel && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-2">
+                Notify {staff?.name?.split(" ")[0] || "staff"} & both branch managers via
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: "app", label: "In-app only", Icon: BellRing, hint: "one-time popup on login" },
+                  { key: "email", label: "+ Email", Icon: Mail, hint: "popup + emails" },
+                  { key: "sms", label: "+ SMS", Icon: MessageSquare, hint: "popup + SMS (1 point)" },
+                ].map(({ key, label, Icon, hint }) => (
+                  <button key={key} type="button" data-testid={`notify-${key}`} onClick={() => onNotifyChannel(key)}
+                    className={`rounded-xl border-2 px-2 py-2.5 text-center transition ${
+                      notifyChannel === key ? "border-sky-500 bg-sky-50" : "border-slate-200 hover:border-slate-300"}`}>
+                    <Icon className={`w-4 h-4 mx-auto ${notifyChannel === key ? "text-sky-600" : "text-slate-400"}`} />
+                    <div className={`text-[11px] font-semibold mt-1 ${notifyChannel === key ? "text-sky-700" : "text-slate-600"}`}>{label}</div>
+                    <div className="text-[9px] text-slate-400 mt-0.5 leading-tight">{hint}</div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2">They&apos;re notified when the duty starts and again when they return.</p>
+            </div>
+          )}
         </div>
 
         <div className="px-6 pb-6 flex gap-3">

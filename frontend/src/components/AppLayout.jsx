@@ -23,6 +23,7 @@ import TrialReminder from "./TrialReminder";
 import ActAsBanner from "./ActAsBanner";
 import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
 import WhatsNewModal from "./WhatsNewModal";
+import { NoticePopup } from "./NoticePopup";
 import { NetSpeedIndicator } from "./NetSpeedIndicator";
 
 const NAV_ADMIN = [
@@ -142,6 +143,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen flex bg-bg-base text-ink-primary" style={user?.role === "super_admin" ? { paddingTop: "46px" } : undefined}>
+      <NoticePopup />
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
