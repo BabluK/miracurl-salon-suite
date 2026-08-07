@@ -1453,3 +1453,13 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Welcome/renewal email card block redesigned to same card style (tier gradient, logo, card number, valid thru, name); new resend=True mode → subject "🪪 Your membership card".
 - NEW `POST /api/public/member/{id}/email-card` (rate-limit 5/10min) — resends card email to email on file, returns masked address. 400 (not 502 — Cloudflare hijacks 502) on send failure.
 - yarn add html2canvas. Tested E2E: PDF 200 ✓, email sent to delivered@resend.dev ✓, PNG download ✓, toasts ✓. Test member customer email set to delivered@resend.dev.
+
+## 2026-08-07 (round 15) — Full brand kit hosted at /assets/
+- 33 brand files generated (Gemini nano banana + PIL post-processing) in /app/frontend/public/assets/ → served at miracurl-suite.com/assets/* after redeploy:
+  - /assets/logo/: logo.png, miracurl-ai-suite-logo.png, logo-white/black/gold.png, icon.png, watermark.png (12% alpha), google-wallet-logo.png (circle-safe opaque ⭐), wallet-logo.png (660px), wallet-hero.png (1032×336 ⭐), email-header.png (1200×300), email-footer.png (1200×160), favicon.ico + favicon-16/32/48/180/512.png
+  - /assets/membership/: silver/gold/platinum/diamond/black/custom.png (1032×650 card ratio) + membership-bg-* aliases
+  - /assets/app/: app-icon.png (1024), splash.png (1080×1920)
+  - /assets/social/: instagram (1080²), facebook (1200×630), linkedin (1584×396)
+  - /assets/loading/loading.gif (PIL 12-frame gold spinner)
+- /assets/index.html = brand guidelines page (colour palette w/ hex, typography, all asset previews + URLs, usage rules). noindex.
+- All verified 200 in preview. Wallet Pass integration still PENDING user credentials (Google Wallet Issuer ID + service-account JSON; Apple .p12 + Team ID) — playbook received from integration_expert in this session.
