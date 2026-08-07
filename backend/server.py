@@ -93,6 +93,7 @@ from routes.mira_builder import router as mira_builder_router  # noqa: E402
 from routes.setup_wizard import router as setup_wizard_router  # noqa: E402
 from routes.lead_gen import router as lead_gen_router  # noqa: E402
 from routes.tenant_mira import router as tenant_mira_router  # noqa: E402
+from routes.eod_digests import router as eod_digests_router  # noqa: E402
 
 from seeds import backfill_tenant_ids, seed_super_admin, seed_default_tenant, seed_admin, seed_data  # noqa: E402
 from schedulers import (  # noqa: E402
@@ -103,7 +104,7 @@ from schedulers import (  # noqa: E402
     _gift_card_scheduler, _mira_auto_call_scheduler, _mira_digest_scheduler,
     _lead_heat_scheduler, _callback_redial_scheduler, _phone_backfill_task, _weekly_win_scheduler,
     _feedback_reminder_scheduler, _salon_digest_scheduler, _db_health_scheduler,
-    _temp_transfer_scheduler,
+    _temp_transfer_scheduler, _open_bill_alert_scheduler, _manager_access_report_scheduler,
 )
 
 for _r in (
@@ -122,7 +123,7 @@ for _r in (
     employee_portal_router, hq_documents_router, mira_builder_router, manager_access_router,
     setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router, salon_digest_router,
     pay_links_router,
-    passkeys_router,
+    passkeys_router, eod_digests_router,
 ):
     api.include_router(_r)
 
@@ -149,6 +150,8 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_weekly_win_scheduler())
     asyncio.get_event_loop().create_task(_feedback_reminder_scheduler())
     asyncio.get_event_loop().create_task(_salon_digest_scheduler())
+    asyncio.get_event_loop().create_task(_open_bill_alert_scheduler())
+    asyncio.get_event_loop().create_task(_manager_access_report_scheduler())
     asyncio.get_event_loop().create_task(_db_health_scheduler())
     asyncio.get_event_loop().create_task(_phone_backfill_task())
 

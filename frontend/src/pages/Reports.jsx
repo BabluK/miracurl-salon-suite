@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { IndianRupee, DollarSign, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2, Pencil, Heart } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { EditInvoiceModal } from "@/components/EditInvoiceModal";
+import { UnbilledPanel } from "@/components/reports/UnbilledPanel";
 import { MembershipReportCard } from "@/components/reports/MembershipReportCard";
 import { useAuth } from "@/context/AuthContext";
 import { mainSalonLabel } from "@/lib/branch";
@@ -247,6 +248,8 @@ export default function Reports() {
               </div>
             </div>
           </div>
+
+          <UnbilledPanel sym={sym} isOwner={user?.role === "admin"} />
 
           {/* Per-staff commission */}
           <div className="card-light p-0 overflow-hidden" data-testid="commission-card">

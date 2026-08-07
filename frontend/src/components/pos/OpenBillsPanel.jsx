@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { ClipboardList, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { ClipboardList, ChevronDown, ChevronUp, CheckCircle2, Trash2 } from "lucide-react";
 import { PAY_LABELS } from "@/components/pos/payLabels";
 
-export function OpenBillsPanel({ sym = "₹", refreshKey = 0, onCompleted }) {
+export function OpenBillsPanel({ sym = "₹", refreshKey = 0, onCompleted, canDelete = false }) {
   const [bills, setBills] = useState([]);
   const [expanded, setExpanded] = useState(false);
   const [payModes, setPayModes] = useState({});
@@ -27,6 +27,18 @@ export function OpenBillsPanel({ sym = "₹", refreshKey = 0, onCompleted }) {
       onCompleted?.(data);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't complete the bill");
+    } finally { setBusyId(""); }
+  }
+
+  async function remove(b) {
+    if (!window.confirm(`Delete open bill ${b.invoice_no} (${b.customer_name})? This can't be undone.`)) return;
+    setBusyId(b.id);
+    try {
+      await api.delete(`/invoices/${b.id}`);
+      toast.success(`Bill ${b.invoice_no} deleted 🗑`);
+      setBills(prev => prev.filter(x => x.id !== b.id));
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't delete the bill");
     } finally { setBusyId(""); }
   }
 
@@ -63,6 +75,13 @@ export function OpenBillsPanel({ sym = "₹", refreshKey = 0, onCompleted }) {
                 className="inline-flex items-center gap-1 bg-emerald-600 text-white text-xs font-bold rounded-lg px-3 py-1.5 hover:bg-emerald-500 disabled:opacity-50">
                 <CheckCircle2 className="w-3.5 h-3.5" /> {busyId === b.id ? "…" : "Complete"}
               </button>
+              {canDelete && (
+                <button onClick={() => remove(b)} disabled={busyId === b.id} data-testid={`pos-open-bill-delete-${b.invoice_no}`}
+                  title="Delete this wrongly-created bill"
+                  className="inline-flex items-center border border-rose-200 text-rose-600 text-xs font-bold rounded-lg px-2 py-1.5 hover:bg-rose-50 disabled:opacity-50">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>

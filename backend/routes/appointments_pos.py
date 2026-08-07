@@ -409,6 +409,18 @@ async def complete_open_invoice(iid: str, body: InvoiceCompleteIn,
     return _clean(inv)
 
 
+@router.delete("/invoices/{iid}")
+async def delete_open_invoice(iid: str, user=Depends(require_tenant_admin)):
+    """Owners can delete a wrongly-created OPEN bill (no payments/stock/points were applied yet)."""
+    inv = await db.invoices.find_one({"id": iid}, {"_id": 0, "status": 1, "invoice_no": 1})
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    if inv.get("status") != "open":
+        raise HTTPException(400, "Only OPEN (unpaid) bills can be deleted")
+    await db.invoices.delete_one({"id": iid})
+    return {"ok": True, "invoice_no": inv.get("invoice_no")}
+
+
 @router.post("/invoices")
 async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})

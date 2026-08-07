@@ -462,3 +462,49 @@ async def _weekly_win_scheduler() -> None:
         except Exception as e:
             logging.error(f"weekly win scheduler error: {e}")
         await asyncio.sleep(1800)
+
+
+async def _open_bill_alert_scheduler() -> None:
+    """Daily (after 20:00 IST) email owners any bills still OPEN/unpaid. Idempotent via system_flags."""
+    from routes.eod_digests import _run_open_bill_alerts
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.hour >= 20:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "open_bill_alert_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await _run_open_bill_alerts(None)
+                    await _raw_db.system_flags.update_one(
+                        {"key": "open_bill_alert_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    if out.get("sent") or out.get("failed"):
+                        logging.info(f"Open-bill EOD alerts {period}: {out}")
+        except Exception as e:
+            logging.error(f"open bill alert scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
+async def _manager_access_report_scheduler() -> None:
+    """Every Monday (after 09:00 IST) email owners last week's manager locked-tab activity. Idempotent."""
+    from routes.eod_digests import _run_manager_access_reports
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.weekday() == 0 and ist_now.hour >= 9:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "manager_access_report_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await _run_manager_access_reports(None)
+                    await _raw_db.system_flags.update_one(
+                        {"key": "manager_access_report_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    if out.get("sent") or out.get("failed"):
+                        logging.info(f"Manager access reports {period}: {out}")
+        except Exception as e:
+            logging.error(f"manager access report scheduler error: {e}")
+        await asyncio.sleep(3600)

@@ -463,7 +463,7 @@ export default function POS() {
         )}
 
         <div className="lg:col-span-7 xl:col-span-8 space-y-4">
-          <OpenBillsPanel sym={sym} refreshKey={openBillsKey} />
+          <OpenBillsPanel sym={sym} refreshKey={openBillsKey} canDelete={user?.role === "admin"} />
           <InvoiceHeader
             tenant={tenant} branchId={branchId} onBranchChange={changeBranch} branchLocked={lockedBranchId !== null}
             guestBoxRef={guestBoxRef} guestQuery={guestQuery} setGuestQuery={setGuestQuery}
