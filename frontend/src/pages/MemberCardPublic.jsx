@@ -67,6 +67,16 @@ export default function MemberCardPublic() {
     } finally { setBusy(""); }
   }
 
+  async function addToGoogleWallet() {
+    setBusy("gwallet");
+    try {
+      const { data } = await axios.get(`${API}/public/member/${m.member_id}/google-wallet`);
+      window.open(data.save_url, "_blank");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Google Wallet isn't available right now");
+    } finally { setBusy(""); }
+  }
+
   return (
     <div className="min-h-screen bg-bg-base text-white p-4 sm:p-8 flex items-center justify-center">
       <div className="max-w-md w-full space-y-5">
@@ -140,6 +150,20 @@ export default function MemberCardPublic() {
             )}
           </div>
         </div>
+
+        {/* Add to Google Wallet */}
+        <button onClick={addToGoogleWallet} disabled={!!busy} data-testid="member-add-google-wallet"
+          className="w-full bg-black text-white font-semibold py-3.5 rounded-full flex items-center justify-center gap-2.5 border border-white/25 hover:border-white/60 transition disabled:opacity-60">
+          {busy === "gwallet" ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+              <path d="M3 8.5C3 6.6 4.6 5 6.5 5h11C19.4 5 21 6.6 21 8.5v7c0 1.9-1.6 3.5-3.5 3.5h-11C4.6 19 3 17.4 3 15.5v-7z" fill="#fff"/>
+              <path d="M3 9h18v3.2H3z" fill="#4285F4"/>
+              <path d="M3 12.2h18v2H3z" fill="#34A853"/>
+              <circle cx="17" cy="15.6" r="1.6" fill="#FBBC04"/>
+            </svg>
+          )}
+          Add to Google Wallet
+        </button>
 
         {/* Download + Email */}
         <div className="grid grid-cols-2 gap-3">

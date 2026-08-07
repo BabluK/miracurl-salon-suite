@@ -1463,3 +1463,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
   - /assets/loading/loading.gif (PIL 12-frame gold spinner)
 - /assets/index.html = brand guidelines page (colour palette w/ hex, typography, all asset previews + URLs, usage rules). noindex.
 - All verified 200 in preview. Wallet Pass integration still PENDING user credentials (Google Wallet Issuer ID + service-account JSON; Apple .p12 + Team ID) — playbook received from integration_expert in this session.
+
+## 2026-08-07 (round 16) — Google Wallet "Add to Wallet" integration
+- Credentials stored: /app/backend/google_wallet_sa.json (service account miracurl-wallet@miracurl-suite.iam.gserviceaccount.com) + .env keys GOOGLE_WALLET_ISSUER_ID=3388000000023181280, GOOGLE_WALLET_SA_FILE. Merchant ID BCR2DN6DTLD3ZYKJ (user-provided, not needed in code).
+- NEW routes/wallet_pass.py: GET /api/public/member/{id}/google-wallet (rate-limit 15/10min) → signs RS256 Save-to-Wallet JWT (google.auth crypt+jwt, class+object embedded — no REST pre-insert needed). Generic pass: cardTitle=salon name, subheader=TIER MEMBER, header=member name, tier hexBackgroundColor, QR barcode=member_id, textModules (Member ID/Valid thru/Cashback), link to live card page, logo=tenant logo (prod /api/files URL) fallback /assets/logo/google-wallet-logo.png, hero=/assets/logo/wallet-hero.png. origins: prod + www + preview.
+- MemberCardPublic.jsx: black "Add to Google Wallet" pill (data-testid member-add-google-wallet) above Download/Email, opens save_url.
+- Tested: JWT decodes correctly (alg RS256, typ savetowallet, all fields), save URL 302 (Google auth redirect — expected for curl). REAL phone save requires REDEPLOY first (hero image URL is production /assets/...). User to test on Android.

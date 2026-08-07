@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "miracurl-suite",
+  "private_key_id": "dbb5c90c469fd248ca5fb13de3dc26918cea60f5",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC9zCtq1bM6fHHk\n99UYxPeFHA6HqtxXtKQzn2h3w8aJOXGrCpiih0uFYOlLundS0XXSJj/ZS+yl+Odu\niOLZIW8WWA4VUw1ZnyLUk2ZDrqEoFtEUxa5nEAudDmV5QzLr8HJL3ViNO653ag6C\nbAgKtcxQOkj/LWBwfL00tHEV0GlRSvfu0IMrGBJcS5VKQubNsDkb0+qHME1+fgu0\nZ+MwagvNSbHqS7s5/XGyBKfcvys6azT6zdG1nYoYUzph5aslQeuV8crVC7c4g4IF\nb4+GIIYoPrt/n3wwzHv/vwsD7/7XIWsphzTGft2U1nhMXYjnFhuruPUMbx8EnMf4\nP9FuTpnVAgMBAAECggEABeJPQ0XiQ1Ep18MeKmEq2kfTJH4VzCtHvuj1fGcHn+f1\nv+t5bWp72yP0v5oFin3/ZNc2OgaaTM/xXtIkFD6u2ra6owsa2hkuo3/5VuZSTTOd\n4kK5pCzRa1pPp4l/ieR/qp3vWZuMzlttnTn7qtdVgPQ5oJ2XxIz9caWZbudx6Gj4\nkshTNOQVHxgataEZYfl0RYWILdxag8jznrLzw0lSuTfLcQ7U7nCzNRpqkO5VNlKJ\nkNcFjWkZOpiPEUSm2fRLyjiNT/mqoMy7PfW/EJq9bLrrG5Uu1CzF6awvddMBxc+I\n+QjkP9ZAlV5PHH0+jyAaofjsHQ+Tl43WzC6q9COEKQKBgQD29Q/t5dQdSpyods5t\nPcAS+G9vAt0lkKkBCiIdySQDt/kU878wMK3k/WPV/bNWF6Q1LYJWarTAbvlWlnSC\n+3ZAUvHNeI5+WAl6yxdJtev5Nr4dHwY54BY8WVv36yIym2LmhqO25kUldauACSjx\nn/c1hFXgL8rbAjN91+IW93npCQKBgQDEv00bDhqoyRQ43nDp8dxF5KtdEem1uWun\npE9aFaV5oqcflJTMJNtL1ysFLCOo9BAf6nPo26HtQ3Gu5Ycg98lexxlf27BFQrYP\n1bQ3yHsbU60N0vA1w8SyMMkN/iCpcuzBfEFbcvvE1SACpsNv40bfFpcz/GayDcKM\nLdo7AiCZbQKBgDkO6f1HSrjx0jxCJvOqfsRjTivR95KEV+f7lWJYZM/PI+epYZUa\nyjLMMNLyaQsNL01yFFkvElAb09QjswvIWcwG3gNhRVr/sEEEx36qX7kW4toLnv6k\nPb73zn37f809hZ5JoW3SyksbYuKUOzeIhC+DQewoXrA3U/pRdNVlnG8xAoGAIceG\ngYKmaRw88JagZEo2O3nLQit1KNIw/ZNkXF8jDgMzFmT4NySM0jSbGkQ9yyA8NH6Y\nb/5lisrtlc2qqaphVHhyjta1KO8POyDB1GIDYOm46Iqy20hFWSKvIkvjZ7RnmcCv\np/fR6jV9TXc8TtWCsYK7ax2GtENQh6jHsyHmXvECgYBHie4kOcz6ykHKwh40oWZT\nUQuxT7SOPfAa4qjAf9R8DCix/o4yacz10XyizsmGP21zHLdqWVb3Sm4pte9eHhfl\nTTZYeMN0u7df322ZBuP65BeUyNBnGs+E77L5ZA2KIFrXL2sxUJ2+BlHoVQHXgX3s\nXPhpBgAe2fwLtwUIyntRJA==\n-----END PRIVATE KEY-----\n",
+  "client_email": "miracurl-wallet@miracurl-suite.iam.gserviceaccount.com",
+  "client_id": "111366313963481381102",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/miracurl-wallet%40miracurl-suite.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
