@@ -1483,3 +1483,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - eod_digests.py refactored (complexity 18/15 → small units): _target_tenants + _dispatch(make_email) driver; open-bill logic split into _make_open_bill_email/_open_bills_html; access report split into _make_access_report_email/_aggregate_access_logs/_access_report_html. Re-tested: send-now endpoints + both wallet endpoints working post-refactor.
 - Undefined vars (52) & is-literal claims: ruff F821/F632/E711/E712 = ZERO hits on backend (report stale/other analyzer). utils.py:8 has no `is` comparison.
 - DEFERRED (roadmap P2, need dedicated regression cycle): create_invoice/update_appt_status/_build_invoice_doc complexity (appointments_pos), _subscription_gate (auth), birthday funcs (crm), import bloat in briefings/gallery/hq_documents.
+
+## 2026-08-07 (round 19) — Live card preview on membership purchase page + shared card component
+- NEW components/MembershipCardVisual.jsx (shared credit-card visual + exported cardDigits). MemberCardPublic.jsx refactored to use it (all testids preserved; html2canvas id passed via prop).
+- MembershipPublic.jsx: live tier-coloured card PREVIEW between plan grid and buyer form — updates on plan switch (tier colour/label) and as customer types their name; "QR AFTER PURCHASE" placeholder; PREVIEW chip. FIXED my own syntax error (nested {plan && inside {plan && !upi && — wrapped both blocks in fragment <>...</>) that briefly broke the page compile.
+- Confirmed to user: card QR = member_id, scannable at POS via Membership 📷 Scan → applies membership/discount/wallet instantly. Works from phone screen, Google Wallet pass, PNG/PDF.
+- Verified: compile clean, preview shows (PLATINUM→GOLD switch works, name updates live), member page still renders card+QR after refactor.

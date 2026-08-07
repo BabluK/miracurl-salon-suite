@@ -3,7 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import axios from "axios";
 import html2canvas from "html2canvas";
 import { toast } from "sonner";
-import { Crown, Download, RefreshCw, Wallet, Award, Mail, Wifi, Loader2 } from "lucide-react";
+import { Crown, Download, RefreshCw, Wallet, Award, Mail, Loader2 } from "lucide-react";
+import { MembershipCardVisual } from "@/components/MembershipCardVisual";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -14,16 +15,6 @@ const TIERS = {
   diamond:  { hex: "#22d3ee", text: "#67e8f9" },
   custom:   { hex: "#fb923c", text: "#fdba74" },
 };
-
-function cardDigits(id) {
-  const s = String(id || "X");
-  let h = 0; const out = [];
-  for (let i = 0; out.length < 16; i++) {
-    h = (h * 31 + s.charCodeAt(i % s.length) + i) % 1000000007;
-    out.push(h % 10);
-  }
-  return out.join("").replace(/(\d{4})(?=\d)/g, "$1 ");
-}
 
 export default function MemberCardPublic() {
   const { memberId } = useParams();
@@ -85,71 +76,16 @@ export default function MemberCardPublic() {
         </h1>
 
         {/* Credit-card style card */}
-        <div id="member-card-visual" data-testid="member-card"
-          className="rounded-3xl p-6 shadow-2xl relative overflow-hidden"
-          style={{
-            border: `2px solid ${tier.hex}`,
-            background: `radial-gradient(circle at 85% 0%, ${tier.hex}66, transparent 55%), radial-gradient(circle at 0% 100%, ${tier.hex}2e, transparent 50%), linear-gradient(135deg, #17121f, #0c0a11)`,
-            boxShadow: `0 18px 60px ${tier.hex}44`,
-          }}>
-          {/* Salon branding + tier */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              {logo && <img src={logo} alt="" crossOrigin="anonymous" className="w-11 h-11 rounded-xl object-cover ring-1 ring-white/20" data-testid="member-card-logo" />}
-              <div>
-                <div className="text-[#e6c65a] font-bold tracking-[0.18em] text-[15px] leading-tight" data-testid="member-card-salon">
-                  {(m.salon?.name || "YOUR SALON").toUpperCase()}
-                </div>
-                <div className="text-white/45 text-[9px] tracking-[0.2em] mt-0.5">PREMIUM MEMBERSHIP CARD</div>
-              </div>
-            </div>
-            <div className="text-right shrink-0">
-              <div className="font-bold text-[16px] tracking-wide text-white" data-testid="member-tier">{(m.tier || "member").toUpperCase()}</div>
-              <div className="text-white/50 text-[10px] tracking-widest">MEMBER</div>
-            </div>
-          </div>
-
-          {/* Chip + NFC */}
-          <div className="flex items-center justify-between mt-6">
-            <div className="w-12 h-9 rounded-md relative overflow-hidden"
-              style={{ background: "linear-gradient(135deg,#e8c96a,#b8860b 60%,#e8c96a)" }}>
-              <div className="absolute inset-x-0 top-[9px] h-px bg-amber-900/60" />
-              <div className="absolute inset-x-0 top-[18px] h-px bg-amber-900/60" />
-              <div className="absolute inset-x-0 top-[27px] h-px bg-amber-900/60" />
-              <div className="absolute inset-y-0 left-1/2 w-px bg-amber-900/60" />
-            </div>
-            <Wifi className="w-6 h-6 text-white/70 rotate-90" />
-          </div>
-
-          {/* Card number */}
-          <div className="font-mono text-[22px] sm:text-[24px] tracking-[0.14em] mt-4 text-[#e6c65a]" data-testid="member-card-number">
-            {cardDigits(m.member_id)}
-          </div>
-
-          {/* Member ID + Valid thru + QR */}
-          <div className="flex items-end justify-between mt-5 gap-3">
-            <div className="space-y-3 min-w-0">
-              <div className="flex gap-8">
-                <div>
-                  <div className="text-[8px] tracking-[0.2em] text-white/45">MEMBER ID</div>
-                  <div className="font-mono font-bold text-[13px] text-white/95" data-testid="member-card-id">{m.member_id}</div>
-                </div>
-                <div>
-                  <div className="text-[8px] tracking-[0.2em] text-white/45">VALID THRU</div>
-                  <div className="font-mono font-bold text-[13px] text-white/95" data-testid="member-card-thru">{thru}</div>
-                </div>
-              </div>
-              <div>
-                <div className="text-[8px] tracking-[0.2em] text-white/45">MEMBER NAME</div>
-                <div className="font-bold text-[15px] text-white truncate" data-testid="member-card-name">{(m.name || "").toUpperCase()}</div>
-              </div>
-            </div>
-            {m.qr_b64 && (
-              <img src={`data:image/png;base64,${m.qr_b64}`} alt="Member QR"
-                className="w-[86px] h-[86px] rounded-lg bg-white p-1.5 shrink-0" data-testid="member-qr" />
-            )}
-          </div>
-        </div>
+        <MembershipCardVisual
+          id="member-card-visual"
+          tier={(m.tier || "custom").toLowerCase()}
+          salonName={m.salon?.name}
+          logoUrl={logo}
+          memberName={m.name}
+          memberId={m.member_id}
+          thru={thru}
+          qrB64={m.qr_b64}
+        />
 
         {/* Add to Google Wallet */}
         <button onClick={addToGoogleWallet} disabled={!!busy} data-testid="member-add-google-wallet"

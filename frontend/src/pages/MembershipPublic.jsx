@@ -3,6 +3,7 @@ import { useParams, useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { Crown, Loader2, CheckCircle2, Lock, User, CreditCard, ShieldCheck, QrCode, IdCard, BadgeCheck } from "lucide-react";
+import { MembershipCardVisual } from "@/components/MembershipCardVisual";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PUBLIC = axios.create({ baseURL: `${API}/public` });
@@ -206,6 +207,19 @@ export default function MembershipPublic() {
 
         {/* Member details + payment summary */}
         {plan && !upi && (
+          <>
+            <div className="max-w-md mx-auto mb-10" data-testid="membership-card-preview">
+              <MembershipCardVisual
+                preview
+                tier={plan.tier}
+                salonName={cfg.salon.name}
+                logoUrl={logo}
+                memberName={form.name}
+                thru={(() => { const d = new Date(); d.setDate(d.getDate() + (plan.validity_days || 365)); return `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`; })()}
+              />
+              <p className="text-center text-[11px] text-slate-400 mt-3">✨ Your personalised {plan.name} card — sent to your email &amp; WhatsApp instantly after payment</p>
+            </div>
+
           <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 shadow-2xl shadow-rose-200/40" data-testid="membership-buyer-form">
             <div>
               <div className="flex items-center gap-2.5 mb-4">
@@ -264,6 +278,7 @@ export default function MembershipPublic() {
               <p className="text-[10px] text-slate-400 text-center mt-3">🔒 Secure payment · You&apos;ll receive your digital membership card instantly on email &amp; WhatsApp.</p>
             </div>
           </div>
+          </>
         )}
 
         {upi && (
