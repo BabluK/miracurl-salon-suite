@@ -1520,3 +1520,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
   3. Synced-passkey sign_count: credential_current_sign_count=0 (iCloud/Google passkeys report 0 and were rejected).
   4. TTL 2→5 min (slow phone pickers hit "expired"); stale challenges auto-purged on login/options; verify failures now logged (logging.warning).
 - Verified: rpId with www origin returns apex; bogus verify cleanly rejected; options JSON valid. NOTE: real fingerprint test needs a device — user should re-register fingerprint once after redeploy if it was registered on the www domain.
+
+## 2026-08-07 (round 25) — Instant renew prompt for expired members at POS
+- POS applyMemberCode expired branch: error buzz + 15s toast w/ action button — "📲 WhatsApp renew link" opens wa.me/{91+phone} with prefilled message + renew URL ({origin}/membership/{tenant.slug}?renew={member_id}); if no phone → "📋 Copy renew link" copies URL. MembershipPublic already supports ?renew= param.
+- Verified E2E (temporarily expired MC-CAQJ-DFS6-4RUV, fake scanner): toast + action shown, wa.me opened w/ phone 919000011111 + message. Expiry restored to 2027-08-07 after test.
+
+## 2026-08-07 (round 26) — POS tab icons
+- POSHeader tabs now iconed: ✂️ Add Service, 🧴 Add Product, 📦 Add Package, 🏷️ Offers & Plans, 🎁 Add GiftCard, 👑 Add Membership. Verified via screenshot.

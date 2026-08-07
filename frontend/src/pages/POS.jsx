@@ -110,7 +110,27 @@ export default function POS() {
         toast.success(`👑 ${data.membership.tier.toUpperCase()} member — ${data.customer.name} pulled up. ${data.membership.discount_pct}% off applies automatically.`);
       } else {
         playErrorBuzz();
-        toast.warning(`${data.customer.name} found — membership EXPIRED on ${new Date(data.membership.expires_at).toLocaleDateString("en-IN")}.`);
+        const expDate = new Date(data.membership.expires_at).toLocaleDateString("en-IN");
+        const renewUrl = `${window.location.origin}/membership/${tenant?.slug}?renew=${data.membership.member_id}`;
+        const phone = String(data.customer.phone || "").replace(/\D/g, "");
+        const waText = encodeURIComponent(
+          `Hi ${data.customer.name}! 💛 Your ${(data.membership.tier || "").toUpperCase()} membership at ${tenant?.name || "our salon"} expired on ${expDate}. Renew in one tap and keep enjoying your member discounts, wallet cashback & priority booking: ${renewUrl}`
+        );
+        toast.warning(`${data.customer.name} — membership EXPIRED on ${expDate}`, {
+          duration: 15000,
+          description: "Send them a one-tap renew link 👇",
+          action: {
+            label: phone ? "📲 WhatsApp renew link" : "📋 Copy renew link",
+            onClick: () => {
+              if (phone) {
+                window.open(`https://wa.me/${phone.length === 10 ? `91${phone}` : phone}?text=${waText}`, "_blank");
+              } else {
+                navigator.clipboard?.writeText(renewUrl);
+                toast.success("Renew link copied — send it to them anywhere");
+              }
+            },
+          },
+        });
       }
     } catch (e) {
       setMemberInfo(null);
