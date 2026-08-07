@@ -1493,3 +1493,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 ## 2026-08-07 (round 20) — Scan success chime + flash at POS
 - MemberQrScanner.jsx: on successful QR decode → soft two-tone chime (Web Audio, 880Hz→1318Hz, no audio file), green flash overlay w/ CheckCircle + "Scanned ✓" + "Applying…" (testid qr-scan-success-flash), haptic vibrate(90ms) on phones, 480ms pause then onDetected. Border turns emerald. Applies to BOTH membership (MC-) and gift card (GC-) scans (shared scanner).
 - Verified E2E with injected fake BarcodeDetector: flash shown → member applied toast "👑 PLATINUM member — Test Member pulled up".
+
+## 2026-08-07 (round 21) — Wrong-scan error buzz
+- NEW lib/scanSounds.js: playChime (moved from MemberQrScanner) + playErrorBuzz (low square double-buzz 220→165Hz + vibrate [80,60,80]).
+- POS.jsx buzzes on: unknown QR (not MC-/GC-), member not found (lookup 404), membership EXPIRED warning, invalid gift card (valid:false incl. expired), gift-card check network failure.
+- Verified E2E: fake scanner with unknown MC id → 4 oscillators (chime+buzz) + "No member with this ID" toast; compile clean.

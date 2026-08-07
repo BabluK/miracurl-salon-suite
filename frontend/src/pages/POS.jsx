@@ -11,6 +11,7 @@ import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
 import { MemberQrScanner } from "@/components/pos/MemberQrScanner";
 import { OpenBillsPanel } from "@/components/pos/OpenBillsPanel";
 import { PendingBillModal } from "@/components/pos/PendingBillModal";
+import { playErrorBuzz } from "@/lib/scanSounds";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
 import { OffersPanel } from "@/components/pos/OffersPanel";
@@ -69,6 +70,7 @@ export default function POS() {
     const gc = up.match(/GC-[A-Z0-9-]{4,}/);
     if (mc) { setMemberCode(mc[0]); applyMemberCode(mc[0]); return; }
     if (gc) { setGcCode(gc[0]); checkGiftCard(gc[0]); return; }
+    playErrorBuzz();
     toast.error("That QR isn't a Miracurl member or gift card");
   }
 
@@ -105,10 +107,12 @@ export default function POS() {
       if (data.membership.status === "active") {
         toast.success(`👑 ${data.membership.tier.toUpperCase()} member — ${data.customer.name} pulled up. ${data.membership.discount_pct}% off applies automatically.`);
       } else {
+        playErrorBuzz();
         toast.warning(`${data.customer.name} found — membership EXPIRED on ${new Date(data.membership.expires_at).toLocaleDateString("en-IN")}.`);
       }
     } catch (e) {
       setMemberInfo(null);
+      playErrorBuzz();
       toast.error(e.response?.data?.detail || "No member with this ID at your salon");
     }
   }
@@ -337,7 +341,7 @@ export default function POS() {
     if (!code) { setGcInfo(null); return; }
     try {
       const { data } = await api.post("/gift-cards/check", { code });
-      if (!data.valid) { setGcInfo(null); toast.error(data.reason || "Invalid gift card"); return; }
+      if (!data.valid) { setGcInfo(null); playErrorBuzz(); toast.error(data.reason || "Invalid gift card"); return; }
       setGcInfo(data);
       setGcModalOpen(true);
       const willApply = Math.min(data.balance, total);
@@ -348,7 +352,7 @@ export default function POS() {
       } else {
         toast.success(`Gift card 🎁 ${sym}${willApply.toFixed(0)} will be applied · ${sym}${(data.balance - willApply).toFixed(0)} left after this bill`);
       }
-    } catch { toast.error("Couldn't check the gift card"); }
+    } catch { playErrorBuzz(); toast.error("Couldn't check the gift card"); }
   }
 
   function clearAll() {

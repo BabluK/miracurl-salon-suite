@@ -2,26 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import jsQR from "jsqr";
 import { X, Camera, CheckCircle2 } from "lucide-react";
-
-function playChime() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const t = ctx.currentTime;
-    [[880, 0], [1318.5, 0.12]].forEach(([freq, delay]) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = "sine";
-      o.frequency.value = freq;
-      g.gain.setValueAtTime(0.0001, t + delay);
-      g.gain.exponentialRampToValueAtTime(0.22, t + delay + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + delay + 0.35);
-      o.connect(g).connect(ctx.destination);
-      o.start(t + delay);
-      o.stop(t + delay + 0.4);
-    });
-    setTimeout(() => ctx.close().catch(() => {}), 900);
-  } catch { /* audio not available */ }
-}
+import { playChime } from "@/lib/scanSounds";
 
 // Camera QR scanner for member/gift cards — BarcodeDetector when available, jsQR fallback.
 export function MemberQrScanner({ onDetected, onClose }) {
