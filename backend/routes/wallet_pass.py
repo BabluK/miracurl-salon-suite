@@ -7,7 +7,6 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request
 
 from database import _raw_db
-from routes.premium_membership import _member_bundle, TIER_COLORS
 from security import public_rate_limit
 
 router = APIRouter()
@@ -61,6 +60,7 @@ def _sign_save_url(class_id: str, obj: dict) -> str:
 
 
 def build_membership_save_url(cm: dict, cust: dict, t: dict) -> str:
+    from routes.premium_membership import TIER_COLORS
     issuer = os.environ.get("GOOGLE_WALLET_ISSUER_ID")
     if not issuer:
         raise HTTPException(503, "Google Wallet is not configured yet")
@@ -130,6 +130,7 @@ def build_gift_card_save_url(gc: dict, t: dict) -> str:
 
 @router.get("/public/member/{member_id}/google-wallet")
 async def member_google_wallet(member_id: str, request: Request):
+    from routes.premium_membership import _member_bundle
     public_rate_limit(request, "member-gwallet", limit=15, window_sec=600)
     cm, cust, t = await _member_bundle(member_id)
     return {"save_url": build_membership_save_url(cm, cust, t)}

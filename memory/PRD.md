@@ -1477,3 +1477,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Gift card recipient email (_email_gift_card): wallet button appended after ecard — VERIFIED in captured HTML.
 - GiftCardPublic success screen: "▢ Add to Google Wallet" button (data-testid gift-add-google-wallet) when done.code && !scheduled — uses BACKEND_URL (note: local `API` axios instance has /public/gift-cards baseURL, don't reuse).
 - Tested: gift JWT decodes correctly, invalid code 404, both emails contain save URLs, gift page compiles clean.
+
+## 2026-08-07 (round 18) — Code review fixes applied
+- Circular imports BROKEN: wallet_pass.py now has ZERO module-level route imports (premium_membership imports made lazy inside functions). Verified via AST: gift_cards/wallet_pass/premium_membership cycle eliminated; pay_links↔payments_intl edges are function-level (lazy) only — no import-time cycle.
+- eod_digests.py refactored (complexity 18/15 → small units): _target_tenants + _dispatch(make_email) driver; open-bill logic split into _make_open_bill_email/_open_bills_html; access report split into _make_access_report_email/_aggregate_access_logs/_access_report_html. Re-tested: send-now endpoints + both wallet endpoints working post-refactor.
+- Undefined vars (52) & is-literal claims: ruff F821/F632/E711/E712 = ZERO hits on backend (report stale/other analyzer). utils.py:8 has no `is` comparison.
+- DEFERRED (roadmap P2, need dedicated regression cycle): create_invoice/update_appt_status/_build_invoice_doc complexity (appointments_pos), _subscription_gate (auth), birthday funcs (crm), import bloat in briefings/gallery/hq_documents.
