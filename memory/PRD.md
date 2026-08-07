@@ -1511,3 +1511,12 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - POS SELL GIFT CARD: new components/pos/GiftCardSellModal.jsx (12 occasions grid, ₹500/1k/2k/5k+custom, recipient name*/email/WhatsApp/message) → "🎁 Sell" button next to gift card Apply/Scan → adds cart line {type:"gift_card", gift_meta}. models.py InvoiceItem: added gift_meta field (pydantic strips extras otherwise!) + POS checkout item mapping includes gift_meta.
 - Issuance ON PAYMENT ONLY: _issue_pos_gift_cards in appointments_pos.py (called in create_invoice completed path + complete_open_invoice) — creates gc (pay_method:"pos", pos_invoice_id), reuses _issue_gift_card (code gen, recipient email if provided, buyer receipt, WhatsApp url). _issue_gift_card now guards empty recipient/buyer emails. POS toasts issued codes w/ "Send on WhatsApp" action.
 - Verified E2E: POS invoice w/ gift item → GC-063C-89A2 active + wa.me link → /gift-cards/check valid balance 1000 → appears in notif feed. UI: modal, cart row, mixed notif panel all pass.
+
+## 2026-08-07 (round 24) — Add GiftCard POS tab + fingerprint login fixes
+- POSHeader "Add GiftCard" tab ENABLED (was live:false — the disabled button user saw in prod) → opens GiftCardSellModal popup (onGiftCard prop). Verified: tab enabled + modal opens.
+- PASSKEY/FINGERPRINT intermittent-failure fixes in routes/passkeys.py:
+  1. RACE: login/register verify used find_one_and_delete on ANY pending challenge → concurrent logins broke each other. Now the challenge is extracted from the credential's clientDataJSON and matched exactly.
+  2. www/apex mismatch: rp_id now normalized via _apex() (strip www.) at issue AND verify; expected_origin accepts both https://apex and https://www.apex.
+  3. Synced-passkey sign_count: credential_current_sign_count=0 (iCloud/Google passkeys report 0 and were rejected).
+  4. TTL 2→5 min (slow phone pickers hit "expired"); stale challenges auto-purged on login/options; verify failures now logged (logging.warning).
+- Verified: rpId with www origin returns apex; bogus verify cleanly rejected; options JSON valid. NOTE: real fingerprint test needs a device — user should re-register fingerprint once after redeploy if it was registered on the www domain.

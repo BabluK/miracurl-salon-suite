@@ -458,7 +458,7 @@ export default function POS() {
 
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800" data-testid="pos-page">
-      <POSHeader q={q} setQ={setQ} mode={mode} setMode={setMode} />
+      <POSHeader q={q} setQ={setQ} mode={mode} setMode={setMode} onGiftCard={() => setGcSellOpen(true)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {mode === "offers" ? (

@@ -5,7 +5,7 @@ const TAB_BUTTONS = [
   { k: "products", label: "Add Product", live: true },
   { k: "package", label: "Add Package", live: true },
   { k: "offers", label: "Offers & Plans", live: true },
-  { k: "giftcard", label: "Add GiftCard", live: false },
+  { k: "giftcard", label: "🎁 Add GiftCard", live: true, popup: true },
   { k: "membership", label: "Add Membership", live: true },
 ];
 
@@ -15,7 +15,7 @@ function tabClass(active, live) {
   return "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed";
 }
 
-export function POSHeader({ q, setQ, mode, setMode }) {
+export function POSHeader({ q, setQ, mode, setMode, onGiftCard }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 mb-4 flex flex-wrap items-center gap-2">
       <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -33,7 +33,11 @@ export function POSHeader({ q, setQ, mode, setMode }) {
           <button
             key={b.k}
             data-testid={`pos-tab-${b.k}`}
-            onClick={() => b.live && setMode(b.k)}
+            onClick={() => {
+              if (!b.live) return;
+              if (b.popup) { onGiftCard?.(); return; }
+              setMode(b.k);
+            }}
             disabled={!b.live}
             className={`px-4 py-2 rounded-lg text-sm font-medium border transition ${tabClass(mode === b.k, b.live)}`}
           >

@@ -1,6 +1,7 @@
 """Fingerprint / Face ID login via WebAuthn passkeys (Android + iOS + desktop)."""
 import base64
 import json
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
@@ -22,7 +23,7 @@ from database import _raw_db
 from security import get_current_user, make_access, make_refresh, set_auth_cookies, public_rate_limit
 
 router = APIRouter()
-_TTL = timedelta(minutes=2)
+_TTL = timedelta(minutes=5)
 
 
 def _now():
@@ -33,10 +34,32 @@ def _b64(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
+def _apex(host: str) -> str:
+    """Registrable domain — www.x.com and x.com must share one passkey RP."""
+    h = host or ""
+    return h[4:] if h.startswith("www.") else h
+
+
 def _rp(request: Request) -> tuple:
     src = request.headers.get("origin") or request.headers.get("referer") or ""
     host = urlparse(src).hostname or request.url.hostname
-    return host, f"https://{host}"
+    return _apex(host), f"https://{host}"
+
+
+def _origins(rp_id: str) -> list:
+    return [f"https://{rp_id}", f"https://www.{rp_id}"]
+
+
+def _challenge_from_credential(cred: dict) -> str:
+    """The browser echoes our challenge inside clientDataJSON — use it to match
+    the exact challenge we issued (prevents cross-tab/cross-user races)."""
+    try:
+        cdj = cred.get("response", {}).get("clientDataJSON", "")
+        pad = cdj + "=" * (-len(cdj) % 4)
+        data = json.loads(base64.urlsafe_b64decode(pad).decode())
+        return data.get("challenge", "")
+    except (ValueError, KeyError, AttributeError):
+        return ""
 
 
 class CredIn(BaseModel):
@@ -74,17 +97,20 @@ async def pk_register_options(request: Request, user=Depends(get_current_user)):
 @router.post("/passkeys/register/verify")
 async def pk_register_verify(body: CredIn, request: Request, user=Depends(get_current_user)):
     rp_id, origin = _rp(request)
+    ch = _challenge_from_credential(body.credential)
     row = await _raw_db.webauthn_challenges.find_one_and_delete(
-        {"purpose": "reg", "user_id": user["id"], "expires_at": {"$gt": _now().isoformat()}})
+        {"purpose": "reg", "user_id": user["id"], "challenge": ch,
+         "expires_at": {"$gt": _now().isoformat()}})
     if not row:
         raise HTTPException(400, "Fingerprint setup expired — try again")
     try:
         result = verify_registration_response(
             credential=body.credential,
             expected_challenge=base64url_to_bytes(row["challenge"]),
-            expected_rp_id=row["rp_id"], expected_origin=f"https://{row['rp_id']}",
+            expected_rp_id=row["rp_id"], expected_origin=_origins(row["rp_id"]),
             require_user_verification=True)
-    except Exception:
+    except Exception as e:
+        logging.warning(f"passkey register verify failed: {e}")
         raise HTTPException(400, "Fingerprint could not be verified — try again")
     await _raw_db.passkeys.update_one(
         {"credential_id": _b64(result.credential_id)},
@@ -99,6 +125,7 @@ async def pk_register_verify(body: CredIn, request: Request, user=Depends(get_cu
 @router.post("/passkeys/login/options")
 async def pk_login_options(body: LoginOptsIn, request: Request):
     public_rate_limit(request, "pk-login", limit=20, window_sec=600)
+    await _raw_db.webauthn_challenges.delete_many({"expires_at": {"$lt": _now().isoformat()}})
     rp_id, _ = _rp(request)
     creds = []
     if body.email.strip():
@@ -117,22 +144,25 @@ async def pk_login_options(body: LoginOptsIn, request: Request):
 @router.post("/passkeys/login/verify")
 async def pk_login_verify(body: CredIn, request: Request, response: Response):
     public_rate_limit(request, "pk-login-verify", limit=20, window_sec=600)
+    ch = _challenge_from_credential(body.credential)
     row = await _raw_db.webauthn_challenges.find_one_and_delete(
-        {"purpose": "auth", "expires_at": {"$gt": _now().isoformat()}})
+        {"purpose": "auth", "challenge": ch, "expires_at": {"$gt": _now().isoformat()}})
     if not row:
         raise HTTPException(400, "Fingerprint login expired — try again")
     key = await _raw_db.passkeys.find_one({"credential_id": body.credential.get("id")})
     if not key:
         raise HTTPException(401, "This device isn't set up for fingerprint login yet — sign in with your password once")
+    rp = _apex(key["rp_id"])
     try:
         result = verify_authentication_response(
             credential=body.credential,
             expected_challenge=base64url_to_bytes(row["challenge"]),
-            expected_rp_id=key["rp_id"], expected_origin=f"https://{key['rp_id']}",
+            expected_rp_id=rp, expected_origin=_origins(rp),
             credential_public_key=base64url_to_bytes(key["public_key"]),
-            credential_current_sign_count=key.get("sign_count", 0),
+            credential_current_sign_count=0,
             require_user_verification=True)
-    except Exception:
+    except Exception as e:
+        logging.warning(f"passkey login verify failed: {e}")
         raise HTTPException(401, "Fingerprint didn't match — try again or use your password")
     await _raw_db.passkeys.update_one(
         {"_id": key["_id"]},
