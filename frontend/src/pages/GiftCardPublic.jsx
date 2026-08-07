@@ -216,6 +216,20 @@ export default function GiftCardPublic() {
                     💬 Send it to {f.recipient_name || "them"} on WhatsApp
                   </a>
                 )}
+                {done.code && done.status !== "scheduled" && (
+                  <div className="mt-3">
+                    <button data-testid="gift-add-google-wallet"
+                      onClick={async () => {
+                        try {
+                          const { data } = await axios.get(`${BACKEND_URL}/api/public/gift-card/${done.code}/google-wallet`);
+                          window.open(data.save_url, "_blank");
+                        } catch { toast.error("Google Wallet isn't available right now"); }
+                      }}
+                      className="inline-flex items-center gap-2 bg-black text-white font-semibold rounded-full px-6 py-3 text-sm border border-slate-300 hover:border-slate-500 transition">
+                      ▢ Add to Google Wallet
+                    </button>
+                  </div>
+                )}
               </>
             )}
             <Link to={`/book/${slug}`} className="btn-gold inline-flex items-center gap-2 mt-6">Book an appointment <Sparkles className="w-4 h-4" /></Link>

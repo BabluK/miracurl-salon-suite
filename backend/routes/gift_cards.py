@@ -429,10 +429,15 @@ async def _email_gift_card(gc: dict, t: dict) -> None:
     from email_service import _send_email
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     occ = _OCC.get(gc["occasion"], _OCC["just-because"])
+    try:
+        from routes.wallet_pass import build_gift_card_save_url, wallet_email_button
+        wallet_btn = wallet_email_button(build_gift_card_save_url(gc, t))
+    except Exception:
+        wallet_btn = ""
     res = await _send_email(
         [gc["recipient_email"]],
         f"{occ['emoji']} {gc['buyer_name']} sent you a gift card for {t.get('name')}!",
-        _ecard_html(gc, t), book_url=f"{base}/book/{gc['tenant_slug']}", book_label="Book your visit ✦")
+        _ecard_html(gc, t) + wallet_btn, book_url=f"{base}/book/{gc['tenant_slug']}", book_label="Book your visit ✦")
     await _raw_db.gift_cards.update_one(
         {"id": gc["id"]}, {"$set": {"recipient_email_sent": bool(res.get("sent")), "sent_at": _now()}})
 

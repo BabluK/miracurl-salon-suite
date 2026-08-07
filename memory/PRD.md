@@ -1469,3 +1469,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - NEW routes/wallet_pass.py: GET /api/public/member/{id}/google-wallet (rate-limit 15/10min) → signs RS256 Save-to-Wallet JWT (google.auth crypt+jwt, class+object embedded — no REST pre-insert needed). Generic pass: cardTitle=salon name, subheader=TIER MEMBER, header=member name, tier hexBackgroundColor, QR barcode=member_id, textModules (Member ID/Valid thru/Cashback), link to live card page, logo=tenant logo (prod /api/files URL) fallback /assets/logo/google-wallet-logo.png, hero=/assets/logo/wallet-hero.png. origins: prod + www + preview.
 - MemberCardPublic.jsx: black "Add to Google Wallet" pill (data-testid member-add-google-wallet) above Download/Email, opens save_url.
 - Tested: JWT decodes correctly (alg RS256, typ savetowallet, all fields), save URL 302 (Google auth redirect — expected for curl). REAL phone save requires REDEPLOY first (hero image URL is production /assets/...). User to test on Android.
+
+## 2026-08-07 (round 17) — Wallet button in emails + Gift Card Google Wallet pass
+- wallet_pass.py refactored: _sign_save_url helper + build_membership_save_url + build_gift_card_save_url + wallet_email_button (inline-styled email CTA).
+- NEW GET /api/public/gift-card/{code}/google-wallet (rate-limit 15/10min; active/scheduled only, 404 otherwise) — generic pass: salon title+logo, GIFT CARD subheader, recipient header, amber #b45309 bg, QR=code, modules (code/value/from/valid till), book link. Class {issuer}.miracurl_gift_card.
+- Membership welcome/renewal/resend email: _wallet_btn (try/except, empty if wallet unavailable) inserted before "View my membership card" — VERIFIED in captured HTML.
+- Gift card recipient email (_email_gift_card): wallet button appended after ecard — VERIFIED in captured HTML.
+- GiftCardPublic success screen: "▢ Add to Google Wallet" button (data-testid gift-add-google-wallet) when done.code && !scheduled — uses BACKEND_URL (note: local `API` axios instance has /public/gift-cards baseURL, don't reuse).
+- Tested: gift JWT decodes correctly, invalid code 404, both emails contain save URLs, gift page compiles clean.

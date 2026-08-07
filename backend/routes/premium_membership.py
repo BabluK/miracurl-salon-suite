@@ -374,6 +374,15 @@ def _render_member_card_pdf(cm: dict, cust: dict, t: dict, qr_png: bytes) -> byt
     return buf.getvalue()
 
 
+def _wallet_btn(cm: dict, cust: dict, t: dict) -> str:
+    """Best-effort Google Wallet button HTML for emails (empty string if unavailable)."""
+    try:
+        from routes.wallet_pass import build_membership_save_url, wallet_email_button
+        return wallet_email_button(build_membership_save_url(cm, cust, t))
+    except Exception:
+        return ""
+
+
 async def send_membership_welcome_email(cm: dict, cust: dict, t: dict, renewed: bool = False, resend: bool = False) -> dict:
     from email_service import _send_email
     import html as html_lib
@@ -427,6 +436,7 @@ async def send_membership_welcome_email(cm: dict, cust: dict, t: dict, renewed: 
       </tr></table>
     </div>
     <p>Show your <b>Membership QR</b> (attached) or your Member ID whenever you visit. Check your live balance & points anytime:</p>
+    {_wallet_btn(cm, cust, t)}
     <p style="text-align:center;margin:20px 0"><a href="{url}" style="background:linear-gradient(120deg,#d4af37,#b45309);color:#fff;
        text-decoration:none;font-weight:bold;padding:13px 34px;border-radius:30px;display:inline-block">View my membership card →</a></p>
     <p style="font-size:12px;color:#888">Your digital membership card (PDF) and QR code are attached.</p>
