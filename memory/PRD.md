@@ -1446,3 +1446,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - schedulers.py: _open_bill_alert_scheduler (daily ≥20:00 IST, flag open_bill_alert_auto) + _manager_access_report_scheduler (Mon ≥09:00 IST, flag manager_access_report_auto). Registered in server.py startup.
 - DELETE /api/invoices/{iid} (require_tenant_admin, OPEN-only — 400 on completed bills; verified both paths). Delete buttons: POS OpenBillsPanel (canDelete=admin) + new Reports UnbilledPanel.
 - Reports tab: "Unbilled / Not Paid" section (components/reports/UnbilledPanel.jsx) after Recent Invoices — count + pending ₹ badge / "All bills paid ✓", rows w/ payment select + Complete + owner-only Delete. Verified via screenshot.
+
+## 2026-08-07 (round 14) — Credit-card style membership card (web + PDF + email)
+- MemberCardPublic.jsx REBUILT to credit-card design (per user's mock): tier-coloured card (radial tier glow on dark, tier border+shadow), salon LOGO + NAME (per-tenant), tier badge (PLATINUM/MEMBER), gold chip + NFC icon, decorative 16-digit card number (deterministic from member_id — same algo in JS `cardDigits` and Python `_card_digits`), MEMBER ID / VALID THRU (MM/YYYY) / MEMBER NAME, QR. Buttons: Download Card (html2canvas → PNG, PDF fallback link) + Email My Card.
+- `_render_member_card_pdf` REDESIGNED to match (tier glow circles, chip, NFC arcs, card number, same layout). Salon name auto-shrinks for long names.
+- Welcome/renewal email card block redesigned to same card style (tier gradient, logo, card number, valid thru, name); new resend=True mode → subject "🪪 Your membership card".
+- NEW `POST /api/public/member/{id}/email-card` (rate-limit 5/10min) — resends card email to email on file, returns masked address. 400 (not 502 — Cloudflare hijacks 502) on send failure.
+- yarn add html2canvas. Tested E2E: PDF 200 ✓, email sent to delivered@resend.dev ✓, PNG download ✓, toasts ✓. Test member customer email set to delivered@resend.dev.

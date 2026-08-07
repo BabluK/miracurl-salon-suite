@@ -282,57 +282,99 @@ def _member_qr_png(member_id: str) -> bytes:
     return buf.getvalue()
 
 
+def _card_digits(member_id: str) -> str:
+    """Deterministic decorative 16-digit card number derived from the member id."""
+    s = str(member_id or "X")
+    h, out, i = 0, [], 0
+    while len(out) < 16:
+        h = (h * 31 + ord(s[i % len(s)]) + i) % 1000000007
+        out.append(str(h % 10))
+        i += 1
+    return " ".join("".join(out[j:j + 4]) for j in range(0, 16, 4))
+
+
 def _render_member_card_pdf(cm: dict, cust: dict, t: dict, qr_png: bytes) -> bytes:
+    """Credit-card style membership card — tier-coloured, per-salon branding."""
     from reportlab.lib.utils import ImageReader
     from reportlab.pdfgen import canvas as _canvas
-    W, H = 486, 306  # credit-card ratio, generous
+    W, H = 486, 306
     buf = io.BytesIO()
     c = _canvas.Canvas(buf, pagesize=(W, H))
-    c.setFillColorRGB(0.10, 0.10, 0.13)
-    c.rect(0, 0, W, H, stroke=0, fill=1)
-    gold = (0.83, 0.69, 0.22)
-    tier_hex = TIER_COLORS.get(cm.get("tier") or "custom", "#d4af37").lstrip("#")
+    tier = (cm.get("tier") or "custom").lower()
+    tier_hex = TIER_COLORS.get(tier, "#d4af37").lstrip("#")
     tr, tg, tb = (int(tier_hex[i:i + 2], 16) / 255 for i in (0, 2, 4))
-    c.setStrokeColorRGB(*gold)
-    c.setLineWidth(2)
-    c.roundRect(10, 10, W - 20, H - 20, 14, stroke=1, fill=0)
-    c.setFillColorRGB(*gold)
-    c.setFont("Helvetica-Bold", 17)
-    c.drawString(30, H - 46, "MIRACURL SUITE")
-    c.setFillColorRGB(0.85, 0.85, 0.88)
-    c.setFont("Helvetica", 9)
-    c.drawString(30, H - 62, "Premium Membership Card")
+    gold = (0.9, 0.78, 0.35)
+    c.setFillColorRGB(0.07, 0.06, 0.10)
+    c.rect(0, 0, W, H, stroke=0, fill=1)
+    c.saveState()
     c.setFillColorRGB(tr, tg, tb)
-    c.setFont("Helvetica-Bold", 13)
-    c.drawString(30, H - 88, f"{(cm.get('tier') or 'member').upper()} MEMBER")
-    def lbl(x, y, label, value, size=12):
-        c.setFillColorRGB(0.55, 0.55, 0.6)
-        c.setFont("Helvetica", 7.5)
+    c.setFillAlpha(0.30)
+    c.circle(W - 70, H - 30, 160, stroke=0, fill=1)
+    c.setFillAlpha(0.15)
+    c.circle(50, 30, 140, stroke=0, fill=1)
+    c.restoreState()
+    c.setStrokeColorRGB(tr, tg, tb)
+    c.setLineWidth(2)
+    c.roundRect(8, 8, W - 16, H - 16, 16, stroke=1, fill=0)
+    # salon branding (top-left) + tier (top-right)
+    salon_name = (t.get("name") or "YOUR SALON").upper()
+    c.setFillColorRGB(*gold)
+    c.setFont("Helvetica-Bold", 14 if len(salon_name) > 24 else 16)
+    c.drawString(28, H - 46, salon_name[:34])
+    c.setFillColorRGB(0.8, 0.8, 0.85)
+    c.setFont("Helvetica", 8)
+    c.drawString(28, H - 60, "PREMIUM MEMBERSHIP CARD")
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Helvetica-Bold", 15)
+    c.drawRightString(W - 28, H - 46, tier.upper())
+    c.setFillColorRGB(0.78, 0.78, 0.84)
+    c.setFont("Helvetica", 9)
+    c.drawRightString(W - 28, H - 60, "MEMBER")
+    # chip
+    c.setFillColorRGB(0.83, 0.69, 0.25)
+    c.roundRect(28, H - 120, 44, 34, 6, stroke=0, fill=1)
+    c.setStrokeColorRGB(0.55, 0.44, 0.12)
+    c.setLineWidth(1)
+    for y in (H - 113, H - 103, H - 93):
+        c.line(30, y, 70, y)
+    c.line(50, H - 118, 50, H - 88)
+    # NFC arcs
+    c.setStrokeColorRGB(0.9, 0.9, 0.95)
+    c.setLineWidth(1.6)
+    for r_ in (6, 11, 16):
+        c.arc(W - 58 - r_, H - 104 - r_, W - 58 + r_, H - 104 + r_, 315, 90)
+    # card number
+    c.setFillColorRGB(*gold)
+    c.setFont("Courier-Bold", 23)
+    c.drawString(28, H - 160, _card_digits(cm.get("member_id") or ""))
+
+    def lbl(x, y, label, value, size=11, mono=False):
+        c.setFillColorRGB(0.6, 0.6, 0.68)
+        c.setFont("Helvetica", 7)
         c.drawString(x, y, label.upper())
-        c.setFillColorRGB(0.95, 0.95, 0.97)
-        c.setFont("Helvetica-Bold", size)
-        c.drawString(x, y - 15, value)
-    lbl(30, H - 116, "Name", (cust.get("name") or "")[:28], 13)
-    lbl(30, H - 156, "Member ID", cm.get("member_id") or "", 12)
+        c.setFillColorRGB(0.96, 0.96, 0.98)
+        c.setFont("Courier-Bold" if mono else "Helvetica-Bold", size)
+        c.drawString(x, y - 14, value)
+    lbl(28, H - 188, "Member ID", cm.get("member_id") or "", 11, mono=True)
     try:
-        start = datetime.fromisoformat(cm.get("purchased_at", _now())).strftime("%d %b %Y")
-        end = datetime.fromisoformat(cm["expires_at"]).strftime("%d %b %Y")
-    except Exception:
-        start, end = "", ""
-    lbl(30, H - 196, "Validity", f"{start}  to  {end}", 10)
-    lbl(30, H - 232, "Salon", (t.get("name") or "")[:36], 10)
-    c.drawImage(ImageReader(io.BytesIO(qr_png)), W - 140, 42, 106, 106, mask="auto")
+        thru = datetime.fromisoformat(cm["expires_at"]).strftime("%m/%Y")
+    except (ValueError, TypeError, KeyError):
+        thru = ""
+    lbl(240, H - 188, "Valid Thru", thru, 11, mono=True)
+    lbl(28, 54, "Member Name", (cust.get("name") or "").upper()[:26], 13)
+    # QR bottom-right
+    c.setFillColorRGB(1, 1, 1)
+    c.roundRect(W - 124, 26, 96, 96, 8, stroke=0, fill=1)
+    c.drawImage(ImageReader(io.BytesIO(qr_png)), W - 119, 31, 86, 86, mask="auto")
     c.setFillColorRGB(0.55, 0.55, 0.6)
-    c.setFont("Helvetica", 7)
-    c.drawCentredString(W - 87, 30, "Scan to verify membership")
-    c.setFont("Helvetica-Oblique", 7.5)
-    c.drawString(30, 22, "Powered by Miracurl Suite")
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawString(28, 20, "Powered by Miracurl Suite")
     c.showPage()
     c.save()
     return buf.getvalue()
 
 
-async def send_membership_welcome_email(cm: dict, cust: dict, t: dict, renewed: bool = False) -> dict:
+async def send_membership_welcome_email(cm: dict, cust: dict, t: dict, renewed: bool = False, resend: bool = False) -> dict:
     from email_service import _send_email
     import html as html_lib
     import os
@@ -345,33 +387,55 @@ async def send_membership_welcome_email(cm: dict, cust: dict, t: dict, renewed: 
     url = f"{base}/member/{cm['member_id']}"
     try:
         end = datetime.fromisoformat(cm["expires_at"]).strftime("%d %b %Y")
+        thru = datetime.fromisoformat(cm["expires_at"]).strftime("%m/%Y")
     except Exception:
-        end = cm.get("expires_at", "")
+        end, thru = cm.get("expires_at", ""), ""
     tier = (cm.get("tier") or "member").capitalize()
+    tier_css = "#" + TIER_COLORS.get((cm.get("tier") or "custom").lower(), "#d4af37").lstrip("#")
     salon = html_lib.escape(t.get("name") or "your salon")
+    logo_url = t.get("logo_url") or ""
+    if logo_url.startswith("/api/"):
+        logo_url = f"{base}{logo_url}"
+    logo_img = (f'<img src="{logo_url}" alt="" width="40" height="40" '
+                f'style="border-radius:10px;object-fit:cover;margin-bottom:6px"/>' if logo_url else "")
     first = html_lib.escape((cust.get("name") or "there").split(" ")[0])
     verb = "renewed" if renewed else "activated"
+    heading = ("🪪 Your Membership Card" if resend
+               else ("🎉 Membership Renewed!" if renewed else "🎉 Welcome to Premium Membership"))
+    intro = (f"Here's your <b>{html_lib.escape(cm.get('name') or tier)}</b> membership card for <b>{salon}</b>, as requested."
+             if resend else
+             f"Congratulations! Your <b>{html_lib.escape(cm.get('name') or tier)}</b> membership at <b>{salon}</b> has been {verb} successfully.")
     html = f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
-    <h2 style="color:#1c1c22">🎉 {'Membership Renewed!' if renewed else 'Welcome to Miracurl Premium Membership'}</h2>
+    <h2 style="color:#1c1c22">{heading}</h2>
     <p>Hi {first},</p>
-    <p>Congratulations! Your <b>{html_lib.escape(cm.get('name') or tier)}</b> membership at <b>{salon}</b> has been {verb} successfully.</p>
-    <div style="background:#1c1c22;border-radius:16px;padding:22px 26px;color:#eee;margin:18px 0">
-      <div style="color:#d4af37;font-weight:bold;letter-spacing:2px">MIRACURL SUITE ✦ {tier.upper()} MEMBER</div>
-      <table style="margin-top:12px;font-size:14px;color:#ddd">
-        <tr><td style="color:#888;padding:3px 18px 3px 0">Member ID</td><td><b style="letter-spacing:1px">{cm['member_id']}</b></td></tr>
-        <tr><td style="color:#888;padding:3px 18px 3px 0">Plan</td><td>{html_lib.escape(cm.get('name') or tier)} · ₹{int(cm.get('amount') or 0):,}</td></tr>
-        <tr><td style="color:#888;padding:3px 18px 3px 0">Cashback</td><td>{cm.get('cashback_pct') or 0:g}% to your wallet on every bill</td></tr>
-        <tr><td style="color:#888;padding:3px 18px 3px 0">Valid till</td><td>{end}</td></tr>
+    <p>{intro}</p>
+    <div style="background:linear-gradient(135deg,#151020 0%,{tier_css}55 55%,#151020 100%);border:2px solid {tier_css};border-radius:18px;padding:22px 26px;color:#eee;margin:18px 0">
+      <table style="width:100%;border-collapse:collapse"><tr>
+        <td>{logo_img}<div style="color:#e6c65a;font-weight:bold;letter-spacing:2px;font-size:15px">{salon.upper()}</div>
+          <div style="color:#999;font-size:9px;letter-spacing:1.5px">PREMIUM MEMBERSHIP CARD</div></td>
+        <td style="text-align:right;vertical-align:top;color:#fff;font-weight:bold;font-size:16px">{tier.upper()}<div style="color:#aaa;font-size:10px;font-weight:normal">MEMBER</div></td>
+      </tr></table>
+      <div style="font-family:monospace;font-size:21px;letter-spacing:3px;color:#e6c65a;margin:20px 0 12px">{_card_digits(cm['member_id'])}</div>
+      <table style="width:100%;font-size:13px;color:#ddd;border-collapse:collapse">
+        <tr><td style="color:#888;font-size:9px;letter-spacing:1px">MEMBER ID</td><td style="color:#888;font-size:9px;letter-spacing:1px">VALID THRU</td></tr>
+        <tr><td style="font-family:monospace;font-weight:bold">{cm['member_id']}</td><td style="font-family:monospace;font-weight:bold">{thru}</td></tr>
       </table>
+      <div style="color:#888;font-size:9px;letter-spacing:1px;margin-top:14px">MEMBER NAME</div>
+      <div style="font-weight:bold;font-size:15px;color:#fff">{html_lib.escape((cust.get('name') or '').upper())}</div>
+      <table style="width:100%;margin-top:12px;font-size:12px;color:#ccc"><tr>
+        <td>💰 {cm.get('cashback_pct') or 0:g}% cashback · valid till {end}</td>
+      </tr></table>
     </div>
     <p>Show your <b>Membership QR</b> (attached) or your Member ID whenever you visit. Check your live balance & points anytime:</p>
     <p style="text-align:center;margin:20px 0"><a href="{url}" style="background:linear-gradient(120deg,#d4af37,#b45309);color:#fff;
        text-decoration:none;font-weight:bold;padding:13px 34px;border-radius:30px;display:inline-block">View my membership card →</a></p>
     <p style="font-size:12px;color:#888">Your digital membership card (PDF) and QR code are attached.</p>
     <p>Thank you,<br/><b>{salon}</b> · Miracurl Suite 💛</p></div>"""
+    subject = (f"🪪 Your membership card — {cm['member_id']}" if resend
+               else f"🎉 {'Your membership is renewed' if renewed else 'Welcome to Premium Membership'} — {cm['member_id']}")
     return await _send_email(
         [email],
-        f"🎉 {'Your membership is renewed' if renewed else 'Welcome to Miracurl Premium Membership'} — {cm['member_id']}",
+        subject,
         html,
         attachments=[
             {"filename": f"membership-card-{cm['member_id']}.pdf", "content": base64.b64encode(pdf).decode()},
@@ -414,6 +478,22 @@ async def public_member_card_pdf(member_id: str, request: Request):
     pdf = _render_member_card_pdf(cm, cust, t, _member_qr_png(cm["member_id"]))
     return Response(content=pdf, media_type="application/pdf", headers={
         "Content-Disposition": f'attachment; filename="membership-card-{cm["member_id"]}.pdf"'})
+
+
+@router.post("/public/member/{member_id}/email-card")
+async def public_member_email_card(member_id: str, request: Request):
+    """Member asks for their card by email (rate-limited; sends to the email on file only)."""
+    public_rate_limit(request, "member-email-card", limit=5, window_sec=600)
+    cm, cust, t = await _member_bundle(member_id)
+    email = (cust.get("email") or "").strip()
+    if not email:
+        raise HTTPException(400, "No email on file for this membership — ask the salon to add your email")
+    out = await send_membership_welcome_email(cm, cust, t, resend=True)
+    if not out.get("sent"):
+        raise HTTPException(400, "Couldn't send the email right now — please try again later")
+    user_part, _, domain = email.partition("@")
+    masked = f"{user_part[:2]}{'*' * max(1, len(user_part) - 2)}@{domain}"
+    return {"ok": True, "sent_to": masked}
 
 
 # ---------------- admin: members list + UPI approvals ----------------
