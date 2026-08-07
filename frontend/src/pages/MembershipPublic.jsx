@@ -166,8 +166,9 @@ export default function MembershipPublic() {
             return (
               <button key={p.id} data-testid={`membership-plan-${p.tier}`} onClick={() => setPlan(p)}
                 className={`relative text-left rounded-2xl p-[1.5px] transition-transform duration-200 hover:-translate-y-1 ${ribbon === "MOST POPULAR" ? "lg:-mt-3 lg:mb-[-12px]" : ""}`}
-                style={{ background: sel ? `linear-gradient(150deg, ${st.glow}, rgba(255,255,255,0.05))` : "rgba(255,255,255,0.08)", boxShadow: sel ? `0 0 40px ${st.glow}` : "none" }}>
-                <div className="rounded-2xl bg-[#131318] h-full px-4 pb-4 pt-6 overflow-hidden relative text-center">
+                style={{ background: sel ? `linear-gradient(150deg, ${st.glow}, rgba(255,255,255,0.4))` : "rgba(15,23,42,0.10)", boxShadow: sel ? `0 0 40px ${st.glow}` : "0 4px 18px rgba(15,23,42,0.06)" }}>
+                <div className="rounded-2xl bg-white h-full px-4 pb-4 pt-6 overflow-hidden relative text-center">
+                  <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${st.banner}`} />
                   {ribbon && (
                     <div className={`absolute top-0 right-0 text-[8px] font-bold tracking-widest text-white bg-gradient-to-r ${st.banner} px-2.5 py-1 rounded-bl-xl`}>{ribbon}</div>
                   )}
@@ -180,13 +181,13 @@ export default function MembershipPublic() {
                     style={{ clipPath: "polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%)" }}>
                     {p.name}
                   </div>
-                  <div className="text-[27px] leading-tight font-bold mt-3">
+                  <div className="text-[27px] leading-tight font-bold mt-3 text-slate-800">
                     {p.custom ? `₹${(p.min_price || 5000).toLocaleString("en-IN")}+` : `₹${p.price.toLocaleString("en-IN")}`}
                   </div>
-                  <div className="text-[9px] text-white/45 uppercase tracking-[0.25em] mt-1" data-testid={`plan-validity-${p.tier}`}>
+                  <div className="text-[9px] text-slate-400 uppercase tracking-[0.25em] mt-1" data-testid={`plan-validity-${p.tier}`}>
                     {p.validity_days % 365 === 0 ? `${p.validity_days / 365 * 12} months validity` : `${p.validity_days} days validity`}
                   </div>
-                  <ul className="mt-4 space-y-2 text-[11px] text-white/80 text-left" data-testid={`plan-benefits-${p.tier}`}>
+                  <ul className="mt-4 space-y-2 text-[11px] text-slate-600 text-left" data-testid={`plan-benefits-${p.tier}`}>
                     <li className="flex items-start gap-1.5"><span className={st.text}>💰</span> {p.cashback_pct}% wallet cashback</li>
                     {p.discount_pct > 0 && <li className="flex items-start gap-1.5"><span className={st.text}>✂️</span> {p.discount_pct}% off on services</li>}
                     {(p.benefits || []).map((b, i) => (
@@ -194,7 +195,7 @@ export default function MembershipPublic() {
                     ))}
                     <li className="flex items-start gap-1.5"><span className={st.text}>🪪</span> Digital card + QR</li>
                   </ul>
-                  <div className={`mt-4 rounded-full text-center text-xs font-bold py-2.5 transition flex items-center justify-center gap-1.5 ${sel ? `bg-gradient-to-r ${st.banner} text-white` : "border border-white/20 text-white/70"}`}>
+                  <div className={`mt-4 rounded-full text-center text-xs font-bold py-2.5 transition flex items-center justify-center gap-1.5 ${sel ? `bg-gradient-to-r ${st.banner} text-white` : "border border-slate-300 text-slate-500"}`}>
                     {sel ? <>Selected <BadgeCheck className="w-3.5 h-3.5" /></> : "Choose Plan"}
                   </div>
                 </div>
@@ -205,83 +206,85 @@ export default function MembershipPublic() {
 
         {/* Member details + payment summary */}
         {plan && !upi && (
-          <div className="max-w-4xl mx-auto bg-white/[0.04] border border-white/10 rounded-3xl p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-8" data-testid="membership-buyer-form">
+          <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-8 shadow-2xl shadow-rose-200/40" data-testid="membership-buyer-form">
             <div>
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-9 h-9 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center"><User className="w-4 h-4 text-gold" /></div>
-                <h3 className="font-semibold">Member Details</h3>
+                <div className="w-9 h-9 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center"><User className="w-4 h-4 text-amber-600" /></div>
+                <h3 className="font-semibold text-slate-800">Member Details</h3>
               </div>
               <div className="space-y-3">
                 {plan.custom && (
                   <input data-testid="membership-custom-amount" type="number" min={plan.min_price || 5000} step="500" value={customAmt}
                     onChange={e => setCustomAmt(e.target.value)} placeholder={`Amount (min ₹${(plan.min_price || 5000).toLocaleString("en-IN")})`}
-                    className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3.5 text-white placeholder:text-white/30 focus:border-gold outline-none" />
+                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3.5 text-slate-800 placeholder:text-slate-400 focus:border-amber-500 outline-none" />
                 )}
                 <input data-testid="membership-name" placeholder="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                  className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3.5 text-white placeholder:text-white/30 focus:border-gold outline-none" />
+                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3.5 text-slate-800 placeholder:text-slate-400 focus:border-amber-500 outline-none" />
                 <input data-testid="membership-phone" placeholder="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
-                  className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3.5 text-white placeholder:text-white/30 focus:border-gold outline-none" />
+                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3.5 text-slate-800 placeholder:text-slate-400 focus:border-amber-500 outline-none" />
                 <input data-testid="membership-email" type="email" placeholder="Email Address (Card will be sent here)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-                  className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3.5 text-white placeholder:text-white/30 focus:border-gold outline-none" />
-                <p className="text-[11px] text-white/40 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-gold" /> Your data is safe and secure with us.</p>
+                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3.5 text-slate-800 placeholder:text-slate-400 focus:border-amber-500 outline-none" />
+                <p className="text-[11px] text-slate-400 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> Your data is safe and secure with us.</p>
               </div>
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-4">
+            <div className="rounded-2xl border border-slate-200 p-5 relative overflow-hidden bg-white"
+              style={{ boxShadow: `0 10px 36px ${(TIERS[plan.tier] || TIERS.custom).glow}` }}>
+              <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${(TIERS[plan.tier] || TIERS.custom).banner}`} />
+              <div className="flex items-center justify-between mb-4 mt-1">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center"><CreditCard className="w-4 h-4 text-gold" /></div>
-                  <h3 className="font-semibold">Payment Summary</h3>
+                  <div className="w-9 h-9 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center"><CreditCard className="w-4 h-4 text-amber-600" /></div>
+                  <h3 className="font-semibold text-slate-800">Payment Summary</h3>
                 </div>
                 <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gradient-to-r ${(TIERS[plan.tier] || TIERS.custom).banner} text-white`}>{plan.name} plan</span>
               </div>
-              <div className="space-y-2.5 text-sm border-b border-white/10 pb-4">
-                <div className="flex justify-between text-white/70"><span>Plan Amount</span><span>₹{Number(amount || 0).toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between text-white/70"><span>Validity</span><span>{plan.validity_days % 365 === 0 ? `${plan.validity_days / 365 * 12} months` : `${plan.validity_days} days`}</span></div>
+              <div className="space-y-2.5 text-sm border-b border-slate-200 pb-4">
+                <div className="flex justify-between text-slate-600"><span>Plan Amount</span><span className="font-semibold text-slate-800">₹{Number(amount || 0).toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between text-slate-600"><span>Validity</span><span className="font-semibold text-slate-800">{plan.validity_days % 365 === 0 ? `${plan.validity_days / 365 * 12} months` : `${plan.validity_days} days`}</span></div>
               </div>
               <div className="flex justify-between items-center py-4">
-                <span className="font-semibold">Total Payable</span>
-                <span className="text-2xl font-bold text-gold" data-testid="membership-total">₹{Number(amount || 0).toLocaleString("en-IN")}</span>
+                <span className="font-semibold text-slate-800">Total Payable</span>
+                <span className="text-2xl font-bold text-amber-600" data-testid="membership-total">₹{Number(amount || 0).toLocaleString("en-IN")}</span>
               </div>
               {cfg.payment.razorpay && (
                 <button data-testid="membership-pay-razorpay" onClick={payRazorpay} disabled={busy}
-                  className="w-full bg-gradient-to-r from-gold to-amber-600 text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-amber-900/30">
+                  className="w-full bg-gradient-to-r from-gold to-amber-600 text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-amber-300/50">
                   {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
                   Pay ₹{Number(amount || 0).toLocaleString("en-IN")} Securely
                 </button>
               )}
               {cfg.payment.upi && (
                 <button data-testid="membership-pay-upi" onClick={payUpi} disabled={busy}
-                  className="w-full mt-2.5 border border-white/20 text-white/90 font-semibold py-3 rounded-2xl hover:border-gold/60 disabled:opacity-60">
+                  className="w-full mt-2.5 border border-slate-300 text-slate-700 font-semibold py-3 rounded-2xl hover:border-amber-500 disabled:opacity-60 bg-white">
                   Pay via UPI ({cfg.payment.upi_id})
                 </button>
               )}
               {!cfg.payment.razorpay && !cfg.payment.upi && (
-                <p className="text-center text-white/50 text-sm">Online purchase isn&apos;t enabled yet — please ask at the salon reception.</p>
+                <p className="text-center text-slate-500 text-sm">Online purchase isn&apos;t enabled yet — please ask at the salon reception.</p>
               )}
-              <p className="text-[10px] text-white/40 text-center mt-3">🔒 Secure payment · You&apos;ll receive your digital membership card instantly on email &amp; WhatsApp.</p>
+              <p className="text-[10px] text-slate-400 text-center mt-3">🔒 Secure payment · You&apos;ll receive your digital membership card instantly on email &amp; WhatsApp.</p>
             </div>
           </div>
         )}
 
         {upi && (
-          <div className="max-w-md mx-auto bg-white/5 border border-white/10 rounded-3xl p-6 text-center space-y-4" data-testid="membership-upi-panel">
-            <h3 className="font-playfair text-2xl">Pay ₹{Number(amount).toLocaleString("en-IN")} via UPI</h3>
-            {upi.qr_b64 && <img src={`data:image/png;base64,${upi.qr_b64}`} alt="UPI QR" className="w-44 h-44 mx-auto rounded-xl bg-white p-2" />}
-            <p className="text-white/50 text-xs">Scan with any UPI app, or tap:</p>
+          <div className="max-w-md mx-auto bg-white border border-slate-200 rounded-3xl p-6 text-center space-y-4 shadow-xl" data-testid="membership-upi-panel">
+            <h3 className="font-playfair text-2xl text-slate-800">Pay ₹{Number(amount).toLocaleString("en-IN")} via UPI</h3>
+            {upi.qr_b64 && <img src={`data:image/png;base64,${upi.qr_b64}`} alt="UPI QR" className="w-44 h-44 mx-auto rounded-xl bg-white p-2 border border-slate-200" />}
+            <p className="text-slate-500 text-xs">Scan with any UPI app, or tap:</p>
             <div className="flex justify-center gap-2 text-xs">
-              <a className="px-3 py-2 rounded-full bg-white/10" href={upi.gpay_link}>GPay</a>
-              <a className="px-3 py-2 rounded-full bg-white/10" href={upi.phonepe_link}>PhonePe</a>
-              <a className="px-3 py-2 rounded-full bg-white/10" href={upi.paytm_link}>Paytm</a>
+              <a className="px-3 py-2 rounded-full bg-slate-100 text-slate-700 font-semibold" href={upi.gpay_link}>GPay</a>
+              <a className="px-3 py-2 rounded-full bg-slate-100 text-slate-700 font-semibold" href={upi.phonepe_link}>PhonePe</a>
+              <a className="px-3 py-2 rounded-full bg-slate-100 text-slate-700 font-semibold" href={upi.paytm_link}>Paytm</a>
             </div>
             <input data-testid="membership-upi-ref" placeholder="UPI transaction / reference ID" value={upiRef} onChange={e => setUpiRef(e.target.value)}
-              className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:border-gold outline-none" />
+              className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-slate-800 placeholder:text-slate-400 focus:border-amber-500 outline-none" />
             <button data-testid="membership-upi-confirm" onClick={confirmUpi} disabled={busy}
-              className="w-full bg-gold text-bg-base font-bold py-3 rounded-full disabled:opacity-60">I have paid — submit</button>
+              className="w-full bg-gold text-white font-bold py-3 rounded-full disabled:opacity-60">I have paid — submit</button>
           </div>
         )}
 
         {/* Trust strip */}
-        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mt-10 pt-6 border-t border-white/10 text-left" data-testid="membership-trust-strip">
+        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mt-10 pt-6 border-t border-slate-200 text-left" data-testid="membership-trust-strip">
           {[
             { Icon: IdCard, h: "Instant Digital Card", s: "Get your card on email" },
             { Icon: QrCode, h: "QR Code Access", s: "Scan & enjoy benefits" },
@@ -289,14 +292,14 @@ export default function MembershipPublic() {
             { Icon: BadgeCheck, h: "Wallet Cashback", s: "Earn on every visit" },
           ].map(({ Icon, h, s }) => (
             <div key={h} className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-gold/10 border border-gold/25 flex items-center justify-center shrink-0"><Icon className="w-4 h-4 text-gold" /></div>
-              <div><div className="text-xs font-semibold">{h}</div><div className="text-[10px] text-white/45">{s}</div></div>
+              <div className="w-9 h-9 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0"><Icon className="w-4 h-4 text-amber-600" /></div>
+              <div><div className="text-xs font-semibold text-slate-700">{h}</div><div className="text-[10px] text-slate-400">{s}</div></div>
             </div>
           ))}
         </div>
 
         <div className="text-center mt-10">
-          <Link to={`/book/${slug}`} className="text-white/40 text-sm hover:text-white">← Back to booking</Link>
+          <Link to={`/book/${slug}`} className="text-slate-400 text-sm hover:text-slate-700">← Back to booking</Link>
         </div>
       </div>
     </div>

@@ -53,7 +53,7 @@ const NAV_ADMIN = [
 ];
 
 // Sections a manager can only open with the Admin (Owner) PIN — every attempt is logged
-const MANAGER_LOCKED = ["/staff", "/cctv", "/attendance", "/hire", "/messages", "/settings", "/staff-activities"];
+const MANAGER_LOCKED = ["/staff", "/registry", "/cctv", "/attendance", "/hire", "/messages", "/settings", "/staff-activities"];
 // Sections even the OWNER must unlock with the Owner PIN on shared devices
 const ADMIN_LOCKED = ["/settings", "/staff"];
 
@@ -110,7 +110,7 @@ export default function AppLayout() {
     : user?.role === "admin"
       ? ADMIN_LOCKED.find((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`))
       : null;
-  const isLockedNow = lockedPath && !sessionStorage.getItem(`mgr_unlock:${lockedPath}`);
+  const isLockedNow = lockedPath && !sessionStorage.getItem(`mgr_unlock:${user?.id}:${lockedPath}`);
 
   // Booking notification poller — only for owners/admins. Fires a chime + OS
   // notification when a customer self-books via the public link.
@@ -304,11 +304,11 @@ export default function AppLayout() {
             user?.role === "admin" ? (
               <AdminLockScreen key={lockedPath} path={lockedPath}
                 label={NAV.find((i) => i.to === lockedPath)?.label || "This section"}
-                onUnlocked={() => { sessionStorage.setItem(`mgr_unlock:${lockedPath}`, "1"); setUnlockTick((v) => v + 1); }} />
+                onUnlocked={() => { sessionStorage.setItem(`mgr_unlock:${user?.id}:${lockedPath}`, "1"); setUnlockTick((v) => v + 1); }} />
             ) : (
               <ManagerLockScreen key={lockedPath} path={lockedPath}
                 label={NAV.find((i) => i.to === lockedPath)?.label || "This section"}
-                onUnlocked={() => { sessionStorage.setItem(`mgr_unlock:${lockedPath}`, "1"); setUnlockTick((v) => v + 1); }} />
+                onUnlocked={() => { sessionStorage.setItem(`mgr_unlock:${user?.id}:${lockedPath}`, "1"); setUnlockTick((v) => v + 1); }} />
             )
           ) : (
             <Outlet />

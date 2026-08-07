@@ -10,6 +10,7 @@ import InvoiceReceiptModal from "@/components/pos/InvoiceReceiptModal";
 import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
 import { MemberQrScanner } from "@/components/pos/MemberQrScanner";
 import { OpenBillsPanel } from "@/components/pos/OpenBillsPanel";
+import { PendingBillModal } from "@/components/pos/PendingBillModal";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
 import { OffersPanel } from "@/components/pos/OffersPanel";
@@ -59,6 +60,7 @@ export default function POS() {
   const [memberInfo, setMemberInfo] = useState(null);
   const [qrScanOpen, setQrScanOpen] = useState(false);
   const [openBillsKey, setOpenBillsKey] = useState(0);
+  const [pendingBill, setPendingBill] = useState(null);
 
   function onQrDetected(text) {
     setQrScanOpen(false);
@@ -77,7 +79,10 @@ export default function POS() {
       if (d?.cart?.length) {
         setCart(d.cart); setCustomerId(d.customerId || ""); setGuestQuery(d.guestQuery || "");
         setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment);
-        toast.info("📝 Unfinished bill restored — continue where you left off");
+        setPendingBill({
+          items: d.cart.reduce((s, c) => s + (c.qty || 1), 0),
+          total: d.cart.reduce((s, c) => s + (c.qty || 1) * (c.price || 0), 0),
+        });
       }
     } catch { /* fresh start */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -572,6 +577,14 @@ export default function POS() {
       )}
 
       {qrScanOpen && <MemberQrScanner onDetected={onQrDetected} onClose={() => setQrScanOpen(false)} />}
+
+      {pendingBill && (
+        <PendingBillModal
+          info={pendingBill} sym={sym}
+          onContinue={() => setPendingBill(null)}
+          onDiscard={() => { clearAll(); setPendingBill(null); toast.info("Pending bill discarded — starting fresh"); }}
+        />
+      )}
 
       {lastInvoice && (
         <InvoiceReceiptModal

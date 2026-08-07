@@ -17,7 +17,7 @@ from security import (
 log = logging.getLogger("manager_access")
 router = APIRouter(prefix="/manager", tags=["manager-access"])
 
-SECTIONS = {"/staff": "Staff", "/cctv": "AI CCTV", "/attendance": "Attendance",
+SECTIONS = {"/staff": "Staff", "/registry": "Staff Registry", "/cctv": "AI CCTV", "/attendance": "Attendance",
             "/hire": "Hire Staff", "/messages": "Messages", "/settings": "Settings",
             "/staff-activities": "Staff Activities"}
 

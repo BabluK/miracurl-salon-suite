@@ -15,6 +15,10 @@ export const ManagerLockScreen = ({ path, label, onUnlocked }) => {
     if (window.history.length > 1) navigate(-1);
     else navigate("/dashboard");
   };
+  const denyAndGoBack = () => {
+    toast.error("You don't have permission to visit this tab");
+    goBack();
+  };
 
   useEffect(() => {
     // logs the attempt; auto-unlocks if no PIN is configured
@@ -31,7 +35,7 @@ export const ManagerLockScreen = ({ path, label, onUnlocked }) => {
       const { data } = await api.post("/manager/section-access", { section: path, pin: pin.trim() });
       if (data.ok) { toast.success(`${label} unlocked ✦`); onUnlocked(); }
     } catch (e) {
-      toast.error(`${e.response?.data?.detail || "Incorrect Admin PIN"} — this attempt was logged. Returning you back`);
+      toast.error("You don't have permission to visit this tab — wrong Admin PIN (attempt logged)");
       setPin("");
       setTimeout(goBack, 900);
     } finally { setBusy(false); }
@@ -53,7 +57,7 @@ export const ManagerLockScreen = ({ path, label, onUnlocked }) => {
           className="mt-4 w-full flex items-center justify-center gap-2 bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 disabled:opacity-50">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Unlock with Admin PIN
         </button>
-        <button onClick={goBack} data-testid="manager-pin-go-back-btn"
+        <button onClick={denyAndGoBack} data-testid="manager-pin-go-back-btn"
           className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 py-2">
           <ArrowLeft className="w-4 h-4" /> Go back
         </button>

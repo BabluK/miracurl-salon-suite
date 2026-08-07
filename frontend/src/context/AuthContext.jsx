@@ -28,6 +28,14 @@ function clearTenantStorage() {
   localStorage.removeItem("miracurl_tenant");
 }
 
+function clearSectionUnlocks() {
+  try {
+    Object.keys(sessionStorage)
+      .filter((k) => k.startsWith("mgr_unlock:"))
+      .forEach((k) => sessionStorage.removeItem(k));
+  } catch { /* private mode */ }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [tenant, setTenant] = useState(null);
@@ -70,6 +78,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const afterAuth = useCallback(async (data) => {
+    clearSectionUnlocks();
     setUser(data.user);
     if (data.user.role === "manager" && data.user.branch) setSelectedBranch(data.user.branch);
     if (data.user.role === "super_admin") {
@@ -106,6 +115,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try { await api.post("/auth/logout"); }
     catch (e) { log.warn("[auth] logout failed:", e?.message || e); }
+    clearSectionUnlocks();
     clearTenantStorage();
     setUser(false);
     setTenant(null);
