@@ -1489,3 +1489,7 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - MembershipPublic.jsx: live tier-coloured card PREVIEW between plan grid and buyer form — updates on plan switch (tier colour/label) and as customer types their name; "QR AFTER PURCHASE" placeholder; PREVIEW chip. FIXED my own syntax error (nested {plan && inside {plan && !upi && — wrapped both blocks in fragment <>...</>) that briefly broke the page compile.
 - Confirmed to user: card QR = member_id, scannable at POS via Membership 📷 Scan → applies membership/discount/wallet instantly. Works from phone screen, Google Wallet pass, PNG/PDF.
 - Verified: compile clean, preview shows (PLATINUM→GOLD switch works, name updates live), member page still renders card+QR after refactor.
+
+## 2026-08-07 (round 20) — Scan success chime + flash at POS
+- MemberQrScanner.jsx: on successful QR decode → soft two-tone chime (Web Audio, 880Hz→1318Hz, no audio file), green flash overlay w/ CheckCircle + "Scanned ✓" + "Applying…" (testid qr-scan-success-flash), haptic vibrate(90ms) on phones, 480ms pause then onDetected. Border turns emerald. Applies to BOTH membership (MC-) and gift card (GC-) scans (shared scanner).
+- Verified E2E with injected fake BarcodeDetector: flash shown → member applied toast "👑 PLATINUM member — Test Member pulled up".
