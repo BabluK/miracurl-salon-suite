@@ -1498,3 +1498,16 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - NEW lib/scanSounds.js: playChime (moved from MemberQrScanner) + playErrorBuzz (low square double-buzz 220→165Hz + vibrate [80,60,80]).
 - POS.jsx buzzes on: unknown QR (not MC-/GC-), member not found (lookup 404), membership EXPIRED warning, invalid gift card (valid:false incl. expired), gift-card check network failure.
 - Verified E2E: fake scanner with unknown MC id → 4 oscillators (chime+buzz) + "No member with this ID" toast; compile clean.
+
+## 2026-08-07 (round 22) — Role badges + list-style notifications
+- NEW components/RoleBadge.jsx: gradient pill badges w/ icons — SUPER ADMIN (violet/Crown), ADMIN (gold/ShieldCheck), MANAGER (blue/KeyRound), STAFF (emerald/User). Used in header trigger (xs) + polished profile dropdown (gradient top strip, big avatar, name/email, badge, iconed Install app / Sign Out).
+- NewBookingNotifier REWRITTEN: persistent items list (localStorage miracurl_notif_items, max 30, deduped by id). NotifBell = dropdown panel (320px): one row PER booking with customer, services·staff, scheduled date + relative time, hover X dismiss, Clear all, empty state. READ = REMOVED: clicking a row navigates to /appointments and auto-clears it. No more multi-toast spam — single summary toast ("N new bookings — tap the bell"); chime + OS notifications kept.
+- Bell + polling now enabled for MANAGERS too (backend /notifications/new-bookings changed from require_tenant_admin → roles admin/super_admin/manager; verified 200 as manager).
+- Verified E2E: admin badge in menu, panel lists 2 seeded items, reading removes item + navigates, compile clean.
+
+## 2026-08-07 (round 23) — Gift/membership notifications + Sell Gift Card at POS
+- Notifications feed EXTENDED: /notifications/new-bookings now also returns gift_cards (issued_at>since, active/scheduled) + memberships (purchased_at>since, w/ customer_name lookup) via _raw_db+tenant_id (NOTE: tenant-scoped `db` wrapper has NO gift_cards/customer_memberships attrs — caused 500 first try). count=sum of all three.
+- NotifBell renders per-kind rows: booking (gold CalendarPlus→/appointments), gift (fuchsia Gift→/plans), membership (amber Crown→/plans); per-kind single-item toasts. Verified panel with mixed 3 kinds.
+- POS SELL GIFT CARD: new components/pos/GiftCardSellModal.jsx (12 occasions grid, ₹500/1k/2k/5k+custom, recipient name*/email/WhatsApp/message) → "🎁 Sell" button next to gift card Apply/Scan → adds cart line {type:"gift_card", gift_meta}. models.py InvoiceItem: added gift_meta field (pydantic strips extras otherwise!) + POS checkout item mapping includes gift_meta.
+- Issuance ON PAYMENT ONLY: _issue_pos_gift_cards in appointments_pos.py (called in create_invoice completed path + complete_open_invoice) — creates gc (pay_method:"pos", pos_invoice_id), reuses _issue_gift_card (code gen, recipient email if provided, buyer receipt, WhatsApp url). _issue_gift_card now guards empty recipient/buyer emails. POS toasts issued codes w/ "Send on WhatsApp" action.
+- Verified E2E: POS invoice w/ gift item → GC-063C-89A2 active + wa.me link → /gift-cards/check valid balance 1000 → appears in notif feed. UI: modal, cart row, mixed notif panel all pass.

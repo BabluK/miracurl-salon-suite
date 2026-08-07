@@ -9,6 +9,7 @@ import AddGuestModal from "@/components/pos/AddGuestModal";
 import InvoiceReceiptModal from "@/components/pos/InvoiceReceiptModal";
 import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
 import { MemberQrScanner } from "@/components/pos/MemberQrScanner";
+import { GiftCardSellModal } from "@/components/pos/GiftCardSellModal";
 import { OpenBillsPanel } from "@/components/pos/OpenBillsPanel";
 import { PendingBillModal } from "@/components/pos/PendingBillModal";
 import { playErrorBuzz } from "@/lib/scanSounds";
@@ -60,6 +61,7 @@ export default function POS() {
   const [memberCode, setMemberCode] = useState("");
   const [memberInfo, setMemberInfo] = useState(null);
   const [qrScanOpen, setQrScanOpen] = useState(false);
+  const [gcSellOpen, setGcSellOpen] = useState(false);
   const [openBillsKey, setOpenBillsKey] = useState(0);
   const [pendingBill, setPendingBill] = useState(null);
 
@@ -376,9 +378,10 @@ export default function POS() {
       const { data } = await api.post("/invoices", {
         customer_id: customerId,
         staff_id: staffId || null,
-        items: cart.map(({ type, ref_id, name, qty, price, staff_id, staff_name }) => ({
+        items: cart.map(({ type, ref_id, name, qty, price, staff_id, staff_name, gift_meta }) => ({
           type, ref_id, name, qty, price,
           staff_id: staff_id || null, staff_name: staff_name || null,
+          gift_meta: gift_meta || null,
         })),
         discount: lineDiscount + offerDiscount + overallDiscount,
         tax_pct: taxPct,
@@ -413,6 +416,12 @@ export default function POS() {
         });
       }
       else if (rc.sms?.error === "no_sms_points") toast.warning("SMS receipt skipped — no SMS points left. Ask HQ to recharge.");
+      (data.gift_cards_issued || []).forEach(g => {
+        toast.success(`🎁 Gift card ${g.code} issued — ${g.recipient_name || "recipient"} (₹${Number(g.amount || 0).toLocaleString("en-IN")})`, {
+          duration: 15000,
+          ...(g.whatsapp_url ? { action: { label: "Send on WhatsApp", onClick: () => window.open(g.whatsapp_url, "_blank") } } : {}),
+        });
+      });
       setLastInvoice(data);
       if (complete) clearAll();
     } catch (err) { toast.error(err.response?.data?.detail || "Checkout failed"); }
@@ -509,6 +518,9 @@ export default function POS() {
               <button onClick={() => setQrScanOpen(true)} data-testid="pos-gift-card-scan"
                 title="Scan the gift card QR with the camera"
                 className="border border-fuchsia-300 text-fuchsia-600 text-xs font-bold rounded-lg px-3 py-2 hover:bg-fuchsia-50">📷 Scan</button>
+              <button onClick={() => setGcSellOpen(true)} data-testid="pos-gift-card-sell"
+                title="Sell a new gift card on this bill"
+                className="border border-fuchsia-300 text-fuchsia-600 text-xs font-bold rounded-lg px-3 py-2 hover:bg-fuchsia-50">🎁 Sell</button>
               {gcInfo && (
                 <>
                   <span className="text-xs text-emerald-600 font-semibold" data-testid="pos-gift-card-applied">
@@ -581,6 +593,22 @@ export default function POS() {
       )}
 
       {qrScanOpen && <MemberQrScanner onDetected={onQrDetected} onClose={() => setQrScanOpen(false)} />}
+
+      {gcSellOpen && (
+        <GiftCardSellModal
+          buyerName={customers.find(c => c.id === customerId)?.name || ""}
+          onClose={() => setGcSellOpen(false)}
+          onAdd={(meta, amount) => {
+            setCart(c => [...c, {
+              type: "gift_card", ref_id: `giftcard-${Date.now()}`,
+              name: `🎁 Gift Card — ${meta.occLabel} → ${meta.recipient_name}`,
+              qty: 1, price: amount, disc_pct: 0, staff_id: "", staff_name: "", gift_meta: meta,
+            }]);
+            setGcSellOpen(false);
+            toast.success(`🎁 ₹${amount.toLocaleString("en-IN")} gift card added to the bill — code is generated once paid`);
+          }}
+        />
+      )}
 
       {pendingBill && (
         <PendingBillModal

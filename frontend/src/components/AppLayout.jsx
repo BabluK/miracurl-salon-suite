@@ -8,6 +8,7 @@ import {
   Landmark, FileText, Music, Sparkles, Cctv, Briefcase, Activity, Lock
 } from "lucide-react";
 import { ManagerLockScreen } from "./ManagerLockScreen";
+import { RoleBadge } from "./RoleBadge";
 import { AdminLockScreen } from "./AdminLockScreen";
 import { FloatingPlayer } from "@/components/FloatingPlayer";
 import BranchSwitcher from "./BranchSwitcher";
@@ -116,7 +117,8 @@ export default function AppLayout() {
   // notification when a customer self-books via the public link.
   const isAdmin = user?.role === "admin";
   const isOwner = user?.role === "admin" || user?.role === "super_admin";
-  const notifier = useNewBookingNotifier({ enabled: isAdmin });
+  const canNotify = isAdmin || user?.role === "manager";
+  const notifier = useNewBookingNotifier({ enabled: canNotify });
 
   // Poll unread customer-chat count for the Messages nav badge
   const [chatUnread, setChatUnread] = useState(0);
@@ -242,13 +244,14 @@ export default function AppLayout() {
             <div className="hidden md:flex items-center px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 tracking-wider">{today}</div>
             {isAdmin ? <SalonSwitcher /> : null}
             {(isAdmin || user?.role === "manager") ? <BranchSwitcher /> : null}
-            {isAdmin ? (
+            {canNotify ? (
               <div className="flex-shrink-0">
                 <NotifBell
-                  unread={notifier.unread}
+                  items={notifier.items}
                   permission={notifier.permission}
                   requestPermission={notifier.requestPermission}
-                  clearUnread={notifier.clearUnread}
+                  dismiss={notifier.dismiss}
+                  clearAll={notifier.clearAll}
                   onNavigate={nav}
                 />
               </div>
@@ -259,35 +262,47 @@ export default function AppLayout() {
                 className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md hover:bg-white/5 transition"
                 data-testid="profile-menu-btn"
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gold to-blush flex items-center justify-center text-bg-base font-semibold text-sm">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gold to-blush flex items-center justify-center text-bg-base font-semibold text-sm ring-2 ring-white/10">
                   {(user?.name || "A").charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden sm:block text-left">
                   <div className="text-xs font-medium truncate max-w-[120px]">{user?.name}</div>
-                  <div className="text-[10px] text-white/40 uppercase tracking-wider">{user?.role}</div>
+                  <div className="mt-0.5"><RoleBadge role={user?.role} size="xs" /></div>
                 </div>
                 <ChevronDown className="hidden sm:block w-3 h-3 text-white/50" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-[#121212] border border-white/10 rounded-md shadow-card-luxe py-1 z-40">
-                  <div className="px-4 py-2 text-xs text-white/50 border-b border-white/5 truncate">{user?.email}</div>
+                <div className="absolute right-0 mt-2 w-64 bg-[#16121a] border border-white/10 rounded-2xl shadow-2xl z-40 overflow-hidden" data-testid="profile-menu">
+                  <div className="relative px-4 pt-4 pb-3 border-b border-white/10">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-gold via-blush to-gold" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-gold to-blush flex items-center justify-center text-bg-base font-bold text-lg ring-2 ring-white/15">
+                        {(user?.name || "A").charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-white truncate">{user?.name}</div>
+                        <div className="text-[11px] text-white/40 truncate">{user?.email}</div>
+                      </div>
+                    </div>
+                    <div className="mt-2.5"><RoleBadge role={user?.role} /></div>
+                  </div>
                   <button
                     onClick={() => {
                       setMenuOpen(false);
                       try { localStorage.removeItem("miracurl_pwa_install_dismissed"); } catch (e) { /* noop */ }
                       window.dispatchEvent(new CustomEvent("miracurl:open-install"));
                     }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-white/5 text-white/80 flex items-center gap-2"
+                    className="w-full text-left px-4 py-3 text-sm hover:bg-white/5 text-white/85 flex items-center gap-2.5"
                     data-testid="profile-install-app-btn"
                   >
-                    <Download className="w-3.5 h-3.5" /> Install app
+                    <Download className="w-4 h-4 text-gold" /> Install app
                   </button>
                   <button
                     onClick={async () => { await logout(); nav("/login"); }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-white/5 text-red-400"
+                    className="w-full text-left px-4 py-3 text-sm hover:bg-rose-500/10 text-rose-400 flex items-center gap-2.5 border-t border-white/5"
                     data-testid="profile-signout-btn"
                   >
-                    Sign Out
+                    <LogOut className="w-4 h-4" /> Sign Out
                   </button>
                 </div>
               )}

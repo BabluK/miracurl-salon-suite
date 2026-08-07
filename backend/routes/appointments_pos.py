@@ -42,10 +42,12 @@ async def list_appointments(date: Optional[str] = None, upcoming: bool = False, 
 
 
 @router.get("/notifications/new-bookings")
-async def new_bookings(since: str, _=Depends(require_tenant_admin)):
+async def new_bookings(since: str, user=Depends(get_current_user), t=Depends(current_tenant)):
     """Lightweight polling endpoint — returns bookings created after `since`
-    (ISO 8601 datetime). Used by the admin UI to play a chime + toast when a
-    customer self-books via the public link."""
+    (ISO 8601 datetime). Used by the admin/manager UI to play a chime + list
+    notifications when a customer self-books via the public link."""
+    if user.get("role") not in ("admin", "super_admin", "manager"):
+        raise HTTPException(403, "Not allowed")
     try:
         datetime.fromisoformat(since.replace("Z", "+00:00"))
     except Exception:
@@ -55,9 +57,25 @@ async def new_bookings(since: str, _=Depends(require_tenant_admin)):
         {"_id": 0, "id": 1, "customer_name": 1, "staff_name": 1,
          "service_names": 1, "scheduled_at": 1, "total": 1, "created_at": 1},
     ).sort("created_at", -1).limit(20).to_list(20)
+    from database import _raw_db
+    gcs = await _raw_db.gift_cards.find(
+        {"tenant_id": t["id"], "issued_at": {"$gt": since}, "status": {"$in": ["active", "scheduled"]}},
+        {"_id": 0, "id": 1, "amount": 1, "buyer_name": 1, "recipient_name": 1,
+         "occasion": 1, "issued_at": 1},
+    ).sort("issued_at", -1).limit(10).to_list(10)
+    cms = await _raw_db.customer_memberships.find(
+        {"tenant_id": t["id"], "purchased_at": {"$gt": since}},
+        {"_id": 0, "id": 1, "member_id": 1, "name": 1, "tier": 1, "amount": 1,
+         "purchased_at": 1, "customer_id": 1},
+    ).sort("purchased_at", -1).limit(10).to_list(10)
+    for cm in cms:
+        c = await db.customers.find_one({"id": cm.get("customer_id")}, {"_id": 0, "name": 1})
+        cm["customer_name"] = (c or {}).get("name") or "New member"
     return {
         "server_time": datetime.now(timezone.utc).isoformat(),
-        "count": len(rows),
+        "count": len(rows) + len(gcs) + len(cms),
+        "gift_cards": gcs,
+        "memberships": cms,
         "bookings": rows,
     }
 
@@ -406,6 +424,7 @@ async def complete_open_invoice(iid: str, body: InvoiceCompleteIn,
     needed = {i["ref_id"]: int(i.get("qty") or 1) for i in inv.get("items", []) if i.get("type") == "product"}
     inv["points_earned"] = await _apply_post_invoice_effects(cust, totals, _loyalty_rules(t), needed)
     inv["membership_cashback"] = await _apply_membership_cashback(inv, cust)
+    inv["gift_cards_issued"] = await _issue_pos_gift_cards(inv, cust, t)
     return _clean(inv)
 
 
@@ -419,6 +438,42 @@ async def delete_open_invoice(iid: str, user=Depends(require_tenant_admin)):
         raise HTTPException(400, "Only OPEN (unpaid) bills can be deleted")
     await db.invoices.delete_one({"id": iid})
     return {"ok": True, "invoice_no": inv.get("invoice_no")}
+
+
+async def _issue_pos_gift_cards(inv: dict, cust: dict, tenant_doc: dict) -> list:
+    """Gift cards sold as POS line items are issued only once the bill is PAID."""
+    import re as _re
+    from database import _raw_db
+    from routes.gift_cards import _issue_gift_card, _gc_settings
+    issued = []
+    for it in inv.get("items", []):
+        if it.get("type") != "gift_card":
+            continue
+        meta = it.get("gift_meta") or {}
+        amt = round(float(it.get("price") or 0) * int(it.get("qty") or 1), 2)
+        now = datetime.now(timezone.utc).isoformat()
+        gc = {"id": str(uuid.uuid4()), "tenant_id": tenant_doc["id"],
+              "tenant_slug": tenant_doc.get("slug") or "",
+              "code": "", "occasion": meta.get("occasion") or "just-because",
+              "amount": amt, "balance": amt, "currency": tenant_doc.get("currency") or "INR",
+              "buyer_name": (meta.get("buyer_name") or cust.get("name") or "")[:80],
+              "buyer_email": (meta.get("buyer_email") or cust.get("email") or "").lower(),
+              "buyer_phone": _re.sub(r"\D", "", str(meta.get("buyer_phone") or cust.get("phone") or ""))[:15],
+              "recipient_name": (meta.get("recipient_name") or "")[:80],
+              "recipient_email": (meta.get("recipient_email") or "").strip().lower(),
+              "recipient_whatsapp": _re.sub(r"\D", "", str(meta.get("recipient_whatsapp") or ""))[:15],
+              "message": (meta.get("message") or "")[:400], "send_on": meta.get("send_on") or "",
+              "pay_method": "pos", "status": "pending_payment",
+              "validity_days": _gc_settings(tenant_doc)["validity_days"],
+              "created_at": now, "paid_at": now, "pos_invoice_id": inv["id"]}
+        await _raw_db.gift_cards.insert_one({**gc})
+        out = await _issue_gift_card(gc["id"])
+        issued.append({"code": out.get("code") or "", "status": out.get("status"),
+                       "recipient_name": gc["recipient_name"],
+                       "whatsapp_url": out.get("whatsapp_url") or "", "amount": amt})
+    if issued:
+        await db.invoices.update_one({"id": inv["id"]}, {"$set": {"gift_cards_issued": issued}})
+    return issued
 
 
 @router.post("/invoices")
@@ -471,5 +526,6 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
 
     inv["points_earned"] = points_earned
     inv["membership_cashback"] = await _apply_membership_cashback(inv, cust)
+    inv["gift_cards_issued"] = await _issue_pos_gift_cards(inv, cust, ctx["tenant_doc"])
     inv["receipts"] = await _send_billing_receipts(inv, cust, ctx["tenant_doc"], points_earned)
     return _clean(inv)

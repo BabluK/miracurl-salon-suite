@@ -333,9 +333,10 @@ async def _issue_gift_card(gcid: str) -> dict:
                                 "issued_at": _now()}})
     gc.update({"code": code, "status": status, "expires_at": expires})
     wa_url = "" if scheduled else _gift_whatsapp_url(gc, t)
-    if not scheduled:
+    if not scheduled and gc.get("recipient_email"):
         await _email_gift_card(gc, t)
-    await _email_buyer_receipt(gc, t, scheduled, wa_url)
+    if gc.get("buyer_email"):
+        await _email_buyer_receipt(gc, t, scheduled, wa_url)
     return {"ok": True, "status": status, "code": code if not scheduled else "",
             "expires_at": expires, "send_on": gc.get("send_on") or "", "whatsapp_url": wa_url}
 

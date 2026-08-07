@@ -92,13 +92,14 @@ class AppointmentStatusIn(BaseModel):
 
 
 class InvoiceItem(BaseModel):
-    type: str  # service | product | package | membership | package_redeem
+    type: str  # service | product | package | membership | package_redeem | gift_card
     ref_id: str
     name: str
     qty: int = Field(1, ge=1, le=100)
     price: float = Field(..., ge=0)
     staff_id: Optional[str] = None
     staff_name: Optional[str] = None
+    gift_meta: Optional[dict] = None  # gift card sold at POS: occasion/recipient/message
 
 
 class Invoice(BaseModel):
