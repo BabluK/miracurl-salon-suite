@@ -1685,3 +1685,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## 2026-08-08 (round 54) — Footer polish
 - SalesChatWidget button bottom-6 → bottom-16 (no longer hides Terms/Privacy in footer).
 - Footer copyright row: Scissors icon → small MS emblem img (w-6) before "© 2026 Miracurl Suite · Manage. Automate. Grow." Verified button raise via screenshot.
+
+## 2026-08-08 (round 55) — Footer features strip
+- Landing footer: added footer-features-strip row (13 feature chips ✦, each links to /features) between watermark and copyright. Verified via screenshot.
