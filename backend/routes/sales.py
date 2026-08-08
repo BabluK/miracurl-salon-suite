@@ -99,7 +99,7 @@ class DemoRequestIn(BaseModel):
     email: Optional[EmailStr] = None
     salon_name: Optional[str] = Field(None, max_length=100)
     city: Optional[str] = Field(None, max_length=60)
-    source: str = Field("success_stories", pattern=r"^(success_stories|booking_footer)$")
+    source: str = Field("success_stories", pattern=r"^(success_stories|booking_footer|contact_us_page)$")
     referred_by_slug: Optional[str] = Field(None, max_length=80)
 
     @field_validator("phone")

@@ -2,10 +2,21 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-08.65"
+BUILD = "2026-08-08.66"
 BUILD_TIME = "8 Aug 2026, 11:30 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-08 (New brand, new website ✨)",
+        "changes": [
+            "✨ New Miracurl Suite gold logo across the website — header, hero and footer, with the 'Manage. Automate. Grow.' identity",
+            "🧭 Professional navigation — Home, About Us, Mira AI Studio, Features, Pricing, Staff Verification, Contact Us, Sign In & Sign Up, with real pages at /features, /pricing, /about-us and /contact-us",
+            "📇 Contact Us dropdown & page — email, WhatsApp, Instagram/Facebook and a 'Who can use Miracurl' list (salons, spas, boutiques, barbershops, nail & bridal studios and more) + a Request-a-callback form",
+            "👤 Meet the Founder section — CEO photo, story and social links on the home page",
+            "Super Admin: New 'Website & CEO' tab — edit the public site's contact email, social links and CEO profile; changes go live instantly",
+            "🥇 Golden-white locked header on the Staff Verification portal — same premium brand on light pages",
+        ],
+    },
     {
         "date": "2026-08-08 (Google Wallet cards, open bills & fair attendance ⏰)",
         "changes": [

@@ -1562,3 +1562,15 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - BUILD bumped to 2026-08-08.65 + release note line added.
 - Tested: iteration_100.json — backend 8/8, frontend 6/6 PASS (incl. no-pin tenant toggle test, restored after).
 - NOTE for production: owner should set the Admin PIN in Settings → Security PIN on the AECS salon after redeploy.
+
+## 2026-08-08 (round 33) — Landing redesign, new logo, site-info CMS, golden-white header
+- New Miracurl Suite gold logo processed (white->transparent emblem at /assets/ms-logo-emblem.png) — used in landing header/hero/footer.
+- Professional nav: Home, About Us, Mira AI Studio, Features, Pricing, Staff Verification, Contact Us (dropdown w/ email, socials, WHO_CAN_USE chips), Sign In, Sign Up. Routes: /features /pricing /about-us (Landing scrollTo prop) + /contact-us (new ContactUs.jsx page w/ callback form -> /public/demo-request, source contact_us_page added to sales.py pattern after testing agent caught 422).
+- Hero: "Manage. Automate. Grow." + emblem. Footer: 4-column professional (brand, Company, Product, Contact + who-can-use) + watermark.
+- CEO section (id=about, data-testid ceo-section): photo/name/title/about/socials; default about = "10+ years of IT industry experience with strong system design and data structures…".
+- Backend routes/site_info.py: GET /public/site-info (defaults merge), PUT /super/site-info (super admin). Collection platform_settings key site_info.
+- Super Admin: new "Website & CEO" tab (SiteInfoPanel.jsx) — contact email, WhatsApp, IG/FB/YT, CEO name/title/about/photo upload (<400KB data URL) + CEO socials.
+- SiteHeader.jsx: reusable sticky header with dark + light "golden-white" variants; applied light variant to RegistryPublic (/staff-registry), old BrandMark removed there.
+- BUILD bumped to 2026-08-08.66 + release entry "New brand, new website ✨".
+- Tested: iteration_101.json (backend 3/3, frontend 8/9; the 1 failure = contact form source mismatch, FIXED + verified via curl, test doc cleaned). Registry header verified via screenshot.
+- NOTE: Landing.jsx is ~760 lines — consider splitting header/footer/CEO into components later. Known minor console warning: duplicate key "Test Owner" in testimonials (pre-existing).

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api, { API } from "@/lib/api";
 import { Search, ShieldCheck, Star, Building2, FileDown, Phone, Mail, MapPin, Fingerprint, Lock, UserCheck, FileSignature, EyeOff } from "lucide-react";
-import BrandMark from "@/components/BrandMark";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const gradBtn = "bg-gradient-to-r from-rose-400 via-pink-500 to-amber-500 hover:from-rose-500 hover:via-pink-600 hover:to-amber-600 text-white";
 
@@ -212,6 +212,8 @@ export default function RegistryPublic() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-white text-slate-800" data-testid="registry-public-page">
+      {/* Locked golden-white header with the Miracurl Suite logo */}
+      <SiteHeader variant="light" />
       {/* Rose-gold brand blobs — same language as login & demo pages */}
       <div className="pointer-events-none absolute -right-32 -top-40 w-[520px] h-[520px] rounded-full opacity-50"
         style={{ background: "radial-gradient(circle at 30% 30%, #e8918f 0%, #d4af37 40%, #ec4899 75%, transparent 100%)" }} />
@@ -220,9 +222,8 @@ export default function RegistryPublic() {
 
       {/* Hero */}
       <div className="relative z-10 border-b border-rose-100/80 bg-gradient-to-b from-rose-50/70 to-transparent">
-        <div className="max-w-3xl mx-auto px-4 pt-6 pb-12 sm:pb-14">
-          <BrandMark variant="light" size="md" />
-          <div className="flex items-center gap-3 mt-8 mb-4">
+        <div className="max-w-3xl mx-auto px-4 pt-8 pb-12 sm:pb-14">
+          <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-400 via-pink-500 to-amber-500 flex items-center justify-center shadow-[0_10px_25px_-8px_rgba(236,72,153,0.5)]">
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
