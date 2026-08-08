@@ -9,8 +9,8 @@ export default function BrandMark({ variant = "dark", size = "md" }) {
   const sizes = {
     xs: { pill: "w-12 h-12", word: "text-lg", sub: "text-[8px]", gap: "gap-2", spark: "w-2 h-2" },
     sm: { pill: "w-14 h-14", word: "text-xl", sub: "text-[8px]", gap: "gap-3", spark: "w-2 h-2" },
-    md: { pill: "w-16 h-16", word: "text-3xl", sub: "text-[9px]", gap: "gap-3", spark: "w-2.5 h-2.5" },
-    lg: { pill: "w-20 h-20", word: "text-4xl", sub: "text-[10px]", gap: "gap-3", spark: "w-3 h-3" },
+    md: { pill: "w-16 h-16", word: "text-2xl", sub: "text-[9px]", gap: "gap-3", spark: "w-2.5 h-2.5" },
+    lg: { pill: "w-20 h-20", word: "text-3xl", sub: "text-[10px]", gap: "gap-3", spark: "w-3 h-3" },
   }[size];
 
   const miraColor = variant === "light" ? "text-slate-900" : "text-white";
@@ -28,8 +28,8 @@ export default function BrandMark({ variant = "dark", size = "md" }) {
         <Sparkles className={`brand-orb-spark absolute -top-1 -right-1 ${sizes.spark} text-amber-400`} />
       </div>
       <div className="leading-none">
-        <div className={`font-playfair ${sizes.word} tracking-[0.06em] font-semibold gold-shine-text`}>
-          MIRACURL <span className="tracking-[0.25em]">SUITE</span>
+        <div className={`font-playfair ${sizes.word} tracking-[0.04em] font-semibold gold-shine-text whitespace-nowrap`}>
+          MIRACURL <span className="tracking-[0.12em]">SUITE</span>
         </div>
         <div className={`tracking-[0.28em] uppercase ${subColor} mt-1 ${sizes.sub}`}>
           Smart Salon Management Software

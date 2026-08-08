@@ -1651,3 +1651,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-08 (round 46) — Who-can-use links wired
 - Landing Contact dropdown: chips trimmed to 6 + "See all business types with photos" link (who-can-use-page-link); footer: "See all with photos →" (footer-who-can-use-link); ContactUs card: "See every business type with photos →" (contact-who-page-link). Click-through verified → /who-can-use renders 10 cards.
+
+## 2026-08-08 (round 47) — App icons gold-on-white + SUITE clipping fix
+- PWA icons for BOTH apps (Miracurl Book: icon-192/512+maskable; Miracurl Partner: icon-admin-*) rebuilt as gold ring on warm white (#FFFDF8) per user's artwork; apple-touch, favicon-192/.ico/.svg updated too.
+- Status bar branding: manifest.json + manifest-admin.json theme_color #B8863B, background_color #FFFDF8; index.html meta theme-color #ec4899→#B8863B.
+- BrandMark "SUITE" clipping on login fixed: word sizes md text-2xl / lg text-3xl, tracking 0.04em/0.12em, whitespace-nowrap. Verified via screenshot.
+- NOTE: installed phone apps show new icon only after Redeploy + PWA update/reinstall.
