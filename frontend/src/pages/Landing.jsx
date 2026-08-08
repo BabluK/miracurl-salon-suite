@@ -155,10 +155,14 @@ function ContactDropdown({ site }) {
             <div className="border-t border-white/10 pt-4">
               <Label className="text-emerald-300">Who can use Miracurl</Label>
               <div className="mt-3 flex flex-wrap gap-1.5" data-testid="who-can-use-list">
-                {WHO_CAN_USE.map((w) => (
+                {WHO_CAN_USE.slice(0, 6).map((w) => (
                   <span key={w} className="text-[11px] px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-white/65">{w}</span>
                 ))}
               </div>
+              <Link to="/who-can-use" data-testid="who-can-use-page-link"
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300 hover:text-emerald-200 transition-colors">
+                See all business types with photos <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
             <div className="border-t border-white/10 pt-4">
               <Link to="/contact-us" data-testid="contact-page-link"
@@ -738,6 +742,10 @@ export default function Landing({ scrollTo }) {
                 <p className="text-[11px] text-white/40 mt-2 leading-relaxed">
                   {WHO_CAN_USE.join(" · ")}
                 </p>
+                <Link to="/who-can-use" data-testid="footer-who-can-use-link"
+                  className="mt-2 inline-block text-[11px] font-semibold text-emerald-300/80 hover:text-emerald-200 transition-colors">
+                  See all with photos →
+                </Link>
               </div>
             </div>
           </div>

@@ -1648,3 +1648,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - SignupSalon header: FIXED (fixed top-0, sticky failed due to overflow-hidden root) + h-24 spacer; verified top=0 after scroll.
 - Logo bigger than name on ALL pages: BrandMark pill sizes +~30% (xs w-12 … lg w-20), SuiteLogo/LogoLockup emblem w-11→w-14 (lg w-20) + whitespace-nowrap on wordmark.
 - Ring-logo corruption fixed: round-44 lockup crop was bad; restored from HD master gold-monogram-hd-2048.png → ms-logo-gold/ms-ring/gold-monogram-transparent. Verified via screenshots (signup + who-can-use headers).
+
+## 2026-08-08 (round 46) — Who-can-use links wired
+- Landing Contact dropdown: chips trimmed to 6 + "See all business types with photos" link (who-can-use-page-link); footer: "See all with photos →" (footer-who-can-use-link); ContactUs card: "See every business type with photos →" (contact-who-page-link). Click-through verified → /who-can-use renders 10 cards.

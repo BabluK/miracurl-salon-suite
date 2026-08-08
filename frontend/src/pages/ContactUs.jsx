@@ -105,6 +105,10 @@ export default function ContactUs() {
                   <span key={w} className="text-xs px-3 py-1.5 rounded-full border border-[#e9d9ae] bg-amber-50/60 text-[#8a6420]">{w}</span>
                 ))}
               </div>
+              <Link to="/who-can-use" data-testid="contact-who-page-link"
+                className="mt-4 inline-block text-sm font-semibold text-[#a87e2f] hover:text-[#8a6420] transition-colors">
+                See every business type with photos →
+              </Link>
             </Card>
           </div>
 
