@@ -1688,3 +1688,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-08 (round 55) — Footer features strip
 - Landing footer: added footer-features-strip row (13 feature chips ✦, each links to /features) between watermark and copyright. Verified via screenshot.
+
+## 2026-08-08 (round 56) — Footer polish v2
+- Feature strip restyled as pill chips (border-white/10, hover gold) + gold gradient dividers above/below; verified via full footer screenshot — 4 columns, watermark, MS-logo copyright row all clean.
