@@ -1554,3 +1554,11 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Added RELEASES[0] entry "2026-08-08 (Google Wallet cards, open bills & fair attendance ⏰)" with 10 user-facing changes; bumped BUILD to 2026-08-08.64.
 - Verified: /api/whats-new returns new build + 8 highlights; /api/super/version + /api/super/releases show tag MIRA-DEPLOYED-2026-08-08 (50 releases total). Popup will re-show to all admins (localStorage keyed on build).
 - LEARNING: whenever a deploy-worthy feature lands, append to /app/backend/release_notes.py and bump BUILD — otherwise admins never see it in What's New / Deployments.
+
+## 2026-08-08 (round 32) — Manager PIN leak fixed + PIN validation everywhere
+- LEAK ROOT CAUSE: require_owner_pin (security.py) and manager section-access both FAILED OPEN when tenant had no security_pin_hash — managers got silent full access (the user's AECS production salon has no PIN set).
+- Backend: managers now get 403 OWNER_PIN_NOT_SET / {ok:false, no_pin_set:true} when no PIN configured; admins (owners) keep no-op. Wrong attempts still logged + 5-try/15-min lockout.
+- Frontend: ManagerLockScreen rebuilt as "Sorry, you're not authorized" popup — Enter PIN reveals pad, Cancel routes back to previous page; amber note when owner hasn't set a PIN. AdminLockScreen fail-open .catch fixed (network error no longer unlocks). PIN inputs digit-only + 4-8 digit validation (lock screens + ownerPin.js modal); pinApi handles OWNER_PIN_NOT_SET with clear toast.
+- BUILD bumped to 2026-08-08.65 + release note line added.
+- Tested: iteration_100.json — backend 8/8, frontend 6/6 PASS (incl. no-pin tenant toggle test, restored after).
+- NOTE for production: owner should set the Admin PIN in Settings → Security PIN on the AECS salon after redeploy.
