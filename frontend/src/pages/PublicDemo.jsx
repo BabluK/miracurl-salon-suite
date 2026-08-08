@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { CalendarCheck, Clock, Sparkles, CheckCircle2, User, Send, Loader2, Bot, ClipboardList } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
+import SalesChatWidget from "@/components/SalesChatWidget";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -139,6 +140,7 @@ export default function PublicDemo() {
   return (
     <div className="min-h-screen relative overflow-hidden bg-white text-slate-800" data-testid="public-demo-page">
       <SiteHeader variant="light" />
+      <SalesChatWidget />
       <div className="px-4 py-8">
       {/* Rose-gold gradient blobs — same brand language as the login page */}
       <div className="pointer-events-none absolute -right-32 -bottom-32 w-[640px] h-[640px] rounded-full opacity-90"

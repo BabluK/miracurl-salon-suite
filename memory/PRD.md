@@ -1581,3 +1581,7 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Shine: .gold-shine-text (animated metallic gradient sweep) + .gold-shine-img (pulsing gold glow) in App.css — applied to SuiteLogo (SiteHeader.jsx) and LogoLockup (Landing.jsx).
 - BUG (self-caused, fixed): PublicDemo.jsx unclosed div from header insertion → "Compiled with problems"; closed div + removed old absolute BrandMark.
 - Verified via screenshots: all 5 pages compile & show header; nav Features click routes to /features; landing dark header confirmed intact.
+
+## 2026-08-08 (round 35) — Ask Mira widget on all public pages
+- SalesChatWidget added to RegistryPublic, JobsBoard, SalonFinder, PublicDemo, CandidateProfile, ContactUs (already on Landing/Partners/MiraStudio).
+- Verified via playwright: askMira=1 & no compile errors on /staff-registry /jobs /book /demo /contact-us.

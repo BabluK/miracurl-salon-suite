@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api, { API } from "@/lib/api";
 import { Search, ShieldCheck, Star, Building2, FileDown, Phone, Mail, MapPin, Fingerprint, Lock, UserCheck, FileSignature, EyeOff } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
+import SalesChatWidget from "@/components/SalesChatWidget";
 
 const gradBtn = "bg-gradient-to-r from-rose-400 via-pink-500 to-amber-500 hover:from-rose-500 hover:via-pink-600 hover:to-amber-600 text-white";
 
@@ -214,6 +215,7 @@ export default function RegistryPublic() {
     <div className="min-h-screen relative overflow-hidden bg-white text-slate-800" data-testid="registry-public-page">
       {/* Locked golden-white header with the Miracurl Suite logo */}
       <SiteHeader variant="light" />
+      <SalesChatWidget />
       {/* Rose-gold brand blobs — same language as login & demo pages */}
       <div className="pointer-events-none absolute -right-32 -top-40 w-[520px] h-[520px] rounded-full opacity-50"
         style={{ background: "radial-gradient(circle at 30% 30%, #e8918f 0%, #d4af37 40%, #ec4899 75%, transparent 100%)" }} />

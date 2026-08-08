@@ -4,6 +4,7 @@ import axios from "axios";
 import { Scissors, Search, MapPin, ArrowRight } from "lucide-react";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { SiteHeader } from "@/components/SiteHeader";
+import SalesChatWidget from "@/components/SalesChatWidget";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -29,6 +30,7 @@ export default function SalonFinder() {
   return (
     <div className="min-h-screen mesh-dark text-white" data-testid="salon-finder-page">
       <SiteHeader variant="light" />
+      <SalesChatWidget />
       <InstallAppPrompt />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 pb-24">
         <div className="flex items-center gap-3 mb-10">

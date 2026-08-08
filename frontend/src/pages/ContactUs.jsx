@@ -4,6 +4,7 @@ import { Mail, Instagram, Facebook, MessageSquare, MapPin, ArrowLeft, Send, Load
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { LogoLockup, WHO_CAN_USE } from "./Landing";
+import SalesChatWidget from "@/components/SalesChatWidget";
 
 const Field = ({ label, value, onChange, placeholder, type = "text", testid }) => (
   <label className="block">
@@ -42,6 +43,7 @@ export default function ContactUs() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-outfit" data-testid="contact-us-page">
+      <SalesChatWidget />
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/70 border-b border-[#DFB78C]/15">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 py-3.5 flex items-center justify-between">
           <LogoLockup />
