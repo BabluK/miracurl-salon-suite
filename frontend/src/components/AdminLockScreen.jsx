@@ -22,12 +22,13 @@ export const AdminLockScreen = ({ path, label, onUnlocked }) => {
     // logs the attempt; auto-unlocks if no PIN is configured
     api.post("/manager/section-access", { section: path })
       .then(r => { if (r.data.ok) onUnlocked(); else setChecking(false); })
-      .catch(() => onUnlocked());
+      .catch(() => setChecking(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 
   const unlock = async () => {
     if (!pin.trim()) return;
+    if (!/^\d{4,8}$/.test(pin.trim())) { toast.error("PIN must be 4–8 digits"); return; }
     setBusy(true);
     try {
       const { data } = await api.post("/manager/section-access", { section: path, pin: pin.trim() });
@@ -49,7 +50,7 @@ export const AdminLockScreen = ({ path, label, onUnlocked }) => {
         </div>
         <h2 className="font-playfair text-2xl text-slate-900">{label} is protected</h2>
         <p className="text-sm text-slate-500 mt-2 mb-6">Enter your <b>Owner PIN</b> to open this section on shared devices.</p>
-        <input type="password" inputMode="numeric" maxLength={8} value={pin} onChange={e => setPin(e.target.value)}
+        <input type="password" inputMode="numeric" maxLength={8} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
           onKeyDown={e => e.key === "Enter" && unlock()} data-testid="admin-pin-input"
           className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 text-center text-xl tracking-[8px] focus:outline-none focus:border-slate-900 placeholder:text-slate-300"
           placeholder="••••" autoFocus />

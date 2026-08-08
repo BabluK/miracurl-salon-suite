@@ -2,7 +2,7 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-08.64"
+BUILD = "2026-08-08.65"
 BUILD_TIME = "8 Aug 2026, 11:30 AM IST"
 
 RELEASES = [
@@ -19,6 +19,7 @@ RELEASES = [
             "↩ Mistake-proof attendance — staff see a confirmation before checking out, admins can undo an accidental check-out, and a wrongly waived late fine can now be un-waived too (owner PIN protected, full audit trail)",
             "🪪 Role badges everywhere — Super Admin, Manager and Admin labels now show clearly across the console, plus a unified notification feed in the bell dropdown",
             "🔐 Fingerprint/passkey login fixed for the www domain — re-register your fingerprint once if it was set up earlier",
+            "🛡️ Manager PIN lock hardened — locked sections now show a clear 'Sorry, you're not authorized' popup with Enter PIN / Cancel options (Cancel returns them to the previous page); sections NO LONGER auto-open when the owner hasn't set a PIN, and every PIN-protected action validates the PIN strictly (4–8 digits, wrong attempts logged & rate-limited)",
         ],
     },
     {

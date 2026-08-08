@@ -312,6 +312,8 @@ async def require_owner_pin(request: Request, user=Depends(get_current_user), t=
         return True
     ph = (t or {}).get("security_pin_hash")
     if not ph:
+        if user.get("role") == "manager":
+            raise HTTPException(403, "OWNER_PIN_NOT_SET")
         return True
     pin = request.headers.get("X-Owner-Pin") or ""
     if not pin:

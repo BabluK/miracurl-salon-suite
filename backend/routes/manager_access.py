@@ -46,8 +46,11 @@ async def section_access(body: AccessIn, user=Depends(get_current_user), t=Depen
         raise HTTPException(403, "Not allowed")
     ph = (t or {}).get("security_pin_hash")
     if not ph:
-        await _log(t, user, body.section, "opened (no PIN set)")
-        return {"ok": True}
+        if role == "admin":
+            await _log(t, user, body.section, "opened (no PIN set)")
+            return {"ok": True}
+        await _log(t, user, body.section, "attempted (no PIN set)")
+        return {"ok": False, "pin_required": True, "no_pin_set": True}
     if not body.pin:
         await _log(t, user, body.section, "attempted")
         return {"ok": False, "pin_required": True}

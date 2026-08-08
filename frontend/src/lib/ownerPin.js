@@ -31,9 +31,16 @@ function askPin() {
       </div>`;
     const input = overlay.querySelector("input");
     const done = (val) => { overlay.remove(); resolve(val); };
+    input.oninput = () => { input.value = input.value.replace(/\D/g, ""); };
+    const submit = () => {
+      const v = input.value.trim();
+      if (!v) return done(null);
+      if (!/^\d{4,8}$/.test(v)) { toast.error("PIN must be 4–8 digits"); return; }
+      done(v);
+    };
     overlay.querySelector('[data-testid="owner-pin-cancel"]').onclick = () => done(null);
-    overlay.querySelector('[data-testid="owner-pin-ok"]').onclick = () => done(input.value.trim() || null);
-    input.onkeydown = (e) => { if (e.key === "Enter") done(input.value.trim() || null); };
+    overlay.querySelector('[data-testid="owner-pin-ok"]').onclick = submit;
+    input.onkeydown = (e) => { if (e.key === "Enter") submit(); };
     overlay.onclick = (e) => { if (e.target === overlay) done(null); };
     document.body.appendChild(overlay);
     setTimeout(() => input.focus(), 60);
@@ -51,6 +58,11 @@ async function withPin(method, url, data) {
   try {
     return await call(method, url, data);
   } catch (e) {
+    if (e.response?.status === 403 && e.response?.data?.detail === "OWNER_PIN_NOT_SET") {
+      e.response.data.detail = "This action is locked — the owner hasn't set a Security PIN yet";
+      toast.error("Sorry, you are not authorized — the owner hasn't set a Security PIN yet. Ask the owner to set one in Settings → Security PIN.", { duration: 6000 });
+      throw e;
+    }
     if (e.response?.status === 403 && e.response?.data?.detail === "OWNER_PIN_REQUIRED") {
       const pin = await askPinOnce();
       if (!pin) {
