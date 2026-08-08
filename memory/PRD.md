@@ -1608,3 +1608,13 @@ Replaced IN PLACE (no code changes needed, all refs keep working):
 - Regenerated ALL derived assets in place: ms-logo-gold/emblem (site headers), brand kit (monograms, app icons round/square, favicons, monochrome, zip), PWA icons + maskable + apple-touch + root favicon.ico/svg, /assets/logo family (logo-black/white/gold, watermark 18%, icon, favicons, wallet logo/hero), /brand BrandMark icon, /assets/app icon + splash.
 - Verified via screenshots: landing dark header + hero (glossy disc), staff-registry light header (gold ring).
 - PENDING (interrupted): "Watermarked Posters" — stamp gold monogram on AI-generated social posters. Investigation done: add stamp helper in routes/promo_common.py (source: /app/frontend/public/assets/brand/gold-monogram-transparent.png); stamp at final BytesIO save points: offer_flyer.py lines ~336 & ~532 (_compose_flyer + about-poster), promo_image.py ~180; tenant-side AI images flow through routes/mira_common.py _gen_image() (line 106) — stamp `data` bytes there to cover ALL Mira Studio social/GBP images.
+
+## 2026-08-08 (round 40) — Security hardening + Full HD logo
+A) Sensitive-info protection:
+- App.js ContentGuard: right-click (contextmenu) blocked site-wide; text selection & copy/paste still allowed.
+- GiftCardPublic.jsx (gift-upi-id): UPI ID now masked (first 4 chars + •••@bank), copy button copies FULL id.
+- MembershipPublic.jsx: "Pay via UPI" button no longer prints raw UPI id; UPI panel got masked copy chip (membership-upi-copy).
+- Verified: compile clean, contextmenu blocked=True. NOTE: full tenant membership page flow not visually re-verified (route redirected in screenshot); mask is display-only change.
+B) Full HD logo (user reported pixelation on zoom, sources were ~600px):
+- Regenerated faithful high-res masters via Gemini image edit from user's exact artwork → white-to-transparent → 2048px masters: brand/emblem-black-disc-hd-2048.png + gold-monogram-hd-2048.png.
+- ALL derived assets rebuilt from HD (site headers, kit icons now 2048-based, PWA, favicons, wallet, watermark, splash, BrandMark). Kit zip now 19MB.

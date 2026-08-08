@@ -170,12 +170,24 @@ function PublicOnly({ children }) {
   return children;
 }
 
+function ContentGuard() {
+  // Deters casual scraping of sensitive info: blocks right-click site-wide.
+  // Text selection & copy/paste stay fully allowed.
+  useEffect(() => {
+    const block = (e) => e.preventDefault();
+    document.addEventListener("contextmenu", block);
+    return () => document.removeEventListener("contextmenu", block);
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <div className="App">
       <AuthProvider>
         <BrowserRouter>
           <ScrollToTop />
+          <ContentGuard />
           <VersionWatcher />
           <ManifestSwitcher />
           <MicroInteractions />

@@ -247,8 +247,8 @@ export default function GiftCardPublic() {
               </div>
             )}
             <div className="mt-4 inline-flex items-center gap-2 bg-slate-100 rounded-xl px-5 py-3 font-mono text-amber-700 text-lg" data-testid="gift-upi-id">
-              {upiOrder.upi_id}
-              <button onClick={() => { navigator.clipboard.writeText(upiOrder.upi_id); setCopied(true); toast.success("UPI ID copied"); }} data-testid="gift-upi-copy">
+              {(() => { const id = upiOrder.upi_id || ""; const [u, bank] = id.split("@"); return `${(u || "").slice(0, 4)}•••@${bank || ""}`; })()}
+              <button title="Copy full UPI ID" onClick={() => { navigator.clipboard.writeText(upiOrder.upi_id); setCopied(true); toast.success("UPI ID copied — paste it in your UPI app"); }} data-testid="gift-upi-copy">
                 {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>

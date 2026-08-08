@@ -269,7 +269,7 @@ export default function MembershipPublic() {
               {cfg.payment.upi && (
                 <button data-testid="membership-pay-upi" onClick={payUpi} disabled={busy}
                   className="w-full mt-2.5 border border-slate-300 text-slate-700 font-semibold py-3 rounded-2xl hover:border-amber-500 disabled:opacity-60 bg-white">
-                  Pay via UPI ({cfg.payment.upi_id})
+                  Pay via UPI · GPay / PhonePe / Paytm
                 </button>
               )}
               {!cfg.payment.razorpay && !cfg.payment.upi && (
@@ -291,6 +291,14 @@ export default function MembershipPublic() {
               <a className="px-3 py-2 rounded-full bg-slate-100 text-slate-700 font-semibold" href={upi.phonepe_link}>PhonePe</a>
               <a className="px-3 py-2 rounded-full bg-slate-100 text-slate-700 font-semibold" href={upi.paytm_link}>Paytm</a>
             </div>
+            {(upi.upi_id || cfg?.payment?.upi_id) && (
+              <button data-testid="membership-upi-copy"
+                onClick={() => { navigator.clipboard.writeText(upi.upi_id || cfg.payment.upi_id); toast.success("UPI ID copied — paste it in your UPI app"); }}
+                className="mx-auto flex items-center gap-2 text-xs font-mono bg-slate-100 rounded-xl px-4 py-2 text-slate-600 hover:text-amber-700">
+                {(() => { const id = upi.upi_id || cfg.payment.upi_id || ""; const [u, bank] = id.split("@"); return `${(u || "").slice(0, 4)}•••@${bank || ""}`; })()}
+                <span className="underline">Copy</span>
+              </button>
+            )}
             <input data-testid="membership-upi-ref" placeholder="UPI transaction / reference ID" value={upiRef} onChange={e => setUpiRef(e.target.value)}
               className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-slate-800 placeholder:text-slate-400 focus:border-amber-500 outline-none" />
             <button data-testid="membership-upi-confirm" onClick={confirmUpi} disabled={busy}
