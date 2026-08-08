@@ -64,6 +64,7 @@ import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
 import Landing from "@/pages/Landing";
 import ContactUs from "@/pages/ContactUs";
+import WhoCanUse from "@/pages/WhoCanUse";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import Refund from "@/pages/Refund";
@@ -229,6 +230,7 @@ export default function App() {
             <Route path="/pricing" element={<Landing scrollTo="pricing" />} />
             <Route path="/about-us" element={<Landing scrollTo="about" />} />
             <Route path="/contact-us" element={<ContactUs />} />
+            <Route path="/who-can-use" element={<WhoCanUse />} />
             <Route element={<Protected><AppLayout /></Protected>}>
               <Route path="dashboard" element={<AdminOnly><Dashboard /></AdminOnly>} />
               <Route path="staff-portal" element={<StaffPortal />} />

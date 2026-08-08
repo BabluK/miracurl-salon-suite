@@ -142,12 +142,14 @@ export default function SignupSalon() {
       <div className="pointer-events-none absolute -left-40 -bottom-44 w-[520px] h-[520px] rounded-full opacity-70"
            style={{ background: "radial-gradient(circle at 60% 40%, #818cf8, #a78bfa 40%, #ec4899 80%, transparent 100%)" }} />
 
-      <header className="relative z-10 px-8 pt-6 sm:px-14 sm:pt-10 flex items-center justify-between">
+      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-white/85 border-b border-[#e9d9ae]/50 px-8 py-3 sm:px-14 flex items-center justify-between">
         <BrandMark variant="light" size="lg" />
         <Link to="/login" className="text-sm text-sky-600 hover:text-sky-700 font-medium" data-testid="signup-have-account">
           Already have an account? Sign in →
         </Link>
       </header>
+      <div className="h-24" aria-hidden="true" />
+
 
       <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-8 py-10 pb-24">
         <div className="text-center max-w-xl mx-auto mb-10">

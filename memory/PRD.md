@@ -1641,3 +1641,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - ChatButton.jsx REWRITTEN: "Need help?" (signup page) now shows Mira avatar + popup card collecting name/phone/email → POST /public/demo-request (source contact_us_page); success shows "Thanks for your patience! The Miracurl team will contact you shortly." + motivational quote; WhatsApp chat kept as secondary. Verified card opens, compile clean. Inputs given explicit white bg (page had dark-input global CSS).
 - Old-logo fix: BrandMark + SuperAdmin header now point to /assets/brand/ms-ring.png (new gold ring monogram from user's latest artwork, cache-busting path). NOTE: user screenshots showing old swirl were from PRODUCTION — needs Redeploy.
 - STILL PENDING (context limits): (1) ContactUs page light/golden-white restyle like /staff-registry; (2) "Who Can Use" as separate page with generated IMAGES per business type (footer/dropdown should link to it); (3) BrandMark wordmark overflow check on login (may clip on narrow widths).
+
+## 2026-08-08 (round 45) — ContactUs light restyle, WhoCanUse page, locked header, bigger logo
+- ContactUs.jsx REWRITTEN: light golden-white theme (SiteHeader light + rose-gold blobs like /staff-registry), same form -> /public/demo-request, WHO chips, SalesChatWidget.
+- NEW /who-can-use page (WhoCanUse.jsx + App.js route): 10 photo cards (AI-generated, /assets/who/*.jpg — unisex, ladies-gents, spa, parlour, boutique, barber, nails, bridal+mehendi, tattoo, wellness+skin) + signup CTA. TODO(optional): link footer/dropdown "Who can use" text to /who-can-use.
+- SignupSalon header: FIXED (fixed top-0, sticky failed due to overflow-hidden root) + h-24 spacer; verified top=0 after scroll.
+- Logo bigger than name on ALL pages: BrandMark pill sizes +~30% (xs w-12 … lg w-20), SuiteLogo/LogoLockup emblem w-11→w-14 (lg w-20) + whitespace-nowrap on wordmark.
+- Ring-logo corruption fixed: round-44 lockup crop was bad; restored from HD master gold-monogram-hd-2048.png → ms-logo-gold/ms-ring/gold-monogram-transparent. Verified via screenshots (signup + who-can-use headers).
