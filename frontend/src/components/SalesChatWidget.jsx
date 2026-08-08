@@ -22,6 +22,17 @@ export default function SalesChatWidget() {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, open]);
 
+  const greetedRef = useRef(false);
+  useEffect(() => {
+    if (!open || session || greetedRef.current) return;
+    greetedRef.current = true;
+    try {
+      const u = new SpeechSynthesisUtterance("Hi! I'm Mira. How can I help you? I will guide you for demo booking.");
+      u.lang = "en-IN"; u.rate = 0.96; u.pitch = 1.1;
+      window.speechSynthesis?.speak(u);
+    } catch { /* voice optional */ }
+  }, [open, session]);
+
   useEffect(() => {
     const h = () => setOpen(true);
     window.addEventListener("open-sales-chat", h);
@@ -69,11 +80,10 @@ export default function SalesChatWidget() {
       <button
         onClick={() => setOpen(!open)}
         data-testid="sales-chat-fab"
-        aria-label="Ask Mira about Miracurl"
-        className="fixed bottom-16 right-6 z-40 flex items-center gap-2 pl-4 pr-5 py-3 rounded-full bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white font-medium text-sm shadow-2xl hover:scale-105 transition-transform"
+        aria-label="Chat with Mira"
+        className="fixed bottom-16 right-6 z-40 rounded-full p-[3px] bg-gradient-to-br from-[#F0D9A5] via-[#e8918f] to-[#C89B52] shadow-2xl hover:scale-110 transition-transform"
       >
-        <img src="/assets/mira-avatar-gold.png" alt="Mira" className="w-7 h-7 rounded-full object-cover border border-white/50" />
-        <span className="hidden sm:inline">Ask Mira ✦</span>
+        <img src="/assets/mira-avatar-gold.png" alt="Mira" className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-white/70" />
       </button>
 
       {open && (
@@ -88,7 +98,12 @@ export default function SalesChatWidget() {
 
           {!session ? (
             <form onSubmit={start} className="p-4 space-y-3 overflow-y-auto">
-              <p className="text-xs text-slate-600">Tell Mira who you are — our team can then reach out with a personal demo ✦</p>
+              <div className="flex items-start gap-2.5" data-testid="mira-greeting">
+                <img src="/assets/mira-avatar-gold.png" alt="Mira" className="w-9 h-9 rounded-full object-cover border border-amber-200 shrink-0" />
+                <div className="bg-amber-50 border border-amber-100 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm text-slate-700">
+                  Hi! I'm <b>Mira</b> ✦ How can I help you today? Share your details below and I'll guide you to book a <b>free demo</b> with the Miracurl team.
+                </div>
+              </div>
               <input required data-testid="sales-chat-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
                 placeholder="Your name" className="w-full text-sm px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-fuchsia-400 outline-none" />
               <input required type="email" data-testid="sales-chat-email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}

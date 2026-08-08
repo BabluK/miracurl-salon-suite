@@ -178,7 +178,6 @@ function ContactDropdown({ site }) {
 }
 
 function CeoSection({ site }) {
-  const [expanded, setExpanded] = useState(false);
   if (!site) return null;
   return (
     <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pb-24" data-testid="ceo-section">
@@ -203,11 +202,11 @@ function CeoSection({ site }) {
             <Label className="text-[#a87e2f]">Meet the Founder</Label>
             <h2 className="font-playfair text-3xl sm:text-4xl font-light mt-3 text-slate-900">{site.ceo_name}</h2>
             <p className="text-sm text-[#a87e2f] mt-1 font-medium">{site.ceo_title}</p>
-            <p className={`text-slate-600 mt-4 max-w-xl leading-relaxed ${expanded ? "" : "line-clamp-5"}`} data-testid="ceo-about">{site.ceo_about}</p>
-            <button onClick={() => setExpanded((v) => !v)} data-testid="ceo-read-more"
-              className="mt-2 text-sm font-semibold text-[#a87e2f] hover:text-[#8a6420] transition-colors">
-              {expanded ? "Show less ↑" : "Read full story →"}
-            </button>
+            <p className="text-slate-600 mt-4 max-w-xl leading-relaxed line-clamp-5" data-testid="ceo-about">{site.ceo_about}</p>
+            <Link to="/ceo" data-testid="ceo-read-more"
+              className="mt-2 inline-block text-sm font-semibold text-[#a87e2f] hover:text-[#8a6420] transition-colors">
+              Read full story →
+            </Link>
             <div className="flex items-center justify-center md:justify-start gap-3 mt-5">
               {site.ceo_facebook && (
                 <a href={site.ceo_facebook} target="_blank" rel="noreferrer" data-testid="ceo-facebook-link"

@@ -1694,3 +1694,12 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-08 (round 57) — Round favicon
 - Favicon/app icons now ROUND (white circle + gold ring, transparent corners) instead of square: favicon.ico/.svg/-192, apple-touch, icon-192/512 + admin variants; maskable kept full-bleed square (launcher masks itself). Cache-bust ?v=4 + sw CACHE miracurl-v12.
+
+## 2026-08-08 (round 58) — Separate CEO page
+- NEW /ceo route (AboutCeo.jsx): golden-white theme, large photo (crown placeholder till upload), full bio (whitespace-pre-line), CEO socials, signup CTA. Landing "Read full story →" now links to /ceo (inline expand removed). Verified via screenshot (compile 0).
+- Mira avatar confirmed golden in preview — user's dark avatar screenshot = production, needs Redeploy.
+
+## 2026-08-08 (round 59) — Mira widget revamp
+- SalesChatWidget FAB: avatar-only round button (gold gradient ring frame, w-14/16) — "Ask Mira" text removed.
+- On open (no session): greeting bubble "Hi! I'm Mira ✦ How can I help you today?... book a free demo" + browser speechSynthesis voice greeting (en-IN, once per load). Lead form (name/email/phone) unchanged → /public/sales-chat/start.
+- Verified via screenshot: compile 0, greeting + form render, round avatar FAB.
