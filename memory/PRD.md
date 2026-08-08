@@ -1538,3 +1538,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - eod_digests.py: _run_late_arrival_digests — per tenant, attendance last 7 days w/ late_minutes>0 aggregated per staff (days, total mins, fines). OWNER email: table + total fines. STAFF email (each late staff w/ email): their late dates+mins+fine, week total, month-to-date fines + monthly base salary line ("deducted in your salary slip") + weekday-grace tip.
 - POST /reports/late-arrival-digest/send-now (admin). Scheduler _late_digest_scheduler (Mon ≥10:00 IST, flag late_digest_auto) registered in server.py.
 - Tested: seeded 2 late days → sent:2 (owner + staff email to delivered@resend.dev), test records cleaned after.
+
+## 2026-08-08 (round 29) — Punctuality Award in weekly late digest
+- Bug fixed: previous session added star_html block + star param to _late_digest_html but (1) never interpolated {star_html} into the email template and (2) never computed/passed the star from _run_late_arrival_digests.
+- Fix: star = staff with attendance records this week AND zero late records (most days worked wins), rendered as green "🏆 Punctuality Star of the week" card above the late table in the OWNER digest.
+- Tested in-process (patched _send_email, seeded late records): "Punctuality Star of the week: Anjali Mehta — on time all 5 days they worked" rendered correctly; endpoint /reports/late-arrival-digest/send-now healthy (401 unauth as expected); backend RUNNING.

@@ -142,7 +142,13 @@ async def _run_manager_access_reports(tenant_id: Optional[str] = None) -> dict:
 
 # ---------------- weekly late arrival digest ----------------
 
-def _late_digest_html(t: dict, rows: list, total_fines: float) -> str:
+def _late_digest_html(t: dict, rows: list, total_fines: float, star: Optional[dict] = None) -> str:
+    star_html = ""
+    if star:
+        star_html = (f"<div style='background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;"
+                     f"padding:12px 16px;margin:14px 0;font-size:14px'>🏆 <b>Punctuality Star of the week: "
+                     f"{star['name']}</b> — on time all {star['days']} day{'s' if star['days'] != 1 else ''} they worked. "
+                     f"A little shout-out goes a long way! 💛</div>")
     body = "".join(
         f"<tr><td style='padding:6px 14px 6px 0'>{r['name']}</td>"
         f"<td style='padding:6px 14px 6px 0;text-align:center'>{r['days']}</td>"
@@ -152,6 +158,7 @@ def _late_digest_html(t: dict, rows: list, total_fines: float) -> str:
     return f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
     <h2 style="color:#1c1c22">⏰ Weekly late arrival report — {t.get('name') or 'your salon'}</h2>
     <p>Staff who arrived late in the last 7 days (10-min grace applies Mon–Fri only):</p>
+    {star_html}
     <table style="width:100%;border-collapse:collapse;font-size:13px;margin:14px 0">
       <tr style="color:#888;font-size:11px;text-transform:uppercase"><td>Staff</td><td style="text-align:center">Late days</td><td style="text-align:center">Total late</td><td style="text-align:right">Fines</td></tr>
       {body}</table>
@@ -200,10 +207,22 @@ async def _run_late_arrival_digests(tenant_id: Optional[str] = None) -> dict:
             a["recs"].append(r)
         rows = sorted(agg.values(), key=lambda x: -x["fines"])
         total = sum(r["fines"] for r in rows)
+        star = None
+        all_recs = await _raw_db.attendance.find(
+            {"tenant_id": t["id"], "date": {"$gte": since_date}},
+            {"_id": 0, "staff_id": 1, "staff_name": 1},
+        ).to_list(2000)
+        worked = {}
+        for r in all_recs:
+            w = worked.setdefault(r["staff_id"], {"name": r.get("staff_name") or "Staff", "days": 0})
+            w["days"] += 1
+        punctual = [w for sid, w in worked.items() if sid not in agg and w["days"] > 0]
+        if punctual:
+            star = max(punctual, key=lambda x: x["days"])
         recipients = _owner_emails(t)
         if recipients:
             status = await _send_email(recipients, f"⏰ Late arrivals this week — ₹{total:,.0f} in fines ({t.get('name')})",
-                                       _late_digest_html(t, rows, total))
+                                       _late_digest_html(t, rows, total, star))
             sent += 1 if status.get("sent") else 0
             failed += 0 if status.get("sent") else 1
         # individual staff awareness emails
