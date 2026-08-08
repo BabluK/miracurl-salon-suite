@@ -4,6 +4,7 @@ import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { ShieldCheck, MapPin, Star, CalendarClock, CheckCircle2 } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
+import { SiteHeader } from "@/components/SiteHeader";
 
 export default function CandidateProfile() {
   const { token } = useParams();
@@ -35,9 +36,9 @@ export default function CandidateProfile() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white" data-testid="candidate-profile-page">
+      <SiteHeader variant="light" />
       <div className="max-w-2xl mx-auto px-4 py-10">
-        <div className="flex items-center justify-between mb-8">
-          <BrandMark variant="dark" size="xs" />
+        <div className="flex items-center justify-end mb-8">
           <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">Verified Candidate</div>
         </div>
 

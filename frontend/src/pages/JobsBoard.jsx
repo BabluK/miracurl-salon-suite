@@ -3,6 +3,7 @@ import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Briefcase, MapPin, IndianRupee, ShieldCheck, X } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const URGENCY_LABEL = { immediate: "🔥 Urgent", two_weeks: "Within 2 weeks", flexible: "Flexible start" };
 
@@ -30,9 +31,9 @@ export default function JobsBoard() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white" data-testid="jobs-board-page">
+      <SiteHeader variant="light" />
       <div className="max-w-3xl mx-auto px-4 py-10">
-        <div className="flex items-center justify-between mb-8">
-          <BrandMark variant="dark" size="xs" />
+        <div className="flex items-center justify-end mb-8">
           <div className="text-[10px] uppercase tracking-[0.3em] text-white/40">Careers · Verified Salons</div>
         </div>
         <h1 className="font-playfair text-4xl sm:text-5xl">Salon jobs, <span className="text-gold">verified</span>.</h1>

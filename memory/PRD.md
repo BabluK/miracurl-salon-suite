@@ -1574,3 +1574,10 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - BUILD bumped to 2026-08-08.66 + release entry "New brand, new website ✨".
 - Tested: iteration_101.json (backend 3/3, frontend 8/9; the 1 failure = contact form source mismatch, FIXED + verified via curl, test doc cleaned). Registry header verified via screenshot.
 - NOTE: Landing.jsx is ~760 lines — consider splitting header/footer/CEO into components later. Known minor console warning: duplicate key "Test Owner" in testimonials (pre-existing).
+
+## 2026-08-08 (round 34) — Header rollout + shining gold logo
+- SiteHeader (light golden-white variant) rolled out to: JobsBoard (/jobs), CandidateProfile, SalonFinder (/book), Partners, PublicDemo (/demo) — replaced old BrandMark blocks.
+- New gold-on-transparent monogram processed to /assets/ms-logo-gold.png (used by light header); black-disc emblem stays for dark landing header/hero.
+- Shine: .gold-shine-text (animated metallic gradient sweep) + .gold-shine-img (pulsing gold glow) in App.css — applied to SuiteLogo (SiteHeader.jsx) and LogoLockup (Landing.jsx).
+- BUG (self-caused, fixed): PublicDemo.jsx unclosed div from header insertion → "Compiled with problems"; closed div + removed old absolute BrandMark.
+- Verified via screenshots: all 5 pages compile & show header; nav Features click routes to /features; landing dark header confirmed intact.

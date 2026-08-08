@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { PartnerGrid } from "@/components/PartnerGrid";
 import SalesChatWidget from "@/components/SalesChatWidget";
 import { Handshake, ArrowLeft, Sparkles } from "lucide-react";
+import { SiteHeader } from "@/components/SiteHeader";
 
 export default function Partners() {
   const [partners, setPartners] = useState([]);
@@ -15,7 +16,8 @@ export default function Partners() {
 
   return (
     <div className="min-h-screen bg-[#0b0b10] text-white" data-testid="partners-page">
-      <div className="max-w-6xl mx-auto px-6 sm:px-10 py-16">
+      <SiteHeader variant="light" />
+      <div className="max-w-6xl mx-auto px-6 sm:px-10 py-12">
         <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-white/50 hover:text-white transition" data-testid="partners-back-link">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Miracurl
         </Link>

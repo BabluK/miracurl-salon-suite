@@ -29,10 +29,10 @@ const T = {
 
 export const SuiteLogo = ({ variant = "dark", size = "md" }) => (
   <Link to="/" className="flex items-center gap-3 group" data-testid="suite-logo">
-    <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite"
-      className={`${size === "lg" ? "w-16 h-16" : "w-11 h-11"} drop-shadow-[0_2px_10px_rgba(200,155,82,0.4)] group-hover:scale-105 transition-transform`} />
+    <img src={variant === "light" ? "/assets/ms-logo-gold.png" : "/assets/ms-logo-emblem.png"} alt="Miracurl Suite"
+      className={`${size === "lg" ? "w-16 h-16" : "w-11 h-11"} gold-shine-img group-hover:scale-105 transition-transform`} />
     <span className="leading-tight">
-      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] text-transparent bg-clip-text bg-gradient-to-b from-[#D9A93F] via-[#B8863B] to-[#8a6420] font-semibold`}>
+      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] gold-shine-text font-semibold`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
       </span>
       <span className={`block text-[9px] uppercase tracking-[0.3em] ${T[variant].sub}`}>Smart Salon Management Software</span>

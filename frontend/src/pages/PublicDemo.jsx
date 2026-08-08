@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { CalendarCheck, Clock, Sparkles, CheckCircle2, User, Send, Loader2, Bot, ClipboardList } from "lucide-react";
-import BrandMark from "@/components/BrandMark";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -137,7 +137,9 @@ export default function PublicDemo() {
   const pretty = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-white text-slate-800 px-4 py-8" data-testid="public-demo-page">
+    <div className="min-h-screen relative overflow-hidden bg-white text-slate-800" data-testid="public-demo-page">
+      <SiteHeader variant="light" />
+      <div className="px-4 py-8">
       {/* Rose-gold gradient blobs — same brand language as the login page */}
       <div className="pointer-events-none absolute -right-32 -bottom-32 w-[640px] h-[640px] rounded-full opacity-90"
         style={{ background: "radial-gradient(circle at 30% 30%, #e8918f 0%, #d4af37 40%, #ec4899 75%, transparent 100%)" }} />
@@ -146,12 +148,7 @@ export default function PublicDemo() {
       <div className="pointer-events-none absolute -right-24 -top-32 w-[420px] h-[420px] rounded-full opacity-60"
         style={{ background: "radial-gradient(circle at 40% 60%, #f5d78e 0%, #ec4899 60%, transparent 100%)" }} />
 
-      {/* Brand mark — top-left like the login page */}
-      <div className="absolute z-10 px-6 pt-5 sm:px-10 sm:pt-6">
-        <BrandMark variant="light" size="lg" />
-      </div>
-
-      <div className="w-full max-w-lg mx-auto relative z-10 pt-16 sm:pt-14">
+      <div className="w-full max-w-lg mx-auto relative z-10 pt-8">
         {/* Mira AI hero */}
         <div className="text-center mb-6">
           <div className="relative inline-block">
@@ -264,6 +261,7 @@ export default function PublicDemo() {
           <span>✓ 20 minutes</span><span>✓ No obligation</span><span>✓ 7-day free trial after</span>
         </div>
         <p className="text-center text-[10px] text-slate-400 mt-4 pb-4">© Miracurl Suite · miracurl-suite.com · <a href="/terms-of-service" className="underline hover:text-slate-600">Terms</a> · <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy</a></p>
+      </div>
       </div>
     </div>
   );

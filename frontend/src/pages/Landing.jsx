@@ -103,9 +103,9 @@ export const WHO_CAN_USE = [
 export const LogoLockup = ({ size = "md" }) => (
   <Link to="/" className="flex items-center gap-3 group" data-testid="landing-logo">
     <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite"
-      className={`${size === "lg" ? "w-16 h-16" : "w-11 h-11"} drop-shadow-[0_2px_10px_rgba(223,183,140,0.35)] group-hover:scale-105 transition-transform`} />
+      className={`${size === "lg" ? "w-16 h-16" : "w-11 h-11"} gold-shine-img group-hover:scale-105 transition-transform`} />
     <span className="leading-tight">
-      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] text-transparent bg-clip-text bg-gradient-to-b from-[#F5DFA8] via-[#DFB78C] to-[#B8863B] font-semibold`}>
+      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] gold-shine-text font-semibold`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
       </span>
       <span className="block text-[9px] uppercase tracking-[0.3em] text-white/45">Smart Salon Management Software</span>
