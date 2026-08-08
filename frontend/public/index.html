@@ -10,7 +10,7 @@
         <meta name="robots" content="index, follow" />
 
         <!-- Favicon (modern SVG) -->
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4" />
         <!-- PWA metadata is written synchronously at parse time so iOS Safari
              (which snapshots the manifest on page load and ignores later JS swaps)
              gets the CORRECT app: /book/* → "Miracurl Book", else "Miracurl Partner". -->
@@ -20,8 +20,8 @@
             var b = p.indexOf("/book") === 0 || p.indexOf("/salon") === 0 || p.indexOf("/demo-slot") === 0 || p.indexOf("/review") === 0;
             document.write(
               '<link rel="manifest" href="' + (b ? "/manifest.json" : "/manifest-admin.json") + '">' +
-              '<link rel="apple-touch-icon" href="' + (b ? "/icon-192.png?v=3" : "/icon-admin-192.png?v=3") + '">' +
-              '<link rel="apple-touch-icon" sizes="192x192" href="' + (b ? "/icon-192.png?v=3" : "/icon-admin-192.png?v=3") + '">' +
+              '<link rel="apple-touch-icon" href="' + (b ? "/icon-192.png?v=4" : "/icon-admin-192.png?v=4") + '">' +
+              '<link rel="apple-touch-icon" sizes="192x192" href="' + (b ? "/icon-192.png?v=4" : "/icon-admin-192.png?v=4") + '">' +
               '<meta name="apple-mobile-web-app-title" content="' + (b ? "Miracurl Book" : "Miracurl Partner") + '">' +
               '<meta name="application-name" content="' + (b ? "Miracurl Book" : "Miracurl Partner") + '">'
             );

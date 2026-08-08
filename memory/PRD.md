@@ -1691,3 +1691,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-08 (round 56) — Footer polish v2
 - Feature strip restyled as pill chips (border-white/10, hover gold) + gold gradient dividers above/below; verified via full footer screenshot — 4 columns, watermark, MS-logo copyright row all clean.
+
+## 2026-08-08 (round 57) — Round favicon
+- Favicon/app icons now ROUND (white circle + gold ring, transparent corners) instead of square: favicon.ico/.svg/-192, apple-touch, icon-192/512 + admin variants; maskable kept full-bleed square (launcher masks itself). Cache-bust ?v=4 + sw CACHE miracurl-v12.
