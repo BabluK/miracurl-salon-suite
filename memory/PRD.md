@@ -1585,3 +1585,7 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 ## 2026-08-08 (round 35) — Ask Mira widget on all public pages
 - SalesChatWidget added to RegistryPublic, JobsBoard, SalonFinder, PublicDemo, CandidateProfile, ContactUs (already on Landing/Partners/MiraStudio).
 - Verified via playwright: askMira=1 & no compile errors on /staff-registry /jobs /book /demo /contact-us.
+
+## 2026-08-08 (round 36) — Logo kit generated
+- 15 logo variants generated with PIL from user's original artwork into /app/frontend/public/assets/brand/: primary lockup (white + transparent), gold lockup, gold/white/black monograms, black-disc emblem, app icons round+square 1024, favicons (ico/256/64/32), monochrome black-circle + outline, miracurl-logo-kit.zip.
+- All URLs verified 200 via preview /assets/brand/. Post-redeploy also at miracurl-suite.com/assets/brand/.
