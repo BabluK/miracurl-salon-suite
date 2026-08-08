@@ -1602,3 +1602,9 @@ Replaced IN PLACE (no code changes needed, all refs keep working):
 - Wallet (round 37): google-wallet-logo, wallet-logo, wallet-hero
 - Verified: login page shows new MS emblem in BrandMark; all brand kit URLs 200.
 - NOTE: installed PWAs pick up new icons after reinstall/update; service worker may cache old icons briefly.
+
+## 2026-08-08 (round 39) — Sparkle logo upgrade (user's new high-res artwork)
+- New sources: /tmp/new_2tndkazl.png (gold sparkle ring MS on white) + /tmp/new_hzj0bjdv.png (glossy black disc). White->transparent processed.
+- Regenerated ALL derived assets in place: ms-logo-gold/emblem (site headers), brand kit (monograms, app icons round/square, favicons, monochrome, zip), PWA icons + maskable + apple-touch + root favicon.ico/svg, /assets/logo family (logo-black/white/gold, watermark 18%, icon, favicons, wallet logo/hero), /brand BrandMark icon, /assets/app icon + splash.
+- Verified via screenshots: landing dark header + hero (glossy disc), staff-registry light header (gold ring).
+- PENDING (interrupted): "Watermarked Posters" — stamp gold monogram on AI-generated social posters. Investigation done: add stamp helper in routes/promo_common.py (source: /app/frontend/public/assets/brand/gold-monogram-transparent.png); stamp at final BytesIO save points: offer_flyer.py lines ~336 & ~532 (_compose_flyer + about-poster), promo_image.py ~180; tenant-side AI images flow through routes/mira_common.py _gen_image() (line 106) — stamp `data` bytes there to cover ALL Mira Studio social/GBP images.
