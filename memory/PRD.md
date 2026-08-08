@@ -1703,3 +1703,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - SalesChatWidget FAB: avatar-only round button (gold gradient ring frame, w-14/16) — "Ask Mira" text removed.
 - On open (no session): greeting bubble "Hi! I'm Mira ✦ How can I help you today?... book a free demo" + browser speechSynthesis voice greeting (en-IN, once per load). Lead form (name/email/phone) unchanged → /public/sales-chat/start.
 - Verified via screenshot: compile 0, greeting + form render, round avatar FAB.
+
+## Session 2026-06 (fork) — Mira sales-chat bounds verified
+- Verified & hardened `_SALES_SYSTEM_PROMPT` in `/app/backend/routes/sales.py`: absolute NO-LINKS rule (no URLs/domains ever, including miracurl-suite.com), allowed topics limited to features, pricing, why-best, demo booking, CEO/company info, staff verification. Demo/CEO/staff-registry references now point to on-page buttons and menu instead of URLs.
+- Live-tested via curl on /api/public/sales-chat: link request → declined with on-page-button guidance; off-topic (movie/recipe) → politely declined; CEO question → answered without links; India pricing → correct INR live-plan quotes.

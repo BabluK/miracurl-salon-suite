@@ -760,12 +760,15 @@ export default function Landing({ scrollTo }) {
             MIRACURL SUITE <span className="text-[#DFB78C]/20">✦</span>
           </div>
           <div className="h-px bg-gradient-to-r from-transparent via-[#DFB78C]/40 to-transparent" />
-          <div className="pt-6 pb-2 flex flex-wrap justify-center gap-2 text-xs" data-testid="footer-features-strip">
+          <div className="pt-6 text-center">
+            <span className="text-xs uppercase tracking-[0.3em] text-[#DFB78C]/80 font-semibold" data-testid="footer-features-title">✦ Our Features ✦</span>
+          </div>
+          <div className="pt-4 pb-2 flex flex-wrap justify-center gap-2 text-xs" data-testid="footer-features-strip">
             {["Appointments", "Staff & Payroll", "Inventory", "Marketing", "Reports", "POS & Billing", "Mira AI", "Promo Studio", "AI Assistant", "Online Booking", "Gift Cards", "Memberships", "Reviews"].map((f) => (
-              <Link key={f} to="/features"
-                className="px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.03] text-white/55 hover:text-[#DFB78C] hover:border-[#DFB78C]/40 hover:bg-[#DFB78C]/5 transition-colors">
+              <span key={f}
+                className="px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.03] text-white/55 select-none">
                 ✦ {f}
-              </Link>
+              </span>
             ))}
           </div>
           <div className="mt-6 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
