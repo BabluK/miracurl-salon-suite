@@ -178,6 +178,7 @@ function ContactDropdown({ site }) {
 }
 
 function CeoSection({ site }) {
+  const [expanded, setExpanded] = useState(false);
   if (!site) return null;
   return (
     <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pb-24" data-testid="ceo-section">
@@ -199,7 +200,11 @@ function CeoSection({ site }) {
             <Label className="text-[#DFB78C]">Meet the Founder</Label>
             <h2 className="font-playfair text-3xl sm:text-4xl font-light mt-3">{site.ceo_name}</h2>
             <p className="text-sm text-[#DFB78C]/80 mt-1 font-medium">{site.ceo_title}</p>
-            <p className="text-white/65 mt-4 max-w-xl leading-relaxed" data-testid="ceo-about">{site.ceo_about}</p>
+            <p className={`text-white/65 mt-4 max-w-xl leading-relaxed ${expanded ? "" : "line-clamp-5"}`} data-testid="ceo-about">{site.ceo_about}</p>
+            <button onClick={() => setExpanded((v) => !v)} data-testid="ceo-read-more"
+              className="mt-2 text-sm font-semibold text-[#DFB78C] hover:text-[#EAD3B3] transition-colors">
+              {expanded ? "Show less ↑" : "Read full story →"}
+            </button>
             <div className="flex items-center justify-center md:justify-start gap-3 mt-5">
               {site.ceo_facebook && (
                 <a href={site.ceo_facebook} target="_blank" rel="noreferrer" data-testid="ceo-facebook-link"

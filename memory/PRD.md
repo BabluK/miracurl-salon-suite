@@ -1657,3 +1657,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Status bar branding: manifest.json + manifest-admin.json theme_color #B8863B, background_color #FFFDF8; index.html meta theme-color #ec4899→#B8863B.
 - BrandMark "SUITE" clipping on login fixed: word sizes md text-2xl / lg text-3xl, tracking 0.04em/0.12em, whitespace-nowrap. Verified via screenshot.
 - NOTE: installed phone apps show new icon only after Redeploy + PWA update/reinstall.
+
+## 2026-08-08 (round 48) — CEO section polish + golden Mira avatar
+- CEO section: bio clamped to 5 lines with "Read full story →"/"Show less ↑" toggle (ceo-read-more). Verified on /about-us.
+- Golden robot Mira image (asset 7qb69xiy, 451x451) saved over /assets/mira-avatar-gold.png → auto-applies to Ask Mira widget (all public pages) AND Need-help callback card. Verified in screenshot.
+- CEO photo still shows crown placeholder until owner uploads photo in Super Admin → Website & CEO.
