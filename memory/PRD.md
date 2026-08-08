@@ -1667,3 +1667,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Root cause: sw.js cache-first served old icons under CACHE "miracurl-v10" forever + Android WebAPK doesn't re-mint icons unless manifest changes.
 - Fix: icon URLs version-stamped ?v=3 in manifest.json, manifest-admin.json + index.html apple-touch/favicon links; sw.js CACHE bumped to miracurl-v11 (activate deletes old caches). Verified manifest serves ?v=3 and icon 200.
 - User must Redeploy; then phones update icon within ~1 day or on app update/reinstall (Android WebAPK re-mint cycle).
+
+## 2026-08-08 (round 50) — CEO section light restyle
+- CeoSection card restyled to staff-registry language: white bg + rose-gold radial blobs, slate-900/600 text, gold (#a87e2f) accents, amber-50 photo frame & social buttons. Verified via screenshot on /about-us.

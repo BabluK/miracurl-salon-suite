@@ -182,45 +182,48 @@ function CeoSection({ site }) {
   if (!site) return null;
   return (
     <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pb-24" data-testid="ceo-section">
-      <div className="rounded-3xl border border-[#DFB78C]/20 overflow-hidden"
-        style={{ background: "linear-gradient(135deg, rgba(223,183,140,0.08) 0%, rgba(5,5,5,0.4) 60%)" }}>
-        <div className="flex flex-col md:flex-row items-center gap-8 p-8 sm:p-12">
+      <div className="relative rounded-3xl border border-[#e9d9ae] overflow-hidden bg-white shadow-[0_30px_80px_-40px_rgba(184,134,59,0.5)]">
+        <div className="pointer-events-none absolute -right-20 -top-20 w-72 h-72 rounded-full opacity-30"
+          style={{ background: "radial-gradient(circle at 30% 30%, #f5d78e, #e8918f 55%, transparent 75%)" }} />
+        <div className="pointer-events-none absolute -left-24 -bottom-24 w-72 h-72 rounded-full opacity-20"
+          style={{ background: "radial-gradient(circle at 60% 40%, #e8b96a, #ec4899 60%, transparent 80%)" }} />
+        <div className="relative flex flex-col md:flex-row items-center gap-8 p-8 sm:p-12">
           <div className="shrink-0">
-            <div className="w-44 h-44 rounded-3xl overflow-hidden border-2 border-[#DFB78C]/40 shadow-[0_20px_60px_-15px_rgba(223,183,140,0.35)] bg-[#141210]">
+            <div className="w-44 h-44 rounded-3xl overflow-hidden border-2 border-[#e0c07a] shadow-[0_20px_60px_-15px_rgba(184,134,59,0.35)] bg-amber-50">
               {site.ceo_photo ? (
                 <img src={site.ceo_photo} alt={site.ceo_name} className="w-full h-full object-cover" data-testid="ceo-photo" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-[#DFB78C]/40">
+                <div className="w-full h-full flex items-center justify-center text-[#c9a24a]">
                   <Crown className="w-14 h-14" />
                 </div>
               )}
             </div>
           </div>
           <div className="text-center md:text-left">
-            <Label className="text-[#DFB78C]">Meet the Founder</Label>
-            <h2 className="font-playfair text-3xl sm:text-4xl font-light mt-3">{site.ceo_name}</h2>
-            <p className="text-sm text-[#DFB78C]/80 mt-1 font-medium">{site.ceo_title}</p>
-            <p className={`text-white/65 mt-4 max-w-xl leading-relaxed ${expanded ? "" : "line-clamp-5"}`} data-testid="ceo-about">{site.ceo_about}</p>
+            <Label className="text-[#a87e2f]">Meet the Founder</Label>
+            <h2 className="font-playfair text-3xl sm:text-4xl font-light mt-3 text-slate-900">{site.ceo_name}</h2>
+            <p className="text-sm text-[#a87e2f] mt-1 font-medium">{site.ceo_title}</p>
+            <p className={`text-slate-600 mt-4 max-w-xl leading-relaxed ${expanded ? "" : "line-clamp-5"}`} data-testid="ceo-about">{site.ceo_about}</p>
             <button onClick={() => setExpanded((v) => !v)} data-testid="ceo-read-more"
-              className="mt-2 text-sm font-semibold text-[#DFB78C] hover:text-[#EAD3B3] transition-colors">
+              className="mt-2 text-sm font-semibold text-[#a87e2f] hover:text-[#8a6420] transition-colors">
               {expanded ? "Show less ↑" : "Read full story →"}
             </button>
             <div className="flex items-center justify-center md:justify-start gap-3 mt-5">
               {site.ceo_facebook && (
                 <a href={site.ceo_facebook} target="_blank" rel="noreferrer" data-testid="ceo-facebook-link"
-                  className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/70 hover:text-sky-400 hover:border-sky-400/50 transition-colors">
+                  className="w-9 h-9 rounded-full border border-[#e0c07a]/60 bg-amber-50 flex items-center justify-center text-[#8a6420] hover:text-sky-400 hover:border-sky-400/50 transition-colors">
                   <Facebook className="w-4 h-4" />
                 </a>
               )}
               {site.ceo_instagram && (
                 <a href={site.ceo_instagram} target="_blank" rel="noreferrer" data-testid="ceo-instagram-link"
-                  className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/70 hover:text-[#E35A89] hover:border-[#E35A89]/50 transition-colors">
+                  className="w-9 h-9 rounded-full border border-[#e0c07a]/60 bg-amber-50 flex items-center justify-center text-[#8a6420] hover:text-[#E35A89] hover:border-[#E35A89]/50 transition-colors">
                   <Instagram className="w-4 h-4" />
                 </a>
               )}
               {site.ceo_linkedin && (
                 <a href={site.ceo_linkedin} target="_blank" rel="noreferrer" data-testid="ceo-linkedin-link"
-                  className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/70 hover:text-[#DFB78C] hover:border-[#DFB78C]/50 transition-colors">
+                  className="w-9 h-9 rounded-full border border-[#e0c07a]/60 bg-amber-50 flex items-center justify-center text-[#8a6420] hover:text-[#DFB78C] hover:border-[#DFB78C]/50 transition-colors">
                   <Linkedin className="w-4 h-4" />
                 </a>
               )}
