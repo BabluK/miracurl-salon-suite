@@ -1589,3 +1589,16 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 ## 2026-08-08 (round 36) — Logo kit generated
 - 15 logo variants generated with PIL from user's original artwork into /app/frontend/public/assets/brand/: primary lockup (white + transparent), gold lockup, gold/white/black monograms, black-disc emblem, app icons round+square 1024, favicons (ico/256/64/32), monochrome black-circle + outline, miracurl-logo-kit.zip.
 - All URLs verified 200 via preview /assets/brand/. Post-redeploy also at miracurl-suite.com/assets/brand/.
+
+## 2026-08-08 (round 37) — Wallet pass branding updated
+- /assets/logo/google-wallet-logo.png (1024, dark-flattened round icon), wallet-logo.png (660), wallet-hero.png (1032x336 gold lockup on black) regenerated with new MS branding. Same URLs referenced by wallet_pass.py — no code change needed. Verified 200 via curl + visual check.
+
+## 2026-08-08 (round 38) — Full logo swap audit ("don't miss any place")
+Replaced IN PLACE (no code changes needed, all refs keep working):
+- /public: icon-192/512, icon-admin-192/512, icon-maskable-512, icon-admin-maskable-512 (PWA booking + admin apps), apple-touch-icon, favicon-192, favicon.ico, favicon.svg (base64-embedded PNG), og-image.png (1200x630 social share)
+- /assets/logo: email-header (1200x300) & email-footer banners, logo-black/white/gold, watermark (gold monogram @18% alpha), logo.png, miracurl-ai-suite-logo.png, icon.png, favicon-16/32/48/180/512 + favicon.ico (used by emails, id_cards.py, brochure.py, promo_common.py)
+- /assets/app: app-icon.png (squircle 1024), splash.png (1080x1920 disc + lockup)
+- /brand: miracurl-rosegold-icon.png (BrandMark component → Login, SuperAdmin HQ header, sidebars), miracurl-gold/darkmode (gold lockup), miracurl-pink-icon (disc), miracurl-pink-primary & rosegold-full (primary lockup)
+- Wallet (round 37): google-wallet-logo, wallet-logo, wallet-hero
+- Verified: login page shows new MS emblem in BrandMark; all brand kit URLs 200.
+- NOTE: installed PWAs pick up new icons after reinstall/update; service worker may cache old icons briefly.
