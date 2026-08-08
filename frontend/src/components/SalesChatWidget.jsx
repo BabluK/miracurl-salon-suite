@@ -70,7 +70,7 @@ export default function SalesChatWidget() {
         onClick={() => setOpen(!open)}
         data-testid="sales-chat-fab"
         aria-label="Ask Mira about Miracurl"
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 pl-4 pr-5 py-3 rounded-full bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white font-medium text-sm shadow-2xl hover:scale-105 transition-transform"
+        className="fixed bottom-16 right-6 z-40 flex items-center gap-2 pl-4 pr-5 py-3 rounded-full bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white font-medium text-sm shadow-2xl hover:scale-105 transition-transform"
       >
         <img src="/assets/mira-avatar-gold.png" alt="Mira" className="w-7 h-7 rounded-full object-cover border border-white/50" />
         <span className="hidden sm:inline">Ask Mira ✦</span>

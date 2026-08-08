@@ -1681,3 +1681,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## 2026-08-08 (round 53) — Bigger header logo + fresh demo carousel
 - Header logo enlarged to 72px (lg 96px) on Landing LogoLockup + SiteHeader SuiteLogo, header padding py-2; verified light+dark headers.
 - "A quick peek inside" DemoCarousel: all 4 /public/demo/*.jpeg re-captured LIVE from current app (dashboard w/ Mira briefing, POS w/ GiftCard+Membership buttons, appointments, public booking page w/ gift card & membership CTAs); labels updated.
+
+## 2026-08-08 (round 54) — Footer polish
+- SalesChatWidget button bottom-6 → bottom-16 (no longer hides Terms/Privacy in footer).
+- Footer copyright row: Scissors icon → small MS emblem img (w-6) before "© 2026 Miracurl Suite · Manage. Automate. Grow." Verified button raise via screenshot.

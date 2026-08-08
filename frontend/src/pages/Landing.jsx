@@ -761,7 +761,7 @@ export default function Landing({ scrollTo }) {
             MIRACURL SUITE <span className="text-[#DFB78C]/20">✦</span>
           </div>
           <div className="mt-6 border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/40">
-            <div className="flex items-center gap-2"><Scissors className="w-3.5 h-3.5 text-[#E35A89]" /> © {new Date().getFullYear()} Miracurl Suite · Manage. Automate. Grow.</div>
+            <div className="flex items-center gap-2"><img src="/assets/ms-logo-emblem.png" alt="MS" className="w-6 h-6 object-contain" /> © {new Date().getFullYear()} Miracurl Suite · Manage. Automate. Grow.</div>
             <div className="flex items-center gap-5 flex-wrap justify-center">
               <Link to="/terms-of-service" className="hover:text-white transition-colors" data-testid="footer-terms-link">Terms</Link>
               <Link to="/privacy-policy" className="hover:text-white transition-colors" data-testid="footer-privacy-link">Privacy</Link>
