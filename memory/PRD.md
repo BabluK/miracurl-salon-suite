@@ -1677,3 +1677,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## 2026-08-08 (round 52) — Super admin custom logo + HQ header polish
 - site_info: new platform_logo field (data URL, <400KB) editable in Website & CEO panel ("Platform Logo (HQ console)" card with upload + "Use default" reset).
 - SuperAdmin HQ header: uses platform_logo if set else /assets/brand/ms-ring.png (hq-logo testid); Sign Out restyled as gold gradient pill; notif bell (SuperNotifBell) unchanged, shows unread badge. Verified via authenticated screenshot.
+
+## 2026-08-08 (round 53) — Bigger header logo + fresh demo carousel
+- Header logo enlarged to 72px (lg 96px) on Landing LogoLockup + SiteHeader SuiteLogo, header padding py-2; verified light+dark headers.
+- "A quick peek inside" DemoCarousel: all 4 /public/demo/*.jpeg re-captured LIVE from current app (dashboard w/ Mira briefing, POS w/ GiftCard+Membership buttons, appointments, public booking page w/ gift card & membership CTAs); labels updated.

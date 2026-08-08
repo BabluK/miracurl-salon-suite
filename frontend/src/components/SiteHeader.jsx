@@ -30,7 +30,7 @@ const T = {
 export const SuiteLogo = ({ variant = "dark", size = "md" }) => (
   <Link to="/" className="flex items-center gap-3 group" data-testid="suite-logo">
     <img src={variant === "light" ? "/assets/ms-logo-gold.png" : "/assets/ms-logo-emblem.png"} alt="Miracurl Suite"
-      className={`${size === "lg" ? "w-20 h-20" : "w-14 h-14"} gold-shine-img group-hover:scale-105 transition-transform`} />
+      className={`${size === "lg" ? "w-24 h-24" : "w-[72px] h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
     <span className="leading-tight">
       <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
@@ -45,7 +45,7 @@ export const SiteHeader = ({ variant = "light", site = null }) => {
   const [open, setOpen] = useState(false);
   return (
     <header className={`sticky top-0 z-40 backdrop-blur-xl ${t.header}`} data-testid="site-header">
-      <div className="max-w-7xl mx-auto px-6 sm:px-10 py-3.5 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-6 sm:px-10 py-2 flex items-center justify-between">
         <SuiteLogo variant={variant} />
         <div className="hidden lg:flex items-center gap-5 text-sm">
           <Link to="/" className={`${t.link} transition-colors`} data-testid="header-home-link">Home</Link>

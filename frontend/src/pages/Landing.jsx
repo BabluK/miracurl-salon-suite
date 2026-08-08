@@ -103,7 +103,7 @@ export const WHO_CAN_USE = [
 export const LogoLockup = ({ size = "md" }) => (
   <Link to="/" className="flex items-center gap-3 group" data-testid="landing-logo">
     <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite"
-      className={`${size === "lg" ? "w-20 h-20" : "w-14 h-14"} gold-shine-img group-hover:scale-105 transition-transform`} />
+      className={`${size === "lg" ? "w-24 h-24" : "w-[72px] h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
     <span className="leading-tight">
       <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
@@ -331,7 +331,7 @@ export default function Landing({ scrollTo }) {
 
       {/* Nav — crystal glass with the new gold monogram */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/70 border-b border-[#DFB78C]/15">
-        <div className="max-w-7xl mx-auto px-6 sm:px-10 py-3.5 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 sm:px-10 py-2 flex items-center justify-between">
           <LogoLockup />
           <div className="hidden lg:flex items-center gap-5 text-sm">
             <Link to="/" data-testid="nav-home-link" className="text-white/70 hover:text-white transition-colors">Home</Link>

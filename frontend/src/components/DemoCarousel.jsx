@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 
 const SLIDES = [
-  { src: "/demo/mira.jpeg", label: "Mira AI books clients on your public page", tag: "AI Booking" },
+  { src: "/demo/mira.jpeg", label: "Your public booking page — Mira AI, gift cards & memberships", tag: "AI Booking" },
   { src: "/demo/dashboard.jpeg", label: "Owner dashboard — revenue, bookings & AI Brand Studio", tag: "Dashboard" },
-  { src: "/demo/pos.jpeg", label: "POS & Billing — invoices in seconds", tag: "POS" },
+  { src: "/demo/pos.jpeg", label: "POS & Billing — invoices, gift cards & memberships in seconds", tag: "POS" },
   { src: "/demo/appointments.jpeg", label: "Appointments with WhatsApp confirmations", tag: "Appointments" },
 ];
 
