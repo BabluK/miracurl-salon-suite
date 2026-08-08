@@ -1527,3 +1527,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 
 ## 2026-08-07 (round 26) — POS tab icons
 - POSHeader tabs now iconed: ✂️ Add Service, 🧴 Add Product, 📦 Add Package, 🏷️ Offers & Plans, 🎁 Add GiftCard, 👑 Add Membership. Verified via screenshot.
+
+## 2026-08-08 (round 27) — Checkout confirm + undo checkout + weekday-only grace
+- Staff check-out CONFIRMATION modal in StaffPortal (checkout-confirm-modal: shows check-in time, "Yes, check me out" / "Not yet") — no more accidental one-tap checkouts.
+- Admin UNDO CHECKOUT: POST /attendance/{rec_id}/undo-checkout (require_admin + owner PIN) clears check_out_at/hours/OT with audit trail (checkout_undone_by/at, prev_check_out_at); 400 on double-undo; 403 without PIN. Attendance.jsx: "↩ undo" button next to check-out time (undo-checkout-{staff_id}) w/ confirm. All verified E2E.
+- GRACE PERIOD now Mon–Fri ONLY: _late_penalty_for uses grace=0 on Sat/Sun (weekday()>=5). Unit-verified: Mon 8min→₹0, Sat/Sun 8min→₹100, Mon 15min→₹50. Late fines already flow to attendance → salary slip PDF (late days count, base, commission, OT, advance, final salary) → monthly staff email — no further changes needed downstream.
+- NOTE: user must REDEPLOY for production effect.

@@ -244,6 +244,19 @@ export default function Attendance() {
                       <span title={r.marked_by ? `Marked by ${r.marked_by}` : "Marked by owner"}
                         className="ml-1.5 inline-flex items-center text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">by owner</span>
                     )}
+                    {r.check_out_at && r.record_id && (
+                      <button data-testid={`undo-checkout-${r.staff_id}`}
+                        title="Mistaken check-out? Undo it — they'll stay checked in"
+                        onClick={async () => {
+                          if (!window.confirm(`Undo ${r.name}'s check-out? They'll be marked as still checked in.`)) return;
+                          try {
+                            await pinApi.post(`/attendance/${r.record_id}/undo-checkout`, {});
+                            toast.success(`${r.name}'s check-out undone — still checked in ✓`);
+                            load();
+                          } catch (e) { toast.error(e.response?.data?.detail || "Couldn't undo the check-out"); }
+                        }}
+                        className="ml-1.5 text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border border-rose-200 text-rose-500 hover:bg-rose-50">↩ undo</button>
+                    )}
                   </td>
                   <td className="tabular-nums font-medium">
                     {r.hours > 0 ? `${r.hours}h` : "—"}

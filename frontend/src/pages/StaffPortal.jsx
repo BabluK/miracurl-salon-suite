@@ -138,7 +138,10 @@ export default function StaffPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attendance]);
 
+  const [confirmOut, setConfirmOut] = useState(false);
+
   async function checkOut() {
+    setConfirmOut(false);
     setBusy(true);
     try {
       const pos = await getPosition();
@@ -295,7 +298,7 @@ export default function StaffPortal() {
             {checkedIn ? "Checked in" : "Check in"}
           </button>
           <button
-            onClick={checkOut}
+            onClick={() => setConfirmOut(true)}
             disabled={busy || !canCheckOut}
             data-testid="check-out-btn"
             className={`inline-flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-md text-sm transition ${
@@ -306,6 +309,28 @@ export default function StaffPortal() {
             {checkedOut ? "Checked out" : "Check out"}
           </button>
         </div>
+        {confirmOut && (
+          <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setConfirmOut(false)}>
+            <div className="bg-[#16121a] border border-white/15 rounded-3xl w-full max-w-xs p-6 text-center" onClick={e => e.stopPropagation()} data-testid="checkout-confirm-modal">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-500/15 border border-amber-400/40 flex items-center justify-center mb-3">
+                <LogOut className="w-6 h-6 text-amber-400" />
+              </div>
+              <h3 className="text-white font-semibold text-lg">Check out now?</h3>
+              <p className="text-white/50 text-xs mt-2">
+                You checked in at <b className="text-white/85">{fmtTime(today?.check_in_at)}</b>.
+                Once you check out, your day is closed — if it's a mistake, the owner will have to correct it.
+              </p>
+              <button onClick={checkOut} disabled={busy} data-testid="checkout-confirm-yes"
+                className="mt-4 w-full bg-gradient-to-r from-gold to-blush text-bg-base font-bold py-3 rounded-xl disabled:opacity-60">
+                Yes, check me out
+              </button>
+              <button onClick={() => setConfirmOut(false)} data-testid="checkout-confirm-no"
+                className="mt-2 w-full border border-white/15 text-white/70 font-semibold py-2.5 rounded-xl hover:border-white/40">
+                Not yet
+              </button>
+            </div>
+          </div>
+        )}
         {fence && (fence.fenced ? (
           <div className="mt-3 flex items-center gap-1.5 text-xs text-white/50" data-testid="fence-info">
             <MapPin className="w-3.5 h-3.5 text-gold shrink-0" />

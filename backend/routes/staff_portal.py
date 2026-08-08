@@ -249,12 +249,13 @@ def _late_fine_rules(tenant: Optional[dict]) -> dict:
 
 
 def _late_penalty_for(staff: dict, checkin_ist: datetime, tenant: Optional[dict] = None) -> tuple:
-    """(minutes_late, fine ₹). Admin-configurable tiered fines after the grace window."""
+    """(minutes_late, fine ₹). Admin-configurable tiered fines after the grace window.
+    Grace applies Monday–Friday only — Saturday & Sunday (peak days) have ZERO grace."""
     rules = _late_fine_rules(tenant)
     h, m = _parse_hhmm(staff.get("shift_start"), "10:00")
     start = checkin_ist.replace(hour=h, minute=m, second=0, microsecond=0)
     late_min = int((checkin_ist - start).total_seconds() // 60)
-    grace = int(rules["grace_minutes"])
+    grace = int(rules["grace_minutes"]) if checkin_ist.weekday() < 5 else 0
     if late_min <= grace:
         return max(late_min, 0), 0.0
     past = late_min - grace
@@ -342,6 +343,24 @@ async def _auto_close_stale_attendance():
 
 class WaiveFineIn(BaseModel):
     note: str = Field("", max_length=200)
+
+
+@router.post("/attendance/{rec_id}/undo-checkout")
+async def undo_checkout(rec_id: str, admin=Depends(require_admin), _pin=Depends(require_owner_pin)):
+    """Correct a mistaken check-out — reopens the day so the staff member stays checked in."""
+    rec = await db.attendance.find_one({"id": rec_id}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Attendance record not found")
+    if not rec.get("check_out_at"):
+        raise HTTPException(400, "This record has no check-out to undo")
+    await db.attendance.update_one({"id": rec_id}, {"$set": {
+        "check_out_at": None, "hours_worked": 0.0,
+        "overtime_hours": 0.0, "overtime_pay": 0.0,
+        "auto_checked_out": False, "check_out_method": None,
+        "checkout_undone_by": admin.get("email"),
+        "checkout_undone_at": datetime.now(timezone.utc).isoformat(),
+        "prev_check_out_at": rec.get("check_out_at")}})
+    return {"ok": True}
 
 
 @router.post("/attendance/{rec_id}/waive-fine")
