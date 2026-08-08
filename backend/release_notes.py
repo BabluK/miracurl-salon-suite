@@ -2,7 +2,7 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-08.66"
+BUILD = "2026-08-08.67"
 BUILD_TIME = "8 Aug 2026, 11:30 AM IST"
 
 RELEASES = [
@@ -13,6 +13,10 @@ RELEASES = [
             "🧭 Professional navigation — Home, About Us, Mira AI Studio, Features, Pricing, Staff Verification, Contact Us, Sign In & Sign Up, with real pages at /features, /pricing, /about-us and /contact-us",
             "📇 Contact Us dropdown & page — email, WhatsApp, Instagram/Facebook and a 'Who can use Miracurl' list (salons, spas, boutiques, barbershops, nail & bridal studios and more) + a Request-a-callback form",
             "👤 Meet the Founder section — CEO photo, story and social links on the home page",
+            "📱 Fresh gold app icons for both mobile apps — Miracurl Book & Miracurl Partner now install with the new gold MS icon and a golden status bar",
+            "🗂️ New 'Who Can Use' page — every business type (salons, spas, boutiques, barbers, nails, bridal, tattoo, wellness) with its own photo card",
+            "🤖 Mira got a face — her golden avatar now fronts the Ask Mira chat and the Need-help callback card that collects name, phone & email for the team",
+            "🙈 Payment privacy — tenant UPI IDs are masked on gift card & membership pages (copy button still gives the full ID), and right-click is blocked site-wide",
             "Super Admin: New 'Website & CEO' tab — edit the public site's contact email, social links and CEO profile; changes go live instantly",
             "🥇 Golden-white locked header on the Staff Verification portal — same premium brand on light pages",
             "🪙 Brand watermark on AI posters — every AI-generated social post, offer flyer and promo image now carries a subtle gold MS monogram in the corner, so your brand travels with every share",

@@ -1670,3 +1670,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-08 (round 50) — CEO section light restyle
 - CeoSection card restyled to staff-registry language: white bg + rose-gold radial blobs, slate-900/600 text, gold (#a87e2f) accents, amber-50 photo frame & social buttons. Verified via screenshot on /about-us.
+
+## 2026-08-08 (round 51) — Build bumped for popup notification
+- BUILD 2026-08-08.66 → .67; RELEASES[0] "New brand, new website ✨" appended: gold app icons both apps, Who-Can-Use page, Mira avatar + callback card, UPI masking + right-click block. /api/whats-new serves build .67 with 8 highlights → popup re-shows once to ALL admins/managers on next login (localStorage keyed on build). Super Admin Deployments tag stays MIRA-DEPLOYED-2026-08-08.
