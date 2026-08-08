@@ -42,6 +42,8 @@ import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
 import { DocsPanel } from "@/components/superadmin/DocsPanel";
 import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel";
 import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
+import { SiteInfoPanel } from "@/components/superadmin/SiteInfoPanel";
+import { Globe } from "lucide-react";
 import { Mail } from "lucide-react";
 import { PlatformEarnings } from "@/components/superadmin/PlatformEarnings";
 import { MiraVoiceAssistant } from "@/components/superadmin/MiraVoiceAssistant";
@@ -325,6 +327,7 @@ export default function SuperAdmin() {
               { id: "posters", label: "AI Posters", icon: ImagePlus },
               { id: "verify-staff", label: "Staff Verification", icon: BadgeCheck },
               { id: "team", label: "Miracurl Team", icon: Crown },
+              { id: "website", label: "Website & CEO", icon: Globe },
               { id: "deployments", label: "Deployments", icon: Rocket },
               { id: "load", label: "Platform Load", icon: Activity },
               { id: "database", label: "Database", icon: Database },
@@ -380,6 +383,7 @@ export default function SuperAdmin() {
             posters: <PromoImageStudio />,
             "verify-staff": <VerifiedStaffPanel />,
             team: <MiracurlTeamPanel />,
+            website: <SiteInfoPanel />,
             deployments: <DeploymentHistoryPanel />,
             load: <PlatformLoadPanel />,
             database: <DatabasePanel />,

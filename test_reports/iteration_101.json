@@ -1,0 +1,52 @@
+{
+  "summary": "Iteration 101: Landing redesign (Miracurl Suite gold lockup) + Site Info super-admin editor + /features /pricing /about-us /contact-us routes. Backend site_info GET/PUT tested via pytest (3/3 passed). Frontend landing loaded, all header nav testids present, hero 'Manage. Automate. Grow.' visible, contact dropdown (hover) shows email/who-can-use chips/link, /features /pricing /about-us scroll to their sections, CEO section shows '10+ years of IT industry experience' default, footer 4-col layout renders with terms/privacy/refunds. Super admin PUT verified end-to-end via API: after PUT with instagram + ceo_name='Test CEO', landing footer shows footer-instagram and CEO section reflects 'Test CEO'; restored to defaults. ContactUs 'Request a callback' form submission FAILS due to source mismatch — frontend posts source='contact_us_page' but backend DemoRequestIn pattern is ^(success_stories|booking_footer)$ → 422 shown as toast.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ContactUs (Request a callback form)",
+        "issue": "POST /api/public/demo-request returns 422 'String should match pattern ^(success_stories|booking_footer)$'. ContactUs.jsx sends source: 'contact_us_page' which is not accepted. User sees a raw pydantic validation string as error toast. This blocks the contact form on /contact-us end-to-end.",
+        "selector": "[data-testid=\"contact-form-submit\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Contact Us callback submission",
+        "issue": "Frontend/backend mismatch on 'source' field for /api/public/demo-request. Either backend must widen pattern to include 'contact_us_page' (recommended, since ContactUs is a distinct funnel) or ContactUs.jsx should send an already-allowed source like 'success_stories'. Also, the error toast surfaces the raw pydantic message; consider mapping 422s to a friendly copy.",
+        "affected_selectors": ["[data-testid=\"contact-form-submit\"]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter101_site_info.py",
+    "/app/test_reports/pytest/iter101.xml"
+  ],
+  "action_items": [
+    "Fix ContactUs form submission: update /app/backend/routes/sales.py DemoRequestIn.source pattern to include 'contact_us_page' (or add a dedicated /public/contact-request endpoint), then re-test /contact-us Request-a-callback end-to-end.",
+    "Consider mapping backend 422 validation errors to friendly toasts on ContactUs.jsx instead of showing raw '^(...)$' pattern strings to users."
+  ],
+  "critical_code_review_comments": [
+    "site_info.py: clean, uses Pydantic + _DEFAULTS merge; excludes _id via projection; good.",
+    "Landing.jsx is 762 lines — consider splitting Header/Footer/CEO/Contact into their own files (>700 lines guideline).",
+    "React console warning 'Encountered two children with the same key' (Test Owner) — non-blocking, but should be fixed (likely stems from admin owners map elsewhere).",
+    "ContactUs.jsx hardcodes source='contact_us_page' but backend rejects it — indicates missing contract test between the two."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter101_site_info.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (3/3 pytest)",
+    "frontend": "~88% — 8/9 flows verified; ContactUs form submit failing due to source mismatch"
+  },
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (verified 200), admin@miracurl.com / q6QY@tn3p#9DtL (verified 200 with X-Tenant-Slug: miracurl-marathahalli)",
+  "seed_data_creation": "None. Attempted contact-form doc was rejected by backend validation, so no tenant_inquiries doc created. platform_settings.site_info restored to defaults (ceo_name='Founder & CEO', instagram='').",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "UI-based login via automation with data-testid selectors was flaky in this env (fields cleared, URL stayed on /login) though the API login and cookie flow work. To validate Super Admin -> SiteInfoPanel end-to-end, prefer: (1) API POST /api/auth/login with session cookies, then (2) PUT /api/super/site-info to change values, then (3) reload landing to confirm footer/CEO reflects changes — this fully exercises the same wiring the panel uses. SiteInfoPanel has testids: site-info-panel, site-info-save-btn; inputs are label-based (no per-field testid). Contact dropdown opens on hover (not click reliably) — use page.hover('[data-testid=nav-contact-btn]').",
+  "rca of the issue": "ContactUs 'Request a callback' bug RCA — Reproduction: navigate to /contact-us, fill name/email/phone, click Send message. Expected: success toast 'Thanks! Our team will reach out ...'. Actual: red toast 'String should match pattern \"^(success_stories|booking_footer)$\"'. Root cause: /app/frontend/src/pages/ContactUs.jsx line 35 posts {...form, source: 'contact_us_page'}, but /app/backend/routes/sales.py line 102 defines DemoRequestIn.source: Field('success_stories', pattern=r'^(success_stories|booking_footer)$'). Backend returns 422 which the axios interceptor surfaces as a toast. Mitigation: extend backend pattern to include 'contact_us_page' (single-line change) OR change ContactUs.jsx to omit `source` (backend default 'success_stories' will apply, though semantically less accurate)."
+}

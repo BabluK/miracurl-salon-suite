@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
-import { Calendar, Receipt, Star, ArrowRight, Check, Sparkles, MessageSquare, Scissors, Gift, ShieldCheck, Wand2, MapPin, UserCog, Mic, BadgePercent, Zap, BarChart3, Package, Play, X } from "lucide-react";
-import BrandMark from "@/components/BrandMark";
+import { Calendar, Receipt, Star, ArrowRight, Check, Sparkles, MessageSquare, Scissors, Gift, ShieldCheck, Wand2, MapPin, UserCog, Mic, BadgePercent, Zap, BarChart3, Package, Play, X, ChevronDown, Mail, Instagram, Facebook, Linkedin, Crown } from "lucide-react";
 import SalesChatWidget from "@/components/SalesChatWidget";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { DemoCarousel } from "@/components/DemoCarousel";
@@ -95,6 +94,136 @@ const Label = ({ children, className = "" }) => (
   <span className={`text-xs uppercase tracking-[0.25em] font-outfit font-semibold ${className}`}>{children}</span>
 );
 
+export const WHO_CAN_USE = [
+  "Unisex & Family Salons", "Ladies & Gents Salons", "Spas & Massage Centers", "Beauty Parlours",
+  "Boutiques & Designer Studios", "Barbershops", "Nail Studios", "Makeup & Bridal Studios",
+  "Tattoo & Piercing Studios", "Wellness & Ayurveda Centers", "Skin & Hair Clinics", "Mehendi Artists",
+];
+
+export const LogoLockup = ({ size = "md" }) => (
+  <Link to="/" className="flex items-center gap-3 group" data-testid="landing-logo">
+    <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite"
+      className={`${size === "lg" ? "w-16 h-16" : "w-11 h-11"} drop-shadow-[0_2px_10px_rgba(223,183,140,0.35)] group-hover:scale-105 transition-transform`} />
+    <span className="leading-tight">
+      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] text-transparent bg-clip-text bg-gradient-to-b from-[#F5DFA8] via-[#DFB78C] to-[#B8863B] font-semibold`}>
+        MIRACURL <span className="tracking-[0.3em]">SUITE</span>
+      </span>
+      <span className="block text-[9px] uppercase tracking-[0.3em] text-white/45">Smart Salon Management Software</span>
+    </span>
+  </Link>
+);
+
+function ContactDropdown({ site }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative hidden sm:block"
+      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button onClick={() => setOpen((v) => !v)} data-testid="nav-contact-btn"
+        className="flex items-center gap-1 text-white/70 hover:text-white transition-colors">
+        Contact Us <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full pt-3 w-[340px]" data-testid="nav-contact-dropdown">
+          <div className="rounded-2xl border border-[#DFB78C]/25 bg-[#0b0a08]/95 backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] p-5 space-y-4">
+            <div>
+              <Label className="text-[#DFB78C]">Get in touch</Label>
+              <div className="mt-3 space-y-2 text-sm">
+                <a href={`mailto:${site?.contact_email || "admin@miracurl-suite.com"}`} data-testid="contact-email-link"
+                  className="flex items-center gap-2.5 text-white/80 hover:text-[#DFB78C] transition-colors">
+                  <Mail className="w-4 h-4 text-[#DFB78C]" /> {site?.contact_email || "admin@miracurl-suite.com"}
+                </a>
+                {site?.instagram && (
+                  <a href={site.instagram} target="_blank" rel="noreferrer" data-testid="contact-instagram-link"
+                    className="flex items-center gap-2.5 text-white/80 hover:text-[#DFB78C] transition-colors">
+                    <Instagram className="w-4 h-4 text-[#E35A89]" /> Instagram
+                  </a>
+                )}
+                {site?.facebook && (
+                  <a href={site.facebook} target="_blank" rel="noreferrer" data-testid="contact-facebook-link"
+                    className="flex items-center gap-2.5 text-white/80 hover:text-[#DFB78C] transition-colors">
+                    <Facebook className="w-4 h-4 text-sky-400" /> Facebook
+                  </a>
+                )}
+                {site?.whatsapp && (
+                  <a href={`https://wa.me/${(site.whatsapp || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer" data-testid="contact-whatsapp-link"
+                    className="flex items-center gap-2.5 text-white/80 hover:text-[#DFB78C] transition-colors">
+                    <MessageSquare className="w-4 h-4 text-emerald-400" /> WhatsApp
+                  </a>
+                )}
+              </div>
+            </div>
+            <div className="border-t border-white/10 pt-4">
+              <Label className="text-emerald-300">Who can use Miracurl</Label>
+              <div className="mt-3 flex flex-wrap gap-1.5" data-testid="who-can-use-list">
+                {WHO_CAN_USE.map((w) => (
+                  <span key={w} className="text-[11px] px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-white/65">{w}</span>
+                ))}
+              </div>
+            </div>
+            <div className="border-t border-white/10 pt-4">
+              <Link to="/contact-us" data-testid="contact-page-link"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#DFB78C] hover:text-[#EAD3B3] transition-colors">
+                Visit the Contact Us page <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CeoSection({ site }) {
+  if (!site) return null;
+  return (
+    <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pb-24" data-testid="ceo-section">
+      <div className="rounded-3xl border border-[#DFB78C]/20 overflow-hidden"
+        style={{ background: "linear-gradient(135deg, rgba(223,183,140,0.08) 0%, rgba(5,5,5,0.4) 60%)" }}>
+        <div className="flex flex-col md:flex-row items-center gap-8 p-8 sm:p-12">
+          <div className="shrink-0">
+            <div className="w-44 h-44 rounded-3xl overflow-hidden border-2 border-[#DFB78C]/40 shadow-[0_20px_60px_-15px_rgba(223,183,140,0.35)] bg-[#141210]">
+              {site.ceo_photo ? (
+                <img src={site.ceo_photo} alt={site.ceo_name} className="w-full h-full object-cover" data-testid="ceo-photo" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[#DFB78C]/40">
+                  <Crown className="w-14 h-14" />
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="text-center md:text-left">
+            <Label className="text-[#DFB78C]">Meet the Founder</Label>
+            <h2 className="font-playfair text-3xl sm:text-4xl font-light mt-3">{site.ceo_name}</h2>
+            <p className="text-sm text-[#DFB78C]/80 mt-1 font-medium">{site.ceo_title}</p>
+            <p className="text-white/65 mt-4 max-w-xl leading-relaxed" data-testid="ceo-about">{site.ceo_about}</p>
+            <div className="flex items-center justify-center md:justify-start gap-3 mt-5">
+              {site.ceo_facebook && (
+                <a href={site.ceo_facebook} target="_blank" rel="noreferrer" data-testid="ceo-facebook-link"
+                  className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/70 hover:text-sky-400 hover:border-sky-400/50 transition-colors">
+                  <Facebook className="w-4 h-4" />
+                </a>
+              )}
+              {site.ceo_instagram && (
+                <a href={site.ceo_instagram} target="_blank" rel="noreferrer" data-testid="ceo-instagram-link"
+                  className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/70 hover:text-[#E35A89] hover:border-[#E35A89]/50 transition-colors">
+                  <Instagram className="w-4 h-4" />
+                </a>
+              )}
+              {site.ceo_linkedin && (
+                <a href={site.ceo_linkedin} target="_blank" rel="noreferrer" data-testid="ceo-linkedin-link"
+                  className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/70 hover:text-[#DFB78C] hover:border-[#DFB78C]/50 transition-colors">
+                  <Linkedin className="w-4 h-4" />
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
 function TrustedPartnersSection() {
   const [partners, setPartners] = useState([]);
   useEffect(() => {
@@ -142,7 +271,7 @@ function VideoLightbox({ open, onClose }) {
   );
 }
 
-export default function Landing() {
+export default function Landing({ scrollTo }) {
   const [refSlug, setRefSlug] = useState(null);
   const [catalog, setCatalog] = useState(null);
   const [videoOpen, setVideoOpen] = useState(false);
@@ -151,6 +280,7 @@ export default function Landing() {
   }); // in | intl
   const pickRegion = (k) => { setRegion(k); try { localStorage.setItem("miracurl_region", k); } catch { /* private mode */ } };
   const [liveTestimonials, setLiveTestimonials] = useState([]);
+  const [site, setSite] = useState(null);
   const plans = buildPlans(catalog);
   const intlPlans = buildIntlPlans(catalog);
   const testimonials = liveTestimonials.length > 0
@@ -164,6 +294,7 @@ export default function Landing() {
   useEffect(() => {
     api.get("/public/plans").then(r => setCatalog(r.data)).catch(() => {});
     api.get("/public/testimonials").then(r => setLiveTestimonials(r.data.testimonials || [])).catch(() => {});
+    api.get("/public/site-info").then(r => setSite(r.data)).catch(() => {});
   }, []);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -171,6 +302,11 @@ export default function Landing() {
     if (ref) { localStorage.setItem("miracurl_ref", ref); setRefSlug(ref); }
     else { const stored = localStorage.getItem("miracurl_ref"); if (stored) setRefSlug(stored); }
   }, []);
+  useEffect(() => {
+    if (!scrollTo) return;
+    const t = setTimeout(() => document.getElementById(scrollTo)?.scrollIntoView({ behavior: "smooth" }), 350);
+    return () => clearTimeout(t);
+  }, [scrollTo]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-outfit" data-testid="landing-page">
@@ -181,22 +317,33 @@ export default function Landing() {
         </div>
       )}
 
-      {/* Nav — crystal glass */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/60 border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 sm:px-10 py-4 flex items-center justify-between">
-          <BrandMark variant="dark" size="md" />
-          <div className="flex items-center gap-3 sm:gap-7 text-sm">
+      {/* Nav — crystal glass with the new gold monogram */}
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/70 border-b border-[#DFB78C]/15">
+        <div className="max-w-7xl mx-auto px-6 sm:px-10 py-3.5 flex items-center justify-between">
+          <LogoLockup />
+          <div className="hidden lg:flex items-center gap-5 text-sm">
+            <Link to="/" data-testid="nav-home-link" className="text-white/70 hover:text-white transition-colors">Home</Link>
+            <a href="#about" data-testid="nav-about-link" className="text-white/70 hover:text-white transition-colors">About Us</a>
             <Link to="/mira.ai" data-testid="nav-mira-studio-link"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DFB78C]/40 bg-[#DFB78C]/10 text-[#DFB78C] hover:bg-[#DFB78C]/20 font-medium transition-colors">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DFB78C]/40 bg-[#DFB78C]/10 text-[#DFB78C] hover:bg-[#DFB78C]/20 font-medium transition-colors">
               ✦ Mira AI Studio
             </Link>
-            <a href="#features" data-testid="nav-features-link" className="hidden sm:block text-white/70 hover:text-white transition-colors">Features</a>
-            <a href="#pricing" data-testid="nav-pricing-link" className="hidden sm:block text-white/70 hover:text-white transition-colors">Pricing</a>
-            <Link to="/staff-registry" data-testid="landing-verify-staff" className="hidden md:block text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Verify Staff — Free</Link>
-            <Link to="/login" className="hidden sm:block text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign in</Link>
+            <Link to="/features" data-testid="nav-features-link" className="text-white/70 hover:text-white transition-colors">Features</Link>
+            <Link to="/pricing" data-testid="nav-pricing-link" className="text-white/70 hover:text-white transition-colors">Pricing</Link>
+            <Link to="/staff-registry" data-testid="landing-verify-staff" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Staff Verification</Link>
+            <ContactDropdown site={site} />
+            <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign In</Link>
             <Link to="/signup-salon" data-testid="landing-cta-nav"
-                  className="px-4 py-2 rounded-full bg-[#DFB78C] text-[#050505] text-xs sm:text-sm font-bold hover:bg-[#EAD3B3] hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)] transition-transform">
-              Start free trial
+                  className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] text-sm font-bold hover:brightness-110 hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)] transition-transform">
+              Sign Up
+            </Link>
+          </div>
+          <div className="flex lg:hidden items-center gap-3 text-sm">
+            <Link to="/contact-us" data-testid="nav-contact-mobile" className="text-white/70 hover:text-white transition-colors">Contact</Link>
+            <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors">Sign In</Link>
+            <Link to="/signup-salon"
+                  className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)]">
+              Sign Up
             </Link>
           </div>
         </div>
@@ -211,13 +358,14 @@ export default function Landing() {
           <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-black/50 border border-white/15 backdrop-blur text-[#DFB78C] text-[11px] uppercase tracking-[0.2em] font-semibold">
             <Sparkles className="w-3 h-3" /> 7-Day Free Trial · No credit card
           </span>
-          <h1 className="font-playfair text-5xl sm:text-6xl lg:text-7xl tracking-tight font-light mt-8 leading-[1.05]">
-            The Gold Standard<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#EAD3B3] via-[#DFB78C] to-[#E35A89]">for Modern Salons ✦</span>
+          <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite" className="w-20 h-20 mx-auto mt-8 drop-shadow-[0_8px_30px_rgba(223,183,140,0.45)] animate-fade-up" />
+          <h1 className="font-playfair text-5xl sm:text-6xl lg:text-7xl tracking-tight font-light mt-6 leading-[1.05]">
+            <span className="text-transparent bg-clip-text bg-gradient-to-b from-[#F5DFA8] via-[#DFB78C] to-[#B8863B]">Manage. Automate. Grow.</span>
           </h1>
           <p className="text-white/70 text-lg md:text-xl mt-7 max-w-2xl mx-auto font-light">
-            Appointments, POS billing, CRM, staff payroll and Mira AI — one premium suite,
-            built for Indian salons. Replace your notebook in 90 seconds.
+            <b className="text-[#EAD3B3] font-medium">Miracurl Suite</b> — smart salon management software.
+            Appointments, POS billing, CRM, staff payroll and Mira AI in one premium suite,
+            built for salons, spas and every beauty business.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
             <Link to="/signup-salon" data-testid="landing-cta-hero"
@@ -497,6 +645,9 @@ export default function Landing() {
         )}
       </section>
 
+      {/* Meet the Founder / About Us */}
+      <div id="about"><CeoSection site={site} /></div>
+
       {/* Final CTA */}
       <section className="relative z-10 max-w-4xl mx-auto px-6 sm:px-10 pb-24">
         <div className="rounded-3xl p-10 sm:p-16 text-center relative overflow-hidden border border-[#DFB78C]/20"
@@ -517,24 +668,88 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer — massive typography */}
-      <footer className="relative z-10 border-t border-white/10 pt-16 pb-10 overflow-hidden">
+      {/* Footer — professional columns + massive typography */}
+      <footer className="relative z-10 border-t border-[#DFB78C]/15 pt-16 pb-8 overflow-hidden" data-testid="landing-footer">
         <div className="max-w-7xl mx-auto px-6 sm:px-10">
-          <div className="font-playfair text-[13vw] md:text-[10vw] leading-none text-white/[0.06] select-none whitespace-nowrap" aria-hidden="true">
-            MIRACURL <span className="text-[#DFB78C]/20">✦</span>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 pb-12">
+            <div>
+              <LogoLockup />
+              <p className="text-xs text-white/45 mt-4 leading-relaxed max-w-xs">
+                Smart salon management software — manage, automate and grow your beauty business with one premium suite.
+              </p>
+              <div className="flex items-center gap-2.5 mt-5">
+                {site?.instagram && (
+                  <a href={site.instagram} target="_blank" rel="noreferrer" data-testid="footer-instagram"
+                    className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/60 hover:text-[#E35A89] hover:border-[#E35A89]/50 transition-colors">
+                    <Instagram className="w-4 h-4" />
+                  </a>
+                )}
+                {site?.facebook && (
+                  <a href={site.facebook} target="_blank" rel="noreferrer" data-testid="footer-facebook"
+                    className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/60 hover:text-sky-400 hover:border-sky-400/50 transition-colors">
+                    <Facebook className="w-4 h-4" />
+                  </a>
+                )}
+                {site?.youtube && (
+                  <a href={site.youtube} target="_blank" rel="noreferrer" data-testid="footer-youtube"
+                    className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/60 hover:text-red-400 hover:border-red-400/50 transition-colors">
+                    <Play className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+            </div>
+            <div>
+              <Label className="text-[#DFB78C]">Company</Label>
+              <div className="mt-4 flex flex-col gap-2.5 text-sm text-white/55">
+                <Link to="/" className="hover:text-white transition-colors">Home</Link>
+                <a href="#about" className="hover:text-white transition-colors">About Us</a>
+                <Link to="/contact-us" className="hover:text-white transition-colors" data-testid="footer-contact-link">Contact Us</Link>
+                <Link to="/mira.ai" className="text-[#DFB78C]/70 hover:text-[#DFB78C] transition-colors">Mira AI Studio ✦</Link>
+                <Link to="/partners" className="hover:text-white transition-colors">Our Partners</Link>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[#DFB78C]">Product</Label>
+              <div className="mt-4 flex flex-col gap-2.5 text-sm text-white/55">
+                <Link to="/features" className="hover:text-white transition-colors">Features</Link>
+                <Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link>
+                <Link to="/staff-registry" className="hover:text-white transition-colors">Staff Verification (Free)</Link>
+                <Link to="/signup-salon" className="hover:text-white transition-colors">Start Free Trial</Link>
+                <Link to="/login" className="hover:text-white transition-colors">Sign In</Link>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[#DFB78C]">Contact</Label>
+              <div className="mt-4 flex flex-col gap-2.5 text-sm text-white/55">
+                <a href={`mailto:${site?.contact_email || "admin@miracurl-suite.com"}`} data-testid="footer-email"
+                  className="flex items-center gap-2 hover:text-white transition-colors">
+                  <Mail className="w-3.5 h-3.5 text-[#DFB78C]" /> {site?.contact_email || "admin@miracurl-suite.com"}
+                </a>
+                {site?.whatsapp && (
+                  <a href={`https://wa.me/${(site.whatsapp || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-2 hover:text-white transition-colors">
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" /> WhatsApp us
+                  </a>
+                )}
+                <span className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-[#E35A89]" /> Marathahalli, Bangalore</span>
+              </div>
+              <div className="mt-5">
+                <Label className="text-emerald-300 !text-[10px]">Who can use</Label>
+                <p className="text-[11px] text-white/40 mt-2 leading-relaxed">
+                  {WHO_CAN_USE.join(" · ")}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/40">
-            <div className="flex items-center gap-2"><Scissors className="w-3.5 h-3.5 text-[#E35A89]" /> © Miracurl Salon Suite · Marathahalli, Bangalore</div>
+          <div className="font-playfair text-[13vw] md:text-[9vw] leading-none text-white/[0.05] select-none whitespace-nowrap" aria-hidden="true">
+            MIRACURL SUITE <span className="text-[#DFB78C]/20">✦</span>
+          </div>
+          <div className="mt-6 border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/40">
+            <div className="flex items-center gap-2"><Scissors className="w-3.5 h-3.5 text-[#E35A89]" /> © {new Date().getFullYear()} Miracurl Suite · Manage. Automate. Grow.</div>
             <div className="flex items-center gap-5 flex-wrap justify-center">
-              <Link to="/login" className="hover:text-white transition-colors">Sign in</Link>
-              <Link to="/signup-salon" className="hover:text-white transition-colors">Free trial</Link>
-              <a href="#features" className="hover:text-white transition-colors">Features</a>
-              <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-              <Link to="/staff-registry" className="hover:text-white transition-colors">Verify staff (free)</Link>
               <Link to="/terms-of-service" className="hover:text-white transition-colors" data-testid="footer-terms-link">Terms</Link>
               <Link to="/privacy-policy" className="hover:text-white transition-colors" data-testid="footer-privacy-link">Privacy</Link>
               <Link to="/refund-policy" className="hover:text-white transition-colors" data-testid="footer-refund-link">Refunds</Link>
-              <Link to="/mira.ai" className="text-[#DFB78C]/70 hover:text-[#DFB78C] transition-colors">Mira AI Studio ✦</Link>
             </div>
           </div>
         </div>
