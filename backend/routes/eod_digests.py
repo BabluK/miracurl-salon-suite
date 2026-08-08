@@ -140,6 +140,88 @@ async def _run_manager_access_reports(tenant_id: Optional[str] = None) -> dict:
     return await _dispatch(await _target_tenants(tenant_id), _make_access_report_email)
 
 
+# ---------------- weekly late arrival digest ----------------
+
+def _late_digest_html(t: dict, rows: list, total_fines: float) -> str:
+    body = "".join(
+        f"<tr><td style='padding:6px 14px 6px 0'>{r['name']}</td>"
+        f"<td style='padding:6px 14px 6px 0;text-align:center'>{r['days']}</td>"
+        f"<td style='padding:6px 14px 6px 0;text-align:center'>{r['minutes']} min</td>"
+        f"<td style='padding:6px 0;text-align:right;color:#dc2626;font-weight:bold'>₹{r['fines']:,.0f}</td></tr>"
+        for r in rows)
+    return f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
+    <h2 style="color:#1c1c22">⏰ Weekly late arrival report — {t.get('name') or 'your salon'}</h2>
+    <p>Staff who arrived late in the last 7 days (10-min grace applies Mon–Fri only):</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:14px 0">
+      <tr style="color:#888;font-size:11px;text-transform:uppercase"><td>Staff</td><td style="text-align:center">Late days</td><td style="text-align:center">Total late</td><td style="text-align:right">Fines</td></tr>
+      {body}</table>
+    <p style="font-size:15px"><b>Total fines this week: ₹{total_fines:,.0f}</b> — deducted automatically in the monthly salary slips.</p>
+    <p style="font-size:12px;color:#888">— Miracurl Suite · weekly attendance digest</p></div>"""
+
+
+def _staff_late_html(t: dict, s: dict, days: list, week_fine: float, month_fine: float) -> str:
+    rows = "".join(
+        f"<tr><td style='padding:5px 14px 5px 0'>{d['date']}</td>"
+        f"<td style='padding:5px 14px 5px 0;text-align:center'>{d['late_minutes']} min late</td>"
+        f"<td style='padding:5px 0;text-align:right;color:#dc2626'>₹{float(d.get('late_penalty') or 0):,.0f}</td></tr>"
+        for d in days)
+    base = float(s.get("monthly_base_salary") or 0)
+    salary_line = (f"<p style='font-size:13px'>Monthly base salary: <b>₹{base:,.0f}</b> · "
+                   f"fines this month so far: <b style='color:#dc2626'>₹{month_fine:,.0f}</b> — "
+                   f"these are deducted in your salary slip.</p>" if base else
+                   f"<p style='font-size:13px'>Fines this month so far: <b style='color:#dc2626'>₹{month_fine:,.0f}</b> — deducted in your salary slip.</p>")
+    return f"""<div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;color:#333">
+    <h2 style="color:#1c1c22">⏰ Your late arrivals this week</h2>
+    <p>Hi {(s.get('name') or '').split(' ')[0]}, here's your punctuality summary at <b>{t.get('name')}</b>:</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0">{rows}</table>
+    <p style="font-size:14px"><b>This week's fines: ₹{week_fine:,.0f}</b></p>
+    {salary_line}
+    <p style="font-size:12px;color:#888">Tip: the 10-minute grace applies Monday–Friday only — weekends have no grace. — {t.get('name')}</p></div>"""
+
+
+async def _run_late_arrival_digests(tenant_id: Optional[str] = None) -> dict:
+    since_date = (datetime.now(IST) - timedelta(days=7)).strftime("%Y-%m-%d")
+    month_start = datetime.now(IST).strftime("%Y-%m") + "-01"
+    tenants = await _target_tenants(tenant_id)
+    sent = failed = 0
+    for t in tenants:
+        recs = await _raw_db.attendance.find(
+            {"tenant_id": t["id"], "date": {"$gte": since_date}, "late_minutes": {"$gt": 0}},
+            {"_id": 0, "staff_id": 1, "staff_name": 1, "date": 1, "late_minutes": 1, "late_penalty": 1},
+        ).to_list(1000)
+        if not recs:
+            continue
+        agg = {}
+        for r in recs:
+            a = agg.setdefault(r["staff_id"], {"name": r.get("staff_name") or "Staff", "days": 0, "minutes": 0, "fines": 0.0, "recs": []})
+            a["days"] += 1
+            a["minutes"] += int(r.get("late_minutes") or 0)
+            a["fines"] += float(r.get("late_penalty") or 0)
+            a["recs"].append(r)
+        rows = sorted(agg.values(), key=lambda x: -x["fines"])
+        total = sum(r["fines"] for r in rows)
+        recipients = _owner_emails(t)
+        if recipients:
+            status = await _send_email(recipients, f"⏰ Late arrivals this week — ₹{total:,.0f} in fines ({t.get('name')})",
+                                       _late_digest_html(t, rows, total))
+            sent += 1 if status.get("sent") else 0
+            failed += 0 if status.get("sent") else 1
+        # individual staff awareness emails
+        for sid, a in agg.items():
+            s = await _raw_db.staff.find_one({"id": sid}, {"_id": 0, "name": 1, "email": 1, "monthly_base_salary": 1})
+            if not s or not s.get("email"):
+                continue
+            month_recs = await _raw_db.attendance.find(
+                {"tenant_id": t["id"], "staff_id": sid, "date": {"$gte": month_start}, "late_penalty": {"$gt": 0}},
+                {"_id": 0, "late_penalty": 1}).to_list(100)
+            month_fine = sum(float(x.get("late_penalty") or 0) for x in month_recs)
+            status = await _send_email([s["email"]], f"⏰ Your late arrivals this week — ₹{a['fines']:,.0f} in fines",
+                                       _staff_late_html(t, s, sorted(a["recs"], key=lambda x: x["date"]), a["fines"], month_fine))
+            sent += 1 if status.get("sent") else 0
+            failed += 0 if status.get("sent") else 1
+    return {"sent": sent, "failed": failed}
+
+
 @router.post("/reports/open-bill-alert/send-now")
 async def trigger_open_bill_alert(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Owner can trigger their own EOD open-bill email on demand (also used for testing)."""
@@ -149,3 +231,8 @@ async def trigger_open_bill_alert(admin=Depends(require_tenant_admin), t=Depends
 @router.post("/reports/manager-access-report/send-now")
 async def trigger_manager_access_report(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     return await _run_manager_access_reports(t["id"])
+
+
+@router.post("/reports/late-arrival-digest/send-now")
+async def trigger_late_arrival_digest(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return await _run_late_arrival_digests(t["id"])

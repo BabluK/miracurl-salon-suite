@@ -106,6 +106,7 @@ from schedulers import (  # noqa: E402
     _lead_heat_scheduler, _callback_redial_scheduler, _phone_backfill_task, _weekly_win_scheduler,
     _feedback_reminder_scheduler, _salon_digest_scheduler, _db_health_scheduler,
     _temp_transfer_scheduler, _open_bill_alert_scheduler, _manager_access_report_scheduler,
+    _late_digest_scheduler,
 )
 
 for _r in (
@@ -153,6 +154,7 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_salon_digest_scheduler())
     asyncio.get_event_loop().create_task(_open_bill_alert_scheduler())
     asyncio.get_event_loop().create_task(_manager_access_report_scheduler())
+    asyncio.get_event_loop().create_task(_late_digest_scheduler())
     asyncio.get_event_loop().create_task(_db_health_scheduler())
     asyncio.get_event_loop().create_task(_phone_backfill_task())
 

@@ -1533,3 +1533,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Admin UNDO CHECKOUT: POST /attendance/{rec_id}/undo-checkout (require_admin + owner PIN) clears check_out_at/hours/OT with audit trail (checkout_undone_by/at, prev_check_out_at); 400 on double-undo; 403 without PIN. Attendance.jsx: "↩ undo" button next to check-out time (undo-checkout-{staff_id}) w/ confirm. All verified E2E.
 - GRACE PERIOD now Mon–Fri ONLY: _late_penalty_for uses grace=0 on Sat/Sun (weekday()>=5). Unit-verified: Mon 8min→₹0, Sat/Sun 8min→₹100, Mon 15min→₹50. Late fines already flow to attendance → salary slip PDF (late days count, base, commission, OT, advance, final salary) → monthly staff email — no further changes needed downstream.
 - NOTE: user must REDEPLOY for production effect.
+
+## 2026-08-08 (round 28) — Weekly late arrival digest (owner + staff)
+- eod_digests.py: _run_late_arrival_digests — per tenant, attendance last 7 days w/ late_minutes>0 aggregated per staff (days, total mins, fines). OWNER email: table + total fines. STAFF email (each late staff w/ email): their late dates+mins+fine, week total, month-to-date fines + monthly base salary line ("deducted in your salary slip") + weekday-grace tip.
+- POST /reports/late-arrival-digest/send-now (admin). Scheduler _late_digest_scheduler (Mon ≥10:00 IST, flag late_digest_auto) registered in server.py.
+- Tested: seeded 2 late days → sent:2 (owner + staff email to delivered@resend.dev), test records cleaned after.

@@ -508,3 +508,26 @@ async def _manager_access_report_scheduler() -> None:
         except Exception as e:
             logging.error(f"manager access report scheduler error: {e}")
         await asyncio.sleep(3600)
+
+
+async def _late_digest_scheduler() -> None:
+    """Every Monday (after 10:00 IST) email owners + late staff last week's late-arrival digest."""
+    from routes.eod_digests import _run_late_arrival_digests
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.weekday() == 0 and ist_now.hour >= 10:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "late_digest_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await _run_late_arrival_digests(None)
+                    await _raw_db.system_flags.update_one(
+                        {"key": "late_digest_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    if out.get("sent") or out.get("failed"):
+                        logging.info(f"Late arrival digests {period}: {out}")
+        except Exception as e:
+            logging.error(f"late digest scheduler error: {e}")
+        await asyncio.sleep(3600)
