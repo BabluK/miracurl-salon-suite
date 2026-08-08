@@ -1623,3 +1623,6 @@ B) Full HD logo (user reported pixelation on zoom, sources were ~600px):
 - promo_common.py: stamp_monogram(img, opacity=0.5) + stamp_monogram_bytes() — HD gold monogram (frontend/public/assets/brand/gold-monogram-transparent.png) pasted bottom-right at 9% width, 2.5% pad, cached per size.
 - Coverage: mira_common._gen_image (ALL Mira Studio AI images: social posts, GBP offers, etc.) + offer_flyer.py both JPEG composers (offer flyers, about-posters). promo_image.py untouched (already carries brand logo).
 - Tested in-process: gold pixels confirmed bottom-right on JPEG + PNG paths; graceful fallback returns original bytes on failure; backend healthy.
+
+## 2026-08-08 (round 42) — BrandMark wordmark updated
+- BrandMark.jsx now renders gold-shine "MIRACURL SUITE" + "Smart Salon Management Software" subtitle (was "MIRACURL / AI Salon Suite") — matches the new brand lockup everywhere BrandMark is used (login, sidebars, super admin HQ, PDFs stay separate). Verified via login screenshot, compile clean.

@@ -28,11 +28,11 @@ export default function BrandMark({ variant = "dark", size = "md" }) {
         <Sparkles className={`brand-orb-spark absolute -top-1 -right-1 ${sizes.spark} text-amber-400`} />
       </div>
       <div className="leading-none">
-        <div className={`font-playfair ${sizes.word} tracking-tight ${miraColor}`}>
-          MIRA<span className="brand-curl">CURL</span>
+        <div className={`font-playfair ${sizes.word} tracking-[0.06em] font-semibold gold-shine-text`}>
+          MIRACURL <span className="tracking-[0.25em]">SUITE</span>
         </div>
-        <div className={`tracking-[0.3em] uppercase ${subColor} mt-1 ${sizes.sub}`}>
-          <span className="brand-ai-tag">AI</span> Salon Suite
+        <div className={`tracking-[0.28em] uppercase ${subColor} mt-1 ${sizes.sub}`}>
+          Smart Salon Management Software
         </div>
       </div>
     </div>
