@@ -1673,3 +1673,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-08 (round 51) — Build bumped for popup notification
 - BUILD 2026-08-08.66 → .67; RELEASES[0] "New brand, new website ✨" appended: gold app icons both apps, Who-Can-Use page, Mira avatar + callback card, UPI masking + right-click block. /api/whats-new serves build .67 with 8 highlights → popup re-shows once to ALL admins/managers on next login (localStorage keyed on build). Super Admin Deployments tag stays MIRA-DEPLOYED-2026-08-08.
+
+## 2026-08-08 (round 52) — Super admin custom logo + HQ header polish
+- site_info: new platform_logo field (data URL, <400KB) editable in Website & CEO panel ("Platform Logo (HQ console)" card with upload + "Use default" reset).
+- SuperAdmin HQ header: uses platform_logo if set else /assets/brand/ms-ring.png (hq-logo testid); Sign Out restyled as gold gradient pill; notif bell (SuperNotifBell) unchanged, shows unread badge. Verified via authenticated screenshot.

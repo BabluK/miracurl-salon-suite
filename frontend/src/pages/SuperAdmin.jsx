@@ -109,6 +109,10 @@ export default function SuperAdmin() {
   const [smsLogFor, setSmsLogFor] = useState(null); // tenant whose SMS log is open
   const [cleanFor, setCleanFor] = useState(null); // tenant being cleaned of dummy data
   const [tab, setTab] = useState("tenants"); // tenants | billing
+  const [platformLogo, setPlatformLogo] = useState("");
+  useEffect(() => {
+    api.get("/public/site-info").then((r) => setPlatformLogo(r.data.platform_logo || "")).catch(() => {});
+  }, []);
   const [notifFeed, setNotifFeed] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [busy, setBusy] = useState(false);
@@ -269,7 +273,7 @@ export default function SuperAdmin() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="relative w-9 h-9 sm:w-11 sm:h-11 shrink-0 rounded-full bg-[#1c1c22] flex items-center justify-center shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/60">
-              <img src="/assets/brand/ms-ring.png" alt="Miracurl" className="w-7 h-7 sm:w-8 sm:h-8 object-contain" draggable="false" />
+              <img src={platformLogo || "/assets/brand/ms-ring.png"} alt="Miracurl" className={`w-7 h-7 sm:w-8 sm:h-8 ${platformLogo ? "rounded-full object-cover" : "object-contain"}`} draggable="false" data-testid="hq-logo" />
               <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse" title="Systems online" />
             </div>
             <div className="min-w-0">
@@ -287,7 +291,7 @@ export default function SuperAdmin() {
             <SuperNotifBell tenants={tenants} hqUnread={hqUnread} onGoInbox={() => setTab("inbox")} />
             <MiraVoiceAssistant onGoTab={setTab} />
             <span className="text-xs text-white/50 hidden lg:inline">{user?.email}</span>
-            <button data-testid="super-logout-btn" onClick={async () => { await logout(); nav("/login"); }} className="flex items-center gap-2 text-xs px-2.5 sm:px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-white/80 hover:bg-white/20 transition">
+            <button data-testid="super-logout-btn" onClick={async () => { await logout(); nav("/login"); }} className="flex items-center gap-2 text-xs font-bold px-2.5 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-slate-900 hover:brightness-110 shadow-lg shadow-amber-500/25 transition">
               <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>

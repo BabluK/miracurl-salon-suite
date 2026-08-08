@@ -21,6 +21,7 @@ _DEFAULTS = {
     "ceo_about": ("10+ years of IT industry experience with strong system design and data structures — "
                   "building Miracurl Suite to bring enterprise-grade technology to every salon, spa and beauty business."),
     "ceo_photo": "",
+    "platform_logo": "",
     "ceo_facebook": "",
     "ceo_instagram": "",
     "ceo_linkedin": "",
@@ -37,6 +38,7 @@ class SiteInfoIn(BaseModel):
     ceo_title: Optional[str] = Field(None, max_length=120)
     ceo_about: Optional[str] = Field(None, max_length=1200)
     ceo_photo: Optional[str] = Field(None, max_length=800_000)
+    platform_logo: Optional[str] = Field(None, max_length=800_000)
     ceo_facebook: Optional[str] = Field(None, max_length=300)
     ceo_instagram: Optional[str] = Field(None, max_length=300)
     ceo_linkedin: Optional[str] = Field(None, max_length=300)

@@ -32,6 +32,15 @@ export const SiteInfoPanel = () => {
     reader.readAsDataURL(f);
   };
 
+  const uploadLogo = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 400 * 1024) { toast.error("Logo must be under 400 KB — please compress it"); return; }
+    const reader = new FileReader();
+    reader.onload = () => set("platform_logo")(reader.result);
+    reader.readAsDataURL(f);
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -60,6 +69,25 @@ export const SiteInfoPanel = () => {
           <Input label="Instagram URL" value={info.instagram} onChange={set("instagram")} placeholder="https://instagram.com/miracurlsuite" testid="site-instagram" icon={Instagram} />
           <Input label="Facebook URL" value={info.facebook} onChange={set("facebook")} placeholder="https://facebook.com/miracurlsuite" testid="site-facebook" icon={Facebook} />
           <Input label="YouTube URL" value={info.youtube} onChange={set("youtube")} placeholder="https://youtube.com/@miracurlsuite" testid="site-youtube" />
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+        <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Globe className="w-4 h-4 text-amber-500" /> Platform Logo (HQ console)</h2>
+        <div className="flex items-center gap-5">
+          <div className="w-16 h-16 rounded-full overflow-hidden border border-slate-200 bg-[#1c1c22] flex items-center justify-center">
+            <img src={info.platform_logo || "/assets/brand/ms-ring.png"} alt="logo" className={info.platform_logo ? "w-full h-full object-cover" : "w-11 h-11 object-contain"} data-testid="platform-logo-preview" />
+          </div>
+          <div>
+            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-50">
+              <Upload className="w-3.5 h-3.5" /> Upload logo
+              <input type="file" accept="image/*" onChange={uploadLogo} className="hidden" data-testid="platform-logo-input" />
+            </label>
+            {info.platform_logo && (
+              <button onClick={() => set("platform_logo")("")} className="ml-2 text-xs text-rose-500 hover:underline" data-testid="platform-logo-reset">Use default</button>
+            )}
+            <p className="text-[11px] text-slate-400 mt-1.5">Shown in the Miracurl HQ header. Leave empty to use the default gold MS logo.</p>
+          </div>
         </div>
       </div>
 
