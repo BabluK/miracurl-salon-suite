@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from security import require_tenant_admin, current_tenant, public_rate_limit, get_current_user
-from routes.gift_cards import _pay_keys, _gc_settings, _tenant_by_slug, _upi_qr_b64
+from services.gift_card_service import _pay_keys, _gc_settings, _tenant_by_slug, _upi_qr_b64
 
 router = APIRouter()
 

@@ -1,0 +1,32 @@
+{
+  "summary": "Regression sweep for post-refactor changes across auth.py, appointments_pos.py, gift_cards.py, premium_membership.py, eod_digests.py, crm.py, wallet_pass.py. Wrote /app/backend/tests/test_iter102_refactor_regression.py covering all 8 requested flows. 13/13 assertions passed (cleanup step skipped due to env vars not exported, handled manually via motor script — 1 test gift card + 1 test gift-card invoice deleted from Mongo). No 500s, no behavioral regressions detected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter102_refactor_regression.py",
+    "/app/test_reports/pytest/iter102.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "appointments_pos.py is 547 lines — still within limits but growing; consider splitting invoice creation into its own submodule if more helpers are added.",
+    "_gift_card_doc_from_item does a lazy import of routes.gift_cards._gc_settings inside the function. Since _gc_settings was moved to services.gift_card_service, prefer importing from services.gift_card_service directly to reduce circular-import surface (works today because gift_cards re-exports it, but the direct import is cleaner).",
+    "test_zzz_cleanup fixture depends on os.environ MONGO_URL/DB_NAME which are not auto-loaded from backend/.env by pytest — resulted in SKIPPED. Ideally load with dotenv inside the fixture so cleanup runs by default. This is a test-suite concern, not app code."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter102_refactor_regression.py (new)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "N/A (skipped per request)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, manager@miracurl.com / Manager@1234, X-Tenant-Slug: miracurl-marathahalli, X-Owner-Pin: 4321",
+  "seed_data_creation": "No permanent seed. Created 3 test invoices during run (2 service, 1 gift-card). Cleaned up the gift-card invoice + issued gift_card via direct Mongo delete. The two service-line invoices remain in the tenant (small, no financial side-effects beyond the tenant's own totals) — main agent may leave as-is or purge by created_at range.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Refactor regression passed cleanly. Test file test_iter102_refactor_regression.py can be reused as a smoke test for POS/gift-card/digest/birthday/subscription-gate flows. Run with: REACT_APP_BACKEND_URL set + `pytest backend/tests/test_iter102_refactor_regression.py -v --override-ini='addopts='`. The pytest.ini uses xdist and needs override for single-file runs.",
+  "rca of the issue": "N/A — no failures observed. All 8 flows listed in the review request returned the expected shapes/status codes: /auth/me (200 for admin & manager), /invoices completed (200, total>0, cash), /invoices open (200, status='open'), /invoices invalid customer (400), /invoices wallet_apply>balance (400 with 'Wallet has only' text), POS gift-card invoice (gift_cards_issued[0].code starts with 'GC-'), /public/gift-cards/{slug}/config (200 with payment/currency keys), /public/gift-cards/{slug}/preview-email (200 html contains masked GC-••••-••••), /public/membership/{slug}/config (200), /reports/late-arrival-digest/send-now (200 with sent+failed keys), /crm/send-birthday-wishes (200 with sent or message), /public/member/{unknown}/google-wallet (non-500)."
+}

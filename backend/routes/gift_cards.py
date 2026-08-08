@@ -23,6 +23,9 @@ from security import require_tenant_admin, current_tenant, public_rate_limit
 router = APIRouter()
 
 MAIN_TENANT_SLUG = "miracurl-marathahalli"
+from services.gift_card_service import (  # noqa: E402
+    _gc_settings, _pay_keys, _tenant_by_slug, _upi_qr_b64,
+)
 _EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}")
 
 OCCASIONS = [
@@ -60,35 +63,6 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _gc_settings(t: dict) -> dict:
-    s = t.get("gift_card_settings") or {}
-    return {"enabled": bool(s.get("enabled", True)),
-            "razorpay_key_id": s.get("razorpay_key_id") or "",
-            "razorpay_key_secret": s.get("razorpay_key_secret") or "",
-            "upi_id": s.get("upi_id") or "",
-            "validity_days": int(s.get("validity_days") or DEFAULT_VALIDITY),
-            "occasion_campaigns": bool(s.get("occasion_campaigns", True)),
-            "amounts": s.get("amounts") or DEFAULT_AMOUNTS}
-
-
-def _pay_keys(t: dict) -> tuple[str, str]:
-    """Salon's own Razorpay keys; the main Miracurl salon falls back to platform keys."""
-    s = _gc_settings(t)
-    if s["razorpay_key_id"] and s["razorpay_key_secret"]:
-        return s["razorpay_key_id"], s["razorpay_key_secret"]
-    if t.get("slug") == MAIN_TENANT_SLUG:
-        return os.environ.get("RAZORPAY_KEY_ID", ""), os.environ.get("RAZORPAY_KEY_SECRET", "")
-    return "", ""
-
-
-async def _tenant_by_slug(slug: str) -> dict:
-    t = await _raw_db.tenants.find_one(
-        {"slug": slug, "status": {"$in": ["active", "trial"]}}, {"_id": 0})
-    if not t:
-        raise HTTPException(404, "Salon not found")
-    return t
-
-
 def _gen_code() -> str:
     a = secrets.token_hex(4).upper()
     return f"GC-{a[:4]}-{a[4:]}"
@@ -109,27 +83,36 @@ async def gift_card_config(slug: str):
                         "upi_id": s["upi_id"]}}
 
 
+def _absolute_logo(t: dict, request: Request) -> dict:
+    if (t.get("logo_url") or "").startswith("/"):
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+        proto = request.headers.get("x-forwarded-proto") or "https"
+        if host:
+            return {**t, "logo_url": f"{proto}://{host}{t['logo_url']}"}
+    return t
+
+
+def _preview_gift_card(t: dict, slug: str, occasion: str, amount: float,
+                       recipient_name: str, buyer_name: str, message: str) -> dict:
+    s = _gc_settings(t)
+    occ_key = occasion if occasion in _OCC else "just-because"
+    amt = min(max(float(amount or 1000), 50), 100000)
+    return {"occasion": occ_key, "amount": amt, "currency": t.get("currency") or "INR",
+            "code": "GC-\u2022\u2022\u2022\u2022-\u2022\u2022\u2022\u2022",
+            "recipient_name": (recipient_name or "Someone Special")[:80],
+            "buyer_name": (buyer_name or "A friend")[:80], "message": (message or "")[:400],
+            "expires_at": (datetime.now(timezone.utc).date() + timedelta(days=s["validity_days"])).isoformat(),
+            "tenant_slug": slug}
+
+
 @router.get("/public/gift-cards/{slug}/preview-email")
 async def gift_card_preview_email(request: Request, slug: str, occasion: str = "just-because",
                                   amount: float = 1000, recipient_name: str = "", buyer_name: str = "",
                                   message: str = ""):
     """Exact e-card email HTML the recipient will receive — code masked until purchase."""
     public_rate_limit(request, "gift-preview", limit=20, window_sec=600)
-    t = await _tenant_by_slug(slug)
-    if (t.get("logo_url") or "").startswith("/"):
-        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
-        proto = request.headers.get("x-forwarded-proto") or "https"
-        if host:
-            t = {**t, "logo_url": f"{proto}://{host}{t['logo_url']}"}
-    s = _gc_settings(t)
-    occ_key = occasion if occasion in _OCC else "just-because"
-    amt = min(max(float(amount or 1000), 50), 100000)
-    gc = {"occasion": occ_key, "amount": amt, "currency": t.get("currency") or "INR",
-          "code": "GC-\u2022\u2022\u2022\u2022-\u2022\u2022\u2022\u2022",
-          "recipient_name": (recipient_name or "Someone Special")[:80],
-          "buyer_name": (buyer_name or "A friend")[:80], "message": (message or "")[:400],
-          "expires_at": (datetime.now(timezone.utc).date() + timedelta(days=s["validity_days"])).isoformat(),
-          "tenant_slug": slug}
+    t = _absolute_logo(await _tenant_by_slug(slug), request)
+    gc = _preview_gift_card(t, slug, occasion, amount, recipient_name, buyer_name, message)
     return {"html": _ecard_html(gc, t)}
 
 
@@ -202,15 +185,6 @@ def _gift_payment_init(gc: dict, t: dict, s: dict, key_id: str, key_secret: str)
             "phonepe_link": f"phonepe://{tail}",
             "paytm_link": f"paytmmp://{tail}",
             "qr_b64": _upi_qr_b64(upi_uri)}
-
-
-def _upi_qr_b64(data: str) -> str:
-    """PNG QR of the upi:// URI so desktop buyers can scan with any UPI app."""
-    import qrcode
-    img = qrcode.make(data, box_size=7, border=2)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode()
 
 
 @router.post("/public/gift-cards/{slug}/order")

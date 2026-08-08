@@ -186,58 +186,76 @@ def _staff_late_html(t: dict, s: dict, days: list, week_fine: float, month_fine:
     <p style="font-size:12px;color:#888">Tip: the 10-minute grace applies Monday–Friday only — weekends have no grace. — {t.get('name')}</p></div>"""
 
 
+def _aggregate_late(recs: list) -> dict:
+    agg = {}
+    for r in recs:
+        a = agg.setdefault(r["staff_id"], {"name": r.get("staff_name") or "Staff", "days": 0, "minutes": 0, "fines": 0.0, "recs": []})
+        a["days"] += 1
+        a["minutes"] += int(r.get("late_minutes") or 0)
+        a["fines"] += float(r.get("late_penalty") or 0)
+        a["recs"].append(r)
+    return agg
+
+
+async def _find_punctuality_star(tenant_id: str, since_date: str, agg: dict) -> Optional[dict]:
+    """Staff member with attendance this week and zero late records; most days worked wins."""
+    all_recs = await _raw_db.attendance.find(
+        {"tenant_id": tenant_id, "date": {"$gte": since_date}},
+        {"_id": 0, "staff_id": 1, "staff_name": 1},
+    ).to_list(2000)
+    worked = {}
+    for r in all_recs:
+        w = worked.setdefault(r["staff_id"], {"name": r.get("staff_name") or "Staff", "days": 0})
+        w["days"] += 1
+    punctual = [w for sid, w in worked.items() if sid not in agg and w["days"] > 0]
+    return max(punctual, key=lambda x: x["days"]) if punctual else None
+
+
+async def _send_owner_late_digest(t: dict, agg: dict, star: Optional[dict]) -> tuple[int, int]:
+    rows = sorted(agg.values(), key=lambda x: -x["fines"])
+    total = sum(r["fines"] for r in rows)
+    recipients = _owner_emails(t)
+    if not recipients:
+        return 0, 0
+    status = await _send_email(recipients, f"⏰ Late arrivals this week — ₹{total:,.0f} in fines ({t.get('name')})",
+                               _late_digest_html(t, rows, total, star))
+    return (1, 0) if status.get("sent") else (0, 1)
+
+
+async def _send_staff_late_digests(t: dict, agg: dict, month_start: str) -> tuple[int, int]:
+    sent = failed = 0
+    for sid, a in agg.items():
+        s = await _raw_db.staff.find_one({"id": sid}, {"_id": 0, "name": 1, "email": 1, "monthly_base_salary": 1})
+        if not s or not s.get("email"):
+            continue
+        month_recs = await _raw_db.attendance.find(
+            {"tenant_id": t["id"], "staff_id": sid, "date": {"$gte": month_start}, "late_penalty": {"$gt": 0}},
+            {"_id": 0, "late_penalty": 1}).to_list(100)
+        month_fine = sum(float(x.get("late_penalty") or 0) for x in month_recs)
+        status = await _send_email([s["email"]], f"⏰ Your late arrivals this week — ₹{a['fines']:,.0f} in fines",
+                                   _staff_late_html(t, s, sorted(a["recs"], key=lambda x: x["date"]), a["fines"], month_fine))
+        sent += 1 if status.get("sent") else 0
+        failed += 0 if status.get("sent") else 1
+    return sent, failed
+
+
 async def _run_late_arrival_digests(tenant_id: Optional[str] = None) -> dict:
     since_date = (datetime.now(IST) - timedelta(days=7)).strftime("%Y-%m-%d")
     month_start = datetime.now(IST).strftime("%Y-%m") + "-01"
-    tenants = await _target_tenants(tenant_id)
     sent = failed = 0
-    for t in tenants:
+    for t in await _target_tenants(tenant_id):
         recs = await _raw_db.attendance.find(
             {"tenant_id": t["id"], "date": {"$gte": since_date}, "late_minutes": {"$gt": 0}},
             {"_id": 0, "staff_id": 1, "staff_name": 1, "date": 1, "late_minutes": 1, "late_penalty": 1},
         ).to_list(1000)
         if not recs:
             continue
-        agg = {}
-        for r in recs:
-            a = agg.setdefault(r["staff_id"], {"name": r.get("staff_name") or "Staff", "days": 0, "minutes": 0, "fines": 0.0, "recs": []})
-            a["days"] += 1
-            a["minutes"] += int(r.get("late_minutes") or 0)
-            a["fines"] += float(r.get("late_penalty") or 0)
-            a["recs"].append(r)
-        rows = sorted(agg.values(), key=lambda x: -x["fines"])
-        total = sum(r["fines"] for r in rows)
-        star = None
-        all_recs = await _raw_db.attendance.find(
-            {"tenant_id": t["id"], "date": {"$gte": since_date}},
-            {"_id": 0, "staff_id": 1, "staff_name": 1},
-        ).to_list(2000)
-        worked = {}
-        for r in all_recs:
-            w = worked.setdefault(r["staff_id"], {"name": r.get("staff_name") or "Staff", "days": 0})
-            w["days"] += 1
-        punctual = [w for sid, w in worked.items() if sid not in agg and w["days"] > 0]
-        if punctual:
-            star = max(punctual, key=lambda x: x["days"])
-        recipients = _owner_emails(t)
-        if recipients:
-            status = await _send_email(recipients, f"⏰ Late arrivals this week — ₹{total:,.0f} in fines ({t.get('name')})",
-                                       _late_digest_html(t, rows, total, star))
-            sent += 1 if status.get("sent") else 0
-            failed += 0 if status.get("sent") else 1
-        # individual staff awareness emails
-        for sid, a in agg.items():
-            s = await _raw_db.staff.find_one({"id": sid}, {"_id": 0, "name": 1, "email": 1, "monthly_base_salary": 1})
-            if not s or not s.get("email"):
-                continue
-            month_recs = await _raw_db.attendance.find(
-                {"tenant_id": t["id"], "staff_id": sid, "date": {"$gte": month_start}, "late_penalty": {"$gt": 0}},
-                {"_id": 0, "late_penalty": 1}).to_list(100)
-            month_fine = sum(float(x.get("late_penalty") or 0) for x in month_recs)
-            status = await _send_email([s["email"]], f"⏰ Your late arrivals this week — ₹{a['fines']:,.0f} in fines",
-                                       _staff_late_html(t, s, sorted(a["recs"], key=lambda x: x["date"]), a["fines"], month_fine))
-            sent += 1 if status.get("sent") else 0
-            failed += 0 if status.get("sent") else 1
+        agg = _aggregate_late(recs)
+        star = await _find_punctuality_star(t["id"], since_date, agg)
+        s1, f1 = await _send_owner_late_digest(t, agg, star)
+        s2, f2 = await _send_staff_late_digests(t, agg, month_start)
+        sent += s1 + s2
+        failed += f1 + f2
     return {"sent": sent, "failed": failed}
 
 

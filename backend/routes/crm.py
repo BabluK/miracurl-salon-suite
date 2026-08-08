@@ -164,6 +164,13 @@ async def reviews_request_now(user=Depends(require_tenant_admin), t=Depends(curr
 DEFAULT_BIRTHDAY_OFFER = "Free Hair Spa this week 🎂"
 
 
+def _benefit_chips(benefits: list) -> str:
+    import html as _h
+    return "".join(
+        f"<span style='display:inline-block;background:#faf3dd;border:1px solid #e6d9a8;color:#8a6d1a;"
+        f"border-radius:14px;padding:3px 10px;font-size:11px;margin:2px'>{_h.escape(b)}</span>" for b in benefits)
+
+
 def _member_birthday_html(t: dict, name: str, member: dict, offer: str, book_url: str) -> str:
     """Golden birthday email for premium members — perks + one-tap booking link."""
     import html as _h
@@ -171,9 +178,7 @@ def _member_birthday_html(t: dict, name: str, member: dict, offer: str, book_url
     tier = _h.escape((member.get("tier") or "member").capitalize())
     benefits = member.get("benefits") or []
     perk = "Birthday Offer" if "Birthday Offer" in benefits else (benefits[0] if benefits else "a special member treat")
-    chips = "".join(
-        f"<span style='display:inline-block;background:#faf3dd;border:1px solid #e6d9a8;color:#8a6d1a;"
-        f"border-radius:14px;padding:3px 10px;font-size:11px;margin:2px'>{_h.escape(b)}</span>" for b in benefits)
+    chips = _benefit_chips(benefits)
     return f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
     <div style="background:#15151b;border-radius:18px 18px 0 0;padding:26px 30px;text-align:center">
       <div style="color:#d4af37;letter-spacing:3px;font-size:18px">{sn.upper()}</div>
@@ -190,6 +195,27 @@ def _member_birthday_html(t: dict, name: str, member: dict, offer: str, book_url
       <p style="font-size:12px;color:#888;text-align:center">Show your Member ID {_h.escape(member.get('member_id') or '')} at the salon to claim your treat.</p>
       <p>With love,<br/><b>{sn}</b> 💛</p>
     </div></div>"""
+
+
+async def _active_member_card(tenant_id: str, customer_id: str) -> Optional[dict]:
+    return await _raw_db.customer_memberships.find_one(
+        {"tenant_id": tenant_id, "customer_id": customer_id,
+         "member_id": {"$exists": True, "$ne": ""},
+         "expires_at": {"$gt": datetime.now(timezone.utc).isoformat()}}, {"_id": 0})
+
+
+async def _send_celebration_email(t: dict, c: dict, field: str, subject_tpl: str, offer: str, book_url: str) -> dict:
+    member = await _active_member_card(t["id"], c["id"]) if field == "dob" else None
+    if member:
+        subject = f"🎂 Happy Birthday {c['name']} — your member treat awaits ✦"
+        html = _member_birthday_html(t, c["name"], member, offer, book_url)
+    else:
+        subject = subject_tpl.format(name=c["name"])
+        html = _birthday_email_html(t, c["name"], offer, book_url)
+    status = await _send_email([c["email"]], subject, html, book_url=book_url)
+    return {"tenant": t["name"], "customer": c["name"], "email": c["email"],
+            "occasion": "member_birthday" if member else field,
+            "sent": status.get("sent", False), "error": status.get("error")}
 
 
 async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
@@ -216,22 +242,7 @@ async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
                  "email": {"$exists": True, "$nin": [None, ""]}},
                 {"_id": 0, "id": 1, "name": 1, "email": 1}).to_list(200)
             for c in custs:
-                member = None
-                if field == "dob":
-                    member = await _raw_db.customer_memberships.find_one(
-                        {"tenant_id": t["id"], "customer_id": c["id"],
-                         "member_id": {"$exists": True, "$ne": ""},
-                         "expires_at": {"$gt": datetime.now(timezone.utc).isoformat()}}, {"_id": 0})
-                if member:
-                    subject = f"🎂 Happy Birthday {c['name']} — your member treat awaits ✦"
-                    html = _member_birthday_html(t, c["name"], member, offer, book_url)
-                else:
-                    subject = subject_tpl.format(name=c["name"])
-                    html = _birthday_email_html(t, c["name"], offer, book_url)
-                status = await _send_email([c["email"]], subject, html, book_url=book_url)
-                results.append({"tenant": t["name"], "customer": c["name"], "email": c["email"],
-                                "occasion": "member_birthday" if member else field,
-                                "sent": status.get("sent", False), "error": status.get("error")})
+                results.append(await _send_celebration_email(t, c, field, subject_tpl, offer, book_url))
     sent = sum(1 for r in results if r["sent"])
     return {"date": ist.strftime("%Y-%m-%d"), "sent": sent, "failed": len(results) - sent, "results": results}
 

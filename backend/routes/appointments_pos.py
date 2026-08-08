@@ -440,40 +440,66 @@ async def delete_open_invoice(iid: str, user=Depends(require_tenant_admin)):
     return {"ok": True, "invoice_no": inv.get("invoice_no")}
 
 
+def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) -> dict:
+    import re as _re
+    from routes.gift_cards import _gc_settings
+    meta = it.get("gift_meta") or {}
+    amt = round(float(it.get("price") or 0) * int(it.get("qty") or 1), 2)
+    now = datetime.now(timezone.utc).isoformat()
+    return {"id": str(uuid.uuid4()), "tenant_id": tenant_doc["id"],
+            "tenant_slug": tenant_doc.get("slug") or "",
+            "code": "", "occasion": meta.get("occasion") or "just-because",
+            "amount": amt, "balance": amt, "currency": tenant_doc.get("currency") or "INR",
+            "buyer_name": (meta.get("buyer_name") or cust.get("name") or "")[:80],
+            "buyer_email": (meta.get("buyer_email") or cust.get("email") or "").lower(),
+            "buyer_phone": _re.sub(r"\D", "", str(meta.get("buyer_phone") or cust.get("phone") or ""))[:15],
+            "recipient_name": (meta.get("recipient_name") or "")[:80],
+            "recipient_email": (meta.get("recipient_email") or "").strip().lower(),
+            "recipient_whatsapp": _re.sub(r"\D", "", str(meta.get("recipient_whatsapp") or ""))[:15],
+            "message": (meta.get("message") or "")[:400], "send_on": meta.get("send_on") or "",
+            "pay_method": "pos", "status": "pending_payment",
+            "validity_days": _gc_settings(tenant_doc)["validity_days"],
+            "created_at": now, "paid_at": now, "pos_invoice_id": inv["id"]}
+
+
 async def _issue_pos_gift_cards(inv: dict, cust: dict, tenant_doc: dict) -> list:
     """Gift cards sold as POS line items are issued only once the bill is PAID."""
-    import re as _re
     from database import _raw_db
-    from routes.gift_cards import _issue_gift_card, _gc_settings
+    from routes.gift_cards import _issue_gift_card
     issued = []
     for it in inv.get("items", []):
         if it.get("type") != "gift_card":
             continue
-        meta = it.get("gift_meta") or {}
-        amt = round(float(it.get("price") or 0) * int(it.get("qty") or 1), 2)
-        now = datetime.now(timezone.utc).isoformat()
-        gc = {"id": str(uuid.uuid4()), "tenant_id": tenant_doc["id"],
-              "tenant_slug": tenant_doc.get("slug") or "",
-              "code": "", "occasion": meta.get("occasion") or "just-because",
-              "amount": amt, "balance": amt, "currency": tenant_doc.get("currency") or "INR",
-              "buyer_name": (meta.get("buyer_name") or cust.get("name") or "")[:80],
-              "buyer_email": (meta.get("buyer_email") or cust.get("email") or "").lower(),
-              "buyer_phone": _re.sub(r"\D", "", str(meta.get("buyer_phone") or cust.get("phone") or ""))[:15],
-              "recipient_name": (meta.get("recipient_name") or "")[:80],
-              "recipient_email": (meta.get("recipient_email") or "").strip().lower(),
-              "recipient_whatsapp": _re.sub(r"\D", "", str(meta.get("recipient_whatsapp") or ""))[:15],
-              "message": (meta.get("message") or "")[:400], "send_on": meta.get("send_on") or "",
-              "pay_method": "pos", "status": "pending_payment",
-              "validity_days": _gc_settings(tenant_doc)["validity_days"],
-              "created_at": now, "paid_at": now, "pos_invoice_id": inv["id"]}
+        gc = _gift_card_doc_from_item(it, cust, tenant_doc, inv)
         await _raw_db.gift_cards.insert_one({**gc})
         out = await _issue_gift_card(gc["id"])
         issued.append({"code": out.get("code") or "", "status": out.get("status"),
                        "recipient_name": gc["recipient_name"],
-                       "whatsapp_url": out.get("whatsapp_url") or "", "amount": amt})
+                       "whatsapp_url": out.get("whatsapp_url") or "", "amount": gc["amount"]})
     if issued:
         await db.invoices.update_one({"id": inv["id"]}, {"$set": {"gift_cards_issued": issued}})
     return issued
+
+
+async def _reserve_wallet_credit(body, cust: dict, inv: dict, total: float) -> float:
+    """Validate & mark partial wallet credit on the invoice (deducted after insert)."""
+    if body.payment_mode == "salon_wallet" or float(body.wallet_apply or 0) <= 0:
+        return 0.0
+    wallet_apply = round(min(float(body.wallet_apply), total), 2)
+    bal = float(cust.get("wallet_balance") or 0)
+    if bal < wallet_apply:
+        raise HTTPException(400, f"Wallet has only ₹{bal:.0f} — can't apply ₹{wallet_apply:.0f}")
+    inv["wallet_applied"] = wallet_apply
+    return wallet_apply
+
+
+async def _deduct_wallet_credit(cust: dict, inv: dict, wallet_apply: float, payment_mode: str):
+    await db.customers.update_one({"id": cust["id"]}, {"$inc": {"wallet_balance": -wallet_apply}})
+    await db.wallet_txns.insert_one({
+        "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
+        "type": "redeem", "credit": -wallet_apply,
+        "label": f"Applied on bill {inv['invoice_no']} (rest via {payment_mode})",
+        "invoice_id": inv["id"], "created_at": datetime.now(timezone.utc).isoformat()})
 
 
 @router.post("/invoices")
@@ -501,25 +527,14 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         inv["status"] = "open"
         await db.invoices.insert_one(inv)
         return _clean(inv)
-    wallet_apply = 0.0
-    if body.payment_mode != "salon_wallet" and float(body.wallet_apply or 0) > 0:
-        wallet_apply = round(min(float(body.wallet_apply), totals["total"]), 2)
-        bal = float(cust.get("wallet_balance") or 0)
-        if bal < wallet_apply:
-            raise HTTPException(400, f"Wallet has only ₹{bal:.0f} — can't apply ₹{wallet_apply:.0f}")
-        inv["wallet_applied"] = wallet_apply
+    wallet_apply = await _reserve_wallet_credit(body, cust, inv, totals["total"])
     if body.gift_card_code:
         await _apply_gift_card(inv, body.gift_card_code, ctx["tenant_doc"]["id"], totals["total"])
     await db.invoices.insert_one(inv)
 
     await _handle_wallet_payment(body, cust, inv, totals["total"], "redeem")
     if wallet_apply:
-        await db.customers.update_one({"id": cust["id"]}, {"$inc": {"wallet_balance": -wallet_apply}})
-        await db.wallet_txns.insert_one({
-            "id": str(uuid.uuid4()), "customer_id": cust["id"], "customer_name": cust["name"],
-            "type": "redeem", "credit": -wallet_apply,
-            "label": f"Applied on bill {inv['invoice_no']} (rest via {body.payment_mode})",
-            "invoice_id": inv["id"], "created_at": datetime.now(timezone.utc).isoformat()})
+        await _deduct_wallet_credit(cust, inv, wallet_apply, body.payment_mode)
 
     points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"])
     await _process_benefit_items(inv, cust)

@@ -38,6 +38,24 @@ class LoginIn(BaseModel):
 GRACE_DAYS = 60  # HQ courtesy window after expiry before login is blocked
 
 
+def _subscription_deadline(t: dict) -> Optional[date]:
+    """Last allowed login day: subscription/trial end + grace days (or explicit grace_until)."""
+    end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
+    if not end:
+        return None
+    try:
+        end_d = date.fromisoformat(str(end)[:10])
+    except ValueError:
+        return None
+    limit = end_d + timedelta(days=GRACE_DAYS)
+    if t.get("grace_until"):
+        try:
+            limit = max(limit, date.fromisoformat(str(t["grace_until"])[:10]))
+        except ValueError:
+            pass
+    return limit
+
+
 async def _subscription_gate(user: dict) -> None:
     """Block login for salons whose subscription/trial expired beyond the grace window."""
     if user.get("role") == "super_admin" or not user.get("tenant_id"):
@@ -48,24 +66,13 @@ async def _subscription_gate(user: dict) -> None:
          "trial_ends_at": 1, "grace_until": 1})
     if not t:
         return
-    expired_msg = ("Your subscription has expired. Please contact the Miracurl team "
-                   "to renew and reactivate your salon.")
     if t.get("status") == "suspended":
-        raise HTTPException(403, expired_msg)
-    end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
-    if not end:
-        return
-    try:
+        raise HTTPException(403, "Your subscription has expired. Please contact the Miracurl team "
+                                 "to renew and reactivate your salon.")
+    limit = _subscription_deadline(t)
+    if limit and date.today() > limit:
+        end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
         end_d = date.fromisoformat(str(end)[:10])
-    except ValueError:
-        return
-    limit = end_d + timedelta(days=GRACE_DAYS)
-    if t.get("grace_until"):
-        try:
-            limit = max(limit, date.fromisoformat(str(t["grace_until"])[:10]))
-        except ValueError:
-            pass
-    if date.today() > limit:
         raise HTTPException(403, f"Your subscription expired on {end_d.strftime('%d %b %Y')}. "
                                  "Please contact the Miracurl team to renew and reactivate your salon.")
 
