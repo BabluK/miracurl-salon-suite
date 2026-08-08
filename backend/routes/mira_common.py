@@ -107,6 +107,8 @@ async def _gen_image(prompt: str, t: dict, kind: str) -> str:
     data = await _gen_image_bytes(prompt)
     if not data:
         return ""
+    from routes.promo_common import stamp_monogram_bytes
+    data = stamp_monogram_bytes(data)
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/{t['id']}/mira-studio/{kind}/{fid}.png"
     try:

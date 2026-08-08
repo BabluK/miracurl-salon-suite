@@ -1618,3 +1618,8 @@ A) Sensitive-info protection:
 B) Full HD logo (user reported pixelation on zoom, sources were ~600px):
 - Regenerated faithful high-res masters via Gemini image edit from user's exact artwork → white-to-transparent → 2048px masters: brand/emblem-black-disc-hd-2048.png + gold-monogram-hd-2048.png.
 - ALL derived assets rebuilt from HD (site headers, kit icons now 2048-based, PWA, favicons, wallet, watermark, splash, BrandMark). Kit zip now 19MB.
+
+## 2026-08-08 (round 41) — Watermarked AI posters
+- promo_common.py: stamp_monogram(img, opacity=0.5) + stamp_monogram_bytes() — HD gold monogram (frontend/public/assets/brand/gold-monogram-transparent.png) pasted bottom-right at 9% width, 2.5% pad, cached per size.
+- Coverage: mira_common._gen_image (ALL Mira Studio AI images: social posts, GBP offers, etc.) + offer_flyer.py both JPEG composers (offer flyers, about-posters). promo_image.py untouched (already carries brand logo).
+- Tested in-process: gold pixels confirmed bottom-right on JPEG + PNG paths; graceful fallback returns original bytes on failure; backend healthy.

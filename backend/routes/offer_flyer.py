@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from database import _raw_db
 from security import require_tenant_admin, current_tenant
 from services.storage import _put_object, _get_object
-from routes.promo_common import FONT_PATH
+from routes.promo_common import FONT_PATH, stamp_monogram
 
 router = APIRouter()
 log = logging.getLogger("offer_flyer")
@@ -334,7 +334,7 @@ def _compose_flyer(img_bytes: bytes, body: FlyerIn, tpl: dict, t: dict, logo_byt
     _draw_contact_bar(d, tpl, t)
     _draw_logo_badge(img, d, tpl, t, logo_bytes)
     buf = io.BytesIO()
-    img.convert("RGB").save(buf, format="JPEG", quality=90)
+    stamp_monogram(img).convert("RGB").save(buf, format="JPEG", quality=90)
     return buf.getvalue()
 
 
@@ -530,5 +530,5 @@ def _compose_about_poster(hero_bytes: bytes, insets: list[bytes], body: AboutPos
     _draw_contact_bar(d, tpl, t, W=W, H=H, bar_h=bar_h)
     _draw_logo_badge(img, d, tpl, t, logo_bytes, W=W)
     buf = io.BytesIO()
-    img.convert("RGB").save(buf, format="JPEG", quality=90)
+    stamp_monogram(img).convert("RGB").save(buf, format="JPEG", quality=90)
     return buf.getvalue()

@@ -15,6 +15,7 @@ RELEASES = [
             "👤 Meet the Founder section — CEO photo, story and social links on the home page",
             "Super Admin: New 'Website & CEO' tab — edit the public site's contact email, social links and CEO profile; changes go live instantly",
             "🥇 Golden-white locked header on the Staff Verification portal — same premium brand on light pages",
+            "🪙 Brand watermark on AI posters — every AI-generated social post, offer flyer and promo image now carries a subtle gold MS monogram in the corner, so your brand travels with every share",
             "✨ Shining gold logo — the Miracurl Suite wordmark now has a moving metallic shine, and the golden-white header is live on Jobs Board, Salon Finder, Partners, Book-a-Demo and Candidate pages too",
         ],
     },
