@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
-import { MessageCircle, X, Send, Loader2, Sparkles } from "lucide-react";
+import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 import { MIRACURL_SUPPORT_WHATSAPP } from "@/components/ChatButton";
 
 const STORE_KEY = "miracurl_sales_chat";
@@ -72,7 +72,7 @@ export default function SalesChatWidget() {
         aria-label="Ask Mira about Miracurl"
         className="fixed bottom-6 right-6 z-40 flex items-center gap-2 pl-4 pr-5 py-3 rounded-full bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white font-medium text-sm shadow-2xl hover:scale-105 transition-transform"
       >
-        <Sparkles className="w-5 h-5" />
+        <img src="/assets/mira-avatar-gold.png" alt="Mira" className="w-7 h-7 rounded-full object-cover border border-white/50" />
         <span className="hidden sm:inline">Ask Mira ✦</span>
       </button>
 
@@ -80,7 +80,7 @@ export default function SalesChatWidget() {
         <div data-testid="sales-chat-panel" className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[380px] max-h-[70vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-fuchsia-100 overflow-hidden">
           <div className="bg-gradient-to-r from-rose-500 to-fuchsia-600 px-4 py-3 flex items-center justify-between">
             <div>
-              <div className="text-white font-semibold text-sm flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Mira — your salon guide</div>
+              <div className="text-white font-semibold text-sm flex items-center gap-1.5"><img src="/assets/mira-avatar-gold.png" alt="Mira" className="w-6 h-6 rounded-full object-cover border border-white/40" /> Mira — your salon guide</div>
               <div className="text-white/75 text-[11px]">Features · Pricing · Free trial — ask me anything</div>
             </div>
             <button onClick={() => setOpen(false)} data-testid="sales-chat-close" className="text-white/80 hover:text-white"><X className="w-4 h-4" /></button>

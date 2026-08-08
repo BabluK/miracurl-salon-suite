@@ -20,7 +20,7 @@ export default function BrandMark({ variant = "dark", size = "md" }) {
     <div className={`inline-flex items-center ${sizes.gap} select-none brand-mark`} data-testid="brand-mark">
       <div className={`brand-orb ${sizes.pill} relative flex items-center justify-center`}>
         <img
-          src="/brand/miracurl-rosegold-icon.png"
+          src="/assets/brand/ms-ring.png"
           alt="Miracurl"
           className="w-full h-full object-contain drop-shadow-[0_4px_14px_rgba(212,150,120,0.45)]"
           draggable="false"
