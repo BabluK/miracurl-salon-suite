@@ -1662,3 +1662,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - CEO section: bio clamped to 5 lines with "Read full story →"/"Show less ↑" toggle (ceo-read-more). Verified on /about-us.
 - Golden robot Mira image (asset 7qb69xiy, 451x451) saved over /assets/mira-avatar-gold.png → auto-applies to Ask Mira widget (all public pages) AND Need-help callback card. Verified in screenshot.
 - CEO photo still shows crown placeholder until owner uploads photo in Super Admin → Website & CEO.
+
+## 2026-08-08 (round 49) — Stale PWA icon fix (both mobile apps)
+- Root cause: sw.js cache-first served old icons under CACHE "miracurl-v10" forever + Android WebAPK doesn't re-mint icons unless manifest changes.
+- Fix: icon URLs version-stamped ?v=3 in manifest.json, manifest-admin.json + index.html apple-touch/favicon links; sw.js CACHE bumped to miracurl-v11 (activate deletes old caches). Verified manifest serves ?v=3 and icon 200.
+- User must Redeploy; then phones update icon within ~1 day or on app update/reinstall (Android WebAPK re-mint cycle).
