@@ -2,10 +2,25 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-07.63"
-BUILD_TIME = "7 Aug 2026, 4:30 AM IST"
+BUILD = "2026-08-08.64"
+BUILD_TIME = "8 Aug 2026, 11:30 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-08 (Google Wallet cards, open bills & fair attendance ⏰)",
+        "changes": [
+            "📱 Add to Google Wallet — members and gift card holders can now save their card straight into Google Wallet from the purchase page and card emails; it shows up like a real card on their phone",
+            "🧾 Open Bills at POS — started a bill but the guest stepped out? Park it and pull it back anytime; owners also get an unbilled-bills panel in Reports and an automatic end-of-day open-bill alert email",
+            "🎁 Sell gift cards right from the POS billing tab — walk-in buyers can now purchase a gift card at the counter in seconds",
+            "🔔 QR scan sounds at POS — a pleasant chime on a successful member scan and a buzz on an invalid/expired card, so staff never miss a scan result",
+            "📲 Instant renew at POS — when an expired member scans, staff get a one-tap 'WhatsApp renew link' button to send the guest their renewal page immediately",
+            "⏰ Fair late-arrival rules — Mon–Fri check-ins get a 10-minute grace period (no grace on weekends); fines flow automatically into the monthly salary slip",
+            "📧 Weekly Late Arrival Digest — every Monday, owners get a summary of who came late and total fines, each late staff gets their own gentle summary, and the most punctual staff member is celebrated with a 🏆 Punctuality Star shout-out",
+            "↩ Mistake-proof attendance — staff see a confirmation before checking out, admins can undo an accidental check-out, and a wrongly waived late fine can now be un-waived too (owner PIN protected, full audit trail)",
+            "🪪 Role badges everywhere — Super Admin, Manager and Admin labels now show clearly across the console, plus a unified notification feed in the bell dropdown",
+            "🔐 Fingerprint/passkey login fixed for the www domain — re-register your fingerprint once if it was set up earlier",
+        ],
+    },
     {
         "date": "2026-08-07 (QR scan, WhatsApp cards & a stunning membership page 💎)",
         "changes": [

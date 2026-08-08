@@ -1548,3 +1548,9 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - POST /attendance/{rec_id}/undo-waive-fine (require_admin + owner PIN): restores late_penalty from late_penalty_waived, zeroes the waived amount, writes audit trail (waive_undone_by/at). 400 on double-undo/no-waiver.
 - Attendance.jsx: "↩ undo" button next to the "₹X fine waived ✓" badge (data-testid undo-waive-fine-{staff_id}), confirm dialog before restore.
 - Tested E2E via curl w/ cookie auth + owner PIN: restore ₹10 ✓, double-undo 400 ✓, missing PIN → OWNER_PIN_REQUIRED ✓, DB audit fields written ✓. Test records cleaned.
+
+## 2026-08-08 (round 31) — Release notes & deployment tag for latest features
+- Root cause of "changes popup not showing": release_notes.py was never updated after rounds 22-30, so What's New popup showed stale 2026-08-07 build & Super Admin had no new deployment tag.
+- Added RELEASES[0] entry "2026-08-08 (Google Wallet cards, open bills & fair attendance ⏰)" with 10 user-facing changes; bumped BUILD to 2026-08-08.64.
+- Verified: /api/whats-new returns new build + 8 highlights; /api/super/version + /api/super/releases show tag MIRA-DEPLOYED-2026-08-08 (50 releases total). Popup will re-show to all admins (localStorage keyed on build).
+- LEARNING: whenever a deploy-worthy feature lands, append to /app/backend/release_notes.py and bump BUILD — otherwise admins never see it in What's New / Deployments.
