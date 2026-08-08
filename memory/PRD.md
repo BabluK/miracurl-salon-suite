@@ -1626,3 +1626,11 @@ B) Full HD logo (user reported pixelation on zoom, sources were ~600px):
 
 ## 2026-08-08 (round 42) — BrandMark wordmark updated
 - BrandMark.jsx now renders gold-shine "MIRACURL SUITE" + "Smart Salon Management Software" subtitle (was "MIRACURL / AI Salon Suite") — matches the new brand lockup everywhere BrandMark is used (login, sidebars, super admin HQ, PDFs stay separate). Verified via login screenshot, compile clean.
+
+## 2026-08-08 (round 43) — Code review fixes applied
+VERIFIED-STALE findings (no action needed): 52 undefined vars (pyflakes = 0, fixed previously), utils.py:8 `is` operator (not present).
+FIXED:
+- Circular import (real risk): premium_membership.py top-level import from gift_cards → extracted _gc_settings/_pay_keys/_tenant_by_slug/_upi_qr_b64 into NEW services/gift_card_service.py; gift_cards.py re-exports for compat (appointments_pos lazy imports still work). pay_links↔payments_intl are function-level (lazy) both ways — no import-time cycle, left as-is.
+- Complexity refactors (behavior-identical): eod_digests._run_late_arrival_digests → _aggregate_late/_find_punctuality_star/_send_owner_late_digest/_send_staff_late_digests; appointments_pos._issue_pos_gift_cards → _gift_card_doc_from_item; create_invoice wallet block → _reserve_wallet_credit/_deduct_wallet_credit; auth._subscription_gate → _subscription_deadline helper; crm._run_birthday_emails → _send_celebration_email/_active_member_card; _member_birthday_html → _benefit_chips; gift_cards.gift_card_preview_email → _absolute_logo/_preview_gift_card.
+SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (signature change across many call sites in production = regression risk >> value); briefings/gallery/hq_documents module splits (churn, no behavior gain).
+- Tested: iteration_102.json — 13/13 backend regression assertions PASS (login gate, invoices open/paid/400s, POS gift card issue, gift card public config/preview, membership config, late digest, birthday emails, wallet pass). Reusable smoke test at backend/tests/test_iter102_refactor_regression.py.

@@ -442,7 +442,7 @@ async def delete_open_invoice(iid: str, user=Depends(require_tenant_admin)):
 
 def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) -> dict:
     import re as _re
-    from routes.gift_cards import _gc_settings
+    from services.gift_card_service import _gc_settings
     meta = it.get("gift_meta") or {}
     amt = round(float(it.get("price") or 0) * int(it.get("qty") or 1), 2)
     now = datetime.now(timezone.utc).isoformat()
