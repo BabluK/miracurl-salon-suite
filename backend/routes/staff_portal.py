@@ -379,6 +379,22 @@ async def waive_late_fine(rec_id: str, body: WaiveFineIn, admin=Depends(require_
     return {"ok": True, "waived_amount": fine}
 
 
+@router.post("/attendance/{rec_id}/undo-waive-fine")
+async def undo_waive_late_fine(rec_id: str, admin=Depends(require_admin), _pin=Depends(require_owner_pin)):
+    """Undo a mistaken fine waiver — restores the original late fine."""
+    rec = await db.attendance.find_one({"id": rec_id}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Attendance record not found")
+    waived = float(rec.get("late_penalty_waived") or 0)
+    if waived <= 0:
+        raise HTTPException(400, "No waived fine on this record")
+    await db.attendance.update_one({"id": rec_id}, {"$set": {
+        "late_penalty": waived, "late_penalty_waived": 0.0,
+        "waive_undone_by": admin.get("email"),
+        "waive_undone_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "restored_amount": waived}
+
+
 @router.post("/attendance/{rec_id}/waive-half-day")
 async def waive_half_day(rec_id: str, body: WaiveFineIn, admin=Depends(require_admin), _pin=Depends(require_owner_pin)):
     """Correct a wrongly-applied half-day mark — clears the deduction, keeps an audit trail."""

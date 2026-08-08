@@ -1543,3 +1543,8 @@ Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (
 - Bug fixed: previous session added star_html block + star param to _late_digest_html but (1) never interpolated {star_html} into the email template and (2) never computed/passed the star from _run_late_arrival_digests.
 - Fix: star = staff with attendance records this week AND zero late records (most days worked wins), rendered as green "🏆 Punctuality Star of the week" card above the late table in the OWNER digest.
 - Tested in-process (patched _send_email, seeded late records): "Punctuality Star of the week: Anjali Mehta — on time all 5 days they worked" rendered correctly; endpoint /reports/late-arrival-digest/send-now healthy (401 unauth as expected); backend RUNNING.
+
+## 2026-08-08 (round 30) — Undo fine waiver
+- POST /attendance/{rec_id}/undo-waive-fine (require_admin + owner PIN): restores late_penalty from late_penalty_waived, zeroes the waived amount, writes audit trail (waive_undone_by/at). 400 on double-undo/no-waiver.
+- Attendance.jsx: "↩ undo" button next to the "₹X fine waived ✓" badge (data-testid undo-waive-fine-{staff_id}), confirm dialog before restore.
+- Tested E2E via curl w/ cookie auth + owner PIN: restore ₹10 ✓, double-undo 400 ✓, missing PIN → OWNER_PIN_REQUIRED ✓, DB audit fields written ✓. Test records cleaned.

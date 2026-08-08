@@ -78,6 +78,18 @@ export default function Attendance() {
     }
   }
 
+  async function undoWaiveFine(r) {
+    if (!r.record_id) return;
+    if (!window.confirm(`Undo the waiver and restore the ₹${r.late_penalty_waived} fine for ${r.name}?`)) return;
+    try {
+      await pinApi.post(`/attendance/${r.record_id}/undo-waive-fine`);
+      toast.success(`₹${r.late_penalty_waived} fine restored for ${r.name}`);
+      load();
+    } catch (e) {
+      toast.error(formatApiError(e.response?.data?.detail) || "Couldn't undo waiver");
+    }
+  }
+
   async function waiveHalfDay(r) {
     if (!r.record_id) return;
     const note = window.prompt(`Waive the ½-day mark (−₹${r.half_day_deduction}) for ${r.name}? Add a short reason:`, "Applied by mistake");
@@ -288,7 +300,15 @@ export default function Attendance() {
                         </span>
                       )}
                       {r.late_penalty_waived > 0 && !(r.late_penalty > 0) && (
-                        <span className="text-emerald-600" data-testid={`fine-waived-${r.staff_id}`}>₹{r.late_penalty_waived} fine waived ✓</span>
+                        <span className="text-emerald-600 flex items-center gap-1.5" data-testid={`fine-waived-${r.staff_id}`}>
+                          ₹{r.late_penalty_waived} fine waived ✓
+                          <button
+                            data-testid={`undo-waive-fine-${r.staff_id}`}
+                            title="Undo this waiver (restore the fine)"
+                            onClick={() => undoWaiveFine(r)}
+                            className="text-[9px] uppercase px-1.5 py-0.5 rounded border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-300"
+                          >↩ undo</button>
+                        </span>
                       )}
                       {r.overtime_pay > 0 && (
                         <span className="text-emerald-600" data-testid={`ot-pay-${r.staff_id}`}>+₹{r.overtime_pay} OT ({r.overtime_hours}h)</span>
