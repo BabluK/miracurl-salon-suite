@@ -390,6 +390,71 @@ async def public_rate_track(slug: str, request: Request):
     return {"ok": True}
 
 
+# ---------------- Google reviews (live, via Places API) ----------------
+_GPLACES_FIELDS = ("rating,userRatingCount,googleMapsUri,displayName,"
+                   "reviews.rating,reviews.text,reviews.originalText,"
+                   "reviews.authorAttribution,reviews.relativePublishTimeDescription,reviews.publishTime")
+
+
+async def _resolve_google_place_id(t: dict, key: str) -> str | None:
+    import httpx
+    query = " ".join(x for x in [t.get("name"), t.get("location")] if x)
+    async with httpx.AsyncClient(timeout=20) as c:
+        r = await c.post(
+            "https://places.googleapis.com/v1/places:searchText",
+            headers={"X-Goog-Api-Key": key,
+                     "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress"},
+            json={"textQuery": query, "maxResultCount": 1})
+        places = (r.json() or {}).get("places") or []
+    return places[0]["id"] if places else None
+
+
+@router.get("/reviews/google")
+async def google_reviews(refresh: int = 0, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Live Google rating + the (up to 5) most-relevant Google reviews for this salon.
+    Cached 6h on the tenant doc; ?refresh=1 forces a refetch (and re-resolves the place)."""
+    import httpx
+    key = os.environ.get("GOOGLE_MAPS_API_KEY")
+    if not key:
+        raise HTTPException(400, "Google Maps API key not configured")
+    cache = t.get("google_reviews_cache") or {}
+    if cache.get("fetched_at") and not refresh:
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(cache["fetched_at"])).total_seconds()
+        if age < 6 * 3600:
+            return cache
+    place_id = None if refresh else (t.get("google_place_id") or "").strip() or None
+    if not place_id:
+        place_id = await _resolve_google_place_id(t, key)
+        if not place_id:
+            raise HTTPException(404, "Couldn't find your salon on Google Maps — check the salon name & location in Settings match your Google Business listing")
+        await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"google_place_id": place_id}})
+    async with httpx.AsyncClient(timeout=20) as c:
+        r = await c.get(
+            f"https://places.googleapis.com/v1/places/{place_id}",
+            headers={"X-Goog-Api-Key": key, "X-Goog-FieldMask": _GPLACES_FIELDS})
+    if r.status_code != 200:
+        logging.warning(f"google reviews fetch failed: {r.status_code} {r.text[:200]}")
+        raise HTTPException(400, "Google didn't return reviews — try Refresh in a minute")
+    p = r.json() or {}
+    payload = {
+        "place_name": (p.get("displayName") or {}).get("text"),
+        "rating": p.get("rating"),
+        "total_ratings": p.get("userRatingCount") or 0,
+        "maps_url": p.get("googleMapsUri") or "",
+        "reviews": [{
+            "author": (rv.get("authorAttribution") or {}).get("displayName") or "Google user",
+            "photo": (rv.get("authorAttribution") or {}).get("photoUri") or "",
+            "rating": rv.get("rating"),
+            "text": ((rv.get("text") or rv.get("originalText") or {}).get("text") or "")[:800],
+            "when": rv.get("relativePublishTimeDescription") or "",
+            "publish_time": rv.get("publishTime") or "",
+        } for rv in (p.get("reviews") or [])],
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"google_reviews_cache": payload}})
+    return payload
+
+
 @router.get("/reviews/qr-funnel")
 async def qr_funnel_stats(days: int = 30, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     since = (datetime.now(timezone.utc) - timedelta(days=min(days, 365))).isoformat()

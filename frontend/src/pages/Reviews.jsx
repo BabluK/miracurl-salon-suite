@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
-import { Star, Eye, EyeOff, Trash2, MessageSquare, Sparkles, Copy, Loader2 } from "lucide-react";
+import { Star, Eye, EyeOff, Trash2, MessageSquare, Sparkles, Copy, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { ReviewRequestsCard } from "@/components/ReviewRequestsCard";
 import { ComplaintsPanel } from "@/components/ComplaintsPanel";
@@ -85,6 +85,97 @@ function StarRow({ rating }) {
   );
 }
 
+function GoogleG({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} viewBox="0 0 48 48">
+      <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.5 6.1 29.5 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/>
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+      <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C41.4 34.9 44 29.9 44 24c0-1.3-.1-2.6-.4-3.9z"/>
+    </svg>
+  );
+}
+
+function GoogleReviewsCard() {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(true);
+
+  const fetchGoogle = useCallback(async (refresh = false) => {
+    setBusy(true);
+    setErr("");
+    try {
+      const { data: d } = await api.get(`/reviews/google${refresh ? "?refresh=1" : ""}`);
+      setData(d);
+    } catch (e) {
+      setErr(e.response?.data?.detail || "Couldn't reach Google");
+    } finally { setBusy(false); }
+  }, []);
+  useEffect(() => { fetchGoogle(); }, [fetchGoogle]);
+
+  return (
+    <div className="card-light" data-testid="google-reviews-card">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+        <div className="flex items-center gap-2">
+          <GoogleG className="w-5 h-5" />
+          <div className="label-light">Live Google Reviews</div>
+        </div>
+        <div className="flex items-center gap-2">
+          {data?.maps_url && (
+            <a href={data.maps_url} target="_blank" rel="noreferrer" className="text-[11px] text-sky-600 hover:underline" data-testid="google-maps-link">
+              View all on Google →
+            </a>
+          )}
+          <button onClick={() => fetchGoogle(true)} disabled={busy} data-testid="google-reviews-refresh"
+            className="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-1 disabled:opacity-50">
+            {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Refresh
+          </button>
+        </div>
+      </div>
+      {busy && !data && <p className="text-xs text-slate-400 py-4">Fetching your live Google rating…</p>}
+      {err && !data && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2" data-testid="google-reviews-error">
+          {err}
+        </div>
+      )}
+      {data && (
+        <>
+          <div className="flex items-end gap-3 mt-2">
+            <span className="font-playfair text-4xl text-slate-800" data-testid="google-rating-value">{data.rating ?? "—"}</span>
+            <StarRow rating={Math.round(data.rating || 0)} />
+            <span className="text-xs text-slate-500 mb-1">{data.total_ratings} Google rating{data.total_ratings !== 1 ? "s" : ""} · {data.place_name}</span>
+          </div>
+          {data.reviews?.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mt-4">
+              {data.reviews.map((rv, i) => (
+                <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3" data-testid={`google-review-${i}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {rv.photo
+                        ? <img src={rv.photo} alt="" className="w-7 h-7 rounded-full" referrerPolicy="no-referrer" />
+                        : <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[11px] font-semibold text-slate-600">{rv.author.charAt(0)}</div>}
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium truncate">{rv.author}</div>
+                        <div className="text-[10px] text-slate-400">{rv.when}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <StarRow rating={rv.rating || 0} />
+                      <GoogleG className="w-3 h-3" />
+                    </div>
+                  </div>
+                  {rv.text && <p className="text-xs text-slate-600 mt-2 line-clamp-4 italic">&ldquo;{rv.text}&rdquo;</p>}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-slate-400 mt-3">Google shares its overall rating plus the 5 most relevant reviews via API — tap &ldquo;View all on Google&rdquo; for the full list.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Reviews() {
   const [list, setList] = useState([]);
   const [filter, setFilter] = useState("all"); // all | 5 | 4 | 1-3
@@ -129,6 +220,8 @@ export default function Reviews() {
       </div>
 
       <ReviewRequestsCard />
+
+      <GoogleReviewsCard />
 
       {/* QR tent-card funnel */}
       {funnel && (
@@ -188,7 +281,9 @@ export default function Reviews() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100 inline-flex">
+      <div>
+        <div className="label-light mb-2">In-app reviews · collected via your QR tent card scans &amp; post-visit review links</div>
+        <div className="flex gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100 inline-flex">
         {[
           { k: "all", l: "All" },
           { k: "5", l: "★ 5" },
@@ -202,6 +297,7 @@ export default function Reviews() {
             className={`px-4 py-1.5 text-xs rounded-md transition ${filter === t.k ? "bg-sky-500 text-white font-semibold" : "text-slate-500 hover:text-slate-900 hover:bg-white"}`}
           >{t.l}</button>
         ))}
+        </div>
       </div>
 
       {/* List */}

@@ -1724,3 +1724,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Auto-welcome-email now fires on: POST /managers (create), POST /managers/{uid}/reset, POST /staff/{sid}/promote (created mode). All return welcome_email_sent/welcome_email_error.
 - ManagersSection.jsx + PromoteModal.jsx pass email_sent into TempCredModal (green sent banner / amber manual-share warning).
 - Verified via curl: create manager + reset both welcome_email_sent=true. Test data cleaned.
+
+## Session 2026-06 (fork) — Live Google Reviews on Reviews page
+- Clarified: existing "Guest" reviews are NOT dummy — real submissions from QR walk-up rating (/rate/{slug} → public_rate_submit) and post-visit review links. QR-scan ratings already land on the Reviews page.
+- NEW `GET /api/reviews/google` (reviews.py): auto-resolves tenant's Google Place via Places API searchText (name+location, stores tenant.google_place_id), fetches rating/userRatingCount/googleMapsUri + up to 5 most-relevant reviews. Cached 6h in tenant.google_reviews_cache; ?refresh=1 re-resolves. Uses existing GOOGLE_MAPS_API_KEY.
+- Reviews.jsx: new GoogleReviewsCard (Google G badge, live rating + count, reviewer photos, per-review stars, "View all on Google" link, Refresh). In-app list labeled "collected via QR tent card scans & post-visit review links".
+- Verified: curl returned real "Miracurl Unisex Saloon" 4.5★/191 ratings; Playwright screenshot confirmed card renders.
