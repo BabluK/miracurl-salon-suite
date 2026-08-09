@@ -1738,3 +1738,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Salary: _compute_salary_for_month sums review_bonuses for month → review_bonus_total/count, added to net_payable; pdf.py salary slip shows "5-star review bonus (N review(s))" line.
 - NoticePopup.jsx: review_bonus kind → "Congratulations!" celebration header (Star icon) + Mira SPEAKS the message via speechSynthesis (en-IN), cancelled on dismiss.
 - Tested via curl/scripts + screenshots: config save, 5★ → bonus row + notice text, salary PDF line present, alerts baseline/idempotent/simulated-new-low-star → notice+email, popup UI screenshot OK. Test data cleaned (incl. a test invoice without 'total' that briefly 500'd /reports/dashboard — deleted, endpoint 200 again).
+
+## Session 2026-06 (fork) — Week-off clarity on booking page
+- User asked why staff showed "weekly off": data-driven (staff.week_off_day matches selected date's weekday). Booking date defaults to TOMORROW, so badges on the stylist step reflect tomorrow — explained to user.
+- BookPublic.steps.jsx StaffStep: off badge now names the day — "🏖️ Weekly off (Monday)"; bookable staff with a configured off-day show a small "Week off · Wednesday" hint under specialties (data-testid staff-week-off-day-{id}). Verified via Playwright DOM dump.

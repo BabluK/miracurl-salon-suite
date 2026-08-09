@@ -194,7 +194,8 @@ export function StaffStep({ staff, staffId, onPick, date }) {
         {staff.map(s => {
           const onLeave = (s.leaves || []).some(l => l.from <= day && day <= l.to);
           const offToday = onLeave || (s.week_off_day || "").toLowerCase() === weekday;
-          const offLabel = onLeave ? "🌴 On leave" : "🏖️ Weekly off";
+          const offDayName = s.week_off_day ? s.week_off_day.charAt(0).toUpperCase() + s.week_off_day.slice(1).toLowerCase() : "";
+          const offLabel = onLeave ? `🌴 On leave ${date ? "on this day" : "today"}` : `🏖️ Weekly off (${offDayName})`;
           return (
           <button
             key={s.id}
@@ -207,13 +208,20 @@ export function StaffStep({ staff, staffId, onPick, date }) {
             <div className="font-playfair text-xl mt-3">{s.name}</div>
             <p className="text-[10px] uppercase tracking-[0.2em] text-gold mt-1">{s.role}</p>
             {offToday ? (
-              <span className="inline-block mt-2 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-white/70" data-testid={`staff-week-off-${s.id}`}>{offLabel} {date ? "on this day" : "today"}</span>
+              <span className="inline-block mt-2 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/10 border border-white/20 text-white/70" data-testid={`staff-week-off-${s.id}`}>{offLabel}</span>
             ) : (
-              <div className="flex flex-wrap gap-1 justify-center mt-2">
-                {(s.specialties || []).slice(0, 3).map(sp => (
-                  <span key={sp} className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded">{sp}</span>
-                ))}
-              </div>
+              <>
+                <div className="flex flex-wrap gap-1 justify-center mt-2">
+                  {(s.specialties || []).slice(0, 3).map(sp => (
+                    <span key={sp} className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded">{sp}</span>
+                  ))}
+                </div>
+                {offDayName && (
+                  <p className="text-[9px] uppercase tracking-[0.15em] text-ink-secondary mt-2" data-testid={`staff-week-off-day-${s.id}`}>
+                    Week off · {offDayName}
+                  </p>
+                )}
+              </>
             )}
           </button>
           );
