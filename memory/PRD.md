@@ -1718,3 +1718,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - `POST /staff/{sid}/create-login` and `/staff/{sid}/reset-login` now auto-email the staff their login email + one-time password (best-effort via `_send_staff_welcome`); responses include `welcome_email_sent` / `welcome_email_error`.
 - TempCredModal shows green "welcome email sent to X" banner on success, amber share-it-manually warning on failure. Copy/WhatsApp buttons unchanged as backup.
 - Verified via curl: both endpoints returned welcome_email_sent=true (Resend delivered@resend.dev). Test data cleaned up.
+
+## Session 2026-06 (fork) — Manager Welcome Email
+- `staff_welcome_email_html()` + `_send_staff_welcome()` gained `role_label` param ("staff"/"manager").
+- Auto-welcome-email now fires on: POST /managers (create), POST /managers/{uid}/reset, POST /staff/{sid}/promote (created mode). All return welcome_email_sent/welcome_email_error.
+- ManagersSection.jsx + PromoteModal.jsx pass email_sent into TempCredModal (green sent banner / amber manual-share warning).
+- Verified via curl: create manager + reset both welcome_email_sent=true. Test data cleaned.

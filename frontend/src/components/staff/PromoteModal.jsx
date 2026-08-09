@@ -20,7 +20,7 @@ export function PromoteModal({ staff, onClose, onDone }) {
     try {
       const { data } = await pinApi.post(`/staff/${staff.id}/promote`, { email: email.trim() || null, branch });
       if (data.mode === "created") {
-        onDone({ name: staff.name, phone: staff.phone, email: data.email, temp_password: data.temp_password });
+        onDone({ name: staff.name, phone: staff.phone, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
         toast.success(`👑 ${staff.name} is now a Manager — share the one-time password`);
       } else {
         onDone(null);

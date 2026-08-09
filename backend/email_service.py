@@ -101,7 +101,8 @@ def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> 
     </div>"""
 
 
-def staff_welcome_email_html(staff_name: str, salon_name: str, login_email: str, temp_pw: str) -> str:
+def staff_welcome_email_html(staff_name: str, salon_name: str, login_email: str, temp_pw: str,
+                             role_label: str = "staff") -> str:
     staff_name, salon_name, login_email, temp_pw = (html_lib.escape(staff_name or "there"),
                                                     html_lib.escape(salon_name or "your salon"),
                                                     html_lib.escape(login_email or ""),
@@ -111,11 +112,11 @@ def staff_welcome_email_html(staff_name: str, salon_name: str, login_email: str,
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:26px 30px">
         <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
-        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Your staff login is ready</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Your {html_lib.escape(role_label)} login is ready</div>
       </div>
       <div style="padding:28px 30px;color:#333">
         <p>Hi <b>{staff_name}</b> 👋</p>
-        <p><b>{salon_name}</b> has created your Miracurl staff account. Use the one-time password below to sign in — you'll set your own password on first login.</p>
+        <p><b>{salon_name}</b> has created your Miracurl {html_lib.escape(role_label)} account. Use the one-time password below to sign in — you'll set your own password on first login.</p>
         <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:15px">
           👤 <b>Login email:</b> {login_email}<br/><br/>
           🔑 <b>One-time password:</b> <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:3px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{temp_pw}</span>

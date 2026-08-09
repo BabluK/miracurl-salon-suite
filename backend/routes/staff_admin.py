@@ -606,12 +606,13 @@ async def create_staff_login(
     }
 
 
-async def _send_staff_welcome(staff_name: str, salon_name: str, email: str, temp_pw: str) -> dict:
+async def _send_staff_welcome(staff_name: str, salon_name: str, email: str, temp_pw: str,
+                              role_label: str = "staff") -> dict:
     from email_service import staff_welcome_email_html
     try:
         return await _send_email(
-            [email], f"Your {salon_name or 'Miracurl'} staff login is ready ✦",
-            staff_welcome_email_html(staff_name, salon_name, email, temp_pw))
+            [email], f"Your {salon_name or 'Miracurl'} {role_label} login is ready ✦",
+            staff_welcome_email_html(staff_name, salon_name, email, temp_pw, role_label))
     except Exception as e:  # noqa: BLE001 — credentials shown in-app either way
         logging.warning(f"staff welcome email failed: {e}")
         return {"sent": False, "error": str(e)[:200]}
@@ -692,8 +693,10 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
     ).model_dump()
     staff_doc["branch"] = "" if body.branch.strip() == "__main__" else body.branch.strip()
     await db.staff.insert_one(staff_doc)
+    mail = await _send_staff_welcome(new_user["name"], t.get("name"), body.email, temp_pw, "manager")
     return {"ok": True, "id": new_user["id"], "email": body.email, "name": new_user["name"],
-            "temp_password": temp_pw, "must_change_password": True}
+            "temp_password": temp_pw, "must_change_password": True,
+            "welcome_email_sent": mail.get("sent", False), "welcome_email_error": mail.get("error")}
 
 class ManagerBranchIn(BaseModel):
     branch: str = Field("", max_length=120)
@@ -757,7 +760,9 @@ async def promote_staff(sid: str, body: PromoteIn, admin=Depends(require_tenant_
     if branch:
         upd["branch"] = branch
     await db.staff.update_one({"id": sid}, {"$set": upd})
-    return {"ok": True, "mode": "created", "email": email, "temp_password": temp_pw, "branch": branch}
+    mail = await _send_staff_welcome(new_user["name"], t.get("name"), email, temp_pw, "manager")
+    return {"ok": True, "mode": "created", "email": email, "temp_password": temp_pw, "branch": branch,
+            "welcome_email_sent": mail.get("sent", False), "welcome_email_error": mail.get("error")}
 
 
 @router.post("/managers/{uid}/demote")
@@ -779,7 +784,7 @@ async def demote_manager(uid: str, admin=Depends(require_tenant_admin),
 
 @router.post("/managers/{uid}/reset")
 async def reset_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    u = await _raw_db.users.find_one({"id": uid, "tenant_id": t["id"], "role": "manager"}, {"_id": 0, "email": 1})
+    u = await _raw_db.users.find_one({"id": uid, "tenant_id": t["id"], "role": "manager"}, {"_id": 0, "email": 1, "name": 1})
     if not u:
         raise HTTPException(404, "Manager not found")
     temp_pw = _generate_temp_password()
@@ -787,7 +792,9 @@ async def reset_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends
         {"id": uid},
         {"$set": {"password_hash": hash_pw(temp_pw), "must_change_password": True, "disabled": False, "status": "active",
                   "password_changed_at": datetime.now(timezone.utc).isoformat()}})
-    return {"ok": True, "email": u["email"], "temp_password": temp_pw, "must_change_password": True}
+    mail = await _send_staff_welcome(u.get("name"), t.get("name"), u["email"], temp_pw, "manager")
+    return {"ok": True, "email": u["email"], "temp_password": temp_pw, "must_change_password": True,
+            "welcome_email_sent": mail.get("sent", False), "welcome_email_error": mail.get("error")}
 
 @router.delete("/managers/{uid}")
 async def delete_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):

@@ -34,7 +34,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
         monthly_base_salary: Number(form.monthly_base_salary) || 0,
         salary_visible: form.salary_visible,
       });
-      onCredential({ name: data.name, email: data.email, temp_password: data.temp_password });
+      onCredential({ name: data.name, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
       setOpen(false);
       setForm({ name: "", email: "", role: "Manager", phone: "", branch: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true });
       load();
@@ -47,7 +47,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
     if (!window.confirm(`Reset ${m.name}'s password? A new temporary password will be generated.`)) return;
     try {
       const { data } = await api.post(`/managers/${m.id}/reset`);
-      onCredential({ name: m.name, email: data.email, temp_password: data.temp_password });
+      onCredential({ name: m.name, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Reset failed");
     }
