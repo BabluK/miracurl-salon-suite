@@ -4,6 +4,7 @@ import { Star, Eye, EyeOff, Trash2, MessageSquare, Sparkles, Copy, Loader2, Refr
 import { toast } from "sonner";
 import { ReviewRequestsCard } from "@/components/ReviewRequestsCard";
 import { ComplaintsPanel } from "@/components/ComplaintsPanel";
+import { useAuth } from "@/context/AuthContext";
 
 function AiReplyBox({ r, onSaved }) {
   const [draft, setDraft] = useState(r.owner_reply || "");
@@ -176,7 +177,85 @@ function GoogleReviewsCard() {
   );
 }
 
+function ReviewBonusCard() {
+  const [cfg, setCfg] = useState(null);
+  const [bonuses, setBonuses] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.get("/settings/review-bonus").then(r => setCfg(r.data)).catch(() => {});
+    api.get("/reviews/bonuses").then(r => setBonuses(r.data)).catch(() => {});
+  }, []);
+
+  async function save(next) {
+    setSaving(true);
+    try {
+      const { data } = await api.put("/settings/review-bonus", next);
+      setCfg({ enabled: data.enabled, amount: data.amount });
+      toast.success(data.enabled ? `5★ review bonus ON — ₹${data.amount} per review ✦` : "5★ review bonus turned off");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Save failed");
+    } finally { setSaving(false); }
+  }
+
+  if (!cfg) return null;
+  return (
+    <div className="card-light" data-testid="review-bonus-card">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <div className="label-light">5★ Review Bonus for Staff</div>
+          <p className="text-xs text-slate-500 mt-1">Reward your team — every 5★ review naming a stylist adds this amount to their upcoming salary. Mira congratulates them with a popup.</p>
+        </div>
+        <button
+          data-testid="review-bonus-toggle"
+          onClick={() => save({ enabled: !cfg.enabled, amount: cfg.amount || 20 })}
+          disabled={saving}
+          className={`relative w-11 h-6 rounded-full transition-colors ${cfg.enabled ? "bg-emerald-500" : "bg-slate-300"}`}
+          aria-label="Toggle review bonus"
+        >
+          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${cfg.enabled ? "left-[22px]" : "left-0.5"}`} />
+        </button>
+      </div>
+      {cfg.enabled && (
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          {[20, 30, 50].map(a => (
+            <button key={a} data-testid={`review-bonus-preset-${a}`} onClick={() => save({ enabled: true, amount: a })} disabled={saving}
+              className={`px-4 py-1.5 text-xs rounded-full border transition ${cfg.amount === a ? "bg-amber-500 border-amber-500 text-white font-semibold" : "border-slate-200 text-slate-600 hover:bg-amber-50"}`}>
+              ₹{a}
+            </button>
+          ))}
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-slate-400">or custom ₹</span>
+            <input type="number" min="1" max="5000" defaultValue={![20, 30, 50].includes(cfg.amount) ? cfg.amount : ""}
+              data-testid="review-bonus-custom-input"
+              onKeyDown={e => { if (e.key === "Enter" && Number(e.target.value) > 0) save({ enabled: true, amount: Number(e.target.value) }); }}
+              onBlur={e => { const v = Number(e.target.value); if (v > 0 && v !== cfg.amount) save({ enabled: true, amount: v }); }}
+              className="w-20 px-2 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-200" placeholder="amount" />
+          </div>
+        </div>
+      )}
+      {cfg.enabled && bonuses?.rows?.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+            <span>Awarded this month</span>
+            <span className="font-semibold text-amber-600" data-testid="review-bonus-month-total">₹{bonuses.total} total</span>
+          </div>
+          <div className="space-y-1 max-h-36 overflow-y-auto">
+            {bonuses.rows.map(b => (
+              <div key={b.id} className="flex items-center justify-between text-xs bg-amber-50/60 border border-amber-100 rounded-lg px-3 py-1.5">
+                <span><b>{b.staff_name}</b> <span className="text-slate-400">· 5★ from {b.customer_name}</span></span>
+                <span className="text-amber-700 font-semibold shrink-0">+₹{b.amount}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Reviews() {
+  const { user } = useAuth();
   const [list, setList] = useState([]);
   const [filter, setFilter] = useState("all"); // all | 5 | 4 | 1-3
   const [funnel, setFunnel] = useState(null);
@@ -222,6 +301,8 @@ export default function Reviews() {
       <ReviewRequestsCard />
 
       <GoogleReviewsCard />
+
+      {(user?.role === "admin" || user?.role === "super_admin") && <ReviewBonusCard />}
 
       {/* QR tent-card funnel */}
       {funnel && (

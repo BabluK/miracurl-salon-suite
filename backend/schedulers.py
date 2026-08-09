@@ -531,3 +531,17 @@ async def _late_digest_scheduler() -> None:
         except Exception as e:
             logging.error(f"late digest scheduler error: {e}")
         await asyncio.sleep(3600)
+
+
+async def _google_review_alert_scheduler() -> None:
+    """Every 6h: poll Google for new low-star reviews and alert owners (email + in-app notice)."""
+    from routes.reviews import run_google_review_alerts
+    await asyncio.sleep(120)
+    while True:
+        try:
+            out = await run_google_review_alerts()
+            if out.get("alerted"):
+                logging.info(f"Google review alerts: {out}")
+        except Exception as e:
+            logging.error(f"google review alert scheduler error: {e}")
+        await asyncio.sleep(21600)

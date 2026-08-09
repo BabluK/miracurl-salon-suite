@@ -205,6 +205,12 @@ async def public_review(token: str, body: ReviewIn, request: Request):
     ).model_dump()
     await db.reviews.insert_one(review)
 
+    if body.rating == 5 and appt.get("staff_id"):
+        try:
+            await _award_review_bonus(appt, review)
+        except Exception as e:  # noqa: BLE001 — bonus must never block the review
+            logging.error(f"review bonus award failed: {e}")
+
     if body.rating <= 3:
         # Low ratings become a PRIVATE complaint for the owner — never published.
         await db.complaints.insert_one({
@@ -409,24 +415,14 @@ async def _resolve_google_place_id(t: dict, key: str) -> str | None:
     return places[0]["id"] if places else None
 
 
-@router.get("/reviews/google")
-async def google_reviews(refresh: int = 0, user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Live Google rating + the (up to 5) most-relevant Google reviews for this salon.
-    Cached 6h on the tenant doc; ?refresh=1 forces a refetch (and re-resolves the place)."""
+async def _google_fetch_and_cache(t: dict, key: str, re_resolve: bool = False) -> dict:
+    """Fetch + cache live Google reviews for a tenant. Raises ValueError with a user-facing message."""
     import httpx
-    key = os.environ.get("GOOGLE_MAPS_API_KEY")
-    if not key:
-        raise HTTPException(400, "Google Maps API key not configured")
-    cache = t.get("google_reviews_cache") or {}
-    if cache.get("fetched_at") and not refresh:
-        age = (datetime.now(timezone.utc) - datetime.fromisoformat(cache["fetched_at"])).total_seconds()
-        if age < 6 * 3600:
-            return cache
-    place_id = None if refresh else (t.get("google_place_id") or "").strip() or None
+    place_id = None if re_resolve else (t.get("google_place_id") or "").strip() or None
     if not place_id:
         place_id = await _resolve_google_place_id(t, key)
         if not place_id:
-            raise HTTPException(404, "Couldn't find your salon on Google Maps — check the salon name & location in Settings match your Google Business listing")
+            raise ValueError("Couldn't find your salon on Google Maps — check the salon name & location in Settings match your Google Business listing")
         await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"google_place_id": place_id}})
     async with httpx.AsyncClient(timeout=20) as c:
         r = await c.get(
@@ -434,7 +430,7 @@ async def google_reviews(refresh: int = 0, user=Depends(get_current_user), t=Dep
             headers={"X-Goog-Api-Key": key, "X-Goog-FieldMask": _GPLACES_FIELDS})
     if r.status_code != 200:
         logging.warning(f"google reviews fetch failed: {r.status_code} {r.text[:200]}")
-        raise HTTPException(400, "Google didn't return reviews — try Refresh in a minute")
+        raise ValueError("Google didn't return reviews — try Refresh in a minute")
     p = r.json() or {}
     payload = {
         "place_name": (p.get("displayName") or {}).get("text"),
@@ -453,6 +449,150 @@ async def google_reviews(refresh: int = 0, user=Depends(get_current_user), t=Dep
     }
     await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"google_reviews_cache": payload}})
     return payload
+
+
+@router.get("/reviews/google")
+async def google_reviews(refresh: int = 0, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Live Google rating + the (up to 5) most-relevant Google reviews for this salon.
+    Cached 6h on the tenant doc; ?refresh=1 forces a refetch (and re-resolves the place)."""
+    key = os.environ.get("GOOGLE_MAPS_API_KEY")
+    if not key:
+        raise HTTPException(400, "Google Maps API key not configured")
+    cache = t.get("google_reviews_cache") or {}
+    if cache.get("fetched_at") and not refresh:
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(cache["fetched_at"])).total_seconds()
+        if age < 6 * 3600:
+            return cache
+    try:
+        return await _google_fetch_and_cache(t, key, re_resolve=bool(refresh))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+async def run_google_review_alerts() -> dict:
+    """Poll Google for every salon with a resolved place — alert owners about NEW low-star (≤3) reviews.
+    First run per tenant just records a baseline (no alert spam for old reviews)."""
+    key = os.environ.get("GOOGLE_MAPS_API_KEY")
+    if not key:
+        return {"skipped": "no key"}
+    tenants = await _raw_db.tenants.find(
+        {"google_place_id": {"$exists": True, "$nin": [None, ""]}, "status": {"$in": ["active", "trial"]}},
+        {"_id": 0, "id": 1, "name": 1, "owner_email": 1, "google_place_id": 1,
+         "google_seen_reviews": 1, "google_reviews_cache": 1}).to_list(500)
+    alerted = 0
+    for t in tenants:
+        try:
+            payload = await _google_fetch_and_cache(t, key)
+        except Exception as e:  # noqa: BLE001 — one bad tenant must not stop the sweep
+            logging.warning(f"google alert fetch failed for {t.get('name')}: {e}")
+            continue
+        times = [rv["publish_time"] for rv in payload.get("reviews", []) if rv.get("publish_time")]
+        seen = t.get("google_seen_reviews")
+        if seen is None:  # baseline on first sweep
+            await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"google_seen_reviews": times}})
+            continue
+        new_low = [rv for rv in payload.get("reviews", [])
+                   if rv.get("publish_time") and rv["publish_time"] not in seen and (rv.get("rating") or 5) <= 3]
+        if set(times) - set(seen):
+            await _raw_db.tenants.update_one(
+                {"id": t["id"]}, {"$set": {"google_seen_reviews": list(dict.fromkeys(seen + times))[-100:]}})
+        for rv in new_low:
+            await _alert_low_google_review(t, rv, payload)
+            alerted += 1
+    return {"tenants": len(tenants), "alerted": alerted}
+
+
+async def _alert_low_google_review(t: dict, rv: dict, payload: dict) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    excerpt = (rv.get("text") or "").strip()[:180]
+    quoted = f': "{excerpt}"' if excerpt else ""
+    msg = (f"{rv.get('author')} left a {rv.get('rating')}★ review on Google{quoted}. "
+           "Reply quickly to protect your rating — open Reviews → View all on Google.")
+    admins = await _raw_db.users.find(
+        {"tenant_id": t["id"], "role": "admin", "disabled": {"$ne": True}},
+        {"_id": 0, "id": 1}).to_list(20)
+    if admins:
+        await _raw_db.user_notices.insert_many([
+            {"id": str(uuid.uuid4()), "user_id": a["id"], "title": "New low-star Google review ⚠️",
+             "message": msg, "kind": "google_review_alert", "seen": False, "created_at": now}
+            for a in admins])
+    if t.get("owner_email"):
+        stars = "★" * int(rv.get("rating") or 0) + "☆" * (5 - int(rv.get("rating") or 0))
+        html = (f"<div style='font-family:Georgia,serif;max-width:560px;margin:0 auto'>"
+                f"<h2 style='margin:0 0 6px'>⚠️ New {rv.get('rating')}★ Google review — {html_lib.escape(t.get('name') or '')}</h2>"
+                f"<p style='color:#b45309;font-size:18px;margin:4px 0'>{stars}</p>"
+                f"<p style='color:#333'><b>{html_lib.escape(rv.get('author') or '')}</b> ({html_lib.escape(rv.get('when') or 'just now')}):</p>"
+                f"<div style='background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px;font-size:14px;color:#444'>"
+                f"{html_lib.escape(rv.get('text') or '(rating only, no comment)')}</div>"
+                f"<p style='color:#666;font-size:13px;margin-top:14px'>Replying fast shows future customers you care. "
+                f"Open the review on Google and respond — Mira can draft a reply from your Reviews page.</p></div>")
+        try:
+            await _send_email([t["owner_email"]],
+                              f"⚠️ New {rv.get('rating')}★ Google review needs your reply — {t.get('name')}",
+                              html, book_url=payload.get("maps_url") or None, book_label="Reply on Google →")
+        except Exception as e:  # noqa: BLE001
+            logging.warning(f"google alert email failed: {e}")
+
+
+# ---------------- 5★ review bonus (owner-set commission per 5★ review) ----------------
+class ReviewBonusIn(BaseModel):
+    enabled: bool
+    amount: float = Field(..., ge=0, le=5000)
+
+
+@router.get("/settings/review-bonus")
+async def get_review_bonus(user=Depends(require_admin), t=Depends(current_tenant)):
+    rb = t.get("review_bonus") or {}
+    return {"enabled": bool(rb.get("enabled")), "amount": float(rb.get("amount") or 0)}
+
+
+@router.put("/settings/review-bonus")
+async def save_review_bonus(body: ReviewBonusIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    await _raw_db.tenants.update_one(
+        {"id": t["id"]}, {"$set": {"review_bonus": {"enabled": body.enabled, "amount": round(body.amount, 2)}}})
+    return {"ok": True, "enabled": body.enabled, "amount": round(body.amount, 2)}
+
+
+@router.get("/reviews/bonuses")
+async def list_review_bonuses(month: Optional[str] = None, user=Depends(require_admin), t=Depends(current_tenant)):
+    m = month or datetime.now(timezone.utc).strftime("%Y-%m")
+    rows = await _raw_db.review_bonuses.find(
+        {"tenant_id": t["id"], "month": m}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"month": m, "rows": rows, "total": round(sum(float(r.get("amount") or 0) for r in rows), 2)}
+
+
+async def _award_review_bonus(appt: dict, review: dict) -> None:
+    """5★ + staff attached → log bonus (if owner enabled it) + congratulation popup notice from Mira."""
+    t = await _raw_db.tenants.find_one({"id": appt.get("tenant_id")}, {"_id": 0, "id": 1, "review_bonus": 1})
+    if not t:
+        return
+    rb = t.get("review_bonus") or {}
+    amount = float(rb.get("amount") or 0) if rb.get("enabled") else 0.0
+    now = datetime.now(timezone.utc)
+    if amount > 0:
+        await _raw_db.review_bonuses.insert_one({
+            "id": str(uuid.uuid4()), "tenant_id": t["id"],
+            "staff_id": appt["staff_id"], "staff_name": appt.get("staff_name"),
+            "review_id": review["id"], "customer_name": appt.get("customer_name") or "A guest",
+            "amount": round(amount, 2), "month": now.strftime("%Y-%m"),
+            "created_at": now.isoformat()})
+    s = await _raw_db.staff.find_one({"id": appt["staff_id"]}, {"_id": 0, "user_id": 1, "name": 1})
+    if not s or not s.get("user_id"):
+        return
+    first = (s.get("name") or "there").split()[0].title()
+    customer = appt.get("customer_name") or "A guest"
+    excerpt = (review.get("comment") or "").strip()[:140]
+    msg = f"Hey {first}! {customer} just gave you a glowing 5-star review"
+    if excerpt:
+        msg += f' — "{excerpt}"'
+    msg += "."
+    if amount > 0:
+        msg += f" Our owner adds ₹{amount:.0f} for every 5-star review — it will reflect in your upcoming salary."
+    msg += " I'm so proud of you, keep shining! — Mira ✦"
+    await _raw_db.user_notices.insert_one({
+        "id": str(uuid.uuid4()), "user_id": s["user_id"],
+        "title": "⭐ You earned a 5-star review!",
+        "message": msg, "kind": "review_bonus", "seen": False, "created_at": now.isoformat()})
 
 
 @router.get("/reviews/qr-funnel")

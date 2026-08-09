@@ -429,6 +429,8 @@ def _render_salary_slip_pdf(slip: dict) -> bytes:
              f"Rs. {slip['product_commission_amount']:.2f}")
     if slip.get("overtime_total"):
         line(f"Overtime ({slip.get('overtime_hours_total', 0)}h past shift end)", f"Rs. {slip['overtime_total']:.2f}")
+    if slip.get("review_bonus_total"):
+        line(f"5-star review bonus ({slip.get('review_bonus_count', 0)} review(s))", f"Rs. {slip['review_bonus_total']:.2f}")
     if slip.get("late_penalty_total") or slip.get("advance_total"):
         y -= 2 * mm
         c.setFont("Helvetica-Bold", 11)

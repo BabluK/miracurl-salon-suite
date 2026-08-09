@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import api from "@/lib/api";
-import { BellRing, Sparkles } from "lucide-react";
+import { BellRing, Sparkles, Star } from "lucide-react";
 
 const timeAgo = (iso) => {
   try {
@@ -20,10 +20,26 @@ export function NoticePopup() {
     api.get("/notices/unseen").then(r => setItems(r.data.items || [])).catch(() => {});
   }, []);
 
+  // Mira speaks the congratulation aloud for 5★ review bonuses
+  useEffect(() => {
+    const rb = items.find(n => n.kind === "review_bonus");
+    if (!rb || !window.speechSynthesis) return undefined;
+    try {
+      const u = new SpeechSynthesisUtterance(rb.message.replace(/[✦⭐★"]/g, " ").replace(/₹/g, " rupees "));
+      u.lang = "en-IN";
+      u.rate = 0.98;
+      window.speechSynthesis.speak(u);
+    } catch { /* speech unsupported */ }
+    return () => { try { window.speechSynthesis.cancel(); } catch { /* noop */ } };
+  }, [items]);
+
   if (!items.length) return null;
+
+  const celebration = items.some(n => n.kind === "review_bonus");
 
   async function dismiss() {
     setItems([]);
+    try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
     try { await api.post("/notices/mark-seen"); } catch { /* seen next time */ }
   }
 
@@ -35,12 +51,14 @@ export function NoticePopup() {
           <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-amber-400/10 blur-2xl pointer-events-none" />
           <div className="absolute -bottom-12 -left-8 w-36 h-36 rounded-full bg-fuchsia-400/10 blur-2xl pointer-events-none" />
           <div className="relative mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
-            <BellRing className="w-7 h-7 text-[#1c1c22]" />
+            {celebration ? <Star className="w-7 h-7 text-[#1c1c22] fill-[#1c1c22]" /> : <BellRing className="w-7 h-7 text-[#1c1c22]" />}
           </div>
           <h3 className="relative text-lg font-semibold text-white mt-3 flex items-center justify-center gap-1.5">
-            While you were away <Sparkles className="w-4 h-4 text-amber-300" />
+            {celebration ? "Congratulations!" : "While you were away"} <Sparkles className="w-4 h-4 text-amber-300" />
           </h3>
-          <p className="relative text-[11px] text-white/60 mt-0.5">{items.length} update{items.length === 1 ? "" : "s"} for you — shown just this once</p>
+          <p className="relative text-[11px] text-white/60 mt-0.5">
+            {celebration ? "Mira has wonderful news for you ✦" : `${items.length} update${items.length === 1 ? "" : "s"} for you — shown just this once`}
+          </p>
         </div>
 
         <div className="px-5 py-4 max-h-[46vh] overflow-y-auto space-y-2.5">

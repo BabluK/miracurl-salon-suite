@@ -919,9 +919,14 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
     adv_rows = await db.advances.find(
         {"staff_id": staff["id"], "month": f"{year:04d}-{month:02d}"}, {"_id": 0}).to_list(5)
     advance_total = round(sum(float(a.get("amount") or 0) for a in adv_rows), 2)
+    rb_rows = await _raw_db.review_bonuses.find(
+        {"tenant_id": tenant["id"], "staff_id": staff["id"], "month": f"{year:04d}-{month:02d}"},
+        {"_id": 0, "amount": 1}).to_list(500)
+    review_bonus_total = round(sum(float(r.get("amount") or 0) for r in rb_rows), 2)
     base = float(staff.get("monthly_base_salary") or 0)
     deductions_total = round(att["late_penalty_total"] + advance_total + att["half_day_deduction_total"], 2)
-    total = round(base + commission + product_commission + target_bonus + att["overtime_total"] - deductions_total, 2)
+    total = round(base + commission + product_commission + target_bonus + review_bonus_total
+                  + att["overtime_total"] - deductions_total, 2)
     return {
         "period": f"{year:04d}-{month:02d}",
         "period_label": datetime(year, month, 1).strftime("%B %Y"),
@@ -947,6 +952,8 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         "target_commission_pct": round(target_pct, 2),
         "target_achieved": target_achieved,
         "target_bonus": target_bonus,
+        "review_bonus_total": review_bonus_total,
+        "review_bonus_count": len(rb_rows),
         **att,
         "advance_total": advance_total,
         "deductions_total": deductions_total,
