@@ -86,6 +86,7 @@ export function AuthProvider({ children }) {
       clearTenantStorage();
       return;
     }
+    setTenantSlug(null); // drop any stale slug from a previous user on this device
     const t = await fetchCurrentTenant();
     if (!t) return;
     setTenant(t);

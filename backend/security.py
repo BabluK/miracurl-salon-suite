@@ -100,6 +100,12 @@ async def _apply_tenant_context(request: Request, user: dict) -> None:
             if t["id"] in (user.get("tenant_ids") or []):
                 _current_tenant_id.set(user["tenant_id"])
                 return
+            # Stale slug left in localStorage by a previous user/booking page on
+            # this device — the logged-in user's own tenant_id is authoritative,
+            # so self-heal instead of 403ing (fixes staff first-login onboarding).
+            if user.get("tenant_id"):
+                _current_tenant_id.set(user["tenant_id"])
+                return
             raise HTTPException(403, "Cross-tenant access denied")
         if (user.get("role") == "super_admin" and request.method == "DELETE"
                 and not request.url.path.startswith("/api/super-admin")):
