@@ -1712,3 +1712,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - FIX 1 (staff onboarding "Cross-tenant access denied"): stale `localStorage['miracurl_tenant']` slug from a previous user/booking page on the same device made every request send a wrong `X-Tenant-Slug`; `security.py:_apply_tenant_context` 403'd the new staff's first-login `/auth/change-password`. Backend now self-heals to the logged-in user's own `tenant_id` when the slug header mismatches (isolation kept — data returned is always the user's own tenant). Frontend `AuthContext.afterAuth` also clears the stale slug right after login. E2E verified: create staff → create-login temp pw → first login → change-password with a wrong slug header → 200 → relogin OK.
 - FIX 2 (login "SUITE" clipping on narrow screens): `BrandMark.jsx` size="lg" is now responsive (pill w-12→20, word text-lg→3xl, subtitle tracking 0.18em→0.28em across breakpoints). Verified via 390px screenshot — full wordmark visible.
 - NOTE: user sees production (miracurl-suite.com) — needs Redeploy to pick up these fixes.
+
+## Session 2026-06 (fork) — Staff Welcome Email
+- New `staff_welcome_email_html()` in email_service.py (gold-branded, one-time password + "Log in & set your password" CTA to APP_PUBLIC_URL/login).
+- `POST /staff/{sid}/create-login` and `/staff/{sid}/reset-login` now auto-email the staff their login email + one-time password (best-effort via `_send_staff_welcome`); responses include `welcome_email_sent` / `welcome_email_error`.
+- TempCredModal shows green "welcome email sent to X" banner on success, amber share-it-manually warning on failure. Copy/WhatsApp buttons unchanged as backup.
+- Verified via curl: both endpoints returned welcome_email_sent=true (Resend delivered@resend.dev). Test data cleaned up.

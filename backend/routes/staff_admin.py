@@ -595,16 +595,30 @@ async def create_staff_login(
     }
     await db.users.insert_one(new_user)
     await db.staff.update_one({"id": sid}, {"$set": {"user_id": new_user["id"], "email": email}})
+    mail = await _send_staff_welcome(s.get("name"), t.get("name"), email, temp_pw)
     return {
         "ok": True,
         "email": email,
         "temp_password": temp_pw,
         "must_change_password": True,
+        "welcome_email_sent": mail.get("sent", False),
+        "welcome_email_error": mail.get("error"),
     }
 
 
+async def _send_staff_welcome(staff_name: str, salon_name: str, email: str, temp_pw: str) -> dict:
+    from email_service import staff_welcome_email_html
+    try:
+        return await _send_email(
+            [email], f"Your {salon_name or 'Miracurl'} staff login is ready ✦",
+            staff_welcome_email_html(staff_name, salon_name, email, temp_pw))
+    except Exception as e:  # noqa: BLE001 — credentials shown in-app either way
+        logging.warning(f"staff welcome email failed: {e}")
+        return {"sent": False, "error": str(e)[:200]}
+
+
 @router.post("/staff/{sid}/reset-login")
-async def reset_staff_login(sid: str, admin=Depends(require_admin)):
+async def reset_staff_login(sid: str, admin=Depends(require_admin), t=Depends(current_tenant)):
     """Regenerate a one-time temp password for a staff who ALREADY has a login
     (e.g. the owner lost the original). Forces a password change on next login."""
     s = await db.staff.find_one({"id": sid}, {"_id": 0})
@@ -623,7 +637,9 @@ async def reset_staff_login(sid: str, admin=Depends(require_admin)):
     # Keep the staff record's email in sync with the actual login email so the
     # owner always shares the correct address (root cause of "invalid password").
     await db.staff.update_one({"id": sid}, {"$set": {"email": login_user["email"]}})
-    return {"ok": True, "email": login_user["email"], "temp_password": temp_pw, "must_change_password": True}
+    mail = await _send_staff_welcome(s.get("name"), t.get("name"), login_user["email"], temp_pw)
+    return {"ok": True, "email": login_user["email"], "temp_password": temp_pw, "must_change_password": True,
+            "welcome_email_sent": mail.get("sent", False), "welcome_email_error": mail.get("error")}
 
 
 # ---------------- Manager accounts (restricted-access role) ----------------

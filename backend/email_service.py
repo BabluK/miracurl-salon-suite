@@ -101,6 +101,33 @@ def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> 
     </div>"""
 
 
+def staff_welcome_email_html(staff_name: str, salon_name: str, login_email: str, temp_pw: str) -> str:
+    staff_name, salon_name, login_email, temp_pw = (html_lib.escape(staff_name or "there"),
+                                                    html_lib.escape(salon_name or "your salon"),
+                                                    html_lib.escape(login_email or ""),
+                                                    html_lib.escape(temp_pw or ""))
+    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px">
+        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Your staff login is ready</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        <p>Hi <b>{staff_name}</b> 👋</p>
+        <p><b>{salon_name}</b> has created your Miracurl staff account. Use the one-time password below to sign in — you'll set your own password on first login.</p>
+        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:15px">
+          👤 <b>Login email:</b> {login_email}<br/><br/>
+          🔑 <b>One-time password:</b> <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:3px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{temp_pw}</span>
+        </div>
+        <p style="text-align:center;margin:24px 0">
+          <a href="{login_url}" style="background:#1c1c22;color:#d4af37;text-decoration:none;padding:12px 34px;border-radius:999px;font-weight:bold">Log in &amp; set your password →</a>
+        </p>
+        <p style="font-size:12px;color:#888">In the app you can mark attendance, see your appointments, salary slips and more. If you weren't expecting this email, please tell your salon owner.</p>
+      </div>
+    </div>"""
+
+
 def renewal_reminder_email_html(salon_name: str, days_left: int, end_date: str,
                                 plan_label: str, price: float, credits: float) -> str:
     """15/7/1-day subscription renewal reminder with in-app Razorpay pay CTA."""

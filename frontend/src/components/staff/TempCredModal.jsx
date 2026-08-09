@@ -25,9 +25,15 @@ export function TempCredModal({ cred, onClose }) {
           <h3 className="font-playfair text-xl">Login credentials created</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
         </div>
-        <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 mb-4">
-          ⚠️ This is the <b>only time</b> you&apos;ll see this password. Share it with {cred.name} now — they&apos;ll change it on first login.
-        </div>
+        {cred.email_sent ? (
+          <div className="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-2 mb-4" data-testid="welcome-email-sent-banner">
+            ✉️ A welcome email with these login details was sent to <b>{cred.email}</b> — {cred.name} can log in straight from their inbox.
+          </div>
+        ) : (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 mb-4" data-testid="welcome-email-failed-banner">
+            ⚠️ We couldn&apos;t email these details automatically — this is the <b>only time</b> you&apos;ll see this password. Share it with {cred.name} now via Copy or WhatsApp.
+          </div>
+        )}
         <div className="space-y-3 text-sm">
           <div>
             <div className="text-xs text-slate-500 mb-1">Email</div>

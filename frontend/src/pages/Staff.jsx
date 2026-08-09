@@ -136,7 +136,7 @@ export default function Staff() {
     if (!email || !email.trim()) return;
     try {
       const { data } = await api.post(`/staff/${s.id}/create-login`, { email: email.trim().toLowerCase() });
-      setTempCred({ name: s.name, phone: s.phone, email: data.email, temp_password: data.temp_password });
+      setTempCred({ name: s.name, phone: s.phone, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Failed to create login");
@@ -147,7 +147,7 @@ export default function Staff() {
     if (!window.confirm(`Reset ${s.name}'s password? A new temporary password will be generated and they'll set their own on next login.`)) return;
     try {
       const { data } = await api.post(`/staff/${s.id}/reset-login`);
-      setTempCred({ name: s.name, phone: s.phone, email: data.email, temp_password: data.temp_password });
+      setTempCred({ name: s.name, phone: s.phone, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
       toast.success("New password generated — share it with the staff");
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Failed to reset password");
