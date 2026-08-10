@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { ManualAttendanceModal } from "@/components/ManualAttendanceModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { getSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import { toast } from "sonner";
 import {
@@ -45,6 +46,7 @@ export default function Attendance() {
   const [selected, setSelected] = useState(null); // {sid, name} for history modal
   const [showQr, setShowQr] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [dlg, setDlg] = useState(null); // {title, message, inputLabel?, defaultValue?, confirmLabel, danger, action}
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,13 +67,12 @@ export default function Attendance() {
     return () => window.removeEventListener("branch-changed", load);
   }, [load]);
 
-  async function waiveFine(r) {
+  async function waiveFine(r, note) {
     if (!r.record_id) return;
-    const note = window.prompt(`Waive ₹${r.late_penalty} fine for ${r.name}? Add a short reason:`, "Applied by mistake");
-    if (note === null) return;
     try {
       await pinApi.post(`/attendance/${r.record_id}/waive-fine`, { note });
       toast.success(`₹${r.late_penalty} fine waived for ${r.name}`);
+      setDlg(null);
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Couldn't waive fine");
@@ -80,27 +81,35 @@ export default function Attendance() {
 
   async function undoWaiveFine(r) {
     if (!r.record_id) return;
-    if (!window.confirm(`Undo the waiver and restore the ₹${r.late_penalty_waived} fine for ${r.name}?`)) return;
     try {
       await pinApi.post(`/attendance/${r.record_id}/undo-waive-fine`);
       toast.success(`₹${r.late_penalty_waived} fine restored for ${r.name}`);
+      setDlg(null);
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Couldn't undo waiver");
     }
   }
 
-  async function waiveHalfDay(r) {
+  async function waiveHalfDay(r, note) {
     if (!r.record_id) return;
-    const note = window.prompt(`Waive the ½-day mark (−₹${r.half_day_deduction}) for ${r.name}? Add a short reason:`, "Applied by mistake");
-    if (note === null) return;
     try {
       await pinApi.post(`/attendance/${r.record_id}/waive-half-day`, { note });
       toast.success(`Half-day waived for ${r.name}`);
+      setDlg(null);
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Couldn't waive half-day");
     }
+  }
+
+  async function undoCheckout(r) {
+    try {
+      await pinApi.post(`/attendance/${r.record_id}/undo-checkout`, {});
+      toast.success(`${r.name}'s check-out undone — still checked in ✓`);
+      setDlg(null);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't undo the check-out"); }
   }
 
   return (
@@ -124,6 +133,9 @@ export default function Attendance() {
           </button>
           {showManual && (
             <ManualAttendanceModal roster={data?.roster || []} onClose={() => setShowManual(false)} onDone={load} />
+          )}
+          {dlg && (
+            <ConfirmDialog open {...dlg} onConfirm={(note) => dlg.action(note)} onClose={() => setDlg(null)} />
           )}
           <button data-testid="desk-qr-btn" onClick={() => setShowQr(true)}
             className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50">
@@ -259,14 +271,11 @@ export default function Attendance() {
                     {r.check_out_at && r.record_id && (
                       <button data-testid={`undo-checkout-${r.staff_id}`}
                         title="Mistaken check-out? Undo it — they'll stay checked in"
-                        onClick={async () => {
-                          if (!window.confirm(`Undo ${r.name}'s check-out? They'll be marked as still checked in.`)) return;
-                          try {
-                            await pinApi.post(`/attendance/${r.record_id}/undo-checkout`, {});
-                            toast.success(`${r.name}'s check-out undone — still checked in ✓`);
-                            load();
-                          } catch (e) { toast.error(e.response?.data?.detail || "Couldn't undo the check-out"); }
-                        }}
+                        onClick={() => setDlg({
+                          title: "Undo check-out", danger: true, confirmLabel: "Undo check-out",
+                          message: `Undo ${r.name}'s check-out? They'll be marked as still checked in.`,
+                          action: () => undoCheckout(r),
+                        })}
                         className="ml-1.5 text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border border-rose-200 text-rose-500 hover:bg-rose-50">↩ undo</button>
                     )}
                   </td>
@@ -282,7 +291,12 @@ export default function Attendance() {
                           <button
                             data-testid={`waive-half-day-${r.staff_id}`}
                             title="Waive this half-day (wrongly applied)"
-                            onClick={() => waiveHalfDay(r)}
+                            onClick={() => setDlg({
+                              title: "Waive half-day", confirmLabel: "Waive half-day",
+                              message: `Waive the ½-day mark (−₹${r.half_day_deduction}) for ${r.name}?`,
+                              inputLabel: "Short reason", defaultValue: "Applied by mistake",
+                              action: (note) => waiveHalfDay(r, note),
+                            })}
                             className="text-[9px] uppercase px-1.5 py-0.5 rounded border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-300"
                           >waive</button>
                         </span>
@@ -294,7 +308,12 @@ export default function Attendance() {
                           <button
                             data-testid={`waive-fine-${r.staff_id}`}
                             title="Waive this fine (wrongly applied)"
-                            onClick={() => waiveFine(r)}
+                            onClick={() => setDlg({
+                              title: "Waive late fine", confirmLabel: "Waive fine",
+                              message: `Waive the ₹${r.late_penalty} late fine for ${r.name}?`,
+                              inputLabel: "Short reason", defaultValue: "Applied by mistake",
+                              action: (note) => waiveFine(r, note),
+                            })}
                             className="text-[9px] uppercase px-1.5 py-0.5 rounded border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-300"
                           >waive</button>
                         </span>

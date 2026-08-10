@@ -8,25 +8,37 @@ function nowIST() {
   return new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
 }
 
+function todayISO() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
+function minBackfillISO() {
+  return new Date(Date.now() - 15 * 86400000).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
 export function ManualAttendanceModal({ roster, onClose, onDone }) {
   const [action, setAction] = useState("check_in");
   const [staffId, setStaffId] = useState("");
   const [time, setTime] = useState(nowIST());
+  const [date, setDate] = useState(todayISO());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const eligible = (roster || []).filter(r =>
-    action === "check_in" ? !r.check_in_at : (r.check_in_at && !r.check_out_at));
+  const isToday = date === todayISO();
+  const eligible = isToday
+    ? (roster || []).filter(r => (action === "check_in" ? !r.check_in_at : (r.check_in_at && !r.check_out_at)))
+    : (roster || []);
 
   async function submit() {
     if (!staffId) { toast.error("Select a staff member"); return; }
     setBusy(true);
     try {
-      const { data } = await pinApi.post("/attendance/manual", { staff_id: staffId, action, time, note });
+      const { data } = await pinApi.post("/attendance/manual", { staff_id: staffId, action, time, note, date });
       const name = (roster || []).find(r => r.staff_id === staffId)?.name || "Staff";
+      const dayTxt = isToday ? "" : ` on ${date}`;
       toast.success(action === "check_in"
-        ? `✅ ${name} checked in at ${time}${data?.late_penalty > 0 ? ` · late fine ₹${data.late_penalty}` : ""}${data?.half_day ? " · marked half-day" : ""}`
-        : `👋 ${name} checked out at ${time} · ${data?.hours_worked ?? 0}h worked`);
+        ? `✅ ${name} checked in at ${time}${dayTxt}${data?.late_penalty > 0 ? ` · late fine ₹${data.late_penalty}` : ""}${data?.half_day ? " · marked half-day" : ""}`
+        : `👋 ${name} checked out at ${time}${dayTxt} · ${data?.hours_worked ?? 0}h worked`);
       onDone();
       onClose();
     } catch (e) {
@@ -72,11 +84,24 @@ export function ManualAttendanceModal({ roster, onClose, onDone }) {
               </p>
             )}
           </div>
-          <div>
-            <label className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">{action === "check_in" ? "Check-in" : "Check-out"} time (today, IST)</label>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} data-testid="manual-time-input"
-              className="input-light w-full mt-1 py-2.5" />
-            <p className="text-[10px] text-slate-400 mt-1">Late fines & half-day rules still apply based on this time.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Date</label>
+              <input type="date" value={date} min={minBackfillISO()} max={todayISO()}
+                onChange={(e) => { setDate(e.target.value); setStaffId(""); }}
+                data-testid="manual-date-input" className="input-light w-full mt-1 py-2.5" />
+              {!isToday && (
+                <p className="text-[10px] text-violet-600 mt-1" data-testid="manual-backfill-hint">
+                  Backfilling a past day (up to 15 days) — e.g. staff who joined before their login was created.
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">{action === "check_in" ? "Check-in" : "Check-out"} time (IST)</label>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} data-testid="manual-time-input"
+                className="input-light w-full mt-1 py-2.5" />
+              <p className="text-[10px] text-slate-400 mt-1">Late fines & half-day rules still apply based on this time.</p>
+            </div>
           </div>
           <div>
             <label className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Note (optional)</label>

@@ -158,6 +158,7 @@ class StaffIn(BaseModel):
     monthly_target: float = 0.0
     target_commission_pct: float = 0.0
     last_working_day: Optional[str] = None
+    joining_date: Optional[str] = None
     aadhaar: Optional[str] = None        # write-only: hashed server-side
     branch: Optional[str] = None
 

@@ -415,8 +415,9 @@ async def waive_half_day(rec_id: str, body: WaiveFineIn, admin=Depends(require_a
 class ManualAttnIn(BaseModel):
     staff_id: str
     action: str = Field(..., pattern="^(check_in|check_out)$")
-    time: str = Field(..., pattern=r"^\d{2}:\d{2}$")  # HH:MM IST, today
+    time: str = Field(..., pattern=r"^\d{2}:\d{2}$")  # HH:MM IST
     note: str = Field("", max_length=200)
+    date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")  # backfill up to 15 days
 
 
 @router.post("/attendance/manual")
@@ -430,17 +431,29 @@ async def manual_attendance(body: ManualAttnIn, admin=Depends(require_admin),
     if h > 23 or m > 59:
         raise HTTPException(400, "Invalid time")
     now_ist = datetime.now(IST_TZ)
-    when_ist = now_ist.replace(hour=h, minute=m, second=0, microsecond=0)
+    target_day = now_ist.date()
+    if body.date:
+        try:
+            target_day = datetime.fromisoformat(body.date).date()
+        except ValueError:
+            raise HTTPException(400, "Invalid date")
+        if target_day > now_ist.date():
+            raise HTTPException(400, "Date can't be in the future")
+        if (now_ist.date() - target_day).days > 15:
+            raise HTTPException(400, "You can backfill attendance up to 15 days back only")
+    when_ist = now_ist.replace(year=target_day.year, month=target_day.month, day=target_day.day,
+                               hour=h, minute=m, second=0, microsecond=0)
     if when_ist > now_ist:
         raise HTTPException(400, "Time can't be in the future")
     when_utc = when_ist.astimezone(timezone.utc)
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = target_day.isoformat()
+    day_word = "today" if target_day == now_ist.date() else f"on {today}"
     rec = await db.attendance.find_one({"staff_id": staff["id"], "date": today}, {"_id": 0})
     audit = {"marked_by": admin.get("email"), "marked_note": body.note.strip(),
              "marked_at": datetime.now(timezone.utc).isoformat()}
     if body.action == "check_in":
         if rec and rec.get("check_in_at"):
-            raise HTTPException(400, f"{staff.get('name')} is already checked in today.")
+            raise HTTPException(400, f"{staff.get('name')} is already checked in {day_word}.")
         late_min, penalty = _late_penalty_for(staff, when_ist, t)
         half_day = late_min >= HALF_DAY_AFTER_MIN
         fields = {"check_in_at": when_utc.isoformat(),
@@ -461,9 +474,9 @@ async def manual_attendance(body: ManualAttnIn, admin=Depends(require_admin),
                 "created_at": datetime.now(timezone.utc).isoformat()})
     else:
         if not rec or not rec.get("check_in_at"):
-            raise HTTPException(400, f"{staff.get('name')} hasn't checked in today — check them in first.")
+            raise HTTPException(400, f"{staff.get('name')} hasn't checked in {day_word} — check them in first.")
         if rec.get("check_out_at"):
-            raise HTTPException(400, f"{staff.get('name')} is already checked out today.")
+            raise HTTPException(400, f"{staff.get('name')} is already checked out {day_word}.")
         check_in = datetime.fromisoformat(rec["check_in_at"])
         if when_utc <= check_in:
             raise HTTPException(400, "Check-out time must be after the check-in time.")
@@ -908,6 +921,11 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
     target_pct = float(staff.get("target_commission_pct") or 0)
     target_achieved = monthly_target > 0 and gross >= monthly_target
     target_bonus = round(gross * target_pct / 100, 2) if (target_achieved and target_pct > 0) else 0.0
+    # Owner's scheme: when a monthly target is set, service commission is paid
+    # ONLY if the staff reached that target for the month.
+    commission_withheld = monthly_target > 0 and not target_achieved
+    if commission_withheld:
+        commission = 0.0
     # Attendance
     att_start = f"{year:04d}-{month:02d}-01"
     att_end = f"{year:04d}-{month:02d}-{end_day:02d}"
@@ -937,13 +955,14 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         },
         "salon": {
             "name": tenant.get("name"), "location": tenant.get("location"),
-            "phone": tenant.get("phone"),
+            "phone": tenant.get("phone"), "logo_url": tenant.get("logo_url"),
         },
         "monthly_base_salary": round(base, 2),
         "commission_pct": round(pct, 2),
         "service_gross": round(service_gross, 2),
         "service_count": service_count,
         "commission_amount": commission,
+        "commission_withheld": commission_withheld,
         "product_gross": round(earn["product_gross"], 2),
         "product_count": earn["product_count"],
         "product_commission_pct": round(product_pct, 2),
@@ -1071,6 +1090,21 @@ async def staff_my_salary_slip(month: Optional[str] = None,
     return await _compute_salary_for_month(s, y, m, t)
 
 
+async def _tenant_logo_bytes(tenant: dict):
+    """Logo bytes for PDF rendering — reads /api/files uploads straight from storage (no HTTP self-call)."""
+    url = tenant.get("logo_url") or ""
+    try:
+        if url.startswith("/api/files/"):
+            rec = await _raw_db.uploads.find_one({"id": url.rsplit("/", 1)[-1], "is_deleted": False})
+            if rec:
+                from routes.uploads import _get_object
+                data, _ = await asyncio.to_thread(_get_object, rec["storage_path"])
+                return data
+    except Exception as e:  # noqa: BLE001 — slip renders fine without a logo
+        logging.warning(f"salary slip logo fetch failed: {e}")
+    return None
+
+
 @router.get("/staff/me/salary-slip.pdf")
 async def staff_my_salary_slip_pdf(month: Optional[str] = None,
                                    s=Depends(_current_staff),
@@ -1079,6 +1113,7 @@ async def staff_my_salary_slip_pdf(month: Optional[str] = None,
         raise HTTPException(403, "Salary details are not visible on your account.")
     y, m = _parse_month(month)
     slip = await _compute_salary_for_month(s, y, m, t)
+    slip["salon"]["logo_raw"] = await _tenant_logo_bytes(t)
     pdf_bytes = _render_salary_slip_pdf(slip)
     fname = f"salary-slip-{slip['staff']['name'].replace(' ', '-').lower()}-{slip['period']}.pdf"
     return StreamingResponse(
@@ -1097,6 +1132,7 @@ async def staff_salary_slip_pdf_admin(sid: str, month: Optional[str] = None,
         raise HTTPException(404, "Staff member not found")
     y, m = _parse_month(month)
     slip = await _compute_salary_for_month(s, y, m, t)
+    slip["salon"]["logo_raw"] = await _tenant_logo_bytes(t)
     pdf_bytes = _render_salary_slip_pdf(slip)
     fname = f"salary-slip-{(slip['staff']['name'] or 'staff').replace(' ', '-').lower()}-{slip['period']}.pdf"
     return StreamingResponse(

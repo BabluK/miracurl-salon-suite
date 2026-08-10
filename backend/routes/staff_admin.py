@@ -220,6 +220,8 @@ async def previous_staff_rehire(sid: str, user=Depends(require_admin), t=Depends
 
 def _staff_write_payload(body: StaffIn) -> dict:
     d = body.model_dump()
+    if not d.get("joining_date"):
+        d.pop("joining_date", None)
     aad = re.sub(r"\D", "", d.pop("aadhaar", None) or "")
     if aad:
         if len(aad) != 12:

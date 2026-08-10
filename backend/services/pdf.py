@@ -338,12 +338,36 @@ def _render_resume_pdf(r: dict, fetch_image) -> bytes:
 
 
 
+def _fetch_logo_image(url: str = None, raw: bytes = None):
+    """Logo as PIL images: (header version on dark, faded watermark on white). Best-effort."""
+    try:
+        from PIL import Image
+        if raw is None:
+            import requests
+            if not (url or "").startswith("http"):
+                return None, None
+            r = requests.get(url, timeout=8)
+            r.raise_for_status()
+            raw = r.content
+        img = Image.open(io.BytesIO(raw)).convert("RGBA")
+        dark = Image.new("RGBA", img.size, (10, 10, 10, 255))
+        header = Image.alpha_composite(dark, img).convert("RGB")
+        wm = img.copy()
+        wm.putalpha(wm.getchannel("A").point(lambda a: int(a * 0.06)))
+        white = Image.new("RGBA", img.size, (255, 255, 255, 255))
+        watermark = Image.alpha_composite(white, wm).convert("RGB")
+        return header, watermark
+    except Exception:  # noqa: BLE001 — slip must render without a logo too
+        return None, None
+
+
 def _render_salary_slip_pdf(slip: dict) -> bytes:
     """Simple, clean single-page PDF salary slip using reportlab."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
     from reportlab.lib import colors
+    from reportlab.lib.utils import ImageReader
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
@@ -352,17 +376,33 @@ def _render_salary_slip_pdf(slip: dict) -> bytes:
     right = w - 20 * mm
     y = h - 22 * mm
 
+    logo_img, wm_img = (None, None)
+    if slip["salon"].get("logo_raw") or slip["salon"].get("logo_url"):
+        logo_img, wm_img = _fetch_logo_image(slip["salon"].get("logo_url"), slip["salon"].get("logo_raw"))
+
+    # Watermark (drawn first, content goes on top)
+    if wm_img is not None:
+        wm_size = 110 * mm
+        c.drawImage(ImageReader(wm_img), (w - wm_size) / 2, (h - wm_size) / 2 - 10 * mm,
+                    width=wm_size, height=wm_size, preserveAspectRatio=True, anchor="c")
+
     # Header
     c.setFillColor(colors.HexColor("#0A0A0A"))
     c.rect(0, h - 32 * mm, w, 32 * mm, fill=1, stroke=0)
+    text_x = left
+    if logo_img is not None:
+        logo_size = 20 * mm
+        c.drawImage(ImageReader(logo_img), left, h - 26 * mm,
+                    width=logo_size, height=logo_size, preserveAspectRatio=True, anchor="c")
+        text_x = left + logo_size + 6 * mm
     c.setFillColor(colors.HexColor("#D4AF37"))
     c.setFont("Helvetica-Bold", 20)
-    c.drawString(left, h - 15 * mm, slip["salon"].get("name") or "Salon")
+    c.drawString(text_x, h - 15 * mm, slip["salon"].get("name") or "Salon")
     c.setFillColor(colors.white)
     c.setFont("Helvetica", 9)
-    c.drawString(left, h - 21 * mm, slip["salon"].get("location") or "")
+    c.drawString(text_x, h - 21 * mm, slip["salon"].get("location") or "")
     if slip["salon"].get("phone"):
-        c.drawString(left, h - 26 * mm, f"Phone: {slip['salon']['phone']}")
+        c.drawString(text_x, h - 26 * mm, f"Phone: {slip['salon']['phone']}")
     c.setFont("Helvetica-Bold", 12)
     c.drawRightString(right, h - 15 * mm, "SALARY SLIP")
     c.setFont("Helvetica", 9)
@@ -423,7 +463,10 @@ def _render_salary_slip_pdf(slip: dict) -> bytes:
 
     line("Monthly base salary", f"Rs. {slip['monthly_base_salary']:.2f}")
     pct_txt = f" ({slip['commission_pct']}%)" if slip['commission_pct'] else ""
-    line(f"Service commission{pct_txt}", f"Rs. {slip['commission_amount']:.2f}")
+    if slip.get("commission_withheld"):
+        line(f"Service commission{pct_txt} — withheld (target Rs. {slip.get('monthly_target', 0):.0f} not reached)", "Rs. 0.00")
+    else:
+        line(f"Service commission{pct_txt}", f"Rs. {slip['commission_amount']:.2f}")
     if slip.get("product_commission_amount"):
         line(f"Product sales commission ({slip.get('product_commission_pct', 2)}% of Rs. {slip.get('product_gross', 0):.0f})",
              f"Rs. {slip['product_commission_amount']:.2f}")

@@ -201,6 +201,13 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
               </select>
               <p className="text-[10px] text-slate-400 mt-1">Staff sees this in their Employee Portal</p>
             </div>
+            <div>
+              <label className="label-light block mb-1">Joining date</label>
+              <input data-testid="staff-joining-date-input" type="date" className="input-light"
+                value={form.joining_date || ""} max={new Date().toISOString().slice(0, 10)}
+                onChange={e => setForm({ ...form, joining_date: e.target.value })} />
+              <p className="text-[10px] text-slate-400 mt-1">The day they joined THIS salon — shown on salary slips</p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label-light block mb-1">Overtime ₹/hr</label>

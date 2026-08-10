@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { CalendarCheck2, Check, X } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const STATUS_CHIP = {
   pending: "bg-amber-100 text-amber-700 border-amber-200",
@@ -19,6 +20,7 @@ export function LeaveApprovalsPanel() {
   const [tab, setTab] = useState("pending");
   const [list, setList] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [deciding, setDeciding] = useState(null); // {req, action}
 
   const load = useCallback(async () => {
     try {
@@ -32,17 +34,13 @@ export function LeaveApprovalsPanel() {
   }, [tab]);
   useEffect(() => { load(); }, [load]);
 
-  async function decide(r, action) {
-    let note = "";
-    if (action === "reject") {
-      note = window.prompt(`Reject ${r.staff_name}'s leave (${fmtRange(r.from_date, r.to_date)})? Add a short reason:`, "");
-      if (note === null) return;
-    }
+  async function decide(r, action, note = "") {
     try {
       await api.post(`/leave-requests/${r.id}/${action}`, { note });
       toast.success(action === "approve"
         ? `Leave approved for ${r.staff_name} ✦ They'll show "On leave" in attendance`
         : `Leave rejected for ${r.staff_name}`);
+      setDeciding(null);
       load();
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Action failed");
@@ -111,12 +109,12 @@ export function LeaveApprovalsPanel() {
                   <td>
                     {r.status === "pending" && (
                       <div className="flex gap-1.5 justify-end">
-                        <button onClick={() => decide(r, "approve")}
+                        <button onClick={() => setDeciding({ req: r, action: "approve" })}
                           data-testid={`leave-approve-${r.id}`}
                           className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium">
                           <Check className="w-3.5 h-3.5" /> Approve
                         </button>
-                        <button onClick={() => decide(r, "reject")}
+                        <button onClick={() => setDeciding({ req: r, action: "reject" })}
                           data-testid={`leave-reject-${r.id}`}
                           className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 font-medium">
                           <X className="w-3.5 h-3.5" /> Reject
@@ -129,6 +127,20 @@ export function LeaveApprovalsPanel() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {deciding && (
+        <ConfirmDialog
+          open
+          danger={deciding.action === "reject"}
+          title={deciding.action === "reject" ? "Reject leave request" : "Approve leave request"}
+          message={`${deciding.req.staff_name} · ${fmtRange(deciding.req.from_date, deciding.req.to_date)} (${deciding.req.days} day${deciding.req.days > 1 ? "s" : ""})${deciding.req.reason ? ` · Reason: "${deciding.req.reason}"` : ""}`}
+          inputLabel={deciding.action === "reject" ? "Reason shared with staff (optional)" : undefined}
+          inputPlaceholder="e.g. Peak weekend — please pick other dates"
+          confirmLabel={deciding.action === "reject" ? "Reject leave" : "Approve leave"}
+          onConfirm={(note) => decide(deciding.req, deciding.action, note)}
+          onClose={() => setDeciding(null)}
+        />
       )}
     </div>
   );
