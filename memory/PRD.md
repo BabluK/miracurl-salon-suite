@@ -1742,3 +1742,11 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## Session 2026-06 (fork) — Week-off clarity on booking page
 - User asked why staff showed "weekly off": data-driven (staff.week_off_day matches selected date's weekday). Booking date defaults to TOMORROW, so badges on the stylist step reflect tomorrow — explained to user.
 - BookPublic.steps.jsx StaffStep: off badge now names the day — "🏖️ Weekly off (Monday)"; bookable staff with a configured off-day show a small "Week off · Wednesday" hint under specialties (data-testid staff-week-off-day-{id}). Verified via Playwright DOM dump.
+
+## Session 2026-06 (fork) — 5-item batch (dialogs, backfill, slip polish, joining date, target-gated commission)
+1. ConfirmDialog.jsx (NEW reusable styled modal w/ optional reason input) replaces window.prompt/confirm in LeaveApprovalsPanel (approve/reject) and Attendance.jsx (waive fine, undo waiver, waive half-day, undo checkout).
+2. Backfill attendance: POST /attendance/manual accepts `date` (≤15 days back, not future); ManualAttendanceModal has date picker + violet backfill hint; past dates list all staff. Verified: check-in/out on past date OK, 20-days & future rejected.
+3. Salary slip PDF polish: salon logo in dark header + faded (6%) center watermark. Logo bytes read straight from object storage via _tenant_logo_bytes() (NOTE: never HTTP-fetch localhost:8001 from inside a request — single worker deadlocks; that bug was hit & fixed). commission-withheld line when target not reached.
+4. Joining date: StaffIn.joining_date (None = don't overwrite), StaffFormModal date input (staff-joining-date-input). Verified persistence via PUT.
+5. Target-gated commission: _compute_salary_for_month — when staff.monthly_target > 0 and gross < target, service commission = 0 with "withheld (target Rs X not reached)" slip line; commission_withheld flag in slip JSON. Staff without target unchanged.
+- testing_agent iteration_103: ALL PASS (backfill UI, joining date persistence, dialogs, regression). Backlog nice-to-have: BranchSwitcher hydration warning (span-in-option console noise, could not reproduce in code — pre-existing).
