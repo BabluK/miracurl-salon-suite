@@ -86,11 +86,6 @@ export function PlatformOrbitMap({ onGoTab }) {
     return () => clearInterval(iv);
   }, [load]);
 
-  useEffect(() => {
-    const t = setTimeout(() => window.dispatchEvent(new Event("mira-map-briefing")), 700);
-    return () => clearTimeout(t);
-  }, []);
-
   const stars = useMemo(() => Array.from({ length: 28 }, (_, i) => ({
     left: `${(i * 37 + 11) % 97}%`, top: `${(i * 53 + 7) % 93}%`,
     d: `${(i % 5) * 0.7}s`, s: 1 + (i % 3),

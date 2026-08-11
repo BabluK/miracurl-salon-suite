@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Mic, X, Send, Loader2, Volume2 } from "lucide-react";
+import { Mic, X, Send, Volume2 } from "lucide-react";
 import api from "@/lib/api";
+import { MiraThinkingStages } from "./MiraNeuralAvatar";
 
 let _greetPromise = null;
 
@@ -153,21 +154,6 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
   }, [speak]);
 
   useEffect(() => {
-    let greetBusy = false;
-    const onMapGreet = async () => {
-      if (greetBusy) return;
-      greetBusy = true;
-      try {
-        const { data } = await api.get("/super-admin/mira/map-briefing");
-        sessionStorage.setItem("mira_open", "1");
-        sessionStorage.setItem("mira_greeted", "1");
-        setOpen(true);
-        setMsgs([{ role: "mira", text: data.text }]);
-        setConvoMode(true);
-        speak(data.text, true);
-      } catch { /* ignore */ }
-      greetBusy = false;
-    };
     const onLiveEvent = (e) => {
       const text = e.detail;
       if (!text) return;
@@ -176,13 +162,11 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
       setMsgs((m) => [...m, { role: "mira", text }]);
       speak(text, true);
     };
-    window.addEventListener("mira-map-briefing", onMapGreet);
     window.addEventListener("mira-live-event", onLiveEvent);
     return () => {
-      window.removeEventListener("mira-map-briefing", onMapGreet);
       window.removeEventListener("mira-live-event", onLiveEvent);
     };
-  }, [speak, setConvoMode]);
+  }, [speak]);
 
   const ask = async (question) => {
     const text = (question || q).trim();
@@ -240,8 +224,10 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
       <button onClick={openPanel}
         data-testid="mira-assistant-fab"
         title='Tap — or just say "Hey Mira"'
-        className="fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-xl shadow-fuchsia-500/30 flex items-center justify-center text-2xl hover:scale-105 transition-transform">
-        🎙️
+        className="fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full shadow-xl shadow-fuchsia-500/30 hover:scale-105 transition-transform">
+        <span className="absolute inset-0 rounded-full border-2 border-fuchsia-400/50 animate-ping" style={{ animationDuration: "2.4s" }} />
+        <img src="/mira-bot.png" alt="Mira" className="w-14 h-14 rounded-full object-cover border-2 border-fuchsia-400" />
+        <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 border-2 border-white flex items-center justify-center text-[9px]">🎙️</span>
         {wakeOn && <span className="absolute -top-1.5 -left-10 text-[8px] bg-slate-900 text-fuchsia-300 border border-fuchsia-500/40 rounded-full px-2 py-0.5 whitespace-nowrap">"Hey Mira" 👂</span>}
       </button>
     );
@@ -250,7 +236,10 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
   return (
     <div className="fixed bottom-5 right-5 z-50 w-[340px] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden" data-testid="mira-assistant-panel">
       <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-3 flex items-center gap-2">
-        <span className="text-lg">🎙️</span>
+        <span className="relative w-8 h-8 shrink-0">
+          {(busy || listening) && <span className="absolute -inset-0.5 rounded-full border border-white/70 animate-ping" />}
+          <img src="/mira-bot.png" alt="Mira" className="w-8 h-8 rounded-full object-cover border border-white/60" />
+        </span>
         <div className="flex-1">
           <p className="text-white text-sm font-bold leading-none">Mira · HQ Assistant</p>
           <p className="text-white/70 text-[10px] mt-0.5" data-testid="mira-convo-status">
@@ -279,7 +268,15 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
             {m.role === "mira" && <b className="text-violet-600">Mira · </b>}{m.text}
           </div>
         ))}
-        {busy && <div className="text-xs text-slate-400 px-3"><Loader2 className="w-3 h-3 animate-spin inline mr-1" /> Mira is thinking…</div>}
+        {busy && (
+          <div className="flex items-center gap-2 px-3" data-testid="mira-assistant-thinking">
+            <span className="relative w-6 h-6 shrink-0">
+              <span className="absolute -inset-1 rounded-full border border-sky-400/60 animate-ping" />
+              <img src="/mira-bot.png" alt="" className="w-6 h-6 rounded-full object-cover border border-fuchsia-400/60" />
+            </span>
+            <MiraThinkingStages className="text-xs text-violet-500" />
+          </div>
+        )}
       </div>
       <div className="border-t border-slate-100 p-2.5 flex items-center gap-1.5">
         <button onClick={mic} data-testid="mira-mic-btn" title={convo ? "Tap to end the conversation" : "Tap once — Mira keeps listening until you say 'stop'"}

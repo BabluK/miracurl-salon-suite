@@ -1809,3 +1809,16 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - POST /super/db/purge-orphans (platform_tools.py, super-admin only): deletes docs whose tenant_id references a deleted salon (excludes tenants/meta/system_flags collections + None/""/"superadmin" sentinels), re-runs audit, logs "Mira purged N orphan records" to mira_timeline. Returns removed + per_collection.
 - MiraHome health banner now has "🧹 Purge N orphans safely" button (data-testid mira-purge-orphans) — purges, toasts, Mira SPEAKS confirmation, reloads home (banner disappears when clean) + "Open System Health →" button.
 - Verified via curl: removed 8 (uploads 3, security_events 5) → audit 0 → alerts [] → timeline entry logged.
+
+## Session 2026-06 (fork) — Briefing revenue fix + Neural Thinking Avatar
+- Fixed Mira Super Admin briefing: revenue now from `subscription_payments` (SaaS collections), not tenant POS `invoices`. Applies to `/super-admin/mira/briefing` (snap key renamed `subscription_revenue_yesterday`), `/super-admin/mira/map-briefing` (payments today), and the live events feed ("Subscription payment ₹X").
+- Removed auto-dispatch of `mira-map-briefing` in PlatformOrbitMap.jsx + its listener in MiraVoiceAssistant.jsx — Mira no longer auto-speaks when opening Platform Map. Endpoint kept for tests.
+- NEW: `MiraNeuralAvatar.jsx` — canvas neural-network thinking visualization (orbiting nodes, connections, flowing particles, head activity, expanding rings; eases between idle/thinking). Exports `MiraThinkingStages` (cycling stage labels: analyzing/researching/memory/tools/insights/response).
+- Integrated in MiraHome (main avatar, thinking chat row) + MiraVoiceAssistant (FAB avatar, header avatar with ping, thinking row).
+- Verified: backend via curl with temp subscription_payment docs (₹2999 yday / ₹1500 today reported correctly, then cleaned); frontend via screenshot (avatar + thinking stages render, no auto-speak on map).
+
+### Remaining backlog (unchanged)
+- P1: Weekly Health Sweep (Mira auto-audits DB weekly, alerts only on new findings)
+- P1: Auto-WhatsApp membership renew link 7 days pre-expiry
+- P1: Mid-term membership tier upgrade (pay difference)
+- P2: Gift card printing at POS; Custom pinned tabs in Super Admin; refactor high-complexity backend functions

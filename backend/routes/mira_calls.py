@@ -766,8 +766,8 @@ async def platform_map_live(user=Depends(require_super_admin)):
         events.append({"icon": "🧲", "title": f"New lead — {l.get('name')}", "sub": l.get("city") or "", "at": l.get("created_at", "")})
     for a in await _raw_db.appointments.find({}, {"_id": 0, "customer_name": 1, "created_at": 1}).sort("created_at", -1).to_list(4):
         events.append({"icon": "📅", "title": "Booking confirmed", "sub": a.get("customer_name") or "", "at": a.get("created_at", "")})
-    for i in await _raw_db.invoices.find({}, {"_id": 0, "total": 1, "created_at": 1}).sort("created_at", -1).to_list(4):
-        events.append({"icon": "💰", "title": f"Payment received ₹{round(i.get('total') or 0)}", "sub": "", "at": i.get("created_at", "")})
+    for i in await _raw_db.subscription_payments.find({}, {"_id": 0, "amount": 1, "created_at": 1}).sort("created_at", -1).to_list(4):
+        events.append({"icon": "💰", "title": f"Subscription payment ₹{round(i.get('amount') or 0)}", "sub": "", "at": i.get("created_at", "")})
     for t in await _raw_db.tenants.find({}, {"_id": 0, "name": 1, "created_at": 1}).sort("created_at", -1).to_list(3):
         events.append({"icon": "🏢", "title": f"New salon — {t.get('name')}", "sub": "", "at": t.get("created_at", "")})
     for e in await _raw_db.registry_employees.find({}, {"_id": 0, "name": 1, "created_at": 1}).sort("created_at", -1).to_list(3):
@@ -828,9 +828,10 @@ async def _hq_snapshot() -> dict:
     trials_expiring = await _raw_db.tenants.count_documents(
         {"status": "trial", "trial_ends_at": {"$lte": soon, "$gte": today}})
     bookings_today = await _raw_db.appointments.count_documents({"date": today})
-    rev = await _raw_db.invoices.aggregate([
-        {"$match": {"created_at": {"$gte": yesterday, "$lt": today}}},
-        {"$group": {"_id": None, "s": {"$sum": "$total"}}}]).to_list(1)
+    rev = await _raw_db.subscription_payments.aggregate([
+        {"$match": {"$or": [{"paid_at": yesterday},
+                            {"paid_at": {"$in": ["", None]}, "created_at": {"$gte": yesterday, "$lt": today}}]}},
+        {"$group": {"_id": None, "s": {"$sum": "$amount"}}}]).to_list(1)
     failed_today = await _raw_db.mira_call_logs.find(
         {"created_at": {"$gte": today}, "status": "failed"}, {"_id": 0, "error": 1}).to_list(300)
     drafted_ready = await _raw_db.mira_leads.count_documents(
@@ -849,7 +850,7 @@ async def _hq_snapshot() -> dict:
             "unread_hq_inbox": unread_inbox,
             "active_and_trial_salons": tenants_total, "trials_expiring_in_5_days": trials_expiring,
             "bookings_today_all_salons": bookings_today,
-            "revenue_yesterday_all_salons": round((rev[0]["s"] if rev else 0) or 0, 2)}
+            "subscription_revenue_yesterday": round((rev[0]["s"] if rev else 0) or 0, 2)}
 
 
 def _tod_greeting() -> str:
@@ -870,8 +871,8 @@ async def mira_briefing(user=Depends(require_super_admin)):
         bits.append(f"{_n(snap['hot_leads'], 'hot lead is', 'hot leads are')} waiting")
     if snap["bookings_today_all_salons"]:
         bits.append(f"{_n(snap['bookings_today_all_salons'], 'booking', 'bookings')} across your salons today")
-    if snap["revenue_yesterday_all_salons"]:
-        bits.append(f"₹{snap['revenue_yesterday_all_salons']:g} collected yesterday")
+    if snap["subscription_revenue_yesterday"]:
+        bits.append(f"₹{snap['subscription_revenue_yesterday']:g} subscription revenue collected yesterday")
     if snap["new_verification_requests"]:
         bits.append(f"{_n(snap['new_verification_requests'], 'new staff verification request', 'new staff verification requests')}")
     if snap["trials_expiring_in_5_days"]:
@@ -923,9 +924,10 @@ async def mira_map_briefing(user=Depends(require_super_admin)):
     interested = len([c for c in calls_today if c.get("result") == "interested"])
     failed = len([c for c in calls_today if c.get("status") == "failed"])
     bookings_today = await _raw_db.appointments.count_documents({"date": today})
-    pay = await _raw_db.invoices.aggregate([
-        {"$match": {"created_at": {"$gte": today}}},
-        {"$group": {"_id": None, "n": {"$sum": 1}, "s": {"$sum": "$total"}}}]).to_list(1)
+    pay = await _raw_db.subscription_payments.aggregate([
+        {"$match": {"$or": [{"paid_at": today},
+                            {"paid_at": {"$in": ["", None]}, "created_at": {"$gte": today}}]}},
+        {"$group": {"_id": None, "n": {"$sum": 1}, "s": {"$sum": "$amount"}}}]).to_list(1)
     pay_n = (pay[0]["n"] if pay else 0) or 0
     pay_amt = round((pay[0]["s"] if pay else 0) or 0)
     tenants_today = await _raw_db.tenants.count_documents({"created_at": {"$gte": today}})
@@ -940,7 +942,7 @@ async def mira_map_briefing(user=Depends(require_super_admin)):
     else:
         bits.append("no new leads received so far today")
     if pay_n:
-        bits.append(f"{_n(pay_n, 'payment', 'payments')} received worth ₹{pay_amt:,}")
+        bits.append(f"{_n(pay_n, 'subscription payment', 'subscription payments')} received worth ₹{pay_amt:,}")
     if tenants_today:
         bits.append(f"{_n(tenants_today, 'new tenant', 'new tenants')} added")
     if staff_today:

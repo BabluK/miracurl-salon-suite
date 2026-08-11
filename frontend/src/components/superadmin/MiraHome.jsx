@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Flame, CalendarClock, Target, Megaphone, Lightbulb, Send, Brain, Clock, Loader2, X, Plus, Trash2, Pencil, ScanFace } from "lucide-react";
+import { MiraNeuralAvatar, MiraThinkingStages } from "./MiraNeuralAvatar";
 
 const KIND_ICON = { search: "🔍", result: "🎯", ask: "💬", call: "📞", email: "✉️", memory: "🧠" };
 
@@ -314,12 +315,9 @@ export function MiraHome({ onGoTab, user }) {
       <div className="relative grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
         {/* Main column */}
         <div className="flex flex-col items-center text-center">
-          {/* Animated avatar */}
-          <div className="relative w-28 h-28 mb-4" data-testid="mira-avatar">
-            <span className="absolute inset-0 rounded-full border border-fuchsia-400/30 animate-ping" style={{ animationDuration: "2.6s" }} />
-            <span className="absolute -inset-2 rounded-full border border-sky-400/20 animate-pulse" />
-            <img src="/mira-bot.png" alt="Mira" className="relative w-28 h-28 rounded-full object-cover border-2 border-fuchsia-400/60 shadow-[0_0_45px_rgba(217,70,239,0.35)]" />
-            <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-[#0b1020]" title="Mira is online" />
+          {/* Neural thinking avatar */}
+          <div className="-mt-6 -mb-3" data-testid="mira-avatar">
+            <MiraNeuralAvatar thinking={thinking} size={112} />
           </div>
           <h2 className="font-playfair text-2xl sm:text-3xl">Hello Boss 👋</h2>
           <p className="text-sm text-white/60 mt-2 max-w-2xl leading-relaxed" data-testid="mira-greeting">
@@ -356,6 +354,16 @@ export function MiraHome({ onGoTab, user }) {
                   <b className={m.role === "boss" ? "text-sky-300" : "text-fuchsia-300"}>{m.role === "boss" ? "You" : "Mira"}:</b> {m.text}
                 </div>
               ))}
+              {thinking && (
+                <div className="text-xs px-3.5 py-2.5 rounded-2xl bg-sky-500/10 border border-sky-400/25 mr-10 flex items-center gap-2" data-testid="mira-thinking-row">
+                  <span className="flex gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-bounce" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 animate-bounce" style={{ animationDelay: "0.15s" }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-bounce" style={{ animationDelay: "0.3s" }} />
+                  </span>
+                  <MiraThinkingStages className="text-sky-200/90" />
+                </div>
+              )}
             </div>
           )}
 
