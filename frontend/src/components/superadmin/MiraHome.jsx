@@ -181,6 +181,7 @@ export function MiraHome({ onGoTab, user }) {
   const [chat, setChat] = useState([]); // {role, text}
   const [thinking, setThinking] = useState(false);
   const [vault, setVault] = useState(false);
+  const [purging, setPurging] = useState(false);
   const [faceModal, setFaceModal] = useState(false);
   const [faceEnrolled, setFaceEnrolled] = useState(false);
   const [faceBusy, setFaceBusy] = useState(false);
@@ -240,6 +241,18 @@ export function MiraHome({ onGoTab, user }) {
     if (b.data?.text) setGreeting(b.data.text);
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  async function purgeOrphans() {
+    setPurging(true);
+    try {
+      const { data } = await api.post("/super/db/purge-orphans");
+      toast.success(`Mira cleaned ${data.removed} orphan record${data.removed === 1 ? "" : "s"} — all tidy, Boss ✦`);
+      speak(`Done Boss! I safely removed ${data.removed} orphan records. Your database is tidy again.`);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Purge failed");
+    } finally { setPurging(false); }
+  }
 
   async function ask(text) {
     const question = (text || q).trim();
@@ -314,14 +327,24 @@ export function MiraHome({ onGoTab, user }) {
           </p>
 
           {home?.health_alerts?.length > 0 && (
-            <button onClick={() => onGoTab?.("platform-map")} data-testid="mira-health-alert"
-              className="mt-3 max-w-2xl w-full text-left flex items-start gap-2.5 bg-amber-500/10 border border-amber-400/30 rounded-2xl px-4 py-3 hover:border-amber-400/60 transition-colors">
+            <div className="mt-3 max-w-2xl w-full flex items-start gap-2.5 bg-amber-500/10 border border-amber-400/30 rounded-2xl px-4 py-3" data-testid="mira-health-alert">
               <span className="text-base leading-none mt-0.5">⚠️</span>
-              <span className="text-xs text-amber-200 leading-relaxed">
+              <div className="text-xs text-amber-200 leading-relaxed text-left flex-1">
                 <b>Hey Boss — system health needs your attention:</b> {home.health_alerts.join(" · ")}
-                <span className="block text-[10px] text-amber-200/60 mt-0.5">Tap to open System Health →</span>
-              </span>
-            </button>
+                <div className="flex gap-2 mt-2">
+                  {home.orphan_records > 0 && (
+                    <button onClick={purgeOrphans} disabled={purging} data-testid="mira-purge-orphans"
+                      className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-amber-400 text-[#0b1020] hover:bg-amber-300 disabled:opacity-50 flex items-center gap-1">
+                      {purging ? <Loader2 className="w-3 h-3 animate-spin" /> : "🧹"} {purging ? "Cleaning…" : `Purge ${home.orphan_records} orphans safely`}
+                    </button>
+                  )}
+                  <button onClick={() => onGoTab?.("platform-map")} data-testid="mira-health-open"
+                    className="text-[10px] px-3 py-1.5 rounded-full border border-amber-400/40 text-amber-200 hover:bg-amber-500/20">
+                    Open System Health →
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Chat strip */}

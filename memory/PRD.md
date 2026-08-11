@@ -1804,3 +1804,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 1. Explained orphan records (db_health audit in platform_tools.py counts docs whose tenant_id references a deleted salon). FIXED false positives: audit now excludes sentinel tenant_id "superadmin" (autopilot hq_messages etc.) → preview orphans 95-style → 8 real leftovers.
 2. Top-nav scrollbar polished: .super-topnav CSS (thin 5px translucent rounded thumb, transparent track, Firefox scrollbar-width thin) in index.css.
 3. Mira system-health awareness (SUPER ADMIN Mira only — /super-admin/mira/*, fully separate from tenant /tenant/mira/ask): new _system_health() helper (health checks + cached orphan count + alert strings) reused by platform_overview, mira/home (returns health/orphan_records/health_alerts) and mira/briefing (appends "One more thing, Boss — system health items need your attention: …" to spoken/greeting text). MiraHome shows amber tappable alert banner (data-testid mira-health-alert → opens platform-map tab). Verified via curl + screenshot.
+
+## Session 2026-06 (fork) — Orphan Auto-Purge
+- POST /super/db/purge-orphans (platform_tools.py, super-admin only): deletes docs whose tenant_id references a deleted salon (excludes tenants/meta/system_flags collections + None/""/"superadmin" sentinels), re-runs audit, logs "Mira purged N orphan records" to mira_timeline. Returns removed + per_collection.
+- MiraHome health banner now has "🧹 Purge N orphans safely" button (data-testid mira-purge-orphans) — purges, toasts, Mira SPEAKS confirmation, reloads home (banner disappears when clean) + "Open System Health →" button.
+- Verified via curl: removed 8 (uploads 3, security_events 5) → audit 0 → alerts [] → timeline entry logged.

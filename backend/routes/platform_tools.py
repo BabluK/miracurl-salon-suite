@@ -116,6 +116,25 @@ async def run_db_health_audit() -> dict:
     return result
 
 
+@router.post("/super/db/purge-orphans")
+async def purge_orphans(admin=Depends(require_super_admin)):
+    """One-tap safe cleanup: delete docs whose tenant_id points to a deleted salon."""
+    tids = [t["id"] async for t in _raw_db.tenants.find({}, {"_id": 0, "id": 1})]
+    q = {"tenant_id": {"$exists": True, "$nin": tids + [None, "", "superadmin"]}}
+    removed, per = 0, {}
+    for c in await _raw_db.list_collection_names():
+        if c in ("tenants", "meta", "system_flags"):
+            continue
+        r = await _raw_db[c].delete_many(q)
+        if r.deleted_count:
+            per[c] = r.deleted_count
+            removed += r.deleted_count
+    await run_db_health_audit()
+    from routes.lead_common import log_mira_event
+    await log_mira_event("result", f"Mira purged {removed} orphan database records for Boss — system healthy again.")
+    return {"ok": True, "removed": removed, "per_collection": per}
+
+
 @router.get("/super/db/health")
 async def db_health(refresh: bool = False, admin=Depends(require_super_admin)):
     flag = await _raw_db.system_flags.find_one({"key": "db_health"}, {"_id": 0})
