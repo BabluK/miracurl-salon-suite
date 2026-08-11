@@ -72,7 +72,6 @@ async def _sms_reminder_scheduler() -> None:
                     await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"sms_low_alert_date": today}})
                 hq = os.environ.get("HQ_EMAIL")
                 if alerts and hq:
-                    from email_service import _send_email
                     rows_html = "".join(
                         f"<tr><td style='padding:6px 16px 6px 0'>{t.get('name') or t['id']}</td>"
                         f"<td><b>{int(t.get('sms_points') or 0)} points left</b></td></tr>" for t in alerts)

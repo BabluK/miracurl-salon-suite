@@ -7,19 +7,13 @@ from pydantic import BaseModel, Field
 
 from database import db, _raw_db
 from security import require_tenant_admin, require_super_admin, current_tenant, public_rate_limit
+from routes.payments_common import _checkout
 
 router = APIRouter()
 
 CURRENCIES = {"INR": "₹", "USD": "$", "GBP": "£", "EUR": "€", "AED": "AED "}
 TIMEZONES = ["Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Paris",
              "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney"]
-
-
-def _checkout(request: Request):
-    from emergentintegrations.payments.stripe.checkout import StripeCheckout
-    host_url = str(request.base_url)
-    return StripeCheckout(api_key=os.environ["STRIPE_API_KEY"],
-                          webhook_url=f"{host_url}api/webhook/stripe")
 
 
 class IntlSettingsIn(BaseModel):

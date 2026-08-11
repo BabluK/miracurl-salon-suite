@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from database import _raw_db, db
 from security import require_super_admin, public_rate_limit
+from routes.payments_common import _checkout
 from routes.subscriptions import (
     _rzp_client, _verify_rzp_signature, _fresh_plan_or_400,
     _apply_subscription_to_tenants, PLAN_CATALOG,
@@ -564,7 +565,6 @@ async def pay_link_stripe_checkout(token: str, body: StripeCheckoutIn, request: 
     if cur == "inr":
         raise HTTPException(400, "INR links pay via Razorpay.")
     origin = (body.origin_url or "").rstrip("/") or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
-    from routes.payments_intl import _checkout
     from emergentintegrations.payments.stripe.checkout import CheckoutSessionRequest
     sc = _checkout(request)
     session = await sc.create_checkout_session(CheckoutSessionRequest(
@@ -604,7 +604,6 @@ async def pay_link_stripe_status(token: str, session_id: str, request: Request):
         raise HTTPException(404, "Payment link not found")
     if link["status"] != "paid":
         try:
-            from routes.payments_intl import _checkout
             status = await _checkout(request).get_checkout_status(session_id)
             if status.payment_status == "paid":
                 await settle_stripe_pay_link(session_id)

@@ -997,17 +997,7 @@ _BUSINESS_INBOXES = {"support", "billing", "payments", "sales", "booking",
 
 async def _route_business_inbox(data: dict, sender: str) -> str:
     """If the mail was sent to a business inbox (support@, billing@, …), file it into HQ Inbox."""
-    to_field = data.get("to") or []
-    if isinstance(to_field, str):
-        to_field = [to_field]
-    inbox = ""
-    for t in to_field:
-        m2 = _EMAIL_RE.search(str(t))
-        addr = m2.group(0).lower() if m2 else ""
-        local, _, dom = addr.partition("@")
-        if dom == "miracurl-suite.com" and local in _BUSINESS_INBOXES:
-            inbox = local
-            break
+    inbox = _match_business_inbox(data.get("to") or [])
     if inbox:
         body_text = (str(data.get("text") or "") or re.sub(r"<[^>]+>", " ", str(data.get("html") or ""))).strip()[:2000]
         await _raw_db.hq_messages.insert_one({
@@ -1021,16 +1011,42 @@ async def _route_business_inbox(data: dict, sender: str) -> str:
     return inbox
 
 
-@router.post("/webhooks/resend-inbound")
-async def resend_inbound_webhook(request: Request):
-    """Resend Inbound (email.received) → match sender to a lead and flag it Replied."""
+def _match_business_inbox(to_field) -> str:
+    if isinstance(to_field, str):
+        to_field = [to_field]
+    for t in to_field:
+        m2 = _EMAIL_RE.search(str(t))
+        addr = m2.group(0).lower() if m2 else ""
+        local, _, dom = addr.partition("@")
+        if dom == "miracurl-suite.com" and local in _BUSINESS_INBOXES:
+            return local
+    return ""
+
+
+def _verify_inbound_secret(request: Request) -> None:
+    import hmac
     secret = os.environ.get("RESEND_INBOUND_SECRET")
     if not secret:
         raise HTTPException(503, "Inbound webhook not configured (set RESEND_INBOUND_SECRET)")
-    import hmac
-    provided = request.headers.get("x-inbound-secret", "")
-    if not hmac.compare_digest(provided, secret):
+    if not hmac.compare_digest(request.headers.get("x-inbound-secret", ""), secret):
         raise HTTPException(403, "Bad webhook secret")
+
+
+async def _mark_lead_replied(lead: dict, data: dict) -> None:
+    await _raw_db.mira_leads.update_one(
+        {"id": lead["id"], "replied_at": {"$exists": False}}, {"$set": {"replied_at": _now()}})
+    sets = {"reply_subject": str(data.get("subject") or "")[:200],
+            "last_reply_text": str(data.get("text") or data.get("html") or "")[:3000],
+            "last_reply_at": _now()}
+    if lead.get("status") not in ("demo", "customer"):
+        sets["status"] = "replied"
+    await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": sets})
+
+
+@router.post("/webhooks/resend-inbound")
+async def resend_inbound_webhook(request: Request):
+    """Resend Inbound (email.received) → match sender to a lead and flag it Replied."""
+    _verify_inbound_secret(request)
     try:
         payload = await request.json()
     except Exception:
@@ -1046,14 +1062,7 @@ async def resend_inbound_webhook(request: Request):
         {"_id": 0, "id": 1, "name": 1, "status": 1})
     if not lead:
         return {"ok": True, "matched": False, "routed_inbox": inbox or None}
-    await _raw_db.mira_leads.update_one(
-        {"id": lead["id"], "replied_at": {"$exists": False}}, {"$set": {"replied_at": _now()}})
-    sets = {"reply_subject": str(data.get("subject") or "")[:200],
-            "last_reply_text": str(data.get("text") or data.get("html") or "")[:3000],
-            "last_reply_at": _now()}
-    if lead.get("status") not in ("demo", "customer"):
-        sets["status"] = "replied"
-    await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": sets})
+    await _mark_lead_replied(lead, data)
     log.info("lead reply detected: %s (%s)", lead["name"], sender)
     return {"ok": True, "matched": True}
 

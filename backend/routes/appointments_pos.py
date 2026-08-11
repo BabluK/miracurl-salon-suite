@@ -195,6 +195,14 @@ async def _crm_count_completed_appt(appt: dict, phone: Optional[str], aid: str):
     await db.appointments.update_one({"id": aid}, {"$set": {"crm_counted": True}})
 
 
+async def _appt_customer_phone(appt: dict) -> str | None:
+    phone = appt.get("customer_phone")
+    if phone or not appt.get("customer_id"):
+        return phone
+    c = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0})
+    return c.get("phone") if c else None
+
+
 @router.put("/appointments/{aid}/status")
 async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(get_current_user)):
     await db.appointments.update_one({"id": aid}, {"$set": {"status": body.status}})
@@ -202,10 +210,7 @@ async def update_appt_status(aid: str, body: AppointmentStatusIn, user=Depends(g
     if not appt:
         raise HTTPException(404, "Appointment not found")
 
-    phone = appt.get("customer_phone")
-    if not phone and appt.get("customer_id"):
-        c = await db.customers.find_one({"id": appt["customer_id"]}, {"_id": 0})
-        phone = c.get("phone") if c else None
+    phone = await _appt_customer_phone(appt)
 
     whatsapp_url = None
     crm_updated = False
@@ -343,9 +348,9 @@ async def _resolve_tip(body: InvoiceIn, staff: dict | None) -> dict | None:
     return await db.staff.find_one({"id": tsid}, {"_id": 0, "id": 1, "name": 1})
 
 
-def _build_invoice_doc(body: InvoiceIn, cust: dict, staff: dict | None,
-                       totals: dict, coupon: dict | None, branch: dict | None,
+def _build_invoice_doc(body: InvoiceIn, cust: dict, staff: dict | None, ctx: dict,
                        tip: float, tip_staff: dict | None, invoice_no: str) -> dict:
+    totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]
     inv = Invoice(
         invoice_no=invoice_no,
         customer_id=cust["id"], customer_name=cust["name"],
@@ -440,8 +445,20 @@ async def delete_open_invoice(iid: str, user=Depends(require_tenant_admin)):
     return {"ok": True, "invoice_no": inv.get("invoice_no")}
 
 
-def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) -> dict:
+def _gc_contact_fields(meta: dict, cust: dict) -> dict:
     import re as _re
+
+    def digits(v):
+        return _re.sub(r"\D", "", str(v or ""))[:15]
+    return {"buyer_name": (meta.get("buyer_name") or cust.get("name") or "")[:80],
+            "buyer_email": (meta.get("buyer_email") or cust.get("email") or "").lower(),
+            "buyer_phone": digits(meta.get("buyer_phone") or cust.get("phone")),
+            "recipient_name": (meta.get("recipient_name") or "")[:80],
+            "recipient_email": (meta.get("recipient_email") or "").strip().lower(),
+            "recipient_whatsapp": digits(meta.get("recipient_whatsapp"))}
+
+
+def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) -> dict:
     from services.gift_card_service import _gc_settings
     meta = it.get("gift_meta") or {}
     amt = round(float(it.get("price") or 0) * int(it.get("qty") or 1), 2)
@@ -450,12 +467,7 @@ def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) 
             "tenant_slug": tenant_doc.get("slug") or "",
             "code": "", "occasion": meta.get("occasion") or "just-because",
             "amount": amt, "balance": amt, "currency": tenant_doc.get("currency") or "INR",
-            "buyer_name": (meta.get("buyer_name") or cust.get("name") or "")[:80],
-            "buyer_email": (meta.get("buyer_email") or cust.get("email") or "").lower(),
-            "buyer_phone": _re.sub(r"\D", "", str(meta.get("buyer_phone") or cust.get("phone") or ""))[:15],
-            "recipient_name": (meta.get("recipient_name") or "")[:80],
-            "recipient_email": (meta.get("recipient_email") or "").strip().lower(),
-            "recipient_whatsapp": _re.sub(r"\D", "", str(meta.get("recipient_whatsapp") or ""))[:15],
+            **_gc_contact_fields(meta, cust),
             "message": (meta.get("message") or "")[:400], "send_on": meta.get("send_on") or "",
             "pay_method": "pos", "status": "pending_payment",
             "validity_days": _gc_settings(tenant_doc)["validity_days"],
@@ -512,15 +524,14 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     await _validate_package_redeem_items(body.items, cust)
     ctx = await _resolve_billing_context(body, cust)
     _apply_locked_branch(ctx, user)
-    totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]
+    totals = ctx["totals"]
 
     await _handle_wallet_payment(body, cust, {}, totals["total"], "check")
 
     tip = round(float(body.tip_amount or 0), 2)
     tip_staff = await _resolve_tip(body, staff) if tip > 0 else None
 
-    inv = _build_invoice_doc(body, cust, staff, totals, coupon, branch,
-                             tip, tip_staff, await _gen_invoice_no())
+    inv = _build_invoice_doc(body, cust, staff, ctx, tip, tip_staff, await _gen_invoice_no())
     if body.status == "open":
         # "Create" = save the bill only. No payments, stock, points, cashback or
         # receipts until it's completed from Reports → recent bills.

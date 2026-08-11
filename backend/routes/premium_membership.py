@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from database import _raw_db
 from security import require_tenant_admin, current_tenant, public_rate_limit, get_current_user
 from services.gift_card_service import _pay_keys, _gc_settings, _tenant_by_slug, _upi_qr_b64
+from routes.membership_common import TIER_COLORS, _member_bundle
 
 router = APIRouter()
 
@@ -39,8 +40,6 @@ DEFAULT_PLANS = [
     {"tier": "custom", "name": "Custom", "price": 5000, "cashback_pct": 5, "discount_pct": 5,
      "custom": True, "min_price": 5000},
 ]
-TIER_COLORS = {"silver": "#94a3b8", "gold": "#d4af37", "platinum": "#8b5cf6",
-               "diamond": "#22d3ee", "custom": "#f59e0b"}
 
 
 def _now() -> str:
@@ -454,15 +453,6 @@ async def send_membership_welcome_email(cm: dict, cust: dict, t: dict, renewed: 
 
 
 # ---------------- public: member verify page + card download ----------------
-
-async def _member_bundle(member_id: str) -> tuple:
-    cm = await _raw_db.customer_memberships.find_one(
-        {"member_id": member_id.strip().upper()}, {"_id": 0})
-    if not cm:
-        raise HTTPException(404, "Membership not found")
-    cust = await _raw_db.customers.find_one({"id": cm["customer_id"]}, {"_id": 0}) or {}
-    t = await _raw_db.tenants.find_one({"id": cm["tenant_id"]}, {"_id": 0}) or {}
-    return cm, cust, t
 
 
 @router.get("/public/member/{member_id}")

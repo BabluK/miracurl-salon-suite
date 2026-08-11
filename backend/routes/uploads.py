@@ -61,7 +61,6 @@ async def upload_image(
     if user.get("role") == "super_admin":
         tenant_id = "superadmin"
     elif user.get("role") == "admin":
-        from security import _current_tenant_id
         tenant_id = _current_tenant_id.get()
         if not tenant_id:
             raise HTTPException(400, "No tenant context. Pass X-Tenant-Slug header or use a tenant-scoped login.")

@@ -303,7 +303,6 @@ async def request_more_branches(body: BranchRequestIn, user=Depends(require_admi
         "attachments": [], "read": False,
         "created_at": datetime.now(timezone.utc).isoformat()})
     try:
-        from email_service import _send_email
         await _send_email(
             [os.environ.get("HQ_EMAIL", "admin@miracurl.com")],
             f"[Miracurl HQ] {subject}",
