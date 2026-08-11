@@ -170,10 +170,10 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
     low_stock = await db.products.find({"$expr": {"$lte": ["$stock", "$low_stock_threshold"]}}, {"_id": 0}).to_list(50)
     review_stats = await _dashboard_review_stats()
     return {
-        "today_revenue": round(sum(inv["total"] for inv in invoices_today), 2),
+        "today_revenue": round(sum(float(inv.get("total") or 0) for inv in invoices_today), 2),
         "today_bookings": len(appts_today),
         "today_invoices": len(invoices_today),
-        "month_revenue": round(sum(inv["total"] for inv in invoices_month), 2),
+        "month_revenue": round(sum(float(inv.get("total") or 0) for inv in invoices_month), 2),
         "total_customers": await db.customers.count_documents({"crm_status": {"$ne": "pending"}}),
         "active_staff": await db.staff.count_documents({"active": True}),
         "low_stock_count": len(low_stock),
@@ -303,14 +303,16 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
     by_month = {}
     total_revenue = 0.0
     for inv in invs:
-        by_mode[inv["payment_mode"]] = by_mode.get(inv["payment_mode"], 0) + inv["total"]
+        amt = float(inv.get("total") or 0)
+        mode = inv.get("payment_mode") or "other"
+        by_mode[mode] = by_mode.get(mode, 0) + amt
         b = by_branch.setdefault(inv.get("branch_name") or "Main", {"revenue": 0.0, "invoices": 0})
-        b["revenue"] += inv["total"]
+        b["revenue"] += amt
         b["invoices"] += 1
         m = by_month.setdefault((inv.get("created_at") or "")[:7], {"revenue": 0.0, "invoices": 0})
-        m["revenue"] += inv["total"]
+        m["revenue"] += amt
         m["invoices"] += 1
-        total_revenue += inv["total"]
+        total_revenue += amt
     return {
         "total_invoices": len(invs),
         "total_revenue": round(total_revenue, 2),
@@ -414,7 +416,7 @@ async def staff_tips_report(start: Optional[str] = None, end: Optional[str] = No
     unassigned = {"total": 0.0, "count": 0}
     for inv in invs:
         sid = inv.get("tip_staff_id")
-        tip = float(inv["tip"])
+        tip = float(inv.get("tip") or 0)
         if not sid:
             unassigned["total"] += tip
             unassigned["count"] += 1

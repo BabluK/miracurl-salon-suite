@@ -103,7 +103,7 @@ export function HqInbox({ onUnreadChange }) {
               )}
             </div>
             <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">{m.message}</p>
-            {m.tenant_id && (
+            {m.tenant_id && m.tenant_id !== "superadmin" && (
               <button data-testid={`hq-send-feedback-${m.id}`} onClick={() => sendFeedback(m)} disabled={fbSent[m.id]}
                 className={`mt-2.5 text-[11px] font-bold px-3 py-1.5 rounded-full border transition ${fbSent[m.id]
                   ? "bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default"

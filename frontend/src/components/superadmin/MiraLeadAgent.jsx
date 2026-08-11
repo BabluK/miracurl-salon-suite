@@ -460,7 +460,12 @@ function LeadRow({ lead, onRefresh }) {
           </span>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-800 truncate">{lead.name} <span className="text-slate-400 font-normal">· {lead.city}</span></p>
+          <p className="text-sm font-semibold text-slate-800 truncate">
+            {lead.name} <span className="text-slate-400 font-normal">· {lead.city}</span>
+            <span data-testid={`lead-region-${lead.id}`} className="ml-1.5 text-[10px] align-middle" title={((lead.phone || "").replace(/[\s()-]/g, "").startsWith("+") && !(lead.phone || "").replace(/[\s()-]/g, "").startsWith("+91")) ? "Foreign lead" : "Indian lead"}>
+              {((lead.phone || "").replace(/[\s()-]/g, "").startsWith("+") && !(lead.phone || "").replace(/[\s()-]/g, "").startsWith("+91")) ? "🌍" : "🇮🇳"}
+            </span>
+          </p>
           <p className="text-[11px] text-slate-400 truncate">
             {lead.category ? <span data-testid={`lead-category-${lead.id}`} className="text-fuchsia-500 font-semibold">{lead.category} · </span> : null}
             {lead.rating ? <><Star className="w-3 h-3 inline text-amber-400 -mt-0.5" /> {lead.rating}{lead.reviews ? ` (${lead.reviews})` : ""} · </> : null}
@@ -681,8 +686,18 @@ export function MiraLeadAgent() {
   const activeRun = runs.find(r => r.status === "running");
 
   const isHot = l => (l.reviews || 0) >= 500 && !l.website;
+  const isIndian = l => {
+    const ph = (l.phone || "").replace(/[\s()-]/g, "");
+    if (ph.startsWith("+91")) return true;
+    if (ph.startsWith("+")) return false;
+    const m = (l.city || "").trim().match(/,\s*([A-Za-z]{2,3})$/);
+    if (m) return ["IN", "IND"].includes(m[1].toUpperCase());
+    return true;
+  };
   const FILTERS = [
     { key: "all", label: "All", test: () => true },
+    { key: "india", label: "🇮🇳 Indian", test: l => isIndian(l) },
+    { key: "intl", label: "🌍 Foreign", test: l => !isIndian(l) },
     { key: "recent", label: "🕐 Recent search", test: l => runs[0] && l.run_id === runs[0].id },
     { key: "hot", label: "🔥 Hot leads", test: l => isHot(l) },
     { key: "ready", label: "✉️ Ready to send", test: l => ["drafted", "researched"].includes(l.status) && !!l.email },
