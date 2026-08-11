@@ -35,6 +35,7 @@ import { VeoAdStudio } from "@/components/superadmin/VeoAdStudio";
 import { MiraStudioPanel } from "@/components/superadmin/MiraStudioPanel";
 import { MiraLeadAgent } from "@/components/superadmin/MiraLeadAgent";
 import { MiraHome } from "@/components/superadmin/MiraHome";
+import { FollowUpPipeline } from "@/components/superadmin/FollowUpPipeline";
 import { DiagnoseTenantModal } from "@/components/superadmin/DiagnoseTenantModal";
 import { HiringPanel } from "@/components/superadmin/HiringPanel";
 import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
@@ -303,12 +304,12 @@ export default function SuperAdmin() {
         {/* Super-admin profile */}
         <SuperProfileCard />
 
-        {/* Sidebar + content */}
-        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 items-start">
-        <aside className="w-full lg:w-56 shrink-0 lg:sticky lg:top-6">
-          <nav data-testid="super-sidebar" className="flex lg:flex-col gap-1 overflow-x-auto bg-white border border-slate-200 rounded-2xl p-2">
-            {[
+        {/* Top navigation + content */}
+        <div className="space-y-4">
+        <aside className="w-full sticky top-2 z-30">
+          <nav data-testid="super-sidebar" className="flex gap-1 overflow-x-auto bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-2 shadow-sm">{[
               { id: "mira-home", label: "Mira Home", icon: Sparkles },
+              { id: "pipeline", label: "Follow-up Pipeline", icon: TrendingUp },
               { id: "tenants", label: "Tenants", icon: Building2 },
               { id: "notifications", label: "Notifications", icon: BellRing, badge: notifFeed?.unread || 0 },
               { id: "platform-map", label: "Platform Map", icon: Orbit },
@@ -340,7 +341,7 @@ export default function SuperAdmin() {
               { id: "security", label: "Security", icon: ShieldAlert },
             ].map(item => (
               <button key={item.id} data-testid={`super-tab-${item.id}`} onClick={() => setTab(item.id)}
-                className={`shrink-0 lg:w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-slate-900 text-white" : item.hot ? "text-amber-600 bg-amber-50 animate-pulse hover:bg-amber-100" : "text-slate-600 hover:bg-slate-100"}`}>
+                className={`shrink-0 text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-slate-900 text-white" : item.hot ? "text-amber-600 bg-amber-50 animate-pulse hover:bg-amber-100" : "text-slate-600 hover:bg-slate-100"}`}>
                 <item.icon className={`w-4 h-4 shrink-0 ${item.hot && tab !== item.id ? "text-amber-500" : ""}`} />
                 <span className="whitespace-nowrap">{item.label}</span>
                 {item.hot && <span className="text-xs" aria-hidden>🔥</span>}
@@ -358,7 +359,8 @@ export default function SuperAdmin() {
 
         {(() => {
           const panels = {
-            "mira-home": <MiraHome onGoTab={setTab} />,
+            "mira-home": <MiraHome onGoTab={setTab} user={user} />,
+            pipeline: <FollowUpPipeline onGoTab={setTab} />,
             notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} onRefresh={() => api.get("/super-admin/notifications").then(r => setNotifFeed(r.data)).catch(() => {})} />,
             "platform-map": <PlatformOrbitMap onGoTab={setTab} />,
             billing: <div className="space-y-6"><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,

@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from database import _raw_db
 from security import require_super_admin
@@ -955,6 +955,7 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
     from routes.lead_common import log_mira_event
     await log_mira_event("ask", f"Boss asked: \"{body.question[:120]}\"")
     snap = await _hq_snapshot()
+    memory_block = await mira_memory_prompt()
     chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-hq-{user['id']}-{uuid.uuid4().hex[:6]}",
                    system_message=(
                        "You are Mira, the voice assistant of the Miracurl Suite super-admin console, and an EXPERT "
@@ -990,7 +991,7 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
     prev = f'Previous Mira message: "{body.last_mira.strip()[:200]}"\n' if body.last_mira.strip() else ""
     ist_now = datetime.now(_IST)
     msg = (f"Current time: {ist_now.strftime('%A %d %B, %I:%M %p')} IST ({_tod_greeting()}).\n"
-           f"Live snapshot: {json.dumps(snap)}\n{prev}\nAdmin says: {body.question.strip()[:300]}")
+           f"Live snapshot: {json.dumps(snap)}\n{memory_block}{prev}\nAdmin says: {body.question.strip()[:300]}")
     try:
         raw = await chat.send_message(UserMessage(text=msg))
         m = re.search(r"\{.*\}", str(raw), re.S)
@@ -1304,3 +1305,107 @@ async def mira_home(user=Depends(require_super_admin)):
     return {"snapshot": snap, "new_prospects_48h": new_prospects, "followups_due": followups,
             "emails_sent": emails_sent, "active_run": active_run,
             "trials_expiring": trials_expiring, "timeline": timeline}
+
+
+# ---------------- Mira Memory Vault ----------------
+class MemoryIn(BaseModel):
+    category: str = Field("general", max_length=40)
+    text: str = Field(..., min_length=2, max_length=500)
+
+
+@router.get("/super-admin/mira/memory")
+async def mira_memory_list(user=Depends(require_super_admin)):
+    rows = await _raw_db.mira_memory.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"items": rows}
+
+
+@router.post("/super-admin/mira/memory")
+async def mira_memory_add(body: MemoryIn, user=Depends(require_super_admin)):
+    doc = {"id": str(uuid.uuid4()), "category": body.category.strip().lower() or "general",
+           "text": body.text.strip(), "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.mira_memory.insert_one({**doc})
+    from routes.lead_common import log_mira_event
+    await log_mira_event("memory", f"Boss saved a memory: \"{body.text[:90]}\"")
+    doc.pop("_id", None)
+    return doc
+
+
+@router.put("/super-admin/mira/memory/{mid}")
+async def mira_memory_edit(mid: str, body: MemoryIn, user=Depends(require_super_admin)):
+    r = await _raw_db.mira_memory.update_one(
+        {"id": mid}, {"$set": {"category": body.category.strip().lower() or "general",
+                               "text": body.text.strip(),
+                               "updated_at": datetime.now(timezone.utc).isoformat()}})
+    if not r.matched_count:
+        raise HTTPException(404, "Memory not found")
+    return {"ok": True}
+
+
+@router.delete("/super-admin/mira/memory/{mid}")
+async def mira_memory_delete(mid: str, user=Depends(require_super_admin)):
+    await _raw_db.mira_memory.delete_one({"id": mid})
+    return {"ok": True}
+
+
+async def mira_memory_prompt() -> str:
+    rows = await _raw_db.mira_memory.find({}, {"_id": 0, "category": 1, "text": 1}).sort("created_at", -1).to_list(40)
+    if not rows:
+        return ""
+    lines = "\n".join(f"- [{r['category']}] {r['text']}" for r in rows)
+    return f"\nAPPROVED BUSINESS MEMORY (Boss saved these — use them when relevant):\n{lines}\n"
+
+
+# ---------------- Follow-up Pipeline ----------------
+_PIPE_MAP = {
+    "NEW": ("researched", "drafted", "approved", "no_email"),
+    "CONTACTED": ("sent", "emailed", "followup_sent"),
+    "INTERESTED": ("replied", "demo", "opened"),
+    "CONVERTED": ("customer", "converted"),
+}
+
+
+def _pipe_suggestion(col: str, lead: dict) -> str:
+    days_since = 999
+    for f in ("last_followup_at", "sent_at", "created_at"):
+        if lead.get(f):
+            try:
+                days_since = (datetime.now(timezone.utc) - datetime.fromisoformat(str(lead[f]).replace("Z", "+00:00"))).days
+                break
+            except ValueError:
+                continue
+    if col == "NEW":
+        if not lead.get("email") and lead.get("phone"):
+            return "No email found — open WhatsApp and introduce Miracurl directly."
+        return "Review the drafted intro email and approve it for sending."
+    if col == "CONTACTED":
+        if days_since >= 3:
+            return f"No reply for {days_since} days — send a short value-based follow-up (email or WhatsApp), don't repeat the pitch."
+        return "Recently contacted — wait for a reply, follow up after 3 days."
+    if col == "INTERESTED":
+        return "They're warm! Offer a demo slot today — strike while the interest is hot."
+    return "Converted 🎉 — onboard them well and ask for a referral to nearby salons."
+
+
+@router.get("/super-admin/mira/pipeline")
+async def mira_pipeline(user=Depends(require_super_admin)):
+    import urllib.parse
+    leads = await _raw_db.mira_leads.find(
+        {"status": {"$nin": ["rejected", "failed", "unsubscribed"]}},
+        {"_id": 0, "id": 1, "name": 1, "city": 1, "email": 1, "phone": 1, "status": 1,
+         "reviews": 1, "rating": 1, "sent_at": 1, "last_followup_at": 1, "created_at": 1, "website": 1}
+    ).sort("created_at", -1).to_list(400)
+    cols = {k: [] for k in _PIPE_MAP}
+    for lead in leads:
+        col = next((k for k, v in _PIPE_MAP.items() if (lead.get("status") or "researched") in v), "NEW")
+        wa = ""
+        digits = re.sub(r"\D", "", lead.get("phone") or "")
+        if digits:
+            if len(digits) == 10:
+                digits = "91" + digits
+            msg = (f"Hi {lead.get('name')}! This is Miracurl Salon Suite — an AI-powered salon management "
+                   f"platform (bookings, billing, WhatsApp reminders, staff & inventory). "
+                   f"Can I share a quick demo for your salon?")
+            wa = f"https://wa.me/{digits}?text={urllib.parse.quote(msg)}"
+        cols[col].append({**lead, "suggestion": _pipe_suggestion(col, lead), "wa_link": wa})
+    return {"columns": [{"key": k, "label": k.title().replace("_", " "), "leads": v[:60]} for k, v in cols.items()],
+            "counts": {k: len(v) for k, v in cols.items()}}
