@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Flame, CalendarClock, Target, Megaphone, Lightbulb, Send, Brain, Clock, Loader2, X, Plus, Trash2, Pencil, ScanFace } from "lucide-react";
-import { MiraNeuralAvatar, MiraThinkingStages } from "./MiraNeuralAvatar";
+import { MiraNeuralAvatar, MiraThinkingBeam } from "./MiraNeuralAvatar";
 
 const KIND_ICON = { search: "🔍", result: "🎯", ask: "💬", call: "📞", email: "✉️", memory: "🧠" };
 
@@ -296,6 +296,7 @@ export function MiraHome({ onGoTab, user }) {
   ];
 
   const suggestions = ["Find salon leads in Bangalore", "Call the hot leads", "How did we do yesterday?", "Show today's follow-ups"];
+  const avatarSize = typeof window !== "undefined" && window.innerWidth >= 1024 ? 250 : 150;
 
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0b1020] via-[#101a35] to-[#0b0f1e] text-white p-5 sm:p-8" data-testid="mira-home">
@@ -325,11 +326,13 @@ export function MiraHome({ onGoTab, user }) {
       <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[480px] h-[480px] rounded-full bg-fuchsia-500/10 blur-3xl pointer-events-none" />
       <div className="relative grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
         {/* Main column */}
-        <div className="flex flex-col items-center text-center">
-          {/* Neural thinking avatar */}
-          <div className="-mt-6 -mb-3" data-testid="mira-avatar">
-            <MiraNeuralAvatar thinking={thinking || !!liveTask} size={160} />
-          </div>
+        <div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+            {/* Left half — big neural Mira */}
+            <div className="flex flex-col items-center">
+              <div className="-my-3" data-testid="mira-avatar">
+                <MiraNeuralAvatar thinking={thinking || !!liveTask} size={avatarSize} />
+              </div>
           {liveTask && (
             <div className="mb-4 max-w-xl px-4 py-2 rounded-full bg-sky-500/10 border border-sky-400/30 flex items-center gap-2 text-xs text-sky-200 shadow-[0_0_25px_rgba(56,189,248,0.15)]" data-testid="mira-live-narration">
               <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0" />
@@ -337,7 +340,10 @@ export function MiraHome({ onGoTab, user }) {
               {liveTask.detail && <span className="text-sky-200/60 truncate hidden sm:inline">· {liveTask.detail}</span>}
             </div>
           )}
-          <h2 className="font-playfair text-2xl sm:text-3xl">Hello Boss 👋</h2>
+            </div>
+            {/* Right half — greeting + conversation */}
+            <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
+          <h2 className="font-playfair text-3xl sm:text-4xl">Hello Boss 👋</h2>
           <p className="text-sm text-white/60 mt-2 max-w-2xl leading-relaxed" data-testid="mira-greeting">
             {greeting || "I'm ready. Ask me to find leads, research salons, plan today's outreach or review your business."}
           </p>
@@ -372,16 +378,7 @@ export function MiraHome({ onGoTab, user }) {
                   <b className={m.role === "boss" ? "text-sky-300" : "text-fuchsia-300"}>{m.role === "boss" ? "You" : "Mira"}:</b> {m.text}
                 </div>
               ))}
-              {thinking && (
-                <div className="text-xs px-3.5 py-2.5 rounded-2xl bg-sky-500/10 border border-sky-400/25 mr-10 flex items-center gap-2" data-testid="mira-thinking-row">
-                  <span className="flex gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-bounce" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 animate-bounce" style={{ animationDelay: "0.15s" }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-bounce" style={{ animationDelay: "0.3s" }} />
-                  </span>
-                  <MiraThinkingStages className="text-sky-200/90" />
-                </div>
-              )}
+              {thinking && <MiraThinkingBeam className="mr-6" />}
             </div>
           )}
 
@@ -396,13 +393,15 @@ export function MiraHome({ onGoTab, user }) {
               {thinking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
           </div>
-          <div className="flex flex-wrap justify-center gap-2 mt-3">
+          <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-3">
             {suggestions.map(s => (
               <button key={s} onClick={() => ask(s)} data-testid={`mira-suggestion-${s.slice(0, 10).replace(/\s/g, "-")}`}
                 className="text-[11px] px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-fuchsia-400/40 transition-colors">
                 {s}
               </button>
             ))}
+          </div>
+            </div>
           </div>
 
           {/* Bottom cards */}

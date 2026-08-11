@@ -1833,3 +1833,11 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Swapped ONLY Super Admin surfaces: MiraNeuralAvatar.jsx, MiraVoiceAssistant.jsx (FAB/header/thinking), MiraHome.jsx (recognition overlay), SuperAdminExtras.jsx. Avatar enlarged 112→160px in Mira Home.
 - Tenant/public side (MiraFab, BookingChatWidget, BookPublic, PartnerLanding) UNCHANGED — still /mira-bot.png per user request.
 - Verified via screenshot.
+
+## Session 2026-06 (fork) — Half-screen Mira + backdrop network + thinking beam
+- New FRONT-FACING neural-crown Mira portrait (user picked from 2 generated options) → /mira-neural.png (640px).
+- MiraHome hero split: lg 2-col grid — left half big MiraNeuralAvatar (size 250 desktop / 150 mobile), right half greeting/chat/input/suggestions (left-aligned on lg). Bottom stat cards full width.
+- MiraNeuralAvatar: canvas now renders BEHIND the portrait (z-0 canvas, z-10 img), dim=size*2.1, 34 nodes spreading from behind the head, crown nodes arc above head edge.
+- NEW `MiraThinkingBeam` (MiraNeuralAvatar.jsx): "Mira is thinking…" panel — dot beam with animated glowing comet (CSS keyframe miraComet) + stage tracker Analyzing ◆ Researching ◆ Connecting ◆ Generating Results (active stage highlighted, cycles 1.6s). Replaces old bouncing-dots thinking row in MiraHome chat strip (testid: mira-thinking-beam).
+- MiraThinkingStages still exported & used by MiraVoiceAssistant widget.
+- Verified via screenshots (idle, thinking with beam). Tenant-side Mira image unchanged.
