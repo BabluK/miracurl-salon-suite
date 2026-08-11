@@ -1750,3 +1750,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 4. Joining date: StaffIn.joining_date (None = don't overwrite), StaffFormModal date input (staff-joining-date-input). Verified persistence via PUT.
 5. Target-gated commission: _compute_salary_for_month — when staff.monthly_target > 0 and gross < target, service commission = 0 with "withheld (target Rs X not reached)" slip line; commission_withheld flag in slip JSON. Staff without target unchanged.
 - testing_agent iteration_103: ALL PASS (backfill UI, joining date persistence, dialogs, regression). Backlog nice-to-have: BranchSwitcher hydration warning (span-in-option console noise, could not reproduce in code — pre-existing).
+
+## Session 2026-06 (fork) — Review upgrades + Reports dialog + prod Cloudflare RCA dispatched
+1. Reports page Cloudflare parse error (PRODUCTION only — preview endpoints 200/130ms): dispatched deployer debug agent for prod runtime RCA.
+2. Reports.jsx: markTipsPaid + eraseBilling window.confirm → styled ConfirmDialog (dlg state).
+3. Google review ARCHIVE: `google_reviews_archive` collection — every fetched Google review upserted (key publish_time|author) with deterministic `mira_reply` (template variants via _mira_reply_for). /reviews/google response now includes `archive` (all, sorted newest). Reviews.jsx shows "All 5★ Google reviews — recent & old" section (data-testid google-5star-archive) with Mira replies. Archive grows over time as Google rotates its 5 relevant reviews.
+4. Booking page "Loved by our guests": /public/reviews/featured/{slug} now merges Google 5★ (photo+name) first then in-app 5★, 15 items, server-shuffled, each with mira_reply; legacy fields (customer_name/comment) kept for SuccessStories.jsx. FeaturedReviews component = auto-rotating carousel (3 per page, 6s, dot nav) with avatar, name, source, stars, gold Mira reply.
+- Verified: curl (archive count, featured 15 items w/ replies) + screenshots (booking carousel, reviews archive). Reports dialog compile OK.

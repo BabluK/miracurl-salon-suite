@@ -282,13 +282,36 @@ _TEST_REVIEW_FILTER = {"$nor": [{"customer_name": {"$regex": "^TEST", "$options"
 
 
 @router.get("/public/reviews/featured/{slug}")
-async def public_featured_reviews(slug: str, limit: int = 6):
-    await resolve_tenant_from_slug(slug)
-    docs = await db.reviews.find(
-        {"public": True, "rating": {"$gte": 4}, **_TEST_REVIEW_FILTER},
-        {"_id": 0, "customer_id": 0, "appointment_id": 0, "staff_id": 0, "reward_code": 0}
+async def public_featured_reviews(slug: str, limit: int = 15):
+    """5★ social proof for the booking page: Google reviews (with photos) first,
+    then in-app reviews — shuffled, each with Mira's reply."""
+    import random
+    t = await resolve_tenant_from_slug(slug)
+    g_rows = await _raw_db.google_reviews_archive.find(
+        {"tenant_id": t["id"], "rating": 5},
+        {"_id": 0, "author": 1, "photo": 1, "rating": 1, "text": 1, "when": 1,
+         "publish_time": 1, "mira_reply": 1}).sort("publish_time", -1).to_list(limit)
+    app_rows = await db.reviews.find(
+        {"public": True, "rating": 5, "comment": {"$nin": [None, ""]}, **_TEST_REVIEW_FILTER},
+        {"_id": 0, "customer_name": 1, "staff_name": 1, "rating": 1, "comment": 1, "created_at": 1}
     ).sort("created_at", -1).to_list(limit)
-    return docs
+    items = [{
+        "source": "google", "author": r.get("author") or "Google user", "photo": r.get("photo") or "",
+        "rating": 5, "text": (r.get("text") or "")[:400], "when": r.get("when") or "",
+        "mira_reply": r.get("mira_reply") or _mira_reply_for(r.get("author"), 5),
+        # legacy field names kept for older consumers
+        "customer_name": r.get("author") or "Google user", "comment": (r.get("text") or "")[:400],
+    } for r in g_rows if (r.get("text") or "").strip()]
+    items += [{
+        "source": "app", "author": r.get("customer_name") or "Guest", "photo": "",
+        "rating": 5, "text": (r.get("comment") or "")[:400], "when": "",
+        "staff_name": r.get("staff_name"),
+        "mira_reply": _mira_reply_for(r.get("customer_name"), 5),
+        "customer_name": r.get("customer_name") or "Guest", "comment": (r.get("comment") or "")[:400],
+    } for r in app_rows]
+    items = items[:limit]
+    random.shuffle(items)
+    return items
 
 @router.get("/public/reviews/featured")
 async def public_featured_reviews_default(limit: int = 6):
@@ -415,6 +438,39 @@ async def _resolve_google_place_id(t: dict, key: str) -> str | None:
     return places[0]["id"] if places else None
 
 
+_MIRA_5STAR_REPLIES = [
+    "Thank you so much, {name}! Your kind words made our whole team smile — can't wait to pamper you again ✦ — Mira, Miracurl AI",
+    "{name}, you just made our day! We'll keep the glow-ups coming — see you at your next visit ✦ — Mira, Miracurl AI",
+    "So grateful, {name}! I've shared your review with the team — they're thrilled. Come back soon ✦ — Mira, Miracurl AI",
+    "Aww, thank you {name}! Guests like you are why we love what we do. Your next visit is going to be even better ✦ — Mira, Miracurl AI",
+    "{name}, this means the world to us! Thank you for trusting us with your look ✦ — Mira, Miracurl AI",
+]
+_MIRA_LOW_REPLIES = [
+    "We're truly sorry, {name} — this isn't the experience we want for you. Our owner has been alerted and we'd love a chance to make it right ✦ — Mira, Miracurl AI",
+    "Thank you for the honest feedback, {name}. We take this seriously — the team has been informed and we'll do better ✦ — Mira, Miracurl AI",
+]
+
+
+def _mira_reply_for(author: str, rating: int) -> str:
+    name = (author or "there").split()[0].title()
+    pool = _MIRA_5STAR_REPLIES if (rating or 0) >= 4 else _MIRA_LOW_REPLIES
+    return pool[sum(ord(ch) for ch in (author or "x")) % len(pool)].format(name=name)
+
+
+async def _archive_google_reviews(tenant_id: str, reviews: list) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    for rv in reviews:
+        if not rv.get("publish_time"):
+            continue
+        key = f"{rv['publish_time']}|{rv.get('author')}"
+        await _raw_db.google_reviews_archive.update_one(
+            {"tenant_id": tenant_id, "key": key},
+            {"$set": {**rv, "tenant_id": tenant_id, "key": key},
+             "$setOnInsert": {"id": str(uuid.uuid4()), "first_seen": now,
+                              "mira_reply": _mira_reply_for(rv.get("author"), rv.get("rating"))}},
+            upsert=True)
+
+
 async def _google_fetch_and_cache(t: dict, key: str, re_resolve: bool = False) -> dict:
     """Fetch + cache live Google reviews for a tenant. Raises ValueError with a user-facing message."""
     import httpx
@@ -448,6 +504,7 @@ async def _google_fetch_and_cache(t: dict, key: str, re_resolve: bool = False) -
         "fetched_at": datetime.now(timezone.utc).isoformat(),
     }
     await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"google_reviews_cache": payload}})
+    await _archive_google_reviews(t["id"], payload["reviews"])
     return payload
 
 
@@ -459,14 +516,20 @@ async def google_reviews(refresh: int = 0, user=Depends(get_current_user), t=Dep
     if not key:
         raise HTTPException(400, "Google Maps API key not configured")
     cache = t.get("google_reviews_cache") or {}
+    payload = None
     if cache.get("fetched_at") and not refresh:
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(cache["fetched_at"])).total_seconds()
         if age < 6 * 3600:
-            return cache
-    try:
-        return await _google_fetch_and_cache(t, key, re_resolve=bool(refresh))
-    except ValueError as e:
-        raise HTTPException(400, str(e))
+            payload = cache
+    if payload is None:
+        try:
+            payload = await _google_fetch_and_cache(t, key, re_resolve=bool(refresh))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    archive = await _raw_db.google_reviews_archive.find(
+        {"tenant_id": t["id"]},
+        {"_id": 0, "tenant_id": 0, "key": 0}).sort("publish_time", -1).to_list(500)
+    return {**payload, "archive": archive}
 
 
 async def run_google_review_alerts() -> dict:

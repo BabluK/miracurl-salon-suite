@@ -2,7 +2,7 @@
 // Extracted from BookPublic.jsx to reduce that file's complexity (was 549 lines).
 // Each component is a pure presentational unit driven by props.
 import { Check, IndianRupee, Clock, Sparkles, User, Phone, Mail, Gift, Star, Copy, Share2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { shareText as shareTextLib } from "@/lib/share";
 import { catImage } from "@/lib/categoryImages";
@@ -20,7 +20,16 @@ const STAR_NUMS = [1, 2, 3, 4, 5];
 const DEFAULT_STAFF_IMG = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300";
 
 export function FeaturedReviews({ featured }) {
+  const [page, setPage] = useState(0);
+  const perPage = 3;
+  const pages = Math.max(1, Math.ceil((featured?.length || 0) / perPage));
+  useEffect(() => {
+    if (pages <= 1) return undefined;
+    const id = setInterval(() => setPage(p => (p + 1) % pages), 6000);
+    return () => clearInterval(id);
+  }, [pages]);
   if (!featured?.length) return null;
+  const visible = featured.slice(page * perPage, page * perPage + perPage);
   return (
     <section className="mb-10" data-testid="featured-reviews">
       <div className="flex items-center gap-3 mb-4">
@@ -29,19 +38,41 @@ export function FeaturedReviews({ featured }) {
         </div>
         <span className="text-sm text-ink-secondary">Loved by our guests</span>
         <div className="h-px bg-white/10 flex-1" />
+        {pages > 1 && (
+          <div className="flex gap-1">
+            {Array.from({ length: pages }).map((_, i) => (
+              <button key={i} onClick={() => setPage(i)} aria-label={`Reviews page ${i + 1}`}
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${i === page ? "bg-gold" : "bg-white/20"}`} />
+            ))}
+          </div>
+        )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {featured.slice(0, 3).map((r, idx) => (
-          <div key={r.id || `featured-${idx}`} className="card-luxe text-sm">
-            <div className="flex items-center gap-0.5 mb-2">
-              {STAR_NUMS.map(n => (
-                <Star key={n} className={`w-3.5 h-3.5 ${n <= r.rating ? "fill-gold text-gold" : "text-white/15"}`} />
-              ))}
+        {visible.map((r, idx) => (
+          <div key={`${page}-${idx}`} className="card-luxe text-sm animate-fade-up" data-testid={`featured-review-${idx}`}>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {r.photo
+                  ? <img src={r.photo} alt="" className="w-8 h-8 rounded-full border border-gold/30" referrerPolicy="no-referrer" />
+                  : <div className="w-8 h-8 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center text-xs font-semibold text-gold">{(r.author || r.customer_name || "G").charAt(0)}</div>}
+                <div className="min-w-0">
+                  <div className="text-xs font-medium truncate">{r.author || r.customer_name || "Guest"}</div>
+                  <div className="text-[10px] text-ink-muted">{r.source === "google" ? `via Google${r.when ? ` · ${r.when}` : ""}` : (r.staff_name ? `with ${r.staff_name}` : "in-salon guest")}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-0.5 shrink-0">
+                {STAR_NUMS.map(n => (
+                  <Star key={n} className={`w-3 h-3 ${n <= r.rating ? "fill-gold text-gold" : "text-white/15"}`} />
+                ))}
+              </div>
             </div>
-            {r.comment && <p className="italic text-ink-secondary line-clamp-3">&ldquo;{r.comment}&rdquo;</p>}
-            <div className="mt-3 pt-3 border-t border-white/5 text-xs text-ink-muted">
-              — {r.customer_name}{r.staff_name && <> · with {r.staff_name}</>}
-            </div>
+            {(r.text || r.comment) && <p className="italic text-ink-secondary line-clamp-3">&ldquo;{r.text || r.comment}&rdquo;</p>}
+            {r.mira_reply && (
+              <div className="mt-3 pt-2.5 border-t border-white/5 flex items-start gap-1.5">
+                <Sparkles className="w-3 h-3 text-gold mt-0.5 shrink-0" />
+                <p className="text-[11px] text-gold/80 leading-snug line-clamp-2">{r.mira_reply}</p>
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { IndianRupee, DollarSign, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2, Pencil, Heart } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { EditInvoiceModal } from "@/components/EditInvoiceModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UnbilledPanel } from "@/components/reports/UnbilledPanel";
 import { MembershipReportCard } from "@/components/reports/MembershipReportCard";
 import { useAuth } from "@/context/AuthContext";
@@ -28,6 +29,7 @@ export default function Reports() {
   const [rateUnlocked, setRateUnlocked] = useState(() => sessionStorage.getItem("commission_rate_unlock") === "1");
   const [erasing, setErasing] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [dlg, setDlg] = useState(null);
 
   const unlockRate = async () => {
     try {
@@ -38,25 +40,36 @@ export default function Reports() {
     } catch (e) { toast.error(e.response?.data?.detail || "Admin PIN required"); }
   };
 
-  const markTipsPaid = async (r) => {
-    if (!window.confirm(`Mark ${r.staff_name}'s pending tips as handed over? (${r.pending_count} bill${r.pending_count === 1 ? "" : "s"})`)) return;
-    try {
-      const { data } = await api.post(`/reports/staff-tips/${r.staff_id}/mark-paid`);
-      toast.success(`${r.staff_name}'s tips marked paid — ${sym}${data.amount} ✓`);
-      load();
-    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't mark tips paid"); }
-  };
+  const markTipsPaid = (r) => setDlg({
+    title: "Hand over tips",
+    message: `Mark ${r.staff_name}'s pending tips as handed over? (${r.pending_count} bill${r.pending_count === 1 ? "" : "s"})`,
+    confirmLabel: "Mark as paid",
+    action: async () => {
+      try {
+        const { data } = await api.post(`/reports/staff-tips/${r.staff_id}/mark-paid`);
+        toast.success(`${r.staff_name}'s tips marked paid — ${sym}${data.amount} ✓`);
+        setDlg(null);
+        load();
+      } catch (e) { toast.error(e.response?.data?.detail || "Couldn't mark tips paid"); }
+    },
+  });
 
-  const eraseBilling = async (scope) => {
+  const eraseBilling = (scope) => {
     const label = scope === "all" ? "ALL billing data" : "last month's billing data";
-    if (!window.confirm(`Erase ${label}? This permanently deletes those invoices (revenue & commission reports reset). This cannot be undone.`)) return;
-    setErasing(true);
-    try {
-      const { data } = await pinApi.post("/reports/billing-data/erase", { scope });
-      toast.success(`${data.invoices_deleted} invoice(s) erased — fresh setup ready ✦`);
-      load();
-    } catch (e) { toast.error(e.response?.data?.detail || "Erase failed — Admin PIN required"); }
-    finally { setErasing(false); }
+    setDlg({
+      title: "Erase billing data", danger: true, confirmLabel: "Erase permanently",
+      message: `Erase ${label}? This permanently deletes those invoices (revenue & commission reports reset). This cannot be undone.`,
+      action: async () => {
+        setErasing(true);
+        try {
+          const { data } = await pinApi.post("/reports/billing-data/erase", { scope });
+          toast.success(`${data.invoices_deleted} invoice(s) erased — fresh setup ready ✦`);
+          setDlg(null);
+          load();
+        } catch (e) { toast.error(e.response?.data?.detail || "Erase failed — Admin PIN required"); }
+        finally { setErasing(false); }
+      },
+    });
   };
 
   const load = useCallback(async () => {
@@ -383,6 +396,7 @@ export default function Reports() {
         </>
       )}
       {editing && <EditInvoiceModal invoice={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {dlg && <ConfirmDialog open {...dlg} busy={erasing} onConfirm={() => dlg.action()} onClose={() => setDlg(null)} />}
     </div>
   );
 }

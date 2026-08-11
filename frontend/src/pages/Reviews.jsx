@@ -170,6 +170,31 @@ function GoogleReviewsCard() {
               ))}
             </div>
           )}
+          {(data.archive || []).filter(a => a.rating === 5).length > 0 && (
+            <div className="mt-5 pt-4 border-t border-slate-100" data-testid="google-5star-archive">
+              <div className="flex items-center gap-2 mb-2">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span className="text-xs font-semibold text-slate-600">All 5★ Google reviews we&apos;ve collected — recent &amp; old</span>
+                <span className="text-[10px] text-slate-400">({data.archive.filter(a => a.rating === 5).length})</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+                {data.archive.filter(a => a.rating === 5).map((rv, i) => (
+                  <div key={rv.id || i} className="rounded-lg border border-amber-100 bg-amber-50/40 p-2.5" data-testid={`google-archive-review-${i}`}>
+                    <div className="flex items-center gap-2">
+                      {rv.photo
+                        ? <img src={rv.photo} alt="" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
+                        : <div className="w-6 h-6 rounded-full bg-amber-200 flex items-center justify-center text-[10px] font-semibold text-amber-800">{(rv.author || "G").charAt(0)}</div>}
+                      <div className="text-[11px] font-medium truncate">{rv.author}</div>
+                      <span className="text-[9px] text-slate-400 ml-auto shrink-0">{rv.when}</span>
+                    </div>
+                    {rv.text && <p className="text-[11px] text-slate-600 mt-1.5 line-clamp-3 italic">&ldquo;{rv.text}&rdquo;</p>}
+                    {rv.mira_reply && <p className="text-[10px] text-amber-700 mt-1.5">↳ {rv.mira_reply}</p>}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2">Mira archives every review Google shares (5 at a time) — this list grows over time, keeping older 5★ reviews visible.</p>
+            </div>
+          )}
           <p className="text-[10px] text-slate-400 mt-3">Google shares its overall rating plus the 5 most relevant reviews via API — tap &ldquo;View all on Google&rdquo; for the full list.</p>
         </>
       )}
