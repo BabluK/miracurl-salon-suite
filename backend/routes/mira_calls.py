@@ -1409,3 +1409,107 @@ async def mira_pipeline(user=Depends(require_super_admin)):
         cols[col].append({**lead, "suggestion": _pipe_suggestion(col, lead), "wa_link": wa})
     return {"columns": [{"key": k, "label": k.title().replace("_", " "), "leads": v[:60]} for k, v in cols.items()],
             "counts": {k: len(v) for k, v in cols.items()}}
+
+
+# ---------------- Face-ID ----------------
+class FaceIn(BaseModel):
+    image_b64: str = Field(..., min_length=100)
+
+
+@router.get("/super-admin/mira/face-status")
+async def face_status(user=Depends(require_super_admin)):
+    doc = await _raw_db.mira_settings.find_one({"key": f"face_ref_{user['id']}"}, {"_id": 0, "enrolled_at": 1})
+    return {"enrolled": bool(doc), "enrolled_at": (doc or {}).get("enrolled_at")}
+
+
+@router.post("/super-admin/mira/face-enroll")
+async def face_enroll(body: FaceIn, user=Depends(require_super_admin)):
+    await _raw_db.mira_settings.update_one(
+        {"key": f"face_ref_{user['id']}"},
+        {"$set": {"key": f"face_ref_{user['id']}", "image_b64": body.image_b64[:2_000_000],
+                  "enrolled_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True)
+    from routes.lead_common import log_mira_event
+    await log_mira_event("memory", "Boss enrolled Face-ID — Mira will now verify by face at login.")
+    return {"ok": True}
+
+
+@router.delete("/super-admin/mira/face-enroll")
+async def face_unenroll(user=Depends(require_super_admin)):
+    await _raw_db.mira_settings.delete_one({"key": f"face_ref_{user['id']}"})
+    return {"ok": True}
+
+
+@router.post("/super-admin/mira/face-verify")
+async def face_verify(body: FaceIn, user=Depends(require_super_admin)):
+    ref = await _raw_db.mira_settings.find_one({"key": f"face_ref_{user['id']}"}, {"_id": 0, "image_b64": 1})
+    if not ref:
+        raise HTTPException(400, "No enrolled face — enroll Face-ID first")
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"faceid-{uuid.uuid4().hex[:8]}",
+                   system_message=("You are a face verification system. Image 1 is the enrolled reference face; "
+                                   "image 2 is a live webcam capture. Decide if they show the SAME person. "
+                                   "Be tolerant of lighting/angle/glasses. If either image has no clear human face, match=false. "
+                                   'Respond ONLY with JSON: {"match": true/false, "confidence": 0-100, "reason": "<short>"}')
+                   ).with_model("gemini", "gemini-3-flash-preview")
+    try:
+        resp = await chat.send_message(UserMessage(
+            text="Same person?",
+            file_contents=[ImageContent(image_base64=ref["image_b64"]), ImageContent(image_base64=body.image_b64)]))
+        raw = (resp or "").strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        m = re.search(r"\{.*\}", raw, re.S)
+        d = json.loads(m.group(0)) if m else {}
+    except Exception as e:  # noqa: BLE001
+        logging.error(f"face verify failed: {e}")
+        raise HTTPException(502, "Face verification service unavailable — try again")
+    match = bool(d.get("match")) and float(d.get("confidence") or 0) >= 55
+    if match:
+        from routes.lead_common import log_mira_event
+        await log_mira_event("memory", "Boss verified by Face-ID ✓ — Mira welcomed them.")
+    return {"match": match, "confidence": d.get("confidence"), "reason": d.get("reason", "")}
+
+
+# ---------------- Platform Overview ----------------
+@router.get("/super-admin/platform-overview")
+async def platform_overview(user=Depends(require_super_admin)):
+    now = datetime.now(timezone.utc)
+    in5 = (now + timedelta(days=5)).date().isoformat()
+    tenants = await _raw_db.tenants.find(
+        {}, {"_id": 0, "id": 1, "name": 1, "location": 1, "status": 1, "trial_ends_at": 1, "created_at": 1}).to_list(1000)
+    subs = {"active": 0, "trial": 0, "expiring": 0, "cancelled": 0}
+    for t in tenants:
+        st = t.get("status") or "active"
+        if st == "trial" and (t.get("trial_ends_at") or "9999") <= in5:
+            subs["expiring"] += 1
+        elif st in subs:
+            subs[st] += 1
+        elif st in ("suspended", "cancelled", "expired"):
+            subs["cancelled"] += 1
+        else:
+            subs["active"] += 1
+    recent = sorted(tenants, key=lambda t: t.get("created_at") or "", reverse=True)[:5]
+    month = now.strftime("%Y-%m")
+    pipe = [{"$match": {"created_at": {"$gte": f"{month}-01"}}},
+            {"$group": {"_id": "$tenant_id", "revenue": {"$sum": {"$toDouble": {"$ifNull": ["$total", 0]}}}}},
+            {"$sort": {"revenue": -1}}, {"$limit": 5}]
+    top = await _raw_db.invoices.aggregate(pipe).to_list(5)
+    names = {t["id"]: t for t in tenants}
+    top_rev = [{"name": names.get(r["_id"], {}).get("name") or "Unknown salon",
+                "location": names.get(r["_id"], {}).get("location") or "",
+                "revenue": round(r["revenue"], 2)} for r in top if r["_id"]]
+    try:
+        await _raw_db.command("ping")
+        db_ok = True
+    except Exception:  # noqa: BLE001
+        db_ok = False
+    health = [
+        {"name": "API Services", "ok": True},
+        {"name": "Database", "ok": db_ok},
+        {"name": "Storage", "ok": True},
+        {"name": "Email Service", "ok": bool(os.environ.get("RESEND_API_KEY"))},
+        {"name": "AI Service", "ok": bool(os.environ.get("EMERGENT_LLM_KEY"))},
+        {"name": "Voice Calls", "ok": bool(os.environ.get("TWILIO_ACCOUNT_SID"))},
+    ]
+    return {"subscriptions": {**subs, "total": len(tenants)},
+            "recent": [{k: t.get(k) for k in ("name", "location", "status", "trial_ends_at")} for t in recent],
+            "health": health, "all_ok": all(h["ok"] for h in health), "top_revenue": top_rev}

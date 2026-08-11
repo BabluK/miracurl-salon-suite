@@ -3,7 +3,7 @@ import log from "@/lib/log";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard, Stethoscope, Eraser, CreditCard } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard, Stethoscope, Eraser, CreditCard, Menu } from "lucide-react";
 import { toast } from "sonner";
 import ImportCustomersModal from "./ImportCustomersModal";
 import PayLinkModal from "@/components/superadmin/PayLinkModal";
@@ -36,6 +36,7 @@ import { MiraStudioPanel } from "@/components/superadmin/MiraStudioPanel";
 import { MiraLeadAgent } from "@/components/superadmin/MiraLeadAgent";
 import { MiraHome } from "@/components/superadmin/MiraHome";
 import { FollowUpPipeline } from "@/components/superadmin/FollowUpPipeline";
+import { PlatformOverview } from "@/components/superadmin/PlatformOverview";
 import { DiagnoseTenantModal } from "@/components/superadmin/DiagnoseTenantModal";
 import { HiringPanel } from "@/components/superadmin/HiringPanel";
 import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
@@ -111,6 +112,7 @@ export default function SuperAdmin() {
   const [smsLogFor, setSmsLogFor] = useState(null); // tenant whose SMS log is open
   const [cleanFor, setCleanFor] = useState(null); // tenant being cleaned of dummy data
   const [tab, setTab] = useState("mira-home"); // tenants | billing
+  const [navOpen, setNavOpen] = useState(false);
   const [platformLogo, setPlatformLogo] = useState("");
   useEffect(() => {
     api.get("/public/site-info").then((r) => setPlatformLogo(r.data.platform_logo || "")).catch(() => {});
@@ -306,26 +308,26 @@ export default function SuperAdmin() {
 
         {/* Top navigation + content */}
         <div className="space-y-4">
-        <aside className="w-full sticky top-2 z-30">
-          <nav data-testid="super-sidebar" className="flex gap-1 overflow-x-auto bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-2 shadow-sm">{[
-              { id: "mira-home", label: "Mira Home", icon: Sparkles },
-              { id: "pipeline", label: "Follow-up Pipeline", icon: TrendingUp },
-              { id: "tenants", label: "Tenants", icon: Building2 },
-              { id: "notifications", label: "Notifications", icon: BellRing, badge: notifFeed?.unread || 0 },
-              { id: "platform-map", label: "Platform Map", icon: Orbit },
-              { id: "billing", label: "Billing & Subscriptions", icon: Receipt },
+        {(() => {
+          const NAV_ITEMS = [
+              { id: "mira-home", label: "Mira Home", icon: Sparkles, top: true },
+              { id: "platform-map", label: "Platform Map", icon: Orbit, top: true },
+              { id: "pipeline", label: "Follow-up Pipeline", icon: TrendingUp, top: true },
+              { id: "tenants", label: "Tenants", icon: Building2, top: true },
+              { id: "notifications", label: "Notifications", icon: BellRing, badge: notifFeed?.unread || 0, top: true },
+              { id: "billing", label: "Billing & Subscriptions", icon: Receipt, top: true },
+              { id: "revenue", label: "Revenue", icon: TrendingUp, top: true },
+              { id: "mira-leads", label: "Mira Lead Agent", icon: Sparkles, top: true },
+              { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread, top: true },
               { id: "partners", label: "Partners", icon: Handshake },
               { id: "leaderboard", label: "Top Referrers", icon: Trophy },
-              { id: "revenue", label: "Revenue", icon: TrendingUp },
               { id: "docs", label: "Documents", icon: FileText },
               { id: "lead-email", label: "Lead Gen Email", icon: Mail, badge: demoHot, hot: demoHot > 0 },
-              { id: "mira-leads", label: "Mira Lead Agent", icon: Sparkles },
               { id: "demo-calendar", label: "Demo Calendar", icon: Bell },
               { id: "ai", label: "AI Insights", icon: Sparkles },
               { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
               { id: "mira-studio", label: "Mira Studio Users", icon: Sparkles },
               { id: "hiring", label: "Hiring", icon: Briefcase, badge: hiringNew },
-              { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread },
               { id: "feedback", label: "Feedback", icon: Star },
               { id: "engineer", label: "AI Engineer", icon: Wrench },
               { id: "onboarding", label: "Onboarding Image", icon: Sparkles },
@@ -339,9 +341,10 @@ export default function SuperAdmin() {
               { id: "load", label: "Platform Load", icon: Activity },
               { id: "database", label: "Database", icon: Database },
               { id: "security", label: "Security", icon: ShieldAlert },
-            ].map(item => (
-              <button key={item.id} data-testid={`super-tab-${item.id}`} onClick={() => setTab(item.id)}
-                className={`shrink-0 text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-slate-900 text-white" : item.hot ? "text-amber-600 bg-amber-50 animate-pulse hover:bg-amber-100" : "text-slate-600 hover:bg-slate-100"}`}>
+          ];
+          const renderBtn = (item, full = false) => (
+              <button key={item.id} data-testid={`super-tab-${item.id}`} onClick={() => { setTab(item.id); setNavOpen(false); }}
+                className={`shrink-0 ${full ? "w-full" : ""} text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-slate-900 text-white" : item.hot ? "text-amber-600 bg-amber-50 animate-pulse hover:bg-amber-100" : "text-slate-600 hover:bg-slate-100"}`}>
                 <item.icon className={`w-4 h-4 shrink-0 ${item.hot && tab !== item.id ? "text-amber-500" : ""}`} />
                 <span className="whitespace-nowrap">{item.label}</span>
                 {item.hot && <span className="text-xs" aria-hidden>🔥</span>}
@@ -352,9 +355,43 @@ export default function SuperAdmin() {
                   </span>
                 )}
               </button>
-            ))}
-          </nav>
-        </aside>
+          );
+          const moreBadge = NAV_ITEMS.filter(i => !i.top).reduce((s, i) => s + (i.badge || 0), 0);
+          return (
+            <>
+              <aside className="w-full sticky top-2 z-30">
+                <nav data-testid="super-sidebar" className="flex items-center gap-1 overflow-x-auto bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-2 shadow-sm">
+                  <button data-testid="super-nav-more" onClick={() => setNavOpen(true)}
+                    className="shrink-0 px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 bg-gradient-to-r from-slate-100 to-slate-50 border border-slate-200 text-slate-700 hover:border-slate-400 transition">
+                    <Menu className="w-4 h-4" /> All
+                    {moreBadge > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{moreBadge}</span>}
+                  </button>
+                  <span className="w-px h-6 bg-slate-200 shrink-0" />
+                  {NAV_ITEMS.filter(i => i.top).map(i => renderBtn(i))}
+                </nav>
+              </aside>
+              {navOpen && (
+                <div className="fixed inset-0 z-[70]" data-testid="super-nav-drawer">
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setNavOpen(false)} />
+                  <div className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl p-3 overflow-y-auto"
+                    style={{ animation: "superDrawerIn .28s cubic-bezier(.2,.8,.3,1)" }}>
+                    <style>{"@keyframes superDrawerIn{from{transform:translateX(-100%);opacity:.4}to{transform:translateX(0);opacity:1}}"}</style>
+                    <div className="flex items-center justify-between px-2 py-2 mb-1">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">All sections</span>
+                      <button onClick={() => setNavOpen(false)} data-testid="super-nav-drawer-close" className="text-slate-400 hover:text-slate-900"><X className="w-4 h-4" /></button>
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="px-2 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-fuchsia-500">Pinned on top</div>
+                      {NAV_ITEMS.filter(i => i.top).map(i => renderBtn(i, true))}
+                      <div className="px-2 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">More tools</div>
+                      {NAV_ITEMS.filter(i => !i.top).map(i => renderBtn(i, true))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
         <div className="flex-1 min-w-0 w-full space-y-6">
 
         {(() => {
@@ -362,7 +399,7 @@ export default function SuperAdmin() {
             "mira-home": <MiraHome onGoTab={setTab} user={user} />,
             pipeline: <FollowUpPipeline onGoTab={setTab} />,
             notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} onRefresh={() => api.get("/super-admin/notifications").then(r => setNotifFeed(r.data)).catch(() => {})} />,
-            "platform-map": <PlatformOrbitMap onGoTab={setTab} />,
+            "platform-map": <div className="space-y-6"><PlatformOverview onGoTab={setTab} /><PlatformOrbitMap onGoTab={setTab} /></div>,
             billing: <div className="space-y-6"><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,

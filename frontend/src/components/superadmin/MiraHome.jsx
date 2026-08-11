@@ -16,6 +16,75 @@ function speak(text) {
   } catch { /* unsupported */ }
 }
 
+async function captureFrame(videoEl) {
+  const c = document.createElement("canvas");
+  c.width = videoEl.videoWidth || 480;
+  c.height = videoEl.videoHeight || 360;
+  c.getContext("2d").drawImage(videoEl, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.7).split(",")[1];
+}
+
+function FaceCam({ onFrame, label, busy }) {
+  const videoRef = useRef(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let stream;
+    navigator.mediaDevices?.getUserMedia({ video: { width: 480, facingMode: "user" } })
+      .then(s => { stream = s; if (videoRef.current) videoRef.current.srcObject = s; })
+      .catch(() => setErr("Camera unavailable — allow camera permission and retry."));
+    return () => stream?.getTracks().forEach(t => t.stop());
+  }, []);
+  return (
+    <div className="flex flex-col items-center gap-3">
+      {err ? <p className="text-xs text-amber-300 text-center max-w-xs">{err}</p> : (
+        <div className="relative">
+          <video ref={videoRef} autoPlay playsInline muted className="w-56 h-56 object-cover rounded-2xl border-2 border-fuchsia-400/50 scale-x-[-1]" />
+          <span className="absolute inset-3 rounded-xl border border-dashed border-white/30 pointer-events-none" />
+        </div>
+      )}
+      {!err && (
+        <button onClick={async () => onFrame(await captureFrame(videoRef.current))} disabled={busy} data-testid="facecam-capture"
+          className="px-5 py-2 rounded-full bg-fuchsia-500 hover:bg-fuchsia-400 text-xs font-bold disabled:opacity-50 flex items-center gap-2">
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ScanFace className="w-3.5 h-3.5" />} {label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function FaceEnrollModal({ enrolled, onClose, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  async function enroll(b64) {
+    setBusy(true);
+    try {
+      await api.post("/super-admin/mira/face-enroll", { image_b64: b64 });
+      toast.success("Face enrolled — Mira will recognize you at login ✦");
+      onChanged();
+      onClose();
+    } catch (e) { toast.error(e.response?.data?.detail || "Enroll failed"); }
+    finally { setBusy(false); }
+  }
+  async function remove() {
+    try { await api.delete("/super-admin/mira/face-enroll"); toast.success("Face-ID disabled"); onChanged(); onClose(); }
+    catch { toast.error("Couldn't disable"); }
+  }
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose} data-testid="face-enroll-modal">
+      <div className="bg-[#101a35] border border-white/15 rounded-2xl w-full max-w-sm text-white shadow-2xl p-5" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 font-semibold text-sm"><ScanFace className="w-4 h-4 text-fuchsia-400" /> Face-ID {enrolled ? "· enrolled ✓" : "setup"}</div>
+          <button onClick={onClose} className="text-white/50 hover:text-white" data-testid="face-enroll-close"><X className="w-4 h-4" /></button>
+        </div>
+        <FaceCam onFrame={enroll} busy={busy} label={enrolled ? "Re-enroll my face" : "Capture & enroll my face"} />
+        {enrolled && (
+          <button onClick={remove} className="w-full mt-3 text-[11px] text-rose-300 hover:text-rose-200" data-testid="face-unenroll">Disable Face-ID</button>
+        )}
+        <p className="text-[10px] text-white/30 mt-3 text-center">Your face is checked by Mira's AI vision at each login before she welcomes you.</p>
+      </div>
+    </div>
+  );
+}
+
 function MemoryVault({ onClose }) {
   const [items, setItems] = useState([]);
   const [cat, setCat] = useState("general");
@@ -112,24 +181,55 @@ export function MiraHome({ onGoTab, user }) {
   const [chat, setChat] = useState([]); // {role, text}
   const [thinking, setThinking] = useState(false);
   const [vault, setVault] = useState(false);
-  const [recog, setRecog] = useState(() => (sessionStorage.getItem("mira_welcomed") ? "done" : "scanning"));
+  const [faceModal, setFaceModal] = useState(false);
+  const [faceEnrolled, setFaceEnrolled] = useState(false);
+  const [faceBusy, setFaceBusy] = useState(false);
+  const [recog, setRecog] = useState(() => (sessionStorage.getItem("mira_welcomed") ? "done" : "loading"));
   const lastMira = useRef("");
+  const viaFace = useRef(false);
 
-  // Recognition sequence: scan → verified → spoken welcome (once per session)
-  useEffect(() => {
-    if (sessionStorage.getItem("mira_welcomed")) return undefined;
-    const t1 = setTimeout(() => setRecog("verified"), 1700);
-    const t2 = setTimeout(() => {
-      setRecog("done");
-      sessionStorage.setItem("mira_welcomed", "1");
-      const hour = new Date().getHours();
-      const part = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-      const name = (user?.name || "Boss").split(" ")[0];
-      speak(`Welcome back, ${name}! Good ${part}. Mira is online and ready for you.`);
-    }, 3300);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+  const finishWelcome = useCallback(() => {
+    setRecog("done");
+    sessionStorage.setItem("mira_welcomed", "1");
+    const hour = new Date().getHours();
+    const part = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+    const name = (user?.name || "Boss").split(" ")[0];
+    speak(`${viaFace.current ? "Face verified. " : ""}Welcome back, ${name}! Good ${part}. Mira is online and ready for you.`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Recognition: face-ID if enrolled, else scan animation (once per session)
+  useEffect(() => {
+    api.get("/super-admin/mira/face-status").then(r => {
+      setFaceEnrolled(!!r.data.enrolled);
+      setRecog(prev => (prev === "loading" ? (r.data.enrolled ? "face" : "scanning") : prev));
+    }).catch(() => setRecog(prev => (prev === "loading" ? "scanning" : prev)));
   }, []);
+  useEffect(() => {
+    if (recog !== "scanning") return undefined;
+    const t = setTimeout(() => setRecog("verified"), 1700);
+    return () => clearTimeout(t);
+  }, [recog]);
+  useEffect(() => {
+    if (recog !== "verified") return undefined;
+    const t = setTimeout(finishWelcome, 1400);
+    return () => clearTimeout(t);
+  }, [recog, finishWelcome]);
+
+  async function verifyFace(b64) {
+    setFaceBusy(true);
+    try {
+      const { data } = await api.post("/super-admin/mira/face-verify", { image_b64: b64 });
+      if (data.match) {
+        viaFace.current = true;
+        setRecog("verified");
+      } else {
+        toast.error(`Mira couldn't match your face${data.reason ? ` — ${data.reason}` : ""}. Try again or skip.`);
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Face check failed — you can skip for now");
+    } finally { setFaceBusy(false); }
+  }
 
   const load = useCallback(async () => {
     const [h, b] = await Promise.all([
@@ -182,11 +282,16 @@ export function MiraHome({ onGoTab, user }) {
             <span className="absolute inset-0 rounded-full border border-sky-400/40 animate-ping" style={{ animationDuration: "1.4s" }} />
             <img src="/mira-bot.png" alt="Mira" className="relative w-28 h-28 rounded-full object-cover border-2 border-fuchsia-400/60" />
           </div>
-          {recog === "scanning" ? (
+          {recog === "face" ? (
+            <div className="flex flex-col items-center gap-3" data-testid="mira-face-gate">
+              <FaceCam onFrame={verifyFace} busy={faceBusy} label={faceBusy ? "Verifying…" : "Verify my face"} />
+              <button onClick={finishWelcome} className="text-[11px] text-white/40 hover:text-white/70" data-testid="face-skip">Skip Face-ID this time</button>
+            </div>
+          ) : recog === "scanning" || recog === "loading" ? (
             <div className="flex items-center gap-2 text-sm text-white/70"><ScanFace className="w-4 h-4 text-fuchsia-400 animate-pulse" /> Recognizing you…</div>
           ) : (
             <div className="text-sm text-emerald-300 flex items-center gap-2 animate-fade-up">
-              ✓ Verified · <b>{user?.name || user?.email || "Boss"}</b> <span className="text-white/40">· Super Admin</span>
+              ✓ Verified{viaFace.current ? " by Face-ID" : ""} · <b>{user?.name || user?.email || "Boss"}</b> <span className="text-white/40">· Super Admin</span>
             </div>
           )}
         </div>
@@ -260,10 +365,16 @@ export function MiraHome({ onGoTab, user }) {
               <div className="flex items-center gap-2 text-xs font-semibold text-white/70">
                 <Brain className="w-4 h-4 text-fuchsia-400" /> Current Task
               </div>
-              <button onClick={() => setVault(true)} data-testid="open-memory-vault"
-                className="text-[10px] px-2.5 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 text-fuchsia-200 hover:bg-fuchsia-500/30 transition-colors">
-                🧠 Memory Vault
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setFaceModal(true)} data-testid="open-face-id"
+                  className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${faceEnrolled ? "bg-emerald-500/20 border-emerald-400/30 text-emerald-200" : "bg-white/5 border-white/15 text-white/50 hover:text-white"}`}>
+                  {faceEnrolled ? "🪪 Face-ID on" : "🪪 Face-ID"}
+                </button>
+                <button onClick={() => setVault(true)} data-testid="open-memory-vault"
+                  className="text-[10px] px-2.5 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 text-fuchsia-200 hover:bg-fuchsia-500/30 transition-colors">
+                  🧠 Memory Vault
+                </button>
+              </div>
             </div>
             {home?.active_run ? (
               <div className="text-xs text-emerald-300 flex items-center gap-2">
@@ -301,6 +412,8 @@ export function MiraHome({ onGoTab, user }) {
         </div>
       </div>
       {vault && <MemoryVault onClose={() => setVault(false)} />}
+      {faceModal && <FaceEnrollModal enrolled={faceEnrolled} onClose={() => setFaceModal(false)}
+        onChanged={() => api.get("/super-admin/mira/face-status").then(r => setFaceEnrolled(!!r.data.enrolled)).catch(() => {})} />}
     </div>
   );
 }
