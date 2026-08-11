@@ -101,3 +101,16 @@ def _unsub_footer(lead_id: str) -> str:
     return (f'<p style="font-size:11px;color:#9a9aa2;text-align:center;margin:14px 0 0;font-family:Georgia,serif">'
             f'{_html.escape(addr)} · '
             f'<a href="{_unsub_url(lead_id)}" style="color:#9a9aa2">Unsubscribe</a></p>')
+
+
+async def log_mira_event(kind: str, text: str) -> None:
+    """Append to Mira's Memory Timeline (shown on Mira Home). Best-effort."""
+    import uuid as _uuid
+    from datetime import datetime as _dt, timezone as _tz
+    from database import _raw_db as _db
+    try:
+        await _db.mira_timeline.insert_one({
+            "id": str(_uuid.uuid4()), "kind": kind, "text": text[:300],
+            "created_at": _dt.now(_tz.utc).isoformat()})
+    except Exception:
+        pass

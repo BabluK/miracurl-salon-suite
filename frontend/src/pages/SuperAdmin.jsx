@@ -34,6 +34,7 @@ import { DemoCalendar } from "@/components/superadmin/DemoCalendar";
 import { VeoAdStudio } from "@/components/superadmin/VeoAdStudio";
 import { MiraStudioPanel } from "@/components/superadmin/MiraStudioPanel";
 import { MiraLeadAgent } from "@/components/superadmin/MiraLeadAgent";
+import { MiraHome } from "@/components/superadmin/MiraHome";
 import { DiagnoseTenantModal } from "@/components/superadmin/DiagnoseTenantModal";
 import { HiringPanel } from "@/components/superadmin/HiringPanel";
 import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
@@ -108,7 +109,7 @@ export default function SuperAdmin() {
   const [payLinkFor, setPayLinkFor] = useState(null); // tenant getting a payment link
   const [smsLogFor, setSmsLogFor] = useState(null); // tenant whose SMS log is open
   const [cleanFor, setCleanFor] = useState(null); // tenant being cleaned of dummy data
-  const [tab, setTab] = useState("tenants"); // tenants | billing
+  const [tab, setTab] = useState("mira-home"); // tenants | billing
   const [platformLogo, setPlatformLogo] = useState("");
   useEffect(() => {
     api.get("/public/site-info").then((r) => setPlatformLogo(r.data.platform_logo || "")).catch(() => {});
@@ -307,6 +308,7 @@ export default function SuperAdmin() {
         <aside className="w-full lg:w-56 shrink-0 lg:sticky lg:top-6">
           <nav data-testid="super-sidebar" className="flex lg:flex-col gap-1 overflow-x-auto bg-white border border-slate-200 rounded-2xl p-2">
             {[
+              { id: "mira-home", label: "Mira Home", icon: Sparkles },
               { id: "tenants", label: "Tenants", icon: Building2 },
               { id: "notifications", label: "Notifications", icon: BellRing, badge: notifFeed?.unread || 0 },
               { id: "platform-map", label: "Platform Map", icon: Orbit },
@@ -356,6 +358,7 @@ export default function SuperAdmin() {
 
         {(() => {
           const panels = {
+            "mira-home": <MiraHome onGoTab={setTab} />,
             notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} onRefresh={() => api.get("/super-admin/notifications").then(r => setNotifFeed(r.data)).catch(() => {})} />,
             "platform-map": <PlatformOrbitMap onGoTab={setTab} />,
             billing: <div className="space-y-6"><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,

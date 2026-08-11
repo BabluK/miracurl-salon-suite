@@ -952,6 +952,8 @@ class MiraAskIn(BaseModel):
 @router.post("/super-admin/mira/ask")
 async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super_admin)):
     from emergentintegrations.llm.chat import LlmChat, UserMessage
+    from routes.lead_common import log_mira_event
+    await log_mira_event("ask", f"Boss asked: \"{body.question[:120]}\"")
     snap = await _hq_snapshot()
     chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-hq-{user['id']}-{uuid.uuid4().hex[:6]}",
                    system_message=(
@@ -1281,3 +1283,24 @@ async def send_weekly_win_report(force: bool = False) -> bool:
         {"key": "mira_weekly_win"}, {"$set": {"last_sent": week_key, "at": _now(),
                                               "email_sent": bool(res.get("sent"))}}, upsert=True)
     return bool(res.get("sent"))
+
+
+@router.get("/super-admin/mira/home")
+async def mira_home(user=Depends(require_super_admin)):
+    """Everything Mira Home needs in one call: snapshot cards + memory timeline."""
+    from routes.lead_common import log_mira_event  # noqa: F401 — same collection
+    snap = await _hq_snapshot()
+    now = datetime.now(timezone.utc)
+    two_days = (now - timedelta(hours=48)).isoformat()
+    new_prospects = await _raw_db.leads.count_documents({"created_at": {"$gte": two_days}})
+    followups = await _raw_db.demo_invites.count_documents({"status": {"$in": ["pending", "sent", "opened"]}})
+    emails_sent = await _raw_db.leads.count_documents({"status": {"$in": ["sent", "demo", "customer", "replied"]}})
+    active_run = await _raw_db.mira_lead_runs.find_one(
+        {"status": "running"}, {"_id": 0, "city": 1, "stage": 1, "found": 1})
+    in5 = (now + timedelta(days=5)).date().isoformat()
+    trials_expiring = await _raw_db.tenants.count_documents(
+        {"status": "trial", "trial_ends_at": {"$lte": in5}})
+    timeline = await _raw_db.mira_timeline.find({}, {"_id": 0}).sort("created_at", -1).to_list(30)
+    return {"snapshot": snap, "new_prospects_48h": new_prospects, "followups_due": followups,
+            "emails_sent": emails_sent, "active_run": active_run,
+            "trials_expiring": trials_expiring, "timeline": timeline}

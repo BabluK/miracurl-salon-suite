@@ -548,6 +548,8 @@ async def _run_pipeline(run_id: str, city: str, target: int):
             await _log(f"✅ Found {len(cands)} candidate salons. Researching each…", stage="researching", found=len(cands))
             done = await _research_candidates(client, cands, city, run_id, _log)
             await _log(f"🎉 Run complete — {done} leads ready for your review.", status="done", stage="done")
+            from routes.lead_common import log_mira_event
+            await log_mira_event("result", f"{done} prospects researched and qualified — ready for Boss's review.")
     except Exception as e:
         log.exception("lead run failed")
         await _log(f"❌ Run failed: {str(e)[:120]}", status="failed", stage="failed")
@@ -644,6 +646,8 @@ async def start_run(body: RunIn, user=Depends(require_super_admin)):
            "status": "running", "stage": "starting", "found": 0, "researched": 0,
            "log": [], "created_at": _now()}
     await _raw_db.mira_lead_runs.insert_one({**run})
+    from routes.lead_common import log_mira_event
+    await log_mira_event("search", f"Boss asked Mira to find {body.target} salon leads in {city}.")
     asyncio.create_task(_run_pipeline(run["id"], run["city"], body.target))
     run.pop("_id", None)
     return run
