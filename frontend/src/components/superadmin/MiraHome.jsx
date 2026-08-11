@@ -187,6 +187,7 @@ export function MiraHome({ onGoTab, user }) {
   const [faceEnrolled, setFaceEnrolled] = useState(false);
   const [faceBusy, setFaceBusy] = useState(false);
   const [recog, setRecog] = useState(() => (sessionStorage.getItem("mira_welcomed") ? "done" : "loading"));
+  const [liveTask, setLiveTask] = useState(null);
   const lastMira = useRef("");
   const viaFace = useRef(false);
 
@@ -242,6 +243,16 @@ export function MiraHome({ onGoTab, user }) {
     if (b.data?.text) setGreeting(b.data.text);
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    let alive = true;
+    const poll = () => api.get("/super-admin/mira/live-task")
+      .then(({ data }) => { if (alive) setLiveTask(data.active ? data : null); })
+      .catch(() => {});
+    poll();
+    const iv = setInterval(poll, 4000);
+    return () => { alive = false; clearInterval(iv); };
+  }, []);
 
   async function purgeOrphans() {
     setPurging(true);
@@ -317,8 +328,15 @@ export function MiraHome({ onGoTab, user }) {
         <div className="flex flex-col items-center text-center">
           {/* Neural thinking avatar */}
           <div className="-mt-6 -mb-3" data-testid="mira-avatar">
-            <MiraNeuralAvatar thinking={thinking} size={112} />
+            <MiraNeuralAvatar thinking={thinking || !!liveTask} size={112} />
           </div>
+          {liveTask && (
+            <div className="mb-4 max-w-xl px-4 py-2 rounded-full bg-sky-500/10 border border-sky-400/30 flex items-center gap-2 text-xs text-sky-200 shadow-[0_0_25px_rgba(56,189,248,0.15)]" data-testid="mira-live-narration">
+              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0" />
+              <span className="font-semibold whitespace-nowrap">{liveTask.label}</span>
+              {liveTask.detail && <span className="text-sky-200/60 truncate hidden sm:inline">· {liveTask.detail}</span>}
+            </div>
+          )}
           <h2 className="font-playfair text-2xl sm:text-3xl">Hello Boss 👋</h2>
           <p className="text-sm text-white/60 mt-2 max-w-2xl leading-relaxed" data-testid="mira-greeting">
             {greeting || "I'm ready. Ask me to find leads, research salons, plan today's outreach or review your business."}
@@ -418,10 +436,10 @@ export function MiraHome({ onGoTab, user }) {
                 </button>
               </div>
             </div>
-            {home?.active_run ? (
-              <div className="text-xs text-emerald-300 flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Hunting salons in {home.active_run.city} — {home.active_run.found || 0} found ({home.active_run.stage})
+            {liveTask ? (
+              <div className="text-xs text-emerald-300 space-y-1" data-testid="mira-current-task-live">
+                <div className="flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> {liveTask.label}</div>
+                {liveTask.detail && <div className="text-[10px] text-white/45 pl-5 leading-snug">{liveTask.detail}</div>}
               </div>
             ) : thinking ? (
               <div className="text-xs text-fuchsia-300 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Thinking about your question…</div>

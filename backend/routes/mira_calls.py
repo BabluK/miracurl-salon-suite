@@ -1337,6 +1337,37 @@ async def mira_home(user=Depends(require_super_admin)):
             "health": health, "orphan_records": orphans, "health_alerts": alerts}
 
 
+@router.get("/super-admin/mira/live-task")
+async def mira_live_task(user=Depends(require_super_admin)):
+    """Lightweight poll: what is Mira actually doing right now (for live narration)."""
+    run = await _raw_db.mira_lead_runs.find_one(
+        {"status": "running"},
+        {"_id": 0, "city": 1, "stage": 1, "found": 1, "researched": 1, "target": 1, "log": {"$slice": -1}})
+    if run:
+        last = re.sub(r"^\[\d{2}:\d{2}:\d{2}\]\s*", "", (run.get("log") or [""])[-1])
+        city = run.get("city") or ""
+        found, done = run.get("found") or 0, run.get("researched") or 0
+        stage = run.get("stage") or "working"
+        label = {
+            "starting": f"Starting a lead hunt in {city}…",
+            "finding": f"Scanning salons in {city}…",
+            "researching": f"Analyzing {found} salons in {city} — {done} researched…",
+            "hunting": f"Hunting missing emails — {found} inbox{'es' if found != 1 else ''} found…",
+        }.get(stage, f"Working on {city or 'a background task'}…")
+        return {"active": True, "kind": "lead_hunt", "label": label, "detail": last,
+                "city": city, "stage": stage, "found": found, "researched": done}
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
+    call = await _raw_db.mira_call_logs.find_one(
+        {"status": {"$in": ["queued", "initiated", "ringing", "in-progress"]},
+         "created_at": {"$gte": cutoff}},
+        {"_id": 0, "lead_name": 1, "status": 1})
+    if call:
+        return {"active": True, "kind": "call", "stage": call.get("status"),
+                "label": f"Calling {call.get('lead_name') or 'a lead'} right now…",
+                "detail": f"Call status: {call.get('status')}"}
+    return {"active": False}
+
+
 # ---------------- Mira Memory Vault ----------------
 class MemoryIn(BaseModel):
     category: str = Field("general", max_length=40)

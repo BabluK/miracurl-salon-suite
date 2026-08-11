@@ -1822,3 +1822,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - P1: Auto-WhatsApp membership renew link 7 days pre-expiry
 - P1: Mid-term membership tier upgrade (pay difference)
 - P2: Gift card printing at POS; Custom pinned tabs in Super Admin; refactor high-complexity backend functions
+
+## Session 2026-06 (fork) — Live Task Narration
+- NEW `GET /api/super-admin/mira/live-task` (mira_calls.py): reports active lead run (city/stage/found/researched + last log line, timestamp stripped) or active outbound call (queued/initiated/ringing/in-progress within 3 min); else {active:false}.
+- MiraHome polls it every 4s: neural avatar switches to thinking mode during real work, glowing narration pill under avatar ("Analyzing 27 salons in Bangalore — 9 researched… · 📋 Glow Salon: score 82…"), Current Task panel shows live label + detail.
+- Verified: curl with temp running run doc + screenshot (pill & panel render, avatar active). Test doc cleaned.
