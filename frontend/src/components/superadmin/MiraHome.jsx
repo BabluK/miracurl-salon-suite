@@ -261,6 +261,21 @@ export function MiraHome({ onGoTab, user }) {
     } finally { setPurging(false); }
   }
 
+  async function editGoal() {
+    const cur = home?.revenue_goal;
+    const t = window.prompt("Monthly revenue TARGET in lakh (₹):", cur ? String(cur.target / 100000) : "10");
+    if (!t) return;
+    const s = window.prompt("Stretch goal in lakh (₹):", cur ? String(cur.stretch / 100000) : "20");
+    const target = parseFloat(t) * 100000;
+    const stretch = parseFloat(s || "0") * 100000;
+    if (!target || target <= 0) { toast.error("Enter a valid target"); return; }
+    try {
+      await api.put("/super-admin/mira/revenue-goal", { target, stretch: stretch > 0 ? stretch : 0 });
+      toast.success("Goal updated — Mira will coach you toward it ✦");
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't save goal"); }
+  }
+
   async function ask(text) {
     const question = (text || q).trim();
     if (!question || thinking) return;
@@ -414,6 +429,29 @@ export function MiraHome({ onGoTab, user }) {
 
         {/* Right panel — status + Memory Timeline */}
         <div className="space-y-4">
+          {home?.revenue_goal && (
+            <div className="rounded-2xl bg-gradient-to-br from-emerald-500/10 to-sky-500/5 border border-emerald-400/20 p-4" data-testid="mira-revenue-goal">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-white/70">🎯 {home.revenue_goal.month} Revenue Goal</div>
+                <button onClick={editGoal} data-testid="edit-revenue-goal" className="text-[10px] text-white/40 hover:text-white transition-colors">✎ edit</button>
+              </div>
+              <div className="text-xl font-bold text-white" data-testid="revenue-goal-collected">
+                ₹{Number(home.revenue_goal.collected_this_month).toLocaleString("en-IN")}
+                <span className="text-[10px] font-normal text-white/45"> collected · {home.revenue_goal.pct}% of goal</span>
+              </div>
+              <div className="relative h-2.5 rounded-full bg-white/10 mt-2.5 overflow-hidden">
+                <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 to-sky-400 transition-all duration-700"
+                  style={{ width: `${Math.min(100, (home.revenue_goal.collected_this_month / home.revenue_goal.stretch) * 100)}%` }} />
+                <span className="absolute inset-y-0 w-px bg-white/60" style={{ left: `${(home.revenue_goal.target / home.revenue_goal.stretch) * 100}%` }} />
+              </div>
+              <div className="flex justify-between text-[9px] text-white/35 mt-1">
+                <span>₹0</span>
+                <span>goal ₹{(home.revenue_goal.target / 100000).toFixed(0)}L</span>
+                <span>stretch ₹{(home.revenue_goal.stretch / 100000).toFixed(0)}L</span>
+              </div>
+              <p className="text-[11px] text-emerald-200/80 leading-relaxed mt-2" data-testid="mira-revenue-coach">💬 {home.revenue_goal.coach}</p>
+            </div>
+          )}
           <div className="rounded-2xl bg-white/5 border border-white/10 p-4" data-testid="mira-status-panel">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-white/70">
@@ -439,6 +477,14 @@ export function MiraHome({ onGoTab, user }) {
               <div className="text-xs text-fuchsia-300 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Thinking about your question…</div>
             ) : (
               <div className="text-xs text-white/40">Idle — ready for your next instruction ✦</div>
+            )}
+            {home?.weekly_sweep?.checked_at && (
+              <div className="text-[10px] text-white/40 mt-2.5 pt-2 border-t border-white/5 flex items-center gap-1.5 flex-wrap" data-testid="mira-weekly-sweep">
+                🩺 Weekly sweep {timeLabel(home.weekly_sweep.checked_at)} —{" "}
+                {home.weekly_sweep.new_findings?.length > 0 && !home.weekly_sweep.announced
+                  ? <span className="text-amber-300 font-semibold">{home.weekly_sweep.new_findings.length} new issue{home.weekly_sweep.new_findings.length === 1 ? "" : "s"} found</span>
+                  : <span className="text-emerald-300">all clear ✓{home.weekly_sweep.orphans > 0 ? ` · ${home.weekly_sweep.orphans} known orphans` : ""}</span>}
+              </div>
             )}
           </div>
 

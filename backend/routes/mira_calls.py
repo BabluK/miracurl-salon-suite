@@ -804,11 +804,14 @@ async def _system_health() -> tuple:
         {"name": "AI Service", "ok": bool(os.environ.get("EMERGENT_LLM_KEY"))},
         {"name": "Voice Calls", "ok": bool(os.environ.get("TWILIO_ACCOUNT_SID"))},
     ]
-    flag = await _raw_db.system_flags.find_one({"key": "db_health"}, {"_id": 0, "orphans": 1})
-    orphans = int((flag or {}).get("orphans") or 0)
+    flag = await _raw_db.system_flags.find_one(
+        {"key": "db_health"}, {"_id": 0, "orphans": 1, "new_findings": 1, "announced": 1, "checked_at": 1})
+    flag = flag or {}
+    orphans = int(flag.get("orphans") or 0)
     alerts = [f"{h['name']} is DOWN — check configuration" for h in health if not h["ok"]]
-    if orphans > 0:
-        alerts.append(f"{orphans} orphan database records found (leftovers from deleted salons) — review Database tab and purge if not needed")
+    if flag.get("new_findings") and not flag.get("announced"):
+        alerts.append(f"weekly health sweep found new issues — {'; '.join(flag['new_findings'][:3])}. "
+                      "Review the Database tab or just ask me to purge them")
     return health, orphans, alerts
 
 
@@ -911,6 +914,7 @@ async def mira_briefing(user=Depends(require_super_admin)):
     health, orphans, alerts = await _system_health()
     if alerts:
         text += " One more thing, Boss — we have some system health items that need your attention: " + "; ".join(alerts[:2]) + "."
+        await _raw_db.system_flags.update_one({"key": "db_health"}, {"$set": {"announced": True}})
     return {"text": text, "data": snap, "health_alerts": alerts}
 
 
@@ -1338,10 +1342,57 @@ async def mira_home(user=Depends(require_super_admin)):
         {"status": "trial", "trial_ends_at": {"$lte": in5}})
     timeline = await _raw_db.mira_timeline.find({}, {"_id": 0}).sort("created_at", -1).to_list(30)
     health, orphans, alerts = await _system_health()
+    # Revenue goal tracker
+    month_start = now.date().replace(day=1).isoformat()
+    goal_doc = await _raw_db.platform_settings.find_one({"key": "revenue_goal"}, {"_id": 0}) or {}
+    target = float(goal_doc.get("target") or 1000000)
+    stretch = float(goal_doc.get("stretch") or max(2000000, target * 2))
+    mrev = await _raw_db.subscription_payments.aggregate([
+        {"$match": {"$or": [{"paid_at": {"$gte": month_start}},
+                            {"paid_at": {"$in": ["", None]}, "created_at": {"$gte": month_start}}]}},
+        {"$group": {"_id": None, "s": {"$sum": "$amount"}, "n": {"$sum": 1}}}]).to_list(1)
+    collected = round((mrev[0]["s"] if mrev else 0) or 0, 2)
+    pay_n = (mrev[0]["n"] if mrev else 0) or 0
+    pct = round(collected / target * 100, 1) if target else 0.0
+    avg_pay = round(collected / pay_n) if pay_n else 0
+    lk = lambda v: f"{v / 100000:g}"  # noqa: E731
+    if collected >= stretch:
+        coach = f"LEGENDARY, Boss! ₹{collected:,.0f} collected — you've crossed even the ₹{lk(stretch)} lakh stretch goal! 🏆"
+    elif collected >= target:
+        coach = (f"Target achieved, Boss! 🎉 ₹{collected:,.0f} is past the ₹{lk(target)}L goal — "
+                 f"now let's chase the ₹{lk(stretch)}L stretch. Keep onboarding!")
+    elif collected > 0:
+        needed = int((target - collected + avg_pay - 1) // avg_pay) if avg_pay else 0
+        coach = (f"We're at {pct:g}% of the ₹{lk(target)}L goal. At ~₹{avg_pay:,} per payment, "
+                 f"about {needed} more subscription payments get us there — say 'find salon leads' and I'll hunt!")
+    else:
+        coach = (f"No subscription revenue yet this month, Boss. Our ₹{lk(target)}–{lk(stretch)} lakh goal needs "
+                 "more salons onboard — tell me a city and I'll start hunting leads right away!")
+    revenue_goal = {"collected_this_month": collected, "payments_this_month": pay_n,
+                    "target": target, "stretch": stretch, "pct": pct,
+                    "month": now.strftime("%B"), "coach": coach}
+    sweep = await _raw_db.system_flags.find_one(
+        {"key": "db_health"}, {"_id": 0, "checked_at": 1, "orphans": 1, "new_findings": 1, "announced": 1})
     return {"snapshot": snap, "new_prospects_48h": new_prospects, "followups_due": followups,
             "emails_sent": emails_sent, "active_run": active_run,
             "trials_expiring": trials_expiring, "timeline": timeline,
-            "health": health, "orphan_records": orphans, "health_alerts": alerts}
+            "health": health, "orphan_records": orphans, "health_alerts": alerts,
+            "revenue_goal": revenue_goal, "weekly_sweep": sweep or {}}
+
+
+class RevenueGoalIn(BaseModel):
+    target: float = Field(..., gt=0)
+    stretch: float = Field(0, ge=0)
+
+
+@router.put("/super-admin/mira/revenue-goal")
+async def set_revenue_goal(body: RevenueGoalIn, user=Depends(require_super_admin)):
+    stretch = body.stretch if body.stretch > body.target else body.target * 2
+    await _raw_db.platform_settings.update_one(
+        {"key": "revenue_goal"},
+        {"$set": {"key": "revenue_goal", "target": body.target, "stretch": stretch,
+                  "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    return {"ok": True, "target": body.target, "stretch": stretch}
 
 
 @router.get("/super-admin/mira/live-task")

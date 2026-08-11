@@ -98,7 +98,10 @@ async def db_collections(admin=Depends(require_super_admin)):
 
 
 async def run_db_health_audit() -> dict:
-    """Count docs whose tenant_id references a deleted tenant. Cached in system_flags."""
+    """Count docs whose tenant_id references a deleted tenant. Cached in system_flags.
+    Tracks NEW findings vs the previous sweep so Mira only alerts on fresh issues."""
+    prev = await _raw_db.system_flags.find_one({"key": "db_health"}, {"_id": 0}) or {}
+    old_per = prev.get("per_collection") or {}
     tids = [t["id"] async for t in _raw_db.tenants.find({}, {"_id": 0, "id": 1})]
     orphans, per = 0, {}
     for c in await _raw_db.list_collection_names():
@@ -109,7 +112,11 @@ async def run_db_health_audit() -> dict:
         if n:
             per[c] = n
             orphans += n
+    new_findings = [f"{c}: +{n - int(old_per.get(c) or 0)} new orphan record{'s' if n - int(old_per.get(c) or 0) != 1 else ''}"
+                    for c, n in per.items() if n > int(old_per.get(c) or 0)]
     result = {"orphans": orphans, "per_collection": per, "tenants": len(tids),
+              "new_findings": new_findings,
+              "announced": False if new_findings else bool(prev.get("announced", True)),
               "checked_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.system_flags.update_one(
         {"key": "db_health"}, {"$set": {"key": "db_health", **result}}, upsert=True)
