@@ -364,7 +364,7 @@ export default function SuperAdmin() {
           return (
             <>
               <aside className="w-full sticky top-2 z-30">
-                <nav data-testid="super-sidebar" className="flex items-center gap-1 overflow-x-auto bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-2 shadow-sm">
+                <nav data-testid="super-sidebar" className="super-topnav flex items-center gap-1 overflow-x-auto bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-2 shadow-sm">
                   <button data-testid="super-nav-more" onClick={() => setNavOpen(true)}
                     className="shrink-0 px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 bg-gradient-to-r from-slate-100 to-slate-50 border border-slate-200 text-slate-700 hover:border-slate-400 transition">
                     <Menu className="w-4 h-4" /> All

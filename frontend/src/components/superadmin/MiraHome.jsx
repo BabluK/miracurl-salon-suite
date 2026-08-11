@@ -313,6 +313,17 @@ export function MiraHome({ onGoTab, user }) {
             {greeting || "I'm ready. Ask me to find leads, research salons, plan today's outreach or review your business."}
           </p>
 
+          {home?.health_alerts?.length > 0 && (
+            <button onClick={() => onGoTab?.("platform-map")} data-testid="mira-health-alert"
+              className="mt-3 max-w-2xl w-full text-left flex items-start gap-2.5 bg-amber-500/10 border border-amber-400/30 rounded-2xl px-4 py-3 hover:border-amber-400/60 transition-colors">
+              <span className="text-base leading-none mt-0.5">⚠️</span>
+              <span className="text-xs text-amber-200 leading-relaxed">
+                <b>Hey Boss — system health needs your attention:</b> {home.health_alerts.join(" · ")}
+                <span className="block text-[10px] text-amber-200/60 mt-0.5">Tap to open System Health →</span>
+              </span>
+            </button>
+          )}
+
           {/* Chat strip */}
           {chat.length > 0 && (
             <div className="w-full max-w-2xl mt-4 space-y-2 text-left" data-testid="mira-chat-strip">

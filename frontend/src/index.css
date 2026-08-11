@@ -661,3 +661,10 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
   .salon-shimmer, .salon-halo, .salon-ring { animation: none; }
 }
+
+/* Super admin top nav — slim, elegant scrollbar */
+.super-topnav { scrollbar-width: thin; scrollbar-color: rgba(100,116,139,.25) transparent; }
+.super-topnav::-webkit-scrollbar { height: 5px; }
+.super-topnav::-webkit-scrollbar-track { background: transparent; }
+.super-topnav::-webkit-scrollbar-thumb { background: rgba(100,116,139,.22); border-radius: 999px; }
+.super-topnav::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,.45); }

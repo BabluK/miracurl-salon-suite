@@ -1799,3 +1799,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## Session 2026-06 (fork) — Rotated Google Wallet key installed
 - User pasted NEW rotated SA key (key_id e2a287dc…, different from leaked dbb5c90c…). Added as single-line GOOGLE_WALLET_SA_JSON in /app/backend/.env (python-written, newline-safe), backend restarted, wallet _signer() verified signing from env JSON. Old committed file now ignored (env takes precedence) + gitignored.
 - REMIND USER: add same GOOGLE_WALLET_SA_JSON in PRODUCTION env vars + Redeploy; delete old key dbb5c90c… in GCP console if not already.
+
+## Session 2026-06 (fork) — Orphan explainer + nav scrollbar + Mira health awareness
+1. Explained orphan records (db_health audit in platform_tools.py counts docs whose tenant_id references a deleted salon). FIXED false positives: audit now excludes sentinel tenant_id "superadmin" (autopilot hq_messages etc.) → preview orphans 95-style → 8 real leftovers.
+2. Top-nav scrollbar polished: .super-topnav CSS (thin 5px translucent rounded thumb, transparent track, Firefox scrollbar-width thin) in index.css.
+3. Mira system-health awareness (SUPER ADMIN Mira only — /super-admin/mira/*, fully separate from tenant /tenant/mira/ask): new _system_health() helper (health checks + cached orphan count + alert strings) reused by platform_overview, mira/home (returns health/orphan_records/health_alerts) and mira/briefing (appends "One more thing, Boss — system health items need your attention: …" to spoken/greeting text). MiraHome shows amber tappable alert banner (data-testid mira-health-alert → opens platform-map tab). Verified via curl + screenshot.

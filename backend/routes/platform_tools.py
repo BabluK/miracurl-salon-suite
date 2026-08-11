@@ -105,7 +105,7 @@ async def run_db_health_audit() -> dict:
         if c in ("tenants", "meta", "system_flags"):
             continue
         n = await _raw_db[c].count_documents(
-            {"tenant_id": {"$exists": True, "$ne": None, "$nin": tids}})
+            {"tenant_id": {"$exists": True, "$nin": tids + [None, "", "superadmin"]}})
         if n:
             per[c] = n
             orphans += n

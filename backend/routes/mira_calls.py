@@ -789,6 +789,29 @@ MIRA_TABS = ["tenants", "notifications", "platform-map", "billing", "partners", 
              "hiring", "inbox", "verify-staff", "team", "deployments", "load", "database", "security"]
 
 
+async def _system_health() -> tuple:
+    """(health list, orphans, alert strings) — SUPER ADMIN Mira only."""
+    try:
+        await _raw_db.command("ping")
+        db_ok = True
+    except Exception:  # noqa: BLE001
+        db_ok = False
+    health = [
+        {"name": "API Services", "ok": True},
+        {"name": "Database", "ok": db_ok},
+        {"name": "Storage", "ok": True},
+        {"name": "Email Service", "ok": bool(os.environ.get("RESEND_API_KEY"))},
+        {"name": "AI Service", "ok": bool(os.environ.get("EMERGENT_LLM_KEY"))},
+        {"name": "Voice Calls", "ok": bool(os.environ.get("TWILIO_ACCOUNT_SID"))},
+    ]
+    flag = await _raw_db.system_flags.find_one({"key": "db_health"}, {"_id": 0, "orphans": 1})
+    orphans = int((flag or {}).get("orphans") or 0)
+    alerts = [f"{h['name']} is DOWN — check configuration" for h in health if not h["ok"]]
+    if orphans > 0:
+        alerts.append(f"{orphans} orphan database records found (leftovers from deleted salons) — review Database tab and purge if not needed")
+    return health, orphans, alerts
+
+
 async def _hq_snapshot() -> dict:
     now = datetime.now(timezone.utc)
     today = now.date().isoformat()
@@ -884,7 +907,10 @@ async def mira_briefing(user=Depends(require_super_admin)):
         await _raw_db.platform_settings.update_one({"key": "lead_heat_risers"}, {"$set": {"announced": True}})
     text = (f"Hey Miracurl! {_tod_greeting()}! {summary}.{call_report}{heat_note}{suggestion} "
             f"How may I help you today — what details do you want me to show?")
-    return {"text": text, "data": snap}
+    health, orphans, alerts = await _system_health()
+    if alerts:
+        text += " One more thing, Boss — we have some system health items that need your attention: " + "; ".join(alerts[:2]) + "."
+    return {"text": text, "data": snap, "health_alerts": alerts}
 
 
 @router.get("/super-admin/mira/map-briefing")
@@ -1302,9 +1328,11 @@ async def mira_home(user=Depends(require_super_admin)):
     trials_expiring = await _raw_db.tenants.count_documents(
         {"status": "trial", "trial_ends_at": {"$lte": in5}})
     timeline = await _raw_db.mira_timeline.find({}, {"_id": 0}).sort("created_at", -1).to_list(30)
+    health, orphans, alerts = await _system_health()
     return {"snapshot": snap, "new_prospects_48h": new_prospects, "followups_due": followups,
             "emails_sent": emails_sent, "active_run": active_run,
-            "trials_expiring": trials_expiring, "timeline": timeline}
+            "trials_expiring": trials_expiring, "timeline": timeline,
+            "health": health, "orphan_records": orphans, "health_alerts": alerts}
 
 
 # ---------------- Mira Memory Vault ----------------
@@ -1497,19 +1525,7 @@ async def platform_overview(user=Depends(require_super_admin)):
     top_rev = [{"name": names.get(r["_id"], {}).get("name") or "Unknown salon",
                 "location": names.get(r["_id"], {}).get("location") or "",
                 "revenue": round(r["revenue"], 2)} for r in top if r["_id"]]
-    try:
-        await _raw_db.command("ping")
-        db_ok = True
-    except Exception:  # noqa: BLE001
-        db_ok = False
-    health = [
-        {"name": "API Services", "ok": True},
-        {"name": "Database", "ok": db_ok},
-        {"name": "Storage", "ok": True},
-        {"name": "Email Service", "ok": bool(os.environ.get("RESEND_API_KEY"))},
-        {"name": "AI Service", "ok": bool(os.environ.get("EMERGENT_LLM_KEY"))},
-        {"name": "Voice Calls", "ok": bool(os.environ.get("TWILIO_ACCOUNT_SID"))},
-    ]
+    health, _orphans, _alerts = await _system_health()
     return {"subscriptions": {**subs, "total": len(tenants)},
             "recent": [{k: t.get(k) for k in ("name", "location", "status", "trial_ends_at")} for t in recent],
             "health": health, "all_ok": all(h["ok"] for h in health), "top_revenue": top_rev}
