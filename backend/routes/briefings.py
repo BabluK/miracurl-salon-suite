@@ -204,8 +204,11 @@ def _greeting_en(ctx: dict) -> str:
     return text + "Have a wonderful day ahead!"
 
 
+_LOW_STOCK_Q = {"$expr": {"$lte": ["$stock", {"$ifNull": ["$low_stock_threshold", 5]}]}}
+
+
 async def _build_greeting_text(user: dict, t: dict, ist: datetime, today_str: str, lang: str = "en") -> tuple:
-    low_count = await db.products.count_documents({"stock": {"$lt": LOW_STOCK_LIMIT}})
+    low_count = await db.products.count_documents(_LOW_STOCK_Q)
     appts = await db.appointments.count_documents({"date": today_str})
     has_vendor = await db.vendors.count_documents({}) > 0
     staff_st = await _staff_today_status(today_str)
@@ -387,7 +390,7 @@ async def morning_briefing(user=Depends(get_current_user), t=Depends(current_ten
     ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
     salutation = "Good Morning" if ist.hour < 12 else ("Good Afternoon" if ist.hour < 17 else "Good Evening")
     low = await db.products.find(
-        {"stock": {"$lt": LOW_STOCK_LIMIT}}, {"_id": 0, "id": 1, "name": 1, "brand": 1, "stock": 1, "sku": 1},
+        _LOW_STOCK_Q, {"_id": 0, "id": 1, "name": 1, "brand": 1, "stock": 1, "sku": 1, "low_stock_threshold": 1},
     ).sort("stock", 1).to_list(100)
     vendors = await db.vendors.find({}, {"_id": 0}).sort("name", 1).to_list(100)
     today_appts = await db.appointments.count_documents({"date": ist.strftime("%Y-%m-%d")})

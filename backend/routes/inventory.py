@@ -165,7 +165,8 @@ def _vendor_items(low: list, vendor_id: str) -> list:
 
 async def _low_stock_products() -> list:
     low = await db.products.find(
-        {"stock": {"$lt": LOW_STOCK_LIMIT}}, {"_id": 0, "name": 1, "brand": 1, "stock": 1, "sku": 1, "vendor_id": 1},
+        {"$expr": {"$lte": ["$stock", {"$ifNull": ["$low_stock_threshold", 5]}]}},
+        {"_id": 0, "name": 1, "brand": 1, "stock": 1, "sku": 1, "vendor_id": 1},
     ).sort("stock", 1).to_list(100)
     if not low:
         raise HTTPException(400, "No products are low on stock right now")

@@ -1790,3 +1790,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - FIXED P3: /auth/reset-password now clears must_change_password.
 - MITIGATED SEC-001 (needs USER action): live Google Wallet SA key committed at backend/google_wallet_sa.json (also in git history). Added GOOGLE_WALLET_SA_JSON raw-JSON env support in wallet_pass.py (env-first) + gitignored the file. USER MUST: rotate the key in GCP console (IAM → Service Accounts → miracurl-suite → keys), then set new key via env and delete the file.
 - SEC-003 (LOW, accepted): review-info token = UUIDv4 capability URL, rate-limited.
+
+## Session 2026-06 (fork) — Delete modal polish + low-stock fix + Audit Log
+1. Permanent-delete salon prompt (window.prompt) → styled rose modal in SuperAdmin.jsx (permDelete/permTyped state, typed-slug confirmation, disabled confirm until slug matches, data-testid perm-delete-*).
+2. Low-stock mismatch FIXED: dashboard briefing hardcoded stock<3 while Inventory used per-product low_stock_threshold (default 5) → owner sees conflicting states. Now briefings.py (_LOW_STOCK_Q $expr stock<=ifNull(threshold,5)) + inventory.py _low_stock_products use per-product threshold; MorningBriefing.jsx copy says "at or below their reorder level — same as your Inventory page". Verified via curl (thresholds in payload).
+3. Audit Log: security.py log_audit() → audit_log collection; auto-logged: every Owner-PIN-verified request (path+method), billing erase, customers CSV export. GET /settings/audit-log (require_tenant_admin). Settings.jsx → AuditLogCard (icons per action, expand all, data-testid audit-log-card). Verified: PIN use + export rows appear in UI screenshot.

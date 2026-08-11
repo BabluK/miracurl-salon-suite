@@ -584,4 +584,7 @@ async def erase_billing_data(body: EraseBillingIn, user=Depends(require_tenant_a
         first_last = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         flt = {"created_at": {"$gte": first_last.isoformat(), "$lt": first_this.isoformat()}}
     res = await db.invoices.delete_many(flt)
+    from security import log_audit
+    t_id = user.get("tenant_id")
+    await log_audit(t_id, user, "erase", f"Erased billing data ({body.scope}) — {res.deleted_count} invoice(s) deleted")
     return {"ok": True, "scope": body.scope, "invoices_deleted": res.deleted_count}

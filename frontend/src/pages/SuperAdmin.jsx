@@ -236,15 +236,19 @@ export default function SuperAdmin() {
     catch (err) { toast.error("Delete failed"); }
   }
 
-  async function permanentDeleteTenant(t) {
-    const typed = window.prompt(
-      `⚠️ PERMANENT DELETE — "${t.name}"\n\nThis erases the salon and ALL its data (customers, invoices, staff, bookings, logins). This CANNOT be undone.\n\nType the salon's slug to confirm:\n${t.slug}`);
-    if (typed === null) return;
-    if (typed.trim() !== t.slug) { toast.error("Slug didn't match — deletion cancelled"); return; }
+  const [permDelete, setPermDelete] = useState(null); // tenant pending permanent delete
+  const [permTyped, setPermTyped] = useState("");
+
+  function permanentDeleteTenant(t) { setPermTyped(""); setPermDelete(t); }
+
+  async function confirmPermanentDelete() {
+    const t = permDelete;
+    if (permTyped.trim() !== t.slug) { toast.error("Slug didn't match — deletion cancelled"); return; }
     try {
       const { data } = await api.delete(`/super-admin/tenants/${t.id}/permanent?confirm=${encodeURIComponent(t.slug)}`);
       const n = Object.values(data.records_removed || {}).reduce((a, b) => a + b, 0);
       toast.success(`"${data.deleted_salon}" permanently deleted (${n} records removed)`);
+      setPermDelete(null);
       load();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Permanent delete failed");
@@ -668,6 +672,39 @@ export default function SuperAdmin() {
           creds={createdCreds}
           onClose={() => setCreatedCreds(null)}
         />
+      )}
+
+      {permDelete && (
+        <div className="fixed inset-0 z-[85] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPermDelete(null)} data-testid="perm-delete-modal">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-rose-600 px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white font-bold text-sm">
+                <Trash2 className="w-4 h-4" /> Permanent Delete — {permDelete.name}
+              </div>
+              <button onClick={() => setPermDelete(null)} className="text-white/70 hover:text-white" data-testid="perm-delete-close"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="rounded-xl bg-rose-50 border border-rose-200 px-3.5 py-3 text-xs text-rose-800 leading-relaxed">
+                ⚠️ This erases the salon and <b>ALL its data</b> — customers, invoices, staff, bookings and logins. This <b>CANNOT be undone</b>.
+              </div>
+              <div>
+                <label className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Type the salon&apos;s slug to confirm</label>
+                <div className="text-xs font-mono bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 mt-1 mb-2 text-slate-600 select-all">{permDelete.slug}</div>
+                <input autoFocus value={permTyped} onChange={e => setPermTyped(e.target.value)} data-testid="perm-delete-input"
+                  placeholder="type slug here…" onKeyDown={e => e.key === "Enter" && permTyped.trim() === permDelete.slug && confirmPermanentDelete()}
+                  className="w-full px-3 py-2.5 text-sm font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-200" />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setPermDelete(null)} data-testid="perm-delete-cancel"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50">Cancel</button>
+                <button onClick={confirmPermanentDelete} disabled={permTyped.trim() !== permDelete.slug} data-testid="perm-delete-confirm"
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed">
+                  Erase permanently
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { BranchesSection } from "@/components/BranchesSection";
 import { ChangePasswordSection } from "@/components/ChangePasswordSection";
 import { ContactHQSection } from "@/components/ContactHQSection";
 import { QrPosterCard } from "@/components/settings/QrPosterCard";
+import { AuditLogCard } from "@/components/settings/AuditLogCard";
 import { ProfileCompletenessCard } from "@/components/settings/ProfileCompletenessCard";
 import { BrandingCard } from "@/components/settings/BrandingCard";
 import { GalleryCard } from "@/components/settings/GalleryCard";
@@ -55,6 +56,8 @@ export default function Settings() {
         <PreviousStaffCard />
 
         <SecurityPinCard />
+
+        <AuditLogCard />
 
         <UpdatedBillsCard />
 

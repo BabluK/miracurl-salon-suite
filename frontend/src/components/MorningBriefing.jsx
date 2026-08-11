@@ -292,11 +292,11 @@ export function MorningBriefing() {
           )}
 
           {low.length === 0 ? (
-            <p className="text-sm text-emerald-700 mt-3" data-testid="briefing-stock-ok">✅ Inventory looks healthy — no product is below {brief.low_stock_limit} units.</p>
+            <p className="text-sm text-emerald-700 mt-3" data-testid="briefing-stock-ok">✅ Inventory looks healthy — no product is below its reorder level.</p>
           ) : (
             <div className="mt-3" data-testid="briefing-low-stock">
               <p className="text-sm text-slate-700">
-                <b className="text-rose-600">⚠ {low.length} product{low.length === 1 ? " is" : "s are"} running low</b> (below {brief.low_stock_limit} units) — consider reordering today:
+                <b className="text-rose-600">⚠ {low.length} product{low.length === 1 ? " is" : "s are"} running low</b> (at or below their reorder level — same as your Inventory page) — consider reordering today:
               </p>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {low.slice(0, 8).map(p => (

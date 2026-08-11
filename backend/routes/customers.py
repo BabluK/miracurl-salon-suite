@@ -69,8 +69,10 @@ async def create_customer(body: CustomerIn, user=Depends(get_current_user)):
     return _clean(c)
 
 @router.get("/customers/export")
-async def export_customers_csv(user=Depends(require_admin)):
+async def export_customers_csv(user=Depends(require_admin), t=Depends(current_tenant)):
+    from security import log_audit
     rows = await db.customers.find({}).sort("name", 1).to_list(5000)
+    await log_audit(t["id"], user, "export", f"Exported customers CSV ({len(rows)} records)")
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["name", "phone", "email", "gender", "dob", "address", "notes", "loyalty_points", "total_spent", "visits"])

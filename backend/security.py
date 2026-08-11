@@ -338,4 +338,18 @@ async def require_owner_pin(request: Request, user=Depends(get_current_user), t=
             pass
         raise HTTPException(403, "OWNER_PIN_REQUIRED")
     await _pin_attempt_clear(t["id"])
+    await log_audit(t["id"], user, "pin_used", f"Owner PIN verified for {request.method} {request.url.path}")
     return True
+
+
+async def log_audit(tenant_id: str, user: dict, action: str, detail: str) -> None:
+    """Owner-visible audit trail of sensitive actions (Settings → Audit Log). Best-effort."""
+    try:
+        await _raw_db.audit_log.insert_one({
+            "id": str(uuid.uuid4()), "tenant_id": tenant_id,
+            "actor": user.get("name") or user.get("email") or "?",
+            "email": user.get("email", ""), "role": user.get("role", ""),
+            "action": action, "detail": detail[:300],
+            "at": datetime.now(timezone.utc).isoformat()})
+    except Exception:  # noqa: BLE001
+        pass
