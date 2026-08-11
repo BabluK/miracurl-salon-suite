@@ -515,7 +515,7 @@ async def _blast_targets() -> list:
 
 
 @router.get("/reviews/blast-targets")
-async def reviews_blast_targets(user=Depends(get_current_user)):
+async def reviews_blast_targets(user=Depends(require_admin)):
     """Completed visits (appointments + POS bills) without a review yet — used by the review blast."""
     targets = await _blast_targets()
     return {"count": len(targets), "targets": targets}
@@ -527,7 +527,7 @@ class BlastSendIn(BaseModel):
 
 
 @router.post("/reviews/blast-send")
-async def reviews_blast_send(body: BlastSendIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+async def reviews_blast_send(body: BlastSendIn, user=Depends(require_admin), t=Depends(current_tenant)):
     """Send one review request by SMS or email. Managers: SMS only. Admin/owner: SMS + email
     (WhatsApp opens client-side for admins)."""
     if body.channel == "email" and user.get("role") not in ("admin", "super_admin"):

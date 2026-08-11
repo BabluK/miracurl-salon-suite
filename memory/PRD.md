@@ -1783,3 +1783,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 2. Face-ID: mira_settings face_ref_{user_id}; endpoints GET face-status / POST face-enroll / DELETE face-enroll / POST face-verify (Gemini Flash vision compares enrolled ref vs live capture, JSON {match, confidence>=55, reason}); timeline logs enroll+verify. Frontend: FaceCam (getUserMedia, mirrored, capture→b64 jpeg), FaceEnrollModal (enroll/re-enroll/disable, "🪪 Face-ID" button in MiraHome status panel), recognition overlay shows FaceCam gate when enrolled (verify → spoken "Face verified" welcome; skip link). Verified via curl: enroll→status→verify pipeline works (avatar test correctly rejected: "no clear human face").
 3. Platform Overview (per user screenshot): GET /super-admin/platform-overview (subs counts w/ expiring=trial≤5d, recent 5 tenants, health checks db-ping/env-keys, top revenue via invoice aggregate this month). PlatformOverview.jsx: SVG donut, Recent Companies chips, System Health, Top Revenue — rendered ABOVE PlatformOrbitMap in platform-map tab (moved to 2nd nav position after Mira Home).
 - Screenshots verified: drawer, top bar, overview cards, Face-ID button. Camera flows not automatable (no webcam in test env) — user should try enroll+verify on a device with camera.
+
+## Session 2026-06 (fork) — Security audit + fixes
+- security_audit_agent verdict: CONDITIONAL PASS. Tenant self-heal + Face-ID explicitly verified SAFE.
+- FIXED SEC-002: /reviews/blast-targets + /reviews/blast-send now require_admin (was get_current_user — any staff could dump customer PII + send SMS). Verified: staff 403, admin 200.
+- FIXED P3: /auth/reset-password now clears must_change_password.
+- MITIGATED SEC-001 (needs USER action): live Google Wallet SA key committed at backend/google_wallet_sa.json (also in git history). Added GOOGLE_WALLET_SA_JSON raw-JSON env support in wallet_pass.py (env-first) + gitignored the file. USER MUST: rotate the key in GCP console (IAM → Service Accounts → miracurl-suite → keys), then set new key via env and delete the file.
+- SEC-003 (LOW, accepted): review-info token = UUIDv4 capability URL, rate-limited.

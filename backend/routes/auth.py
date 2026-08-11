@@ -518,6 +518,7 @@ async def reset(body: ResetIn):
         raise HTTPException(400, "Token expired")
     await db.users.update_one({"id": rec["user_id"]}, {"$set": {
         "password_hash": hash_pw(body.new_password),
+        "must_change_password": False,
         "password_changed_at": datetime.now(timezone.utc).isoformat()}})
     await db.password_reset_tokens.update_one({"token": body.token}, {"$set": {"used": True}})
     user = await db.users.find_one({"id": rec["user_id"]}, {"_id": 0, "email": 1})

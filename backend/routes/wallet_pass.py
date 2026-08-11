@@ -1,6 +1,7 @@
 """Google Wallet — Add membership & gift cards to Google Wallet via signed Save JWTs."""
 import os
 import re
+import json
 import time
 from datetime import datetime
 
@@ -23,6 +24,10 @@ def _signer():
     global _SIGNER
     if _SIGNER is None:
         from google.auth import crypt
+        raw = os.environ.get("GOOGLE_WALLET_SA_JSON")
+        if raw:
+            _SIGNER = crypt.RSASigner.from_service_account_info(json.loads(raw))
+            return _SIGNER
         sa_file = os.environ.get("GOOGLE_WALLET_SA_FILE")
         if not sa_file or not os.path.exists(sa_file):
             raise HTTPException(503, "Google Wallet is not configured yet")
