@@ -305,7 +305,7 @@ export function MiraHome({ onGoTab, user }) {
           <div className="relative w-28 h-28 mb-5">
             <span className="absolute -inset-3 rounded-full border-2 border-dashed border-fuchsia-400/50 animate-spin" style={{ animationDuration: "3s" }} />
             <span className="absolute inset-0 rounded-full border border-sky-400/40 animate-ping" style={{ animationDuration: "1.4s" }} />
-            <img src="/mira-bot.png" alt="Mira" className="relative w-28 h-28 rounded-full object-cover border-2 border-fuchsia-400/60" />
+            <img src="/mira-neural.png" alt="Mira" className="relative w-28 h-28 rounded-full object-cover border-2 border-fuchsia-400/60" />
           </div>
           {recog === "face" ? (
             <div className="flex flex-col items-center gap-3" data-testid="mira-face-gate">
@@ -328,7 +328,7 @@ export function MiraHome({ onGoTab, user }) {
         <div className="flex flex-col items-center text-center">
           {/* Neural thinking avatar */}
           <div className="-mt-6 -mb-3" data-testid="mira-avatar">
-            <MiraNeuralAvatar thinking={thinking || !!liveTask} size={112} />
+            <MiraNeuralAvatar thinking={thinking || !!liveTask} size={160} />
           </div>
           {liveTask && (
             <div className="mb-4 max-w-xl px-4 py-2 rounded-full bg-sky-500/10 border border-sky-400/30 flex items-center gap-2 text-xs text-sky-200 shadow-[0_0_25px_rgba(56,189,248,0.15)]" data-testid="mira-live-narration">

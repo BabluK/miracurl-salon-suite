@@ -267,7 +267,7 @@ export function AiInsightsPanel() {
     <div className="card-light p-0 overflow-hidden" data-testid="ai-insights-panel">
       <div className="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-[#0f1420] to-[#141c30] text-white flex items-center gap-3">
         <div className="relative">
-          <img src="/mira-bot.png" alt="HQ Analyst" className="w-10 h-10 rounded-full object-cover border-2 border-sky-400/60" />
+          <img src="/mira-neural.png" alt="HQ Analyst" className="w-10 h-10 rounded-full object-cover border-2 border-sky-400/60" />
           <Sparkles className="sparkle-twinkle absolute -top-1 -right-1 w-3.5 h-3.5 text-sky-300" />
         </div>
         <div>

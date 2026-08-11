@@ -138,7 +138,7 @@ export const MiraNeuralAvatar = ({ thinking = false, size = 112, className = "" 
         style={{ inset: dim * 0.18 }}
       />
       <img
-        src="/mira-bot.png"
+        src="/mira-neural.png"
         alt="Mira"
         className={`absolute rounded-full object-cover border-2 transition-all duration-700 ${thinking ? "border-sky-300/80 shadow-[0_0_55px_rgba(56,189,248,0.5)]" : "border-fuchsia-400/60 shadow-[0_0_45px_rgba(217,70,239,0.35)]"}`}
         style={{ width: size, height: size, left: (dim - size) / 2, top: (dim - size) / 2 }}

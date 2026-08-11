@@ -1827,3 +1827,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - NEW `GET /api/super-admin/mira/live-task` (mira_calls.py): reports active lead run (city/stage/found/researched + last log line, timestamp stripped) or active outbound call (queued/initiated/ringing/in-progress within 3 min); else {active:false}.
 - MiraHome polls it every 4s: neural avatar switches to thinking mode during real work, glowing narration pill under avatar ("Analyzing 27 salons in Bangalore — 9 researched… · 📋 Glow Salon: score 82…"), Current Task panel shows live label + detail.
 - Verified: curl with temp running run doc + screenshot (pill & panel render, avatar active). Test doc cleaned.
+
+## Session 2026-06 (fork) — New Super Admin Mira portrait
+- Generated realistic neural-AI Mira portrait (based on user's reference image) → /app/frontend/public/mira-neural.png (512px).
+- Swapped ONLY Super Admin surfaces: MiraNeuralAvatar.jsx, MiraVoiceAssistant.jsx (FAB/header/thinking), MiraHome.jsx (recognition overlay), SuperAdminExtras.jsx. Avatar enlarged 112→160px in Mira Home.
+- Tenant/public side (MiraFab, BookingChatWidget, BookPublic, PartnerLanding) UNCHANGED — still /mira-bot.png per user request.
+- Verified via screenshot.

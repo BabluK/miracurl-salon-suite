@@ -226,7 +226,7 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
         title='Tap — or just say "Hey Mira"'
         className="fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full shadow-xl shadow-fuchsia-500/30 hover:scale-105 transition-transform">
         <span className="absolute inset-0 rounded-full border-2 border-fuchsia-400/50 animate-ping" style={{ animationDuration: "2.4s" }} />
-        <img src="/mira-bot.png" alt="Mira" className="w-14 h-14 rounded-full object-cover border-2 border-fuchsia-400" />
+        <img src="/mira-neural.png" alt="Mira" className="w-14 h-14 rounded-full object-cover border-2 border-fuchsia-400" />
         <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-gradient-to-br from-violet-600 to-fuchsia-600 border-2 border-white flex items-center justify-center text-[9px]">🎙️</span>
         {wakeOn && <span className="absolute -top-1.5 -left-10 text-[8px] bg-slate-900 text-fuchsia-300 border border-fuchsia-500/40 rounded-full px-2 py-0.5 whitespace-nowrap">"Hey Mira" 👂</span>}
       </button>
@@ -238,7 +238,7 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
       <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-3 flex items-center gap-2">
         <span className="relative w-8 h-8 shrink-0">
           {(busy || listening) && <span className="absolute -inset-0.5 rounded-full border border-white/70 animate-ping" />}
-          <img src="/mira-bot.png" alt="Mira" className="w-8 h-8 rounded-full object-cover border border-white/60" />
+          <img src="/mira-neural.png" alt="Mira" className="w-8 h-8 rounded-full object-cover border border-white/60" />
         </span>
         <div className="flex-1">
           <p className="text-white text-sm font-bold leading-none">Mira · HQ Assistant</p>
@@ -272,7 +272,7 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
           <div className="flex items-center gap-2 px-3" data-testid="mira-assistant-thinking">
             <span className="relative w-6 h-6 shrink-0">
               <span className="absolute -inset-1 rounded-full border border-sky-400/60 animate-ping" />
-              <img src="/mira-bot.png" alt="" className="w-6 h-6 rounded-full object-cover border border-fuchsia-400/60" />
+              <img src="/mira-neural.png" alt="" className="w-6 h-6 rounded-full object-cover border border-fuchsia-400/60" />
             </span>
             <MiraThinkingStages className="text-xs text-violet-500" />
           </div>
