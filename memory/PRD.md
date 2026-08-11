@@ -1841,3 +1841,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - NEW `MiraThinkingBeam` (MiraNeuralAvatar.jsx): "Mira is thinking…" panel — dot beam with animated glowing comet (CSS keyframe miraComet) + stage tracker Analyzing ◆ Researching ◆ Connecting ◆ Generating Results (active stage highlighted, cycles 1.6s). Replaces old bouncing-dots thinking row in MiraHome chat strip (testid: mira-thinking-beam).
 - MiraThinkingStages still exported & used by MiraVoiceAssistant widget.
 - Verified via screenshots (idle, thinking with beam). Tenant-side Mira image unchanged.
+
+## Session 2026-06 (fork) — Mira speaks only when spoken to + "Hey Mira" greeting
+- MiraHome: removed auto-briefing paragraph under "Hello Boss" (and its /mira/briefing fetch). Now shows static invite: Say "Hey Mira" or type your command — I'll speak only when you talk to me.
+- Backend mira_ask: greeting short-circuit — "hey/hi/hello mira" (regex, emoji-safe) returns polite time-of-day greeting: asks for command + advice "target more salons to onboard — push revenue beyond ₹10–20 lakh". Works for typed & voice, MiraHome + HQ widget.
+- Suggestions: added "Hey Mira 👋" chip first.
+- Verified: curl (both phrasings) + screenshot. Note: HQ Assistant widget login briefing (bottom-right) intentionally kept.

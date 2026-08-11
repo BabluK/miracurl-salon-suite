@@ -177,7 +177,6 @@ function timeLabel(iso) {
 
 export function MiraHome({ onGoTab, user }) {
   const [home, setHome] = useState(null);
-  const [greeting, setGreeting] = useState("");
   const [q, setQ] = useState("");
   const [chat, setChat] = useState([]); // {role, text}
   const [thinking, setThinking] = useState(false);
@@ -235,12 +234,8 @@ export function MiraHome({ onGoTab, user }) {
   }
 
   const load = useCallback(async () => {
-    const [h, b] = await Promise.all([
-      api.get("/super-admin/mira/home").catch(() => ({ data: null })),
-      api.get("/super-admin/mira/briefing").catch(() => ({ data: null })),
-    ]);
+    const h = await api.get("/super-admin/mira/home").catch(() => ({ data: null }));
     setHome(h.data);
-    if (b.data?.text) setGreeting(b.data.text);
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -295,7 +290,7 @@ export function MiraHome({ onGoTab, user }) {
     { key: "insights", label: "Trials Expiring Soon", value: home?.trials_expiring ?? "—", icon: Lightbulb, tone: "from-amber-500/20 to-yellow-500/10 text-amber-300", tab: "billing" },
   ];
 
-  const suggestions = ["Find salon leads in Bangalore", "Call the hot leads", "How did we do yesterday?", "Show today's follow-ups"];
+  const suggestions = ["Hey Mira 👋", "Find salon leads in Bangalore", "Call the hot leads", "How did we do yesterday?"];
   const avatarSize = typeof window !== "undefined" && window.innerWidth >= 1024 ? 250 : 150;
 
   return (
@@ -345,7 +340,7 @@ export function MiraHome({ onGoTab, user }) {
             <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
           <h2 className="font-playfair text-3xl sm:text-4xl">Hello Boss 👋</h2>
           <p className="text-sm text-white/60 mt-2 max-w-2xl leading-relaxed" data-testid="mira-greeting">
-            {greeting || "I'm ready. Ask me to find leads, research salons, plan today's outreach or review your business."}
+            Say <b className="text-fuchsia-300">"Hey Mira"</b> or type your command below — I'll speak only when you talk to me ✦
           </p>
 
           {home?.health_alerts?.length > 0 && (

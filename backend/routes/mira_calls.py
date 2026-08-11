@@ -982,6 +982,13 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     from routes.lead_common import log_mira_event
     await log_mira_event("ask", f"Boss asked: \"{body.question[:120]}\"")
+    q_clean = re.sub(r"[^a-z ]", "", body.question.lower()).strip()
+    if re.fullmatch(r"(hey|hi|hello|hay|ok|okay|namaste)?\s*(mira|meera|myra|maira|mirra)", q_clean):
+        answer = (f"{_tod_greeting()}, Boss! 🙏 It's wonderful to have you here. "
+                  "What do you want me to find today? Just give me your command — or ask me anything "
+                  "and I'll share it with you. And Boss, one advice from my side: we should target more "
+                  "salons to onboard — let's push our revenue beyond ₹10–20 lakh!")
+        return {"answer": answer, "tab": "", "action": ""}
     snap = await _hq_snapshot()
     memory_block = await mira_memory_prompt()
     chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-hq-{user['id']}-{uuid.uuid4().hex[:6]}",
