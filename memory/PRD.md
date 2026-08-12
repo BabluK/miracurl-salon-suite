@@ -1859,3 +1859,11 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - **Complexity refactors**: appointments_pos.py — _gift_card_doc_from_item 18→low via _gc_contact_fields helper; _build_invoice_doc 9→7 args (takes ctx dict); update_appt_status phone lookup → _appt_customer_phone (decorator placement verified). lead_gen.py — resend_inbound_webhook 14→low via _verify_inbound_secret/_mark_lead_replied; _route_business_inbox 13→low via _match_business_inbox. appointments_pos.py now has ZERO functions ≥ C grade.
 - **Review false positives verified & documented**: no undefined names (pyflakes clean); utils.py:8 uses `in` not `is`; `is False` usages are legit tri-state checks. `_send_email` dataclass conversion SKIPPED intentionally (79 call sites, disproportionate regression risk, all extra args optional). Deep refactors of already-readable C(11-13) functions in gift_cards/lead_gen/hq_documents SKIPPED (marginal gain vs risk).
 - **Regression tested**: testing agent iteration_104 — 14/14 behavior assertions PASS (POS invoices, gift card line items, appointment status route, member public+wallet endpoints, inbound webhook, pay links, mira home). Reusable suite: /app/backend/tests/test_iter103_refactor_regression.py.
+
+## Session 2026-06 (fork) — Mira Home polish round 2
+- Greet-on-login FLAG: toggle "🔔 Greet on / 🔕 Greet off" in Current Task panel (localStorage mira_greet_login, default ON). finishWelcome speaks welcome only when enabled. testid: toggle-greet-login.
+- Removed "Hello Boss 👋 / Say Hey Mira" text block entirely.
+- Layout back to single centered column: big Mira avatar centered (250px desktop/160 mobile), then ask input + suggestion chips, then stat cards (Hot Leads first) — input sits directly above hot leads.
+- MiraNeuralAvatar: img now inside circular overflow-hidden wrapper with scale(1.45) translateY(4%) so her FACE fills the whole circle (like user's reference).
+- Note told to user: face-ID exists (webcam AI vision); true browser voice-speaker-identification not feasible — wake word "Hey Mira" + Face-ID is the supported combo.
+- Verified via screenshot.

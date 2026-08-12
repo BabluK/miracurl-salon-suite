@@ -186,7 +186,15 @@ export function MiraHome({ onGoTab, user }) {
   const [faceEnrolled, setFaceEnrolled] = useState(false);
   const [faceBusy, setFaceBusy] = useState(false);
   const [recog, setRecog] = useState(() => (sessionStorage.getItem("mira_welcomed") ? "done" : "loading"));
+  const [greetOn, setGreetOn] = useState(() => localStorage.getItem("mira_greet_login") !== "0");
   const [liveTask, setLiveTask] = useState(null);
+
+  const toggleGreet = () => {
+    const v = !greetOn;
+    setGreetOn(v);
+    localStorage.setItem("mira_greet_login", v ? "1" : "0");
+    toast.success(v ? "Mira will greet you at every login 🔔" : "Login greeting turned off 🔕");
+  };
   const lastMira = useRef("");
   const viaFace = useRef(false);
 
@@ -196,7 +204,9 @@ export function MiraHome({ onGoTab, user }) {
     const hour = new Date().getHours();
     const part = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
     const name = (user?.name || "Boss").split(" ")[0];
-    speak(`${viaFace.current ? "Face verified. " : ""}Welcome back, ${name}! Good ${part}. Mira is online and ready for you.`);
+    if (localStorage.getItem("mira_greet_login") !== "0") {
+      speak(`${viaFace.current ? "Face verified. " : ""}Welcome back, ${name}! Good ${part}. Mira is online and ready for you.`);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -306,7 +316,7 @@ export function MiraHome({ onGoTab, user }) {
   ];
 
   const suggestions = ["Hey Mira 👋", "Find salon leads in Bangalore", "Call the hot leads", "How did we do yesterday?"];
-  const avatarSize = typeof window !== "undefined" && window.innerWidth >= 1024 ? 250 : 150;
+  const avatarSize = typeof window !== "undefined" && window.innerWidth >= 1024 ? 250 : 160;
 
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0b1020] via-[#101a35] to-[#0b0f1e] text-white p-5 sm:p-8" data-testid="mira-home">
@@ -336,13 +346,10 @@ export function MiraHome({ onGoTab, user }) {
       <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[480px] h-[480px] rounded-full bg-fuchsia-500/10 blur-3xl pointer-events-none" />
       <div className="relative grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
         {/* Main column */}
-        <div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
-            {/* Left half — big neural Mira */}
-            <div className="flex flex-col items-center">
-              <div className="-my-3" data-testid="mira-avatar">
-                <MiraNeuralAvatar thinking={thinking || !!liveTask} size={avatarSize} />
-              </div>
+        <div className="flex flex-col items-center text-center">
+          <div className="-my-4" data-testid="mira-avatar">
+            <MiraNeuralAvatar thinking={thinking || !!liveTask} size={avatarSize} />
+          </div>
           {liveTask && (
             <div className="mb-4 max-w-xl px-4 py-2 rounded-full bg-sky-500/10 border border-sky-400/30 flex items-center gap-2 text-xs text-sky-200 shadow-[0_0_25px_rgba(56,189,248,0.15)]" data-testid="mira-live-narration">
               <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0" />
@@ -350,13 +357,6 @@ export function MiraHome({ onGoTab, user }) {
               {liveTask.detail && <span className="text-sky-200/60 truncate hidden sm:inline">· {liveTask.detail}</span>}
             </div>
           )}
-            </div>
-            {/* Right half — greeting + conversation */}
-            <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
-          <h2 className="font-playfair text-3xl sm:text-4xl">Hello Boss 👋</h2>
-          <p className="text-sm text-white/60 mt-2 max-w-2xl leading-relaxed" data-testid="mira-greeting">
-            Say <b className="text-fuchsia-300">"Hey Mira"</b> or type your command below — I'll speak only when you talk to me ✦
-          </p>
 
           {home?.health_alerts?.length > 0 && (
             <div className="mt-3 max-w-2xl w-full flex items-start gap-2.5 bg-amber-500/10 border border-amber-400/30 rounded-2xl px-4 py-3" data-testid="mira-health-alert">
@@ -403,15 +403,13 @@ export function MiraHome({ onGoTab, user }) {
               {thinking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
           </div>
-          <div className="flex flex-wrap justify-center lg:justify-start gap-2 mt-3">
+          <div className="flex flex-wrap justify-center gap-2 mt-3">
             {suggestions.map(s => (
               <button key={s} onClick={() => ask(s)} data-testid={`mira-suggestion-${s.slice(0, 10).replace(/\s/g, "-")}`}
                 className="text-[11px] px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-fuchsia-400/40 transition-colors">
                 {s}
               </button>
             ))}
-          </div>
-            </div>
           </div>
 
           {/* Bottom cards */}
@@ -458,6 +456,11 @@ export function MiraHome({ onGoTab, user }) {
                 <Brain className="w-4 h-4 text-fuchsia-400" /> Current Task
               </div>
               <div className="flex items-center gap-1.5">
+                <button onClick={toggleGreet} data-testid="toggle-greet-login"
+                  title={greetOn ? "Mira greets you aloud at login — tap to turn off" : "Login greeting is off — tap to enable"}
+                  className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${greetOn ? "bg-sky-500/20 border-sky-400/30 text-sky-200" : "bg-white/5 border-white/15 text-white/50 hover:text-white"}`}>
+                  {greetOn ? "🔔 Greet on" : "🔕 Greet off"}
+                </button>
                 <button onClick={() => setFaceModal(true)} data-testid="open-face-id"
                   className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${faceEnrolled ? "bg-emerald-500/20 border-emerald-400/30 text-emerald-200" : "bg-white/5 border-white/15 text-white/50 hover:text-white"}`}>
                   {faceEnrolled ? "🪪 Face-ID on" : "🪪 Face-ID"}

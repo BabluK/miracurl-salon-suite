@@ -179,12 +179,11 @@ export const MiraNeuralAvatar = ({ thinking = false, size = 112, className = "" 
         style={{ inset: dim * 0.18 }}
       />
       <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" style={{ width: dim, height: dim }} />
-      <img
-        src="/mira-neural.png"
-        alt="Mira"
-        className={`absolute z-10 rounded-full object-cover border-2 transition-all duration-700 ${thinking ? "border-sky-300/80 shadow-[0_0_55px_rgba(56,189,248,0.5)]" : "border-fuchsia-400/60 shadow-[0_0_45px_rgba(217,70,239,0.35)]"}`}
-        style={{ width: size, height: size, left: (dim - size) / 2, top: (dim - size) / 2 }}
-      />
+      <div className={`absolute rounded-full overflow-hidden border-2 transition-all duration-700 ${thinking ? "border-sky-300/80 shadow-[0_0_55px_rgba(56,189,248,0.5)]" : "border-fuchsia-400/60 shadow-[0_0_45px_rgba(217,70,239,0.35)]"}`}
+        style={{ width: size, height: size, left: (dim - size) / 2, top: (dim - size) / 2, zIndex: 10 }}>
+        <img src="/mira-neural.png" alt="Mira" className="w-full h-full object-cover"
+          style={{ transform: "scale(1.45) translateY(4%)" }} />
+      </div>
       <span
         className={`absolute z-20 w-4 h-4 rounded-full border-2 border-[#0b1020] ${thinking ? "bg-sky-400 animate-pulse" : "bg-emerald-400"}`}
         style={{ right: (dim - size) / 2 + 2, bottom: (dim - size) / 2 + 2 }}
