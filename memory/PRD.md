@@ -1882,3 +1882,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 3. Offer flyers (offer_flyer.py + AIFlyerStudio.jsx): publish/unpublish endpoints put/remove flyer in db.gallery with source='offer'; delete flyer also removes gallery copy; public booking page shows 'Current offers ✨' section (OffersShowcase) separate from Transformations gallery, with Book-this-offer button. NOTE: old prod 'Monsoon Botox' image is a plain gallery item — delete from admin Gallery page.
 4. Mira admin assistant (tenant_mira.py): _revenue_report() — this/last week (IST Mon–Sun), this/last month, last 3 months, each with revenue+invoices+top 3 staff; prompt rule forbids using today's figure for other periods. Verified: 'Last week how much business' → correct ₹27,234/11 bills + top staff.
 5. Reports page (reports.py /reports/sales + Reports.jsx): by_week (12 weeks) + by_staff aggregations; new 'Weekly Revenue' and 'Staff Business' tables with 🏆 top performer and share %.
+
+## 2026-08-12 — Offer Expiry Auto-Remove
+- Publish flyer accepts optional expires_on (YYYY-MM-DD, past dates rejected 400); stored on gallery doc + offer_flyers doc.
+- /public/gallery/{slug} filters out offer items whose expires_on < today (shown through end of expiry day) — offers drop off the booking page automatically.
+- AIFlyerStudio: date input (min tomorrow) + Publish per card; live cards show "🟢 Live until {date}" / "⌛ Expired — off the page"; unpublish clears expiry.
+- Curl-verified: future expiry live, past rejected, simulated expiry removed from public feed instantly.

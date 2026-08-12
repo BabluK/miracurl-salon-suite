@@ -193,7 +193,11 @@ async def public_staff_default():
 @router.get("/public/gallery/{slug}")
 async def public_gallery(slug: str):
     await resolve_tenant_from_slug(slug)
-    return await db.gallery.find({}, {"_id": 0}).sort("created_at", -1).to_list(24)
+    today = datetime.now(timezone.utc).date().isoformat()
+    items = await db.gallery.find({}, {"_id": 0}).sort("created_at", -1).to_list(48)
+    # Expired offers drop off the booking page automatically (shown until end of their expiry day).
+    return [g for g in items
+            if not (g.get("source") == "offer" and g.get("expires_on") and g["expires_on"] < today)][:24]
 
 @router.get("/public/referral/{slug}/{code}")
 async def public_referral(slug: str, code: str):

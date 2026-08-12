@@ -137,21 +137,38 @@ async def delete_flyer(fid: str, user=Depends(require_tenant_admin), t=Depends(c
     return {"deleted": 1}
 
 
+class PublishFlyerIn(BaseModel):
+    expires_on: str | None = None  # YYYY-MM-DD — offer drops off the booking page after this day
+
+
 @router.post("/offers/flyers/{fid}/publish")
-async def publish_flyer(fid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def publish_flyer(fid: str, body: PublishFlyerIn = PublishFlyerIn(), user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Show this offer flyer on the public booking page (Current Offers section)."""
     doc = await _raw_db.offer_flyers.find_one({"id": fid, "tenant_id": t["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Flyer not found")
+    expires_on = None
+    if body.expires_on:
+        try:
+            d = datetime.strptime(body.expires_on.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(400, "expires_on must be YYYY-MM-DD")
+        if d < datetime.now(timezone.utc).date():
+            raise HTTPException(400, "Expiry date can't be in the past")
+        expires_on = d.isoformat()
     if doc.get("gallery_id"):
-        return {"published": True, "gallery_id": doc["gallery_id"]}
+        await db.gallery.update_one({"id": doc["gallery_id"]}, {"$set": {"expires_on": expires_on}})
+        await _raw_db.offer_flyers.update_one({"id": fid, "tenant_id": t["id"]}, {"$set": {"expires_on": expires_on}})
+        return {"published": True, "gallery_id": doc["gallery_id"], "expires_on": expires_on}
     gid = str(uuid.uuid4())
     await db.gallery.insert_one({
         "id": gid, "url": doc["url"], "kind": "image",
         "caption": doc.get("headline") or doc.get("offer_text") or "Special offer",
-        "source": "offer", "created_at": datetime.now(timezone.utc).isoformat()})
-    await _raw_db.offer_flyers.update_one({"id": fid, "tenant_id": t["id"]}, {"$set": {"gallery_id": gid}})
-    return {"published": True, "gallery_id": gid}
+        "source": "offer", "expires_on": expires_on,
+        "created_at": datetime.now(timezone.utc).isoformat()})
+    await _raw_db.offer_flyers.update_one({"id": fid, "tenant_id": t["id"]},
+                                          {"$set": {"gallery_id": gid, "expires_on": expires_on}})
+    return {"published": True, "gallery_id": gid, "expires_on": expires_on}
 
 
 @router.post("/offers/flyers/{fid}/unpublish")
@@ -162,7 +179,8 @@ async def unpublish_flyer(fid: str, user=Depends(require_tenant_admin), t=Depend
         raise HTTPException(404, "Flyer not found")
     if doc.get("gallery_id"):
         await db.gallery.delete_one({"id": doc["gallery_id"]})
-        await _raw_db.offer_flyers.update_one({"id": fid, "tenant_id": t["id"]}, {"$unset": {"gallery_id": ""}})
+        await _raw_db.offer_flyers.update_one({"id": fid, "tenant_id": t["id"]},
+                                              {"$unset": {"gallery_id": "", "expires_on": ""}})
     return {"published": False}
 
 

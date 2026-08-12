@@ -60,14 +60,18 @@ export const AIFlyerStudio = () => {
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
   };
 
+  const [expiry, setExpiry] = useState({});
+
   const togglePublish = async (f) => {
     try {
       if (f.gallery_id) {
         await api.post(`/offers/flyers/${f.id}/unpublish`);
         toast.success("Removed from the public booking page");
       } else {
-        await api.post(`/offers/flyers/${f.id}/publish`);
-        toast.success("🟢 Live! Showing in 'Current offers' on your booking page");
+        await api.post(`/offers/flyers/${f.id}/publish`, { expires_on: expiry[f.id] || null });
+        toast.success(expiry[f.id]
+          ? `🟢 Live! It will drop off the booking page automatically after ${expiry[f.id]}`
+          : "🟢 Live! Showing in 'Current offers' on your booking page (no expiry)");
       }
       load();
     } catch (e) { toast.error(e.response?.data?.detail || "Action failed"); }
@@ -139,12 +143,31 @@ export const AIFlyerStudio = () => {
                     className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
-              <button onClick={() => togglePublish(f)} data-testid={`flyer-publish-${f.id}`}
-                className={`w-full mt-2 py-1.5 rounded-lg text-xs font-semibold transition ${f.gallery_id
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
-                  : "bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100"}`}>
-                {f.gallery_id ? "🟢 Live on booking page — tap to remove" : "Publish to booking page"}
-              </button>
+              {!f.gallery_id && (
+                <div className="flex items-center gap-1.5 mt-2">
+                  <input type="date" data-testid={`flyer-expiry-${f.id}`} value={expiry[f.id] || ""}
+                    min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                    onChange={e => setExpiry(x => ({ ...x, [f.id]: e.target.value }))}
+                    className="flex-1 min-w-0 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600"
+                    title="Optional expiry — the offer drops off the booking page after this day" />
+                  <button onClick={() => togglePublish(f)} data-testid={`flyer-publish-${f.id}`}
+                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition">
+                    Publish
+                  </button>
+                </div>
+              )}
+              {f.gallery_id && (
+                <button onClick={() => togglePublish(f)} data-testid={`flyer-publish-${f.id}`}
+                  className={`w-full mt-2 py-1.5 rounded-lg text-xs font-semibold border transition ${f.expires_on && f.expires_on < new Date().toISOString().slice(0, 10)
+                    ? "bg-slate-50 text-slate-500 border-slate-200 hover:bg-rose-50 hover:text-rose-600"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"}`}>
+                  {f.expires_on && f.expires_on < new Date().toISOString().slice(0, 10)
+                    ? `⌛ Expired ${f.expires_on} — off the page · tap to clear`
+                    : f.expires_on
+                      ? `🟢 Live until ${f.expires_on} — tap to remove now`
+                      : "🟢 Live on booking page — tap to remove"}
+                </button>
+              )}
             </div>
           ))}
         </div>
