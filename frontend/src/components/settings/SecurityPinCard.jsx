@@ -49,14 +49,14 @@ export function SecurityPinCard() {
         {isSet && (
           <div>
             <label className="text-xs text-slate-500 font-medium">Current PIN *</label>
-            <input data-testid="pin-current-input" type="password" inputMode="numeric" maxLength={6}
+            <input data-testid="pin-current-input" type="password" autoComplete="one-time-code" name="owner-pin" inputMode="numeric" maxLength={6}
               value={currentPin} onChange={e => setCurrentPin(e.target.value.replace(/\D/g, ""))}
               placeholder="••••" className={inputCls} />
           </div>
         )}
         <div>
           <label className="text-xs text-slate-500 font-medium">{isSet ? "New PIN (4–6 digits) *" : "Set PIN (4–6 digits) *"}</label>
-          <input data-testid="pin-new-input" type="password" inputMode="numeric" maxLength={6}
+          <input data-testid="pin-new-input" type="password" autoComplete="one-time-code" name="owner-pin" inputMode="numeric" maxLength={6}
             value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, ""))}
             placeholder="••••" className={inputCls} />
         </div>

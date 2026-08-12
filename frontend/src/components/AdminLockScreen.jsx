@@ -50,7 +50,7 @@ export const AdminLockScreen = ({ path, label, onUnlocked }) => {
         </div>
         <h2 className="font-playfair text-2xl text-slate-900">{label} is protected</h2>
         <p className="text-sm text-slate-500 mt-2 mb-6">Enter your <b>Owner PIN</b> to open this section on shared devices.</p>
-        <input type="password" inputMode="numeric" maxLength={8} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
+        <input type="password" autoComplete="one-time-code" name="owner-pin" inputMode="numeric" maxLength={8} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
           onKeyDown={e => e.key === "Enter" && unlock()} data-testid="admin-pin-input"
           className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 text-center text-xl tracking-[8px] focus:outline-none focus:border-slate-900 placeholder:text-slate-300"
           placeholder="••••" autoFocus />

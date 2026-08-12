@@ -23,7 +23,7 @@ function PinTab({ onApproved }) {
 
   return (
     <div className="mt-4 space-y-3">
-      <input data-testid="owner-pin-input" type="password" inputMode="numeric" maxLength={6}
+      <input data-testid="owner-pin-input" type="password" autoComplete="one-time-code" name="owner-pin" inputMode="numeric" maxLength={6}
         value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
         placeholder="Owner Security PIN" className={`${inputCls} font-mono tracking-[0.3em]`} />
       <button data-testid="owner-pin-submit" onClick={submit} disabled={busy || !pin}

@@ -65,7 +65,7 @@ export default function MySalonsOverview() {
                 <KeyRound className="w-4 h-4 text-amber-500" /> Owner PIN required
               </p>
               <p className="text-[11px] text-slate-500 mt-1">Enter your Owner Security PIN to view the Group Dashboard.</p>
-              <input autoFocus data-testid="group-dashboard-pin-input" type="password" inputMode="numeric" maxLength={6} value={pin}
+              <input autoFocus data-testid="group-dashboard-pin-input" type="password" autoComplete="one-time-code" name="owner-pin" inputMode="numeric" maxLength={6} value={pin}
                 onChange={e => setPin(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && pin && unlock(pin)}
                 className="mt-3 w-full px-3 py-2 rounded-lg border border-slate-200 text-center text-lg tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-amber-200" />
