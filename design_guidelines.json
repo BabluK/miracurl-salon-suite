@@ -1,70 +1,141 @@
 {
-  "project_name": "Miracurl SaaS Landing Page",
-  "theme_strategy": "Premium Dark Theme (Archetype 5: Luxury mixed with Tech). Focus on depth, mystery, and high-end aesthetics suitable for premium salons, elevated with smart AI technological undertones.",
+  "project_name": "Miracurl Suite Salon Management System SaaS",
+  "archetype": "LUXURY & PERFORMANCE PRO (Deep Obsidian + Warm Cream & Gold Accents)",
+  "design_vision": "A ultra-polished, high-density luxury admin dashboard portal for salon owners in India. Blends deep dark sidebar navigation (#0D0D0D) with metallic gold (#D4AF37) active indicators and crisp high-contrast cards (.card-light) on an animated warm mesh canvas (.app-canvas). Features Mira AI voice & intelligence, day/week appointment calendar, staff management, loyalty CRM, inventory, POS billing, AI flyer generator, and reports.",
+  "target_audience": "Salon owners, branch managers, front-desk receptionists, and senior stylists in premium unisex salons across India.",
+  "theme_rules": {
+    "default_theme": "dark_sidebar_light_canvas",
+    "sidebar_background": "#0D0D0D",
+    "sidebar_active_accent": "#D4AF37",
+    "canvas_background": "#F8FAFC with warm gold/rose mesh drift (.app-canvas)",
+    "card_background": "#FFFFFF (.card-light) with #E2E8F0 subtle border and 0 1px 3px rgba(15,23,42,0.05) ambient shadow",
+    "primary_cta_gradient": "linear-gradient(135deg, #0EA5E9, #3B82F6) (.btn-blue) or #D4AF37 (.btn-gold)",
+    "ai_assistant_accent": "Rose-Gold (#EC4899 to #D4AF37)"
+  },
   "typography": {
-    "headings": "Playfair Display",
-    "body": "Outfit",
-    "rules": {
-      "h1": "text-5xl sm:text-6xl lg:text-7xl tracking-tight font-light text-white",
-      "h2": "text-4xl sm:text-5xl tracking-tight font-light text-white",
-      "h3": "text-2xl sm:text-3xl font-medium text-white",
-      "body": "text-base sm:text-lg leading-relaxed text-white/70",
-      "labels": "text-xs uppercase tracking-[0.2em] text-white/50"
+    "headings": {
+      "font_family": "Playfair Display, serif",
+      "class": "font-playfair",
+      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900",
+      "h2_section": "text-xl sm:text-2xl font-semibold text-slate-800 tracking-tight",
+      "h3_card": "text-lg font-medium text-slate-900"
+    },
+    "body": {
+      "font_family": "Outfit, sans-serif",
+      "class": "font-outfit",
+      "base": "text-sm text-slate-600 leading-relaxed",
+      "small_muted": "text-xs text-slate-400 font-medium"
+    },
+    "mono": {
+      "font_family": "JetBrains Mono, monospace",
+      "class": "font-mono",
+      "use_case": "Financial figures, invoice IDs, currency values (₹), timestamps"
     }
   },
-  "colors": {
-    "background_base": "#050505",
-    "surface_elevated": "#0F0F10",
-    "surface_glass": "rgba(20, 20, 20, 0.65)",
-    "primary": "#DFB78C",
-    "primary_hover": "#EAD3B3",
-    "accent_ai": "#E35A89",
-    "text_main": "#FFFFFF",
-    "text_muted": "#A1A1AA",
-    "border_subtle": "rgba(255, 255, 255, 0.08)"
+  "color_system": {
+    "sidebar": {
+      "bg": "#0D0D0D",
+      "border_right": "1px solid rgba(255,255,255,0.08)",
+      "text_idle": "rgba(255,255,255,0.6)",
+      "text_hover": "#FFFFFF",
+      "active_bg": "rgba(212,175,55,0.12)",
+      "active_border": "#D4AF37",
+      "active_text": "#D4AF37"
+    },
+    "surface": {
+      "card_light": "#FFFFFF",
+      "card_border": "#E2E8F0",
+      "table_header_bg": "#F8FAFC",
+      "input_bg": "#F8FAFC",
+      "input_focus_border": "#38BDF8"
+    },
+    "accents": {
+      "gold": "#D4AF37",
+      "gold_hover": "#F0C847",
+      "rose_mira": "#EC4899",
+      "blue_primary": "#3B82F6",
+      "emerald_success": "#10B981",
+      "amber_warning": "#F59E0B",
+      "rose_danger": "#EF4444"
+    }
   },
-  "visual_enhancers": {
-    "surfaces": "Use Crystal Glassmorphism (backdrop-blur-xl bg-black/60) for sticky headers, modals, and the video thumbnail overlay. Always include a 1px border-white/10 to ground the glass.",
-    "textures_and_glows": "No full-screen gradients. Apply a subtle radial glow (accent_ai color, 15% opacity, max-w-lg) behind the video thumbnail or key AI features to signify 'smart AI'.",
-    "spacing": "Generous spacing. Use py-24 or py-32 for main sections. Let the content breathe.",
-    "motion": "Micro-interactions on hover for cards (slight lift, border glow). Smooth fade-in on scroll. Video play button should have a 'tracing beam' or soft pulse effect."
+  "spacing_and_layout": {
+    "sidebar_width": "w-64 (256px)",
+    "top_nav_height": "h-16 (64px)",
+    "page_padding": "p-4 sm:p-6 lg:p-8 space-y-6",
+    "grid_bento": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6",
+    "table_padding": "px-4 py-3 text-xs sm:text-sm"
   },
-  "layouts_and_sections": {
-    "referral_banner": "If '?ref=' exists in URL, show a slim, elegant banner at the very top (bg-[#DFB78C] text-black text-sm py-2 px-4 text-center).",
-    "sticky_nav": "Crystal Glass header (z-50) fixed to top. Contains BrandMark Logo, Mira AI Studio, Features, Pricing, Verify Staff, Sign In, and 'Start free trial' CTA.",
-    "hero_section": "Immersive hero layout. Background uses 'hero_ai_background' heavily muted by bg-black/80 overlay to ensure maximum text contrast. Centralized H1 and subheadline. Two CTAs (Primary pill, Secondary outline). At the bottom of the hero, breaking the grid into the next section, is the floating video thumbnail card.",
-    "video_thumbnail_treatment": "A large, cinematic glassmorphic card (aspect-video) placed overlapping the bottom of the hero section. Uses 'salon_interior' or 'hero_ai_background' as the thumbnail image. Includes a prominent play icon with a glowing pulse in the center. On click, triggers a Dialog/Modal containing a full-screen HTML5 video player for '/miracurl-full-tour.mp4'.",
-    "stats_strip": "4-column grid immediately following the hero. Subtle border-r border-white/10 between items (except last). Includes: ₹0 setup, 90 sec to go live, 24/7 AI receptionist, 0% booking commission.",
-    "features_bento": "Asymmetric Bento grid (grid-cols-1 md:grid-cols-12) for the top features (Mira AI, Smart POS, Staff Registry, Online Booking). Sub-features (9 items) can be a 3-column dense grid below.",
-    "reusable_components": "Maintain existing components (DemoCarousel, MiraStudioShowcase, SoftwareFlowSection, TrustedPartnersSection, SalesChatWidget) but map them to the new dark/gold color palette and typography rules.",
-    "testimonials": "Live partner grid using 'owner_portrait', left-aligned, showing authentic salon owners.",
-    "pricing_section": "Clean UI with a Region Toggle (India ₹ / International $). India: 4 columns. International: 3 columns. Below pricing, add an Enterprise block (full width) offering 'Book a Demo' and 'WhatsApp chat'."
+  "component_guidelines": {
+    "sidebar": {
+      "treatment": "Fixed dark nav with tenant logo glow (.tenant-logo-glow), animated gold wordmark (.tenant-name-shimmer), active item gold left border + gold pill bg, compact 13+ tab list with tooltips and badge counters."
+    },
+    "cards": {
+      "treatment": "Use .card-light class with rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200. Internal padding minimum p-5 to p-6."
+    },
+    "tables": {
+      "treatment": "Use .luxe-table-light with upper-case track-wider headers (#F8FAFC bg), soft borders (#F1F5F9), inline status badges (pill-shaped with dot), and hover state #F8FAFC."
+    },
+    "buttons": {
+      "primary": ".btn-blue or .btn-gold with rounded-lg font-semibold shadow-sm hover:brightness-105 active:scale-95 transition-all",
+      "secondary": ".btn-slate with white bg, slate-200 border, hover bg slate-50",
+      "icon_action": "p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+    },
+    "inputs": {
+      "treatment": ".input-light with background #F8FAFC, border #E2E8F0, rounded-lg, focus:border-sky-400 focus:ring-2 focus:ring-sky-100. Always ensure proper pl-10 padding for icon-prefixed inputs."
+    },
+    "badges": {
+      "treatment": "Pill shaped px-2.5 py-1 text-xs font-semibold rounded-full. Green for Confirmed/Paid, Amber for Pending/Awaiting, Blue for In Progress, Red for Cancelled/Low Stock."
+    }
   },
-  "components_to_implement": [
-    "Dialog component for full-screen video player",
-    "Tabs component for pricing toggle",
-    "Button component (customized to pill shape with new colors)",
-    "Icons (Lucide React or Phosphor Icons)"
-  ],
-  "accessibility": {
-    "contrast": "Text over backgrounds must exceed 4.5:1 ratio. Ensure CTAs use dark text (#050505) over the primary gold (#DFB78C) for readability.",
-    "data_testid": "Apply data-testid to all interactive elements (e.g., data-testid='hero-video-play', data-testid='start-free-trial', data-testid='pricing-toggle-inr')."
+  "screen_polish_passes": {
+    "dashboard": "Daily Briefing banner with Mira AI voice waveform button, 4 key KPI stat tiles (Revenue, Bookings, Clients, Avg Bill), Low stock alert banner with quick reorder button, Live SMS credits pill.",
+    "appointments": "Day/Week/Upcoming calendar toggles, quick booking drawer, status-colored appointment cards with client photo avatar & stylist assigned.",
+    "crm": "Customer roster table with loyalty points tier badges (Gold/Platinum), last visit timestamp, total spend (₹), and quick WhatsApp/SMS action buttons.",
+    "staff": "Grid of stylist cards showing profile photo, specialization tag, monthly sales vs target progress bar, and schedule status indicator.",
+    "staff_registry": "Attendance and payroll ledger table with salary breakdown, commission % calculation, and shift status.",
+    "attendance": "Weekly roster matrix with check-in/check-out timestamps, leave balance cards, and quick approval modal.",
+    "services": "Categorized service menu cards (Hair, Skin, Nails, Spa) with duration, price (₹), stylist tags, and quick edit switches.",
+    "inventory": "Stock level monitoring table with safety threshold badges, batch expiry dates, brand filters, and reorder invoice creator.",
+    "pos_billing": "Split view invoice builder: Left side fast product/service search, right side cart calculation with GST (18%), discounts, payment mode selector (UPI, Card, Cash), and thermal receipt printing preview.",
+    "reviews": "Client review feed with 5-star rating breakdowns, sentiment tag (Positive/Constructive), and AI auto-response generator.",
+    "offers_and_plans": "Active promo campaign cards, loyalty plan tier manager, and AI flyer generator (.sparkle-twinkle) with downloadable marketing posters.",
+    "reports": "Interactive Recharts revenue trends, service breakdown pie chart, top performing stylists leaderboard, and CSV export buttons.",
+    "ai_assistant": "Mira AI chat console with interactive prompt suggestion chips, real-time voice synthesis button, and salon analytics query helper."
+  },
+  "general_ui_ux_guidelines": {
+    "data_testid_rule": "ALL interactive buttons, inputs, links, tabs, and key status badges MUST include data-testid='kebab-case-name' attribute for automated test reliability.",
+    "accessibility_contrast": "All text must maintain > 4.5:1 contrast against background surfaces. Header dropdowns and overlay modals must NOT have transparent backgrounds.",
+    "micro_interactions": "Add .mi-press active scale feedback on buttons, hover lift on cards, and gentle pulse on AI floating orb.",
+    "currency_format": "Format all monetary values as ₹ (INR) using Indian numbering system (e.g. ₹1,25,000)."
   },
   "image_urls": {
-    "hero_ai_background": "https://images.unsplash.com/photo-1644088379091-d574269d422f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTV8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGdsb3dpbmclMjBzbWFydCUyMGFpJTIwbmV0d29yayUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc4NTQ5Mjk5OXww&ixlib=rb-4.1.0&q=85",
-    "salon_interior": "https://images.unsplash.com/photo-1599696848652-f0ff23bc911f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBzYWxvbiUyMGludGVyaW9yJTIwZGFyayUyMG1vb2R5fGVufDB8fHx8MTc4NTQ5Mjk5OXww&ixlib=rb-4.1.0&q=85",
-    "stylist_working": "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBzYWxvbiUyMHN0eWxpc3QlMjB3b3JraW5nfGVufDB8fHx8MTc4NTQ5Mjk5OXww&ixlib=rb-4.1.0&q=85",
-    "owner_portrait": "https://images.unsplash.com/photo-1662850886700-4ec19bd30d11?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwY29uZmlkZW50JTIwc2Fsb24lMjBvd25lciUyMHBvcnRyYWl0fGVufDB8fHx8MTc4NTQ5Mjk5OXww&ixlib=rb-4.1.0&q=85"
+    "salon_interiors": [
+      {
+        "url": "https://images.unsplash.com/photo-1758188753373-5b01a0fc6d9d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBoYWlyJTIwc2Fsb24lMjBpbnRlcmlvciUyMHNwYXxlbnwwfHx8fDE3ODY1NDQ2NjN8MA&ixlib=rb-4.1.0&q=85",
+        "category": "dashboard_hero",
+        "description": "Luxury salon display shelves and ambiance"
+      }
+    ],
+    "salon_products": [
+      {
+        "url": "https://images.unsplash.com/photo-1760895535234-2c39c57cf187?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBoYWlyJTIwc2Fsb24lMjBpbnRlcmlvciUyMHNwYXxlbnwwfHx8fDE3ODY1NDQ2NjN8MA&ixlib=rb-4.1.0&q=85",
+        "category": "inventory",
+        "description": "Premium shampoo and conditioner bottles for inventory showcases"
+      }
+    ],
+    "staff_stylists": [
+      {
+        "url": "https://images.pexels.com/photos/3993455/pexels-photo-3993455.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "staff_profile",
+        "description": "Female senior hair stylist with scissors in modern salon"
+      },
+      {
+        "url": "https://images.pexels.com/photos/26759527/pexels-photo-26759527.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "staff_profile",
+        "description": "Stylist organizing professional haircare tools"
+      }
+    ]
   },
-  "universal_guidelines_for_main_agent": [
-    "Do NOT use complete transparent backgrounds for headers, overlays, or dropdowns. Always use backdrop-blur with a background color (e.g. bg-black/60).",
-    "Do NOT apply universal transition (e.g., transition: all). Add transitions for specific properties to avoid breaking transforms.",
-    "Avoid generic centered layouts. Align content to the left for better readability, except for hero headers.",
-    "Use modern pill-shaped buttons.",
-    "No AI emoji placeholders.",
-    "Include data-testid on all interactive elements.",
-    "Use 'sonner' for toasts.",
-    "Create components as .js files (not .tsx) inside src/components/ui/ matching existing project conventions."
-  ],
-  "instructions_to_main_agent": "Perform a comprehensive redesign for the Miracurl landing page. Apply the Premium Dark Theme blueprint. Implement a custom video thumbnail that sits overlapping the hero and the next section. Use 'salon_interior' or 'hero_ai_background' as the poster image. This thumbnail must open '/miracurl-full-tour.mp4' in a fullscreen Modal/Dialog upon click. Integrate existing reusable components smoothly into the new dark layout, verify the presence of '?ref=' to conditionally render a referral banner, and apply all specified layout rules."
+  "instructions_to_main_agent": "Use this JSON spec to apply global CSS utility enhancements in index.css and refine all admin tabs with consistent high-contrast styling, data-testid attributes, smooth micro-interactions, clear hierarchy, and luxury Indian salon aesthetics."
 }

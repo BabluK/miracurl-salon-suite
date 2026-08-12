@@ -182,10 +182,10 @@ export default function AppLayout() {
               to={item.to}
               data-testid={item.testid}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-6 py-3 text-sm transition-all border-l-2 ${
+                `flex items-center gap-3 mx-3 my-1 px-4 py-2.5 text-sm rounded-full border transition-all ${
                   isActive
-                    ? "bg-gradient-to-r from-gold/15 to-transparent border-gold text-gold"
-                    : "text-white/60 hover:text-white hover:bg-white/5 border-transparent"
+                    ? "nav-gold-plate font-semibold"
+                    : "nav-gold-hover text-white/60 border-transparent"
                 }`
               }
             >
@@ -207,7 +207,7 @@ export default function AppLayout() {
           <button
             data-testid="logout-btn"
             onClick={async () => { await logout(); nav("/login"); }}
-            className="flex items-center gap-2 text-sm text-white/60 hover:text-gold w-full px-2 py-2 rounded-md hover:bg-white/5 transition-all"
+            className="nav-gold-hover flex items-center gap-2 text-sm text-white/60 w-full px-4 py-2.5 rounded-full border border-transparent transition-all"
           >
             <LogOut className="w-4 h-4" />
             Sign Out

@@ -668,3 +668,21 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 .super-topnav::-webkit-scrollbar-track { background: transparent; }
 .super-topnav::-webkit-scrollbar-thumb { background: rgba(100,116,139,.22); border-radius: 999px; }
 .super-topnav::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,.45); }
+
+/* Gold-plated sidebar tabs */
+.nav-gold-plate {
+  background: linear-gradient(100deg, #5f4a12 0%, #9c7a26 28%, #d4af37 62%, #f0d878 100%);
+  color: #211a06 !important;
+  border: 1px solid rgba(240, 216, 120, 0.75) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -2px 5px rgba(0, 0, 0, 0.28), 0 2px 12px rgba(212, 175, 55, 0.35);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.nav-gold-plate svg { color: #211a06; }
+.nav-gold-hover { transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
+.nav-gold-hover:hover {
+  background: linear-gradient(100deg, rgba(95, 74, 18, 0.9) 0%, rgba(156, 122, 38, 0.92) 28%, rgba(212, 175, 55, 0.95) 62%, rgba(240, 216, 120, 0.95) 100%);
+  color: #211a06 !important;
+  border-color: rgba(240, 216, 120, 0.55) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 2px 8px rgba(212, 175, 55, 0.28);
+}
+.nav-gold-hover:hover svg { color: #211a06; }

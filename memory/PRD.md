@@ -1895,3 +1895,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - AI Assistant page (Assistant.jsx): Mira avatar hero, live stat chips (revenue/bookings/staff/week-off/reviews via /tenant/mira/briefing), 3 grouped suggestion sections (Today & reports / Marketing & growth / How do I), Mira avatar beside her chat bubbles. assistant_chat context now includes _revenue_report() for accurate period answers.
 - Offer countdown ribbon (BookPublicExtras OffersShowcase): '⏳ X days left!' / 'Only 1 day left!' / 'Last day today!' (pulse when ≤1 day) on offers with expires_on.
 - All verified via screenshots + live briefing text.
+
+## 2026-08-12 — Gold-plated sidebar tabs (user reference image)
+- User scoped design polish to sidebar TABS only (not full pages). Added .nav-gold-plate (active: metallic gold gradient pill, dark text, inner highlight) and .nav-gold-hover (inactive tabs + Sign Out get the gold plate on hover) in index.css; AppLayout NavLink now rounded-full pills with mx-3. Design mockups for full-page polish were generated earlier and remain optional/backlog.
