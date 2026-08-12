@@ -1867,3 +1867,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - MiraNeuralAvatar: img now inside circular overflow-hidden wrapper with scale(1.45) translateY(4%) so her FACE fills the whole circle (like user's reference).
 - Note told to user: face-ID exists (webcam AI vision); true browser voice-speaker-identification not feasible — wake word "Hey Mira" + Face-ID is the supported combo.
 - Verified via screenshot.
+
+## Session 2026-06 (fork) — Mira badge + dress visible
+- MiraNeuralAvatar: image zoom reduced 1.45→1.22 (dress/collar visible, face still prominent); added "MIRA AI" pill badge with Miracurl logo (/icon-192.png) overlapping bottom of avatar circle (testid mira-name-badge). Verified via screenshot.
