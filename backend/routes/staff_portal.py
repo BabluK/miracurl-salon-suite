@@ -209,6 +209,76 @@ async def reject_leave_request(rid: str, body: LeaveDecisionIn = LeaveDecisionIn
     return {"ok": True, "status": "rejected"}
 
 
+# ---------------- Staff week-off change requests ----------------
+WEEK_OFF_ALLOWED_DAYS = {"monday", "tuesday", "wednesday", "thursday"}
+
+
+class WeekOffChangeIn(BaseModel):
+    requested_day: str = Field(..., max_length=12)
+    reason: str = Field("", max_length=300)
+
+
+@router.post("/staff/me/week-off-requests")
+async def create_week_off_request(body: WeekOffChangeIn, s=Depends(_current_staff)):
+    day = body.requested_day.strip().lower()
+    now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    if day not in WEEK_OFF_ALLOWED_DAYS:
+        raise HTTPException(400, "Week-off can only be Monday to Thursday — Friday, Saturday and Sunday are peak salon days")
+    if day == now_ist.strftime("%A").lower():
+        raise HTTPException(400, "Your new week-off can't be today itself — please pick a different day")
+    if day == (s.get("week_off_day") or "").lower():
+        raise HTTPException(400, f"{day.title()} is already your week-off day")
+    if await db.week_off_requests.find_one({"staff_id": s["id"], "status": "pending"}, {"_id": 0, "id": 1}):
+        raise HTTPException(400, "You already have a pending week-off change request — please wait for your owner's decision")
+    doc = {
+        "id": str(uuid.uuid4()), "staff_id": s["id"], "staff_name": s.get("name"),
+        "current_day": (s.get("week_off_day") or "").lower() or None,
+        "requested_day": day, "reason": body.reason.strip(),
+        "status": "pending", "locked": True,
+        "requested_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.week_off_requests.insert_one(doc)
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+
+@router.get("/staff/me/week-off-requests")
+async def my_week_off_requests(s=Depends(_current_staff)):
+    return await db.week_off_requests.find({"staff_id": s["id"]}, {"_id": 0}).sort("requested_at", -1).to_list(50)
+
+
+@router.get("/week-off-requests")
+async def list_week_off_requests(status: str = "pending", admin=Depends(require_tenant_admin)):
+    q = {} if status == "all" else {"status": status}
+    return await db.week_off_requests.find(q, {"_id": 0}).sort("requested_at", -1).to_list(200)
+
+
+@router.post("/week-off-requests/{rid}/approve")
+async def approve_week_off_request(rid: str, body: LeaveDecisionIn = LeaveDecisionIn(), admin=Depends(require_tenant_admin)):
+    req = await db.week_off_requests.find_one({"id": rid, "status": "pending"}, {"_id": 0})
+    if not req:
+        raise HTTPException(404, "Request not found or already handled")
+    now = datetime.now(timezone.utc)
+    effective_from = ((now + timedelta(hours=5, minutes=30)).date() + timedelta(days=1)).isoformat()
+    await db.week_off_requests.update_one({"id": rid}, {"$set": {
+        "status": "approved", "admin_note": body.note.strip(),
+        "decided_by": admin.get("name") or admin.get("email"),
+        "decided_at": now.isoformat(), "effective_from": effective_from}})
+    await db.staff.update_one({"id": req["staff_id"]}, {"$set": {"week_off_day": req["requested_day"]}})
+    return {"ok": True, "status": "approved", "effective_from": effective_from}
+
+
+@router.post("/week-off-requests/{rid}/reject")
+async def reject_week_off_request(rid: str, body: LeaveDecisionIn = LeaveDecisionIn(), admin=Depends(require_tenant_admin)):
+    res = await db.week_off_requests.update_one(
+        {"id": rid, "status": "pending"},
+        {"$set": {"status": "rejected", "admin_note": body.note.strip(),
+                  "decided_by": admin.get("name") or admin.get("email"),
+                  "decided_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Request not found or already handled")
+    return {"ok": True, "status": "rejected"}
+
+
 # ---- Attendance rules: geo-fence, late fines, overtime, auto-checkout ----
 IST_TZ = timezone(timedelta(hours=5, minutes=30))
 GRACE_MINUTES = 10          # default grace — admin can override per tenant
@@ -229,6 +299,7 @@ class GeoIn(BaseModel):
     lng: Optional[float] = None
     accuracy: Optional[float] = None
     qr_token: Optional[str] = None
+    week_off_confirmed: Optional[bool] = False
 
 
 def _parse_hhmm(val, fallback: str) -> tuple:
@@ -533,6 +604,9 @@ async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff)
     existing = await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
     if existing and existing.get("check_in_at"):
         return existing
+    is_week_off_today = (s.get("week_off_day") or "").lower() == datetime.now(IST_TZ).strftime("%A").lower()
+    if is_week_off_today and not geo.week_off_confirmed:
+        raise HTTPException(409, "WEEK_OFF_CONFIRM — Today is your week-off day. Please confirm you have your owner's approval to work today.")
     distance_m = None
     qr_ok = bool(geo.qr_token) and geo.qr_token == (t.get("attendance_qr_token") or "\x00")
     f_lat, f_lng, f_label = _fence_for(s, t)
@@ -563,6 +637,8 @@ async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff)
         "check_in_method": "qr" if qr_ok else "gps",
         "check_in_lat": geo.lat, "check_in_lng": geo.lng, "check_in_distance_m": distance_m,
     }
+    if is_week_off_today:
+        fields["week_off_override"] = True
     if existing:
         await db.attendance.update_one(
             {"staff_id": s["id"], "date": today},
@@ -765,6 +841,7 @@ def _roster_row(s: dict, rec: Optional[dict], now: datetime) -> dict:
         "check_in_method": r.get("check_in_method") or "",
         "check_out_method": r.get("check_out_method") or "",
         "marked_by": r.get("marked_by") or "",
+        "week_off_override": bool(r.get("week_off_override")),
     }
 
 

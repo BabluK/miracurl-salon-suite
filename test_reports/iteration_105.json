@@ -1,0 +1,47 @@
+{
+  "summary": "Iter105 — backend + frontend regression for Mira public FAQ/privacy/owner-connect + Week-Off system. Backend: 10/10 pass (1 duplicate test intentionally skipped). Fixed 1 real backend bug (missing week_off_requests in _DB collection map — caused 500 on GET /staff/me/week-off-requests). Frontend staff portal WeekOffSection verified. Admin Attendance WeekOffManager not UI-tested due to admin login redirect issue in Playwright session (likely rate-limit / brute-force lockout on shared IP; admin API works fine via curl).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/staff/me/week-off-requests", "issue": "Returned 500 because collection 'week_off_requests' not registered in database._DB — fixed in /app/backend/database.py"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Staff portal Week-off card", "issues": ["Console warns 'Encountered two children with the same key' when rendering week-off request history (likely req.id vs. rendering duplicate rows). Non-blocking but should be de-duped."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter105_mira_weekoff.py",
+    "/app/test_reports/pytest/iter105.xml"
+  ],
+  "test_coverage_details": {
+    "Instant FAQ (price list / timings / address / phone)": "PASS — instant:true returned for all 4, <1s each",
+    "Privacy refusal (salaries, revenue)": "PASS — Mira politely refuses",
+    "Owner-connect lead capture with EMAIL": "PASS — inquiry recorded via GET /api/ai-inquiries with email field populated",
+    "Returning-guest recognition": "PASS — welcome-back with first name",
+    "Week-off CRUD staff": "PASS — Fri/Sat/Sun→400, today→400, current day→400, valid Mon-Thu→200, 2nd pending→400, GET lists with requested_at + locked:true",
+    "Week-off admin approve/reject": "PASS — effective_from = tomorrow IST, staff.week_off_day updated, reject flow OK",
+    "Week-off check-in guard": "PASS — 409 WEEK_OFF_CONFIRM without flag; retry with week_off_confirmed:true (+QR) → 200 with week_off_override:true; /attendance/today roster row shows week_off_override:true",
+    "Frontend staff WeekOffSection": "PASS — data-testid='week-off-card' present, shows current week-off day, 'Request change' button, history with 🔒 requested_at and status badges (approved/rejected)",
+    "Frontend admin WeekOffManager UI": "NOT VERIFIED — admin login on Playwright bounced back to /login (backend API returns 200 via curl; suspected shared-IP rate-limit / brute-force lockout from prior test iterations). data-testid contract present in code per handoff."
+  },
+  "critical_code_review_comments": [
+    "PublicChat instant-FAQ pattern 'phone number' matches queries like 'What is the owner's personal phone number?' and returns the salon's public phone. Per requirements the public phone is fine to share, so this is technically correct — but consider adding a negative pattern (skip if 'personal'/'private'/'owner' present) to route these to the LLM which has the strict privacy rule.",
+    "staff_portal.py adds new 'week_off_requests' collection but database._DB was not updated — I added the TenantCollection registration. Any new collection MUST be registered in _DB or fails at runtime with AttributeError. Recommend adding a startup sanity check that enumerates all collections referenced in routes.",
+    "Duplicate React key warning in Staff portal WeekOffSection history rendering — ensure each rendered item uses a unique key (likely r.id per request row)."
+  ],
+  "updated_files": [
+    "/app/backend/database.py (added week_off_requests TenantCollection)",
+    "/app/backend/tests/test_iter105_mira_weekoff.py (new pytest suite, 11 tests)"
+  ],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "50% — staff verified; admin UI blocked by login redirect"},
+  "test_credentials": "Salon Admin admin@miracurl.com / q6QY@tn3p#9DtL, Staff priya.staff@miracurl.com / Staff@5678, PIN 4321. No new logins created.",
+  "seed_data_creation": "Test writes: 2-3 week-off change requests (approved+rejected states) + owner-connect ai_inquiry with email. Attendance record with week_off_override:true is deleted in test cleanup. staff.week_off_day is restored in cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_iter105_mira_weekoff.py is a fully self-contained regression suite. Requires MONGO_URL + DB_NAME env for the check-in test (uses pymongo to set staff.week_off_day = today's weekday and to fetch/create attendance_qr_token). Run with: MONGO_URL=mongodb://localhost:27017 DB_NAME=miracurl_db pytest tests/test_iter105_mira_weekoff.py -o addopts=''. The admin Attendance UI (WeekOffManager card) still needs a human-eye verification if login redirect can be resolved.",
+  "rca of the issue": "GET /api/staff/me/week-off-requests → 500 Internal Server Error. Root cause: routes/staff_portal.py references db.week_off_requests but database._DB never registered a TenantCollection for it → AttributeError. Fix (applied): added `week_off_requests = TenantCollection(_raw_db.week_off_requests)` alongside leave_requests in database.py._DB. All week-off endpoints now work end-to-end."
+}

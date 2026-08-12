@@ -301,6 +301,8 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
     by_mode = {}
     by_branch = {}
     by_month = {}
+    by_week = {}
+    by_staff = {}
     total_revenue = 0.0
     for inv in invs:
         amt = float(inv.get("total") or 0)
@@ -312,7 +314,25 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
         m = by_month.setdefault((inv.get("created_at") or "")[:7], {"revenue": 0.0, "invoices": 0})
         m["revenue"] += amt
         m["invoices"] += 1
+        try:
+            d = datetime.strptime((inv.get("created_at") or "")[:10], "%Y-%m-%d").date()
+            wk_start = d - timedelta(days=d.weekday())
+            w = by_week.setdefault(wk_start.isoformat(), {"revenue": 0.0, "invoices": 0})
+            w["revenue"] += amt
+            w["invoices"] += 1
+        except ValueError:
+            pass
+        inv_staff = inv.get("staff_id")
+        for it in inv.get("items", []):
+            sid = it.get("staff_id") or inv_staff
+            if sid:
+                row = by_staff.setdefault(sid, {"revenue": 0.0, "items": 0})
+                row["revenue"] += int(it.get("qty") or 1) * float(it.get("price") or 0)
+                row["items"] += int(it.get("qty") or 1)
         total_revenue += amt
+    staff_docs = await db.staff.find(
+        {"id": {"$in": list(by_staff.keys())}}, {"_id": 0, "id": 1, "name": 1, "role": 1}).to_list(300) if by_staff else []
+    smap = {s["id"]: s for s in staff_docs}
     return {
         "total_invoices": len(invs),
         "total_revenue": round(total_revenue, 2),
@@ -325,6 +345,14 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
         "by_month": sorted(
             [{"month": k, "revenue": round(v["revenue"], 2), "invoices": v["invoices"]} for k, v in by_month.items() if k],
             key=lambda x: x["month"], reverse=True),
+        "by_week": sorted(
+            [{"week_start": k, "revenue": round(v["revenue"], 2), "invoices": v["invoices"]} for k, v in by_week.items()],
+            key=lambda x: x["week_start"], reverse=True)[:12],
+        "by_staff": sorted(
+            [{"staff_id": sid, "name": smap.get(sid, {}).get("name") or "(removed)",
+              "role": smap.get(sid, {}).get("role") or "", "revenue": round(v["revenue"], 2), "items": v["items"]}
+             for sid, v in by_staff.items()],
+            key=lambda x: -x["revenue"]),
         "invoices": invs[:200],
     }
 

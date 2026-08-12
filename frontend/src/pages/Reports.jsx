@@ -214,6 +214,66 @@ export default function Reports() {
             </div>
           )}
 
+          {(data.by_week || []).length > 0 && (
+            <div className="card-light" data-testid="weekly-revenue-card">
+              <div className="label-light">Week by Week</div>
+              <h3 className="font-playfair text-xl mt-1 mb-3">Weekly Revenue</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                      <th className="py-2">Week (Mon–Sun)</th><th className="py-2 text-right">Bills</th><th className="py-2 text-right">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.by_week.map(w => {
+                      const start = new Date(w.week_start + "T00:00:00");
+                      const end = new Date(start); end.setDate(end.getDate() + 6);
+                      const f = (d) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                      return (
+                        <tr key={w.week_start} className="border-b border-slate-50" data-testid={`week-row-${w.week_start}`}>
+                          <td className="py-2 font-semibold text-slate-700">{f(start)} – {f(end)}</td>
+                          <td className="py-2 text-right text-slate-500">{w.invoices}</td>
+                          <td className="py-2 text-right font-bold text-slate-800">{sym}{Number(w.revenue).toLocaleString("en-IN")}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {(data.by_staff || []).length > 0 && (
+            <div className="card-light" data-testid="staff-business-card">
+              <div className="label-light">Team Performance</div>
+              <h3 className="font-playfair text-xl mt-1 mb-3">Staff Business — this period</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                      <th className="py-2">Staff</th><th className="py-2 text-right">Services/Items</th><th className="py-2 text-right">Business</th><th className="py-2 text-right">Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.by_staff.map((s, i) => {
+                      const totalStaff = data.by_staff.reduce((a, x) => a + x.revenue, 0);
+                      const share = totalStaff ? (s.revenue / totalStaff) * 100 : 0;
+                      return (
+                        <tr key={s.staff_id} className="border-b border-slate-50" data-testid={`staff-biz-row-${s.staff_id}`}>
+                          <td className="py-2 font-semibold text-slate-700">{i === 0 ? "🏆 " : ""}{s.name}<span className="text-xs text-slate-400 font-normal">{s.role ? ` · ${s.role}` : ""}</span></td>
+                          <td className="py-2 text-right text-slate-500">{s.items}</td>
+                          <td className="py-2 text-right font-bold text-slate-800">{sym}{Number(s.revenue).toLocaleString("en-IN")}</td>
+                          <td className="py-2 text-right text-slate-500">{share.toFixed(0)}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="card-light">
               <div className="label-light">Revenue by Payment Mode</div>

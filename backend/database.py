@@ -110,6 +110,7 @@ class _DB:
     vendors = TenantCollection(_raw_db.vendors)
     staff_resumes = TenantCollection(_raw_db.staff_resumes)
     leave_requests = TenantCollection(_raw_db.leave_requests)
+    week_off_requests = TenantCollection(_raw_db.week_off_requests)
     branch_switch_requests = TenantCollection(_raw_db.branch_switch_requests)
     sms_pack_payments = TenantCollection(_raw_db.sms_pack_payments)
     entertainment_playlists = TenantCollection(_raw_db.entertainment_playlists)

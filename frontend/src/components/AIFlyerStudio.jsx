@@ -56,8 +56,21 @@ export const AIFlyerStudio = () => {
 
   const del = async (id) => {
     if (!window.confirm("Delete this flyer permanently?")) return;
-    try { await api.delete(`/offers/flyers/${id}`); toast.success("Flyer deleted"); load(); }
+    try { await api.delete(`/offers/flyers/${id}`); toast.success("Flyer deleted — removed from the booking page too"); load(); }
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+  };
+
+  const togglePublish = async (f) => {
+    try {
+      if (f.gallery_id) {
+        await api.post(`/offers/flyers/${f.id}/unpublish`);
+        toast.success("Removed from the public booking page");
+      } else {
+        await api.post(`/offers/flyers/${f.id}/publish`);
+        toast.success("🟢 Live! Showing in 'Current offers' on your booking page");
+      }
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Action failed"); }
   };
 
   return (
@@ -126,6 +139,12 @@ export const AIFlyerStudio = () => {
                     className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
+              <button onClick={() => togglePublish(f)} data-testid={`flyer-publish-${f.id}`}
+                className={`w-full mt-2 py-1.5 rounded-lg text-xs font-semibold transition ${f.gallery_id
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
+                  : "bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100"}`}>
+                {f.gallery_id ? "🟢 Live on booking page — tap to remove" : "Publish to booking page"}
+              </button>
             </div>
           ))}
         </div>

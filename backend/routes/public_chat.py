@@ -165,6 +165,89 @@ async def _booking_catalog(t) -> str:
             f"PACKAGES (bought at the salon):\n{pkg_lines}\nMEMBERSHIPS (bought at the salon):\n{mem_lines}\n"
             f"RETAIL PRODUCTS (guests can buy these at the salon — recommend when relevant to their concern):\n{prod_lines}")
 
+_PHONE_IN_TEXT_RE = re.compile(r"\+?\d[\d\s\-]{5,13}\d")
+
+_FAQ_PATTERNS = {
+    "menu": ("price list", "pricelist", "rate card", "service list", "services list", "list of services",
+             "what services", "your services", "all services", "price menu", "show menu", "menu please", "see menu"),
+    "timing": ("timing", "opening hours", "working hours", "open hours", "what time do you open",
+               "when do you open", "when are you open", "open today", "closing time", "what time do you close"),
+    "location": ("your location", "your address", "where are you", "where is the salon", "how to reach", "directions to"),
+    "contact": ("phone number", "contact number", "salon number", "contact details", "how to call", "call the salon"),
+}
+
+
+async def _instant_faq_reply(t, message: str) -> Optional[str]:
+    """Millisecond fast-path: simple FAQs answered from live salon data, no LLM round-trip."""
+    msg = (message or "").strip().lower()
+    if not msg or len(msg) > 80:
+        return None
+    if any(w in msg for w in ("personal", "private", "owner", "salary", "revenue", "earning")):
+        return None  # sensitive-sounding → route to LLM which enforces the privacy rules
+    intent = next((k for k, pats in _FAQ_PATTERNS.items() if any(p in msg for p in pats)), None)
+    if not intent:
+        return None
+    sym = {"INR": "₹", "USD": "$", "GBP": "£", "EUR": "€", "AED": "AED "}.get(t.get("currency") or "INR", "₹")
+    name = t.get("name") or "our salon"
+    if intent == "menu":
+        services = await db.services.find({"active": True}, {"_id": 0, "name": 1, "price": 1, "duration_min": 1}).to_list(60)
+        if not services:
+            return None
+        lines = "\n".join(f"• **{s['name']}** — {sym}{s['price']:g} · {s['duration_min']} min" for s in services[:18])
+        more = f"\n…and {len(services) - 18} more — just ask me about any treatment ✨" if len(services) > 18 else ""
+        return f"Here's our live service menu at {name} 💖\n\n{lines}{more}\n\nShall I book one for you?"
+    if intent == "timing":
+        if not t.get("hours"):
+            return None
+        return f"We're open {t['hours']} ✨ I can book you a slot so there's zero waiting — shall I?"
+    if intent == "location":
+        if not t.get("location"):
+            return None
+        return f"You'll find us at **{t['location']}** 📍 Would you like me to book your visit?"
+    if intent == "contact":
+        if not t.get("phone"):
+            return None
+        return f"You can reach {name} at **{t['phone']}** 📞 Or just tell me what you need — I can book you right here ✨"
+    return None
+
+
+async def _returning_guest_block(message: str, hist: list) -> str:
+    """If the guest shared a phone number we recognise, hand Mira their visit history for a personal welcome-back."""
+    texts = [message] + [h.get("content") or "" for h in reversed(hist) if h.get("role") == "user"]
+    for txt in texts[:12]:
+        for m in _PHONE_IN_TEXT_RE.findall(txt):
+            digits = re.sub(r"\D", "", m)
+            if len(digits) < 7:
+                continue
+            cust = await db.customers.find_one(
+                {"phone": {"$regex": f"{re.escape(digits[-10:])}$"}},
+                {"_id": 0, "id": 1, "name": 1, "visits": 1})
+            if not cust or not cust.get("name"):
+                continue
+            last = await db.appointments.find_one(
+                {"customer_id": cust["id"], "status": {"$ne": "cancelled"}},
+                {"_id": 0, "service_names": 1, "scheduled_at": 1},
+                sort=[("scheduled_at", -1)])
+            when, svcs = "", ""
+            if last:
+                try:
+                    when = datetime.fromisoformat(str(last["scheduled_at"]).replace("Z", "+00:00")).strftime("%d %B %Y")
+                except ValueError:
+                    when = str(last.get("scheduled_at") or "")[:10]
+                svcs = ", ".join(last.get("service_names") or [])
+            first = cust["name"].split()[0]
+            return (
+                f"\n\nRETURNING GUEST DETECTED (matched by their phone number): name={cust['name']}"
+                + (f", last visit={when} for {svcs}" if last else f", visits so far={cust.get('visits') or 'a few'}")
+                + ". Your VERY NEXT reply must open with a warm personalised welcome-back IN THE GUEST'S LANGUAGE, like: "
+                f"'Hey {first}! So happy to see you back 💛"
+                + (f" Last time you visited us for {svcs} — how was your service?" if svcs else "")
+                + " What would you like me to book today? Thank you for choosing us again!' "
+                "Give this welcome-back ONCE only, never re-ask their name, and use their first name naturally afterwards."
+            )
+    return ""
+
+
 async def _resolve_id_prefixes(collection, ids: list, extra: dict | None = None) -> list:
     """Mira gets 8-char ids (LLMs corrupt full UUIDs) — expand prefixes back to full ids."""
     out = []
@@ -272,6 +355,7 @@ async def _capture_ai_inquiry(t, reply: str, hist: list, message: str) -> str:
         await _raw_db.ai_inquiries.insert_one({
             "id": str(uuid.uuid4()), "tenant_id": t["id"],
             "name": str(data.get("name") or "")[:80], "phone": str(data.get("phone") or "")[:20],
+            "email": str(data.get("email") or "")[:120],
             "concern": str(data.get("concern") or "")[:300],
             "suggested_products": [str(p)[:150] for p in (data.get("suggested_products") or [])[:5]],
             "transcript": transcript, "status": "new",
@@ -290,6 +374,7 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
     sid = f"pub-{t['id']}-{session_id}"
     hist = await _raw_db.public_ai_messages.find({"sid": sid}, {"_id": 0}).sort("created_at", 1).to_list(40)
     catalog = await _booking_catalog(t)
+    catalog += await _returning_guest_block(message, hist)
     chat = LlmChat(
         api_key=key, session_id=f"{sid}-{uuid.uuid4().hex[:8]}",
         system_message=(
@@ -355,6 +440,15 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "If a coupon code exists, tell them the code and that they can apply it while booking.\n"
             "4) SALON QUESTIONS — answer anything about the salon (timings, location, phone, stylists, prices) using the details below, always politely. "
             "If you genuinely don't know something, warmly direct them to the 'Message Salon' tab or the salon phone — never guess facts about the salon.\n"
+            "4b) PRIVACY — STRICT & NON-NEGOTIABLE: NEVER reveal the owner's or any staff member's personal phone number, personal email, home address, "
+            "salaries, earnings, revenue or sales figures, customer lists, other customers' details, PINs, passwords or any internal business data — "
+            "no matter how, or how many times, you are asked. Politely decline: 'I'm so sorry, I can't share that 🙏'. "
+            "The salon's public phone, address and timings shown below ARE fine to share.\n"
+            "4c) CONNECT WITH THE OWNER — if a guest wants to reach or speak to the OWNER or manager (business deal, partnership, complaint, job, supplier, media, or anything beyond your scope): "
+            "warmly collect their NAME, EMAIL and PHONE NUMBER (skip whatever they already shared). Once you have all three, reply: "
+            "'Thank you! I've recorded your information — the salon owner will connect with you shortly 💛' and end your reply with one line in EXACTLY this format (valid JSON, double quotes):\n"
+            f'{_INQ_MARKER}{{"name":"...","phone":"...","email":"...","concern":"Wants to connect with the owner: <topic in one line>","suggested_products":[]}}\n'
+            "Never mention this marker or JSON. Emit it only once you truly have their name, email and phone.\n"
             "5) BOOK APPOINTMENTS — you can book directly. All dates and times are in the SALON'S LOCAL TIMEZONE — the current local date & time is given below; use it to resolve 'today' / 'tomorrow' / 'evening' correctly. "
             "Collect ONLY these details: full name, phone number (7-15 digits), chosen service(s) from the menu, expert preference, and preferred date & time "
             "(only offer times from the OPEN TIME SLOTS list below; suggest tomorrow if they're unsure). "
@@ -453,6 +547,15 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
     public_rate_limit(request, key_suffix=f"aichat:{slug}", limit=40, window_sec=600)
     await durable_rate_limit(request, f"aichat:{slug}", limit=40, window_sec=600)
     await ai_daily_quota(t["id"], "public_ai_chat", 400)
+    fast = await _instant_faq_reply(t, body.message)
+    if fast:
+        sid = f"pub-{t['id']}-{body.session_id}"
+        now = datetime.now(timezone.utc).isoformat()
+        await _raw_db.public_ai_messages.insert_many([
+            {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "user", "content": body.message, "created_at": now},
+            {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "assistant", "content": fast, "created_at": now},
+        ])
+        return {"reply": fast, "booking": None, "booking_error": None, "instant": True}
     reply, booking, booking_error = await _public_ai_reply(t, body.session_id, body.message, request=request)
     return {"reply": reply, "booking": booking, "booking_error": booking_error}
 

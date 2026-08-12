@@ -25,6 +25,7 @@ function InquiryCard({ inq, onDone, onDelete }) {
       <div className="flex items-center gap-2 flex-wrap">
         <span className="font-semibold text-sm text-slate-800">{inq.name || "Guest"}</span>
         {inq.phone && <span className="text-xs text-slate-500 inline-flex items-center gap-1"><Phone className="w-3 h-3" /> {inq.phone}</span>}
+        {inq.email && <span className="text-xs text-slate-500" data-testid={`inquiry-email-${inq.id}`}>✉️ {inq.email}</span>}
         <span className="text-[10px] text-slate-400">{timeAgo(inq.created_at)}</span>
         {inq.status === "new" && <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-600 text-white font-bold">NEW</span>}
         {inq.status === "handled" && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">✓ Handled</span>}

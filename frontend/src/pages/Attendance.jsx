@@ -205,6 +205,8 @@ export default function Attendance() {
 
       <LeaveManager roster={data?.roster || []} onChanged={load} />
 
+      <WeekOffManager onChanged={load} />
+
       {/* Roster table */}
       <div className="card-light p-0 overflow-x-auto" data-testid="attendance-roster">
         <table className="luxe-table-light min-w-[720px]">
@@ -260,6 +262,10 @@ export default function Attendance() {
                     )}
                     {r.check_in_method === "qr" && (
                       <span className="ml-1.5 text-[9px] uppercase text-sky-500 font-semibold" title="Checked in via desk QR">qr</span>
+                    )}
+                    {r.week_off_override && (
+                      <span data-testid={`week-off-worked-${r.staff_id}`} title="Worked on their week-off day — confirmed owner approval at check-in"
+                        className="ml-1.5 inline-flex items-center text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 border border-teal-200">week-off ⚠</span>
                     )}
                   </td>
                   <td className="tabular-nums">
@@ -692,6 +698,72 @@ function LeaveManager({ roster, onChanged }) {
                 <button data-testid={`reject-leave-${r.id}`} disabled={busy === r.id} onClick={() => decide(r.id, "reject")}
                   className="text-xs px-3 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50">Reject</button>
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeekOffManager({ onChanged }) {
+  const [pending, setPending] = useState([]);
+  const [recent, setRecent] = useState([]);
+  const [busy, setBusy] = useState("");
+  const load = () => {
+    api.get("/week-off-requests?status=pending").then(r => setPending(r.data)).catch(() => {});
+    api.get("/week-off-requests?status=approved").then(r => setRecent(r.data.slice(0, 4))).catch(() => {});
+  };
+  useEffect(() => { load(); }, []);
+
+  async function decide(rid, action) {
+    setBusy(rid);
+    try {
+      const { data } = await api.post(`/week-off-requests/${rid}/${action}`, {});
+      toast.success(action === "approve"
+        ? `Week-off change approved — effective from ${data.effective_from} (next day)`
+        : "Week-off change rejected");
+      load(); onChanged?.();
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail) || "Action failed"); }
+    finally { setBusy(""); }
+  }
+
+  const fmt = (iso) => iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "—";
+  const cap = (d) => d ? d[0].toUpperCase() + d.slice(1) : "—";
+
+  return (
+    <div className="card-light" data-testid="week-off-manager-card">
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <div className="font-semibold flex items-center gap-2">📅 Week-Off Change Requests</div>
+        {pending.length > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-semibold">{pending.length} pending</span>}
+      </div>
+      <p className="text-xs text-slate-400 mb-3">Staff can request a new week-off day (Mon–Thu only, never Fri/Sat/Sun, never same-day). Request & approval times are locked. Approved changes take effect the NEXT day.</p>
+      {pending.length === 0 ? (
+        <p className="text-xs text-slate-400">No pending week-off change requests.</p>
+      ) : (
+        <div className="space-y-2">
+          {pending.map(r => (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 border border-slate-100 rounded-lg px-3 py-2" data-testid={`pending-week-off-${r.id}`}>
+              <div className="text-sm">
+                <b>{r.staff_name}</b> · {cap(r.current_day)} → <b className="text-violet-600">{cap(r.requested_day)}</b>
+                <span className="text-slate-400 text-xs"> · requested {fmt(r.requested_at)} 🔒</span>
+                {r.reason && <span className="text-slate-400 text-xs"> · {r.reason}</span>}
+              </div>
+              <div className="flex gap-2">
+                <button data-testid={`approve-week-off-${r.id}`} disabled={busy === r.id} onClick={() => decide(r.id, "approve")}
+                  className="text-xs px-3 py-1.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">Approve</button>
+                <button data-testid={`reject-week-off-${r.id}`} disabled={busy === r.id} onClick={() => decide(r.id, "reject")}
+                  className="text-xs px-3 py-1.5 rounded-md border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-50">Reject</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {recent.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
+          {recent.map(r => (
+            <div key={r.id} className="text-xs text-slate-500" data-testid={`approved-week-off-${r.id}`}>
+              ✅ {r.staff_name}: {cap(r.current_day)} → <b>{cap(r.requested_day)}</b> · approved {fmt(r.decided_at)} · effective {r.effective_from}
             </div>
           ))}
         </div>

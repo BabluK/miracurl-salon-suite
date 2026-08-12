@@ -102,6 +102,50 @@ async def _catalog_context() -> str:
     return f"SERVICE MENU:\n{svc}\n\nSTAFF TEAM:\n{stf}"
 
 
+async def _revenue_report() -> dict:
+    """Accurate revenue by period (IST calendar) + top staff per period, from real invoices."""
+    now_ist = datetime.now(_IST)
+    today = now_ist.date()
+    monday = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+    last_month_end = month_start - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
+    periods = {
+        "this_week (Mon till now)": (monday, today),
+        "last_week (Mon-Sun)": (monday - timedelta(days=7), monday - timedelta(days=1)),
+        "this_month": (month_start, today),
+        "last_month": (last_month_start, last_month_end),
+        "last_3_months (rolling 90 days)": (today - timedelta(days=90), today),
+    }
+    earliest = min(p[0] for p in periods.values()).isoformat()
+    invs = await db.invoices.find(
+        {"status": {"$nin": ["voided", "open"]}, "created_at": {"$gte": earliest}},
+        {"_id": 0, "created_at": 1, "total": 1, "items": 1, "staff_id": 1}).to_list(8000)
+    staff_docs = await db.staff.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(300)
+    smap = {s["id"]: s.get("name") or "Unknown" for s in staff_docs}
+    report = {}
+    for label, (start, end) in periods.items():
+        lo, hi = start.isoformat(), end.isoformat() + "T23:59:59"
+        rev, n, by_staff = 0.0, 0, {}
+        for inv in invs:
+            ca = (inv.get("created_at") or "")[:19]
+            if not (lo <= ca <= hi):
+                continue
+            rev += float(inv.get("total") or 0)
+            n += 1
+            for it in inv.get("items", []):
+                sid = it.get("staff_id") or inv.get("staff_id")
+                if sid:
+                    by_staff[sid] = by_staff.get(sid, 0.0) + int(it.get("qty") or 1) * float(it.get("price") or 0)
+        top = sorted(by_staff.items(), key=lambda kv: -kv[1])[:3]
+        report[label] = {
+            "revenue": round(rev), "invoices": n,
+            "date_range": f"{start.isoformat()} to {end.isoformat()}",
+            "top_staff": [{"name": smap.get(sid, "Unknown"), "business": round(amt)} for sid, amt in top],
+        }
+    return report
+
+
 @router.post("/tenant/mira/ask")
 async def tenant_mira_ask(body: TenantMiraAskIn, user=Depends(require_tenant_admin)):
     from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -110,6 +154,7 @@ async def tenant_mira_ask(body: TenantMiraAskIn, user=Depends(require_tenant_adm
         raise HTTPException(500, "AI key not configured")
     snap = await _salon_snapshot()
     catalog = await _catalog_context()
+    revenue_report = await _revenue_report()
     from security import ai_daily_quota
     await ai_daily_quota(user.get("tenant_id") or "", "tenant_mira_ask", 300)
     chat = LlmChat(api_key=key, session_id=f"tenant-mira-{user.get('tenant_id', '')[:12]}",
@@ -125,12 +170,20 @@ async def tenant_mira_ask(body: TenantMiraAskIn, user=Depends(require_tenant_adm
                        "(Good morning before 12 PM, Good afternoon 12–5 PM, Good evening after 5 PM); never guess. "
                        "LANGUAGE: reply in the SAME language the owner used — English or Hindi (Devanagari). "
                        "Hinglish counts as Hindi. "
+                       "REVENUE QUESTIONS (CRITICAL): when asked about business/revenue for ANY period (last week, this week, "
+                       "last month, this month, last 3 months), answer ONLY from the REVENUE REPORT in the message — quote the exact "
+                       "revenue and invoice count for THAT period, and name the top staff performer with their business amount "
+                       "(e.g. 'Last week you did ₹X across N bills — most business was by NAME with ₹Y'). "
+                       "The 'revenue_today' figure in the snapshot is ONLY for today — NEVER use it for any other period. "
+                       "If a period shows 0 revenue, say so honestly. "
                        f"\n\n{catalog}\n\n"
                        'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab path or empty>"}'
                    )).with_model("openai", "gpt-4o-mini")
     prev = f'Previous Mira message: "{body.last_mira.strip()[:200]}"\n' if body.last_mira.strip() else ""
     msg = (f"Current time: {datetime.now(_IST).strftime('%A %d %B, %I:%M %p')} IST ({_tod_greeting()}).\n"
-           f"Live salon snapshot: {json.dumps(snap)}\n{prev}\nOwner says: {body.question.strip()[:400]}")
+           f"Live salon snapshot (today only): {json.dumps(snap)}\n"
+           f"REVENUE REPORT (accurate period figures — use these for any period question): {json.dumps(revenue_report)}\n"
+           f"{prev}\nOwner says: {body.question.strip()[:400]}")
     try:
         raw = await chat.send_message(UserMessage(text=msg))
         m = re.search(r"\{.*\}", str(raw), re.S)

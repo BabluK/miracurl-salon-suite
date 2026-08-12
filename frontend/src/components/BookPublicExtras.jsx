@@ -28,6 +28,30 @@ export const HeroCTAs = () => (
 );
 
 /* ---- Gallery showcase (bento-ish scroll strip) ---- */
+export const OffersShowcase = ({ items }) => {
+  if (!items?.length) return null;
+  return (
+    <section className="mt-16" data-testid="offers-section">
+      <div className="mb-5">
+        <div className="text-[10px] tracking-[0.3em] uppercase text-gold">Limited Time</div>
+        <h2 className="font-playfair text-2xl mt-1">Current offers ✨</h2>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {items.slice(0, 6).map((g) => (
+          <div key={g.id} data-testid="offer-flyer-item" className="relative rounded-2xl overflow-hidden border border-gold/30 group shadow-[0_0_30px_rgba(212,175,55,0.12)]">
+            <img src={`${BACKEND_URL}${g.url}`} alt={g.caption || "Special offer"} loading="lazy"
+              className="w-full h-auto object-cover group-hover:scale-[1.02] transition-transform duration-500" />
+            <button onClick={() => openMira("ai")} data-testid={`offer-book-${g.id}`}
+              className="absolute bottom-3 right-3 px-4 py-2 rounded-full bg-gold text-black text-xs font-bold shadow-lg hover:bg-gold/90 transition">
+              Book this offer
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+};
+
 export const GalleryShowcase = ({ items }) => {
   if (!items?.length) return null;
   return (

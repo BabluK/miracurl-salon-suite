@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel
 
-from database import _raw_db
+from database import _raw_db, db
 from security import require_tenant_admin, current_tenant
 from services.storage import _put_object, _get_object
 from routes.promo_common import FONT_PATH, stamp_monogram
@@ -130,9 +130,40 @@ async def delete_flyer(fid: str, user=Depends(require_tenant_admin), t=Depends(c
     doc = await _raw_db.offer_flyers.find_one({"id": fid, "tenant_id": t["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Flyer not found")
+    if doc.get("gallery_id"):
+        await db.gallery.delete_one({"id": doc["gallery_id"]})
     await _raw_db.uploads.delete_one({"id": fid, "tenant_id": t["id"]})
     await _raw_db.offer_flyers.delete_one({"id": fid, "tenant_id": t["id"]})
     return {"deleted": 1}
+
+
+@router.post("/offers/flyers/{fid}/publish")
+async def publish_flyer(fid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Show this offer flyer on the public booking page (Current Offers section)."""
+    doc = await _raw_db.offer_flyers.find_one({"id": fid, "tenant_id": t["id"]}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Flyer not found")
+    if doc.get("gallery_id"):
+        return {"published": True, "gallery_id": doc["gallery_id"]}
+    gid = str(uuid.uuid4())
+    await db.gallery.insert_one({
+        "id": gid, "url": doc["url"], "kind": "image",
+        "caption": doc.get("headline") or doc.get("offer_text") or "Special offer",
+        "source": "offer", "created_at": datetime.now(timezone.utc).isoformat()})
+    await _raw_db.offer_flyers.update_one({"id": fid, "tenant_id": t["id"]}, {"$set": {"gallery_id": gid}})
+    return {"published": True, "gallery_id": gid}
+
+
+@router.post("/offers/flyers/{fid}/unpublish")
+async def unpublish_flyer(fid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Remove this offer flyer from the public booking page immediately."""
+    doc = await _raw_db.offer_flyers.find_one({"id": fid, "tenant_id": t["id"]}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Flyer not found")
+    if doc.get("gallery_id"):
+        await db.gallery.delete_one({"id": doc["gallery_id"]})
+        await _raw_db.offer_flyers.update_one({"id": fid, "tenant_id": t["id"]}, {"$unset": {"gallery_id": ""}})
+    return {"published": False}
 
 
 FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "fonts")

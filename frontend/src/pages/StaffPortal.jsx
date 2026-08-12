@@ -111,16 +111,25 @@ export default function StaffPortal() {
     return () => { cancelled = true; };
   }, [month, profile]);
 
-  async function checkIn(scannedToken) {
+  async function checkIn(scannedToken, weekOffConfirmed = false) {
     setBusy(true);
     try {
       const qrToken = scannedToken || new URLSearchParams(window.location.search).get("qr") || "";
       const pos = qrToken ? null : await getPosition();
-      await api.post("/staff/me/check-in", { ...(pos || {}), ...(qrToken ? { qr_token: qrToken } : {}) });
+      await api.post("/staff/me/check-in", { ...(pos || {}), ...(qrToken ? { qr_token: qrToken } : {}), ...(weekOffConfirmed ? { week_off_confirmed: true } : {}) });
       toast.success(qrToken ? "✅ Checked in via desk QR — instant, no GPS needed ✦" : "Checked in ✦ Have a great shift");
       playCheckinGreeting(profile?.name);
       load();
     } catch (e) {
+      const detail = String(e.response?.data?.detail || "");
+      if (e.response?.status === 409 && detail.includes("WEEK_OFF")) {
+        setBusy(false);
+        if (window.confirm("🌴 Today is your week-off day.\n\nHave you got confirmation from your owner to work today?")) {
+          return checkIn(scannedToken, true);
+        }
+        toast.info("No problem — enjoy your week off! Check-in cancelled.");
+        return;
+      }
       toast.error(formatApiError(e.response?.data?.detail) || "Check-in failed");
       if (!scannedToken && e.response?.status === 403) {
         toast.info("Tip: tap 'Scan desk QR' below to check in instantly without GPS.", { duration: 8000 });
@@ -371,6 +380,9 @@ export default function StaffPortal() {
       {/* Leave requests */}
       <LeaveSection />
 
+      {/* Week-off change request */}
+      <WeekOffSection profile={profile} />
+
       {/* Salary slip */}
       <div className="rounded-2xl bg-[#0F0F0F] border border-white/5 p-5 sm:p-6" data-testid="salary-card">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -581,6 +593,89 @@ function LeaveSection() {
                   <button onClick={() => cancel(r.id)} className="text-[10px] text-white/40 hover:text-red-300 underline" data-testid={`cancel-leave-${r.id}`}>Cancel</button>
                 )}
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const WEEK_OFF_DAYS = ["monday", "tuesday", "wednesday", "thursday"];
+
+function WeekOffSection({ profile }) {
+  const [reqs, setReqs] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [day, setDay] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+  const currentDay = (profile?.week_off_day || "").toLowerCase();
+  const options = WEEK_OFF_DAYS.filter(d => d !== todayName && d !== currentDay);
+  const load = () => api.get("/staff/me/week-off-requests").then(r => setReqs(r.data)).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  async function submit() {
+    if (!day) { toast.error("Pick your new week-off day"); return; }
+    setBusy(true);
+    try {
+      await api.post("/staff/me/week-off-requests", { requested_day: day, reason });
+      toast.success("Week-off change request sent to your owner 📅 The request time is now locked.");
+      setShowForm(false); setDay(""); setReason("");
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't send request");
+    } finally { setBusy(false); }
+  }
+
+  const fmtReqTime = (iso) => iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "—";
+
+  return (
+    <div className="rounded-2xl bg-[#0F0F0F] border border-white/5 p-5 sm:p-6" data-testid="week-off-card">
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <div className="font-playfair text-lg flex items-center gap-2">📅 Week-off day</div>
+        <button data-testid="request-week-off-btn" onClick={() => setShowForm(f => !f)}
+          className="text-xs px-4 py-2 rounded-full bg-gold/15 border border-gold/40 text-gold hover:bg-gold/25 transition">
+          {showForm ? "Close" : "Request change"}
+        </button>
+      </div>
+      <p className="text-xs text-white/45 mb-4" data-testid="current-week-off">
+        Current week-off: <b className="text-white/80">{currentDay ? currentDay[0].toUpperCase() + currentDay.slice(1) : "Not set"}</b>
+        {" "}· Allowed days: Mon–Thu only (Fri/Sat/Sun are peak days) · Can't pick today
+      </p>
+      {showForm && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 bg-white/5 border border-white/10 rounded-xl p-4">
+          <div><label className="text-[10px] uppercase tracking-widest text-white/40 block mb-1">New day</label>
+            <select data-testid="week-off-day-select" value={day} onChange={e => setDay(e.target.value)}
+              className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-white/90">
+              <option value="">Choose day…</option>
+              {options.map(d => <option key={d} value={d}>{d[0].toUpperCase() + d.slice(1)}</option>)}
+            </select></div>
+          <div><label className="text-[10px] uppercase tracking-widest text-white/40 block mb-1">Reason</label>
+            <input data-testid="week-off-reason-input" value={reason} onChange={e => setReason(e.target.value)} placeholder="Optional"
+              className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-white/90" /></div>
+          <div className="flex items-end">
+            <button data-testid="week-off-submit-btn" onClick={submit} disabled={busy}
+              className="w-full py-2 rounded-md bg-gold text-black text-sm font-semibold hover:bg-gold/90 disabled:opacity-50">
+              {busy ? "Sending…" : "Send request"}
+            </button>
+          </div>
+        </div>
+      )}
+      {reqs.length === 0 ? (
+        <p className="text-white/40 text-sm">No change requests yet. Once your owner approves, the new week-off starts from the next day.</p>
+      ) : (
+        <div className="space-y-2">
+          {reqs.slice(0, 5).map(r => (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2" data-testid={`week-off-req-${r.id}`}>
+              <div className="text-sm text-white/80">
+                {(r.current_day || "—")} → <b className="text-gold">{r.requested_day}</b>
+                <span className="text-white/40 text-xs"> · requested {fmtReqTime(r.requested_at)} 🔒</span>
+                {r.status === "approved" && r.effective_from && (
+                  <span className="text-emerald-300/80 text-xs"> · effective from {r.effective_from}</span>
+                )}
+              </div>
+              <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full border ${LEAVE_BADGE[r.status] || ""}`}>{r.status}</span>
             </div>
           ))}
         </div>

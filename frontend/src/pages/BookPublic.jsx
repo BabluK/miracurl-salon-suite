@@ -6,7 +6,7 @@ import { toast, Toaster } from "sonner";
 import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, ConfirmStep, SuccessStep } from "./BookPublic.steps";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import BookingChatWidget from "@/components/BookingChatWidget";
-import { HeroCTAs, GalleryShowcase, VerifiedTeam, ReferEarnBanner, AITrustStrip, LocationsSection, openMira } from "@/components/BookPublicExtras";
+import { HeroCTAs, GalleryShowcase, OffersShowcase, VerifiedTeam, ReferEarnBanner, AITrustStrip, LocationsSection, openMira } from "@/components/BookPublicExtras";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const DEFAULT_SLUG = "miracurl-marathahalli";
@@ -442,7 +442,8 @@ export default function BookPublic() {
 
         {step === 0 && (
           <>
-            <GalleryShowcase items={gallery} />
+            <OffersShowcase items={gallery.filter(g => g.source === "offer")} />
+            <GalleryShowcase items={gallery.filter(g => g.source !== "offer")} />
             <VerifiedTeam staff={staff} />
             <ReferEarnBanner salonName={salon.name} reward={salon.referral_reward} />
             <AITrustStrip />
