@@ -1870,3 +1870,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## Session 2026-06 (fork) — Mira badge + dress visible
 - MiraNeuralAvatar: image zoom reduced 1.45→1.22 (dress/collar visible, face still prominent); added "MIRA AI" pill badge with Miracurl logo (/icon-192.png) overlapping bottom of avatar circle (testid mira-name-badge). Verified via screenshot.
+
+## 2026-08-12 — Mira avatar finalized with user's uploaded uniform portrait
+- Replaced /app/frontend/public/mira-neural.png with the user's own uploaded reference image (1254px): Mira in navy uniform with golden "MS MIRACURL" badge on her dress, glowing circle baked in.
+- MiraNeuralAvatar.jsx: removed floating "MIRA AI" pill badge (logo now on her dress), image zoom scale(1.22) so portrait+badge fill the circular frame. Status dot kept.
+- Verified via screenshot on Super Admin Mira Home. User confirmed choice (a).
