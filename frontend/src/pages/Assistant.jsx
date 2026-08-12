@@ -1,14 +1,36 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Bot, Send, Sparkles, MessageSquarePlus, Bug, Lightbulb, Trash2, Loader2 } from "lucide-react";
+import { Bot, Send, MessageSquarePlus, Bug, Lightbulb, Trash2, Loader2 } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const SUGGESTIONS = [
-  "How is my salon doing today?",
-  "How do I confirm a booking and notify the client?",
-  "Why is a customer not showing in CRM?",
-  "Give me 3 ideas to get more bookings this month",
+const SUGGESTION_GROUPS = [
+  {
+    label: "📊 Today & reports",
+    items: [
+      "How is my salon doing today?",
+      "How much business did we do last week and who was the top performer?",
+      "Compare this month's revenue with last month",
+      "Which services sell the most?",
+    ],
+  },
+  {
+    label: "📣 Marketing & growth",
+    items: [
+      "Give me 3 ideas to get more bookings this month",
+      "Draft a WhatsApp message for a weekend offer",
+      "How do I win back customers who haven't visited in 60 days?",
+    ],
+  },
+  {
+    label: "🛠 How do I…",
+    items: [
+      "How do I confirm a booking and notify the client?",
+      "Why is a customer not showing in CRM?",
+      "How do I publish an offer to my booking page?",
+      "How do I approve a staff week-off change?",
+    ],
+  },
 ];
 
 function newSessionId() {
@@ -46,12 +68,14 @@ function ChatPanel() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [snap, setSnap] = useState(null);
   const endRef = useRef(null);
   // Fresh session every time the chat opens (tab switch / page revisit = clean slate)
   const sidRef = useRef(newSessionId());
   const sid = sidRef.current;
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { api.get("/tenant/mira/briefing").then(r => setSnap(r.data.data)).catch(() => {}); }, []);
 
   async function send(text) {
     const msg = (text || input).trim();
@@ -91,19 +115,45 @@ function ChatPanel() {
     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col" style={{ height: "calc(100vh - 240px)", minHeight: 420 }} data-testid="assistant-chat-panel">
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {messages.length === 0 && (
-          <div className="text-center py-10">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center mb-3"><Sparkles className="w-7 h-7 text-white" /></div>
+          <div className="text-center py-8">
+            <div className="relative w-20 h-20 mx-auto mb-3">
+              <span className="absolute inset-0 rounded-full bg-violet-400/30 blur-lg animate-pulse" />
+              <img src="/mira-bot.png" alt="Mira" className="relative w-20 h-20 rounded-full object-cover border-2 border-violet-300 shadow-lg" />
+              <span className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-400 border-2 border-white" />
+            </div>
             <p className="text-sm text-slate-600 font-medium">Hi, I&apos;m Mira ✦ your salon assistant</p>
             <p className="text-xs text-slate-400 mt-1 mb-4">I know your live stats and every app feature.</p>
-            <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
-              {SUGGESTIONS.map(s => (
-                <button key={s} data-testid="assistant-suggestion" onClick={() => send(s)} className="px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-xs hover:bg-violet-100 transition">{s}</button>
+            {snap && (
+              <div className="flex flex-wrap justify-center gap-2 mb-5" data-testid="assistant-live-chips">
+                <span className="px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">₹{(snap.revenue_today || 0).toLocaleString("en-IN")} today · {snap.invoices_today || 0} bills</span>
+                <span className="px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-semibold">{snap.bookings_today || 0} bookings today</span>
+                <span className="px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">{(snap.staff_on_floor || []).length} staff on the floor</span>
+                {(snap.staff_week_off_today || []).length > 0 && (
+                  <span className="px-3 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-semibold">🌴 {snap.staff_week_off_today.join(", ")} on week-off</span>
+                )}
+                {(snap.unread_reviews || 0) > 0 && (
+                  <span className="px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-xs font-semibold">⭐ {snap.unread_reviews} unread reviews</span>
+                )}
+              </div>
+            )}
+            <div className="max-w-2xl mx-auto space-y-4 text-left">
+              {SUGGESTION_GROUPS.map(g => (
+                <div key={g.label}>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-semibold mb-2 text-center sm:text-left">{g.label}</p>
+                  <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                    {g.items.map(s => (
+                      <button key={s} data-testid="assistant-suggestion" onClick={() => send(s)}
+                        className="px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-xs hover:bg-violet-100 transition">{s}</button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={m.id || i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+          <div key={m.id || i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}>
+            {m.role !== "user" && <img src="/mira-bot.png" alt="" className="w-7 h-7 rounded-full object-cover border border-violet-200 shrink-0 mb-0.5" />}
             <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-violet-600 text-white rounded-br-sm" : "bg-slate-100 text-slate-800 rounded-bl-sm"}`}>
               {m.content || <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
             </div>

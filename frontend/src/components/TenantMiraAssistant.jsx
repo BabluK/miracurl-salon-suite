@@ -123,9 +123,15 @@ export const TenantMiraAssistant = () => {
   if (!open) {
     return (
       <button onClick={openPanel} data-testid="tenant-mira-fab"
-        title="Mira — your salon's AI manager"
-        className="fixed bottom-24 right-5 z-[60] w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-xl shadow-rose-500/30 flex items-center justify-center text-2xl hover:scale-105 transition-transform">
-        🎙️
+        title="Mira — tap and I'll brief you on today's collection, bookings & staff"
+        className="fixed bottom-24 right-5 z-[60] group">
+        <span className="absolute inset-0 rounded-full bg-amber-400/40 blur-md opacity-60 group-hover:opacity-100 transition-opacity animate-pulse" />
+        <img src="/mira-bot.png" alt="Mira AI"
+          className="relative w-14 h-14 rounded-full object-cover border-2 border-amber-400/80 shadow-xl shadow-rose-500/30 transition-transform duration-200 group-hover:scale-110" />
+        <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-400 border-2 border-white" />
+        <span className="absolute right-full top-1/2 -translate-y-1/2 mr-3 px-3 py-1.5 rounded-full bg-[#121212] border border-amber-400/40 text-amber-300 text-xs font-medium whitespace-nowrap opacity-0 translate-x-2 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 shadow-lg">
+          Tap — I&apos;ll brief you ✦
+        </span>
       </button>
     );
   }
@@ -133,13 +139,18 @@ export const TenantMiraAssistant = () => {
   return (
     <div className="fixed bottom-24 right-5 z-[60] w-[340px] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden" data-testid="tenant-mira-panel">
       <div className="bg-gradient-to-r from-amber-500 to-rose-500 px-4 py-3 flex items-center gap-2">
-        <span className="text-lg">🎙️</span>
+        <img src="/mira-bot.png" alt="Mira" className="w-8 h-8 rounded-full object-cover border border-white/60 shrink-0" />
         <div className="flex-1">
           <p className="text-white text-sm font-bold leading-none">Mira · Your Salon AI</p>
           <p className="text-white/75 text-[10px] mt-0.5" data-testid="tenant-mira-status">
             {convo ? (listening ? "🔴 Listening — just talk to me" : "💬 Conversation on — say 'stop' to end") : "Ask about your salon"}
           </p>
         </div>
+        <button onClick={() => { audioRef.current?.pause(); setConvoMode(false); setOpen(false); navigate("/assistant"); }}
+          data-testid="tenant-mira-open-assistant" title="Open the full AI Assistant page"
+          className="text-[9px] font-bold rounded-full px-2 py-0.5 border bg-white/20 text-white border-white/40 hover:bg-white/30">
+          Full chat ↗
+        </button>
         <button onClick={() => { const v = langRef.current === "hi" ? "en" : "hi"; langRef.current = v; setMiraLang(v); localStorage.setItem("tmira_lang", v); }}
           data-testid="tenant-mira-lang-toggle"
           className="text-[9px] font-bold rounded-full px-2 py-0.5 border bg-white/20 text-white border-white/40">

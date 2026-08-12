@@ -50,6 +50,15 @@ async def _salon_snapshot() -> dict:
         pass
     try:
         snap["active_staff"] = await db.staff.count_documents({"active": {"$ne": False}})
+        att = await db.attendance.find(
+            {"date": today, "check_in_at": {"$ne": None}},
+            {"_id": 0, "staff_name": 1, "check_out_at": 1}).to_list(100)
+        snap["staff_on_floor"] = [a.get("staff_name") for a in att if not a.get("check_out_at") and a.get("staff_name")]
+        snap["staff_done_for_day"] = [a.get("staff_name") for a in att if a.get("check_out_at") and a.get("staff_name")]
+        weekday = datetime.now(_IST).strftime("%A").lower()
+        offs = await db.staff.find(
+            {"active": {"$ne": False}, "week_off_day": weekday}, {"_id": 0, "name": 1}).to_list(50)
+        snap["staff_week_off_today"] = [s["name"] for s in offs if s.get("name")]
     except Exception:
         pass
     try:
@@ -69,13 +78,28 @@ async def tenant_mira_briefing(user=Depends(require_tenant_admin)):
 
     def _n(c, s, p):
         return f"{c} {s if c == 1 else p}"
+    def _names(lst, cap=4):
+        lst = lst or []
+        return ", ".join(lst[:cap]) + (f" and {len(lst) - cap} more" if len(lst) > cap else "")
     bits = []
+    if snap.get("revenue_today"):
+        bits.append(f"today's collection is ₹{snap['revenue_today']:,} from {_n(snap.get('invoices_today') or 0, 'bill', 'bills')}")
+    else:
+        bits.append("no collection yet today")
     if snap.get("bookings_today"):
-        bits.append(f"{_n(snap['bookings_today'], 'booking', 'bookings')} today")
+        bits.append(f"{_n(snap['bookings_today'], 'booking', 'bookings')} on today's calendar")
     else:
         bits.append("no bookings yet today")
-    if snap.get("revenue_today"):
-        bits.append(f"₹{snap['revenue_today']:,} collected so far")
+    on_floor = snap.get("staff_on_floor") or []
+    done = snap.get("staff_done_for_day") or []
+    if on_floor:
+        bits.append(f"{_names(on_floor)} {'is' if len(on_floor) == 1 else 'are'} on the floor")
+    elif done:
+        bits.append(f"{_names(done)} finished their shift")
+    else:
+        bits.append("no staff has checked in yet")
+    if snap.get("staff_week_off_today"):
+        bits.append(f"{_names(snap['staff_week_off_today'])} {'is' if len(snap['staff_week_off_today']) == 1 else 'are'} on week-off today")
     if snap.get("new_customers_this_week"):
         bits.append(f"{_n(snap['new_customers_this_week'], 'new customer', 'new customers')} this week")
     text = (f"Hey! {_tod_greeting()}! Here's your salon right now — {'; '.join(bits)}. "

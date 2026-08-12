@@ -19,7 +19,6 @@ import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
 import { TenantMiraAssistant } from "./TenantMiraAssistant";
 import InstallAppPrompt from "./InstallAppPrompt";
-import MiraFab from "./MiraFab";
 import TrialReminder from "./TrialReminder";
 import ActAsBanner from "./ActAsBanner";
 import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
@@ -341,8 +340,7 @@ export default function AppLayout() {
       {/* Act-as-salon banner for super-admin */}
       {user?.role === "super_admin" && <ActAsBanner tenant={tenant} />}
 
-      {/* Mira AI agent — floats on every portal section (admins only; staff/manager navs don't include /assistant) */}
-      {user?.role === "admin" && <MiraFab />}
+      {/* Mira AI agent — tap the avatar for a spoken briefing (collection, bookings, staff) */}
 
       {/* Once-a-day polite trial expiry reminder for owners */}
       {user?.role === "admin" && <TrialReminder />}

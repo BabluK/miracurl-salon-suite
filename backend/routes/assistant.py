@@ -80,6 +80,12 @@ async def assistant_chat(body: AssistantChatIn, user=Depends(require_tenant_admi
     chat = _assistant_sessions.get(sid)
     if chat is None:
         ctx = await _salon_context(user)
+        try:
+            from routes.tenant_mira import _revenue_report
+            import json as _json
+            ctx += " REVENUE REPORT by period (use these exact figures for last week/month questions, incl. top staff): " + _json.dumps(await _revenue_report())
+        except Exception as e:
+            logging.getLogger("assistant").error(f"revenue report ctx failed: {e}")
         chat = LlmChat(
             api_key=key, session_id=sid,
             system_message=(

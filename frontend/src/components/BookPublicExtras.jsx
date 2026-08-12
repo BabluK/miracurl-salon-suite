@@ -41,6 +41,17 @@ export const OffersShowcase = ({ items }) => {
           <div key={g.id} data-testid="offer-flyer-item" className="relative rounded-2xl overflow-hidden border border-gold/30 group shadow-[0_0_30px_rgba(212,175,55,0.12)]">
             <img src={`${BACKEND_URL}${g.url}`} alt={g.caption || "Special offer"} loading="lazy"
               className="w-full h-auto object-cover group-hover:scale-[1.02] transition-transform duration-500" />
+            {(() => {
+              if (!g.expires_on) return null;
+              const dl = Math.round((new Date(g.expires_on) - new Date(new Date().toISOString().slice(0, 10))) / 86400000);
+              if (dl < 0) return null;
+              return (
+                <span data-testid={`offer-countdown-${g.id}`}
+                  className={`absolute top-3 left-0 px-3.5 py-1.5 rounded-r-full text-white text-xs font-bold shadow-lg ${dl <= 1 ? "bg-rose-600 animate-pulse" : "bg-rose-600/95"}`}>
+                  {dl === 0 ? "⏳ Last day today!" : dl === 1 ? "⏳ Only 1 day left!" : `⏳ ${dl} days left!`}
+                </span>
+              );
+            })()}
             <button onClick={() => openMira("ai")} data-testid={`offer-book-${g.id}`}
               className="absolute bottom-3 right-3 px-4 py-2 rounded-full bg-gold text-black text-xs font-bold shadow-lg hover:bg-gold/90 transition">
               Book this offer

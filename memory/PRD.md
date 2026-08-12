@@ -1888,3 +1888,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - /public/gallery/{slug} filters out offer items whose expires_on < today (shown through end of expiry day) — offers drop off the booking page automatically.
 - AIFlyerStudio: date input (min tomorrow) + Publish per card; live cards show "🟢 Live until {date}" / "⌛ Expired — off the page"; unpublish clears expiry.
 - Curl-verified: future expiry live, past rejected, simulated expiry removed from public feed instantly.
+
+## 2026-08-12 — Mira Dashboard briefing + AI Assistant polish + Offer countdown
+- Removed duplicate MiraFab (gold avatar that navigated to /assistant). Single Mira FAB now = TenantMiraAssistant with /mira-bot.png image (green online dot, 'Tap — I'll brief you' tooltip); tap opens panel and SPEAKS briefing. 'Full chat ↗' button in panel header goes to /assistant.
+- Briefing enriched (tenant_mira.py): today's collection ₹+bills, bookings today (fixed: scheduled_at regex, was matching non-existent 'date' field), staff on floor names, finished-shift names, week-off-today names, new customers.
+- AI Assistant page (Assistant.jsx): Mira avatar hero, live stat chips (revenue/bookings/staff/week-off/reviews via /tenant/mira/briefing), 3 grouped suggestion sections (Today & reports / Marketing & growth / How do I), Mira avatar beside her chat bubbles. assistant_chat context now includes _revenue_report() for accurate period answers.
+- Offer countdown ribbon (BookPublicExtras OffersShowcase): '⏳ X days left!' / 'Only 1 day left!' / 'Last day today!' (pulse when ≤1 day) on offers with expires_on.
+- All verified via screenshots + live briefing text.
