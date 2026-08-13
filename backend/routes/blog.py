@@ -168,3 +168,44 @@ async def admin_blog_delete(pid: str, user=Depends(require_super_admin)):
     if res.deleted_count == 0:
         raise HTTPException(404, "Article not found")
     return {"deleted": 1}
+
+
+class AIDraftIn(BaseModel):
+    topic: str = Field(..., max_length=200)
+
+
+@router.post("/super-admin/blog/ai-draft")
+async def admin_blog_ai_draft(body: AIDraftIn, user=Depends(require_super_admin)):
+    """Mira drafts a ready-to-publish SEO article from a topic line."""
+    import json as _json
+    import os
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    chat = LlmChat(
+        api_key=key, session_id=f"blog-draft-{uuid.uuid4().hex[:8]}",
+        system_message=(
+            "You write SEO blog articles for Miracurl Suite (miracurl-suite.com), an all-in-one salon "
+            "management software for Indian salon owners (online bookings, WhatsApp automation, GST billing, "
+            "memberships, staff attendance & payroll). Audience: Indian salon and parlour owners. "
+            "Tone: practical, no-fluff, warm; short paragraphs; concrete numbers and examples. "
+            "FORMAT the content field as plain-text blocks separated by BLANK lines: paragraphs, "
+            "'## ' section headings, '- ' bullet lists; **bold** allowed. 500-750 words. "
+            "Mention Miracurl Suite naturally once or twice — helpful, never salesy. "
+            'Respond ONLY with valid JSON, no markdown fences: '
+            '{"title":"SEO title, max 90 chars","excerpt":"one compelling line, max 200 chars",'
+            '"tags":["3-4","lowercase","tags"],"content":"the full article"}'
+        )).with_model("openai", "gpt-4o-mini")
+    reply = await chat.send_message(UserMessage(text=f"Write the article. Topic: {body.topic.strip()}"))
+    raw = str(reply).strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        raw = raw[raw.index("{"):raw.rindex("}") + 1]
+    try:
+        data = _json.loads(raw)
+    except ValueError:
+        raise HTTPException(502, "Mira's draft came back malformed — please try again")
+    return {"title": str(data.get("title") or "")[:180], "excerpt": str(data.get("excerpt") or "")[:400],
+            "tags": [str(t)[:30] for t in (data.get("tags") or [])][:5],
+            "content": str(data.get("content") or "")[:40000]}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { BookOpen, Trash2, Plus, ExternalLink } from "lucide-react";
+import { BookOpen, Trash2, Plus, ExternalLink, Loader2 } from "lucide-react";
 
 const empty = { title: "", excerpt: "", content: "", tags: "", published: true };
 
@@ -47,6 +47,16 @@ export const BlogManager = () => {
         </div>
       </div>
       <p className="text-xs text-white/40 mb-4">How-to articles that rank on Google and pull salon owners to the site. Use "## " for headings and "- " for bullet points; **bold** works too.</p>
+      <div className="flex gap-2 mb-4">
+        <input data-testid="blog-ai-topic-input" value={topic} onChange={e => setTopic(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && aiDraft()}
+          placeholder="Topic line — e.g. How salons can use Instagram Reels to get more bookings"
+          className="flex-1 bg-black/40 border border-fuchsia-400/30 rounded-md px-3 py-2 text-sm text-white/90 placeholder:text-white/25" />
+        <button onClick={aiDraft} disabled={drafting} data-testid="blog-ai-draft-btn"
+          className="shrink-0 px-4 py-2 rounded-md bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1.5">
+          {drafting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is writing…</> : "✦ Draft with Mira"}
+        </button>
+      </div>
       {showForm && (
         <div className="space-y-3 mb-5 bg-white/5 border border-white/10 rounded-xl p-4">
           <input data-testid="blog-title-input" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Article title"

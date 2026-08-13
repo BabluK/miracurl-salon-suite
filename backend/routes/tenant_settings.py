@@ -635,3 +635,13 @@ async def get_audit_log(user=Depends(require_tenant_admin), t=Depends(current_te
     rows = await _raw_db.audit_log.find(
         {"tenant_id": t["id"]}, {"_id": 0}).sort("at", -1).to_list(100)
     return {"items": rows}
+
+
+@router.get("/settings/referral-nudge")
+async def referral_nudge(user=Depends(require_admin), t=Depends(current_tenant)):
+    """Lightweight, non-sensitive: pending referrals for the dashboard nudge banner (no PIN needed)."""
+    pending = await db.affiliate_referrals.find(
+        {"referrer_tenant_id": t["id"], "status": "pending"},
+        {"_id": 0, "referred_salon_name": 1, "created_at": 1},
+    ).sort("created_at", -1).to_list(10)
+    return {"pending": pending, "count": len(pending)}

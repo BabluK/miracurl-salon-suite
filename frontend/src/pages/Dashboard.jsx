@@ -106,6 +106,7 @@ export default function Dashboard() {
     <div className="app-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
       <DashboardAurora />
       <RenewalBanner sub={subStatus} />
+      <ReferralNudgeBanner />
       {isOwner && <MySalonsOverview />}
       {(isOwner || user?.role === "manager") && <MorningBriefing />}
       {isOwner && <SetupBanner />}
@@ -399,6 +400,39 @@ function RemindersWidget({ reminders, setReminders, salonName }) {
   );
 }
 
+
+function ReferralNudgeBanner() {
+  const [nudge, setNudge] = useState(null);
+  const [hidden, setHidden] = useState(() => localStorage.getItem("referral_nudge_dismissed") === new Date().toISOString().slice(0, 10));
+  useEffect(() => {
+    api.get("/settings/referral-nudge").then(r => setNudge(r.data)).catch(() => {});
+  }, []);
+  if (hidden || !nudge || nudge.count === 0) return null;
+  const first = nudge.pending[0]?.referred_salon_name || "A salon";
+  const dismiss = () => {
+    localStorage.setItem("referral_nudge_dismissed", new Date().toISOString().slice(0, 10));
+    setHidden(true);
+  };
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-100 via-amber-50 to-white px-4 sm:px-5 py-3 shadow-sm" data-testid="referral-nudge-banner">
+      <span className="text-2xl">🎁</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-slate-800">
+          {nudge.count === 1
+            ? <><b className="text-amber-700">{first}</b> signed up with your link — you're 1 payment away from a FREE MONTH!</>
+            : <><b className="text-amber-700">{nudge.count} salons</b> signed up with your link — each first payment earns you a FREE MONTH!</>}
+        </div>
+        <div className="text-xs text-slate-500 mt-0.5">The month is added to your subscription automatically the moment they pay.</div>
+      </div>
+      <a href="/refer" data-testid="referral-nudge-cta"
+        className="shrink-0 hidden sm:inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 transition">
+        View referrals
+      </a>
+      <button onClick={dismiss} data-testid="referral-nudge-dismiss" title="Hide for today"
+        className="shrink-0 w-7 h-7 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">✕</button>
+    </div>
+  );
+}
 
 function RenewalBanner({ sub }) {
   if (!sub || !sub.needs_renewal_prompt) return null;
