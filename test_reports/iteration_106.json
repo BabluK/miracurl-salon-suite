@@ -1,0 +1,54 @@
+{
+  "summary": "Iter106 — Full backend+frontend verification of NEW features: Trust-numbers landing strip, public SEO blog (list/detail/seed), super-admin Blog CRUD, tenant referral flow with FREE-MONTH reward (signup→pending referral, _grant_referral_free_month for both active-sub extension and banked path), affiliate summary API, AffiliateCard + /refer page copy. Backend pytest 19/19 PASS. Frontend Landing/Blog/BlogManager/AffiliateCard/ReferEarn all verified visually + interactively (create+delete UI blog article end-to-end).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/refer 'How it works' step 3", "issues": ["Copy still says 'You get ₹1000 credited to your Miracurl subscription — automatically applied on your next renewal.' This contradicts the new hero + reward-per-paying-salon copy which says '1 FREE MONTH'. Update step-3 text to match (e.g., 'We add 1 free month to your subscription automatically after their first payment')."]},
+      {"screen": "Super-admin Partners panel — Testimonials list", "issues": ["3 identical duplicate rows named 'Test Owner / Miracurl Unisex Family Salon / Great support fixing our billing' are visible — leftover test seed data from prior iterations. Also triggers React 'Encountered two children with the same key' console warnings on the landing page. Recommend a cleanup + de-duplication in the testimonials list."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter106_blog_referral.py",
+    "/app/test_reports/pytest/iter106.xml"
+  ],
+  "test_coverage_details": {
+    "GET /api/public/platform-stats": "PASS — returns salons/cities/bookings/invoices as ints (>=1 salon)",
+    "GET /api/public/blog": "PASS — 3 seeded slugs present",
+    "GET /api/public/blog/{slug}": "PASS — full post; unknown slug → 404",
+    "Super-admin blog CRUD": "PASS — list/create/duplicate-slug→400/update/delete; anonymous + tenant-admin blocked with 401/403",
+    "GET /api/settings/affiliate": "PASS — requires Owner PIN; returns months_earned, free_months_banked, referrals, reward='1 free month per paying salon'",
+    "Referral signup": "PASS — POST /public/signup-salon with ref=miracurl-marathahalli creates affiliate_referrals doc {status:pending, reward:free_month}",
+    "_grant_referral_free_month (banked)": "PASS — for referrer w/o active sub, tenants.referral_free_months incremented by 1",
+    "_grant_referral_free_month (extend)": "PASS — for referrer WITH active sub, subscription.end_date +30 days and tenants.subscription_end_date updated; banked NOT incremented",
+    "Landing trust strip": "PASS — [data-testid=trust-numbers-strip] shows '19 Salons / 1 Cities / 112 Bookings processed / 225 Bills generated' before testimonials",
+    "Footer Blog link": "PASS — [data-testid=footer-blog-link] present",
+    "/blog list page": "PASS — 3 blog cards with data-testid blog-card-<slug> for all 3 seeded posts",
+    "/blog/<slug> detail": "PASS — [data-testid=blog-article] renders with title (H1)",
+    "Super-admin BlogManager UI": "PASS — Partners tab → BlogManager card → New article → title/content → Publish → row visible → Delete → row gone (full round-trip)",
+    "Tenant AffiliateCard": "PASS — data-testid=settings-affiliate-card, heading 'Refer & Earn a Free Month' present",
+    "/refer page": "PASS — 'Get 1 FREE MONTH for every salon you invite', earned/referred counters, invite link, existing referral 'Pending first payment' badge",
+    "Regression /api/public/testimonials": "PASS",
+    "Regression sitemap.xml": "PASS (XML served)"
+  },
+  "critical_code_review_comments": [
+    "Copy inconsistency in ReferEarn.jsx 'How it works' step 3 still references '₹1000 credited' instead of the new 1-free-month reward. Update for consistency (users will get confused seeing both messages on the same page).",
+    "routes/auth.py::_record_pending_referral still writes 'credit_amount': AFFILIATE_REWARD_INR as a legacy field. Consider removing after next release or renaming to 'legacy_credit_amount' to avoid confusion — settings/affiliate no longer surfaces it, but it lingers in DB.",
+    "affiliate_referrals list on Partners panel shows 3 duplicate rows of 'Test Owner / Miracurl Unisex Family Salon' — indicates prior test data was not cleaned. Since referrer_slug is often identical for test signups, consider using r.id as React key AND running a one-time cleanup script for TEST_ prefixed / duplicate rows.",
+    "AffiliateCard/settings unlock requires Owner PIN both at Settings-page level AND inner card (two-step) — UX slightly redundant, though secure. Not blocking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter106_blog_referral.py (new pytest suite, 19 tests, self-contained regression)"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% (all target selectors + flows verified)"},
+  "test_credentials": "Used seeded admin+super creds from /app/memory/test_credentials.md. No new tenants persisted (test cleanup ran).",
+  "seed_data_creation": "Backend test class TestReferralFlow created 1 TEST_ref_* signup tenant + its user + affiliate referral doc; all deleted in test_cleanup_created_signup. Also created 2 synthetic TEST_refr_* / TEST_refrx_* referrer tenants inside _grant_referral_free_month tests and deleted them at test end. Frontend BlogManager test created 'TEST UI Article ITER106' blog post via UI and deleted it via UI. No residual TEST_ data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_iter106_blog_referral.py runs in 3.5s and is fully self-contained (needs MONGO_URL + DB_NAME env). Blog seed happens lazily on first GET /public/blog. To retest referral end-to-end more realistically, invoke rzp_verify directly against a mock signature or hit _grant_referral_free_month as this suite does. Frontend Partners tab lives behind super-nav-more menu; on desktop it's already visible in the sidebar list — click [data-testid=super-tab-partners]. Settings page and /refer both require Owner PIN 4321 double-unlock (page-level, then inner card).",
+  "rca of the issue": "N/A — no issues found. Copy mismatch on /refer step-3 is a minor copy update, not a bug."
+}

@@ -74,3 +74,21 @@ async def delete_testimonial(tid: str, admin=Depends(require_super_admin)):
     if res.deleted_count == 0:
         raise HTTPException(404, "Testimonial not found")
     return {"ok": True}
+
+
+_stats_cache = {"at": 0.0, "data": None}
+
+
+@router.get("/public/platform-stats")
+async def public_platform_stats():
+    """Real platform numbers for the landing-page trust strip (cached 10 min)."""
+    import time
+    if _stats_cache["data"] and time.time() - _stats_cache["at"] < 600:
+        return _stats_cache["data"]
+    salons = await _raw_db.tenants.count_documents({"status": {"$in": ["trial", "active"]}})
+    cities = len([c for c in await _raw_db.tenants.distinct("city") if c])
+    bookings = await _raw_db.appointments.count_documents({})
+    invoices = await _raw_db.invoices.count_documents({})
+    data = {"salons": salons, "cities": max(cities, 1), "bookings": bookings, "invoices": invoices}
+    _stats_cache.update(at=time.time(), data=data)
+    return data

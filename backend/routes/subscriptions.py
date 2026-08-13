@@ -489,6 +489,20 @@ async def sms_pack_verify(body: SmsPackVerifyIn, user=Depends(require_tenant_adm
             "sms_points": int((fresh or {}).get("sms_points") or 0)}
 
 
+async def _grant_referral_free_month(referrer_tid: str) -> str:
+    """Referral reward = 1 FREE MONTH: extend the referrer's active subscription by 30 days,
+    or bank it to auto-apply on their next subscription purchase."""
+    active = await db.subscriptions.find_one(
+        {"tenant_id": referrer_tid, "status": "active"}, {"_id": 0, "id": 1, "end_date": 1})
+    if active:
+        new_end = (datetime.fromisoformat(active["end_date"]) + timedelta(days=30)).date().isoformat()
+        await db.subscriptions.update_one({"id": active["id"]}, {"$set": {"end_date": new_end}})
+        await db.tenants.update_one({"id": referrer_tid}, {"$set": {"subscription_end_date": new_end}})
+        return f"subscription extended by 30 days to {new_end}"
+    await db.tenants.update_one({"id": referrer_tid}, {"$inc": {"referral_free_months": 1}})
+    return "free month banked — auto-applies on the next subscription purchase"
+
+
 @router.post("/billing/razorpay/verify")
 async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Verify the checkout signature and create/extend the tenant's subscription.
@@ -535,6 +549,18 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
         start=now)
     sub = next((s for s in subs if s["tenant_id"] == t["id"]), subs[0])
 
+    # Apply any banked referral free months the buyer earned earlier.
+    banked = int(t.get("referral_free_months") or 0)
+    if banked > 0:
+        bonus = timedelta(days=30 * banked)
+        for s2 in subs:
+            new_end2 = (datetime.fromisoformat(s2["end_date"]) + bonus).date().isoformat()
+            await db.subscriptions.update_one(
+                {"id": s2["id"]}, {"$set": {"end_date": new_end2, "referral_bonus_days": 30 * banked}})
+            await db.tenants.update_one({"id": s2["tenant_id"]}, {"$set": {"subscription_end_date": new_end2}})
+            s2["end_date"] = new_end2
+        await db.tenants.update_one({"id": t["id"]}, {"$set": {"referral_free_months": 0}})
+
     pay = SubscriptionPayment(
         subscription_id=sub["id"],
         tenant_id=t["id"],
@@ -553,16 +579,14 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
             {"$inc": {"affiliate_credits": -float(pending_doc["credits_applied"])}},
         )
 
-    # Anti-farming: release any PENDING affiliate reward now that this salon paid.
+    # Anti-farming: release the referral reward (1 FREE MONTH) now that this salon paid.
     pending_ref = await db.affiliate_referrals.find_one({"referred_tenant_id": t["id"], "status": "pending"})
     if pending_ref:
-        await db.tenants.update_one(
-            {"id": pending_ref["referrer_tenant_id"]},
-            {"$inc": {"affiliate_credits": float(pending_ref["credit_amount"])}},
-        )
+        reward_note = await _grant_referral_free_month(pending_ref["referrer_tenant_id"])
         await db.affiliate_referrals.update_one(
             {"id": pending_ref["id"]},
-            {"$set": {"status": "credited", "credited_at": today_iso}},
+            {"$set": {"status": "credited", "credited_at": today_iso,
+                      "reward": "free_month", "reward_note": reward_note}},
         )
 
     return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"],

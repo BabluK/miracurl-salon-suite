@@ -282,7 +282,8 @@ async def _record_pending_referral(referrer: dict, tenant: dict) -> None:
         "referred_tenant_id": tenant["id"],
         "referred_slug": tenant["slug"],
         "referred_salon_name": tenant["name"],
-        "credit_amount": AFFILIATE_REWARD_INR,
+        "credit_amount": AFFILIATE_REWARD_INR,  # legacy field; reward is now 1 free month
+        "reward": "free_month",
         "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat(),
     })

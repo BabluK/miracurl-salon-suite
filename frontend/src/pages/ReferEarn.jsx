@@ -62,8 +62,6 @@ export default function ReferEarn() {
 
   if (!data) return null;
 
-  const reward = Math.round(data.reward_per_signup || 1000);
-  const credits = Math.round(data.credits || 0);
   const count = data.count || 0;
 
   return (
@@ -78,12 +76,12 @@ export default function ReferEarn() {
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">Refer & Earn</div>
-              <div className="font-playfair text-2xl sm:text-3xl leading-tight">Get ₹{reward} for every salon you invite</div>
+              <div className="font-playfair text-2xl sm:text-3xl leading-tight">Get 1 FREE MONTH for every salon you invite</div>
             </div>
           </div>
           <p className="text-white/70 text-sm sm:text-base max-w-xl">
-            Share your invite link with other salon owners. When they sign up and complete their trial,
-            we credit <span className="text-gold font-semibold">₹{reward}</span> to your subscription — automatically applied on your next renewal.
+            Share your invite link with other salon owners. When they sign up and make their first payment,
+            we add <span className="text-gold font-semibold">1 free month</span> to your subscription — automatically.
           </p>
         </div>
       </div>
@@ -91,8 +89,8 @@ export default function ReferEarn() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <StatCard
-          label="Credits earned"
-          value={`₹${credits.toLocaleString("en-IN")}`}
+          label="Free months earned"
+          value={data.months_earned || 0}
           icon={IndianRupee}
           testid="refer-credits"
         />
@@ -103,8 +101,8 @@ export default function ReferEarn() {
           testid="refer-count"
         />
         <StatCard
-          label="Reward per signup"
-          value={`₹${reward}`}
+          label="Reward per paying salon"
+          value="1 month"
           icon={Sparkles}
           testid="refer-reward"
         />
@@ -176,7 +174,7 @@ export default function ReferEarn() {
                 {r.status === "pending" ? (
                   <div className="text-[11px] text-white/50 border border-white/15 rounded-full px-2.5 py-1 whitespace-nowrap" title="Credited after their first subscription payment">⏳ Pending first payment</div>
                 ) : (
-                  <div className="text-xs text-gold font-semibold whitespace-nowrap">+₹{reward} credited</div>
+                  <div className="text-xs text-gold font-semibold whitespace-nowrap">+1 free month</div>
                 )}
               </div>
             ))}
@@ -191,7 +189,7 @@ export default function ReferEarn() {
           {[
             "Share your invite link with any salon owner via WhatsApp or SMS.",
             "They sign up for a free 7-day trial and set up their salon.",
-            `You get ₹${reward} credited to your Miracurl subscription — automatically applied on your next renewal.`,
+            "We add 1 free month to your subscription automatically after their first payment.",
           ].map((step, i) => (
             <li key={step} className="flex gap-3">
               <div className="w-6 h-6 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-gold text-xs font-semibold flex-shrink-0">

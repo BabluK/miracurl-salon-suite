@@ -96,6 +96,7 @@ from routes.tenant_mira import router as tenant_mira_router  # noqa: E402
 from routes.eod_digests import router as eod_digests_router  # noqa: E402
 from routes.wallet_pass import router as wallet_pass_router  # noqa: E402
 from routes.site_info import router as site_info_router  # noqa: E402
+from routes.blog import router as blog_router  # noqa: E402
 
 from seeds import backfill_tenant_ids, seed_super_admin, seed_default_tenant, seed_admin, seed_data  # noqa: E402
 from schedulers import (  # noqa: E402
@@ -127,6 +128,7 @@ for _r in (
     setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router, salon_digest_router,
     pay_links_router,
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
+    blog_router,
 ):
     api.include_router(_r)
 

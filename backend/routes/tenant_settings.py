@@ -480,10 +480,14 @@ async def get_affiliate_summary(user=Depends(require_admin), t=Depends(current_t
         {"referrer_tenant_id": t["id"]}, {"_id": 0}
     ).sort("created_at", -1)
     referrals = await cursor.to_list(200)
+    months_earned = sum(1 for r in referrals if r.get("status") == "credited")
     return {
         "slug": t["slug"],
         "credits": float(t.get("affiliate_credits") or 0),
         "reward_per_signup": AFFILIATE_REWARD_INR,
+        "reward": "1 free month per paying salon",
+        "months_earned": months_earned,
+        "free_months_banked": int(t.get("referral_free_months") or 0),
         "referrals": referrals,
         "count": len(referrals),
     }

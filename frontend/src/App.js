@@ -55,6 +55,8 @@ import OffersStudio from "@/pages/OffersStudio";
 import BookPublic from "@/pages/BookPublic";
 import PartnerLanding from "@/pages/PartnerLanding";
 import SuccessStories from "@/pages/SuccessStories";
+import Blog from "@/pages/Blog";
+import BlogPost from "@/pages/BlogPost";
 import MiraAIStudio from "@/pages/MiraAIStudio";
 import StaffActivities from "@/pages/StaffActivities";
 import ResetPassword from "@/pages/ResetPassword";
@@ -210,6 +212,8 @@ export default function App() {
             <Route path="/demo" element={<PublicDemo />} />
             <Route path="/partner" element={<PartnerLanding />} />
             <Route path="/success-stories" element={<SuccessStories />} />
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/mira.ai" element={<MiraAIStudio />} />
             <Route path="/mira-ai" element={<MiraAIStudio />} />
             <Route path="/reset-password" element={<ResetPassword />} />

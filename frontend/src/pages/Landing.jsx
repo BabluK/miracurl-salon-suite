@@ -235,6 +235,36 @@ function CeoSection({ site }) {
 }
 
 
+function TrustNumbersStrip() {
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    api.get("/public/platform-stats").then(r => setStats(r.data)).catch(() => {});
+  }, []);
+  if (!stats) return null;
+  const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k+` : `${n}`;
+  const items = [
+    { label: "Salons on Miracurl", value: fmt(stats.salons) },
+    { label: "Cities", value: fmt(stats.cities) },
+    { label: "Bookings processed", value: fmt(stats.bookings) },
+    { label: "Bills generated", value: fmt(stats.invoices) },
+  ];
+  return (
+    <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-6" data-testid="trust-numbers-strip">
+      <div className="rounded-3xl border border-[#DFB78C]/25 bg-gradient-to-r from-[#151310] via-[#0F0F10] to-[#151310] px-6 sm:px-10 py-8">
+        <div className="text-center text-[10px] tracking-[0.35em] uppercase text-[#DFB78C] mb-6">Trusted by salons across India</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {items.map(it => (
+            <div key={it.label} className="text-center" data-testid={`trust-stat-${it.label.toLowerCase().replace(/ /g, "-")}`}>
+              <div className="font-playfair text-3xl sm:text-4xl text-white">{it.value}</div>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1.5">{it.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function TrustedPartnersSection() {
   const [partners, setPartners] = useState([]);
   useEffect(() => {
@@ -324,7 +354,7 @@ export default function Landing({ scrollTo }) {
       {/* Referral banner — slim, elegant, top of everything */}
       {refSlug && (
         <div className="bg-[#DFB78C] text-black text-sm py-2 px-4 text-center font-medium" data-testid="landing-ref-banner">
-          <Gift className="w-4 h-4 inline -mt-0.5 mr-1.5" /> Referred by <b>{refSlug}</b> — they'll earn ₹1,000 when you sign up.
+          <Gift className="w-4 h-4 inline -mt-0.5 mr-1.5" /> Referred by <b>{refSlug}</b> — they'll earn a free month when you subscribe.
         </div>
       )}
 
@@ -508,11 +538,12 @@ export default function Landing({ scrollTo }) {
       <SoftwareFlowSection />
 
       {/* Testimonials — editorial */}
+      <TrustNumbersStrip />
       <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-24">
         <Label className="text-[#DFB78C]">Salon owners on Miracurl</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
           {testimonials.map((t, i) => (
-            <figure key={t.name} data-testid={`testimonial-card-${i + 1}`}
+            <figure key={t.id || `${t.name}-${i}`} data-testid={`testimonial-card-${i + 1}`}
                     className="rounded-3xl bg-[#0F0F10] border border-white/10 p-8 hover:border-[#DFB78C]/30 transition-colors">
               <div className="flex gap-1 text-[#DFB78C]">{["s1", "s2", "s3", "s4", "s5"].map(s => <Star key={s} className="w-4 h-4 fill-[#DFB78C]" />)}</div>
               <blockquote className="font-playfair text-xl md:text-2xl leading-relaxed mt-4 text-white/90">"{t.quote}"</blockquote>
@@ -717,6 +748,7 @@ export default function Landing({ scrollTo }) {
                 <Link to="/contact-us" className="hover:text-white transition-colors" data-testid="footer-contact-link">Contact Us</Link>
                 <Link to="/mira.ai" className="text-[#DFB78C]/70 hover:text-[#DFB78C] transition-colors">Mira AI Studio ✦</Link>
                 <Link to="/partners" className="hover:text-white transition-colors">Our Partners</Link>
+                <Link to="/blog" className="hover:text-white transition-colors" data-testid="footer-blog-link">Blog</Link>
               </div>
             </div>
             <div>

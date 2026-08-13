@@ -1906,3 +1906,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Audit: OG tags, Twitter card, canonical, meta description/keywords, JSON-LD SoftwareApplication, robots.txt, sitemap.xml + branded 1200x630 og-image.png already existed from earlier session.
 - Added: /features, /pricing, /about-us, /contact-us to sitemap.xml (now 18 URLs); Organization JSON-LD schema with sameAs (YouTube channel) + sales contactPoint in index.html. Both validated (XML + JSON parse) and served in preview.
 - User action after redeploy: submit sitemap in Google Search Console.
+
+## 2026-08-13 — Trust strip + Free-month referrals + SEO Blog (tested iter106: 19/19 pass)
+1. Trust numbers: GET /api/public/platform-stats (real counts, 10-min cache) + TrustNumbersStrip on Landing before testimonials.
+2. Referral reward changed ₹1000 credit → 1 FREE MONTH: _grant_referral_free_month in subscriptions.py (active sub → +30d immediately; else banked in tenants.referral_free_months, auto-applied on next purchase in rzp_verify); affiliate_referrals docs get reward:free_month; /settings/affiliate returns months_earned + free_months_banked; AffiliateCard + ReferEarn copy updated (incl. 'How it works' step 3 + '+1 free month' chip post-test fix).
+3. Blog: routes/blog.py (public list/detail + super-admin CRUD, 3 seeded SEO articles), pages Blog.jsx + BlogPost.jsx (markdown-lite renderer), BlogManager in super-admin Partners panel, footer Blog link, sitemap entries (/blog + 3 slugs).
+4. Cleanup: removed 3 duplicate 'Test Owner' partner_testimonials from DB; Landing testimonial React key fixed (t.id fallback).
