@@ -12,7 +12,8 @@ const STATIC = [
 ];
 
 self.addEventListener("install", (event) => {
-  self.skipWaiting();
+  // No skipWaiting here — the page shows a "refresh to update" toast and the
+  // user's click sends SKIP_WAITING (see message handler below).
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC)));
 });
 

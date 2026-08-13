@@ -1921,3 +1921,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Root cause of 'popup not visible after deployment': release_notes.py BUILD/RELEASES were never bumped after 2026-08-08.67, so WhatsNewModal (localStorage seen-key vs BUILD) never re-showed and Deployment History looked stale. Bumped BUILD → 2026-08-13.68 + added 'Grow & get found 🚀' release entry (12 highlights covering all Aug 12–13 features). Verified via /super/version + /super/releases (52 records seed).
 - sw.js: CACHE v12→v13, navigations now fetch(req, {cache:"no-store"}) to bypass HTTP-cached index.html.
 - LEARNING (memory/learnings.md): every feature batch must bump BUILD + prepend RELEASES entry before user redeploys.
+
+## 2026-08-13 — Update Toast (replaces silent reload)
+- index.js: promptUpdate() shows persistent sonner toast 'Miracurl just got better ✨ — Refresh ↻' when a new SW is installed/waiting; user click sends SKIP_WAITING → controllerchange → single reload (existing listeners unchanged).
+- sw.js: removed skipWaiting() from install handler (new SW now waits for the user's Refresh click); CACHE already v13.
+- release_notes.py: BUILD → 2026-08-13.69 + highlight added. Compile verified (CRA 'Compiled with warnings' = pre-existing sourcemap noise only). NOTE: toast behaviour itself only observable across two production deploys.
