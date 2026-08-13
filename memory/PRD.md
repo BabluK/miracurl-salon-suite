@@ -1898,3 +1898,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-12 — Gold-plated sidebar tabs (user reference image)
 - User scoped design polish to sidebar TABS only (not full pages). Added .nav-gold-plate (active: metallic gold gradient pill, dark text, inner highlight) and .nav-gold-hover (inactive tabs + Sign Out get the gold plate on hover) in index.css; AppLayout NavLink now rounded-full pills with mx-3. Design mockups for full-page polish were generated earlier and remain optional/backlog.
+
+## 2026-08-12 — Trust backlinks in lead outreach emails
+- _outreach_email_html (lead_common.py): added trust-links bar (🌐 Website · Features · Pricing · About Us · Contact — all clickable to miracurl-suite.com routes, verified to exist in App.js) + dark footer wordmark and miracurl-suite.com domain now clickable. WhatsApp message already had 7 site links (unchanged). Verified via python render test — all links present.

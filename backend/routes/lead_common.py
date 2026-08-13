@@ -66,13 +66,21 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
         <div style="height:3px;background:linear-gradient(90deg,#b08d3f,#e8c37f,#b08d3f)"></div>
         <div style="padding:30px 34px 4px">{paras}</div>
         <div style="padding:0 34px">{_pricing_table_html(_plans_for(plans, _lead_intl(lead.get("city"))))}</div>
-        <div style="padding:2px 34px 28px">
+        <div style="padding:2px 34px 20px">
           <a href="{base}/demo" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:13px 32px;border-radius:999px;font-size:14px;letter-spacing:.6px">Book a free live demo ✦</a>
           <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📖 <a href="{base}/api/public/brochure.pdf" style="color:#b08d3f">View the full brochure</a> — it covers every module of Miracurl Suite.</p>
         </div>
+        <div style="border-top:1px solid #e6ddc8;padding:14px 34px;text-align:center;background:#f7f2e7">
+          <a href="{base}" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">🌐 Website</a>
+          <a href="{base}/features" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">Features</a>
+          <a href="{base}/pricing" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">Pricing</a>
+          <a href="{base}/about-us" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">About Us</a>
+          <a href="{base}/contact-us" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">Contact</a>
+        </div>
         <div style="background:#1c1c22;padding:16px 34px;text-align:center">
-          <span style="color:#e8c37f;font-size:15px;letter-spacing:2px">MIRACURL ✦ SUITE</span>
+          <a href="{base}" style="text-decoration:none"><span style="color:#e8c37f;font-size:15px;letter-spacing:2px">MIRACURL ✦ SUITE</span></a>
           <div style="color:#8a8a92;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:3px">Mira — your AI salon partner</div>
+          <div style="margin-top:6px"><a href="{base}" style="color:#b08d3f;font-size:11px;text-decoration:none">miracurl-suite.com</a></div>
         </div>
       </div>
       {pixel}
