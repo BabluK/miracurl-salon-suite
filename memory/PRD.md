@@ -1901,3 +1901,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-12 — Trust backlinks in lead outreach emails
 - _outreach_email_html (lead_common.py): added trust-links bar (🌐 Website · Features · Pricing · About Us · Contact — all clickable to miracurl-suite.com routes, verified to exist in App.js) + dark footer wordmark and miracurl-suite.com domain now clickable. WhatsApp message already had 7 site links (unchanged). Verified via python render test — all links present.
+
+## 2026-08-12 — SEO pack audit + completion
+- Audit: OG tags, Twitter card, canonical, meta description/keywords, JSON-LD SoftwareApplication, robots.txt, sitemap.xml + branded 1200x630 og-image.png already existed from earlier session.
+- Added: /features, /pricing, /about-us, /contact-us to sitemap.xml (now 18 URLs); Organization JSON-LD schema with sameAs (YouTube channel) + sales contactPoint in index.html. Both validated (XML + JSON parse) and served in preview.
+- User action after redeploy: submit sitemap in Google Search Console.
