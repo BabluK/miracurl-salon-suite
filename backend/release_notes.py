@@ -2,10 +2,27 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-08.67"
-BUILD_TIME = "8 Aug 2026, 11:30 AM IST"
+BUILD = "2026-08-13.68"
+BUILD_TIME = "13 Aug 2026, 12:15 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-13 (Grow & get found 🚀)",
+        "changes": [
+            "🎁 Refer & Earn upgraded — invite another salon and get 1 FREE MONTH added to your subscription automatically after their first payment (Settings → Refer & Earn or the /refer page)",
+            "📣 Referral nudge — the dashboard now celebrates when a salon signs up with your link and reminds you a free month is one payment away",
+            "📰 New public Blog at /blog — practical salon-growth articles that rank on Google; Super Admins can publish articles or let Mira draft one from just a topic line (✦ Draft with Mira)",
+            "📊 'Trusted by salons across India' strip on the website — live platform numbers (salons, bookings, bills) build instant trust with visitors",
+            "🏷️ Offer flyers you control — publish any Offer Maker flyer to your booking page's new 'Current offers ✨' section, set an expiry date so it drops off automatically, with a '⏳ X days left!' countdown ribbon",
+            "📅 Week-off change requests — staff request a new week-off day (Mon–Thu only, never Fri/Sat/Sun), owners approve in Attendance; approved changes start the next day and check-ins on a week-off day ask for owner confirmation",
+            "📈 Weekly Revenue & Staff Business tables in Reports — see week-by-week income and exactly how much business each staff member brought in",
+            "🧠 Mira answers period questions correctly — 'How much business last week?' now returns the true figure with your top performer's name",
+            "⚡ Instant Mira replies on the booking page — price list, timings, address and contact answered in milliseconds; strict privacy guard (never shares owner/staff personal info) and warm welcome-back greetings for returning clients by phone number",
+            "✨ Gold-plated sidebar tabs — the admin menu now wears the metallic gold pill on the active tab with a gold hover on every other tab",
+            "🤖 Mira's new look — tap her avatar on the dashboard and she speaks today's collection, bookings and staff on the floor; the AI Assistant page got live stat chips and grouped quick-ask prompts",
+            "🔗 Outreach emails now carry trust links — Website, Features, Pricing, About Us and Contact — plus better Google indexing (sitemap + organization schema)",
+        ],
+    },
     {
         "date": "2026-08-08 (New brand, new website ✨)",
         "changes": [

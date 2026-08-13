@@ -1916,3 +1916,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## 2026-08-13 — AI Article Writer + Referral Nudge
 1. AI Article Writer: POST /api/super-admin/blog/ai-draft {topic} → gpt-4o-mini via emergentintegrations returns {title, excerpt, tags, content} in the blog's markdown-lite format; BlogManager gets topic input + '✦ Draft with Mira' button that fills the publish form for review. Curl-verified: real 3.9k-char article with headings generated.
 2. Referral Nudge: GET /api/settings/referral-nudge (admin, no PIN — non-sensitive) returns pending referrals; ReferralNudgeBanner on Dashboard (amber, dark text after contrast fix) shows '{salon} signed up with your link — you're 1 payment away from a FREE MONTH!', View-referrals CTA → /refer, dismissible per-day via localStorage. Verified via curl + screenshot.
+
+## 2026-08-13 — Deployment History / What's New fix + SW hardening
+- Root cause of 'popup not visible after deployment': release_notes.py BUILD/RELEASES were never bumped after 2026-08-08.67, so WhatsNewModal (localStorage seen-key vs BUILD) never re-showed and Deployment History looked stale. Bumped BUILD → 2026-08-13.68 + added 'Grow & get found 🚀' release entry (12 highlights covering all Aug 12–13 features). Verified via /super/version + /super/releases (52 records seed).
+- sw.js: CACHE v12→v13, navigations now fetch(req, {cache:"no-store"}) to bypass HTTP-cached index.html.
+- LEARNING (memory/learnings.md): every feature batch must bump BUILD + prepend RELEASES entry before user redeploys.

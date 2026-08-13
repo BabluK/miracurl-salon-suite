@@ -4,7 +4,7 @@
  * - Cache-first for static assets (fonts, icons, JS bundles)
  * - Never caches HTML — always fresh from network to avoid stale-app trap
  */
-const CACHE = "miracurl-v12";
+const CACHE = "miracurl-v13";
 const STATIC = [
   "/manifest.json", "/manifest-admin.json", "/favicon.svg",
   "/icon-192.png", "/icon-512.png",
@@ -45,9 +45,9 @@ self.addEventListener("fetch", (event) => {
   // Never cache API responses (booking availability must be live)
   if (url.pathname.startsWith("/api/")) return;
 
-  // HTML → always network so users get the latest deploy immediately
+  // HTML → always network (bypassing the HTTP cache) so users get the latest deploy immediately
   if (req.mode === "navigate" || req.headers.get("accept")?.includes("text/html")) {
-    event.respondWith(fetch(req).catch(() => caches.match("/")));
+    event.respondWith(fetch(req, { cache: "no-store" }).catch(() => caches.match("/")));
     return;
   }
 
