@@ -147,6 +147,7 @@ export default function POS() {
   const [posOffers, setPosOffers] = useState({ mira_packages: [], day_offers: [] });
   const [offerApplied, setOfferApplied] = useState(null);
   const [overallDisc, setOverallDisc] = useState(0);
+  const [overallDiscMode, setOverallDiscMode] = useState("amt");
   const guestBoxRef = useRef(null);
   const sym = curSym(tenant);
   const lockedBranchId = (user?.role === "manager" && user?.branch)
@@ -335,7 +336,12 @@ export default function POS() {
   const afterMemb = Math.max(0, subtotal - lineDiscount - membershipDiscount);
   const couponDiscount = couponInfo ? (couponInfo.type === "percent" ? afterMemb * couponInfo.value / 100 : Math.min(couponInfo.value, afterMemb)) : 0;
   const offerDiscount = offerApplied ? Math.max(0, (afterMemb - couponDiscount)) * offerApplied.pct / 100 : 0;
-  const overallDiscount = Math.min(Math.max(0, Number(overallDisc) || 0), Math.max(0, afterMemb - couponDiscount - offerDiscount));
+  const overallBase = Math.max(0, afterMemb - couponDiscount - offerDiscount);
+  const overallDiscount = Math.min(
+    overallDiscMode === "pct"
+      ? overallBase * Math.min(Math.max(0, Number(overallDisc) || 0), 100) / 100
+      : Math.max(0, Number(overallDisc) || 0),
+    overallBase);
   const loyaltyRules = benefits?.loyalty_rules || {};
   const redeemCap = Number(loyaltyRules.max_redeem_per_visit) > 0 ? Number(loyaltyRules.max_redeem_per_visit) : Infinity;
   const canRedeem = subtotal >= Number(loyaltyRules.min_bill_to_redeem || 0);
@@ -385,7 +391,7 @@ export default function POS() {
     setCart([]); setOrderNotes(""); setStaffId("");
     setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("");
     setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
-    setOfferApplied(null); setOverallDisc(0);
+    setOfferApplied(null); setOverallDisc(0); setOverallDiscMode("amt");
     setGcCode(""); setGcInfo(null); setWalletApply(0); setMemberCode(""); setMemberInfo(null);
     setTipPct(null); setCustomTip(0); setTipStaffId("");
   }
@@ -536,6 +542,7 @@ export default function POS() {
             checkCoupon={checkCoupon} couponInfo={couponInfo}
             offerApplied={offerApplied} offerDiscount={offerDiscount}
             overallDisc={overallDisc} setOverallDisc={setOverallDisc} overallDiscount={overallDiscount}
+            overallDiscMode={overallDiscMode} setOverallDiscMode={setOverallDiscMode}
             membershipDiscount={membershipDiscount} couponDiscount={couponDiscount}
             pointsUsed={pointsUsed} totalDiscount={totalDiscount} tax={tax} total={total}
           />

@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-14.74"
-BUILD_TIME = "14 Aug 2026, 03:10 PM IST"
+BUILD = "2026-08-14.75"
+BUILD_TIME = "14 Aug 2026, 04:00 PM IST"
 
 RELEASES = [
     {
@@ -15,6 +15,7 @@ RELEASES = [
             "🗑️ Safer open-bill delete — the delete button now asks for a second confirming tap (turns red with 'Confirm?') instead of a browser popup that could be blocked",
             "✅ Popup sweep — cancelling an appointment, deleting/disabling staff, resetting a staff password, creating a staff login and deleting inventory products now all use beautiful in-app confirmation dialogs that work on every device, including the installed apps",
             "🛡️ Full popup sweep — EVERY confirmation across the app (customers, services, reviews, geo-fence, wallets, branches, managers, staff portals, gift cards, and the entire Super Admin console) now uses the same reliable in-app dialogs — nothing can silently fail on installed apps anymore",
+            "✂️ Overall % discount — the POS overall-discount box now has a ₹/% toggle: tap % and type 10 to knock 10% off the whole bill (still capped so it can never exceed the bill)",
         ],
     },
     {

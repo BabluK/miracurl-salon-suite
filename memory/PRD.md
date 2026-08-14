@@ -1996,3 +1996,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Gotchas fixed: stray duplicated JSX at App.js EOF (search_replace collision); script inserted import inside multi-line import in EngineerPanel; Customers.jsx unbalanced braces; testing agent added the missing `import { ConfirmHost }` in App.js (was crashing whole tree — keep it!).
 - testing_agent iteration_108: 9/9 PASS after import fix (7-page smoke 0 errors, cancel paths safe, SMS-points confirm path verified). BUILD 2026-08-14.74.
 - Optional polish backlog: pass {title, danger:true} to confirmAsync in destructive mechanically-converted flows (currently generic 'Please confirm' header).
+
+## 2026-08-14 — POS Overall % Discount
+- POS.jsx: overallDiscMode state ("amt"|"pct"); overallDiscount = pct → base×clamp(0-100)%/100, amt → flat; capped at overallBase (afterMemb − coupon − offer). Mode resets to "amt" after checkout.
+- CartTable.jsx: ₹/% toggle buttons (testids pos-overall-disc-mode-amt/pct) beside pos-overall-discount-input; chip shows "(N%)" suffix in pct mode.
+- Screenshot-verified both modes: 10% on ₹100 → −₹10, GT ₹106; flat ₹25 → GT ₹89 (18% tax correct). BUILD 2026-08-14.75.

@@ -6,6 +6,7 @@ export function CartTable({
   membershipDiscount, couponDiscount, pointsUsed, totalDiscount, tax, total, sym = "₹",
   offerApplied, offerDiscount = 0,
   overallDisc, setOverallDisc, overallDiscount = 0,
+  overallDiscMode = "amt", setOverallDiscMode,
 }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -101,18 +102,30 @@ export function CartTable({
           <button type="button" data-testid="pos-coupon-apply-btn" onClick={checkCoupon} className="text-xs text-sky-600 font-medium hover:underline">Apply</button>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Overall disc ({sym})</span>
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Overall disc</span>
+          <span className="inline-flex rounded border border-slate-200 overflow-hidden">
+            <button type="button" data-testid="pos-overall-disc-mode-amt"
+              onClick={() => setOverallDiscMode("amt")}
+              className={`px-1.5 py-1 text-xs font-bold transition ${overallDiscMode === "amt" ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"}`}>{sym}</button>
+            <button type="button" data-testid="pos-overall-disc-mode-pct"
+              onClick={() => setOverallDiscMode("pct")}
+              className={`px-1.5 py-1 text-xs font-bold transition ${overallDiscMode === "pct" ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"}`}>%</button>
+          </span>
           <input
             data-testid="pos-overall-discount-input"
-            type="number" min="0"
+            type="number" min="0" max={overallDiscMode === "pct" ? 100 : undefined}
             value={overallDisc}
             onChange={e => setOverallDisc(e.target.value)}
             placeholder="0"
-            title="Flat discount on the whole bill"
+            title={overallDiscMode === "pct" ? "Percentage discount on the whole bill" : "Flat discount on the whole bill"}
             className="w-20 px-2 py-1 rounded border border-slate-200 bg-slate-50 text-xs text-right text-slate-800 font-semibold"
           />
         </span>
-        {overallDiscount > 0 && <span className="text-rose-600" data-testid="pos-overall-discount-chip">✂ Overall −{sym}{overallDiscount.toFixed(0)}</span>}
+        {overallDiscount > 0 && (
+          <span className="text-rose-600" data-testid="pos-overall-discount-chip">
+            ✂ Overall −{sym}{overallDiscount.toFixed(0)}{overallDiscMode === "pct" ? ` (${Math.min(Number(overallDisc) || 0, 100)}%)` : ""}
+          </span>
+        )}
         {membershipDiscount > 0 && <span className="text-violet-600" data-testid="pos-membership-discount">👑 −{sym}{membershipDiscount.toFixed(0)}</span>}
         {couponDiscount > 0 && <span className="text-emerald-600" data-testid="pos-coupon-discount">🎟 {couponInfo.code} −{sym}{couponDiscount.toFixed(0)}</span>}
         {offerDiscount > 0 && <span className="text-orange-600" data-testid="pos-offer-discount">🔥 {offerApplied?.title || "Offer"} −{sym}{offerDiscount.toFixed(0)}</span>}
