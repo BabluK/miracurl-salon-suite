@@ -125,6 +125,7 @@ class TestInvoiceCreation:
             }],
             "payment_mode": "cash",
             "status": "completed",
+            "force_duplicate": True,
         }
         r = admin_sess.post(f"{API}/invoices", json=payload)
         assert r.status_code == 200, f"{r.status_code} {r.text[:400]}"
@@ -149,6 +150,7 @@ class TestInvoiceCreation:
             }],
             "payment_mode": "cash",
             "status": "open",
+            "force_duplicate": True,
         }
         r = admin_sess.post(f"{API}/invoices", json=payload)
         assert r.status_code == 200, f"{r.status_code} {r.text[:400]}"
@@ -187,6 +189,7 @@ class TestPosGiftCard:
             }],
             "payment_mode": "cash",
             "status": "completed",
+            "force_duplicate": True,
         }
         r = admin_sess.post(f"{API}/invoices", json=payload)
         assert r.status_code == 200, f"{r.status_code} {r.text[:400]}"
@@ -284,8 +287,7 @@ class TestMembershipPublic:
         assert r.status_code == 200, f"{r.status_code} {r.text[:300]}"
         data = r.json()
         assert data.get("member_id") == mid
-        assert data.get("tier") in ("gold", "member", None) or isinstance(data.get("tier"), str)
-        assert data.get("tier") == "gold"
+        assert data.get("tier") == seeded_member.get("tier")
         assert data.get("qr_b64")
         # ensure qr_b64 is valid base64
         try:

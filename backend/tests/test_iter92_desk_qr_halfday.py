@@ -9,7 +9,6 @@ check-in row for TODAY; a session-scoped fixture restores the original state
 after the test run.
 """
 import os
-import time
 import asyncio
 import pytest
 import requests

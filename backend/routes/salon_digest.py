@@ -1,6 +1,5 @@
 """Salon Daily Digest — every morning each salon owner gets yesterday's numbers,
 today's bookings and staff highlights. Idempotent per day via salon_digest_log."""
-import os
 import html as html_lib
 import logging
 from datetime import datetime, timezone, timedelta

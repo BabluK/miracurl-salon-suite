@@ -1,6 +1,5 @@
 """Iter 82: Region-aware signup + Stripe USD subscription checkout for intl salons."""
 import os
-import time
 import uuid
 import pytest
 import requests

@@ -1,7 +1,6 @@
 """Gift Cards: public purchase (occasion e-cards) + salon payment config + POS redemption."""
 import hashlib
 import hmac
-import io
 import base64
 import asyncio
 import html as html_lib
@@ -861,9 +860,40 @@ def _campaign_html(t: dict, occ: dict, occ_date: str, cust_name: str, amounts: l
     </div>"""
 
 
+def _campaign_eligible(t: dict, s: dict) -> bool:
+    """Gift cards on, campaigns opted-in, and a way to receive money (Razorpay keys or UPI)."""
+    if not s["enabled"] or not s.get("occasion_campaigns", True):
+        return False
+    key_id, key_secret = _pay_keys(t)
+    return bool((key_id and key_secret) or s["upi_id"])
+
+
+async def _send_tenant_campaign(t: dict, s: dict, occ_key: str, occ: dict, occ_date: str) -> int:
+    """Email one tenant's customer list about the upcoming occasion; logs the run. Returns emails sent."""
+    from email_service import _send_email
+    already = await _raw_db.gift_campaign_log.find_one(
+        {"tenant_id": t["id"], "occasion": occ_key, "occasion_date": occ_date}, {"_id": 1})
+    if already:
+        return 0
+    custs = await _raw_db.customers.find(
+        {"tenant_id": t["id"], "email": {"$regex": "@"}},
+        {"_id": 0, "name": 1, "email": 1}).to_list(CAMPAIGN_MAX_RECIPIENTS)
+    n = 0
+    for c in custs:
+        res = await _send_email(
+            [c["email"]],
+            f"{occ['emoji']} {occ['label']} gift idea — a {t.get('name')} gift card 🎁",
+            _campaign_html(t, occ, occ_date, c.get("name") or "", s["amounts"]))
+        if res.get("sent"):
+            n += 1
+    await _raw_db.gift_campaign_log.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": t["id"], "occasion": occ_key,
+        "occasion_date": occ_date, "recipients": n, "at": _now()})
+    return n
+
+
 async def send_occasion_campaigns() -> int:
     """Auto-promote gift cards to each salon's customer list before big occasions."""
-    from email_service import _send_email
     today = datetime.now(timezone.utc).date()
     up = _upcoming_occasion(today)
     if not up:
@@ -875,28 +905,6 @@ async def send_occasion_campaigns() -> int:
         {"status": {"$in": ["active", "trial"]}}, {"_id": 0}).to_list(500)
     for t in tenants:
         s = _gc_settings(t)
-        if not s["enabled"] or not s.get("occasion_campaigns", True):
-            continue
-        key_id, key_secret = _pay_keys(t)
-        if not ((key_id and key_secret) or s["upi_id"]):
-            continue  # nowhere for the money to go
-        already = await _raw_db.gift_campaign_log.find_one(
-            {"tenant_id": t["id"], "occasion": occ_key, "occasion_date": occ_date}, {"_id": 1})
-        if already:
-            continue
-        custs = await _raw_db.customers.find(
-            {"tenant_id": t["id"], "email": {"$regex": "@"}},
-            {"_id": 0, "name": 1, "email": 1}).to_list(CAMPAIGN_MAX_RECIPIENTS)
-        n = 0
-        for c in custs:
-            res = await _send_email(
-                [c["email"]],
-                f"{occ['emoji']} {occ['label']} gift idea — a {t.get('name')} gift card 🎁",
-                _campaign_html(t, occ, occ_date, c.get("name") or "", s["amounts"]))
-            if res.get("sent"):
-                n += 1
-        await _raw_db.gift_campaign_log.insert_one({
-            "id": str(uuid.uuid4()), "tenant_id": t["id"], "occasion": occ_key,
-            "occasion_date": occ_date, "recipients": n, "at": _now()})
-        sent_total += n
+        if _campaign_eligible(t, s):
+            sent_total += await _send_tenant_campaign(t, s, occ_key, occ, occ_date)
     return sent_total

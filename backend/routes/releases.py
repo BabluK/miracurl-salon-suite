@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from database import _raw_db
-from security import require_super_admin, require_tenant_admin, get_current_user
+from security import require_super_admin, get_current_user
 from release_notes import RELEASES, BUILD, BUILD_TIME
 
 router = APIRouter()

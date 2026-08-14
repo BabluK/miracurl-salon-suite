@@ -411,9 +411,8 @@ async def _llm_research(name: str, city: str, site: dict) -> dict:
         '"owner_name": "<if found, else empty>"}')
 
 
-async def _research_salon(client: httpx.AsyncClient, name: str, city: str, website_hint: str = "") -> dict:
-    site = await _scrape_site(client, website_hint)
-    info = await _llm_research(name, city, site)
+def _compose_lead(name: str, city: str, site: dict, info: dict) -> dict:
+    """Merge scraped-site facts with LLM research into a scored lead record."""
     lead = {
         "id": str(uuid.uuid4()), "name": name, "city": city,
         "website": site["website"], "instagram": site["instagram"] or (info.get("instagram") or ""),
@@ -431,6 +430,12 @@ async def _research_salon(client: httpx.AsyncClient, name: str, city: str, websi
     }
     lead["score"], lead["score_breakdown"] = _score(lead)
     return lead
+
+
+async def _research_salon(client: httpx.AsyncClient, name: str, city: str, website_hint: str = "") -> dict:
+    site = await _scrape_site(client, website_hint)
+    info = await _llm_research(name, city, site)
+    return _compose_lead(name, city, site, info)
 
 
 async def _next_localities(city: str, k: int = 3) -> list:

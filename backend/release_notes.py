@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-14.70"
-BUILD_TIME = "14 Aug 2026, 09:25 AM IST"
+BUILD = "2026-08-14.71"
+BUILD_TIME = "14 Aug 2026, 11:47 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-14 (Branch pins, your salon hours & under-the-hood tune-up 🛠️)",
+        "changes": [
+            "📍 Branch pins on Attendance — every staff member (including new hires) now shows their branch location right under their name in the roster, so you always know who works where",
+            "🕐 Your salon, your hours — set your exact Open & Close times in Settings → Salon profile; the public booking page automatically offers slots only inside those hours",
+            "🗓️ Working-hours label — the hours text you save (e.g. 'Mon–Sun · 10 AM – 9 PM') shows on your public booking page so guests know when to visit",
+            "🛠️ Engine tune-up — a full code-quality audit was completed: billing, WhatsApp cards, Mira chat, lead engine, gift-card campaigns and email delivery were streamlined and re-verified with 66 automated regression tests, so everything runs exactly as before, only cleaner and safer",
+        ],
+    },
     {
         "date": "2026-08-13 (Grow & get found 🚀)",
         "changes": [

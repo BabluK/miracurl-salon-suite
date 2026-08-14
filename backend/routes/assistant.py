@@ -71,6 +71,28 @@ async def _salon_context(user) -> str:
             f"CRM customers: {customers}, revenue this month: ₹{revenue:.0f}, "
             f"low-stock products: {low_stock}, active services: {services_count}.")
 
+async def _create_chat(sid: str, key: str, user: dict) -> "LlmChat":
+    ctx = await _salon_context(user)
+    try:
+        from routes.tenant_mira import _revenue_report
+        import json as _json
+        ctx += " REVENUE REPORT by period (use these exact figures for last week/month questions, incl. top staff): " + _json.dumps(await _revenue_report())
+    except Exception as e:
+        logging.getLogger("assistant").error(f"revenue report ctx failed: {e}")
+    return LlmChat(
+        api_key=key, session_id=sid,
+        system_message=(
+            "You are Mira, the friendly AI assistant inside 'Miracurl Partner', a salon management app. "
+            "Help salon owners/admins with their live stats, how to use features (Appointments has Day/Upcoming/Week views; "
+            "confirming a booking opens WhatsApp to notify the client; CRM lists only customers who completed a service; "
+            "Services/Customers/Inventory support CSV import-export; staff check-in/out & PDF salary slips; "
+            "QR booking poster in Settings; Refer & Earn rewards), and practical salon business advice. "
+            "You CANNOT change the app's code — tell users to log feature requests in the Feedback Board tab. "
+            "Be concise and warm. Use ₹ for money. Salon context: " + ctx
+        ),
+    ).with_model("openai", "gpt-5.4")
+
+
 @router.post("/assistant/chat")
 async def assistant_chat(body: AssistantChatIn, user=Depends(require_tenant_admin)):
     key = os.environ.get("EMERGENT_LLM_KEY")
@@ -79,26 +101,7 @@ async def assistant_chat(body: AssistantChatIn, user=Depends(require_tenant_admi
     sid = f"{user.get('tenant_id', 't')}-{body.session_id}"
     chat = _assistant_sessions.get(sid)
     if chat is None:
-        ctx = await _salon_context(user)
-        try:
-            from routes.tenant_mira import _revenue_report
-            import json as _json
-            ctx += " REVENUE REPORT by period (use these exact figures for last week/month questions, incl. top staff): " + _json.dumps(await _revenue_report())
-        except Exception as e:
-            logging.getLogger("assistant").error(f"revenue report ctx failed: {e}")
-        chat = LlmChat(
-            api_key=key, session_id=sid,
-            system_message=(
-                "You are Mira, the friendly AI assistant inside 'Miracurl Partner', a salon management app. "
-                "Help salon owners/admins with their live stats, how to use features (Appointments has Day/Upcoming/Week views; "
-                "confirming a booking opens WhatsApp to notify the client; CRM lists only customers who completed a service; "
-                "Services/Customers/Inventory support CSV import-export; staff check-in/out & PDF salary slips; "
-                "QR booking poster in Settings; Refer & Earn rewards), and practical salon business advice. "
-                "You CANNOT change the app's code — tell users to log feature requests in the Feedback Board tab. "
-                "Be concise and warm. Use ₹ for money. Salon context: " + ctx
-            ),
-        ).with_model("openai", "gpt-5.4")
-        _assistant_sessions[sid] = chat
+        chat = _assistant_sessions[sid] = await _create_chat(sid, key, user)
         if len(_assistant_sessions) > 200:
             _assistant_sessions.pop(next(iter(_assistant_sessions)))
 

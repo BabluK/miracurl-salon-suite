@@ -1002,7 +1002,6 @@ def _render_relieving_letter_pdf(tenant: dict, staff: dict, letter_type: str,
     """Certificate-style relieving/termination letter: soft themed background, employer
     logo letterhead, medal seal + status pill above the staff name."""
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
     from reportlab.lib.utils import ImageReader, simpleSplit
     from reportlab.pdfgen import canvas
 

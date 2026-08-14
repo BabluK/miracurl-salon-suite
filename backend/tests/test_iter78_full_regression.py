@@ -6,7 +6,6 @@ Uses existing /app/memory/test_credentials.md via creds.password_for.
 import os
 import requests
 import pytest
-from datetime import datetime, timezone, timedelta
 from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
@@ -127,7 +126,7 @@ class TestOwnerPinGates:
     def test_staff_commission_requires_pin(self):
         s, _ = _login(ADMIN)
         # without pin
-        r = s.get(f"{API}/reports/staff-commission")
+        s.get(f"{API}/reports/staff-commission")
         # some implementations pass through header check; check either 401/403 pin OR requires pin
         s.headers["X-Owner-Pin"] = PIN
         r2 = s.get(f"{API}/reports/staff-commission")

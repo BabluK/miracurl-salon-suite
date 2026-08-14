@@ -1967,3 +1967,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## 2026-08-14 — Staff branch pin in roster + Custom Salon Hours (verified)
 - staff_admin.py: /attendance/today roster rows now include `branch` (was missing for newly hired staff like Sanjay); Attendance.jsx renders `· 📍 {branch}` under role. UI-verified: all staff show branch pin.
 - BrandingCard.jsx: added 'Working hours' text input (data-testid="settings-hours") + 'Booking slots — Open & Close time' selects (open_time/close_time, default 10:00 AM–9:00 PM); saved via PUT /settings/branding; public_site.py enforces boundaries on booking slots. Screenshot-verified in Settings → Salon profile (owner PIN unlock).
+
+## 2026-08-14 — Code review cleanup (lint + complexity refactors)
+- Undefined vars: ruff F821 + pylint E0601/E0602/E0606 clean across backend + tests — the report's "62 possibly undefined" did not reproduce (false positives). `is True/False` on parsed-JSON booleans are safe singleton checks — left intact (replacing with == would trip E712).
+- Fixed 15 real ruff findings: 12 unused imports / empty f-strings (gift_cards, releases, salon_digest, services/pdf, tests) + 3 unused test variables.
+- Behavior-identical extractions: assistant.py _create_chat; appointments_pos.py _bill_signature/_minutes_since/_find_recent_duplicate + _confirmation_rows/_render_confirmation_card; lead_gen.py _compose_lead + _roi_funnel_counts/_converted_rows; gift_cards.py _campaign_eligible/_send_tenant_campaign; email_service.py _resend_config_error/_resend_params (public 9-arg _send_email signature intentionally preserved — 79 call sites, changing it = regression risk).
+- Also fixed: stray duplicated fragment at lead_gen.py EOF (pre-existing syntax corruption), iter103 test brittleness (hardcoded 'gold' tier → seeded value; added force_duplicate:true to invoice payloads since the duplicate-bill guard postdates that suite).
+- Regression: 66 pytest tests pass (iter103, iter13 billing, iter85 gift cards, refactor_regression) + curl-verified /super-admin/mira-leads/roi, confirmation-card.png (valid PNG), streamed /assistant/chat.

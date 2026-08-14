@@ -1,6 +1,5 @@
 """Iter 85 — Gift Cards feature (public purchase, UPI/Razorpay, admin confirm, POS redeem)."""
 import os
-import time
 from datetime import date, timedelta
 
 import pytest
@@ -260,7 +259,7 @@ def test_pos_check_and_redeem(admin_client):
     inv = r.json()
     assert inv.get("gift_card_applied", 0) > 0
     assert inv.get("gift_card_balance_left") is not None
-    applied = inv["gift_card_applied"]
+    inv["gift_card_applied"]
     left = inv["gift_card_balance_left"]
 
     # Recheck balance

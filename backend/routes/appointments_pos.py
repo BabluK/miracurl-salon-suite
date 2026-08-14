@@ -523,27 +523,40 @@ async def _deduct_wallet_credit(cust: dict, inv: dict, wallet_apply: float, paym
         "invoice_id": inv["id"], "created_at": datetime.now(timezone.utc).isoformat()})
 
 
-async def _duplicate_bill_guard(body: InvoiceIn):
-    """Warn if an identical bill (same guest + same items signature) was punched in the last 3 minutes."""
-    if body.force_duplicate:
-        return
+def _bill_signature(items) -> list:
+    """Order-independent (name, qty, price) signature; accepts pydantic items or stored dicts."""
+    def g(it, k):
+        return it.get(k) if isinstance(it, dict) else getattr(it, k, None)
+    return sorted((g(it, "name"), int(g(it, "qty") or 1), float(g(it, "price") or 0)) for it in items)
+
+
+def _minutes_since(iso: str) -> int:
+    try:
+        return max(0, int((datetime.now(timezone.utc) - datetime.fromisoformat(iso)).total_seconds() // 60))
+    except ValueError:
+        return 0
+
+
+async def _find_recent_duplicate(body: InvoiceIn):
     cutoff = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
     recent = await db.invoices.find(
         {"customer_id": body.customer_id, "created_at": {"$gte": cutoff}, "status": {"$ne": "voided"}},
         {"_id": 0, "invoice_no": 1, "total": 1, "items": 1, "created_at": 1}).to_list(10)
-    sig = sorted((it.name, int(it.qty or 1), float(it.price or 0)) for it in body.items)
-    for r in recent:
-        rsig = sorted((it.get("name"), int(it.get("qty") or 1), float(it.get("price") or 0)) for it in r.get("items", []))
-        if rsig == sig:
-            mins = 0
-            try:
-                mins = max(0, int((datetime.now(timezone.utc) - datetime.fromisoformat(r["created_at"])).total_seconds() // 60))
-            except ValueError:
-                pass
-            raise HTTPException(
-                409,
-                f"DUPLICATE_BILL — An identical bill for this guest ({r['invoice_no']}, ₹{round(float(r.get('total') or 0))}) "
-                f"was created {mins} minute{'s' if mins != 1 else ''} ago.")
+    sig = _bill_signature(body.items)
+    return next((r for r in recent if _bill_signature(r.get("items", [])) == sig), None)
+
+
+async def _duplicate_bill_guard(body: InvoiceIn):
+    """Warn if an identical bill (same guest + same items signature) was punched in the last 3 minutes."""
+    if body.force_duplicate:
+        return
+    r = await _find_recent_duplicate(body)
+    if r:
+        mins = _minutes_since(r["created_at"])
+        raise HTTPException(
+            409,
+            f"DUPLICATE_BILL — An identical bill for this guest ({r['invoice_no']}, ₹{round(float(r.get('total') or 0))}) "
+            f"was created {mins} minute{'s' if mins != 1 else ''} ago.")
 
 
 @router.post("/invoices")
@@ -590,16 +603,22 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     return _clean(inv)
 
 
-@router.get("/appointments/{aid}/confirmation-card.png")
-async def confirmation_card(aid: str, user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Branded confirmation card staff attach in WhatsApp. Managers/staff need the admin's wa_direct_send toggle."""
-    if user.get("role") not in ("admin", "super_admin") and not t.get("wa_direct_send"):
-        raise HTTPException(403, "The owner hasn't enabled direct WhatsApp sending for staff yet")
-    a = await db.appointments.find_one({"id": aid}, {"_id": 0})
-    if not a:
-        raise HTTPException(404, "Appointment not found")
+def _confirmation_rows(a: dict) -> list:
+    dt = datetime.fromisoformat(str(a["scheduled_at"]).replace("Z", "+00:00"))
+    rows = [("GUEST", a.get("customer_name") or "-"),
+            ("SERVICE", ", ".join(s.get("name") for s in (a.get("services") or [])) or "Your visit"),
+            ("DATE", dt.strftime("%A, %d %B %Y")),
+            ("TIME", dt.strftime("%I:%M %p").lstrip("0"))]
+    if a.get("staff_name"):
+        rows.append(("STYLIST", a["staff_name"]))
+    if a.get("total"):
+        rows.append(("AMOUNT", f"₹{a['total']:g}"))
+    return rows
+
+
+def _render_confirmation_card(a: dict, t: dict) -> bytes:
+    """Draw the 1080px gold-on-black confirmation card PNG."""
     from PIL import Image, ImageDraw, ImageFont
-    from fastapi.responses import Response as _Resp
     from routes.promo_common import FONT_PATH
     W, H = 1080, 1080
     img = Image.new("RGB", (W, H), "#0D0D0D")
@@ -619,17 +638,8 @@ async def confirmation_card(aid: str, user=Depends(get_current_user), t=Depends(
     d.ellipse([cx - 42, cy - 42, cx + 42, cy + 42], outline="#3ddc84", width=5)
     d.line([cx - 20, cy + 2, cx - 6, cy + 17], fill="#3ddc84", width=7)
     d.line([cx - 6, cy + 17, cx + 22, cy - 15], fill="#3ddc84", width=7)
-    dt = datetime.fromisoformat(str(a["scheduled_at"]).replace("Z", "+00:00"))
-    rows = [("GUEST", a.get("customer_name") or "-"),
-            ("SERVICE", ", ".join(s.get("name") for s in (a.get("services") or [])) or "Your visit"),
-            ("DATE", dt.strftime("%A, %d %B %Y")),
-            ("TIME", dt.strftime("%I:%M %p").lstrip("0"))]
-    if a.get("staff_name"):
-        rows.append(("STYLIST", a["staff_name"]))
-    if a.get("total"):
-        rows.append(("AMOUNT", f"₹{a['total']:g}"))
     y = 480
-    for label, val in rows:
+    for label, val in _confirmation_rows(a):
         center(y, label, f(22), grey)
         center(y + 32, str(val)[:48], f(38), cream)
         y += 96
@@ -639,5 +649,17 @@ async def confirmation_card(aid: str, user=Depends(get_current_user), t=Depends(
         center(y + 82, f"Call us: {t['phone']}", f(24), grey)
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
-    return _Resp(content=buf.getvalue(), media_type="image/png",
+    return buf.getvalue()
+
+
+@router.get("/appointments/{aid}/confirmation-card.png")
+async def confirmation_card(aid: str, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Branded confirmation card staff attach in WhatsApp. Managers/staff need the admin's wa_direct_send toggle."""
+    if user.get("role") not in ("admin", "super_admin") and not t.get("wa_direct_send"):
+        raise HTTPException(403, "The owner hasn't enabled direct WhatsApp sending for staff yet")
+    a = await db.appointments.find_one({"id": aid}, {"_id": 0})
+    if not a:
+        raise HTTPException(404, "Appointment not found")
+    from fastapi.responses import Response as _Resp
+    return _Resp(content=_render_confirmation_card(a, t), media_type="image/png",
                  headers={"Content-Disposition": f'inline; filename="confirmation-{aid[:8]}.png"'})

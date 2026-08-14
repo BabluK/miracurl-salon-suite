@@ -222,13 +222,13 @@ class TestWeekOffCRUD:
         if today in {"monday", "tuesday", "wednesday", "thursday"}:
             r = staff_session.post(f"{BASE}/api/staff/me/week-off-requests",
                                    json={"requested_day": today}, timeout=20)
-            assert r.status_code == 400, f"today's weekday should be 400"
+            assert r.status_code == 400, "today's weekday should be 400"
 
         # d) current week_off_day rejected
         if current in {"monday", "tuesday", "wednesday", "thursday"}:
             r = staff_session.post(f"{BASE}/api/staff/me/week-off-requests",
                                    json={"requested_day": current}, timeout=20)
-            assert r.status_code == 400, f"current week_off_day should be 400"
+            assert r.status_code == 400, "current week_off_day should be 400"
 
         # Pick a valid Mon-Thu day
         allowed = ["monday", "tuesday", "wednesday", "thursday"]
@@ -338,7 +338,7 @@ class TestWeekOffCheckInViaMongo:
             if not qr and tinfo.get("id"):
                 qr = _secrets.token_urlsafe(12)
                 _pdb.tenants.update_one({"id": tinfo["id"]}, {"$set": {"attendance_qr_token": qr}})
-        except Exception as e:
+        except Exception:
             qr = None
         payload = {"week_off_confirmed": True}
         if qr:

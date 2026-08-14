@@ -44,28 +44,41 @@ def _brand_footer(book_url: str | None = None, book_label: str = "Book Now ✦")
     </div>"""
 
 
+def _resend_config_error() -> dict | None:
+    if not os.environ.get("RESEND_API_KEY"):
+        return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
+    if not os.environ.get("SENDER_EMAIL"):
+        return {"sent": False, "error": "Email not configured (SENDER_EMAIL missing — set it to an address on your verified Resend domain, e.g. noreply@miracurl-suite.com)"}
+    return None
+
+
+def _resend_params(to: list, subject: str, html: str, opts: dict) -> dict:
+    params = {
+        "from": f"{opts['from_name']} <{os.environ['SENDER_EMAIL']}>",
+        "to": to, "subject": subject,
+        "html": html + _brand_footer(opts["book_url"], opts["book_label"]),
+    }
+    if opts["headers"]:
+        params["headers"] = opts["headers"]
+    reply_to = opts["reply_to"] or os.environ.get("SUPPORT_REPLY_TO")
+    if reply_to:
+        params["reply_to"] = [reply_to]
+    if opts["attachments"]:
+        params["attachments"] = opts["attachments"]
+    return params
+
+
 async def _send_email(to: list, subject: str, html: str, attachments: list | None = None,
                       reply_to: str | None = None, book_url: str | None = None,
                       book_label: str = "Book Now ✦", headers: dict | None = None,
                       from_name: str = "Miracurl") -> dict:
-    key = os.environ.get("RESEND_API_KEY")
-    if not key:
-        return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
-    sender = os.environ.get("SENDER_EMAIL")
-    if not sender:
-        return {"sent": False, "error": "Email not configured (SENDER_EMAIL missing — set it to an address on your verified Resend domain, e.g. noreply@miracurl-suite.com)"}
-    resend.api_key = key
-    params = {
-        "from": f"{from_name} <{sender}>",
-        "to": to, "subject": subject, "html": html + _brand_footer(book_url, book_label),
-    }
-    if headers:
-        params["headers"] = headers
-    reply_to = reply_to or os.environ.get("SUPPORT_REPLY_TO")
-    if reply_to:
-        params["reply_to"] = [reply_to]
-    if attachments:
-        params["attachments"] = attachments
+    err = _resend_config_error()
+    if err:
+        return err
+    resend.api_key = os.environ["RESEND_API_KEY"]
+    params = _resend_params(to, subject, html, {
+        "attachments": attachments, "reply_to": reply_to, "book_url": book_url,
+        "book_label": book_label, "headers": headers, "from_name": from_name})
     try:
         r = await asyncio.to_thread(resend.Emails.send, params)
         return {"sent": True, "id": (r or {}).get("id")}
