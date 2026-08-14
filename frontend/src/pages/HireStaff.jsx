@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
-import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
 import { Briefcase, Plus, X, Users, CalendarClock, Phone, Trash2 } from "lucide-react";
 
@@ -45,7 +44,7 @@ export default function HireStaff() {
   const deleteReq = async (r) => {
     if (!window.confirm(`Delete the closed "${r.role}" request permanently? Its applications are removed too.`)) return;
     try {
-      await pinApi.delete(`/hiring/requests/${r.id}`);
+      await api.delete(`/hiring/requests/${r.id}`);
       toast.success("Request deleted");
       load();
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail) || "Couldn't delete"); }

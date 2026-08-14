@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from database import db, _raw_db
-from security import require_super_admin, require_admin, current_tenant, require_owner_pin, public_rate_limit
+from security import require_super_admin, require_admin, current_tenant, public_rate_limit
 
 log = logging.getLogger("hiring")
 router = APIRouter()
@@ -83,9 +83,8 @@ async def close_request(rid: str, user=Depends(require_admin), t=Depends(current
 
 
 @router.delete("/hiring/requests/{rid}")
-async def delete_request(rid: str, user=Depends(require_admin), t=Depends(current_tenant),
-                         _pin=Depends(require_owner_pin)):
-    """Owner deletes a CLOSED hiring request (and its applications). Owner PIN protected."""
+async def delete_request(rid: str, user=Depends(require_admin), t=Depends(current_tenant)):
+    """Delete a CLOSED hiring request (and its applications). PIN-free so managers can manage hiring."""
     req = await _raw_db.hiring_requests.find_one({"id": rid, "tenant_id": t["id"]}, {"_id": 0})
     if not req:
         raise HTTPException(404, "Request not found")

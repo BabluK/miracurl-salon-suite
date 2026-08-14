@@ -1940,3 +1940,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## 2026-08-14 — Reports Owner-PIN popup fix
 - User (manager Bablu on prod) saw Owner PIN modal when OPENING Reports — root cause: Reports.jsx load() auto-fetched PIN-locked /reports/staff-commission via pinApi on every visit. Fix: commission fetch now opt-in — locked 'Commission figures are PIN-protected' card with 'Unlock with Owner PIN' button (sessionStorage commission_report_unlock). Bill-edit PIN removal from earlier today was already correct.
 - Screenshot-verified: no PIN modal on Reports load, locked card renders. Release note added.
+
+## 2026-08-14 — Hire Staff PIN removed for managers
+- '/hire' removed from MANAGER_LOCKED in AppLayout.jsx (managers open Hire Staff without the Admin-PIN lock screen); DELETE /hiring/requests/{rid} no longer requires owner PIN (unused imports cleaned). Screenshot-verified as manager@miracurl.com: page opens, Request staff available, no PIN anywhere. Release note added.

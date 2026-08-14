@@ -53,7 +53,7 @@ const NAV_ADMIN = [
 ];
 
 // Sections a manager can only open with the Admin (Owner) PIN — every attempt is logged
-const MANAGER_LOCKED = ["/staff", "/registry", "/cctv", "/attendance", "/hire", "/messages", "/settings", "/staff-activities"];
+const MANAGER_LOCKED = ["/staff", "/registry", "/cctv", "/attendance", "/messages", "/settings", "/staff-activities"];
 // Sections even the OWNER must unlock with the Owner PIN on shared devices
 const ADMIN_LOCKED = ["/settings", "/staff"];
 
