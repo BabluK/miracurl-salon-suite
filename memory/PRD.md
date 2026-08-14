@@ -1936,3 +1936,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - _duplicate_bill_guard in appointments_pos.py: on POST /invoices, if same customer + identical items signature (name/qty/price) within last 3 min (non-voided) → 409 'DUPLICATE_BILL — identical bill (INV-x, ₹y) created N minutes ago'. InvoiceIn gains force_duplicate flag to bypass after confirmation.
 - POS.jsx: chargingRef guard (robust vs stale closure), catch 409 DUPLICATE_BILL → window.confirm → retry with force_duplicate:true; decline shows 'possible duplicate avoided' toast.
 - Curl-verified: create → 409 on identical → forced create OK; test bills cleaned from DB. Release note added.
+
+## 2026-08-14 — Reports Owner-PIN popup fix
+- User (manager Bablu on prod) saw Owner PIN modal when OPENING Reports — root cause: Reports.jsx load() auto-fetched PIN-locked /reports/staff-commission via pinApi on every visit. Fix: commission fetch now opt-in — locked 'Commission figures are PIN-protected' card with 'Unlock with Owner PIN' button (sessionStorage commission_report_unlock). Bill-edit PIN removal from earlier today was already correct.
+- Screenshot-verified: no PIN modal on Reports load, locked card renders. Release note added.

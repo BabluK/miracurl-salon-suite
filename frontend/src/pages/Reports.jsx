@@ -27,6 +27,7 @@ export default function Reports() {
   const [pct, setPct] = useState(0);
   const [repBranch, setRepBranch] = useState("");
   const [rateUnlocked, setRateUnlocked] = useState(() => sessionStorage.getItem("commission_rate_unlock") === "1");
+  const [commissionUnlocked, setCommissionUnlocked] = useState(() => sessionStorage.getItem("commission_report_unlock") === "1");
   const [erasing, setErasing] = useState(false);
   const [editing, setEditing] = useState(null);
   const [dlg, setDlg] = useState(null);
@@ -79,18 +80,32 @@ export default function Reports() {
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't load sales report");
     }
-    try {
-      const b = await pinApi.get(`/reports/staff-commission?start=${start}&end=${end}&pct=${pct}`);
-      setCommission(b.data);
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "Commission report needs the Owner PIN");
+    // Commission figures are Owner-PIN protected — fetch ONLY after explicit unlock,
+    // so staff/managers can open Reports without being nagged for the PIN.
+    if (commissionUnlocked) {
+      try {
+        const b = await pinApi.get(`/reports/staff-commission?start=${start}&end=${end}&pct=${pct}`);
+        setCommission(b.data);
+      } catch (e) {
+        toast.error(e.response?.data?.detail || "Commission report needs the Owner PIN");
+      }
     }
     try {
       const c = await api.get(`/reports/staff-tips?start=${start}&end=${end}`);
       setTips(c.data);
     } catch { /* tips report optional */ }
-  }, [start, end, pct, repBranch]);
+  }, [start, end, pct, repBranch, commissionUnlocked]);
   useEffect(() => { load(); }, [load]);
+
+  const unlockCommission = async () => {
+    try {
+      const b = await pinApi.get(`/reports/staff-commission?start=${start}&end=${end}&pct=${pct}`);
+      setCommission(b.data);
+      sessionStorage.setItem("commission_report_unlock", "1");
+      setCommissionUnlocked(true);
+      toast.success("Commission report unlocked ✦");
+    } catch (e) { toast.error(e.response?.data?.detail || "Owner PIN required"); }
+  };
 
   const sym = curSym(tenant);
   const CurIcon = (tenant?.currency || "INR") === "INR" ? IndianRupee : DollarSign;
@@ -366,6 +381,17 @@ export default function Reports() {
               </div>
             </div>
 
+            {!commissionUnlocked && !commission && (
+              <div className="p-8 text-center" data-testid="commission-locked-state">
+                <Lock className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+                <p className="text-sm text-slate-600 font-medium">Commission figures are PIN-protected</p>
+                <p className="text-xs text-slate-400 mt-1 mb-4">Staff earnings stay private — unlock with the Owner PIN to view.</p>
+                <button onClick={unlockCommission} data-testid="commission-unlock-btn"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700">
+                  <Lock className="w-3 h-3" /> Unlock with Owner PIN
+                </button>
+              </div>
+            )}
             {commission && (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 bg-slate-50 border-b border-slate-100">
