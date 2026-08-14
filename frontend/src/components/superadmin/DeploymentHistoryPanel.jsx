@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Rocket, Trash2, CheckCircle2 } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export const DeploymentHistoryPanel = () => {
   const [releases, setReleases] = useState([]);
@@ -20,7 +21,7 @@ export const DeploymentHistoryPanel = () => {
   useEffect(() => { load(); }, [load]);
 
   async function remove(r) {
-    if (!window.confirm(`Delete ${r.tag} from the history? This cannot be undone.`)) return;
+    if (!await confirmAsync(`Delete ${r.tag} from the history? This cannot be undone.`)) return;
     try { await api.delete(`/super/releases/${r.id}`); toast.success("Entry deleted"); load(); }
     catch { toast.error("Delete failed"); }
   }

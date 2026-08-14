@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { ClipboardList, CheckCircle2, Trash2 } from "lucide-react";
 import { PAY_LABELS } from "@/components/pos/payLabels";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export function UnbilledPanel({ sym = "₹", isOwner = false }) {
   const [bills, setBills] = useState([]);
@@ -26,7 +27,7 @@ export function UnbilledPanel({ sym = "₹", isOwner = false }) {
   }
 
   async function remove(b) {
-    if (!window.confirm(`Delete open bill ${b.invoice_no} (${b.customer_name} · ${sym}${Number(b.total || 0).toFixed(0)})? This can't be undone.`)) return;
+    if (!await confirmAsync(`Delete open bill ${b.invoice_no} (${b.customer_name} · ${sym}${Number(b.total || 0).toFixed(0)})? This can't be undone.`)) return;
     setBusyId(b.id);
     try {
       await api.delete(`/invoices/${b.id}`);

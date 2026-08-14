@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { X, Wallet, Plus, Trash2, IndianRupee } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export const WalletDialog = ({ customer, onClose, onChanged }) => {
   const [data, setData] = useState(null);
@@ -40,7 +41,7 @@ export const WalletDialog = ({ customer, onClose, onChanged }) => {
   };
 
   const removePlan = async (pid) => {
-    if (!window.confirm("Delete this wallet plan?")) return;
+    if (!await confirmAsync("Delete this wallet plan?")) return;
     try { await api.delete(`/wallet/plans/${pid}`); load(); } catch { toast.error("Delete failed"); }
   };
 

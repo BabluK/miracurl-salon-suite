@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { API } from "@/lib/api";
 import { toast } from "sonner";
 import { BadgeCheck, Plus, Trash2, Building2, FileDown, Inbox, Phone, PhoneCall, Loader2, Sparkles, Mail } from "lucide-react";
+import { confirmAsync, promptAsync } from "@/components/ConfirmDialog";
 
 const REQ_STATUS = {
   new: { label: "🔴 New request", cls: "bg-rose-50 text-rose-700 border-rose-200" },
@@ -47,7 +48,7 @@ function VerificationRequests() {
 
   const sendRelieving = async (r) => {
     const rl = r.relieving_request || {};
-    if (!window.confirm(`Send the ${rl.letter_type?.toUpperCase()} relieving letter for ${r.name}? The certificate PDF goes to the staff member${r.owner_email ? " AND the owner" : ""}.`)) return;
+    if (!await confirmAsync(`Send the ${rl.letter_type?.toUpperCase()} relieving letter for ${r.name}? The certificate PDF goes to the staff member${r.owner_email ? " AND the owner" : ""}.`)) return;
     setBusyId(r.id);
     try {
       const { data } = await api.post(`/super/registry/verify-requests/${r.id}/send-relieving-letter`);
@@ -61,7 +62,7 @@ function VerificationRequests() {
   const sendRatingEmail = async (r) => {
     let owner_email = r.owner_email || "";
     if (!owner_email) {
-      owner_email = window.prompt(`Owner email for ${r.salon_name || "this salon"}? The one-click rating email goes there.`) || "";
+      owner_email = await promptAsync(`Owner email for ${r.salon_name || "this salon"}? The one-click rating email goes there.`) || "";
       if (!owner_email.trim()) return;
     }
     setBusyId(r.id);
@@ -75,7 +76,7 @@ function VerificationRequests() {
   };
 
   const remove = async (r) => {
-    if (!window.confirm(`Delete the verification request from ${r.name}?`)) return;
+    if (!await confirmAsync(`Delete the verification request from ${r.name}?`)) return;
     try { await api.delete(`/super/registry/verify-requests/${r.id}`); toast.success("Request removed"); load(); }
     catch { toast.error("Delete failed"); }
   };
@@ -239,7 +240,7 @@ export const VerifiedStaffPanel = () => {
   }
 
   async function remove(r) {
-    if (!window.confirm(`Remove the verified record for "${r.staff?.name || "this staff"}" at ${r.salon_name}?`)) return;
+    if (!await confirmAsync(`Remove the verified record for "${r.staff?.name || "this staff"}" at ${r.salon_name}?`)) return;
     try { await api.delete(`/super/registry/staff/${r.id}`); toast.success("Record removed"); load(); }
     catch { toast.error("Delete failed"); }
   }

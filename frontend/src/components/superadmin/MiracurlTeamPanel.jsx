@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Crown, Plus, Trash2, FileDown, Pencil, X } from "lucide-react";
 import ImageUploader from "@/components/ImageUploader";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const EMPTY = { name: "", designation: "", phone: "", email: "", blood_group: "", photo_url: "" };
 const BLOODS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -59,7 +60,7 @@ export const MiracurlTeamPanel = () => {
   }
 
   async function remove(m) {
-    if (!window.confirm(`Remove ${m.name} from the Miracurl team?`)) return;
+    if (!await confirmAsync(`Remove ${m.name} from the Miracurl team?`)) return;
     try { await api.delete(`/super/team/${m.id}`); toast.success("Removed"); load(); }
     catch { toast.error("Delete failed"); }
   }

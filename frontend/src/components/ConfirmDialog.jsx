@@ -2,6 +2,51 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, X } from "lucide-react";
 
+/** Global confirm service: <ConfirmHost/> is mounted once in App.js.
+ * Call askConfirm({ title, message, confirmLabel, danger, inputLabel, inputPlaceholder, defaultValue, action(value?) })
+ * from anywhere — replaces window.confirm/window.prompt which are blocked in installed PWAs. */
+let _globalSetAsk = null;
+
+export function askConfirm(opts) {
+  if (_globalSetAsk) _globalSetAsk(opts);
+}
+
+export function ConfirmHost() {
+  const [ask, setAsk] = useState(null);
+  _globalSetAsk = setAsk;
+  if (!ask) return null;
+  return (
+    <ConfirmDialog open key={ask.title} title={ask.title} message={ask.message}
+      confirmLabel={ask.confirmLabel} danger={ask.danger}
+      inputLabel={ask.inputLabel} inputPlaceholder={ask.inputPlaceholder} defaultValue={ask.defaultValue}
+      onConfirm={(v) => { const a = ask.action; setAsk(null); a(typeof v === "string" ? v.trim() : v); }}
+      onClose={() => { const c = ask.onCancel; setAsk(null); if (c) c(); }} />
+  );
+}
+
+/** Drop-in async replacement for window.confirm — resolves true/false. */
+export function confirmAsync(message, opts = {}) {
+  return new Promise((resolve) => {
+    askConfirm({
+      title: opts.title || "Please confirm", message,
+      confirmLabel: opts.confirmLabel || "Confirm", danger: opts.danger,
+      action: () => resolve(true), onCancel: () => resolve(false),
+    });
+  });
+}
+
+/** Drop-in async replacement for window.prompt — resolves the string, or null on cancel. */
+export function promptAsync(message, defaultValue = "", opts = {}) {
+  return new Promise((resolve) => {
+    askConfirm({
+      title: opts.title || "Input needed", message,
+      inputLabel: opts.inputLabel || " ", inputPlaceholder: opts.inputPlaceholder || "",
+      defaultValue: String(defaultValue ?? ""), confirmLabel: opts.confirmLabel || "OK",
+      action: (v) => resolve(v ?? ""), onCancel: () => resolve(null),
+    });
+  });
+}
+
 export function ConfirmDialog({ open, title, message, inputLabel, inputPlaceholder = "", defaultValue = "",
   confirmLabel = "Confirm", danger = false, busy = false, onConfirm, onClose }) {
   const [note, setNote] = useState(defaultValue);

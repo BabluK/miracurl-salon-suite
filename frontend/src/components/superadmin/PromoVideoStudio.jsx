@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import ImageUploader from "@/components/ImageUploader";
 import { Clapperboard, Loader2, Download, Sparkles, Trash2 } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const BASE = process.env.REACT_APP_BACKEND_URL;
 
@@ -53,7 +54,7 @@ export const PromoVideoStudio = () => {
   const elapsedSec = job?.created_at ? Math.max(0, (now - new Date(job.created_at).getTime()) / 1000) : 0;
 
   async function delVideo(id) {
-    if (!window.confirm("Delete this video permanently?")) return;
+    if (!await confirmAsync("Delete this video permanently?")) return;
     try { await api.delete(`/super/promo-video/${id}`); toast.success("Video deleted"); loadHistory(); }
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
   }

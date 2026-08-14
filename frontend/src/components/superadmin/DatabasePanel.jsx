@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Database, Trash2, RefreshCw, Search, ShieldAlert, ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { confirmAsync, promptAsync } from "@/components/ConfirmDialog";
 
 const PAGE = 20;
 
@@ -34,7 +35,7 @@ export const DatabasePanel = () => {
 
   const delDoc = async (doc) => {
     const key = doc.id || doc._id;
-    if (!window.confirm(`Delete this document from "${sel}"?\n\nid: ${key}\n\nThis cannot be undone.`)) return;
+    if (!await confirmAsync(`Delete this document from "${sel}"?\n\nid: ${key}\n\nThis cannot be undone.`)) return;
     try {
       await api.delete(`/super/db/${sel}/doc/${key}`);
       toast.success("Document deleted");
@@ -46,7 +47,7 @@ export const DatabasePanel = () => {
   const purge = async () => {
     const meta = colls.find(c => c.name === sel);
     if (meta?.purge_protected) { toast.error(`"${sel}" is protected — purge disabled`); return; }
-    const typed = window.prompt(`⚠️ PURGE ALL ${total} documents from "${sel}"?\n\nType the collection name to confirm:`);
+    const typed = await promptAsync(`⚠️ PURGE ALL ${total} documents from "${sel}"?\n\nType the collection name to confirm:`);
     if (typed === null) return;
     try {
       const { data } = await api.post(`/super/db/${sel}/purge`, { confirm: typed.trim() });

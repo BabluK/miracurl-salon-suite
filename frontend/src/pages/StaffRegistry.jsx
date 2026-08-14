@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { API } from "@/lib/api";
 import { RegisterEmployeeModal, EditEmployeeModal, EmploymentRecordModal } from "@/components/staff/RegistryModals";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export const BADGE_STYLES = {
   EXTRAORDINARY: "bg-violet-100 text-violet-700 border-violet-300",
@@ -141,7 +142,7 @@ export default function StaffRegistry() {
   }
 
   async function removeEmployment(rid) {
-    if (!window.confirm("Delete this employment record?")) return;
+    if (!await confirmAsync("Delete this employment record?")) return;
     try { await api.delete(`/registry/employments/${rid}`); toast.success("Deleted"); load(q); }
     catch (err) { toast.error(formatApiError(err.response?.data?.detail) || "Delete failed"); }
   }

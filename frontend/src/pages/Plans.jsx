@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { BadgePercent, Package as PackageIcon, Crown, Ticket, Plus, Trash2, Edit3, X } from "lucide-react";
 import { MembersPanel } from "@/components/offers/MembersPanel";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const TABS = [
   { k: "packages", label: "Packages", icon: PackageIcon },
@@ -27,7 +28,7 @@ export default function Plans() {
   useEffect(() => { load(); }, [load]);
 
   async function remove(kind, id) {
-    if (!window.confirm("Delete this item?")) return;
+    if (!await confirmAsync("Delete this item?")) return;
     try {
       await api.delete(`/${kind}/${id}`);
       toast.success("Deleted");

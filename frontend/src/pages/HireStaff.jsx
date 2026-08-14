@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Briefcase, Plus, X, Users, CalendarClock, Phone, Trash2 } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const ROLES = ["Hair Stylist", "Beautician", "Nail Artist", "Makeup Artist", "Massage Therapist", "Barber", "Receptionist", "Salon Manager", "Other"];
 const URGENCY = [
@@ -37,12 +38,12 @@ export default function HireStaff() {
   };
 
   const closeReq = async (rid) => {
-    if (!window.confirm("Close this hiring request?")) return;
+    if (!await confirmAsync("Close this hiring request?")) return;
     try { await api.post(`/hiring/requests/${rid}/close`); load(); } catch { toast.error("Couldn't close"); }
   };
 
   const deleteReq = async (r) => {
-    if (!window.confirm(`Delete the closed "${r.role}" request permanently? Its applications are removed too.`)) return;
+    if (!await confirmAsync(`Delete the closed "${r.role}" request permanently? Its applications are removed too.`)) return;
     try {
       await api.delete(`/hiring/requests/${r.id}`);
       toast.success("Request deleted");

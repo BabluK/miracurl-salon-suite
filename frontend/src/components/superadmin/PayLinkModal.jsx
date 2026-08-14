@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { X, Copy, Mail, Loader2, Trash2, CreditCard } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const STATUS_STYLE = {
   pending: "bg-amber-50 border-amber-200 text-amber-700",
@@ -56,7 +57,7 @@ export default function PayLinkModal({ tenant, onClose }) {
   };
 
   const revoke = async (l) => {
-    if (!window.confirm("Revoke this payment link? The salon won't be able to pay through it.")) return;
+    if (!await confirmAsync("Revoke this payment link? The salon won't be able to pay through it.")) return;
     try { await api.delete(`/super-admin/pay-links/${l.id}`); toast.success("Link revoked"); load(); }
     catch (e) { toast.error(e.response?.data?.detail || "Couldn't revoke"); }
   };

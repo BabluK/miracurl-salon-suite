@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Loader2, Gift, Trash2, Radio } from "lucide-react";
 import { POSTER_STYLES, randomPosterStyle } from "@/lib/posterStyles";
 import { shareWithPoster } from "@/lib/sharePoster";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const AUDIENCES = [
@@ -31,7 +32,7 @@ export const MiraPackagesCard = () => {
   }, []);
 
   const removeLive = async (p) => {
-    if (!window.confirm(`Remove "${p.name}" from your booking page?`)) return;
+    if (!await confirmAsync(`Remove "${p.name}" from your booking page?`)) return;
     setBusy(`remove-${p.id}`);
     try {
       await api.post(`/mira-packages/${p.id}/unpublish`);

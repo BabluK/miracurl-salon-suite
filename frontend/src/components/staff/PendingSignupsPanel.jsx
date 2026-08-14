@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { UserCheck, UserX, BadgeCheck, Loader2 } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export const PendingSignupsPanel = ({ onChanged }) => {
   const [items, setItems] = useState([]);
@@ -29,7 +30,7 @@ export const PendingSignupsPanel = ({ onChanged }) => {
   };
 
   const reject = async (p) => {
-    if (!window.confirm(`Reject and delete the sign-up from ${p.email}?`)) return;
+    if (!await confirmAsync(`Reject and delete the sign-up from ${p.email}?`)) return;
     setBusyId(p.id);
     try {
       await api.delete(`/tenants/staff/pending/${p.id}`);

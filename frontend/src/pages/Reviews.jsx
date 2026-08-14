@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
 import { Star, Eye, EyeOff, Trash2, MessageSquare, Sparkles, Copy, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { askConfirm } from "@/components/ConfirmDialog";
 import { ReviewRequestsCard } from "@/components/ReviewRequestsCard";
 import { ComplaintsPanel } from "@/components/ComplaintsPanel";
 import { useAuth } from "@/context/AuthContext";
@@ -311,9 +312,13 @@ export default function Reviews() {
     } catch { toast.error("Update failed"); }
   }
   async function remove(id) {
-    if (!window.confirm("Delete this review?")) return;
-    try { await api.delete(`/reviews/${id}`); toast.success("Deleted"); load(); }
-    catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+    askConfirm({
+      title: "Delete review?", message: "It will be removed permanently.", confirmLabel: "Yes, delete", danger: true,
+      action: async () => {
+        try { await api.delete(`/reviews/${id}`); toast.success("Deleted"); load(); }
+        catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+      },
+    });
   }
 
   return (

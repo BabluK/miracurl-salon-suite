@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { UserMinus, RotateCcw, Trash2, Loader2 } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export const PreviousStaffCard = () => {
   const [items, setItems] = useState([]);
@@ -33,7 +34,7 @@ export const PreviousStaffCard = () => {
   useEffect(() => { load(); }, [load]);
 
   const rehire = async (s) => {
-    if (!window.confirm(`Rehire ${s.name}? A fresh staff ID will be created and their registry history stays linked.`)) return;
+    if (!await confirmAsync(`Rehire ${s.name}? A fresh staff ID will be created and their registry history stays linked.`)) return;
     setBusyId(s.id);
     try {
       const { data } = await api.post(`/staff/previous/${s.id}/rehire`);
@@ -44,7 +45,7 @@ export const PreviousStaffCard = () => {
   };
 
   const remove = async (s) => {
-    if (!window.confirm(`Remove ${s.name} from this list? Their registry history is permanent and stays intact.`)) return;
+    if (!await confirmAsync(`Remove ${s.name} from this list? Their registry history is permanent and stays intact.`)) return;
     setBusyId(s.id);
     try {
       await api.delete(`/staff/previous/${s.id}`);

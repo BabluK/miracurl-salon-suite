@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import api from "@/lib/api";
 import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2, Scissors, Hand, Paintbrush, Flower2, Tag, LayoutGrid, GripVertical, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
+import { askConfirm } from "@/components/ConfirmDialog";
 import ImageUploader from "@/components/ImageUploader";
 import { catImage } from "@/lib/categoryImages";
 
@@ -138,9 +139,13 @@ export default function Services() {
     } catch { toast.error("Save failed"); }
   }
   async function remove(id) {
-    if (!window.confirm("Delete this service?")) return;
-    try { await api.delete(`/services/${id}`); toast.success("Deleted"); load(); }
-    catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+    askConfirm({
+      title: "Delete service?", message: "It disappears from the catalog and booking page.", confirmLabel: "Yes, delete", danger: true,
+      action: async () => {
+        try { await api.delete(`/services/${id}`); toast.success("Deleted"); load(); }
+        catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+      },
+    });
   }
 
   const GENDER_META = {

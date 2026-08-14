@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { BadgeCheck, Briefcase, FileText, LogOut, Pencil, ShieldCheck, UserRound } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const http = axios.create({ baseURL: API, withCredentials: true });
@@ -240,7 +241,7 @@ function PrivacyConsentCard({ me, reload }) {
   const [busy, setBusy] = useState(false);
   const withdrawn = !!me.profile.consent_withdrawn;
   const toggle = async () => {
-    if (!withdrawn && !window.confirm("Withdraw consent? Your profile, badge and employment history will no longer appear in public Staff Registry searches. You can re-enable anytime.")) return;
+    if (!withdrawn && !await confirmAsync("Withdraw consent? Your profile, badge and employment history will no longer appear in public Staff Registry searches. You can re-enable anytime.")) return;
     setBusy(true);
     try {
       await http.post("/employee/me/consent", { public_visible: withdrawn });

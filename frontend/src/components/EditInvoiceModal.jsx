@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
 import { X, Trash2, Loader2, Save } from "lucide-react";
+import { promptAsync } from "@/components/ConfirmDialog";
 
 const MODES = ["cash", "card", "upi"];
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -44,9 +45,9 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
   };
 
   const voidBill = async () => {
-    const who = editor.trim() || window.prompt("Who is voiding this bill? (name)") || "";
+    const who = editor.trim() || await promptAsync("Who is voiding this bill? (name)") || "";
     if (who.trim().length < 2) { toast.error("Name required for the audit trail"); return; }
-    const reason = window.prompt(`Void bill ${invoice.invoice_no}? It will be removed from all revenue reports.\n\nReason (e.g. wrongly punched):`) ;
+    const reason = await promptAsync(`Void bill ${invoice.invoice_no}? It will be removed from all revenue reports.\n\nReason (e.g. wrongly punched):`) ;
     if (reason === null) return;
     setBusy(true);
     try {

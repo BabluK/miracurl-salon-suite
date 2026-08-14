@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Zap } from "lucide-react";
 import { POSTER_STYLES, randomPosterStyle } from "@/lib/posterStyles";
 import { shareWithPoster } from "@/lib/sharePoster";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
@@ -209,7 +210,7 @@ export function MiraDayOffer() {
         setOffer(data.offer);
         toast.success("Fresh poster ready 🎨");
       } else if (action === "unlock") {
-        if (!window.confirm("Discard today's locked offer and ask Mira for a new one?")) { setBusy(""); return; }
+        if (!await confirmAsync("Discard today's locked offer and ask Mira for a new one?")) { setBusy(""); return; }
         await api.post("/day-offers/unlock");
         setOffer(null);
         toast.success("Offer unlocked — ask Mira for a fresh one");

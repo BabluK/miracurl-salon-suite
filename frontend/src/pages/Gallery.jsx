@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Image as ImageIcon, Upload, Sparkles, Trash2, Copy, ExternalLink, Loader2, Video, Send } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -16,7 +17,7 @@ function ShareRow({ m }) {
         topic: m.caption || "salon offer", caption, image_url: m.url, with_image: false,
       });
       if (data.needs_confirmation) {
-        if (!window.confirm(data.question)) { setPosting(null); return; }
+        if (!await confirmAsync(data.question)) { setPosting(null); return; }
         ({ data } = await api.post("/mira-studio/google/post", {
           topic: m.caption || "salon offer", caption, image_url: m.url, with_image: false, confirm: true,
         }));
@@ -37,7 +38,7 @@ function ShareRow({ m }) {
       const ctx = await api.get("/mira-studio/social/context").catch(() => null);
       const today = ctx?.data?.posted_today || {};
       const dup = ["instagram", "facebook"].filter(p => today[p]);
-      if (dup.length && !window.confirm(`We already posted on ${dup.join(" & ")} today. Post this as well?`)) { setPosting(null); return; }
+      if (dup.length && !await confirmAsync(`We already posted on ${dup.join(" & ")} today. Post this as well?`)) { setPosting(null); return; }
       const { data } = await api.post("/social/publish", { caption, image_url: m.url, platforms: ["instagram", "facebook"] });
       const ok = Object.entries(data.results).filter(([, v]) => v.ok).map(([k]) => k);
       if (ok.length) toast.success(`Posted to ${ok.join(" + ")} 🎉`);
@@ -115,7 +116,7 @@ export default function Gallery() {
   }
 
   async function remove(id) {
-    if (!window.confirm("Delete this media?")) return;
+    if (!await confirmAsync("Delete this media?")) return;
     try { await api.delete(`/gallery/${id}`); load(); }
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
   }

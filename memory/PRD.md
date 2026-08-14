@@ -1988,3 +1988,11 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Appointments.jsx remove() → 'Cancel appointment?' dialog; Staff.jsx remove/toggleActive/resetLogin → dialogs, createLogin window.prompt → dialog with email input; Inventory.jsx remove() → 'Delete product?' dialog. Pattern: confirmAsk state + key={confirmAsk.title} remount for fresh input state.
 - testing_agent iteration_107: 9/9 PASS (dialogs open, Cancel is side-effect free, Confirm executes — verified end-to-end on Inventory delete and Staff disable/enable). BUILD bumped to 2026-08-14.73.
 - Backlog: other pages still on window.confirm (EmployeePortal, Plans, Gallery, BillingPanel, Services, StaffRegistry, MiraStudio, StaffPortal, HireStaff, Attendance, Customers, Reviews, SuperAdmin + superadmin components); consider a useConfirm() hook to DRY.
+
+## 2026-08-14 — FULL Popup Sweep (app-wide, 41 files)
+- ConfirmDialog.jsx now exports: askConfirm(opts) global service + <ConfirmHost/> (mounted in App.js next to Toaster) + promise wrappers confirmAsync(message, opts)→bool and promptAsync(message, default, opts)→string|null (drop-in for window.confirm/prompt; null on cancel).
+- Hand-converted with nice titles: Customers/Services/Reviews/Attendance(geo-fence)/SuperAdmin (monthly+weekly reports, reactivate, cancel subscription, SMS-points input dialog).
+- Mechanical `await confirmAsync(`/`await promptAsync(` replacement across 30+ other files (all superadmin components, settings cards, staff components, portals, EngineerPanel, WalletDialog, BranchesSection, ManagersSection, etc.). grep confirms ZERO window.confirm/prompt/alert left in src.
+- Gotchas fixed: stray duplicated JSX at App.js EOF (search_replace collision); script inserted import inside multi-line import in EngineerPanel; Customers.jsx unbalanced braces; testing agent added the missing `import { ConfirmHost }` in App.js (was crashing whole tree — keep it!).
+- testing_agent iteration_108: 9/9 PASS after import fix (7-page smoke 0 errors, cancel paths safe, SMS-points confirm path verified). BUILD 2026-08-14.74.
+- Optional polish backlog: pass {title, danger:true} to confirmAsync in destructive mechanically-converted flows (currently generic 'Please confirm' header).

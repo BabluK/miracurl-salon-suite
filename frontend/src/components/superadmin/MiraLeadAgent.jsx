@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Trash2, MessageCircle, Video, Phone, BellRing, FileText, Target, BadgeCheck, Mail, CalendarCheck, Trophy, Sparkles } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -217,7 +218,7 @@ function CallHistoryPanel() {
     if (open && !data) reload();
   }, [open, data, reload]);
   const retryFailed = async () => {
-    if (!window.confirm("Mira will re-dial everyone whose latest call FAILED (skipping opt-outs and leads who already said yes). Start retrying?")) return;
+    if (!await confirmAsync("Mira will re-dial everyone whose latest call FAILED (skipping opt-outs and leads who already said yes). Start retrying?")) return;
     setRetrying(true);
     try {
       const { data: res } = await api.post("/super-admin/mira-calls/retry-failed");
@@ -294,7 +295,7 @@ function ScheduledCallsPanel() {
   useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, []);
 
   const cancel = async (l) => {
-    if (!window.confirm(`Cancel Mira's scheduled call to ${l.name || l.phone}?`)) return;
+    if (!await confirmAsync(`Cancel Mira's scheduled call to ${l.name || l.phone}?`)) return;
     try {
       await api.post(`/super-admin/mira-calls/scheduled/${l.id}/cancel`);
       toast.success(`Call to ${l.name || "lead"} cancelled — Mira won't ring them`);
@@ -431,7 +432,7 @@ function LeadRow({ lead, onRefresh }) {
   }, "stage");
 
   const miraCall = () => act(async () => {
-    if (!window.confirm(`Mira will call ${lead.phone} now and pitch Miracurl Suite. Proceed?`)) return;
+    if (!await confirmAsync(`Mira will call ${lead.phone} now and pitch Miracurl Suite. Proceed?`)) return;
     await api.post(`/super-admin/mira-calls/${lead.id}/call`);
     toast.success("📞 Mira is dialing — the result will show on this lead in a minute");
   }, "mira-call");
@@ -739,7 +740,7 @@ export function MiraLeadAgent() {
         {activeRun && (
           <button data-testid="lead-stop-run-btn"
             onClick={async () => {
-              if (!window.confirm("Stop the current run? Leads found so far are kept.")) return;
+              if (!await confirmAsync("Stop the current run? Leads found so far are kept.")) return;
               try {
                 await api.post("/super-admin/mira-leads/runs/stop");
                 toast.success("Run stopped — you can start a new search");
@@ -753,7 +754,7 @@ export function MiraLeadAgent() {
         )}
         <button data-testid="lead-call-hot-btn"
           onClick={async () => {
-            if (!window.confirm("Mira will VOICE-CALL every hot lead with a phone number (max 20, not called in the last 7 days), pitch Miracurl Suite and offer the demo + trial on keypress 1. Start calling?")) return;
+            if (!await confirmAsync("Mira will VOICE-CALL every hot lead with a phone number (max 20, not called in the last 7 days), pitch Miracurl Suite and offer the demo + trial on keypress 1. Start calling?")) return;
             try {
               const { data } = await api.post("/super-admin/mira-calls/call-hot", { limit: 20 });
               if (!data.queued) { toast.info(data.note || "No callable hot leads right now"); return; }

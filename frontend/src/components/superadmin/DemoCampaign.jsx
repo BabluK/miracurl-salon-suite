@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Mail, Send, Plus, X, Sparkles, History, BellRing, CheckCircle2, Trash2, RotateCw } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -75,7 +76,7 @@ export function DemoCampaign() {
   };
 
   const deleteInvite = async (inv) => {
-    if (!window.confirm(`Delete invite record for ${inv.email}?`)) return;
+    if (!await confirmAsync(`Delete invite record for ${inv.email}?`)) return;
     try {
       await api.delete(`/super-admin/demo-campaign/invites/${inv.id}`);
       setInvites(l => l.filter(x => x.id !== inv.id));

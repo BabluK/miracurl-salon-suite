@@ -8,6 +8,7 @@ import {
 import { PlannedLeaveCard } from "@/components/staff/PlannedLeaveCard";
 import { QrScanCheckIn } from "@/components/QrScanCheckIn";
 import { playCheckinGreeting, playCheckoutGreeting } from "@/lib/checkinSound";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 function monthOptions(count = 6) {
   const now = new Date();
@@ -124,7 +125,7 @@ export default function StaffPortal() {
       const detail = String(e.response?.data?.detail || "");
       if (e.response?.status === 409 && detail.includes("WEEK_OFF")) {
         setBusy(false);
-        if (window.confirm("🌴 Today is your week-off day.\n\nHave you got confirmation from your owner to work today?")) {
+        if (await confirmAsync("🌴 Today is your week-off day.\n\nHave you got confirmation from your owner to work today?")) {
           return checkIn(scannedToken, true);
         }
         toast.info("No problem — enjoy your week off! Check-in cancelled.");

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { askConfirm } from "@/components/ConfirmDialog";
 import { WalletDialog } from "@/components/WalletDialog";
 
 export default function Customers() {
@@ -84,14 +85,18 @@ export default function Customers() {
   }
 
   async function remove(id) {
-    if (!window.confirm("Delete this customer?")) return;
-    try {
-      await api.delete(`/customers/${id}`);
-      toast.success("Deleted");
-      load();
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "Delete failed");
-    }
+    askConfirm({
+      title: "Delete customer?", message: "Their visit history stays on past bills, but the CRM entry is removed.", confirmLabel: "Yes, delete", danger: true,
+      action: async () => {
+        try {
+          await api.delete(`/customers/${id}`);
+          toast.success("Deleted");
+          load();
+        } catch (e) {
+          toast.error(e.response?.data?.detail || "Delete failed");
+        }
+      },
+    });
   }
 
   return (

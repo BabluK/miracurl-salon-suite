@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Truck, Plus, Pencil, Trash2, X, Loader2, Mail, Phone, FileText } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const EMPTY = { name: "", email: "", phone: "", contact_person: "", gst_number: "", address: "", notes: "" };
 
@@ -54,7 +55,7 @@ export function VendorsCard() {
   }
 
   async function remove(v) {
-    if (!window.confirm(`Delete vendor ${v.name}?`)) return;
+    if (!await confirmAsync(`Delete vendor ${v.name}?`)) return;
     await api.delete(`/vendors/${v.id}`);
     toast.success("Vendor deleted");
     load();

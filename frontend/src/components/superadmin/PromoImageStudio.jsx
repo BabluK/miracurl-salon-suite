@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { ImagePlus, Loader2, Download, Sparkles, Trash2 } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const SIZES = [["square", "Square 1:1", "Feed post"], ["story", "Story 2:3", "Story / Reel cover"], ["wide", "Wide 3:2", "Banner / site"]];
 
@@ -76,7 +77,7 @@ export const PromoImageStudio = () => {
                     </a>
                     <button data-testid={`poster-delete-${p.id}`} title="Delete poster"
                       onClick={async () => {
-                        if (!window.confirm("Delete this poster permanently?")) return;
+                        if (!await confirmAsync("Delete this poster permanently?")) return;
                         try { await api.delete(`/super/promo-image/${p.id}`); load(); } catch { /* noop */ }
                       }}
                       className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-500 flex items-center justify-center">

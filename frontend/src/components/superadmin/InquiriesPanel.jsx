@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Phone, MessageCircle, CalendarPlus, Trash2, ChevronDown, ChevronUp, Users, UserPlus, Mail, Loader2, Video } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const STATUS_STYLE = {
   new: "bg-rose-50 text-rose-700 border-rose-200",
@@ -55,7 +56,7 @@ export function InquiriesPanel({ onNewCount, onConvert }) {
   }
 
   async function remove(i) {
-    if (!window.confirm(`Delete inquiry from ${i.name}?`)) return;
+    if (!await confirmAsync(`Delete inquiry from ${i.name}?`)) return;
     try {
       await api.delete(`/super-admin/inquiries/${i.id}`);
       setItems(prev => prev.filter(x => x.id !== i.id));

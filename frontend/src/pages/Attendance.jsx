@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { ManualAttendanceModal } from "@/components/ManualAttendanceModal";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ConfirmDialog, askConfirm } from "@/components/ConfirmDialog";
 import { getSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import { toast } from "sonner";
 import {
@@ -424,12 +424,16 @@ function GeoFenceCard() {
   }
 
   async function clear() {
-    if (!window.confirm(`Remove the geo-fence for ${label}?`)) return;
-    try {
-      await api.delete(`/tenants/current/geo${target ? `?branch=${encodeURIComponent(target)}` : ""}`);
-      toast.success("Geo-fence removed");
-      load();
-    } catch { toast.error("Couldn't remove"); }
+    askConfirm({
+      title: "Remove geo-fence?", message: `The GPS check-in fence for ${label} will be removed.`, confirmLabel: "Yes, remove", danger: true,
+      action: async () => {
+        try {
+          await api.delete(`/tenants/current/geo${target ? `?branch=${encodeURIComponent(target)}` : ""}`);
+          toast.success("Geo-fence removed");
+          load();
+        } catch { toast.error("Couldn't remove"); }
+      },
+    });
   }
 
   return (

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   Activity, Database, Ticket, Send, Bot, Trash2, Plus, CircleCheck, Wrench,
 } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const TICKET_STATUSES = ["open", "in_progress", "done", "wont_fix"];
 const PRIORITY_CLS = {
@@ -44,7 +45,7 @@ export const EngineerPanel = () => {
     catch { toast.error("Update failed"); }
   }
   async function remove(t) {
-    if (!window.confirm(`Delete ticket "${t.title}"?`)) return;
+    if (!await confirmAsync(`Delete ticket "${t.title}"?`)) return;
     try { await api.delete(`/super-admin/dev-tickets/${t.id}`); load(); } catch { toast.error("Delete failed"); }
   }
 

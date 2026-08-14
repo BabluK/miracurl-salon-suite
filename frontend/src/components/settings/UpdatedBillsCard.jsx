@@ -2,6 +2,7 @@ import { useState } from "react";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
 import { FileClock, Loader2, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
@@ -24,7 +25,7 @@ export const UpdatedBillsCard = () => {
 
   const bulkDelete = async (scope) => {
     const label = scope === "all" ? "ALL edit records" : "records older than 30 days";
-    if (!window.confirm(`Delete ${label}? The bills themselves are not affected.`)) return;
+    if (!await confirmAsync(`Delete ${label}? The bills themselves are not affected.`)) return;
     try {
       const { data } = await pinApi.delete(`/invoice-edits/bulk?scope=${scope}`);
       toast.success(`${data.deleted} record(s) deleted`);

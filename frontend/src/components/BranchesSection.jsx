@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { MapPin, Plus, Pencil, Trash2, X, Phone, ExternalLink } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const EMPTY = { name: "", address: "", phone: "", maps_url: "" };
 
@@ -53,7 +54,7 @@ export const BranchesSection = () => {
   }
 
   async function remove(b) {
-    if (!window.confirm(`Remove branch “${b.name}”?`)) return;
+    if (!await confirmAsync(`Remove branch “${b.name}”?`)) return;
     try { await api.delete(`/branches/${b.id}`); toast.success("Branch removed"); load(); }
     catch { toast.error("Delete failed"); }
   }

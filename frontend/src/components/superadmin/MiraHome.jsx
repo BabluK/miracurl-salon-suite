@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Flame, CalendarClock, Target, Megaphone, Lightbulb, Send, Brain, Clock, Loader2, X, Plus, Trash2, Pencil, ScanFace } from "lucide-react";
 import { MiraNeuralAvatar, MiraThinkingBeam } from "./MiraNeuralAvatar";
+import { promptAsync } from "@/components/ConfirmDialog";
 
 const KIND_ICON = { search: "🔍", result: "🎯", ask: "💬", call: "📞", email: "✉️", memory: "🧠" };
 
@@ -273,9 +274,9 @@ export function MiraHome({ onGoTab, user }) {
 
   async function editGoal() {
     const cur = home?.revenue_goal;
-    const t = window.prompt("Monthly revenue TARGET in lakh (₹):", cur ? String(cur.target / 100000) : "10");
+    const t = await promptAsync("Monthly revenue TARGET in lakh (₹):", cur ? String(cur.target / 100000) : "10");
     if (!t) return;
-    const s = window.prompt("Stretch goal in lakh (₹):", cur ? String(cur.stretch / 100000) : "20");
+    const s = await promptAsync("Stretch goal in lakh (₹):", cur ? String(cur.stretch / 100000) : "20");
     const target = parseFloat(t) * 100000;
     const stretch = parseFloat(s || "0") * 100000;
     if (!target || target <= 0) { toast.error("Enter a valid target"); return; }

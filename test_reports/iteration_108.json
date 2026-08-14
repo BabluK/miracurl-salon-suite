@@ -1,0 +1,42 @@
+{
+  "summary": "Iter108 — FULL Popup Sweep verification (frontend only). CRITICAL BUG found on first load: `ConfirmHost` was used in App.js line 199 but NEVER imported → ReferenceError 'ConfirmHost is not defined' crashed the entire React tree on every route (login screen visible but any post-login page hit the runtime error overlay). Applied one-line import fix; after that ALL requested dialogs verified working end-to-end. Cancel-path tested on real data (no destructive confirms), Confirm-path tested only on Super Admin > Add SMS points against a disposable test tenant.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_coverage_details": {
+    "App smoke (dashboard/pos/appointments/customers/services/reviews/attendance)": "PASS after ConfirmHost import fix — 0 page errors on all 7 pages",
+    "Customers delete dialog": "PASS — title 'Delete customer?', msg 'Their visit history stays on past bills, but the CRM entry is removed.', Cancel closes cleanly",
+    "Services delete dialog": "PASS — title 'Delete service?', msg 'It disappears from the catalog and booking page.', Cancel closes cleanly",
+    "Reviews delete dialog": "PASS — title 'Delete review?', msg 'It will be removed permanently.', Cancel closes cleanly",
+    "Attendance Remove geo-fence dialog": "PASS — title 'Remove geo-fence?', msg 'The GPS check-in fence for the main salon will be removed.', Cancel closes cleanly",
+    "Super Admin — Send monthly reports (Cancel only)": "PASS — title 'Send monthly reports?', msg 'Emails last month's business report to every active/trial salon owner.', Cancel closes cleanly (no emails sent)",
+    "Super Admin — Add SMS points input dialog (Cancel)": "PASS — title 'Add SMS points for Suspend Test', confirm-dialog-input prefilled with '100', Cancel closes with no change",
+    "Super Admin — Add SMS points CONFIRM path": "PASS — added 1 point to second tenant (Iter5 Salon, disposable test tenant), balance updated 0 → 1, toast shown 'Iter5 Salon now has 1 SMS points'",
+    "Super Admin — Deployments/Deployment History delete (Cancel only)": "PASS — click 'All' tab → 'Deployments' sub-tab reveals Deployment History panel; release-delete-<id> opens dialog with title 'Please confirm' and message 'Delete MIRA-DEPLOYED-2026-08-14 (...) from the history? This cannot be undone.', Cancel closes cleanly",
+    "Staff regression (Disable/Enable Portal Test Staff)": "NOT RE-RUN this round — iteration 107 already verified 9/9 dialog scenarios on Staff/Appointments/Inventory pages, and ConfirmHost import fix means the same code path is now active for these too",
+    "POS full create-bill regression": "NOT RE-RUN this round — page loaded cleanly with 0 console errors; iter106 already verified end-to-end. No POS-specific popup code was touched in this sweep"
+  },
+  "critical_code_review_comments": [
+    "CRITICAL: /app/frontend/src/App.js was rendering `<ConfirmHost />` without importing it — this is exactly the kind of miss the agent-to-agent context note warned about ('main risk is ... the global ConfirmHost not rendering on some layout'). Compile passed because JSX identifiers are only checked at runtime. Suggest adding an eslint no-undef rule to CI to catch this class of bug pre-merge.",
+    "ConfirmHost keeps a module-scoped `_globalSetAsk` and reassigns it on every render — this works for a singleton but breaks if two <ConfirmHost/> instances ever get mounted (later mount wins, earlier orphans). Not currently an issue, but worth a `useLayoutEffect` guard + warn for future safety.",
+    "Deployment History delete dialog title is generic 'Please confirm' (from confirmAsync default) instead of a specific 'Delete release?' — inconsistent with the hand-converted Customers/Services/Reviews/Attendance titles. Consider passing `{ title: 'Delete release?', danger: true }` in DeploymentHistoryPanel.jsx line 24.",
+    "Same generic 'Please confirm' will apply to all 30+ mechanical `await confirmAsync(msg)` replacements — UX is functional but the dialog headers don't match the destructive intent (no red 'danger' styling either since default `danger: undefined`). Recommend passing `danger: true` for all delete/destructive calls in a follow-up polish pass."
+  ],
+  "test_report_links": ["/app/test_reports/iteration_108.json"],
+  "action_items": [
+    "Keep the added `import { ConfirmHost } from '@/components/ConfirmDialog'` in App.js — do NOT revert.",
+    "Optional polish: pass explicit `{ title, danger:true }` to confirmAsync in DeploymentHistoryPanel + other mechanically converted destructive flows so headers are descriptive/red.",
+    "Optional: add eslint 'no-undef' or a JSX-usage-vs-imports lint rule so future missed imports fail the build instead of crashing at runtime."
+  ],
+  "updated_files": ["/app/frontend/src/App.js (added `import { ConfirmHost } from '@/components/ConfirmDialog';` on line 39)"],
+  "success_rate": {"backend": "not tested (frontend-only round per spec)", "frontend": "9/9 verified dialog scenarios PASS after 1 critical import fix"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (salon), super@miracurl.com / og9T@41Es#OQb6 (super). Owner PIN 4321 for Staff page.",
+  "seed_data_creation": "Added 1 SMS point to disposable test tenant 'Iter5 Salon' (id 11d9fb1d-5816-4a78-adac-43ccdf28ac9a) as the confirm-path proof for the Add SMS points dialog. Balance moved 0→1. This is a throwaway test tenant so left as-is; a follow-up round can revert to 0 via the same UI if desired. No customers/services/reviews/staff/geo-fence/deployment history were mutated.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The ConfirmHost import is now in App.js line 39 — if it disappears, the whole app will crash. Deployments panel is NOT at the top level of super-admin tabs — you must first click the 'All' tab (the leftmost pill with the hamburger icon and count badge) which switches the view to reveal all sub-panels, then click the 'Deployments' button. When logging in as super after being logged in as salon admin (or vice versa), a hard navigation to /login inside the same context does NOT force logout — either open a fresh context or click Sign Out first. `release-delete-<id>` is the correct selector for deployment history delete buttons (not `delete-deployment-...`).",
+  "rca of the issue": "ROOT CAUSE: /app/frontend/src/App.js line 199 rendered `<ConfirmHost />` but the top of the file (lines 1–70 of imports) never contained `import { ConfirmHost } from '@/components/ConfirmDialog'`. React runtime threw `ReferenceError: ConfirmHost is not defined` from the App component itself, so the AuthProvider tree never mounted post-login and every route rendered the CRA red error overlay. REPRO: open the app URL, log in as admin, observe the red overlay with 'ConfirmHost is not defined'. FIX APPLIED: single-line import added at line 39: `import { ConfirmHost } from \"@/components/ConfirmDialog\";`. After fix, all 8 destructive-action dialogs across Customers/Services/Reviews/Attendance/SuperAdmin(SMS/monthly/deployment history) render, open, and close correctly."
+}

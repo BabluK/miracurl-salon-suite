@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { BookOpen, Trash2, Plus, ExternalLink, Loader2 } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const empty = { title: "", excerpt: "", content: "", tags: "", published: true };
 
@@ -43,7 +44,7 @@ export const BlogManager = () => {
   }
 
   async function del(p) {
-    if (!window.confirm(`Delete "${p.title}" permanently?`)) return;
+    if (!await confirmAsync(`Delete "${p.title}" permanently?`)) return;
     try { await api.delete(`/super-admin/blog/${p.id}`); toast.success("Article deleted"); load(); }
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
   }

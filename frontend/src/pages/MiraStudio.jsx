@@ -8,6 +8,7 @@ import { MiraCalendar } from "@/components/MiraCalendar";
 import { MiraAutopilot } from "@/components/MiraAutopilot";
 import { SocialHistoryPanel } from "@/components/SocialHistoryPanel";
 import { MiraSocialNudge } from "@/components/MiraSocialNudge";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const abs = (u) => (u && u.startsWith("/api/") ? `${BACKEND}${u}` : u);
@@ -462,7 +463,7 @@ function EmailCampaignPanel({ result }) {
   }, [result.body]);
 
   const send = async () => {
-    if (!window.confirm(`Send this campaign to ${audience === "all" ? "ALL customers with an email" : "lapsed guests (45+ days)"}? Mira sends from your salon's email.`)) return;
+    if (!await confirmAsync(`Send this campaign to ${audience === "all" ? "ALL customers with an email" : "lapsed guests (45+ days)"}? Mira sends from your salon's email.`)) return;
     setSending(true);
     try {
       const { data } = await api.post("/mira-studio/email-campaign/send", {
@@ -510,7 +511,7 @@ function PostNowButton({ result, conns }) {
 
   const post = async () => {
     const dup = platforms.filter(pl => (result.posted_today || {})[pl]);
-    if (dup.length && !window.confirm(`You already posted on ${dup.join(" & ")} today. Post this as well?`)) return;
+    if (dup.length && !await confirmAsync(`You already posted on ${dup.join(" & ")} today. Post this as well?`)) return;
     const p = result.posts || {};
     const src = p.instagram || p.facebook || Object.values(p)[0] || {};
     const caption = `${src.caption || ""}\n\n${(src.hashtags || []).join(" ")}`.trim();

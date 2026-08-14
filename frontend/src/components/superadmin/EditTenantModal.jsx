@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { X, Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerprint, CreditCard } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const inputCls = "mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200";
 
@@ -54,7 +55,7 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
   async function changePlan() {
     if (!newPlan) { toast.error("Pick a plan first"); return; }
     const label = plans.find(p => p.key === newPlan)?.label || newPlan;
-    if (!window.confirm(`Activate "${label}" for ${tenant.name}?\n\nThis replaces the current plan (${currentPlan.plan || "trial"}) and records the payment.`)) return;
+    if (!await confirmAsync(`Activate "${label}" for ${tenant.name}?\n\nThis replaces the current plan (${currentPlan.plan || "trial"}) and records the payment.`)) return;
     setPlanBusy(true);
     try {
       const { data } = await api.post("/super-admin/subscriptions", {
@@ -97,7 +98,7 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
   }
 
   async function resetCredentials() {
-    if (!window.confirm(`Reset the owner's password and email new credentials to ${form.owner_email}?\n\nThis logs the owner out everywhere and affects ALL salons using this login.`)) return;
+    if (!await confirmAsync(`Reset the owner's password and email new credentials to ${form.owner_email}?\n\nThis logs the owner out everywhere and affects ALL salons using this login.`)) return;
     setResetting(true);
     try {
       const { data } = await api.post(`/super-admin/tenants/${tenant.id}/resend-credentials`);
@@ -123,7 +124,7 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
   }
 
   async function unlinkBranch(s) {
-    if (!window.confirm(`Unlink "${s.name}" from this owner's login?`)) return;
+    if (!await confirmAsync(`Unlink "${s.name}" from this owner's login?`)) return;
     try {
       await api.post(`/super-admin/tenants/${tenant.id}/unlink-branch`, { branch_tenant_id: s.id });
       toast.success(`"${s.name}" unlinked`);

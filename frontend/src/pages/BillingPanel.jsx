@@ -6,6 +6,7 @@ import { IndianRupee, TrendingUp, Calendar, X, Plus, Ban, CheckCircle2, Receipt,
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const CHART_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" };
 const CHART_TOOLTIP_LABEL_STYLE = { color: "#0284c7" };
@@ -34,7 +35,7 @@ export default function BillingPanel({ tenants }) {
   useEffect(() => { load().catch(e => toast.error(e?.message || "Couldn't load billing")); }, [load]);
 
   async function cancel(sub) {
-    if (!window.confirm(`Cancel ${sub.tenant?.name || "this salon"}'s subscription?`)) return;
+    if (!await confirmAsync(`Cancel ${sub.tenant?.name || "this salon"}'s subscription?`)) return;
     try {
       await api.post(`/super-admin/subscriptions/${sub.id}/cancel`, { reason: "Cancelled by super-admin" });
       toast.success("Subscription cancelled");
@@ -45,7 +46,7 @@ export default function BillingPanel({ tenants }) {
   }
 
   async function hardDelete(sub) {
-    if (!window.confirm(`Permanently DELETE ${sub.tenant?.name || "this salon"}'s ${sub.status} subscription?\nThis also removes its payment records from revenue. Cannot be undone.`)) return;
+    if (!await confirmAsync(`Permanently DELETE ${sub.tenant?.name || "this salon"}'s ${sub.status} subscription?\nThis also removes its payment records from revenue. Cannot be undone.`)) return;
     try {
       await api.delete(`/super-admin/subscriptions/${sub.id}`);
       toast.success("Subscription deleted permanently");
@@ -56,7 +57,7 @@ export default function BillingPanel({ tenants }) {
   }
 
   async function extend(sub) {
-    if (!window.confirm(`Give ${sub.tenant?.name || "this salon"} 1 extra month (goodwill extension)?\nNew end date will be 30 days after ${sub.end_date}.`)) return;
+    if (!await confirmAsync(`Give ${sub.tenant?.name || "this salon"} 1 extra month (goodwill extension)?\nNew end date will be 30 days after ${sub.end_date}.`)) return;
     try {
       const { data } = await api.post(`/super-admin/subscriptions/${sub.id}/extend`, { reason: "Goodwill extension — financial hardship" });
       toast.success(`Extended by 1 month → new end date ${data.end_date}`);
@@ -215,7 +216,7 @@ function PlanCatalogEditor({ plans, onSaved }) {
     const label = String(val(p, "label") || "").trim();
     if (!price || price <= 0) { toast.error("Enter a valid price"); return; }
     if (label.length < 2) { toast.error("Enter a valid plan name"); return; }
-    if (!window.confirm(`Update "${label}" to ₹${price.toLocaleString("en-IN")}?\n\nNew subscriptions & renewals will use this price. Existing active subscriptions are not affected.`)) return;
+    if (!await confirmAsync(`Update "${label}" to ₹${price.toLocaleString("en-IN")}?\n\nNew subscriptions & renewals will use this price. Existing active subscriptions are not affected.`)) return;
     setSavingKey(p.key);
     try {
       await api.put(`/super-admin/plans/${p.key}`, { price, label });

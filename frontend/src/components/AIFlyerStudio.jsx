@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Wand2, Loader2, Download, Trash2, Store } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const TEMPLATES = [
   ["pink_glam", "Pink Glam", "bg-[#c2185b]", "text-yellow-200"],
@@ -55,7 +56,7 @@ export const AIFlyerStudio = () => {
   };
 
   const del = async (id) => {
-    if (!window.confirm("Delete this flyer permanently?")) return;
+    if (!await confirmAsync("Delete this flyer permanently?")) return;
     try { await api.delete(`/offers/flyers/${id}`); toast.success("Flyer deleted — removed from the booking page too"); load(); }
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
   };

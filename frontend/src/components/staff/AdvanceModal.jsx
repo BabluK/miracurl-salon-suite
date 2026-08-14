@@ -3,6 +3,7 @@ import api, { formatApiError } from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
 import { X } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export function AdvanceModal({ staff, onClose }) {
   const [rows, setRows] = useState(null);
@@ -35,7 +36,7 @@ export function AdvanceModal({ staff, onClose }) {
   }
 
   async function undo(aid) {
-    if (!window.confirm("Remove this advance entry?")) return;
+    if (!await confirmAsync("Remove this advance entry?")) return;
     try {
       await pinApi.delete(`/staff/${staff.id}/advance/${aid}`);
       toast.success("Advance removed");

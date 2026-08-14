@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Eraser, Loader2, X, AlertTriangle } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export function DummyCleanupModal({ tenant, onClose }) {
   const [preview, setPreview] = useState(null);
@@ -13,7 +14,7 @@ export function DummyCleanupModal({ tenant, onClose }) {
   }, [tenant.id, onClose]);
 
   const purge = async () => {
-    if (!window.confirm(`Permanently delete ${preview.appointments + (preview.orphan_appointments || 0)} bookings and ${preview.customers + (preview.ghost_customers || 0)} customers from ${tenant.name}? This cannot be undone.`)) return;
+    if (!await confirmAsync(`Permanently delete ${preview.appointments + (preview.orphan_appointments || 0)} bookings and ${preview.customers + (preview.ghost_customers || 0)} customers from ${tenant.name}? This cannot be undone.`)) return;
     setBusy(true);
     try {
       const { data } = await api.post(`/super-admin/dummy-data/${tenant.id}/purge`);

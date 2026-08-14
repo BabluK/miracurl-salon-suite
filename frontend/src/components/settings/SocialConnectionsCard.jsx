@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Instagram, Star, Link2, Unlink, Loader2, KeyRound } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export const SocialConnectionsCard = () => {
   const [conn, setConn] = useState(null);
@@ -39,7 +40,7 @@ export const SocialConnectionsCard = () => {
   };
 
   const disconnect = async (provider) => {
-    if (!window.confirm("Disconnect this account? Mira will stop auto-posting to it.")) return;
+    if (!await confirmAsync("Disconnect this account? Mira will stop auto-posting to it.")) return;
     await api.delete(`/social/${provider}`);
     toast.success("Disconnected");
     load();

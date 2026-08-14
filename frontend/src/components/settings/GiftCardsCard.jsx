@@ -3,6 +3,7 @@ import { Gift, Loader2, Copy, History, X } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
+import { confirmAsync, promptAsync } from "@/components/ConfirmDialog";
 
 const monthLabel = (m) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short" });
 
@@ -41,7 +42,7 @@ export const GiftCardsCard = () => {
   }, []);
 
   async function deleteHistory() {
-    if (!window.confirm("Clear all finished gift cards (cancelled, expired, fully redeemed)? Active cards stay. This can't be undone.")) return;
+    if (!await confirmAsync("Clear all finished gift cards (cancelled, expired, fully redeemed)? Active cards stay. This can't be undone.")) return;
     const doDelete = async (pin) => api.post("/gift-cards/delete-history", { pin });
     try {
       const { data } = await doDelete("");
@@ -49,7 +50,7 @@ export const GiftCardsCard = () => {
       load();
     } catch (e) {
       if (e.response?.status === 403) {
-        const pin = window.prompt("Enter your Owner PIN to clear gift card history:") || "";
+        const pin = await promptAsync("Enter your Owner PIN to clear gift card history:") || "";
         if (!pin) return;
         try {
           const { data } = await doDelete(pin);
@@ -72,7 +73,7 @@ export const GiftCardsCard = () => {
   };
 
   const confirm = async (gc) => {
-    if (!window.confirm(`Confirm you received ₹${gc.amount} from ${gc.buyer_name}? The gift card will be emailed to ${gc.recipient_email}.`)) return;
+    if (!await confirmAsync(`Confirm you received ₹${gc.amount} from ${gc.buyer_name}? The gift card will be emailed to ${gc.recipient_email}.`)) return;
     setBusyId(gc.id);
     try {
       const { data } = await api.post(`/gift-cards/${gc.id}/confirm`);
@@ -83,7 +84,7 @@ export const GiftCardsCard = () => {
   };
 
   const cancel = async (gc) => {
-    if (!window.confirm(`Cancel this ₹${gc.amount} gift card order?`)) return;
+    if (!await confirmAsync(`Cancel this ₹${gc.amount} gift card order?`)) return;
     setBusyId(gc.id);
     try { await api.post(`/gift-cards/${gc.id}/cancel`); toast.success("Cancelled"); load(); }
     catch (e) { toast.error(e.response?.data?.detail || "Couldn't cancel"); }

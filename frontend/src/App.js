@@ -36,6 +36,8 @@ function VersionWatcher() {
   return null;
 }
 import "@/App.css";
+import { ConfirmHost } from "@/components/ConfirmDialog";
+
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { getActAsSalon } from "@/lib/api";
 
@@ -196,6 +198,7 @@ export default function App() {
           <ManifestSwitcher />
           <MicroInteractions />
           <Toaster theme="dark" position="top-right" toastOptions={TOAST_OPTIONS} />
+          <ConfirmHost />
           <ErrorBoundary>
           <PlayerProvider>
           <Routes>

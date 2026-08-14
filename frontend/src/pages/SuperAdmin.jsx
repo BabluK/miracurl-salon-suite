@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard, Stethoscope, Eraser, CreditCard, Menu } from "lucide-react";
 import { toast } from "sonner";
+import { askConfirm } from "@/components/ConfirmDialog";
 import ImportCustomersModal from "./ImportCustomersModal";
 import PayLinkModal from "@/components/superadmin/PayLinkModal";
 import SmsLogModal from "@/components/superadmin/SmsLogModal";
@@ -85,24 +86,32 @@ export default function SuperAdmin() {
   const [sendingWeekly, setSendingWeekly] = useState(false);
 
   async function sendMonthlyReports() {
-    if (!window.confirm("Email last month's business report to every active/trial salon owner?")) return;
-    setSendingReports(true);
-    try {
-      const { data } = await api.post("/super-admin/send-monthly-report", {});
-      toast.success(`${data.month} reports: ${data.sent} sent${data.failed ? `, ${data.failed} failed` : ""}`);
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "Couldn't send reports");
-    } finally { setSendingReports(false); }
+    askConfirm({
+      title: "Send monthly reports?", message: "Emails last month's business report to every active/trial salon owner.", confirmLabel: "Send now",
+      action: async () => {
+        setSendingReports(true);
+        try {
+          const { data } = await api.post("/super-admin/send-monthly-report", {});
+          toast.success(`${data.month} reports: ${data.sent} sent${data.failed ? `, ${data.failed} failed` : ""}`);
+        } catch (e) {
+          toast.error(e.response?.data?.detail || "Couldn't send reports");
+        } finally { setSendingReports(false); }
+      },
+    });
   }
   async function sendWeeklyReports() {
-    if (!window.confirm("Email last week's business snapshot to every active/trial salon owner?")) return;
-    setSendingWeekly(true);
-    try {
-      const { data } = await api.post("/super-admin/send-weekly-report", {});
-      toast.success(`Week ${data.week}: ${data.sent} sent${data.failed ? `, ${data.failed} failed` : ""}`);
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "Couldn't send weekly snapshots");
-    } finally { setSendingWeekly(false); }
+    askConfirm({
+      title: "Send weekly snapshots?", message: "Emails last week's business snapshot to every active/trial salon owner.", confirmLabel: "Send now",
+      action: async () => {
+        setSendingWeekly(true);
+        try {
+          const { data } = await api.post("/super-admin/send-weekly-report", {});
+          toast.success(`Week ${data.week}: ${data.sent} sent${data.failed ? `, ${data.failed} failed` : ""}`);
+        } catch (e) {
+          toast.error(e.response?.data?.detail || "Couldn't send weekly snapshots");
+        } finally { setSendingWeekly(false); }
+      },
+    });
   }
   const [open, setOpen] = useState(false);
   const [editFor, setEditFor] = useState(null); // tenant being edited
@@ -212,28 +221,36 @@ export default function SuperAdmin() {
   }
 
   async function reactivateTenant(t) {
-    if (!window.confirm(`Re-onboard ${t.name}? The salon comes back with all its old data, gets a 7-day grace period, a fresh owner password is generated and emailed.`)) return;
-    try {
-      const { data } = await api.post(`/super-admin/tenants/${t.id}/reactivate`);
-      toast.success(`${t.name} is back — grace period till ${data.trial_end_date}`);
-      setCreatedCreds({
-        email: data.owner_email,
-        temp_password: data.temp_password,
-        tenant_name: t.name,
-        tenant_phone: t.phone,
-        email_recipients: data.email_recipients,
-        email_status: data.email_status,
-      });
-      load();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Reactivation failed");
-    }
+    askConfirm({
+      title: `Re-onboard ${t.name}?`, message: "The salon comes back with all its old data, gets a 7-day grace period, and a fresh owner password is generated and emailed.", confirmLabel: "Re-onboard",
+      action: async () => {
+        try {
+          const { data } = await api.post(`/super-admin/tenants/${t.id}/reactivate`);
+          toast.success(`${t.name} is back — grace period till ${data.trial_end_date}`);
+          setCreatedCreds({
+            email: data.owner_email,
+            temp_password: data.temp_password,
+            tenant_name: t.name,
+            tenant_phone: t.phone,
+            email_recipients: data.email_recipients,
+            email_status: data.email_status,
+          });
+          load();
+        } catch (err) {
+          toast.error(err.response?.data?.detail || "Reactivation failed");
+        }
+      },
+    });
   }
 
   async function deleteTenant(t) {
-    if (!window.confirm(`Cancel subscription for ${t.name}? Their account will be disabled (data kept — reversible via Reactivate).`)) return;
-    try { await api.delete(`/super-admin/tenants/${t.id}`); toast.success("Tenant cancelled"); load(); }
-    catch (err) { toast.error("Delete failed"); }
+    askConfirm({
+      title: `Cancel subscription for ${t.name}?`, message: "Their account will be disabled (data kept — reversible via Reactivate).", confirmLabel: "Cancel subscription", danger: true,
+      action: async () => {
+        try { await api.delete(`/super-admin/tenants/${t.id}`); toast.success("Tenant cancelled"); load(); }
+        catch (err) { toast.error("Delete failed"); }
+      },
+    });
   }
 
   const [permDelete, setPermDelete] = useState(null); // tenant pending permanent delete
@@ -256,15 +273,19 @@ export default function SuperAdmin() {
   }
 
   async function creditSms(t) {
-    const val = window.prompt(`Add SMS points for ${t.name} (current balance: ${t.sms_points || 0})\n1 point = 1 customer SMS (booking confirmations, billing receipts, 24h reminders)`, "100");
-    if (!val) return;
-    const points = parseInt(val, 10);
-    if (!points || points < 1) { toast.error("Enter a positive number of points"); return; }
-    try {
-      const { data } = await api.post(`/super-admin/tenants/${t.id}/sms-points`, { points });
-      toast.success(`${t.name} now has ${data.sms_points} SMS points`);
-      load();
-    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't credit SMS points"); }
+    askConfirm({
+      title: `Add SMS points for ${t.name}`, message: `Current balance: ${t.sms_points || 0}. 1 point = 1 customer SMS (booking confirmations, billing receipts, 24h reminders).`,
+      confirmLabel: "Add points", inputLabel: "Points to add", defaultValue: "100",
+      action: async (val) => {
+        const points = parseInt(val, 10);
+        if (!points || points < 1) { toast.error("Enter a positive number of points"); return; }
+        try {
+          const { data } = await api.post(`/super-admin/tenants/${t.id}/sms-points`, { points });
+          toast.success(`${t.name} now has ${data.sms_points} SMS points`);
+          load();
+        } catch (e) { toast.error(e.response?.data?.detail || "Couldn't credit SMS points"); }
+      },
+    });
   }
 
   function publicBookingUrl(slug) {

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { CalendarDays, Loader2, Trash2 } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const STATUS_CHIP = {
   pending: "bg-amber-500/15 border-amber-500/30 text-amber-300",
@@ -52,7 +53,7 @@ export function PlannedLeaveCard() {
   }
 
   async function cancel(rid) {
-    if (!window.confirm("Cancel this leave request?")) return;
+    if (!await confirmAsync("Cancel this leave request?")) return;
     try {
       await api.delete(`/staff/me/leave-requests/${rid}`);
       toast.success("Request cancelled");

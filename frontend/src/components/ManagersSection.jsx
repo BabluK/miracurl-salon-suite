@@ -5,6 +5,7 @@ import { ShieldCheck, Plus, KeyRound, Trash2, X, GitBranch, UserMinus } from "lu
 import pinApi from "@/lib/ownerPin";
 import { mainSalonLabel } from "@/lib/branch";
 import { useAuth } from "@/context/AuthContext";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export const ManagersSection = ({ onCredential, onChanged }) => {
   const { tenant } = useAuth();
@@ -44,7 +45,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
   }
 
   async function reset(m) {
-    if (!window.confirm(`Reset ${m.name}'s password? A new temporary password will be generated.`)) return;
+    if (!await confirmAsync(`Reset ${m.name}'s password? A new temporary password will be generated.`)) return;
     try {
       const { data } = await api.post(`/managers/${m.id}/reset`);
       onCredential({ name: m.name, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
@@ -64,7 +65,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
   }
 
   async function demote(m) {
-    if (!window.confirm(`Demote ${m.name} back to staff? They keep their login & staff profile, but lose manager access.`)) return;
+    if (!await confirmAsync(`Demote ${m.name} back to staff? They keep their login & staff profile, but lose manager access.`)) return;
     try {
       await pinApi.post(`/managers/${m.id}/demote`);
       toast.success(`${m.name} is now regular staff again`);
@@ -76,7 +77,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
   }
 
   async function remove(m) {
-    if (!window.confirm(`Remove manager ${m.name}? Their login will be deleted.`)) return;
+    if (!await confirmAsync(`Remove manager ${m.name}? Their login will be deleted.`)) return;
     try {
       await api.delete(`/managers/${m.id}`);
       toast.success("Manager removed");

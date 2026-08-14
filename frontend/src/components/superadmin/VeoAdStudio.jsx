@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Clapperboard, Loader2, Trash2, Download, Sparkles, KeyRound } from "lucide-react";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 export const VeoAdStudio = () => {
   const [concept, setConcept] = useState("Full Miracurl Salon Suite ad — online booking, WhatsApp automation, staff payroll, GST billing and the 12-agent AI team, for Indian salon owners");
@@ -54,7 +55,7 @@ export const VeoAdStudio = () => {
   };
 
   const del = async (id) => {
-    if (!window.confirm("Delete this ad video?")) return;
+    if (!await confirmAsync("Delete this ad video?")) return;
     await api.delete(`/super/veo-ad/${id}`).catch(() => {});
     loadList();
   };
