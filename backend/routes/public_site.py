@@ -98,10 +98,7 @@ class PublicBookingIn(BaseModel):
             dt = dt.replace(tzinfo=timezone.utc)
         if dt < datetime.now(timezone.utc) - timedelta(minutes=5):
             raise ValueError("Pick a future time")
-        # Business hours guard (local 10:00 – 21:00 — approximate; UTC-store assumed IST)
-        ist = dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
-        if ist.hour < 10 or ist.hour >= 21:
-            raise ValueError("Pick a slot between 10:00 AM and 9:00 PM")
+        # Per-salon business hours are enforced in the booking endpoint (tenant context needed there).
         return dt.isoformat()
 
 @router.get("/public/salons")
@@ -127,6 +124,8 @@ async def public_salon(slug: str):
         "location": t.get("location") or "Marathahalli, Bangalore",
         "phone": t.get("phone") or "+91 98765 00000",
         "hours": t.get("hours") or "Mon–Sun · 10:00 AM – 9:00 PM",
+        "open_time": t.get("open_time") or "10:00",
+        "close_time": t.get("close_time") or "21:00",
         "hero_image": t.get("hero_image") or "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600",
         "referral_reward": REFERRAL_REWARD_REFERRER,
         "google_review_url": t.get("google_review_url") or "",
@@ -189,6 +188,27 @@ async def public_staff(slug: str):
 @router.get("/public/staff")
 async def public_staff_default():
     return await public_staff(DEFAULT_TENANT_SLUG)
+
+def _enforce_salon_hours(t: dict, scheduled_at: str):
+    """Booking must fall inside this salon's own opening hours (IST)."""
+    def _mins(s, default):
+        try:
+            h, m = str(s or default).split(":")
+            return int(h) * 60 + int(m)
+        except ValueError:
+            h, m = default.split(":")
+            return int(h) * 60 + int(m)
+    open_m = _mins(t.get("open_time"), "10:00")
+    close_m = _mins(t.get("close_time"), "21:00")
+    ist = datetime.fromisoformat(scheduled_at.replace("Z", "+00:00")).astimezone(timezone(timedelta(hours=5, minutes=30)))
+    slot_m = ist.hour * 60 + ist.minute
+    if slot_m < open_m or slot_m >= close_m:
+        def fmt(m):
+            h, mm = divmod(m, 60)
+            ap = "AM" if h < 12 else "PM"
+            return f"{(h % 12) or 12}:{mm:02d} {ap}"
+        raise HTTPException(400, f"Please pick a slot within salon hours: {fmt(open_m)} – {fmt(close_m)}")
+
 
 @router.get("/public/gallery/{slug}")
 async def public_gallery(slug: str):
@@ -363,8 +383,9 @@ async def _create_public_appointment(cust: dict, staff: dict, services: list, bo
 
 @router.post("/public/book/{slug}")
 async def public_book(slug: str, body: PublicBookingIn, request: Request):
-    await resolve_tenant_from_slug(slug)
+    t = await resolve_tenant_from_slug(slug)
     public_rate_limit(request, key_suffix=f"book:{slug}", limit=8, window_sec=600)
+    _enforce_salon_hours(t, body.scheduled_at)
 
     services = await db.services.find({"id": {"$in": body.service_ids}, "active": True}, {"_id": 0}).to_list(50)
     if not services:

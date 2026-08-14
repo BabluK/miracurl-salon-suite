@@ -402,7 +402,7 @@ export default function BookPublic() {
 
         {step === 0 && <ServicesStep byCategory={byCategory} picked={picked} onToggle={toggleService} catImages={catImages} catOrder={catOrder} />}
         {step === 1 && <StaffStep staff={staff} staffId={staffId} onPick={setStaffId} date={date} />}
-        {step === 2 && <DateTimeStep date={date} time={time} onDate={setDate} onTime={setTime} availability={availability} />}
+        {step === 2 && <DateTimeStep date={date} time={time} onDate={setDate} onTime={setTime} availability={availability} salon={salon} />}
         {step === 3 && <DetailsStep form={form} onChange={handleFormChange} referralCheck={referralCheck} onCheckReferral={checkReferral} couponCheck={couponCheck} onCheckCoupon={checkCoupon} />}
         {step === 4 && (
           <ConfirmStep

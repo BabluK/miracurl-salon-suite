@@ -895,6 +895,8 @@ async def attendance_today(date: Optional[str] = None,
                 row["status"] = "on_leave"
             elif (s.get("week_off_day") or "").lower() == day_weekday:
                 row["status"] = "week_off"
+        if not row.get("branch"):
+            row["branch"] = (t.get("name") or "").strip()  # new hires without a branch belong to the main salon
         roster.append(row)
 
     return {

@@ -143,7 +143,11 @@ export default function Appointments() {
     try {
       await api.post("/whatsapp-requests", { client_name: a.customer_name, client_phone: phone, message, kind });
       toast.success("Sent to admin for approval ✦ The message goes out once approved");
-    } catch { toast.error("Couldn't send approval request"); }
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      if (e.response?.status === 409) { toast.info(detail); return; }
+      toast.error(detail || "Couldn't send approval request");
+    }
   }
 
   // Indian numbers need the 91 country code or WhatsApp opens the contact picker instead of the chat.

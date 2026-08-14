@@ -1963,3 +1963,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Default booking date now TODAY (was tomorrow) using local date (en-CA format); min=today (past dates blocked in picker).
 - DateTimeStep: on today's date, slots less than 30 min away are disabled (same style as full); 'We're done for today (10 AM – 9 PM) — pick tomorrow' note when all slots past.
 - Backend already validated (public_site.py _when): rejects past times and enforces 10:00–21:00 IST — unchanged. Screenshot-verified date default + min.
+
+## 2026-08-14 — Staff branch pin in roster + Custom Salon Hours (verified)
+- staff_admin.py: /attendance/today roster rows now include `branch` (was missing for newly hired staff like Sanjay); Attendance.jsx renders `· 📍 {branch}` under role. UI-verified: all staff show branch pin.
+- BrandingCard.jsx: added 'Working hours' text input (data-testid="settings-hours") + 'Booking slots — Open & Close time' selects (open_time/close_time, default 10:00 AM–9:00 PM); saved via PUT /settings/branding; public_site.py enforces boundaries on booking slots. Screenshot-verified in Settings → Salon profile (owner PIN unlock).

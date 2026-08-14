@@ -3,7 +3,14 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Store, Star, Instagram, MessageCircle, Save } from "lucide-react";
 
-const EMPTY = { google_review_url: "", maps_url: "", hours: "", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "" };
+const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "" };
+
+const TIME_OPTS = Array.from({ length: 36 }, (_, i) => {
+  const m = 6 * 60 + i * 30; // 06:00 → 23:30
+  const h = Math.floor(m / 60), mm = m % 60;
+  const label = `${(h % 12) || 12}:${String(mm).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+  return { value: `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`, label };
+});
 const inputCls = "mt-1 w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200";
 
 function flattenDetail(raw, fallback) {
@@ -77,6 +84,18 @@ export function BrandingCard() {
         <div>
           <label className="text-xs text-slate-500 font-medium">Working hours</label>
           <input data-testid="settings-hours" placeholder="Mon–Sun · 10:00 AM – 9:00 PM" {...field("hours")} />
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 font-medium">Booking slots — Open & Close time</label>
+          <div className="flex gap-2">
+            <select data-testid="settings-open-time" {...field("open_time")}>
+              {TIME_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <select data-testid="settings-close-time" {...field("close_time")}>
+              {TIME_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">The public booking page only offers slots inside these hours.</p>
         </div>
         <div>
           <label className="text-xs text-slate-500 font-medium">Phone</label>

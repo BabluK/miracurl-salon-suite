@@ -497,6 +497,8 @@ class BrandingIn(BaseModel):
     google_review_url: Optional[str] = Field(None, max_length=2000)
     maps_url: Optional[str] = Field(None, max_length=500)
     hours: Optional[str] = Field(None, max_length=200)
+    open_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    close_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     phone: Optional[str] = Field(None, max_length=40)
     location: Optional[str] = Field(None, max_length=500)
     hero_image: Optional[str] = Field(None, max_length=2000)
@@ -552,6 +554,8 @@ async def get_branding(user=Depends(require_admin), t=Depends(current_tenant)):
         "google_review_url": t.get("google_review_url") or "",
         "maps_url": t.get("maps_url") or "",
         "hours": t.get("hours") or "",
+        "open_time": t.get("open_time") or "10:00",
+        "close_time": t.get("close_time") or "21:00",
         "phone": t.get("phone") or "",
         "location": t.get("location") or "",
         "hero_image": t.get("hero_image") or "",

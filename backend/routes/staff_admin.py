@@ -816,11 +816,22 @@ class WhatsAppRequestIn(BaseModel):
 
 @router.post("/whatsapp-requests")
 async def create_whatsapp_request(body: WhatsAppRequestIn, user=Depends(get_current_user)):
-    """A manager requests to send a WhatsApp message; admin must approve."""
+    """A manager requests to send a WhatsApp message; admin must approve. Duplicates are blocked."""
+    phone_digits = "".join(c for c in body.client_phone if c.isdigit())
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    dup = await db.whatsapp_requests.find_one(
+        {"client_name": body.client_name, "kind": body.kind,
+         "status": {"$in": ["pending", "approved", "sent"]}, "created_at": {"$gte": cutoff},
+         **({"client_phone": phone_digits} if phone_digits else {})},
+        {"_id": 0, "status": 1})
+    if dup:
+        if dup["status"] == "pending":
+            raise HTTPException(409, f"Already requested — a {body.kind} for {body.client_name} is awaiting admin approval")
+        raise HTTPException(409, f"Already sent — the {body.kind} for {body.client_name} was approved in the last 24 hours")
     doc = {
         "id": str(uuid.uuid4()), "requested_by": user["id"],
         "requested_by_name": user.get("name") or user.get("email"),
-        "client_name": body.client_name, "client_phone": "".join(c for c in body.client_phone if c.isdigit()),
+        "client_name": body.client_name, "client_phone": phone_digits,
         "message": body.message, "kind": body.kind, "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
