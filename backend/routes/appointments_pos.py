@@ -38,7 +38,16 @@ async def list_appointments(date: Optional[str] = None, upcoming: bool = False, 
         if not re.fullmatch(r"\d{4}-\d{2}(-\d{2})?", date):
             raise HTTPException(400, "date must be YYYY-MM-DD or YYYY-MM")
         flt = {"scheduled_at": {"$regex": f"^{date}"}}
-    return await db.appointments.find(flt, {"_id": 0}).sort("scheduled_at", 1).to_list(500)
+    rows = await db.appointments.find(flt, {"_id": 0}).sort("scheduled_at", 1).to_list(500)
+    # Attach the guest's phone so WhatsApp confirmations open the right chat directly.
+    need = list({r["customer_id"] for r in rows if r.get("customer_id") and not r.get("customer_phone")})
+    if need:
+        custs = await db.customers.find({"id": {"$in": need}}, {"_id": 0, "id": 1, "phone": 1}).to_list(len(need))
+        pmap = {c["id"]: c.get("phone") for c in custs}
+        for r in rows:
+            if not r.get("customer_phone"):
+                r["customer_phone"] = pmap.get(r.get("customer_id"))
+    return rows
 
 
 @router.get("/notifications/new-bookings")

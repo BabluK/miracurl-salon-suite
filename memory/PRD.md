@@ -1943,3 +1943,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-14 — Hire Staff PIN removed for managers
 - '/hire' removed from MANAGER_LOCKED in AppLayout.jsx (managers open Hire Staff without the Admin-PIN lock screen); DELETE /hiring/requests/{rid} no longer requires owner PIN (unused imports cleaned). Screenshot-verified as manager@miracurl.com: page opens, Request staff available, no PIN anywhere. Release note added.
+
+## 2026-08-14 — WhatsApp confirmation polish + direct chat open
+- Root causes: (1) wa.me links lacked 91 country code and fell back to `wa.me/?text=` when customer not found → WhatsApp opened 'Send message to' picker; (2) /customers excludes crm_status=pending guests so phone lookup failed; (3) template used non-BMP/ZWJ emojis (💇🗓🧑‍🎨💰) → rendered as � on Windows WhatsApp.
+- Fixes: waPhone() normalizer (10-digit → 91-prefix) in Appointments.jsx + Dashboard RemindersWidget; GET /appointments now enriches rows with customer_phone (batch lookup); polished BMP-safe template (✦ *SALON NAME* ✦ / confirmed ✅ / • Service/Date/Time/Stylist/Amount / pampering ✨) using tenant name; clear toast when guest truly has no phone.
+- Verified: enrichment live (21/68 Aug appointments with phone; others are orphan TEST records), no-phone toast screenshot. NOTE: wa.me can only prefill TEXT — attaching an image automatically needs WhatsApp Business API.

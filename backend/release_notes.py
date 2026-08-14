@@ -25,6 +25,7 @@ RELEASES = [
             "🧾 Faster bill fixes — desk staff can now edit Recent Invoices themselves (no Owner PIN needed); every edit stays fully audited. Voiding a bill still needs the PIN",
             "🔓 Reports opens PIN-free — the Owner PIN popup no longer appears when staff open Sales Reports; only the Per-Stylist Commission card stays locked until you tap 'Unlock with Owner PIN'",
             "🤝 Managers can hire — the Hire Staff section no longer asks managers for the Owner PIN; post openings, review applications and manage requests freely",
+            "💬 WhatsApp confirmations, polished — a beautifully formatted confirmation message (salon name, service, date, time, stylist, amount) that opens the guest's chat DIRECTLY using their saved number — no more 'Send message to' search, and no more broken � symbols",
             "🛡️ No more double bills — the POS Create buttons stay disabled until a payment mode is selected and lock instantly while a bill is being created",
             "👯 Duplicate bill alert — if an identical bill for the same guest was punched in the last 3 minutes, staff get a warning and must confirm before it's created again",
         ],

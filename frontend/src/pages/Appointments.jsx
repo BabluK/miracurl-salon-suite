@@ -121,27 +121,44 @@ export default function Appointments() {
     } catch { toast.error("Couldn't send approval request"); }
   }
 
+  // Indian numbers need the 91 country code or WhatsApp opens the contact picker instead of the chat.
+  const waPhone = (p) => {
+    let d = String(p || "").replace(/\D/g, "");
+    if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+    if (d.length === 10) d = `91${d}`;
+    return d;
+  };
+
   function sendReminder(a) {
     const cust = customers.find(c => c.id === a.customer_id);
-    const phone = cust?.phone?.replace(/\D/g, "") || "";
-    const when = new Date(a.scheduled_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
-    const services = (a.services || []).map(s => s.name).join(", ") || "your appointment";
-    const raw = `Hi ${a.customer_name.split(" ")[0]} ✦ A friendly reminder from Miracurl!\n\n💇 ${services}\n🗓 ${when}${a.staff_name ? `\n🧑‍🎨 Stylist: ${a.staff_name}` : ""}${a.total ? `\n💰 ₹${a.total}` : ""}\n\nSee you soon! Reply here if you need to reschedule 😊`;
+    const phone = waPhone(a.customer_phone || cust?.phone);
+    const dt = new Date(a.scheduled_at);
+    const dateStr = dt.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    const timeStr = dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+    const services = (a.services || []).map(s => s.name).join(", ") || "your visit";
+    const raw =
+      `✦ *${(tenant?.name || "MIRACURL").toUpperCase()}* ✦\n\n` +
+      `Hi ${a.customer_name.split(" ")[0]}! Your appointment is *confirmed* ✅\n\n` +
+      `• Service: *${services}*\n` +
+      `• Date: ${dateStr}\n` +
+      `• Time: *${timeStr}*\n` +
+      (a.staff_name ? `• Stylist: ${a.staff_name}\n` : "") +
+      (a.total ? `• Amount: ₹${a.total}\n` : "") +
+      `\nWe look forward to pampering you ✨\n` +
+      `Need to change the time? Just reply to this message ✦`;
     if (isManager) { requestWA(a, phone, raw, "reminder"); return; }
-    const msg = encodeURIComponent(raw);
-    const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (!phone) { toast.error("No phone number saved for this guest — add it in CRM first"); return; }
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(raw)}`, "_blank", "noopener,noreferrer");
   }
 
   function sendReviewLink(a) {
     const cust = customers.find(c => c.id === a.customer_id);
-    const phone = cust?.phone?.replace(/\D/g, "") || "";
+    const phone = waPhone(a.customer_phone || cust?.phone);
     const link = `${window.location.origin}/review/${a.id}`;
     const raw = `Hi ${a.customer_name.split(" ")[0]} ✦ Thank you for visiting Miracurl today!\n\nWe'd love your feedback — it takes 10 seconds:\n${link}\n\nGive us 4★ or 5★ and we'll add ₹50 credit to your account ✦`;
     if (isManager) { requestWA(a, phone, raw, "review"); return; }
-    const msg = encodeURIComponent(raw);
-    const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (!phone) { toast.error("No phone number saved for this guest — add it in CRM first"); return; }
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(raw)}`, "_blank", "noopener,noreferrer");
   }
 
   function shiftWeek(deltaDays) {

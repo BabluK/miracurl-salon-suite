@@ -334,8 +334,17 @@ function RemindersWidget({ reminders, setReminders, salonName }) {
       weekday: "short", hour: "2-digit", minute: "2-digit",
     });
     const services = (r.service_names || []).join(", ") || "your visit";
-    const text = `Hi ${r.customer_name.split(" ")[0]} ✦ This is a friendly reminder from ${salonName || "your salon"} — your appointment for *${services}*${r.staff_name ? ` with ${r.staff_name}` : ""} is at *${when}*. Reply here if you need to reschedule. See you soon! 💇`;
-    const cleanPhone = String(r.customer_phone).replace(/\D/g, "");
+    const text =
+      `✦ *${(salonName || "MIRACURL").toUpperCase()}* ✦\n\n` +
+      `Hi ${r.customer_name.split(" ")[0]}! A gentle reminder — your appointment is *today* ✅\n\n` +
+      `• Service: *${services}*\n` +
+      `• Time: *${when}*\n` +
+      (r.staff_name ? `• Stylist: ${r.staff_name}\n` : "") +
+      `\nWe look forward to pampering you ✨\n` +
+      `Need to change the time? Just reply to this message ✦`;
+    let cleanPhone = String(r.customer_phone).replace(/\D/g, "");
+    if (cleanPhone.length === 11 && cleanPhone.startsWith("0")) cleanPhone = cleanPhone.slice(1);
+    if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
     const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
     window.open(url, "_blank", "noopener,noreferrer");
     // Optimistically mark as sent locally + persist
