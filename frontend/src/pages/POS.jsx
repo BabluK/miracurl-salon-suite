@@ -387,8 +387,8 @@ export default function POS() {
     setTipPct(null); setCustomTip(0); setTipStaffId("");
   }
 
-  async function checkout(complete = true) {
-    if (charging) return;
+  async function checkout(complete = true, forceDup = false) {
+    if (chargingRef.current) return;
     const missingStaff = cart.filter(c => c.type === "service" && !c.staff_id);
     if (missingStaff.length > 0) {
       toast.error(`Select the stylist who did: ${missingStaff.map(m => m.name).join(", ")}`);
@@ -397,6 +397,7 @@ export default function POS() {
     if (!customerId) { toast.error("Please select a guest"); return; }
     if (cart.length === 0) { toast.error("Cart is empty"); return; }
     if (!payment) { toast.error("Select the payment mode first"); return; }
+    chargingRef.current = true;
     setCharging(true);
     try {
       const { data } = await api.post("/invoices", {
@@ -418,6 +419,7 @@ export default function POS() {
         wallet_apply: payment === "salon_wallet" ? 0 : Math.min(walletApply, dueAfterGift),
         status: complete ? "completed" : "open",
         branch_id: branchId || null,
+        force_duplicate: forceDup,
       });
       if (!complete) {
         toast.success(`Bill ${data.invoice_no} saved as OPEN 📋 — complete it anytime from the "Open bills" panel above`);
@@ -448,8 +450,21 @@ export default function POS() {
       });
       setLastInvoice(data);
       if (complete) clearAll();
-    } catch (err) { toast.error(err.response?.data?.detail || "Checkout failed"); }
-    finally { setCharging(false); }
+    } catch (err) {
+      const detail = String(err.response?.data?.detail || "");
+      if (err.response?.status === 409 && detail.includes("DUPLICATE_BILL")) {
+        chargingRef.current = false;
+        setCharging(false);
+        const msg = detail.replace("DUPLICATE_BILL — ", "");
+        if (window.confirm(`⚠️ ${msg}\n\nAre you sure you want to create this bill again?`)) {
+          return checkout(complete, true);
+        }
+        toast.info("Bill not created — possible duplicate avoided ✅");
+        return;
+      }
+      toast.error(detail || "Checkout failed");
+    }
+    finally { chargingRef.current = false; setCharging(false); }
   }
 
   function shareInvoiceWhatsApp(inv) {

@@ -24,6 +24,7 @@ RELEASES = [
             "↻ Gentle updates — when a new version ships, you'll see a small 'Miracurl just got better ✨' toast with a Refresh button instead of the page reloading on its own",
             "🧾 Faster bill fixes — desk staff can now edit Recent Invoices themselves (no Owner PIN needed); every edit stays fully audited. Voiding a bill still needs the PIN",
             "🛡️ No more double bills — the POS Create buttons stay disabled until a payment mode is selected and lock instantly while a bill is being created",
+            "👯 Duplicate bill alert — if an identical bill for the same guest was punched in the last 3 minutes, staff get a warning and must confirm before it's created again",
         ],
     },
     {

@@ -141,4 +141,5 @@ class InvoiceIn(BaseModel):
     status: str = Field("completed", pattern="^(completed|open)$")
     appointment_id: Optional[str] = None
     branch_id: Optional[str] = None
+    force_duplicate: bool = False  # staff confirmed the duplicate-bill warning
 

@@ -1931,3 +1931,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 1. PUT /api/invoices/{id} (invoice_edits.py): require_owner_pin dependency removed — desk staff edit bills directly; edits remain audited in invoice_edits (audit view/purge + VOID still PIN-locked). EditInvoiceModal edit uses api (void keeps pinApi). Curl-verified edit without PIN.
 2. POS double-bill: checkout() now has charging guard (state + finally reset); payment default '' (was 'cash') — Create/Create&Complete buttons disabled until a payment mode is selected and while charging ('Creating…' label). Screenshot-verified disabled state.
 3. release_notes.py BUILD → 2026-08-14.70 + 2 highlights.
+
+## 2026-08-14 — Duplicate Bill Alert
+- _duplicate_bill_guard in appointments_pos.py: on POST /invoices, if same customer + identical items signature (name/qty/price) within last 3 min (non-voided) → 409 'DUPLICATE_BILL — identical bill (INV-x, ₹y) created N minutes ago'. InvoiceIn gains force_duplicate flag to bypass after confirmation.
+- POS.jsx: chargingRef guard (robust vs stale closure), catch 409 DUPLICATE_BILL → window.confirm → retry with force_duplicate:true; decline shows 'possible duplicate avoided' toast.
+- Curl-verified: create → 409 on identical → forced create OK; test bills cleaned from DB. Release note added.

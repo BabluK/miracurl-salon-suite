@@ -514,11 +514,35 @@ async def _deduct_wallet_credit(cust: dict, inv: dict, wallet_apply: float, paym
         "invoice_id": inv["id"], "created_at": datetime.now(timezone.utc).isoformat()})
 
 
+async def _duplicate_bill_guard(body: InvoiceIn):
+    """Warn if an identical bill (same guest + same items signature) was punched in the last 3 minutes."""
+    if body.force_duplicate:
+        return
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
+    recent = await db.invoices.find(
+        {"customer_id": body.customer_id, "created_at": {"$gte": cutoff}, "status": {"$ne": "voided"}},
+        {"_id": 0, "invoice_no": 1, "total": 1, "items": 1, "created_at": 1}).to_list(10)
+    sig = sorted((it.name, int(it.qty or 1), float(it.price or 0)) for it in body.items)
+    for r in recent:
+        rsig = sorted((it.get("name"), int(it.get("qty") or 1), float(it.get("price") or 0)) for it in r.get("items", []))
+        if rsig == sig:
+            mins = 0
+            try:
+                mins = max(0, int((datetime.now(timezone.utc) - datetime.fromisoformat(r["created_at"])).total_seconds() // 60))
+            except ValueError:
+                pass
+            raise HTTPException(
+                409,
+                f"DUPLICATE_BILL — An identical bill for this guest ({r['invoice_no']}, ₹{round(float(r.get('total') or 0))}) "
+                f"was created {mins} minute{'s' if mins != 1 else ''} ago.")
+
+
 @router.post("/invoices")
 async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
     if not cust:
         raise HTTPException(400, "Invalid customer")
+    await _duplicate_bill_guard(body)
     staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
 
     await _validate_package_redeem_items(body.items, cust)
