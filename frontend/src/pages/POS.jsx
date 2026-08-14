@@ -47,7 +47,8 @@ export default function POS() {
   const [staffId, setStaffId] = useState("");
   const [taxPct, setTaxPct] = useState(0);
   const [taxEnabled, setTaxEnabled] = useState(false);
-  const [payment, setPayment] = useState("cash");
+  const [payment, setPayment] = useState("");
+  const [charging, setCharging] = useState(false);
   const [branchId, setBranchId] = useState(() => {
     try { return localStorage.getItem("pos_branch") || ""; } catch { return ""; }
   });
@@ -379,7 +380,7 @@ export default function POS() {
 
   function clearAll() {
     setCart([]); setOrderNotes(""); setStaffId("");
-    setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("cash");
+    setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("");
     setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
     setOfferApplied(null); setOverallDisc(0);
     setGcCode(""); setGcInfo(null); setWalletApply(0); setMemberCode(""); setMemberInfo(null);
@@ -387,6 +388,7 @@ export default function POS() {
   }
 
   async function checkout(complete = true) {
+    if (charging) return;
     const missingStaff = cart.filter(c => c.type === "service" && !c.staff_id);
     if (missingStaff.length > 0) {
       toast.error(`Select the stylist who did: ${missingStaff.map(m => m.name).join(", ")}`);
@@ -394,6 +396,8 @@ export default function POS() {
     }
     if (!customerId) { toast.error("Please select a guest"); return; }
     if (cart.length === 0) { toast.error("Cart is empty"); return; }
+    if (!payment) { toast.error("Select the payment mode first"); return; }
+    setCharging(true);
     try {
       const { data } = await api.post("/invoices", {
         customer_id: customerId,
@@ -445,6 +449,7 @@ export default function POS() {
       setLastInvoice(data);
       if (complete) clearAll();
     } catch (err) { toast.error(err.response?.data?.detail || "Checkout failed"); }
+    finally { setCharging(false); }
   }
 
   function shareInvoiceWhatsApp(inv) {
@@ -585,7 +590,7 @@ export default function POS() {
             payment={payment} setPayment={setPayment} sym={sym}
             walletBalance={customers.find(c => c.id === customerId)?.wallet_balance || 0}
             due={dueAfterGift} walletApply={walletApply} setWalletApply={setWalletApply}
-            onClear={clearAll} onCheckout={checkout}
+            onClear={clearAll} onCheckout={checkout} charging={charging}
           />
         </div>
       </div>

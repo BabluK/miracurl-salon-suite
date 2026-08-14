@@ -32,7 +32,7 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
     if (editor.trim().length < 2) { toast.error("Enter the name of who is editing this bill"); return; }
     setBusy(true);
     try {
-      await pinApi.put(`/invoices/${invoice.id}`, {
+      await api.put(`/invoices/${invoice.id}`, {
         editor_name: editor.trim(), payment_mode: mode, items, manual_discount: Number(discount || 0),
       });
       toast.success(`Bill ${invoice.invoice_no} updated ✦ (audited under "${editor.trim()}")`);

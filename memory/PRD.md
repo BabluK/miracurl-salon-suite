@@ -1926,3 +1926,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - index.js: promptUpdate() shows persistent sonner toast 'Miracurl just got better ✨ — Refresh ↻' when a new SW is installed/waiting; user click sends SKIP_WAITING → controllerchange → single reload (existing listeners unchanged).
 - sw.js: removed skipWaiting() from install handler (new SW now waits for the user's Refresh click); CACHE already v13.
 - release_notes.py: BUILD → 2026-08-13.69 + highlight added. Compile verified (CRA 'Compiled with warnings' = pre-existing sourcemap noise only). NOTE: toast behaviour itself only observable across two production deploys.
+
+## 2026-08-14 — Bill edit PIN removed + POS double-bill fix
+1. PUT /api/invoices/{id} (invoice_edits.py): require_owner_pin dependency removed — desk staff edit bills directly; edits remain audited in invoice_edits (audit view/purge + VOID still PIN-locked). EditInvoiceModal edit uses api (void keeps pinApi). Curl-verified edit without PIN.
+2. POS double-bill: checkout() now has charging guard (state + finally reset); payment default '' (was 'cash') — Create/Create&Complete buttons disabled until a payment mode is selected and while charging ('Creating…' label). Screenshot-verified disabled state.
+3. release_notes.py BUILD → 2026-08-14.70 + 2 highlights.

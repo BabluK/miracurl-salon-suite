@@ -3,7 +3,7 @@ import { PAY_LABELS } from "@/components/pos/payLabels";
 
 const PAYMENT_MODES = Object.entries(PAY_LABELS).map(([k, label]) => ({ k, label }));
 
-export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment, onClear, onCheckout, walletBalance, due = 0, walletApply = 0, setWalletApply = () => {}, sym = "₹" }) {
+export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment, onClear, onCheckout, walletBalance, due = 0, walletApply = 0, setWalletApply = () => {}, sym = "₹", charging = false }) {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -77,16 +77,20 @@ export function PaymentSection({ orderNotes, setOrderNotes, payment, setPayment,
         <button
           data-testid="pos-create-btn"
           onClick={() => onCheckout(false)}
-          className="px-6 py-2.5 rounded-lg bg-sky-400 text-white font-medium text-sm hover:bg-sky-500 shadow-sm transition"
+          disabled={charging || !payment}
+          title={!payment ? "Select the payment mode first" : ""}
+          className="px-6 py-2.5 rounded-lg bg-sky-400 text-white font-medium text-sm hover:bg-sky-500 shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Create
         </button>
         <button
           data-testid="pos-create-complete-btn"
           onClick={() => onCheckout(true)}
-          className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 text-white font-semibold text-sm hover:from-sky-600 hover:to-blue-600 shadow-md transition flex items-center gap-2"
+          disabled={charging || !payment}
+          title={!payment ? "Select the payment mode first" : ""}
+          className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 text-white font-semibold text-sm hover:from-sky-600 hover:to-blue-600 shadow-md transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <Receipt className="w-4 h-4" /> Create & Complete
+          <Receipt className="w-4 h-4" /> {charging ? "Creating…" : "Create & Complete"}
         </button>
       </div>
     </>

@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-13.69"
-BUILD_TIME = "13 Aug 2026, 12:40 PM IST"
+BUILD = "2026-08-14.70"
+BUILD_TIME = "14 Aug 2026, 09:25 AM IST"
 
 RELEASES = [
     {
@@ -22,6 +22,8 @@ RELEASES = [
             "🤖 Mira's new look — tap her avatar on the dashboard and she speaks today's collection, bookings and staff on the floor; the AI Assistant page got live stat chips and grouped quick-ask prompts",
             "🔗 Outreach emails now carry trust links — Website, Features, Pricing, About Us and Contact — plus better Google indexing (sitemap + organization schema)",
             "↻ Gentle updates — when a new version ships, you'll see a small 'Miracurl just got better ✨' toast with a Refresh button instead of the page reloading on its own",
+            "🧾 Faster bill fixes — desk staff can now edit Recent Invoices themselves (no Owner PIN needed); every edit stays fully audited. Voiding a bill still needs the PIN",
+            "🛡️ No more double bills — the POS Create buttons stay disabled until a payment mode is selected and lock instantly while a bill is being created",
         ],
     },
     {

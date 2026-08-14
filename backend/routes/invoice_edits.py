@@ -66,7 +66,9 @@ def _recompute_totals(inv: dict, body: InvoiceEditIn, tenant_doc: dict) -> dict:
 
 @router.put("/invoices/{inv_id}")
 async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_admin),
-                       t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
+                       t=Depends(current_tenant)):
+    # Owner PIN intentionally NOT required here — desk staff fix wrong bills themselves.
+    # Every edit is still fully audited in invoice_edits (viewing/purging the trail stays PIN-locked).
     inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invoice not found")
