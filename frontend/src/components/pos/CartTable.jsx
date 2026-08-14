@@ -88,29 +88,30 @@ export function CartTable({
           </tbody>
         </table>
       </div>
-      <div className="border-t border-slate-200 px-4 py-3 flex flex-wrap items-center justify-end gap-x-6 gap-y-2 text-sm text-slate-600">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Coupon</span>
+      <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2.5 text-sm text-slate-600">
+        <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <span className="px-2.5 py-1.5 text-[10px] uppercase tracking-wider text-slate-400 font-bold bg-slate-50 border-r border-slate-200">Coupon</span>
           <input
             data-testid="pos-coupon-input"
             value={couponCode}
             onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponInfo(null); }}
             onKeyDown={e => e.key === "Enter" && checkCoupon()}
-            placeholder="Coupon code"
-            className="w-28 px-2 py-1 rounded border border-slate-200 bg-slate-50 text-xs font-mono uppercase text-slate-800"
+            placeholder="CODE"
+            className="w-24 px-2.5 py-1.5 bg-white text-xs font-mono uppercase text-slate-800 placeholder:text-slate-300 focus:outline-none"
           />
-          <button type="button" data-testid="pos-coupon-apply-btn" onClick={checkCoupon} className="text-xs text-sky-600 font-medium hover:underline">Apply</button>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Overall disc</span>
-          <span className="inline-flex rounded border border-slate-200 overflow-hidden">
-            <button type="button" data-testid="pos-overall-disc-mode-amt"
-              onClick={() => setOverallDiscMode("amt")}
-              className={`px-1.5 py-1 text-xs font-bold transition ${overallDiscMode === "amt" ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"}`}>{sym}</button>
-            <button type="button" data-testid="pos-overall-disc-mode-pct"
-              onClick={() => setOverallDiscMode("pct")}
-              className={`px-1.5 py-1 text-xs font-bold transition ${overallDiscMode === "pct" ? "bg-slate-800 text-white" : "bg-slate-50 text-slate-500 hover:bg-slate-100"}`}>%</button>
-          </span>
+          <button type="button" data-testid="pos-coupon-apply-btn" onClick={checkCoupon}
+            className="px-3 py-1.5 text-xs text-sky-600 font-bold hover:bg-sky-50 transition-colors border-l border-slate-200">Apply</button>
+        </div>
+        <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <span className="px-2.5 py-1.5 text-[10px] uppercase tracking-wider text-slate-400 font-bold bg-slate-50 border-r border-slate-200">Overall disc</span>
+          <button type="button" data-testid="pos-overall-disc-mode-amt"
+            onClick={() => setOverallDiscMode("amt")}
+            title="Flat amount off"
+            className={`px-2 py-1.5 text-xs font-bold transition-colors ${overallDiscMode === "amt" ? "bg-slate-900 text-amber-300" : "text-slate-400 hover:bg-slate-100"}`}>{sym}</button>
+          <button type="button" data-testid="pos-overall-disc-mode-pct"
+            onClick={() => setOverallDiscMode("pct")}
+            title="Percentage off"
+            className={`px-2 py-1.5 text-xs font-bold transition-colors border-r border-slate-200 ${overallDiscMode === "pct" ? "bg-slate-900 text-amber-300" : "text-slate-400 hover:bg-slate-100"}`}>%</button>
           <input
             data-testid="pos-overall-discount-input"
             type="number" min="0" max={overallDiscMode === "pct" ? 100 : undefined}
@@ -118,25 +119,33 @@ export function CartTable({
             onChange={e => setOverallDisc(e.target.value)}
             placeholder="0"
             title={overallDiscMode === "pct" ? "Percentage discount on the whole bill" : "Flat discount on the whole bill"}
-            className="w-20 px-2 py-1 rounded border border-slate-200 bg-slate-50 text-xs text-right text-slate-800 font-semibold"
+            className="w-16 px-2.5 py-1.5 bg-white text-xs text-right text-slate-800 font-semibold placeholder:text-slate-300 focus:outline-none"
           />
-        </span>
-        {overallDiscount > 0 && (
-          <span className="text-rose-600" data-testid="pos-overall-discount-chip">
-            ✂ Overall −{sym}{overallDiscount.toFixed(0)}{overallDiscMode === "pct" ? ` (${Math.min(Number(overallDisc) || 0, 100)}%)` : ""}
+        </div>
+        {(overallDiscount > 0 || membershipDiscount > 0 || couponDiscount > 0 || offerDiscount > 0 || pointsUsed > 0) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {overallDiscount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-600 text-xs font-semibold" data-testid="pos-overall-discount-chip">
+                ✂ −{sym}{overallDiscount.toFixed(0)}{overallDiscMode === "pct" ? ` (${Math.min(Number(overallDisc) || 0, 100)}%)` : ""}
+              </span>
+            )}
+            {membershipDiscount > 0 && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-600 text-xs font-semibold" data-testid="pos-membership-discount">👑 −{sym}{membershipDiscount.toFixed(0)}</span>}
+            {couponDiscount > 0 && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-semibold" data-testid="pos-coupon-discount">🎟 {couponInfo.code} −{sym}{couponDiscount.toFixed(0)}</span>}
+            {offerDiscount > 0 && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-600 text-xs font-semibold" data-testid="pos-offer-discount">🔥 {offerApplied?.title || "Offer"} −{sym}{offerDiscount.toFixed(0)}</span>}
+            {pointsUsed > 0 && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-600 text-xs font-semibold" data-testid="pos-points-discount">🪙 −{sym}{pointsUsed.toFixed(0)}</span>}
+          </div>
+        )}
+        <div className="flex-1" />
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-slate-500">Discount <span className="font-bold text-slate-800 ml-0.5">{sym}{totalDiscount.toFixed(0)}</span></span>
+          {taxEnabled && (
+            <span className="text-xs text-slate-500">Tax ({taxPct}%) <span className="font-bold text-slate-800 ml-0.5">{sym}{tax.toFixed(0)}</span></span>
+          )}
+          <span className="inline-flex items-baseline gap-2 pl-3.5 pr-4 py-1.5 rounded-xl bg-slate-900 shadow-sm">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Grand Total</span>
+            <span className="font-bold text-amber-300 text-lg leading-none" data-testid="pos-grand-total">{sym}{total.toFixed(0)}</span>
           </span>
-        )}
-        {membershipDiscount > 0 && <span className="text-violet-600" data-testid="pos-membership-discount">👑 −{sym}{membershipDiscount.toFixed(0)}</span>}
-        {couponDiscount > 0 && <span className="text-emerald-600" data-testid="pos-coupon-discount">🎟 {couponInfo.code} −{sym}{couponDiscount.toFixed(0)}</span>}
-        {offerDiscount > 0 && <span className="text-orange-600" data-testid="pos-offer-discount">🔥 {offerApplied?.title || "Offer"} −{sym}{offerDiscount.toFixed(0)}</span>}
-        {pointsUsed > 0 && <span className="text-amber-600" data-testid="pos-points-discount">🪙 −{sym}{pointsUsed.toFixed(0)}</span>}
-        <span>Discount: <span className="font-semibold text-slate-800">{sym}{totalDiscount.toFixed(0)}</span></span>
-        {taxEnabled && (
-          <span>Tax ({taxPct}%): <span className="font-semibold text-slate-800">{sym}{tax.toFixed(0)}</span></span>
-        )}
-        <span className="text-base">
-          Grand Total: <span className="font-bold text-slate-900 text-lg ml-1">{sym}{total.toFixed(0)}</span>
-        </span>
+        </div>
       </div>
     </div>
   );

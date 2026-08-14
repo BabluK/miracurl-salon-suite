@@ -2001,3 +2001,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - POS.jsx: overallDiscMode state ("amt"|"pct"); overallDiscount = pct → base×clamp(0-100)%/100, amt → flat; capped at overallBase (afterMemb − coupon − offer). Mode resets to "amt" after checkout.
 - CartTable.jsx: ₹/% toggle buttons (testids pos-overall-disc-mode-amt/pct) beside pos-overall-discount-input; chip shows "(N%)" suffix in pct mode.
 - Screenshot-verified both modes: 10% on ₹100 → −₹10, GT ₹106; flat ₹25 → GT ₹89 (18% tax correct). BUILD 2026-08-14.75.
+
+## 2026-08-14 — POS billing bar polish
+- CartTable.jsx footer redesigned: Coupon + Overall-disc as grouped white pill inputs (label | control | input) with shadow-sm; active ₹/% toggle = bg-slate-900 text-amber-300; discount chips = colour-coded rounded-full badges (rose/violet/emerald/orange/amber); right side Discount/Tax + Grand Total in dark pill w/ amber text (testid pos-grand-total). NOTE: inputs inside white pills need explicit bg-white (global CSS darkens bare inputs). Screenshot-verified. BUILD .76.
