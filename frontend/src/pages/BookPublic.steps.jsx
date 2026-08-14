@@ -263,8 +263,16 @@ export function StaffStep({ staff, staffId, onPick, date }) {
 }
 
 export function DateTimeStep({ date, time, onDate, onTime, availability }) {
-  const minDate = new Date().toISOString().slice(0, 10);
+  const minDate = new Date().toLocaleDateString("en-CA");
   const slots = availability?.slots || {};
+  // Today: a slot is gone once it's less than 30 min away — salon runs 10 AM to 9 PM.
+  const isToday = date === minDate;
+  const now = new Date();
+  const isPast = (t) => {
+    if (!isToday) return false;
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m <= now.getHours() * 60 + now.getMinutes() + 30;
+  };
   return (
     <section className="space-y-6 animate-fade-up">
       <div>
@@ -286,7 +294,7 @@ export function DateTimeStep({ date, time, onDate, onTime, availability }) {
         <div className="label-luxe mb-3">Available Time Slots</div>
         <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
           {TIME_SLOTS.map(t => {
-            const full = availability && slots[t] === false;
+            const full = (availability && slots[t] === false) || isPast(t);
             return (
               <button
                 key={t}
@@ -305,6 +313,9 @@ export function DateTimeStep({ date, time, onDate, onTime, availability }) {
             );
           })}
         </div>
+        {isToday && TIME_SLOTS.every(isPast) && (
+          <p className="text-xs text-amber-400 mt-3" data-testid="book-day-over-note">We're done for today (salon hours 10 AM – 9 PM) — please pick tomorrow 🙏</p>
+        )}
         {availability && Object.values(slots).every(v => v === false) && (
           <p className="text-xs text-amber-400 mt-3" data-testid="book-day-full-note">All slots are booked for this day — please pick another date 🙏</p>
         )}

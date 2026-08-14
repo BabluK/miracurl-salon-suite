@@ -1958,3 +1958,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 1. Draft Alerts: /super-admin/mira-home now returns blog_drafts (published=False); MiraHome violet banner 'My weekly article is ready for your review, Boss' + 'Review & Publish →' button → onGoTab('partners'). Screenshot-verified incl. navigation.
 2. Fixed BlogManager crash ('topic is not defined' — earlier state edit didn't persist): re-added topic/drafting state + aiDraft(). Verified: badge 'DRAFT · BY MIRA' + Approve & Publish render.
 3. Booking phone requirement: POST /customers rejects <10-digit phone (400); PUT /customers/{cid}/phone quick-fix endpoint (validates, only sets phone); NewAppointmentModal shows required guest-phone input when selected customer lacks a valid phone; Appointments save() persists phone before creating booking. Curl-verified 400/404 + modal screenshot.
+
+## 2026-08-14 — Public booking date/time rules
+- Default booking date now TODAY (was tomorrow) using local date (en-CA format); min=today (past dates blocked in picker).
+- DateTimeStep: on today's date, slots less than 30 min away are disabled (same style as full); 'We're done for today (10 AM – 9 PM) — pick tomorrow' note when all slots past.
+- Backend already validated (public_site.py _when): rejects past times and enforces 10:00–21:00 IST — unchanged. Screenshot-verified date default + min.

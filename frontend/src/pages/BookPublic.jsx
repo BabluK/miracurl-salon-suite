@@ -14,7 +14,7 @@ const TOASTER_STYLE = { background: '#121212', color: '#fff', border: '1px solid
 const TOASTER_OPTIONS = { style: TOASTER_STYLE };
 const STEP_LABELS = ["Services", "Stylist", "Date & Time", "Your Details", "Confirm"];
 const INITIAL_FORM = { name: "", phone: "", email: "", notes: "", referral_code: "", coupon_code: "", gender: "Female" };
-const tomorrow = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+const localToday = () => new Date().toLocaleDateString("en-CA");
 
 function Stepper({ step }) {
   return (
@@ -127,7 +127,7 @@ export default function BookPublic() {
 
   const [picked, setPicked] = useState([]);
   const [staffId, setStaffId] = useState("");
-  const [date, setDate] = useState(tomorrow);
+  const [date, setDate] = useState(localToday);
   const [time, setTime] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
   const [referralCheck, setReferralCheck] = useState(null);

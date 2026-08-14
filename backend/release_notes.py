@@ -29,6 +29,7 @@ RELEASES = [
             "🖼️ Designed confirmation card — a gold-on-black appointment card image staff can open with one tap and attach in WhatsApp; owners control it with the new 'Staff WhatsApp: Direct/Approval' toggle on the Appointments page",
             "📝 Weekly auto-article — every Monday Mira drafts a fresh salon-growth blog article; Super Admins just review and tap 'Approve & Publish' to keep Google fed",
             "📱 Phone required on booking — new guests must have a 10-digit phone number, and booking a legacy guest without one asks for it right in the form, so every WhatsApp confirmation reaches the right chat",
+            "🗓️ Smarter booking calendar — the public booking page now opens on TODAY, past dates are blocked, slots that already passed grey out automatically, and bookings stay within salon hours (10 AM – 9 PM)",
             "🛡️ No more double bills — the POS Create buttons stay disabled until a payment mode is selected and lock instantly while a bill is being created",
             "👯 Duplicate bill alert — if an identical bill for the same guest was punched in the last 3 minutes, staff get a warning and must confirm before it's created again",
         ],
