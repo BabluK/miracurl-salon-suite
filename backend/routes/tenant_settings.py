@@ -645,3 +645,14 @@ async def referral_nudge(user=Depends(require_admin), t=Depends(current_tenant))
         {"_id": 0, "referred_salon_name": 1, "created_at": 1},
     ).sort("created_at", -1).to_list(10)
     return {"pending": pending, "count": len(pending)}
+
+
+class WADirectIn(BaseModel):
+    enabled: bool = True
+
+
+@router.put("/settings/wa-direct")
+async def set_wa_direct(body: WADirectIn, user=Depends(require_admin), t=Depends(current_tenant)):
+    """Admin toggle: allow managers/staff to send WhatsApp confirmations directly (no approval)."""
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_direct_send": body.enabled}})
+    return {"enabled": body.enabled}

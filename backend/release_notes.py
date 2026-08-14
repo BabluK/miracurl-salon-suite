@@ -26,6 +26,8 @@ RELEASES = [
             "🔓 Reports opens PIN-free — the Owner PIN popup no longer appears when staff open Sales Reports; only the Per-Stylist Commission card stays locked until you tap 'Unlock with Owner PIN'",
             "🤝 Managers can hire — the Hire Staff section no longer asks managers for the Owner PIN; post openings, review applications and manage requests freely",
             "💬 WhatsApp confirmations, polished — a beautifully formatted confirmation message (salon name, service, date, time, stylist, amount) that opens the guest's chat DIRECTLY using their saved number — no more 'Send message to' search, and no more broken � symbols",
+            "🖼️ Designed confirmation card — a gold-on-black appointment card image staff can open with one tap and attach in WhatsApp; owners control it with the new 'Staff WhatsApp: Direct/Approval' toggle on the Appointments page",
+            "📝 Weekly auto-article — every Monday Mira drafts a fresh salon-growth blog article; Super Admins just review and tap 'Approve & Publish' to keep Google fed",
             "🛡️ No more double bills — the POS Create buttons stay disabled until a payment mode is selected and lock instantly while a bill is being created",
             "👯 Duplicate bill alert — if an identical bill for the same guest was punched in the last 3 minutes, staff get a warning and must confirm before it's created again",
         ],

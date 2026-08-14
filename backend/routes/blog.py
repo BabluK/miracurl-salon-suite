@@ -174,9 +174,7 @@ class AIDraftIn(BaseModel):
     topic: str = Field(..., max_length=200)
 
 
-@router.post("/super-admin/blog/ai-draft")
-async def admin_blog_ai_draft(body: AIDraftIn, user=Depends(require_super_admin)):
-    """Mira drafts a ready-to-publish SEO article from a topic line."""
+async def _generate_ai_draft(topic: str) -> dict:
     import json as _json
     import os
     from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -197,7 +195,7 @@ async def admin_blog_ai_draft(body: AIDraftIn, user=Depends(require_super_admin)
             '{"title":"SEO title, max 90 chars","excerpt":"one compelling line, max 200 chars",'
             '"tags":["3-4","lowercase","tags"],"content":"the full article"}'
         )).with_model("openai", "gpt-4o-mini")
-    reply = await chat.send_message(UserMessage(text=f"Write the article. Topic: {body.topic.strip()}"))
+    reply = await chat.send_message(UserMessage(text=f"Write the article. Topic: {topic.strip()}"))
     raw = str(reply).strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
@@ -209,3 +207,52 @@ async def admin_blog_ai_draft(body: AIDraftIn, user=Depends(require_super_admin)
     return {"title": str(data.get("title") or "")[:180], "excerpt": str(data.get("excerpt") or "")[:400],
             "tags": [str(t)[:30] for t in (data.get("tags") or [])][:5],
             "content": str(data.get("content") or "")[:40000]}
+
+
+@router.post("/super-admin/blog/ai-draft")
+async def admin_blog_ai_draft(body: AIDraftIn, user=Depends(require_super_admin)):
+    """Mira drafts a ready-to-publish SEO article from a topic line."""
+    return await _generate_ai_draft(body.topic)
+
+
+_WEEKLY_TOPICS = [
+    "How salons can use Instagram Reels to get more bookings",
+    "5 front-desk mistakes that quietly lose salon customers",
+    "How to price salon services right in a competitive Indian market",
+    "Staff attendance and payroll: ending the register-notebook era",
+    "How WhatsApp broadcast offers fill empty weekday slots",
+    "Why every salon needs an online booking link in its Instagram bio",
+    "Turning one-time bridal clients into year-round regulars",
+    "Salon hygiene standards that clients actually notice (and pay for)",
+    "How to handle negative Google reviews the professional way",
+    "Festival season playbook: preparing your salon for Diwali rush",
+    "Gift cards: the most underused revenue tool in Indian salons",
+    "How to reduce staff attrition in salons without raising salaries",
+]
+
+
+async def run_weekly_auto_draft() -> dict:
+    """Mira drafts one article a week (published=False) for the super admin to approve."""
+    used = {p["slug"] for p in await _raw_db.blog_posts.find({}, {"_id": 0, "slug": 1}).to_list(500)}
+    topic = next((t for t in _WEEKLY_TOPICS if _slugify(t) not in used), None)
+    if not topic:
+        return {"skipped": "all rotation topics already drafted"}
+    data = await _generate_ai_draft(topic)
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {"id": str(uuid.uuid4()), "slug": _slugify(data["title"]) or _slugify(topic),
+           "title": data["title"], "excerpt": data["excerpt"], "content": data["content"],
+           "tags": data["tags"], "published": False, "auto_draft": True,
+           "author": "Mira (AI draft)", "created_at": now, "updated_at": now}
+    if doc["slug"] in used:
+        doc["slug"] = f"{doc['slug']}-{uuid.uuid4().hex[:4]}"
+    await _raw_db.blog_posts.insert_one(doc)
+    return {"drafted": doc["title"], "slug": doc["slug"]}
+
+
+@router.post("/super-admin/blog/{pid}/publish")
+async def admin_blog_publish(pid: str, user=Depends(require_super_admin)):
+    res = await _raw_db.blog_posts.update_one(
+        {"id": pid}, {"$set": {"published": True, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Article not found")
+    return {"ok": True, "published": True}

@@ -140,6 +140,26 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_demo_followup_scheduler())
     asyncio.get_event_loop().create_task(_lead_followup_scheduler())
     asyncio.get_event_loop().create_task(_review_request_scheduler())
+
+    async def _weekly_blog_loop():
+        # Mira drafts one SEO article every Monday (>=9 AM IST) for super-admin approval.
+        while True:
+            try:
+                now_ist = datetime.now(IST_TZ)
+                if now_ist.weekday() == 0 and now_ist.hour >= 9:
+                    key = now_ist.strftime("%G-W%V")
+                    if not await _raw_db.weekly_blog_runs.find_one({"week": key}):
+                        await _raw_db.weekly_blog_runs.insert_one(
+                            {"week": key, "started_at": datetime.now(timezone.utc).isoformat()})
+                        from routes.blog import run_weekly_auto_draft
+                        out = await run_weekly_auto_draft()
+                        await _raw_db.weekly_blog_runs.update_one(
+                            {"week": key}, {"$set": {"result": out, "finished_at": datetime.now(timezone.utc).isoformat()}})
+                        logging.info(f"Weekly blog auto-draft: {out}")
+            except Exception as e:  # noqa: BLE001 — scheduler must never die
+                logging.getLogger("weekly_blog").error(f"weekly blog draft failed: {e}")
+            await asyncio.sleep(3600)
+    asyncio.get_event_loop().create_task(_weekly_blog_loop())
     asyncio.get_event_loop().create_task(_google_review_alert_scheduler())
     asyncio.get_event_loop().create_task(_cctv_poll_scheduler())
     asyncio.get_event_loop().create_task(_monthly_report_scheduler())

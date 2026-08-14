@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, Calendar as CalendarIcon, Check, XCircle, Clock, List as ListIcon, LayoutGrid, ChevronLeft, ChevronRight, MessageSquare, BadgeCheck } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Check, XCircle, Clock, List as ListIcon, LayoutGrid, ChevronLeft, ChevronRight, MessageSquare, BadgeCheck, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { WeekGrid } from "@/components/appointments/WeekGrid";
@@ -24,6 +24,20 @@ function startOfWeek(iso) {
 export default function Appointments() {
   const { tenant, user } = useAuth();
   const isManager = user?.role === "manager";
+  const [waDirect, setWaDirect] = useState(!!tenant?.wa_direct_send);
+  useEffect(() => { setWaDirect(!!tenant?.wa_direct_send); }, [tenant?.wa_direct_send]);
+  const canDirectWA = !isManager || waDirect;
+
+  async function toggleWaDirect() {
+    try {
+      const next = !waDirect;
+      await api.put("/settings/wa-direct", { enabled: next });
+      setWaDirect(next);
+      toast.success(next
+        ? "🟢 Managers & staff can now send WhatsApp confirmations directly"
+        : "🔒 Staff WhatsApp sends now need your approval again");
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update setting"); }
+  }
   const [list, setList] = useState([]);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [view, setView] = useState("list"); // list | week
@@ -146,7 +160,7 @@ export default function Appointments() {
       (a.total ? `• Amount: ₹${a.total}\n` : "") +
       `\nWe look forward to pampering you ✨\n` +
       `Need to change the time? Just reply to this message ✦`;
-    if (isManager) { requestWA(a, phone, raw, "reminder"); return; }
+    if (!canDirectWA) { requestWA(a, phone, raw, "reminder"); return; }
     if (!phone) { toast.error("No phone number saved for this guest — add it in CRM first"); return; }
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(raw)}`, "_blank", "noopener,noreferrer");
   }
@@ -156,7 +170,7 @@ export default function Appointments() {
     const phone = waPhone(a.customer_phone || cust?.phone);
     const link = `${window.location.origin}/review/${a.id}`;
     const raw = `Hi ${a.customer_name.split(" ")[0]} ✦ Thank you for visiting Miracurl today!\n\nWe'd love your feedback — it takes 10 seconds:\n${link}\n\nGive us 4★ or 5★ and we'll add ₹50 credit to your account ✦`;
-    if (isManager) { requestWA(a, phone, raw, "review"); return; }
+    if (!canDirectWA) { requestWA(a, phone, raw, "review"); return; }
     if (!phone) { toast.error("No phone number saved for this guest — add it in CRM first"); return; }
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(raw)}`, "_blank", "noopener,noreferrer");
   }
@@ -208,6 +222,15 @@ export default function Appointments() {
               <button data-testid="appt-week-next" onClick={() => shiftWeek(7)} className="p-2 rounded-md hover:bg-slate-50 border border-slate-200"><ChevronRight className="w-4 h-4" /></button>
             </div>
           )}
+          {user?.role === "admin" && (
+            <button data-testid="wa-direct-toggle" onClick={toggleWaDirect}
+              title="When ON, managers & staff can send WhatsApp confirmations + the designed card directly. When OFF, they need your approval."
+              className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-full border transition ${waDirect
+                ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                : "bg-slate-50 border-slate-300 text-slate-500"}`}>
+              {waDirect ? "🟢 Staff WhatsApp: Direct" : "🔒 Staff WhatsApp: Approval"}
+            </button>
+          )}
           <button data-testid="add-appointment-btn" onClick={startNew} className="btn-blue flex items-center gap-2"><Plus className="w-4 h-4" /> New Booking</button>
         </div>
       </div>
@@ -236,6 +259,12 @@ export default function Appointments() {
                       {(a.status === "scheduled" || a.status === "confirmed") && (
                         <button data-testid={`remind-appt-${a.id}`} onClick={() => sendReminder(a)} className="p-1.5 text-emerald-500 hover:bg-emerald-500/10 rounded" title="Send WhatsApp confirmation / reminder">
                           <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        </button>
+                      )}
+                      {(a.status === "scheduled" || a.status === "confirmed") && canDirectWA && (
+                        <button data-testid={`card-appt-${a.id}`} onClick={() => window.open(`${process.env.REACT_APP_BACKEND_URL}/api/appointments/${a.id}/confirmation-card.png`, "_blank", "noopener,noreferrer")}
+                          className="p-1.5 text-amber-500 hover:bg-amber-500/10 rounded" title="Open designed confirmation card image — save & attach it in WhatsApp">
+                          <ImageIcon className="w-4 h-4" />
                         </button>
                       )}
                       {a.status === "scheduled" && (

@@ -588,3 +588,56 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     inv["gift_cards_issued"] = await _issue_pos_gift_cards(inv, cust, ctx["tenant_doc"])
     inv["receipts"] = await _send_billing_receipts(inv, cust, ctx["tenant_doc"], points_earned)
     return _clean(inv)
+
+
+@router.get("/appointments/{aid}/confirmation-card.png")
+async def confirmation_card(aid: str, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Branded confirmation card staff attach in WhatsApp. Managers/staff need the admin's wa_direct_send toggle."""
+    if user.get("role") not in ("admin", "super_admin") and not t.get("wa_direct_send"):
+        raise HTTPException(403, "The owner hasn't enabled direct WhatsApp sending for staff yet")
+    a = await db.appointments.find_one({"id": aid}, {"_id": 0})
+    if not a:
+        raise HTTPException(404, "Appointment not found")
+    from PIL import Image, ImageDraw, ImageFont
+    from fastapi.responses import Response as _Resp
+    from routes.promo_common import FONT_PATH
+    W, H = 1080, 1080
+    img = Image.new("RGB", (W, H), "#0D0D0D")
+    d = ImageDraw.Draw(img)
+    gold, cream, grey = "#D4AF37", "#F5EFE0", "#9C9484"
+    d.rectangle([28, 28, W - 28, H - 28], outline=gold, width=3)
+    d.rectangle([40, 40, W - 40, H - 40], outline="#6d5416", width=1)
+    f = lambda s: ImageFont.truetype(FONT_PATH, s)
+    def center(y, text, font, fill):
+        w = d.textlength(text, font=font)
+        d.text(((W - w) / 2, y), text, font=font, fill=fill)
+    center(96, (t.get("name") or "MIRACURL").upper(), f(44), gold)
+    center(165, (t.get("location") or "").upper()[:60], f(24), grey)
+    d.line([200, 230, W - 200, 230], fill="#6d5416", width=1)
+    center(280, "APPOINTMENT CONFIRMED", f(58), cream)
+    cx, cy = W / 2, 395
+    d.ellipse([cx - 42, cy - 42, cx + 42, cy + 42], outline="#3ddc84", width=5)
+    d.line([cx - 20, cy + 2, cx - 6, cy + 17], fill="#3ddc84", width=7)
+    d.line([cx - 6, cy + 17, cx + 22, cy - 15], fill="#3ddc84", width=7)
+    dt = datetime.fromisoformat(str(a["scheduled_at"]).replace("Z", "+00:00"))
+    rows = [("GUEST", a.get("customer_name") or "-"),
+            ("SERVICE", ", ".join(s.get("name") for s in (a.get("services") or [])) or "Your visit"),
+            ("DATE", dt.strftime("%A, %d %B %Y")),
+            ("TIME", dt.strftime("%I:%M %p").lstrip("0"))]
+    if a.get("staff_name"):
+        rows.append(("STYLIST", a["staff_name"]))
+    if a.get("total"):
+        rows.append(("AMOUNT", f"₹{a['total']:g}"))
+    y = 480
+    for label, val in rows:
+        center(y, label, f(22), grey)
+        center(y + 32, str(val)[:48], f(38), cream)
+        y += 96
+    d.line([200, y + 6, W - 200, y + 6], fill="#6d5416", width=1)
+    center(y + 34, "We look forward to pampering you", f(28), gold)
+    if t.get("phone"):
+        center(y + 82, f"Call us: {t['phone']}", f(24), grey)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return _Resp(content=buf.getvalue(), media_type="image/png",
+                 headers={"Content-Disposition": f'inline; filename="confirmation-{aid[:8]}.png"'})

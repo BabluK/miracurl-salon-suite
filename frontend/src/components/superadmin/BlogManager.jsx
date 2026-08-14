@@ -34,6 +34,14 @@ export const BlogManager = () => {
     catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
   }
 
+  async function approve(p) {
+    try {
+      await api.post(`/super-admin/blog/${p.id}/publish`);
+      toast.success(`"${p.title}" is live on /blog ✦`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Publish failed"); }
+  }
+
   return (
     <div className="rounded-2xl bg-[#101014] border border-white/10 p-5 mt-6" data-testid="blog-manager-card">
       <div className="flex items-center justify-between gap-3 mb-1">
@@ -80,11 +88,22 @@ export const BlogManager = () => {
         {posts.map(p => (
           <div key={p.id} className="flex items-center justify-between gap-3 bg-white/5 border border-white/10 rounded-lg px-3 py-2" data-testid={`blog-row-${p.slug}`}>
             <div className="min-w-0">
-              <a href={`/blog/${p.slug}`} target="_blank" rel="noreferrer" className="text-sm text-white/85 hover:text-amber-300 truncate block">{p.title}</a>
+              <a href={`/blog/${p.slug}`} target="_blank" rel="noreferrer" className="text-sm text-white/85 hover:text-amber-300 truncate block">
+                {p.published === false && <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40 mr-1.5">draft{p.auto_draft ? " · by Mira" : ""}</span>}
+                {p.title}
+              </a>
               <span className="text-[10px] text-white/35">/blog/{p.slug} · {(p.tags || []).join(", ")}</span>
             </div>
-            <button onClick={() => del(p)} data-testid={`blog-delete-${p.slug}`}
-              className="shrink-0 w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>
+            <div className="shrink-0 flex items-center gap-1.5">
+              {p.published === false && (
+                <button onClick={() => approve(p)} data-testid={`blog-approve-${p.slug}`}
+                  className="text-[11px] px-2.5 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-400/40 hover:bg-emerald-500/25 font-semibold">
+                  Approve & Publish
+                </button>
+              )}
+              <button onClick={() => del(p)} data-testid={`blog-delete-${p.slug}`}
+                className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>
+            </div>
           </div>
         ))}
       </div>
