@@ -1982,3 +1982,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Cart persistence across tabs already existed (localStorage pos_draft + PendingBillModal Continue/Discard) — verified working.
 - E2E verified via Playwright: bill POST 200 → receipt popup (INV-202608-0229); identical bill → duplicate modal → 'Yes, bill again' → INV-202608-0230 + receipt popup; cart survives Dashboard→POS navigation. Test invoices cleaned from DB. BUILD bumped to 2026-08-14.72 with release note. NOTE: many other pages still use window.confirm (out of scope backlog).
 - USER MUST REDEPLOY to get the fix in production.
+
+## 2026-08-14 — Popup Sweep (Appointments/Staff/Inventory)
+- Replaced window.confirm/window.prompt (blocked in installed PWAs) with the EXISTING shared components/ConfirmDialog.jsx (props: open/title/message/inputLabel/inputPlaceholder/defaultValue/confirmLabel/danger/onConfirm/onClose; testids confirm-dialog[-confirm/-cancel/-input]).
+- Appointments.jsx remove() → 'Cancel appointment?' dialog; Staff.jsx remove/toggleActive/resetLogin → dialogs, createLogin window.prompt → dialog with email input; Inventory.jsx remove() → 'Delete product?' dialog. Pattern: confirmAsk state + key={confirmAsk.title} remount for fresh input state.
+- testing_agent iteration_107: 9/9 PASS (dialogs open, Cancel is side-effect free, Confirm executes — verified end-to-end on Inventory delete and Staff disable/enable). BUILD bumped to 2026-08-14.73.
+- Backlog: other pages still on window.confirm (EmployeePortal, Plans, Gallery, BillingPanel, Services, StaffRegistry, MiraStudio, StaffPortal, HireStaff, Attendance, Customers, Reviews, SuperAdmin + superadmin components); consider a useConfirm() hook to DRY.

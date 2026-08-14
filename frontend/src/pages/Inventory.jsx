@@ -2,10 +2,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
 import { Plus, X, Edit3, Trash2, AlertTriangle, Package, Download, Upload, Minus, ShoppingBag, Droplets } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import ImageUploader from "@/components/ImageUploader";
 
 export default function Inventory() {
   const [list, setList] = useState([]);
+  const [confirmAsk, setConfirmAsk] = useState(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", brand: "", category: "Hair Care", sku: "", price: "", cost: "", stock: "", low_stock_threshold: 5, image_url: "", vendor_id: "", product_type: "retail" });
@@ -58,9 +60,13 @@ export default function Inventory() {
     } catch (err) { toast.error(err.response?.data?.detail || "Save failed"); }
   }
   async function remove(id) {
-    if (!window.confirm("Delete?")) return;
-    try { await api.delete(`/products/${id}`); toast.success("Deleted"); load(); }
-    catch (err) { toast.error(err.response?.data?.detail || "Delete failed"); }
+    setConfirmAsk({
+      title: "Delete product?", message: "It will be removed from your inventory.", confirmLabel: "Yes, delete", danger: true,
+      action: async () => {
+        try { await api.delete(`/products/${id}`); toast.success("Deleted"); load(); }
+        catch (err) { toast.error(err.response?.data?.detail || "Delete failed"); }
+      },
+    });
   }
 
   const lowStock = list.filter(p => p.stock <= p.low_stock_threshold);
@@ -263,6 +269,11 @@ export default function Inventory() {
             </form>
           </div>
         </div>
+      )}
+      {confirmAsk && (
+        <ConfirmDialog open key={confirmAsk.title} title={confirmAsk.title} message={confirmAsk.message}
+          confirmLabel={confirmAsk.confirmLabel} danger={confirmAsk.danger}
+          onConfirm={() => { setConfirmAsk(null); confirmAsk.action(); }} onClose={() => setConfirmAsk(null)} />
       )}
     </div>
   );

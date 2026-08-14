@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { WeekGrid } from "@/components/appointments/WeekGrid";
 import { NewAppointmentModal } from "@/components/appointments/NewAppointmentModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const STATUS_COLOR = {
   scheduled: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -25,6 +26,7 @@ export default function Appointments() {
   const { tenant, user } = useAuth();
   const isManager = user?.role === "manager";
   const [waDirect, setWaDirect] = useState(!!tenant?.wa_direct_send);
+  const [confirmAsk, setConfirmAsk] = useState(null);
   useEffect(() => { setWaDirect(!!tenant?.wa_direct_send); }, [tenant?.wa_direct_send]);
   const canDirectWA = !isManager || waDirect;
 
@@ -130,9 +132,13 @@ export default function Appointments() {
     } catch { toast.error("Couldn't update status"); }
   }
   async function remove(id) {
-    if (!window.confirm("Cancel this appointment?")) return;
-    try { await api.delete(`/appointments/${id}`); toast.success("Deleted"); load(); }
-    catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+    setConfirmAsk({
+      title: "Cancel appointment?", message: "The guest's booking will be removed.", confirmLabel: "Yes, cancel it", danger: true,
+      action: async () => {
+        try { await api.delete(`/appointments/${id}`); toast.success("Deleted"); load(); }
+        catch (e) { toast.error(e.response?.data?.detail || "Delete failed"); }
+      },
+    });
   }
 
   function toggleService(sid) {
@@ -323,6 +329,11 @@ export default function Appointments() {
           customers={customers} staff={staff} services={services}
           toggleService={toggleService} onSubmit={save} onClose={() => setOpen(false)}
         />
+      )}
+      {confirmAsk && (
+        <ConfirmDialog open key={confirmAsk.title} title={confirmAsk.title} message={confirmAsk.message}
+          confirmLabel={confirmAsk.confirmLabel} danger={confirmAsk.danger}
+          onConfirm={() => { setConfirmAsk(null); confirmAsk.action(); }} onClose={() => setConfirmAsk(null)} />
       )}
     </div>
   );

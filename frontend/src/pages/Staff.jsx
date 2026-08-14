@@ -15,6 +15,7 @@ import { LeaveApprovalsPanel } from "@/components/staff/LeaveApprovalsPanel";
 import { StaffLeaderboard } from "@/components/staff/StaffLeaderboard";
 import { PendingSignupsPanel } from "@/components/staff/PendingSignupsPanel";
 import { TempDutyLog } from "@/components/staff/TempDutyLog";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const EMPTY_FORM = {
   name: "", role: "Stylist", phone: "", email: "", personal_email: "", specialties: "",
@@ -47,6 +48,7 @@ export default function Staff() {
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
   const branches = tenant?.branches || [];
   const [list, setList] = useState([]);
+  const [confirmAsk, setConfirmAsk] = useState(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -106,52 +108,71 @@ export default function Staff() {
   }
 
   async function remove(id) {
-    if (!window.confirm("Delete this staff member? Their login (if any) will also be removed.")) return;
-    try {
-      await pinApi.delete(`/staff/${id}`);
-      toast.success("Deleted");
-      load();
-    } catch (e) {
-      toast.error(formatApiError(e.response?.data?.detail) || "Delete failed");
-    }
+    setConfirmAsk({
+      title: "Delete staff member?", message: "Their login (if any) will also be removed.", confirmLabel: "Yes, delete", danger: true,
+      action: async () => {
+        try {
+          await pinApi.delete(`/staff/${id}`);
+          toast.success("Deleted");
+          load();
+        } catch (e) {
+          toast.error(formatApiError(e.response?.data?.detail) || "Delete failed");
+        }
+      },
+    });
   }
 
   async function toggleActive(s) {
     const willBeActive = !s.active;
-    const msg = willBeActive
-      ? `Enable ${s.name}? Their login (if any) will be reactivated.`
-      : `Disable ${s.name}? They will not be able to log in until re-enabled.`;
-    if (!window.confirm(msg)) return;
-    try {
-      await api.post(`/staff/${s.id}/toggle-active`);
-      toast.success(willBeActive ? "Staff enabled" : "Staff disabled");
-      load();
-    } catch (e) {
-      toast.error(formatApiError(e.response?.data?.detail) || "Failed");
-    }
+    setConfirmAsk({
+      title: willBeActive ? `Enable ${s.name}?` : `Disable ${s.name}?`,
+      message: willBeActive
+        ? "Their login (if any) will be reactivated."
+        : "They will not be able to log in until re-enabled.",
+      confirmLabel: willBeActive ? "Enable" : "Disable", danger: !willBeActive,
+      action: async () => {
+        try {
+          await api.post(`/staff/${s.id}/toggle-active`);
+          toast.success(willBeActive ? "Staff enabled" : "Staff disabled");
+          load();
+        } catch (e) {
+          toast.error(formatApiError(e.response?.data?.detail) || "Failed");
+        }
+      },
+    });
   }
 
   async function createLogin(s) {
-    const email = window.prompt(`Create login for ${s.name}.\nEnter their email:`, s.email || "");
-    if (!email || !email.trim()) return;
-    try {
-      const { data } = await api.post(`/staff/${s.id}/create-login`, { email: email.trim().toLowerCase() });
-      setTempCred({ name: s.name, phone: s.phone, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
-      load();
-    } catch (e) {
-      toast.error(formatApiError(e.response?.data?.detail) || "Failed to create login");
-    }
+    setConfirmAsk({
+      title: `Create login for ${s.name}`, message: "Enter their email — they'll receive a temporary password.",
+      confirmLabel: "Create login", input: true, inputPlaceholder: "staff@email.com", defaultValue: s.email || "",
+      action: async (email) => {
+        if (!email) return;
+        try {
+          const { data } = await api.post(`/staff/${s.id}/create-login`, { email: email.toLowerCase() });
+          setTempCred({ name: s.name, phone: s.phone, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
+          load();
+        } catch (e) {
+          toast.error(formatApiError(e.response?.data?.detail) || "Failed to create login");
+        }
+      },
+    });
   }
 
   async function resetLogin(s) {
-    if (!window.confirm(`Reset ${s.name}'s password? A new temporary password will be generated and they'll set their own on next login.`)) return;
-    try {
-      const { data } = await api.post(`/staff/${s.id}/reset-login`);
-      setTempCred({ name: s.name, phone: s.phone, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
-      toast.success("New password generated — share it with the staff");
-    } catch (e) {
-      toast.error(formatApiError(e.response?.data?.detail) || "Failed to reset password");
-    }
+    setConfirmAsk({
+      title: `Reset ${s.name}'s password?`, message: "A new temporary password will be generated and they'll set their own on next login.",
+      confirmLabel: "Reset password",
+      action: async () => {
+        try {
+          const { data } = await api.post(`/staff/${s.id}/reset-login`);
+          setTempCred({ name: s.name, phone: s.phone, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
+          toast.success("New password generated — share it with the staff");
+        } catch (e) {
+          toast.error(formatApiError(e.response?.data?.detail) || "Failed to reset password");
+        }
+      },
+    });
   }
 
   async function cancelTemp(s) {
@@ -298,6 +319,14 @@ export default function Staff() {
 
       {advanceFor && (
         <AdvanceModal staff={advanceFor} onClose={() => setAdvanceFor(null)} />
+      )}
+      {confirmAsk && (
+        <ConfirmDialog open key={confirmAsk.title} title={confirmAsk.title} message={confirmAsk.message}
+          confirmLabel={confirmAsk.confirmLabel} danger={confirmAsk.danger}
+          inputLabel={confirmAsk.input ? "Email" : undefined} inputPlaceholder={confirmAsk.inputPlaceholder}
+          defaultValue={confirmAsk.defaultValue}
+          onConfirm={(v) => { setConfirmAsk(null); confirmAsk.action(v ? String(v).trim() : undefined); }}
+          onClose={() => setConfirmAsk(null)} />
       )}
     </div>
   );
