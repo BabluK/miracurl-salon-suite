@@ -10,6 +10,20 @@ export const BlogManager = () => {
   const [form, setForm] = useState(empty);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [topic, setTopic] = useState("");
+  const [drafting, setDrafting] = useState(false);
+
+  async function aiDraft() {
+    if (!topic.trim()) { toast.error("Give Mira a topic line first"); return; }
+    setDrafting(true);
+    try {
+      const { data } = await api.post("/super-admin/blog/ai-draft", { topic });
+      setForm({ title: data.title, excerpt: data.excerpt, content: data.content, tags: (data.tags || []).join(", "), published: true });
+      setShowForm(true);
+      toast.success("Draft ready ✦ Review below, edit anything, then Publish");
+    } catch (e) { toast.error(e.response?.data?.detail || "Draft failed — try again"); }
+    finally { setDrafting(false); }
+  }
 
   const load = () => api.get("/super-admin/blog").then(r => setPosts(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);

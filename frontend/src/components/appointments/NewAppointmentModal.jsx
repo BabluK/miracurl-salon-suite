@@ -14,8 +14,17 @@ export function NewAppointmentModal({ form, setForm, customers, staff, services,
               <label className="label-light block mb-1">Customer *</label>
               <select data-testid="appt-customer-select" required className="input-light" value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}>
                 <option value="">-- select --</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
+                {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone || "no phone ⚠"})</option>)}
               </select>
+              {(() => {
+                const sel = customers.find(c => c.id === form.customer_id);
+                if (!sel || (sel.phone || "").replace(/\D/g, "").length >= 10) return null;
+                return (
+                  <input data-testid="appt-guest-phone-input" required type="tel" placeholder="Guest phone number * (for WhatsApp confirmation)"
+                    value={form.guest_phone || ""} onChange={e => setForm({ ...form, guest_phone: e.target.value })}
+                    className="input-light mt-2 border-amber-400" />
+                );
+              })()}
             </div>
             <div>
               <label className="label-light block mb-1">Staff *</label>

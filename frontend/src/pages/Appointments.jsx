@@ -87,8 +87,19 @@ export default function Appointments() {
     if (!form.customer_id || !form.staff_id || form.service_ids.length === 0) {
       toast.error("Select customer, staff and at least one service"); return;
     }
+    const sel = customers.find(c => c.id === form.customer_id);
+    const hasPhone = (sel?.phone || "").replace(/\D/g, "").length >= 10;
+    if (sel && !hasPhone) {
+      const digits = (form.guest_phone || "").replace(/\D/g, "");
+      if (digits.length < 10) { toast.error("Please enter the guest's 10-digit phone number — it's needed for the WhatsApp confirmation"); return; }
+      try {
+        await api.put(`/customers/${sel.id}/phone`, { phone: form.guest_phone.trim() });
+        setCustomers(cs => cs.map(c => c.id === sel.id ? { ...c, phone: form.guest_phone.trim() } : c));
+      } catch (err) { toast.error(err.response?.data?.detail || "Couldn't save the phone number"); return; }
+    }
     try {
-      await api.post("/appointments", { ...form, scheduled_at: new Date(form.scheduled_at).toISOString() });
+      const { guest_phone, ...payload } = form;
+      await api.post("/appointments", { ...payload, scheduled_at: new Date(form.scheduled_at).toISOString() });
       toast.success("Appointment booked"); setOpen(false); load();
     } catch (err) { toast.error("Booking failed"); }
   }

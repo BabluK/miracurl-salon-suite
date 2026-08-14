@@ -358,6 +358,23 @@ export function MiraHome({ onGoTab, user }) {
             </div>
           )}
 
+          {home?.blog_drafts?.length > 0 && (
+            <div className="mt-3 max-w-2xl w-full flex items-start gap-2.5 bg-violet-500/10 border border-violet-400/30 rounded-2xl px-4 py-3" data-testid="mira-blog-draft-alert">
+              <span className="text-base leading-none mt-0.5">📝</span>
+              <div className="text-xs text-violet-200 leading-relaxed text-left flex-1">
+                <b>{home.blog_drafts[0].auto_draft ? "My weekly article is ready for your review, Boss:" : "A blog draft is waiting for approval:"}</b>{" "}
+                “{home.blog_drafts[0].title}”
+                {home.blog_drafts.length > 1 && <span className="text-violet-300/70"> (+{home.blog_drafts.length - 1} more draft{home.blog_drafts.length > 2 ? "s" : ""})</span>}
+                <div className="mt-2">
+                  <button onClick={() => onGoTab?.("partners")} data-testid="mira-blog-draft-review"
+                    className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-violet-400 text-[#0b1020] hover:bg-violet-300">
+                    Review & Publish →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {home?.health_alerts?.length > 0 && (
             <div className="mt-3 max-w-2xl w-full flex items-start gap-2.5 bg-amber-500/10 border border-amber-400/30 rounded-2xl px-4 py-3" data-testid="mira-health-alert">
               <span className="text-base leading-none mt-0.5">⚠️</span>

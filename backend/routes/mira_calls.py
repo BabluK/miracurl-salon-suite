@@ -1373,11 +1373,14 @@ async def mira_home(user=Depends(require_super_admin)):
                     "month": now.strftime("%B"), "coach": coach}
     sweep = await _raw_db.system_flags.find_one(
         {"key": "db_health"}, {"_id": 0, "checked_at": 1, "orphans": 1, "new_findings": 1, "announced": 1})
+    blog_drafts = await _raw_db.blog_posts.find(
+        {"published": False}, {"_id": 0, "title": 1, "auto_draft": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(5)
     return {"snapshot": snap, "new_prospects_48h": new_prospects, "followups_due": followups,
             "emails_sent": emails_sent, "active_run": active_run,
             "trials_expiring": trials_expiring, "timeline": timeline,
             "health": health, "orphan_records": orphans, "health_alerts": alerts,
-            "revenue_goal": revenue_goal, "weekly_sweep": sweep or {}}
+            "revenue_goal": revenue_goal, "weekly_sweep": sweep or {}, "blog_drafts": blog_drafts}
 
 
 class RevenueGoalIn(BaseModel):

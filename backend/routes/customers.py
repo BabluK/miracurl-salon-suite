@@ -64,9 +64,26 @@ async def list_customers(q: Optional[str] = None, user=Depends(require_admin)):
 
 @router.post("/customers")
 async def create_customer(body: CustomerIn, user=Depends(get_current_user)):
+    if len(re.sub(r"\D", "", body.phone or "")) < 10:
+        raise HTTPException(400, "Guest phone number is required (10 digits) — it's used for WhatsApp confirmations")
     c = Customer(**body.model_dump()).model_dump()
     await db.customers.insert_one(c)
     return _clean(c)
+
+
+class PhoneIn(BaseModel):
+    phone: str
+
+
+@router.put("/customers/{cid}/phone")
+async def set_customer_phone(cid: str, body: PhoneIn, user=Depends(get_current_user)):
+    """Quick phone fix during booking — updates ONLY the phone field."""
+    if len(re.sub(r"\D", "", body.phone or "")) < 10:
+        raise HTTPException(400, "Enter a valid 10-digit phone number")
+    res = await db.customers.update_one({"id": cid}, {"$set": {"phone": body.phone.strip()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Customer not found")
+    return {"ok": True, "phone": body.phone.strip()}
 
 @router.get("/customers/export")
 async def export_customers_csv(user=Depends(require_admin), t=Depends(current_tenant)):
