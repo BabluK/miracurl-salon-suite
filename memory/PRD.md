@@ -1974,3 +1974,11 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Behavior-identical extractions: assistant.py _create_chat; appointments_pos.py _bill_signature/_minutes_since/_find_recent_duplicate + _confirmation_rows/_render_confirmation_card; lead_gen.py _compose_lead + _roi_funnel_counts/_converted_rows; gift_cards.py _campaign_eligible/_send_tenant_campaign; email_service.py _resend_config_error/_resend_params (public 9-arg _send_email signature intentionally preserved — 79 call sites, changing it = regression risk).
 - Also fixed: stray duplicated fragment at lead_gen.py EOF (pre-existing syntax corruption), iter103 test brittleness (hardcoded 'gold' tier → seeded value; added force_duplicate:true to invoice payloads since the duplicate-bill guard postdates that suite).
 - Regression: 66 pytest tests pass (iter103, iter13 billing, iter85 gift cards, refactor_regression) + curl-verified /super-admin/mira-leads/roi, confirmation-card.png (valid PNG), streamed /assistant/chat.
+
+## 2026-08-14 — POS billing crash fix (PRODUCTION bug) + duplicate modal + cart persistence
+- ROOT CAUSE: commit 015e9b9 (duplicate-bill guard) used chargingRef.current in POS.jsx checkout() but never declared `const chargingRef = useRef(false)` → every Create/Create & Complete click threw ReferenceError, no bill created, no receipt popup. Shipped to production. FIX: declared the ref.
+- window.confirm for the duplicate-bill prompt replaced with in-app DuplicateBillModal.jsx (data-testid pos-duplicate-bill-modal, duplicate-bill-confirm-btn/cancel-btn) — window.confirm is blocked in installed PWA/standalone mode.
+- OpenBillsPanel delete confirm → two-tap confirm (button turns red 'Confirm?', 5s reset) instead of window.confirm.
+- Cart persistence across tabs already existed (localStorage pos_draft + PendingBillModal Continue/Discard) — verified working.
+- E2E verified via Playwright: bill POST 200 → receipt popup (INV-202608-0229); identical bill → duplicate modal → 'Yes, bill again' → INV-202608-0230 + receipt popup; cart survives Dashboard→POS navigation. Test invoices cleaned from DB. BUILD bumped to 2026-08-14.72 with release note. NOTE: many other pages still use window.confirm (out of scope backlog).
+- USER MUST REDEPLOY to get the fix in production.

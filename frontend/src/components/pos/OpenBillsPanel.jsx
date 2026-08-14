@@ -9,6 +9,7 @@ export function OpenBillsPanel({ sym = "₹", refreshKey = 0, onCompleted, canDe
   const [expanded, setExpanded] = useState(false);
   const [payModes, setPayModes] = useState({});
   const [busyId, setBusyId] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState("");
 
   const load = useCallback(() => {
     api.get("/invoices", { params: { status: "open" } })
@@ -31,7 +32,13 @@ export function OpenBillsPanel({ sym = "₹", refreshKey = 0, onCompleted, canDe
   }
 
   async function remove(b) {
-    if (!window.confirm(`Delete open bill ${b.invoice_no} (${b.customer_name})? This can't be undone.`)) return;
+    if (confirmDeleteId !== b.id) {
+      setConfirmDeleteId(b.id);
+      toast.warning(`Delete open bill ${b.invoice_no} (${b.customer_name})? Tap Delete again to confirm.`);
+      setTimeout(() => setConfirmDeleteId(id => (id === b.id ? "" : id)), 5000);
+      return;
+    }
+    setConfirmDeleteId("");
     setBusyId(b.id);
     try {
       await api.delete(`/invoices/${b.id}`);
@@ -78,8 +85,8 @@ export function OpenBillsPanel({ sym = "₹", refreshKey = 0, onCompleted, canDe
               {canDelete && (
                 <button onClick={() => remove(b)} disabled={busyId === b.id} data-testid={`pos-open-bill-delete-${b.invoice_no}`}
                   title="Delete this wrongly-created bill"
-                  className="inline-flex items-center border border-rose-200 text-rose-600 text-xs font-bold rounded-lg px-2 py-1.5 hover:bg-rose-50 disabled:opacity-50">
-                  <Trash2 className="w-3.5 h-3.5" />
+                  className={`inline-flex items-center gap-1 border text-xs font-bold rounded-lg px-2 py-1.5 disabled:opacity-50 ${confirmDeleteId === b.id ? "bg-rose-500 border-rose-500 text-white" : "border-rose-200 text-rose-600 hover:bg-rose-50"}`}>
+                  <Trash2 className="w-3.5 h-3.5" />{confirmDeleteId === b.id && "Confirm?"}
                 </button>
               )}
             </div>

@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-14.71"
-BUILD_TIME = "14 Aug 2026, 11:47 AM IST"
+BUILD = "2026-08-14.72"
+BUILD_TIME = "14 Aug 2026, 01:15 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-14 (Billing fixed & bills that never vanish 🧾)",
+        "changes": [
+            "🚑 POS billing FIXED — the 'Create' and 'Create & Complete' buttons were silently failing (a code error stopped every click); bills now punch instantly and the receipt popup appears every time",
+            "⚠️ Duplicate-bill warning is now a proper in-app popup — 'Possible duplicate bill … Yes, bill again / Cancel' shows reliably on every device (the old browser confirm box was blocked on installed apps)",
+            "📋 Your bill follows you — add items, jump to any other tab and come back: the POS asks 'Pending bill — Continue or Discard?' so an in-progress bill is never lost",
+            "🗑️ Safer open-bill delete — the delete button now asks for a second confirming tap (turns red with 'Confirm?') instead of a browser popup that could be blocked",
+        ],
+    },
     {
         "date": "2026-08-14 (Branch pins, your salon hours & under-the-hood tune-up 🛠️)",
         "changes": [

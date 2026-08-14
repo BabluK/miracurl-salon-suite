@@ -12,6 +12,7 @@ import { MemberQrScanner } from "@/components/pos/MemberQrScanner";
 import { GiftCardSellModal } from "@/components/pos/GiftCardSellModal";
 import { OpenBillsPanel } from "@/components/pos/OpenBillsPanel";
 import { PendingBillModal } from "@/components/pos/PendingBillModal";
+import { DuplicateBillModal } from "@/components/pos/DuplicateBillModal";
 import { playErrorBuzz } from "@/lib/scanSounds";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
@@ -49,6 +50,8 @@ export default function POS() {
   const [taxEnabled, setTaxEnabled] = useState(false);
   const [payment, setPayment] = useState("");
   const [charging, setCharging] = useState(false);
+  const chargingRef = useRef(false);
+  const [dupPrompt, setDupPrompt] = useState(null); // { message, complete }
   const [branchId, setBranchId] = useState(() => {
     try { return localStorage.getItem("pos_branch") || ""; } catch { return ""; }
   });
@@ -455,11 +458,7 @@ export default function POS() {
       if (err.response?.status === 409 && detail.includes("DUPLICATE_BILL")) {
         chargingRef.current = false;
         setCharging(false);
-        const msg = detail.replace("DUPLICATE_BILL — ", "");
-        if (window.confirm(`⚠️ ${msg}\n\nAre you sure you want to create this bill again?`)) {
-          return checkout(complete, true);
-        }
-        toast.info("Bill not created — possible duplicate avoided ✅");
+        setDupPrompt({ message: detail.replace("DUPLICATE_BILL — ", ""), complete });
         return;
       }
       toast.error(detail || "Checkout failed");
@@ -655,6 +654,14 @@ export default function POS() {
           info={pendingBill} sym={sym}
           onContinue={() => setPendingBill(null)}
           onDiscard={() => { clearAll(); setPendingBill(null); toast.info("Pending bill discarded — starting fresh"); }}
+        />
+      )}
+
+      {dupPrompt && (
+        <DuplicateBillModal
+          message={dupPrompt.message}
+          onConfirm={() => { const c = dupPrompt.complete; setDupPrompt(null); checkout(c, true); }}
+          onCancel={() => { setDupPrompt(null); toast.info("Bill not created — possible duplicate avoided ✅"); }}
         />
       )}
 
