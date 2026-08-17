@@ -63,10 +63,15 @@ async def list_customers(q: Optional[str] = None, user=Depends(require_admin)):
     return docs
 
 async def _find_by_phone(digits: str, exclude_id: str | None = None):
-    flt = {"phone": {"$regex": re.escape(digits[-10:]) + "$"}}
-    if exclude_id:
-        flt["id"] = {"$ne": exclude_id}
-    return await db.customers.find_one(flt, {"_id": 0, "id": 1, "name": 1, "phone": 1})
+    """Match on normalized digits so '+91 82170 72523' and '8217072523' are the same number."""
+    last10 = digits[-10:]
+    docs = await db.customers.find({}, {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(10000)
+    for c in docs:
+        if exclude_id and c["id"] == exclude_id:
+            continue
+        if re.sub(r"\D", "", c.get("phone") or "")[-10:] == last10:
+            return c
+    return None
 
 
 @router.post("/customers")
