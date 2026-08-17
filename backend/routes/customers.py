@@ -62,13 +62,103 @@ async def list_customers(q: Optional[str] = None, user=Depends(require_admin)):
     docs = await db.customers.find(flt, {"_id": 0}).sort("created_at", -1).to_list(500)
     return docs
 
+async def _find_by_phone(digits: str, exclude_id: str | None = None):
+    flt = {"phone": {"$regex": re.escape(digits[-10:]) + "$"}}
+    if exclude_id:
+        flt["id"] = {"$ne": exclude_id}
+    return await db.customers.find_one(flt, {"_id": 0, "id": 1, "name": 1, "phone": 1})
+
+
 @router.post("/customers")
 async def create_customer(body: CustomerIn, user=Depends(get_current_user)):
-    if len(re.sub(r"\D", "", body.phone or "")) < 10:
+    digits = re.sub(r"\D", "", body.phone or "")
+    if len(digits) < 10:
         raise HTTPException(400, "Guest phone number is required (10 digits) — it's used for WhatsApp confirmations")
+    existing = await _find_by_phone(digits)
+    if existing:
+        raise HTTPException(409, {"code": "PHONE_EXISTS", "customer": existing})
     c = Customer(**body.model_dump()).model_dump()
     await db.customers.insert_one(c)
     return _clean(c)
+
+
+@router.get("/customers/duplicates")
+async def customer_duplicates(user=Depends(require_admin)):
+    """Groups of CRM records sharing the same phone number (last 10 digits)."""
+    docs = await db.customers.find(
+        {}, {"_id": 0, "id": 1, "name": 1, "phone": 1, "visits": 1, "total_spent": 1,
+             "loyalty_points": 1, "wallet_balance": 1, "created_at": 1, "crm_status": 1}).to_list(3000)
+    groups: Dict[str, list] = {}
+    for c in docs:
+        digits = re.sub(r"\D", "", c.get("phone") or "")[-10:]
+        if len(digits) < 7:
+            continue
+        groups.setdefault(digits, []).append(c)
+    dup = [{"phone": k, "customers": sorted(v, key=lambda x: x.get("created_at") or "")}
+           for k, v in groups.items() if len(v) > 1]
+    dup.sort(key=lambda g: -len(g["customers"]))
+    return dup
+
+
+class MergeIn(BaseModel):
+    primary_id: str
+    duplicate_ids: List[str]
+
+
+@router.post("/customers/merge")
+async def merge_customers(body: MergeIn, user=Depends(require_admin)):
+    """Merge duplicate CRM records into one: bills/appointments/wallet history are re-pointed
+    to the primary so every past payment stays trackable; stats are summed; dupes deleted."""
+    primary = await db.customers.find_one({"id": body.primary_id}, {"_id": 0})
+    if not primary:
+        raise HTTPException(404, "Primary customer not found")
+    dup_ids = [d for d in set(body.duplicate_ids) if d != body.primary_id]
+    dupes = await db.customers.find({"id": {"$in": dup_ids}}, {"_id": 0}).to_list(50)
+    if not dupes:
+        raise HTTPException(400, "No duplicate records to merge")
+    dup_ids = [d["id"] for d in dupes]
+    for coll in ("invoices", "appointments", "reviews", "wallet_txns",
+                 "customer_memberships", "complaints"):
+        await getattr(db, coll).update_many({"customer_id": {"$in": dup_ids}}, {"$set": {"customer_id": body.primary_id}})
+    for coll in ("invoices", "appointments"):
+        await getattr(db, coll).update_many({"customer_id": body.primary_id}, {"$set": {"customer_name": primary["name"]}})
+    upd = {
+        "visits": int(primary.get("visits") or 0) + sum(int(d.get("visits") or 0) for d in dupes),
+        "total_spent": round(float(primary.get("total_spent") or 0) + sum(float(d.get("total_spent") or 0) for d in dupes), 2),
+        "loyalty_points": int(primary.get("loyalty_points") or 0) + sum(int(d.get("loyalty_points") or 0) for d in dupes),
+        "wallet_balance": round(float(primary.get("wallet_balance") or 0) + sum(float(d.get("wallet_balance") or 0) for d in dupes), 2),
+        "referral_credit": round(float(primary.get("referral_credit") or 0) + sum(float(d.get("referral_credit") or 0) for d in dupes), 2),
+    }
+    for f in ("email", "dob", "anniversary", "address", "notes", "gender"):
+        if not primary.get(f):
+            v = next((d.get(f) for d in dupes if d.get(f)), None)
+            if v:
+                upd[f] = v
+    lv = [x for x in [primary.get("last_visited")] + [d.get("last_visited") for d in dupes] if x]
+    if lv:
+        upd["last_visited"] = max(lv)
+    if primary.get("crm_status") == "pending" and any(d.get("crm_status") != "pending" for d in dupes):
+        upd["crm_status"] = "active"
+    await db.customers.update_one({"id": body.primary_id}, {"$set": upd})
+    await db.customers.delete_many({"id": {"$in": dup_ids}})
+    return {"ok": True, "merged": len(dupes),
+            "customer": await db.customers.find_one({"id": body.primary_id}, {"_id": 0})}
+
+
+@router.get("/customers/{cid}/history")
+async def customer_history(cid: str, user=Depends(require_admin)):
+    """Date-wise service history: every non-voided bill with items, staff and amounts."""
+    invs = await db.invoices.find(
+        {"customer_id": cid, "status": {"$ne": "voided"}},
+        {"_id": 0, "invoice_no": 1, "created_at": 1, "items": 1, "total": 1,
+         "payment_mode": 1, "status": 1, "tip": 1, "discount": 1},
+    ).sort("created_at", -1).to_list(200)
+    staff_map = {s["id"]: s.get("name") for s in await db.staff.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(200)}
+    for inv in invs:
+        for it in inv.get("items", []):
+            if not it.get("staff_name") and it.get("staff_id"):
+                it["staff_name"] = staff_map.get(it["staff_id"])
+    return invs
 
 
 class PhoneIn(BaseModel):
@@ -150,6 +240,11 @@ async def get_customer(cid: str, user=Depends(get_current_user)):
 
 @router.put("/customers/{cid}")
 async def update_customer(cid: str, body: CustomerIn, user=Depends(require_admin)):
+    digits = re.sub(r"\D", "", body.phone or "")
+    if len(digits) >= 10:
+        existing = await _find_by_phone(digits, exclude_id=cid)
+        if existing:
+            raise HTTPException(409, {"code": "PHONE_EXISTS", "customer": existing})
     await db.customers.update_one({"id": cid}, {"$set": body.model_dump()})
     return await db.customers.find_one({"id": cid}, {"_id": 0})
 

@@ -6,6 +6,7 @@ import { payLabel } from "@/components/pos/payLabels";
 import { useAuth } from "@/context/AuthContext";
 import { printInvoice } from "@/components/pos/receipt";
 import AddGuestModal from "@/components/pos/AddGuestModal";
+import { askConfirm } from "@/components/ConfirmDialog";
 import InvoiceReceiptModal from "@/components/pos/InvoiceReceiptModal";
 import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
 import { MemberQrScanner } from "@/components/pos/MemberQrScanner";
@@ -80,27 +81,55 @@ export default function POS() {
     toast.error("That QR isn't a Miracurl member or gift card");
   }
 
+  // ---- Parallel bill sessions: each browser tab (and each "+ New bill") is its own draft ----
+  const sidRef = useRef("");
+  const [billSessions, setBillSessions] = useState([]);
+  const _readDrafts = () => { try { return JSON.parse(localStorage.getItem("pos_drafts_v2") || "{}"); } catch { return {}; } };
+  const _summarize = (drafts) => Object.entries(drafts).map(([sid, d]) => ({
+    sid,
+    label: (d.guestQuery || "").split("·")[0].trim(),
+    items: (d.cart || []).reduce((s, c) => s + (c.qty || 1), 0),
+    total: (d.cart || []).reduce((s, c) => s + (c.qty || 1) * (c.price || 0), 0),
+  }));
+  const _newSid = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
   // Draft persistence: refresh/new tab must not lose an in-progress bill
   useEffect(() => {
+    const drafts = _readDrafts();
     try {
-      const d = JSON.parse(localStorage.getItem("pos_draft") || "null");
-      if (d?.cart?.length) {
-        setCart(d.cart); setCustomerId(d.customerId || ""); setGuestQuery(d.guestQuery || "");
-        setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment);
-        setPendingBill({
-          items: d.cart.reduce((s, c) => s + (c.qty || 1), 0),
-          total: d.cart.reduce((s, c) => s + (c.qty || 1) * (c.price || 0), 0),
-        });
-      }
+      const legacy = JSON.parse(localStorage.getItem("pos_draft") || "null");
+      if (legacy?.cart?.length) drafts[_newSid()] = legacy;
+      localStorage.removeItem("pos_draft");
     } catch { /* fresh start */ }
+    let sid = sessionStorage.getItem("pos_sid");
+    if (sid && drafts[sid]?.cart?.length) {
+      const d = drafts[sid];
+      setCart(d.cart); setCustomerId(d.customerId || ""); setGuestQuery(d.guestQuery || "");
+      setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment);
+      setPendingBill({
+        items: d.cart.reduce((s, c) => s + (c.qty || 1), 0),
+        total: d.cart.reduce((s, c) => s + (c.qty || 1) * (c.price || 0), 0),
+      });
+    } else {
+      sid = _newSid();
+    }
+    sessionStorage.setItem("pos_sid", sid);
+    sidRef.current = sid;
+    localStorage.setItem("pos_drafts_v2", JSON.stringify(drafts));
+    setBillSessions(_summarize(drafts));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
+    if (!sidRef.current) return;
+    const drafts = _readDrafts();
     if (cart.length) {
-      localStorage.setItem("pos_draft", JSON.stringify({ cart, customerId, guestQuery, orderNotes, payment }));
+      drafts[sidRef.current] = { cart, customerId, guestQuery, orderNotes, payment };
     } else {
-      localStorage.removeItem("pos_draft");
+      delete drafts[sidRef.current];
     }
+    localStorage.setItem("pos_drafts_v2", JSON.stringify(drafts));
+    setBillSessions(_summarize(drafts));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, customerId, guestQuery, orderNotes, payment]);
 
   async function applyMemberCode(codeArg) {
@@ -396,6 +425,39 @@ export default function POS() {
     setTipPct(null); setCustomTip(0); setTipStaffId("");
   }
 
+  function switchBillSession(sid) {
+    if (sid === sidRef.current) return;
+    const d = _readDrafts()[sid] || {};
+    sidRef.current = sid;
+    sessionStorage.setItem("pos_sid", sid);
+    clearAll();
+    setCart(d.cart || []); setCustomerId(d.customerId || ""); setGuestQuery(d.guestQuery || "");
+    setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment);
+  }
+  function newBillSession() {
+    const sid = _newSid();
+    sidRef.current = sid;
+    sessionStorage.setItem("pos_sid", sid);
+    clearAll();
+    setBillSessions(_summarize(_readDrafts()));
+  }
+  function closeBillSession(s) {
+    const doClose = () => {
+      const drafts = _readDrafts();
+      delete drafts[s.sid];
+      localStorage.setItem("pos_drafts_v2", JSON.stringify(drafts));
+      setBillSessions(_summarize(drafts));
+      if (s.sid === sidRef.current) clearAll();
+    };
+    if (s.items > 0) {
+      askConfirm({
+        title: "Discard this bill?",
+        message: `${s.label || "This bill"} has ${s.items} item${s.items > 1 ? "s" : ""} worth ${sym}${s.total.toFixed(0)} — it will be lost.`,
+        confirmLabel: "Discard bill", danger: true, action: doClose,
+      });
+    } else doClose();
+  }
+
   async function checkout(complete = true, forceDup = false) {
     if (chargingRef.current) return;
     const missingStaff = cart.filter(c => c.type === "service" && !c.staff_id);
@@ -522,6 +584,32 @@ export default function POS() {
 
         <div className="lg:col-span-7 xl:col-span-8 space-y-4">
           <OpenBillsPanel sym={sym} refreshKey={openBillsKey} canDelete={user?.role === "admin"} />
+          {billSessions.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap" data-testid="pos-bill-sessions">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Parallel bills</span>
+            {billSessions.map((s, i) => (
+              <span key={s.sid}
+                className={`inline-flex items-center rounded-full border text-xs font-semibold overflow-hidden shadow-sm ${s.sid === sidRef.current ? "bg-slate-900 border-slate-900 text-amber-300" : "bg-white border-slate-200 text-slate-600"}`}>
+                <button type="button" data-testid={`pos-bill-session-${i}`}
+                  onClick={() => switchBillSession(s.sid)}
+                  className="pl-3 pr-1.5 py-1.5">
+                  🧾 {s.label || `Bill ${i + 1}`} · {sym}{s.total.toFixed(0)}
+                </button>
+                <button type="button" data-testid={`pos-bill-session-close-${i}`}
+                  onClick={() => closeBillSession(s)}
+                  title="Discard this bill"
+                  className={`pr-2.5 pl-1 py-1.5 ${s.sid === sidRef.current ? "text-slate-400 hover:text-rose-400" : "text-slate-300 hover:text-rose-500"}`}>✕</button>
+              </span>
+            ))}
+            {billSessions.some(s => s.sid === sidRef.current) && (
+              <button type="button" data-testid="pos-new-bill-session-btn"
+                onClick={newBillSession}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-dashed border-slate-300 bg-white text-xs font-semibold text-sky-600 hover:border-sky-400 hover:bg-sky-50 transition shadow-sm">
+                + New bill
+              </button>
+            )}
+          </div>
+          )}
           <InvoiceHeader
             tenant={tenant} branchId={branchId} onBranchChange={changeBranch} branchLocked={lockedBranchId !== null}
             guestBoxRef={guestBoxRef} guestQuery={guestQuery} setGuestQuery={setGuestQuery}

@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-14.76"
-BUILD_TIME = "14 Aug 2026, 04:35 PM IST"
+BUILD = "2026-08-17.78"
+BUILD_TIME = "17 Aug 2026, 08:50 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-14 (No duplicate guests, visit history & parallel bills 🧾)",
+        "changes": [
+            "📵 No more duplicate numbers — Add Guest now checks the phone number: if it's already saved, POS shows who owns it and lets you pick that guest for the bill in one tap (works when editing customers too)",
+            "🕓 Visit history in CRM — tap the new clock icon on any customer to see every visit date-wise: which services, which stylist, how much, and how they paid",
+            "🧾 Parallel bills — serve many guests at once! Tap '+ New bill' to start another bill while one is in progress; each bill shows as a chip (guest name + amount) and you can switch between them anytime. Opening POS in a new browser tab also starts its own fresh bill",
+            "🔀 Merge duplicate guests — CRM now has a 'Merge duplicates' button that finds numbers saved more than once; pick the record to keep and all bills, visits, wallet money and points move into it, so the full payment history stays in one place",
+        ],
+    },
     {
         "date": "2026-08-14 (Billing fixed & bills that never vanish 🧾)",
         "changes": [

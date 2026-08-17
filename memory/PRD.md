@@ -2004,3 +2004,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-14 — POS billing bar polish
 - CartTable.jsx footer redesigned: Coupon + Overall-disc as grouped white pill inputs (label | control | input) with shadow-sm; active ₹/% toggle = bg-slate-900 text-amber-300; discount chips = colour-coded rounded-full badges (rose/violet/emerald/orange/amber); right side Discount/Tax + Grand Total in dark pill w/ amber text (testid pos-grand-total). NOTE: inputs inside white pills need explicit bg-white (global CSS darkens bare inputs). Screenshot-verified. BUILD .76.
+
+## 2026-08-14/17 — Duplicate guard, CRM history, Parallel bills, Merge duplicates
+- Duplicate phone: routes/customers.py _find_by_phone (last-10 regex); POST & PUT /customers → 409 {code:PHONE_EXISTS, customer}. AddGuestModal shows amber panel with 'Use <name> for this bill' (selects existing); Customers.jsx shows clear toast.
+- CRM history: GET /customers/{cid}/history (non-voided invoices desc, staff names resolved). CustomerHistoryModal.jsx via clock icon (history-customer-<id>).
+- Parallel bills: POS localStorage pos_drafts_v2 map + sessionStorage pos_sid per browser tab; legacy pos_draft auto-migrated. Chips strip (pos-bill-sessions, pos-bill-session-N, pos-new-bill-session-btn), switch/new/close (close w/ askConfirm). Checkout auto-clears that session's draft.
+- Merge duplicates: GET /customers/duplicates (groups by last-10 digits) + POST /customers/merge {primary_id, duplicate_ids} — re-points invoices/appointments/reviews/wallet_txns/customer_memberships/complaints (use getattr(db, coll), _DB not subscriptable; membership_orders NOT on _DB — skipped), updates customer_name on invoices+appointments, sums visits/spent/points/wallet/referral_credit, fills empty profile fields, deletes dupes. UI: MergeDuplicatesModal.jsx via merge-duplicates-btn on Customers page (radio pick primary per group).
+- Tested: testing_agent iteration_109 12/12 PASS (dup guard, history, parallel bills, checkout regression); merge curl-verified e2e (sums correct, history preserved, dupe deleted) + modal screenshot with real dup groups. BUILD 2026-08-17.78.

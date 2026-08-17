@@ -1,0 +1,40 @@
+{
+  "summary": "Iter 109 — Verified 3 new features (duplicate-phone guard in POS AddGuest & CRM, CRM visit history modal, POS parallel bill sessions + per-tab persistence) plus POS checkout regression. ALL 12 scenarios PASS. No new bugs found. Backend spot checks (customer history, 409 PHONE_EXISTS) OK. Test data cleaned up (ZZ Disposable customer, INV-202608-0225 invoice removed).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_coverage_details": {
+    "T1_CRM_add_dup_phone": "PASS — toast 'This number already belongs to Test Member (9000011111) — one number, one guest' shown; customer NOT created.",
+    "T2_CRM_history_modal_open": "PASS — clock icon on Test Member's row opens modal with 9 bills, date-wise, invoice numbers (INV-202608-0216 … 0224), service chips (Bridal Makeup, Party Makeup, Gift Card—Birthday), staff names (Priya Sharma), totals (₹2124/₹1180 etc.), payment badges (Cash/GPay).",
+    "T2_CRM_history_modal_close": "PASS — Close button closes the modal.",
+    "T3_POS_AddGuest_dup_panel": "PASS — amber panel (add-guest-duplicate-panel) with 'Use Test Member for this bill' + 'Change number' buttons; panel text: '⚠️ This number is already saved as Test Member (9000011111)…'.",
+    "T3_change_number_clears_panel": "PASS — clicking Change number clears the duplicate panel.",
+    "T3_use_existing_selects_guest": "PASS — clicking 'Use Test Member for this bill' closes modal and Test Member is selected in the guest chip.",
+    "T4_POS_AddGuest_new_unique_phone": "PASS — creating 'ZZ Disposable' with unique phone 8888877777 saves and auto-selects as bill guest (toast 'Added ZZ Disposable').",
+    "T5_parallel_bills_strip_visible": "PASS — pos-bill-sessions strip renders after adding TEST Service; chip shows amount ₹100.",
+    "T5_new_bill_session_button": "PASS — pos-new-bill-session-btn creates new empty session; cart clears (fresh bill), previous session preserved.",
+    "T5_two_chips_present": "PASS — after adding TEST Service to second session, pos-bill-session-0 and pos-bill-session-1 both present.",
+    "T5_switch_between_bills": "PASS — clicking pos-bill-session-0 restores first bill's cart/guest.",
+    "T5_close_bill_confirm": "PASS — pos-bill-session-close-0 triggers confirmAsync 'Discard this bill?' dialog; confirm discards; chip count drops.",
+    "T6_same_tab_reload_persistence": "PASS — with TEST Service in cart, reload → 'Pending bill' modal appears with '1 item worth ₹100', Continue restores cart correctly. sessionStorage pos_sid preserved; localStorage pos_drafts_v2 preserved.",
+    "T7_full_checkout_regression": "PASS — Add TEST Service, guest Test Member (via search dropdown), stylist Priya Sharma in cart row select, GPay (pos-pay-upi), pos-create-complete-btn → bill INV-202608-0225 created for ₹106.20 (UPI). No duplicate-bill modal shown. Verified via backend GET /api/customers/{id}/history."
+  },
+  "critical_code_review_comments": [
+    "Minor UX polish (not a bug): after closeBillSession discards the CURRENTLY ACTIVE bill, sidRef.current still points to the deleted sid (clearAll runs but sid is not rotated to a fresh _newSid). On next reload the mount effect finds no draft under that sid and silently starts a new session — this is the observed behaviour and it is safe, but a next-item action would be persisted under a stale sid and could show up as a bill chip with an orphan-looking label until the user adds items. Consider: `if (s.sid === sidRef.current) { sidRef.current = _newSid(); sessionStorage.setItem('pos_sid', sidRef.current); }` inside doClose.",
+    "The Add Guest modal shows the amber duplicate panel on 409 but keeps the phone field editable — good. Small UX suggestion: auto-focus the phone field when 'Change number' is clicked so staff can immediately retype.",
+    "CustomerHistoryModal renders up to N bills without pagination or virtualisation. For heavy guests (>200 visits) this could get slow — consider capping to last 50 with a 'Load more'.",
+    "React hydration warnings observed in console: `<span> option` cannot be a child of an <option> element — caused by BranchSwitcher wrapping option label content in a <span>. Pre-existing (not introduced by this feature) but should be cleaned to keep the console signal-to-noise usable during regression."
+  ],
+  "test_report_links": ["/app/test_reports/iteration_109.json"],
+  "action_items": [
+    "Optional: rotate sidRef.current to a fresh sid inside closeBillSession when the currently active bill is closed (see review comment #1).",
+    "Optional (pre-existing): fix BranchSwitcher <option><span>…</span></option> hydration warning."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "spot-checked 100% (2/2 endpoints — history + create-409)", "frontend": "12/12 scenarios PASS"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL — tenant miracurl-marathahalli, Owner PIN 4321",
+  "seed_data_creation": "Created + deleted: 'ZZ Disposable' customer (phone 8888877777) and invoice INV-202608-0225 (₹106.20 UPI for Test Member). Both removed via API/DB. No lingering test data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All three new features verified working end-to-end. The Login button text is 'Login' (exact) not 'Sign in'. Customer form uses data-testids customer-name-input / customer-phone-input / save-customer-btn (no placeholder-based selectors). POS Add Guest button testid is 'pos-add-guest-btn'; modal fields are add-guest-name / add-guest-phone / add-guest-save-btn / add-guest-duplicate-panel / add-guest-use-existing-btn / add-guest-change-number-btn. Parallel bill chips: pos-bill-sessions strip, pos-bill-session-{i}, pos-bill-session-close-{i}, pos-new-bill-session-btn. Payment mode 'GPay' has data-testid pos-pay-upi.",
+  "rca of the issue": "N/A — no defects found."
+}

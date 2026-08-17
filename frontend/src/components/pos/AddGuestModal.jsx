@@ -11,6 +11,7 @@ export default function AddGuestModal({ onClose, onCreated }) {
   const [dob, setDob] = useState("");
   const [anniversary, setAnniversary] = useState("");
   const [busy, setBusy] = useState(false);
+  const [duplicate, setDuplicate] = useState(null);
 
   async function save(e) {
     e.preventDefault();
@@ -30,7 +31,12 @@ export default function AddGuestModal({ onClose, onCreated }) {
       });
       onCreated(data);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Couldn't create guest");
+      const d = err.response?.data?.detail;
+      if (err.response?.status === 409 && d?.code === "PHONE_EXISTS") {
+        setDuplicate(d.customer);
+      } else {
+        toast.error(typeof d === "string" ? d : "Couldn't create guest");
+      }
     } finally { setBusy(false); }
   }
 
@@ -48,8 +54,27 @@ export default function AddGuestModal({ onClose, onCreated }) {
         </div>
         <div>
           <label className="text-xs text-slate-500 font-medium">Phone *</label>
-          <input data-testid="add-guest-phone" value={phone} onChange={e => setPhone(e.target.value)} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="98765 43210" />
+          <input data-testid="add-guest-phone" value={phone} onChange={e => { setPhone(e.target.value); setDuplicate(null); }} required className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="98765 43210" />
         </div>
+        {duplicate && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2" data-testid="add-guest-duplicate-panel">
+            <p className="text-xs text-amber-800 font-medium">
+              ⚠️ This number is already saved as <span className="font-bold">{duplicate.name}</span> ({duplicate.phone}). One number can only belong to one guest.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" data-testid="add-guest-use-existing-btn"
+                onClick={() => onCreated(duplicate)}
+                className="flex-1 px-3 py-2 rounded-lg bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 transition">
+                Use {duplicate.name} for this bill
+              </button>
+              <button type="button" data-testid="add-guest-change-number-btn"
+                onClick={() => setDuplicate(null)}
+                className="px-3 py-2 rounded-lg border border-amber-300 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition">
+                Change number
+              </button>
+            </div>
+          </div>
+        )}
         <div>
           <label className="text-xs text-slate-500 font-medium">Email (optional)</label>
           <input data-testid="add-guest-email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="you@example.com" />

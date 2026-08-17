@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
-import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload, Wallet } from "lucide-react";
+import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload, Wallet, History, GitMerge } from "lucide-react";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import { WalletDialog } from "@/components/WalletDialog";
+import { CustomerHistoryModal } from "@/components/crm/CustomerHistoryModal";
+import { MergeDuplicatesModal } from "@/components/crm/MergeDuplicatesModal";
 
 export default function Customers() {
   const [list, setList] = useState([]);
@@ -11,6 +13,8 @@ export default function Customers() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [walletFor, setWalletFor] = useState(null);
+  const [historyFor, setHistoryFor] = useState(null);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
   const [form, setForm] = useState({ name: "", phone: "", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" });
 
@@ -81,7 +85,14 @@ export default function Customers() {
       if (editing) { await api.put(`/customers/${editing.id}`, form); toast.success("Customer updated"); }
       else { await api.post("/customers", form); toast.success("Customer added"); }
       setOpen(false); load();
-    } catch (err) { toast.error("Save failed"); }
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      if (err.response?.status === 409 && d?.code === "PHONE_EXISTS") {
+        toast.error(`This number already belongs to ${d.customer?.name} (${d.customer?.phone}) — one number, one guest`);
+      } else {
+        toast.error(typeof d === "string" ? d : "Save failed");
+      }
+    }
   }
 
   async function remove(id) {
@@ -110,6 +121,9 @@ export default function Customers() {
           <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} data-testid="import-customers-csv-input" />
           <button data-testid="import-customers-csv-btn" onClick={() => csvRef.current?.click()} className="btn-slate flex items-center gap-2" title="Bulk add/update customers from CSV (great for migrating old data)">
             <Upload className="w-4 h-4" /> Import CSV
+          </button>
+          <button data-testid="merge-duplicates-btn" onClick={() => setMergeOpen(true)} className="btn-slate flex items-center gap-2" title="Find & merge guests saved twice with the same number">
+            <GitMerge className="w-4 h-4" /> Merge duplicates
           </button>
           <button data-testid="export-customers-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all customers as CSV">
             <Download className="w-4 h-4" /> Export CSV
@@ -176,6 +190,7 @@ export default function Customers() {
                 </td>
                 <td>
                   <div className="flex items-center gap-2 justify-end">
+                    <button data-testid={`history-customer-${c.id}`} onClick={() => setHistoryFor(c)} title="Visit history" className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-violet-600 transition"><History className="w-4 h-4" /></button>
                     <button data-testid={`edit-customer-${c.id}`} onClick={() => startEdit(c)} className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-sky-600 transition"><Edit3 className="w-4 h-4" /></button>
                     <button data-testid={`delete-customer-${c.id}`} onClick={() => remove(c.id)} className="p-2 hover:bg-red-500/10 rounded text-slate-500 hover:text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
                   </div>
@@ -190,6 +205,8 @@ export default function Customers() {
       </div>
 
       {walletFor && <WalletDialog customer={walletFor} onClose={() => setWalletFor(null)} onChanged={load} />}
+      {historyFor && <CustomerHistoryModal customer={historyFor} onClose={() => setHistoryFor(null)} />}
+      {mergeOpen && <MergeDuplicatesModal onClose={() => setMergeOpen(false)} onMerged={load} />}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>
