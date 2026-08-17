@@ -47,6 +47,7 @@ class Customer(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     phone: str
+    country_code: Optional[str] = "+91"
     email: Optional[str] = None
     gender: Optional[str] = "Other"
     dob: Optional[str] = None

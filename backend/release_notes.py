@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-17.79"
-BUILD_TIME = "17 Aug 2026, 09:30 AM IST"
+BUILD = "2026-08-17.80"
+BUILD_TIME = "17 Aug 2026, 10:15 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-17 (Smart phone search & country codes 🌍)",
+        "changes": [
+            "🔎 Type-to-find guests — while typing a number in Add Guest, matching saved guests appear instantly (name + number + country tag); one tap starts their bill. No more duplicate entries",
+            "🌍 Country codes everywhere — phone fields now have a country selector (🇮🇳 IN +91 default, 20 countries) and the CRM shows every saved number with its flag, code and country tag",
+            "🧹 Smarter matching — numbers saved with +91, spaces or dashes are now recognised as the same number in search, duplicate checks and the CRM",
+        ],
+    },
     {
         "date": "2026-08-14 (No duplicate guests, visit history & parallel bills 🧾)",
         "changes": [

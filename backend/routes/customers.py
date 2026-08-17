@@ -60,6 +60,12 @@ async def list_customers(q: Optional[str] = None, user=Depends(require_admin)):
         safe_q = re.escape(q)
         flt["$or"] = [{"name": {"$regex": safe_q, "$options": "i"}}, {"phone": {"$regex": safe_q}}]
     docs = await db.customers.find(flt, {"_id": 0}).sort("created_at", -1).to_list(500)
+    digits = re.sub(r"\D", "", q or "")
+    if q and len(digits) >= 4:
+        # also match normalized digits so formatted numbers ('+91 82170 …') are found
+        seen = {d["id"] for d in docs}
+        extra = await db.customers.find({"crm_status": {"$ne": "pending"}}, {"_id": 0}).to_list(10000)
+        docs += [c for c in extra if c["id"] not in seen and digits in re.sub(r"\D", "", c.get("phone") or "")]
     return docs
 
 async def _find_by_phone(digits: str, exclude_id: str | None = None):
@@ -85,6 +91,19 @@ async def create_customer(body: CustomerIn, user=Depends(get_current_user)):
     c = Customer(**body.model_dump()).model_dump()
     await db.customers.insert_one(c)
     return _clean(c)
+
+
+@router.get("/customers/search-phone")
+async def search_phone(q: str, user=Depends(get_current_user)):
+    """Live lookup while typing a number — matches normalized digits anywhere in the phone."""
+    digits = re.sub(r"\D", "", q or "")
+    if len(digits) < 4:
+        return []
+    docs = await db.customers.find(
+        {}, {"_id": 0, "id": 1, "name": 1, "phone": 1, "country_code": 1, "visits": 1}).to_list(10000)
+    out = [c for c in docs if digits in re.sub(r"\D", "", c.get("phone") or "")]
+    out.sort(key=lambda c: -(c.get("visits") or 0))
+    return out[:6]
 
 
 @router.get("/customers/duplicates")

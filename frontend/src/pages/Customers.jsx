@@ -6,6 +6,7 @@ import { askConfirm } from "@/components/ConfirmDialog";
 import { WalletDialog } from "@/components/WalletDialog";
 import { CustomerHistoryModal } from "@/components/crm/CustomerHistoryModal";
 import { MergeDuplicatesModal } from "@/components/crm/MergeDuplicatesModal";
+import { COUNTRY_CODES, phoneDisplay } from "@/lib/countryCodes";
 
 export default function Customers() {
   const [list, setList] = useState([]);
@@ -16,7 +17,7 @@ export default function Customers() {
   const [historyFor, setHistoryFor] = useState(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
-  const [form, setForm] = useState({ name: "", phone: "", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" });
 
   const load = useCallback(async () => {
     const { data } = await api.get(`/customers${q ? `?q=${encodeURIComponent(q)}` : ""}`);
@@ -76,8 +77,8 @@ export default function Customers() {
     finally { e.target.value = ""; }
   }
 
-  function startNew() { setEditing(null); setForm({ name: "", phone: "", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" }); setOpen(true); }
-  function startEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone, email: c.email || "", gender: c.gender || "Other", dob: c.dob || "", anniversary: c.anniversary || "", address: c.address || "", notes: c.notes || "" }); setOpen(true); }
+  function startNew() { setEditing(null); setForm({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" }); setOpen(true); }
+  function startEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone, country_code: c.country_code || "+91", email: c.email || "", gender: c.gender || "Other", dob: c.dob || "", anniversary: c.anniversary || "", address: c.address || "", notes: c.notes || "" }); setOpen(true); }
 
   async function save(e) {
     e.preventDefault();
@@ -171,7 +172,7 @@ export default function Customers() {
                   </div>
                 </td>
                 <td>
-                  <div className="flex items-center gap-2 text-sm"><Phone className="w-3 h-3 text-sky-600" /> {c.phone}</div>
+                  <div className="flex items-center gap-2 text-sm"><Phone className="w-3 h-3 text-sky-600" /> {phoneDisplay(c).flag} {phoneDisplay(c).code} {phoneDisplay(c).number} <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-500">{phoneDisplay(c).iso}</span></div>
                   {c.email && <div className="flex items-center gap-2 text-xs text-slate-500 mt-1"><Mail className="w-3 h-3" /> {c.email}</div>}
                 </td>
                 <td className="text-sm">{c.gender}</td>
@@ -218,7 +219,15 @@ export default function Customers() {
             <form onSubmit={save} className="space-y-4">
               <div><label className="label-light block mb-1">Name *</label><input data-testid="customer-name-input" required className="input-light" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="label-light block mb-1">Phone *</label><input data-testid="customer-phone-input" required className="input-light" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
+                <div><label className="label-light block mb-1">Phone *</label>
+                  <div className="flex items-stretch rounded-lg border border-slate-200 overflow-hidden">
+                    <select data-testid="customer-country-code" value={form.country_code || "+91"} onChange={e => setForm({ ...form, country_code: e.target.value })}
+                      className="pl-2 pr-1 py-2 bg-white border-r border-slate-200 text-sm text-slate-700 font-semibold focus:outline-none cursor-pointer">
+                      {COUNTRY_CODES.map(cc => <option key={cc.iso} value={cc.code}>{cc.flag} {cc.iso} {cc.code}</option>)}
+                    </select>
+                    <input data-testid="customer-phone-input" required className="flex-1 px-3 py-2 bg-white text-sm text-slate-800 focus:outline-none" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} inputMode="tel" />
+                  </div>
+                </div>
                 <div><label className="label-light block mb-1">Email</label><input type="email" className="input-light" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">

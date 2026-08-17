@@ -69,6 +69,7 @@ async def resolve_tenant_from_slug(slug: str) -> dict:
 class CustomerIn(BaseModel):
     name: str
     phone: str
+    country_code: Optional[str] = "+91"
     email: Optional[str] = None
     gender: Optional[str] = "Other"
     dob: Optional[str] = None

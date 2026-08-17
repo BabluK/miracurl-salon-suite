@@ -2014,3 +2014,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-17 — Duplicate phone match hardened
 - User reported dup guard not firing (prod had formatted phones like '+91 82170 72523' — regex on raw stored string missed them). _find_by_phone now scans customers and compares normalized last-10 digits in Python. Curl-verified: formatted stored phone blocks plain-digit create with 409. BUILD .79, redeployed.
+
+## 2026-08-17 — Live phone search + Country codes (worldwide)
+- Backend: GET /customers/search-phone?q= (≥4 digits, normalized substring match, top-6 by visits); GET /customers?q= also merges normalized-digit matches; Customer/CustomerIn have country_code (default "+91").
+- Frontend: lib/countryCodes.js (20 countries, countryByIso/countryByCode/phoneDisplay — phoneDisplay strips a code baked into the stored phone to avoid "+91 +91" double display).
+- AddGuestModal: country select (🇮🇳 IN +91 default) + live search dropdown "ALREADY SAVED — TAP TO BILL THEM" (add-guest-phone-matches, add-guest-match-<id>) → one tap selects guest for billing; pasting "+91…" auto-picks country.
+- Customers.jsx (CRM): country select in add/edit form (customer-country-code); rows show flag + code + national number + ISO tag.
+- Verified: curl (search-phone + list find formatted numbers), Playwright (dropdown appears on '82170', tap selects guest into bill, CRM shows +91/IN). BUILD 2026-08-17.80.
