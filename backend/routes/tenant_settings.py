@@ -504,6 +504,8 @@ class BrandingIn(BaseModel):
     hero_image: Optional[str] = Field(None, max_length=2000)
     instagram_url: Optional[str] = Field(None, max_length=500)
     whatsapp_number: Optional[str] = Field(None, max_length=20)
+    reception_phone: Optional[str] = Field(None, max_length=40)
+    manager_phone: Optional[str] = Field(None, max_length=40)
 
     @field_validator("maps_url")
     @classmethod

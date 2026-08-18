@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { Star, MapPin, Phone, CalendarCheck, ShieldCheck, Scissors, MessageSquareQuote, Sparkles } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
+import BookingChatWidget from "@/components/BookingChatWidget";
 
 const GLOWS = [
   { ring: "border-cyan-400/30", text: "text-cyan-300", shadow: "shadow-[0_0_40px_-12px_rgba(34,211,238,.45)]", dot: "bg-cyan-400" },
@@ -139,6 +140,11 @@ export default function SalonPublic() {
             )}
             {s.location && <span className="inline-flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-4 py-1.5"><MapPin className="w-4 h-4 text-cyan-300" /> {s.location}</span>}
             {s.phone && <a href={`tel:${s.phone}`} className="inline-flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 hover:border-gold/40 transition-colors"><Phone className="w-4 h-4 text-violet-300" /> {s.phone}</a>}
+            <button type="button" data-testid="salon-talk-to-mira-btn"
+              onClick={() => window.dispatchEvent(new CustomEvent("miracurl:open-chat", { detail: { tab: "ai" } }))}
+              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-fuchsia-500/20 to-violet-500/20 border border-fuchsia-300/40 rounded-full px-4 py-1.5 text-fuchsia-200 font-semibold hover:border-fuchsia-300 transition-colors">
+              🎙️ Talk to Mira
+            </button>
           </motion.div>
 
           <motion.div {...fadeUp(0.36)} className="mt-9">
@@ -284,6 +290,7 @@ export default function SalonPublic() {
       </main>
 
       <InstallAppPrompt variant="customer" />
+      <BookingChatWidget slug={slug} />
     </div>
   );
 }

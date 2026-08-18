@@ -476,6 +476,11 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "Rules: never mention the marker or JSON (it is machine-read); never invent service ids; time is 24h format; "
             "keep replies short, warm and mobile-friendly (short paragraphs or dash lists; you may use **bold** for service names and prices, no other markdown); use the salon's currency symbol (as shown in the menu) for prices; sprinkle a tasteful emoji occasionally (✨💆‍♀️); "
             "never be dismissive — every reply should leave the guest feeling cared for.\n"
+            "HUMAN HANDOFF: if the customer asks to talk to a human / real person / receptionist / staff / owner (or is frustrated and wants a person), "
+            "first CONFIRM once in their language: 'Of course! Would you like me to connect you to our receptionist right away?'. "
+            "The moment they confirm (yes/haan/ok/connect), reply with ONE warm goodbye sentence (e.g. 'Connecting you to our team now — they'll take lovely care of you 💖') "
+            "and end your reply with the exact token [HANDOFF] on the same line. Never mention the token (machine-read). "
+            "If instead they'd like expert beauty guidance, continue helping as Mira, the AI beauty advisor.\n"
             + ("VOICE MODE: the customer is SPEAKING with you and will HEAR your reply read aloud. Keep it under 60 words, "
                "conversational short sentences, no lists, no markdown, at most one emoji.\n\n" if voice else "\n")
             + catalog
@@ -494,7 +499,15 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
         logging.getLogger("public_ai").error(f"public ai chat error: {e}")
         raise HTTPException(400, "Mira is unavailable right now — please try again in a moment.")
 
-    booking, booking_error = None, None
+    booking, booking_error, handoff = None, None, None
+    if "[HANDOFF]" in reply:
+        reply = reply.replace("[HANDOFF]", "").strip()
+        handoff = {
+            "salon_name": t.get("name") or "the salon",
+            "reception_phone": t.get("reception_phone") or t.get("phone") or "",
+            "manager_phone": t.get("manager_phone") or "",
+            "salon_phone": t.get("phone") or "",
+        }
     if _INQ_MARKER in reply:
         reply = await _capture_ai_inquiry(t, reply, hist, message)
     if _BOOK_MARKER in reply:
@@ -539,7 +552,7 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
         {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "assistant",
          "content": reply + (" [Appointment booked]" if booking else ""), "created_at": datetime.now(timezone.utc).isoformat()},
     ])
-    return reply, booking, booking_error
+    return reply, booking, booking_error, handoff
 
 @router.post("/public/ai-chat/{slug}")
 async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
@@ -556,8 +569,8 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
             {"id": str(uuid.uuid4()), "sid": sid, "tenant_id": t["id"], "role": "assistant", "content": fast, "created_at": now},
         ])
         return {"reply": fast, "booking": None, "booking_error": None, "instant": True}
-    reply, booking, booking_error = await _public_ai_reply(t, body.session_id, body.message, request=request)
-    return {"reply": reply, "booking": booking, "booking_error": booking_error}
+    reply, booking, booking_error, handoff = await _public_ai_reply(t, body.session_id, body.message, request=request)
+    return {"reply": reply, "booking": booking, "booking_error": booking_error, "handoff": handoff}
 
 async def _sorry_no_hear_response() -> dict:
     """Spoken 'couldn't hear you' fallback so hands-free voice chat continues gracefully."""
@@ -622,7 +635,7 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
         return await _sorry_no_hear_response()
     if not transcript:
         return await _sorry_no_hear_response()
-    reply, booking, booking_error = await _public_ai_reply(t, session_id, transcript, voice=True, request=request)
+    reply, booking, booking_error, handoff = await _public_ai_reply(t, session_id, transcript, voice=True, request=request)
     audio_b64 = None
     try:
         speech_text = re.sub(r"\*\*|✨|💖|💆‍♀️|✅|⚠️|📞|🙏", "", reply)[:4000]
@@ -630,7 +643,7 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
     except Exception as e:
         logging.getLogger("public_ai").error(f"tts error: {e}")
     return {"transcript": transcript, "reply": reply, "booking": booking,
-            "booking_error": booking_error, "audio_b64": audio_b64}
+            "booking_error": booking_error, "audio_b64": audio_b64, "handoff": handoff}
 
 # ---------------- Customer ↔ Salon Owner Chat ----------------
 class ChatStartIn(BaseModel):

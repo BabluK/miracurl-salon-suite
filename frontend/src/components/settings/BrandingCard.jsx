@@ -3,7 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Store, Star, Instagram, MessageCircle, Save } from "lucide-react";
 
-const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "" };
+const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "", reception_phone: "", manager_phone: "" };
 
 const TIME_OPTS = Array.from({ length: 36 }, (_, i) => {
   const m = 6 * 60 + i * 30; // 06:00 → 23:30
@@ -100,6 +100,15 @@ export function BrandingCard() {
         <div>
           <label className="text-xs text-slate-500 font-medium">Phone</label>
           <input data-testid="settings-phone" placeholder="+91 98765 00000" {...field("phone")} />
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 font-medium">Receptionist number</label>
+          <input data-testid="settings-reception-phone" placeholder="+91 98765 11111" {...field("reception_phone")} />
+          <p className="text-[10px] text-slate-400 mt-1">Mira connects guests here when they ask for a human.</p>
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 font-medium">Manager number</label>
+          <input data-testid="settings-manager-phone" placeholder="+91 98765 22222" {...field("manager_phone")} />
         </div>
         <div className="md:col-span-2">
           <label className="text-xs text-slate-500 font-medium">Location / Address</label>

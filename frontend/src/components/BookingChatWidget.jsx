@@ -61,7 +61,36 @@ function Bubble({ m }) {
         mine ? "bg-gold text-bg-base rounded-br-sm" : "bg-white/10 text-white/90 rounded-bl-sm"}`}>
         {renderText(m.text)}
         {m.booking && <BookingCard booking={m.booking} />}
+        {m.handoff && <HandoffCard handoff={m.handoff} />}
       </div>
+    </div>
+  );
+}
+
+function HandoffCard({ handoff }) {
+  const num = (handoff.reception_phone || handoff.salon_phone || "").replace(/[^\d+]/g, "");
+  return (
+    <div className="mt-2 rounded-xl border border-gold/40 bg-gold/10 p-3 space-y-2" data-testid="mira-handoff-card">
+      <p className="text-[11px] uppercase tracking-wider text-gold font-bold">You're in good hands</p>
+      {num ? (
+        <a href={`tel:${num}`} data-testid="handoff-call-reception-btn"
+          className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg bg-gold text-bg-base text-xs font-bold hover:opacity-90 transition">
+          📞 Call our receptionist now
+        </a>
+      ) : (
+        <p className="text-xs text-white/70">Our team's number isn't set yet — please use the WhatsApp button below.</p>
+      )}
+      {handoff.manager_phone && (
+        <a href={`tel:${handoff.manager_phone.replace(/[^\d+]/g, "")}`} data-testid="handoff-call-manager-btn"
+          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg border border-gold/40 text-gold text-xs font-semibold hover:bg-gold/10 transition">
+          Call the manager
+        </a>
+      )}
+      <button type="button" data-testid="handoff-continue-mira-btn"
+        onClick={() => window.dispatchEvent(new CustomEvent("miracurl:mira-continue"))}
+        className="w-full px-3 py-2 rounded-lg border border-white/20 text-white/80 text-xs font-semibold hover:bg-white/10 transition">
+        🌸 Continue with Mira — AI beauty advisor
+      </button>
     </div>
   );
 }
@@ -102,6 +131,11 @@ function AiTab({ slug }) {
     sessionStorage.setItem(k, sidRef.current);
   }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+  useEffect(() => {
+    const h = () => send("Yes Mira, let's continue — please guide me as my beauty advisor 💖");
+    window.addEventListener("miracurl:mira-continue", h);
+    return () => window.removeEventListener("miracurl:mira-continue", h);
+  }); // re-registered each render so send() sees fresh state
   // Closing the panel fully silences Mira: stop her voice AND the mic/hands-free loop.
   useEffect(() => () => {
     handsFreeRef.current = false;
@@ -139,7 +173,7 @@ function AiTab({ slug }) {
     setBusy(true);
     try {
       const { data } = await axios.post(`${BACKEND_URL}/api/public/ai-chat/${slug}`, { message: text, session_id: sidRef.current }, { timeout: 90000 });
-      setMsgs(m => [...m, mkMsg({ role: "ai", text: data.reply, booking: data.booking })]);
+      setMsgs(m => [...m, mkMsg({ role: "ai", text: data.reply, booking: data.booking, handoff: data.handoff })]);
     } catch (e) {
       setMsgs(m => [...m, mkMsg({ role: "ai", text: e.response?.data?.detail || "Sorry, I hit a snag — please try again." })]);
     } finally { setBusy(false); }
@@ -186,7 +220,7 @@ function AiTab({ slug }) {
       }
       setMsgs(m => {
         const next = m.filter(x => !x.pending);
-        return [...next, mkMsg({ role: "user", text: `🎙️ ${data.transcript}` }), mkMsg({ role: "ai", text: data.reply, booking: data.booking, spoken: !!data.audio_b64 })];
+        return [...next, mkMsg({ role: "user", text: `🎙️ ${data.transcript}` }), mkMsg({ role: "ai", text: data.reply, booking: data.booking, handoff: data.handoff, spoken: !!data.audio_b64 })];
       });
       // In hands-free mode, resume listening once Mira finishes speaking.
       if (data.audio_b64) playAudio(data.audio_b64, resume);

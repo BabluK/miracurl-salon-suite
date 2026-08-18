@@ -2021,3 +2021,12 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - AddGuestModal: country select (🇮🇳 IN +91 default) + live search dropdown "ALREADY SAVED — TAP TO BILL THEM" (add-guest-phone-matches, add-guest-match-<id>) → one tap selects guest for billing; pasting "+91…" auto-picks country.
 - Customers.jsx (CRM): country select in add/edit form (customer-country-code); rows show flag + code + national number + ISO tag.
 - Verified: curl (search-phone + list find formatted numbers), Playwright (dropdown appears on '82170', tap selects guest into bill, CRM shows +91/IN). BUILD 2026-08-17.80.
+
+## 2026-08-18 — Talk to Mira (public voice) + Human Handoff
+- Voice engine ALREADY EXISTED (public_chat.py: /public/ai-voice/{slug} Whisper STT→gpt-5.4-mini→TTS shimmer, /public/ai-chat/{slug}, booking via _BOOK_MARKER; BookingChatWidget.jsx w/ mic + hands-free, mounted on BookPublic). This session added:
+- HANDOFF: system prompt rule (confirm once → goodbye + [HANDOFF] token); _public_ai_reply now returns (reply, booking, booking_error, handoff) — handoff = {salon_name, reception_phone (falls back to t.phone), manager_phone, salon_phone}; both chat & voice endpoints return handoff.
+- Tenant contacts: BrandingIn + BrandingCard get reception_phone/manager_phone (testids settings-reception-phone/-manager-phone); saved via generic PUT /settings/branding $set.
+- SalonPublic.jsx: 🎙️ Talk to Mira pill (salon-talk-to-mira-btn) dispatches miracurl:open-chat; BookingChatWidget now also mounted on salon profile page.
+- Widget: HandoffCard (mira-handoff-card) — Call receptionist (tel:), Call manager, 🌸 Continue with Mira (dispatches miracurl:mira-continue → sends preset message).
+- Verified e2e: curl (confirm→handoff payload) + Playwright screenshot (widget opens from salon page, handoff card with tel:+919876511111). BUILD 2026-08-18.81.
+- Preview tenant now has reception +91 98765 11111 / manager +91 98765 22222 saved as test values.

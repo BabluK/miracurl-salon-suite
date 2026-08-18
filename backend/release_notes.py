@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-17.80"
-BUILD_TIME = "17 Aug 2026, 10:15 AM IST"
+BUILD = "2026-08-18.81"
+BUILD_TIME = "18 Aug 2026, 09:45 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-18 (Talk to Mira on your salon page + human handoff 🎙️)",
+        "changes": [
+            "🎙️ 'Talk to Mira' on your public salon page — visitors can now start a voice or text conversation with Mira right from your profile page (previously only on the booking page); she knows your services, prices, staff and hours and can book appointments by voice",
+            "🤝 Human handoff — when a guest asks for a real person, Mira politely confirms and shows one-tap options: call your receptionist, call the manager, or continue with Mira as their AI beauty advisor",
+            "📇 Team contacts in Settings — new Receptionist number and Manager number fields in Settings → Salon profile power the handoff (falls back to your main salon number if empty)",
+        ],
+    },
     {
         "date": "2026-08-17 (Smart phone search & country codes 🌍)",
         "changes": [
