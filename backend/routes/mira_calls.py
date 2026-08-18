@@ -343,6 +343,58 @@ async def _converse(c: dict, lead: dict, speech: str) -> Response:
     return await _converse_apply(c, _say(say, lang), action, lang, cb_at, turns)
 
 
+async def _gather_lang_switch(c: dict) -> str:
+    base, call_id = c["webhook_base"], c["id"]
+    await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"lang": "hi"}})
+    if c.get("lead_id"):
+        await _raw_db.mira_leads.update_one({"id": c["lead_id"]}, {"$set": {"preferred_lang": "hi"}})
+    return _xml(_say("बहुत बढ़िया! अब मैं हिंदी में बात करूँगी। " +
+                     _pitch_text_hi(c.get("lead_name") or "आपके सैलून"), "hi") +
+                _gather_menu(base, call_id, "hi") +
+                f'<Redirect method="POST">{base}/api/webhooks/twilio/voice/{call_id}?retry=1</Redirect>')
+
+
+async def _gather_interested(c: dict, lead: dict | None, lang: str) -> str:
+    await _raw_db.mira_call_logs.update_one({"id": c["id"]}, {"$set": {"digits": "1", "result": "interested"}})
+    await _raw_db.mira_leads.update_one(
+        {"id": c["lead_id"]}, {"$set": {"call_result": "interested", "last_call_at": _now(), "seen_by_hq": False}})
+    asyncio.get_event_loop().create_task(_fulfil_interest(c["lead_id"]))
+    has_email = bool(lead and lead.get("email"))
+    if lang == "hi":
+        line = ("मैं अभी आपके ईमेल पर डेमो इनविटेशन, फ्री ट्रायल एक्टिवेशन और प्राइसिंग की पूरी जानकारी भेज रही हूँ।"
+                if has_email else
+                "मैं अभी आपको मैसेज में डेमो, फ्री ट्रायल और प्राइसिंग का लिंक भेज रही हूँ।")
+        return _xml(_say(f"बहुत बढ़िया! {line} आपके सैलून को ए आई से बदलने में मदद करने के लिए उत्सुक हूँ। "
+                         f"आपका दिन शानदार हो!", "hi") + "<Hangup/>")
+    if has_email:
+        line = "I'm sending your demo invitation, free trial activation, feature brochure and pricing details to your email right now."
+    else:
+        line = "I'm texting you the link with the demo invitation, free trial and pricing details right now."
+    return _xml(f"<Say {VOICE}>Wonderful! {line} I am looking forward to helping you transform your salon "
+                f"with A I. Have a fantastic day!</Say><Hangup/>")
+
+
+async def _gather_callback(c: dict, lang: str) -> str:
+    await _raw_db.mira_call_logs.update_one({"id": c["id"]}, {"$set": {"digits": "2", "result": "callback"}})
+    await _raw_db.mira_leads.update_one(
+        {"id": c["lead_id"]}, {"$set": {"call_result": "callback", "last_call_at": _now()}})
+    if lang == "hi":
+        return _xml(_say("बिल्कुल समझती हूँ। मैं किसी और समय संपर्क करूँगी। तब तक आप miracurl suite dot com "
+                         "पर सब कुछ देख सकते हैं। आपका दिन शुभ हो!", "hi") + "<Hangup/>")
+    return _xml(f'<Say {VOICE}>I completely understand. I will reach out another time. Meanwhile you can '
+                f'explore everything at miracurl suite dot com. Have a great day!</Say><Hangup/>')
+
+
+async def _gather_opt_out(c: dict, lang: str) -> str:
+    await _raw_db.mira_call_logs.update_one({"id": c["id"]}, {"$set": {"digits": "9", "result": "opt_out"}})
+    await _raw_db.mira_leads.update_one(
+        {"id": c["lead_id"]}, {"$set": {"call_result": "opt_out", "do_not_call": True, "last_call_at": _now()}})
+    if lang == "hi":
+        return _xml(_say("ठीक है, आपको आगे से हमारी कोई कॉल नहीं आएगी। धन्यवाद, आपका दिन शुभ हो।", "hi") + "<Hangup/>")
+    return _xml(f'<Say {VOICE}>You have been opted out and will not receive calls from us again. '
+                f'Thank you, have a good day.</Say><Hangup/>')
+
+
 @router.post("/webhooks/twilio/voice/{call_id}/gather")
 async def twilio_voice_gather(call_id: str, request: Request):
     c = await _raw_db.mira_call_logs.find_one({"id": call_id}, {"_id": 0})
@@ -359,47 +411,13 @@ async def twilio_voice_gather(call_id: str, request: Request):
     if not digit and speech:
         return await _converse(c, lead, speech)
     if digit == "3" and lang != "hi":
-        await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"lang": "hi"}})
-        if c.get("lead_id"):
-            await _raw_db.mira_leads.update_one({"id": c["lead_id"]}, {"$set": {"preferred_lang": "hi"}})
-        return _xml(_say("बहुत बढ़िया! अब मैं हिंदी में बात करूँगी। " +
-                         _pitch_text_hi(c.get("lead_name") or "आपके सैलून"), "hi") +
-                    _gather_menu(base, call_id, "hi") +
-                    f'<Redirect method="POST">{base}/api/webhooks/twilio/voice/{call_id}?retry=1</Redirect>')
+        return await _gather_lang_switch(c)
     if digit == "1":
-        await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"digits": "1", "result": "interested"}})
-        await _raw_db.mira_leads.update_one(
-            {"id": c["lead_id"]}, {"$set": {"call_result": "interested", "last_call_at": _now(), "seen_by_hq": False}})
-        asyncio.get_event_loop().create_task(_fulfil_interest(c["lead_id"]))
-        if lang == "hi":
-            line = ("मैं अभी आपके ईमेल पर डेमो इनविटेशन, फ्री ट्रायल एक्टिवेशन और प्राइसिंग की पूरी जानकारी भेज रही हूँ।"
-                    if lead and lead.get("email") else
-                    "मैं अभी आपको मैसेज में डेमो, फ्री ट्रायल और प्राइसिंग का लिंक भेज रही हूँ।")
-            return _xml(_say(f"बहुत बढ़िया! {line} आपके सैलून को ए आई से बदलने में मदद करने के लिए उत्सुक हूँ। "
-                             f"आपका दिन शानदार हो!", "hi") + "<Hangup/>")
-        if lead and lead.get("email"):
-            line = "I'm sending your demo invitation, free trial activation, feature brochure and pricing details to your email right now."
-        else:
-            line = "I'm texting you the link with the demo invitation, free trial and pricing details right now."
-        return _xml(f"<Say {VOICE}>Wonderful! {line} I am looking forward to helping you transform your salon "
-                    f"with A I. Have a fantastic day!</Say><Hangup/>")
+        return await _gather_interested(c, lead, lang)
     if digit == "2":
-        await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"digits": "2", "result": "callback"}})
-        await _raw_db.mira_leads.update_one(
-            {"id": c["lead_id"]}, {"$set": {"call_result": "callback", "last_call_at": _now()}})
-        if lang == "hi":
-            return _xml(_say("बिल्कुल समझती हूँ। मैं किसी और समय संपर्क करूँगी। तब तक आप miracurl suite dot com "
-                             "पर सब कुछ देख सकते हैं। आपका दिन शुभ हो!", "hi") + "<Hangup/>")
-        return _xml(f'<Say {VOICE}>I completely understand. I will reach out another time. Meanwhile you can '
-                    f'explore everything at miracurl suite dot com. Have a great day!</Say><Hangup/>')
+        return await _gather_callback(c, lang)
     if digit == "9":
-        await _raw_db.mira_call_logs.update_one({"id": call_id}, {"$set": {"digits": "9", "result": "opt_out"}})
-        await _raw_db.mira_leads.update_one(
-            {"id": c["lead_id"]}, {"$set": {"call_result": "opt_out", "do_not_call": True, "last_call_at": _now()}})
-        if lang == "hi":
-            return _xml(_say("ठीक है, आपको आगे से हमारी कोई कॉल नहीं आएगी। धन्यवाद, आपका दिन शुभ हो।", "hi") + "<Hangup/>")
-        return _xml(f'<Say {VOICE}>You have been opted out and will not receive calls from us again. '
-                    f'Thank you, have a good day.</Say><Hangup/>')
+        return await _gather_opt_out(c, lang)
     return _xml(f'<Redirect method="POST">{base}/api/webhooks/twilio/voice/{call_id}?retry=1</Redirect>')
 
 

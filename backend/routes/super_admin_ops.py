@@ -526,7 +526,7 @@ async def contact_hq(
 </div>"""
     status = await _send_email(
         [os.environ.get("HQ_EMAIL", "admin@miracurl.com")],
-        f"[Miracurl HQ] {subject} — {t['name']}", html, attachments or None)
+        f"[Miracurl HQ] {subject} — {t['name']}", html, attachments=attachments or None)
     await _raw_db.hq_messages.insert_one({
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_name": t["name"],
         "from_email": admin["email"], "subject": subject, "message": message,

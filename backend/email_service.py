@@ -68,7 +68,7 @@ def _resend_params(to: list, subject: str, html: str, opts: dict) -> dict:
     return params
 
 
-async def _send_email(to: list, subject: str, html: str, attachments: list | None = None,
+async def _send_email(to: list, subject: str, html: str, *, attachments: list | None = None,
                       reply_to: str | None = None, book_url: str | None = None,
                       book_label: str = "Book Now ✦", headers: dict | None = None,
                       from_name: str = "Miracurl") -> dict:

@@ -1354,3 +1354,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - New public endpoint GET /api/public/products-qr?url= (qrcode lib, PNG, http-only URL guard, 24h cache) — label embeds QR pointing to {origin}/products with "SCAN TO REORDER" caption next to Marketed By.
 - Gemini "transparent" logo had checkerboard baked into JPEG; processed via PIL saturation-mask into real transparent PNG at /app/frontend/public/ms-logo.png. LabelGenerator now uses ${origin}/ms-logo.png — logo blends into cream label, no grey box.
 - Verified via Playwright popup capture: shampoo label prints with clean logo + working QR.
+
+## Iter 135 (18 Aug 2026) — Code review fixes (report was mostly stale)
+- Verified via ruff: F821 undefined vars = 0, F632 is/== = 0 (incl. tests); merge_customers, _compose_lead, lead_roi, _member_birthday_html, _issue_gift_card, _converse_llm all already ≤10 complexity (fixed in earlier session — report stale).
+- REAL fixes applied: twilio_voice_gather 13→~6 (extracted _gather_lang_switch/_gather_interested/_gather_callback/_gather_opt_out, zero behavior change); _send_email options now keyword-only (`*` after html) — fixed the one positional caller (super_admin_ops.py:527 attachments=).
+- Smoke tested: gather webhook (unknown call → Hangup XML 200), super login 200, mira briefing 200. Backend restarts clean.
+- SKIPPED intentionally: import-count/module splits (server.py 83 imports) — covered by /app/memory/REFACTOR_PLAN.md, needs dedicated session per plan (production app, zero-behavior-change + full regression required). Remaining C901s not in report (mira_briefing 15, pdf renderers, on_startup 37) left untouched.
