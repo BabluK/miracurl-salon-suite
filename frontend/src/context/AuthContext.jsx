@@ -99,7 +99,7 @@ export function AuthProvider({ children }) {
       await afterAuth(data);
       return { ok: true, user: data.user };
     } catch (e) {
-      return { ok: false, error: formatApiError(e.response?.data?.detail) || e.message };
+      return { ok: false, error: formatApiError(e.response?.data?.detail) || e.message, detail: e.response?.data?.detail };
     }
   }, [afterAuth]);
 

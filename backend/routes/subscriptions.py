@@ -726,6 +726,7 @@ async def subscription_status(user=Depends(require_tenant_admin), t=Depends(curr
         source = "trial"
         end_date = trial_end
     needs_prompt = days is not None and days <= 7  # window that shows the banner (incl. expired)
+    pending = await db.grace_requests.find_one({"tenant_id": t["id"], "status": "pending"}, {"_id": 0, "id": 1})
     return {
         "source": source,
         "end_date": end_date,
@@ -734,7 +735,59 @@ async def subscription_status(user=Depends(require_tenant_admin), t=Depends(curr
         "current_plan": t.get("plan"),
         "affiliate_credits": float(t.get("affiliate_credits") or 0),
         "needs_renewal_prompt": needs_prompt,
+        "grace_until": t.get("grace_until"),
+        "grace_request_pending": bool(pending),
     }
+
+
+@router.post("/billing/grace-request")
+async def request_grace(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Tenant asks HQ for a grace extension after their subscription expires."""
+    existing = await db.grace_requests.find_one({"tenant_id": t["id"], "status": "pending"}, {"_id": 0, "id": 1})
+    if existing:
+        return {"ok": True, "already_requested": True}
+    end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
+    await db.grace_requests.insert_one({
+        "id": str(uuid.uuid4()),
+        "tenant_id": t["id"],
+        "tenant_name": t.get("name"),
+        "slug": t.get("slug"),
+        "owner_email": t.get("owner_email"),
+        "phone": t.get("phone") or t.get("whatsapp_number") or "",
+        "plan": t.get("plan"),
+        "end_date": end,
+        "requested_by": user.get("email"),
+        "requested_at": datetime.now(timezone.utc).isoformat(),
+        "status": "pending",
+    })
+    return {"ok": True, "already_requested": False}
+
+
+@router.get("/super-admin/grace-requests")
+async def list_grace_requests(user=Depends(require_super_admin)):
+    items = await db.grace_requests.find({}, {"_id": 0}).sort("requested_at", -1).to_list(50)
+    return {"items": items, "pending": sum(1 for i in items if i.get("status") == "pending")}
+
+
+class GraceDecisionIn(BaseModel):
+    approve: bool
+    days: int = Field(7, ge=1, le=90)
+
+
+@router.post("/super-admin/grace-requests/{rid}/decide")
+async def decide_grace_request(rid: str, body: GraceDecisionIn, user=Depends(require_super_admin)):
+    req = await db.grace_requests.find_one({"id": rid, "status": "pending"}, {"_id": 0})
+    if not req:
+        raise HTTPException(404, "Pending grace request not found")
+    now = datetime.now(timezone.utc)
+    update = {"status": "approved" if body.approve else "rejected",
+              "decided_at": now.isoformat(), "decided_by": user.get("email"), "days": body.days if body.approve else 0}
+    await db.grace_requests.update_one({"id": rid}, {"$set": update})
+    grace_until = None
+    if body.approve:
+        grace_until = (now.date() + timedelta(days=body.days)).isoformat()
+        await db.tenants.update_one({"id": req["tenant_id"]}, {"$set": {"grace_until": grace_until}})
+    return {"ok": True, **update, "grace_until": grace_until}
 
 
 @router.get("/super-admin/renewals/queue")

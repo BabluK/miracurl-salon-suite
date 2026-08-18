@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
-import { Sparkles, CreditCard } from "lucide-react";
+import { toast } from "sonner";
+import { Sparkles, CreditCard, HeartHandshake } from "lucide-react";
 
 export const TrialReminder = () => {
   const { tenant } = useAuth();
@@ -79,6 +80,21 @@ export const TrialReminder = () => {
             className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white text-sm font-semibold hover:from-amber-600 hover:to-rose-600 transition inline-flex items-center justify-center gap-2"
           ><CreditCard className="w-4 h-4" /> Pay &amp; Activate</button>
         </div>
+        {info.paid && info.days < 0 && (
+          <button
+            data-testid="trial-reminder-grace-btn"
+            onClick={async () => {
+              try {
+                const { data } = await api.post("/billing/grace-request");
+                toast.success(data.already_requested
+                  ? "Already requested — the Miracurl team is reviewing it 💜"
+                  : "Grace request sent to the Miracurl team ✦ We'll get back to you soon");
+              } catch { toast.error("Couldn't send the request — please try again"); }
+              setInfo(null);
+            }}
+            className="mt-3 w-full py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 text-sm font-semibold hover:bg-amber-100 transition inline-flex items-center justify-center gap-2"
+          ><HeartHandshake className="w-4 h-4" /> Request Grace from Miracurl Team</button>
+        )}
       </div>
     </div>
   );

@@ -57,7 +57,7 @@ def _subscription_deadline(t: dict) -> Optional[date]:
 
 
 async def _subscription_gate(user: dict) -> None:
-    """Block login for salons whose subscription/trial expired beyond the grace window."""
+    """Block login for expired salons. Trials get NO grace; paid plans get the grace window."""
     if user.get("role") == "super_admin" or not user.get("tenant_id"):
         return
     t = await db.tenants.find_one(
@@ -67,14 +67,39 @@ async def _subscription_gate(user: dict) -> None:
     if not t:
         return
     if t.get("status") == "suspended":
-        raise HTTPException(403, "Your subscription has expired. Please contact the Miracurl team "
-                                 "to renew and reactivate your salon.")
+        raise HTTPException(403, {
+            "code": "suspended",
+            "message": "Your salon account is currently suspended. Please contact the Miracurl team to reactivate."})
+    sub_end = t.get("subscription_end_date")
+    trial_end = t.get("trial_end_date") or t.get("trial_ends_at")
+    if not sub_end and trial_end:
+        # Pure trial — blocks the day after trial ends (only an explicit HQ grace_until extends it)
+        try:
+            limit = date.fromisoformat(str(trial_end)[:10])
+        except ValueError:
+            return
+        if t.get("grace_until"):
+            try:
+                limit = max(limit, date.fromisoformat(str(t["grace_until"])[:10]))
+            except ValueError:
+                pass
+        if date.today() > limit:
+            end_d = date.fromisoformat(str(trial_end)[:10])
+            raise HTTPException(403, {
+                "code": "trial_expired",
+                "end_date": end_d.isoformat(),
+                "message": f"Your free trial ended on {end_d.strftime('%d %b %Y')}. "
+                           "Please contact the Miracurl team to activate your subscription."})
+        return
     limit = _subscription_deadline(t)
     if limit and date.today() > limit:
-        end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
+        end = sub_end or trial_end
         end_d = date.fromisoformat(str(end)[:10])
-        raise HTTPException(403, f"Your subscription expired on {end_d.strftime('%d %b %Y')}. "
-                                 "Please contact the Miracurl team to renew and reactivate your salon.")
+        raise HTTPException(403, {
+            "code": "subscription_expired",
+            "end_date": end_d.isoformat(),
+            "message": f"We're sorry — your subscription expired on {end_d.strftime('%d %b %Y')}. "
+                       "Please pay to continue using Miracurl Suite, or contact the Miracurl team."})
 
 class ForgotIn(BaseModel):
     email: EmailStr

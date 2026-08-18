@@ -40,7 +40,7 @@ export function BrandingCard() {
       const { data } = await api.put("/settings/branding", branding);
       // Re-sync with server-normalized values (e.g. whatsapp digits-only)
       if (data) setBranding(b => Object.fromEntries(Object.keys(EMPTY).map(k => [k, data[k] ?? b[k]])));
-      toast.success(`Salon profile updated ✦${data?.phone ? `  📞 ${data.phone}` : ""}${data?.whatsapp_number ? `  💬 ${data.whatsapp_number}` : ""}`);
+      toast.success("Salon Profile saved successfully ✦");
     } catch (e) {
       toast.error(flattenDetail(e?.response?.data?.detail, e?.message || "Couldn't save profile"));
     } finally { setSaving(false); }

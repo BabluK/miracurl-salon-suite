@@ -7,6 +7,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianG
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { confirmAsync } from "@/components/ConfirmDialog";
+import { GraceRequestsCard } from "@/components/superadmin/GraceRequestsCard";
 
 const CHART_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" };
 const CHART_TOOLTIP_LABEL_STYLE = { color: "#0284c7" };
@@ -71,6 +72,7 @@ export default function BillingPanel({ tenants }) {
 
   return (
     <div className="space-y-6" data-testid="billing-panel">
+      <GraceRequestsCard />
       {/* Revenue KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <RevenueKpi label="Today" value={rev.today} icon={IndianRupee} color="emerald" testid="rev-today" />

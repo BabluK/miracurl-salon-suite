@@ -703,3 +703,7 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 .nav-cap:nth-child(8) { animation-delay: 0.4s; }
 .nav-cap:nth-child(9) { animation-delay: 0.45s; }
 .nav-cap:nth-child(10) { animation-delay: 0.5s; }
+
+/* Product detail modal entrance */
+@keyframes productPop { from { opacity: 0; transform: scale(0.92) translateY(16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.product-pop { animation: productPop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }

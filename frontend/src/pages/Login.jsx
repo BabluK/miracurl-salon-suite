@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import BrandMark from "@/components/BrandMark";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { passkeySupported, registerPasskey, loginWithPasskey } from "@/lib/webauthn";
+import { SubscriptionBlockModal } from "@/components/SubscriptionBlockModal";
 
 const FOOTER_FEATURES = [
   ["📅", "Appointments"], ["🧑‍🤝‍🧑", "Staff"], ["📦", "Inventory"], ["📣", "Marketing"],
@@ -47,6 +48,7 @@ export default function Login() {
   const [remember, setRemember] = useState(false);
   const [personalEmail, setPersonalEmail] = useState("");
   const [farewell, setFarewell] = useState(false);
+  const [blocked, setBlocked] = useState(null);
 
   useEffect(() => {
     try {
@@ -90,6 +92,8 @@ export default function Login() {
       }
       nav("/dashboard");
     }
+    else if (res.detail && typeof res.detail === "object" &&
+             ["trial_expired", "subscription_expired", "suspended"].includes(res.detail.code)) setBlocked(res.detail);
     else if (String(res.error || "").includes("disabled by the salon admin")) setFarewell(true);
     else setErr(res.error || "Authentication failed");
   }
@@ -123,6 +127,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-white pb-16" data-testid="login-page">
+      {blocked && <SubscriptionBlockModal info={blocked} onClose={() => setBlocked(null)} />}
       <LoginFeatureFooter />
       {/* Decorative rose-gold gradient blobs — matching the brand logo */}
       <div className="pointer-events-none absolute -right-32 -bottom-32 w-[640px] h-[640px] rounded-full opacity-90"

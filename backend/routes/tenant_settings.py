@@ -665,10 +665,18 @@ async def mark_reminder_sent(aid: str, user=Depends(require_admin)):
 
 @router.get("/settings/audit-log")
 async def get_audit_log(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Owner's trail of sensitive actions: PIN uses, erases, exports, deletes."""
+    """Owner's trail of sensitive actions: PIN uses, erases, exports, deletes. 7-day retention."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    await _raw_db.audit_log.delete_many({"tenant_id": t["id"], "at": {"$lt": cutoff}})
     rows = await _raw_db.audit_log.find(
         {"tenant_id": t["id"]}, {"_id": 0}).sort("at", -1).to_list(100)
     return {"items": rows}
+
+
+@router.delete("/settings/audit-log")
+async def clear_audit_log(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await _raw_db.audit_log.delete_many({"tenant_id": t["id"]})
+    return {"ok": True, "deleted": res.deleted_count}
 
 
 @router.get("/settings/referral-nudge")

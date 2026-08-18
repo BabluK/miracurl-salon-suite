@@ -21,6 +21,10 @@ const PRODUCTS = [
     bestFor: "Dry, Damaged, Weak & Chemically Treated Hair",
     benefits: ["Reduces hair fall & breakage", "Repairs dry, damaged hair", "Strengthens hair roots", "Nourishes & hydrates", "Improves softness & shine", "Safe for color treated hair"],
     ingredients: ["Hibiscus Extract", "Ceramides", "Biotin (B7)", "Panthenol (B5)", "Argan Oil", "Rosemary Extract"],
+    chemistry: "Loaded with Hibiscus flower extract, Ceramides and Biotin, this powerhouse blend repairs the hair shaft from within while Argan Oil seals in moisture — for visibly stronger, longer, healthier hair wash after wash.",
+    howToUse: "Lather 1–2 pumps (or as needed) on wet palms & massage into scalp. Leave on for 60 seconds, rinse well. Repeat for a more thorough cleanse. Follow with Miracurl Nourish & Shine Conditioner to lock in moisture. Do a patch test before first use.",
+    fullIngredients: "Aqua, Sodium Cocoyl Isethionate, Cocamidopropyl Betaine, Glycerin, Hibiscus Rosa-Sinensis Flower Extract, Ceramide NP, Biotin, Panthenol, Argania Spinosa (Argan) Kernel Oil, Rosmarinus Officinalis (Rosemary) Leaf Extract, Hydrolyzed Wheat Protein, Xanthan Gum, Phenoxyethanol, Sodium Benzoate, Citric Acid, Fragrance",
+    mrp: "₹400 (250ml) · ₹480 (300ml)",
   },
   {
     id: "conditioner", img: IMG.conditioner, size: "250ml · 8.45 fl. oz.",
@@ -30,6 +34,10 @@ const PRODUCTS = [
     bestFor: "All Hair Types — Especially Dry & Frizzy Hair",
     benefits: ["Deeply hydrates & nourishes", "Locks in moisture", "Reduces frizz & tangles", "Strengthens & smoothens hair", "Adds natural shine", "Suitable for all hair types"],
     ingredients: ["Ceramides", "Panthenol", "Hydrolyzed Keratin", "Argan Oil", "Silk Protein", "Aloe Vera"],
+    chemistry: "Ceramides rebuild the hair's natural moisture barrier while Keratin and Silk Protein smooth every strand — a rich, salon-grade conditioner that detangles instantly and leaves hair glossy, soft and manageable.",
+    howToUse: "After shampooing, squeeze out excess water. Apply generously from mid-length to ends (avoid roots). Leave on for 2–3 minutes, then rinse thoroughly. Use after every wash for best results.",
+    fullIngredients: "Aqua, Cetearyl Alcohol, Behentrimonium Chloride, Ceramide NP, Panthenol, Hydrolyzed Keratin, Argania Spinosa (Argan) Kernel Oil, Hydrolyzed Silk Protein, Aloe Barbadensis Leaf Juice, Glycerin, Dimethiconol, Phenoxyethanol, Sodium Benzoate, Citric Acid, Fragrance",
+    mrp: "₹380 – ₹420 (250ml)",
   },
   {
     id: "botox", img: IMG.botox, size: "500ml or 1000ml — professional use",
@@ -39,6 +47,10 @@ const PRODUCTS = [
     bestFor: "Frizzy, Damaged, Unruly & Chemically Treated Hair",
     benefits: ["Deeply repairs damaged hair", "Reduces frizz & unruly hair", "Restores hair strength & elasticity", "Enhances smoothness & shine", "Hydrates & revitalizes", "Long-lasting salon-like finish"],
     ingredients: ["Hydrolyzed Keratin", "Peptides", "Ceramides", "Niacinamide (B3)", "Pea Peptide", "Argan Oil"],
+    chemistry: "A professional-grade fusion of Hydrolyzed Keratin, Peptides and Ceramides that fills micro-damage inside the hair fibre, restoring elasticity, deep gloss and a silky salon finish that lasts for weeks.",
+    howToUse: "PROFESSIONAL USE: Wash hair with a clarifying shampoo, towel-dry to 80%. Section hair and apply the treatment evenly strand by strand, keeping 1cm from the scalp. Leave for 30–45 minutes, then blow-dry and flat-iron in thin sections (180–200°C). Do not wash for 48 hours after treatment.",
+    fullIngredients: "Aqua, Cetearyl Alcohol, Hydrolyzed Keratin, Copper Tripeptide-1, Ceramide NP, Niacinamide, Pisum Sativum (Pea) Peptide, Argania Spinosa (Argan) Kernel Oil, Behentrimonium Methosulfate, Glycerin, Panthenol, Hydrolyzed Collagen, Phenoxyethanol, Ethylhexylglycerin, Citric Acid, Fragrance",
+    mrp: "₹4,500 (500ml) · ₹8,000 (1000ml)",
   },
   {
     id: "botox-shampoo", img: IMG.botoxShampoo, size: "250ml · 8.45 fl. oz.",
@@ -48,10 +60,75 @@ const PRODUCTS = [
     bestFor: "All Hair Types (Especially Frizz & Damage, post-Botox care)",
     benefits: ["Extends botox treatment results", "Rebuilds hair strength", "Controls frizz", "Long-lasting shine & softness", "Gentle sulfate-free cleanse", "Safe for treated hair"],
     ingredients: ["Hydrolyzed Keratin", "Peptides", "Amino Acids", "Ceramides", "Silk Protein", "Zinc PCA"],
+    chemistry: "Keratin, Peptides and Amino Acids work together to rebuild the protein structure of treated hair while a gentle sulfate-free cleansing base protects your botox treatment — keeping hair smooth, strong and shiny for longer.",
+    howToUse: "Wet hair thoroughly. Apply a small amount and massage gently into scalp and lengths — do not rub aggressively on treated hair. Leave for 60 seconds, rinse well. Use 2–3 times a week to extend your botox treatment. Follow with Miracurl Conditioner.",
+    fullIngredients: "Aqua, Sodium Cocoyl Isethionate, Coco-Glucoside, Hydrolyzed Keratin, Copper Tripeptide-1, Arginine, Glycine, Ceramide NP, Hydrolyzed Silk Protein, Zinc PCA, Glycerin, Panthenol, Guar Hydroxypropyltrimonium Chloride, Phenoxyethanol, Sodium Benzoate, Citric Acid, Fragrance",
+    mrp: "₹2,500 (250ml)",
   },
 ];
 
 const BADGES = ["Paraben Free", "Sulfate Free", "Silicone Free", "Cruelty Free", "Vegan"];
+
+function ProductDetailModal({ p, live, onClose, onOrder }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
+      <div className="product-pop bg-white rounded-3xl shadow-2xl w-full max-w-2xl my-8 overflow-hidden" onClick={e => e.stopPropagation()} data-testid={`product-detail-${p.id}`}>
+        {/* Hero */}
+        <div className="grid grid-cols-1 sm:grid-cols-5">
+          <div className="sm:col-span-2 bg-[#FDEDF0]">
+            <img src={p.img} alt={p.name} className="w-full h-full max-h-64 sm:max-h-none object-cover" />
+          </div>
+          <div className="sm:col-span-3 p-6 relative">
+            <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700" data-testid="product-detail-close"><X className="w-5 h-5" /></button>
+            <p className="text-[10px] font-bold tracking-[0.3em] text-[#C9A227] uppercase">Miracurl Hair Science</p>
+            <h2 className="text-2xl font-extrabold text-[#A61C3C] leading-tight mt-1" style={{ fontFamily: "'Playfair Display', serif" }}>{p.name}</h2>
+            <p className="text-xs font-semibold text-slate-500 mt-1">{p.sub} · {p.size}</p>
+            <p className="mt-2 text-xl font-extrabold text-slate-900">{p.price}</p>
+            {live && (
+              <button onClick={onOrder} data-testid={`detail-order-now-${p.id}`}
+                className="mt-3 inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-[#A61C3C] text-white text-sm font-bold hover:opacity-90 transition">
+                <ShoppingBag className="w-4 h-4" /> Order Now
+              </button>
+            )}
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {BADGES.map(b => <span key={b} className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">{b}</span>)}
+            </div>
+          </div>
+        </div>
+        {/* Back label */}
+        <div className="p-6 pt-4 space-y-4 text-slate-700">
+          <section>
+            <p className="text-[11px] font-extrabold tracking-[0.2em] text-[#A61C3C] uppercase">We Have Chemistry</p>
+            <p className="text-[13px] leading-relaxed mt-1">{p.chemistry}</p>
+          </section>
+          <section>
+            <p className="text-[11px] font-extrabold tracking-[0.2em] text-[#A61C3C] uppercase">How To Use</p>
+            <p className="text-[13px] leading-relaxed mt-1" data-testid={`detail-how-to-use-${p.id}`}>{p.howToUse}</p>
+          </section>
+          <section>
+            <p className="text-[11px] font-extrabold tracking-[0.2em] text-[#A61C3C] uppercase">What's In — Ingredients</p>
+            <p className="text-[12px] leading-relaxed mt-1 text-slate-600" data-testid={`detail-ingredients-${p.id}`}>{p.fullIngredients}</p>
+          </section>
+          <section>
+            <p className="text-[11px] font-extrabold tracking-[0.2em] text-[#A61C3C] uppercase">What's Out</p>
+            <p className="text-[13px] leading-relaxed mt-1">Parabens, Sulfates (SLS/SLES), Silicones, Phthalates, Formaldehyde & animal-derived ingredients.</p>
+          </section>
+          <div className="grid grid-cols-2 gap-3 text-[12px] bg-[#FDEDF0]/60 border border-rose-100 rounded-2xl p-4">
+            <p><span className="font-bold text-[#A61C3C]">Net Vol:</span> {p.size}</p>
+            <p><span className="font-bold text-[#A61C3C]">MRP (incl. taxes):</span> {p.mrp}</p>
+            <p><span className="font-bold text-[#A61C3C]">Best For:</span> {p.bestFor}</p>
+            <p><span className="font-bold text-[#A61C3C]">Use Before:</span> 24 months from Mfg. Dt.</p>
+          </div>
+          <section className="text-[11px] text-slate-500 leading-relaxed border-t border-rose-100 pt-3">
+            <p><b>Important:</b> Store in a cool, dry place. For external use only. Do a patch test before first use.</p>
+            <p className="mt-1"><b>Mktd by:</b> Miracurl Hair Science — Miracurl Suite, Marathahalli, Bengaluru, Karnataka, India.</p>
+            <p className="mt-1"><b>Customer care:</b> Feedback/complaints? 📞 +91 8217072523 · ✉️ contact@miracurl-suite.com · 🌐 miracurl-suite.com</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // numeric price for ordering (range products use the lower bound)
 const ORDER_PRICE = { shampoo: 400, conditioner: 380, "botox-500": 4500, "botox-1000": 8000, "botox-shampoo": 2500 };
@@ -67,29 +144,37 @@ function OrderModal({ cfg, onClose }) {
   const [qty, setQty] = useState({ shampoo: 0, conditioner: 0, "botox-500": 0, "botox-1000": 0, "botox-shampoo": 0 });
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const total = Object.entries(qty).reduce((s, [k, q]) => s + q * ORDER_PRICE[k], 0);
   const step = (k, d) => setQty(q => ({ ...q, [k]: Math.max(0, Math.min(20, q[k] + d)) }));
+  const inputCls = "px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-200";
 
   async function pay() {
     if (total < 1) return;
-    if (name.trim().length < 2 || phone.replace(/\D/g, "").length < 10) {
-      alert("Please enter your name and a valid phone number");
-      return;
-    }
+    setErr("");
+    if (name.trim().length < 2) return setErr("Please enter your name");
+    if (phone.replace(/\D/g, "").length < 10) return setErr("Please enter a valid phone number");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setErr("Please enter a valid email — we'll send your receipt & payment confirmation there");
+    if (address.trim().length < 8) return setErr("Please enter your full delivery address");
+    if (!/^\d{6}$/.test(pincode.trim())) return setErr("Please enter a valid 6-digit PIN code");
     setBusy(true);
     try {
       const items = Object.entries(qty).filter(([, q]) => q > 0)
         .map(([id, q]) => ({ id, qty: q, price: ORDER_PRICE[id] }));
-      const { data } = await axios.post(`${API}/api/public/product-orders`, { name: name.trim(), phone, items, total });
+      const { data } = await axios.post(`${API}/api/public/product-orders`, {
+        name: name.trim(), phone, email: email.trim(), address: address.trim(), pincode: pincode.trim(), items, total });
       if (data.razorpay_link) {
         window.open(data.razorpay_link, "_blank");
-      } else {
-        alert(`Order received! Our team will send you a payment link shortly. For help: ${data.contact_email}`);
       }
-      onClose();
+      setErr("");
+      onClose(`Order received! Receipt sent to ${email.trim()} ✦`);
     } catch (e) {
-      alert(e.response?.data?.detail || "Couldn't place the order — please try again");
+      const d = e.response?.data?.detail;
+      setErr(typeof d === "string" ? d : "Couldn't place the order — please check your details and try again");
     } finally { setBusy(false); }
   }
 
@@ -116,11 +201,16 @@ function OrderModal({ cfg, onClose }) {
           ))}
         </div>
         <div className="grid grid-cols-2 gap-2 mt-4">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" data-testid="order-name-input"
-            className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-rose-200" />
-          <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone (+91…)" inputMode="tel" data-testid="order-phone-input"
-            className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-rose-200" />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name *" data-testid="order-name-input" className={inputCls} />
+          <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone (+91…) *" inputMode="tel" data-testid="order-phone-input" className={inputCls} />
         </div>
+        <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email — for receipt & payment confirmation *" type="email" data-testid="order-email-input"
+          className={`${inputCls} w-full mt-2`} />
+        <div className="grid grid-cols-[1fr_110px] gap-2 mt-2">
+          <input value={address} onChange={e => setAddress(e.target.value)} placeholder="Delivery address *" data-testid="order-address-input" className={inputCls} />
+          <input value={pincode} onChange={e => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="PIN code *" inputMode="numeric" data-testid="order-pincode-input" className={inputCls} />
+        </div>
+        {err && <p className="text-xs text-rose-600 font-semibold mt-2" data-testid="order-error">{err}</p>}
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-slate-500">Total</p>
           <p className="text-2xl font-extrabold text-slate-900" data-testid="order-total">₹{total.toLocaleString("en-IN")}</p>
@@ -138,6 +228,8 @@ function OrderModal({ cfg, onClose }) {
 export default function MiracurlProducts() {
   const [cfg, setCfg] = useState({ available: false, razorpay_link: "" });
   const [orderOpen, setOrderOpen] = useState(false);
+  const [orderMsg, setOrderMsg] = useState("");
+  const [detail, setDetail] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/api/public/products-config`).then(({ data }) => setCfg(data)).catch(() => {});
@@ -179,7 +271,8 @@ export default function MiracurlProducts() {
       {/* Products */}
       <main className="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-2 gap-8">
         {PRODUCTS.map((p, i) => (
-          <article key={p.id} data-testid={`product-card-${p.id}`} className="relative bg-white rounded-3xl shadow-lg shadow-rose-100 overflow-hidden border border-rose-100 flex flex-col">
+          <article key={p.id} data-testid={`product-card-${p.id}`} onClick={() => setDetail(p)}
+            className="relative bg-white rounded-3xl shadow-lg shadow-rose-100 overflow-hidden border border-rose-100 flex flex-col cursor-pointer transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-rose-300">
             {live ? (
               <span className="absolute top-4 right-[-38px] rotate-45 bg-emerald-500 text-white text-[10px] font-bold tracking-widest px-10 py-1 shadow">AVAILABLE</span>
             ) : (
@@ -195,7 +288,7 @@ export default function MiracurlProducts() {
                 <p className="text-xs font-semibold text-slate-500 mt-0.5">{p.sub} · {p.size}</p>
                 <p className="mt-2 text-lg font-extrabold text-slate-900" data-testid={`product-price-${p.id}`}>{p.price}</p>
                 {live && (
-                  <button onClick={() => setOrderOpen(true)} data-testid={`order-now-${p.id}`}
+                  <button onClick={(e) => { e.stopPropagation(); setOrderOpen(true); }} data-testid={`order-now-${p.id}`}
                     className="mt-2 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#A61C3C] text-white text-xs font-bold hover:opacity-90 transition">
                     <ShoppingBag className="w-3.5 h-3.5" /> Order Now
                   </button>
@@ -250,7 +343,15 @@ export default function MiracurlProducts() {
           </div>
         </div>
       </footer>
-      {orderOpen && <OrderModal cfg={cfg} onClose={() => setOrderOpen(false)} />}
+      {detail && <ProductDetailModal p={detail} live={live} onClose={() => setDetail(null)}
+        onOrder={() => { setDetail(null); setOrderOpen(true); }} />}
+      {orderOpen && <OrderModal cfg={cfg} onClose={(msg) => { setOrderOpen(false); if (typeof msg === "string") setOrderMsg(msg); }} />}
+      {orderMsg && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-sm font-semibold px-5 py-3 rounded-full shadow-xl flex items-center gap-2" data-testid="order-success-toast">
+          <Check className="w-4 h-4" /> {orderMsg}
+          <button onClick={() => setOrderMsg("")} className="ml-2 opacity-80 hover:opacity-100" data-testid="order-success-close"><X className="w-4 h-4" /></button>
+        </div>
+      )}
     </div>
   );
 }

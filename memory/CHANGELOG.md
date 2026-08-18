@@ -1373,3 +1373,13 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - SiteHeader.jsx: all-caps animated nav-cap applied (all marketing pages incl. staff-registry).
 - /products page: custom MS✦ text nav replaced with shared <SiteHeader variant="light"/> (real gold logo, caps); page bg #FBF6EC→white; footer miracurl.com→miracurl-suite.com.
 - NOTE: production needs redeploy.
+
+## Iter 138 (18 Aug 2026) — Settings toast, audit retention, subscription gates, order fields, product detail
+- BrandingCard toast → "Salon Profile saved successfully ✦" (manually verified via Playwright).
+- Audit log: 7-day auto-purge on GET + DELETE /api/settings/audit-log + "Delete all" button (custom confirm) + note in card.
+- Login blocking (auth.py _subscription_gate): TRIAL expires → immediate block (no 60d grace, only explicit grace_until); paid keeps 60d grace; structured 403 detail {code,message,end_date}. Frontend SubscriptionBlockModal (Login.jsx `blocked` state): trial_expired/subscription_expired/suspended popups w/ WhatsApp (from /public/site-info, fallback 918217072523) + admin@/contact@miracurl-suite.com buttons. formatApiError now handles detail.message.
+- Grace flow: POST /billing/grace-request (dupe-guarded) → GET /super-admin/grace-requests + decide{approve,days 1-90} sets tenant grace_until. TrialReminder shows "Request Grace" when paid & expired. GraceRequestsCard in Super Admin BillingPanel (approve prompts days). subscription-status returns grace_until + grace_request_pending.
+- Product orders: email/address/pincode(6-digit) REQUIRED (422 otherwise); receipt email fire-and-forget to customer; modal inputs have explicit text color (were invisible in prod), inline errors replace alert(), success pill toast.
+- NEW: Product detail modal — click any product card (hover lift animation) → back-label style detail: We Have Chemistry, How To Use, full INCI ingredients, What's Out, Net Vol/MRP/Use Before, Mktd by + customer care. product-pop CSS animation. Verified via screenshot.
+- TESTED: iteration_111.json — backend 8/8 (100%); testing agent fixed database.py missing grace_requests/audit_log bindings.
+- PENDING QUESTION: user reported "booking notification not received today" (production) — awaiting clarification which notification (customer SMS vs owner alert).

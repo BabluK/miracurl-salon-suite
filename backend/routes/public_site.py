@@ -536,8 +536,32 @@ async def set_products_config(body: ProductsConfigIn, user=Depends(require_super
 class ProductOrderIn(BaseModel):
     name: str = Field(..., min_length=2, max_length=80)
     phone: str = Field(..., min_length=7, max_length=20)
+    email: str = Field(..., min_length=5, max_length=120, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    address: str = Field(..., min_length=8, max_length=400)
+    pincode: str = Field(..., pattern=r"^\d{6}$")
     items: List[Dict] = Field(..., min_length=1, max_length=10)
     total: float = Field(..., ge=1)
+
+
+def _order_receipt_html(order: dict) -> str:
+    rows = "".join(
+        f"<tr><td style='padding:6px 12px;border-bottom:1px solid #f3e2e2'>{i.get('id')}</td>"
+        f"<td style='padding:6px 12px;border-bottom:1px solid #f3e2e2;text-align:center'>{i.get('qty')}</td>"
+        f"<td style='padding:6px 12px;border-bottom:1px solid #f3e2e2;text-align:right'>₹{i.get('price'):,.0f}</td></tr>"
+        for i in order["items"])
+    return f"""
+<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto">
+  <h2 style="color:#A61C3C">Miracurl Hair Science — Order Received ✦</h2>
+  <p>Hi {order['name']}, thank you for your order! Here's your receipt:</p>
+  <table style="width:100%;border-collapse:collapse;font-size:14px">
+    <tr style="background:#FDEDF0"><th style="padding:8px 12px;text-align:left">Product</th><th style="padding:8px 12px">Qty</th><th style="padding:8px 12px;text-align:right">Price</th></tr>
+    {rows}
+    <tr><td colspan="2" style="padding:10px 12px;font-weight:bold">Total</td><td style="padding:10px 12px;text-align:right;font-weight:bold">₹{order['total']:,.0f}</td></tr>
+  </table>
+  <p style="font-size:13px"><b>Order ID:</b> {order['id']}<br/><b>Delivery to:</b> {order['address']} — PIN {order['pincode']}<br/><b>Phone:</b> +{order['phone']}</p>
+  <p style="font-size:13px">Please complete the payment via the Razorpay link. We'll confirm your payment and dispatch your order to the address above.</p>
+  <p style="font-size:12px;color:#888">Questions? payments@miracurl-suite.com</p>
+</div>"""
 
 
 @router.post("/public/product-orders")
@@ -549,10 +573,14 @@ async def create_product_order(body: ProductOrderIn, request: Request):
     order = {
         "id": str(uuid.uuid4()),
         "name": body.name.strip(), "phone": re.sub(r"\D", "", body.phone)[-12:],
+        "email": body.email.strip().lower(),
+        "address": body.address.strip(), "pincode": body.pincode,
         "items": body.items[:10], "total": round(body.total, 2),
         "status": "pending_payment", "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await _raw_db.product_orders.insert_one({**order})
+    asyncio.create_task(_send_email(
+        [order["email"]], "Your Miracurl order receipt ✦", _order_receipt_html(order), from_name="Miracurl Hair Science"))
     return {"ok": True, "order_id": order["id"],
             "razorpay_link": cfg.get("razorpay_link") or "",
             "contact_email": "payments@miracurl-suite.com"}

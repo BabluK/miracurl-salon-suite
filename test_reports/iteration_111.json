@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 111 — Verified subscription blocking (trial/paid/grace), grace-request workflow, 7-day audit-log retention + Delete All, and product-order new required fields (email/address/pincode). Backend 8/8 tests passing after fixing a missing `db.grace_requests`/`db.audit_log` collection binding on the _DB wrapper (endpoints were 500ing). Frontend subscription-block modal verified end-to-end for both expired-trial ('Your Free Trial Has Ended') and expired-paid ('Subscription Expired') scenarios with WhatsApp + 2 email buttons visible. Salon admin settings page renders BrandingCard save button and AuditLogCard with the 7-day auto-delete note (Delete-all button conditionally rendered only when items exist — by design).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Settings → Save Salon Profile",
+        "issue": "Sonner success toast ('Salon Profile saved successfully ✦') was not observed via Playwright DOM polling after clicking [data-testid=settings-save-branding-btn]. Backend PUT /api/settings/branding returns 200 OK and BrandingCard.jsx line 43 has the correct success toast string, so this appears to be a Playwright/Sonner portal detection quirk rather than a functional bug. Manual verification recommended.",
+        "affected_selectors": ["[data-testid=settings-save-branding-btn]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter111_subs_audit_orders.py",
+    "/app/test_reports/pytest/iter111.xml"
+  ],
+  "action_items": [
+    "Main agent: verify manually that clicking 'Save profile' actually shows the sonner toast (code is correct — string matches spec; possibly a Playwright portal-detection artefact).",
+    "OPTIONAL: consider always showing the 'Delete all' button in AuditLogCard (currently only rendered when items.length > 0) so a fresh salon can still see the affordance."
+  ],
+  "critical_code_review_comments": [
+    "FIXED (by testing agent): /app/backend/database.py — the `_DB` wrapper was missing bindings for `grace_requests` and `audit_log` collections. This caused `GET /api/billing/subscription-status`, `POST /api/billing/grace-request`, and `GET /api/settings/audit-log` etc. to raise AttributeError → 500. Added both as global (unscoped) collections since they are keyed by tenant_id at query time and grace_requests must be listable across tenants by super-admin.",
+    "auth._subscription_gate correctly differentiates trial (no grace, only explicit grace_until can extend) vs paid (60-day GRACE_DAYS window). Structured 403 detail payload {code, message, end_date} matches frontend SubscriptionBlockModal contract.",
+    "public_site.ProductOrderIn now hard-requires email/address/pincode (6-digit) via Pydantic Field/pattern — 422 on any missing field, verified.",
+    "product-orders receipt email is fire-and-forget via asyncio.create_task — endpoint returns immediately even if Resend fails; acceptable per spec."
+  ],
+  "updated_files": [
+    "/app/backend/database.py",
+    "/app/backend/tests/test_iter111_subs_audit_orders.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "80%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug: miracurl-marathahalli, PIN 4321); super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "Throwaway tenants + admin users were created directly in Mongo for each expiry-scenario test (trial-expired, paid-expired beyond grace, paid-in-grace-with-grace-until, paid-in-grace 5-days) with bcrypt-hashed passwords, and cleaned up in fixture teardown. All Mongo seed data cleaned up after tests. Products platform_settings.available was toggled ON for the order test and restored to its previous value at the end.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file test_iter111_subs_audit_orders.py contains full regression coverage of subscription gating (trial/paid/grace), grace-request workflow, audit-log 7-day retention + clear, and product-order validation. Reuse it. If retesting the frontend save-profile toast, use Playwright locator '[data-sonner-toast]' with polling immediately after click, or check page.locator('text=Salon Profile saved successfully'); note the toast lives inside a portal outside <body>'s regular tree.",
+  "rca of the issue": "Grace/audit endpoints were introduced in this batch but the backend's `_DB` class in /app/backend/database.py was not extended with the new collections. Any request that used `db.grace_requests` or `db.audit_log` raised AttributeError, surfacing as HTTP 500 to the frontend. Fix: added both as unscoped attributes bound to `_raw_db.grace_requests` / `_raw_db.audit_log`. Verified by re-running pytest suite → 8/8 pass."
+}

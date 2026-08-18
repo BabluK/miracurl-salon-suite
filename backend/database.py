@@ -85,6 +85,8 @@ class _DB:
     subscriptions = _raw_db.subscriptions
     subscription_payments = _raw_db.subscription_payments
     affiliate_referrals = _raw_db.affiliate_referrals
+    grace_requests = _raw_db.grace_requests
+    audit_log = _raw_db.audit_log
     # tenant-scoped collections
     customers = TenantCollection(_raw_db.customers)
     services = TenantCollection(_raw_db.services)
