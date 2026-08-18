@@ -5,10 +5,10 @@ import { Check, Sparkles, Phone, Mail, Globe, ShoppingBag, X, Minus, Plus } from
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const IMG = {
-  shampoo: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/989481972d50b053295669a1f172eb4a879d26c087594d373f0ba2b491f257e1.jpeg",
-  conditioner: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/96a5c96b547c4e2683aeb125326bc5e20de53671198085725e78fb393e691542.jpeg",
+  shampoo: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/dc9bdc2aab578e1698aeebe0b57a4bea367a76a33cade49cab042bfc52a227b3.jpeg",
+  conditioner: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/bf143980f0a5ad2f34d38481833ae40410589f624dd48cd8b99754b2210f8b20.jpeg",
   botox: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/871f5d5cc09bfe08098f785a38dee0e30b6fa298eb297c63028d86dc056b7d86.jpeg",
-  botoxShampoo: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/3d93c583e1940c519235821760acb0f820b1f066a140435ac385684de72e40e5.jpeg",
+  botoxShampoo: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/b0dca30e52ebfadcc3cff07a56fbfebd841ec1eb628ff91533a7c1de1a2f3749.jpeg",
 };
 
 const PRODUCTS = [

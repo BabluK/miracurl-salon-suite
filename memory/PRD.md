@@ -2067,3 +2067,11 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Mira product pitch: public_chat.py system prompt now includes MIRACURL HAIR SCIENCE RETAIL RANGE + PRODUCT PITCH rule (recommend on home hair-care questions, mention Products page, never pushy). Verified: hair-fall question → recommends Long & Healthy Shampoo.
 - Botox bottle: new AI image (tall slim blush-pink 1000ml bottle, gold MS logo/wave — user's brand colors, replacing jar; NOT the blue reference). Sizes now 500ml ₹4,500 / 1000ml ₹8,000 (NOTE: ₹4,500 for 500ml was inferred — user only gave ₹8,000; flag for confirmation). Order modal has separate botox-500/botox-1000 rows.
 - Flag reset to Coming Soon; test order cleaned. BUILD 2026-08-18.88.
+
+## 2026-08-18 — Unified product images (same MS logo on all bottles)
+- Regenerated shampoo/conditioner/botox-shampoo via image-edit using the tall botox bottle as brand reference — all 4 now share identical blush-pink bottle + cream label + gold MS monogram + wave motif. IMG map updated in MiracurlProducts.jsx. Final image URLs (also shared with user for manufacturing):
+  shampoo: .../dc9bdc2aab578e1698aeebe0b57a4bea367a76a33cade49cab042bfc52a227b3.jpeg
+  conditioner: .../bf143980f0a5ad2f34d38481833ae40410589f624dd48cd8b99754b2210f8b20.jpeg
+  botox 1000ml: .../871f5d5cc09bfe08098f785a38dee0e30b6fa298eb297c63028d86dc056b7d86.jpeg
+  botox shampoo: .../b0dca30e52ebfadcc3cff07a56fbfebd841ec1eb628ff91533a7c1de1a2f3749.jpeg
+  (base: https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/) BUILD 2026-08-18.89.
