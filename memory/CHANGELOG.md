@@ -1343,3 +1343,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - WebAuthn passkeys via `webauthn==2.2.0` (py_webauthn, added to requirements): routes/passkeys.py — /api/passkeys/register/options|verify (auth'd, platform authenticator, resident key, UV required) and /api/passkeys/login/options|verify (public, rate-limited, issues normal auth cookies via set_auth_cookies/make_access). rp_id derived from Origin/Referer host (supports preview + miracurl-suite.com with one codebase). Collections: passkeys, webauthn_challenges (2-min expiry, single-use).
 - Enrollment UX: after a successful password login on a capable device, browser prompts once to enable fingerprint (declines remembered via pk_declined localStorage).
 - Frontend lib src/lib/webauthn.js (b64url codecs + credential JSON). Tested: options endpoints 200 w/ correct rp; UI verified desktop + mobile 390px. NOTE: full biometric ceremony untestable headless — user should verify on a real phone AFTER redeploy (HTTPS prod domain works; passkeys are per-domain so prod enrollment happens on first prod password login).
+
+## Iter 133 (18 Aug 2026) — Bottle Label Generator live + standalone MS logo
+- FIXED: LabelGenerator was imported in ProductsLaunchPanel.jsx but never rendered — now mounted below Order Inbox (Super Admin → Partners → Miracurl Products Launch).
+- Generator: product dropdown (5 SKUs incl. botox 500ml/1L/botox shampoo), editable MRP/batch/mfg date/licence/care/marketer, prints 640px gold-bordered label (logo, ingredients, directions, caution, badges, compliance) via window.open+print.
+- Verified via Playwright: panel renders, botox-500 label prints with all fields.
+- Standalone MS✦ logo (transparent PNG, 1024px, Gemini): https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/3dd323106f2c15479e060879960c3dd54db24a9b875fa61d93eb6eb45771fae7.jpeg — also swapped into label header (old cream-bg jpeg replaced).

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { ShoppingBag } from "lucide-react";
+import { LabelGenerator } from "@/components/superadmin/LabelGenerator";
 
 export const ProductsLaunchPanel = () => {
   const [cfg, setCfg] = useState({ available: false, razorpay_link: "" });
@@ -92,6 +93,7 @@ export const ProductsLaunchPanel = () => {
           ))}
         </div>
       </div>
+      <LabelGenerator />
     </div>
   );
 };

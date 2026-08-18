@@ -2075,3 +2075,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
   botox 1000ml: .../871f5d5cc09bfe08098f785a38dee0e30b6fa298eb297c63028d86dc056b7d86.jpeg
   botox shampoo: .../b0dca30e52ebfadcc3cff07a56fbfebd841ec1eb628ff91533a7c1de1a2f3749.jpeg
   (base: https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/) BUILD 2026-08-18.89.
+
+- 18 Aug 2026: Bottle Label Generator fixed & live in Super Admin → Partners (was imported but unmounted); standalone transparent MS✦ logo generated & swapped into label header. See CHANGELOG Iter 133.
