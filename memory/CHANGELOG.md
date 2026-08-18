@@ -1383,3 +1383,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - NEW: Product detail modal — click any product card (hover lift animation) → back-label style detail: We Have Chemistry, How To Use, full INCI ingredients, What's Out, Net Vol/MRP/Use Before, Mktd by + customer care. product-pop CSS animation. Verified via screenshot.
 - TESTED: iteration_111.json — backend 8/8 (100%); testing agent fixed database.py missing grace_requests/audit_log bindings.
 - PENDING QUESTION: user reported "booking notification not received today" (production) — awaiting clarification which notification (customer SMS vs owner alert).
+
+## Iter 139 (18 Aug 2026) — SMS RCA + MSG91 switch (placeholders)
+- RCA booking SMS not received: sms_log shows ALL sends failing since Aug 14 with Twilio "HTTP 401 Unable to create record: Authenticate" (invalid/expired Twilio auth token). Tenant had 236 sms_points; code path fine.
+- Switched SMS_PROVIDER=msg91 in preview .env. MSG91_AUTHKEY was set but SENDER_ID/FLOW_ID were EMPTY → placeholders added (MIRACL / REPLACE_WITH_REAL_FLOW_ID). Provider now resolves to msg91. SMS WILL STILL FAIL until user supplies real DLT-approved Sender ID + Flow ID (they'll create on msg91.com and update secrets themselves, incl. PRODUCTION env).
+- Deployer debug dispatched to confirm production env + sms_log state.
+- User check point: Super Admin → SMS Delivery Log shows every attempt + error.
