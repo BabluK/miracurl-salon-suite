@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-18.83"
-BUILD_TIME = "18 Aug 2026, 04:25 PM IST"
+BUILD = "2026-08-18.84"
+BUILD_TIME = "18 Aug 2026, 04:55 PM IST"
 
 RELEASES = [
     {

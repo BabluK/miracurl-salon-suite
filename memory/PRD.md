@@ -2043,3 +2043,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - FIX: invoice completion now $sets last_visited=now + crm_status=active; Customers.jsx filters/counts use activityDay = max(created_at, last_visited).
 - MIGRATION: server.py startup db-prep step 'last-visited-backfill' — customers with visits≥1 and no last_visited get it from their newest non-voided invoice (fixed 46 in preview; will auto-run in production on next deploy).
 - Verified e2e: billed old customer (created 2026-08-06) → last_visited stamped today → appears under Today filter. Test bill cleaned. BUILD 2026-08-18.83.
+
+## 2026-08-18 — Security audit + SEC-001 fix
+- security_audit_agent: overall well-hardened; ONE HIGH finding (SEC-001): GET /tenants/current returned raw tenant doc (security_pin_hash, gift_card_settings.razorpay_key_secret, renewal_pay_token, attendance_qr_token) to ANY authenticated user incl. staff.
+- FIX: _scrub_tenant recursive filter in tenant_settings.py strips keys containing secret/pin_hash/auth_token/api_key/pay_token/qr_token/password. Verified: manager session leaks NONE; functional fields (id/name/open,close_time/phone/gift_card_settings minus secret) intact; dashboard renders fine. GiftCards admin form loads secrets from its own /gift-cards/settings endpoint (unaffected).
+- P3 hardening backlog from audit: legacy owner-chat threads without session_key readable by thread UUID (public_chat.py:766); prefer exact-match over $regex in registry.py/staff_admin.py phone lookups; advise strong super-admin creds. ADVISED USER: rotate tenant Razorpay secrets in production since they were previously exposed to staff sessions.
+- BUILD 2026-08-18.84.

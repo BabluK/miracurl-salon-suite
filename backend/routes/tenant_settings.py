@@ -76,10 +76,23 @@ async def set_birthday_offer(body: BirthdayOfferIn, user=Depends(require_admin),
     return {"enabled": body.enabled, "offer_text": body.offer_text.strip()}
 
 # ---------------- Tenant / Super-Admin endpoints ----------------
+_TENANT_SENSITIVE = ("secret", "pin_hash", "auth_token", "api_key", "pay_token", "qr_token", "password")
+
+
+def _scrub_tenant(obj):
+    """SEC-001: never ship gateway secrets / PIN hashes / capability tokens to the browser."""
+    if isinstance(obj, dict):
+        return {k: _scrub_tenant(v) for k, v in obj.items()
+                if not any(s in k.lower() for s in _TENANT_SENSITIVE)}
+    if isinstance(obj, list):
+        return [_scrub_tenant(x) for x in obj]
+    return obj
+
+
 @router.get("/tenants/current")
 async def get_current_tenant(t=Depends(current_tenant)):
     """The tenant the current authenticated user belongs to (or has switched into)."""
-    return t
+    return _scrub_tenant(t)
 
 
 class TenantGeoIn(BaseModel):
