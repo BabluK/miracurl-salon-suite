@@ -2052,3 +2052,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-18 — Miracurl Products page (/products)
 - New public page pages/MiracurlProducts.jsx at route /products (App.js): brand hero (MS logo, Coming Soon badge, free-from badges), crimson range ribbon, 4 product cards (AI-generated bottle images hosted on static.prod-images.emergentagent.com): Long & Healthy Shampoo ₹400–480, Nourish & Shine Conditioner ₹380–420, Hair Botox Treatment ₹8,000, Keratin Botox Shampoo ₹2,500; each with desc/best-for/6 benefits/ingredient chips + COMING SOON corner ribbon. Signature Combo banner ₹9,500 (strike ₹10,500, SAVE ₹1,000). Footer contacts (+91 8217072523, miracurl.com, info@miracurl.com). NO cost-estimation section (per user). Screenshot-verified all sections + prices. BUILD 2026-08-18.85.
+
+## 2026-08-18 — Our Products button on salon public page
+- SalonPublic.jsx hero pill row: 🧴 Our Products gold pill (salon-our-products-btn) → /products. Screenshot-verified: renders next to Talk to Mira, navigates to products page. BUILD 2026-08-18.86.

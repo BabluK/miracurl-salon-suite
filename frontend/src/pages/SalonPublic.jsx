@@ -145,6 +145,10 @@ export default function SalonPublic() {
               className="inline-flex items-center gap-1.5 bg-gradient-to-r from-fuchsia-500/20 to-violet-500/20 border border-fuchsia-300/40 rounded-full px-4 py-1.5 text-fuchsia-200 font-semibold hover:border-fuchsia-300 transition-colors">
               🎙️ Talk to Mira
             </button>
+            <a href="/products" data-testid="salon-our-products-btn"
+              className="inline-flex items-center gap-1.5 bg-gold/10 border border-gold/40 rounded-full px-4 py-1.5 text-gold font-semibold hover:bg-gold/20 hover:border-gold transition-colors">
+              🧴 Our Products
+            </a>
           </motion.div>
 
           <motion.div {...fadeUp(0.36)} className="mt-9">
