@@ -686,3 +686,19 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 2px 8px rgba(212, 175, 55, 0.28);
 }
 .nav-gold-hover:hover svg { color: #211a06; }
+
+/* Landing nav — all-caps animated links */
+@keyframes navDropIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+.nav-cap { text-transform: uppercase; font-size: 11px; letter-spacing: 0.16em; font-weight: 600; position: relative; white-space: nowrap; animation: navDropIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.nav-cap::after { content: ""; position: absolute; left: 0; bottom: -5px; width: 0; height: 1.5px; background: linear-gradient(90deg, #F0D9A5, #C89B52); transition: width 0.3s ease; }
+.nav-cap:hover::after { width: 100%; }
+.nav-cap:nth-child(1) { animation-delay: 0.05s; }
+.nav-cap:nth-child(2) { animation-delay: 0.1s; }
+.nav-cap:nth-child(3) { animation-delay: 0.15s; }
+.nav-cap:nth-child(4) { animation-delay: 0.2s; }
+.nav-cap:nth-child(5) { animation-delay: 0.25s; }
+.nav-cap:nth-child(6) { animation-delay: 0.3s; }
+.nav-cap:nth-child(7) { animation-delay: 0.35s; }
+.nav-cap:nth-child(8) { animation-delay: 0.4s; }
+.nav-cap:nth-child(9) { animation-delay: 0.45s; }
+.nav-cap:nth-child(10) { animation-delay: 0.5s; }

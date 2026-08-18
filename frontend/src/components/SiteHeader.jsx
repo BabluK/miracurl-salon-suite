@@ -48,7 +48,7 @@ export const SiteHeader = ({ variant = "light", site = null }) => {
       <div className="max-w-7xl mx-auto px-6 sm:px-10 py-2 flex items-center justify-between">
         <SuiteLogo variant={variant} />
         <div className="hidden lg:flex items-center gap-5 text-sm">
-          <Link to="/" className={`${t.link} transition-colors`} data-testid="header-home-link">Home</Link>
+          <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className={`${t.link} transition-colors`} data-testid="header-home-link">Home</Link>
           <Link to="/about-us" className={`${t.link} transition-colors`} data-testid="header-about-link">About Us</Link>
           <Link to="/mira.ai" data-testid="header-mira-link"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-medium transition-colors ${t.pill}`}>
@@ -56,6 +56,7 @@ export const SiteHeader = ({ variant = "light", site = null }) => {
           </Link>
           <Link to="/features" className={`${t.link} transition-colors`} data-testid="header-features-link">Features</Link>
           <Link to="/pricing" className={`${t.link} transition-colors`} data-testid="header-pricing-link">Pricing</Link>
+          <a href="/products" className="text-[#C89B52] hover:text-[#8a6420] font-medium transition-colors" data-testid="header-products-link">🧴 Our Products</a>
           <Link to="/staff-registry" className={`${t.verify} font-medium transition-colors`} data-testid="header-verify-link">Staff Verification</Link>
           <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
             <button onClick={() => setOpen((v) => !v)} data-testid="header-contact-btn"

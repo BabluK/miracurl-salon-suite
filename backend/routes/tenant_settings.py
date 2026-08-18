@@ -76,6 +76,21 @@ async def set_birthday_offer(body: BirthdayOfferIn, user=Depends(require_admin),
     return {"enabled": body.enabled, "offer_text": body.offer_text.strip()}
 
 # ---------------- Tenant / Super-Admin endpoints ----------------
+class MiracurlProductsIn(BaseModel):
+    enabled: bool = True
+
+
+@router.get("/settings/miracurl-products")
+async def get_miracurl_products_setting(user=Depends(require_admin), t=Depends(current_tenant)):
+    return {"enabled": t.get("show_miracurl_products", True) is not False}
+
+
+@router.put("/settings/miracurl-products")
+async def set_miracurl_products_setting(body: MiracurlProductsIn, user=Depends(require_admin), t=Depends(current_tenant)):
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"show_miracurl_products": body.enabled}})
+    return {"enabled": body.enabled}
+
+
 _TENANT_SENSITIVE = ("secret", "pin_hash", "auth_token", "api_key", "pay_token", "qr_token", "password")
 
 

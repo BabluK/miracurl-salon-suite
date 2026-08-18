@@ -7,6 +7,7 @@ import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, Co
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import BookingChatWidget from "@/components/BookingChatWidget";
 import { HeroCTAs, GalleryShowcase, OffersShowcase, VerifiedTeam, ReferEarnBanner, AITrustStrip, LocationsSection, openMira } from "@/components/BookPublicExtras";
+import { MiracurlProductsStrip } from "@/components/MiracurlProductsStrip";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const DEFAULT_SLUG = "miracurl-marathahalli";
@@ -445,6 +446,7 @@ export default function BookPublic() {
             <OffersShowcase items={gallery.filter(g => g.source === "offer")} />
             <GalleryShowcase items={gallery.filter(g => g.source !== "offer")} />
             <VerifiedTeam staff={staff} />
+            {salon.show_products !== false && <MiracurlProductsStrip compact />}
             <ReferEarnBanner salonName={salon.name} reward={salon.referral_reward} />
             <AITrustStrip />
           </>
@@ -482,15 +484,16 @@ export default function BookPublic() {
             </a>
           )}
           {salon?.phone && (
-            <a
-              href={`tel:${salon.phone.replace(/\s/g, "")}`}
-              data-testid="book-phone-link"
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-sky-500 text-white shadow-lg hover:scale-105 transition"
-              aria-label="Call salon"
-              title={salon.phone}
+            <button
+              type="button"
+              onClick={() => openMira("ai")}
+              data-testid="book-talk-to-mira-btn"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white shadow-lg hover:scale-105 transition"
+              aria-label="Talk to Mira — AI voice assistant"
+              title="🎙️ Talk to Mira — she answers instantly, books for you, or connects you to the salon"
             >
               <PhoneIcon className="w-5 h-5" />
-            </a>
+            </button>
           )}
         </div>
         {salon?.google_review_url && (

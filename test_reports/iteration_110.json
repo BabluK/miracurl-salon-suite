@@ -1,0 +1,21 @@
+{
+  "summary": "Iteration 110 — Verified new Miracurl Products / Landing features. Backend endpoint round-trip (GET public show_products, GET/PUT /api/settings/miracurl-products) and full frontend flows (landing nav products link + strip, Home scroll-to-top, new feature tiles, public booking page strip, salon public page pill, Settings toggle round-trip with strip visibility) all pass. Products toggle restored to ENABLED at end (verified with fresh page load showing strip).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter110_products_toggle.py",
+    "/app/test_reports/pytest/iter110.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Settings page is behind Owner PIN gate (4321) — expected security control; testers must enter PIN before miracurl-products-card is rendered.",
+    "Several 401 console errors on landing page load (likely optional auth-gated widgets probing /api/me). Non-blocking but noisy; consider suppressing when unauthenticated."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter110_products_toggle.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, tenant slug miracurl-marathahalli, Owner PIN 4321",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All new landing/products/settings features verified. Products toggle is ON in the production flagship salon. Backend test file test_iter110_products_toggle.py can be reused for regression. If landing page 401 noise needs cleanup, that's a minor polish task."
+}

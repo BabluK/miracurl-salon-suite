@@ -2079,3 +2079,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 18 Aug 2026: Bottle Label Generator fixed & live in Super Admin → Partners (was imported but unmounted); standalone transparent MS✦ logo generated & swapped into label header. See CHANGELOG Iter 133.
 
 - 18 Aug 2026: Label QR (scan-to-reorder → /products) + transparent ms-logo.png. See CHANGELOG Iter 134.
+
+- 18 Aug 2026: Products strip on landing+booking pages w/ tenant toggle, all-caps animated header, booking call button now opens Mira voice. See CHANGELOG Iter 136.

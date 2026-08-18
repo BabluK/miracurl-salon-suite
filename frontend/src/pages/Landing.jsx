@@ -7,6 +7,7 @@ import { DemoCarousel } from "@/components/DemoCarousel";
 import { PartnerGrid } from "@/components/PartnerGrid";
 import { SoftwareFlowSection } from "@/components/SoftwareFlowSection";
 import { MiraStudioShowcase } from "@/components/MiraStudioShowcase";
+import { MiracurlProductsStrip } from "@/components/MiracurlProductsStrip";
 import api from "@/lib/api";
 import { detectRegion } from "@/lib/region";
 
@@ -27,6 +28,13 @@ const SMALL_FEATURES = [
   { icon: UserCog, title: "Roles & Staff Portal", desc: "Attendance, commissions, salary slips — managers restricted from finances." },
   { icon: BarChart3, title: "Reports + Commission", desc: "Daily & monthly revenue, per-stylist performance emailed weekly." },
   { icon: Package, title: "Inventory & Vendors", desc: "Low-stock alerts with one-click vendor restock emails." },
+  { icon: Receipt, title: "POS Billing & CRM", desc: "Multi-tab billing, GST invoices, discounts and full customer visit history." },
+  { icon: Check, title: "Staff Check-in / Check-out", desc: "Daily attendance with check-in & check-out, week-offs, leave and late alerts." },
+  { icon: Crown, title: "Staff Payroll", desc: "Automated salaries, commissions, fines and downloadable salary slips." },
+  { icon: ShieldCheck, title: "Verified Staff Registry", desc: "Cross-salon staff verification with badges, ID cards and work history." },
+  { icon: Mic, title: "Booking with Mira AI", desc: "Mira answers calls & chats 24/7 and books appointments for your clients." },
+  { icon: Sparkles, title: "Mira Beauty Advisory", desc: "AI beauty advice that recommends the right services & products to every guest." },
+  { icon: Play, title: "Staff Entertainment", desc: "Music & entertainment hub that keeps your team energised between clients." },
 ];
 
 const PLANS = [
@@ -116,10 +124,10 @@ export const LogoLockup = ({ size = "md" }) => (
 function ContactDropdown({ site }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="relative hidden sm:block"
+    <div className="nav-cap relative hidden sm:block"
       onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
       <button onClick={() => setOpen((v) => !v)} data-testid="nav-contact-btn"
-        className="flex items-center gap-1 text-white/70 hover:text-white transition-colors">
+        className="flex items-center gap-1 uppercase text-white/70 hover:text-white transition-colors">
         Contact Us <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
@@ -363,19 +371,20 @@ export default function Landing({ scrollTo }) {
         <div className="max-w-7xl mx-auto px-6 sm:px-10 py-2 flex items-center justify-between">
           <LogoLockup />
           <div className="hidden lg:flex items-center gap-5 text-sm">
-            <Link to="/" data-testid="nav-home-link" className="text-white/70 hover:text-white transition-colors">Home</Link>
-            <a href="#about" data-testid="nav-about-link" className="text-white/70 hover:text-white transition-colors">About Us</a>
+            <Link to="/" data-testid="nav-home-link" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="nav-cap text-white/70 hover:text-white transition-colors">Home</Link>
+            <a href="#about" data-testid="nav-about-link" className="nav-cap text-white/70 hover:text-white transition-colors">About Us</a>
             <Link to="/mira.ai" data-testid="nav-mira-studio-link"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DFB78C]/40 bg-[#DFB78C]/10 text-[#DFB78C] hover:bg-[#DFB78C]/20 font-medium transition-colors">
+              className="nav-cap flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DFB78C]/40 bg-[#DFB78C]/10 text-[#DFB78C] hover:bg-[#DFB78C]/20 font-medium transition-colors">
               ✦ Mira AI Studio
             </Link>
-            <Link to="/features" data-testid="nav-features-link" className="text-white/70 hover:text-white transition-colors">Features</Link>
-            <Link to="/pricing" data-testid="nav-pricing-link" className="text-white/70 hover:text-white transition-colors">Pricing</Link>
-            <Link to="/staff-registry" data-testid="landing-verify-staff" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Staff Verification</Link>
+            <Link to="/features" data-testid="nav-features-link" className="nav-cap text-white/70 hover:text-white transition-colors">Features</Link>
+            <Link to="/pricing" data-testid="nav-pricing-link" className="nav-cap text-white/70 hover:text-white transition-colors">Pricing</Link>
+            <a href="/products" data-testid="nav-products-link" className="nav-cap text-[#DFB78C] hover:text-[#F0D9A5] font-medium transition-colors">🧴 Our Products</a>
+            <Link to="/staff-registry" data-testid="landing-verify-staff" className="nav-cap text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Staff Verification</Link>
             <ContactDropdown site={site} />
-            <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign In</Link>
+            <Link to="/login" className="nav-cap text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign In</Link>
             <Link to="/signup-salon" data-testid="landing-cta-nav"
-                  className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] text-sm font-bold hover:brightness-110 hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)] transition-transform">
+                  className="nav-cap px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] font-bold hover:brightness-110 hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)] transition-transform">
               Sign Up
             </Link>
           </div>
@@ -561,6 +570,9 @@ export default function Landing({ scrollTo }) {
 
       {/* Trusted Partners — onboarded salons, auto-listed */}
       <TrustedPartnersSection />
+
+      {/* Miracurl Products — hair science range */}
+      <MiracurlProductsStrip />
 
       {/* Pricing */}
       <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 pb-24">

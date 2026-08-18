@@ -135,6 +135,7 @@ async def public_salon(slug: str):
         "maps_url": t.get("maps_url") or "",
         "gallery": [g.get("url", "") for g in (t.get("gallery") or []) if g.get("url")],
         "branches": t.get("branches", []),
+        "show_products": t.get("show_miracurl_products", True) is not False,
     }
 
 # Legacy /public/salon — falls back to default tenant for backward compatibility
