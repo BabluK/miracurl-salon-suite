@@ -676,6 +676,7 @@ async def rzp_webhook(request: Request):
         await _wh_refund(order_id, refund, logger)
     elif event_type == "payment_link.paid":
         await _wh_placement_fee_paid(event, logger)
+        await _wh_product_order_paid(event, logger)
 
     return {"ok": True, "event": event_type}
 
@@ -693,6 +694,20 @@ async def _wh_placement_fee_paid(event: dict, logger) -> None:
                   "razorpay_payment_link_id": pl.get("id", "")}})
     if res.modified_count:
         logger.info("placement fee %s auto-marked paid via payment link", fee_id)
+
+
+async def _wh_product_order_paid(event: dict, logger) -> None:
+    """Miracurl products payment link paid → auto-mark the order as paid in the Order Inbox."""
+    pl = (event.get("payload") or {}).get("payment_link", {}).get("entity", {})
+    order_id = (pl.get("notes") or {}).get("order_id") or ""
+    if not order_id or (pl.get("notes") or {}).get("type") != "product_order":
+        return
+    res = await _raw_db.product_orders.update_one(
+        {"id": order_id, "status": "pending_payment"},
+        {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat(),
+                  "paid_via": "razorpay_payment_link"}})
+    if res.modified_count:
+        logger.info("product order %s auto-marked paid via payment link", order_id)
 
 
 # ---------------- Renewal reminders ----------------

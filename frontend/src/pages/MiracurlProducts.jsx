@@ -72,7 +72,7 @@ const BADGES = ["Paraben Free", "Sulfate Free", "Silicone Free", "Cruelty Free",
 function ProductDetailModal({ p, live, onClose, onOrder }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
-      <div className="product-pop bg-white rounded-3xl shadow-2xl w-full max-w-2xl my-8 overflow-hidden" onClick={e => e.stopPropagation()} data-testid={`product-detail-${p.id}`}>
+      <div className="product-pop bg-white rounded-3xl shadow-2xl w-full max-w-2xl my-8 overflow-hidden max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()} data-testid={`product-detail-${p.id}`}>
         {/* Hero */}
         <div className="grid grid-cols-1 sm:grid-cols-5">
           <div className="sm:col-span-2 bg-[#FDEDF0]">

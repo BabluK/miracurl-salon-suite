@@ -72,7 +72,7 @@ export const LabelGenerator = () => {
     w.document.close();
   }
 
-  const inp = "px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:outline-none w-full";
+  const inp = "px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-full";
   return (
     <div className="mt-5 border-t border-slate-100 pt-4" data-testid="label-generator">
       <h4 className="text-sm font-bold text-slate-700 flex items-center gap-1.5"><Printer className="w-4 h-4 text-rose-500" /> Bottle Label Generator</h4>

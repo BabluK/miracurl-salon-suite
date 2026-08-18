@@ -543,7 +543,7 @@ class ProductOrderIn(BaseModel):
     total: float = Field(..., ge=1)
 
 
-def _order_receipt_html(order: dict) -> str:
+def _order_receipt_html(order: dict, pay_link: str = "") -> str:
     rows = "".join(
         f"<tr><td style='padding:6px 12px;border-bottom:1px solid #f3e2e2'>{i.get('id')}</td>"
         f"<td style='padding:6px 12px;border-bottom:1px solid #f3e2e2;text-align:center'>{i.get('qty')}</td>"
@@ -559,6 +559,7 @@ def _order_receipt_html(order: dict) -> str:
     <tr><td colspan="2" style="padding:10px 12px;font-weight:bold">Total</td><td style="padding:10px 12px;text-align:right;font-weight:bold">₹{order['total']:,.0f}</td></tr>
   </table>
   <p style="font-size:13px"><b>Order ID:</b> {order['id']}<br/><b>Delivery to:</b> {order['address']} — PIN {order['pincode']}<br/><b>Phone:</b> +{order['phone']}</p>
+  {f'<p style="text-align:center;margin:18px 0"><a href="{pay_link}" style="background:#A61C3C;color:#fff;padding:12px 28px;border-radius:999px;text-decoration:none;font-weight:bold">Pay Now — ₹{order["total"]:,.0f} →</a></p>' if pay_link else ''}
   <p style="font-size:13px">Please complete the payment via the Razorpay link. We'll confirm your payment and dispatch your order to the address above.</p>
   <p style="font-size:12px;color:#888">Questions? payments@miracurl-suite.com</p>
 </div>"""
@@ -578,11 +579,31 @@ async def create_product_order(body: ProductOrderIn, request: Request):
         "items": body.items[:10], "total": round(body.total, 2),
         "status": "pending_payment", "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    razorpay_link = (cfg.get("razorpay_link") or "").strip()
+    if not razorpay_link:
+        # Auto-generate an exact-amount Razorpay payment link with the connected account
+        try:
+            from routes.subscriptions import _rzp_client
+            rzp = _rzp_client()
+            if rzp:
+                pl = await asyncio.to_thread(rzp.payment_link.create, {
+                    "amount": int(round(order["total"] * 100)), "currency": "INR",
+                    "description": f"Miracurl Hair Science products — order {order['id'][:8]}",
+                    "customer": {"name": order["name"], "contact": f"+{order['phone']}", "email": order["email"]},
+                    "notify": {"sms": False, "email": False},
+                    "notes": {"order_id": order["id"], "type": "product_order"},
+                })
+                razorpay_link = pl.get("short_url") or ""
+                order["razorpay_payment_link_id"] = pl.get("id", "")
+                order["razorpay_link"] = razorpay_link
+        except Exception as e:
+            logging.error("product order payment link failed: %s", e)
     await _raw_db.product_orders.insert_one({**order})
     asyncio.create_task(_send_email(
-        [order["email"]], "Your Miracurl order receipt ✦", _order_receipt_html(order), from_name="Miracurl Hair Science"))
+        [order["email"]], "Your Miracurl order receipt ✦",
+        _order_receipt_html(order, razorpay_link), from_name="Miracurl Hair Science"))
     return {"ok": True, "order_id": order["id"],
-            "razorpay_link": cfg.get("razorpay_link") or "",
+            "razorpay_link": razorpay_link,
             "contact_email": "payments@miracurl-suite.com"}
 
 

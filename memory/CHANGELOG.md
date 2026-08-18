@@ -1389,3 +1389,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Switched SMS_PROVIDER=msg91 in preview .env. MSG91_AUTHKEY was set but SENDER_ID/FLOW_ID were EMPTY → placeholders added (MIRACL / REPLACE_WITH_REAL_FLOW_ID). Provider now resolves to msg91. SMS WILL STILL FAIL until user supplies real DLT-approved Sender ID + Flow ID (they'll create on msg91.com and update secrets themselves, incl. PRODUCTION env).
 - Deployer debug dispatched to confirm production env + sms_log state.
 - User check point: Super Admin → SMS Delivery Log shows every attempt + error.
+
+## Iter 140 (18 Aug 2026) — Razorpay auto payment links + label/detail visibility fixes
+- Product orders now AUTO-CREATE exact-amount Razorpay payment links via existing connected account (routes/subscriptions._rzp_client, payment_link.create w/ notes.order_id+type=product_order) when no manual rzp.io override is set. Receipt email includes "Pay Now ₹X" button. Webhook payment_link.paid → _wh_product_order_paid auto-marks order PAID in Order Inbox. TESTED LIVE: ₹400 link created (then cancelled + test order deleted; preview products toggle restored to OFF).
+- ProductsLaunchPanel: link field now "optional override", helper text explains auto-links; input text color fixed.
+- LabelGenerator inputs/select: explicit text-slate-800 bg-white (text was invisible in prod) — verified via screenshot.
+- Product detail modal: max-h-[92vh] + overflow-y-auto (description was cut off on short screens) — verified full back-label scrollable.

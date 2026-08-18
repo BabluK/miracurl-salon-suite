@@ -50,18 +50,18 @@ export const ProductsLaunchPanel = () => {
         </button>
       </div>
       <div className="mt-3">
-        <label className="text-xs text-slate-500 font-medium">Razorpay payment link (rzp.io/…)</label>
+        <label className="text-xs text-slate-500 font-medium">Razorpay payment link — optional override (rzp.io/…)</label>
         <div className="flex gap-2 mt-1">
           <input
             data-testid="products-razorpay-link-input"
             value={cfg.razorpay_link}
             onChange={e => setCfg(c => ({ ...c, razorpay_link: e.target.value }))}
-            placeholder="https://rzp.io/l/miracurl-products"
-            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-rose-200" />
+            placeholder="Leave empty — exact-amount links are auto-created via your Razorpay account"
+            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-200" />
           <button data-testid="products-config-save-btn" disabled={busy} onClick={() => save(cfg)}
             className="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-700 disabled:opacity-50">Save</button>
         </div>
-        <p className="text-[10px] text-slate-400 mt-1.5">Orders are saved in the system; payment queries go to payments@miracurl-suite.com.</p>
+        <p className="text-[10px] text-slate-400 mt-1.5">Empty = auto-generate an exact-amount Razorpay payment link per order (your connected Razorpay account) — orders auto-mark PAID via webhook. Payment queries go to payments@miracurl-suite.com.</p>
       </div>
       <div className="mt-5 border-t border-slate-100 pt-4" data-testid="product-orders-inbox">
         <h4 className="text-sm font-bold text-slate-700">Order Inbox <span className="text-slate-400 font-normal">({orders.length})</span></h4>

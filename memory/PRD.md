@@ -2085,3 +2085,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 18 Aug 2026: Header overlap fixed, caps nav on all marketing pages, /products uses shared header + white bg + domain fix. See CHANGELOG Iter 137.
 
 - 18 Aug 2026: Subscription/trial login gates + grace flow, audit 7d retention, order email/address fields, product detail modals. See CHANGELOG Iter 138.
+
+- 18 Aug 2026: Razorpay auto exact-amount payment links for product orders + webhook auto-paid, label generator & detail modal visibility fixes. See CHANGELOG Iter 140.
