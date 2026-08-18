@@ -6,10 +6,22 @@ import { ShoppingBag } from "lucide-react";
 export const ProductsLaunchPanel = () => {
   const [cfg, setCfg] = useState({ available: false, razorpay_link: "" });
   const [busy, setBusy] = useState(false);
+  const [orders, setOrders] = useState([]);
+
+  const loadOrders = () => api.get("/super-admin/product-orders").then(({ data }) => setOrders(data)).catch(() => {});
 
   useEffect(() => {
     api.get("/public/products-config").then(({ data }) => setCfg(data)).catch(() => {});
+    loadOrders();
   }, []);
+
+  async function setStatus(o, status) {
+    try {
+      await api.put(`/super-admin/product-orders/${o.id}`, { status });
+      toast.success(`Order marked ${status.replace("_", " ")}`);
+      loadOrders();
+    } catch { toast.error("Couldn't update order"); }
+  }
 
   async function save(next) {
     setBusy(true);
@@ -49,6 +61,36 @@ export const ProductsLaunchPanel = () => {
             className="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-700 disabled:opacity-50">Save</button>
         </div>
         <p className="text-[10px] text-slate-400 mt-1.5">Orders are saved in the system; payment queries go to payments@miracurl-suite.com.</p>
+      </div>
+      <div className="mt-5 border-t border-slate-100 pt-4" data-testid="product-orders-inbox">
+        <h4 className="text-sm font-bold text-slate-700">Order Inbox <span className="text-slate-400 font-normal">({orders.length})</span></h4>
+        {orders.length === 0 && <p className="text-xs text-slate-400 mt-2">No product orders yet.</p>}
+        <div className="mt-2 space-y-2 max-h-72 overflow-y-auto">
+          {orders.map(o => (
+            <div key={o.id} className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5" data-testid={`product-order-${o.id}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{o.name} · <span className="text-slate-500 font-normal">{o.phone}</span></p>
+                  <p className="text-[11px] text-slate-500">{(o.items || []).map(it => `${it.id} ×${it.qty}`).join(", ")} · {(o.created_at || "").slice(0, 16).replace("T", " ")}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-extrabold text-slate-900">₹{Number(o.total || 0).toLocaleString("en-IN")}</p>
+                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${o.status === "paid" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : o.status === "dispatched" ? "bg-sky-50 text-sky-600 border border-sky-200" : "bg-amber-50 text-amber-600 border border-amber-200"}`}>{(o.status || "").replace("_", " ")}</span>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-2">
+                {o.status === "pending_payment" && (
+                  <button onClick={() => setStatus(o, "paid")} data-testid={`order-mark-paid-${o.id}`}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500 text-white text-[11px] font-bold hover:bg-emerald-600">Mark paid</button>
+                )}
+                {o.status === "paid" && (
+                  <button onClick={() => setStatus(o, "dispatched")} data-testid={`order-mark-dispatched-${o.id}`}
+                    className="px-2.5 py-1 rounded-lg bg-sky-500 text-white text-[11px] font-bold hover:bg-sky-600">Mark dispatched 📦</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

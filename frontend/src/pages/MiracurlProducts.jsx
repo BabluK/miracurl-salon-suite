@@ -7,7 +7,7 @@ const API = process.env.REACT_APP_BACKEND_URL;
 const IMG = {
   shampoo: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/989481972d50b053295669a1f172eb4a879d26c087594d373f0ba2b491f257e1.jpeg",
   conditioner: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/96a5c96b547c4e2683aeb125326bc5e20de53671198085725e78fb393e691542.jpeg",
-  botox: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/614c893dfc20a619123f76f6e60a3347eeb531c846a4a91a7d7ed0f1210f16a2.jpeg",
+  botox: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/871f5d5cc09bfe08098f785a38dee0e30b6fa298eb297c63028d86dc056b7d86.jpeg",
   botoxShampoo: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/3d93c583e1940c519235821760acb0f820b1f066a140435ac385684de72e40e5.jpeg",
 };
 
@@ -31,9 +31,9 @@ const PRODUCTS = [
     ingredients: ["Ceramides", "Panthenol", "Hydrolyzed Keratin", "Argan Oil", "Silk Protein", "Aloe Vera"],
   },
   {
-    id: "botox", img: IMG.botox, size: "300ml · 10.14 fl. oz.",
+    id: "botox", img: IMG.botox, size: "500ml or 1000ml — professional use",
     name: "Hair Botox Treatment", sub: "Deep Repair · Smooth · Shine",
-    price: "₹8,000",
+    price: "₹4,500 (500ml) · ₹8,000 (1000ml)",
     desc: "A professional deep-repair treatment infused with Keratin, Peptides & Ceramides that restores hair structure, reduces frizz and breakage and delivers salon-like smooth, glossy & healthy hair.",
     bestFor: "Frizzy, Damaged, Unruly & Chemically Treated Hair",
     benefits: ["Deeply repairs damaged hair", "Reduces frizz & unruly hair", "Restores hair strength & elasticity", "Enhances smoothness & shine", "Hydrates & revitalizes", "Long-lasting salon-like finish"],
@@ -53,10 +53,17 @@ const PRODUCTS = [
 const BADGES = ["Paraben Free", "Sulfate Free", "Silicone Free", "Cruelty Free", "Vegan"];
 
 // numeric price for ordering (range products use the lower bound)
-const ORDER_PRICE = { shampoo: 400, conditioner: 380, botox: 8000, "botox-shampoo": 2500 };
+const ORDER_PRICE = { shampoo: 400, conditioner: 380, "botox-500": 4500, "botox-1000": 8000, "botox-shampoo": 2500 };
+const ORDER_ITEMS = [
+  { id: "shampoo", label: "Long & Healthy Shampoo (250ml)" },
+  { id: "conditioner", label: "Nourish & Shine Conditioner (250ml)" },
+  { id: "botox-500", label: "Hair Botox Treatment — 500ml" },
+  { id: "botox-1000", label: "Hair Botox Treatment — 1000ml" },
+  { id: "botox-shampoo", label: "Keratin Botox Shampoo (250ml)" },
+];
 
 function OrderModal({ cfg, onClose }) {
-  const [qty, setQty] = useState({ shampoo: 0, conditioner: 0, botox: 0, "botox-shampoo": 0 });
+  const [qty, setQty] = useState({ shampoo: 0, conditioner: 0, "botox-500": 0, "botox-1000": 0, "botox-shampoo": 0 });
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
@@ -93,10 +100,10 @@ function OrderModal({ cfg, onClose }) {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700" data-testid="order-modal-close"><X className="w-5 h-5" /></button>
         </div>
         <div className="space-y-2.5">
-          {PRODUCTS.map(p => (
+          {ORDER_ITEMS.map(p => (
             <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-rose-100 bg-[#FDEDF0]/50 px-3 py-2.5" data-testid={`order-row-${p.id}`}>
               <div className="flex-1">
-                <p className="text-sm font-bold text-slate-800">{p.name}</p>
+                <p className="text-sm font-bold text-slate-800">{p.label}</p>
                 <p className="text-xs text-slate-500">₹{ORDER_PRICE[p.id].toLocaleString("en-IN")}</p>
               </div>
               <div className="flex items-center gap-2">

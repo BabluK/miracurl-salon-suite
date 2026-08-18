@@ -537,3 +537,20 @@ async def create_product_order(body: ProductOrderIn, request: Request):
     return {"ok": True, "order_id": order["id"],
             "razorpay_link": cfg.get("razorpay_link") or "",
             "contact_email": "payments@miracurl-suite.com"}
+
+
+@router.get("/super-admin/product-orders")
+async def list_product_orders(user=Depends(require_super_admin)):
+    return await _raw_db.product_orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
+
+
+class OrderStatusIn(BaseModel):
+    status: str = Field(..., pattern="^(pending_payment|paid|dispatched)$")
+
+
+@router.put("/super-admin/product-orders/{oid}")
+async def set_product_order_status(oid: str, body: OrderStatusIn, user=Depends(require_super_admin)):
+    r = await _raw_db.product_orders.update_one({"id": oid}, {"$set": {"status": body.status}})
+    if not r.matched_count:
+        raise HTTPException(404, "Order not found")
+    return {"ok": True, "status": body.status}

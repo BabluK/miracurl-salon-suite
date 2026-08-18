@@ -525,6 +525,13 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
                "OUTSIDE-HOURS RULE (ACTIVE NOW): the team is unavailable, so NEVER offer a human handoff and NEVER emit [HANDOFF]. "
                "If the guest wants a person, say exactly: 'Our salon team is currently unavailable. I can help you book an appointment "
                "or leave a request for the team to contact you.' Then help them book, or collect their name + phone + request for the team.\n")
+            + ("MIRACURL HAIR SCIENCE RETAIL RANGE (home hair-care products by the Miracurl brand): "
+               "Long & Healthy Shampoo (Hibiscus & Ceramides, 250ml, ₹400–480) · Nourish & Shine Conditioner (250ml, ₹380–420) · "
+               "Hair Botox Treatment (professional, 500ml ₹4,500 / 1000ml ₹8,000) · Keratin Botox Shampoo (250ml, ₹2,500) · "
+               "Botox combo (treatment + botox shampoo) ₹9,500. "
+               "PRODUCT PITCH: when a guest asks how to care for their hair AT HOME, which shampoo/conditioner to use, how to maintain a "
+               "treatment, or about frizz/hair-fall products — naturally recommend the matching Miracurl product (one line, never pushy) "
+               "and mention the full range is on our Products page (launching soon).\n")
             + ("VOICE MODE: the customer is SPEAKING with you and will HEAR your reply read aloud. Keep it under 60 words, "
                "conversational short sentences, no lists, no markdown, at most one emoji.\n\n" if voice else "\n")
             + catalog
