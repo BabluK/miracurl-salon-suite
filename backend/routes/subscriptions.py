@@ -708,6 +708,10 @@ async def _wh_product_order_paid(event: dict, logger) -> None:
                   "paid_via": "razorpay_payment_link"}})
     if res.modified_count:
         logger.info("product order %s auto-marked paid via payment link", order_id)
+        order = await _raw_db.product_orders.find_one({"id": order_id}, {"_id": 0})
+        if order:
+            from routes.public_site import send_order_status_email
+            send_order_status_email(order, "paid")
 
 
 # ---------------- Renewal reminders ----------------

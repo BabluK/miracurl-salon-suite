@@ -1395,3 +1395,7 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - ProductsLaunchPanel: link field now "optional override", helper text explains auto-links; input text color fixed.
 - LabelGenerator inputs/select: explicit text-slate-800 bg-white (text was invisible in prod) — verified via screenshot.
 - Product detail modal: max-h-[92vh] + overflow-y-auto (description was cut off on short screens) — verified full back-label scrollable.
+
+## Iter 141 (18 Aug 2026) — Order status emails
+- PUT /super-admin/product-orders/{oid} now emails the customer on status transition: "Payment received ✦" (paid) and "Your order is dispatched 🚚" (dispatched) — only on actual transitions, skips if order has no email. Webhook auto-paid also sends the paid email. Templates in public_site._order_status_email_html; fire-and-forget via send_order_status_email.
+- Verified: both transitions triggered Resend sends (rejected only for example.com test domain = pipeline OK). Test order cleaned up.
