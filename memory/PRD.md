@@ -2037,3 +2037,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - OUTSIDE-HOURS: prompt rule forbids [HANDOFF] + exact line 'Our salon team is currently unavailable. I can help you book an appointment or leave a request for the team to contact you.' Backend guard: [HANDOFF] emitted while closed → stripped, handoff=None, reply replaced with the unavailable line. Team requests captured via existing _INQ_MARKER inquiry flow.
 - Handoff triggers broadened: explicit request, manager request, dissatisfaction, special accommodation, low-confidence/complex questions, bookings needing human approval; scripted confirm 'Absolutely. I'll connect you with our salon reception team — shall I?'.
 - Verified live at 09:41 IST (closed): person request → exact unavailable line + request capture, handoff None (both turns). Open-hours handoff verified previously. BUILD 2026-08-18.82.
+
+## 2026-08-18 — CRM day filters count returning (billed) guests
+- BUG: POS _apply_post_invoice_effects incremented visits/spent but never set last_visited; CRM Today/Yesterday/Week filters used created_at only → returning clients billed today didn't appear under Today.
+- FIX: invoice completion now $sets last_visited=now + crm_status=active; Customers.jsx filters/counts use activityDay = max(created_at, last_visited).
+- MIGRATION: server.py startup db-prep step 'last-visited-backfill' — customers with visits≥1 and no last_visited get it from their newest non-voided invoice (fixed 46 in preview; will auto-run in production on next deploy).
+- Verified e2e: billed old customer (created 2026-08-06) → last_visited stamped today → appears under Today filter. Test bill cleaned. BUILD 2026-08-18.83.

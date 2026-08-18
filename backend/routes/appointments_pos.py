@@ -333,7 +333,10 @@ async def _apply_post_invoice_effects(cust: dict, totals: dict, loyalty_rules: d
                 "loyalty_points": points_earned - totals["points_used"]}
     if totals["referral_credit_used"] > 0:
         cust_inc["referral_credit"] = -totals["referral_credit_used"]
-    await db.customers.update_one({"id": cust["id"]}, {"$inc": cust_inc})
+    await db.customers.update_one(
+        {"id": cust["id"]},
+        {"$inc": cust_inc,
+         "$set": {"last_visited": datetime.now(timezone.utc).isoformat(), "crm_status": "active"}})
 
     # SEC-001: release the referrer's reward only after the referred guest actually pays.
     if cust.get("referral_pending") and cust.get("referred_by"):

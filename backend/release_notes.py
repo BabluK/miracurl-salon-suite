@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-18.82"
-BUILD_TIME = "18 Aug 2026, 03:15 PM IST"
+BUILD = "2026-08-18.83"
+BUILD_TIME = "18 Aug 2026, 04:25 PM IST"
 
 RELEASES = [
     {
@@ -15,6 +15,7 @@ RELEASES = [
             "🕐 Instant hours reply — ask Mira about contact or timings and she shares your full day-wise working hours (from your Settings open/close times)",
             "🌙 After-hours smarts — outside business hours Mira never transfers to a human; she says the team is unavailable and offers to book or take a request for the team to call back",
             "🧠 Smarter handoff triggers — Mira also offers a human when guests are dissatisfied, ask for the manager, need special accommodation, or ask something she can't confidently answer",
+            "📅 CRM day filters fixed — Today/Yesterday/Last 7 days now include returning guests who were BILLED that day, not just newly added ones; every completed bill also stamps the guest's last-visit date (older records were auto-repaired)",
         ],
     },
     {

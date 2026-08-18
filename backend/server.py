@@ -276,12 +276,31 @@ async def on_startup():
         if n:
             logging.info("recovered %s lead run(s) stuck from before restart", n)
 
+    async def _backfill_last_visited():
+        # One-time: customers billed via POS before last_visited was recorded — derive it
+        # from their newest non-voided invoice so CRM day-filters show returning guests.
+        raw = client[os.environ["DB_NAME"]]
+        custs = await raw.customers.find(
+            {"last_visited": {"$in": [None, ""]}, "visits": {"$gte": 1}},
+            {"_id": 0, "id": 1}).to_list(5000)
+        fixed = 0
+        for c in custs:
+            inv = await raw.invoices.find(
+                {"customer_id": c["id"], "status": {"$ne": "voided"}},
+                {"_id": 0, "created_at": 1}).sort("created_at", -1).to_list(1)
+            if inv:
+                await raw.customers.update_one({"id": c["id"]}, {"$set": {"last_visited": inv[0]["created_at"]}})
+                fixed += 1
+        if fixed:
+            logging.info("backfilled last_visited for %s customers", fixed)
+
     async def _db_prep():
         # Runs in the BACKGROUND so the pod passes its readiness probe immediately.
         # Any single failure (e.g. index option conflicts / duplicate keys on the
         # production Atlas data) is logged and skipped instead of crash-looping the pod.
         for name, step in (("indexes", _ensure_indexes), ("migrations", _run_migrations),
-                           ("seeds", _run_seeds), ("stuck-runs", _recover_stuck_runs)):
+                           ("seeds", _run_seeds), ("stuck-runs", _recover_stuck_runs),
+                           ("last-visited-backfill", _backfill_last_visited)):
             try:
                 await step()
                 logging.info("startup db-prep step '%s' done", name)

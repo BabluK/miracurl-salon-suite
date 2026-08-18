@@ -32,14 +32,19 @@ export default function Customers() {
     return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   };
   const today = istDay(null), yesterday = istDay(null, -1), weekAgo = istDay(null, -6);
+  // A customer counts for a day if they were ADDED that day OR VISITED (were billed) that day
+  const activityDay = (c) => {
+    const days = [c.created_at, c.last_visited].filter(Boolean).map(x => istDay(x));
+    return days.sort().pop() || "";
+  };
   const counts = {
-    today: list.filter(c => c.created_at && istDay(c.created_at) === today).length,
-    yesterday: list.filter(c => c.created_at && istDay(c.created_at) === yesterday).length,
-    week: list.filter(c => c.created_at && istDay(c.created_at) >= weekAgo).length,
+    today: list.filter(c => activityDay(c) === today).length,
+    yesterday: list.filter(c => activityDay(c) === yesterday).length,
+    week: list.filter(c => activityDay(c) >= weekAgo).length,
   };
   const visible = list.filter(c => {
     if (dateFilter === "all") return true;
-    const d = c.created_at ? istDay(c.created_at) : "";
+    const d = activityDay(c);
     if (dateFilter === "today") return d === today;
     if (dateFilter === "yesterday") return d === yesterday;
     return d >= weekAgo;
