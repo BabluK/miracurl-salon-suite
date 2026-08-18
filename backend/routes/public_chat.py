@@ -197,9 +197,8 @@ async def _instant_faq_reply(t, message: str) -> Optional[str]:
         more = f"\n…and {len(services) - 18} more — just ask me about any treatment ✨" if len(services) > 18 else ""
         return f"Here's our live service menu at {name} 💖\n\n{lines}{more}\n\nShall I book one for you?"
     if intent == "timing":
-        if not t.get("hours"):
-            return None
-        return f"We're open {t['hours']} ✨ I can book you a slot so there's zero waiting — shall I?"
+        return (f"Here are our working hours 🕐\n\n{_hours_table(t)}\n\n"
+                "I can book you a slot so there's zero waiting — shall I?")
     if intent == "location":
         if not t.get("location"):
             return None
@@ -366,6 +365,40 @@ async def _capture_ai_inquiry(t, reply: str, hist: list, message: str) -> str:
     return text.strip()
 
 
+def _salon_tz(t):
+    from zoneinfo import ZoneInfo
+    try:
+        return ZoneInfo(t.get("timezone") or "Asia/Kolkata")
+    except Exception:
+        return ZoneInfo("Asia/Kolkata")
+
+
+def _fmt12(v: str, default: str) -> str:
+    try:
+        h, mi = map(int, (v or default).split(":"))
+    except ValueError:
+        h, mi = map(int, default.split(":"))
+    return f"{h % 12 or 12}:{mi:02d} {'AM' if h < 12 else 'PM'}"
+
+
+def _salon_open_now(t) -> tuple[bool, str]:
+    now = datetime.now(_salon_tz(t))
+    def mins(v, d):
+        try:
+            h, mi = map(int, (v or d).split(":"))
+        except ValueError:
+            h, mi = map(int, d.split(":"))
+        return h * 60 + mi
+    cur = now.hour * 60 + now.minute
+    return mins(t.get("open_time"), "10:00") <= cur < mins(t.get("close_time"), "21:00"), now.strftime("%A %I:%M %p")
+
+
+def _hours_table(t) -> str:
+    o, c = _fmt12(t.get("open_time"), "10:00"), _fmt12(t.get("close_time"), "21:00")
+    return "\n".join(f"{d}: {o} – {c}" for d in
+                     ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+
 async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False, request: Request | None = None):
     """Shared Mira pipeline for text + voice. Returns (reply, booking, booking_error)."""
     key = os.environ.get("EMERGENT_LLM_KEY")
@@ -375,6 +408,7 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
     hist = await _raw_db.public_ai_messages.find({"sid": sid}, {"_id": 0}).sort("created_at", 1).to_list(40)
     catalog = await _booking_catalog(t)
     catalog += await _returning_guest_block(message, hist)
+    is_open, local_now = _salon_open_now(t)
     chat = LlmChat(
         api_key=key, session_id=f"{sid}-{uuid.uuid4().hex[:8]}",
         system_message=(
@@ -476,11 +510,21 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             "Rules: never mention the marker or JSON (it is machine-read); never invent service ids; time is 24h format; "
             "keep replies short, warm and mobile-friendly (short paragraphs or dash lists; you may use **bold** for service names and prices, no other markdown); use the salon's currency symbol (as shown in the menu) for prices; sprinkle a tasteful emoji occasionally (✨💆‍♀️); "
             "never be dismissive — every reply should leave the guest feeling cared for.\n"
-            "HUMAN HANDOFF: if the customer asks to talk to a human / real person / receptionist / staff / owner (or is frustrated and wants a person), "
-            "first CONFIRM once in their language: 'Of course! Would you like me to connect you to our receptionist right away?'. "
+            "HUMAN HANDOFF: hand the guest to a human when they explicitly ask for a person/receptionist/staff/owner, ask for the MANAGER, "
+            "are dissatisfied or frustrated, need a special accommodation, ask something complex you cannot confidently answer from the salon data above, "
+            "or when a booking needs human approval. First CONFIRM once in their language — e.g. Customer: 'Can I speak with someone?' → "
+            "You: 'Absolutely. I'll connect you with our salon reception team — shall I?'. "
             "The moment they confirm (yes/haan/ok/connect), reply with ONE warm goodbye sentence (e.g. 'Connecting you to our team now — they'll take lovely care of you 💖') "
             "and end your reply with the exact token [HANDOFF] on the same line. Never mention the token (machine-read). "
             "If instead they'd like expert beauty guidance, continue helping as Mira, the AI beauty advisor.\n"
+            f"BUSINESS HOURS (the salon is open every day):\n{_hours_table(t)}\n"
+            f"Right now it is {local_now} at the salon — the salon team is {'AVAILABLE (within business hours)' if is_open else 'UNAVAILABLE (outside business hours)'}.\n"
+            "CONTACT / TIMINGS QUESTIONS: if the guest asks how to contact the salon or about timings/working hours, share the day-wise hours above "
+            "(in voice mode summarise: 'We're open every day, 10 AM to 9 PM').\n"
+            + ("" if is_open else
+               "OUTSIDE-HOURS RULE (ACTIVE NOW): the team is unavailable, so NEVER offer a human handoff and NEVER emit [HANDOFF]. "
+               "If the guest wants a person, say exactly: 'Our salon team is currently unavailable. I can help you book an appointment "
+               "or leave a request for the team to contact you.' Then help them book, or collect their name + phone + request for the team.\n")
             + ("VOICE MODE: the customer is SPEAKING with you and will HEAR your reply read aloud. Keep it under 60 words, "
                "conversational short sentences, no lists, no markdown, at most one emoji.\n\n" if voice else "\n")
             + catalog
@@ -502,12 +546,16 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
     booking, booking_error, handoff = None, None, None
     if "[HANDOFF]" in reply:
         reply = reply.replace("[HANDOFF]", "").strip()
-        handoff = {
-            "salon_name": t.get("name") or "the salon",
-            "reception_phone": t.get("reception_phone") or t.get("phone") or "",
-            "manager_phone": t.get("manager_phone") or "",
-            "salon_phone": t.get("phone") or "",
-        }
+        if is_open:
+            handoff = {
+                "salon_name": t.get("name") or "the salon",
+                "reception_phone": t.get("reception_phone") or t.get("phone") or "",
+                "manager_phone": t.get("manager_phone") or "",
+                "salon_phone": t.get("phone") or "",
+            }
+        else:
+            reply = ("Our salon team is currently unavailable. I can help you book an appointment "
+                     "or leave a request for the team to contact you. 💖")
     if _INQ_MARKER in reply:
         reply = await _capture_ai_inquiry(t, reply, hist, message)
     if _BOOK_MARKER in reply:

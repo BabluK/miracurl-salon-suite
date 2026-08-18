@@ -2030,3 +2030,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Widget: HandoffCard (mira-handoff-card) — Call receptionist (tel:), Call manager, 🌸 Continue with Mira (dispatches miracurl:mira-continue → sends preset message).
 - Verified e2e: curl (confirm→handoff payload) + Playwright screenshot (widget opens from salon page, handoff card with tel:+919876511111). BUILD 2026-08-18.81.
 - Preview tenant now has reception +91 98765 11111 / manager +91 98765 22222 saved as test values.
+
+## 2026-08-18 — Mira hours awareness + after-hours handoff rules
+- public_chat.py: _salon_tz/_salon_open_now/_hours_table helpers (tenant timezone, default Asia/Kolkata; open_time/close_time defaults 10:00-21:00). System prompt now includes day-wise BUSINESS HOURS + live open/closed status.
+- Instant FAQ 'timing' intent returns the full day-wise table (always, no longer requires t.hours).
+- OUTSIDE-HOURS: prompt rule forbids [HANDOFF] + exact line 'Our salon team is currently unavailable. I can help you book an appointment or leave a request for the team to contact you.' Backend guard: [HANDOFF] emitted while closed → stripped, handoff=None, reply replaced with the unavailable line. Team requests captured via existing _INQ_MARKER inquiry flow.
+- Handoff triggers broadened: explicit request, manager request, dissatisfaction, special accommodation, low-confidence/complex questions, bookings needing human approval; scripted confirm 'Absolutely. I'll connect you with our salon reception team — shall I?'.
+- Verified live at 09:41 IST (closed): person request → exact unavailable line + request capture, handoff None (both turns). Open-hours handoff verified previously. BUILD 2026-08-18.82.

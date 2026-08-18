@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-18.81"
-BUILD_TIME = "18 Aug 2026, 09:45 AM IST"
+BUILD = "2026-08-18.82"
+BUILD_TIME = "18 Aug 2026, 03:15 PM IST"
 
 RELEASES = [
     {
@@ -12,6 +12,9 @@ RELEASES = [
             "🎙️ 'Talk to Mira' on your public salon page — visitors can now start a voice or text conversation with Mira right from your profile page (previously only on the booking page); she knows your services, prices, staff and hours and can book appointments by voice",
             "🤝 Human handoff — when a guest asks for a real person, Mira politely confirms and shows one-tap options: call your receptionist, call the manager, or continue with Mira as their AI beauty advisor",
             "📇 Team contacts in Settings — new Receptionist number and Manager number fields in Settings → Salon profile power the handoff (falls back to your main salon number if empty)",
+            "🕐 Instant hours reply — ask Mira about contact or timings and she shares your full day-wise working hours (from your Settings open/close times)",
+            "🌙 After-hours smarts — outside business hours Mira never transfers to a human; she says the team is unavailable and offers to book or take a request for the team to call back",
+            "🧠 Smarter handoff triggers — Mira also offers a human when guests are dissatisfied, ask for the manager, need special accommodation, or ask something she can't confidently answer",
         ],
     },
     {
