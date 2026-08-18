@@ -104,6 +104,7 @@ import StaffRegistry from "@/pages/StaffRegistry";
 import RegistryPublic from "@/pages/RegistryPublic";
 import Partners from "@/pages/Partners";
 import SalonPublic from "@/pages/SalonPublic";
+import MiracurlProducts from "@/pages/MiracurlProducts";
 import EmployeePortal from "@/pages/EmployeePortal";
 import DemoSlot from "@/pages/DemoSlot";
 import PublicDemo from "@/pages/PublicDemo";
@@ -210,6 +211,7 @@ export default function App() {
             <Route path="/pay/:token" element={<PayLinkPublic />} />
             <Route path="/feedback/:token" element={<FeedbackPublic />} />
             <Route path="/salon/:slug" element={<SalonPublic />} />
+            <Route path="/products" element={<MiracurlProducts />} />
             <Route path="/employee" element={<EmployeePortal />} />
             <Route path="/demo-slot/:iid" element={<DemoSlot />} />
             <Route path="/demo" element={<PublicDemo />} />
