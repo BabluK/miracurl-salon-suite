@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Check, Sparkles, Phone, Mail, Globe, ShoppingBag, X, Minus, Plus } from "lucide-react";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -144,16 +145,9 @@ export default function MiracurlProducts() {
   const live = cfg.available;
 
   return (
-    <div className="min-h-screen bg-[#FBF6EC] text-slate-800" data-testid="miracurl-products-page" style={{ fontFamily: "'Manrope', sans-serif" }}>
-      {/* Site header — matches the marketing site */}
-      <nav className="bg-[#FBF6EC] border-b border-[#e7dcc4] px-6 py-4 flex items-center gap-3">
-        <div className="w-11 h-11 rounded-full border-2 border-[#C9A227] flex items-center justify-center text-[#C9A227] font-serif text-lg font-bold bg-white/70">MS✦</div>
-        <div>
-          <p className="text-[#C9A227] font-extrabold tracking-widest text-lg leading-none" style={{ fontFamily: "'Playfair Display', serif" }}>MIRACURL SUITE</p>
-          <p className="text-[9px] tracking-[0.35em] text-slate-500 font-semibold">SMART SALON MANAGEMENT SOFTWARE</p>
-        </div>
-        <a href="/" className="ml-auto text-xs font-bold text-[#A61C3C] hover:underline" data-testid="products-home-link">← Home</a>
-      </nav>
+    <div className="min-h-screen bg-white text-slate-800" data-testid="miracurl-products-page" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      {/* Shared marketing header — same as the rest of the site */}
+      <SiteHeader variant="light" />
 
       {/* Hero */}
       <header className="text-center pt-12 pb-10 px-4">
@@ -251,7 +245,7 @@ export default function MiracurlProducts() {
           </div>
           <div className="flex flex-wrap gap-4 text-xs text-white/85">
             <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-[#F5D97E]" /> +91 8217072523</span>
-            <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#F5D97E]" /> miracurl.com</span>
+            <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#F5D97E]" /> miracurl-suite.com</span>
             <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-[#F5D97E]" /> payments@miracurl-suite.com</span>
           </div>
         </div>

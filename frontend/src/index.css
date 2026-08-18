@@ -689,7 +689,8 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 
 /* Landing nav — all-caps animated links */
 @keyframes navDropIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
-.nav-cap { text-transform: uppercase; font-size: 11px; letter-spacing: 0.16em; font-weight: 600; position: relative; white-space: nowrap; animation: navDropIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.nav-cap { text-transform: uppercase; font-size: 10px; letter-spacing: 0.09em; font-weight: 600; position: relative; white-space: nowrap; animation: navDropIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (min-width: 1400px) { .nav-cap { letter-spacing: 0.12em; } }
 .nav-cap::after { content: ""; position: absolute; left: 0; bottom: -5px; width: 0; height: 1.5px; background: linear-gradient(90deg, #F0D9A5, #C89B52); transition: width 0.3s ease; }
 .nav-cap:hover::after { width: 100%; }
 .nav-cap:nth-child(1) { animation-delay: 0.05s; }

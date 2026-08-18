@@ -1367,3 +1367,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Tenant booking pages: MiracurlProductsStrip (compact) on /book/{slug} step 0, gated by tenant flag show_miracurl_products (default TRUE); SalonPublic "Our Products" pill gated by same flag; new GET/PUT /api/settings/miracurl-products + MiracurlProductsCard toggle in Settings; public_salon returns show_products. TESTED: iteration_110.json — 100% backend + frontend (toggle round-trip verified, restored to ON).
 - Landing header: all-caps animated nav (.nav-cap in index.css — staggered navDropIn + gold underline hover, nowrap). Verified via screenshot.
 - BookPublic footer call button: was tel: link (caused OS "Pick an app" popup in production) → now opens Mira AI voice chat (openMira("ai"), data-testid book-talk-to-mira-btn, fuchsia-violet). Verified: click opens AI Advisor widget with mic/hands-free. NOTE: production miracurl-suite.com needs REDEPLOY to get Talk-to-Mira + this fix.
+
+## Iter 137 (18 Aug 2026) — Header overlap fix + caps everywhere + products page header/bg
+- Logo overlap fix: shrink-0 on logo lockups, logo img w-14→72px responsive, full nav now hidden xl:flex (compact Contact/SignIn/SignUp below 1280), gap-3 2xl:gap-5, container px-4 xl:px-10. nav-cap fixed at 10px/0.09em (container max-w-7xl=1280 can't fit 11px variant — removed media bump). Verified FITS at 1120/1280/1440/1920 via bounding-box checks.
+- SiteHeader.jsx: all-caps animated nav-cap applied (all marketing pages incl. staff-registry).
+- /products page: custom MS✦ text nav replaced with shared <SiteHeader variant="light"/> (real gold logo, caps); page bg #FBF6EC→white; footer miracurl.com→miracurl-suite.com.
+- NOTE: production needs redeploy.

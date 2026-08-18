@@ -109,9 +109,9 @@ export const WHO_CAN_USE = [
 ];
 
 export const LogoLockup = ({ size = "md" }) => (
-  <Link to="/" className="flex items-center gap-3 group" data-testid="landing-logo">
+  <Link to="/" className="flex items-center gap-3 group shrink-0" data-testid="landing-logo">
     <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite"
-      className={`${size === "lg" ? "w-24 h-24" : "w-[72px] h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
+      className={`${size === "lg" ? "w-24 h-24" : "w-14 h-14 xl:w-[72px] xl:h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
     <span className="leading-tight">
       <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
@@ -368,9 +368,9 @@ export default function Landing({ scrollTo }) {
 
       {/* Nav — crystal glass with the new gold monogram */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/70 border-b border-[#DFB78C]/15">
-        <div className="max-w-7xl mx-auto px-6 sm:px-10 py-2 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 xl:px-10 py-2 flex items-center justify-between">
           <LogoLockup />
-          <div className="hidden lg:flex items-center gap-5 text-sm">
+          <div className="hidden xl:flex items-center gap-3 2xl:gap-5 text-sm">
             <Link to="/" data-testid="nav-home-link" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="nav-cap text-white/70 hover:text-white transition-colors">Home</Link>
             <a href="#about" data-testid="nav-about-link" className="nav-cap text-white/70 hover:text-white transition-colors">About Us</a>
             <Link to="/mira.ai" data-testid="nav-mira-studio-link"
@@ -388,7 +388,7 @@ export default function Landing({ scrollTo }) {
               Sign Up
             </Link>
           </div>
-          <div className="flex lg:hidden items-center gap-3 text-sm">
+          <div className="flex xl:hidden items-center gap-3 text-sm">
             <Link to="/contact-us" data-testid="nav-contact-mobile" className="text-white/70 hover:text-white transition-colors">Contact</Link>
             <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors">Sign In</Link>
             <Link to="/signup-salon"

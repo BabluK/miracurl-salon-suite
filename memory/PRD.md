@@ -2081,3 +2081,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 18 Aug 2026: Label QR (scan-to-reorder → /products) + transparent ms-logo.png. See CHANGELOG Iter 134.
 
 - 18 Aug 2026: Products strip on landing+booking pages w/ tenant toggle, all-caps animated header, booking call button now opens Mira voice. See CHANGELOG Iter 136.
+
+- 18 Aug 2026: Header overlap fixed, caps nav on all marketing pages, /products uses shared header + white bg + domain fix. See CHANGELOG Iter 137.
