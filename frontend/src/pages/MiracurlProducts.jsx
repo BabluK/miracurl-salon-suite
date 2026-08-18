@@ -1,4 +1,8 @@
-import { Check, Sparkles, Phone, Mail, Globe } from "lucide-react";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { Check, Sparkles, Phone, Mail, Globe, ShoppingBag, X, Minus, Plus } from "lucide-react";
+
+const API = process.env.REACT_APP_BACKEND_URL;
 
 const IMG = {
   shampoo: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/989481972d50b053295669a1f172eb4a879d26c087594d373f0ba2b491f257e1.jpeg",
@@ -48,17 +52,116 @@ const PRODUCTS = [
 
 const BADGES = ["Paraben Free", "Sulfate Free", "Silicone Free", "Cruelty Free", "Vegan"];
 
-export default function MiracurlProducts() {
+// numeric price for ordering (range products use the lower bound)
+const ORDER_PRICE = { shampoo: 400, conditioner: 380, botox: 8000, "botox-shampoo": 2500 };
+
+function OrderModal({ cfg, onClose }) {
+  const [qty, setQty] = useState({ shampoo: 0, conditioner: 0, botox: 0, "botox-shampoo": 0 });
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
+  const total = Object.entries(qty).reduce((s, [k, q]) => s + q * ORDER_PRICE[k], 0);
+  const step = (k, d) => setQty(q => ({ ...q, [k]: Math.max(0, Math.min(20, q[k] + d)) }));
+
+  async function pay() {
+    if (total < 1) return;
+    if (name.trim().length < 2 || phone.replace(/\D/g, "").length < 10) {
+      alert("Please enter your name and a valid phone number");
+      return;
+    }
+    setBusy(true);
+    try {
+      const items = Object.entries(qty).filter(([, q]) => q > 0)
+        .map(([id, q]) => ({ id, qty: q, price: ORDER_PRICE[id] }));
+      const { data } = await axios.post(`${API}/api/public/product-orders`, { name: name.trim(), phone, items, total });
+      if (data.razorpay_link) {
+        window.open(data.razorpay_link, "_blank");
+      } else {
+        alert(`Order received! Our team will send you a payment link shortly. For help: ${data.contact_email}`);
+      }
+      onClose();
+    } catch (e) {
+      alert(e.response?.data?.detail || "Couldn't place the order — please try again");
+    } finally { setBusy(false); }
+  }
+
   return (
-    <div className="min-h-screen bg-[#FFF5F6] text-slate-800" data-testid="miracurl-products-page" style={{ fontFamily: "'Manrope', sans-serif" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()} data-testid="product-order-modal">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-extrabold text-[#A61C3C]" style={{ fontFamily: "'Playfair Display', serif" }}>Order Miracurl Products</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700" data-testid="order-modal-close"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="space-y-2.5">
+          {PRODUCTS.map(p => (
+            <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-rose-100 bg-[#FDEDF0]/50 px-3 py-2.5" data-testid={`order-row-${p.id}`}>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-800">{p.name}</p>
+                <p className="text-xs text-slate-500">₹{ORDER_PRICE[p.id].toLocaleString("en-IN")}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => step(p.id, -1)} className="w-7 h-7 rounded-full border border-rose-200 text-[#A61C3C] flex items-center justify-center hover:bg-rose-50" data-testid={`order-minus-${p.id}`}><Minus className="w-3.5 h-3.5" /></button>
+                <span className="w-6 text-center text-sm font-bold" data-testid={`order-qty-${p.id}`}>{qty[p.id]}</span>
+                <button onClick={() => step(p.id, 1)} className="w-7 h-7 rounded-full bg-[#A61C3C] text-white flex items-center justify-center hover:opacity-90" data-testid={`order-plus-${p.id}`}><Plus className="w-3.5 h-3.5" /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2 mt-4">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" data-testid="order-name-input"
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-rose-200" />
+          <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone (+91…)" inputMode="tel" data-testid="order-phone-input"
+            className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-rose-200" />
+        </div>
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-slate-500">Total</p>
+          <p className="text-2xl font-extrabold text-slate-900" data-testid="order-total">₹{total.toLocaleString("en-IN")}</p>
+        </div>
+        <button onClick={pay} disabled={busy || total < 1} data-testid="order-pay-razorpay-btn"
+          className="mt-3 w-full py-3 rounded-xl bg-[#A61C3C] text-white font-bold shadow-md hover:opacity-90 transition disabled:opacity-40">
+          {busy ? "Placing order…" : "Pay with Razorpay →"}
+        </button>
+        <p className="text-[10px] text-slate-400 text-center mt-2">Questions? payments@miracurl-suite.com</p>
+      </div>
+    </div>
+  );
+}
+
+export default function MiracurlProducts() {
+  const [cfg, setCfg] = useState({ available: false, razorpay_link: "" });
+  const [orderOpen, setOrderOpen] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/api/public/products-config`).then(({ data }) => setCfg(data)).catch(() => {});
+  }, []);
+  const live = cfg.available;
+
+  return (
+    <div className="min-h-screen bg-[#FBF6EC] text-slate-800" data-testid="miracurl-products-page" style={{ fontFamily: "'Manrope', sans-serif" }}>
+      {/* Site header — matches the marketing site */}
+      <nav className="bg-[#FBF6EC] border-b border-[#e7dcc4] px-6 py-4 flex items-center gap-3">
+        <div className="w-11 h-11 rounded-full border-2 border-[#C9A227] flex items-center justify-center text-[#C9A227] font-serif text-lg font-bold bg-white/70">MS✦</div>
+        <div>
+          <p className="text-[#C9A227] font-extrabold tracking-widest text-lg leading-none" style={{ fontFamily: "'Playfair Display', serif" }}>MIRACURL SUITE</p>
+          <p className="text-[9px] tracking-[0.35em] text-slate-500 font-semibold">SMART SALON MANAGEMENT SOFTWARE</p>
+        </div>
+        <a href="/" className="ml-auto text-xs font-bold text-[#A61C3C] hover:underline" data-testid="products-home-link">← Home</a>
+      </nav>
+
       {/* Hero */}
-      <header className="text-center pt-14 pb-10 px-4 bg-gradient-to-b from-[#FDEDF0] to-[#FFF5F6]">
-        <div className="w-20 h-20 mx-auto rounded-full border-2 border-[#C9A227] flex items-center justify-center text-[#C9A227] font-serif text-3xl font-bold shadow-sm bg-white/60">MS✦</div>
-        <h1 className="mt-4 text-4xl sm:text-5xl font-extrabold tracking-wide text-[#A61C3C]" style={{ fontFamily: "'Playfair Display', serif" }}>MIRACURL</h1>
+      <header className="text-center pt-12 pb-10 px-4">
+        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-wide text-[#A61C3C]" style={{ fontFamily: "'Playfair Display', serif" }}>MIRACURL</h1>
         <p className="text-[11px] tracking-[0.5em] text-[#C9A227] font-bold mt-1">HAIR SCIENCE</p>
         <p className="mt-3 text-lg font-semibold text-slate-700">Science. Nature. You.</p>
         <p className="text-sm text-slate-500">Advanced Haircare for Stronger, Healthier, Shinier Hair</p>
-        <span className="inline-block mt-5 px-5 py-2 rounded-full bg-[#A61C3C] text-white text-sm font-bold tracking-widest shadow-md animate-pulse" data-testid="products-coming-soon-badge">✦ COMING SOON ✦</span>
+        {live ? (
+          <button onClick={() => setOrderOpen(true)} data-testid="products-order-now-hero-btn"
+            className="inline-flex items-center gap-2 mt-5 px-6 py-2.5 rounded-full bg-[#A61C3C] text-white text-sm font-bold tracking-widest shadow-md hover:opacity-90 transition">
+            <ShoppingBag className="w-4 h-4" /> ORDER NOW
+          </button>
+        ) : (
+          <span className="inline-block mt-5 px-5 py-2 rounded-full bg-[#A61C3C] text-white text-sm font-bold tracking-widest shadow-md animate-pulse" data-testid="products-coming-soon-badge">✦ COMING SOON ✦</span>
+        )}
         <div className="flex flex-wrap justify-center gap-2 mt-6">
           {BADGES.map(b => (
             <span key={b} className="px-3 py-1.5 rounded-full border border-[#C9A227]/40 bg-white text-[11px] font-bold text-[#8a6d1a] uppercase tracking-wide">{b}</span>
@@ -76,7 +179,11 @@ export default function MiracurlProducts() {
       <main className="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-2 gap-8">
         {PRODUCTS.map((p, i) => (
           <article key={p.id} data-testid={`product-card-${p.id}`} className="relative bg-white rounded-3xl shadow-lg shadow-rose-100 overflow-hidden border border-rose-100 flex flex-col">
-            <span className="absolute top-4 right-[-38px] rotate-45 bg-[#C9A227] text-white text-[10px] font-bold tracking-widest px-10 py-1 shadow">COMING SOON</span>
+            {live ? (
+              <span className="absolute top-4 right-[-38px] rotate-45 bg-emerald-500 text-white text-[10px] font-bold tracking-widest px-10 py-1 shadow">AVAILABLE</span>
+            ) : (
+              <span className="absolute top-4 right-[-38px] rotate-45 bg-[#C9A227] text-white text-[10px] font-bold tracking-widest px-10 py-1 shadow">COMING SOON</span>
+            )}
             <div className="grid grid-cols-5 gap-0">
               <div className="col-span-2 bg-[#FDEDF0]">
                 <img src={p.img} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
@@ -86,6 +193,12 @@ export default function MiracurlProducts() {
                 <h2 className="text-xl font-extrabold text-[#A61C3C] leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>{p.name}</h2>
                 <p className="text-xs font-semibold text-slate-500 mt-0.5">{p.sub} · {p.size}</p>
                 <p className="mt-2 text-lg font-extrabold text-slate-900" data-testid={`product-price-${p.id}`}>{p.price}</p>
+                {live && (
+                  <button onClick={() => setOrderOpen(true)} data-testid={`order-now-${p.id}`}
+                    className="mt-2 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#A61C3C] text-white text-xs font-bold hover:opacity-90 transition">
+                    <ShoppingBag className="w-3.5 h-3.5" /> Order Now
+                  </button>
+                )}
                 <p className="mt-2 text-[13px] text-slate-600 leading-relaxed">{p.desc}</p>
                 <p className="mt-2 text-[11px] text-slate-500"><span className="font-bold text-[#A61C3C]">Best For:</span> {p.bestFor}</p>
               </div>
@@ -132,10 +245,11 @@ export default function MiracurlProducts() {
           <div className="flex flex-wrap gap-4 text-xs text-white/85">
             <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-[#F5D97E]" /> +91 8217072523</span>
             <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#F5D97E]" /> miracurl.com</span>
-            <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-[#F5D97E]" /> info@miracurl.com</span>
+            <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-[#F5D97E]" /> payments@miracurl-suite.com</span>
           </div>
         </div>
       </footer>
+      {orderOpen && <OrderModal cfg={cfg} onClose={() => setOrderOpen(false)} />}
     </div>
   );
 }

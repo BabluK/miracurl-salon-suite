@@ -2055,3 +2055,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## 2026-08-18 — Our Products button on salon public page
 - SalonPublic.jsx hero pill row: 🧴 Our Products gold pill (salon-our-products-btn) → /products. Screenshot-verified: renders next to Talk to Mira, navigates to products page. BUILD 2026-08-18.86.
+
+## 2026-08-18 — Products page: brand header, launch flag & Razorpay ordering
+- /products now uses the marketing-site cream (#FBF6EC) bg + MIRACURL SUITE header (MS✦ logo, "SMART SALON MANAGEMENT SOFTWARE", ← Home link).
+- Launch flag: platform_settings {key:"products", available, razorpay_link}. GET /public/products-config (public) + PUT /super-admin/products-config (super admin). ProductsLaunchPanel.jsx (toggle + Razorpay link input) mounted at top of PartnersPanel in Super Admin.
+- available=true → Coming Soon badges become green AVAILABLE ribbons, hero + per-card Order Now buttons appear. OrderModal: qty steppers (order prices: shampoo 400, conditioner 380, botox 8000, botox-shampoo 2500), name+phone, total, POST /public/product-orders (rate-limited 10/10min, stores in product_orders, status pending_payment) → opens razorpay_link; contact payments@miracurl-suite.com in modal + footer.
+- Verified: curl config/enable/order (order_id + link returned) + Playwright (header, AVAILABLE ribbons, modal total ₹8,800). Flag RESET to available=false (Coming Soon) until user launches; razorpay link placeholder saved — user must set their real rzp.io link in Super Admin → Partners → Miracurl Products Launch. BUILD 2026-08-18.87.

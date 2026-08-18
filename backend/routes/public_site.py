@@ -490,3 +490,50 @@ async def public_availability(slug: str, date: str, staff_id: Optional[str] = No
         slots[hhmm] = busy < capacity
     return {"date": date, "staff_count": capacity, "slots": slots}
 
+
+
+# ---- Miracurl Products page (platform-level, not tenant-scoped) ----
+
+@router.get("/public/products-config")
+async def products_config():
+    doc = await _raw_db.platform_settings.find_one({"key": "products"}, {"_id": 0}) or {}
+    return {"available": bool(doc.get("available")), "razorpay_link": doc.get("razorpay_link") or ""}
+
+
+class ProductsConfigIn(BaseModel):
+    available: bool
+    razorpay_link: Optional[str] = Field(None, max_length=300)
+
+
+@router.put("/super-admin/products-config")
+async def set_products_config(body: ProductsConfigIn, user=Depends(require_super_admin)):
+    await _raw_db.platform_settings.update_one(
+        {"key": "products"},
+        {"$set": {"available": body.available, "razorpay_link": (body.razorpay_link or "").strip()}},
+        upsert=True)
+    return {"ok": True, "available": body.available}
+
+
+class ProductOrderIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    phone: str = Field(..., min_length=7, max_length=20)
+    items: List[Dict] = Field(..., min_length=1, max_length=10)
+    total: float = Field(..., ge=1)
+
+
+@router.post("/public/product-orders")
+async def create_product_order(body: ProductOrderIn, request: Request):
+    public_rate_limit(request, key_suffix="product-order", limit=10, window_sec=600)
+    cfg = await _raw_db.platform_settings.find_one({"key": "products"}, {"_id": 0}) or {}
+    if not cfg.get("available"):
+        raise HTTPException(400, "Products are not available for ordering yet")
+    order = {
+        "id": str(uuid.uuid4()),
+        "name": body.name.strip(), "phone": re.sub(r"\D", "", body.phone)[-12:],
+        "items": body.items[:10], "total": round(body.total, 2),
+        "status": "pending_payment", "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _raw_db.product_orders.insert_one({**order})
+    return {"ok": True, "order_id": order["id"],
+            "razorpay_link": cfg.get("razorpay_link") or "",
+            "contact_email": "payments@miracurl-suite.com"}
