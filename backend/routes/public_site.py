@@ -494,6 +494,24 @@ async def public_availability(slug: str, date: str, staff_id: Optional[str] = No
 
 # ---- Miracurl Products page (platform-level, not tenant-scoped) ----
 
+@router.get("/public/products-qr")
+async def products_qr(url: str = ""):
+    import io as _io
+    import qrcode
+    from fastapi.responses import Response as _Resp
+    target = (url or "").strip()
+    if not target.startswith("http") or len(target) > 300:
+        raise HTTPException(400, "valid url query param required")
+    qr = qrcode.QRCode(box_size=8, border=2)
+    qr.add_data(target)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#3d2b1f", back_color="#FFFDF7")
+    buf = _io.BytesIO()
+    img.save(buf, format="PNG")
+    return _Resp(content=buf.getvalue(), media_type="image/png",
+                 headers={"Cache-Control": "public, max-age=86400"})
+
+
 @router.get("/public/products-config")
 async def products_config():
     doc = await _raw_db.platform_settings.find_one({"key": "products"}, {"_id": 0}) or {}

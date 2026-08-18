@@ -2077,3 +2077,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
   (base: https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/) BUILD 2026-08-18.89.
 
 - 18 Aug 2026: Bottle Label Generator fixed & live in Super Admin → Partners (was imported but unmounted); standalone transparent MS✦ logo generated & swapped into label header. See CHANGELOG Iter 133.
+
+- 18 Aug 2026: Label QR (scan-to-reorder → /products) + transparent ms-logo.png. See CHANGELOG Iter 134.

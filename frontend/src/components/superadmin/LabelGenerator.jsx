@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Printer } from "lucide-react";
 
-const LOGO = "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/3dd323106f2c15479e060879960c3dd54db24a9b875fa61d93eb6eb45771fae7.jpeg";
+const LOGO = "/ms-logo.png";
 
 const LABEL_PRODUCTS = {
   shampoo: { name: "LONG & HEALTHY SHAMPOO", sub: "Hibiscus & Ceramides", net: "250 ml", mrp: "480",
@@ -31,6 +31,8 @@ export const LabelGenerator = () => {
 
   function printLabel() {
     const mrp = f.mrp || p.mrp;
+    const shopUrl = `${window.location.origin}/products`;
+    const qrSrc = `${window.location.origin}/api/public/products-qr?url=${encodeURIComponent(shopUrl)}`;
     const w = window.open("", "_blank", "width=760,height=900");
     w.document.write(`<html><head><title>Miracurl Label — ${p.name}</title>
 <style>
@@ -42,10 +44,14 @@ export const LabelGenerator = () => {
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;font-size:11px;margin-top:12px}
   .grid b{color:#A61C3C}.sec{margin-top:12px;font-size:10px;line-height:1.5}.sec b{color:#A61C3C;font-size:10px;letter-spacing:2px}
   .badges{text-align:center;font-size:9px;letter-spacing:1px;color:#8a6d1a;margin-top:12px}
+  .mkqr{display:flex;gap:14px;align-items:center;margin-top:12px}
+  .mkqr .sec{margin-top:0;flex:1}
+  .qrbox{text-align:center;flex-shrink:0}.qrbox img{width:74px;height:74px;border:1px solid #eadfc2;border-radius:6px}
+  .qrbox div{font-size:7.5px;color:#8a6d1a;letter-spacing:1px;margin-top:3px;font-weight:bold}
   .foot{text-align:center;font-size:9px;color:#7a5c48;margin-top:10px;border-top:1px solid #eadfc2;padding-top:8px}
   @media print{body{padding:0}}
 </style></head><body><div class="label">
-  <div class="top"><img src="${LOGO}"/><div class="brand">MIRACURL</div><div class="sci">HAIR SCIENCE</div>
+  <div class="top"><img src="${window.location.origin}${LOGO}"/><div class="brand">MIRACURL</div><div class="sci">HAIR SCIENCE</div>
   <div class="pname">${p.name}</div><div class="sub">${p.sub}</div><hr class="wave"/></div>
   <div class="grid">
     <div><b>Net Content:</b> ${p.net}</div><div><b>MRP:</b> ₹${mrp}/- (incl. of all taxes)</div>
@@ -57,7 +63,10 @@ export const LabelGenerator = () => {
   <div class="sec"><b>DIRECTIONS:</b> ${p.use}</div>
   <div class="sec"><b>CAUTION:</b> For external use only. Avoid contact with eyes; if contact occurs rinse immediately. Keep out of reach of children. Store in a cool, dry place.</div>
   <div class="badges">PARABEN FREE · SULFATE FREE · SILICONE FREE · CRUELTY FREE · VEGAN</div>
-  <div class="sec"><b>MARKETED BY:</b> ${f.marketer}</div>
+  <div class="mkqr">
+    <div class="sec"><b>MARKETED BY:</b> ${f.marketer}</div>
+    <div class="qrbox"><img src="${qrSrc}"/><div>SCAN TO REORDER</div></div>
+  </div>
   <div class="foot">Customer care: ${f.care} · www.miracurl.com<br/>Science. Nature. You.</div>
 </div><script>setTimeout(()=>window.print(),600)</script></body></html>`);
     w.document.close();

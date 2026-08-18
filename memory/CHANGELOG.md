@@ -1349,3 +1349,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Generator: product dropdown (5 SKUs incl. botox 500ml/1L/botox shampoo), editable MRP/batch/mfg date/licence/care/marketer, prints 640px gold-bordered label (logo, ingredients, directions, caution, badges, compliance) via window.open+print.
 - Verified via Playwright: panel renders, botox-500 label prints with all fields.
 - Standalone MS✦ logo (transparent PNG, 1024px, Gemini): https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/3dd323106f2c15479e060879960c3dd54db24a9b875fa61d93eb6eb45771fae7.jpeg — also swapped into label header (old cream-bg jpeg replaced).
+
+## Iter 134 (18 Aug 2026) — Label QR code + true transparent logo
+- New public endpoint GET /api/public/products-qr?url= (qrcode lib, PNG, http-only URL guard, 24h cache) — label embeds QR pointing to {origin}/products with "SCAN TO REORDER" caption next to Marketed By.
+- Gemini "transparent" logo had checkerboard baked into JPEG; processed via PIL saturation-mask into real transparent PNG at /app/frontend/public/ms-logo.png. LabelGenerator now uses ${origin}/ms-logo.png — logo blends into cream label, no grey box.
+- Verified via Playwright popup capture: shampoo label prints with clean logo + working QR.
