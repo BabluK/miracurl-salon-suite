@@ -103,6 +103,38 @@ async def suggest_review_reply(rid: str, user=Depends(require_admin), t=Depends(
     return {"reply": reply}
 
 
+class GoogleReplyIn(BaseModel):
+    author: str = Field("", max_length=120)
+    rating: int = Field(5, ge=1, le=5)
+    text: str = Field("", max_length=3000)
+
+
+@router.post("/reviews/google/draft-reply")
+async def draft_google_review_reply(body: GoogleReplyIn, user=Depends(require_admin), t=Depends(current_tenant)):
+    """Mira drafts a warm PUBLIC reply for a live Google review — owner copies & pastes it on Google."""
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    chat = LlmChat(
+        api_key=key, session_id=f"greview-reply-{uuid.uuid4().hex[:8]}",
+        system_message=(
+            f"You write short, warm, professional PUBLIC replies to Google Maps reviews on behalf of the owner of "
+            f"'{t.get('name')}', an Indian salon. These replies are visible to everyone browsing Google. "
+            "Rules: 2-4 sentences max. Thank the reviewer by first name if given. For 4-5 stars: express genuine joy and "
+            "invite them back warmly. For 3 stars: thank + acknowledge room to improve. For 1-2 stars: apologise sincerely, "
+            "never argue or make excuses, promise to do better and invite them to contact the salon directly so you can make it right. "
+            "No hashtags, no salon phone numbers, at most one emoji. Reply with ONLY the reply text, nothing else."),
+    ).with_model("openai", "gpt-4o-mini")
+    prompt = (f"Rating: {body.rating}/5\nReviewer: {body.author or 'A guest'}\n"
+              f"Google review: {body.text.strip() or '(rating only, no written comment)'}")
+    try:
+        resp = await chat.send_message(UserMessage(text=prompt))
+        reply = (resp or "").strip()[:1000]
+    except Exception as e:
+        raise HTTPException(400, f"AI reply failed: {e}")
+    return {"reply": reply}
+
+
 @router.put("/reviews/{rid}/reply")
 async def save_review_reply(rid: str, body: ReviewReplyIn, user=Depends(require_admin)):
     await db.reviews.update_one({"id": rid}, {"$set": {

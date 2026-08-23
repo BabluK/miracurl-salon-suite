@@ -98,6 +98,56 @@ function GoogleG({ className = "w-4 h-4" }) {
   );
 }
 
+function GoogleReplyBox({ rv, idx, mapsUrl }) {
+  const [draft, setDraft] = useState("");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function generate() {
+    setBusy(true);
+    try {
+      const { data } = await api.post("/reviews/google/draft-reply", {
+        author: rv.author || "", rating: rv.rating || 5, text: rv.text || "",
+      });
+      setDraft(data.reply);
+      setOpen(true);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Mira couldn't draft a reply");
+    } finally { setBusy(false); }
+  }
+  async function copy() {
+    try { await navigator.clipboard.writeText(draft); toast.success("Copied — now paste it as your reply on Google"); }
+    catch { toast.error("Copy failed"); }
+  }
+
+  if (!open) {
+    return (
+      <button onClick={generate} disabled={busy} data-testid={`google-reply-draft-${idx}`}
+        className="mt-2 inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 disabled:opacity-50">
+        {busy ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />} Mira reply
+      </button>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-1.5" data-testid={`google-reply-box-${idx}`}>
+      <textarea rows={3} value={draft} onChange={e => setDraft(e.target.value)} maxLength={1000}
+        className="w-full text-[11px] px-2.5 py-2 rounded-lg border border-violet-200 bg-violet-50/50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-200" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={copy} data-testid={`google-reply-copy-${idx}`}
+          className="text-[10px] px-2.5 py-1 rounded-lg bg-violet-600 text-white font-bold flex items-center gap-1"><Copy className="w-2.5 h-2.5" /> Copy</button>
+        {mapsUrl && (
+          <a href={mapsUrl} target="_blank" rel="noreferrer" data-testid={`google-reply-open-${idx}`}
+            className="text-[10px] px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">Reply on Google →</a>
+        )}
+        <button onClick={generate} disabled={busy} className="text-[10px] text-violet-600 hover:underline flex items-center gap-0.5">
+          {busy ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />} Regenerate
+        </button>
+        <button onClick={() => setOpen(false)} className="text-[10px] text-slate-400 hover:text-slate-600">Close</button>
+      </div>
+    </div>
+  );
+}
+
 function GoogleReviewsCard() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
@@ -167,6 +217,7 @@ function GoogleReviewsCard() {
                     </div>
                   </div>
                   {rv.text && <p className="text-xs text-slate-600 mt-2 line-clamp-4 italic">&ldquo;{rv.text}&rdquo;</p>}
+                  <GoogleReplyBox rv={rv} idx={i} mapsUrl={data.maps_url} />
                 </div>
               ))}
             </div>
