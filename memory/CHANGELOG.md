@@ -1443,3 +1443,7 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Review Booster: services/billing._queue_review_request() called after every completed POS invoice → pending whatsapp_requests (kind review_request, "Mira (auto)") w/ _smart_review_url funnel (4★+ → Google, Mira writes the review). Appears in Dashboard WhatsApp Approvals; dedupe/expiry via iter-144 pruning. Verified live invoice → request created; test data cleaned.
 - manifest.json name/short_name → "Miracurl Booking" (was "Miracurl Book"). Partner already "Miracurl Partner".
 - Partner Path Migration (any-order dual install) still BACKLOG P1 — needs /partner route refactor, dedicated session.
+
+## Iter 151 (23 Aug 2026) — WhatsApp Lead Inbox in HQ
+- CRITICAL FIX: DemoRequestIn.source pattern rejected "whatsapp_gate" (422) — added to allowed sources; the ChatButton gate now actually saves leads.
+- New GET /super-admin/wa-leads (tenant_inquiries source=whatsapp_gate). New WhatsAppLeadsCard (dark emerald-gold) mounted ABOVE DemoCampaign in HQ → Lead Generation Email tab: name, salon/city, email, date, 💬 wa.me chat button + mailto. Hidden when empty. Verified E2E (lead POST → list → card renders); test lead cleaned.

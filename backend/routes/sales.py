@@ -123,7 +123,7 @@ class DemoRequestIn(BaseModel):
     email: Optional[EmailStr] = None
     salon_name: Optional[str] = Field(None, max_length=100)
     city: Optional[str] = Field(None, max_length=60)
-    source: str = Field("success_stories", pattern=r"^(success_stories|booking_footer|contact_us_page)$")
+    source: str = Field("success_stories", pattern=r"^(success_stories|booking_footer|contact_us_page|whatsapp_gate)$")
     referred_by_slug: Optional[str] = Field(None, max_length=80)
 
     @field_validator("phone")
@@ -160,6 +160,16 @@ async def demo_request(body: DemoRequestIn, request: Request):
     await _raw_db.tenant_inquiries.insert_one(doc)
     asyncio.create_task(_send_lead_alert(doc, question))
     return {"ok": True, "message": "Thanks! Our team will reach out within a few hours ✦"}
+
+
+@router.get("/super-admin/wa-leads")
+async def list_wa_leads(user=Depends(require_super_admin)):
+    """Leads captured by the WhatsApp connect gate (name+phone+email before wa.me)."""
+    rows = await _raw_db.tenant_inquiries.find(
+        {"source": "whatsapp_gate"},
+        {"_id": 0, "id": 1, "name": 1, "phone": 1, "email": 1, "salon_name": 1,
+         "city": 1, "status": 1, "created_at": 1}).sort("created_at", -1).to_list(200)
+    return {"items": rows}
 
 
 CIRCLE_BONUS_AMOUNT = 1000.0

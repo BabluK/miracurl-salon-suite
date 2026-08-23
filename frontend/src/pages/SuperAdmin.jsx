@@ -46,6 +46,7 @@ import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
 import { DocsPanel } from "@/components/superadmin/DocsPanel";
 import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel";
 import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
+import { WhatsAppLeadsCard } from "@/components/superadmin/WhatsAppLeadsCard";
 import { SiteInfoPanel } from "@/components/superadmin/SiteInfoPanel";
 import { Globe } from "lucide-react";
 import { Mail } from "lucide-react";
@@ -438,6 +439,7 @@ export default function SuperAdmin() {
                   <h1 className="font-playfair text-3xl flex items-center gap-3"><Mail className="w-7 h-7 text-amber-500" /> Lead Generation Email</h1>
                   <p className="text-slate-500 text-sm mt-1">Invite prospective salons to a demo — suite details, pricing and all brochures attached.</p>
                 </div>
+                <WhatsAppLeadsCard />
                 <DemoCampaign />
               </div>
             ),
