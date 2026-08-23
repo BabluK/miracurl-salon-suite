@@ -2087,3 +2087,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 18 Aug 2026: Subscription/trial login gates + grace flow, audit 7d retention, order email/address fields, product detail modals. See CHANGELOG Iter 138.
 
 - 18 Aug 2026: Razorpay auto exact-amount payment links for product orders + webhook auto-paid, label generator & detail modal visibility fixes. See CHANGELOG Iter 140.
+
+- 23 Aug 2026: Mobile overflow fixed across marketing pages; onboarding email now trial-first (signup-salon CTA + secondary demo request). See CHANGELOG Iter 142.

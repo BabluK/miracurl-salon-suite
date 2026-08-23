@@ -111,12 +111,12 @@ export const WHO_CAN_USE = [
 export const LogoLockup = ({ size = "md" }) => (
   <Link to="/" className="flex items-center gap-3 group shrink-0" data-testid="landing-logo">
     <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite"
-      className={`${size === "lg" ? "w-24 h-24" : "w-14 h-14 xl:w-[72px] xl:h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
+      className={`${size === "lg" ? "w-24 h-24" : "w-10 h-10 sm:w-14 sm:h-14 xl:w-[72px] xl:h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
     <span className="leading-tight">
-      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
+      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-sm sm:text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
       </span>
-      <span className="block text-[9px] uppercase tracking-[0.3em] text-white/45">Smart Salon Management Software</span>
+      <span className="hidden sm:block text-[9px] uppercase tracking-[0.3em] text-white/45">Smart Salon Management Software</span>
     </span>
   </Link>
 );
@@ -358,7 +358,7 @@ export default function Landing({ scrollTo }) {
   }, [scrollTo]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-outfit" data-testid="landing-page">
+    <div className="min-h-screen bg-[#050505] text-white font-outfit overflow-x-clip" data-testid="landing-page">
       {/* Referral banner — slim, elegant, top of everything */}
       {refSlug && (
         <div className="bg-[#DFB78C] text-black text-sm py-2 px-4 text-center font-medium" data-testid="landing-ref-banner">
@@ -388,7 +388,7 @@ export default function Landing({ scrollTo }) {
               Sign Up
             </Link>
           </div>
-          <div className="flex xl:hidden items-center gap-3 text-sm">
+          <div className="flex xl:hidden items-center gap-2 sm:gap-3 text-sm whitespace-nowrap">
             <Link to="/contact-us" data-testid="nav-contact-mobile" className="text-white/70 hover:text-white transition-colors">Contact</Link>
             <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors">Sign In</Link>
             <Link to="/signup-salon"

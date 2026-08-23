@@ -514,6 +514,8 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
               f"&body=Hi%20Miracurl%20team%2C%0A%0AI%27d%20love%20a%20demo%20of%20the%20Miracurl%20Salon%20Suite."
               f"%0AMy%20preferred%20time%3A%20%0AMy%20salon%3A%20%0APhone%3A%20%0A%0AThank%20you!")
     cta_href = f"{track_base}/api/public/demo-track/{invite_id}/click" if (track_base and invite_id) else mailto
+    site_base = "https://miracurl-suite.com"
+    signup_href = f"{site_base}/signup-salon"
     pixel = (f'<img src="{track_base}/api/public/demo-track/{invite_id}/open.png" width="1" height="1" '
              f'style="display:block;width:1px;height:1px;border:0" alt="">') if (track_base and invite_id) else ""
 
@@ -526,26 +528,29 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
     <div style="color:#b9b2a3;font-size:12px;letter-spacing:2.5px;margin-top:5px">THE ALL-IN-ONE SALON SUITE</div>
     <div style="height:2px;width:64px;background:#d4af37;margin-top:16px"></div>
     <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:21px;margin-top:18px;line-height:1.4">
-      An invitation to see your salon,<br>run beautifully.</div>
+      Your salon&rsquo;s <span style="color:#d4af37">7-day free trial</span><br>of Miracurl Suite.</div>
   </td></tr>
   <tr><td style="padding:30px 36px 8px">
     <p style="font-size:15px;color:#33333b;line-height:1.7;margin:0 0 14px">{greeting}</p>
     <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0 0 14px">
       We hope this message finds you and your team{salon_line} doing wonderfully.
-      We're writing with a warm invitation — no obligation at all — to see a short, personalised demo of the
-      <b>Miracurl Salon Suite</b>, the all-in-one platform trusted by growing salons to manage bookings,
-      billing, staff and marketing from a single elegant dashboard.</p>
+      We'd love for you to experience the <b>Miracurl Salon Suite</b> — the all-in-one platform trusted by
+      growing salons to manage bookings, billing, staff and marketing from a single elegant dashboard.</p>
     <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0">
-      We know your day is busy, so the demo takes just <b>20 minutes</b>, at a time of your choosing —
-      and you're free to simply watch, ask questions, or explore at your own pace.</p>
+      <b>Start your own 7-day free trial today</b> — set up your salon yourself in under 5 minutes,
+      no credit card needed, and explore everything at your own pace.</p>
   </td></tr>
   {_demo_note_block(note)}
   {_demo_modules_block()}
   {_demo_agents_block()}
   {_demo_pricing_block(plans, currency)}
   <tr><td align="center" style="padding:26px 36px 8px">
-    <a href="{cta_href}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
-       text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">Request my demo time ✦</a>
+    <a href="{signup_href}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+       text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">Start my 7-day free trial ✦</a>
+    <div style="margin-top:16px">
+      <a href="{cta_href}" style="display:inline-block;border:1.5px solid #d4af37;color:#8a6d1a;font-size:13px;font-weight:bold;
+         text-decoration:none;padding:11px 30px;border-radius:999px;letter-spacing:.3px">Prefer a guided tour? Request a demo →</a>
+    </div>
     <div style="font-size:12px;color:#8f8798;margin-top:12px">Or simply reply to this email with a day &amp; time that suits you — we'll fit around your schedule.</div>
   </td></tr>
   {_demo_footer_blocks(hq_email)}
@@ -629,7 +634,7 @@ async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -
 async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depends(require_super_admin)):
     targets = _dedupe_recipients(body.recipients)
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
-    subject = body.subject.strip() or "A warm invitation — see your salon run beautifully with Miracurl ✦"
+    subject = body.subject.strip() or "Your Salon's 7-Day Free Trial of Miracurl Suite ✦"
     attachments = await asyncio.to_thread(_all_doc_attachments)
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
     plans = await _live_plans()
@@ -913,7 +918,7 @@ async def demo_invite_resend(iid: str, request: Request, user=Depends(require_su
                             plans=plans, tracking=(track_base, iid),
                             currency="USD" if _is_intl_email(inv["email"]) else "INR")
     status = await _send_email([inv["email"]],
-                               "A warm invitation — see your salon run beautifully with Miracurl ✦",
+                               "Your Salon's 7-Day Free Trial of Miracurl Suite ✦",
                                html, attachments=attachments, reply_to=hq_email)
     if not status.get("sent"):
         raise HTTPException(500, status.get("error") or "Send failed")

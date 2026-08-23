@@ -1399,3 +1399,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 ## Iter 141 (18 Aug 2026) — Order status emails
 - PUT /super-admin/product-orders/{oid} now emails the customer on status transition: "Payment received ✦" (paid) and "Your order is dispatched 🚚" (dispatched) — only on actual transitions, skips if order has no email. Webhook auto-paid also sends the paid email. Templates in public_site._order_status_email_html; fire-and-forget via send_order_status_email.
 - Verified: both transitions triggered Resend sends (rejected only for example.com test domain = pipeline OK). Test order cleaned up.
+
+## Iter 142 (23 Aug 2026) — Mobile overflow fix + trial-first onboarding email
+- Mobile horizontal overflow fixed on ALL marketing pages: SuiteLogo/LogoLockup now w-10 + text-sm on mobile, tagline hidden <sm, compact nav gap-2 + nowrap + px-3 pill; landing root overflow-x-clip (decorative -inset-10 blur blob was 444px wide). Verified scrollWidth==innerWidth at 412px on /, /products, /demo, /staff-registry.
+- Onboarding email (_demo_email_html in hq_documents.py) redesigned: subject + hero now "Your Salon's 7-Day Free Trial of Miracurl Suite ✦"; PRIMARY CTA "Start my 7-day free trial ✦" → https://miracurl-suite.com/signup-salon (self-serve); SECONDARY outlined "Request a demo →" keeps tracked demo-track link. Updated both send paths (campaign + resend line 916). Verified CTAs/headline present in rendered HTML.
+- NOTE: needs deploy to reach production.

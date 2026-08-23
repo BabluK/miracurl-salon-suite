@@ -30,12 +30,12 @@ const T = {
 export const SuiteLogo = ({ variant = "dark", size = "md" }) => (
   <Link to="/" className="flex items-center gap-3 group shrink-0" data-testid="suite-logo">
     <img src={variant === "light" ? "/assets/ms-logo-gold.png" : "/assets/ms-logo-emblem.png"} alt="Miracurl Suite"
-      className={`${size === "lg" ? "w-24 h-24" : "w-14 h-14 xl:w-[72px] xl:h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
+      className={`${size === "lg" ? "w-24 h-24" : "w-10 h-10 sm:w-14 sm:h-14 xl:w-[72px] xl:h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
     <span className="leading-tight">
-      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
+      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-sm sm:text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
       </span>
-      <span className={`block text-[9px] uppercase tracking-[0.3em] ${T[variant].sub}`}>Smart Salon Management Software</span>
+      <span className={`hidden sm:block text-[9px] uppercase tracking-[0.3em] ${T[variant].sub}`}>Smart Salon Management Software</span>
     </span>
   </Link>
 );
@@ -99,11 +99,11 @@ export const SiteHeader = ({ variant = "light", site = null }) => {
             Sign Up
           </Link>
         </div>
-        <div className="flex xl:hidden items-center gap-3 text-sm">
+        <div className="flex xl:hidden items-center gap-2 sm:gap-3 text-sm whitespace-nowrap">
           <Link to="/contact-us" className={`${t.link} transition-colors`}>Contact</Link>
           <Link to="/login" className={`${t.link} font-medium transition-colors`}>Sign In</Link>
           <Link to="/signup-salon"
-            className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1c160c] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(200,155,82,0.5)]">
+            className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1c160c] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(200,155,82,0.5)]">
             Sign Up
           </Link>
         </div>
