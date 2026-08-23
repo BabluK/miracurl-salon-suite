@@ -1404,3 +1404,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Mobile horizontal overflow fixed on ALL marketing pages: SuiteLogo/LogoLockup now w-10 + text-sm on mobile, tagline hidden <sm, compact nav gap-2 + nowrap + px-3 pill; landing root overflow-x-clip (decorative -inset-10 blur blob was 444px wide). Verified scrollWidth==innerWidth at 412px on /, /products, /demo, /staff-registry.
 - Onboarding email (_demo_email_html in hq_documents.py) redesigned: subject + hero now "Your Salon's 7-Day Free Trial of Miracurl Suite ✦"; PRIMARY CTA "Start my 7-day free trial ✦" → https://miracurl-suite.com/signup-salon (self-serve); SECONDARY outlined "Request a demo →" keeps tracked demo-track link. Updated both send paths (campaign + resend line 916). Verified CTAs/headline present in rendered HTML.
 - NOTE: needs deploy to reach production.
+
+## Iter 143 (23 Aug 2026) — Trial signup tracking + tenant email + branch on QR
+- HQ Demo Campaign: invites now enriched with signup join (owner_email match) → status "trial_started" (violet chip ✦) vs "converted"; funnel strip adds "Trial started" count; row shows 🏠 salon + trial-end tag. Verified via API (trial_started + signup payload).
+- Monthly attendance sheet now emails tenant's salon_email (fallback owner_email): new BrandingIn.salon_email + GET/PUT branding + "Salon email" field in BrandingCard. Preview tenant set to miracurlunisexsaloon@gmail.com; verified recipients=[gmail]. PROD: user must type it in Settings → Salon Profile after deploy.
+- Staff Check-in Desk QR poster now prints the selected branch name under the salon name (?branch= param, drawn on poster); Attendance modal shows 📍 branch tag and passes branch to img/download/print URLs. Verified PNG render.

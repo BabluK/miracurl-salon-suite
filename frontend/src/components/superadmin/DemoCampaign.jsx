@@ -170,11 +170,12 @@ export function DemoCampaign() {
 
       {invites.length > 0 && (
         <div className="border-t border-slate-100 pt-3 space-y-2" data-testid="demo-followup-section">
-          <div className="grid grid-cols-4 gap-2" data-testid="demo-funnel-strip">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2" data-testid="demo-funnel-strip">
             {[
               ["Invited", invites.length, "text-slate-700"],
               ["Opened", invites.filter(i => i.opened).length, "text-sky-600"],
               ["Demo requested", invites.filter(i => i.status === "demo_requested").length, "text-amber-600"],
+              ["Trial started ✦", invites.filter(i => i.status === "trial_started").length, "text-violet-600"],
               ["Converted", invites.filter(i => i.status === "converted").length, "text-emerald-600"],
             ].map(([label, n, color]) => (
               <div key={label} className="bg-slate-50 rounded-xl px-3 py-2 text-center">
@@ -198,6 +199,7 @@ export function DemoCampaign() {
                 reminded: ["Reminder sent", "bg-amber-100 text-amber-700"],
                 demo_requested: ["Demo requested 🔥", "bg-amber-500 text-white"],
                 replied: ["Replied ✓", "bg-emerald-100 text-emerald-700"],
+                trial_started: ["Trial started ✦", "bg-violet-600 text-white"],
                 converted: ["Converted 🎉", "bg-emerald-600 text-white"],
               }[inv.status] || ["—", "bg-slate-100 text-slate-500"];
               return (
@@ -208,7 +210,14 @@ export function DemoCampaign() {
                   {inv.opened && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-600 text-[10px] font-semibold" title={`Opened ${(inv.opened_at || "").slice(0, 16).replace("T", " ")} — note: can be triggered by the recipient's email scanner`}>👀 Opened</span>}
                   {inv.clicked && !inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-semibold" title={`Link fetched ${(inv.clicked_at || "").slice(0, 16).replace("T", " ")} — may be their email security scanner, not a person`}>🔗 Clicked</span>}
                   {inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold" title={`Phone: ${inv.preferred_slot.phone || "—"}`}>📅 {inv.preferred_slot.date} {inv.preferred_slot.time} IST{inv.preferred_slot.local_time ? ` · ${inv.preferred_slot.local_time} theirs` : ""}</span>}
-                  {!inv.preferred_slot?.date && inv.status !== "converted" && (
+                  {inv.signup && (
+                    <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold"
+                      data-testid={`demo-invite-signup-${inv.email}`}
+                      title={`Signed up ${(inv.signup.signed_up_at || "").slice(0, 10)} · plan: ${inv.signup.plan || "trial"}${inv.signup.trial_end_date ? ` · trial ends ${String(inv.signup.trial_end_date).slice(0, 10)}` : ""}`}>
+                      🏠 {inv.signup.salon || inv.signup.slug}{inv.signup.trial_end_date ? ` · trial ends ${String(inv.signup.trial_end_date).slice(5, 10)}` : ""}
+                    </span>
+                  )}
+                  {!inv.preferred_slot?.date && inv.status !== "converted" && inv.status !== "trial_started" && (
                     <button onClick={() => sendSlotPicker(inv)} data-testid={`demo-invite-slot-picker-${inv.email}`}
                       title={inv.slot_picker_sent_at ? `Time-picker sent ${(inv.slot_picker_sent_at || "").slice(0, 10)} — send again` : "Email them a 'pick your demo time' link"}
                       className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${inv.slot_picker_sent_at ? "bg-slate-100 text-slate-500 hover:bg-slate-200" : "bg-amber-500 text-white hover:bg-amber-600"}`}>

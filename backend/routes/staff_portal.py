@@ -716,7 +716,7 @@ async def staff_my_attendance(month: Optional[str] = None, s=Depends(_current_st
 
 
 @router.get("/attendance/desk-qr")
-async def attendance_desk_qr(request: Request, style: str = "poster",
+async def attendance_desk_qr(request: Request, style: str = "poster", branch: str = "",
                              user=Depends(require_admin), t=Depends(current_tenant)):
     """Printable salon-desk QR — staff scan it to check in without GPS. style=poster (branded) | raw."""
     import qrcode
@@ -745,12 +745,20 @@ async def attendance_desk_qr(request: Request, style: str = "poster",
     poster.paste(qr_img, (px, py))
     d = ImageDraw.Draw(poster)
     name = (t.get("name") or "").upper()
+    branch_name = (branch or "").strip().upper()[:40]
     if name:
         try:
             fnt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf", 34)
             fnt_s = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 18)
-            d.text((poster.width // 2, poster.height - 92), name, font=fnt, fill=(212, 175, 55), anchor="mm")
-            d.text((poster.width // 2, poster.height - 54), "Powered by Miracurl", font=fnt_s, fill=(150, 150, 155), anchor="mm")
+            fnt_b = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 22)
+            if branch_name:
+                d.text((poster.width // 2, poster.height - 108), name, font=fnt, fill=(212, 175, 55), anchor="mm")
+                d.text((poster.width // 2, poster.height - 72), branch_name,
+                       font=fnt_b, fill=(230, 220, 200), anchor="mm")
+                d.text((poster.width // 2, poster.height - 40), "Powered by Miracurl", font=fnt_s, fill=(150, 150, 155), anchor="mm")
+            else:
+                d.text((poster.width // 2, poster.height - 92), name, font=fnt, fill=(212, 175, 55), anchor="mm")
+                d.text((poster.width // 2, poster.height - 54), "Powered by Miracurl", font=fnt_s, fill=(150, 150, 155), anchor="mm")
         except OSError:
             pass
     buf = io.BytesIO()
@@ -1146,7 +1154,7 @@ async def email_attendance_month_report(month: Optional[str] = None,
     y, m = _parse_month(month)
     rows = await _attendance_month_rows(y, m)
     label = datetime(y, m, 1).strftime("%B %Y")
-    recipients = [e for e in {t.get("owner_email"), user.get("email")} if e]
+    recipients = [e for e in {t.get("salon_email") or t.get("owner_email") or user.get("email")} if e]
     if not recipients:
         raise HTTPException(400, "No owner email on file")
     status = await _send_email(

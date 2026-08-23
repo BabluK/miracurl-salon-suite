@@ -878,14 +878,33 @@ def _invite_status(i: dict, tenant_emails: set) -> str:
     return "awaiting"
 
 
+async def _signup_map() -> dict:
+    """owner_email(lower) → tenant signup details, for trial-tracking on invites."""
+    out = {}
+    async for t in _raw_db.tenants.find(
+            {"owner_email": {"$exists": True, "$ne": ""}},
+            {"_id": 0, "owner_email": 1, "name": 1, "slug": 1, "status": 1, "plan": 1,
+             "created_at": 1, "trial_end_date": 1}):
+        out[str(t["owner_email"]).lower()] = t
+    return out
+
+
 @router.get("/super-admin/demo-campaign/invites")
 async def demo_invites(user=Depends(require_super_admin)):
     from datetime import timedelta
-    tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
+    signups = await _signup_map()
+    tenant_emails = set(signups.keys())
     items = await _raw_db.demo_invites.find({}, {"_id": 0}).sort("first_sent_at", -1).to_list(200)
     stale_cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
     for i in items:
         i["status"] = _invite_status(i, tenant_emails)
+        su = signups.get(i["email"])
+        if su:
+            i["signup"] = {"salon": su.get("name"), "slug": su.get("slug"), "tenant_status": su.get("status"),
+                           "plan": su.get("plan"), "signed_up_at": su.get("created_at"),
+                           "trial_end_date": su.get("trial_end_date")}
+            if su.get("status") == "trial":
+                i["status"] = "trial_started"
         i["opened"] = bool(i.get("opened_at"))
         i["clicked"] = bool(i.get("clicked_at"))
         stale = (i.get("first_sent_at") or "") <= stale_cutoff

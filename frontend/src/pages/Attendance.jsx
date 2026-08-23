@@ -45,6 +45,8 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // {sid, name} for history modal
   const [showQr, setShowQr] = useState(false);
+  const qrBranch = getSelectedBranch();
+  const qrUrl = `${API}/attendance/desk-qr${qrBranch ? `?branch=${encodeURIComponent(qrBranch)}` : ""}`;
   const [showManual, setShowManual] = useState(false);
   const [dlg, setDlg] = useState(null); // {title, message, inputLabel?, defaultValue?, confirmLabel, danger, action}
 
@@ -145,13 +147,14 @@ export default function Attendance() {
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" data-testid="desk-qr-modal" onClick={() => setShowQr(false)}>
               <div className="bg-white rounded-2xl p-5 text-center max-w-sm w-full max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <h3 className="font-playfair text-xl">Staff Check-in QR</h3>
+                {qrBranch && <p className="text-[11px] font-bold text-violet-600 mt-0.5" data-testid="desk-qr-branch-tag">📍 {qrBranch}</p>}
                 <p className="text-xs text-slate-500 mt-1">Print & keep this poster at the salon desk — staff scan it with their phone camera to check in instantly (no GPS needed). Late fines & half-day rules still apply.</p>
-                <img src={`${API}/attendance/desk-qr`} alt="Staff check-in QR poster" data-testid="desk-qr-img"
+                <img src={qrUrl} alt="Staff check-in QR poster" data-testid="desk-qr-img"
                   className="w-64 mx-auto my-4 rounded-xl shadow-lg border border-slate-200" />
                 <div className="flex gap-2 justify-center flex-wrap">
                   <button data-testid="desk-qr-download" onClick={async () => {
                     try {
-                      const res = await fetch(`${API}/attendance/desk-qr`, { credentials: "include" });
+                      const res = await fetch(qrUrl, { credentials: "include" });
                       const blob = await res.blob();
                       const a = document.createElement("a");
                       a.href = URL.createObjectURL(blob);
@@ -163,7 +166,7 @@ export default function Attendance() {
                   }} className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-full bg-amber-500 text-black font-bold hover:bg-amber-400">
                     <Download className="w-3.5 h-3.5" /> Download poster
                   </button>
-                  <a href={`${API}/attendance/desk-qr`} target="_blank" rel="noreferrer" data-testid="desk-qr-print"
+                  <a href={qrUrl} target="_blank" rel="noreferrer" data-testid="desk-qr-print"
                     className="text-xs px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50 inline-flex items-center">Open full size / print</a>
                   <button onClick={() => setShowQr(false)} data-testid="desk-qr-close" className="text-xs px-4 py-2 rounded-full bg-slate-900 text-white">Done</button>
                 </div>
