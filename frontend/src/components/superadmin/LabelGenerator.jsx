@@ -21,6 +21,9 @@ const LABEL_PRODUCTS = {
     use: "Apply to wet hair, massage into a gentle lather and rinse. Ideal for maintaining botox-treated hair." },
 };
 
+export const LABEL_PRODUCT_NAMES = Object.fromEntries(
+  Object.entries(LABEL_PRODUCTS).map(([k, v]) => [k, `${v.name} — ${v.net}`]));
+
 export const LabelGenerator = () => {
   const [pid, setPid] = useState("shampoo");
   const [f, setF] = useState({ batch: "MC-2026-001", mfg: new Date().toISOString().slice(0, 7), mrp: "",
@@ -31,7 +34,7 @@ export const LabelGenerator = () => {
 
   function printLabel() {
     const mrp = f.mrp || p.mrp;
-    const shopUrl = `${window.location.origin}/products`;
+    const shopUrl = `${window.location.origin}/api/public/qr-scan/${pid}`;
     const qrSrc = `${window.location.origin}/api/public/products-qr?url=${encodeURIComponent(shopUrl)}`;
     const w = window.open("", "_blank", "width=760,height=900");
     w.document.write(`<html><head><title>Miracurl Label — ${p.name}</title>

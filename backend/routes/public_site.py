@@ -20,7 +20,7 @@ import requests  # noqa: F401
 from fastapi import (  # noqa: F401
     APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Form,
 )
-from starlette.responses import StreamingResponse  # noqa: F401
+from starlette.responses import StreamingResponse, RedirectResponse  # noqa: F401
 from pydantic import BaseModel, Field, EmailStr, field_validator  # noqa: F401
 
 from database import client, _raw_db, db, _current_tenant_id, _clean  # noqa: F401
@@ -619,6 +619,39 @@ async def create_product_order(body: ProductOrderIn, request: Request):
     return {"ok": True, "order_id": order["id"],
             "razorpay_link": razorpay_link,
             "contact_email": "payments@miracurl-suite.com"}
+
+
+_QR_PID_RE = re.compile(r"^[a-z0-9-]{2,40}$")
+
+
+@router.get("/public/qr-scan/{product_id}")
+async def qr_scan_redirect(product_id: str, request: Request):
+    """Bottle-label QR target: count the scan, then send the buyer to the shop page."""
+    valid = bool(_QR_PID_RE.fullmatch(product_id))
+    if valid:
+        await _raw_db.qr_scans.insert_one({
+            "id": str(uuid.uuid4()), "product_id": product_id,
+            "scanned_at": datetime.now(timezone.utc).isoformat(),
+            "ua": (request.headers.get("user-agent") or "")[:180]})
+    dest = f"/products?src=qr&p={product_id}" if valid else "/products"
+    return RedirectResponse(url=dest, status_code=302)
+
+
+@router.get("/super-admin/qr-scans")
+async def qr_scan_stats(user=Depends(require_super_admin)):
+    """Per-product bottle QR scan counts — shows which product drives reorders."""
+    rows = await _raw_db.qr_scans.aggregate([
+        {"$group": {"_id": "$product_id", "total": {"$sum": 1}, "last_scan": {"$max": "$scanned_at"}}}
+    ]).to_list(100)
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    out = []
+    for r in rows:
+        last7 = await _raw_db.qr_scans.count_documents(
+            {"product_id": r["_id"], "scanned_at": {"$gte": week_ago}})
+        out.append({"product_id": r["_id"], "total": r["total"],
+                    "last_7_days": last7, "last_scan": r["last_scan"]})
+    out.sort(key=lambda x: -x["total"])
+    return {"products": out, "total_scans": sum(x["total"] for x in out)}
 
 
 @router.get("/super-admin/product-orders")
