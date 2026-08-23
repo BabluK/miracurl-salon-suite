@@ -78,16 +78,18 @@ class TestInvoiceEdit:
         assert data["discount"] >= 50
 
     def test_02_edit_without_pin(self, sess, invoice):
+        """Design: desk staff can fix bills WITHOUT the Owner PIN — every edit is audited instead."""
         body = {"editor_name": "NoPin", "payment_mode": "cash"}
         r = sess.put(f"{BASE}/api/invoices/{invoice['id']}", json=body)
-        assert r.status_code == 403
-        assert "OWNER_PIN_REQUIRED" in r.text
+        assert r.status_code == 200
+        assert r.json().get("last_edited_by") == "NoPin"
 
     def test_03_edit_wrong_pin(self, sess, invoice):
+        """PIN header is ignored on edits (audit-only model) — wrong PIN must not block."""
         body = {"editor_name": "WrongPin", "payment_mode": "cash"}
         r = sess.put(f"{BASE}/api/invoices/{invoice['id']}", json=body, headers={"X-Owner-Pin": "0000"})
-        assert r.status_code == 403
-        assert "OWNER_PIN_REQUIRED" in r.text
+        assert r.status_code == 200
+        assert r.json().get("last_edited_by") == "WrongPin"
 
     def test_04_validation_short_editor(self, sess, invoice):
         body = {"editor_name": "A", "payment_mode": "cash"}
@@ -121,8 +123,9 @@ class TestInvoiceEditsAudit:
         edits = r.json()
         mine = [e for e in edits if e.get("invoice_id") == invoice["id"]]
         assert mine, "Audit entry not found for our invoice"
-        e = mine[0]
-        assert e["editor_name"] == "Test Editor"
+        named = [x for x in mine if x.get("editor_name") == "Test Editor"]
+        assert named, f"'Test Editor' audit entry missing — got editors {[x.get('editor_name') for x in mine]}"
+        e = named[0]
         assert e["edited_by_account"] == ADMIN_EMAIL
         assert "before" in e and "after" in e
         assert e["before"]["total"] != e["after"]["total"] or e["before"]["payment_mode"] != e["after"]["payment_mode"]

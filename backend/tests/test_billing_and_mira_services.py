@@ -106,18 +106,28 @@ def test_generate_missing_images_shape(admin):
 
 
 def test_generate_single_service_image(admin):
-    """Costs money — one call max."""
+    """Costs money — one call max. Endpoint is now a background job: poll /services/image-jobs/{id}."""
     svcs = admin.get(f"{BASE}/api/services").json()
     # pick service without image if possible, else first
     target = next((s for s in svcs if not s.get("image_url")), svcs[0])
-    r = admin.post(f"{BASE}/api/services/{target['id']}/generate-image", timeout=180)
+    r = admin.post(f"{BASE}/api/services/{target['id']}/generate-image", timeout=30)
     assert r.status_code == 200, r.text
     data = r.json()
     assert data.get("ok") == True
-    assert data["image_url"].startswith("/api/files/")
+    jid = data["job_id"]
+    image_url = ""
+    for _ in range(45):  # up to ~90s
+        js = admin.get(f"{BASE}/api/services/image-jobs/{jid}").json()
+        if js["status"] == "done":
+            image_url = js["image_url"]
+            break
+        if js["status"] == "error":
+            raise AssertionError(f"image job failed: {js['error']}")
+        time.sleep(2)
+    assert image_url.startswith("/api/files/"), f"job did not finish in time (last: {js})"
 
     # fetch file
-    fr = requests.get(f"{BASE}{data['image_url']}")
+    fr = requests.get(f"{BASE}{image_url}")
     assert fr.status_code == 200
     assert fr.headers["content-type"].startswith("image/")
     assert len(fr.content) > 1000
