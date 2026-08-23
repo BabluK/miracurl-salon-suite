@@ -273,7 +273,7 @@ export default function Login() {
                   const res = await loginWithPasskey(email);
                   await refresh?.();
                   toast.success(`Welcome back, ${res.user?.name || ""} ✦`);
-                  window.location.href = "/dashboard";
+                  window.location.href = (window.location.pathname.startsWith("/partner") ? "/partner" : "") + "/dashboard";
                 } catch (e2) {
                   setErr(e2?.response?.data?.detail || "Fingerprint login didn't work — use your password (it re-enables fingerprint for this device)");
                 }

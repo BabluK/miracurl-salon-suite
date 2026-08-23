@@ -1447,3 +1447,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 ## Iter 151 (23 Aug 2026) — WhatsApp Lead Inbox in HQ
 - CRITICAL FIX: DemoRequestIn.source pattern rejected "whatsapp_gate" (422) — added to allowed sources; the ChatButton gate now actually saves leads.
 - New GET /super-admin/wa-leads (tenant_inquiries source=whatsapp_gate). New WhatsAppLeadsCard (dark emerald-gold) mounted ABOVE DemoCampaign in HQ → Lead Generation Email tab: name, salon/city, email, date, 💬 wa.me chat button + mailto. Hidden when empty. Verified E2E (lead POST → list → card renders); test lead cleaned.
+
+## Iter 152 (23 Aug 2026) — Partner Path Migration (any-order dual PWA install)
+- BrowserRouter basename now dynamic: "/partner" when URL starts with /partner, else "" — same app serves BOTH roots, zero route/link changes needed.
+- manifest-admin.json: scope "/partner/", start_url "/partner/login" (id miracurl-admin unchanged). Booking stays scope "/book/". Scopes no longer overlap → Chrome allows installing both in ANY order.
+- Patched absolute redirects to respect prefix: Login.jsx, SalonSwitcher.jsx, ForceChangePassword.jsx, api.js 401 handler.
+- Verified: /partner/login renders w/ manifest-admin.json, login → /partner/dashboard (in scope), dashboard fully functional. Root URLs (/login etc.) untouched (basename ""). Existing installed apps unaffected.
+- ALSO answered: hot-lead email WA button opens chat WITH the lead; sender account is device-side (pair WhatsApp Web with the new 9180261256 device).

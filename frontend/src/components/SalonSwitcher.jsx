@@ -30,7 +30,7 @@ export default function SalonSwitcher() {
         localStorage.setItem("miracurl_tenant", data.active_salon.slug);
       }
       toast.success(`Switched to ${data.active_salon?.name || "salon"} ✦`);
-      window.location.href = "/dashboard";
+      window.location.href = (window.location.pathname.startsWith("/partner") ? "/partner" : "") + "/dashboard";
     } catch (e) {
       const detail = e.response?.data?.detail;
       if (detail === "OWNER_PIN_REQUIRED") setPinFor(tenantId);

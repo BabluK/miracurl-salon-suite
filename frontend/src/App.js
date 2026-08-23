@@ -192,7 +192,7 @@ export default function App() {
   return (
     <div className="App">
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={window.location.pathname.startsWith("/partner") ? "/partner" : ""}>
           <ScrollToTop />
           <ContentGuard />
           <VersionWatcher />

@@ -2107,3 +2107,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 23 Aug 2026: WhatsApp lead gate on connect, post-billing review booster WA, PWA renamed Miracurl Booking. See CHANGELOG Iter 150.
 
 - 23 Aug 2026: WhatsApp Lead Inbox card in HQ + fixed gate source validation. See CHANGELOG Iter 151.
+
+- 23 Aug 2026: Partner PWA migrated to /partner scope — both apps installable in any order. See CHANGELOG Iter 152.

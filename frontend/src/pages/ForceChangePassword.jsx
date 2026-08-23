@@ -34,7 +34,7 @@ export default function ForceChangePassword({ user }) {
       await api.post("/auth/change-password", { current_password: currentPw, new_password: newPw });
       toast.success("Password set ✦ Please log in with your new password");
       try { await api.post("/auth/logout"); } catch { /* session already invalid */ }
-      window.location.href = "/login";
+      window.location.href = (window.location.pathname.startsWith("/partner") ? "/partner" : "") + "/login";
     } catch (e2) {
       const detail = e2?.response?.data?.detail;
       const msg = typeof detail === "string" ? detail : (e2?.message || "Couldn't change password");

@@ -37,7 +37,7 @@ api.interceptors.response.use(
       const isPublic = path === "/login" || path === "/" || path.startsWith("/book/") ||
                        path.startsWith("/review/") || path === "/signup-salon";
       if (!isPublic) {
-        window.location.assign(`/login?next=${encodeURIComponent(path + window.location.search)}`);
+        window.location.assign(`${path.startsWith("/partner") ? "/partner" : ""}/login?next=${encodeURIComponent(path + window.location.search)}`);
       }
     }
     return Promise.reject(err);
