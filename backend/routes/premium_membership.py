@@ -498,6 +498,26 @@ async def public_member_email_card(member_id: str, request: Request):
 
 # ---------------- admin: members list + UPI approvals ----------------
 
+class SendCardIn(BaseModel):
+    email: str = Field(..., min_length=5, max_length=120, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+@router.post("/premium-membership/members/{cmid}/send-card")
+async def send_member_card(cmid: str, body: SendCardIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """POS congrats popup: email the membership card (PDF + QR) to the address provided."""
+    cm = await _raw_db.customer_memberships.find_one({"id": cmid, "tenant_id": t["id"]}, {"_id": 0})
+    if not cm:
+        raise HTTPException(404, "Membership not found")
+    cust = await _raw_db.customers.find_one({"id": cm["customer_id"]}, {"_id": 0}) or {}
+    email = body.email.strip().lower()
+    if email and cust.get("email") != email:
+        await _raw_db.customers.update_one({"id": cm["customer_id"]}, {"$set": {"email": email}})
+    st = await send_membership_welcome_email(cm, {**cust, "email": email}, t, resend=True)
+    if not st.get("sent"):
+        raise HTTPException(502, st.get("error") or "Email could not be sent")
+    return {"ok": True, "sent_to": email}
+
+
 @router.get("/premium-membership/members")
 async def list_members(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """All onboarded members — salon-sold (POS) and customer-purchased (online)."""

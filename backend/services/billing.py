@@ -147,8 +147,10 @@ async def _apply_membership_cashback(inv: dict, cust: dict) -> float:
 
 
 async def _process_benefit_items(inv: dict, cust: dict):
-    """Create package/membership records for purchases; consume redeemed sessions."""
+    """Create package/membership records for purchases; consume redeemed sessions.
+    Returns the list of memberships issued (for the POS congratulations popup)."""
     now = datetime.now(timezone.utc)
+    issued = []
     for it in inv["items"]:
         if it["type"] == "package":
             p = await db.packages.find_one({"id": it["ref_id"]}, {"_id": 0})
@@ -175,17 +177,26 @@ async def _process_benefit_items(inv: dict, cust: dict):
                     "expires_at": (now + timedelta(days=int(m.get("validity_days") or 180))).isoformat(),
                     "purchased_at": now.isoformat(), "invoice_id": inv["id"]}
                 await db.customer_memberships.insert_one(cm)
+                email_sent = False
                 if cust.get("email"):
                     try:
                         from database import _raw_db
                         saved = await db.customer_memberships.find_one({"id": cm["id"]}, {"_id": 0})
                         t = await _raw_db.tenants.find_one({"id": (saved or {}).get("tenant_id")}, {"_id": 0})
-                        await send_membership_welcome_email(saved or cm, cust, t or {})
+                        st = await send_membership_welcome_email(saved or cm, cust, t or {})
+                        email_sent = bool((st or {}).get("sent"))
                     except Exception:
                         pass
+                issued.append({
+                    "customer_membership_id": cm["id"], "member_id": member_id,
+                    "plan_name": m["name"], "tier": cm["tier"], "amount": cm["amount"],
+                    "discount_pct": cm["discount_pct"], "cashback_pct": cm["cashback_pct"],
+                    "purchased_at": cm["purchased_at"], "expires_at": cm["expires_at"],
+                    "email_sent": email_sent})
         elif it["type"] == "package_redeem":
             await db.customer_packages.update_one(
                 {"id": it["ref_id"], "sessions_left": {"$gt": 0}}, {"$inc": {"sessions_left": -1}})
+    return issued
 
 
 async def _validate_package_redeem_items(items: list, cust: dict):

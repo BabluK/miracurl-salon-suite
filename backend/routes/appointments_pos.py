@@ -597,9 +597,10 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
         await _deduct_wallet_credit(cust, inv, wallet_apply, body.payment_mode)
 
     points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"])
-    await _process_benefit_items(inv, cust)
+    memberships_issued = await _process_benefit_items(inv, cust)
 
     inv["points_earned"] = points_earned
+    inv["memberships_issued"] = memberships_issued or []
     inv["membership_cashback"] = await _apply_membership_cashback(inv, cust)
     inv["gift_cards_issued"] = await _issue_pos_gift_cards(inv, cust, ctx["tenant_doc"])
     inv["receipts"] = await _send_billing_receipts(inv, cust, ctx["tenant_doc"], points_earned)

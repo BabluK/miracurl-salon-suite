@@ -9,6 +9,7 @@ import AddGuestModal from "@/components/pos/AddGuestModal";
 import { askConfirm } from "@/components/ConfirmDialog";
 import InvoiceReceiptModal from "@/components/pos/InvoiceReceiptModal";
 import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
+import MembershipCongratsModal from "@/components/pos/MembershipCongratsModal";
 import { MemberQrScanner } from "@/components/pos/MemberQrScanner";
 import { GiftCardSellModal } from "@/components/pos/GiftCardSellModal";
 import { OpenBillsPanel } from "@/components/pos/OpenBillsPanel";
@@ -57,6 +58,7 @@ export default function POS() {
     try { return localStorage.getItem("pos_branch") || ""; } catch { return ""; }
   });
   const [lastInvoice, setLastInvoice] = useState(null);
+  const [membershipCongrats, setMembershipCongrats] = useState(null);
   const [addGuestOpen, setAddGuestOpen] = useState(false);
   const [orderNotes, setOrderNotes] = useState("");
   const [tipPct, setTipPct] = useState(null);
@@ -519,6 +521,14 @@ export default function POS() {
           ...(g.whatsapp_url ? { action: { label: "Send on WhatsApp", onClick: () => window.open(g.whatsapp_url, "_blank") } } : {}),
         });
       });
+      if (data.memberships_issued?.length) {
+        const c = customers.find(x => x.id === data.customer_id) || {};
+        setMembershipCongrats({
+          list: data.memberships_issued,
+          salonName: tenant?.name || "",
+          customer: { name: data.customer_name || c.name || "", phone: c.phone || "", email: c.email || "", gender: c.gender || "" },
+        });
+      }
       setLastInvoice(data);
       if (complete) clearAll();
     } catch (err) {
@@ -727,6 +737,14 @@ export default function POS() {
       )}
 
       {qrScanOpen && <MemberQrScanner onDetected={onQrDetected} onClose={() => setQrScanOpen(false)} />}
+
+      {membershipCongrats && (
+        <MembershipCongratsModal
+          data={membershipCongrats} sym={sym}
+          isAdmin={user?.role === "admin" || user?.role === "super_admin"}
+          onClose={() => setMembershipCongrats(null)}
+        />
+      )}
 
       {gcSellOpen && (
         <GiftCardSellModal

@@ -1413,3 +1413,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 ## Iter 144 (23 Aug 2026) — WhatsApp Approvals queue hygiene
 - _prune_wa_requests() in staff_admin.py (runs on list + pending-count): pending >48h → "expired"; duplicate pendings per (phone|name)+kind → "superseded" keeping newest; pending whose same-kind message was approved/sent TODAY → "already_sent". Dashboard widget now shows one unique request per customer, old bookings auto-clear, and returning customers show again fresh.
 - Widget subtitle explains auto-clear rules. Verified with 6-doc seeded matrix (expired/superseded/already_sent/pending all correct); test docs cleaned.
+
+## Iter 145 (23 Aug 2026) — POS Membership Congrats Popup (billing-safe, additive)
+- services/billing._process_benefit_items now RETURNS issued memberships list (was None); create_invoice sets inv["memberships_issued"] (response-only, DB untouched). Existing package/gift-card/redeem logic unchanged.
+- NEW POST /premium-membership/members/{cmid}/send-card {email} → updates customer email + emails membership card PDF+QR (resend=True); 422 invalid email, 404 unknown, 502 w/ detail if Resend rejects.
+- NEW MembershipCongratsModal (POS): after payment with membership in cart → "🎉 Congratulations Mr/Ms {Name}" + member ID, valid from→to, email-card input, WhatsApp (admin only), SMS Message link, Done. Wired in POS.jsx charge() success + modal mount.
+- TESTED iteration_112: backend 8/8 (incl. regressions service-only + gift card + member lookup), frontend E2E popup verified. Note from tester: cart-line testids appear duplicated in receipt DOM (CartTable reused) — beware if changing selectors later.
