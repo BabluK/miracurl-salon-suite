@@ -2,10 +2,20 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-18.89"
-BUILD_TIME = "18 Aug 2026, 07:10 PM IST"
+BUILD = "2026-08-23.90"
+BUILD_TIME = "23 Aug 2026, 05:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-23 (Bottle QR tracking, cleaner engine & billing re-verified 📦)",
+        "changes": [
+            "📦 Bottle QR scan tracker — every 'Scan to Reorder' QR printed on your product labels is now tracked; a new 'Bottle QR Scans' card in HQ → Partners → Miracurl Products Launch shows per-product total scans, last-7-days count and last scan time, so you know exactly which product drives reorders",
+            "🏷️ Smarter labels — the Bottle Label Generator now prints tracked QR codes automatically (older printed labels keep working, they just aren't counted)",
+            "🛠️ Engine deep-clean — full code-quality audit applied: import structure untangled, all test credentials moved out of code into a secure loader, and six core functions (billing gates, customer merge, lead ROI, demo emails) refactored for reliability",
+            "🧾 Billing re-verified — 25 automated billing regression tests pass: bill create/edit/void + audit trail, discounts & tax recompute, pay links, POS membership sales and Razorpay product orders all confirmed working exactly as before",
+            "🩹 HQ overview fix — the Super Admin overview no longer errors when a salon record is missing its plan field",
+        ],
+    },
     {
         "date": "2026-08-18 (Talk to Mira on your salon page + human handoff 🎙️)",
         "changes": [
