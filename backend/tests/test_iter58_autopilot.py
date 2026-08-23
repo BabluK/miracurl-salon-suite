@@ -1,12 +1,13 @@
 """Iteration 58 — Mira Auto-Pilot backend tests."""
+from _creds import _PW_ADMIN, _PW_ELEGANCE
 import os
 import requests
 import pytest
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 
-ADMIN = {"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL", "slug": "miracurl-marathahalli"}
-ELEG = {"email": "owner@elegance.com", "password": "Owner@123", "slug": "elegance-koramangala"}
+ADMIN = {"email": "admin@miracurl.com", "password": _PW_ADMIN, "slug": "miracurl-marathahalli"}
+ELEG = {"email": "owner@elegance.com", "password": _PW_ELEGANCE, "slug": "elegance-koramangala"}
 
 
 def _login(creds):

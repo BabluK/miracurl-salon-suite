@@ -1,11 +1,12 @@
 """Backend sanity tests for Super Admin per-tenant payment links."""
+from _creds import _PW_SUPER
 import os
 import pytest
 import requests
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = _PW_SUPER
 ELEGANCE_SLUG = "elegance-koramangala"
 
 

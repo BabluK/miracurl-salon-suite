@@ -8,6 +8,7 @@ one worker with deterministic ordering. Tests are intentionally sequenced:
   4. validators (whatsapp 'abc' → 422 / instagram bad url → 422 / empty ok)
   5. restore baselines
 """
+from _creds import _PW_ELEGANCE
 import os
 import pytest
 import requests
@@ -20,7 +21,7 @@ API = f"{BASE_URL}/api"
 MIRA_EMAIL = "admin@miracurl.com"
 MIRA_PW    = password_for("admin@miracurl.com")
 ELEG_EMAIL = "owner@elegance.com"
-ELEG_PW    = "Owner@123"
+ELEG_PW    = _PW_ELEGANCE
 
 BRAND_KEYS = ["google_review_url", "hours", "phone", "location",
               "hero_image", "instagram_url", "whatsapp_number"]

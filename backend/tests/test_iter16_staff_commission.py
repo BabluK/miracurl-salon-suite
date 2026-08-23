@@ -11,6 +11,7 @@ Covers:
 - Auth required (401 when no token)
 - Tenant isolation (secondary tenant invoices excluded)
 """
+from _creds import _PW_ELEGANCE
 
 import os
 import time
@@ -23,7 +24,7 @@ BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 ADMIN_EMAIL = os.environ.get("MIRACURL_ADMIN_EMAIL", "admin@miracurl.com")
 ADMIN_PASSWORD = os.environ.get("MIRACURL_ADMIN_PASSWORD", password_for("admin@miracurl.com"))
 TENANT2_EMAIL = os.environ.get("ELEGANCE_ADMIN_EMAIL", "owner@elegance.com")
-TENANT2_PASSWORD = os.environ.get("ELEGANCE_ADMIN_PASSWORD", "Owner@123")
+TENANT2_PASSWORD = os.environ.get("ELEGANCE_ADMIN_PASSWORD", _PW_ELEGANCE)
 
 
 def _login(email, password):

@@ -10,6 +10,7 @@ Iteration 102 regression tests: verifies pure-refactor changes to
 
 All flows must remain behaviorally identical to before refactor.
 """
+from _creds import _PW_ADMIN, _PW_MANAGER
 import os
 import uuid
 import requests
@@ -20,9 +21,9 @@ API = f"{BASE}/api"
 TENANT = "miracurl-marathahalli"
 TENANT_ID = "83ab97b6-b481-4172-afd7-53a46c93317d"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 MANAGER_EMAIL = "manager@miracurl.com"
-MANAGER_PW = "Manager@1234"
+MANAGER_PW = _PW_MANAGER
 OWNER_PIN = "4321"
 
 created_invoice_ids: list = []

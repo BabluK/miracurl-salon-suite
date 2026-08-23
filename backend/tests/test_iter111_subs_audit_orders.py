@@ -1,4 +1,5 @@
 """Iteration 111 - Subscription blocking (trial/paid), audit-log retention/clear, product-order fields."""
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import uuid
 import bcrypt
@@ -13,10 +14,10 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "miracurl_db")
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 TENANT_SLUG = "miracurl-marathahalli"
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = _PW_SUPER
 
 
 @pytest.fixture(scope="module")
@@ -142,18 +143,18 @@ def test_in_grace_paid_flow(mongo, throwaways, super_session):
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["days_remaining"] is not None and data["days_remaining"] < 0
-    assert data["grace_request_pending"] is False
+    assert data["grace_request_pending"] == False
 
     # first grace-request -> ok, not already
     r = s.post(f"{API}/billing/grace-request")
     assert r.status_code == 200, r.text
-    assert r.json().get("ok") is True
-    assert r.json().get("already_requested") is False
+    assert r.json().get("ok") == True
+    assert r.json().get("already_requested") == False
 
     # second -> already_requested True
     r = s.post(f"{API}/billing/grace-request")
     assert r.status_code == 200
-    assert r.json().get("already_requested") is True
+    assert r.json().get("already_requested") == True
 
     # Super admin sees pending
     r = super_session.get(f"{API}/super-admin/grace-requests")
@@ -201,7 +202,7 @@ def test_audit_log_get_delete_and_retention(mongo, admin_session):
     # DELETE clears
     r = admin_session.delete(f"{API}/settings/audit-log")
     assert r.status_code == 200, r.text
-    assert r.json().get("ok") is True
+    assert r.json().get("ok") == True
     assert mongo.audit_log.count_documents({"tenant_id": tenant["id"]}) == 0
 
 
@@ -237,7 +238,7 @@ def test_product_order_missing_email_422(super_session, mongo):
         })
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data.get("ok") is True
+        assert data.get("ok") == True
         assert data.get("order_id")
         # cleanup order
         mongo.product_orders.delete_one({"id": data["order_id"]})

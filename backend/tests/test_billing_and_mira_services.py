@@ -2,6 +2,7 @@
 
 Salon-admin cookie session against REACT_APP_BACKEND_URL.
 """
+from _creds import _PW_ADMIN
 import os
 import io
 import time
@@ -20,7 +21,7 @@ def _load_backend_url():
 BASE = _load_backend_url()
 TENANT = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PWD = "q6QY@tn3p#9DtL"
+ADMIN_PWD = _PW_ADMIN
 OWNER_PIN = "4321"
 
 
@@ -112,7 +113,7 @@ def test_generate_single_service_image(admin):
     r = admin.post(f"{BASE}/api/services/{target['id']}/generate-image", timeout=180)
     assert r.status_code == 200, r.text
     data = r.json()
-    assert data.get("ok") is True
+    assert data.get("ok") == True
     assert data["image_url"].startswith("/api/files/")
 
     # fetch file

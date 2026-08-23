@@ -13,6 +13,7 @@ Endpoints under test (actual paths from /app/backend/routes/mira_builder.py):
 
 Also light regression on salon SaaS auth + public booking page.
 """
+from _creds import _PW_ADMIN
 import os
 import time
 import uuid
@@ -223,7 +224,7 @@ class TestSalonRegression:
     def test_salon_admin_login(self, client):
         r = requests.post(f"{API}/auth/login",
                           headers={"X-Tenant-Slug": "miracurl-marathahalli", "Content-Type": "application/json"},
-                          json={"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL"})
+                          json={"email": "admin@miracurl.com", "password": _PW_ADMIN})
         assert r.status_code == 200, r.text
         assert "access_token" in r.json() or r.cookies
 

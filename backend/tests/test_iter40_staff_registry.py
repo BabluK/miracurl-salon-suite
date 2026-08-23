@@ -1,4 +1,5 @@
 """Iter 40: Cross-Salon Staff History Registry - backend tests."""
+from _creds import _PW_ELEGANCE
 import os
 import re
 import pytest
@@ -12,7 +13,7 @@ _RUN = str(int(time.time()))[-4:]
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 
 ADMIN_MIRA = ("admin@miracurl.com", password_for("admin@miracurl.com"))
-ADMIN_ELEG = ("owner@elegance.com", "Owner@123")
+ADMIN_ELEG = ("owner@elegance.com", _PW_ELEGANCE)
 MANAGER = ("manager@miracurl.com", "Manager@Miracurl123")
 STAFF = ("priya.staff@miracurl.com", "Priya@Miracurl123")
 

@@ -1,6 +1,7 @@
 """Iteration 71 — Mira Studio: image upload, analyze (security/review), background refine,
    github-export with bad token, and status transition refining→live.
 """
+from _creds import _PW_SUPER
 import io
 import os
 import time
@@ -13,7 +14,7 @@ BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.
 STUDIO_EMAIL = "wtest7802@example.com"
 STUDIO_PASS = "TestPass@123"
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = _PW_SUPER
 
 
 # ---------- fixtures ----------

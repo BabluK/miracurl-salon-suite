@@ -1,13 +1,14 @@
 """Iteration 101: Site Info (Landing redesign) — public GET + super PUT."""
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = _PW_SUPER
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 TENANT = "miracurl-marathahalli"
 
 

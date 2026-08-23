@@ -1062,8 +1062,9 @@ async def super_admin_overview(user=Depends(require_super_admin)):
     by_status = {}
     by_plan = {}
     for t in tenants:
-        by_status[t["status"]] = by_status.get(t["status"], 0) + 1
-        by_plan[t["plan"]] = by_plan.get(t["plan"], 0) + 1
+        status, plan = t.get("status", "unknown"), t.get("plan", "unknown")
+        by_status[status] = by_status.get(status, 0) + 1
+        by_plan[plan] = by_plan.get(plan, 0) + 1
     return {
         "total_tenants": len(tenants),
         "by_status": by_status,

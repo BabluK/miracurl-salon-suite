@@ -502,22 +502,26 @@ def _demo_footer_blocks(hq_email: str) -> str:
   </td></tr>"""
 
 
-def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str, *,
-                     plans: list | None = None, tracking: tuple[str, str] = ("", ""),
-                     currency: str = "INR") -> str:
+def _demo_email_links(hq_email: str, tracking: tuple) -> tuple:
+    """(cta_href, signup_href, open-pixel) for a demo invite email."""
     track_base, invite_id = tracking
-    name = html_lib.escape(recipient_name or "").strip()
-    salon = html_lib.escape(salon_name or "").strip()
-    greeting = f"Dear {name}," if name else "Dear Salon Owner,"
-    salon_line = f" at <b>{salon}</b>" if salon else ""
     mailto = (f"mailto:{hq_email}?subject=Demo%20request%20—%20Miracurl%20Suite"
               f"&body=Hi%20Miracurl%20team%2C%0A%0AI%27d%20love%20a%20demo%20of%20the%20Miracurl%20Salon%20Suite."
               f"%0AMy%20preferred%20time%3A%20%0AMy%20salon%3A%20%0APhone%3A%20%0A%0AThank%20you!")
     cta_href = f"{track_base}/api/public/demo-track/{invite_id}/click" if (track_base and invite_id) else mailto
-    site_base = "https://miracurl-suite.com"
-    signup_href = f"{site_base}/signup-salon"
     pixel = (f'<img src="{track_base}/api/public/demo-track/{invite_id}/open.png" width="1" height="1" '
              f'style="display:block;width:1px;height:1px;border:0" alt="">') if (track_base and invite_id) else ""
+    return cta_href, "https://miracurl-suite.com/signup-salon", pixel
+
+
+def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str, *,
+                     plans: list | None = None, tracking: tuple[str, str] = ("", ""),
+                     currency: str = "INR") -> str:
+    name = html_lib.escape(recipient_name or "").strip()
+    salon = html_lib.escape(salon_name or "").strip()
+    greeting = f"Dear {name}," if name else "Dear Salon Owner,"
+    salon_line = f" at <b>{salon}</b>" if salon else ""
+    cta_href, signup_href, pixel = _demo_email_links(hq_email, tracking)
 
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">

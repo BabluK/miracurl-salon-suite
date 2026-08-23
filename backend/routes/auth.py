@@ -56,6 +56,26 @@ def _subscription_deadline(t: dict) -> Optional[date]:
     return limit
 
 
+def _trial_gate(t: dict, trial_end: str) -> None:
+    """Pure trial — blocks the day after trial ends (only an explicit HQ grace_until extends it)."""
+    try:
+        limit = date.fromisoformat(str(trial_end)[:10])
+    except ValueError:
+        return
+    if t.get("grace_until"):
+        try:
+            limit = max(limit, date.fromisoformat(str(t["grace_until"])[:10]))
+        except ValueError:
+            pass
+    if date.today() > limit:
+        end_d = date.fromisoformat(str(trial_end)[:10])
+        raise HTTPException(403, {
+            "code": "trial_expired",
+            "end_date": end_d.isoformat(),
+            "message": f"Your free trial ended on {end_d.strftime('%d %b %Y')}. "
+                       "Please contact the Miracurl team to activate your subscription."})
+
+
 async def _subscription_gate(user: dict) -> None:
     """Block login for expired salons. Trials get NO grace; paid plans get the grace window."""
     if user.get("role") == "super_admin" or not user.get("tenant_id"):
@@ -73,24 +93,7 @@ async def _subscription_gate(user: dict) -> None:
     sub_end = t.get("subscription_end_date")
     trial_end = t.get("trial_end_date") or t.get("trial_ends_at")
     if not sub_end and trial_end:
-        # Pure trial — blocks the day after trial ends (only an explicit HQ grace_until extends it)
-        try:
-            limit = date.fromisoformat(str(trial_end)[:10])
-        except ValueError:
-            return
-        if t.get("grace_until"):
-            try:
-                limit = max(limit, date.fromisoformat(str(t["grace_until"])[:10]))
-            except ValueError:
-                pass
-        if date.today() > limit:
-            end_d = date.fromisoformat(str(trial_end)[:10])
-            raise HTTPException(403, {
-                "code": "trial_expired",
-                "end_date": end_d.isoformat(),
-                "message": f"Your free trial ended on {end_d.strftime('%d %b %Y')}. "
-                           "Please contact the Miracurl team to activate your subscription."})
-        return
+        return _trial_gate(t, trial_end)
     limit = _subscription_deadline(t)
     if limit and date.today() > limit:
         end = sub_end or trial_end

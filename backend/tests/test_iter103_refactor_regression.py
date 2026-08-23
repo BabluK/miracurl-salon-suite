@@ -9,6 +9,7 @@ Iteration 103 refactor regression:
 - deferred-import cleanup in tenant_settings/schedulers/uploads
 All must be behaviorally identical.
 """
+from _creds import _PW_ADMIN, _PW_SUPER
 import base64
 import os
 import uuid
@@ -21,9 +22,9 @@ BASE = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE}/api"
 TENANT = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = _PW_SUPER
 OWNER_PIN = "4321"
 
 created_invoice_ids: list = []
@@ -234,13 +235,13 @@ class TestAppointmentStatus:
         assert r1.status_code == 200, f"confirmed: {r1.status_code} {r1.text[:300]}"
         d1 = r1.json()
         assert "whatsapp_url" in d1, f"missing whatsapp_url in {d1}"
-        assert d1.get("crm_updated") is False
+        assert d1.get("crm_updated") == False
 
         # completed → crm_updated should be True first time
         r2 = admin_sess.put(f"{API}/appointments/{aid}/status", json={"status": "completed"})
         assert r2.status_code == 200, f"completed: {r2.status_code} {r2.text[:300]}"
         d2 = r2.json()
-        assert d2.get("crm_updated") is True, f"crm_updated should be True: {d2}"
+        assert d2.get("crm_updated") == True, f"crm_updated should be True: {d2}"
 
 
 # =============== Test 4/5 — membership public endpoints + wallet ===============
@@ -349,8 +350,8 @@ class TestResendInbound:
                           headers={"x-inbound-secret": secret})
         assert r.status_code == 200, f"{r.status_code} {r.text[:400]}"
         data = r.json()
-        assert data.get("ok") is True
-        assert data.get("matched") is False
+        assert data.get("ok") == True
+        assert data.get("matched") == False
         assert data.get("routed_inbox") == "support", f"unexpected: {data}"
 
         # verify hq_messages doc created

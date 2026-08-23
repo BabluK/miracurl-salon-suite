@@ -1,13 +1,25 @@
 """Shared billing domain: invoice totals, coupons, memberships, loyalty, receipts."""
+import os
 import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+import razorpay as _razorpay
 from fastapi import HTTPException
 
 from database import db
 from utils import _pay_label
+
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
+RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
+
+
+def _rzp_client() -> Optional[_razorpay.Client]:
+    if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
+        return None
+    return _razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 
 
 async def _gen_invoice_no():

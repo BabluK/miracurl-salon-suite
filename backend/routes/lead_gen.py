@@ -741,6 +741,21 @@ async def find_email_retry(lid: str, user=Depends(require_super_admin)):
     return {"found": True, **updates}
 
 
+async def _roi_row(c: dict, intl_annual: float, inr_annual: float) -> tuple:
+    """(row, usd_value, inr_value) for one converted lead."""
+    ten = await _raw_db.tenants.find_one(
+        {"id": c.get("converted_tenant_id")},
+        {"_id": 0, "currency": 1, "plan": 1, "status": 1}) if c.get("converted_tenant_id") else None
+    is_usd = bool(ten and (ten.get("currency") or "INR") != "INR")
+    value = intl_annual if is_usd else inr_annual
+    row = {"name": c.get("name"), "city": c.get("city"),
+           "converted_at": (c.get("converted_at") or "")[:10],
+           "slug": c.get("converted_tenant_slug"),
+           "plan_value": value, "currency": "USD" if is_usd else "INR",
+           "still_active": bool(ten and ten.get("status") in ("active", "trial"))}
+    return row, (value if is_usd else 0.0), (0.0 if is_usd else value)
+
+
 @router.get("/super-admin/mira-leads/roi")
 async def lead_roi(user=Depends(require_super_admin)):
     """Outreach funnel + revenue: contacted → replied → demo → converted, with $ per converted salon."""
@@ -758,21 +773,9 @@ async def lead_roi(user=Depends(require_super_admin)):
     rows = []
     won_usd = won_inr = 0.0
     for c in converted:
-        ten = await _raw_db.tenants.find_one(
-            {"id": c.get("converted_tenant_id")},
-            {"_id": 0, "currency": 1, "plan": 1, "status": 1}) if c.get("converted_tenant_id") else None
-        is_usd = bool(ten and (ten.get("currency") or "INR") != "INR")
-        value = intl_annual if is_usd else inr_annual
-        cur = "USD" if is_usd else "INR"
-        if is_usd:
-            won_usd += value
-        else:
-            won_inr += value
-        rows.append({"name": c.get("name"), "city": c.get("city"),
-                     "converted_at": (c.get("converted_at") or "")[:10],
-                     "slug": c.get("converted_tenant_slug"),
-                     "plan_value": value, "currency": cur,
-                     "still_active": bool(ten and ten.get("status") in ("active", "trial"))})
+        row, usd, inr = await _roi_row(c, intl_annual, inr_annual)
+        won_usd, won_inr = won_usd + usd, won_inr + inr
+        rows.append(row)
     rows.sort(key=lambda r: r["converted_at"], reverse=True)
     conv_rate = round(len(converted) / contacted * 100, 1) if contacted else 0.0
     return {

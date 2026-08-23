@@ -10,6 +10,7 @@ Coverage:
 - suspending a tenant blocks public flow
 - /api/tenants/current returns user's tenant
 """
+from _creds import _PW_ELEGANCE
 import os
 import time
 import uuid
@@ -24,7 +25,7 @@ SUPER = {"email": "super@miracurl.com", "password": password_for("super@miracurl
 ADMIN = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com")}
 DEFAULT_SLUG = "miracurl-marathahalli"
 PRE_TENANT_SLUG = "elegance-koramangala"
-PRE_TENANT_OWNER = {"email": "owner@elegance.com", "password": "Owner@123"}
+PRE_TENANT_OWNER = {"email": "owner@elegance.com", "password": _PW_ELEGANCE}
 
 
 def _login(creds):

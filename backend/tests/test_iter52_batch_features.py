@@ -142,7 +142,7 @@ class TestBillingReceipts:
 
         # Email should be sent
         assert rec.get("email"), f"email missing: {rec}"
-        if rec["email"].get("sent") is not True and any(w in str(rec["email"].get("error", "")).lower() for w in ("quota", "too many", "rate")):
+        if rec["email"].get("sent") != True and any(w in str(rec["email"].get("error", "")).lower() for w in ("quota", "too many", "rate")):
             pytest.skip(f"Resend quota/rate limited: {rec['email']}")
         assert rec["email"].get("sent"), f"email.sent expected True: {rec['email']}"
 

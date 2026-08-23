@@ -1,4 +1,5 @@
 """Iter106 — Blog CRUD + Referral free-month + Platform stats + Affiliate summary."""
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import uuid
 import pytest
@@ -9,9 +10,9 @@ BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.
 API = f"{BASE}/api"
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = _PW_SUPER
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 TENANT_SLUG = "miracurl-marathahalli"
 OWNER_PIN = "4321"
 
@@ -71,7 +72,7 @@ class TestPublicBlog:
         d = r.json()
         assert d["slug"] == "reduce-salon-no-shows-whatsapp-reminders"
         assert "content" in d and len(d["content"]) > 100
-        assert d.get("published") is True
+        assert d.get("published") == True
 
     def test_public_blog_unknown_slug_404(self):
         r = requests.get(f"{API}/public/blog/does-not-exist-xyz", timeout=15)
@@ -110,7 +111,7 @@ class TestBlogCRUD:
         d = r.json()
         assert d["title"] == title
         assert d["slug"].startswith("test-article-")
-        assert d["published"] is True
+        assert d["published"] == True
         assert "id" in d
         TestBlogCRUD._created_id = d["id"]
         TestBlogCRUD._created_slug = d["slug"]

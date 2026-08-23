@@ -1,4 +1,5 @@
 """Iter 65 — Employee Self-Service Portal + mark-left disables salon user login + regression."""
+from _creds import _PW_ADMIN
 import os
 import uuid
 import hashlib
@@ -11,7 +12,7 @@ API = f"{BASE_URL}/api"
 
 TENANT_SLUG = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 
 EMP_PHONE = "9812345670"
 EMP_AADHAAR = "123412341234"

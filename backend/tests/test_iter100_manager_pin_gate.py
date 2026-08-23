@@ -7,6 +7,7 @@
   (uses temp tenant via direct mongo — restored)
 - regression: admin login + activity-logs w/ pin still works
 """
+from _creds import _PW_ADMIN, _PW_MANAGER
 import os
 import pytest
 import requests
@@ -21,8 +22,8 @@ def _url():
 
 BASE = _url()
 TENANT = "miracurl-marathahalli"
-MGR = ("manager@miracurl.com", "Manager@1234")
-ADMIN = ("admin@miracurl.com", "q6QY@tn3p#9DtL")
+MGR = ("manager@miracurl.com", _PW_MANAGER)
+ADMIN = ("admin@miracurl.com", _PW_ADMIN)
 PIN = "4321"
 
 
@@ -46,8 +47,8 @@ class TestSectionAccess:
         r = mgr.post(f"{BASE}/api/manager/section-access", json={"section": "/attendance"})
         assert r.status_code == 200, r.text[:200]
         d = r.json()
-        assert d.get("ok") is False, f"expected ok:false got {d}"
-        assert d.get("pin_required") is True, f"expected pin_required got {d}"
+        assert d.get("ok") == False, f"expected ok:false got {d}"
+        assert d.get("pin_required") == True, f"expected pin_required got {d}"
 
     def test_wrong_pin_403(self, mgr):
         r = mgr.post(f"{BASE}/api/manager/section-access", json={"section": "/attendance", "pin": "9999"})
@@ -56,7 +57,7 @@ class TestSectionAccess:
     def test_correct_pin_ok(self, mgr):
         r = mgr.post(f"{BASE}/api/manager/section-access", json={"section": "/attendance", "pin": PIN})
         assert r.status_code == 200, r.text[:200]
-        assert r.json().get("ok") is True
+        assert r.json().get("ok") == True
 
 
 class TestRequireOwnerPin:
@@ -112,13 +113,13 @@ class TestNoPinSetOnTenant:
                 r2 = mgr.post(f"{BASE}/api/manager/section-access", json={"section": "/attendance"})
                 assert r2.status_code == 200
                 d = r2.json()
-                assert d.get("ok") is False
-                assert d.get("no_pin_set") is True, f"expected no_pin_set:true, got {d}"
+                assert d.get("ok") == False
+                assert d.get("no_pin_set") == True, f"expected no_pin_set:true, got {d}"
 
                 # Admin should still be able to open sections (no PIN set -> ok:true for admin)
                 r3 = adm.post(f"{BASE}/api/manager/section-access", json={"section": "/attendance"})
                 assert r3.status_code == 200
-                assert r3.json().get("ok") is True
+                assert r3.json().get("ok") == True
             finally:
                 # RESTORE original hash
                 loop.run_until_complete(set_ph(original))

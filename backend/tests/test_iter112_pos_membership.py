@@ -12,6 +12,7 @@ Covers:
        -> 404 on unknown id
 * REGRESSION: /pos/member-lookup/{mid} returns the newly issued member (guest+membership)
 """
+from _creds import _PW_ADMIN
 import os
 import re
 import uuid
@@ -33,7 +34,7 @@ _load_frontend_env()
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 TENANT = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASSWORD = "q6QY@tn3p#9DtL"
+ADMIN_PASSWORD = _PW_ADMIN
 
 
 # ---------- shared session (cookie jar auto) ----------
@@ -187,7 +188,7 @@ class TestSendCard:
         assert r.status_code in (200, 502), f"unexpected {r.status_code}: {r.text}"
         if r.status_code == 200:
             j = r.json()
-            assert j.get("ok") is True
+            assert j.get("ok") == True
             assert j.get("sent_to") == "delivered@resend.dev"
         else:
             # 502 must include the error detail

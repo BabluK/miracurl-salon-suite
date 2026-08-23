@@ -1,4 +1,5 @@
 """Iter60 — HQ staff verification (super-admin) + mark-left flow + public HQ badge."""
+from _creds import _PW_ADMIN, _PW_ELEGANCE, _PW_SUPER
 import os
 import time
 import requests
@@ -20,10 +21,10 @@ def _load_base():
 BASE = _load_base()
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = _PW_SUPER
 TENANT_SLUG = "miracurl-marathahalli"
 TENANT_EMAIL = "admin@miracurl.com"
-TENANT_PASS = "q6QY@tn3p#9DtL"
+TENANT_PASS = _PW_ADMIN
 OWNER_PIN = "4321"
 
 
@@ -143,7 +144,7 @@ class TestMarkLeft:
         # Another tenant slug -> 404
         s2 = requests.Session()
         r2 = s2.post(f"{BASE}/api/auth/login",
-                     json={"email": "owner@elegance.com", "password": "Owner@123"},
+                     json={"email": "owner@elegance.com", "password": _PW_ELEGANCE},
                      headers={"X-Tenant-Slug": "elegance-koramangala"}, timeout=15)
         if r2.status_code == 200:
             s2.headers.update({"X-Tenant-Slug": "elegance-koramangala", "X-Owner-Pin": "4321"})

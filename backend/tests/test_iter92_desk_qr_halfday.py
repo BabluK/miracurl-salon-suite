@@ -1,13 +1,14 @@
 """Iteration 92 — Desk QR check-in, half-day rule, registry +91 fix,
 WA pitch (no DEMO_VIDEO_URL), SMS packs regression.
 
-Prereqs: preview env, admin@miracurl.com / q6QY@tn3p#9DtL,
+Prereqs: preview env, admin@miracurl.com (password via tests/_creds.py),
 priya.staff@miracurl.com / Staff@5678 (see /app/memory/test_credentials.md).
 
 The tests mutate Priya's shift_start & monthly_base_salary + inject a QR
 check-in row for TODAY; a session-scoped fixture restores the original state
 after the test run.
 """
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import asyncio
 import pytest
@@ -23,9 +24,9 @@ load_dotenv("/app/frontend/.env")
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 TENANT = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = _PW_SUPER
 STAFF_EMAIL = "priya.staff@miracurl.com"
 STAFF_PW = "Staff@5678"
 
@@ -173,7 +174,7 @@ class TestQrCheckInHalfDay:
         assert r.status_code == 200, r.text[:400]
         rec = r.json()
         assert rec["check_in_method"] == "qr", rec
-        assert rec["half_day"] is True, rec
+        assert rec["half_day"] == True, rec
         assert abs(float(rec["half_day_deduction"]) - 333.33) < 0.02, rec
         assert float(rec.get("late_penalty") or 0) == 0.0, rec
         # GPS should be null (bypassed)
@@ -201,7 +202,7 @@ class TestQrCheckInHalfDay:
         rows = r.json().get("roster") or []
         me = next((x for x in rows if x.get("staff_id") == p["id"]), None)
         assert me, f"Priya not in roster: {rows[:2]}"
-        assert me.get("half_day") is True, me
+        assert me.get("half_day") == True, me
         assert abs(float(me.get("half_day_deduction") or 0) - 333.33) < 0.02
         assert me.get("check_in_method") == "qr"
 

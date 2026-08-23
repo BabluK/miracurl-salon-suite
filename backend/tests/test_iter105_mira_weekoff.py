@@ -1,4 +1,5 @@
 """Iteration 105: Public Mira FAQ/privacy/owner-connect + week-off system."""
+from _creds import _PW_ADMIN
 import os
 import re
 import time
@@ -10,7 +11,7 @@ TENANT_SLUG = "miracurl-marathahalli"
 HDR = {"X-Tenant-Slug": TENANT_SLUG}
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 OWNER_PIN = "4321"
 STAFF_EMAIL = "priya.staff@miracurl.com"
 STAFF_PW = "Staff@5678"
@@ -60,7 +61,7 @@ class TestInstantFAQ:
         r, dur = self._chat("price list")
         assert r.status_code == 200, r.text[:200]
         d = r.json()
-        assert d.get("instant") is True, f"expected instant=true, got {d}"
+        assert d.get("instant") == True, f"expected instant=true, got {d}"
         assert dur < 3.0, f"instant reply took {dur:.2f}s"
         assert "menu" in (d.get("reply") or "").lower() or "₹" in (d.get("reply") or "")
 
@@ -71,14 +72,14 @@ class TestInstantFAQ:
         # instant only when tenant has hours set — assert it's true if fast, else at least a reply
         assert d.get("reply")
         # tenant miracurl-marathahalli has hours — expect instant
-        assert d.get("instant") is True, f"expected instant, got: {d}"
+        assert d.get("instant") == True, f"expected instant, got: {d}"
 
     def test_location_instant(self):
         r, _ = self._chat("your address")
         assert r.status_code == 200
         d = r.json()
         assert d.get("reply")
-        assert d.get("instant") is True, f"expected instant, got: {d}"
+        assert d.get("instant") == True, f"expected instant, got: {d}"
 
     def test_contact_instant(self):
         r, _ = self._chat("phone number")
@@ -244,7 +245,7 @@ class TestWeekOffCRUD:
         assert req.get("status") == "pending"
         assert req.get("requested_day") == pick
         assert req.get("requested_at")
-        assert req.get("locked") is True
+        assert req.get("locked") == True
         req_id = req["id"]
 
         # f) second pending blocked
@@ -346,14 +347,14 @@ class TestWeekOffCheckInViaMongo:
         r2 = staff_session.post(f"{BASE}/api/staff/me/check-in", json=payload, timeout=20)
         assert r2.status_code == 200, f"retry failed: {r2.status_code} {r2.text[:250]}"
         rec = r2.json()
-        assert rec.get("week_off_override") is True, f"week_off_override missing: {rec}"
+        assert rec.get("week_off_override") == True, f"week_off_override missing: {rec}"
 
         # 3) Admin roster shows the override
         r3 = admin_session.get(f"{BASE}/api/attendance/today", timeout=20)
         assert r3.status_code == 200
         row = next((x for x in r3.json().get("roster", []) if x.get("staff_id") == sid), None)
         assert row, "staff row missing"
-        assert row.get("week_off_override") is True, f"roster week_off_override not True: {row}"
+        assert row.get("week_off_override") == True, f"roster week_off_override not True: {row}"
 
         # Cleanup — restore staff's week_off_day
         try:

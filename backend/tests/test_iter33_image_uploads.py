@@ -7,6 +7,7 @@ Covers:
 - Tenant isolation: DB record tagged with tenant_id, cross-tenant retrieval is public (by design) but path is scoped
 - Kinds: staff, service, product all upload cleanly
 """
+from _creds import _PW_ELEGANCE
 import io
 import os
 import pytest
@@ -20,7 +21,7 @@ BASE = os.environ.get(
 ).rstrip("/")
 
 MIRA = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com")}
-ELEG = {"email": "owner@elegance.com", "password": "Owner@123"}
+ELEG = {"email": "owner@elegance.com", "password": _PW_ELEGANCE}
 
 
 def _login(creds):

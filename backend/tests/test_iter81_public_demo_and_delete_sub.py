@@ -1,6 +1,7 @@
 """Iter 81 — Public /demo booking, refactored invite-based /demo-slot regression,
 and DELETE /super-admin/subscriptions/{sid} tests.
 """
+from _creds import _PW_SUPER
 import os
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -18,7 +19,7 @@ if not BASE_URL:
                 BASE_URL = ln.split("=", 1)[1].strip().rstrip("/")
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PWD = "og9T@41Es#OQb6"
+SUPER_PWD = _PW_SUPER
 DELIVERED = "delivered@resend.dev"
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")

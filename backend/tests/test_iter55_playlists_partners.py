@@ -1,4 +1,5 @@
 """Iter 55 — Custom playlists + Trusted Partners backend tests."""
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import pytest
 import requests
@@ -18,8 +19,8 @@ def _read_env(k):
 BASE = _read_env("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE}/api"
 
-ADMIN = {"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL"}
-SUPER = {"email": "super@miracurl.com", "password": "og9T@41Es#OQb6"}
+ADMIN = {"email": "admin@miracurl.com", "password": _PW_ADMIN}
+SUPER = {"email": "super@miracurl.com", "password": _PW_SUPER}
 
 
 def _login(creds):

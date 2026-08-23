@@ -5,6 +5,7 @@ Tests: manager branch-lock enforcement on attendance/dashboard;
        manager 403 on /api/managers CRUD;
        admin regressions on all; PATCH /managers/{uid}/branch validation.
 """
+from _creds import _PW_ADMIN
 import os
 import requests
 import pytest
@@ -25,7 +26,7 @@ def _load_backend_url():
 BASE_URL = _load_backend_url()
 TENANT = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = _PW_ADMIN
 MGR_EMAIL = "aecs.manager@miracurl.com"
 MGR_PASS = "Mgr@12345"
 LOCKED_BRANCH = "Miracurl Unisex Family Salon- AECS"

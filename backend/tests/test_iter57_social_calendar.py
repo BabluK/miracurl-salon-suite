@@ -2,6 +2,7 @@
 Covers untested paths: tenant isolation, invalid status 400, 404s, delete,
 replan behavior, draft-reply LLM, unauthenticated 401s, calendar CRUD guards.
 """
+from _creds import _PW_ADMIN, _PW_ELEGANCE
 import os
 import pytest
 import requests
@@ -9,9 +10,9 @@ import requests
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 
 TENANT_A = "miracurl-marathahalli"
-ADMIN_A = ("admin@miracurl.com", "q6QY@tn3p#9DtL")
+ADMIN_A = ("admin@miracurl.com", _PW_ADMIN)
 TENANT_B = "elegance-koramangala"
-ADMIN_B = ("owner@elegance.com", "Owner@123")
+ADMIN_B = ("owner@elegance.com", _PW_ELEGANCE)
 
 LLM_TIMEOUT = 90
 

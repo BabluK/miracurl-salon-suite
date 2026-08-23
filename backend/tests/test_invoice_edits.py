@@ -1,4 +1,5 @@
 """Backend tests for invoice edit + audit trail feature (iteration 82)."""
+from _creds import _PW_ADMIN
 import os
 import uuid
 import pytest
@@ -7,7 +8,7 @@ import requests
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 TENANT = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 PIN = "4321"
 
 

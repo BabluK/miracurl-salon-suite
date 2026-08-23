@@ -1,4 +1,5 @@
 """Iter 61 — ID card PDFs, Miracurl Team CRUD, Releases, Plan catalog, blood_group."""
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import time
 import requests
@@ -6,9 +7,9 @@ import pytest
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = _PW_SUPER
 SALON_EMAIL = "admin@miracurl.com"
-SALON_PW = "q6QY@tn3p#9DtL"
+SALON_PW = _PW_ADMIN
 TENANT = "miracurl-marathahalli"
 STAFF_ID = "3cdf66d1-ea58-4605-a4d7-333330a96e8a"
 EXISTING_TEAM_MEMBER = "77f3b6b3-0a23-4b53-b7aa-ed3890b48370"

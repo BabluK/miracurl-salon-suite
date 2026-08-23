@@ -1,4 +1,5 @@
 """Mira Studio backend tests — multi-agent marketing suite."""
+from _creds import _PW_ADMIN
 import os
 import pytest
 import requests
@@ -6,7 +7,7 @@ import requests
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 TENANT_SLUG = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = _PW_ADMIN
 
 LLM_TIMEOUT = 60
 

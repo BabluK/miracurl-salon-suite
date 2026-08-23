@@ -4,6 +4,7 @@
 - Multi-tenant isolation regression (super_admin vs tenant admin scoping)
 - Login as admin@miracurl.com returns token
 """
+from _creds import _PW_ELEGANCE
 import os
 import pytest
 import requests
@@ -18,7 +19,7 @@ ADMIN_PASS = password_for("admin@miracurl.com")
 SUPER_EMAIL = "super@miracurl.com"
 SUPER_PASS = password_for("super@miracurl.com")
 ELEGANCE_EMAIL = "owner@elegance.com"
-ELEGANCE_PASS = "Owner@123"
+ELEGANCE_PASS = _PW_ELEGANCE
 DEFAULT_SLUG = "miracurl-marathahalli"
 ELEGANCE_SLUG = "elegance-koramangala"
 

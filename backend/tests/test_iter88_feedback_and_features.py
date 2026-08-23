@@ -1,4 +1,5 @@
 """Iteration 88: Feedback flow, HQ notifications sort, Salon Mira catalog, regression."""
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import re
 import pytest
@@ -8,9 +9,9 @@ from dotenv import load_dotenv
 load_dotenv("/app/frontend/.env")
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://hair-hub-system.preview.emergentagent.com').rstrip('/')
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = _PW_SUPER
 SALON_EMAIL = "admin@miracurl.com"
-SALON_PASS = "q6QY@tn3p#9DtL"
+SALON_PASS = _PW_ADMIN
 TENANT_SLUG = "miracurl-marathahalli"
 
 
@@ -51,7 +52,7 @@ class TestFeedbackFlow:
                                json={"tenant_id": tenant_id, "context": "billing issue"})
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d.get("ok") is True
+        assert d.get("ok") == True
         assert "link" in d
         assert "email_sent" in d
         m = re.search(r"/feedback/([0-9a-f]+)", d["link"])
@@ -62,7 +63,7 @@ class TestFeedbackFlow:
         r2 = requests.get(f"{BASE_URL}/api/public/feedback/{token}")
         assert r2.status_code == 200
         info = r2.json()
-        assert info["submitted"] is False
+        assert info["submitted"] == False
         assert "salon_name" in info
 
         # submit 5-star with comment
@@ -70,8 +71,8 @@ class TestFeedbackFlow:
         r3 = requests.post(f"{BASE_URL}/api/public/feedback/{token}", json=payload)
         assert r3.status_code == 200, r3.text
         d3 = r3.json()
-        assert d3.get("ok") is True
-        assert d3.get("published") is True
+        assert d3.get("ok") == True
+        assert d3.get("published") == True
 
         # check testimonial appears
         r4 = requests.get(f"{BASE_URL}/api/public/testimonials")
@@ -84,7 +85,7 @@ class TestFeedbackFlow:
         # duplicate submit
         r5 = requests.post(f"{BASE_URL}/api/public/feedback/{token}", json=payload)
         assert r5.status_code == 200
-        assert r5.json().get("already") is True
+        assert r5.json().get("already") == True
 
     def test_invalid_token_404(self):
         r = requests.get(f"{BASE_URL}/api/public/feedback/deadbeefdeadbeefdeadbeefdeadbeef")
@@ -101,7 +102,7 @@ class TestFeedbackFlow:
         r3 = requests.post(f"{BASE_URL}/api/public/feedback/{token}",
                            json={"rating": 2, "comment": "This 2-star comment MUST NOT appear XYZ12345", "name": "Sad"})
         assert r3.status_code == 200
-        assert r3.json().get("published") is False
+        assert r3.json().get("published") == False
         # confirm absent
         r4 = requests.get(f"{BASE_URL}/api/public/testimonials")
         tdata = r4.json()
@@ -164,8 +165,8 @@ class TestRegression:
         r = salon_session.post(f"{BASE_URL}/api/manager/section-access", json={"section": "/settings"})
         assert r.status_code == 200, r.text
         d = r.json()
-        assert d.get("ok") is False
-        assert d.get("pin_required") is True
+        assert d.get("ok") == False
+        assert d.get("pin_required") == True
 
     def test_service_categories_order_roundtrip(self, salon_session):
         rg = salon_session.get(f"{BASE_URL}/api/service-categories")

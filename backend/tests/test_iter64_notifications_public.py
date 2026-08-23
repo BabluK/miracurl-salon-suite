@@ -1,4 +1,5 @@
 """Iter 64 — Super Admin notifications feed + public per-salon SEO page + sitemap."""
+from _creds import _PW_SUPER
 import os
 import requests
 import pytest
@@ -12,7 +13,7 @@ BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 def super_session():
     s = requests.Session()
     r = s.post(f"{BASE}/api/auth/login", json={
-        "email": "super@miracurl.com", "password": "og9T@41Es#OQb6"
+        "email": "super@miracurl.com", "password": _PW_SUPER
     })
     assert r.status_code == 200, f"Super login failed: {r.status_code} {r.text}"
     return s

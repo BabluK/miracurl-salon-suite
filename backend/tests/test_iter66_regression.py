@@ -1,4 +1,5 @@
 """Iter 66 – Regression pass for Super Admin lead-gen + demo + gallery + reviews + whats-new."""
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import asyncio
 import pytest
@@ -14,9 +15,9 @@ if not BASE:
                 BASE = ln.split("=", 1)[1].strip().rstrip("/")
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = _PW_SUPER
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 TENANT = "miracurl-marathahalli"
 TEST_LEAD_EMAIL = "delivered+qa@resend.dev"
 TEST_CUST_EMAIL = "delivered+qa2@resend.dev"

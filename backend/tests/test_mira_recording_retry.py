@@ -1,11 +1,12 @@
 """Backend tests for Mira call recordings, retry-failed, and map briefing (iteration 86)."""
+from _creds import _PW_SUPER
 import os
 import requests
 import pytest
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = _PW_SUPER
 SEEDED_FAILED_LEAD_ID = "96cfda24-572c-4058-bc0c-eea507bc1e35"
 
 

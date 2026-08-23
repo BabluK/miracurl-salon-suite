@@ -8,6 +8,7 @@ Covers:
   - Multi-tenant isolation between admin@miracurl and owner@elegance
   - Auth required (401 without token)
 """
+from _creds import _PW_ELEGANCE
 import os
 import re
 import pytest
@@ -18,7 +19,7 @@ BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE_URL}/api"
 
 MIRACURL = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com")}
-ELEGANCE = {"email": "owner@elegance.com", "password": "Owner@123"}
+ELEGANCE = {"email": "owner@elegance.com", "password": _PW_ELEGANCE}
 
 
 def _login(creds):

@@ -10,12 +10,14 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-import razorpay as _razorpay
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from database import db, _raw_db
 from security import require_super_admin, require_tenant_admin, current_tenant
+from services.billing import (
+    RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, _rzp_client)
+from services.orders import send_order_status_email
 
 router = APIRouter()
 
@@ -318,15 +320,7 @@ async def extend_subscription(sid: str, body: SubscriptionExtendIn, user=Depends
 
 
 # ---------------- Razorpay (Tenant self-serve subscription) ----------------
-RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
-RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
-RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
-
-
-def _rzp_client() -> Optional[_razorpay.Client]:
-    if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
-        return None
-    return _razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+# Keys + client live in services.billing (shared module — breaks the route-level import cycle).
 
 
 class RzpOrderIn(BaseModel):
@@ -710,7 +704,6 @@ async def _wh_product_order_paid(event: dict, logger) -> None:
         logger.info("product order %s auto-marked paid via payment link", order_id)
         order = await _raw_db.product_orders.find_one({"id": order_id}, {"_id": 0})
         if order:
-            from routes.public_site import send_order_status_email
             send_order_status_email(order, "paid")
 
 

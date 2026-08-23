@@ -1,3 +1,4 @@
+from _creds import _PW_ELEGANCE
 # Iter 28 — White-label branding: /api/public/review-info/{token} must return salon_name + salon_location
 # derived from the appointment's tenant. Verify both tenants (miracurl-marathahalli and elegance-koramangala)
 # return the correct salon_name in the enriched public review-info payload.
@@ -17,7 +18,7 @@ if not BASE_URL:
 
 CREDS = {
     "miracurl": {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com"), "expected_name_contains": "Miracurl"},
-    "elegance": {"email": "owner@elegance.com", "password": "Owner@123", "expected_name_contains": "Elegance"},
+    "elegance": {"email": "owner@elegance.com", "password": _PW_ELEGANCE, "expected_name_contains": "Elegance"},
 }
 
 

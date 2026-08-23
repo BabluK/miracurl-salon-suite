@@ -4,6 +4,7 @@ Rate-limited endpoint /api/public/partner-inquiry is 5/10min per-IP. To keep the
 from getting rate-limited before the rate-limit test finishes, we run submission-heavy tests
 LAST in the file (pytest-collect order).
 """
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import time
 import uuid
@@ -11,8 +12,8 @@ import requests
 import pytest
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
-SUPER = {"email": "super@miracurl.com", "password": "og9T@41Es#OQb6"}
-TENANT = {"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL"}
+SUPER = {"email": "super@miracurl.com", "password": _PW_SUPER}
+TENANT = {"email": "admin@miracurl.com", "password": _PW_ADMIN}
 TENANT_SLUG = "miracurl-marathahalli"
 DELIVERED = "delivered@resend.dev"
 

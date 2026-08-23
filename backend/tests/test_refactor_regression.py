@@ -4,6 +4,7 @@ Tests the split-monolith backend still handles the critical live flows:
 admin auth, customers, services, staff, inventory, public booking,
 offers, tenant settings, dashboard, super admin, chat, assistant, email footer.
 """
+from _creds import _PW_ADMIN, _PW_SUPER
 import os
 import time
 import uuid
@@ -14,9 +15,9 @@ BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.
 API = f"{BASE}/api"
 TENANT = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = _PW_ADMIN
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = _PW_SUPER
 OWNER_PIN = "4321"
 
 

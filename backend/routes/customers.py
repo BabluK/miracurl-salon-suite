@@ -129,6 +129,39 @@ class MergeIn(BaseModel):
     duplicate_ids: List[str]
 
 
+def _merged_customer_fields(primary: dict, dupes: list) -> dict:
+    """Summed stats + backfilled profile fields for the surviving record."""
+    def _isum(f):
+        return int(primary.get(f) or 0) + sum(int(d.get(f) or 0) for d in dupes)
+
+    def _fsum(f):
+        return round(float(primary.get(f) or 0) + sum(float(d.get(f) or 0) for d in dupes), 2)
+
+    upd = {"visits": _isum("visits"), "loyalty_points": _isum("loyalty_points"),
+           "total_spent": _fsum("total_spent"), "wallet_balance": _fsum("wallet_balance"),
+           "referral_credit": _fsum("referral_credit")}
+    for f in ("email", "dob", "anniversary", "address", "notes", "gender"):
+        if not primary.get(f):
+            v = next((d.get(f) for d in dupes if d.get(f)), None)
+            if v:
+                upd[f] = v
+    lv = [x for x in [primary.get("last_visited")] + [d.get("last_visited") for d in dupes] if x]
+    if lv:
+        upd["last_visited"] = max(lv)
+    if primary.get("crm_status") == "pending" and any(d.get("crm_status") != "pending" for d in dupes):
+        upd["crm_status"] = "active"
+    return upd
+
+
+async def _repoint_customer_refs(dup_ids: list, primary_id: str, primary_name: str) -> None:
+    """Re-point historical documents from duplicates to the primary customer."""
+    for coll in ("invoices", "appointments", "reviews", "wallet_txns",
+                 "customer_memberships", "complaints"):
+        await getattr(db, coll).update_many({"customer_id": {"$in": dup_ids}}, {"$set": {"customer_id": primary_id}})
+    for coll in ("invoices", "appointments"):
+        await getattr(db, coll).update_many({"customer_id": primary_id}, {"$set": {"customer_name": primary_name}})
+
+
 @router.post("/customers/merge")
 async def merge_customers(body: MergeIn, user=Depends(require_admin)):
     """Merge duplicate CRM records into one: bills/appointments/wallet history are re-pointed
@@ -141,29 +174,8 @@ async def merge_customers(body: MergeIn, user=Depends(require_admin)):
     if not dupes:
         raise HTTPException(400, "No duplicate records to merge")
     dup_ids = [d["id"] for d in dupes]
-    for coll in ("invoices", "appointments", "reviews", "wallet_txns",
-                 "customer_memberships", "complaints"):
-        await getattr(db, coll).update_many({"customer_id": {"$in": dup_ids}}, {"$set": {"customer_id": body.primary_id}})
-    for coll in ("invoices", "appointments"):
-        await getattr(db, coll).update_many({"customer_id": body.primary_id}, {"$set": {"customer_name": primary["name"]}})
-    upd = {
-        "visits": int(primary.get("visits") or 0) + sum(int(d.get("visits") or 0) for d in dupes),
-        "total_spent": round(float(primary.get("total_spent") or 0) + sum(float(d.get("total_spent") or 0) for d in dupes), 2),
-        "loyalty_points": int(primary.get("loyalty_points") or 0) + sum(int(d.get("loyalty_points") or 0) for d in dupes),
-        "wallet_balance": round(float(primary.get("wallet_balance") or 0) + sum(float(d.get("wallet_balance") or 0) for d in dupes), 2),
-        "referral_credit": round(float(primary.get("referral_credit") or 0) + sum(float(d.get("referral_credit") or 0) for d in dupes), 2),
-    }
-    for f in ("email", "dob", "anniversary", "address", "notes", "gender"):
-        if not primary.get(f):
-            v = next((d.get(f) for d in dupes if d.get(f)), None)
-            if v:
-                upd[f] = v
-    lv = [x for x in [primary.get("last_visited")] + [d.get("last_visited") for d in dupes] if x]
-    if lv:
-        upd["last_visited"] = max(lv)
-    if primary.get("crm_status") == "pending" and any(d.get("crm_status") != "pending" for d in dupes):
-        upd["crm_status"] = "active"
-    await db.customers.update_one({"id": body.primary_id}, {"$set": upd})
+    await _repoint_customer_refs(dup_ids, body.primary_id, primary["name"])
+    await db.customers.update_one({"id": body.primary_id}, {"$set": _merged_customer_fields(primary, dupes)})
     await db.customers.delete_many({"id": {"$in": dup_ids}})
     return {"ok": True, "merged": len(dupes),
             "customer": await db.customers.find_one({"id": body.primary_id}, {"_id": 0})}

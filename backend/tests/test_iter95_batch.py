@@ -6,6 +6,7 @@ Iteration 95 — Batch of fixes:
 - POST /invoices/{id}/void with Owner PIN; second void → 400; audit trail entry
 - /reports/staff-commission default pct=0
 """
+from _creds import _PW_ADMIN
 import os
 import time
 import requests
@@ -20,7 +21,7 @@ if not BASE_URL:
 
 TENANT = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = _PW_ADMIN
 OWNER_PIN = "4321"
 CUSTOMER_ID = "fb48bf16-ca60-44e5-af63-53cb8b2a5860"
 AECS_BRANCH = "Miracurl — AECS Layout, Brookefield"
