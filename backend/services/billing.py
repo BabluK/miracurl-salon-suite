@@ -225,6 +225,28 @@ def _receipt_sms_text(t: dict, inv: dict, points_earned: int) -> str:
             f"Rs.{inv['total']:.0f} paid via {_pay_label(inv['payment_mode'])}.{pts}{review}")
 
 
+async def _queue_review_request(inv: dict, cust: dict) -> None:
+    """Review Booster: after billing, drop a ready-to-send WhatsApp into the approvals
+    widget asking the guest to rate — the smart funnel routes 4★+ straight to Google."""
+    if not cust.get("phone"):
+        return
+    from database import _raw_db
+    from receipt_email import _smart_review_url
+    t = await _raw_db.tenants.find_one({"id": inv["tenant_id"]}, {"_id": 0})
+    if not t:
+        return
+    first = (cust.get("name") or "there").split(" ")[0]
+    msg = (f"Hi {first}! ✦ Thank you for visiting {t.get('name') or 'us'} today. "
+           f"Loved your experience? Tap to rate us — Mira even writes your Google review for you: "
+           f"{_smart_review_url(t, inv)}")
+    await _raw_db.whatsapp_requests.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": inv["tenant_id"],
+        "requested_by": "mira", "requested_by_name": "Mira (auto)",
+        "client_name": cust.get("name") or "", "client_phone": cust.get("phone") or "",
+        "message": msg, "kind": "review_request", "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()})
+
+
 def _receipt_whatsapp_url(t: dict, inv: dict, phone: str, points_earned: int) -> str | None:
     """wa.me link the cashier taps to send the receipt + smart review link on WhatsApp (free)."""
     from urllib.parse import quote

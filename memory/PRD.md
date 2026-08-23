@@ -2103,3 +2103,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 23 Aug 2026: Premium dark-gold Lead Gen Email panel + customer membership renewal auto-WhatsApp (7d) into approvals widget. See CHANGELOG Iter 148.
 
 - 23 Aug 2026: Google-style rating badge on tenant booking pages; dual-PWA install order guidance. See CHANGELOG Iter 149.
+
+- 23 Aug 2026: WhatsApp lead gate on connect, post-billing review booster WA, PWA renamed Miracurl Booking. See CHANGELOG Iter 150.

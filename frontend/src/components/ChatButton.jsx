@@ -9,6 +9,8 @@ import axios from "axios";
 export const MIRACURL_SUPPORT_WHATSAPP = "919180261256";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+const WA_BUSINESS_LINK = "https://wa.me/message/LMGKRXVV2SHVB1";
+
 export default function ChatButton({
   number = MIRACURL_SUPPORT_WHATSAPP,
   message = "Hi Miracurl ✦ I'd like to know more about getting my salon on the platform.",
@@ -19,7 +21,6 @@ export default function ChatButton({
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
-  const waUrl = `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 
   const submit = async () => {
     if (!form.name.trim() || !form.phone.trim() || !form.email.trim()) {
@@ -32,6 +33,19 @@ export default function ChatButton({
     } catch {
       setErr("Couldn't send — please try WhatsApp below");
     } finally { setBusy(false); }
+  };
+
+  const openWhatsApp = async () => {
+    if (!form.name.trim() || form.phone.trim().length < 7 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) {
+      setErr("Please fill your name, phone and a valid email first — then we'll connect you on WhatsApp"); return;
+    }
+    setBusy(true); setErr("");
+    try {
+      await axios.post(`${API}/public/demo-request`, { ...form, source: "whatsapp_gate" });
+    } catch { /* still connect them */ }
+    setBusy(false);
+    window.open(`${WA_BUSINESS_LINK}?text=${encodeURIComponent(message)}`, "_blank");
+    setDone(true);
   };
 
   return (
@@ -56,6 +70,10 @@ export default function ChatButton({
               <p className="text-[11px] italic text-amber-700 mt-3 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
                 "Great things in business are never done by one person — they're done by a team." ✦
               </p>
+              <a href={WA_BUSINESS_LINK} target="_blank" rel="noreferrer" data-testid="mira-help-whatsapp-done"
+                className="mt-3 w-full flex items-center justify-center gap-2 border border-emerald-300 text-emerald-700 text-sm font-semibold py-2.5 rounded-xl hover:bg-emerald-50">
+                <MessageCircle className="w-4 h-4" /> Continue on WhatsApp
+              </a>
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -71,10 +89,11 @@ export default function ChatButton({
                 className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-800 disabled:opacity-50">
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Request callback
               </button>
-              <a href={waUrl} target="_blank" rel="noreferrer" data-testid="mira-help-whatsapp"
-                className="w-full flex items-center justify-center gap-2 border border-emerald-300 text-emerald-700 text-sm font-semibold py-2.5 rounded-xl hover:bg-emerald-50">
+              <button onClick={openWhatsApp} disabled={busy} data-testid="mira-help-whatsapp"
+                className="w-full flex items-center justify-center gap-2 border border-emerald-300 text-emerald-700 text-sm font-semibold py-2.5 rounded-xl hover:bg-emerald-50 disabled:opacity-50">
                 <MessageCircle className="w-4 h-4" /> Chat on WhatsApp
-              </a>
+              </button>
+              <p className="text-[10px] text-slate-400 text-center">Fill your details above — we connect you to WhatsApp instantly ✦</p>
             </div>
           )}
         </div>
