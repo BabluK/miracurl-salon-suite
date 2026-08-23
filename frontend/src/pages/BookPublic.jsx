@@ -310,6 +310,23 @@ export default function BookPublic() {
             <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-gold" /> {salon.hours}</span>
             <span className="flex items-center gap-1"><PhoneIcon className="w-3 h-3 text-gold" /> {salon.phone}</span>
           </div>
+          {salon.rating?.avg >= 3.5 && (
+            <a href={salon.google_review_url || "#reviews"} target={salon.google_review_url ? "_blank" : undefined} rel="noreferrer"
+              data-testid="salon-rating-badge"
+              className="mt-4 inline-flex items-center gap-3 w-fit bg-white rounded-2xl pl-2 pr-4 py-2 shadow-[0_8px_28px_-8px_rgba(0,0,0,0.45)] hover:-translate-y-0.5 transition-transform">
+              <span className="w-11 h-11 rounded-full bg-[#1a73e8] text-white font-extrabold text-base flex items-center justify-center shadow-inner">{salon.rating.avg}</span>
+              <span className="leading-tight text-left">
+                <span className="block text-[13px] font-extrabold text-slate-800 tracking-wide">
+                  {salon.rating.avg >= 4.7 ? "EXCELLENT" : salon.rating.avg >= 4.3 ? "GREAT" : "GOOD"}
+                  <span className="ml-1.5 text-amber-400" aria-hidden>{"★".repeat(Math.round(salon.rating.avg))}</span>
+                </span>
+                <span className="block text-[10px] text-slate-500">
+                  Rated by <b>{salon.rating.count}</b> customers {salon.google_review_url ? "on " : ""}
+                  {salon.google_review_url && <b className="text-[#1a73e8]">G</b>}{salon.google_review_url && <b><span className="text-[#ea4335]">o</span><span className="text-[#fbbc05]">o</span><span className="text-[#1a73e8]">g</span><span className="text-[#34a853]">l</span><span className="text-[#ea4335]">e</span></b>}
+                </span>
+              </span>
+            </a>
+          )}
           <HeroCTAs />
           <Link to={`/gift/${slug}`} data-testid="hero-gift-card-btn"
             className="mt-3 inline-flex items-center gap-2 w-fit px-5 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-600/30 to-amber-500/30 backdrop-blur-md border border-gold/40 text-sm font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">

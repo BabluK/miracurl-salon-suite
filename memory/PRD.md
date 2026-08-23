@@ -2101,3 +2101,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 23 Aug 2026: Platform contact number swapped to dedicated 919180261256 everywhere (tenant number preserved). See CHANGELOG Iter 147.
 
 - 23 Aug 2026: Premium dark-gold Lead Gen Email panel + customer membership renewal auto-WhatsApp (7d) into approvals widget. See CHANGELOG Iter 148.
+
+- 23 Aug 2026: Google-style rating badge on tenant booking pages; dual-PWA install order guidance. See CHANGELOG Iter 149.

@@ -114,6 +114,18 @@ async def public_salons_search(q: str = "", limit: int = 20):
     ).sort("name", 1).to_list(limit)
 
 
+async def _salon_rating(tenant_id: str) -> dict | None:
+    """Combined Google-archive + in-app average for the booking page badge."""
+    g = await _raw_db.google_reviews_archive.find(
+        {"tenant_id": tenant_id, "rating": {"$gte": 1}}, {"_id": 0, "rating": 1}).to_list(3000)
+    a = await _raw_db.reviews.find(
+        {"tenant_id": tenant_id, "rating": {"$gte": 1}}, {"_id": 0, "rating": 1}).to_list(3000)
+    vals = [x["rating"] for x in g + a if x.get("rating")]
+    if not vals:
+        return None
+    return {"avg": round(sum(vals) / len(vals), 1), "count": len(vals)}
+
+
 @router.get("/public/salon/{slug}")
 async def public_salon(slug: str):
     t = await resolve_tenant_from_slug(slug)
@@ -136,6 +148,7 @@ async def public_salon(slug: str):
         "gallery": [g.get("url", "") for g in (t.get("gallery") or []) if g.get("url")],
         "branches": t.get("branches", []),
         "show_products": t.get("show_miracurl_products", True) is not False,
+        "rating": await _salon_rating(t["id"]),
     }
 
 # Legacy /public/salon — falls back to default tenant for backward compatibility
