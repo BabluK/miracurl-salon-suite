@@ -48,6 +48,7 @@ export const WhatsAppApprovals = () => {
           <div className="text-sm text-slate-600 mt-0.5">
             <span className="font-semibold text-emerald-600" data-testid="wa-approvals-count">{items.length}</span> message{items.length > 1 ? "s" : ""} from your manager awaiting approval
           </div>
+          <div className="text-[10px] text-slate-400 mt-0.5">One per customer per day · already-sent & 2-day-old requests clear automatically</div>
         </div>
       </div>
       <div className="space-y-3">

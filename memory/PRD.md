@@ -2091,3 +2091,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 23 Aug 2026: Mobile overflow fixed across marketing pages; onboarding email now trial-first (signup-salon CTA + secondary demo request). See CHANGELOG Iter 142.
 
 - 23 Aug 2026: Trial signup tracking in HQ, attendance sheet → salon_email, branch name on staff QR poster. See CHANGELOG Iter 143.
+
+- 23 Aug 2026: WhatsApp approvals dedupe/expiry (unique per customer, auto-clear old + already-sent). See CHANGELOG Iter 144.

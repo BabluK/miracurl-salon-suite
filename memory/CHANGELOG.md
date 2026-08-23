@@ -1409,3 +1409,7 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - HQ Demo Campaign: invites now enriched with signup join (owner_email match) → status "trial_started" (violet chip ✦) vs "converted"; funnel strip adds "Trial started" count; row shows 🏠 salon + trial-end tag. Verified via API (trial_started + signup payload).
 - Monthly attendance sheet now emails tenant's salon_email (fallback owner_email): new BrandingIn.salon_email + GET/PUT branding + "Salon email" field in BrandingCard. Preview tenant set to miracurlunisexsaloon@gmail.com; verified recipients=[gmail]. PROD: user must type it in Settings → Salon Profile after deploy.
 - Staff Check-in Desk QR poster now prints the selected branch name under the salon name (?branch= param, drawn on poster); Attendance modal shows 📍 branch tag and passes branch to img/download/print URLs. Verified PNG render.
+
+## Iter 144 (23 Aug 2026) — WhatsApp Approvals queue hygiene
+- _prune_wa_requests() in staff_admin.py (runs on list + pending-count): pending >48h → "expired"; duplicate pendings per (phone|name)+kind → "superseded" keeping newest; pending whose same-kind message was approved/sent TODAY → "already_sent". Dashboard widget now shows one unique request per customer, old bookings auto-clear, and returning customers show again fresh.
+- Widget subtitle explains auto-clear rules. Verified with 6-doc seeded matrix (expired/superseded/already_sent/pending all correct); test docs cleaned.

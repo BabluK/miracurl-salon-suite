@@ -838,13 +838,53 @@ async def create_whatsapp_request(body: WhatsAppRequestIn, user=Depends(get_curr
     await db.whatsapp_requests.insert_one(doc)
     return {"ok": True, "id": doc["id"], "status": "pending"}
 
+def _wa_req_key(r: dict) -> tuple:
+    return (r.get("client_phone") or (r.get("client_name") or "").strip().lower(), r.get("kind"))
+
+
+async def _prune_wa_requests() -> None:
+    """Keep the approvals queue clean: expire stale items, dedupe per customer,
+    and auto-resolve requests whose message was already sent today."""
+    now = datetime.now(timezone.utc)
+    await db.whatsapp_requests.update_many(
+        {"status": "pending", "created_at": {"$lt": (now - timedelta(hours=48)).isoformat()}},
+        {"$set": {"status": "expired", "expired_at": now.isoformat()}})
+    pend = await db.whatsapp_requests.find(
+        {"status": "pending"},
+        {"_id": 0, "id": 1, "client_name": 1, "client_phone": 1, "kind": 1}
+    ).sort("created_at", -1).to_list(500)
+    seen, superseded = set(), []
+    for r in pend:
+        key = _wa_req_key(r)
+        if key in seen:
+            superseded.append(r["id"])
+        else:
+            seen.add(key)
+    if superseded:
+        await db.whatsapp_requests.update_many(
+            {"id": {"$in": superseded}},
+            {"$set": {"status": "superseded", "expired_at": now.isoformat()}})
+    today = now.date().isoformat()
+    sent_today = await db.whatsapp_requests.find(
+        {"status": {"$in": ["approved", "sent"]}, "approved_at": {"$gte": today}},
+        {"_id": 0, "client_name": 1, "client_phone": 1, "kind": 1}).to_list(300)
+    sent_keys = {_wa_req_key(s) for s in sent_today}
+    resolved = [r["id"] for r in pend if r["id"] not in superseded and _wa_req_key(r) in sent_keys]
+    if resolved:
+        await db.whatsapp_requests.update_many(
+            {"id": {"$in": resolved}},
+            {"$set": {"status": "already_sent", "expired_at": now.isoformat()}})
+
+
 @router.get("/whatsapp-requests")
 async def list_whatsapp_requests(status: str = "pending", admin=Depends(require_admin)):
+    await _prune_wa_requests()
     q = {} if status == "all" else {"status": status}
     return await db.whatsapp_requests.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
 
 @router.get("/whatsapp-requests/pending-count")
 async def whatsapp_pending_count(admin=Depends(require_admin)):
+    await _prune_wa_requests()
     return {"count": await db.whatsapp_requests.count_documents({"status": "pending"})}
 
 @router.post("/whatsapp-requests/{rid}/approve")
