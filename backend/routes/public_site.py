@@ -116,6 +116,35 @@ async def public_salons_search(q: str = "", limit: int = 20):
     ).sort("name", 1).to_list(limit)
 
 
+async def _google_live_rating(t: dict) -> dict | None:
+    """LIVE Google rating for the badge (Places API) — cached on the tenant doc for 24h."""
+    key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+    if not key:
+        return None
+    cache = t.get("google_rating_cache") or {}
+    fresh_after = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    if cache.get("fetched_at", "") > fresh_after:
+        return {"avg": cache["avg"], "count": cache["count"], "source": "google"} if cache.get("avg") else None
+    query = f"{(t.get('name') or '').replace('-', ' ')} {t.get('location') or ''}".strip()
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=8) as client:
+            r = await client.post(
+                "https://places.googleapis.com/v1/places:searchText",
+                headers={"Content-Type": "application/json", "X-Goog-Api-Key": key,
+                         "X-Goog-FieldMask": "places.displayName,places.rating,places.userRatingCount"},
+                json={"textQuery": query, "pageSize": 3})
+        places = (r.json() or {}).get("places") or []
+        hit = next((p for p in places if p.get("rating")), None)
+        data = {"avg": round(float(hit["rating"]), 1) if hit else None,
+                "count": int(hit.get("userRatingCount") or 0) if hit else 0,
+                "fetched_at": datetime.now(timezone.utc).isoformat()}
+        await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"google_rating_cache": data}})
+        return {"avg": data["avg"], "count": data["count"], "source": "google"} if data["avg"] else None
+    except Exception:
+        return None
+
+
 async def _salon_rating(tenant_id: str) -> dict | None:
     """Combined Google-archive + in-app average for the booking page badge."""
     g = await _raw_db.google_reviews_archive.find(
@@ -150,7 +179,7 @@ async def public_salon(slug: str):
         "gallery": [g.get("url", "") for g in (t.get("gallery") or []) if g.get("url")],
         "branches": t.get("branches", []),
         "show_products": t.get("show_miracurl_products", True) is not False,
-        "rating": await _salon_rating(t["id"]),
+        "rating": (await _google_live_rating(t)) or (await _salon_rating(t["id"])),
     }
 
 # Legacy /public/salon — falls back to default tenant for backward compatibility

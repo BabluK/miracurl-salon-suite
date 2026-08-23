@@ -12,6 +12,7 @@ import GiftCardInfoModal from "@/components/pos/GiftCardInfoModal";
 import MembershipCongratsModal from "@/components/pos/MembershipCongratsModal";
 import { MemberQrScanner } from "@/components/pos/MemberQrScanner";
 import { GiftCardSellModal } from "@/components/pos/GiftCardSellModal";
+import { MembershipSellModal } from "@/components/pos/MembershipSellModal";
 import { OpenBillsPanel } from "@/components/pos/OpenBillsPanel";
 import { PendingBillModal } from "@/components/pos/PendingBillModal";
 import { DuplicateBillModal } from "@/components/pos/DuplicateBillModal";
@@ -751,37 +752,17 @@ export default function POS() {
       )}
 
       {membSellOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" data-testid="membership-sell-modal" onClick={() => setMembSellOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-gradient-to-r from-violet-500 to-fuchsia-500 px-5 py-4 text-white">
-              <div className="font-bold text-sm">💳 Sell a Membership</div>
-              <div className="text-[11px] opacity-85 mt-0.5">Tap a plan to add it to this bill — the member card is generated once the guest pays</div>
-            </div>
-            <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
-              {memberships.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No active membership plans — create them under Offers &amp; Plans</p>}
-              {memberships.map(m => (
-                <button key={m.id} data-testid={`membership-sell-plan-${m.id}`}
-                  onClick={() => {
-                    if (cart.some(c => c.type === "membership" && c.ref_id === m.id)) { toast.info("Already in the bill"); return; }
-                    setCart(prev => [...prev, { type: "membership", ref_id: m.id, name: m.name, qty: 1, price: m.price, disc_pct: 0, staff_id: "", staff_name: "" }]);
-                    setMembSellOpen(false);
-                    toast.success(`💳 ${m.name} added to the bill`);
-                  }}
-                  className="w-full flex items-center justify-between border border-violet-100 bg-violet-50/40 hover:bg-violet-50 rounded-xl px-4 py-3 text-left transition">
-                  <span>
-                    <span className="block text-sm font-bold text-slate-800">{m.name}</span>
-                    <span className="block text-[11px] text-slate-500">{m.discount_pct}% off services{Number(m.cashback_pct) ? ` · ${m.cashback_pct}% cashback` : ""} · {m.validity_days || 180} days</span>
-                  </span>
-                  <span className="text-sm font-extrabold text-violet-700">{sym}{Number(m.price).toLocaleString("en-IN")}</span>
-                </button>
-              ))}
-            </div>
-            <div className="px-4 pb-4">
-              <button onClick={() => setMembSellOpen(false)} data-testid="membership-sell-close"
-                className="w-full py-2 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200">Close</button>
-            </div>
-          </div>
-        </div>
+        <MembershipSellModal
+          memberships={memberships} sym={sym}
+          salonName={tenant?.name || ""} logoUrl={tenant?.logo_url || ""}
+          onClose={() => setMembSellOpen(false)}
+          onPick={(m) => {
+            if (cart.some(c => c.type === "membership" && c.ref_id === m.id)) { toast.info("Already in the bill"); return; }
+            setCart(prev => [...prev, { type: "membership", ref_id: m.id, name: m.name, qty: 1, price: m.price, disc_pct: 0, staff_id: "", staff_name: "" }]);
+            setMembSellOpen(false);
+            toast.success(`💳 ${m.name} added to the bill`);
+          }}
+        />
       )}
 
       {gcSellOpen && (

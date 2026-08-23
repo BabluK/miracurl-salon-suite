@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-23.90"
-BUILD_TIME = "23 Aug 2026, 05:30 PM IST"
+BUILD = "2026-08-23.91"
+BUILD_TIME = "23 Aug 2026, 06:30 PM IST"
 
 RELEASES = [
     {
-        "date": "2026-08-23 (Bottle QR tracking, cleaner engine & billing re-verified 📦)",
+        "date": "2026-08-23 (Bottle QR tracking, real Google rating & premium member cards 📦)",
         "changes": [
+            "💳 Premium member cards in POS — the 'Sell a Membership' picker now shows each plan as a beautiful black-and-gold member card (tier-coloured: Silver, Gold, Platinum, Diamond) exactly like the card your guest receives — tap a card to add it to the bill",
+            "⭐ REAL Google rating on your booking page — the rating badge now shows your salon's LIVE Google rating and review count straight from Google Maps (refreshed daily), instead of only in-app reviews",
             "📦 Bottle QR scan tracker — every 'Scan to Reorder' QR printed on your product labels is now tracked; a new 'Bottle QR Scans' card in HQ → Partners → Miracurl Products Launch shows per-product total scans, last-7-days count and last scan time, so you know exactly which product drives reorders",
             "🏷️ Smarter labels — the Bottle Label Generator now prints tracked QR codes automatically (older printed labels keep working, they just aren't counted)",
             "🛠️ Engine deep-clean — full code-quality audit applied: import structure untangled, all test credentials moved out of code into a secure loader, and six core functions (billing gates, customer merge, lead ROI, demo emails) refactored for reliability",
