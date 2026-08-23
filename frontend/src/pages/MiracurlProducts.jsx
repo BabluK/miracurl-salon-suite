@@ -122,7 +122,7 @@ function ProductDetailModal({ p, live, onClose, onOrder }) {
           <section className="text-[11px] text-slate-500 leading-relaxed border-t border-rose-100 pt-3">
             <p><b>Important:</b> Store in a cool, dry place. For external use only. Do a patch test before first use.</p>
             <p className="mt-1"><b>Mktd by:</b> Miracurl Hair Science — Miracurl Suite, Marathahalli, Bengaluru, Karnataka, India.</p>
-            <p className="mt-1"><b>Customer care:</b> Feedback/complaints? 📞 +91 8217072523 · ✉️ contact@miracurl-suite.com · 🌐 miracurl-suite.com</p>
+            <p className="mt-1"><b>Customer care:</b> Feedback/complaints? 📞 +91 9180261256 · ✉️ contact@miracurl-suite.com · 🌐 miracurl-suite.com</p>
           </section>
         </div>
       </div>
@@ -337,7 +337,7 @@ export default function MiracurlProducts() {
             <p className="text-xs text-white/70">Your Brand. Your Identity. We create. You Shine.</p>
           </div>
           <div className="flex flex-wrap gap-4 text-xs text-white/85">
-            <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-[#F5D97E]" /> +91 8217072523</span>
+            <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-[#F5D97E]" /> +91 9180261256</span>
             <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#F5D97E]" /> miracurl-suite.com</span>
             <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-[#F5D97E]" /> payments@miracurl-suite.com</span>
           </div>

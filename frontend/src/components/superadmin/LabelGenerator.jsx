@@ -25,7 +25,7 @@ export const LabelGenerator = () => {
   const [pid, setPid] = useState("shampoo");
   const [f, setF] = useState({ batch: "MC-2026-001", mfg: new Date().toISOString().slice(0, 7), mrp: "",
     marketer: "Miracurl Hair Science, Miracurl Unisex Family Salon, Marathahalli, Bengaluru, Karnataka — 560037",
-    license: "", care: "+91 8217072523 · payments@miracurl-suite.com" });
+    license: "", care: "+91 9180261256 · payments@miracurl-suite.com" });
   const p = LABEL_PRODUCTS[pid];
   const set = (k) => (e) => setF(s => ({ ...s, [k]: e.target.value }));
 

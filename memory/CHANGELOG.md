@@ -1422,3 +1422,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 
 ## Iter 146 (23 Aug 2026) — Membership Sell button in POS billing row
 - 💳 Sell button added next to Apply/📷 Scan in the POS Membership row (mirrors Gift card row). Opens membership-sell-modal (violet gradient header) listing active plans w/ perks + price; tap adds membership line to the bill (duplicate-guarded); congrats popup fires after payment as before. Verified via Playwright: modal renders 6 plans, click adds to bill.
+
+## Iter 147 (23 Aug 2026) — Dedicated platform number 919180261256 + email audit
+- Replaced platform-scoped 918217072523 → 919180261256 in: ChatButton (support WA), SubscriptionBlockModal fallback, Landing enterprise wa.me, MiracurlProducts (customer care + footer), LabelGenerator care default, public_site order-status email footer, sales.py Mira sales prompt. site_info.py _DEFAULTS.whatsapp now 919180261256 + preview platform_settings.site_info updated. Docstring examples neutralized to 9876543210.
+- Tenant Miracurl Unisex Family Salon's own number (in tenant DB record) untouched as instructed.
+- Email audit: all platform mailboxes already on the official @miracurl-suite.com list (admin/contact/payments/noreply/support/sales/etc.) — no changes needed.
+- Verified via page-text checks: landing + products show ONLY the new number. NOTE prod: Super Admin → Site Info whatsapp field should be set/checked after deploy (code default now falls back to the new number).

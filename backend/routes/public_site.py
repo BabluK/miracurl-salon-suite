@@ -623,7 +623,7 @@ def _order_status_email_html(order: dict, status: str) -> str:
   <p>Hi {order.get('name', '')}, {line}</p>
   <p style="font-size:13px;background:#FDEDF0;border-radius:10px;padding:12px 16px">
     <b>Order ID:</b> {order.get('id', '')}<br/><b>Items:</b> {items}<br/><b>Total:</b> ₹{order.get('total', 0):,.0f}</p>
-  <p style="font-size:12px;color:#888">Questions? payments@miracurl-suite.com · +91 8217072523</p>
+  <p style="font-size:12px;color:#888">Questions? payments@miracurl-suite.com · +91 9180261256</p>
 </div>"""
 
 

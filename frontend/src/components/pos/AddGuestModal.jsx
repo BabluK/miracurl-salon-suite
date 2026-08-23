@@ -20,7 +20,7 @@ export default function AddGuestModal({ onClose, onCreated }) {
   const cc = countryByIso(ccIso);
 
   function onPhoneChange(v) {
-    // pasting "+91 82170 72523" auto-picks the country
+    // pasting "+91 98765 43210" auto-picks the country
     const trimmed = v.trim();
     if (trimmed.startsWith("+")) {
       const hit = COUNTRY_CODES.find(c => trimmed.replace(/\s/g, "").startsWith(c.code));

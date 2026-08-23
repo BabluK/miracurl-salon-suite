@@ -62,14 +62,14 @@ async def list_customers(q: Optional[str] = None, user=Depends(require_admin)):
     docs = await db.customers.find(flt, {"_id": 0}).sort("created_at", -1).to_list(500)
     digits = re.sub(r"\D", "", q or "")
     if q and len(digits) >= 4:
-        # also match normalized digits so formatted numbers ('+91 82170 …') are found
+        # also match normalized digits so formatted numbers ('+91 98765 …') are found
         seen = {d["id"] for d in docs}
         extra = await db.customers.find({"crm_status": {"$ne": "pending"}}, {"_id": 0}).to_list(10000)
         docs += [c for c in extra if c["id"] not in seen and digits in re.sub(r"\D", "", c.get("phone") or "")]
     return docs
 
 async def _find_by_phone(digits: str, exclude_id: str | None = None):
-    """Match on normalized digits so '+91 82170 72523' and '8217072523' are the same number."""
+    """Match on normalized digits so '+91 98765 43210' and '9876543210' are the same number."""
     last10 = digits[-10:]
     docs = await db.customers.find({}, {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(10000)
     for c in docs:

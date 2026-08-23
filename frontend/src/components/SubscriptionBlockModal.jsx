@@ -24,7 +24,7 @@ const COPY = {
 };
 
 export const SubscriptionBlockModal = ({ info, onClose }) => {
-  const [whatsapp, setWhatsapp] = useState("918217072523");
+  const [whatsapp, setWhatsapp] = useState("919180261256");
 
   useEffect(() => {
     axios.get(`${API}/api/public/site-info`)

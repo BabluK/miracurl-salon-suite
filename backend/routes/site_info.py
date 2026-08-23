@@ -15,7 +15,7 @@ _DEFAULTS = {
     "instagram": "",
     "facebook": "",
     "youtube": "",
-    "whatsapp": "",
+    "whatsapp": "919180261256",
     "ceo_name": "Founder & CEO",
     "ceo_title": "Founder & CEO, Miracurl Suite",
     "ceo_about": ("10+ years of IT industry experience with strong system design and data structures — "

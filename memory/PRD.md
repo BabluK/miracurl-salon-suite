@@ -2097,3 +2097,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 23 Aug 2026: POS membership congrats popup + send-card email endpoint (tested, zero billing regressions). See CHANGELOG Iter 145.
 
 - 23 Aug 2026: POS Membership Sell button + plan picker modal. See CHANGELOG Iter 146.
+
+- 23 Aug 2026: Platform contact number swapped to dedicated 919180261256 everywhere (tenant number preserved). See CHANGELOG Iter 147.
