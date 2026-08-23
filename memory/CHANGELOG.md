@@ -1428,3 +1428,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Tenant Miracurl Unisex Family Salon's own number (in tenant DB record) untouched as instructed.
 - Email audit: all platform mailboxes already on the official @miracurl-suite.com list (admin/contact/payments/noreply/support/sales/etc.) — no changes needed.
 - Verified via page-text checks: landing + products show ONLY the new number. NOTE prod: Super Admin → Site Info whatsapp field should be set/checked after deploy (code default now falls back to the new number).
+
+## Iter 148 (23 Aug 2026) — Premium Lead Gen panel + member renewal auto-WhatsApp
+- DemoCampaign.jsx fully restyled: dark charcoal (#15151b) card w/ gold border, playfair gold heading + divider, dark inputs w/ gold focus, gold selected-chips, gold gradient "Send demo invites ✦" CTA, dark funnel tiles (gold/sky/amber/violet/emerald numbers), dark invitee rows w/ translucent status chips, gold time-picker pill, dark history. All logic/testids untouched. Verified via screenshots.
+- Customer membership renewal: run_membership_expiry_reminders (hourly, premium_membership.py) now ALSO creates a pending whatsapp_requests doc (kind membership_renewal, "Mira (auto)") at the 7-day mark with renew link — appears in tenant Dashboard WhatsApp Approvals for one-tap send; works even when member has no email; email reminders (7d+1d) unchanged. Verified: seeded membership expiring in 6d → WA request created w/ correct message; cleaned up.
+- Lead-gen WA sender note: wa.me sends from whichever phone opens it — user to use the new 9180261256 device; templates already reference new number (iter 147).

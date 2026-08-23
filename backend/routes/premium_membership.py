@@ -644,17 +644,31 @@ async def run_membership_expiry_reminders() -> int:
                  "expires_at": {"$gt": lo, "$lte": hi}}, {"_id": 0}):
             await _raw_db.customer_memberships.update_one({"id": cm["id"]}, {"$set": {flag: True}})
             cust = await _raw_db.customers.find_one({"id": cm["customer_id"]}, {"_id": 0}) or {}
-            if not cust.get("email"):
-                continue
             t = await _raw_db.tenants.find_one({"id": cm["tenant_id"]}, {"_id": 0}) or {}
-            from email_service import _send_email
-            import html as html_lib
             try:
                 end = datetime.fromisoformat(cm["expires_at"]).strftime("%d %b %Y")
             except Exception:
                 end = cm.get("expires_at", "")
             renew_url = f"{base}/membership/{t.get('slug')}?renew={cm['member_id']}"
-            first = html_lib.escape((cust.get("name") or "there").split(" ")[0])
+            first = (cust.get("name") or "there").split(" ")[0]
+            if days == 7 and cust.get("phone"):
+                # Ready-to-send WhatsApp renewal nudge → tenant's dashboard approvals widget
+                import uuid as _uuid
+                wa_msg = (f"Hi {first}! ✦ Your {cm.get('name') or 'Premium'} membership at "
+                          f"{t.get('name') or 'our salon'} (ID {cm['member_id']}) expires on {end}. "
+                          f"Renew now to keep your {cm.get('discount_pct') or 0:g}% discount & "
+                          f"{cm.get('cashback_pct') or 0:g}% cashback running without a break: {renew_url}")
+                await _raw_db.whatsapp_requests.insert_one({
+                    "id": str(_uuid.uuid4()), "tenant_id": cm["tenant_id"],
+                    "requested_by": "mira", "requested_by_name": "Mira (auto)",
+                    "client_name": cust.get("name") or "", "client_phone": cust.get("phone") or "",
+                    "message": wa_msg, "kind": "membership_renewal", "status": "pending",
+                    "created_at": now.isoformat()})
+            if not cust.get("email"):
+                continue
+            from email_service import _send_email
+            import html as html_lib
+            first = html_lib.escape(first)
             res = await _send_email(
                 [cust["email"]],
                 f"⏳ Your {cm.get('name') or 'membership'} expires on {end} — renew in one tap",
