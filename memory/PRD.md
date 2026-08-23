@@ -2095,3 +2095,5 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - 23 Aug 2026: WhatsApp approvals dedupe/expiry (unique per customer, auto-clear old + already-sent). See CHANGELOG Iter 144.
 
 - 23 Aug 2026: POS membership congrats popup + send-card email endpoint (tested, zero billing regressions). See CHANGELOG Iter 145.
+
+- 23 Aug 2026: POS Membership Sell button + plan picker modal. See CHANGELOG Iter 146.

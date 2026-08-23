@@ -1419,3 +1419,6 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - NEW POST /premium-membership/members/{cmid}/send-card {email} → updates customer email + emails membership card PDF+QR (resend=True); 422 invalid email, 404 unknown, 502 w/ detail if Resend rejects.
 - NEW MembershipCongratsModal (POS): after payment with membership in cart → "🎉 Congratulations Mr/Ms {Name}" + member ID, valid from→to, email-card input, WhatsApp (admin only), SMS Message link, Done. Wired in POS.jsx charge() success + modal mount.
 - TESTED iteration_112: backend 8/8 (incl. regressions service-only + gift card + member lookup), frontend E2E popup verified. Note from tester: cart-line testids appear duplicated in receipt DOM (CartTable reused) — beware if changing selectors later.
+
+## Iter 146 (23 Aug 2026) — Membership Sell button in POS billing row
+- 💳 Sell button added next to Apply/📷 Scan in the POS Membership row (mirrors Gift card row). Opens membership-sell-modal (violet gradient header) listing active plans w/ perks + price; tap adds membership line to the bill (duplicate-guarded); congrats popup fires after payment as before. Verified via Playwright: modal renders 6 plans, click adds to bill.
