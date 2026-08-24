@@ -19,6 +19,7 @@ from security import (
     set_auth_cookies, get_current_user, require_tenant_admin, current_tenant,
     public_rate_limit, revoke_token_jtis, _reject_if_revoked,
     _reject_if_token_predates_password_change, client_ip,
+    start_session, current_sid,
 )
 
 router = APIRouter()
@@ -158,8 +159,9 @@ async def register(body: RegisterIn, request: Request, response: Response):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(user)
-    access = make_access(user["id"], email)
-    refresh = make_refresh(user["id"])
+    sid = await start_session(user["id"], email, None, request)
+    access = make_access(user["id"], email, sid)
+    refresh = make_refresh(user["id"], sid)
     set_auth_cookies(response, access, refresh)
     user.pop("password_hash", None)
     user.pop("_id", None)
@@ -380,8 +382,9 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
 
     await _convert_lead_to_customer(email, tenant)
 
-    access = make_access(owner["id"], email)
-    refresh = make_refresh(owner["id"])
+    sid = await start_session(owner["id"], email, tenant["id"], request)
+    access = make_access(owner["id"], email, sid)
+    refresh = make_refresh(owner["id"], sid)
     set_auth_cookies(response, access, refresh)
     owner.pop("password_hash", None)
     tenant.pop("_id", None)
@@ -436,8 +439,9 @@ async def login(body: LoginIn, request: Request, response: Response):
         raise HTTPException(403, "Your account has been disabled by the salon admin. Please contact them.")
     await db.login_attempts.delete_one({"identifier": ident})
     await _subscription_gate(user)
-    access = make_access(user["id"], email)
-    refresh = make_refresh(user["id"])
+    sid = await start_session(user["id"], email, user.get("tenant_id"), request)
+    access = make_access(user["id"], email, sid)
+    refresh = make_refresh(user["id"], sid)
     set_auth_cookies(response, access, refresh, persistent=body.remember)
     user.pop("password_hash", None)
     user.pop("_id", None)
@@ -447,9 +451,48 @@ async def login(body: LoginIn, request: Request, response: Response):
 @router.post("/auth/logout")
 async def logout(request: Request, response: Response):
     await revoke_token_jtis(request)
+    sid = current_sid(request)
+    if sid:
+        await _raw_db.sessions.update_one(
+            {"sid": sid},
+            {"$set": {"revoked": True, "revoked_at": datetime.now(timezone.utc).isoformat()}})
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
     return {"ok": True}
+
+
+@router.get("/auth/sessions")
+async def list_sessions(request: Request, user=Depends(get_current_user)):
+    """Every device currently signed in to this account (active in the last 8 days)."""
+    cur = current_sid(request)
+    active_since = (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
+    rows = await _raw_db.sessions.find(
+        {"user_id": user["id"], "revoked": False, "last_seen": {"$gte": active_since}},
+        {"_id": 0}).sort("last_seen", -1).to_list(50)
+    for r in rows:
+        r["current"] = r["sid"] == cur
+    return {"sessions": rows}
+
+
+@router.delete("/auth/sessions/{sid}")
+async def logout_device(sid: str, user=Depends(get_current_user)):
+    """Remotely sign out ONE device — its next request gets a 401."""
+    r = await _raw_db.sessions.update_one(
+        {"sid": sid, "user_id": user["id"]},
+        {"$set": {"revoked": True, "revoked_at": datetime.now(timezone.utc).isoformat()}})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Session not found")
+    return {"ok": True}
+
+
+@router.post("/auth/sessions/logout-all")
+async def logout_all_devices(request: Request, user=Depends(get_current_user)):
+    """Sign out every OTHER device — the one making this call stays logged in."""
+    cur = current_sid(request)
+    r = await _raw_db.sessions.update_many(
+        {"user_id": user["id"], "revoked": False, "sid": {"$ne": cur}},
+        {"$set": {"revoked": True, "revoked_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "signed_out": r.modified_count}
 
 @router.get("/auth/me")
 async def me(user=Depends(get_current_user)):
@@ -471,7 +514,7 @@ async def refresh_token(request: Request, response: Response):
         if user.get("disabled") or user.get("status") == "disabled" or user.get("active") is False:
             raise HTTPException(401, "Account disabled")
         _reject_if_token_predates_password_change(payload, user)
-        access = make_access(user["id"], user["email"])
+        access = make_access(user["id"], user["email"], payload.get("sid"))
         response.set_cookie(
             "access_token", access, httponly=True,
             secure=(os.environ.get("COOKIE_SECURE", "true").lower() != "false"),

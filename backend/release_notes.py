@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-24.94"
-BUILD_TIME = "24 Aug 2026, 08:30 AM IST"
+BUILD = "2026-08-24.95"
+BUILD_TIME = "24 Aug 2026, 10:00 AM IST"
 
 RELEASES = [
     {
-        "date": "2026-08-24 (Per-device salon login, smarter app installs & number health 📱)",
+        "date": "2026-08-24 (Per-device salon login, device manager & number health 📱)",
         "changes": [
+            "🔐 Logged-in Devices — Settings now lists every device signed in to your account (phone/PC, IP, last active); sign out any single device or all other devices in one tap — the signed-out device loses access instantly",
             "📱 Each device keeps its OWN salon — switching salons on one phone no longer flips the other phone; run AECS on one device and Marathahalli on the other, permanently",
             "⬇️ Smarter install prompts — once Miracurl Partner or Miracurl Book is installed on a device, its install banner never auto-appears again on that device; booking pages offer Miracurl Book, partner pages offer Miracurl Partner",
             "☎️ Number Health Check — new HQ panel (Website & CEO tab) lists every public HQ number/WhatsApp with green/red status plus each salon's own numbers, so a wrong number is spotted at a glance",

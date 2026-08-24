@@ -4,6 +4,7 @@ import { ChangePasswordSection } from "@/components/ChangePasswordSection";
 import { ContactHQSection } from "@/components/ContactHQSection";
 import { QrPosterCard } from "@/components/settings/QrPosterCard";
 import { AuditLogCard } from "@/components/settings/AuditLogCard";
+import { DevicesCard } from "@/components/settings/DevicesCard";
 import { ProfileCompletenessCard } from "@/components/settings/ProfileCompletenessCard";
 import { BrandingCard } from "@/components/settings/BrandingCard";
 import { GalleryCard } from "@/components/settings/GalleryCard";
@@ -41,6 +42,8 @@ export default function Settings() {
         </div>
 
         <ChangePasswordSection />
+
+        <DevicesCard />
 
         <ContactHQSection />
 

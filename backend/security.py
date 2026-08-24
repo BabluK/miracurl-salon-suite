@@ -23,21 +23,98 @@ def verify_pw(p: str, h: str) -> bool:
     except Exception:
         return False
 
-def make_access(user_id: str, email: str) -> str:
+def make_access(user_id: str, email: str, sid: Optional[str] = None) -> str:
     payload = {"sub": user_id, "email": email,
                "jti": uuid.uuid4().hex,
                "iat": int(datetime.now(timezone.utc).timestamp()),
                "exp": datetime.now(timezone.utc) + timedelta(hours=8),
                "type": "access"}
+    if sid:
+        payload["sid"] = sid
     return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALG)
 
-def make_refresh(user_id: str) -> str:
+def make_refresh(user_id: str, sid: Optional[str] = None) -> str:
     payload = {"sub": user_id,
                "jti": uuid.uuid4().hex,
                "iat": int(datetime.now(timezone.utc).timestamp()),
                "exp": datetime.now(timezone.utc) + timedelta(days=7),
                "type": "refresh"}
+    if sid:
+        payload["sid"] = sid
     return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALG)
+
+
+def _device_label(ua: str) -> str:
+    u = (ua or "").lower()
+    if "iphone" in u:
+        dev = "iPhone"
+    elif "ipad" in u:
+        dev = "iPad"
+    elif "android" in u:
+        dev = "Android phone"
+    elif "windows" in u:
+        dev = "Windows PC"
+    elif "mac os" in u or "macintosh" in u:
+        dev = "Mac"
+    elif "linux" in u:
+        dev = "Linux PC"
+    else:
+        dev = "Unknown device"
+    if "edg" in u:
+        br = "Edge"
+    elif "opr" in u or "opera" in u:
+        br = "Opera"
+    elif "chrome" in u and "chromium" not in u:
+        br = "Chrome"
+    elif "safari" in u and "chrome" not in u:
+        br = "Safari"
+    elif "firefox" in u:
+        br = "Firefox"
+    else:
+        br = "Browser"
+    return f"{br} on {dev}"
+
+
+async def start_session(user_id: str, email: str, tenant_id, request: Request) -> str:
+    """Register this device's login session; the returned sid is embedded in both tokens."""
+    sid = uuid.uuid4().hex
+    ua = (request.headers.get("user-agent") or "")[:300]
+    ip = ((request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+          or (request.client.host if request.client else ""))
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.sessions.insert_one({
+        "sid": sid, "user_id": user_id, "email": email, "tenant_id": tenant_id,
+        "device": _device_label(ua), "ip": ip,
+        "created_at": now, "last_seen": now, "revoked": False})
+    return sid
+
+
+def current_sid(request: Request) -> Optional[str]:
+    token = _extract_bearer_token(request)
+    if not token:
+        return None
+    try:
+        return jwt.decode(token, jwt_secret(), algorithms=[JWT_ALG],
+                          options={"verify_exp": False}).get("sid")
+    except jwt.InvalidTokenError:
+        return None
+
+
+async def _check_session(payload: dict):
+    """Device sessions: a revoked sid means this device was signed out remotely."""
+    sid = payload.get("sid")
+    if not sid:
+        return
+    sess = await _raw_db.sessions.find_one({"sid": sid}, {"_id": 0, "revoked": 1, "last_seen": 1})
+    if not sess or sess.get("revoked"):
+        raise HTTPException(401, "This device was signed out — please log in again")
+    try:
+        last = datetime.fromisoformat(sess["last_seen"])
+        if (datetime.now(timezone.utc) - last).total_seconds() > 300:
+            await _raw_db.sessions.update_one(
+                {"sid": sid}, {"$set": {"last_seen": datetime.now(timezone.utc).isoformat()}})
+    except (KeyError, TypeError, ValueError):
+        pass
 
 def _reject_if_token_predates_password_change(payload: dict, user: dict):
     """SEC-002: tokens minted before the user's last password change are dead.
@@ -151,6 +228,7 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(401, "Not authenticated")
     payload = _decode_access_token(token)
     await _reject_if_revoked(payload)
+    await _check_session(payload)
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(401, "User not found")
