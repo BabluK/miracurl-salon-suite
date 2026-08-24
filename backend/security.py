@@ -94,11 +94,12 @@ async def _apply_tenant_context(request: Request, user: dict) -> None:
         if not t:
             raise HTTPException(404, f"Tenant '{slug}' not found")
         if user.get("role") != "super_admin" and user.get("tenant_id") != t["id"]:
-            # Multi-salon owners: a stale slug header from BEFORE a branch switch
-            # points at another salon they own — self-heal to the active salon
-            # instead of 403ing the whole app.
+            # Multi-salon owners: each DEVICE keeps its own active salon — the
+            # slug THIS device sends wins (they own that salon too), so switching
+            # salons on one phone never flips the other phone.
             if t["id"] in (user.get("tenant_ids") or []):
-                _current_tenant_id.set(user["tenant_id"])
+                user["tenant_id"] = t["id"]
+                _current_tenant_id.set(t["id"])
                 return
             # Stale slug left in localStorage by a previous user/booking page on
             # this device — the logged-in user's own tenant_id is authoritative,

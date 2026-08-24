@@ -54,6 +54,29 @@ async def public_site_info():
     return await _get_info()
 
 
+@router.get("/super-admin/number-health")
+async def number_health(admin=Depends(require_super_admin)):
+    """Every public phone/WhatsApp number in one place — spot a wrong number at a glance."""
+    info = await _get_info()
+    hq = "919180261256"
+    platform = [
+        {"label": "HQ WhatsApp — Landing, Contact Us, subscription popups (editable below)",
+         "value": info.get("whatsapp") or "", "expected": hq},
+        {"label": "HQ WhatsApp — 'Chat with us' button, bottle labels, order emails (fixed in code)",
+         "value": hq, "expected": hq},
+        {"label": "HQ contact email", "value": info.get("contact_email") or "", "expected": "miracurl-suite.com"},
+    ]
+    for row in platform:
+        row["ok"] = row["expected"] in (row["value"] or "")
+    tenants = await _raw_db.tenants.find(
+        {"status": {"$nin": ["deleted"]}},
+        {"_id": 0, "name": 1, "slug": 1, "phone": 1, "whatsapp_number": 1, "status": 1},
+    ).sort("name", 1).to_list(300)
+    tenants = [t for t in tenants
+               if not (t.get("name") or "").lower().startswith(("test ", "iter", "e2e"))]
+    return {"platform": platform, "hq_number": hq, "tenants": tenants}
+
+
 @router.put("/super/site-info")
 async def update_site_info(body: SiteInfoIn, admin=Depends(require_super_admin)):
     updates = {k: v for k, v in body.model_dump().items() if v is not None}

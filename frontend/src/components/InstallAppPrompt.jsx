@@ -42,6 +42,7 @@ export default function InstallAppPrompt({ variant = "customer" }) {
   const [showGuide, setShowGuide] = useState(false);
   const t = THEMES[variant] || THEMES.customer;
   const dismissKey = `miracurl_pwa_dismiss_${variant}`;
+  const installedKey = `miracurl_pwa_installed_${variant}`;
 
   useEffect(() => {
     const isStandalone =
@@ -50,9 +51,11 @@ export default function InstallAppPrompt({ variant = "customer" }) {
     if (isStandalone) return;
 
     let recentlyDismissed = false;
+    let alreadyInstalled = false;
     try {
       const at = parseInt(localStorage.getItem(dismissKey) || "0", 10);
       recentlyDismissed = at > 0 && Date.now() - at < RESHOW_AFTER_MS;
+      alreadyInstalled = localStorage.getItem(installedKey) === "1";
     } catch (e) { log.warn("[InstallAppPrompt]", e); }
 
     const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
@@ -60,9 +63,19 @@ export default function InstallAppPrompt({ variant = "customer" }) {
     const handler = (e) => {
       e.preventDefault();
       setDeferred(e);
-      if (!recentlyDismissed) setVisible(true);
+      // beforeinstallprompt firing means the browser does NOT have this app
+      // installed anymore — clear a stale installed flag.
+      try { localStorage.removeItem(installedKey); } catch { /* ignore */ }
+      if (!recentlyDismissed && !alreadyInstalled) setVisible(true);
     };
     window.addEventListener("beforeinstallprompt", handler);
+
+    // Once installed, remember it — never auto-show this app's banner again.
+    const installedHandler = () => {
+      try { localStorage.setItem(installedKey, "1"); } catch { /* ignore */ }
+      setVisible(false);
+    };
+    window.addEventListener("appinstalled", installedHandler);
 
     // Manual trigger (header/profile menu button) — always forces banner up
     const openHandler = () => setVisible(true);
@@ -70,16 +83,17 @@ export default function InstallAppPrompt({ variant = "customer" }) {
 
     // Auto-show on every mobile device — don't wait for beforeinstallprompt
     let timer;
-    if (isMobile && !recentlyDismissed) {
+    if (isMobile && !recentlyDismissed && !alreadyInstalled) {
       timer = setTimeout(() => setVisible(true), 4000);
     }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", installedHandler);
       window.removeEventListener("miracurl:open-install", openHandler);
       if (timer) clearTimeout(timer);
     };
-  }, [dismissKey]);
+  }, [dismissKey, installedKey]);
 
   function dismiss() {
     try { localStorage.setItem(dismissKey, String(Date.now())); } catch (e) { log.warn(e); }
@@ -93,7 +107,10 @@ export default function InstallAppPrompt({ variant = "customer" }) {
     }
     deferred.prompt();
     const result = await deferred.userChoice;
-    if (result.outcome === "accepted") dismiss();
+    if (result.outcome === "accepted") {
+      try { localStorage.setItem(installedKey, "1"); } catch { /* ignore */ }
+      dismiss();
+    }
     setDeferred(null);
     setVisible(false);
   }

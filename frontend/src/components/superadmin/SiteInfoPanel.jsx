@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Globe, Loader2, Save, Upload, Instagram, Facebook, Mail, Crown } from "lucide-react";
+import { NumberHealthCard } from "@/components/superadmin/NumberHealthCard";
 
 const Input = ({ label, value, onChange, placeholder, testid, icon: Icon }) => (
   <label className="block">
@@ -60,6 +61,7 @@ export const SiteInfoPanel = () => {
         <h1 className="font-playfair text-3xl flex items-center gap-3"><Globe className="w-7 h-7 text-amber-500" /> Website & CEO</h1>
         <p className="text-slate-500 text-sm mt-1">Contact details, social links and the CEO profile shown on the public landing page.</p>
       </div>
+      <NumberHealthCard />
 
       <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
         <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Mail className="w-4 h-4 text-slate-400" /> Contact & Social</h2>
