@@ -9,7 +9,9 @@ import axios from "axios";
 export const MIRACURL_SUPPORT_WHATSAPP = "919180261256";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const WA_BUSINESS_LINK = "https://wa.me/message/LMGKRXVV2SHVB1";
+// Direct number link — the old wa.me/message/… business short-link belonged to the
+// salon's (tenant) WhatsApp account and redirected to the wrong number.
+const WA_BUSINESS_LINK = `https://wa.me/${MIRACURL_SUPPORT_WHATSAPP}`;
 
 export default function ChatButton({
   number = MIRACURL_SUPPORT_WHATSAPP,

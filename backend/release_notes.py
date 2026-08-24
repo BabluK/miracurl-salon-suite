@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-23.92"
-BUILD_TIME = "23 Aug 2026, 07:00 PM IST"
+BUILD = "2026-08-23.93"
+BUILD_TIME = "23 Aug 2026, 07:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-23 (Bottle QR tracking, real Google rating & premium member cards 📦)",
         "changes": [
+            "📞 HQ WhatsApp fixed — the 'Chat with us' / 'Continue on WhatsApp' buttons were opening an old WhatsApp Business short-link tied to the salon's number; they now go directly to the dedicated Miracurl HQ number +91 91802 61256",
             "⭐ Mira replies to your Google reviews — in Reviews → Live Google Reviews, tap '✨ Mira reply' on any Google review and Mira drafts a warm owner reply (grateful for praise, graceful for complaints); copy it and paste it on Google in one tap so your profile always looks cared for",
             "💳 Premium member cards in POS — the 'Sell a Membership' picker now shows each plan as a beautiful black-and-gold member card (tier-coloured: Silver, Gold, Platinum, Diamond) exactly like the card your guest receives — tap a card to add it to the bill",
             "⭐ REAL Google rating on your booking page — the rating badge now shows your salon's LIVE Google rating and review count straight from Google Maps (refreshed daily), instead of only in-app reviews",
