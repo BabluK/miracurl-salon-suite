@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -21,18 +22,55 @@ const age = (iso) => {
 
 export default function Kitchen() {
   const { tenant } = useAuth();
+  const nav = useNavigate();
   const [orders, setOrders] = useState([]);
   const [tableCount, setTableCount] = useState(8);
   const [showQrs, setShowQrs] = useState(false);
+  const seenIds = useRef(null);
+
+  const chime = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [880, 1175].forEach((f, i) => {
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.18);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.35);
+        o.start(ctx.currentTime + i * 0.18); o.stop(ctx.currentTime + i * 0.18 + 0.4);
+      });
+    } catch { /* audio blocked until first interaction */ }
+  };
 
   const load = useCallback(() => {
-    api.get("/table-orders").then(({ data }) => setOrders(data)).catch(() => {});
+    api.get("/table-orders").then(({ data }) => {
+      const fresh = data.filter(o => o.status === "new").map(o => o.id);
+      if (seenIds.current !== null) {
+        const newcomers = fresh.filter(id => !seenIds.current.includes(id));
+        if (newcomers.length > 0) {
+          chime();
+          toast.success(`🔔 ${newcomers.length} new table order${newcomers.length > 1 ? "s" : ""}!`);
+        }
+      }
+      seenIds.current = fresh;
+      const openCount = data.filter(o => ["new", "preparing"].includes(o.status)).length;
+      document.title = openCount > 0 ? `(${openCount}) Kitchen — Miracurl` : "Kitchen — Miracurl";
+      setOrders(data);
+    }).catch(() => {});
   }, []);
   useEffect(() => {
     load();
     const t = setInterval(load, 15000);
-    return () => clearInterval(t);
+    return () => { clearInterval(t); document.title = "Miracurl Suite"; };
   }, [load]);
+
+  function billInPos(o) {
+    localStorage.setItem("kitchen_bill", JSON.stringify({
+      order_id: o.id, table_no: o.table_no, customer_name: o.customer_name || "",
+      discount_pct: o.discount_pct || 0,
+      items: o.items.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+    }));
+    nav("/pos");
+  }
 
   async function setStatus(id, status) {
     try {
@@ -62,8 +100,17 @@ export default function Kitchen() {
         ))}
       </ul>
       <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-200/70">
-        <span className="text-sm font-extrabold text-slate-900">₹{Math.round(o.total).toLocaleString("en-IN")}</span>
+        <span className="text-sm font-extrabold text-slate-900">
+          ₹{Math.round(o.total).toLocaleString("en-IN")}
+          {o.discount_amt > 0 && <span className="ml-1.5 text-[10px] font-bold text-emerald-600">({o.discount_pct}% off applied)</span>}
+        </span>
         <div className="flex gap-2">
+          {o.status === "served" && (
+            <button onClick={() => billInPos(o)} data-testid={`ticket-bill-${o.id}`}
+              className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-700 flex items-center gap-1">
+              🧾 Bill in POS
+            </button>
+          )}
           {(STATUS_NEXT[o.status] || []).map(s => (
             <button key={s} onClick={() => setStatus(o.id, s)} data-testid={`ticket-${s}-${o.id}`}
               className={`text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 ${

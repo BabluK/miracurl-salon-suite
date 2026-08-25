@@ -722,9 +722,19 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
         total += m["price"] * qty
     if not items:
         raise HTTPException(400, "No valid menu items in the order")
+    # Day-wise special (Offer of the Day, e.g. 5/10/15%) applies to QR menu orders too
+    today_ist = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date().isoformat()
+    off = await _raw_db.day_offers.find_one(
+        {"tenant_id": t["id"], "date": today_ist, "status": "accepted", "discount_pct": {"$gt": 0}},
+        {"_id": 0, "discount_pct": 1, "title": 1}, sort=[("accepted_at", -1)])
+    disc_pct = float(off["discount_pct"]) if off else 0.0
+    disc_amt = round(total * disc_pct / 100, 2)
     order = {"id": uuid.uuid4().hex[:8], "tenant_id": t["id"], "table_no": body.table_no,
              "customer_name": (body.customer_name or "").strip()[:80],
-             "items": items, "total": round(total, 2), "status": "new",
+             "items": items, "subtotal": round(total, 2),
+             "discount_pct": disc_pct, "discount_amt": disc_amt,
+             "offer_title": (off or {}).get("title") or "",
+             "total": round(total - disc_amt, 2), "status": "new",
              "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.table_orders.insert_one(order)
     order.pop("_id", None)

@@ -11,6 +11,7 @@ export default function OrderPublic() {
   const [params] = useSearchParams();
   const [salon, setSalon] = useState(null);
   const [menu, setMenu] = useState([]);
+  const [offer, setOffer] = useState(null);
   const [qty, setQty] = useState({});
   const [table, setTable] = useState(params.get("table") || "");
   const [name, setName] = useState("");
@@ -20,6 +21,9 @@ export default function OrderPublic() {
   useEffect(() => {
     axios.get(`${BACKEND_URL}/api/public/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon(false));
     axios.get(`${BACKEND_URL}/api/public/services/${slug}`).then(r => setMenu(r.data)).catch(() => {});
+    axios.get(`${BACKEND_URL}/api/public/day-offer/${slug}`).then(r => {
+      if (r.data?.offer?.discount_pct > 0) setOffer(r.data.offer);
+    }).catch(() => {});
   }, [slug]);
 
   const byCat = useMemo(() => {
@@ -29,6 +33,8 @@ export default function OrderPublic() {
   }, [menu]);
   const cart = useMemo(() => menu.filter(m => qty[m.id] > 0), [menu, qty]);
   const total = cart.reduce((a, m) => a + m.price * qty[m.id], 0);
+  const offPct = Number(offer?.discount_pct) || 0;
+  const payable = Math.round(total * (1 - offPct / 100));
 
   function bump(id, d) { setQty(q => ({ ...q, [id]: Math.max(0, (q[id] || 0) + d) })); }
 
@@ -79,6 +85,12 @@ export default function OrderPublic() {
       </header>
 
       <main className="px-5 py-6 space-y-8">
+        {offer && (
+          <div className="rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3" data-testid="order-day-offer">
+            <p className="text-gold text-xs font-bold">✨ Today's special — {offPct}% OFF your whole order</p>
+            {offer.title && <p className="text-white/50 text-[11px] mt-0.5">{offer.title}</p>}
+          </div>
+        )}
         {Object.entries(byCat).map(([cat, items]) => (
           <section key={cat}>
             <h2 className="text-gold text-xs tracking-[0.25em] uppercase mb-3">{cat}</h2>
@@ -114,7 +126,8 @@ export default function OrderPublic() {
             data-testid="order-submit-btn"
             className="w-full btn-gold py-3.5 flex items-center justify-center gap-2 text-sm font-bold disabled:opacity-60">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UtensilsCrossed className="w-4 h-4" />}
-            Send order to kitchen · {cart.reduce((a, m) => a + qty[m.id], 0)} item(s) · ₹{Math.round(total).toLocaleString("en-IN")}
+            Send order to kitchen · {cart.reduce((a, m) => a + qty[m.id], 0)} item(s) ·
+            {offPct > 0 && <s className="opacity-60">₹{Math.round(total).toLocaleString("en-IN")}</s>} ₹{payable.toLocaleString("en-IN")}
           </button>
         </div>
       )}

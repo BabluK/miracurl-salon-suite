@@ -353,6 +353,21 @@ export default function POS() {
     setOfferApplied({ id: o.id, title: o.title, pct: Number(o.discount_pct) });
     toast.success(`🔥 '${o.title}' — ${o.discount_pct}% off applied to this bill`);
   }
+  // One-tap "Bill in POS" from a served kitchen ticket — loads its items into the cart
+  useEffect(() => {
+    if (staff.length === 0) return;
+    let kb = null;
+    try { kb = JSON.parse(localStorage.getItem("kitchen_bill") || "null"); } catch { /* ignore */ }
+    if (!kb?.items?.length) return;
+    localStorage.removeItem("kitchen_bill");
+    const host = staff[0];
+    setCart(kb.items.map(i => ({
+      type: "service", ref_id: i.id, name: i.name, qty: i.qty, price: i.price,
+      disc_pct: Number(kb.discount_pct) || 0, staff_id: host.id, staff_name: host.name,
+    })));
+    toast.success(`🧾 Kitchen order #${kb.order_id} (Table ${kb.table_no}) loaded — pick the guest & payment to close the bill`);
+  }, [staff]);  // eslint-disable-line react-hooks/exhaustive-deps
+
   function updateLine(i, patch) { setCart(cart.map((c, idx) => idx === i ? { ...c, ...patch } : c)); }
   function setLineStaff(i, sid) {
     const s = staff.find(x => x.id === sid);
