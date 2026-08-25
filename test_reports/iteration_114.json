@@ -1,0 +1,35 @@
+{
+  "summary": "Iter 114 — Table-wise billing (merge multiple QR orders into ONE POS bill) + Live Tables Kitchen panel + itemized notifications + salon-fallback-image removal for restaurants. Backend: 11/11 pytest PASS (public /public/table-order/{slug} creates orders, rejects salon slug 400, GET /table-orders (auth) lists tenant-scoped orders, unauth 401/403, PUT /table-orders/mark-billed rejects empty ids 400, happy path returns billed=1 and flips status to 'billed', new order after billing is fresh 'new', salon admin CANNOT bill restaurant orders — resto row remained 'new' after salon attempted mark-billed, salon listing excludes resto tenant_id, AI /services/generate-image endpoint exists — no 404 without triggering generation). Frontend (Playwright): /order/infinity-family-restaurant?table=4 loads with NO salon Unsplash fallbacks — every dish/category shows 🍽️ placeholder + veg/spice tags + 15% off Barbecue chip; ADD × 2 dishes + Submit → order-success card 'Order sent to the kitchen! Order #f463e913 · Table 4 · ₹533.8'. Kitchen page (infinity.admin@miracurl.com): live-tables-panel renders live-table-{3,4,7,9} cards with correct 'N orders' count + running totals (₹722/₹1,322/₹254/₹508) and bill-table-N buttons — clicking bill-table-4 navigated to /pos with 2 open Table 4 orders merged into a single bill (BBQ Chicken Wings qty=3, Tandoori Chicken qty=2 — quantities of the same dish added across the two orders). Salon regression /book/miracurl-marathahalli still renders Unsplash salon banners + category thumbnails + salon hero copy. POS→mark-billed hook verified in code (POS.jsx L518-520 fires PUT /table-orders/mark-billed on successful checkout with kitchenOrderIdsRef).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "POS after Bill Table N (merged cart)", "issues": ["Banner toast 'Table 4 — 2 orders merged into one bill. Pick the guest & payment to close it.' is helpful but the invoice header still says 'Guest: Add Guest / Please select guest' in red before a guest is chosen — for a QR-driven flow the diner's customer_name captured on the order (e.g. 'TEST_diner') is NOT auto-prefilled into the parallel bill title (bill title shows just phone/random). Suggest surfacing table_no + captured customer_name on the parallel-bill pill."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter114_table_billing.py",
+    "/app/test_reports/pytest/iter114.xml"
+  ],
+  "action_items": [
+    "(nice-to-have) Prefill or surface the QR-captured customer_name onto the parallel-bill title after Bill Table — currently only phone or blank shows, while the merged toast already knows the table number."
+  ],
+  "critical_code_review_comments": [
+    "backend/routes/staff_admin.py::mark_table_orders_billed uses the tenant-scoped `db` wrapper — update_many is silently no-op for orders belonging to another tenant (verified: salon admin mark-billed on a resto order returned billed=0 and the resto row stayed 'new'). Consider returning 404 when zero matched to give the frontend an explicit signal instead of {ok:true, billed:0}.",
+    "MarkBilledIn.ids is a raw `list` (not List[str]) — coerced with str() and clamped to 50; fine, but Pydantic List[str] would give 422 validation errors earlier and cheaper.",
+    "public_site.py::create_table_order applies BOTH global 'Offer of the Day' and per-category weekday special via max() — matches spec ('item takes the better one').",
+    "Frontend Kitchen.jsx billTable() dedupes items by id and sums qty across all open orders — correctly reflected in POS cart (BBQ 1+2=3, Tandoori 1+1=2 for merged Table 4).",
+    "Frontend POS.jsx L518-520: api.put('/table-orders/mark-billed', {ids}) fired with .catch(()=>{}) — silent-fail is intentional but means if the network drops, kitchen tickets stay open indefinitely without any user feedback. Consider a toast on failure.",
+    "OrderPublic.jsx unclosed-div JSX fix confirmed — page compiles and renders successfully.",
+    "Services.jsx isResto placeholder branch renders 🍽️ for both dish thumbnails and category headers — verified live on /order/{slug}."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter114_table_billing.py"],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% of requested flows (QR order, Live Tables panel, merged POS cart, salon regression fallback images intact)"},
+  "test_credentials": "infinity.admin@miracurl.com / Infinity@2026 (slug infinity-family-restaurant); admin@miracurl.com / q6QY@tn3p#9DtL (miracurl-marathahalli)",
+  "seed_data_creation": "Several throwaway QR orders on tables 4/9/11 created via /public/table-order/{slug} — one billed by the resto admin during the isolation test, the rest left as open orders (Kitchen panel already had preexisting orders on tables 3/7/9).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run /app/backend/tests/test_iter114_table_billing.py with `pytest -p no:xdist -o addopts=''` — it uses the seeded Infinity restaurant tenant_id 821532fe-cb97-4043-9075-a8420cf7d65e for isolation assertion. Frontend selectors verified: menu-add-{id}, order-table-input, order-submit-btn, order-success, live-tables-panel, live-table-{n}, bill-table-{n}. To automate a full POS checkout flow with merged cart, the Add-Guest modal must actually attach the newly-created customer to the current bill (in this run it created the customer but 'Please select guest' remained — probably a modal-flow quirk, guest picker still needed).",
+  "rca of the issue": "N/A — no bugs found. All 8 new features from the review request work end-to-end."
+}

@@ -80,7 +80,7 @@ export function FeaturedReviews({ featured }) {
   );
 }
 
-export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, catOrder = [] }) {
+export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, catOrder = [], restaurant = false }) {
   const [gender, setGender] = useState("All");
   const genderOf = (s) => s.gender || "unisex";
   const visible = (s) =>
@@ -159,10 +159,12 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
                   <div className="text-[10px] uppercase tracking-[0.25em] text-white/45 mt-1">{rows.length} services</div>
                 </div>
               </div>
-              <div className="w-[42%] sm:w-[38%] relative shrink-0">
-                <img src={catImage(cat, catImages)} alt={cat} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#1d1812] via-transparent to-transparent" />
-              </div>
+              {(!restaurant || catImages[cat]) && (
+                <div className="w-[42%] sm:w-[38%] relative shrink-0">
+                  <img src={restaurant ? catImages[cat] : catImage(cat, catImages)} alt={cat} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#1d1812] via-transparent to-transparent" />
+                </div>
+              )}
             </div>
             {/* Compact service rows — no per-service photos needed */}
             <div className="divide-y divide-white/5">

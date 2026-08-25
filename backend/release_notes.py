@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.102"
-BUILD_TIME = "25 Aug 2026, 02:00 PM IST"
+BUILD = "2026-08-25.103"
+BUILD_TIME = "25 Aug 2026, 06:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-25 (Table-wise billing & live tables 🧾)",
+        "changes": [
+            "🧾 One table = one bill — if a table orders again before billing (extra fried rice, drinks…), every order merges into a single POS bill; tapping 'Bill Table 3' collects them all, and once billed the table starts fresh for the next guest",
+            "🪑 Live Tables panel — the Kitchen page now shows every open table with its order count, running total and 'ready to bill' status, so you can handle many tables ordering at once",
+            "🔔 Itemized order alerts — the new-order notification now reads like a ticket: 'Table 3 has an order' with each dish, quantity and price",
+            "🖼️ Salon images removed from restaurant menus — restaurant menu categories and dishes no longer fall back to salon photos; dishes show a clean 🍽️ placeholder until you add your own food photo",
+        ],
+    },
     {
         "date": "2026-08-25 (Category specials & dedicated Mira 🏷️)",
         "changes": [

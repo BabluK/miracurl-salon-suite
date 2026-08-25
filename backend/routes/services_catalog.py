@@ -299,16 +299,22 @@ async def set_category_image(name: str, body: CategoryImageIn, user=Depends(requ
 
 # ---------------- Mira Service Photo Studio (AI-generated service images) ----------------
 
-async def _generate_service_image_bytes(name: str, category: str) -> bytes:
+async def _generate_service_image_bytes(name: str, category: str, restaurant: bool = False) -> bytes:
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         raise HTTPException(500, "AI key not configured")
     gen = OpenAIImageGeneration(api_key=key)
-    prompt = (f"Professional beauty-salon photograph for the service '{name}' in the category '{category}'. "
-              "Elegant premium salon setting, close-up of the treatment being performed, soft warm lighting, "
-              "rose-gold and cream tones, photorealistic, shallow depth of field. "
-              "Absolutely NO text, NO letters, NO watermarks, NO logos.")
+    if restaurant:
+        prompt = (f"Professional food photograph of the dish '{name}' ({category} cuisine). "
+                  "Appetizing restaurant plating, overhead or 45-degree angle, warm natural lighting, "
+                  "garnished, steam rising, rustic table setting, photorealistic, shallow depth of field. "
+                  "Absolutely NO text, NO letters, NO watermarks, NO logos, NO people.")
+    else:
+        prompt = (f"Professional beauty-salon photograph for the service '{name}' in the category '{category}'. "
+                  "Elegant premium salon setting, close-up of the treatment being performed, soft warm lighting, "
+                  "rose-gold and cream tones, photorealistic, shallow depth of field. "
+                  "Absolutely NO text, NO letters, NO watermarks, NO logos.")
     imgs = await asyncio.wait_for(
         gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
     if not imgs:
@@ -339,9 +345,10 @@ async def generate_missing_service_images(user=Depends(require_admin)):
     tenant_id = _current_tenant_id.get()
 
     async def _runner():
+        resto = await _tenant_is_restaurant(tenant_id)
         for s in todo:
             try:
-                img = await _generate_service_image_bytes(s["name"], s.get("category") or "Beauty")
+                img = await _generate_service_image_bytes(s["name"], s.get("category") or "Beauty", restaurant=resto)
                 url = await _store_service_image(tenant_id, img, s["name"])
                 await _raw_db.services.update_one(
                     {"id": s["id"], "tenant_id": tenant_id}, {"$set": {"image_url": url}})
@@ -389,9 +396,15 @@ async def _new_image_job(tenant_id: str) -> str:
     return jid
 
 
+async def _tenant_is_restaurant(tenant_id: str) -> bool:
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "business_type": 1})
+    return (t or {}).get("business_type") == "restaurant"
+
+
 async def _run_image_job(jid: str, tenant_id: str, name: str, category: str, sid: str = ""):
     try:
-        img = await _generate_service_image_bytes(name, category)
+        resto = await _tenant_is_restaurant(tenant_id)
+        img = await _generate_service_image_bytes(name, category, restaurant=resto)
         url = await _store_service_image(tenant_id, img, name)
         if sid:
             await _raw_db.services.update_one({"id": sid, "tenant_id": tenant_id}, {"$set": {"image_url": url}})

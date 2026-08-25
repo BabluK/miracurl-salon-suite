@@ -353,7 +353,8 @@ export default function POS() {
     setOfferApplied({ id: o.id, title: o.title, pct: Number(o.discount_pct) });
     toast.success(`🔥 '${o.title}' — ${o.discount_pct}% off applied to this bill`);
   }
-  // One-tap "Bill in POS" from a served kitchen ticket — loads its items into the cart
+  // One-tap "Bill Table" from Kitchen — merges every open order of that table into the cart
+  const kitchenOrderIdsRef = useRef([]);
   useEffect(() => {
     if (staff.length === 0) return;
     let kb = null;
@@ -365,7 +366,9 @@ export default function POS() {
       type: "service", ref_id: i.id, name: i.name, qty: i.qty, price: i.price,
       disc_pct: Number(i.disc_pct ?? kb.discount_pct) || 0, staff_id: host.id, staff_name: host.name,
     })));
-    toast.success(`🧾 Kitchen order #${kb.order_id} (Table ${kb.table_no}) loaded — pick the guest & payment to close the bill`);
+    const ids = kb.order_ids || (kb.order_id ? [kb.order_id] : []);
+    kitchenOrderIdsRef.current = ids;
+    toast.success(`🧾 Table ${kb.table_no} — ${ids.length} order${ids.length > 1 ? "s" : ""} merged into one bill. Pick the guest & payment to close it.`);
   }, [staff]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateLine(i, patch) { setCart(cart.map((c, idx) => idx === i ? { ...c, ...patch } : c)); }
@@ -436,6 +439,7 @@ export default function POS() {
   }
 
   function clearAll() {
+    kitchenOrderIdsRef.current = [];
     setCart([]); setOrderNotes(""); setStaffId("");
     setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("");
     setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
@@ -511,6 +515,10 @@ export default function POS() {
         branch_id: branchId || null,
         force_duplicate: forceDup,
       });
+      if (kitchenOrderIdsRef.current.length > 0) {
+        api.put("/table-orders/mark-billed", { ids: kitchenOrderIdsRef.current }).catch(() => {});
+        kitchenOrderIdsRef.current = [];
+      }
       if (!complete) {
         toast.success(`Bill ${data.invoice_no} saved as OPEN 📋 — complete it anytime from the "Open bills" panel above`);
         setOpenBillsKey(k => k + 1);

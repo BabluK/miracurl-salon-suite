@@ -13,6 +13,7 @@ const STATUS_STYLE = {
   new: "border-amber-300 bg-amber-50",
   preparing: "border-sky-300 bg-sky-50",
   served: "border-emerald-200 bg-emerald-50/60",
+  billed: "border-slate-300 bg-white opacity-75",
   cancelled: "border-slate-200 bg-slate-50 opacity-60",
 };
 
@@ -44,12 +45,18 @@ export default function Kitchen() {
 
   const load = useCallback(() => {
     api.get("/table-orders").then(({ data }) => {
-      const fresh = data.filter(o => o.status === "new").map(o => o.id);
+      const freshOrders = data.filter(o => o.status === "new");
+      const fresh = freshOrders.map(o => o.id);
       if (seenIds.current !== null) {
-        const newcomers = fresh.filter(id => !seenIds.current.includes(id));
+        const newcomers = freshOrders.filter(o => !seenIds.current.includes(o.id));
         if (newcomers.length > 0) {
           chime();
-          toast.success(`🔔 ${newcomers.length} new table order${newcomers.length > 1 ? "s" : ""}!`);
+          newcomers.forEach(o => {
+            toast.success(`🔔 Table ${o.table_no} has an order — ₹${Math.round(o.total)}`, {
+              duration: 12000,
+              description: o.items.map(i => `${i.qty}× ${i.name} — ₹${Math.round(i.price * i.qty)}`).join("  ·  "),
+            });
+          });
         }
       }
       seenIds.current = fresh;
@@ -64,11 +71,21 @@ export default function Kitchen() {
     return () => { clearInterval(t); document.title = "Miracurl Suite"; };
   }, [load]);
 
-  function billInPos(o) {
+  // One bill per table — merges EVERY open order of the table into a single POS bill
+  function billTable(tableNo) {
+    const tableOrders = orders.filter(o => o.table_no === tableNo && ["new", "preparing", "served"].includes(o.status));
+    if (tableOrders.length === 0) { toast.error("No open orders on this table"); return; }
+    const merged = [];
+    tableOrders.forEach(o => o.items.forEach(i => {
+      const dp = Number(i.disc_pct ?? o.discount_pct) || 0;
+      const same = merged.find(m => m.id === i.id && m.disc_pct === dp);
+      if (same) same.qty += i.qty;
+      else merged.push({ id: i.id, name: i.name, price: i.price, qty: i.qty, disc_pct: dp });
+    }));
     localStorage.setItem("kitchen_bill", JSON.stringify({
-      order_id: o.id, table_no: o.table_no, customer_name: o.customer_name || "",
-      discount_pct: o.discount_pct || 0,
-      items: o.items.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, disc_pct: i.disc_pct })),
+      order_ids: tableOrders.map(o => o.id), table_no: tableNo,
+      customer_name: tableOrders.find(o => o.customer_name)?.customer_name || "",
+      items: merged,
     }));
     nav("/pos");
   }
@@ -107,9 +124,9 @@ export default function Kitchen() {
         </span>
         <div className="flex gap-2">
           {o.status === "served" && (
-            <button onClick={() => billInPos(o)} data-testid={`ticket-bill-${o.id}`}
+            <button onClick={() => billTable(o.table_no)} data-testid={`ticket-bill-${o.id}`}
               className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-700 flex items-center gap-1">
-              🧾 Bill in POS
+              🧾 Bill Table {o.table_no}
             </button>
           )}
           {(STATUS_NEXT[o.status] || []).map(s => (
@@ -169,6 +186,38 @@ export default function Kitchen() {
       )}
 
       <CategorySpecials />
+
+      {open.length > 0 && (
+        <section data-testid="live-tables-panel">
+          <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Live tables</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Every open table with its running total — extra orders keep adding until you bill. One table = one bill.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
+            {Object.entries(open.reduce((g, o) => { (g[o.table_no] ||= []).push(o); return g; }, {}))
+              .sort(([a], [b]) => Number(a) - Number(b))
+              .map(([tableNo, list]) => {
+                const running = list.reduce((s, o) => s + o.total, 0);
+                const allServed = list.every(o => o.status === "served");
+                return (
+                  <div key={tableNo} data-testid={`live-table-${tableNo}`}
+                    className={`rounded-2xl border-2 p-3.5 ${allServed ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-slate-800">Table {tableNo}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">
+                        {list.length} order{list.length > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <p className="text-lg font-extrabold text-slate-900 mt-1">₹{Math.round(running).toLocaleString("en-IN")}</p>
+                    <p className="text-[10px] text-slate-500">{allServed ? "All served — ready to bill" : "Still cooking…"}</p>
+                    <button onClick={() => billTable(Number(tableNo))} data-testid={`bill-table-${tableNo}`}
+                      className="w-full mt-2 text-[11px] font-bold px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-700">
+                      🧾 Bill Table {tableNo}
+                    </button>
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Open orders ({open.length})</h2>

@@ -919,6 +919,22 @@ async def list_table_orders(admin=Depends(require_admin)):
     return await db.table_orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
 
 
+class MarkBilledIn(BaseModel):
+    ids: list = []
+
+
+@router.put("/table-orders/mark-billed")
+async def mark_table_orders_billed(body: MarkBilledIn, admin=Depends(require_admin)):
+    """One bill per table — marks every order on the closed bill as 'billed' so the table starts fresh."""
+    ids = [str(i) for i in body.ids][:50]
+    if not ids:
+        raise HTTPException(400, "No order ids given")
+    r = await db.table_orders.update_many(
+        {"id": {"$in": ids}, "status": {"$ne": "cancelled"}},
+        {"$set": {"status": "billed", "updated_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True, "billed": r.modified_count}
+
+
 class TableOrderStatusIn(BaseModel):
     status: str
 

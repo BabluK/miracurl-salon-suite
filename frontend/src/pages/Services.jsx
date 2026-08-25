@@ -22,6 +22,7 @@ const catIcon = (c) => {
 
 export default function Services() {
   const { tenant } = useAuth();
+  const isResto = tenant?.business_type === "restaurant";
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -381,7 +382,11 @@ export default function Services() {
       {[...Object.keys(filteredByCat)].sort((a, b) => allCats.indexOf(a) - allCats.indexOf(b)).map(cat => (
         <div key={cat} className="card-light p-0 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50/70 border-b border-slate-100">
-            <img src={catImage(cat, catImages)} alt="" className="w-16 h-9 rounded-lg object-cover border border-slate-200" />
+            {isResto && !catImages[cat] ? (
+              <div className="w-16 h-9 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center text-base">🍽️</div>
+            ) : (
+              <img src={isResto ? catImages[cat] : catImage(cat, catImages)} alt="" className="w-16 h-9 rounded-lg object-cover border border-slate-200" />
+            )}
             <h3 className="font-playfair text-lg text-sky-700">{cat}</h3>
             <span className="text-[11px] text-slate-400">{filteredByCat[cat].length} services</span>
             <button data-testid={`set-cat-image-${cat}`} onClick={() => { setCatModal(cat); setCatUrl(catImages[cat] || ""); }}
@@ -394,8 +399,12 @@ export default function Services() {
             {filteredByCat[cat].map(s => (
               <div key={s.id} data-testid={`service-card-${s.id}`}
                 className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-sky-50/40 transition group ${s.active === false ? "opacity-55" : ""}`}>
-                <img src={s.image_url || FALLBACK_IMG} alt=""
-                  className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-100" />
+                {!s.image_url && isResto ? (
+                  <div className="w-11 h-11 rounded-xl shrink-0 border border-slate-100 bg-slate-50 flex items-center justify-center text-lg">🍽️</div>
+                ) : (
+                  <img src={s.image_url || FALLBACK_IMG} alt=""
+                    className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-100" />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-semibold truncate">{s.name}</span>
@@ -506,8 +515,12 @@ export default function Services() {
                   className="btn-slate px-4 disabled:opacity-40">Rename</button>
               </div>
             </div>
-            <img src={catUrl || catImage(catModal, {})} alt="" className="w-full h-32 rounded-xl object-cover border border-slate-200 mb-3" />
-            <ImageUploader kind="category" value={catUrl} onChange={setCatUrl} fallback={catImage(catModal, {})} />
+            {catUrl || !isResto ? (
+              <img src={catUrl || catImage(catModal, {})} alt="" className="w-full h-32 rounded-xl object-cover border border-slate-200 mb-3" />
+            ) : (
+              <div className="w-full h-32 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center text-3xl mb-3">🍽️</div>
+            )}
+            <ImageUploader kind="category" value={catUrl} onChange={setCatUrl} fallback={isResto ? "" : catImage(catModal, {})} />
             <div className="flex gap-3 pt-4">
               {catUrl && (
                 <button type="button" data-testid="cat-image-use-default" onClick={() => setCatUrl("")} className="btn-slate flex-1">Use default</button>
@@ -576,7 +589,7 @@ export default function Services() {
                       load();
                     } catch { toast.error("Auto-save failed — press Save Service"); }
                   }}
-                  fallback={FALLBACK_IMG}
+                  fallback={isResto ? "" : FALLBACK_IMG}
                 />
                 {editing || !form.image_url ? (
                   <button type="button" data-testid="generate-service-image-btn" disabled={genImg}

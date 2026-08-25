@@ -13,6 +13,7 @@ export default function OrderPublic() {
   const [menu, setMenu] = useState([]);
   const [offer, setOffer] = useState(null);
   const [specials, setSpecials] = useState({});
+  const [stats, setStats] = useState({ counts: {}, best_sellers: [] });
   const [qty, setQty] = useState({});
   const [table, setTable] = useState(params.get("table") || "");
   const [name, setName] = useState("");
@@ -26,6 +27,7 @@ export default function OrderPublic() {
       if (r.data?.offer?.discount_pct > 0) setOffer(r.data.offer);
     }).catch(() => {});
     axios.get(`${BACKEND_URL}/api/public/category-specials/${slug}`).then(r => setSpecials(r.data.specials || {})).catch(() => {});
+    axios.get(`${BACKEND_URL}/api/public/menu-stats/${slug}`).then(r => setStats(r.data)).catch(() => {});
   }, [slug]);
 
   const byCat = useMemo(() => {
@@ -109,7 +111,17 @@ export default function OrderPublic() {
               {items.map(m => (
                 <div key={m.id} data-testid={`menu-item-${m.id}`}
                   className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {m.image_url ? (
+                      <img src={m.image_url} alt={m.name} loading="lazy"
+                        className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/15 shrink-0" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">🍽️</div>
+                    )}
                   <div className="min-w-0">
+                    {stats.best_sellers.includes(m.id) && (
+                      <span data-testid={`best-seller-${m.id}`} className="inline-block text-[8px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-gold/20 border border-gold/50 text-gold mb-0.5">⭐ Best Seller</span>
+                    )}
                     <p className="text-sm font-semibold truncate">
                       {m.veg === "veg" && <span title="Veg">🟢 </span>}
                       {m.veg === "non-veg" && <span title="Non-veg">🔴 </span>}
@@ -122,6 +134,7 @@ export default function OrderPublic() {
                     ) : (
                       <p className="text-gold text-xs font-bold mt-0.5">₹{Math.round(m.price)}</p>
                     )}
+                  </div>
                   </div>
                   {qty[m.id] > 0 ? (
                     <div className="flex items-center gap-3 shrink-0">

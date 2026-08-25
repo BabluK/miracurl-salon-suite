@@ -758,6 +758,22 @@ async def public_category_specials(slug: str):
     return {"specials": {r["category"]: r["discount_pct"] for r in rows}}
 
 
+@router.get("/public/menu-stats/{slug}")
+async def public_menu_stats(slug: str):
+    """Order counts per dish + auto best-sellers for the QR menu."""
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
+    if not t:
+        raise HTTPException(404, "Restaurant not found")
+    rows = await _raw_db.table_orders.aggregate([
+        {"$match": {"tenant_id": t["id"], "status": {"$ne": "cancelled"}}},
+        {"$unwind": "$items"},
+        {"$group": {"_id": "$items.id", "count": {"$sum": "$items.qty"}}},
+    ]).to_list(300)
+    counts = {r["_id"]: r["count"] for r in rows}
+    best = [k for k, _ in sorted(counts.items(), key=lambda x: -x[1])[:3] if counts[k] >= 2]
+    return {"counts": counts, "best_sellers": best}
+
+
 @router.get("/super-admin/product-orders")
 async def list_product_orders(user=Depends(require_super_admin)):
     return await _raw_db.product_orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
