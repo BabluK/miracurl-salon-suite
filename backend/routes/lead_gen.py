@@ -987,6 +987,14 @@ async def public_brochure():
                     headers={"Content-Disposition": 'inline; filename="miracurl-suite-overview.pdf"'})
 
 
+@router.get("/public/brochure-restaurant.pdf")
+async def public_brochure_restaurant():
+    from services.brochure import build_brochure_pdf
+    pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="miracurl-restaurant-suite.pdf"'})
+
+
 def _wa_phone(raw: str) -> str:
     num = "".join(ch for ch in (raw or "") if ch.isdigit())
     if num.startswith("0"):
@@ -1025,7 +1033,7 @@ async def _wa_message(lead: dict) -> str:
             f"🏪 Register your {noun}: {base}/signup-salon\n"
             + ("" if resto else f"🪪 Staff register & verify: {base}/staff-registry\n") +
             f"📱 App screens tour (PDF): {base}/miracurl-screens-tour.pdf\n"
-            f"📎 Full brochure: {base}/api/public/brochure.pdf\n"
+            f"📎 Full brochure: {base}/api/public/{'brochure-restaurant' if resto else 'brochure'}.pdf\n"
             f"🌐 {base}\n\n"
             "Reply here for a *free 15-minute live demo* — I'd love to show you around! ✨")
 
@@ -1264,10 +1272,16 @@ async def lead_resend_pitch(lid: str, user=Depends(require_super_admin)):
     lead = await _lead_with_email(lid)
     _rate_guard(lead, "pdf_resent_at", "PDF")
     html = _outreach_email_html(lead, await _live_plans())
-    attachments = [await asyncio.to_thread(suite_overview_attachment)]
-    tour = screens_tour_attachment()
-    if tour:
-        attachments.append(tour)
+    if (lead.get("vertical") or "salon") == "restaurant":
+        from services.brochure import build_brochure_pdf
+        import base64 as _b64
+        pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
+        attachments = [{"filename": "miracurl-restaurant-suite.pdf", "content": _b64.b64encode(pdf).decode()}]
+    else:
+        attachments = [await asyncio.to_thread(suite_overview_attachment)]
+        tour = screens_tour_attachment()
+        if tour:
+            attachments.append(tour)
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
                                html, attachments=attachments, book_url="https://miracurl-suite.com/demo")
     if not result.get("sent"):

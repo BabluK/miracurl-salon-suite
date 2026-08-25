@@ -69,7 +69,7 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
         <div style="padding:0 34px">{_pricing_table_html(_plans_for(plans, _lead_intl(lead.get("city")), lead.get("vertical") or "salon"))}</div>
         <div style="padding:2px 34px 20px">
           <a href="{base}/demo" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:13px 32px;border-radius:999px;font-size:14px;letter-spacing:.6px">Book a free live demo ✦</a>
-          <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📖 <a href="{base}/api/public/brochure.pdf" style="color:#b08d3f">View the full brochure</a> — it covers every module of Miracurl Suite.</p>
+          <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📖 <a href="{base}/api/public/{"brochure-restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "brochure"}.pdf" style="color:#b08d3f">View the full brochure</a> — it covers every module of Miracurl Suite.</p>
         </div>
         <div style="border-top:1px solid #e6ddc8;padding:14px 34px;text-align:center;background:#f7f2e7">
           <a href="{base}" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">🌐 Website</a>

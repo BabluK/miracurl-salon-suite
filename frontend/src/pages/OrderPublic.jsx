@@ -19,6 +19,20 @@ export default function OrderPublic() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
+  const [liveStatus, setLiveStatus] = useState("new");
+
+  useEffect(() => {
+    if (!done) return;
+    setLiveStatus(done.status || "new");
+    const iv = setInterval(() => {
+      axios.get(`${BACKEND_URL}/api/public/table-order-status/${slug}/${done.id}`)
+        .then(r => {
+          setLiveStatus(r.data.status);
+          if (["served", "billed", "cancelled"].includes(r.data.status)) clearInterval(iv);
+        }).catch(() => {});
+    }, 10000);
+    return () => clearInterval(iv);
+  }, [done, slug]);
 
   useEffect(() => {
     axios.get(`${BACKEND_URL}/api/public/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon(false));
@@ -76,6 +90,32 @@ export default function OrderPublic() {
         <CheckCircle2 className="w-14 h-14 text-emerald-400 mx-auto" />
         <h1 className="font-playfair text-3xl mt-4">Order sent to the kitchen!</h1>
         <p className="text-white/60 text-sm mt-2">Order <b className="text-gold font-mono">#{done.id}</b> · Table {done.table_no} · ₹{done.total.toLocaleString("en-IN")}</p>
+        <div className="mt-6 text-left bg-white/[0.04] border border-white/10 rounded-2xl p-4" data-testid="order-live-status">
+          {[
+            ["new", "🧾 Order received", "The kitchen has your ticket"],
+            ["preparing", "🔥 Cooking now", "Your dishes are on the stove"],
+            ["served", "✅ Served — enjoy!", "Bon appétit!"],
+          ].map(([key, label, sub], i) => {
+            const order = ["new", "preparing", "served"];
+            const activeIdx = liveStatus === "billed" ? 2 : Math.max(order.indexOf(liveStatus), 0);
+            const doneStep = i < activeIdx || liveStatus === "served" || liveStatus === "billed" ? i <= activeIdx : false;
+            const isActive = i === activeIdx;
+            return (
+              <div key={key} className={`flex items-start gap-3 py-1.5 ${i <= activeIdx ? "" : "opacity-35"}`} data-testid={`order-step-${key}`}>
+                <span className={`mt-0.5 w-2.5 h-2.5 rounded-full shrink-0 ${doneStep || isActive ? "bg-emerald-400" : "bg-white/20"} ${isActive && liveStatus !== "served" && liveStatus !== "billed" ? "animate-pulse" : ""}`} />
+                <div>
+                  <p className={`text-sm font-bold ${isActive ? "text-white" : "text-white/70"}`}>{label}</p>
+                  {isActive && <p className="text-[11px] text-white/40">{sub}</p>}
+                </div>
+              </div>
+            );
+          })}
+          {liveStatus === "cancelled" && <p className="text-rose-300 text-xs mt-2">This order was cancelled — please ask a waiter.</p>}
+          {liveStatus === "billed" && <p className="text-gold text-xs mt-2">🧾 Billed — thank you for dining with us!</p>}
+          {!["served", "billed", "cancelled"].includes(liveStatus) && (
+            <p className="text-[10px] text-white/30 mt-2">Live — updates automatically every few seconds</p>
+          )}
+        </div>
         <p className="text-white/40 text-xs mt-3">Sit back — your food is being prepared 🍽️</p>
         <button onClick={() => { setDone(null); setQty({}); }} data-testid="order-again-btn"
           className="btn-gold mt-6">Order something else</button>

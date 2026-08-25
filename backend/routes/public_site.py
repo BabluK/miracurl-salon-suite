@@ -750,6 +750,19 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
     return {"ok": True, "order": order}
 
 
+@router.get("/public/table-order-status/{slug}/{order_id}")
+async def public_table_order_status(slug: str, order_id: str, request: Request):
+    """Diner-facing live status of their table order (new → preparing → served → billed)."""
+    t = await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"orderstatus:{slug}", limit=200, window_sec=600)
+    o = await _raw_db.table_orders.find_one(
+        {"tenant_id": t["id"], "id": order_id},
+        {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "created_at": 1})
+    if not o:
+        raise HTTPException(404, "Order not found")
+    return o
+
+
 class TableCallIn(BaseModel):
     table_no: int = Field(..., ge=1, le=200)
     kind: str = "waiter"
