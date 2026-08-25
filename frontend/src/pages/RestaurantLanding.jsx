@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { SiteHeader } from "@/components/SiteHeader";
 import { UtensilsCrossed, QrCode, ChefHat, Receipt, CalendarCheck, Sparkles, Bell, TrendingUp, Printer, MessageCircle, ArrowRight, Check } from "lucide-react";
 
 const HERO_IMG = "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/ad3e4226d2d8cc2e72aaed1a5d03aec5a372f32668c561f2ec3f11a02fb237c7.jpeg";
@@ -47,30 +48,8 @@ export default function RestaurantLanding() {
       <div className="pointer-events-none absolute -top-32 -right-32 w-[480px] h-[480px] rounded-full bg-gradient-to-br from-amber-200/60 via-rose-200/50 to-transparent blur-3xl" />
       <div className="pointer-events-none absolute top-[40%] -left-40 w-[420px] h-[420px] rounded-full bg-gradient-to-tr from-rose-100/60 via-amber-100/50 to-transparent blur-3xl" />
 
-      {/* Nav — branded gold like the main site */}
-      <nav className="sticky top-0 z-40 backdrop-blur-xl bg-[#f7f0df]/90 border-b border-[#C89B52]/25">
-        <div className="max-w-6xl mx-auto px-5 py-2.5 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 shrink-0" data-testid="resto-landing-logo">
-            <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite" className="w-12 h-12 sm:w-14 sm:h-14" />
-            <span className="leading-tight">
-              <span className="block font-playfair text-base sm:text-lg tracking-[0.08em] font-semibold text-[#8a6a2f] whitespace-nowrap">
-                MIRACURL <span className="tracking-[0.3em]">SUITE</span>
-              </span>
-              <span className="hidden sm:block text-[9px] uppercase tracking-[0.3em] text-[#a08c62]">Smart Restaurant Management Software</span>
-            </span>
-          </Link>
-          <div className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm uppercase tracking-wide">
-            <Link to="/" className="hidden sm:block text-[#6b5b3e] hover:text-[#8a6a2f] transition-colors" data-testid="resto-nav-home">Home</Link>
-            <a href="#features" className="hidden sm:block text-[#6b5b3e] hover:text-[#8a6a2f] transition-colors" data-testid="resto-nav-features">Features</a>
-            <a href="#pricing" className="hidden sm:block text-[#6b5b3e] hover:text-[#8a6a2f] transition-colors" data-testid="resto-nav-pricing">Pricing</a>
-            <Link to="/login" className="text-[#6b5b3e] hover:text-[#8a6a2f] transition-colors" data-testid="resto-nav-login">Sign In</Link>
-            <Link to="/signup-restaurant" data-testid="resto-nav-cta"
-              className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#3a2e15] font-bold shadow-[0_8px_24px_-6px_rgba(200,155,82,0.5)] transition-transform hover:-translate-y-0.5 whitespace-nowrap normal-case">
-              Start free month
-            </Link>
-          </div>
-        </div>
-      </nav>
+      {/* Shared branded header — same as the Products page (gold MS logo, light variant) */}
+      <SiteHeader variant="light" subtitle="Smart Restaurant Management Software" signupTo="/signup-restaurant" />
 
       {/* Hero */}
       <header className="max-w-6xl mx-auto px-5 pt-14 sm:pt-20 pb-14 relative">

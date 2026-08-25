@@ -27,7 +27,7 @@ const T = {
   },
 };
 
-export const SuiteLogo = ({ variant = "dark", size = "md" }) => (
+export const SuiteLogo = ({ variant = "dark", size = "md", subtitle = "Smart Salon Management Software" }) => (
   <Link to="/" className="flex items-center gap-3 group shrink-0" data-testid="suite-logo">
     <img src={variant === "light" ? "/assets/ms-logo-gold.png" : "/assets/ms-logo-emblem.png"} alt="Miracurl Suite"
       className={`${size === "lg" ? "w-24 h-24" : "w-10 h-10 sm:w-14 sm:h-14 xl:w-[72px] xl:h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
@@ -35,18 +35,18 @@ export const SuiteLogo = ({ variant = "dark", size = "md" }) => (
       <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-sm sm:text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
       </span>
-      <span className={`hidden sm:block text-[9px] uppercase tracking-[0.3em] ${T[variant].sub}`}>Smart Salon Management Software</span>
+      <span className={`hidden sm:block text-[9px] uppercase tracking-[0.3em] ${T[variant].sub}`}>{subtitle}</span>
     </span>
   </Link>
 );
 
-export const SiteHeader = ({ variant = "light", site = null }) => {
+export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart Salon Management Software", signupTo = "/signup-salon" }) => {
   const t = T[variant];
   const [open, setOpen] = useState(false);
   return (
     <header className={`sticky top-0 z-40 backdrop-blur-xl ${t.header}`} data-testid="site-header">
       <div className="max-w-7xl mx-auto px-4 xl:px-10 py-2 flex items-center justify-between">
-        <SuiteLogo variant={variant} />
+        <SuiteLogo variant={variant} subtitle={subtitle} />
         <div className="hidden xl:flex items-center gap-3 2xl:gap-5 text-sm">
           <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className={`nav-cap ${t.link} transition-colors`} data-testid="header-home-link">Home</Link>
           <Link to="/about-us" className={`nav-cap ${t.link} transition-colors`} data-testid="header-about-link">About Us</Link>
@@ -94,7 +94,7 @@ export const SiteHeader = ({ variant = "light", site = null }) => {
             )}
           </div>
           <Link to="/login" className={`nav-cap ${t.link} font-medium transition-colors`} data-testid="header-signin-link">Sign In</Link>
-          <Link to="/signup-salon" data-testid="header-signup-link"
+          <Link to={signupTo} data-testid="header-signup-link"
             className="nav-cap px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1c160c] font-bold hover:brightness-110 hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(200,155,82,0.5)] transition-transform">
             Sign Up
           </Link>
@@ -102,7 +102,7 @@ export const SiteHeader = ({ variant = "light", site = null }) => {
         <div className="flex xl:hidden items-center gap-2 sm:gap-3 text-sm whitespace-nowrap">
           <Link to="/contact-us" className={`${t.link} transition-colors`}>Contact</Link>
           <Link to="/login" className={`${t.link} font-medium transition-colors`}>Sign In</Link>
-          <Link to="/signup-salon"
+          <Link to={signupTo}
             className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1c160c] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(200,155,82,0.5)]">
             Sign Up
           </Link>

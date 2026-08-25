@@ -442,7 +442,8 @@ def _usd_pricing_rows(plans: list) -> str:
     return rows
 
 
-def _demo_pricing_block(plans: list | None, currency: str = "INR") -> str:
+def _demo_pricing_block(plans: list | None, currency: str = "INR", vertical: str = "salon") -> str:
+    plans = [p for p in (plans or []) if (p.get("vertical") or "salon") == vertical]
     if not plans:
         return ""
     if currency == "USD":
