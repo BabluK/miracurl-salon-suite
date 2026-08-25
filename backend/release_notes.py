@@ -2,10 +2,17 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.114"
+BUILD = "2026-08-25.115"
 BUILD_TIME = "25 Aug 2026, 11:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-25 (Cleaner nav & gold restaurant header ✨)",
+        "changes": [
+            "🧭 Main site nav decluttered — Features, Pricing & Our Products now live in one 'Explore' dropdown so the Sign Up button never gets cut off, on desktop and mobile",
+            "🏅 Restaurant page header now matches the brand — the golden MS emblem logo, 'MIRACURL SUITE — Smart Restaurant Management Software' lockup and the gold Sign-Up style button on the cream header",
+        ],
+    },
     {
         "date": "2026-08-25 (Restaurant signup polish & USD plans 🌍)",
         "changes": [

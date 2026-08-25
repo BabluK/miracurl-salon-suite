@@ -121,6 +121,28 @@ export const LogoLockup = ({ size = "md" }) => (
   </Link>
 );
 
+function ExploreDropdown() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="nav-cap relative hidden sm:block"
+      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button onClick={() => setOpen((v) => !v)} data-testid="nav-explore-btn"
+        className="flex items-center gap-1 uppercase text-white/70 hover:text-white transition-colors">
+        Explore <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full pt-3 w-[220px]" data-testid="nav-explore-dropdown">
+          <div className="rounded-2xl border border-[#DFB78C]/25 bg-[#0b0a08]/95 backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] p-2">
+            <Link to="/features" data-testid="nav-features-link" className="block px-3 py-2.5 rounded-xl text-sm text-white/80 hover:bg-[#DFB78C]/10 hover:text-[#DFB78C] transition-colors">✦ Features</Link>
+            <Link to="/pricing" data-testid="nav-pricing-link" className="block px-3 py-2.5 rounded-xl text-sm text-white/80 hover:bg-[#DFB78C]/10 hover:text-[#DFB78C] transition-colors">💰 Pricing</Link>
+            <a href="/products" data-testid="nav-products-link" className="block px-3 py-2.5 rounded-xl text-sm text-white/80 hover:bg-[#DFB78C]/10 hover:text-[#DFB78C] transition-colors">🧴 Our Products</a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ContactDropdown({ site }) {
   const [open, setOpen] = useState(false);
   return (
@@ -368,19 +390,17 @@ export default function Landing({ scrollTo }) {
 
       {/* Nav — crystal glass with the new gold monogram */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/70 border-b border-[#DFB78C]/15">
-        <div className="max-w-7xl mx-auto px-4 xl:px-10 py-2 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 xl:px-10 py-2 flex items-center justify-between">
           <LogoLockup />
-          <div className="hidden xl:flex items-center gap-3 2xl:gap-5 text-sm">
+          <div className="hidden xl:flex items-center gap-4 2xl:gap-6 text-sm pr-1">
             <Link to="/" data-testid="nav-home-link" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="nav-cap text-white/70 hover:text-white transition-colors">Home</Link>
             <a href="#about" data-testid="nav-about-link" className="nav-cap text-white/70 hover:text-white transition-colors">About Us</a>
             <Link to="/mira.ai" data-testid="nav-mira-studio-link"
               className="nav-cap flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DFB78C]/40 bg-[#DFB78C]/10 text-[#DFB78C] hover:bg-[#DFB78C]/20 font-medium transition-colors">
               ✦ Mira AI Studio
             </Link>
-            <Link to="/features" data-testid="nav-features-link" className="nav-cap text-white/70 hover:text-white transition-colors">Features</Link>
-            <Link to="/pricing" data-testid="nav-pricing-link" className="nav-cap text-white/70 hover:text-white transition-colors">Pricing</Link>
+            <ExploreDropdown />
             <Link to="/restaurant" data-testid="nav-restaurant-link" className="nav-cap text-[#DFB78C] hover:text-[#F0D9A5] font-medium transition-colors">🍽️ For Restaurants</Link>
-            <a href="/products" data-testid="nav-products-link" className="nav-cap text-[#DFB78C] hover:text-[#F0D9A5] font-medium transition-colors">🧴 Our Products</a>
             <Link to="/staff-registry" data-testid="landing-verify-staff" className="nav-cap text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Staff Verification</Link>
             <ContactDropdown site={site} />
             <Link to="/login" className="nav-cap text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign In</Link>
@@ -389,11 +409,11 @@ export default function Landing({ scrollTo }) {
               Sign Up
             </Link>
           </div>
-          <div className="flex xl:hidden items-center gap-2 sm:gap-3 text-sm whitespace-nowrap">
-            <Link to="/contact-us" data-testid="nav-contact-mobile" className="text-white/70 hover:text-white transition-colors">Contact</Link>
+          <div className="flex xl:hidden items-center gap-2 sm:gap-3 text-sm whitespace-nowrap shrink-0">
+            <Link to="/contact-us" data-testid="nav-contact-mobile" className="hidden min-[430px]:block text-white/70 hover:text-white transition-colors">Contact</Link>
             <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors">Sign In</Link>
             <Link to="/signup-salon"
-                  className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)]">
+                  className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)]">
               Sign Up
             </Link>
           </div>

@@ -47,23 +47,25 @@ export default function RestaurantLanding() {
       <div className="pointer-events-none absolute -top-32 -right-32 w-[480px] h-[480px] rounded-full bg-gradient-to-br from-amber-200/60 via-rose-200/50 to-transparent blur-3xl" />
       <div className="pointer-events-none absolute top-[40%] -left-40 w-[420px] h-[420px] rounded-full bg-gradient-to-tr from-rose-100/60 via-amber-100/50 to-transparent blur-3xl" />
 
-      {/* Nav — branded like the main site */}
-      <nav className="sticky top-0 z-40 backdrop-blur-xl bg-white/80 border-b border-amber-100">
-        <div className="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5" data-testid="resto-landing-logo">
-            <span className="w-10 h-10 rounded-full border-2 border-amber-500/70 flex items-center justify-center text-sm font-bold text-amber-600 font-playfair">MS</span>
-            <div>
-              <p className="font-playfair text-lg leading-none tracking-wide text-amber-700">MIRACURL SUITE</p>
-              <p className="text-[9px] tracking-[0.3em] uppercase text-slate-400 mt-0.5">Smart Restaurant Management Software</p>
-            </div>
+      {/* Nav — branded gold like the main site */}
+      <nav className="sticky top-0 z-40 backdrop-blur-xl bg-[#f7f0df]/90 border-b border-[#C89B52]/25">
+        <div className="max-w-6xl mx-auto px-5 py-2.5 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3 shrink-0" data-testid="resto-landing-logo">
+            <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite" className="w-12 h-12 sm:w-14 sm:h-14" />
+            <span className="leading-tight">
+              <span className="block font-playfair text-base sm:text-lg tracking-[0.08em] font-semibold text-[#8a6a2f] whitespace-nowrap">
+                MIRACURL <span className="tracking-[0.3em]">SUITE</span>
+              </span>
+              <span className="hidden sm:block text-[9px] uppercase tracking-[0.3em] text-[#a08c62]">Smart Restaurant Management Software</span>
+            </span>
           </Link>
-          <div className="flex items-center gap-4 sm:gap-6 text-sm">
-            <Link to="/" className="hidden sm:block text-slate-500 hover:text-slate-800 transition-colors" data-testid="resto-nav-home">Home</Link>
-            <a href="#features" className="hidden sm:block text-slate-500 hover:text-slate-800 transition-colors" data-testid="resto-nav-features">Features</a>
-            <a href="#pricing" className="hidden sm:block text-slate-500 hover:text-slate-800 transition-colors" data-testid="resto-nav-pricing">Pricing</a>
-            <Link to="/login" className="text-slate-500 hover:text-slate-800 transition-colors" data-testid="resto-nav-login">Sign In</Link>
+          <div className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm uppercase tracking-wide">
+            <Link to="/" className="hidden sm:block text-[#6b5b3e] hover:text-[#8a6a2f] transition-colors" data-testid="resto-nav-home">Home</Link>
+            <a href="#features" className="hidden sm:block text-[#6b5b3e] hover:text-[#8a6a2f] transition-colors" data-testid="resto-nav-features">Features</a>
+            <a href="#pricing" className="hidden sm:block text-[#6b5b3e] hover:text-[#8a6a2f] transition-colors" data-testid="resto-nav-pricing">Pricing</a>
+            <Link to="/login" className="text-[#6b5b3e] hover:text-[#8a6a2f] transition-colors" data-testid="resto-nav-login">Sign In</Link>
             <Link to="/signup-restaurant" data-testid="resto-nav-cta"
-              className="px-4 py-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold shadow-md transition-transform hover:scale-[1.03]">
+              className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#3a2e15] font-bold shadow-[0_8px_24px_-6px_rgba(200,155,82,0.5)] transition-transform hover:-translate-y-0.5 whitespace-nowrap normal-case">
               Start free month
             </Link>
           </div>
