@@ -745,6 +745,31 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
     return {"ok": True, "order": order}
 
 
+class TableCallIn(BaseModel):
+    table_no: int = Field(..., ge=1, le=200)
+    kind: str = "waiter"
+
+
+@router.post("/public/table-call/{slug}")
+async def create_table_call(slug: str, body: TableCallIn, request: Request):
+    """Diner taps 'call waiter' / 'water' on the QR menu — pings the Kitchen page."""
+    t = await resolve_tenant_from_slug(slug)
+    if (t.get("business_type") or "salon") != "restaurant":
+        raise HTTPException(400, "Table calls are only available for restaurants")
+    public_rate_limit(request, key_suffix=f"tablecall:{slug}", limit=20, window_sec=600)
+    kind = body.kind if body.kind in ("waiter", "water", "bill") else "waiter"
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
+    dup = await _raw_db.table_calls.find_one(
+        {"tenant_id": t["id"], "table_no": body.table_no, "kind": kind,
+         "status": "open", "created_at": {"$gte": cutoff}})
+    if dup:
+        return {"ok": True, "queued": False}
+    await _raw_db.table_calls.insert_one(
+        {"id": uuid.uuid4().hex[:8], "tenant_id": t["id"], "table_no": body.table_no,
+         "kind": kind, "status": "open", "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"ok": True, "queued": True}
+
+
 @router.get("/public/category-specials/{slug}")
 async def public_category_specials(slug: str):
     """Today's per-category weekday specials for the QR menu (no auth)."""

@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.103"
-BUILD_TIME = "25 Aug 2026, 06:30 PM IST"
+BUILD = "2026-08-25.104"
+BUILD_TIME = "25 Aug 2026, 08:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-25 (Waiter calls, weekly insights & dish photos 🙋)",
+        "changes": [
+            "🙋 Call waiter from the QR menu — diners tap 'Call waiter' or 'Water please' and the Kitchen page chimes with 'Table 3 is calling a waiter'; staff tap ✓ Done when handled",
+            "🏆 This week's insights on the Kitchen page — best-selling dishes and busiest tables from the last 7 days, with quantities and revenue, to plan stock and staffing",
+            "📸 Snap dish photos from your phone — every dish on the Menu page has a camera button: tap, shoot (or pick from gallery), and the photo instantly appears on the QR menu",
+            "🧾 Guest auto-set on table bills — tapping 'Bill Table' now auto-selects the Dine-in Guest and writes 'Table 3 — QR order for <name>' on the bill, so you only pick the payment",
+        ],
+    },
     {
         "date": "2026-08-25 (Table-wise billing & live tables 🧾)",
         "changes": [

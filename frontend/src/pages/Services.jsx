@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import api from "@/lib/api";
-import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2, Scissors, Hand, Paintbrush, Flower2, Tag, LayoutGrid, GripVertical, ArrowUpDown } from "lucide-react";
+import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2, Scissors, Hand, Paintbrush, Flower2, Tag, LayoutGrid, GripVertical, ArrowUpDown, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import ImageUploader from "@/components/ImageUploader";
@@ -198,6 +198,28 @@ export default function Services() {
     } catch { toast.error("Couldn't update — try again"); }
   }
 
+  const photoRef = useRef(null);
+  const photoSvcRef = useRef(null);
+  const [photoBusy, setPhotoBusy] = useState("");
+  function pickPhoto(s) { photoSvcRef.current = s; photoRef.current?.click(); }
+  async function quickPhoto(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const s = photoSvcRef.current;
+    if (!file || !s) return;
+    setPhotoBusy(s.id);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await api.post("/uploads/image?kind=service", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      await api.put(`/services/${s.id}`, { ...s, image_url: data.url });
+      toast.success(`📸 Photo added to ${s.name} — it shows on the QR menu now`);
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Upload failed — try a smaller photo");
+    } finally { setPhotoBusy(""); }
+  }
+
   async function renameCategory() {
     const next = (catRename || "").trim();
     if (!next || next === catModal) { toast.error("Enter a different category name"); return; }
@@ -258,6 +280,7 @@ export default function Services() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} data-testid="import-csv-input" />
+          <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={quickPhoto} data-testid="quick-photo-input" />
           <button data-testid="import-csv-btn" onClick={() => csvRef.current?.click()} className="btn-slate flex items-center gap-2" title="Bulk add/update services from a CSV file">
             <Upload className="w-4 h-4" /> Import CSV
           </button>
@@ -400,7 +423,17 @@ export default function Services() {
               <div key={s.id} data-testid={`service-card-${s.id}`}
                 className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-sky-50/40 transition group ${s.active === false ? "opacity-55" : ""}`}>
                 {!s.image_url && isResto ? (
-                  <div className="w-11 h-11 rounded-xl shrink-0 border border-slate-100 bg-slate-50 flex items-center justify-center text-lg">🍽️</div>
+                  <button onClick={() => pickPhoto(s)} data-testid={`quick-photo-${s.id}`} title="Snap or upload a photo of this dish"
+                    className="w-11 h-11 rounded-xl shrink-0 border border-dashed border-sky-300 bg-sky-50 flex items-center justify-center text-sky-500 hover:bg-sky-100 transition">
+                    {photoBusy === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                  </button>
+                ) : isResto ? (
+                  <button onClick={() => pickPhoto(s)} data-testid={`quick-photo-${s.id}`} title="Replace this dish photo" className="relative shrink-0 group/photo">
+                    <img src={s.image_url} alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-100" />
+                    <span className="absolute inset-0 rounded-xl bg-slate-900/50 hidden group-hover/photo:flex items-center justify-center">
+                      {photoBusy === s.id ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Camera className="w-4 h-4 text-white" />}
+                    </span>
+                  </button>
                 ) : (
                   <img src={s.image_url || FALLBACK_IMG} alt=""
                     className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-100" />

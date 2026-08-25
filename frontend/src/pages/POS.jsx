@@ -368,7 +368,12 @@ export default function POS() {
     })));
     const ids = kb.order_ids || (kb.order_id ? [kb.order_id] : []);
     kitchenOrderIdsRef.current = ids;
-    toast.success(`🧾 Table ${kb.table_no} — ${ids.length} order${ids.length > 1 ? "s" : ""} merged into one bill. Pick the guest & payment to close it.`);
+    setOrderNotes(`Table ${kb.table_no} — QR order${kb.customer_name ? ` for ${kb.customer_name}` : ""}`);
+    api.post("/customers/dinein-guest").then(({ data }) => {
+      setCustomers(prev => (prev.some(c => c.id === data.id) ? prev : [data, ...prev]));
+      setCustomerId(data.id);
+    }).catch(() => {});
+    toast.success(`🧾 Table ${kb.table_no}${kb.customer_name ? ` (${kb.customer_name})` : ""} — ${ids.length} order${ids.length > 1 ? "s" : ""} merged into one bill. Guest auto-set, just pick payment.`);
   }, [staff]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateLine(i, patch) { setCart(cart.map((c, idx) => idx === i ? { ...c, ...patch } : c)); }

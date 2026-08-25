@@ -93,6 +93,17 @@ async def create_customer(body: CustomerIn, user=Depends(get_current_user)):
     return _clean(c)
 
 
+@router.post("/customers/dinein-guest")
+async def dinein_guest(user=Depends(get_current_user)):
+    """Reusable walk-in guest for QR table bills — created once, then reused."""
+    existing = await _find_by_phone("0000000000")
+    if existing:
+        return _clean(existing)
+    c = Customer(name="Dine-in Guest", phone="0000000000").model_dump()
+    await db.customers.insert_one(c)
+    return _clean(c)
+
+
 @router.get("/customers/search-phone")
 async def search_phone(q: str, user=Depends(get_current_user)):
     """Live lookup while typing a number — matches normalized digits anywhere in the phone."""

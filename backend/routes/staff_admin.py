@@ -939,6 +939,44 @@ class TableOrderStatusIn(BaseModel):
     status: str
 
 
+@router.get("/table-calls")
+async def list_table_calls(admin=Depends(require_admin)):
+    """Open waiter/water calls from tables (last 2 hours)."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    return await db.table_calls.find(
+        {"status": "open", "created_at": {"$gte": cutoff}}, {"_id": 0}).sort("created_at", -1).to_list(50)
+
+
+@router.put("/table-calls/{cid}/done")
+async def resolve_table_call(cid: str, admin=Depends(require_admin)):
+    r = await db.table_calls.update_one(
+        {"id": cid}, {"$set": {"status": "done", "resolved_at": datetime.now(timezone.utc).isoformat()}})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Call not found")
+    return {"ok": True}
+
+
+@router.get("/restaurant/insights")
+async def restaurant_insights(admin=Depends(require_admin)):
+    """Last-7-days table-order insights: best-selling dishes + busiest tables."""
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    rows = await db.table_orders.find(
+        {"status": {"$ne": "cancelled"}, "created_at": {"$gte": since}}, {"_id": 0}).to_list(3000)
+    dishes, tables = {}, {}
+    for o in rows:
+        t = tables.setdefault(o["table_no"], {"table_no": o["table_no"], "orders": 0, "revenue": 0.0})
+        t["orders"] += 1
+        t["revenue"] += float(o.get("total") or 0)
+        for i in o.get("items", []):
+            d = dishes.setdefault(i["name"], {"name": i["name"], "qty": 0, "revenue": 0.0})
+            d["qty"] += int(i.get("qty") or 1)
+            d["revenue"] += float(i.get("price") or 0) * int(i.get("qty") or 1)
+    return {"days": 7, "orders": len(rows),
+            "revenue": round(sum(float(o.get("total") or 0) for o in rows), 2),
+            "top_dishes": sorted(dishes.values(), key=lambda x: -x["qty"])[:8],
+            "busy_tables": sorted(tables.values(), key=lambda x: -x["orders"])[:8]}
+
+
 @router.put("/table-orders/{oid}/status")
 async def set_table_order_status(oid: str, body: TableOrderStatusIn, admin=Depends(require_admin)):
     if body.status not in ("new", "preparing", "served", "cancelled"):

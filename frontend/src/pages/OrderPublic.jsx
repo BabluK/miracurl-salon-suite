@@ -44,6 +44,14 @@ export default function OrderPublic() {
 
   function bump(id, d) { setQty(q => ({ ...q, [id]: Math.max(0, (q[id] || 0) + d) })); }
 
+  async function callStaff(kind) {
+    if (!table || Number(table) < 1) { toast.error("Enter your table number first"); return; }
+    try {
+      await axios.post(`${BACKEND_URL}/api/public/table-call/${slug}`, { table_no: Number(table), kind });
+      toast.success(kind === "water" ? "💧 Water is on the way!" : "🙋 A waiter is coming to your table!");
+    } catch { toast.error("Couldn't reach the restaurant — please wave 🙂"); }
+  }
+
   async function submit() {
     if (!table || Number(table) < 1) { toast.error("Please enter your table number"); return; }
     if (cart.length === 0) { toast.error("Add at least one dish"); return; }
@@ -87,6 +95,12 @@ export default function OrderPublic() {
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name (optional)"
             data-testid="order-name-input"
             className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/15 text-sm placeholder:text-white/30 focus:outline-none focus:border-gold/60" />
+        </div>
+        <div className="flex gap-2 mt-3">
+          <button onClick={() => callStaff("waiter")} data-testid="call-waiter-btn"
+            className="flex-1 px-3 py-2 rounded-full border border-gold/40 text-gold text-[11px] font-bold hover:bg-gold/10 transition-colors">🙋 Call waiter</button>
+          <button onClick={() => callStaff("water")} data-testid="call-water-btn"
+            className="flex-1 px-3 py-2 rounded-full border border-white/20 text-white/80 text-[11px] font-bold hover:bg-white/5 transition-colors">💧 Water please</button>
         </div>
       </header>
 

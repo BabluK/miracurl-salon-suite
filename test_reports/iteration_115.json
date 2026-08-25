@@ -1,0 +1,29 @@
+{
+  "summary": "Iter 115 — 4 new restaurant features (Guest Prefill, Weekly Insights, Dish Photo Quick Upload, Waiter Call) validated end-to-end. Backend: 11/11 pytest PASS covering (a) POST /public/table-call/{slug} creates a call queued=true and immediate duplicate returns queued=false (3-min dedupe), salon slug rejected 400, (b) GET /table-calls requires auth (401/403 unauth), lists open calls, tenant-scoped (salon admin does NOT see resto's table 79 calls), (c) PUT /table-calls/{cid}/done resolves + 404 on unknown id, (d) GET /restaurant/insights returns days=7 with orders/revenue/top_dishes sorted by qty desc and busy_tables sorted by orders desc (cancelled excluded by query), (e) POST /customers/dinein-guest idempotent (same id on repeat) and tenant-scoped (resto guest id != salon guest id), (f) POST /uploads/image?kind=service returns a url and PUT /services/{id} with full body + image_url persists and shows on GET /public/services/{slug} (reset after test). Frontend (Playwright): /order/infinity-family-restaurant?table=9 shows Call waiter (call-waiter-btn) + Water please (call-water-btn) buttons; tapping call-waiter-btn fires 🙋 success toast. Kitchen (infinity.admin@miracurl.com) renders 'Tables calling (3)' panel (table-calls-panel + 3 table-call-* cards + Done buttons); clicking a call-done-{id} removes the card. This week's insights panel (weekly-insights-panel) shows Best-selling dishes (top-dishes-card: BBQ Chicken Wings 4× ₹1,196, Tandoori Chicken 1× ₹329) and Busiest tables (busy-tables-card: Table 5 · 2 orders ₹788, Table 9 · 1 order ₹254, Table 11 · 1 order ₹254). Guest prefill flow: created QR order for table 6 (customer_name=Ravi) via public API; bill-table-6 in Kitchen → /pos with cart merged, guest auto-set to 'Dine-in Guest · 0000000000' (NO red 'select guest' error), order-instruction textarea prefilled 'Table 6 — QR order for Ravi', toast 'Table 6 (Ravi) — 1 order merged into one bill. Guest auto-set, just pick payment.' Services (Menu) page for resto shows 24 quick-photo-{id} camera buttons + hidden quick-photo-input. Salon regression: admin@miracurl.com sidebar has 0 Kitchen links and Salon POS loads normal invoice with no restaurant fields.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter115_table_calls_insights_dinein.py",
+    "/app/test_reports/pytest/iter115.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/routes/staff_admin.py::list_table_calls uses tenant-scoped `db` — verified isolated (salon admin does NOT see resto calls). Good.",
+    "backend/routes/staff_admin.py::restaurant_insights uses tenant-scoped `db`; excludes cancelled orders. Ok.",
+    "backend/routes/public_site.py::create_table_call: `kind` fallback silently coerces unknown kinds to 'waiter' (no 400). Acceptable but consider Literal['waiter','water','bill'] on the pydantic model so bad clients get 422 instead of a silent 'waiter' insert.",
+    "backend/routes/customers.py::dinein_guest — idempotent by phone '0000000000' via _find_by_phone; works per-tenant because `db.customers` is tenant-scoped. Solid.",
+    "Frontend POS.jsx kitchen_bill effect correctly auto-selects the Dine-in Guest and prefills 'Table N — QR order for <name>' when customer_name is present on the merged orders. Verified live for Table 6 / Ravi.",
+    "Frontend Services.jsx renders quick-photo-{id} on every dish row (24 buttons on the demo tenant) — good discoverability.",
+    "Frontend Kitchen.jsx polls /table-calls and renders Done buttons via call-done-{id} — verified UI dedupes/removes after PUT succeeds."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter115_table_calls_insights_dinein.py"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% of requested flows"},
+  "test_credentials": "infinity.admin@miracurl.com / Infinity@2026 (slug infinity-family-restaurant); admin@miracurl.com / q6QY@tn3p#9DtL (miracurl-marathahalli)",
+  "seed_data_creation": "Created several QR table-calls on tables 77/78/79 and a QR table-order on table 6 (Ravi). All open resto calls were resolved via PUT /table-calls/{id}/done during the tests. Table 6 order left in 'new' state after the POS was opened (not billed) — main agent may want to bill it via Kitchen if the demo needs a clean slate. Also a photo upload / attach test uploaded a 1x1 PNG to the first service, then reset image_url back to its original value.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run /app/backend/tests/test_iter115_table_calls_insights_dinein.py with `pytest -p no:xdist -o addopts=''`. All 8 review-request items covered. Selectors verified live: call-waiter-btn, call-water-btn, table-calls-panel, table-call-{id}, call-done-{id}, weekly-insights-panel, top-dishes-card, busy-tables-card, bill-table-{n}, quick-photo-{id}, quick-photo-input. Restaurant tenant_id 821532fe-cb97-4043-9075-a8420cf7d65e. 'What's New' popup dismissed via Got it button on each login.",
+  "rca of the issue": "N/A — no bugs found. All 4 new features + tenant isolation + salon regression pass."
+}

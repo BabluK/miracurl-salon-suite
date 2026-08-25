@@ -26,9 +26,12 @@ export default function Kitchen() {
   const { tenant } = useAuth();
   const nav = useNavigate();
   const [orders, setOrders] = useState([]);
+  const [calls, setCalls] = useState([]);
+  const [insights, setInsights] = useState(null);
   const [tableCount, setTableCount] = useState(8);
   const [showQrs, setShowQrs] = useState(false);
   const seenIds = useRef(null);
+  const seenCallIds = useRef(null);
 
   const chime = () => {
     try {
@@ -64,6 +67,22 @@ export default function Kitchen() {
       document.title = openCount > 0 ? `(${openCount}) Kitchen — Miracurl` : "Kitchen — Miracurl";
       setOrders(data);
     }).catch(() => {});
+    api.get("/table-calls").then(({ data }) => {
+      const ids = data.map(c => c.id);
+      if (seenCallIds.current !== null) {
+        const fresh = data.filter(c => !seenCallIds.current.includes(c.id));
+        if (fresh.length > 0) {
+          chime();
+          fresh.forEach(c => toast.warning(
+            c.kind === "water" ? `💧 Table ${c.table_no} is asking for water` :
+            c.kind === "bill" ? `🧾 Table ${c.table_no} is asking for the bill` :
+            `🙋 Table ${c.table_no} is calling a waiter`, { duration: 15000 }));
+        }
+      }
+      seenCallIds.current = ids;
+      setCalls(data);
+    }).catch(() => {});
+    api.get("/restaurant/insights").then(({ data }) => setInsights(data)).catch(() => {});
   }, []);
   useEffect(() => {
     load();
@@ -88,6 +107,13 @@ export default function Kitchen() {
       items: merged,
     }));
     nav("/pos");
+  }
+
+  async function resolveCall(id) {
+    try {
+      await api.put(`/table-calls/${id}/done`);
+      setCalls(cs => cs.filter(c => c.id !== id));
+    } catch { toast.error("Couldn't resolve the call"); }
   }
 
   async function setStatus(id, status) {
@@ -187,6 +213,26 @@ export default function Kitchen() {
 
       <CategorySpecials />
 
+      {calls.length > 0 && (
+        <section data-testid="table-calls-panel">
+          <h2 className="text-sm font-bold text-rose-600 uppercase tracking-wider animate-pulse">Tables calling ({calls.length})</h2>
+          <div className="flex flex-wrap gap-3 mt-3">
+            {calls.map(c => (
+              <div key={c.id} data-testid={`table-call-${c.id}`}
+                className="flex items-center gap-3 rounded-2xl border-2 border-rose-300 bg-rose-50 px-4 py-2.5">
+                <span className="text-lg">{c.kind === "water" ? "💧" : c.kind === "bill" ? "🧾" : "🙋"}</span>
+                <div>
+                  <p className="text-sm font-extrabold text-slate-800">Table {c.table_no}</p>
+                  <p className="text-[10px] text-slate-500">{c.kind === "water" ? "needs water" : c.kind === "bill" ? "wants the bill" : "calling a waiter"} · {age(c.created_at)}</p>
+                </div>
+                <button onClick={() => resolveCall(c.id)} data-testid={`call-done-${c.id}`}
+                  className="ml-2 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">✓ Done</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {open.length > 0 && (
         <section data-testid="live-tables-panel">
           <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Live tables</h2>
@@ -226,6 +272,37 @@ export default function Kitchen() {
         </div>
         {open.length === 0 && <p className="text-sm text-slate-400 mt-3" data-testid="kitchen-empty">No open orders — tickets appear here the moment a diner scans & orders.</p>}
       </section>
+
+      {insights && insights.orders > 0 && (
+        <section data-testid="weekly-insights-panel">
+          <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">This week's insights</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Last {insights.days} days · {insights.orders} table orders · ₹{Math.round(insights.revenue).toLocaleString("en-IN")} in QR orders</p>
+          <div className="grid sm:grid-cols-2 gap-4 mt-3">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5" data-testid="top-dishes-card">
+              <h3 className="text-xs font-bold text-amber-600 uppercase tracking-wider">🏆 Best-selling dishes</h3>
+              <ul className="mt-3 space-y-2">
+                {insights.top_dishes.map((d, i) => (
+                  <li key={d.name} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700 truncate"><b className="text-slate-400 mr-1.5">{i + 1}.</b>{d.name}</span>
+                    <span className="text-slate-500 text-xs shrink-0 ml-2"><b className="text-slate-800">{d.qty}×</b> · ₹{Math.round(d.revenue).toLocaleString("en-IN")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl p-5" data-testid="busy-tables-card">
+              <h3 className="text-xs font-bold text-sky-600 uppercase tracking-wider">🪑 Busiest tables</h3>
+              <ul className="mt-3 space-y-2">
+                {insights.busy_tables.map((t, i) => (
+                  <li key={t.table_no} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700"><b className="text-slate-400 mr-1.5">{i + 1}.</b>Table {t.table_no}</span>
+                    <span className="text-slate-500 text-xs"><b className="text-slate-800">{t.orders}</b> orders · ₹{Math.round(t.revenue).toLocaleString("en-IN")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+      )}
 
       {closed.length > 0 && (
         <section>
