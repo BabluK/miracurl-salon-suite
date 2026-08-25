@@ -888,7 +888,7 @@ async def whatsapp_pending_count(admin=Depends(require_admin)):
     return {"count": await db.whatsapp_requests.count_documents({"status": "pending"})}
 
 @router.post("/whatsapp-requests/{rid}/approve")
-async def approve_whatsapp_request(rid: str, admin=Depends(require_tenant_admin)):
+async def approve_whatsapp_request(rid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     r = await db.whatsapp_requests.find_one({"id": rid}, {"_id": 0})
     if not r:
         raise HTTPException(404, "Request not found")
@@ -897,8 +897,19 @@ async def approve_whatsapp_request(rid: str, admin=Depends(require_tenant_admin)
                                "approved_at": datetime.now(timezone.utc).isoformat()}})
     phone = r.get("client_phone") or ""
     from urllib.parse import quote as _quote
-    wa_url = (f"https://wa.me/{phone}?text=" if phone else "https://wa.me/?text=") + _quote(r["message"])
-    return {"ok": True, "wa_url": wa_url}
+    msg = _quote(r["message"])
+    wa_url = (f"https://wa.me/{phone}?text=" if phone else "https://wa.me/?text=") + msg
+    out = {"ok": True, "wa_url": wa_url,
+           "business_number": (t.get("whatsapp_number") or "").strip()}
+    # Tenant has a business WhatsApp configured → Android intent link forces the
+    # WhatsApp BUSINESS app (com.whatsapp.w4b) so the message goes out from the
+    # salon's business number, never the owner's personal WhatsApp.
+    if phone and out["business_number"]:
+        out["wa_business_url"] = (
+            f"intent://send?phone={phone}&text={msg}"
+            f"#Intent;scheme=whatsapp;package=com.whatsapp.w4b;"
+            f"S.browser_fallback_url={_quote(wa_url)};end")
+    return out
 
 @router.post("/whatsapp-requests/{rid}/reject")
 async def reject_whatsapp_request(rid: str, admin=Depends(require_tenant_admin)):

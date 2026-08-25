@@ -21,8 +21,14 @@ export const WhatsAppApprovals = () => {
   async function approve(id) {
     try {
       const { data } = await api.post(`/whatsapp-requests/${id}/approve`);
-      toast.success("Approved ✦ Opening WhatsApp…");
-      if (data.wa_url) window.open(data.wa_url, "_blank", "noopener,noreferrer");
+      const isAndroid = /android/i.test(navigator.userAgent);
+      if (isAndroid && data.wa_business_url) {
+        toast.success("Approved ✦ Opening WhatsApp Business…");
+        window.location.href = data.wa_business_url;
+      } else {
+        toast.success("Approved ✦ Opening WhatsApp…");
+        if (data.wa_url) window.open(data.wa_url, "_blank", "noopener,noreferrer");
+      }
       load();
     } catch { toast.error("Couldn't approve request"); }
   }

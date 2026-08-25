@@ -284,14 +284,14 @@ function Field({ label, icon: Icon, testid, type = "text", value, onChange, plac
         <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-sky-100 flex items-center justify-center">
           <Icon className="w-3.5 h-3.5 text-sky-500" />
         </div>
-        {prefix && <span className="absolute left-14 top-1/2 -translate-y-1/2 text-slate-400 text-sm">{prefix}</span>}
+        {prefix && <span className="absolute left-14 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-mono">{prefix}</span>}
         <input
           data-testid={testid}
           type={type}
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`w-full ${prefix ? "pl-[5.5rem]" : "pl-14"} pr-12 py-3.5 rounded-xl bg-sky-50/70 border border-sky-100 text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300 focus:bg-white focus:border-sky-300 transition-all`}
+          className={`w-full ${prefix ? "pl-[7rem]" : "pl-14"} pr-12 py-3.5 rounded-xl bg-sky-50/70 border border-sky-100 text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300 focus:bg-white focus:border-sky-300 transition-all`}
         />
         {trailing && <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{trailing}</div>}
       </div>
@@ -320,7 +320,7 @@ function SalonStep({ form, update }) {
         testid="signup-slug"
         value={form.slug}
         onChange={v => update({ slug: slugify(v), slug_touched: true })}
-        placeholder="glow-salon-indiranagar"
+        placeholder="your-business-name"
         prefix="/book/"
       />
       <p className="text-xs text-slate-500 -mt-2">

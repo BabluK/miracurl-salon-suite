@@ -2,10 +2,17 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-24.95"
-BUILD_TIME = "24 Aug 2026, 10:00 AM IST"
+BUILD = "2026-08-24.96"
+BUILD_TIME = "24 Aug 2026, 11:30 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-24 (WhatsApp Business sending & signup polish 💬)",
+        "changes": [
+            "💬 Review requests now open WhatsApp BUSINESS — if your salon has a business WhatsApp number configured, tapping 'Approve & Send' on Android opens the WhatsApp Business app (not your personal WhatsApp), so customers always hear from the salon's number",
+            "✍️ Signup form polish — the booking-URL field no longer overlaps its /book/ prefix, and the example text is business-neutral, ready for the upcoming restaurant edition",
+        ],
+    },
     {
         "date": "2026-08-24 (Per-device salon login, device manager & number health 📱)",
         "changes": [
