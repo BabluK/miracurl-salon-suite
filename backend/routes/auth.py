@@ -271,6 +271,7 @@ class SalonSignupIn(BaseModel):
     ref: Optional[str] = None  # affiliate referrer slug (Refer-a-salon program)
     region: Optional[str] = Field(None, pattern="^(in|intl)$")  # pricing region picked at signup
     timezone: Optional[str] = Field(None, max_length=64)  # browser timezone (stored for intl salons)
+    business_type: Optional[str] = Field("salon", pattern="^(salon|restaurant)$")
 
 
 AFFILIATE_REWARD_INR = 1000.0  # ₹ credited to the referrer for each verified signup
@@ -340,11 +341,35 @@ def _build_signup_tenant(body: SalonSignupIn, candidate: str, referrer: dict | N
         referred_by_tenant_id=referrer["id"] if referrer else None,
     ).model_dump()
     tenant["trial_end_date"] = trial_end
+    tenant["business_type"] = body.business_type or "salon"
     if body.region == "intl":
         tenant["currency"] = "USD"
         if body.timezone:
             tenant["timezone"] = body.timezone
     return tenant
+
+
+_SAMPLE_MENU = [
+    ("Starters", "Paneer Tikka", 249), ("Starters", "Veg Spring Rolls", 199),
+    ("Mains", "Butter Chicken", 349), ("Mains", "Dal Makhani", 279),
+    ("Breads & Rice", "Garlic Naan", 69), ("Breads & Rice", "Jeera Rice", 149),
+    ("Desserts", "Gulab Jamun", 99), ("Beverages", "Fresh Lime Soda", 89),
+]
+
+
+async def _seed_restaurant_defaults(tenant_id: str) -> None:
+    """Restaurant trials start with a sample menu + a Host so table reservations work day one."""
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.services.insert_many([{
+        "id": str(uuid.uuid4()), "tenant_id": tenant_id, "name": n, "category": c,
+        "price": float(p), "duration_min": 0, "description": "", "image_url": "",
+        "trending": False, "active": True, "gender": "Unisex"} for c, n, p in _SAMPLE_MENU])
+    await _raw_db.staff.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": tenant_id, "name": "Front Desk / Host",
+        "role": "Host", "phone": "", "email": "", "specialties": [], "commission_pct": 0.0,
+        "active": True, "image_url": None, "joining_date": now[:10],
+        "monthly_base_salary": 0.0, "salary_visible": False,
+        "shift_start": "10:00", "shift_end": "23:00", "branch": "", "week_off_day": ""})
 
 
 def _build_signup_owner(body: SalonSignupIn, email: str, tenant_id: str) -> dict:
@@ -368,11 +393,15 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
         raise HTTPException(400, "An account with this email already exists")
 
     candidate = await _resolve_unique_slug(body)
-    trial_end = (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).date().isoformat()
+    # Restaurants launch with FIRST MONTH FREE (30-day trial); salons keep the 7-day trial
+    trial_days = 30 if body.business_type == "restaurant" else TRIAL_DAYS
+    trial_end = (datetime.now(timezone.utc) + timedelta(days=trial_days)).date().isoformat()
     referrer = await _resolve_referrer(body.ref, candidate)
 
     tenant = _build_signup_tenant(body, candidate, referrer, trial_end)
     await db.tenants.insert_one(tenant)
+    if tenant.get("business_type") == "restaurant":
+        await _seed_restaurant_defaults(tenant["id"])
 
     owner = _build_signup_owner(body, email, tenant["id"])
     await db.users.insert_one(owner)
@@ -393,7 +422,7 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
         "user": owner,
         "tenant": tenant,
         "trial_end_date": trial_end,
-        "trial_days": TRIAL_DAYS,
+        "trial_days": trial_days,
     }
 
 

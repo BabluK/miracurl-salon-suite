@@ -14,13 +14,14 @@ const DEFAULT_SLUG = "miracurl-marathahalli";
 const TOASTER_STYLE = { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' };
 const TOASTER_OPTIONS = { style: TOASTER_STYLE };
 const STEP_LABELS = ["Services", "Stylist", "Date & Time", "Your Details", "Confirm"];
+const RESTO_LABELS = ["Menu (optional)", "Host", "Date & Time", "Your Details", "Confirm"];
 const INITIAL_FORM = { name: "", phone: "", email: "", notes: "", referral_code: "", coupon_code: "", gender: "Female" };
 const localToday = () => new Date().toLocaleDateString("en-CA");
 
-function Stepper({ step }) {
+function Stepper({ step, labels = STEP_LABELS }) {
   return (
     <div className="flex items-center gap-2 sm:gap-3 mb-10 overflow-x-auto pb-2">
-      {STEP_LABELS.map((l, i) => {
+      {labels.map((l, i) => {
         const done = i < step;
         const active = i === step;
         return (
@@ -33,7 +34,7 @@ function Stepper({ step }) {
               {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </div>
             <span className={`text-xs uppercase tracking-[0.2em] hidden sm:inline ${active ? "text-gold" : done ? "text-white/70" : "text-white/30"}`}>{l}</span>
-            {i < STEP_LABELS.length - 1 && <div className={`w-6 sm:w-10 h-px ${done ? "bg-gold" : "bg-white/10"}`} />}
+            {i < labels.length - 1 && <div className={`w-6 sm:w-10 h-px ${done ? "bg-gold" : "bg-white/10"}`} />}
           </div>
         );
       })}
@@ -128,6 +129,8 @@ export default function BookPublic() {
 
   const [picked, setPicked] = useState([]);
   const [staffId, setStaffId] = useState("");
+  const [partySize, setPartySize] = useState(2);
+  const [seating, setSeating] = useState("any");
   const [date, setDate] = useState(localToday);
   const [time, setTime] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
@@ -189,7 +192,8 @@ export default function BookPublic() {
   }, [form.referral_code, form.coupon_code]);
 
   function next() {
-    if (step === 0 && picked.length === 0) { toast.error("Please pick at least one service"); return; }
+    const isResto = salon?.business_type === "restaurant";
+    if (step === 0 && picked.length === 0 && !isResto) { toast.error("Please pick at least one service"); return; }
     if (step === 2 && !time) { toast.error("Pick a time slot"); return; }
     if (step === 3) {
       if (!/^[A-Za-z][A-Za-z .'-]{1,}$/.test(form.name.trim())) { toast.error("Name should contain only letters"); return; }
@@ -236,6 +240,8 @@ export default function BookPublic() {
         notes: form.notes || null,
         referral_code: form.referral_code.trim().toUpperCase() || null,
         coupon_code: couponCheck?.valid ? form.coupon_code.trim().toUpperCase() : null,
+        party_size: salon?.business_type === "restaurant" ? partySize : null,
+        seating: salon?.business_type === "restaurant" ? seating : null,
       });
       setConfirmation(data);
       setStep(5);
@@ -301,7 +307,7 @@ export default function BookPublic() {
             )}
             <div>
               <div className="font-playfair text-2xl">{salon.name || "Miracurl"}</div>
-              <div className="text-[10px] tracking-[0.3em] uppercase text-gold">Book Your Visit</div>
+              <div className="text-[10px] tracking-[0.3em] uppercase text-gold">{salon.business_type === "restaurant" ? "Reserve Your Table" : "Book Your Visit"}</div>
             </div>
           </div>
           <h1 className="font-playfair text-3xl sm:text-5xl leading-tight max-w-2xl">{salon.tagline}.</h1>
@@ -419,11 +425,41 @@ export default function BookPublic() {
           </div>
         )}
         {step === 0 && <FeaturedReviews featured={featured} />}
-        {step < 5 && <Stepper step={step} />}
+        {step < 5 && <Stepper step={step} labels={salon.business_type === "restaurant" ? RESTO_LABELS : STEP_LABELS} />}
 
         {step === 0 && <ServicesStep byCategory={byCategory} picked={picked} onToggle={toggleService} catImages={catImages} catOrder={catOrder} />}
         {step === 1 && <StaffStep staff={staff} staffId={staffId} onPick={setStaffId} date={date} />}
-        {step === 2 && <DateTimeStep date={date} time={time} onDate={setDate} onTime={setTime} availability={availability} salon={salon} />}
+        {step === 2 && (
+          <>
+            {salon.business_type === "restaurant" && (
+              <div className="mb-8 grid sm:grid-cols-2 gap-5" data-testid="reservation-extras">
+                <div>
+                  <div className="text-[10px] tracking-[0.25em] uppercase text-gold mb-2">Party size</div>
+                  <div className="flex flex-wrap gap-2">
+                    {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(n => (
+                      <button key={n} data-testid={`party-size-${n}`} onClick={() => setPartySize(n)}
+                        className={`w-10 h-10 rounded-full border text-sm font-bold transition-colors ${partySize === n ? "bg-gold text-bg-base border-gold" : "border-white/15 text-white/70 hover:border-gold/50"}`}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] tracking-[0.25em] uppercase text-gold mb-2">Seating preference</div>
+                  <div className="flex gap-2">
+                    {[["any", "✨ Any"], ["indoor", "🏠 Indoor"], ["outdoor", "🌿 Outdoor"]].map(([v, l]) => (
+                      <button key={v} data-testid={`seating-${v}`} onClick={() => setSeating(v)}
+                        className={`px-4 py-2.5 rounded-full border text-xs font-bold transition-colors ${seating === v ? "bg-gold text-bg-base border-gold" : "border-white/15 text-white/70 hover:border-gold/50"}`}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            <DateTimeStep date={date} time={time} onDate={setDate} onTime={setTime} availability={availability} salon={salon} />
+          </>
+        )}
         {step === 3 && <DetailsStep form={form} onChange={handleFormChange} referralCheck={referralCheck} onCheckReferral={checkReferral} couponCheck={couponCheck} onCheckCoupon={checkCoupon} />}
         {step === 4 && (
           <ConfirmStep

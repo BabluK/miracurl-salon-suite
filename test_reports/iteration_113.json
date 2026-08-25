@@ -1,0 +1,37 @@
+{
+  "summary": "Iter 113 — Restaurant vertical rollout: 8/8 backend pytest PASS (restaurant signup with 30d trial + 8 sample menu items + Host staff, salon signup default regression 7d, /public/salon returns business_type, restaurant book with empty service_ids + party_size + seating creates appt with service_names=['Table reservation'] & Host auto-assigned, salon empty-services returns 400, salon booking with valid service_ids still works, /public/plans exposes resto_quarter/half/annual with vertical=restaurant + prices 3000/6000/12000, super-admin PUT /plans/resto_quarter persists new price and restores). Frontend Playwright: /signup-salon shows signup-type-salon / signup-type-restaurant toggle, heading switches to 'Tell us about your restaurant' and label to 'Restaurant name'. /book/spice-garden-test displays 'Reserve Your Table' + stepper labels 'Menu (optional)' & 'Host', step 0 Continue proceeds with NO menu picked, step 2 renders party-size-4 and seating-outdoor buttons, full reservation completes to 'You're booked' confirmation. /book/miracurl-marathahalli regression: Continue on step 0 with no service picked shows toast 'Please pick at least one service' (still blocked). Super admin HQ Tenants tab shows [All types / Salons / Restaurants] filter chips with data-testid vertical-filter-restaurant and 🍽️ Restaurant badges on 4 restaurant tenant rows.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/signup-salon (business_type=restaurant)", "issues": ["Stats card still says '7 days FREE TRIAL' + '$149/mo Professional Plan' + '$1,399/yr Pro Annual' even after Restaurant is selected — should show 30 days FREE TRIAL and the resto_* plan prices (₹3,000 / ₹6,000 / ₹12,000). Purely marketing copy — not blocking signup."]},
+      {"screen": "/book/{restaurant-slug} public page", "issues": ["Hero tagline is still salon-flavoured: 'Where elegance meets every strand', plus buttons 'Book Appointment', 'Gift Card for a Loved One', 'Premium Membership — earn cashback every visit'. Only the small overline changes to 'RESERVE YOUR TABLE'. Consider a per-vertical tagline/CTA copy.", "Confirmation card labels the auto-assigned Host as 'STYLIST' and SERVICES section is empty for a table reservation — showing 'Table reservation' + party size + seating would make the receipt clearer.", "Confirmation datetime is rendered in the browser locale/UTC ('8/30/2026, 4:30:00 AM' for a 10:00 IST slot) instead of IST — minor timezone display issue."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter113_restaurant_vertical.py",
+    "/app/test_reports/pytest/iter113.xml"
+  ],
+  "action_items": [
+    "Update SignupSalon stats-card copy conditionally when business_type=restaurant (30 days trial + resto plan prices).",
+    "Localise BookPublic hero copy and top action buttons for restaurants (tagline, remove/replace 'Book Appointment'/'Gift Card'/'Premium Membership' bar or reword).",
+    "SuccessStep receipt for restaurants: relabel STYLIST → HOST and surface party_size + seating; also format the WHEN field in the salon TZ (IST/business timezone) instead of browser locale."
+  ],
+  "critical_code_review_comments": [
+    "backend/routes/auth.py::_seed_restaurant_defaults — good: writes 8 menu items into services collection with duration_min=0 and one Host staff; both are tenant-scoped by the auto-injected tenant_id so isolation is intact. Consider seeding a couple of Manager/Waiter roles alongside Host for realism.",
+    "backend/routes/public_site.py::public_book — the empty-services guard correctly bypasses only when tenant.business_type=='restaurant'; salon path still 400s. duration defaults to 90 for zero-service restaurant bookings — matches spec.",
+    "PublicBookingIn: party_size (1–30) and seating (any|indoor|outdoor) are validated with Pydantic; they are silently ignored for salon slugs — this is fine but could be logged when caller sends them to a salon.",
+    "backend/routes/subscriptions.py::PLAN_CATALOG override — PUT /super-admin/plans/{key} persists via _plan_overrides collection; public_plans merges before returning. Prices survive backend restart (verified) — no ObjectId leaks in payload.",
+    "Frontend BookPublic hero + SuccessStep still hardcode salon vocabulary ('stylist', 'Where elegance meets every strand', 'Book Appointment'). Recommend a small isResto branch to swap the copy — the plumbing (salon.business_type) is already available.",
+    "Frontend SignupSalon 'trial cost / plans' teaser card is not driven by business_type — cheap fix now that catalog exposes vertical='restaurant'."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter113_restaurant_vertical.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% of the requested flows (signup selector, restaurant reservation, salon regression, HQ vertical filter + badges)"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 ; restaurant tenant: spice-garden-test",
+  "seed_data_creation": "Each pytest run creates 2 throwaway tenants (TEST Resto {8-hex} + TEST Salon {8-hex}) via /public/signup-salon; NOT deleted (there is no super-admin DELETE-tenant endpoint exposed via the standard public API and cleanup would need Mongo access). Prefixes are 'TEST Resto' / 'TEST Salon' with owner emails 'TEST_*@example.com' so filtering them out is trivial. Playwright reservation created appointment TEST Diner @ spice-garden-test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_iter113_restaurant_vertical.py (pytest -p no:xdist -o addopts=''). RESTO_SLUG=spice-garden-test has ONLY 1 Host staff → capacity=1 per slot; tests use random hour and days-offset to avoid 409 slot conflicts. /api/public/plans is a FLAT DICT (not wrapped in {'plans': …}). Frontend selectors verified: signup-type-{salon,restaurant}, party-size-{n}, seating-{any,indoor,outdoor}, vertical-filter-{all,salon,restaurant}, book-next-btn, book-confirm-btn, public-book-page. Login inputs on /login are not typed 'email' — use nth-index or username selector.",
+  "rca of the issue": "N/A — feature works end-to-end. Only design/copy polish outstanding on SignupSalon stats card and BookPublic hero + success page."
+}

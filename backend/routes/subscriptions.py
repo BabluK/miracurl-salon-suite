@@ -45,6 +45,10 @@ PLAN_CATALOG = {
     "intl_premium_half":     {"label": "Premium AI 6-Month (USD)",   "price": 1299.0, "duration_days": 183, "branches": 1, "currency": "USD", "tier": "premium"},
     "intl_premium_annual":   {"label": "Premium AI Annual (USD)",    "price": 2399.0, "duration_days": 365, "branches": 1, "currency": "USD", "tier": "premium"},
     "intl_enterprise_monthly": {"label": "Enterprise Monthly (USD)", "price": 499.0,  "duration_days": 31,  "branches": 5, "currency": "USD", "tier": "enterprise"},
+    # Restaurant vertical (INR) — first month free via the 30-day restaurant trial at signup
+    "resto_quarter": {"label": "Restaurant 3-Month", "price": 3000.0,  "duration_days": 92,  "branches": 1, "vertical": "restaurant"},
+    "resto_half":    {"label": "Restaurant 6-Month", "price": 6000.0,  "duration_days": 183, "branches": 1, "vertical": "restaurant"},
+    "resto_annual":  {"label": "Restaurant Annual",  "price": 12000.0, "duration_days": 365, "branches": 1, "vertical": "restaurant"},
 }
 
 
@@ -173,7 +177,7 @@ async def public_plans():
     await load_plan_overrides()
     return {k: {"label": v["label"], "price": v["price"], "duration_days": v["duration_days"],
                 "branches": v["branches"], "currency": v.get("currency", "INR"),
-                "tier": v.get("tier")} for k, v in PLAN_CATALOG.items()}
+                "tier": v.get("tier"), "vertical": v.get("vertical", "salon")} for k, v in PLAN_CATALOG.items()}
 
 
 @router.get("/super-admin/plans")

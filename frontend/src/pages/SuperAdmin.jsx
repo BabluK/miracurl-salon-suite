@@ -129,6 +129,7 @@ export default function SuperAdmin() {
   }, []);
   const [notifFeed, setNotifFeed] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [vertFilter, setVertFilter] = useState("all");
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     slug: "", name: "", owner_email: "", owner_name: "", owner_password: "",
@@ -293,7 +294,9 @@ export default function SuperAdmin() {
     return `${window.location.origin}/book/${slug}`;
   }
 
-  const filteredTenants = statusFilter === "all" ? tenants : tenants.filter(t => t.status === statusFilter);
+  const filteredTenants = tenants.filter(t =>
+    (statusFilter === "all" || t.status === statusFilter) &&
+    (vertFilter === "all" || (t.business_type || "salon") === vertFilter));
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-sky-50/70 to-violet-100/60 text-slate-800" data-testid="super-admin-page">
@@ -531,6 +534,16 @@ export default function SuperAdmin() {
           {statusFilter !== "all" && (
             <span className="text-xs text-slate-400">showing {filteredTenants.length} salon(s)</span>
           )}
+          <span className="mx-1 h-5 w-px bg-slate-200" />
+          {[["all", "All types"], ["salon", "💇 Salons"], ["restaurant", "🍽️ Restaurants"]].map(([v, l]) => (
+            <button key={v} data-testid={`vertical-filter-${v}`} onClick={() => setVertFilter(v)}
+              className={`text-xs px-3.5 py-1.5 rounded-full border transition ${
+                vertFilter === v
+                  ? "bg-amber-600 text-white border-amber-600 shadow"
+                  : "bg-white/70 border-slate-200 text-slate-500 hover:border-amber-400"}`}>
+              {l} {v !== "all" && `(${tenants.filter(t => (t.business_type || "salon") === v).length})`}
+            </button>
+          ))}
         </div>
 
         {/* Tenant list — readable cards */}
@@ -543,6 +556,9 @@ export default function SuperAdmin() {
                     <span className="font-playfair font-semibold text-base truncate max-w-[340px]" title={t.name}>{t.name}</span>
                     <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${PLAN_BADGE[t.plan] || ''}`}>{t.plan}</span>
                     <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded ${STATUS_BADGE[t.status] || ''}`}>{t.status}</span>
+                    {t.business_type === "restaurant" && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">🍽️ Restaurant</span>
+                    )}
                     {t.currency && t.currency !== "INR" && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200" title={`International salon — pays in ${t.currency} via Stripe`}>🌍 {t.currency}</span>
                     )}

@@ -100,7 +100,14 @@ export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const today = new Date().toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
 
-  const NAV = user?.role === "staff" ? NAV_STAFF : user?.role === "manager" ? NAV_MANAGER : NAV_ADMIN;
+  const NAV_BASE = user?.role === "staff" ? NAV_STAFF : user?.role === "manager" ? NAV_MANAGER : NAV_ADMIN;
+  // Restaurant tenants see restaurant language on the same engine
+  const NAV = tenant?.business_type === "restaurant"
+    ? NAV_BASE.map(i =>
+        i.to === "/services" ? { ...i, label: "Menu" } :
+        i.to === "/appointments" ? { ...i, label: "Reservations" } :
+        i.to === "/pos" ? { ...i, label: "POS / Orders" } : i)
+    : NAV_BASE;
   const current = NAV.find(n => loc.pathname.startsWith(n.to));
 
   // Manager Admin-PIN gate: sensitive sections render a lock screen until unlocked this session

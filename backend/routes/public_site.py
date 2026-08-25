@@ -58,12 +58,14 @@ class PublicBookingIn(BaseModel):
     customer_phone: str
     customer_email: Optional[EmailStr] = None
     gender: Optional[str] = None
-    service_ids: List[str] = Field(..., min_length=1)
+    service_ids: List[str] = Field(default_factory=list)
     staff_id: Optional[str] = None
     scheduled_at: str
     notes: Optional[str] = Field(None, max_length=500)
     referral_code: Optional[str] = None
     coupon_code: Optional[str] = None
+    party_size: Optional[int] = Field(None, ge=1, le=30)
+    seating: Optional[str] = Field(None, pattern="^(any|indoor|outdoor)$")
 
     @field_validator("customer_name")
     @classmethod
@@ -180,6 +182,7 @@ async def public_salon(slug: str):
         "branches": t.get("branches", []),
         "show_products": t.get("show_miracurl_products", True) is not False,
         "rating": (await _google_live_rating(t)) or (await _salon_rating(t["id"])),
+        "business_type": t.get("business_type", "salon"),
     }
 
 # Legacy /public/salon — falls back to default tenant for backward compatibility
@@ -411,16 +414,19 @@ async def _ensure_slot_capacity(scheduled_at: str, duration_min: int):
 
 async def _create_public_appointment(cust: dict, staff: dict, services: list, body: PublicBookingIn) -> tuple[dict, float, int]:
     total = sum(s["price"] for s in services)
-    duration = sum(s["duration_min"] for s in services) or 30
+    duration = sum(s["duration_min"] for s in services) or (90 if not services else 30)
     await _ensure_slot_capacity(body.scheduled_at, duration)
     appt = Appointment(
         customer_id=cust["id"], customer_name=cust["name"],
         staff_id=staff["id"], staff_name=staff["name"],
         service_ids=[s["id"] for s in services],
-        service_names=[s["name"] for s in services],
+        service_names=[s["name"] for s in services] or ["Table reservation"],
         scheduled_at=body.scheduled_at, duration_min=duration,
         notes=body.notes, total=total,
     ).model_dump()
+    if body.party_size:
+        appt["party_size"] = body.party_size
+        appt["seating"] = body.seating or "any"
     await db.appointments.insert_one(appt)
     appt.pop("_id", None)
     return appt, total, duration
@@ -432,8 +438,9 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
     public_rate_limit(request, key_suffix=f"book:{slug}", limit=8, window_sec=600)
     _enforce_salon_hours(t, body.scheduled_at)
 
-    services = await db.services.find({"id": {"$in": body.service_ids}, "active": True}, {"_id": 0}).to_list(50)
-    if not services:
+    services = (await db.services.find({"id": {"$in": body.service_ids}, "active": True}, {"_id": 0}).to_list(50)
+                if body.service_ids else [])
+    if not services and (t.get("business_type") or "salon") != "restaurant":
         raise HTTPException(400, "Invalid services")
 
     staff = await _resolve_staff(body.staff_id, body.scheduled_at, sum(s["duration_min"] for s in services) or 30)

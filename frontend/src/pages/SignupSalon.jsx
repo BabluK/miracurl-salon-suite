@@ -42,6 +42,7 @@ export default function SignupSalon() {
   }, []);
   const [form, setForm] = useState({
     salon_name: "",
+    business_type: "salon",
     slug: "",
     slug_touched: false,
     owner_name: "",
@@ -102,6 +103,7 @@ export default function SignupSalon() {
       const ref = (localStorage.getItem("miracurl_ref") || "").trim().toLowerCase() || undefined;
       const { data } = await axios.post(`${BACKEND_URL}/api/public/signup-salon`, {
         salon_name: form.salon_name.trim(),
+        business_type: form.business_type,
         slug: form.slug.trim() || undefined,
         owner_name: form.owner_name.trim(),
         owner_email: form.owner_email.trim().toLowerCase(),
@@ -300,19 +302,33 @@ function Field({ label, icon: Icon, testid, type = "text", value, onChange, plac
 }
 
 function SalonStep({ form, update }) {
+  const isResto = form.business_type === "restaurant";
   return (
     <div className="space-y-5 animate-fade-up">
       <div>
-        <h2 className="text-2xl font-semibold text-slate-800">Tell us about your salon</h2>
+        <h2 className="text-2xl font-semibold text-slate-800">Tell us about your {isResto ? "restaurant" : "salon"}</h2>
         <p className="text-sm text-slate-500 mt-1">This is how customers will see you on the booking page.</p>
       </div>
+      <div>
+        <p className="text-xs font-semibold text-slate-600 mb-2">What's your business?</p>
+        <div className="grid grid-cols-2 gap-3">
+          {[["salon", "💇 Salon / Spa", "Bookings, stylists & billing"], ["restaurant", "🍽️ Restaurant", "Menu, table reservations & orders"]].map(([v, title, sub]) => (
+            <button key={v} type="button" data-testid={`signup-type-${v}`}
+              onClick={() => update({ business_type: v })}
+              className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${form.business_type === v ? "border-sky-400 bg-sky-50 shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
+              <span className="block text-sm font-bold text-slate-800">{title}</span>
+              <span className="block text-[11px] text-slate-400 mt-0.5">{sub}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <Field
-        label="Salon name *"
+        label={`${isResto ? "Restaurant" : "Salon"} name *`}
         icon={Building2}
         testid="signup-salon-name"
         value={form.salon_name}
         onChange={v => update({ salon_name: v })}
-        placeholder="e.g. Glow Salon, Indiranagar"
+        placeholder={isResto ? "e.g. Spice Garden, Indiranagar" : "e.g. Glow Salon, Indiranagar"}
       />
       <Field
         label="Your booking URL *"
@@ -372,7 +388,7 @@ function LocationStep({ form, update }) {
 
 function ReviewStep({ form, previewUrl, catalog, isIntl }) {
   const rows = [
-    { label: "Salon", value: form.salon_name },
+    { label: form.business_type === "restaurant" ? "Restaurant" : "Salon", value: form.salon_name },
     { label: "Booking URL", value: previewUrl, mono: true },
     { label: "Owner", value: `${form.owner_name} · ${form.owner_email}` },
     { label: "Location", value: form.location || "—" },
