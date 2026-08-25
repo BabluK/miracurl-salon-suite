@@ -12,6 +12,7 @@ import base64  # noqa: F401
 import secrets  # noqa: F401
 import logging  # noqa: F401
 import html as html_lib  # noqa: F401
+import json  # noqa: F401
 from datetime import datetime, timezone, timedelta  # noqa: F401
 from typing import Dict, List, Optional  # noqa: F401
 from urllib.parse import quote, urlparse  # noqa: F401
@@ -332,6 +333,47 @@ async def _store_service_image(tenant_id: str, img_bytes: bytes, name: str) -> s
         "content_type": "image/png", "size": len(img_bytes), "uploaded_by": "mira-ai",
         "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
     return f"/api/files/{file_id}"
+
+
+@router.post("/services/generate-descriptions")
+async def generate_dish_descriptions(user=Depends(require_admin)):
+    """Mira writes a tasty one-line description for every dish without one (restaurants)."""
+    tenant_id = _current_tenant_id.get()
+    if not await _tenant_is_restaurant(tenant_id):
+        raise HTTPException(400, "Dish descriptions are only available for restaurants")
+    svcs = await db.services.find(
+        {"$or": [{"description": ""}, {"description": None}]},
+        {"_id": 0, "id": 1, "name": 1, "category": 1}).to_list(200)
+    todo = svcs[:60]
+    if not todo:
+        return {"updated": 0, "remaining": 0}
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    listing = "\n".join(f"{s['id']}|{s['name']} ({s.get('category') or 'Menu'})" for s in todo)
+    chat = LlmChat(
+        api_key=key, session_id=f"dishdesc-{uuid.uuid4().hex[:8]}",
+        system_message=(
+            "You are Mira, a food copywriter for an Indian family restaurant. "
+            "For each dish write ONE short, mouth-watering description line (max 12 words). "
+            "Vivid, appetizing, specific to the dish. No emojis, no quotes, don't repeat the dish name. "
+            "Reply ONLY with a JSON object mapping each id to its description line — no markdown, no extra text."),
+    ).with_model("openai", "gpt-5.4-mini")
+    resp = await chat.send_message(UserMessage(text=f"Dishes (id|name (category)):\n{listing}"))
+    txt = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(resp).strip())
+    try:
+        data = json.loads(txt)
+    except Exception as e:
+        logging.error(f"dish descriptions parse failed: {e} :: {txt[:200]}")
+        raise HTTPException(502, "Mira's reply couldn't be read — please try again")
+    n = 0
+    for s in todo:
+        d = str(data.get(s["id"]) or "").strip().strip('"')[:120]
+        if d:
+            await db.services.update_one({"id": s["id"]}, {"$set": {"description": d}})
+            n += 1
+    return {"updated": n, "remaining": max(0, len(svcs) - len(todo))}
 
 
 @router.post("/services/generate-missing-images")

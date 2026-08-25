@@ -2,10 +2,17 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.105"
-BUILD_TIME = "25 Aug 2026, 09:30 PM IST"
+BUILD = "2026-08-25.106"
+BUILD_TIME = "25 Aug 2026, 10:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-25 (Mira dish descriptions & restaurant menu cleanup ✍️)",
+        "changes": [
+            "✍️ Mira Descriptions — one tap on the Menu page and Mira writes a mouth-watering one-line description for every dish that has none",
+            "🍽️ Restaurant menus cleaned up — Men/Women/Unisex filters and per-dish gender tags are gone for restaurants (they're salon things); the page is now titled 'Menu' and the diner booking step says 'Pre-pick your dishes'",
+        ],
+    },
     {
         "date": "2026-08-25 (Infinity logo, full starters menu & sold-out ⛔)",
         "changes": [

@@ -212,6 +212,7 @@ export default function Services() {
   const photoRef = useRef(null);
   const photoSvcRef = useRef(null);
   const [photoBusy, setPhotoBusy] = useState("");
+  const [descBusy, setDescBusy] = useState(false);
   function pickPhoto(s) { photoSvcRef.current = s; photoRef.current?.click(); }
   async function quickPhoto(e) {
     const file = e.target.files?.[0];
@@ -286,8 +287,8 @@ export default function Services() {
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-playfair text-3xl">Service Menu</h1>
-          <p className="text-slate-500 text-sm mt-1">Curate what your salon offers your guests.</p>
+          <h1 className="font-playfair text-3xl">{isResto ? "Menu" : "Service Menu"}</h1>
+          <p className="text-slate-500 text-sm mt-1">{isResto ? "Curate what your restaurant serves your guests." : "Curate what your salon offers your guests."}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} data-testid="import-csv-input" />
@@ -298,6 +299,7 @@ export default function Services() {
           <button data-testid="export-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all services as CSV (Excel compatible)">
             <Download className="w-4 h-4" /> Export CSV
           </button>
+          {!isResto && (
           <button
             data-testid="import-preset-btn"
             onClick={async () => {
@@ -311,6 +313,7 @@ export default function Services() {
           >
             <Sparkles className="w-4 h-4" /> Import Makeup & Nails menu
           </button>
+          )}
           <button
             data-testid="generate-missing-images-btn"
             onClick={async () => {
@@ -326,6 +329,27 @@ export default function Services() {
           >
             <Sparkles className="w-4 h-4 text-amber-500" /> Mira Photos
           </button>
+          {isResto && (
+            <button
+              data-testid="generate-descriptions-btn"
+              disabled={descBusy}
+              onClick={async () => {
+                setDescBusy(true);
+                try {
+                  const { data } = await api.post("/services/generate-descriptions");
+                  if (!data.updated) { toast.info("Every dish already has a description ✦"); return; }
+                  toast.success(`✨ Mira wrote ${data.updated} tasty descriptions${data.remaining ? ` (${data.remaining} more next run)` : ""}`);
+                  load();
+                } catch (err) {
+                  toast.error(err.response?.data?.detail || "Mira couldn't write right now — try again");
+                } finally { setDescBusy(false); }
+              }}
+              className="btn-slate flex items-center gap-2 disabled:opacity-50"
+              title="Mira writes a mouth-watering one-line description for every dish that has none"
+            >
+              {descBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-rose-500" />} Mira Descriptions
+            </button>
+          )}
           <button data-testid="add-service-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
             <Plus className="w-4 h-4" /> Add Service
           </button>
@@ -350,6 +374,7 @@ export default function Services() {
             <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 text-[10px] font-medium text-slate-400 border border-slate-200 rounded-md px-1.5 py-0.5 bg-slate-50">⌘K</kbd>
           )}
         </div>
+        {!isResto && (
         <div className="flex items-center gap-2 flex-wrap" data-testid="services-gender-chips">
           <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">For</span>
           {[["All", "✨ All"], ["male", "👨 Men"], ["female", "👩 Women"], ["unisex", "⚥ Unisex"]].map(([k, l]) => (
@@ -365,6 +390,7 @@ export default function Services() {
           ))}
           <span className="text-[10px] text-slate-400 hidden md:inline">Tap the 👨/👩/⚥ chip on any service to re-categorize it</span>
         </div>
+        )}
         <div className="flex gap-2 overflow-x-auto pb-1 snap-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid="services-cat-chips">
           {loading ? (
             [...Array(6)].map((_, i) => (
@@ -478,12 +504,14 @@ export default function Services() {
                     {s.sold_out_date === IST_TODAY() ? "Sold out" : "In stock"}
                   </button>
                 </>)}
+                {!isResto && (
                 <button data-testid={`toggle-gender-${s.id}`} onClick={() => cycleGender(s)}
                   title="Who is this service for? Tap to cycle: Unisex → Men → Women"
                   className={`shrink-0 flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full border transition ${GENDER_META[s.gender || "unisex"].cls}`}>
                   {GENDER_META[s.gender || "unisex"].icon}
                   <span className="hidden sm:inline">{GENDER_META[s.gender || "unisex"].label}</span>
                 </button>
+                )}
                 <button data-testid={`toggle-active-${s.id}`} onClick={() => toggleActive(s)}
                   title={s.active === false ? "Disabled — tap to enable" : "Active — tap to disable (hides everywhere until re-enabled)"}
                   className={`shrink-0 flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-full border transition ${s.active !== false ? "bg-sky-50 border-sky-200 text-sky-700" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
@@ -610,6 +638,7 @@ export default function Services() {
                 <div><label className="label-light block mb-1">Price ₹</label><input type="number" required className="input-light" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></div>
                 <div><label className="label-light block mb-1">Duration (min)</label><input type="number" required className="input-light" value={form.duration_min} onChange={e => setForm({ ...form, duration_min: e.target.value })} /></div>
               </div>
+              {!isResto && (
               <div>
                 <label className="label-light block mb-1">Who is it for?</label>
                 <div className="grid grid-cols-3 gap-2" data-testid="service-gender-picker">
@@ -624,6 +653,7 @@ export default function Services() {
                   ))}
                 </div>
               </div>
+              )}
               <div>
                 <label className="label-light block mb-1">Service image</label>
                 <ImageUploader

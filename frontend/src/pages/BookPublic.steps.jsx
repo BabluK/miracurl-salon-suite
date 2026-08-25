@@ -102,9 +102,10 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
     <section className="space-y-6 animate-fade-up">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="font-playfair text-3xl">Choose your services</h2>
-          <p className="text-ink-secondary text-sm mt-1">Pick one or more — we&apos;ll add up the total for you.</p>
+          <h2 className="font-playfair text-3xl">{restaurant ? "Pre-pick your dishes" : "Choose your services"}</h2>
+          <p className="text-ink-secondary text-sm mt-1">{restaurant ? "Optional — pick dishes now so they're ready when you arrive." : "Pick one or more — we'll add up the total for you."}</p>
         </div>
+        {!restaurant && (
         <div className="flex rounded-full bg-white/5 border border-white/10 p-1" data-testid="book-gender-toggle">
           {["All", "Women", "Men"].map((g) => (
             <button
@@ -119,9 +120,8 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
             </button>
           ))}
         </div>
+        )}
       </div>
-
-      {/* Main category tabs */}
       <div className="sticky top-0 z-20 -mx-4 px-4 py-3 bg-bg-base/85 backdrop-blur-md">
         <div className="flex gap-2 overflow-x-auto no-scrollbar" data-testid="book-category-tabs">
           {["All", ...cats].map((c) => (
