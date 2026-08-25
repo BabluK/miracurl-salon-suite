@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.111"
+BUILD = "2026-08-25.113"
 BUILD_TIME = "25 Aug 2026, 11:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-25 (Restaurant signup polish & USD plans 🌍)",
         "changes": [
+            "🌐 Restaurant marketing page — miracurl-suite.com/restaurant showcases everything for restaurants (QR ordering, kitchen tickets, table billing, Mira AI) with its own pricing; the main site nav now has a '🍽️ For Restaurants' link",
+            "🔗 Dedicated signup URL — /signup-restaurant opens the signup with Restaurant pre-selected; switching business type updates the URL automatically",
+            "🖨️ Table QR posters — Settings now has a 'Table QR Posters' card: set your table count and download a printable A4 poster per table with your logo, the table number and an order QR that opens your menu with the table pre-filled",
             "🍽️ Restaurant brochure — restaurant leads now get their own PDF (QR ordering, live kitchen tickets, table billing, reservations & Mira menu AI); emails, WhatsApp scripts and PDF re-sends pick the right brochure automatically",
             "📱 Live order status for diners — after ordering, the phone shows 'Order received → Cooking now → Served' updating live, plus a billed thank-you note",
             "Super Admin: Lead hunts now have a Salon 💇 / Restaurant 🍽️ business-type switch — restaurant leads get a restaurant-specific outreach email (QR ordering, kitchen tickets, table billing pitch) with restaurant plan pricing, and salon leads keep the salon pitch; WhatsApp scripts and the HQ lead list badge/filter follow the same split",

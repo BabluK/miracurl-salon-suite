@@ -68,6 +68,7 @@ import ReviewPublic from "@/pages/ReviewPublic";
 import RatePublic from "@/pages/RatePublic";
 import SuperAdmin from "@/pages/SuperAdmin";
 import SignupSalon from "@/pages/SignupSalon";
+import RestaurantLanding from "@/pages/RestaurantLanding";
 import Landing from "@/pages/Landing";
 import ContactUs from "@/pages/ContactUs";
 import WhoCanUse from "@/pages/WhoCanUse";
@@ -237,6 +238,8 @@ export default function App() {
             <Route path="/rate/:slug" element={<RatePublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup-salon" element={<PublicOnly><SignupSalon /></PublicOnly>} />
+            <Route path="/signup-restaurant" element={<PublicOnly><SignupSalon /></PublicOnly>} />
+            <Route path="/restaurant" element={<RestaurantLanding />} />
             <Route path="/super-admin" element={<SuperAdminProtected><SuperAdmin /></SuperAdminProtected>} />
             <Route path="/" element={<RootRoute />} />
             <Route path="/features" element={<Landing scrollTo="features" />} />

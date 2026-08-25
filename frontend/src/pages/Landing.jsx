@@ -379,6 +379,7 @@ export default function Landing({ scrollTo }) {
             </Link>
             <Link to="/features" data-testid="nav-features-link" className="nav-cap text-white/70 hover:text-white transition-colors">Features</Link>
             <Link to="/pricing" data-testid="nav-pricing-link" className="nav-cap text-white/70 hover:text-white transition-colors">Pricing</Link>
+            <Link to="/restaurant" data-testid="nav-restaurant-link" className="nav-cap text-[#DFB78C] hover:text-[#F0D9A5] font-medium transition-colors">🍽️ For Restaurants</Link>
             <a href="/products" data-testid="nav-products-link" className="nav-cap text-[#DFB78C] hover:text-[#F0D9A5] font-medium transition-colors">🧴 Our Products</a>
             <Link to="/staff-registry" data-testid="landing-verify-staff" className="nav-cap text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Staff Verification</Link>
             <ContactDropdown site={site} />

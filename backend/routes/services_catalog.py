@@ -497,3 +497,94 @@ async def rename_service_category(body: CategoryRenameIn, user=Depends(require_a
     r = await db.services.update_many({"category": old}, {"$set": {"category": new}})
     await db.service_categories.update_many({"name": old}, {"$set": {"name": new}})
     return {"ok": True, "services_moved": r.modified_count}
+
+
+def _render_table_posters(t: dict, tables: int, base: str, logo_bytes: bytes | None) -> bytes:
+    """A4 table-tent poster per table: logo, restaurant name, TABLE N, order QR."""
+    import qrcode
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas as _canvas
+
+    GOLD = (0.72, 0.55, 0.25)
+    INK = (0.078, 0.071, 0.063)
+    buf = io.BytesIO()
+    c = _canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+    name = t.get("name") or "Our Restaurant"
+    slug = t.get("slug") or ""
+    logo_img = None
+    if logo_bytes:
+        try:
+            logo_img = ImageReader(io.BytesIO(logo_bytes))
+        except Exception:
+            logo_img = None
+    for n in range(1, tables + 1):
+        c.setFillColorRGB(*INK)
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+        c.setStrokeColorRGB(*GOLD)
+        c.setLineWidth(1.2)
+        c.rect(24, 24, w - 48, h - 48, fill=0, stroke=1)
+        y = h - 78
+        if logo_img:
+            lw, lh = 150, 84
+            c.setFillColorRGB(1, 1, 1)
+            c.roundRect((w - lw - 16) / 2, y - lh, lw + 16, lh + 12, 10, fill=1, stroke=0)
+            c.drawImage(logo_img, (w - lw) / 2, y - lh + 6, lw, lh, preserveAspectRatio=True, mask="auto")
+            y -= lh + 40
+        c.setFillColorRGB(*GOLD)
+        c.setFont("Helvetica-Bold", 26)
+        c.drawCentredString(w / 2, y, name)
+        y -= 26
+        c.setFillColorRGB(0.85, 0.85, 0.88)
+        c.setFont("Helvetica", 12)
+        c.drawCentredString(w / 2, y, "Scan · Browse the menu · Order to your table")
+        y -= 78
+        c.setFillColorRGB(*GOLD)
+        c.setFont("Helvetica-Bold", 64)
+        c.drawCentredString(w / 2, y, f"TABLE {n}")
+        qr_img = qrcode.make(f"{base}/order/{slug}?table={n}", box_size=10, border=2)
+        qb = io.BytesIO()
+        qr_img.save(qb, format="PNG")
+        qb.seek(0)
+        qs = 300
+        c.setFillColorRGB(1, 1, 1)
+        c.roundRect((w - qs - 28) / 2, y - qs - 90, qs + 28, qs + 28, 16, fill=1, stroke=0)
+        c.drawImage(ImageReader(qb), (w - qs) / 2, y - qs - 76, qs, qs)
+        c.setFillColorRGB(0.85, 0.85, 0.88)
+        c.setFont("Helvetica-Bold", 14)
+        c.drawCentredString(w / 2, y - qs - 130, "📱  Point your camera at the QR")
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(0.55, 0.53, 0.5)
+        c.drawCentredString(w / 2, y - qs - 150, f"{base.replace('https://', '')}/order/{slug}")
+        c.setFillColorRGB(*GOLD)
+        c.setFont("Helvetica", 9)
+        c.drawCentredString(w / 2, 40, "Powered by Miracurl Suite ✦")
+        c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+@router.get("/settings/table-qr-posters.pdf")
+async def table_qr_posters(tables: int = 8, origin: str = "", user=Depends(require_admin)):
+    """Printable table-tent posters (logo + table number + order QR), one A4 page per table."""
+    tenant_id = _current_tenant_id.get()
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if (t.get("business_type") or "salon") != "restaurant":
+        raise HTTPException(400, "Table QR posters are only available for restaurants")
+    tables = max(1, min(int(tables), 60))
+    await _raw_db.tenants.update_one({"id": tenant_id}, {"$set": {"table_count": tables}})
+    base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
+    logo_bytes = None
+    logo_url = t.get("logo_url") or ""
+    if logo_url:
+        try:
+            full = logo_url if logo_url.startswith("http") else base + logo_url
+            r = await asyncio.to_thread(requests.get, full, timeout=8)
+            if r.status_code == 200:
+                logo_bytes = r.content
+        except Exception:
+            pass
+    pdf = await asyncio.to_thread(_render_table_posters, t, tables, base, logo_bytes)
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="table-qr-posters-{t.get("slug") or "tables"}.pdf"'})

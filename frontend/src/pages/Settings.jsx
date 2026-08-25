@@ -3,6 +3,7 @@ import { BranchesSection } from "@/components/BranchesSection";
 import { ChangePasswordSection } from "@/components/ChangePasswordSection";
 import { ContactHQSection } from "@/components/ContactHQSection";
 import { QrPosterCard } from "@/components/settings/QrPosterCard";
+import { TableQrPostersCard } from "@/components/settings/TableQrPostersCard";
 import { AuditLogCard } from "@/components/settings/AuditLogCard";
 import { DevicesCard } from "@/components/settings/DevicesCard";
 import { ProfileCompletenessCard } from "@/components/settings/ProfileCompletenessCard";
@@ -36,6 +37,8 @@ export default function Settings() {
         <ProfileCompletenessCard />
 
         <QrPosterCard />
+
+        <TableQrPostersCard />
 
         <div className="mt-6">
           <BranchesSection />

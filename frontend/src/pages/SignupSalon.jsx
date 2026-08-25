@@ -42,7 +42,7 @@ export default function SignupSalon() {
   }, []);
   const [form, setForm] = useState({
     salon_name: "",
-    business_type: "salon",
+    business_type: window.location.pathname.includes("restaurant") ? "restaurant" : "salon",
     slug: "",
     slug_touched: false,
     owner_name: "",
@@ -51,6 +51,12 @@ export default function SignupSalon() {
     location: "",
     phone: "",
   });
+
+  // Keep the URL in sync with the picked business type (/signup-salon ↔ /signup-restaurant)
+  useEffect(() => {
+    const want = form.business_type === "restaurant" ? "/signup-restaurant" : "/signup-salon";
+    if (window.location.pathname !== want) window.history.replaceState(null, "", want + window.location.search);
+  }, [form.business_type]);
 
   // Already logged-in users skip the wizard
   useEffect(() => {
@@ -177,7 +183,7 @@ export default function SignupSalon() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.15)] ring-1 ring-slate-100 p-6 sm:p-10">
-          <Stepper step={step} />
+          <Stepper step={step} resto={form.business_type === "restaurant"} />
 
           {step === 0 && (
             <SalonStep form={form} update={update} />
@@ -255,10 +261,11 @@ export default function SignupSalon() {
   );
 }
 
-function Stepper({ step }) {
+function Stepper({ step, resto = false }) {
+  const labels = resto ? ["Restaurant", ...STEP_LABELS.slice(1)] : STEP_LABELS;
   return (
     <div className="flex items-center gap-2 sm:gap-3 mb-8 overflow-x-auto pb-1">
-      {STEP_LABELS.map((l, i) => {
+      {labels.map((l, i) => {
         const done = i < step;
         const active = i === step;
         return (
@@ -271,7 +278,7 @@ function Stepper({ step }) {
               {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </div>
             <span className={`text-xs uppercase tracking-[0.2em] hidden sm:inline ${active ? "text-sky-600" : done ? "text-slate-600" : "text-slate-300"}`}>{l}</span>
-            {i < STEP_LABELS.length - 1 && <div className={`w-6 sm:w-10 h-px ${done ? "bg-sky-500" : "bg-slate-200"}`} />}
+            {i < labels.length - 1 && <div className={`w-6 sm:w-10 h-px ${done ? "bg-sky-500" : "bg-slate-200"}`} />}
           </div>
         );
       })}
