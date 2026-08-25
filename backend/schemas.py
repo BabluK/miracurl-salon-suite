@@ -89,6 +89,8 @@ class Service(BaseModel):
     active: bool = True
     bookable_online: bool = True
     gender: str = "unisex"  # male | female | unisex
+    veg: Optional[str] = None    # veg | non-veg | egg (restaurant dish tag)
+    spice: Optional[int] = None  # 0-3 chilis (restaurant dish tag)
 
 class ServiceIn(BaseModel):
     name: str
@@ -101,6 +103,8 @@ class ServiceIn(BaseModel):
     active: bool = True
     bookable_online: bool = True
     gender: str = "unisex"
+    veg: Optional[str] = None
+    spice: Optional[int] = None
 
 class Staff(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

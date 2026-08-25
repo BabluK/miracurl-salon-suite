@@ -117,6 +117,8 @@ async def _booking_catalog(t) -> str:
     )
     svc_lines = "\n".join(
         f"- id={s['id'][:8]} | {s['name']} | {s.get('category', '')} | {sym}{s['price']} | {s['duration_min']}min"
+        + (f" | {s['veg'].upper()}" if s.get("veg") else "")
+        + (f" | spice: {'🌶️' * int(s['spice'])}" if s.get("spice") else "")
         for s in services) or "(no services listed)"
     staff_lines = "\n".join(
         f"- {s['name']} (id={s['id'][:8]}) — {s.get('role') or 'Stylist'}"

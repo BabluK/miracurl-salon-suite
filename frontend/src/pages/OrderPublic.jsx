@@ -110,7 +110,13 @@ export default function OrderPublic() {
                 <div key={m.id} data-testid={`menu-item-${m.id}`}
                   className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">{m.name}</p>
+                    <p className="text-sm font-semibold truncate">
+                      {m.veg === "veg" && <span title="Veg">🟢 </span>}
+                      {m.veg === "non-veg" && <span title="Non-veg">🔴 </span>}
+                      {m.veg === "egg" && <span title="Egg">🟡 </span>}
+                      {m.name}
+                      {Number(m.spice) > 0 && <span className="ml-1 text-[10px]">{"🌶️".repeat(Number(m.spice))}</span>}
+                    </p>
                     {pctFor(m) > 0 ? (
                       <p className="text-xs font-bold mt-0.5"><s className="text-white/35">₹{Math.round(m.price)}</s> <span className="text-emerald-300">₹{Math.round(m.price * (1 - pctFor(m) / 100))}</span></p>
                     ) : (

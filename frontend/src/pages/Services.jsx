@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import ImageUploader from "@/components/ImageUploader";
 import { catImage } from "@/lib/categoryImages";
+import { useAuth } from "@/context/AuthContext";
 
 // Categories are fully dynamic — pulled from the salon's own services + created banners
 const NEW_CAT = "__new__";
@@ -20,6 +21,7 @@ const catIcon = (c) => {
 };
 
 export default function Services() {
+  const { tenant } = useAuth();
   const [list, setList] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -153,6 +155,29 @@ export default function Services() {
     female: { label: "Women", icon: "👩", cls: "bg-rose-50 border-rose-200 text-rose-600" },
     unisex: { label: "Unisex", icon: "⚥", cls: "bg-slate-50 border-slate-200 text-slate-500" },
   };
+  const VEG_META = {
+    "veg": { icon: "🟢", label: "Veg", cls: "bg-emerald-50 border-emerald-200 text-emerald-700" },
+    "non-veg": { icon: "🔴", label: "Non-veg", cls: "bg-rose-50 border-rose-200 text-rose-600" },
+    "egg": { icon: "🟡", label: "Egg", cls: "bg-amber-50 border-amber-200 text-amber-700" },
+  };
+  async function cycleVeg(s) {
+    const order = [null, "veg", "non-veg", "egg"];
+    const next = order[(order.indexOf(s.veg || null) + 1) % 4];
+    try {
+      await api.put(`/services/${s.id}`, { ...s, veg: next });
+      toast.success(`${s.name} → ${next ? VEG_META[next].label : "no diet tag"}`);
+      load();
+    } catch { toast.error("Couldn't update"); }
+  }
+  async function cycleSpice(s) {
+    const next = ((Number(s.spice) || 0) + 1) % 4;
+    try {
+      await api.put(`/services/${s.id}`, { ...s, spice: next });
+      toast.success(`${s.name} → ${next ? "🌶️".repeat(next) : "not spicy"}`);
+      load();
+    } catch { toast.error("Couldn't update"); }
+  }
+
   async function cycleGender(s) {
     const order = ["unisex", "male", "female"];
     const next = order[(order.indexOf(s.gender || "unisex") + 1) % 3];
@@ -383,6 +408,18 @@ export default function Services() {
                     {s.description && <span className="truncate hidden sm:inline">· {s.description}</span>}
                   </div>
                 </div>
+                {tenant?.business_type === "restaurant" && (<>
+                  <button data-testid={`toggle-veg-${s.id}`} onClick={() => cycleVeg(s)}
+                    title="Diet tag — tap to cycle: none → Veg → Non-veg → Egg"
+                    className={`shrink-0 flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full border transition ${s.veg ? VEG_META[s.veg].cls : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                    {s.veg ? VEG_META[s.veg].icon : "◌"}<span className="hidden sm:inline">{s.veg ? VEG_META[s.veg].label : "Diet"}</span>
+                  </button>
+                  <button data-testid={`toggle-spice-${s.id}`} onClick={() => cycleSpice(s)}
+                    title="Spice level — tap to cycle 0-3 chilis"
+                    className={`shrink-0 text-[11px] px-2.5 py-1.5 rounded-full border transition ${Number(s.spice) > 0 ? "bg-orange-50 border-orange-200 text-orange-600" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                    {Number(s.spice) > 0 ? "🌶️".repeat(Number(s.spice)) : "🌶️?"}
+                  </button>
+                </>)}
                 <button data-testid={`toggle-gender-${s.id}`} onClick={() => cycleGender(s)}
                   title="Who is this service for? Tap to cycle: Unisex → Men → Women"
                   className={`shrink-0 flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full border transition ${GENDER_META[s.gender || "unisex"].cls}`}>

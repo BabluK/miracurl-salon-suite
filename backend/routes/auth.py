@@ -363,7 +363,7 @@ async def _seed_restaurant_defaults(tenant_id: str) -> None:
     await _raw_db.services.insert_many([{
         "id": str(uuid.uuid4()), "tenant_id": tenant_id, "name": n, "category": c,
         "price": float(p), "duration_min": 0, "description": "", "image_url": "",
-        "trending": False, "active": True, "gender": "Unisex"} for c, n, p in _SAMPLE_MENU])
+        "trending": False, "active": True, "gender": "unisex"} for c, n, p in _SAMPLE_MENU])
     await _raw_db.staff.insert_one({
         "id": str(uuid.uuid4()), "tenant_id": tenant_id, "name": "Front Desk / Host",
         "role": "Host", "phone": "", "email": "", "specialties": [], "commission_pct": 0.0,
