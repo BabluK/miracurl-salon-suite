@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.109"
+BUILD = "2026-08-25.110"
 BUILD_TIME = "25 Aug 2026, 11:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-25 (Restaurant signup polish & USD plans 🌍)",
         "changes": [
+            "Super Admin: Lead hunts now have a Salon 💇 / Restaurant 🍽️ business-type switch — restaurant leads get a restaurant-specific outreach email (QR ordering, kitchen tickets, table billing pitch) with restaurant plan pricing, and salon leads keep the salon pitch; WhatsApp scripts and the HQ lead list badge/filter follow the same split",
             "✍️ Restaurant signup now speaks restaurant — 'Bring your restaurant online', 'First Month Free' badge, correct review pricing (₹3,000/3mo · ₹6,000/6mo · ₹12,000/yr) and a 'Start free month' button (salon signup unchanged)",
             "🌍 International restaurant plans added — $299 / 3 months · $549 / 6 months · $999 / year (USD), editable in HQ → Billing → Plan Catalog",
             "🛠️ Code-quality pass — 8 complex functions refactored for reliability (customer merge, lead compose, gift cards, demo booking, subscription gate, voice call routing, member emails); zero behavior changes",

@@ -51,13 +51,23 @@ _OBFUSCATED_DOT = re.compile(r"\s*[\[\(\{]\s*dot\s*[\]\)\}]\s*", re.I)
 FUNNEL_TARGETS = {"target_leads": 300, "qualified": 100, "emails_sent": 50, "demos": 10, "customers": 5}
 
 
-_SEARCH_CATEGORIES = [
-    ("Salon", "beauty salons in {city}"),
-    ("Unisex Salon", "unisex salons in {city}"),
-    ("Spa", "spas and wellness centres in {city}"),
-    ("Boutique", "beauty boutiques in {city}"),
-    ("Hair Care", "hair care and hair studios in {city}"),
-]
+_SEARCH_CATEGORIES_BY_VERTICAL = {
+    "salon": [
+        ("Salon", "beauty salons in {city}"),
+        ("Unisex Salon", "unisex salons in {city}"),
+        ("Spa", "spas and wellness centres in {city}"),
+        ("Boutique", "beauty boutiques in {city}"),
+        ("Hair Care", "hair care and hair studios in {city}"),
+    ],
+    "restaurant": [
+        ("Restaurant", "restaurants in {city}"),
+        ("Family Restaurant", "family restaurants in {city}"),
+        ("Fine Dining", "fine dining restaurants in {city}"),
+        ("Cafe", "cafes and coffee shops in {city}"),
+        ("BBQ & Grill", "barbecue and grill restaurants in {city}"),
+    ],
+}
+_SEARCH_CATEGORIES = _SEARCH_CATEGORIES_BY_VERTICAL["salon"]
 
 
 async def _places_query(client: httpx.AsyncClient, key: str, query: str, want: int) -> list:
@@ -106,38 +116,40 @@ def _collect_places(pairs, seen, out, first_err):
     return first_err
 
 
-async def _places_area_phase(client, key, city, areas, seen, out) -> str:
+async def _places_area_phase(client, key, city, areas, seen, out, cats=None) -> str:
     """Each category searched per rotating locality, in parallel."""
-    tasks, cats = [], []
-    for cat, q in _SEARCH_CATEGORIES:
+    tasks, cat_names = [], []
+    for cat, q in (cats or _SEARCH_CATEGORIES):
         for a in areas:
             tasks.append(_places_query(client, key, q.format(city=f"{a}, {city}"), 20))
-            cats.append(cat)
+            cat_names.append(cat)
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    return _collect_places(zip(cats, results), seen, out, "")
+    return _collect_places(zip(cat_names, results), seen, out, "")
 
 
-async def _places_citywide_phase(client, key, city, n, seen, out, first_err) -> str:
+async def _places_citywide_phase(client, key, city, n, seen, out, first_err, cats=None) -> str:
     """City-wide deep search (initial run, small towns, or thin localities)."""
-    per_cat = min(60, max(12, (n // len(_SEARCH_CATEGORIES)) + 10))
+    cats = cats or _SEARCH_CATEGORIES
+    per_cat = min(60, max(12, (n // len(cats)) + 10))
     results = await asyncio.gather(
-        *[_places_query(client, key, q.format(city=city), per_cat) for _, q in _SEARCH_CATEGORIES],
+        *[_places_query(client, key, q.format(city=city), per_cat) for _, q in cats],
         return_exceptions=True)
-    return _collect_places(zip([c for c, _ in _SEARCH_CATEGORIES], results), seen, out, first_err)
+    return _collect_places(zip([c for c, _ in cats], results), seen, out, first_err)
 
 
-async def _places_search(client: httpx.AsyncClient, city: str, n: int, areas: list | None = None) -> tuple:
-    """Advanced multi-category Google Places search: Salon, Unisex Salon, Spa,
-    Boutique and Hair Care queried in PARALLEL with pagination (up to 60/category),
-    deduped, best-reviewed first. Works for any city worldwide (e.g. 'London, UK')."""
+async def _places_search(client: httpx.AsyncClient, city: str, n: int, areas: list | None = None,
+                         vertical: str = "salon") -> tuple:
+    """Advanced multi-category Google Places search per business vertical, queried in
+    PARALLEL with pagination (up to 60/category), deduped, best-reviewed first."""
     key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
     if not key:
         return [], "no_key"
+    cats = _SEARCH_CATEGORIES_BY_VERTICAL.get(vertical) or _SEARCH_CATEGORIES
     seen, out, first_err = set(), [], ""
     if areas:
-        first_err = await _places_area_phase(client, key, city, areas, seen, out)
+        first_err = await _places_area_phase(client, key, city, areas, seen, out, cats)
     if len(out) < n:
-        first_err = await _places_citywide_phase(client, key, city, n, seen, out, first_err)
+        first_err = await _places_citywide_phase(client, key, city, n, seen, out, first_err, cats)
     if not out:
         return [], first_err or "no results"
     out.sort(key=lambda p: (p.get("reviews") or 0, p.get("rating") or 0), reverse=True)
@@ -279,9 +291,36 @@ _PRICE_RE = re.compile(r"(?:for |at )?(?:just |only )?(?:Rs\.?|₹|INR|\$|USD)\s
 
 async def _draft_email(lead: dict) -> dict:
     from routes.mira_common import _ask_json
-    pricing = _pricing_lines(_plans_for(await _live_plans(), _lead_intl(lead.get("city"))))
+    vertical = lead.get("vertical") or "salon"
+    pricing = _pricing_lines(_plans_for(await _live_plans(), _lead_intl(lead.get("city")), vertical))
     research = {k: v for k, v in lead.items()
                 if k not in ("email_body", "email_subject", "id", "_id", "run_id", "score_breakdown", "status")}
+    if vertical == "restaurant":
+        system = (
+            "You are Mira, the outreach agent for Miracurl Suite — an all-in-one RESTAURANT management platform "
+            "(QR table ordering straight to the kitchen, live Kitchen Ticket display, table-wise billing, "
+            "table reservations, AI menu photos & descriptions, waiter-call buttons, WhatsApp marketing, GST billing). "
+            f"Current live plan pricing:\n{pricing}\n"
+            "Write warm, short, personalized B2B outreach emails to restaurant owners anywhere in the world — "
+            "match the tone and spelling to the restaurant's country (the city may include a country like 'London, UK').")
+        user = (
+            f"Restaurant research data: {research}\n"
+            "Write a personalized email to this restaurant's owner. Rules: greet as 'Hi {name} team' or owner if known; "
+            "1st line must reference something SPECIFIC from the research (their rating/reviews, cuisine, branches); "
+            "if they're popular (500+ reviews) but have no online ordering/reservations, emphasize how much revenue walks "
+            "out when diners wait for menus and bills; "
+            "2nd para: paint the upgrade — diners scan a table QR, order in seconds, the kitchen gets a live ticket, "
+            "and one tap bills the whole table; reservations and WhatsApp marketing included; recommend the plan that "
+            "fits them and note the annual plan is the best value; do NOT list prices in the body — a pricing table is "
+            "appended below automatically; mention the attached brochure PDF; CTA: free live demo — reply to this email "
+            "or visit https://miracurl-suite.com/demo. Max 140 words, no fluff, plain paragraphs. "
+            "The subject line must be a scroll-stopping HOT hook personalized with the restaurant's name, rating or a "
+            "money angle (e.g. 'Table 7 just ordered — before the waiter arrived 🍽️'), exactly ONE tasteful emoji "
+            "(🍽️ 🔥 ✨ 📈 ⭐), max 60 chars, never spammy ALL-CAPS. "
+            'Return JSON: {"subject":"<hot personalized subject max 60 chars>","body":"<email body, use \\n between paragraphs>"}')
+        out = await _ask_json(system, user)
+        return {"subject": (out.get("subject") or "Grow your restaurant with Miracurl Suite")[:120],
+                "body": _PRICE_RE.sub("at the plans priced below", out.get("body") or "")}
     out = await _ask_json(
         "You are Mira, the outreach agent for Miracurl Suite — an all-in-one salon management platform "
         "(online booking, WhatsApp marketing & automation, staff attendance & payroll, memberships, GST billing). "
@@ -392,15 +431,17 @@ async def _scrape_site(client: httpx.AsyncClient, website_hint: str) -> dict:
             "text": soup.get_text(" ", strip=True)[:2500]}
 
 
-async def _llm_research(name: str, city: str, site: dict) -> dict:
+async def _llm_research(name: str, city: str, site: dict, vertical: str = "salon") -> dict:
     from routes.mira_common import _ask_json
     website = site["website"]
+    noun = "restaurant" if vertical == "restaurant" else "salon"
     return await _ask_json(
-        "You are the Research Agent for a salon-software company. You MAY use your general knowledge about this "
-        "salon brand (typical Google rating, whether it is a chain and roughly how many branches it has in this city, "
-        "its usual services). But judge website_quality and online booking primarily from the provided website text. "
+        f"You are the Research Agent for a {noun}-software company. You MAY use your general knowledge about this "
+        f"{noun} brand (typical Google rating, whether it is a chain and roughly how many branches it has in this city, "
+        f"its usual {'cuisines and signature dishes' if vertical == 'restaurant' else 'services'}). "
+        "But judge website_quality and online booking primarily from the provided website text. "
         "Never invent emails or website URLs.",
-        f"Salon: {name}, City: {city}, India. Website {'(verified live)' if website else '(none found)'}: {website}\n"
+        f"{noun.capitalize()}: {name}, City: {city}, India. Website {'(verified live)' if website else '(none found)'}: {website}\n"
         f"Website text: {site['text'] or '(no website content)'}\n"
         'Return JSON: {"rating": <typical Google rating like 4.3, null only if you truly do not know this brand>, '
         '"services": ["..."], "branches": <estimated branch count in this city, 1 if single outlet>, '
@@ -433,19 +474,20 @@ def _lead_quality_fields(site: dict, info: dict) -> dict:
     }
 
 
-def _compose_lead(name: str, city: str, site: dict, info: dict) -> dict:
+def _compose_lead(name: str, city: str, site: dict, info: dict, vertical: str = "salon") -> dict:
     """Merge scraped-site facts with LLM research into a scored lead record."""
-    lead = {"id": str(uuid.uuid4()), "name": name, "city": city,
+    lead = {"id": str(uuid.uuid4()), "name": name, "city": city, "vertical": vertical,
             **_lead_contact_fields(site, info), **_lead_quality_fields(site, info),
             "crm": False, "status": "researched", "created_at": _now()}
     lead["score"], lead["score_breakdown"] = _score(lead)
     return lead
 
 
-async def _research_salon(client: httpx.AsyncClient, name: str, city: str, website_hint: str = "") -> dict:
+async def _research_salon(client: httpx.AsyncClient, name: str, city: str, website_hint: str = "",
+                          vertical: str = "salon") -> dict:
     site = await _scrape_site(client, website_hint)
-    info = await _llm_research(name, city, site)
-    return _compose_lead(name, city, site, info)
+    info = await _llm_research(name, city, site, vertical)
+    return _compose_lead(name, city, site, info, vertical)
 
 
 async def _next_localities(city: str, k: int = 3) -> list:
@@ -476,9 +518,10 @@ async def _next_localities(city: str, k: int = 3) -> list:
 
 
 async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, existing: set,
-                           areas: list | None = None) -> tuple:
+                           areas: list | None = None, vertical: str = "salon") -> tuple:
     """Returns (source, candidates, note). Google Maps when available, else Mira AI research."""
-    raw, note = await _places_search(client, city, max(target * 3, 40), areas=areas)
+    noun = "restaurant" if vertical == "restaurant" else "salon"
+    raw, note = await _places_search(client, city, max(target * 3, 40), areas=areas, vertical=vertical)
     places = [p for p in raw if p["name"] and p["name"].lower() not in existing][:target]
     if places:
         return "maps", [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p}
@@ -487,20 +530,21 @@ async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, ex
         note = "all Maps results already contacted"
     from routes.mira_common import _ask_json
     plan = await _ask_json(
-        "You are the Lead Finder agent for a salon-software company targeting salons worldwide. "
-        "List REAL salon businesses that operate in the given city — well-known local salons and chains. "
+        f"You are the Lead Finder agent for a {noun}-software company targeting {noun}s worldwide. "
+        f"List REAL {noun} businesses that operate in the given city — well-known local {noun}s and chains. "
         "Include their official website domain ONLY if you are confident it is correct; otherwise leave empty. "
-        "Never invent salon names or domains.",
+        f"Never invent {noun} names or domains.",
         f"City/region: {city} (may include a country, e.g. 'London, UK'). "
         f"Already contacted (skip these): {sorted(existing)[:40]}\n"
-        f'Return JSON: {{"salons": [{{"name": "<salon name>", "website": "<https://… or empty>", '
-        f'"area": "<locality if known>"}}]}} with up to {target + 6} salons.')
+        f'Return JSON: {{"salons": [{{"name": "<{noun} name>", "website": "<https://… or empty>", '
+        f'"area": "<locality if known>"}}]}} with up to {target + 6} {noun}s.')
     return "ai", [c for c in (plan.get("salons") or [])
                   if c.get("name") and c["name"].strip().lower() not in existing][:target], note
 
 
-async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str, run_id: str) -> dict:
-    lead = await _research_salon(client, cand["name"].strip(), city, (cand.get("website") or "").strip())
+async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str, run_id: str,
+                                vertical: str = "salon") -> dict:
+    lead = await _research_salon(client, cand["name"].strip(), city, (cand.get("website") or "").strip(), vertical)
     lead["run_id"] = run_id
     lead["area"] = cand.get("area") or ""
     place = cand.get("_place")
@@ -529,11 +573,12 @@ async def _log_candidate_source(_log, source: str, note: str):
         await _log(f"⚠️ Google Maps unavailable ({note or 'no results'}) — using Mira AI research instead.")
 
 
-async def _research_candidates(client: httpx.AsyncClient, cands: list, city: str, run_id: str, _log) -> int:
+async def _research_candidates(client: httpx.AsyncClient, cands: list, city: str, run_id: str, _log,
+                               vertical: str = "salon") -> int:
     done = 0
     for cand in cands:
         try:
-            lead = await _build_candidate_lead(client, cand, city, run_id)
+            lead = await _build_candidate_lead(client, cand, city, run_id, vertical)
             await _raw_db.mira_leads.insert_one(lead)
             done += 1
             tag = f" · 🔥 {lead['competitor']}" if lead.get("competitor") else ""
@@ -544,24 +589,25 @@ async def _research_candidates(client: httpx.AsyncClient, cands: list, city: str
     return done
 
 
-async def _run_pipeline(run_id: str, city: str, target: int):
+async def _run_pipeline(run_id: str, city: str, target: int, vertical: str = "salon"):
+    noun = "restaurant" if vertical == "restaurant" else "salon"
     async def _log(msg, **sets):
         await _raw_db.mira_lead_runs.update_one(
             {"id": run_id}, {"$push": {"log": f"[{_now()[11:19]}] {msg}"}, "$set": sets or {}})
     try:
         async with httpx.AsyncClient() as client:
-            await _log(f"🔍 Lead Finder: Mira is listing real salons in {city}…", stage="finding")
+            await _log(f"🔍 Lead Finder: Mira is listing real {noun}s in {city}…", stage="finding")
             areas = await _next_localities(city, 3)
             if areas:
                 await _log(f"🧭 This run explores: {', '.join(areas)} (fresh localities each run)")
             existing = {(d.get("name") or "").lower() async for d in _raw_db.mira_leads.find({"city": city}, {"name": 1})}
-            source, cands, note = await _find_candidates(client, city, target, existing, areas=areas)
+            source, cands, note = await _find_candidates(client, city, target, existing, areas=areas, vertical=vertical)
             if not cands:
-                await _log("No new salons found — try another city or run again later.", status="done", stage="done")
+                await _log(f"No new {noun}s found — try another city or run again later.", status="done", stage="done")
                 return
             await _log_candidate_source(_log, source, note)
-            await _log(f"✅ Found {len(cands)} candidate salons. Researching each…", stage="researching", found=len(cands))
-            done = await _research_candidates(client, cands, city, run_id, _log)
+            await _log(f"✅ Found {len(cands)} candidate {noun}s. Researching each…", stage="researching", found=len(cands))
+            done = await _research_candidates(client, cands, city, run_id, _log, vertical)
             await _log(f"🎉 Run complete — {done} leads ready for your review.", status="done", stage="done")
             from routes.lead_common import log_mira_event
             await log_mira_event("result", f"{done} prospects researched and qualified — ready for Boss's review.")
@@ -573,6 +619,7 @@ async def _run_pipeline(run_id: str, city: str, target: int):
 class RunIn(BaseModel):
     city: str = Field(..., min_length=2, max_length=60)
     target: int = Field(10, ge=1, le=50)
+    vertical: str = Field("salon", pattern="^(salon|restaurant)$")
 
 
 async def _hunt_all_pipeline(run_id: str, leads: list):
@@ -657,13 +704,13 @@ async def start_run(body: RunIn, user=Depends(require_super_admin)):
     if active:
         raise HTTPException(409, "A lead run is already in progress — wait for it to finish.")
     city = re.sub(r",\s*([A-Za-z]{2,3})$", lambda m: ", " + m.group(1).upper(), body.city.strip().title())
-    run = {"id": str(uuid.uuid4()), "city": city, "target": body.target,
+    run = {"id": str(uuid.uuid4()), "city": city, "target": body.target, "vertical": body.vertical,
            "status": "running", "stage": "starting", "found": 0, "researched": 0,
            "log": [], "created_at": _now()}
     await _raw_db.mira_lead_runs.insert_one({**run})
     from routes.lead_common import log_mira_event
-    await log_mira_event("search", f"Boss asked Mira to find {body.target} salon leads in {city}.")
-    asyncio.create_task(_run_pipeline(run["id"], run["city"], body.target))
+    await log_mira_event("search", f"Boss asked Mira to find {body.target} {body.vertical} leads in {city}.")
+    asyncio.create_task(_run_pipeline(run["id"], run["city"], body.target, body.vertical))
     run.pop("_id", None)
     return run
 
@@ -949,26 +996,34 @@ def _wa_phone(raw: str) -> str:
 
 async def _wa_message(lead: dict) -> str:
     plans = await _live_plans()
-    half, annual = int(plans["half_year"]["price"]), int(plans["annual"]["price"])
+    resto = (lead.get("vertical") or "salon") == "restaurant"
+    noun = "restaurant" if resto else "salon"
+    if resto:
+        half, annual = int(plans["resto_half"]["price"]), int(plans["resto_annual"]["price"])
+    else:
+        half, annual = int(plans["half_year"]["price"]), int(plans["annual"]["price"])
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     intro = f"Hi {lead.get('owner_name') or lead['name'] + ' team'}! 👋\n"
     if lead.get("rating"):
         reviews = f" with {lead['reviews']} reviews" if lead.get("reviews") else ""
-        intro += f"Came across your salon in {lead.get('city', '')} — {lead['rating']}⭐{reviews} is truly impressive!\n\n"
+        intro += f"Came across your {noun} in {lead.get('city', '')} — {lead['rating']}⭐{reviews} is truly impressive!\n\n"
     else:
-        intro += f"Came across your salon in {lead.get('city', '')} and had to reach out!\n\n"
+        intro += f"Came across your {noun} in {lead.get('city', '')} and had to reach out!\n\n"
     video = os.environ.get("DEMO_VIDEO_URL") or f"{base}/miracurl-demo-60s.mp4"
     video_line = f"🎥 60-sec walkthrough video: {video}\n"
-    return (intro +
-            "I'm Mira from *Miracurl Suite* — the all-in-one salon platform: online booking, "
-            "WhatsApp marketing & automation, staff attendance & payroll, memberships and GST billing.\n\n"
+    pitch = ("I'm Mira from *Miracurl Suite* — the all-in-one restaurant platform: QR table ordering straight "
+             "to the kitchen, live kitchen tickets, table-wise billing, reservations, AI menu photos and "
+             "WhatsApp marketing.\n\n" if resto else
+             "I'm Mira from *Miracurl Suite* — the all-in-one salon platform: online booking, "
+             "WhatsApp marketing & automation, staff attendance & payroll, memberships and GST billing.\n\n")
+    return (intro + pitch +
             f"💰 Plans start at Rs.{half:,} for 6 months — *best value: Annual at Rs.{annual:,}* "
-            "(multi-branch discounts available!)\n\n"
+            + ("(first month FREE!)\n\n" if resto else "(multi-branch discounts available!)\n\n")
             + video_line +
             f"▶️ Our YouTube channel: youtube.com/@miracurl_unisex_saloon7423\n"
             f"🎬 *Live demo* (try it right now): {base}/demo\n"
-            f"🏪 Register your salon: {base}/signup-salon\n"
-            f"🪪 Staff register & verify: {base}/staff-registry\n"
+            f"🏪 Register your {noun}: {base}/signup-salon\n"
+            + ("" if resto else f"🪪 Staff register & verify: {base}/staff-registry\n") +
             f"📱 App screens tour (PDF): {base}/miracurl-screens-tour.pdf\n"
             f"📎 Full brochure: {base}/api/public/brochure.pdf\n"
             f"🌐 {base}\n\n"

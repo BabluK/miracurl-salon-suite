@@ -463,6 +463,7 @@ function LeadRow({ lead, onRefresh }) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 truncate">
             {lead.name} <span className="text-slate-400 font-normal">· {lead.city}</span>
+            {lead.vertical === "restaurant" && <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-600 align-middle">🍽️ Restaurant</span>}
             <span data-testid={`lead-region-${lead.id}`} className="ml-1.5 text-[10px] align-middle" title={((lead.phone || "").replace(/[\s()-]/g, "").startsWith("+") && !(lead.phone || "").replace(/[\s()-]/g, "").startsWith("+91")) ? "Foreign lead" : "Indian lead"}>
               {((lead.phone || "").replace(/[\s()-]/g, "").startsWith("+") && !(lead.phone || "").replace(/[\s()-]/g, "").startsWith("+91")) ? "🌍" : "🇮🇳"}
             </span>
@@ -644,6 +645,7 @@ function MeetInviteForm({ lead, onSent }) {
 export function MiraLeadAgent() {
   const [city, setCity] = useState("Bangalore");
   const [target, setTarget] = useState(10);
+  const [vertical, setVertical] = useState("salon");
   const [runs, setRuns] = useState([]);
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
@@ -677,8 +679,8 @@ export function MiraLeadAgent() {
   const startRun = async () => {
     setStarting(true);
     try {
-      await api.post("/super-admin/mira-leads/run", { city, target: Number(target) });
-      toast.success(`Mira is hunting for salons in ${city} ✦ (takes a few minutes)`);
+      await api.post("/super-admin/mira-leads/run", { city, target: Number(target), vertical });
+      toast.success(`Mira is hunting for ${vertical === "restaurant" ? "restaurants" : "salons"} in ${city} ✦ (takes a few minutes)`);
       startPolling();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start run"); }
     finally { setStarting(false); }
@@ -699,6 +701,7 @@ export function MiraLeadAgent() {
     { key: "all", label: "All", test: () => true },
     { key: "india", label: "🇮🇳 Indian", test: l => isIndian(l) },
     { key: "intl", label: "🌍 Foreign", test: l => !isIndian(l) },
+    { key: "resto", label: "🍽️ Restaurants", test: l => l.vertical === "restaurant" },
     { key: "recent", label: "🕐 Recent search", test: l => runs[0] && l.run_id === runs[0].id },
     { key: "hot", label: "🔥 Hot leads", test: l => isHot(l) },
     { key: "ready", label: "✉️ Ready to send", test: l => ["drafted", "researched"].includes(l.status) && !!l.email },
@@ -725,17 +728,28 @@ export function MiraLeadAgent() {
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-3">
         <div>
+          <label className="text-[11px] uppercase tracking-wide text-slate-400">Business type</label>
+          <div className="flex gap-1 mt-1 p-1 rounded-xl bg-slate-100 border border-slate-200" data-testid="lead-vertical-toggle">
+            {[["salon", "💇 Salons"], ["restaurant", "🍽️ Restaurants"]].map(([k, l]) => (
+              <button key={k} onClick={() => setVertical(k)} data-testid={`lead-vertical-${k}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${vertical === k ? "bg-white shadow text-fuchsia-600" : "text-slate-500 hover:text-slate-700"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
           <label className="text-[11px] uppercase tracking-wide text-slate-400">City</label>
           <input value={city} onChange={e => setCity(e.target.value)} placeholder="Bangalore · London, UK · New York, US" className="block border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 w-56" data-testid="lead-city-input" />
         </div>
         <div>
-          <label className="text-[11px] uppercase tracking-wide text-slate-400">How many salons</label>
+          <label className="text-[11px] uppercase tracking-wide text-slate-400">How many</label>
           <input type="number" min="1" max="50" value={target} onChange={e => setTarget(e.target.value)} className="block border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 w-24" data-testid="lead-target-input" />
         </div>
         <button onClick={startRun} disabled={starting || !!activeRun} data-testid="lead-run-btn"
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white text-sm font-bold inline-flex items-center gap-2 disabled:opacity-50">
           {starting || activeRun ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-          {activeRun ? "Mira is working…" : "Find salons ✦"}
+          {activeRun ? "Mira is working…" : `Find ${vertical === "restaurant" ? "restaurants" : "salons"} ✦`}
         </button>
         {activeRun && (
           <button data-testid="lead-stop-run-btn"
