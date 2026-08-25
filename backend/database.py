@@ -103,6 +103,7 @@ class _DB:
     chat_threads = TenantCollection(_raw_db.chat_threads)
     chat_messages = TenantCollection(_raw_db.chat_messages)
     whatsapp_requests = TenantCollection(_raw_db.whatsapp_requests)
+    table_orders = TenantCollection(_raw_db.table_orders)
     packages = TenantCollection(_raw_db.packages)
     memberships = TenantCollection(_raw_db.memberships)
     customer_packages = TenantCollection(_raw_db.customer_packages)

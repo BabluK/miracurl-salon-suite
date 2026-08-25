@@ -162,16 +162,22 @@ async def _salon_rating(tenant_id: str) -> dict | None:
 @router.get("/public/salon/{slug}")
 async def public_salon(slug: str):
     t = await resolve_tenant_from_slug(slug)
+    _is_resto = t.get("business_type") == "restaurant"
+    _salon_default_hero = "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600"
+    _hero = t.get("hero_image") or ""
+    if _is_resto and (not _hero or _hero == _salon_default_hero):
+        _hero = "/resto-hero.jpg"
     return {
         "slug": t["slug"],
         "name": t.get("name"),
-        "tagline": "Where elegance meets every strand",
+        "tagline": t.get("tagline") or ("Great food, warm company, memorable evenings" if _is_resto
+                                        else "Where elegance meets every strand"),
         "location": t.get("location") or "Marathahalli, Bangalore",
         "phone": t.get("phone") or "+91 98765 00000",
         "hours": t.get("hours") or "Mon–Sun · 10:00 AM – 9:00 PM",
         "open_time": t.get("open_time") or "10:00",
         "close_time": t.get("close_time") or "21:00",
-        "hero_image": t.get("hero_image") or "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600",
+        "hero_image": _hero or _salon_default_hero,
         "referral_reward": REFERRAL_REWARD_REFERRER,
         "google_review_url": t.get("google_review_url") or "",
         "instagram_url": t.get("instagram_url") or "",
@@ -688,6 +694,41 @@ async def qr_scan_stats(user=Depends(require_super_admin)):
                     "last_7_days": last7, "last_scan": r["last_scan"]})
     out.sort(key=lambda x: -x["total"])
     return {"products": out, "total_scans": sum(x["total"] for x in out)}
+
+
+class TableOrderIn(BaseModel):
+    table_no: int = Field(..., ge=1, le=200)
+    customer_name: Optional[str] = Field(None, max_length=80)
+    items: List[dict] = Field(..., min_length=1, max_length=40)
+
+
+@router.post("/public/table-order/{slug}")
+async def create_table_order(slug: str, body: TableOrderIn, request: Request):
+    """QR-at-table food ordering — diners scan a table QR and order into the kitchen."""
+    t = await resolve_tenant_from_slug(slug)
+    if (t.get("business_type") or "salon") != "restaurant":
+        raise HTTPException(400, "Table ordering is only available for restaurants")
+    public_rate_limit(request, key_suffix=f"tableorder:{slug}", limit=15, window_sec=600)
+    ids = [str(i.get("id")) for i in body.items if i.get("id")]
+    menu = {m["id"]: m for m in await db.services.find(
+        {"id": {"$in": ids}, "active": True}, {"_id": 0}).to_list(60)}
+    items, total = [], 0.0
+    for i in body.items:
+        m = menu.get(str(i.get("id")))
+        if not m:
+            continue
+        qty = max(1, min(20, int(i.get("qty") or 1)))
+        items.append({"id": m["id"], "name": m["name"], "price": m["price"], "qty": qty})
+        total += m["price"] * qty
+    if not items:
+        raise HTTPException(400, "No valid menu items in the order")
+    order = {"id": uuid.uuid4().hex[:8], "tenant_id": t["id"], "table_no": body.table_no,
+             "customer_name": (body.customer_name or "").strip()[:80],
+             "items": items, "total": round(total, 2), "status": "new",
+             "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.table_orders.insert_one(order)
+    order.pop("_id", None)
+    return {"ok": True, "order": order}
 
 
 @router.get("/super-admin/product-orders")

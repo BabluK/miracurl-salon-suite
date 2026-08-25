@@ -336,7 +336,14 @@ export default function BookPublic() {
             </a>
             );
           })()}
-          <HeroCTAs />
+          <HeroCTAs restaurant={salon.business_type === "restaurant"} />
+          {salon.business_type === "restaurant" ? (
+            <Link to={`/order/${slug}`} data-testid="hero-order-food-btn"
+              className="mt-3 inline-flex items-center gap-2 w-fit px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-600/30 to-rose-500/30 backdrop-blur-md border border-gold/40 text-sm font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
+              🍽️ Order Food at Your Table
+              <span className="text-[9px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">Scan & Eat</span>
+            </Link>
+          ) : (<>
           <Link to={`/gift/${slug}`} data-testid="hero-gift-card-btn"
             className="mt-3 inline-flex items-center gap-2 w-fit px-5 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-600/30 to-amber-500/30 backdrop-blur-md border border-gold/40 text-sm font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
             🎁 Gift Card for a Loved One
@@ -347,6 +354,7 @@ export default function BookPublic() {
             💳 Premium Membership — earn cashback every visit
             <span className="text-[9px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
           </Link>
+          </>)}
         </div>
       </header>
 

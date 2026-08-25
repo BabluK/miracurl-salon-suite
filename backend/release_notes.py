@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-24.97"
-BUILD_TIME = "24 Aug 2026, 01:30 PM IST"
+BUILD = "2026-08-24.98"
+BUILD_TIME = "24 Aug 2026, 03:30 PM IST"
 
 RELEASES = [
     {
-        "date": "2026-08-24 (Restaurant edition — Phase 1 & 2 🍽️)",
+        "date": "2026-08-24 (Restaurant edition — Phase 1, 2 & QR table ordering 🍽️)",
         "changes": [
+            "📲 QR table ordering — print a QR per table from the new Kitchen page; diners scan it, the menu opens with their table pre-filled, and the order lands as a live Kitchen Ticket (Start → Served workflow, auto-refreshing)",
+            "🖼️ Restaurant page polish — restaurant booking pages now open with a warm restaurant hero, a 'Reserve a Table' button and an 'Order Food at Your Table' shortcut (salon-only gift-card/membership buttons are hidden)",
             "🍽️ Restaurant edition is live — signup now asks 'Salon or Restaurant'; restaurants get a 30-day FREE first month, a sample menu, and their dashboard speaks restaurant language (Menu, Reservations, Orders)",
             "🪑 Table reservations — a restaurant's public page becomes a menu showcase with table booking: guests pick party size (1-12) and seating preference (indoor/outdoor), dish pre-selection optional",
             "💰 Restaurant plans — 3-Month ₹3,000 · 6-Month ₹6,000 · Annual ₹12,000, fully editable in HQ → Billing → Plan Catalog like every other plan",

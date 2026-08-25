@@ -6,14 +6,14 @@ export const openMira = (tab = "ai") =>
   window.dispatchEvent(new CustomEvent("miracurl:open-chat", { detail: { tab } }));
 
 /* ---- Hero CTA pair: gold "book now" + glass AI button ---- */
-export const HeroCTAs = () => (
+export const HeroCTAs = ({ restaurant = false }) => (
   <div className="flex flex-wrap items-center gap-3 mt-6">
     <button
       data-testid="hero-book-now-btn"
       onClick={() => document.getElementById("booking-wizard")?.scrollIntoView({ behavior: "smooth" })}
       className="btn-gold flex items-center gap-2"
     >
-      Book Appointment <ArrowRight className="w-4 h-4" />
+      {restaurant ? "Reserve a Table" : "Book Appointment"} <ArrowRight className="w-4 h-4" />
     </button>
     <button
       data-testid="hero-ask-mira-btn"

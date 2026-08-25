@@ -55,6 +55,8 @@ import Reports from "@/pages/Reports";
 import Reviews from "@/pages/Reviews";
 import OffersStudio from "@/pages/OffersStudio";
 import BookPublic from "@/pages/BookPublic";
+import OrderPublic from "@/pages/OrderPublic";
+import Kitchen from "@/pages/Kitchen";
 import PartnerLanding from "@/pages/PartnerLanding";
 import SuccessStories from "@/pages/SuccessStories";
 import Blog from "@/pages/Blog";
@@ -204,6 +206,7 @@ export default function App() {
           <PlayerProvider>
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
+            <Route path="/order/:slug" element={<OrderPublic />} />
             <Route path="/gift/:slug" element={<GiftCardPublic />} />
             <Route path="/membership/:slug" element={<MembershipPublic />} />
             <Route path="/member/:memberId" element={<MemberCardPublic />} />
@@ -255,6 +258,7 @@ export default function App() {
               <Route path="services" element={<AdminOnly><Services /></AdminOnly>} />
               <Route path="inventory" element={<OwnerOnly><Inventory /></OwnerOnly>} />
               <Route path="pos" element={<AdminOnly><POS /></AdminOnly>} />
+              <Route path="kitchen" element={<Kitchen />} />
               <Route path="reviews" element={<AdminOnly><Reviews /></AdminOnly>} />
               <Route path="offers-studio" element={<AdminOnly><OffersStudio /></AdminOnly>} />
               <Route path="refer" element={<OwnerOnly><ReferEarn /></OwnerOnly>} />

@@ -5,7 +5,7 @@ import {
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
   Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot,
   Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck, Megaphone,
-  Landmark, FileText, Music, Sparkles, Cctv, Briefcase, Activity, Lock
+  Landmark, FileText, Music, Sparkles, Cctv, Briefcase, Activity, Lock, ChefHat
 } from "lucide-react";
 import { ManagerLockScreen } from "./ManagerLockScreen";
 import { RoleBadge } from "./RoleBadge";
@@ -103,10 +103,11 @@ export default function AppLayout() {
   const NAV_BASE = user?.role === "staff" ? NAV_STAFF : user?.role === "manager" ? NAV_MANAGER : NAV_ADMIN;
   // Restaurant tenants see restaurant language on the same engine
   const NAV = tenant?.business_type === "restaurant"
-    ? NAV_BASE.map(i =>
+    ? [...NAV_BASE.map(i =>
         i.to === "/services" ? { ...i, label: "Menu" } :
         i.to === "/appointments" ? { ...i, label: "Reservations" } :
         i.to === "/pos" ? { ...i, label: "POS / Orders" } : i)
+        .flatMap(i => i.to === "/pos" ? [{ to: "/kitchen", label: "Kitchen", icon: ChefHat, testid: "nav-kitchen" }, i] : [i])]
     : NAV_BASE;
   const current = NAV.find(n => loc.pathname.startsWith(n.to));
 

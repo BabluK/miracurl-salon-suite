@@ -882,6 +882,28 @@ async def list_whatsapp_requests(status: str = "pending", admin=Depends(require_
     q = {} if status == "all" else {"status": status}
     return await db.whatsapp_requests.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
 
+@router.get("/table-orders")
+async def list_table_orders(admin=Depends(require_admin)):
+    """Kitchen tickets — table orders for this restaurant (newest first)."""
+    return await db.table_orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+
+
+class TableOrderStatusIn(BaseModel):
+    status: str
+
+
+@router.put("/table-orders/{oid}/status")
+async def set_table_order_status(oid: str, body: TableOrderStatusIn, admin=Depends(require_admin)):
+    if body.status not in ("new", "preparing", "served", "cancelled"):
+        raise HTTPException(400, "Invalid status")
+    r = await db.table_orders.update_one(
+        {"id": oid}, {"$set": {"status": body.status,
+                               "updated_at": datetime.now(timezone.utc).isoformat()}})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Order not found")
+    return {"ok": True}
+
+
 @router.get("/whatsapp-requests/pending-count")
 async def whatsapp_pending_count(admin=Depends(require_admin)):
     await _prune_wa_requests()
