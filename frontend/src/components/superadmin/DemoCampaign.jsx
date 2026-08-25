@@ -12,6 +12,7 @@ export function DemoCampaign() {
   const [manual, setManual] = useState("");
   const [note, setNote] = useState("");
   const [currency, setCurrency] = useState("auto");
+  const [vertical, setVertical] = useState("salon");
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState([]);
   const [invites, setInvites] = useState([]);
@@ -44,7 +45,7 @@ export function DemoCampaign() {
     if (!list.length) return toast.error("Select at least one recipient");
     setSending(true);
     try {
-      const r = await api.post("/super-admin/demo-campaign/send", { recipients: list, note, currency });
+      const r = await api.post("/super-admin/demo-campaign/send", { recipients: list, note, currency, vertical });
       toast.success(`Demo invite sent to ${r.data.sent} owner${r.data.sent === 1 ? "" : "s"}${r.data.failed ? ` · ${r.data.failed} failed` : ""}`);
       if (r.data.failed) {
         const bad = r.data.results.filter(x => !x.sent).map(x => `${x.email}${x.error ? ` — ${x.error}` : ""}`).join(", ");
@@ -122,7 +123,17 @@ export function DemoCampaign() {
       <div>
         <h3 className="font-playfair text-xl text-[#d4af37] flex items-center gap-2 tracking-wide"><Mail className="w-4 h-4" /> Demo Invite Campaign</h3>
         <div className="h-px w-16 bg-gradient-to-r from-[#d4af37] to-transparent mt-2 mb-2" />
-        <p className="text-xs text-slate-400 leading-relaxed">For salons <b className="text-slate-200">not yet on Miracurl</b> — send a beautifully designed, polite invitation explaining the suite and your 12-agent AI team, all 4 policy PDFs attached. Existing partners are excluded automatically. Replies come straight to your HQ inbox.</p>
+        <p className="text-xs text-slate-400 leading-relaxed">{vertical === "restaurant"
+          ? <>For restaurants <b className="text-slate-200">not yet on Miracurl</b> — a restaurant-flavoured invite (QR ordering, kitchen tickets, table billing, FREE first month) with restaurant pricing and the restaurant brochure attached. Existing partners are excluded automatically.</>
+          : <>For salons <b className="text-slate-200">not yet on Miracurl</b> — send a beautifully designed, polite invitation explaining the suite and your 12-agent AI team, all 4 policy PDFs attached. Existing partners are excluded automatically. Replies come straight to your HQ inbox.</>}</p>
+        <div className="flex gap-1 mt-3 p-1 rounded-xl bg-white/5 border border-white/10 w-fit" data-testid="demo-vertical-toggle">
+          {[["salon", "💇 Salons"], ["restaurant", "🍽️ Restaurants"]].map(([k, l]) => (
+            <button key={k} onClick={() => setVertical(k)} data-testid={`demo-vertical-${k}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${vertical === k ? "bg-[#d4af37] text-[#15151b]" : "text-slate-400 hover:text-slate-200"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Group title="Prospects — Leads & Inquiries" icon={Sparkles} rows={pool.leads} kind="lead" />

@@ -517,12 +517,30 @@ def _demo_email_links(hq_email: str, tracking: tuple) -> tuple:
 
 def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str, *,
                      plans: list | None = None, tracking: tuple[str, str] = ("", ""),
-                     currency: str = "INR") -> str:
+                     currency: str = "INR", vertical: str = "salon") -> str:
+    resto = vertical == "restaurant"
     name = html_lib.escape(recipient_name or "").strip()
     salon = html_lib.escape(salon_name or "").strip()
-    greeting = f"Dear {name}," if name else "Dear Salon Owner,"
+    greeting = f"Dear {name}," if name else ("Dear Restaurant Owner," if resto else "Dear Salon Owner,")
     salon_line = f" at <b>{salon}</b>" if salon else ""
     cta_href, signup_href, pixel = _demo_email_links(hq_email, tracking)
+    if resto:
+        signup_href = signup_href.replace("signup-salon", "signup-restaurant")
+    sub_brand = "THE ALL-IN-ONE RESTAURANT SUITE" if resto else "THE ALL-IN-ONE SALON SUITE"
+    hero = ('Your restaurant&rsquo;s <span style="color:#d4af37">FREE first month</span><br>of Miracurl Suite.'
+            if resto else 'Your salon&rsquo;s <span style="color:#d4af37">7-day free trial</span><br>of Miracurl Suite.')
+    intro = ("We'd love for you to experience the <b>Miracurl Restaurant Suite</b> — QR table ordering straight "
+             "to the kitchen, live kitchen tickets, one-tap table-wise billing, reservations and Mira, your AI "
+             "teammate that paints dish photos and runs your marketing."
+             if resto else
+             "We'd love for you to experience the <b>Miracurl Salon Suite</b> — the all-in-one platform trusted by "
+             "growing salons to manage bookings, billing, staff and marketing from a single elegant dashboard.")
+    trial_line = ("<b>Start your FREE first month today</b> — set up your restaurant yourself in under 5 minutes, "
+                  "no credit card needed, and take table orders tonight."
+                  if resto else
+                  "<b>Start your own 7-day free trial today</b> — set up your salon yourself in under 5 minutes, "
+                  "no credit card needed, and explore everything at your own pace.")
+    cta_label = "Start my FREE first month ✦" if resto else "Start my 7-day free trial ✦"
 
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
@@ -530,28 +548,26 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
 <table role="presentation" width="620" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
   <tr><td style="background:#15151b;padding:34px 36px 30px">
     <div style="font-family:Georgia,serif;font-size:26px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
-    <div style="color:#b9b2a3;font-size:12px;letter-spacing:2.5px;margin-top:5px">THE ALL-IN-ONE SALON SUITE</div>
+    <div style="color:#b9b2a3;font-size:12px;letter-spacing:2.5px;margin-top:5px">{sub_brand}</div>
     <div style="height:2px;width:64px;background:#d4af37;margin-top:16px"></div>
     <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:21px;margin-top:18px;line-height:1.4">
-      Your salon&rsquo;s <span style="color:#d4af37">7-day free trial</span><br>of Miracurl Suite.</div>
+      {hero}</div>
   </td></tr>
   <tr><td style="padding:30px 36px 8px">
     <p style="font-size:15px;color:#33333b;line-height:1.7;margin:0 0 14px">{greeting}</p>
     <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0 0 14px">
       We hope this message finds you and your team{salon_line} doing wonderfully.
-      We'd love for you to experience the <b>Miracurl Salon Suite</b> — the all-in-one platform trusted by
-      growing salons to manage bookings, billing, staff and marketing from a single elegant dashboard.</p>
+      {intro}</p>
     <p style="font-size:14px;color:#55555f;line-height:1.75;margin:0">
-      <b>Start your own 7-day free trial today</b> — set up your salon yourself in under 5 minutes,
-      no credit card needed, and explore everything at your own pace.</p>
+      {trial_line}</p>
   </td></tr>
   {_demo_note_block(note)}
-  {_demo_modules_block()}
-  {_demo_agents_block()}
-  {_demo_pricing_block(plans, currency)}
+  {"" if resto else _demo_modules_block()}
+  {"" if resto else _demo_agents_block()}
+  {_demo_pricing_block(plans, currency, vertical)}
   <tr><td align="center" style="padding:26px 36px 8px">
     <a href="{signup_href}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
-       text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">Start my 7-day free trial ✦</a>
+       text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">{cta_label}</a>
     <div style="margin-top:16px">
       <a href="{cta_href}" style="display:inline-block;border:1.5px solid #d4af37;color:#8a6d1a;font-size:13px;font-weight:bold;
          text-decoration:none;padding:11px 30px;border-radius:999px;letter-spacing:.3px">Prefer a guided tour? Request a demo →</a>
@@ -577,6 +593,7 @@ class DemoCampaignIn(BaseModel):
     note: str = Field(default="", max_length=600)
     subject: str = Field(default="", max_length=140)
     currency: str = Field(default="auto")  # auto | INR | USD
+    vertical: str = Field(default="salon", pattern="^(salon|restaurant)$")
 
 
 @router.get("/super-admin/demo-campaign/recipients")
@@ -621,13 +638,15 @@ async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -
     mode = getattr(ctx.body, "currency", "auto") or "auto"
     currency = mode if mode in ("INR", "USD") else ("USD" if _is_intl_email(em) else "INR")
     html = _demo_email_html(name, salon, ctx.body.note, ctx.hq_email, plans=ctx.plans,
-                            tracking=(ctx.track_base, iid), currency=currency)
+                            tracking=(ctx.track_base, iid), currency=currency,
+                            vertical=getattr(ctx.body, "vertical", "salon"))
     status = await _send_email([em], ctx.subject, html, attachments=ctx.attachments, reply_to=ctx.hq_email)
     if status.get("sent"):
         now_iso = datetime.now(timezone.utc).isoformat()
         await _raw_db.demo_invites.update_one(
             {"email": em},
             {"$set": {"id": iid, "name": name, "salon_name": salon, "first_sent_at": now_iso,
+                      "vertical": getattr(ctx.body, "vertical", "salon"),
                       "reminder_sent_at": None, "responded": False, "track_base": ctx.track_base,
                       "opened_at": None, "demo_requested_at": None,
                       "seen_by_hq_open": True, "seen_by_hq_req": True}},
@@ -639,8 +658,17 @@ async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -
 async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depends(require_super_admin)):
     targets = _dedupe_recipients(body.recipients)
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
-    subject = body.subject.strip() or "Your Salon's 7-Day Free Trial of Miracurl Suite ✦"
-    attachments = await asyncio.to_thread(_all_doc_attachments)
+    resto = body.vertical == "restaurant"
+    subject = body.subject.strip() or (
+        "Your Restaurant's FREE First Month of Miracurl Suite 🍽️" if resto
+        else "Your Salon's 7-Day Free Trial of Miracurl Suite ✦")
+    if resto:
+        from services.brochure import build_brochure_pdf
+        import base64 as _b64
+        pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
+        attachments = [{"filename": "miracurl-restaurant-suite.pdf", "content": _b64.b64encode(pdf).decode()}]
+    else:
+        attachments = await asyncio.to_thread(_all_doc_attachments)
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
     plans = await _live_plans()
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
@@ -935,14 +963,24 @@ async def demo_invite_resend(iid: str, request: Request, user=Depends(require_su
         raise HTTPException(400, "Already a Miracurl partner")
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     plans = await _live_plans()
-    attachments = await asyncio.to_thread(_all_doc_attachments)
+    inv_vert = inv.get("vertical") or "salon"
+    if inv_vert == "restaurant":
+        from services.brochure import build_brochure_pdf
+        import base64 as _b64
+        pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
+        attachments = [{"filename": "miracurl-restaurant-suite.pdf", "content": _b64.b64encode(pdf).decode()}]
+    else:
+        attachments = await asyncio.to_thread(_all_doc_attachments)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     track_base = f"https://{host}" if host else (inv.get("track_base") or "")
     html = _demo_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", hq_email,
                             plans=plans, tracking=(track_base, iid),
-                            currency="USD" if _is_intl_email(inv["email"]) else "INR")
+                            currency="USD" if _is_intl_email(inv["email"]) else "INR",
+                            vertical=inv_vert)
     status = await _send_email([inv["email"]],
-                               "Your Salon's 7-Day Free Trial of Miracurl Suite ✦",
+                               ("Your Restaurant's FREE First Month of Miracurl Suite 🍽️"
+                                if inv_vert == "restaurant"
+                                else "Your Salon's 7-Day Free Trial of Miracurl Suite ✦"),
                                html, attachments=attachments, reply_to=hq_email)
     if not status.get("sent"):
         raise HTTPException(500, status.get("error") or "Send failed")
