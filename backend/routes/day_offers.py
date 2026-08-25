@@ -205,8 +205,13 @@ async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily",
     if tier is None and kind == "daily":
         tier, auto_reason = _auto_tier(ctx, now)
     opts = OfferOpts(kind=kind, retry_hint=retry_hint, forced_pct=forced_pct, tier=tier, auto_reason=auto_reason)
-    system = ("You are Mira, an expert salon revenue strategist for Indian salons. You know Fri-Sat-Sun are busy "
-              "and Mon-Thu are lean, and you design day-smart offers that maximise chair occupancy AND margin.")
+    if t.get("business_type") == "restaurant":
+        system = ("You are Mira, an expert restaurant revenue strategist for Indian restaurants. You know weekends are busy "
+                  "and Mon-Thu are lean for dine-in, and you design day-smart food offers (category specials, combo deals, "
+                  "family discounts) that maximise table occupancy AND margin.")
+    else:
+        system = ("You are Mira, an expert salon revenue strategist for Indian salons. You know Fri-Sat-Sun are busy "
+                  "and Mon-Thu are lean, and you design day-smart offers that maximise chair occupancy AND margin.")
     data = await _ask_json(system, _build_offer_prompt(t, ctx, now, opts))
     if forced_pct:
         data["discount_pct"] = forced_pct

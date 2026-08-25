@@ -55,7 +55,7 @@ class AssistantChatIn(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     session_id: str = Field(..., min_length=8, max_length=64)
 
-async def _salon_context(user) -> str:
+async def _salon_context(user) -> tuple:
     today = datetime.now(timezone.utc).date().isoformat()
     month = today[:7]
     appts_today = await db.appointments.count_documents({"scheduled_at": {"$regex": f"^{today}"}})
@@ -66,13 +66,16 @@ async def _salon_context(user) -> str:
     low_stock = await db.products.count_documents({"$expr": {"$lte": ["$stock", "$low_stock_threshold"]}})
     services_count = await db.services.count_documents({"active": True})
     tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
-    return (f"Salon: {(tenant or {}).get('name', 'the salon')}. Today: {today}. "
-            f"Live stats — appointments today: {appts_today}, bookings awaiting approval: {pending}, "
-            f"CRM customers: {customers}, revenue this month: ₹{revenue:.0f}, "
-            f"low-stock products: {low_stock}, active services: {services_count}.")
+    is_resto = (tenant or {}).get("business_type") == "restaurant"
+    biz = "Restaurant" if is_resto else "Salon"
+    ctx = (f"{biz}: {(tenant or {}).get('name', 'the business')}. Today: {today}. "
+           f"Live stats — {'reservations' if is_resto else 'appointments'} today: {appts_today}, bookings awaiting approval: {pending}, "
+           f"CRM customers: {customers}, revenue this month: ₹{revenue:.0f}, "
+           f"low-stock products: {low_stock}, active {'menu items' if is_resto else 'services'}: {services_count}.")
+    return ctx, is_resto
 
 async def _create_chat(sid: str, key: str, user: dict) -> "LlmChat":
-    ctx = await _salon_context(user)
+    ctx, is_resto = await _salon_context(user)
     try:
         from routes.tenant_mira import _revenue_report
         import json as _json
@@ -82,13 +85,18 @@ async def _create_chat(sid: str, key: str, user: dict) -> "LlmChat":
     return LlmChat(
         api_key=key, session_id=sid,
         system_message=(
-            "You are Mira, the friendly AI assistant inside 'Miracurl Partner', a salon management app. "
-            "Help salon owners/admins with their live stats, how to use features (Appointments has Day/Upcoming/Week views; "
-            "confirming a booking opens WhatsApp to notify the client; CRM lists only customers who completed a service; "
-            "Services/Customers/Inventory support CSV import-export; staff check-in/out & PDF salary slips; "
-            "QR booking poster in Settings; Refer & Earn rewards), and practical salon business advice. "
-            "You CANNOT change the app's code — tell users to log feature requests in the Feedback Board tab. "
-            "Be concise and warm. Use ₹ for money. Salon context: " + ctx
+            ("You are Mira, the friendly AI assistant inside 'Miracurl Partner', dedicated to THIS restaurant. "
+             "Help the restaurant owner with live stats, menu management (Menu page), table reservations (Reservations page), "
+             "QR table ordering & kitchen tickets (Kitchen page — printable table QRs, Category Specials for day-wise discounts), "
+             "POS billing, inventory, staff and practical restaurant business advice (menu pricing, table turnover, peak hours). "
+             if is_resto else
+             "You are Mira, the friendly AI assistant inside 'Miracurl Partner', a salon management app. "
+             "Help salon owners/admins with their live stats, how to use features (Appointments has Day/Upcoming/Week views; "
+             "confirming a booking opens WhatsApp to notify the client; CRM lists only customers who completed a service; "
+             "Services/Customers/Inventory support CSV import-export; staff check-in/out & PDF salary slips; "
+             "QR booking poster in Settings; Refer & Earn rewards), and practical salon business advice. ")
+            + "You CANNOT change the app's code — tell users to log feature requests in the Feedback Board tab. "
+            "Be concise and warm. Use ₹ for money. Business context: " + ctx
         ),
     ).with_model("openai", "gpt-5.4")
 

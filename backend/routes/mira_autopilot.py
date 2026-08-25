@@ -132,8 +132,10 @@ async def _ensure_today_post(t: dict, today: str) -> dict:
         {"tenant_id": t["id"], "date": today, "status": {"$in": ["approved", "posted"]}}, {"_id": 0})
     if existing:
         return existing
+    _biz = ("a premium Indian family restaurant (post about dishes, dining moments, chef specials and food festivals)"
+            if t.get("business_type") == "restaurant" else "a premium Indian unisex salon")
     plan = await _ask_json(
-        f"You are Mira, marketing agent for '{t.get('name')}', a premium Indian unisex salon. "
+        f"You are Mira, marketing agent for '{t.get('name')}', {_biz}. "
         f"Today is {today} — check for real Indian festivals or international days on this date.",
         'Create ONE Instagram post for today. Return JSON: {"post_type":"offer|festival|tip|spotlight",'
         '"topic":"<short>","caption":"<ready-to-post, with emojis>","hashtags":["#..."]}')
