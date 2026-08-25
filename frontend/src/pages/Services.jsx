@@ -198,6 +198,17 @@ export default function Services() {
     } catch { toast.error("Couldn't update — try again"); }
   }
 
+  const IST_TODAY = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  async function toggleSoldOut(s) {
+    const today = IST_TODAY();
+    const next = s.sold_out_date === today ? null : today;
+    try {
+      await api.put(`/services/${s.id}`, { ...s, sold_out_date: next });
+      toast.success(next ? `${s.name} marked SOLD OUT for today — diners can't order it` : `${s.name} is back on the menu ✦`);
+      load();
+    } catch { toast.error("Couldn't update"); }
+  }
+
   const photoRef = useRef(null);
   const photoSvcRef = useRef(null);
   const [photoBusy, setPhotoBusy] = useState("");
@@ -460,6 +471,11 @@ export default function Services() {
                     title="Spice level — tap to cycle 0-3 chilis"
                     className={`shrink-0 text-[11px] px-2.5 py-1.5 rounded-full border transition ${Number(s.spice) > 0 ? "bg-orange-50 border-orange-200 text-orange-600" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
                     {Number(s.spice) > 0 ? "🌶️".repeat(Number(s.spice)) : "🌶️?"}
+                  </button>
+                  <button data-testid={`toggle-soldout-${s.id}`} onClick={() => toggleSoldOut(s)}
+                    title={s.sold_out_date === IST_TODAY() ? "SOLD OUT today — tap to put it back on the menu" : "Tap to mark sold out for today (diners can't order it; auto-resets tomorrow)"}
+                    className={`shrink-0 text-[11px] px-2.5 py-1.5 rounded-full border font-bold transition ${s.sold_out_date === IST_TODAY() ? "bg-rose-50 border-rose-300 text-rose-600" : "bg-slate-50 border-slate-200 text-slate-400"}`}>
+                    {s.sold_out_date === IST_TODAY() ? "Sold out" : "In stock"}
                   </button>
                 </>)}
                 <button data-testid={`toggle-gender-${s.id}`} onClick={() => cycleGender(s)}

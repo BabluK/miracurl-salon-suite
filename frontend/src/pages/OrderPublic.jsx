@@ -86,8 +86,16 @@ export default function OrderPublic() {
   return (
     <div className="min-h-screen bg-[#0d0b10] text-white pb-40" data-testid="order-public-page">
       <header className="px-5 pt-8 pb-5 border-b border-white/10">
-        <div className="flex items-center gap-2 text-gold text-[10px] tracking-[0.3em] uppercase"><UtensilsCrossed className="w-3.5 h-3.5" /> Order at your table</div>
-        <h1 className="font-playfair text-3xl mt-1">{salon.name}</h1>
+        <div className="flex items-center gap-3">
+          {salon.logo_url && (
+            <img src={salon.logo_url} alt={salon.name} data-testid="order-restaurant-logo"
+              className="w-16 h-16 rounded-2xl object-contain bg-white p-1 shrink-0" />
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-gold text-[10px] tracking-[0.3em] uppercase"><UtensilsCrossed className="w-3.5 h-3.5" /> Order at your table</div>
+            <h1 className="font-playfair text-3xl mt-1">{salon.name}</h1>
+          </div>
+        </div>
         <div className="flex gap-3 mt-4">
           <input value={table} onChange={e => setTable(e.target.value.replace(/\D/g, ""))} inputMode="numeric"
             data-testid="order-table-input" placeholder="Table #"
@@ -124,7 +132,7 @@ export default function OrderPublic() {
             <div className="space-y-2.5">
               {items.map(m => (
                 <div key={m.id} data-testid={`menu-item-${m.id}`}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  className={`flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 ${m.sold_out ? "opacity-50" : ""}`}>
                   <div className="flex items-center gap-3 min-w-0">
                     {m.image_url ? (
                       <img src={m.image_url} alt={m.name} loading="lazy"
@@ -150,7 +158,9 @@ export default function OrderPublic() {
                     )}
                   </div>
                   </div>
-                  {qty[m.id] > 0 ? (
+                  {m.sold_out ? (
+                    <span data-testid={`sold-out-${m.id}`} className="shrink-0 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/40 text-rose-300 text-[10px] font-bold uppercase tracking-wider">Sold out</span>
+                  ) : qty[m.id] > 0 ? (
                     <div className="flex items-center gap-3 shrink-0">
                       <button onClick={() => bump(m.id, -1)} data-testid={`menu-minus-${m.id}`} className="w-8 h-8 rounded-full border border-gold/50 text-gold flex items-center justify-center"><Minus className="w-3.5 h-3.5" /></button>
                       <span className="font-bold w-4 text-center">{qty[m.id]}</span>

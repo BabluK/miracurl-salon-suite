@@ -299,7 +299,7 @@ export default function BookPublic() {
         <div className="relative z-10 max-w-5xl mx-auto h-full flex flex-col justify-end p-6 sm:p-10">
           <div className="flex items-center gap-3 mb-3">
             {salon.logo_url ? (
-              <img src={salon.logo_url.startsWith("/api/") ? `${BACKEND_URL}${salon.logo_url}` : salon.logo_url} alt={salon.name} data-testid="hero-salon-logo" className="w-11 h-11 rounded-full object-cover border-2 border-gold shadow-gold-glow" />
+              <img src={salon.logo_url.startsWith("/api/") ? `${BACKEND_URL}${salon.logo_url}` : salon.logo_url} alt={salon.name} data-testid="hero-salon-logo" className="h-14 w-auto max-w-[180px] rounded-xl object-contain bg-white/95 p-1.5 border border-gold/50 shadow-gold-glow" />
             ) : (
               <div className="w-11 h-11 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
                 <Scissors className="w-5 h-5 text-bg-base" />

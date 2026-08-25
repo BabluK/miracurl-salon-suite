@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.104"
-BUILD_TIME = "25 Aug 2026, 08:30 PM IST"
+BUILD = "2026-08-25.105"
+BUILD_TIME = "25 Aug 2026, 09:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-25 (Infinity logo, full starters menu & sold-out ⛔)",
+        "changes": [
+            "🏷️ Infinity's golden logo now shines on the public booking page and the QR table-order menu",
+            "🍗 36 new dishes added — Chicken, Mutton, Fish & Prawns Starters plus more Barbecue items (Chicken Tikka, Malai Tikka, Seekh/Tangdi Kebab, Peri Peri Chicken) — all tagged non-veg with spice levels",
+            "⛔ Sold-out for the day — tap the new 'In stock / Sold out' chip on any dish in the Menu page; diners see a SOLD OUT badge and can't order it, and it auto-resets at midnight",
+        ],
+    },
     {
         "date": "2026-08-25 (Waiter calls, weekly insights & dish photos 🙋)",
         "changes": [

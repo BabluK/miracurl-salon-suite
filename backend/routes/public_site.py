@@ -202,8 +202,10 @@ async def public_services(slug: str):
     from routes.packages import _service_gender
     rows = await db.services.find(
         {"active": {"$ne": False}, "bookable_online": {"$ne": False}}, {"_id": 0}).sort("category", 1).to_list(500)
+    today_ist = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date().isoformat()
     for s in rows:
         s["gender"] = _service_gender(s)
+        s["sold_out"] = s.get("sold_out_date") == today_ist
     return rows
 
 @router.get("/public/services")
@@ -721,9 +723,12 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
     cat_specials = {s["category"]: float(s["discount_pct"]) for s in await _raw_db.category_specials.find(
         {"tenant_id": t["id"], "active": True, "days": now_ist.weekday()}, {"_id": 0}).to_list(50)}
     items = []
+    today_ist = now_ist.date().isoformat()
     for i in body.items:
         m = menu.get(str(i.get("id")))
         if not m:
+            continue
+        if m.get("sold_out_date") == today_ist:
             continue
         qty = max(1, min(20, int(i.get("qty") or 1)))
         cat = m.get("category") or ""
