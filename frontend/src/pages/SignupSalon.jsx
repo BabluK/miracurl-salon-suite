@@ -156,12 +156,13 @@ export default function SignupSalon() {
       <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-8 py-10 pb-24">
         <div className="text-center max-w-xl mx-auto mb-10">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 border border-sky-100 text-sky-600 text-[11px] uppercase tracking-[0.18em] font-semibold">
-            <Sparkles className="w-3 h-3" /> 7-Day Free Trial · No credit card
+            <Sparkles className="w-3 h-3" /> {form.business_type === "restaurant" ? "First Month Free · No credit card" : "7-Day Free Trial · No credit card"}
           </span>
-          <h1 className="font-playfair text-4xl sm:text-5xl tracking-tight text-slate-900 mt-4">Bring your salon online ✦</h1>
+          <h1 className="font-playfair text-4xl sm:text-5xl tracking-tight text-slate-900 mt-4">Bring your {form.business_type === "restaurant" ? "restaurant" : "salon"} online ✦</h1>
           <p className="text-slate-600 mt-3 text-sm sm:text-base">
-            Set up bookings, billing, staff, and customer reviews in under 90 seconds.
-            Cancel anytime during the trial — no questions asked.
+            {form.business_type === "restaurant"
+              ? "Set up your menu, QR table ordering, reservations and billing in under 90 seconds. Cancel anytime — no questions asked."
+              : "Set up bookings, billing, staff, and customer reviews in under 90 seconds. Cancel anytime during the trial — no questions asked."}
           </p>
           <div className="mt-5 inline-flex items-center gap-1 p-1 rounded-full bg-slate-100 border border-slate-200" data-testid="signup-region-toggle">
             {[["in", "🇮🇳 India · ₹"], ["intl", "🌍 International · $"]].map(([k, l]) => (
@@ -224,7 +225,7 @@ export default function SignupSalon() {
                 disabled={busy}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white text-sm font-semibold hover:from-rose-600 hover:to-fuchsia-700 shadow-[0_8px_20px_-6px_rgba(244,63,94,0.55)] transition disabled:opacity-60"
               >
-                {busy ? "Creating your salon…" : <>Start free trial <Gift className="w-4 h-4" /></>}
+                {busy ? (form.business_type === "restaurant" ? "Creating your restaurant…" : "Creating your salon…") : <>{form.business_type === "restaurant" ? "Start free month" : "Start free trial"} <Gift className="w-4 h-4" /></>}
               </button>
             )}
           </div>
@@ -387,6 +388,7 @@ function LocationStep({ form, update }) {
 }
 
 function ReviewStep({ form, previewUrl, catalog, isIntl }) {
+  const isResto = form.business_type === "restaurant";
   const rows = [
     { label: form.business_type === "restaurant" ? "Restaurant" : "Salon", value: form.salon_name },
     { label: "Booking URL", value: previewUrl, mono: true },
@@ -398,7 +400,7 @@ function ReviewStep({ form, previewUrl, catalog, isIntl }) {
     <div className="space-y-5 animate-fade-up">
       <div>
         <h2 className="text-2xl font-semibold text-slate-800">Review &amp; confirm</h2>
-        <p className="text-sm text-slate-500 mt-1">We&apos;ll start your 7-day free trial the moment you click below.</p>
+        <p className="text-sm text-slate-500 mt-1">We&apos;ll start your {isResto ? "FREE first month" : "7-day free trial"} the moment you click below.</p>
       </div>
       <div className="bg-sky-50/50 border border-sky-100 rounded-xl divide-y divide-sky-100" data-testid="signup-review">
         {rows.map(r => (
@@ -410,8 +412,12 @@ function ReviewStep({ form, previewUrl, catalog, isIntl }) {
       </div>
       <div className="text-xs text-slate-500 flex items-start gap-2">
         <Sparkles className="w-3.5 h-3.5 text-sky-500 mt-0.5 flex-shrink-0" />
-        {isIntl ? (
+        {isIntl && isResto ? (
+          <span data-testid="signup-review-pricing-resto-intl">After your free month, choose {fmtUSD(catalog?.resto_intl_quarter?.price ?? 299)} / 3 months, {fmtUSD(catalog?.resto_intl_half?.price ?? 549)} / 6 months or {fmtUSD(catalog?.resto_intl_annual?.price ?? 999)} / year — billed in USD via secure international payment link.</span>
+        ) : isIntl ? (
           <span data-testid="signup-review-pricing-intl">After your trial, plans start at {fmtUSD(catalog?.intl_starter_monthly?.price ?? 79)}/month (Starter) — Professional from {fmtUSD(catalog?.intl_pro_monthly?.price ?? 149)}/month. Billed in USD via secure international payment link.</span>
+        ) : isResto ? (
+          <span data-testid="signup-review-pricing-resto">After your free month, choose ₹{Number(catalog?.resto_quarter?.price ?? 3000).toLocaleString("en-IN")} / 3 months, ₹{Number(catalog?.resto_half?.price ?? 6000).toLocaleString("en-IN")} / 6 months or ₹{Number(catalog?.resto_annual?.price ?? 12000).toLocaleString("en-IN")} / 1 year. We&apos;ll send payment instructions via WhatsApp before it ends.</span>
         ) : (
           <span data-testid="signup-review-pricing-in">After your trial, choose {catalog?.half_year?.price ? `₹${Number(catalog.half_year.price).toLocaleString("en-IN")}` : "a 6-month"} / 6 months or {catalog?.annual?.price ? `₹${Number(catalog.annual.price).toLocaleString("en-IN")}` : "an annual"} / 1 year. We&apos;ll send payment instructions via WhatsApp before the trial expires.</span>
         )}

@@ -49,6 +49,10 @@ PLAN_CATALOG = {
     "resto_quarter": {"label": "Restaurant 3-Month", "price": 3000.0,  "duration_days": 92,  "branches": 1, "vertical": "restaurant"},
     "resto_half":    {"label": "Restaurant 6-Month", "price": 6000.0,  "duration_days": 183, "branches": 1, "vertical": "restaurant"},
     "resto_annual":  {"label": "Restaurant Annual",  "price": 12000.0, "duration_days": 365, "branches": 1, "vertical": "restaurant"},
+    # Restaurant vertical (USD) — international pricing
+    "resto_intl_quarter": {"label": "Restaurant 3-Month (USD)", "price": 299.0, "duration_days": 92,  "branches": 1, "currency": "USD", "vertical": "restaurant"},
+    "resto_intl_half":    {"label": "Restaurant 6-Month (USD)", "price": 549.0, "duration_days": 183, "branches": 1, "currency": "USD", "vertical": "restaurant"},
+    "resto_intl_annual":  {"label": "Restaurant Annual (USD)",  "price": 999.0, "duration_days": 365, "branches": 1, "currency": "USD", "vertical": "restaurant"},
 }
 
 
