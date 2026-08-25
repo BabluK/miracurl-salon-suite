@@ -291,12 +291,24 @@ async def gift_card_upi_paid(gcid: str, body: UpiPaidIn, request: Request):
 
 # ---------------- issuance + e-card email ----------------
 
-async def _issue_gift_card(gcid: str) -> dict:
-    gc = await _raw_db.gift_cards.find_one({"id": gcid}, {"_id": 0})
-    t = await _raw_db.tenants.find_one({"id": gc["tenant_id"]}, {"_id": 0})
+async def _unique_gift_code() -> str:
     code = _gen_code()
     while await _raw_db.gift_cards.find_one({"code": code}, {"_id": 1}):
         code = _gen_code()
+    return code
+
+
+async def _notify_gift_parties(gc: dict, t: dict, scheduled: bool, wa_url: str) -> None:
+    if not scheduled and gc.get("recipient_email"):
+        await _email_gift_card(gc, t)
+    if gc.get("buyer_email"):
+        await _email_buyer_receipt(gc, t, scheduled, wa_url)
+
+
+async def _issue_gift_card(gcid: str) -> dict:
+    gc = await _raw_db.gift_cards.find_one({"id": gcid}, {"_id": 0})
+    t = await _raw_db.tenants.find_one({"id": gc["tenant_id"]}, {"_id": 0})
+    code = await _unique_gift_code()
     today = datetime.now(timezone.utc).date()
     expires = (today + timedelta(days=int(gc.get("validity_days") or DEFAULT_VALIDITY))).isoformat()
     scheduled = bool(gc.get("send_on")) and gc["send_on"] > today.isoformat()
@@ -306,10 +318,7 @@ async def _issue_gift_card(gcid: str) -> dict:
                                 "issued_at": _now()}})
     gc.update({"code": code, "status": status, "expires_at": expires})
     wa_url = "" if scheduled else _gift_whatsapp_url(gc, t)
-    if not scheduled and gc.get("recipient_email"):
-        await _email_gift_card(gc, t)
-    if gc.get("buyer_email"):
-        await _email_buyer_receipt(gc, t, scheduled, wa_url)
+    await _notify_gift_parties(gc, t, scheduled, wa_url)
     return {"ok": True, "status": status, "code": code if not scheduled else "",
             "expires_at": expires, "send_on": gc.get("send_on") or "", "whatsapp_url": wa_url}
 
@@ -589,6 +598,17 @@ async def list_gift_cards(user=Depends(require_tenant_admin), t=Depends(current_
     return {"items": rows, "stats": stats}
 
 
+def _redemption_history(gc: dict, reds: list, imap: dict) -> list:
+    running = float(gc["amount"])
+    out = []
+    for r in reds:
+        running = round(running - float(r.get("amount") or 0), 2)
+        inv = imap.get(r.get("invoice_id"), {})
+        out.append({"at": r.get("at"), "amount": r.get("amount"), "balance_after": running,
+                    "invoice_no": inv.get("invoice_no"), "customer_name": inv.get("customer_name")})
+    return out
+
+
 @router.get("/gift-cards/{gcid}/history")
 async def gift_card_history(gcid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Full audit trail of a card: purchase info + every POS redemption with invoice + running balance."""
@@ -603,15 +623,7 @@ async def gift_card_history(gcid: str, user=Depends(require_tenant_admin), t=Dep
         {"id": {"$in": inv_ids}, "tenant_id": t["id"]},
         {"_id": 0, "id": 1, "invoice_no": 1, "customer_name": 1}).to_list(200) if inv_ids else []
     imap = {i["id"]: i for i in invs}
-    running = float(gc["amount"])
-    history = []
-    for r in reds:
-        running = round(running - float(r.get("amount") or 0), 2)
-        inv = imap.get(r.get("invoice_id"), {})
-        history.append({"at": r.get("at"), "amount": r.get("amount"),
-                        "balance_after": running,
-                        "invoice_no": inv.get("invoice_no"),
-                        "customer_name": inv.get("customer_name")})
+    history = _redemption_history(gc, reds, imap)
     return {"card": {"code": gc.get("code"), "amount": gc["amount"], "balance": gc["balance"],
                      "status": gc["status"], "occasion": gc.get("occasion"),
                      "buyer_name": gc.get("buyer_name"), "recipient_name": gc.get("recipient_name"),

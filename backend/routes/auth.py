@@ -97,13 +97,16 @@ async def _subscription_gate(user: dict) -> None:
         return _trial_gate(t, trial_end)
     limit = _subscription_deadline(t)
     if limit and date.today() > limit:
-        end = sub_end or trial_end
-        end_d = date.fromisoformat(str(end)[:10])
-        raise HTTPException(403, {
-            "code": "subscription_expired",
-            "end_date": end_d.isoformat(),
-            "message": f"We're sorry — your subscription expired on {end_d.strftime('%d %b %Y')}. "
-                       "Please pay to continue using Miracurl Suite, or contact the Miracurl team."})
+        _raise_subscription_expired(sub_end or trial_end)
+
+
+def _raise_subscription_expired(end) -> None:
+    end_d = date.fromisoformat(str(end)[:10])
+    raise HTTPException(403, {
+        "code": "subscription_expired",
+        "end_date": end_d.isoformat(),
+        "message": f"We're sorry — your subscription expired on {end_d.strftime('%d %b %Y')}. "
+                   "Please pay to continue using Miracurl Suite, or contact the Miracurl team."})
 
 class ForgotIn(BaseModel):
     email: EmailStr

@@ -1205,27 +1205,38 @@ async def _upsert_demo_invite(email: str, name: str, salon_name: str, city: str,
             "demo_requested_at": now_iso, "preferred_slot": slot, "seen_by_hq_req": False})
 
 
-async def _book_open_demo(d: dict) -> dict:
-    """Shared open-demo booking used by the /demo form AND Mira's demo chat.
-    Expects keys: name, salon_name, city, email, phone, date, time, tz."""
-    name, salon_name, city = str(d.get("name") or ""), str(d.get("salon_name") or ""), str(d.get("city") or "")
-    phone, date_s, time_s, tz = str(d.get("phone") or ""), str(d.get("date") or ""), str(d.get("time") or ""), str(d.get("tz") or "")
+def _parse_demo_form(d: dict) -> tuple:
+    """Validated (name, email) from the open-demo payload."""
+    name = str(d.get("name") or "").strip()
     email = str(d.get("email") or "").strip().lower()
-    if len(name.strip()) < 2:
+    if len(name) < 2:
         raise HTTPException(400, "Please share your name")
     if not _DEMO_EMAIL_RE.fullmatch(email):
         raise HTTPException(400, "Enter a valid email address")
-    _validate_slot(date_s, time_s)
-    now_iso = datetime.now(timezone.utc).isoformat()
-    slot = _demo_slot_dict(date_s, time_s, phone, tz, now_iso)
-    await _upsert_demo_invite(email, name.strip(), salon_name.strip(), city.strip(), slot, now_iso)
+    return name, email
+
+
+async def _mark_lead_demo(email: str, slot: dict, now_iso: str) -> None:
     await _raw_db.mira_leads.update_many(
         {"email": email}, {"$set": {"demo_slot": slot, "demo_requested_at": now_iso}})
     await _raw_db.mira_leads.update_many(
         {"email": email, "status": {"$in": ["sent", "drafted", "no_email", "researched", "replied"]}},
         {"$set": {"status": "demo"}})
-    gcal = await _send_slot_confirmations(email, name.strip(), salon_name.strip(),
-                                          date_s, time_s, phone, city.strip())
+
+
+async def _book_open_demo(d: dict) -> dict:
+    """Shared open-demo booking used by the /demo form AND Mira's demo chat.
+    Expects keys: name, salon_name, city, email, phone, date, time, tz."""
+    name, email = _parse_demo_form(d)
+    salon_name, city = str(d.get("salon_name") or "").strip(), str(d.get("city") or "").strip()
+    phone, date_s, time_s, tz = (str(d.get("phone") or ""), str(d.get("date") or ""),
+                                 str(d.get("time") or ""), str(d.get("tz") or ""))
+    _validate_slot(date_s, time_s)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    slot = _demo_slot_dict(date_s, time_s, phone, tz, now_iso)
+    await _upsert_demo_invite(email, name, salon_name, city, slot, now_iso)
+    await _mark_lead_demo(email, slot, now_iso)
+    gcal = await _send_slot_confirmations(email, name, salon_name, date_s, time_s, phone, city)
     return {"ok": True, "gcal": gcal, "slot": slot}
 
 

@@ -140,22 +140,32 @@ class MergeIn(BaseModel):
     duplicate_ids: List[str]
 
 
-def _merged_customer_fields(primary: dict, dupes: list) -> dict:
-    """Summed stats + backfilled profile fields for the surviving record."""
-    def _isum(f):
+def _summed_customer_stats(primary: dict, dupes: list) -> dict:
+    def _isum(f: str) -> int:
         return int(primary.get(f) or 0) + sum(int(d.get(f) or 0) for d in dupes)
 
-    def _fsum(f):
+    def _fsum(f: str) -> float:
         return round(float(primary.get(f) or 0) + sum(float(d.get(f) or 0) for d in dupes), 2)
 
-    upd = {"visits": _isum("visits"), "loyalty_points": _isum("loyalty_points"),
-           "total_spent": _fsum("total_spent"), "wallet_balance": _fsum("wallet_balance"),
-           "referral_credit": _fsum("referral_credit")}
+    return {"visits": _isum("visits"), "loyalty_points": _isum("loyalty_points"),
+            "total_spent": _fsum("total_spent"), "wallet_balance": _fsum("wallet_balance"),
+            "referral_credit": _fsum("referral_credit")}
+
+
+def _backfilled_profile_fields(primary: dict, dupes: list) -> dict:
+    out: dict = {}
     for f in ("email", "dob", "anniversary", "address", "notes", "gender"):
-        if not primary.get(f):
-            v = next((d.get(f) for d in dupes if d.get(f)), None)
-            if v:
-                upd[f] = v
+        if primary.get(f):
+            continue
+        v = next((d.get(f) for d in dupes if d.get(f)), None)
+        if v:
+            out[f] = v
+    return out
+
+
+def _merged_customer_fields(primary: dict, dupes: list) -> dict:
+    """Summed stats + backfilled profile fields for the surviving record."""
+    upd = {**_summed_customer_stats(primary, dupes), **_backfilled_profile_fields(primary, dupes)}
     lv = [x for x in [primary.get("last_visited")] + [d.get("last_visited") for d in dupes] if x]
     if lv:
         upd["last_visited"] = max(lv)

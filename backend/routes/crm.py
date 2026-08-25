@@ -171,13 +171,19 @@ def _benefit_chips(benefits: list) -> str:
         f"border-radius:14px;padding:3px 10px;font-size:11px;margin:2px'>{_h.escape(b)}</span>" for b in benefits)
 
 
+def _member_perk(benefits: list) -> str:
+    if "Birthday Offer" in benefits:
+        return "Birthday Offer"
+    return benefits[0] if benefits else "a special member treat"
+
+
 def _member_birthday_html(t: dict, name: str, member: dict, offer: str, book_url: str) -> str:
     """Golden birthday email for premium members — perks + one-tap booking link."""
     import html as _h
     nm, sn = _h.escape((name or "there").split(" ")[0]), _h.escape(t.get("name") or "your salon")
     tier = _h.escape((member.get("tier") or "member").capitalize())
     benefits = member.get("benefits") or []
-    perk = "Birthday Offer" if "Birthday Offer" in benefits else (benefits[0] if benefits else "a special member treat")
+    perk = _member_perk(benefits)
     chips = _benefit_chips(benefits)
     return f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
     <div style="background:#15151b;border-radius:18px 18px 0 0;padding:26px 30px;text-align:center">

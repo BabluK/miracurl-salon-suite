@@ -68,17 +68,23 @@ def _resend_params(to: list, subject: str, html: str, opts: dict) -> dict:
     return params
 
 
-async def _send_email(to: list, subject: str, html: str, *, attachments: list | None = None,
-                      reply_to: str | None = None, book_url: str | None = None,
-                      book_label: str = "Book Now ✦", headers: dict | None = None,
-                      from_name: str = "Miracurl") -> dict:
+_EMAIL_OPTION_KEYS = frozenset(
+    {"attachments", "reply_to", "book_url", "book_label", "headers", "from_name"})
+
+
+async def _send_email(to: list, subject: str, html: str, **options) -> dict:
+    """Send via Resend. Options: attachments, reply_to, book_url, book_label, headers, from_name."""
+    unknown = set(options) - _EMAIL_OPTION_KEYS
+    if unknown:
+        raise TypeError(f"_send_email got unexpected options: {sorted(unknown)}")
     err = _resend_config_error()
     if err:
         return err
     resend.api_key = os.environ["RESEND_API_KEY"]
     params = _resend_params(to, subject, html, {
-        "attachments": attachments, "reply_to": reply_to, "book_url": book_url,
-        "book_label": book_label, "headers": headers, "from_name": from_name})
+        "attachments": options.get("attachments"), "reply_to": options.get("reply_to"),
+        "book_url": options.get("book_url"), "book_label": options.get("book_label", "Book Now ✦"),
+        "headers": options.get("headers"), "from_name": options.get("from_name", "Miracurl")})
     try:
         r = await asyncio.to_thread(resend.Emails.send, params)
         return {"sent": True, "id": (r or {}).get("id")}

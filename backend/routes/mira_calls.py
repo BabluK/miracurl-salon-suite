@@ -405,20 +405,20 @@ async def twilio_voice_gather(call_id: str, request: Request):
         raise HTTPException(403, "Invalid Twilio signature")
     digit = str(form.get("Digits") or "")
     speech = str(form.get("SpeechResult") or "").strip()
-    base = c["webhook_base"]
     lang = c.get("lang") or "en"
     lead = await _raw_db.mira_leads.find_one({"id": c["lead_id"]}, {"_id": 0})
     if not digit and speech:
         return await _converse(c, lead, speech)
-    if digit == "3" and lang != "hi":
-        return await _gather_lang_switch(c)
-    if digit == "1":
-        return await _gather_interested(c, lead, lang)
-    if digit == "2":
-        return await _gather_callback(c, lang)
-    if digit == "9":
-        return await _gather_opt_out(c, lang)
-    return _xml(f'<Redirect method="POST">{base}/api/webhooks/twilio/voice/{call_id}?retry=1</Redirect>')
+    handlers = {
+        "3": (lambda: _gather_lang_switch(c)) if lang != "hi" else None,
+        "1": lambda: _gather_interested(c, lead, lang),
+        "2": lambda: _gather_callback(c, lang),
+        "9": lambda: _gather_opt_out(c, lang),
+    }
+    action = handlers.get(digit)
+    if action is not None:
+        return await action()
+    return _xml(f'<Redirect method="POST">{c["webhook_base"]}/api/webhooks/twilio/voice/{call_id}?retry=1</Redirect>')
 
 
 @router.post("/webhooks/twilio/voice/{call_id}/status")

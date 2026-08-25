@@ -411,23 +411,33 @@ async def _llm_research(name: str, city: str, site: dict) -> dict:
         '"owner_name": "<if found, else empty>"}')
 
 
-def _compose_lead(name: str, city: str, site: dict, info: dict) -> dict:
-    """Merge scraped-site facts with LLM research into a scored lead record."""
-    lead = {
-        "id": str(uuid.uuid4()), "name": name, "city": city,
-        "website": site["website"], "instagram": site["instagram"] or (info.get("instagram") or ""),
+def _lead_contact_fields(site: dict, info: dict) -> dict:
+    return {
+        "website": site["website"],
+        "instagram": site["instagram"] or (info.get("instagram") or ""),
         "instagram_followers": int(info.get("instagram_followers") or 0),
+        "owner_name": info.get("owner_name") or "",
+        "email": site["emails"][0] if site["emails"] else "",
+        "email_source": site["website"] if site["emails"] else "",
+        "all_emails": site["emails"],
+    }
+
+
+def _lead_quality_fields(site: dict, info: dict) -> dict:
+    return {
         "rating": info.get("rating"), "services": (info.get("services") or [])[:6],
         "branches": int(info.get("branches") or 1),
         "has_online_booking": site["booking"] or bool(info.get("has_online_booking")),
         "website_quality": (info.get("website_quality") or ("none" if not site["website"] else "poor")),
         "competitor": site.get("competitor") or "",
-        "owner_name": info.get("owner_name") or "",
-        "email": site["emails"][0] if site["emails"] else "",
-        "email_source": site["website"] if site["emails"] else "",
-        "all_emails": site["emails"], "crm": False,
-        "status": "researched", "created_at": _now(),
     }
+
+
+def _compose_lead(name: str, city: str, site: dict, info: dict) -> dict:
+    """Merge scraped-site facts with LLM research into a scored lead record."""
+    lead = {"id": str(uuid.uuid4()), "name": name, "city": city,
+            **_lead_contact_fields(site, info), **_lead_quality_fields(site, info),
+            "crm": False, "status": "researched", "created_at": _now()}
     lead["score"], lead["score_breakdown"] = _score(lead)
     return lead
 
