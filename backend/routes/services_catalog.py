@@ -378,13 +378,19 @@ async def generate_dish_descriptions(user=Depends(require_admin)):
 
 @router.post("/services/generate-missing-images")
 async def generate_missing_service_images(user=Depends(require_admin)):
-    """Mira paints an on-brand photo (per category) for every service without one — 8 per run, background."""
+    """Mira paints a photo for EVERY service/dish without one — full batch, background."""
     svcs = await db.services.find(
         {"$or": [{"image_url": ""}, {"image_url": None}]}, {"_id": 0}).to_list(200)
-    todo = svcs[:8]
+    todo = svcs[:60]
     if not todo:
         return {"queued": 0, "remaining": 0}
     tenant_id = _current_tenant_id.get()
+    if await _raw_db.mira_image_batches.find_one({"tenant_id": tenant_id, "status": "running"}):
+        raise HTTPException(409, "Mira is already painting a batch — check the progress chip")
+    batch_id = uuid.uuid4().hex[:8]
+    await _raw_db.mira_image_batches.insert_one({
+        "id": batch_id, "tenant_id": tenant_id, "total": len(todo), "done": 0, "failed": 0,
+        "status": "running", "created_at": datetime.now(timezone.utc).isoformat()})
 
     async def _runner():
         resto = await _tenant_is_restaurant(tenant_id)
@@ -394,12 +400,23 @@ async def generate_missing_service_images(user=Depends(require_admin)):
                 url = await _store_service_image(tenant_id, img, s["name"])
                 await _raw_db.services.update_one(
                     {"id": s["id"], "tenant_id": tenant_id}, {"$set": {"image_url": url}})
+                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}})
             except Exception as e:
                 logging.error(f"mira service image failed for {s.get('name')}: {e}")
+                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
             await asyncio.sleep(1)
+        await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$set": {"status": "done"}})
 
     asyncio.get_event_loop().create_task(_runner())
-    return {"queued": len(todo), "remaining": max(0, len(svcs) - len(todo))}
+    return {"queued": len(todo), "remaining": max(0, len(svcs) - len(todo)), "batch_id": batch_id}
+
+
+@router.get("/services/image-batch-status")
+async def image_batch_status(user=Depends(require_admin)):
+    tenant_id = _current_tenant_id.get()
+    b = await _raw_db.mira_image_batches.find_one(
+        {"tenant_id": tenant_id}, {"_id": 0}, sort=[("created_at", -1)])
+    return b or {"status": "none"}
 
 
 @router.post("/services/{sid}/generate-image")

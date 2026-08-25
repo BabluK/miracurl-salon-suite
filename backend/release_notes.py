@@ -2,10 +2,29 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.106"
-BUILD_TIME = "25 Aug 2026, 10:30 PM IST"
+BUILD = "2026-08-25.108"
+BUILD_TIME = "25 Aug 2026, 11:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-25 (Restaurant power pack 🍽️ — table billing, waiter calls, photos & more)",
+        "changes": [
+            "🧾 One table = one bill — every order a table places before billing merges into ONE POS bill; 'Bill Table 3' collects them all, the Dine-in Guest and 'Table 3 — QR order for <name>' note are auto-filled, and once billed the table starts fresh",
+            "🪑 Live Tables panel — the Kitchen page shows every open table with order count, running total and 'ready to bill' status; new-order alerts read like a ticket with each dish, quantity and price",
+            "🙋 Call waiter from the QR menu — diners tap 'Call waiter' or 'Water please'; Kitchen chimes with 'Table 3 is calling a waiter' and staff tap ✓ Done",
+            "🏆 This week's insights — best-selling dishes and busiest tables from the last 7 days on the Kitchen page, to plan stock and staffing",
+            "🎨 Mira dish studio — one tap paints appetizing photos for EVERY dish without one (live 'Painting 12/59…' progress) and writes a mouth-watering one-line description for each; every dish also has a camera button to snap your own photo from the phone",
+            "⛔ Sold-out for the day — flip the 'In stock / Sold out' chip on any dish; diners see a SOLD OUT badge, can't order it, and it auto-resets at midnight",
+            "🍗 Infinity menu expanded — 36 new starters (Chicken, Mutton, Fish, Prawns & Barbecue) with veg/spice tags, plus the golden Infinity logo on the booking page and QR menu",
+            "🍽️ Restaurant menus cleaned up — Men/Women/Unisex filters and salon fallback images are gone for restaurants; salons keep everything exactly as before",
+        ],
+    },
+    {
+        "date": "2026-08-25 (Dish photo batch 🎨)",
+        "changes": [
+            "🎨 Full photo batch — 'Mira Photos' now paints EVERY dish without a photo in one background batch (was 8 per run); a live progress chip shows 'Painting 12/59…' and photos appear on the menu as each one finishes",
+        ],
+    },
     {
         "date": "2026-08-25 (Mira dish descriptions & restaurant menu cleanup ✍️)",
         "changes": [

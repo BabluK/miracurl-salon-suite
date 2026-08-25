@@ -213,6 +213,24 @@ export default function Services() {
   const photoSvcRef = useRef(null);
   const [photoBusy, setPhotoBusy] = useState("");
   const [descBusy, setDescBusy] = useState(false);
+  const [imgBatch, setImgBatch] = useState(null);
+  const batchTimer = useRef(null);
+  const pollBatch = useCallback(async function poll() {
+    try {
+      const { data } = await api.get("/services/image-batch-status");
+      if (data.status === "running") {
+        setImgBatch(data);
+        load();
+        batchTimer.current = setTimeout(poll, 15000);
+      } else {
+        setImgBatch(prev => {
+          if (prev) { toast.success(`🎨 Mira finished — ${data.done} dish photos painted${data.failed ? ` (${data.failed} failed)` : ""}`); load(); }
+          return null;
+        });
+      }
+    } catch { /* ignore */ }
+  }, [load]);  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { pollBatch(); return () => clearTimeout(batchTimer.current); }, [pollBatch]);
   function pickPhoto(s) { photoSvcRef.current = s; photoRef.current?.click(); }
   async function quickPhoto(e) {
     const file = e.target.files?.[0];
@@ -316,18 +334,21 @@ export default function Services() {
           )}
           <button
             data-testid="generate-missing-images-btn"
+            disabled={!!imgBatch}
             onClick={async () => {
               try {
                 const { data } = await api.post("/services/generate-missing-images");
-                if (!data.queued) { toast.info("Every service already has a photo ✦"); return; }
-                toast.success(`✨ Mira is painting ${data.queued} service photos${data.remaining ? ` (${data.remaining} more next run)` : ""} — they'll appear within a couple of minutes`);
-                setTimeout(load, 100000);
-              } catch { toast.error("Couldn't start Mira's photo studio — try again"); }
+                if (!data.queued) { toast.info(isResto ? "Every dish already has a photo ✦" : "Every service already has a photo ✦"); return; }
+                toast.success(`🎨 Mira is painting ALL ${data.queued} ${isResto ? "dish" : "service"} photos in one batch — photos appear as they finish (watch the progress chip)`);
+                setImgBatch({ done: 0, total: data.queued, status: "running" });
+                setTimeout(pollBatch, 5000);
+              } catch (err) { toast.error(err.response?.data?.detail || "Couldn't start Mira's photo studio — try again"); }
             }}
-            className="btn-slate flex items-center gap-2"
-            title="Mira paints an on-brand photo for every service that has none, based on its category"
+            className="btn-slate flex items-center gap-2 disabled:opacity-60"
+            title="Mira paints an appetizing photo for every item that has none — full batch in the background"
           >
-            <Sparkles className="w-4 h-4 text-amber-500" /> Mira Photos
+            {imgBatch ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-amber-500" />}
+            {imgBatch ? `Painting ${imgBatch.done}/${imgBatch.total}…` : "Mira Photos"}
           </button>
           {isResto && (
             <button
