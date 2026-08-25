@@ -240,14 +240,21 @@ function PlanCatalogEditor({ plans, onSaved }) {
         <table className="luxe-table-light">
           <thead><tr><th>Plan Name</th><th>Duration</th><th>Branches</th><th>Price (₹)</th><th></th></tr></thead>
           <tbody>
-            {plans.map(p => (
+            {[["salon", "💇 Salon & Spa Plans"], ["restaurant", "🍽️ Restaurant Plans"]].map(([vert, heading]) => {
+              const group = plans.filter(p => (p.vertical || "salon") === vert);
+              if (!group.length) return null;
+              return [
+                <tr key={`head-${vert}`} data-testid={`plan-group-${vert}`}>
+                  <td colSpan={5} className="!py-2.5 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">{heading}</td>
+                </tr>,
+                ...group.map(p => (
               <tr key={p.key} data-testid={`plan-row-${p.key}`}>
                 <td>
                   <input data-testid={`plan-label-${p.key}`} className="input-light w-full min-w-[180px] text-sm" value={val(p, "label")}
                     onChange={e => setVal(p.key, "label", e.target.value)} />
                   <div className="text-[10px] text-slate-400 font-mono mt-0.5">{p.key}</div>
                 </td>
-                <td className="text-xs text-slate-600">{p.duration_days >= 300 ? "12 months" : "6 months"}</td>
+                <td className="text-xs text-slate-600">{Math.max(1, Math.round((p.duration_days || 183) / 30.4))} months</td>
                 <td className="text-xs text-slate-600">{p.branches}</td>
                 <td>
                   <input data-testid={`plan-price-${p.key}`} type="number" min="0" step="500" className="input-light w-28 text-sm font-semibold"
@@ -260,7 +267,9 @@ function PlanCatalogEditor({ plans, onSaved }) {
                   </button>
                 </td>
               </tr>
-            ))}
+                )),
+              ];
+            })}
           </tbody>
         </table>
       </div>

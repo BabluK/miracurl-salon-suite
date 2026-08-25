@@ -239,7 +239,17 @@ export default function SignupSalon() {
         </div>
 
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-          {(isIntl ? [
+          {(form.business_type === "restaurant" ? (isIntl ? [
+            { v: "$0", l: "First month" },
+            { v: "30 days", l: "Free trial" },
+            { v: catalog?.resto_intl_half?.price ? `${fmtUSD(catalog.resto_intl_half.price)}` : "—", l: "6-month plan" },
+            { v: catalog?.resto_intl_annual?.price ? `${fmtUSD(catalog.resto_intl_annual.price)}` : "—", l: "Annual plan" },
+          ] : [
+            { v: "₹0", l: "First month" },
+            { v: catalog?.resto_quarter?.price ? kFmt(catalog.resto_quarter.price) : "—", l: "3-month plan" },
+            { v: catalog?.resto_half?.price ? kFmt(catalog.resto_half.price) : "—", l: "6-month plan" },
+            { v: catalog?.resto_annual?.price ? kFmt(catalog.resto_annual.price) : "—", l: "Annual plan" },
+          ]) : isIntl ? [
             { v: "$0", l: "Trial cost" },
             { v: "7 days", l: "Free trial" },
             { v: catalog?.intl_pro_monthly?.price ? `${fmtUSD(catalog.intl_pro_monthly.price)}/mo` : "—", l: "Professional plan" },
