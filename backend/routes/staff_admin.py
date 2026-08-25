@@ -882,6 +882,37 @@ async def list_whatsapp_requests(status: str = "pending", admin=Depends(require_
     q = {} if status == "all" else {"status": status}
     return await db.whatsapp_requests.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
 
+class CategorySpecialIn(BaseModel):
+    category: str = Field(..., min_length=1, max_length=60)
+    discount_pct: float = Field(..., gt=0, le=90)
+    days: List[int] = Field(..., min_length=1, max_length=7)  # 0=Mon … 6=Sun
+
+
+@router.get("/category-specials")
+async def list_category_specials(admin=Depends(require_admin)):
+    return await db.category_specials.find({}, {"_id": 0}).sort("category", 1).to_list(100)
+
+
+@router.post("/category-specials")
+async def create_category_special(body: CategorySpecialIn, admin=Depends(require_admin)):
+    if any(d < 0 or d > 6 for d in body.days):
+        raise HTTPException(400, "Days must be 0 (Mon) to 6 (Sun)")
+    doc = {"id": uuid.uuid4().hex[:10], "category": body.category.strip(),
+           "discount_pct": body.discount_pct, "days": sorted(set(body.days)),
+           "active": True, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.category_specials.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.delete("/category-specials/{sid}")
+async def delete_category_special(sid: str, admin=Depends(require_admin)):
+    r = await db.category_specials.delete_one({"id": sid})
+    if r.deleted_count == 0:
+        raise HTTPException(404, "Special not found")
+    return {"ok": True}
+
+
 @router.get("/table-orders")
 async def list_table_orders(admin=Depends(require_admin)):
     """Kitchen tickets — table orders for this restaurant (newest first)."""

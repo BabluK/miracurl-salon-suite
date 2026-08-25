@@ -712,33 +712,50 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
     ids = [str(i.get("id")) for i in body.items if i.get("id")]
     menu = {m["id"]: m for m in await db.services.find(
         {"id": {"$in": ids}, "active": True}, {"_id": 0}).to_list(60)}
-    items, total = [], 0.0
+    # Discounts: global Offer of the Day + per-category weekday specials (item takes the better one)
+    now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    off = await _raw_db.day_offers.find_one(
+        {"tenant_id": t["id"], "date": now_ist.date().isoformat(), "status": "accepted", "discount_pct": {"$gt": 0}},
+        {"_id": 0, "discount_pct": 1, "title": 1}, sort=[("accepted_at", -1)])
+    disc_pct = float(off["discount_pct"]) if off else 0.0
+    cat_specials = {s["category"]: float(s["discount_pct"]) for s in await _raw_db.category_specials.find(
+        {"tenant_id": t["id"], "active": True, "days": now_ist.weekday()}, {"_id": 0}).to_list(50)}
+    items = []
     for i in body.items:
         m = menu.get(str(i.get("id")))
         if not m:
             continue
         qty = max(1, min(20, int(i.get("qty") or 1)))
-        items.append({"id": m["id"], "name": m["name"], "price": m["price"], "qty": qty})
-        total += m["price"] * qty
+        cat = m.get("category") or ""
+        items.append({"id": m["id"], "name": m["name"], "price": m["price"], "qty": qty,
+                      "category": cat, "disc_pct": max(cat_specials.get(cat, 0.0), disc_pct)})
     if not items:
         raise HTTPException(400, "No valid menu items in the order")
-    # Day-wise special (Offer of the Day, e.g. 5/10/15%) applies to QR menu orders too
-    today_ist = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date().isoformat()
-    off = await _raw_db.day_offers.find_one(
-        {"tenant_id": t["id"], "date": today_ist, "status": "accepted", "discount_pct": {"$gt": 0}},
-        {"_id": 0, "discount_pct": 1, "title": 1}, sort=[("accepted_at", -1)])
-    disc_pct = float(off["discount_pct"]) if off else 0.0
-    disc_amt = round(total * disc_pct / 100, 2)
+    subtotal = round(sum(i["price"] * i["qty"] for i in items), 2)
+    disc_amt = round(sum(i["price"] * i["qty"] * i["disc_pct"] / 100 for i in items), 2)
     order = {"id": uuid.uuid4().hex[:8], "tenant_id": t["id"], "table_no": body.table_no,
              "customer_name": (body.customer_name or "").strip()[:80],
-             "items": items, "subtotal": round(total, 2),
+             "items": items, "subtotal": subtotal,
              "discount_pct": disc_pct, "discount_amt": disc_amt,
              "offer_title": (off or {}).get("title") or "",
-             "total": round(total - disc_amt, 2), "status": "new",
+             "total": round(subtotal - disc_amt, 2), "status": "new",
              "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.table_orders.insert_one(order)
     order.pop("_id", None)
     return {"ok": True, "order": order}
+
+
+@router.get("/public/category-specials/{slug}")
+async def public_category_specials(slug: str):
+    """Today's per-category weekday specials for the QR menu (no auth)."""
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
+    if not t:
+        raise HTTPException(404, "Restaurant not found")
+    weekday = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).weekday()
+    rows = await _raw_db.category_specials.find(
+        {"tenant_id": t["id"], "active": True, "days": weekday},
+        {"_id": 0, "category": 1, "discount_pct": 1}).to_list(50)
+    return {"specials": {r["category"]: r["discount_pct"] for r in rows}}
 
 
 @router.get("/super-admin/product-orders")

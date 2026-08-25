@@ -363,7 +363,7 @@ export default function POS() {
     const host = staff[0];
     setCart(kb.items.map(i => ({
       type: "service", ref_id: i.id, name: i.name, qty: i.qty, price: i.price,
-      disc_pct: Number(kb.discount_pct) || 0, staff_id: host.id, staff_name: host.name,
+      disc_pct: Number(i.disc_pct ?? kb.discount_pct) || 0, staff_id: host.id, staff_name: host.name,
     })));
     toast.success(`🧾 Kitchen order #${kb.order_id} (Table ${kb.table_no}) loaded — pick the guest & payment to close the bill`);
   }, [staff]);  // eslint-disable-line react-hooks/exhaustive-deps

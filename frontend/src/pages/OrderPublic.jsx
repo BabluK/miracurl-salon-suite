@@ -12,6 +12,7 @@ export default function OrderPublic() {
   const [salon, setSalon] = useState(null);
   const [menu, setMenu] = useState([]);
   const [offer, setOffer] = useState(null);
+  const [specials, setSpecials] = useState({});
   const [qty, setQty] = useState({});
   const [table, setTable] = useState(params.get("table") || "");
   const [name, setName] = useState("");
@@ -24,6 +25,7 @@ export default function OrderPublic() {
     axios.get(`${BACKEND_URL}/api/public/day-offer/${slug}`).then(r => {
       if (r.data?.offer?.discount_pct > 0) setOffer(r.data.offer);
     }).catch(() => {});
+    axios.get(`${BACKEND_URL}/api/public/category-specials/${slug}`).then(r => setSpecials(r.data.specials || {})).catch(() => {});
   }, [slug]);
 
   const byCat = useMemo(() => {
@@ -34,7 +36,9 @@ export default function OrderPublic() {
   const cart = useMemo(() => menu.filter(m => qty[m.id] > 0), [menu, qty]);
   const total = cart.reduce((a, m) => a + m.price * qty[m.id], 0);
   const offPct = Number(offer?.discount_pct) || 0;
-  const payable = Math.round(total * (1 - offPct / 100));
+  const pctFor = (m) => Math.max(Number(specials[m.category || "Menu"] || specials[m.category] || 0), offPct);
+  const payable = Math.round(cart.reduce((a, m) => a + m.price * qty[m.id] * (1 - pctFor(m) / 100), 0));
+  const anyDiscount = payable < Math.round(total);
 
   function bump(id, d) { setQty(q => ({ ...q, [id]: Math.max(0, (q[id] || 0) + d) })); }
 
@@ -93,14 +97,25 @@ export default function OrderPublic() {
         )}
         {Object.entries(byCat).map(([cat, items]) => (
           <section key={cat}>
-            <h2 className="text-gold text-xs tracking-[0.25em] uppercase mb-3">{cat}</h2>
+            <h2 className="text-gold text-xs tracking-[0.25em] uppercase mb-3 flex items-center gap-2">
+              {cat}
+              {specials[cat] > 0 && (
+                <span data-testid={`cat-special-${cat}`} className="text-[9px] font-bold tracking-normal normal-case px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-300">
+                  {specials[cat]}% OFF today
+                </span>
+              )}
+            </h2>
             <div className="space-y-2.5">
               {items.map(m => (
                 <div key={m.id} data-testid={`menu-item-${m.id}`}
                   className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{m.name}</p>
-                    <p className="text-gold text-xs font-bold mt-0.5">₹{Math.round(m.price)}</p>
+                    {pctFor(m) > 0 ? (
+                      <p className="text-xs font-bold mt-0.5"><s className="text-white/35">₹{Math.round(m.price)}</s> <span className="text-emerald-300">₹{Math.round(m.price * (1 - pctFor(m) / 100))}</span></p>
+                    ) : (
+                      <p className="text-gold text-xs font-bold mt-0.5">₹{Math.round(m.price)}</p>
+                    )}
                   </div>
                   {qty[m.id] > 0 ? (
                     <div className="flex items-center gap-3 shrink-0">
@@ -127,7 +142,7 @@ export default function OrderPublic() {
             className="w-full btn-gold py-3.5 flex items-center justify-center gap-2 text-sm font-bold disabled:opacity-60">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UtensilsCrossed className="w-4 h-4" />}
             Send order to kitchen · {cart.reduce((a, m) => a + qty[m.id], 0)} item(s) ·
-            {offPct > 0 && <s className="opacity-60">₹{Math.round(total).toLocaleString("en-IN")}</s>} ₹{payable.toLocaleString("en-IN")}
+            {anyDiscount && <s className="opacity-60">₹{Math.round(total).toLocaleString("en-IN")}</s>} ₹{payable.toLocaleString("en-IN")}
           </button>
         </div>
       )}

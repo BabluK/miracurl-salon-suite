@@ -2,10 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-24.99"
-BUILD_TIME = "24 Aug 2026, 05:30 PM IST"
+BUILD = "2026-08-25.100"
+BUILD_TIME = "25 Aug 2026, 11:30 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-25 (Category specials 🏷️)",
+        "changes": [
+            "🏷️ Category Specials — set day-wise discounts per menu category (e.g. 15% off Barbecue every Wednesday) from the Kitchen page; the QR menu shows the deal badge and slashed prices automatically, and each dish keeps its own discount all the way into the POS bill",
+        ],
+    },
     {
         "date": "2026-08-24 (Restaurant edition — Phase 1, 2 & QR table ordering 🍽️)",
         "changes": [

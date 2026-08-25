@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { ChefHat, QrCode, Printer, CheckCircle2, Flame, XCircle } from "lucide-react";
+import { CategorySpecials } from "@/components/CategorySpecials";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -67,7 +68,7 @@ export default function Kitchen() {
     localStorage.setItem("kitchen_bill", JSON.stringify({
       order_id: o.id, table_no: o.table_no, customer_name: o.customer_name || "",
       discount_pct: o.discount_pct || 0,
-      items: o.items.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+      items: o.items.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, disc_pct: i.disc_pct })),
     }));
     nav("/pos");
   }
@@ -102,7 +103,7 @@ export default function Kitchen() {
       <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-200/70">
         <span className="text-sm font-extrabold text-slate-900">
           ₹{Math.round(o.total).toLocaleString("en-IN")}
-          {o.discount_amt > 0 && <span className="ml-1.5 text-[10px] font-bold text-emerald-600">({o.discount_pct}% off applied)</span>}
+          {o.discount_amt > 0 && <span className="ml-1.5 text-[10px] font-bold text-emerald-600">(saved ₹{Math.round(o.discount_amt)})</span>}
         </span>
         <div className="flex gap-2">
           {o.status === "served" && (
@@ -166,6 +167,8 @@ export default function Kitchen() {
           </div>
         </div>
       )}
+
+      <CategorySpecials />
 
       <section>
         <h2 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Open orders ({open.length})</h2>
