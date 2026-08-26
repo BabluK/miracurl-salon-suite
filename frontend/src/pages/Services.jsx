@@ -221,10 +221,15 @@ export default function Services() {
       if (data.status === "running") {
         setImgBatch(data);
         load();
+        api.get("/service-categories").then(r => setCatImages(r.data || {})).catch(() => {});
         batchTimer.current = setTimeout(poll, 15000);
       } else {
         setImgBatch(prev => {
-          if (prev) { toast.success(`🎨 Mira finished — ${data.done} dish photos painted${data.failed ? ` (${data.failed} failed)` : ""}`); load(); }
+          if (prev) {
+            toast.success(`🎨 Mira finished — ${data.done} ${data.kind === "banners" ? "category banners" : "dish photos"} painted${data.failed ? ` (${data.failed} failed)` : ""}`);
+            load();
+            api.get("/service-categories").then(r => setCatImages(r.data || {})).catch(() => {});
+          }
           return null;
         });
       }
@@ -349,6 +354,24 @@ export default function Services() {
           >
             {imgBatch ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-amber-500" />}
             {imgBatch ? `Painting ${imgBatch.done}/${imgBatch.total}…` : "Mira Photos"}
+          </button>
+          <button
+            data-testid="generate-all-banners-btn"
+            disabled={!!imgBatch}
+            onClick={async () => {
+              try {
+                const { data } = await api.post("/services/generate-all-banners");
+                if (!data.queued) { toast.info("Every category already has a banner ✦"); return; }
+                toast.success(`🖼️ Mira is painting ${data.queued} category banners in one batch — they appear as they finish`);
+                setImgBatch({ done: 0, total: data.queued, status: "running" });
+                setTimeout(pollBatch, 5000);
+              } catch (err) { toast.error(err.response?.data?.detail || "Couldn't start Mira's banner studio — try again"); }
+            }}
+            className="btn-slate flex items-center gap-2 disabled:opacity-60"
+            title="Mira paints one elegant banner for every category that has none — full batch in the background"
+          >
+            {imgBatch ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-sky-500" />}
+            Mira Banners
           </button>
           {isResto && (
             <button

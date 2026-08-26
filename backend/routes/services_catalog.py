@@ -561,6 +561,44 @@ async def generate_category_banner(body: BannerPreviewIn, user=Depends(require_a
     return {"ok": True, "job_id": jid}
 
 
+@router.post("/services/generate-all-banners")
+async def generate_all_category_banners(user=Depends(require_admin)):
+    """Mira paints a banner for EVERY category that has none — one tap, background batch."""
+    cats_raw = await db.services.find({}, {"_id": 0, "category": 1}).to_list(500)
+    cats = sorted({(c.get("category") or "").strip() for c in cats_raw} - {""})
+    existing = await db.service_categories.find({}, {"_id": 0}).to_list(200)
+    have = {c["name"] for c in existing if (c.get("image_url") or "").strip()}
+    todo = [c for c in cats if c not in have][:40]
+    if not todo:
+        return {"queued": 0}
+    tenant_id = _current_tenant_id.get()
+    if await _raw_db.mira_image_batches.find_one({"tenant_id": tenant_id, "status": "running"}):
+        raise HTTPException(409, "Mira is already painting a batch — check the progress chip")
+    batch_id = uuid.uuid4().hex[:8]
+    await _raw_db.mira_image_batches.insert_one({
+        "id": batch_id, "tenant_id": tenant_id, "kind": "banners", "total": len(todo), "done": 0,
+        "failed": 0, "status": "running", "created_at": datetime.now(timezone.utc).isoformat()})
+
+    async def _runner():
+        resto = await _tenant_is_restaurant(tenant_id)
+        for cat in todo:
+            try:
+                img = await _generate_category_banner_bytes(cat, resto)
+                url = await _store_service_image(tenant_id, img, f"banner-{cat[:24]}")
+                await _raw_db.service_categories.update_one(
+                    {"tenant_id": tenant_id, "name": cat},
+                    {"$set": {"tenant_id": tenant_id, "name": cat, "image_url": url}}, upsert=True)
+                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}})
+            except Exception as e:
+                logging.error(f"mira banner batch failed for {cat}: {e}")
+                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
+            await asyncio.sleep(1)
+        await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$set": {"status": "done"}})
+
+    asyncio.get_event_loop().create_task(_runner())
+    return {"queued": len(todo), "batch_id": batch_id}
+
+
 @router.get("/services/image-jobs/{jid}")
 async def image_job_status(jid: str, user=Depends(require_admin)):
     job = await _raw_db.mira_image_jobs.find_one(
