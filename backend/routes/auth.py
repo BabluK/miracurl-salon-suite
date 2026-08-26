@@ -387,21 +387,27 @@ def _build_signup_owner(body: SalonSignupIn, email: str, tenant_id: str) -> dict
     }
 
 
-async def _send_restaurant_welcome(tenant: dict, body: SalonSignupIn, trial_end: str) -> None:
-    from email_service import _send_email, restaurant_welcome_email_html
+async def _send_signup_welcome(tenant: dict, body: SalonSignupIn, trial_end: str) -> None:
+    from email_service import _send_email, restaurant_welcome_email_html, salon_welcome_email_html
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
+    is_resto = tenant.get("business_type") == "restaurant"
+    if is_resto:
+        subject = f"Welcome to Miracurl — {tenant['name']} is ready to serve 🍽️✦"
+        html = restaurant_welcome_email_html(tenant["name"], body.owner_name, body.owner_email.lower(),
+                                             body.password, trial_end)
+        book_label = "Log in to your restaurant ✦"
+    else:
+        subject = f"Welcome to Miracurl — {tenant['name']} is ready to shine ✂️✦"
+        html = salon_welcome_email_html(tenant["name"], body.owner_name, body.owner_email.lower(),
+                                        body.password, trial_end)
+        book_label = "Log in to your salon ✦"
     try:
-        status = await _send_email(
-            [body.owner_email.lower()],
-            f"Welcome to Miracurl — {tenant['name']} is ready to serve 🍽️✦",
-            restaurant_welcome_email_html(tenant["name"], body.owner_name, body.owner_email.lower(),
-                                          body.password, trial_end),
-            book_url=login_url, book_label="Log in to your restaurant ✦",
-            suite_label="Restaurant Management Suite")
+        status = await _send_email([body.owner_email.lower()], subject, html,
+                                   book_url=login_url, book_label=book_label)
         if not status.get("sent"):
-            logging.warning(f"restaurant welcome email failed: {status.get('error')}")
+            logging.warning(f"signup welcome email failed: {status.get('error')}")
     except Exception as e:
-        logging.warning(f"restaurant welcome email failed: {e}")
+        logging.warning(f"signup welcome email failed: {e}")
 
 
 @router.post("/public/signup-salon")
@@ -422,7 +428,7 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     await db.tenants.insert_one(tenant)
     if tenant.get("business_type") == "restaurant":
         await _seed_restaurant_defaults(tenant["id"])
-        await _send_restaurant_welcome(tenant, body, trial_end)
+    await _send_signup_welcome(tenant, body, trial_end)
 
     owner = _build_signup_owner(body, email, tenant["id"])
     await db.users.insert_one(owner)

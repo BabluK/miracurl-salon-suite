@@ -892,8 +892,7 @@ async def _send_renewal_email(t: dict, days: int, end_str: str, source: str) -> 
             restaurant_trial_reminder_email_html(
                 name, days, end_str, source, float(t.get("affiliate_credits") or 0)),
             book_label="Renew now ✦",
-            book_url=f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/settings",
-            suite_label="Restaurant Management Suite")
+            book_url=f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/settings")
     if (t.get("currency") or "INR") != "INR":
         token = t.get("renewal_pay_token")
         if not token:
