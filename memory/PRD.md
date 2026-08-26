@@ -2236,3 +2236,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## Session 2026-06 (fork) — Account-Global Login Lockout (SEC-P3)
 - routes/auth.py login(): second brute-force layer keyed "acct:{email}" in login_attempts (per-IP "ip:email" layer kept as first line). Ceiling: 10 global fails in a 1h sliding window → escalating lock 15m → 30m → 1h → 2h → 4h cap (strikes doubling), so IP rotation can't reset the clock but an attacker can't permanently DoS the owner. Window/strikes reset when last_attempt > 1h old; successful login delete_many both identifiers. "account_locked" security event logged for HQ snapshot. 423 message suggests Forgot Password.
 - Verified via curl on localhost:8001 with rotated X-Forwarded-For IPs (TRUSTED_PROXY_COUNT=3 aware): 10 fails from 10 distinct IPs → 11th from fresh IP 423; aged lock + 10 more fails → strikes=2, ~30m lock; success clears counters; real admin login unaffected. All test records cleaned.
+
+## Session 2026-06 (fork) — MiraCurl Logo Kit
+- Built full logo package from user's gold "MiraCurl Unisex Salon" logo (asset 9m3cetr0_image.png). White bg analytically un-blended to true transparency (numpy), 2x LANCZOS upscale.
+- Files at /app/frontend/public/brand-kit/ (downloadable at {PREVIEW_URL}/brand-kit/...): transparent PNG + WEBP, white/dark/black JPGs, square 1024 (transparent/white/dark), circle avatar w/ gold ring, white-mono watermark PNG, favicons 16–512 + favicon.ico, original, and miracurl-logo-kit.zip bundling all.
+- NOTE: earlier multi-part request (booking scroll-to-services, admin logo shape circle/square, header colour setting, more backgrounds + light golden tone, bigger dashboard logo) was superseded by this logo ask — still PENDING in backlog.
