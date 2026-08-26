@@ -1,0 +1,40 @@
+{
+  "summary": "Full E2E test of image thumbnail system + logo shape / header colour / new backdrops batch. Backend 11/12 pytest (1 minor cache-control issue caused by middleware). Frontend fully verified: all new data-testids present, save flow succeeds, public booking page renders light-golden header + square plaque logo + champagne gold backdrop, Services page fires /api/files/{id}?w=160 requests as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/files/{id}?w=160",
+        "issue": "Route sets 'Cache-Control: public, max-age=31536000, immutable' but a global response middleware overwrites it with 'no-store, no-cache, must-revalidate'. This defeats the browser-cache purpose of the thumbnail system — every visit will re-download the WEBP (still cheaper server-side thanks to the storage-cached webp, but bandwidth savings are lost). Suggest whitelisting /api/files/* and /api/img from the no-store middleware."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_thumbs_branding.py",
+    "/app/test_reports/pytest/thumbs_branding.xml"
+  ],
+  "action_items": [
+    "OPTIONAL PERF: whitelist /api/files/* and /api/img from the no-store cache-control middleware so the 1-year immutable header actually reaches the browser and short-circuits repeat downloads of the WEBP variants."
+  ],
+  "critical_code_review_comments": [
+    "uploads.py _resize_webp: image opened without a max-pixel guard; a 20k x 20k pixel bomb PNG under 3 MB would still consume gigs of RAM during resize. Consider PIL Image.MAX_IMAGE_PIXELS or a bounds check before resize.",
+    "uploads.py /api/img: requests.get(src, timeout=12) executes synchronously in a thread — acceptable, but no size cap on the response; a malicious allowlisted upload path (if ever compromised) could return an arbitrarily large body. Consider streaming with size cap.",
+    "uploads.py /files/{id}?w=: cache-write via asyncio.ensure_future without exception logging — silent failures possible. Attach a done_callback logging exceptions."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_thumbs_branding.py (new)"
+  ],
+  "success_rate": {"backend": "92%", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, tenant miracurl-marathahalli, PIN 4321",
+  "seed_data_creation": "test_thumbs_branding.py uploads a test PNG each module run under kind=service (small; not deleted — harmless). Branding restored to logo_shape=square, header_bg=#F3E5BF, book_bg=img:champagne at end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New tests live in /app/backend/tests/test_thumbs_branding.py (12 tests). Covers thumbnail resize, SSRF allowlist, branding logo_shape / header_bg validation, public salon payload. All pass except immutable cache-control assertion (middleware override — see backend_issues.minor).",
+  "rca of the issue": "Cache-Control override: the FastAPI app registers a middleware that force-sets 'no-store, no-cache, must-revalidate' on every response for security (typical for auth-sensitive JSON APIs). It is applied indiscriminately including to /api/files and /api/img which set their own long-lived Cache-Control. Fix: in the middleware, skip overriding when the response's Content-Type starts with 'image/' or when path starts with /api/files or /api/img."
+}

@@ -3,6 +3,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Sparkles, MessageCircle, X, Send, Loader2, Check, User, Mic, Square, Volume2 } from "lucide-react";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
+import { thumbUrl } from "@/lib/api";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -69,7 +70,7 @@ function DishCards({ dishes, onAdd }) {
     <div className="mt-2 grid grid-cols-1 gap-2" data-testid="mira-dish-cards">
       {dishes.map(d => (
         <div key={d.name} className="flex items-center gap-2.5 rounded-xl border border-gold/30 bg-black/30 p-1.5 pr-2" data-testid="mira-dish-card">
-          <img src={d.image_url?.startsWith("/") ? `${BACKEND_URL}${d.image_url}` : d.image_url} alt={d.name}
+          <img src={d.image_url?.startsWith("/") ? `${BACKEND_URL}${thumbUrl(d.image_url, 160)}` : thumbUrl(d.image_url, 160)} alt={d.name}
             className="w-14 h-14 rounded-lg object-cover flex-shrink-0" loading="lazy" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">

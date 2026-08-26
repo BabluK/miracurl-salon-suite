@@ -5,9 +5,11 @@ import { ShoppingBag } from "lucide-react";
 
 export function MiracurlProductsCard() {
   const [enabled, setEnabled] = useState(true);
+  const [isResto, setIsResto] = useState(false);
 
   useEffect(() => {
     api.get("/settings/miracurl-products").then(r => setEnabled(r.data.enabled)).catch(() => {});
+    api.get("/tenants/current").then(r => setIsResto(r.data?.business_type === "restaurant")).catch(() => {});
   }, []);
 
   async function toggle() {
@@ -22,7 +24,7 @@ export function MiracurlProductsCard() {
     }
   }
 
-  return (
+  return isResto ? null : (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 mt-6" data-testid="miracurl-products-card">
       <div className="flex items-center justify-between">
         <h3 className="text-slate-800 font-semibold flex items-center gap-2"><ShoppingBag className="w-4 h-4 text-amber-600" /> Miracurl Products on booking page</h3>

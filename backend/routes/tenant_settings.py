@@ -536,6 +536,8 @@ class BrandingIn(BaseModel):
     manager_phone: Optional[str] = Field(None, max_length=40)
     salon_email: Optional[str] = Field(None, max_length=120)
     book_bg: Optional[str] = Field(None, max_length=40)
+    logo_shape: Optional[str] = Field(None, pattern=r"^(circle|square)?$")
+    header_bg: Optional[str] = Field(None, max_length=20)
 
     @field_validator("maps_url")
     @classmethod
@@ -595,6 +597,8 @@ async def get_branding(user=Depends(require_admin), t=Depends(current_tenant)):
         "whatsapp_number": t.get("whatsapp_number") or "",
         "salon_email": t.get("salon_email") or "",
         "book_bg": t.get("book_bg") or "",
+        "logo_shape": t.get("logo_shape") or "",
+        "header_bg": t.get("header_bg") or "",
     }
 
 

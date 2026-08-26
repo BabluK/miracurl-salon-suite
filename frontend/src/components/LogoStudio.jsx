@@ -89,14 +89,14 @@ export const LogoStudio = () => {
         <div className="flex items-center gap-5 shrink-0">
           {currentLogo && !preview && (
             <div className="text-center">
-              <img src={fullUrl(currentLogo)} alt="Current logo" className="w-28 h-28 rounded-2xl object-cover border-2 border-amber-300/50 mx-auto" data-testid="logo-current-img" />
+              <img src={fullUrl(currentLogo)} alt="Current logo" className="w-28 h-28 rounded-2xl object-contain bg-[#17141c] p-1.5 border-2 border-amber-300/50 mx-auto" data-testid="logo-current-img" />
               <div className="text-[10px] uppercase tracking-widest text-white/50 mt-2">Current logo</div>
               <button data-testid="logo-remove-btn" onClick={() => apply("")} className="mt-1 text-[11px] text-red-300 hover:text-red-200 inline-flex items-center gap-1"><Trash2 className="w-3 h-3" /> Remove</button>
             </div>
           )}
           {preview && (
             <div className="text-center">
-              <img src={fullUrl(preview)} alt="Logo preview" className="w-36 h-36 rounded-2xl object-cover border-2 border-amber-300 shadow-[0_0_30px_rgba(252,211,77,0.35)] mx-auto" data-testid="logo-preview-img" />
+              <img src={fullUrl(preview)} alt="Logo preview" className="w-36 h-36 rounded-2xl object-contain bg-[#17141c] p-1.5 border-2 border-amber-300 shadow-[0_0_30px_rgba(252,211,77,0.35)] mx-auto" data-testid="logo-preview-img" />
               <button data-testid="logo-apply-btn" onClick={() => apply(preview)} disabled={applying}
                 className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-400 text-slate-900 text-xs font-bold hover:bg-emerald-300 transition disabled:opacity-60">
                 <Check className="w-3.5 h-3.5" /> {applying ? "Applying…" : "Apply as my logo"}

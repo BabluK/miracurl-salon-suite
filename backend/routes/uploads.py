@@ -99,18 +99,92 @@ async def upload_image(
     return {"id": file_id, "url": public_url, "size": len(data), "content_type": _MIME[ext]}
 
 
+_THUMB_WIDTHS = (160, 320, 480, 640, 960)
+
+
+def _resize_webp(data: bytes, w: int) -> bytes:
+    from PIL import Image as _PILImage
+    _PILImage.MAX_IMAGE_PIXELS = 40_000_000  # pixel-bomb guard
+    im = _PILImage.open(io.BytesIO(data))
+    if im.width > w:
+        im = im.resize((w, int(im.height * w / im.width)), _PILImage.LANCZOS)
+    if im.mode not in ("RGB", "RGBA"):
+        im = im.convert("RGBA" if "A" in im.mode or im.mode == "P" else "RGB")
+    buf = io.BytesIO()
+    im.save(buf, "WEBP", quality=78)
+    return buf.getvalue()
+
+
 @router.get("/files/{file_id}")
-async def download_file(file_id: str):
+async def download_file(file_id: str, w: Optional[int] = Query(None, ge=16, le=2000)):
     """Serve an uploaded image. Public by design — anyone with the URL can view
-    (same as an Instagram CDN link). The unguessable UUID is the token."""
+    (same as an Instagram CDN link). The unguessable UUID is the token.
+    Optional ?w= serves a cached, resized WEBP variant (perf: original service
+    photos are ~2MB; thumbnails cut page weight ~95%)."""
     rec = await _raw_db.uploads.find_one({"id": file_id, "is_deleted": False})
     if not rec:
         raise HTTPException(404, "File not found")
+    _headers = {"Cache-Control": "public, max-age=31536000, immutable"}
+    if w:
+        w = min(_THUMB_WIDTHS, key=lambda x: abs(x - w))
+        variant_path = f"{rec['storage_path']}.w{w}.webp"
+        try:
+            data, _ = await asyncio.to_thread(_get_object, variant_path)
+            return Response(content=data, media_type="image/webp", headers=_headers)
+        except Exception:
+            pass
+        try:
+            original, _ = await asyncio.to_thread(_get_object, rec["storage_path"])
+            data = await asyncio.to_thread(_resize_webp, original, w)
+            asyncio.ensure_future(asyncio.to_thread(_put_object, variant_path, data, "image/webp"))
+            return Response(content=data, media_type="image/webp", headers=_headers)
+        except requests.HTTPError as e:
+            raise HTTPException(400, f"Storage fetch failed: {e}") from e
+        except Exception:
+            pass  # not an image / resize failed — fall through to original
     try:
         data, ct = await asyncio.to_thread(_get_object, rec["storage_path"])
     except requests.HTTPError as e:
         raise HTTPException(400, f"Storage fetch failed: {e}") from e
-    return Response(content=data, media_type=rec.get("content_type", ct),
-                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    return Response(content=data, media_type=rec.get("content_type", ct), headers=_headers)
+
+
+_PROXY_HOSTS = ("static.prod-images.emergentagent.com", "customer-assets.emergentagent.com",
+                "customer-assets-4nw71qhi.emergentagent.net")
+
+
+@router.get("/img")
+async def img_thumb_proxy(src: str = Query(..., max_length=1000), w: int = Query(480, ge=16, le=2000),
+                          _rl=Depends(public_rate_limit)):
+    """Resize-cache proxy for our own CDN-hosted AI images (SSRF-safe: host allowlist)."""
+    host = urlparse(src).netloc.lower()
+    if urlparse(src).scheme != "https" or host not in _PROXY_HOSTS:
+        raise HTTPException(400, "Host not allowed")
+    w = min(_THUMB_WIDTHS, key=lambda x: abs(x - w))
+    key = hashlib.sha256(f"{src}|{w}".encode()).hexdigest()
+    cache_path = f"{APP_NAME}/imgcache/{key}.webp"
+    _headers = {"Cache-Control": "public, max-age=31536000, immutable"}
+    try:
+        data, _ = await asyncio.to_thread(_get_object, cache_path)
+        return Response(content=data, media_type="image/webp", headers=_headers)
+    except Exception:
+        pass
+    def _fetch():
+        r = requests.get(src, timeout=12, stream=True)
+        r.raise_for_status()
+        chunks, total = [], 0
+        for chunk in r.iter_content(65536):
+            total += len(chunk)
+            if total > 15 * 1024 * 1024:
+                raise ValueError("Image too large")
+            chunks.append(chunk)
+        return b"".join(chunks)
+    try:
+        original = await asyncio.to_thread(_fetch)
+        data = await asyncio.to_thread(_resize_webp, original, w)
+    except Exception as e:
+        raise HTTPException(400, f"Image fetch failed: {e}") from e
+    asyncio.ensure_future(asyncio.to_thread(_put_object, cache_path, data, "image/webp"))
+    return Response(content=data, media_type="image/webp", headers=_headers)
 
 

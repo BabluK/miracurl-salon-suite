@@ -1,4 +1,5 @@
 import { Sparkles, ShieldCheck, Gift, ArrowRight, Play, MessageCircle, MapPin, Phone, Navigation } from "lucide-react";
+import { thumbUrl } from "@/lib/api";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -110,7 +111,7 @@ export const VerifiedTeam = ({ staff, restaurant = false }) => {
       <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
         {staff.map(s => (
           <div key={s.id} data-testid="verified-staff-card" className="min-w-[150px] bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-4 text-center hover:border-gold/40 transition-colors">
-            <img src={s.image_url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300"} alt={s.name} className="w-16 h-16 rounded-full object-cover mx-auto border-2 border-gold/50" />
+            <img src={thumbUrl(s.image_url, 160) || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300"} alt={s.name} className="w-16 h-16 rounded-full object-cover mx-auto border-2 border-gold/50" loading="lazy" />
             <div className="font-playfair mt-2.5 text-sm">{s.name}</div>
             <div className="text-[10px] uppercase tracking-widest text-gold mt-0.5">{s.role}</div>
             <span className="inline-flex items-center gap-1 mt-2 text-[9px] uppercase tracking-wider bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 px-2 py-0.5 rounded-full">

@@ -30,6 +30,8 @@ const BOOK_BG_IMAGES = {
   "img:dining-emerald": { src: "/booking-bg/dining-emerald.jpg", veil: 0.35 },
   "img:dining-noir": { src: "/booking-bg/dining-noir.jpg", veil: 0.3 },
   "img:dining-harvest": { src: "/booking-bg/dining-harvest.jpg", veil: 0.62 },
+  "img:champagne": { src: "/booking-bg/champagne-gold.jpg", veil: 0.7 },
+  "img:royal-gold": { src: "/booking-bg/royal-gold.jpg", veil: 0.3 },
 };
 
 function Stepper({ step, labels = STEP_LABELS }) {
@@ -131,6 +133,8 @@ export default function BookPublic() {
   const [step, setStep] = useState(0);
   useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
   const [salon, setSalon] = useState(null);
+  const [logoWide, setLogoWide] = useState(false);
+  const onLogoLoad = useCallback((e) => setLogoWide(e.target.naturalWidth > e.target.naturalHeight * 1.35), []);
   const [services, setServices] = useState([]);
   const [dayOffer, setDayOffer] = useState(null);
   const [packages, setPackages] = useState([]);
@@ -282,6 +286,7 @@ export default function BookPublic() {
   );
 
   const bgImage = BOOK_BG_IMAGES[salon.book_bg];
+  const effLogoShape = salon.logo_shape || (logoWide ? "square" : "circle");
   return (
     <div className={salon.book_bg ? "min-h-screen text-ink-primary" : "min-h-screen mesh-dark text-ink-primary"}
       style={salon.book_bg ? (bgImage
@@ -290,8 +295,9 @@ export default function BookPublic() {
       data-testid="public-book-page">
       <Toaster theme="dark" position="top-center" toastOptions={TOASTER_OPTIONS} />
 
-      {/* Premium tenant-branded top bar — logo & name from the tenant's dashboard */}
-      <div className="fixed top-0 inset-x-0 z-50 bg-[#FDFBF4]/95 backdrop-blur-xl border-b border-[#e8dcc0] shadow-[0_2px_20px_rgba(180,140,50,0.08)]" data-testid="book-top-bar">
+      {/* Premium tenant-branded top bar — logo, name & colour from the tenant's dashboard */}
+      <div className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl border-b border-[#e8dcc0] shadow-[0_2px_20px_rgba(180,140,50,0.08)]"
+        style={{ background: salon.header_bg || "rgba(253,251,244,0.95)" }} data-testid="book-top-bar">
         <div className="max-w-5xl mx-auto px-4 h-20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3.5 min-w-0 relative" data-testid="book-header-brand">
             <span className="tenant-sparkle" style={{ top: "-4px", left: "78px", color: "#b08d3f" }}>✦</span>
@@ -299,11 +305,19 @@ export default function BookPublic() {
             <span className="tenant-sparkle" style={{ top: "6px", left: "-12px", color: "#d4af37", animationDelay: "1.7s" }}>✦</span>
             <span className="tenant-sparkle" style={{ top: "76px", left: "72px", color: "#d4af37", animationDelay: "2.3s" }}>✦</span>
             {salon.logo_url ? (
-              <span className="tenant-logo-glow w-20 h-20 sm:w-[5.5rem] sm:h-[5.5rem] -my-2 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
-                <span className="w-full h-full rounded-full overflow-hidden bg-[#17141c] block">
-                  <img src={salon.logo_url} alt={salon.name} className="w-full h-full object-cover scale-[1.45]" />
+              effLogoShape === "square" ? (
+                <span className="tenant-logo-glow h-16 sm:h-[4.5rem] rounded-2xl p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
+                  <span className="h-full rounded-[13px] overflow-hidden bg-[#17141c] flex items-center justify-center px-2.5">
+                    <img src={salon.logo_url} alt={salon.name} onLoad={onLogoLoad} className="h-[85%] w-auto max-w-[150px] object-contain" />
+                  </span>
                 </span>
-              </span>
+              ) : (
+                <span className="tenant-logo-glow w-20 h-20 sm:w-[5.5rem] sm:h-[5.5rem] -my-2 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
+                  <span className="w-full h-full rounded-full overflow-hidden bg-[#17141c] block">
+                    <img src={salon.logo_url} alt={salon.name} onLoad={onLogoLoad} className="w-full h-full object-cover scale-[1.45]" />
+                  </span>
+                </span>
+              )
             ) : (
               <span className="tenant-logo-glow w-20 h-20 sm:w-[5.5rem] sm:h-[5.5rem] -my-2 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
                 <span className="w-full h-full rounded-full bg-[#17141c] text-[#e8c37f] flex items-center justify-center font-playfair text-3xl font-bold">

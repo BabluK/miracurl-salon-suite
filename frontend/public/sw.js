@@ -4,7 +4,7 @@
  * - Cache-first for static assets (fonts, icons, JS bundles)
  * - Never caches HTML — always fresh from network to avoid stale-app trap
  */
-const CACHE = "miracurl-v35";
+const CACHE = "miracurl-v36";
 const STATIC = [
   "/manifest.json", "/manifest-admin.json", "/favicon.svg",
   "/icon-192.png", "/icon-512.png",
@@ -42,6 +42,21 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+
+  // Image thumbnails are immutable — cache-first (the ingress strips long-lived
+  // Cache-Control headers, so the SW is the browser-side cache for these)
+  if (url.pathname.startsWith("/api/files/") || url.pathname.startsWith("/api/img")) {
+    event.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req).then((resp) => {
+        if (resp && resp.ok) {
+          const clone = resp.clone();
+          caches.open(CACHE).then((c) => c.put(req, clone));
+        }
+        return resp;
+      }))
+    );
+    return;
+  }
 
   // Never cache API responses (booking availability must be live)
   if (url.pathname.startsWith("/api/")) return;

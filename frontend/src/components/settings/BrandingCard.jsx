@@ -4,7 +4,17 @@ import { toast } from "sonner";
 import { Store, Star, Instagram, MessageCircle, Save } from "lucide-react";
 import { BookingPreview } from "./BookingPreview";
 
-const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "", reception_phone: "", manager_phone: "", salon_email: "", book_bg: "" };
+const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "", reception_phone: "", manager_phone: "", salon_email: "", book_bg: "", logo_shape: "", header_bg: "" };
+
+// Header bar colours — light tones keep the gold-brown header text readable
+const HEADER_BG_TONES = [
+  { v: "", label: "Classic Ivory", swatch: "#FDFBF4" },
+  { v: "#F3E5BF", label: "Light Golden", swatch: "#F3E5BF" },
+  { v: "#F7EDD8", label: "Champagne", swatch: "#F7EDD8" },
+  { v: "#FFFFFF", label: "Pure White", swatch: "#FFFFFF" },
+  { v: "#F6E3E3", label: "Rose Petal", swatch: "#F6E3E3" },
+  { v: "#EAF2E6", label: "Mint Cream", swatch: "#EAF2E6" },
+];
 
 // Decent page tones — all keep strong contrast with the booking page's white text
 const BOOK_BG_TONES = [
@@ -23,6 +33,8 @@ const BOOK_BG_IMAGES_SALON = [
   { v: "img:salon-blush", label: "Blush Studio", src: "/booking-bg/salon-blush.jpg" },
   { v: "img:salon-emerald", label: "Emerald Luxe", src: "/booking-bg/salon-emerald.jpg" },
   { v: "img:salon-noir", label: "Noir & Gold", src: "/booking-bg/salon-noir.jpg" },
+  { v: "img:champagne", label: "Champagne Gold", src: "/booking-bg/champagne-gold.jpg" },
+  { v: "img:royal-gold", label: "Royal Gold Silk", src: "/booking-bg/royal-gold.jpg" },
 ];
 const BOOK_BG_IMAGES_RESTO = [
   { v: "img:aurora", label: "Aurora", src: "/booking-bg/aurora.jpg" },
@@ -31,6 +43,8 @@ const BOOK_BG_IMAGES_RESTO = [
   { v: "img:dining-emerald", label: "Emerald Table", src: "/booking-bg/dining-emerald.jpg" },
   { v: "img:dining-noir", label: "Midnight Grill", src: "/booking-bg/dining-noir.jpg" },
   { v: "img:dining-harvest", label: "Rustic Harvest", src: "/booking-bg/dining-harvest.jpg" },
+  { v: "img:champagne", label: "Champagne Gold", src: "/booking-bg/champagne-gold.jpg" },
+  { v: "img:royal-gold", label: "Royal Gold Silk", src: "/booking-bg/royal-gold.jpg" },
 ];
 
 const SALON_BG_PRESETS = [
@@ -196,7 +210,29 @@ export function BrandingCard() {
           <p className="text-[11px] text-slate-400 mt-1">Pick a decent preset above, or paste your own image URL. Shows at the top of your public booking page.</p>
           <div className="flex flex-col lg:flex-row gap-6 mt-4">
             <div className="flex-1 min-w-0">
-              <label className="text-xs text-slate-500 font-medium block">Booking page colour tone</label>
+              <label className="text-xs text-slate-500 font-medium block">Logo display shape</label>
+              <div className="flex gap-2 mt-2">
+                {[{ v: "", label: "✨ Auto (fit any logo)" }, { v: "circle", label: "⬤ Circle badge" }, { v: "square", label: "▢ Wide plaque" }].map(s => (
+                  <button key={s.v || "auto"} type="button" data-testid={`logo-shape-${s.v || "auto"}`}
+                    onClick={() => setBranding(b => ({ ...b, logo_shape: s.v }))}
+                    className={`px-4 py-2 rounded-full border text-xs transition ${(branding.logo_shape || "") === s.v ? "border-fuchsia-500 ring-2 ring-fuchsia-200 text-slate-800 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-400"}`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Auto picks the best fit — wide logos get the plaque, round emblems get the circle.</p>
+              <label className="text-xs text-slate-500 font-medium block mt-4">Header bar colour</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {HEADER_BG_TONES.map(tn => (
+                  <button key={tn.label} type="button" data-testid={`header-bg-${tn.label.replace(/\s/g, "-").toLowerCase()}`}
+                    onClick={() => setBranding(b => ({ ...b, header_bg: tn.v }))}
+                    className={`flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border text-xs transition ${(branding.header_bg || "") === tn.v ? "border-fuchsia-500 ring-2 ring-fuchsia-200 text-slate-800 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-400"}`}>
+                    <span className="w-5 h-5 rounded-full border border-slate-300 shadow-inner" style={{ background: tn.swatch }} />
+                    {tn.label}
+                  </button>
+                ))}
+              </div>
+              <label className="text-xs text-slate-500 font-medium block mt-4">Booking page colour tone</label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {BOOK_BG_TONES.map(tn => (
                   <button key={tn.label} type="button" data-testid={`book-bg-${tn.label.replace(/\s/g, "-").toLowerCase()}`}
@@ -223,7 +259,7 @@ export function BrandingCard() {
               <p className="text-[11px] text-slate-400 mt-1">Elegant Miracurl gradient art — applied with a soft dark veil so text stays perfectly readable. Tap again to unselect.</p>
             </div>
             <div className="lg:w-60 shrink-0 lg:pt-1">
-              <BookingPreview bg={branding.book_bg} heroImage={branding.hero_image} name={tenantMeta.name} logoUrl={tenantMeta.logo_url} restaurant={isResto} />
+              <BookingPreview bg={branding.book_bg} heroImage={branding.hero_image} name={tenantMeta.name} logoUrl={tenantMeta.logo_url} restaurant={isResto} headerBg={branding.header_bg} logoShape={branding.logo_shape} />
             </div>
           </div>
         </div>

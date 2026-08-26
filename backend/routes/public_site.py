@@ -180,6 +180,8 @@ async def public_salon(slug: str):
         "close_time": t.get("close_time") or "21:00",
         "hero_image": _hero or _salon_default_hero,
         "book_bg": t.get("book_bg") or "",
+        "logo_shape": t.get("logo_shape") or "",
+        "header_bg": t.get("header_bg") or "",
         "referral_reward": REFERRAL_REWARD_REFERRER,
         "google_review_url": t.get("google_review_url") or "",
         "instagram_url": t.get("instagram_url") or "",
@@ -188,7 +190,7 @@ async def public_salon(slug: str):
         "maps_url": t.get("maps_url") or "",
         "gallery": [g.get("url", "") for g in (t.get("gallery") or []) if g.get("url")],
         "branches": t.get("branches", []),
-        "show_products": t.get("show_miracurl_products", True) is not False,
+        "show_products": t.get("business_type") != "restaurant" and t.get("show_miracurl_products", True) is not False,
         "rating": (await _google_live_rating(t)) or (await _salon_rating(t["id"])),
         "business_type": t.get("business_type", "salon"),
     }

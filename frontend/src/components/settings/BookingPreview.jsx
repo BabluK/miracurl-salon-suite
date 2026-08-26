@@ -10,9 +10,11 @@ const BG_IMAGES = {
   "img:dining-emerald": { src: "/booking-bg/dining-emerald.jpg", veil: 0.35 },
   "img:dining-noir": { src: "/booking-bg/dining-noir.jpg", veil: 0.3 },
   "img:dining-harvest": { src: "/booking-bg/dining-harvest.jpg", veil: 0.62 },
+  "img:champagne": { src: "/booking-bg/champagne-gold.jpg", veil: 0.7 },
+  "img:royal-gold": { src: "/booking-bg/royal-gold.jpg", veil: 0.3 },
 };
 
-export function BookingPreview({ bg, heroImage, name, logoUrl, restaurant }) {
+export function BookingPreview({ bg, heroImage, name, logoUrl, restaurant, headerBg, logoShape }) {
   const img = BG_IMAGES[bg];
   const pageStyle = img
     ? { background: `linear-gradient(rgba(24,16,27,${img.veil}), rgba(24,16,27,${img.veil})), url(${img.src}) center / cover no-repeat` }
@@ -23,9 +25,15 @@ export function BookingPreview({ bg, heroImage, name, logoUrl, restaurant }) {
       <div className="rounded-[18px] border-4 border-slate-800 shadow-xl overflow-hidden bg-slate-800">
         <div className="rounded-[14px] overflow-hidden" style={pageStyle}>
           {/* top bar */}
-          <div className="bg-[#FDFBF4]/95 border-b border-[#e8dcc0] px-2.5 py-1.5 flex items-center gap-1.5">
+          <div className="border-b border-[#e8dcc0] px-2.5 py-1.5 flex items-center gap-1.5" style={{ background: headerBg || "rgba(253,251,244,0.95)" }}>
             {logoUrl ? (
-              <img src={logoUrl} alt="" className="w-4 h-4 rounded-full object-cover ring-1 ring-[#d4af37]" />
+              logoShape === "square" ? (
+                <span className="h-4 px-1 rounded-sm bg-[#17141c] flex items-center justify-center">
+                  <img src={logoUrl} alt="" className="h-3 w-auto max-w-[34px] object-contain" />
+                </span>
+              ) : (
+                <img src={logoUrl} alt="" className="w-4 h-4 rounded-full object-cover ring-1 ring-[#d4af37]" />
+              )
             ) : (
               <span className="w-4 h-4 rounded-full bg-[#17141c] text-[#e8c37f] text-[7px] font-bold flex items-center justify-center">{(name || "M").charAt(0)}</span>
             )}

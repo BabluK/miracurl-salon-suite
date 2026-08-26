@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import api from "@/lib/api";
+import api, { thumbUrl } from "@/lib/api";
 import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2, Scissors, Hand, Paintbrush, Flower2, Tag, LayoutGrid, GripVertical, ArrowUpDown, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
@@ -510,14 +510,14 @@ export default function Services() {
                   </button>
                 ) : isResto ? (
                   <button onClick={() => pickPhoto(s)} data-testid={`quick-photo-${s.id}`} title="Replace this dish photo" className="relative shrink-0 group/photo">
-                    <img src={s.image_url} alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-100" />
+                    <img src={thumbUrl(s.image_url, 160)} alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-100" loading="lazy" />
                     <span className="absolute inset-0 rounded-xl bg-slate-900/50 hidden group-hover/photo:flex items-center justify-center">
                       {photoBusy === s.id ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Camera className="w-4 h-4 text-white" />}
                     </span>
                   </button>
                 ) : (
-                  <img src={s.image_url || FALLBACK_IMG} alt=""
-                    className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-100" />
+                  <img src={thumbUrl(s.image_url, 160) || FALLBACK_IMG} alt=""
+                    className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-100" loading="lazy" />
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">

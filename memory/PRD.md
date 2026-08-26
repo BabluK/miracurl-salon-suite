@@ -2246,3 +2246,13 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - User hit "CSRF token required" completing billing on PRODUCTION. Root cause: backend deployed with CSRF middleware while the PWA service worker still served the OLD frontend bundle (no X-CSRF-Token interceptor) → 403 on state-changing calls.
 - Fix in server.py _csrf_guard: when token header/cookie is MISSING (stale bundle / pre-rollout session), fall back to browser Origin/Referer verification against own host + allowlist (OWASP secondary check — unforgeable cross-site). Foreign or absent Origin/Referer still 403. Token mismatch (forged pair) still 403. Verified 5/5 via curl.
 - Note: a deploy was initiated BEFORE this fix landed — user must redeploy to push the bridge to production.
+
+## Session 2026-06 (fork) — Logo shape/header colour/backdrops batch + perf + fixes
+- Logo shape setting: tenants.logo_shape "" (Auto, default) | circle | square. Auto = BookPublic detects naturalWidth>1.35×height onLoad → wide plaque; else circle. Settings: 3 buttons (logo-shape-auto/circle/square). Plaque = rounded-2xl gold-trim dark tile, object-contain (no crop).
+- Header bar colour: tenants.header_bg (hex ≤20 chars) applied to book-top-bar background; 6 light presets in settings (Classic Ivory default, Light Golden #F3E5BF, Champagne, Pure White, Rose Petal, Mint Cream) — light-only so gold-brown header text stays readable.
+- 2 new backdrops both verticals: img:champagne (light gold silk, veil .7), img:royal-gold (dark gold silk, veil .3) → 8 images per vertical.
+- PERF (user-reported services slowness): each service photo was ~2MB PNG ×36. Added /api/files/{id}?w= (nearest of 160/320/480/640/960) → cached WEBP variant in object storage (2MB→3.6KB); /api/img proxy resizes allowlisted CDN hosts (static.prod-images, customer-assets; SSRF-blocked otherwise, 15MB stream cap, pixel-bomb guard 40MP). thumbUrl() in lib/api.js applied to Services.jsx, BookPublicExtras staff, BookingChatWidget dishes. Ingress strips Cache-Control → sw.js v36 now cache-first for /api/files/* and /api/img.
+- Miracurl Products strip: restaurant exclusion now server-side too (public show_products False for restos) + settings card hidden for restaurants.
+- LogoStudio current/preview imgs: object-contain on dark tile (no cropped "MiraCu" box).
+- Testing: iteration_117.json — backend 92% (only cache header issue, now solved via SW), frontend 100%. tests at /app/backend/tests/test_thumbs_branding.py.
+- PRODUCTION NOTE: user still sees circle logo + products toggle on prod because prod runs the pre-batch build — needs redeploy.

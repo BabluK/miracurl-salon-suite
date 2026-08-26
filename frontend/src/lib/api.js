@@ -24,6 +24,25 @@ export function readCsrfToken() {
   return item ? decodeURIComponent(item.slice("csrf_token=".length)) : null;
 }
 
+// Perf: request resized image variants — originals can be ~2MB each.
+export function thumbUrl(url, w = 480) {
+  if (!url || url.startsWith("data:")) return url;
+  if (url.startsWith("/api/files/")) return `${url.split("?")[0]}?w=${w}`;
+  try {
+    const u = new URL(url);
+    if (u.hostname === "images.unsplash.com") {
+      u.searchParams.set("w", String(w)); u.searchParams.set("q", "75");
+      return u.toString();
+    }
+    if (u.hostname.endsWith("emergentagent.com") || u.hostname.endsWith("emergentagent.net")) {
+      if (u.hostname.startsWith("static.prod-images") || u.hostname.startsWith("customer-assets")) {
+        return `${BACKEND_URL}/api/img?src=${encodeURIComponent(url)}&w=${w}`;
+      }
+    }
+  } catch { /* relative or odd url — leave as-is */ }
+  return url;
+}
+
 api.interceptors.request.use((config) => {
   if (tenantSlug) config.headers["X-Tenant-Slug"] = tenantSlug;
   const method = (config.method || "get").toUpperCase();
