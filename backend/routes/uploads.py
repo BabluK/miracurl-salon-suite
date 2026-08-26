@@ -52,7 +52,7 @@ _MAX_UPLOAD_BYTES = 3 * 1024 * 1024  # 3MB — plenty for a Retina thumbnail
 @router.post("/uploads/image")
 async def upload_image(
     file: UploadFile = File(...),
-    kind: str = Query("misc", regex=r"^(staff|service|product|misc|hero|promo)$"),
+    kind: str = Query("misc", regex=r"^(staff|service|product|misc|hero|promo|logo)$"),
     user=Depends(get_current_user),
 ):
     """Accept a laptop/phone image upload. Salon admins store under their tenant
@@ -75,6 +75,12 @@ async def upload_image(
     if not data:
         raise HTTPException(400, "Empty file")
     validate_image_bytes(ext, data)
+    if kind == "logo":
+        try:
+            data = await asyncio.to_thread(_fit_logo, data)
+            ext = "png"
+        except Exception:
+            pass  # keep original if processing fails
     file_id = str(uuid.uuid4())
     storage_path = f"{APP_NAME}/tenants/{tenant_id}/{kind}/{file_id}.{ext}"
     try:
@@ -97,6 +103,37 @@ async def upload_image(
     # Return a same-origin URL so <img src> renders directly.
     public_url = f"/api/files/{file_id}"
     return {"id": file_id, "url": public_url, "size": len(data), "content_type": _MIME[ext]}
+
+
+def _fit_logo(data: bytes) -> bytes:
+    """Auto-fit uploaded logos: if the background is a light uniform box (common
+    with exported logos), unblend it to transparency, then tight-crop so the
+    logo fills its display plaque edge-to-edge."""
+    from PIL import Image as PILImage
+    import numpy as np
+    PILImage.MAX_IMAGE_PIXELS = 40_000_000
+    im = PILImage.open(io.BytesIO(data)).convert("RGBA")
+    a = np.asarray(im).astype(np.float64) / 255.0
+    rgb, orig_alpha = a[..., :3], a[..., 3]
+    c = 12
+    corners = np.concatenate([rgb[:c, :c].reshape(-1, 3), rgb[:c, -c:].reshape(-1, 3),
+                              rgb[-c:, :c].reshape(-1, 3), rgb[-c:, -c:].reshape(-1, 3)])
+    if corners.mean() > 0.86 and corners.std() < 0.08:
+        alpha = np.clip((1.0 - rgb.min(axis=2)) * 2.6, 0, 1) * orig_alpha
+        fg = np.zeros_like(rgb)
+        m = alpha > 0.02
+        for ch in range(3):
+            fg[..., ch][m] = np.clip((rgb[..., ch][m] - (1 - alpha[m])) / alpha[m], 0, 1)
+        im = PILImage.fromarray(
+            np.dstack([(fg * 255).astype(np.uint8), (alpha * 255).astype(np.uint8)]), "RGBA")
+    bbox = im.getbbox()
+    if bbox:
+        im = im.crop(bbox)
+    if im.width > 1200:
+        im = im.resize((1200, int(im.height * 1200 / im.width)), PILImage.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, "PNG")
+    return buf.getvalue()
 
 
 _THUMB_WIDTHS = (160, 320, 480, 640, 960)

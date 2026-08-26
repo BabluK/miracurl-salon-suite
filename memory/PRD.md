@@ -2262,3 +2262,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## Session 2026-06 (fork) — Premium bright-gold logo rebuild
 - User: transparent logo looked dull on dark plaques. Regenerated glossy 3D gold version (image edit from user's bright reference h2bov1zl) and rebuilt ENTIRE /app/frontend/public/brand-kit/ in place (same filenames → tenant logo_url auto-updated). Key fix: alpha extraction now clip((1-min)*2.6) so gold interiors are FULLY OPAQUE (old ×1.15 left gold semi-transparent → darkened on dark bgs). Dashboard screenshot verified: bright vivid gold on plaque.
+
+## Session 2026-06 (fork) — Logo auto-fit on upload + HD fabric logo
+- HD fabric-bg logo generated (2528x1696) at /brand-kit/miracurl-logo-fabric-hd.jpg, added to kit zip.
+- Logo "not fitting" (prod screenshot showed white box w/ margins): uploads.py _fit_logo() — when kind=logo and corners are light+uniform, white bg unblended to transparency (alpha ×2.6), tight bbox crop, max 1200px, saved PNG. kind regex += logo; LogoStudio.jsx uploads with kind=logo. Curl-verified: 3230x2298 white-padded → 1200x806 transparent RGBA. AI-generate route untouched (dark bg logos pass through unchanged).

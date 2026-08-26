@@ -35,7 +35,7 @@ export const LogoStudio = () => {
     const fd = new FormData();
     fd.append("file", file);
     try {
-      const { data } = await api.post("/uploads/image?kind=misc", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/uploads/image?kind=logo", fd, { headers: { "Content-Type": "multipart/form-data" } });
       setPreview(data.url);
       toast.success("Uploaded ✦ Click Apply to set it as your logo");
     } catch (err) {
