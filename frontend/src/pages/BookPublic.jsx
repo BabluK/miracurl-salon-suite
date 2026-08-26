@@ -268,7 +268,9 @@ export default function BookPublic() {
   );
 
   return (
-    <div className="min-h-screen mesh-dark text-ink-primary" data-testid="public-book-page">
+    <div className={salon.book_bg ? "min-h-screen text-ink-primary" : "min-h-screen mesh-dark text-ink-primary"}
+      style={salon.book_bg ? { background: salon.book_bg } : undefined}
+      data-testid="public-book-page">
       <Toaster theme="dark" position="top-center" toastOptions={TOASTER_OPTIONS} />
 
       {/* Premium tenant-branded top bar — logo & name from the tenant's dashboard */}

@@ -478,6 +478,7 @@ function LeadRow({ lead, onRefresh }) {
         {lead.competitor && <span data-testid={`lead-competitor-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-red-100 text-red-700 font-bold border border-red-200" title={`Currently uses ${lead.competitor} — strong migration lead`}>🔥 {lead.competitor}</span>}
         {lead.converted_at && <span data-testid={`lead-converted-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold border border-emerald-200" title={`Signed up for a trial${lead.converted_tenant_slug ? ` as "${lead.converted_tenant_slug}"` : ""} on ${(lead.converted_at || "").slice(0, 10)} — thanks to your outreach!`}>🎉 Converted</span>}
         {lead.demo_slot && <span data-testid={`lead-demo-slot-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-violet-100 text-violet-700 font-bold border border-violet-200" title={`Demo booked${lead.demo_slot.local_time ? ` (${lead.demo_slot.local_time} their time)` : ""}`}>📅 {lead.demo_slot.date} · {lead.demo_slot.time} IST</span>}
+        {lead.nudge_sent_at && <span data-testid={`lead-nudged-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-bold border border-amber-200" title={`Mira auto-nudged a trial invite on ${(lead.nudge_sent_at || "").slice(0, 16).replace("T", " ")} — WhatsApp got no reply within a day`}>📧 Nudged</span>}
         {lead.replied_at && <span data-testid={`lead-replied-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200" title={`Replied ${(lead.replied_at || "").slice(0, 16).replace("T", " ")}${lead.reply_subject ? ` — "${lead.reply_subject}"` : ""}`}>💬 Replied</span>}
         {lead.opened_at && <span data-testid={`lead-opened-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-sky-100 text-sky-600 font-semibold" title={`Opened ${(lead.opened_at || "").slice(0, 16).replace("T", " ")} — can also be their email scanner`}>👀 Opened</span>}
         {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -706,6 +707,7 @@ export function MiraLeadAgent() {
     { key: "hot", label: "🔥 Hot leads", test: l => isHot(l) },
     { key: "ready", label: "✉️ Ready to send", test: l => ["drafted", "researched"].includes(l.status) && !!l.email },
     { key: "opened", label: "👀 Opened", test: l => !!l.opened_at },
+    { key: "nudged", label: "📧 Nudged", test: l => !!l.nudge_sent_at },
     { key: "replied", label: "🔥 Replied", test: l => !!l.replied_at || l.status === "replied" },
     { key: "no_email", label: "🚫 No email", test: l => l.status === "no_email" || !l.email },
     { key: "sent", label: "✅ Already sent", test: l => ["sent", "demo", "customer", "replied"].includes(l.status) },

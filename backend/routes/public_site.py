@@ -179,6 +179,7 @@ async def public_salon(slug: str):
         "open_time": t.get("open_time") or "10:00",
         "close_time": t.get("close_time") or "21:00",
         "hero_image": _hero or _salon_default_hero,
+        "book_bg": t.get("book_bg") or "",
         "referral_reward": REFERRAL_REWARD_REFERRER,
         "google_review_url": t.get("google_review_url") or "",
         "instagram_url": t.get("instagram_url") or "",
