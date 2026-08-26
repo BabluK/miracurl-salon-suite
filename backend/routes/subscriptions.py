@@ -860,6 +860,7 @@ async def mark_renewal_reminded(tid: str, user=Depends(require_super_admin)):
 # ---------------- Automated renewal reminders (15 / 7 / 1 days before expiry) ----------------
 RENEWAL_REMINDER_DAYS = (15, 7, 1)
 INTL_RENEWAL_REMINDER_DAYS = (15, 7, 5, 1)  # USD salons: extra 5-day nudge with one-click Stripe link
+RESTO_REMINDER_DAYS = (7, 3, 1)  # restaurants: friendly 3-day nudge before the free month ends
 
 
 def _renewal_wa_link(t: dict, days: int, end_date: str, source: str) -> Optional[str]:
@@ -880,8 +881,19 @@ def _renewal_wa_link(t: dict, days: int, end_date: str, source: str) -> Optional
 
 async def _send_renewal_email(t: dict, days: int, end_str: str, source: str) -> dict:
     """Currency-aware reminder email: INR → Razorpay in-app CTA; USD → one-click Stripe pay link."""
-    from email_service import _send_email, renewal_reminder_email_html, renewal_reminder_email_intl_html
+    from email_service import (_send_email, renewal_reminder_email_html,
+                               renewal_reminder_email_intl_html, restaurant_trial_reminder_email_html)
     name = t.get("name") or t["slug"]
+    if t.get("business_type") == "restaurant" and (t.get("currency") or "INR") == "INR":
+        what = "free month" if source == "trial" else "subscription"
+        return await _send_email(
+            [t["owner_email"]],
+            f"🍽️ Your Miracurl {what} ends in {days} day{'s' if days != 1 else ''} — renew in 2 minutes",
+            restaurant_trial_reminder_email_html(
+                name, days, end_str, source, float(t.get("affiliate_credits") or 0)),
+            book_label="Renew now ✦",
+            book_url=f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/settings",
+            suite_label="Restaurant Management Suite")
     if (t.get("currency") or "INR") != "INR":
         token = t.get("renewal_pay_token")
         if not token:
@@ -923,7 +935,11 @@ async def run_renewal_reminders() -> dict:
         end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
         days = _days_until(end)
         is_intl = (t.get("currency") or "INR") != "INR"
-        if days not in (INTL_RENEWAL_REMINDER_DAYS if is_intl else RENEWAL_REMINDER_DAYS):
+        if t.get("business_type") == "restaurant" and not is_intl:
+            marks = RESTO_REMINDER_DAYS
+        else:
+            marks = INTL_RENEWAL_REMINDER_DAYS if is_intl else RENEWAL_REMINDER_DAYS
+        if days not in marks:
             continue
         checked += 1
         end_str = str(end)[:10]

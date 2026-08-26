@@ -261,6 +261,43 @@ def renewal_reminder_email_intl_html(salon_name: str, days_left: int, end_date: 
     </div>"""
 
 
+def restaurant_trial_reminder_email_html(restaurant_name: str, days_left: int, end_date: str,
+                                         source: str, credits: float) -> str:
+    """Friendly trial/renewal reminder — restaurant vertical only."""
+    renew_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/settings"
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    ending = "free month ends" if source == "trial" else "subscription ends"
+    when = f"{ending} <b>tomorrow</b>" if days_left == 1 else f"{ending} in <b>{days_left} days</b>"
+    credit_row = (f'<p style="margin:12px 0 0;font-size:13px;color:#1f7a4d;font-family:Arial,sans-serif">'
+                  f'🎁 You have <b>₹{credits:,.0f}</b> referral credits — auto-applied as a discount at checkout.</p>') if credits > 0 else ""
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px">
+        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Restaurant Suite</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">{"Your free month is ending soon" if source == "trial" else "Subscription renewal reminder"}</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        <p style="font-family:Arial,sans-serif;font-size:14px">Namaste <b>{html_lib.escape(restaurant_name)}</b> 👋</p>
+        <p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7">
+          We hope your tables have been buzzing! A friendly heads-up — your {when} (on <b>{end_date}</b>).
+          Renew now so QR ordering, kitchen tickets, POS billing and Mira AI keep serving without a pause.</p>
+        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:14px;font-family:Arial,sans-serif;line-height:2">
+          🍽️ <b>Restaurant plans</b><br/>
+          · 3-Month — <b>₹3,000</b><br/>
+          · 6-Month — <b>₹6,000</b><br/>
+          · Annual — <b>₹12,000</b> <span style="color:#1f7a4d;font-size:12px">(best value)</span>
+        </div>
+        {credit_row}
+        <p style="text-align:center;margin:24px 0">
+          <a href="{renew_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:13px 38px;border-radius:999px;font-weight:bold;font-family:Arial,sans-serif;font-size:14px">✦ &nbsp;Renew now — pay via UPI / card&nbsp; ✦</a>
+        </p>
+        <p style="font-size:12px;color:#888;text-align:center;font-family:Arial,sans-serif">Log in → Settings → Subscription &amp; renewal → Pay securely via Razorpay.</p>
+        <p style="font-size:12px;color:#888;font-family:Arial,sans-serif;border-top:1px solid #eee;padding-top:14px;margin-top:22px">
+          Facing an issue or need more time? Just reply to this email or write to {hq_email} — we're happy to help. 🥂</p>
+      </div>
+    </div>"""
+
+
 def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "") -> str:
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     img = poster_url or os.environ.get("WELCOME_IMAGE_URL", "")
