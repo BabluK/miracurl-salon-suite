@@ -11,7 +11,7 @@ export const HeroCTAs = ({ restaurant = false }) => (
   <div className="flex flex-wrap items-center gap-3 mt-6">
     <button
       data-testid="hero-book-now-btn"
-      onClick={() => document.getElementById("booking-wizard")?.scrollIntoView({ behavior: "smooth" })}
+      onClick={() => (document.getElementById("choose-services") || document.getElementById("booking-wizard"))?.scrollIntoView({ behavior: "smooth", block: "start" })}
       className="btn-gold flex items-center gap-2"
     >
       {restaurant ? "Reserve a Table" : "Book Appointment"} <ArrowRight className="w-4 h-4" />

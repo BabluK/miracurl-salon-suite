@@ -2256,3 +2256,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - LogoStudio current/preview imgs: object-contain on dark tile (no cropped "MiraCu" box).
 - Testing: iteration_117.json — backend 92% (only cache header issue, now solved via SW), frontend 100%. tests at /app/backend/tests/test_thumbs_branding.py.
 - PRODUCTION NOTE: user still sees circle logo + products toggle on prod because prod runs the pre-batch build — needs redeploy.
+
+## Session 2026-06 (fork) — Booking scroll-to-services
+- "Book Appointment" header CTA (BookPublic.jsx goToServices: setStep(0) + 120ms scroll) and hero CTA (BookPublicExtras.jsx) now scroll to #choose-services (ServicesStep section in BookPublic.steps.jsx, scroll-mt-24 clears fixed header) with #booking-wizard fallback. Screenshot-verified: heading lands exactly under the golden top bar with the services grid visible.

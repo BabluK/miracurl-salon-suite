@@ -135,6 +135,13 @@ export default function BookPublic() {
   const [salon, setSalon] = useState(null);
   const [logoWide, setLogoWide] = useState(false);
   const onLogoLoad = useCallback((e) => setLogoWide(e.target.naturalWidth > e.target.naturalHeight * 1.35), []);
+  const goToServices = useCallback(() => {
+    setStep(0);
+    setTimeout(() => {
+      (document.getElementById("choose-services") || document.getElementById("booking-wizard"))
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  }, []);
   const [services, setServices] = useState([]);
   const [dayOffer, setDayOffer] = useState(null);
   const [packages, setPackages] = useState([]);
@@ -339,7 +346,7 @@ export default function BookPublic() {
             </Link>
             <button
               data-testid="book-header-cta"
-              onClick={() => document.getElementById("booking-wizard")?.scrollIntoView({ behavior: "smooth" })}
+              onClick={goToServices}
               className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs sm:text-sm font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
               {salon.business_type === "restaurant" ? "Reserve a Table ✦" : "Book Appointment ✦"}
             </button>

@@ -99,7 +99,7 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
   const shown = active === "All" ? cats : cats.filter((c) => c === active);
 
   return (
-    <section className="space-y-6 animate-fade-up">
+    <section id="choose-services" className="space-y-6 animate-fade-up scroll-mt-24">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-playfair text-3xl">{restaurant ? "Pre-pick your dishes" : "Choose your services"}</h2>
