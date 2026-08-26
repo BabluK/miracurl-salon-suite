@@ -634,14 +634,14 @@ async def _dishes_in_reply(t: dict, reply: str) -> list:
     """Restaurant only: dish photo cards for menu items Mira mentioned in her reply."""
     if t.get("business_type") != "restaurant" or not reply:
         return []
-    low = reply.lower()
     svcs = await _raw_db.services.find(
         {"tenant_id": t["id"], "active": {"$ne": False}, "image_url": {"$nin": [None, ""]}},
-        {"_id": 0, "name": 1, "price": 1, "image_url": 1, "veg": 1}).to_list(300)
+        {"_id": 0, "id": 1, "name": 1, "price": 1, "image_url": 1, "veg": 1}).to_list(300)
+    low = reply.lower()
     found = [s for s in svcs if len(s["name"]) >= 4
              and re.search(rf"\b{re.escape(s['name'].lower())}\b", low)]
     found.sort(key=lambda s: low.index(s["name"].lower()))
-    return [{"name": s["name"], "price": s.get("price"), "image_url": s["image_url"],
+    return [{"id": s.get("id"), "name": s["name"], "price": s.get("price"), "image_url": s["image_url"],
              "veg": s.get("veg")} for s in found[:3]]
 
 

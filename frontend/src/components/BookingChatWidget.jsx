@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import axios from "axios";
+import { toast } from "sonner";
 import { Sparkles, MessageCircle, X, Send, Loader2, Check, User, Mic, Square, Volume2 } from "lucide-react";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 
@@ -63,11 +64,11 @@ function renderText(text) {
 
 const VEG_DOT = { veg: "bg-emerald-500", "non-veg": "bg-rose-500" };
 
-function DishCards({ dishes }) {
+function DishCards({ dishes, onAdd }) {
   return (
     <div className="mt-2 grid grid-cols-1 gap-2" data-testid="mira-dish-cards">
       {dishes.map(d => (
-        <div key={d.name} className="flex items-center gap-2.5 rounded-xl border border-gold/30 bg-black/30 p-1.5 pr-3" data-testid="mira-dish-card">
+        <div key={d.name} className="flex items-center gap-2.5 rounded-xl border border-gold/30 bg-black/30 p-1.5 pr-2" data-testid="mira-dish-card">
           <img src={d.image_url?.startsWith("/") ? `${BACKEND_URL}${d.image_url}` : d.image_url} alt={d.name}
             className="w-14 h-14 rounded-lg object-cover flex-shrink-0" loading="lazy" />
           <div className="min-w-0 flex-1">
@@ -77,20 +78,66 @@ function DishCards({ dishes }) {
             </div>
             {d.price != null && <div className="text-[11px] text-gold font-semibold mt-0.5">₹{Math.round(d.price)}</div>}
           </div>
+          {onAdd && d.id && (
+            <button onClick={() => onAdd(d)} data-testid="mira-dish-add-btn"
+              className="flex-shrink-0 px-2.5 py-1.5 rounded-full bg-gold text-bg-base text-[11px] font-bold hover:opacity-90">
+              + Add
+            </button>
+          )}
         </div>
       ))}
     </div>
   );
 }
 
-function Bubble({ m, restaurant = false }) {
+function ChatCartBar({ cart, setCart, slug, onPlaced }) {
+  const [tableNo, setTableNo] = useState("");
+  const [placing, setPlacing] = useState(false);
+  const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  const place = async () => {
+    const tn = parseInt(tableNo, 10);
+    if (!tn || tn < 1 || tn > 200) { toast.error("Enter your table number (it's on the table QR card)"); return; }
+    setPlacing(true);
+    try {
+      const { data } = await axios.post(`${BACKEND_URL}/api/public/table-order/${slug}`,
+        { table_no: tn, items: cart.map(i => ({ id: i.id, qty: i.qty })) });
+      setCart([]);
+      onPlaced(data.order);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't place the order — please try again");
+    } finally { setPlacing(false); }
+  };
+
+  return (
+    <div className="border-t border-gold/30 bg-black/60 px-3 py-2 space-y-1.5" data-testid="mira-chat-cart">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11px] text-white/80 truncate">
+          🛒 {cart.map(i => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ""}`).join(" · ")}
+        </div>
+        <button onClick={() => setCart([])} className="text-white/35 hover:text-white/70 text-xs flex-shrink-0" data-testid="mira-cart-clear-btn">✕</button>
+      </div>
+      <div className="flex items-center gap-2">
+        <input value={tableNo} onChange={e => setTableNo(e.target.value.replace(/\D/g, "").slice(0, 3))}
+          placeholder="Table #" inputMode="numeric" data-testid="mira-cart-table-input"
+          className="w-20 bg-white/10 border border-white/15 rounded-full px-3 py-1.5 text-xs text-white placeholder-white/35 focus:outline-none focus:border-gold/60" />
+        <button onClick={place} disabled={placing} data-testid="mira-cart-place-btn"
+          className="flex-1 py-1.5 rounded-full bg-gradient-to-r from-gold to-blush text-bg-base text-xs font-bold disabled:opacity-50">
+          {placing ? "Placing…" : `Place order · ₹${Math.round(total)} ✦`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Bubble({ m, restaurant = false, onAddDish }) {
   const mine = m.role === "user" || m.sender === "customer";
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap ${
         mine ? "bg-gold text-bg-base rounded-br-sm" : "bg-white/10 text-white/90 rounded-bl-sm"}`}>
         {renderText(m.text)}
-        {m.dishes?.length > 0 && <DishCards dishes={m.dishes} />}
+        {m.dishes?.length > 0 && <DishCards dishes={m.dishes} onAdd={restaurant ? onAddDish : undefined} />}
         {m.booking && <BookingCard booking={m.booking} restaurant={restaurant} />}
         {m.handoff && <HandoffCard handoff={m.handoff} restaurant={restaurant} />}
       </div>
@@ -138,6 +185,21 @@ function AiTab({ slug, restaurant = false }) {
   const audioRef = useRef(null);
   const handsFreeRef = useRef(false);
   const greetedRef = useRef(false);
+  const [cart, setCart] = useState([]);
+  const addDish = (d) => {
+    setCart(prev => {
+      const ex = prev.find(i => i.id === d.id);
+      return ex ? prev.map(i => (i.id === d.id ? { ...i, qty: Math.min(20, i.qty + 1) } : i))
+                : [...prev, { id: d.id, name: d.name, price: d.price || 0, qty: 1 }];
+    });
+    toast.success(`${d.name} added to your order 🛒`);
+  };
+  const onPlaced = (order) => {
+    setMsgs(m => [...m, mkMsg({ role: "ai", text:
+      `🎉 Order placed for Table ${order.table_no}! (#${order.id})\n\n` +
+      order.items.map(i => `• ${i.name} ×${i.qty}`).join("\n") +
+      `\n\n💰 Total ₹${Math.round(order.total)} — the kitchen has it and will start right away. Anything else I can tempt you with? 🍽️` })]);
+  };
 
   const { recording, startRecording, stopRecording } = useVoiceRecording({
     onBlob: (blob, auto) => sendVoice(blob, auto),
@@ -271,7 +333,7 @@ function AiTab({ slug, restaurant = false }) {
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5" data-testid="ai-chat-messages">
         {msgs.map((m, i) => (
           <div key={m.id || i}>
-            <Bubble m={m} restaurant={restaurant} />
+            <Bubble m={m} restaurant={restaurant} onAddDish={addDish} />
             {m.spoken && <div className="flex justify-start mt-0.5"><span className="text-[9px] text-white/30 flex items-center gap-1 px-1"><Volume2 className="w-2.5 h-2.5" /> spoken</span></div>}
           </div>
         ))}
@@ -288,6 +350,7 @@ function AiTab({ slug, restaurant = false }) {
         )}
         <div ref={endRef} />
       </div>
+      {restaurant && cart.length > 0 && <ChatCartBar cart={cart} setCart={setCart} slug={slug} onPlaced={onPlaced} />}
       <div className="p-3 border-t border-white/10 flex gap-2 items-center">
         <button
           data-testid="ai-voice-btn"

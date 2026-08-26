@@ -156,7 +156,7 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
               >
                 <div>
                   <h3 className="font-playfair text-2xl sm:text-3xl text-gold">{cat}</h3>
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-white/45 mt-1">{rows.length} services</div>
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-white/45 mt-1">{rows.length} {restaurant ? "dishes" : "services"}</div>
                 </div>
               </div>
               {(!restaurant || catImages[cat]) && (
@@ -183,7 +183,7 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
                         {s.trending && <span className="bg-gold text-bg-base text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded">Trending</span>}
                       </div>
                       <div className="text-ink-secondary text-xs flex items-center gap-2 mt-1">
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.duration_min}m</span>
+                        {!restaurant && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.duration_min}m</span>}
                         {s.description && <span className="truncate hidden sm:inline">· {s.description}</span>}
                       </div>
                     </div>
@@ -446,35 +446,35 @@ function ReferralRow({ form, onChange, referralCheck, onCheckReferral }) {
   );
 }
 
-export function ConfirmStep({ pickedServices, staff, staffId, date, time, form, total, duration }) {
+export function ConfirmStep({ pickedServices, staff, staffId, date, time, form, total, duration, restaurant = false }) {
   const stylistName = staffId ? (staff.find(s => s.id === staffId)?.name || "—") : "Any available";
   const whenLabel = new Date(`${date}T${time}`).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return (
     <section className="space-y-6 animate-fade-up max-w-2xl">
       <div>
         <h2 className="font-playfair text-3xl">Review & confirm</h2>
-        <p className="text-ink-secondary text-sm mt-1">Tap confirm to lock in your appointment.</p>
+        <p className="text-ink-secondary text-sm mt-1">Tap confirm to lock in your {restaurant ? "reservation" : "appointment"}.</p>
       </div>
       <div className="card-luxe space-y-4">
         <div>
-          <div className="label-luxe">Services</div>
+          <div className="label-luxe">{restaurant ? "Dishes" : "Services"}</div>
           <ul className="mt-2 space-y-2">
             {pickedServices.map(s => (
               <li key={s.id} className="flex justify-between text-sm">
-                <span>{s.name} <span className="text-ink-muted text-xs">· {s.duration_min}m</span></span>
+                <span>{s.name}{!restaurant && <span className="text-ink-muted text-xs"> · {s.duration_min}m</span>}</span>
                 <span className="text-gold">₹{s.price}</span>
               </li>
             ))}
           </ul>
         </div>
         <div className="border-t border-white/10 pt-4 grid grid-cols-2 gap-4 text-sm">
-          <div><div className="label-luxe">Stylist</div><div className="mt-1">{stylistName}</div></div>
+          <div><div className="label-luxe">{restaurant ? "Host" : "Stylist"}</div><div className="mt-1">{stylistName}</div></div>
           <div><div className="label-luxe">When</div><div className="mt-1">{whenLabel}</div></div>
           <div><div className="label-luxe">Name</div><div className="mt-1">{form.name}</div></div>
           <div><div className="label-luxe">Phone</div><div className="mt-1">{form.phone}</div></div>
         </div>
         <div className="border-t border-white/10 pt-4 flex items-center justify-between">
-          <span className="text-ink-secondary text-sm">Estimated total · {duration}m</span>
+          <span className="text-ink-secondary text-sm">{restaurant ? "Estimated total" : `Estimated total · ${duration}m`}</span>
           <span className="font-playfair text-3xl text-gold flex items-center"><IndianRupee className="w-5 h-5" />{total}</span>
         </div>
       </div>
