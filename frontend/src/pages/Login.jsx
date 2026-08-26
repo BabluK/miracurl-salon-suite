@@ -287,10 +287,17 @@ export default function Login() {
 
           {mode === "login" ? (
             <p className="text-center text-sm text-slate-500 mt-6">
-              New to Miracurl?{" "}
-              <a href="/signup-salon" className="text-rose-500 hover:text-rose-600 font-semibold" data-testid="link-signup-salon">
-                Start your salon&apos;s free trial →
-              </a>
+              <span className="block mt-1 mb-1">New to Miracurl? Start your free trial —</span>
+              <span className="inline-flex items-center gap-2">
+                <a href="/signup-salon" data-testid="link-signup-salon"
+                  className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full border border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-semibold transition-colors">
+                  ✂️ For Salons →
+                </a>
+                <a href="/signup-restaurant" data-testid="link-signup-restaurant"
+                  className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-semibold transition-colors">
+                  🍽️ For Restaurants →
+                </a>
+              </span>
               <span className="block mt-2 text-xs text-slate-400">
                 Already work at a salon?{" "}
                 <button onClick={() => { setMode("signup"); setErr(""); }} className="text-rose-500 hover:text-rose-600 font-medium" data-testid="show-signup-btn">

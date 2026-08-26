@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { Scissors, Search, MapPin, ArrowRight, UtensilsCrossed } from "lucide-react";
+import { Scissors, Search, MapPin, ArrowRight, UtensilsCrossed, Star } from "lucide-react";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { SiteHeader } from "@/components/SiteHeader";
 import SalesChatWidget from "@/components/SalesChatWidget";
@@ -33,8 +33,14 @@ function TenantCard({ s, restaurant }) {
       )}
       <div className="flex-1 min-w-0">
         <div className="font-playfair text-lg truncate">{s.name}</div>
-        <div className="flex items-center gap-1 text-xs text-white/50 mt-0.5 truncate">
-          <MapPin className="w-3 h-3 text-gold flex-shrink-0" /> {s.location || "India"}
+        <div className="flex items-center gap-2 text-xs text-white/50 mt-0.5">
+          <span className="flex items-center gap-1 truncate"><MapPin className="w-3 h-3 text-gold flex-shrink-0" /> {s.location || "India"}</span>
+          {s.google_rating_cache?.avg && (
+            <span className="flex items-center gap-1 text-gold flex-shrink-0" data-testid={`rating-${s.slug}`}>
+              <Star className="w-3 h-3 fill-gold" /> {Number(s.google_rating_cache.avg).toFixed(1)}
+              <span className="text-white/35">({s.google_rating_cache.count})</span>
+            </span>
+          )}
         </div>
       </div>
       <span className="hidden sm:inline text-[9px] uppercase tracking-widest text-gold/70 border border-gold/30 rounded-full px-2 py-0.5 flex-shrink-0">

@@ -5,6 +5,19 @@ import { Store, Star, Instagram, MessageCircle, Save } from "lucide-react";
 
 const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "", reception_phone: "", manager_phone: "", salon_email: "" };
 
+const SALON_BG_PRESETS = [
+  "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80",
+  "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?q=80",
+  "https://images.unsplash.com/photo-1600948836101-f9ffda59d250?q=80",
+  "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?q=80",
+];
+const RESTO_BG_PRESETS = [
+  "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80",
+  "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80",
+  "https://images.unsplash.com/photo-1552566626-52f8b828add9?q=80",
+  "https://images.unsplash.com/photo-1559339352-11d035aa65de?q=80",
+];
+
 const TIME_OPTS = Array.from({ length: 36 }, (_, i) => {
   const m = 6 * 60 + i * 30; // 06:00 → 23:30
   const h = Math.floor(m / 60), mm = m % 60;
@@ -27,11 +40,13 @@ function flattenDetail(raw, fallback) {
 export function BrandingCard() {
   const [branding, setBranding] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [isResto, setIsResto] = useState(false);
 
   useEffect(() => {
     api.get("/settings/branding").then(r => {
       if (r.data) setBranding(Object.fromEntries(Object.keys(EMPTY).map(k => [k, r.data[k] || ""])));
     }).catch(() => {});
+    api.get("/tenants/current").then(r => setIsResto(r.data?.business_type === "restaurant")).catch(() => {});
   }, []);
 
   async function save() {
@@ -134,9 +149,19 @@ export function BrandingCard() {
           <p className="text-[11px] text-slate-400 mt-1">Include country code. Powers the &quot;Chat on WhatsApp&quot; button.</p>
         </div>
         <div className="md:col-span-2">
-          <label className="text-xs text-slate-500 font-medium">Hero image URL</label>
+          <label className="text-xs text-slate-500 font-medium">Booking page background</label>
+          <div className="grid grid-cols-4 gap-2 mt-2 mb-2">
+            {(isResto ? RESTO_BG_PRESETS : SALON_BG_PRESETS).map((u, i) => (
+              <button key={u} type="button" data-testid={`bg-preset-${i}`}
+                onClick={() => setBranding(b => ({ ...b, hero_image: u }))}
+                className={`relative h-16 rounded-lg overflow-hidden border-2 transition ${branding.hero_image === u ? "border-fuchsia-500 ring-2 ring-fuchsia-200" : "border-transparent hover:border-slate-300"}`}>
+                <img src={`${u}&w=300`} alt="" className="w-full h-full object-cover" loading="lazy" />
+                {branding.hero_image === u && <span className="absolute top-1 right-1 bg-fuchsia-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">✓</span>}
+              </button>
+            ))}
+          </div>
           <input data-testid="settings-hero-image" placeholder="https://images.unsplash.com/photo-..." {...field("hero_image")} />
-          <p className="text-[11px] text-slate-400 mt-1">Shows at the top of your public booking page. Paste any Unsplash, your salon&apos;s Instagram image, or upload to imgur and use that URL.</p>
+          <p className="text-[11px] text-slate-400 mt-1">Pick a decent preset above, or paste your own image URL. Shows at the top of your public booking page.</p>
         </div>
       </div>
 

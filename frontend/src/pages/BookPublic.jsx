@@ -332,19 +332,7 @@ export default function BookPublic() {
           <span className="text-[9px] uppercase tracking-[0.2em] text-gold bg-black/50 backdrop-blur px-2 py-0.5 rounded-full border border-gold/30">Mira AI</span>
         </button>
         <div className="relative z-10 max-w-5xl mx-auto flex flex-col justify-end p-6 sm:p-10 pt-14 sm:pt-20">
-          <div className="flex items-center gap-3 mb-3">
-            {salon.logo_url ? (
-              <img src={salon.logo_url.startsWith("/api/") ? `${BACKEND_URL}${salon.logo_url}` : salon.logo_url} alt={salon.name} data-testid="hero-salon-logo" className="h-14 w-auto max-w-[180px] rounded-xl object-contain bg-white/95 p-1.5 border border-gold/50 shadow-gold-glow" />
-            ) : (
-              <div className="w-11 h-11 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
-                <Scissors className="w-5 h-5 text-bg-base" />
-              </div>
-            )}
-            <div>
-              <div className="font-playfair text-2xl">{salon.name || "Miracurl"}</div>
-              <div className="text-[10px] tracking-[0.3em] uppercase text-gold">{salon.business_type === "restaurant" ? "Reserve Your Table" : "Book Your Visit"}</div>
-            </div>
-          </div>
+          <div className="text-[10px] tracking-[0.3em] uppercase text-gold mb-2">{salon.business_type === "restaurant" ? "Reserve Your Table" : "Book Your Visit"}</div>
           <h1 className="font-playfair text-3xl sm:text-5xl leading-tight max-w-2xl">{salon.tagline}.</h1>
           <div className="flex flex-wrap items-center gap-2 mt-4 text-xs">
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur border border-gold/25 text-white/85" data-testid="hero-location-chip">

@@ -296,6 +296,28 @@ async def _weekly_package_scheduler() -> None:
         await asyncio.sleep(1800)
 
 
+async def _lead_nudge_scheduler() -> None:
+    """Daily (after 10:00 IST): Mira emails a trial invite to WhatsApp leads with no reply in 24h."""
+    from routes.lead_gen import run_lead_auto_nudge
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.hour >= 10:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "lead_auto_nudge"})
+                if not flag or flag.get("value") != period:
+                    out = await run_lead_auto_nudge()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "lead_auto_nudge"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(), **out}},
+                        upsert=True)
+                    if out.get("sent") or out.get("failed"):
+                        logging.info(f"Mira lead auto-nudge {period}: {out}")
+        except Exception as e:
+            logging.error(f"lead nudge scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 async def _daily_special_scheduler() -> None:
     """Daily (after 08:00 IST) Mira drafts a fresh Today's Special for every active restaurant —
     owner approves & shares from the Offer Maker. Idempotent via system_flags."""

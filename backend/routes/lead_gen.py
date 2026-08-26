@@ -7,6 +7,7 @@ import re
 import uuid
 import asyncio
 import base64
+import html as html_lib
 import logging
 from datetime import datetime, timezone, timedelta
 
@@ -1049,6 +1050,61 @@ async def whatsapp_link(lid: str, user=Depends(require_super_admin)):
         raise HTTPException(400, "No phone number on this lead.")
     msg = await _wa_message(lead)
     return {"wa_url": f"https://wa.me/{phone}?text={quote(msg)}", "phone": phone, "message": msg}
+
+
+async def run_lead_auto_nudge() -> dict:
+    """Mira emails WhatsApp-contacted leads a trial invite when nobody replied within a day."""
+    from email_service import _send_email
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    leads = await _raw_db.mira_leads.find({
+        "status": "sent", "sent_via": "whatsapp", "sent_at": {"$lt": cutoff},
+        "replied_at": {"$exists": False}, "nudge_sent_at": {"$exists": False},
+        "email": {"$nin": [None, ""]},
+    }, {"_id": 0}).to_list(50)
+    sent = failed = 0
+    for lead in leads:
+        resto = (lead.get("vertical") or "") == "restaurant"
+        noun = "restaurant" if resto else "salon"
+        signup = f"{base}/signup-restaurant" if resto else f"{base}/signup-salon"
+        biz = lead.get("name") or f"your {noun}"
+        html = f"""
+        <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+          <div style="background:#1c1c22;padding:24px 28px">
+            <div style="color:#d4af37;font-size:20px;font-weight:bold">Miracurl ✦ {"Restaurant" if resto else "Salon"} Suite</div>
+          </div>
+          <div style="padding:26px 28px;color:#333;font-family:Arial,sans-serif;font-size:14px;line-height:1.7">
+            <p>Namaste! 👋 This is <b>Mira</b> from Miracurl.</p>
+            <p>We reached out on WhatsApp yesterday about <b>{html_lib.escape(biz)}</b> — in case it got buried,
+               here's the good part: your <b>first {"month" if resto else "week"} is completely FREE</b>. 🎉</p>
+            <p>{"QR table ordering, live kitchen tickets, POS billing and an AI concierge" if resto else "Online bookings, POS billing, staff management and an AI beauty advisor"} — set up in under 10 minutes, no card needed.</p>
+            <p style="text-align:center;margin:22px 0">
+              <a href="{signup}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:12px 34px;border-radius:999px;font-weight:bold">Start my free trial ✦</a>
+            </p>
+            <p style="font-size:12px;color:#888">Questions? Just reply to this email — a real human (and Mira 🤖) reads every reply.</p>
+          </div>
+        </div>"""
+        try:
+            status = await _send_email(
+                [lead["email"]],
+                f"Your free Miracurl trial is waiting, {biz} ✦",
+                html, book_url=signup, book_label="Start free trial ✦")
+            if status.get("sent"):
+                sent += 1
+                await _raw_db.mira_leads.update_one(
+                    {"id": lead["id"]},
+                    {"$set": {"nudge_sent_at": _now(), "nudge_via": "email"}})
+            else:
+                failed += 1
+        except Exception as e:
+            logging.warning(f"lead nudge failed for {lead.get('id')}: {e}")
+            failed += 1
+    return {"checked": len(leads), "sent": sent, "failed": failed}
+
+
+@router.post("/super-admin/mira-leads/run-auto-nudge")
+async def trigger_lead_auto_nudge(user=Depends(require_super_admin)):
+    return await run_lead_auto_nudge()
 
 
 @router.post("/super-admin/mira-leads/{lid}/whatsapp-sent")
