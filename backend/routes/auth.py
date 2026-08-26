@@ -1,5 +1,6 @@
 """Authentication & onboarding: register, login, logout, refresh, password reset,
 staff attach, public salon self-signup (7-day trial)."""
+import asyncio
 import logging
 import os
 import re
@@ -389,17 +390,19 @@ def _build_signup_owner(body: SalonSignupIn, email: str, tenant_id: str) -> dict
 
 async def _send_signup_welcome(tenant: dict, body: SalonSignupIn, trial_end: str) -> None:
     from email_service import _send_email, restaurant_welcome_email_html, salon_welcome_email_html
+    from routes.super_admin_ops import _generate_onboarding_poster
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
+    poster_url = await _generate_onboarding_poster(tenant)
     is_resto = tenant.get("business_type") == "restaurant"
     if is_resto:
         subject = f"Welcome to Miracurl — {tenant['name']} is ready to serve 🍽️✦"
         html = restaurant_welcome_email_html(tenant["name"], body.owner_name, body.owner_email.lower(),
-                                             body.password, trial_end)
+                                             body.password, trial_end, poster_url)
         book_label = "Log in to your restaurant ✦"
     else:
         subject = f"Welcome to Miracurl — {tenant['name']} is ready to shine ✂️✦"
         html = salon_welcome_email_html(tenant["name"], body.owner_name, body.owner_email.lower(),
-                                        body.password, trial_end)
+                                        body.password, trial_end, poster_url)
         book_label = "Log in to your salon ✦"
     try:
         status = await _send_email([body.owner_email.lower()], subject, html,
@@ -428,7 +431,7 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     await db.tenants.insert_one(tenant)
     if tenant.get("business_type") == "restaurant":
         await _seed_restaurant_defaults(tenant["id"])
-    await _send_signup_welcome(tenant, body, trial_end)
+    asyncio.create_task(_send_signup_welcome(dict(tenant), body, trial_end))
 
     owner = _build_signup_owner(body, email, tenant["id"])
     await db.users.insert_one(owner)

@@ -368,16 +368,28 @@ async def _generate_onboarding_poster(t: dict) -> str:
         key = os.environ.get("EMERGENT_LLM_KEY")
         if not key:
             return ""
-        vibe = secrets.choice([
-            "opulent dark luxury salon interior with warm golden bokeh lights, marble and brass details",
-            "celebratory salon scene with soft golden confetti, ribbons and sparkling champagne bokeh",
-            "dreamy salon backdrop with soft blush florals, silk drapes and golden light leaks",
-            "modern chic salon with emerald velvet chairs, gold-rimmed mirrors and glowing pendant lights",
-            "royal Indian-inspired salon decor with marigold accents, warm diyas glow and gold filigree",
-        ])
-        prompt = (f"Wide 3:2 luxury welcome banner for a beauty salon: {vibe}. "
-                  f"Elegant gold serif text centered reading exactly: 'Welcome {t['name']}'. "
-                  f"Sparkling light particles, cinematic lighting, premium beauty-brand aesthetic. No people's faces.")
+        if t.get("business_type") == "restaurant":
+            vibe = secrets.choice([
+                "opulent dark luxury restaurant interior with warm golden bokeh lights, marble tables and brass details",
+                "celebratory fine-dining scene with soft golden confetti, candlelit tables and sparkling champagne bokeh",
+                "royal Indian-inspired restaurant decor with marigold accents, warm diyas glow, brass thalis and gold filigree",
+                "modern chic bistro with emerald velvet booths, gold-rimmed mirrors, glowing pendant lights over plated dishes",
+                "sizzling tandoor grill glow with elegant smoke wisps, copper cookware and warm amber lighting",
+            ])
+            prompt = (f"Wide 3:2 luxury welcome banner for a restaurant: {vibe}. "
+                      f"Elegant gold serif text centered reading exactly: 'Welcome {t['name']}'. "
+                      f"Sparkling light particles, cinematic lighting, premium hospitality-brand aesthetic. No people's faces.")
+        else:
+            vibe = secrets.choice([
+                "opulent dark luxury salon interior with warm golden bokeh lights, marble and brass details",
+                "celebratory salon scene with soft golden confetti, ribbons and sparkling champagne bokeh",
+                "dreamy salon backdrop with soft blush florals, silk drapes and golden light leaks",
+                "modern chic salon with emerald velvet chairs, gold-rimmed mirrors and glowing pendant lights",
+                "royal Indian-inspired salon decor with marigold accents, warm diyas glow and gold filigree",
+            ])
+            prompt = (f"Wide 3:2 luxury welcome banner for a beauty salon: {vibe}. "
+                      f"Elegant gold serif text centered reading exactly: 'Welcome {t['name']}'. "
+                      f"Sparkling light particles, cinematic lighting, premium beauty-brand aesthetic. No people's faces.")
         gen = OpenAIImageGeneration(api_key=key)
         images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
         if not images:

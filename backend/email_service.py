@@ -96,8 +96,15 @@ async def _send_email(to: list, subject: str, html: str, **options) -> dict:
         return {"sent": False, "error": str(e)[:300]}
 
 
+def _welcome_poster_row(poster_url: str) -> str:
+    if not poster_url:
+        return ""
+    return (f'<img src="{poster_url}" alt="Welcome to Miracurl" width="560" '
+            f'style="display:block;width:100%;border-radius:0"/>')
+
+
 def salon_welcome_email_html(salon_name: str, owner_name: str, owner_email: str,
-                             password: str, trial_end: str) -> str:
+                             password: str, trial_end: str, poster_url: str = "") -> str:
     """Warm onboarding email with login credentials — salon vertical."""
     salon_name, owner_name, owner_email, password = (
         html_lib.escape(salon_name or "your salon"), html_lib.escape(owner_name or "there"),
@@ -106,6 +113,7 @@ def salon_welcome_email_html(salon_name: str, owner_name: str, owner_email: str,
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      {_welcome_poster_row(poster_url)}
       <div style="background:#1c1c22;padding:26px 30px">
         <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
         <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Welcome aboard — your salon is live</div>
@@ -135,7 +143,7 @@ def salon_welcome_email_html(salon_name: str, owner_name: str, owner_email: str,
 
 
 def restaurant_welcome_email_html(restaurant_name: str, owner_name: str, owner_email: str,
-                                  password: str, trial_end: str) -> str:
+                                  password: str, trial_end: str, poster_url: str = "") -> str:
     """Warm onboarding email with login credentials — restaurant vertical only."""
     restaurant_name, owner_name, owner_email, password = (
         html_lib.escape(restaurant_name or "your restaurant"), html_lib.escape(owner_name or "there"),
@@ -144,6 +152,7 @@ def restaurant_welcome_email_html(restaurant_name: str, owner_name: str, owner_e
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      {_welcome_poster_row(poster_url)}
       <div style="background:#1c1c22;padding:26px 30px">
         <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Restaurant Suite</div>
         <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Welcome aboard — your restaurant is live</div>
