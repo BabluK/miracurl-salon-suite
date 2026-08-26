@@ -114,7 +114,8 @@ async def public_salons_search(q: str = "", limit: int = 20):
         rx = {"$regex": re.escape(term), "$options": "i"}
         filt["$or"] = [{"name": rx}, {"location": rx}, {"slug": rx}]
     return await db.tenants.find(
-        filt, {"_id": 0, "name": 1, "slug": 1, "location": 1, "hero_image": 1}
+        filt, {"_id": 0, "name": 1, "slug": 1, "location": 1, "hero_image": 1,
+               "logo_url": 1, "business_type": 1}
     ).sort("name", 1).to_list(limit)
 
 

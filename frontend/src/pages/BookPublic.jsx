@@ -277,8 +277,9 @@ export default function BookPublic() {
           <div className="flex items-center gap-3 min-w-0" data-testid="book-header-brand">
             {salon.logo_url ? (
               <span className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_10px_rgba(180,140,50,0.35)]">
-                <img src={salon.logo_url} alt={salon.name}
-                  className="w-full h-full rounded-full object-cover bg-[#17141c]" />
+                <span className="w-full h-full rounded-full overflow-hidden bg-[#17141c] block">
+                  <img src={salon.logo_url} alt={salon.name} className="w-full h-full object-cover scale-[1.45]" />
+                </span>
               </span>
             ) : (
               <span className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_10px_rgba(180,140,50,0.35)]">
