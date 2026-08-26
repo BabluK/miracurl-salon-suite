@@ -1,0 +1,27 @@
+{
+  "summary": "CSRF double-submit cookie regression suite passed. Backend: 8/8 pytest cases green (login sets 3 cookies incl. non-HttpOnly csrf_token; state-change without X-CSRF-Token → 403 'CSRF token required'; matching header+cookie → 200; forged 'evil.evil.evil' pair → 403 'Invalid CSRF token' via HMAC binding; public GET /api/public/salon/{slug} and POST /api/public/ai-chat/hair-hub-system unaffected; POST /api/auth/refresh rotates csrf_token; logout clears cookies and subsequent /me returns 401). Bearer bypass test skipped (login response is cookie-only, no token in body—middleware code path verified visually). Frontend E2E: salon admin login → dismiss What's New → /settings → Owner PIN 4321 → click Save profile (data-testid settings-save-branding-btn) → PUT /api/settings/branding returned 200 with 'Salon Profile saved successfully' toast, proving axios interceptor attaches X-CSRF-Token. Public /book/miracurl-marathahalli renders services and packages with zero 403s. Super admin login to /super-admin succeeded with zero 403 CSRF errors on load.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AppLayout / BranchSwitcher", "issues": ["React hydration warning: <span> inside <option> in BranchSwitcher.jsx line 78 causes hydration error console warnings (not a CSRF regression, pre-existing)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_csrf.py", "/app/test_reports/pytest/csrf_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CSRF middleware (server.py ~L429) is correctly scoped: safe methods, /api/public/*, /api/webhooks/*, exact login/refresh/passkeys exempt; Bearer bypass short-circuits before cookie check; no-access-cookie requests pass through so route auth returns 401 not misleading 403.",
+    "HMAC binding via csrf_token_valid(cookie_val, anchor=sid|sub) correctly rejects forged tokens even when cookie==header.",
+    "Refresh keeps foreign-origin check (only enforceable on localhost:8001 per main-agent note) — that's fine.",
+    "BranchSwitcher.jsx L78 puts <span> child inside <option> — React hydration warning. Minor, not related to CSRF."
+  ],
+  "updated_files": ["/app/backend/tests/test_csrf.py"],
+  "success_rate": {"backend": "100% (8/8, 1 skipped intentional)", "frontend": "100% (3/3 flows)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (tenant miracurl-marathahalli, PIN 4321); super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "Modified working_hours field on Miracurl Marathahalli tenant branding to '10:00 - 21:00' / '10:00 - 21:30' during test — non-destructive, tenant admin owns this value.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CSRF regression suite lives at /app/backend/tests/test_csrf.py — run with `pytest backend/tests/test_csrf.py -v`. Covers login cookie set, header enforcement, HMAC forgery rejection, public/refresh/logout paths. Frontend axios interceptor at /app/frontend/src/lib/api.js verified working via real browser (Save profile 200 + success toast). Employee/staff portal interceptor at EmployeePortal.jsx not exercised here — smoke test if needed.",
+  "rca_of_the_issue": "N/A — this iteration is regression verification. All CSRF acceptance criteria from main agent's request are met."
+}

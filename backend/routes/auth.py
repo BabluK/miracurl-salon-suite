@@ -517,6 +517,7 @@ async def logout(request: Request, response: Response):
             {"$set": {"revoked": True, "revoked_at": datetime.now(timezone.utc).isoformat()}})
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
+    response.delete_cookie("csrf_token", path="/")
     return {"ok": True}
 
 
@@ -581,6 +582,8 @@ async def refresh_token(request: Request, response: Response):
             secure=(os.environ.get("COOKIE_SECURE", "true").lower() != "false"),
             samesite="lax", max_age=28800, path="/",
         )
+        from security import set_csrf_cookie
+        set_csrf_cookie(response, access)  # rotate the CSRF token with the new access token
         return {"ok": True}
     except jwt.InvalidTokenError:
         raise HTTPException(401, "Invalid refresh token")

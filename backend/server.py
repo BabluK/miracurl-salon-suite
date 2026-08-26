@@ -404,4 +404,62 @@ async def _security_headers(request: Request, call_next):
     resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
     return resp
 
+
+# ---------------- CSRF guard (SEC-P3: signed double-submit cookie) ----------------
+# Enforced ONLY for browser cookie-authenticated state changes. Skipped for:
+# safe methods, public endpoints (no ambient authority), explicit Bearer clients
+# (custom headers already defeat CSRF), and requests carrying no access cookie
+# (webhooks, unauthenticated visitors — the route's own auth handles those).
+from starlette.responses import JSONResponse as _JSONResponse  # noqa: E402
+import hmac as _hmac  # noqa: E402
+import jwt as _pyjwt  # noqa: E402
+from security import csrf_token_valid, jwt_secret, JWT_ALG  # noqa: E402
+
+_CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+_CSRF_EXEMPT_PREFIXES = ("/api/public/", "/api/webhooks/", "/api/webhook/", "/api/billing/razorpay/webhook")
+_CSRF_EXEMPT_EXACT = {
+    "/api/auth/login", "/api/auth/register", "/api/auth/refresh",
+    "/api/auth/forgot-password", "/api/auth/reset-password",
+    "/api/passkeys/login/options", "/api/passkeys/login/verify",
+    "/api/passkeys/register/options", "/api/passkeys/register/verify",
+}
+
+
+@app.middleware("http")
+async def _csrf_guard(request: Request, call_next):
+    p = request.url.path
+    if (request.method in _CSRF_SAFE_METHODS or not p.startswith("/api")
+            or p.startswith(_CSRF_EXEMPT_PREFIXES) or p in _CSRF_EXEMPT_EXACT):
+        # /auth/refresh stays exempt (pre-CSRF sessions must be able to mint their
+        # first csrf cookie) but foreign browser origins are refused outright.
+        if p == "/api/auth/refresh":
+            origin = request.headers.get("origin")
+            if origin:
+                from urllib.parse import urlparse
+                o_host = urlparse(origin).netloc.lower()
+                allowed = {request.headers.get("host", "").lower(),
+                           (request.headers.get("x-forwarded-host") or "").lower()}
+                allowed |= {urlparse(o).netloc.lower() for o in _cors_origins if o != "*"}
+                if o_host and o_host not in allowed:
+                    return _JSONResponse({"detail": "Origin not allowed"}, status_code=403)
+        return await call_next(request)
+    if request.headers.get("authorization", "").lower().startswith("bearer "):
+        return await call_next(request)
+    access = request.cookies.get("access_token")
+    if not access:
+        return await call_next(request)
+    cookie_val = request.cookies.get("csrf_token") or ""
+    header_val = request.headers.get("x-csrf-token") or ""
+    if not cookie_val or not header_val or not _hmac.compare_digest(cookie_val, header_val):
+        return _JSONResponse({"detail": "CSRF token required"}, status_code=403)
+    anchor = None
+    try:
+        pl = _pyjwt.decode(access, jwt_secret(), algorithms=[JWT_ALG], options={"verify_exp": False})
+        anchor = pl.get("sid") or pl.get("sub")
+    except _pyjwt.InvalidTokenError:
+        anchor = None  # route auth will 401; still require a validly-signed token
+    if not csrf_token_valid(cookie_val, anchor):
+        return _JSONResponse({"detail": "Invalid CSRF token"}, status_code=403)
+    return await call_next(request)
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

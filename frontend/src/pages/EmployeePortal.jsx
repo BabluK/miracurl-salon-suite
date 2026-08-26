@@ -4,9 +4,18 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { BadgeCheck, Briefcase, FileText, LogOut, Pencil, ShieldCheck, UserRound } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
+import { readCsrfToken } from "@/lib/api";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const http = axios.create({ baseURL: API, withCredentials: true });
+http.interceptors.request.use((config) => {
+  const method = (config.method || "get").toUpperCase();
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    const csrf = readCsrfToken();
+    if (csrf) config.headers["X-CSRF-Token"] = csrf;
+  }
+  return config;
+});
 const errMsg = (e) => {
   const d = e?.response?.data?.detail;
   if (typeof d === "string") return d;

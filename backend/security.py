@@ -1,5 +1,8 @@
 """Auth & tenancy security: JWT, cookies, password hashing, role guards, rate limit."""
 import os
+import hmac
+import hashlib
+import secrets
 import uuid
 import asyncio
 import jwt
@@ -139,6 +142,48 @@ def set_auth_cookies(resp: Response, access: str, refresh: str, persistent: bool
                     max_age=28800 if persistent else None, path="/")
     resp.set_cookie("refresh_token", refresh, httponly=True, secure=_sec, samesite="lax",
                     max_age=604800 if persistent else None, path="/")
+    set_csrf_cookie(resp, access, persistent)
+
+
+# ---------------- CSRF (signed double-submit cookie, SEC-P3) ----------------
+# Token = "<anchor>.<nonce>.<hmac>" where anchor is the session sid (or user id)
+# and the HMAC binds nonce+anchor with a key derived from JWT_SECRET. The cookie
+# is deliberately NOT HttpOnly: the frontend reads it and echoes it back in the
+# X-CSRF-Token header on every state-changing call. A cross-site attacker can
+# neither read the cookie nor forge a valid HMAC.
+
+def _csrf_key() -> bytes:
+    return ("csrf-v1:" + jwt_secret()).encode()
+
+
+def make_csrf_token(anchor: str) -> str:
+    nonce = secrets.token_urlsafe(18)
+    mac = hmac.new(_csrf_key(), f"{anchor}.{nonce}".encode(), hashlib.sha256).hexdigest()
+    return f"{anchor}.{nonce}.{mac}"
+
+
+def csrf_token_valid(value: str, expected_anchor: Optional[str] = None) -> bool:
+    try:
+        anchor, nonce, mac = value.rsplit(".", 2)
+        good = hmac.compare_digest(
+            hmac.new(_csrf_key(), f"{anchor}.{nonce}".encode(), hashlib.sha256).hexdigest(), mac)
+        if expected_anchor:
+            good = good and hmac.compare_digest(anchor, expected_anchor)
+        return good
+    except (ValueError, AttributeError):
+        return False
+
+
+def set_csrf_cookie(resp: Response, access_token: str, persistent: bool = True):
+    try:
+        payload = jwt.decode(access_token, jwt_secret(), algorithms=[JWT_ALG],
+                             options={"verify_exp": False})
+    except jwt.InvalidTokenError:
+        return
+    anchor = payload.get("sid") or payload.get("sub") or ""
+    _sec = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
+    resp.set_cookie("csrf_token", make_csrf_token(anchor), httponly=False, secure=_sec,
+                    samesite="lax", max_age=604800 if persistent else None, path="/")
 
 def _extract_bearer_token(request: Request) -> Optional[str]:
     token = request.cookies.get("access_token")
