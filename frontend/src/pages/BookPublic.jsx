@@ -273,44 +273,47 @@ export default function BookPublic() {
 
       {/* Premium tenant-branded top bar — logo & name from the tenant's dashboard */}
       <div className="fixed top-0 inset-x-0 z-50 bg-[#FDFBF4]/95 backdrop-blur-xl border-b border-[#e8dcc0] shadow-[0_2px_20px_rgba(180,140,50,0.08)]" data-testid="book-top-bar">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0" data-testid="book-header-brand">
+        <div className="max-w-5xl mx-auto px-4 h-20 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3.5 min-w-0 relative" data-testid="book-header-brand">
+            <span className="tenant-sparkle" style={{ top: "-2px", left: "50px", color: "#b08d3f" }}>✦</span>
+            <span className="tenant-sparkle" style={{ top: "44px", left: "-6px", color: "#b08d3f", animationDelay: "0.9s" }}>✦</span>
+            <span className="tenant-sparkle" style={{ top: "8px", left: "-10px", color: "#d4af37", animationDelay: "1.7s" }}>✦</span>
             {salon.logo_url ? (
-              <span className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_10px_rgba(180,140,50,0.35)]">
+              <span className="tenant-logo-glow w-14 h-14 rounded-full p-[2.5px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_14px_rgba(180,140,50,0.45)]">
                 <span className="w-full h-full rounded-full overflow-hidden bg-[#17141c] block">
                   <img src={salon.logo_url} alt={salon.name} className="w-full h-full object-cover scale-[1.45]" />
                 </span>
               </span>
             ) : (
-              <span className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_10px_rgba(180,140,50,0.35)]">
-                <span className="w-full h-full rounded-full bg-[#17141c] text-[#e8c37f] flex items-center justify-center font-playfair text-lg font-bold">
+              <span className="tenant-logo-glow w-14 h-14 rounded-full p-[2.5px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_14px_rgba(180,140,50,0.45)]">
+                <span className="w-full h-full rounded-full bg-[#17141c] text-[#e8c37f] flex items-center justify-center font-playfair text-xl font-bold">
                   {(salon.name || "M").charAt(0)}
                 </span>
               </span>
             )}
             <div className="min-w-0 leading-tight">
-              <div className="font-playfair text-sm sm:text-lg tracking-[0.06em] text-[#8a6d1f] font-semibold truncate">{salon.name}</div>
-              <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.32em] text-[#a5926a] truncate">
+              <div className="font-playfair text-base sm:text-xl tracking-[0.06em] text-[#8a6d1f] font-semibold truncate">{salon.name}</div>
+              <div className="text-[8px] sm:text-[10px] uppercase tracking-[0.32em] text-[#a5926a] truncate mt-0.5">
                 {salon.business_type === "restaurant" ? "Fine Dining · Powered by Mira AI" : "Luxury Salon · Powered by Mira AI"}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Link to="/book" data-testid="find-salon-link"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#dcc98f] text-[11px] text-[#8a6d1f] hover:bg-[#f6eeda] transition-colors">
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#dcc98f] text-[11px] text-[#8a6d1f] hover:bg-[#f6eeda] transition-colors">
               <Star className="w-3 h-3 text-[#b08d3f]" /> {salon.business_type === "restaurant" ? "Explore Miracurl" : "Find a salon"}
             </Link>
             <button
               data-testid="book-header-cta"
               onClick={() => document.getElementById("booking-wizard")?.scrollIntoView({ behavior: "smooth" })}
-              className="px-4 py-2 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
+              className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs sm:text-sm font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
               {salon.business_type === "restaurant" ? "Reserve a Table ✦" : "Book Appointment ✦"}
             </button>
           </div>
         </div>
       </div>
 
-      <header className="relative h-80 sm:h-96 overflow-hidden mt-16">
+      <header className="relative overflow-hidden mt-20">
         <img src={salon.hero_image} className="absolute inset-0 w-full h-full object-cover" alt="" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-bg-base" />
         {/* Animated Mira AI orb */}
@@ -328,7 +331,7 @@ export default function BookPublic() {
           </span>
           <span className="text-[9px] uppercase tracking-[0.2em] text-gold bg-black/50 backdrop-blur px-2 py-0.5 rounded-full border border-gold/30">Mira AI</span>
         </button>
-        <div className="relative z-10 max-w-5xl mx-auto h-full flex flex-col justify-end p-6 sm:p-10">
+        <div className="relative z-10 max-w-5xl mx-auto flex flex-col justify-end p-6 sm:p-10 pt-14 sm:pt-20">
           <div className="flex items-center gap-3 mb-3">
             {salon.logo_url ? (
               <img src={salon.logo_url.startsWith("/api/") ? `${BACKEND_URL}${salon.logo_url}` : salon.logo_url} alt={salon.name} data-testid="hero-salon-logo" className="h-14 w-auto max-w-[180px] rounded-xl object-contain bg-white/95 p-1.5 border border-gold/50 shadow-gold-glow" />
@@ -343,10 +346,31 @@ export default function BookPublic() {
             </div>
           </div>
           <h1 className="font-playfair text-3xl sm:text-5xl leading-tight max-w-2xl">{salon.tagline}.</h1>
-          <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-white/60">
-            <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-gold" /> {salon.location}</span>
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-gold" /> {salon.hours}</span>
-            <span className="flex items-center gap-1"><PhoneIcon className="w-3 h-3 text-gold" /> {salon.phone}</span>
+          <div className="flex flex-wrap items-center gap-2 mt-4 text-xs">
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur border border-gold/25 text-white/85" data-testid="hero-location-chip">
+              <MapPin className="w-3 h-3 text-gold" /> {salon.name}, {salon.location}
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur border border-gold/25 text-white/85" data-testid="hero-hours-chip">
+              <Clock className="w-3 h-3 text-gold" /> {salon.hours}
+            </span>
+            {salon.phone && (() => {
+              const digits = salon.phone.replace(/\D/g, "");
+              const wa = digits.length === 10 ? `91${digits}` : digits;
+              return (
+                <>
+                  <a href={`tel:${salon.phone.replace(/\s/g, "")}`} data-testid="hero-call-now-btn"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-gold to-[#e6c66e] text-bg-base font-bold shadow-[0_2px_12px_rgba(212,175,55,0.4)] hover:opacity-90 transition-opacity">
+                    <PhoneIcon className="w-3 h-3" /> Call now
+                  </a>
+                  <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Hi ${salon.name}! I found you on Miracurl ✨`)}`}
+                    target="_blank" rel="noreferrer" data-testid="hero-whatsapp-btn"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#25D366] text-[#0b2b16] font-bold shadow-[0_2px_12px_rgba(37,211,102,0.4)] hover:opacity-90 transition-opacity">
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm5.4 14.2c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1a13 13 0 0 1-1.5-.5c-2.6-1.1-4.3-3.8-4.4-4-.1-.2-1.1-1.4-1.1-2.7 0-1.3.7-1.9.9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4-.1.6.5l.8 1.9c.1.1.1.3 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1.1 2.2 1.4 2.5 1.5.3.2.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l1.8.9c.3.1.5.2.6.3 0 .2 0 .7-.2 1.2z" /></svg>
+                    WhatsApp
+                  </a>
+                </>
+              );
+            })()}
           </div>
           {salon.rating?.avg >= 3.5 && (() => {
             const onGoogle = salon.rating?.source === "google" || !!salon.google_review_url;
