@@ -12,8 +12,17 @@ const AUDIENCES = [
   { key: "women", label: "For Women 💄" },
   { key: "family", label: "Family / Couples 👨‍👩‍👧" },
 ];
+const RESTO_AUDIENCES = [
+  { key: "todays_special", label: "Today's Special 🍽️" },
+  { key: "family_combo", label: "Family Combo 👨‍👩‍👧" },
+  { key: "happy_hours", label: "Happy Hours ⏰" },
+];
+const AUDIENCE_LABELS = {
+  men: "Men", women: "Women", family: "Family",
+  todays_special: "Today's Special", family_combo: "Family Combo", happy_hours: "Happy Hours",
+};
 
-export const MiraPackagesCard = () => {
+export const MiraPackagesCard = ({ isResto = false }) => {
   const [pkg, setPkg] = useState(null);
   const [busy, setBusy] = useState("");
   const [pct, setPct] = useState("");
@@ -91,8 +100,8 @@ export const MiraPackagesCard = () => {
             <Gift className="w-4.5 h-4.5 text-fuchsia-300" />
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">Mira · Package Builder</div>
-            <div className="font-playfair text-lg leading-tight">AI packages for Men & Women ✦</div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">Mira · {isResto ? "Combo Builder" : "Package Builder"}</div>
+            <div className="font-playfair text-lg leading-tight">{isResto ? "AI combos from your menu ✦" : "AI packages for Men & Women ✦"}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -116,7 +125,7 @@ export const MiraPackagesCard = () => {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {AUDIENCES.map(a => (
+        {(isResto ? RESTO_AUDIENCES : AUDIENCES).map(a => (
           <button key={a.key} onClick={() => suggest(a.key)} disabled={!!busy} data-testid={`package-suggest-${a.key}-btn`}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-fuchsia-300/40 text-sm font-semibold hover:bg-fuchsia-300/10 disabled:opacity-50">
             {busy === a.key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-fuchsia-300" />} {a.label}
@@ -237,7 +246,7 @@ export const MiraPackagesCard = () => {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{p.name}</div>
                   <div className="text-[11px] text-white/50">
-                    {{ men: "Men", women: "Women", family: "Family" }[p.audience] || ""} · ₹{Math.round(p.package_price)}
+                    {AUDIENCE_LABELS[p.audience] || ""} · ₹{Math.round(p.package_price)}
                     {p.expires_at && <> · till {new Date(p.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</>}
                   </div>
                 </div>

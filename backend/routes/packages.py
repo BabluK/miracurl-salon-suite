@@ -19,6 +19,12 @@ AUDIENCE_HINT = {
     "family": "for FAMILY / COUPLES — a smart mix of men's and women's services they can enjoy together. Pick ONLY from the service catalog below.",
 }
 
+RESTO_AUDIENCE_HINT = {
+    "todays_special": "as TODAY'S SPECIAL — a crave-worthy chef's combo of dishes diners will order on impulse today. Pick ONLY from the menu below.",
+    "family_combo": "as a FAMILY COMBO — a generous mix of starters, mains and sides perfect for 2-4 people sharing. Pick ONLY from the menu below.",
+    "happy_hours": "as a HAPPY HOURS deal — snackable starters and quick bites at an irresistible evening price. Pick ONLY from the menu below.",
+}
+
 _MEN_RE = re.compile(r"\b(men|man|male|gents?|boys?|beard|moustache|mustache|shave)\b", re.I)
 _WOMEN_RE = re.compile(r"\b(women|woman|female|ladies|lady|girls?|bridal|bride|saree|sari|mehendi|mehndi|blouse)\b", re.I)
 
@@ -67,11 +73,16 @@ async def _generate_package(t: dict, audience: str, pct: int | None = None,
     eng = ", ".join(f"{n} ({c} pts)" for n, c in ctx.get("engagement", []))
     pct = max(5, min(60, int(pct))) if pct else None
     real = {s["name"].lower().strip(): s for s in pool}
+    is_resto = t.get("business_type") == "restaurant"
+    system = ("You are Mira, an expert restaurant revenue strategist for Indian restaurants. You design irresistible "
+              "combo meals that feel indulgent yet great value."
+              if is_resto else
+              "You are Mira, an expert salon revenue strategist for Indian salons. You design irresistible service "
+              "packages that feel premium yet great value.")
     valid, bad_names = [], []
     for attempt in range(2):
         data = await _ask_json(
-            "You are Mira, an expert salon revenue strategist for Indian salons. You design irresistible service "
-            "packages that feel premium yet great value.",
+            system,
             _pkg_prompt(t, audience, catalog, eng, pct, bad_names, attempt))
         if not data.get("name") or not isinstance(data.get("services"), list) or not data["services"]:
             raise HTTPException(400, "Mira returned an unexpected package format — try again")
@@ -93,14 +104,21 @@ def _pkg_prompt(t: dict, audience: str, catalog: str, eng: str,
                    if audience in ("men", "women") else "")
     retry_line = (f"YOUR PREVIOUS PICKS WERE REJECTED — these are NOT on the menu: {', '.join(bad_names)}. "
                   "Copy service names EXACTLY, character-for-character, from the catalog above.\n") if attempt else ""
-    return (f"Salon: {t.get('name')}. Design ONE service package {AUDIENCE_HINT[audience]}\n"
+    is_resto = t.get("business_type") == "restaurant"
+    hint = {**AUDIENCE_HINT, **RESTO_AUDIENCE_HINT}[audience]
+    kind, noun = ("combo", "dishes") if is_resto else ("service package", "REAL services")
+    return (f"{'Restaurant' if is_resto else 'Salon'}: {t.get('name')}. Design ONE {kind} {hint}\n"
             f"{'AUDIENCE INSIGHTS — services ranked by social engagement: ' + eng + chr(10) if eng else ''}"
-            f"SERVICE CATALOG (real prices — never invent, rename or abbreviate services):\n{catalog}\n"
-            f"Pick 3-5 REAL services, copying names EXACTLY as written above. {gender_line}{pct_line}\n{retry_line}"
-            'Return JSON: {"name":"<catchy 3-6 word package name>","tagline":"<one premium punchy line>",'
+            f"{'MENU' if is_resto else 'SERVICE CATALOG'} (real prices — never invent, rename or abbreviate):\n{catalog}\n"
+            f"Pick 3-5 {noun}, copying names EXACTLY as written above. {gender_line}{pct_line}\n{retry_line}"
+            'Return JSON: {"name":"<catchy 3-6 word ' + ("combo" if is_resto else "package") + ' name>","tagline":"<one premium punchy line>",'
             '"services":[{"name":"<exact catalog name>","price":<num>}],"total_value":<sum of prices>,'
             '"package_price":<discounted bundle price, round to nearest 49/99>,'
-            '"caption":"<ready-to-post WhatsApp/Google caption with emojis, list services, show total value vs package price, end with book-now nudge>"}')
+            '"caption":"<ready-to-post WhatsApp/Google caption with emojis, list '
+            + ("dishes" if is_resto else "services") +
+            ', show total value vs '
+            + ("combo" if is_resto else "package") +
+            ' price, end with ' + ("an order-now nudge" if is_resto else "book-now nudge") + '>"}')
 
 
 def _match_catalog_services(data: dict, real: dict) -> tuple[list, list]:
@@ -150,8 +168,9 @@ def _package_doc(t: dict, audience: str, data: dict, valid: list,
 @router.post("/mira-packages/suggest")
 async def suggest_package(body: SuggestIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from security import ai_daily_quota
-    if body.audience not in AUDIENCE_HINT:
-        raise HTTPException(400, "audience must be men, women or family")
+    allowed = RESTO_AUDIENCE_HINT if t.get("business_type") == "restaurant" else AUDIENCE_HINT
+    if body.audience not in allowed:
+        raise HTTPException(400, f"audience must be one of: {', '.join(allowed)}")
     await ai_daily_quota(t["id"], "admin_ai_suggest", 80)
     doc = await _generate_package(t, body.audience, pct=body.discount_pct, valid_days=body.valid_days)
     return {"package": doc}

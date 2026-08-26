@@ -7,6 +7,22 @@ import { MiraPackagesCard } from "@/components/MiraPackagesCard";
 
 const MIRA_HEADLINE = "MEET MIRA — AI BEAUTY EXPERT";
 const MIRA_DETAILS = "Consult Mira AI, our 24/7 beauty & hair expert. Share your skin tone and dream hair colour — get personalised suggestions, and Mira books your appointment with our in-salon experts to bring the look to life.";
+const MIRA_HEADLINE_RESTO = "MEET MIRA — AI DINING CONCIERGE";
+const MIRA_DETAILS_RESTO = "Chat with Mira AI, our 24/7 dining concierge. Ask about today's specials, veg & spice preferences or the chef's favourites — Mira recommends the perfect dishes and places your order in seconds.";
+
+// One-tap restaurant offer presets — fills the poster headline & details instantly
+const RESTO_QUICK_OFFERS = [
+  { icon: "🎉", label: "New Customer", title: "20% OFF FIRST ORDER", details: "Welcome treat for first-time guests — dine-in, takeaway or delivery" },
+  { icon: "🍕", label: "Flat ₹100 OFF", title: "FLAT ₹100 OFF", details: "On all orders above ₹499" },
+  { icon: "💳", label: "Premium Member", title: "PREMIUM MEMBERSHIP ₹499/yr", details: "Cashback on every visit · birthday reward · member-only offers · exclusive weekend deals" },
+  { icon: "👥", label: "Refer & Earn", title: "REFER & EARN ₹100", details: "Refer a friend — you both get ₹100 cashback" },
+  { icon: "🎂", label: "Birthday Special", title: "25% OFF BIRTHDAY SPECIAL", details: "Celebrate with us — valid all through your birthday month" },
+  { icon: "👫", label: "Couple / Family", title: "FAMILY FEAST OFFER", details: "Special discount on orders for 2 or more guests" },
+  { icon: "⏰", label: "Happy Hours", title: "HAPPY HOURS 15–25% OFF", details: "Every day 3–7 PM on selected starters & beverages" },
+  { icon: "📅", label: "Weekday Special", title: "WEEKDAY SPECIAL", details: "Extra discount Monday to Thursday — beat the weekend rush" },
+  { icon: "🎁", label: "Gift Card", title: "GIFT CARDS AVAILABLE", details: "Treat friends & family — the perfect foodie gift" },
+  { icon: "⭐", label: "Loyalty Reward", title: "EARN ON EVERY ORDER", details: "Collect loyalty points every visit — redeem them for free dishes" },
+];
 
 // 10 seasonal themes × 4 palettes × 3 layouts = 120 templates (+ Mira AI special)
 const THEMES = [
@@ -252,25 +268,27 @@ function wrapText(ctx, text, x, y, maxW, lineH) {
 
 const MAX_SERVICE_ROWS = 5;
 
-function ServiceOfferRows({ services, rows, setRows }) {
+function ServiceOfferRows({ services, rows, setRows, isResto }) {
   const [selId, setSelId] = useState("");
+  const noun = isResto ? "dish" : "service";
+  const nounPl = isResto ? "dishes" : "services";
 
   function addRow() {
     const svc = services.find(s => s.id === selId);
     if (!svc) return;
-    if (rows.some(r => r.service_id === svc.id)) { toast.info("Service already added"); return; }
-    if (rows.length >= MAX_SERVICE_ROWS) { toast.info(`Max ${MAX_SERVICE_ROWS} services fit on a poster`); return; }
+    if (rows.some(r => r.service_id === svc.id)) { toast.info(`${isResto ? "Dish" : "Service"} already added`); return; }
+    if (rows.length >= MAX_SERVICE_ROWS) { toast.info(`Max ${MAX_SERVICE_ROWS} ${nounPl} fit on a poster`); return; }
     setRows([...rows, { service_id: svc.id, name: svc.name, actual: svc.price, offer: svc.price }]);
     setSelId("");
   }
 
   return (
     <div className="card-light space-y-3" data-testid="service-offers-card">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Service offers (optional)</div>
-      <p className="text-xs text-slate-400 -mt-1">Pick services — actual price comes from your menu, you set the offer price, discount is calculated for the poster.</p>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{isResto ? "Dish offers (optional)" : "Service offers (optional)"}</div>
+      <p className="text-xs text-slate-400 -mt-1">Pick {nounPl} — actual price comes from your menu, you set the offer price, discount is calculated for the poster.</p>
       <div className="flex gap-2">
         <select data-testid="service-offer-select" className="input-light flex-1" value={selId} onChange={e => setSelId(e.target.value)}>
-          <option value="">Choose a service…</option>
+          <option value="">Choose a {noun}…</option>
           {services.map(s => (
             <option key={s.id} value={s.id}>{s.name} — ₹{s.price}</option>
           ))}
@@ -347,7 +365,11 @@ export default function OffersStudio() {
     api.get("/services").then(r => setServices(r.data || [])).catch(() => {});
     api.get("/tenants/current").then(r => {
       setTenant(r.data);
-      setF(prev => ({ ...prev, location: r.data.location || "", phone: r.data.phone || "" }));
+      setF(prev => ({
+        ...prev, location: r.data.location || "", phone: r.data.phone || "",
+        ...(r.data.business_type === "restaurant"
+          ? { offerTitle: "FLAT 20% OFF", offerDetails: "On all dishes & family combos" } : {}),
+      }));
       if (r.data.logo_url) {
         const img = new Image();
         img.crossOrigin = "anonymous";
@@ -383,6 +405,7 @@ export default function OffersStudio() {
   }
 
   const templateNo = THEMES.indexOf(theme) * 12 + paletteIdx * 3 + LAYOUTS.indexOf(layout) + 1;
+  const isResto = tenant?.business_type === "restaurant";
 
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="offers-studio-page">
@@ -391,7 +414,7 @@ export default function OffersStudio() {
         <p className="text-slate-500 text-sm mt-1">120 seasonal templates — your logo, location & number auto-placed. Download ready-to-post images for Instagram, Facebook & WhatsApp status.</p>
       </div>
 
-      <MiraPackagesCard />
+      <MiraPackagesCard isResto={isResto} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Controls */}
@@ -406,7 +429,11 @@ export default function OffersStudio() {
                     onClick={() => {
                       setTheme(t);
                       if (t.id === "mira") {
-                        setF(prev => ({ ...prev, offerTitle: MIRA_HEADLINE, offerDetails: MIRA_DETAILS }));
+                        setF(prev => ({
+                          ...prev,
+                          offerTitle: isResto ? MIRA_HEADLINE_RESTO : MIRA_HEADLINE,
+                          offerDetails: isResto ? MIRA_DETAILS_RESTO : MIRA_DETAILS,
+                        }));
                         toast.success("Mira AI banner loaded — edit the text freely ✦");
                       }
                     }}
@@ -443,14 +470,30 @@ export default function OffersStudio() {
             </div>
           </div>
 
-          <ServiceOfferRows services={services} rows={rows} setRows={setRows} />
+          {isResto && (
+            <div className="card-light space-y-2" data-testid="resto-quick-offers-card">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">🍽️ Restaurant offers — one tap</div>
+              <p className="text-xs text-slate-400 -mt-1">Tap an offer to fill the poster — then tweak the text, add dishes and download.</p>
+              <div className="flex flex-wrap gap-1.5">
+                {RESTO_QUICK_OFFERS.map(o => (
+                  <button key={o.label} data-testid={`resto-offer-${o.label.replace(/[^a-z]/gi, "-").toLowerCase()}`}
+                    onClick={() => { setF(prev => ({ ...prev, offerTitle: o.title, offerDetails: o.details })); toast.success(`${o.icon} ${o.label} offer loaded — edit freely ✦`); }}
+                    className={`text-xs px-2.5 py-1.5 rounded-full border transition ${f.offerTitle === o.title ? "bg-slate-800 text-white border-slate-800" : "border-slate-200 text-slate-500 hover:border-slate-400"}`}>
+                    {o.icon} {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <ServiceOfferRows services={services} rows={rows} setRows={setRows} isResto={isResto} />
 
           <div className="card-light space-y-3">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Offer details</div>
             <div><label className="label-light block mb-1">Headline</label>
               <input data-testid="offer-title-input" className="input-light" value={f.offerTitle} onChange={e => setF({ ...f, offerTitle: e.target.value })} placeholder="FLAT 30% OFF" maxLength={40} /></div>
             <div><label className="label-light block mb-1">Details</label>
-              <input data-testid="offer-details-input" className="input-light" value={f.offerDetails} onChange={e => setF({ ...f, offerDetails: e.target.value })} placeholder="On all hair & beauty services" maxLength={240} /></div>
+              <input data-testid="offer-details-input" className="input-light" value={f.offerDetails} onChange={e => setF({ ...f, offerDetails: e.target.value })} placeholder={isResto ? "On all dishes & combos" : "On all hair & beauty services"} maxLength={240} /></div>
             <div className="grid grid-cols-3 gap-3">
               <div><label className="label-light block mb-1">Valid till</label>
                 <input data-testid="offer-validity-input" className="input-light" value={f.validity} onChange={e => setF({ ...f, validity: e.target.value })} placeholder="31 Oct" maxLength={20} />
@@ -482,7 +525,7 @@ export default function OffersStudio() {
       </div>
 
       <div className="mt-6">
-        <AIFlyerStudio />
+        <AIFlyerStudio isResto={isResto} />
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ const TEMPLATES = [
   ["rose_wave", "Rose Wave", "bg-[#f6dfe2]", "text-rose-900"],
 ];
 
-export const AIFlyerStudio = () => {
+export const AIFlyerStudio = ({ isResto = false }) => {
   const [template, setTemplate] = useState("pink_glam");
   const [headline, setHeadline] = useState("Festive Special Offer");
   const [offerText, setOfferText] = useState("Get 30% OFF on all services");
@@ -82,7 +82,7 @@ export const AIFlyerStudio = () => {
     <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4" data-testid="ai-flyer-studio">
       <div>
         <h2 className="text-lg font-semibold flex items-center gap-2"><Wand2 className="w-5 h-5 text-fuchsia-500" /> AI Flyer Studio</h2>
-        <p className="text-xs text-slate-500 mt-0.5">Pick a professional template — Mira generates a salon flyer with your name, offer, services and booking link.</p>
+        <p className="text-xs text-slate-500 mt-0.5">Pick a professional template — Mira generates a {isResto ? "restaurant" : "salon"} flyer with your name, offer, {isResto ? "dishes" : "services"} and {isResto ? "ordering" : "booking"} link.</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -118,7 +118,7 @@ export const AIFlyerStudio = () => {
           <p className="text-xs text-slate-500 mt-0.5">Hero model + your logo + About Us story + 3 circular photos (from your gallery, or Mira creates them) + booking details. Uses the template selected above.</p>
         </div>
         <textarea value={aboutText} onChange={e => setAboutText(e.target.value)} rows={2} maxLength={400} data-testid="about-poster-text-input"
-          placeholder="Your salon story (leave empty and Mira writes a classy default)"
+          placeholder={isResto ? "Your restaurant story (leave empty and Mira writes a classy default)" : "Your salon story (leave empty and Mira writes a classy default)"}
           className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
         <input value={aboutOffer} onChange={e => setAboutOffer(e.target.value)} maxLength={120} data-testid="about-poster-offer-input"
           placeholder="Offer line (e.g. Book now and get 20% OFF!)"
