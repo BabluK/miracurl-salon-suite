@@ -345,10 +345,19 @@ def restaurant_trial_reminder_email_html(restaurant_name: str, days_left: int, e
     </div>"""
 
 
-def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "") -> str:
+def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "",
+                        business_type: str = "salon") -> str:
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     img = poster_url or os.environ.get("WELCOME_IMAGE_URL", "")
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    is_resto = business_type == "restaurant"
+    journey = "Your restaurant's digital journey begins today 🎉" if is_resto else "Your salon's digital journey begins today 🎉"
+    suite_line = ("Your complete restaurant management suite is ready — QR table ordering, live kitchen tickets, "
+                  "POS billing, inventory, AI marketing and your own online menu page. Here are your one-time login details:"
+                  if is_resto else
+                  "Your complete salon management suite is ready — billing, appointments, staff, inventory, "
+                  "AI marketing and your own online booking page. Here are your one-time login details:")
+    mira_line = "your restaurant's AI assistant" if is_resto else "your salon's AI assistant"
     img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Welcome to Miracurl" width="600" '
                f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
     return f"""
@@ -359,13 +368,12 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_
 <tr><td style="background:linear-gradient(135deg,#17171f,#26202b);padding:26px 36px;text-align:center">
   <div style="color:#e6c66e;font-size:12px;letter-spacing:4px;text-transform:uppercase">✦ &nbsp;Welcome Onboard&nbsp; ✦</div>
   <div style="color:#ffffff;font-size:26px;margin-top:8px">{html_lib.escape(salon_name)}</div>
-  <div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">Your salon's digital journey begins today 🎉</div>
+  <div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">{journey}</div>
 </td></tr>
 <tr><td style="padding:30px 36px 10px">
   <p style="margin:0;color:#2b2b33;font-size:15px;font-family:Arial,sans-serif">Namaste! We're delighted to have <b>{html_lib.escape(salon_name)}</b> on Miracurl.</p>
   <p style="margin:12px 0 0;color:#55555f;font-size:14px;line-height:1.6;font-family:Arial,sans-serif">
-    Your complete salon management suite is ready — billing, appointments, staff, inventory,
-    AI marketing and your own online booking page. Here are your one-time login details:</p>
+    {suite_line}</p>
 </td></tr>
 <tr><td style="padding:18px 36px">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf6ec;border:1px solid #ecdfc0;border-radius:12px">
@@ -383,7 +391,7 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_
 <tr><td style="background:#17171f;padding:22px 36px;text-align:center">
   <div style="color:#e6c66e;font-size:16px">✦ Miracurl ✦</div>
   <div style="color:#8f8798;font-size:12px;margin-top:6px;font-family:Arial,sans-serif">Questions? Just reply to this email · +91-7206869271 · {hq_email}</div>
-  <div style="color:#5d5766;font-size:11px;margin-top:10px;font-family:Arial,sans-serif">Sent with ♥ by Mira — your salon's AI assistant</div>
+  <div style="color:#5d5766;font-size:11px;margin-top:10px;font-family:Arial,sans-serif">Sent with ♥ by Mira — {mira_line}</div>
 </td></tr>
 </table>
 </td></tr></table>"""

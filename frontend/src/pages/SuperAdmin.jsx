@@ -164,13 +164,13 @@ export default function SuperAdmin() {
   const [createdCreds, setCreatedCreds] = useState(null);
 
   function startNew() {
-    setForm({ slug: "", name: "", owner_email: "", owner_name: "", location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter" });
+    setForm({ slug: "", name: "", owner_email: "", owner_name: "", location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter", business_type: "salon" });
     setOpen(true);
   }
 
   function convertLead(inq) {
     const slug = inq.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
-    setForm({ slug, name: `${inq.name}'s Salon`, owner_email: inq.email, owner_name: inq.name, location: "", phone: inq.phone, salon_email: inq.email, owner_phone: inq.phone, plan: "starter" });
+    setForm({ slug, name: `${inq.name}'s Salon`, owner_email: inq.email, owner_name: inq.name, location: "", phone: inq.phone, salon_email: inq.email, owner_phone: inq.phone, plan: "starter", business_type: "salon" });
     setTab("tenants");
     setOpen(true);
     toast.info(`Lead "${inq.name}" pre-filled — review details and create the salon ✦`);
@@ -618,17 +618,32 @@ export default function SuperAdmin() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>
           <div className="card-light w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-playfair text-2xl">Onboard a New Salon</h3>
+              <h3 className="font-playfair text-2xl">Onboard a New {form.business_type === "restaurant" ? "Restaurant" : "Salon"}</h3>
               <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={save} className="space-y-4">
+              <div>
+                <label className="label-light block mb-1">Business Type *</label>
+                <div className="flex gap-2">
+                  {[["salon", "💇 Salon"], ["restaurant", "🍽️ Restaurant"]].map(([v, l]) => (
+                    <button key={v} type="button" data-testid={`tenant-type-${v}`}
+                      onClick={() => setForm({ ...form, business_type: v })}
+                      className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        (form.business_type || "salon") === v
+                          ? "border-sky-500 bg-sky-50 text-sky-700"
+                          : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="label-light block mb-1">Slug *</label>
                 <input data-testid="tenant-slug-input" required pattern="[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?" className="input-light font-mono lowercase" value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value.toLowerCase() })} placeholder="elegance-koramangala" />
                 <p className="text-[10px] text-slate-400 mt-1">Will appear in their booking URL: /book/<span className="text-sky-600">{form.slug || "your-slug"}</span></p>
               </div>
               <div>
-                <label className="label-light block mb-1">Salon Name *</label>
+                <label className="label-light block mb-1">{form.business_type === "restaurant" ? "Restaurant Name *" : "Salon Name *"}</label>
                 <input data-testid="tenant-name-input" required className="input-light" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Elegance Beauty Lounge" />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -676,7 +691,7 @@ export default function SuperAdmin() {
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="btn-slate flex-1">Cancel</button>
-                <button data-testid="tenant-save-btn" type="submit" disabled={busy} className="btn-blue flex-1">{busy ? "Creating..." : "Onboard Salon"}</button>
+                <button data-testid="tenant-save-btn" type="submit" disabled={busy} className="btn-blue flex-1">{busy ? "Creating..." : (form.business_type === "restaurant" ? "Onboard Restaurant" : "Onboard Salon")}</button>
               </div>
             </form>
           </div>

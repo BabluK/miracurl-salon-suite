@@ -425,8 +425,12 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
         location=body.location, phone=body.phone, plan=body.plan, status="trial",
         salon_email=(body.salon_email or "").lower() or None, owner_phone=body.owner_phone,
     ).model_dump()
+    t["business_type"] = body.business_type or "salon"
     await db.tenants.insert_one(t)
     t.pop("_id", None)
+    if t["business_type"] == "restaurant":
+        from routes.auth import _seed_restaurant_defaults
+        await _seed_restaurant_defaults(t["id"])
 
     if existing_owner:
         # MULTI-SALON: tag the new salon to the existing owner login (same email & password).
@@ -483,8 +487,11 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
         welcome_attachments = None
     email_status = await _send_email(
         recipients,
-        "Welcome to Miracurl — your salon account is ready ✦",
-        _welcome_email_html(t["name"], body.owner_email.lower(), temp_pw, poster_url),
+        ("Welcome to Miracurl — your restaurant account is ready 🍽️✦"
+         if t["business_type"] == "restaurant"
+         else "Welcome to Miracurl — your salon account is ready ✦"),
+        _welcome_email_html(t["name"], body.owner_email.lower(), temp_pw, poster_url,
+                            business_type=t["business_type"]),
         attachments=welcome_attachments)
     # Return the temp password ONCE so super-admin can copy/share it. Never
     # stored in cleartext or retrievable again — a lost password requires a

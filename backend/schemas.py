@@ -30,6 +30,7 @@ class TenantIn(BaseModel):
     salon_email: Optional[EmailStr] = None
     owner_phone: Optional[str] = Field(None, max_length=20)
     plan: str = "starter"
+    business_type: str = Field("salon", pattern="^(salon|restaurant)$")
 
     @field_validator("slug")
     @classmethod
