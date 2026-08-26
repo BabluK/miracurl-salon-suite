@@ -2,10 +2,13 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mic, X, Send, Loader2, Volume2 } from "lucide-react";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 const STOP_RE = /^(stop|bye|bye bye|goodbye|cancel|done|exit|quiet|chup|ruko|band karo|that'?s all|thank you.*|thanks.*)$/i;
 
 export const TenantMiraAssistant = () => {
+  const { tenant } = useAuth();
+  const biz = tenant?.business_type === "restaurant" ? "Restaurant" : "Salon";
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([]);
@@ -141,9 +144,9 @@ export const TenantMiraAssistant = () => {
       <div className="bg-gradient-to-r from-amber-500 to-rose-500 px-4 py-3 flex items-center gap-2">
         <img src="/mira-bot.png" alt="Mira" className="w-8 h-8 rounded-full object-cover border border-white/60 shrink-0" />
         <div className="flex-1">
-          <p className="text-white text-sm font-bold leading-none">Mira · Your Salon AI</p>
+          <p className="text-white text-sm font-bold leading-none">Mira · Your {biz} AI</p>
           <p className="text-white/75 text-[10px] mt-0.5" data-testid="tenant-mira-status">
-            {convo ? (listening ? "🔴 Listening — just talk to me" : "💬 Conversation on — say 'stop' to end") : "Ask about your salon"}
+            {convo ? (listening ? "🔴 Listening — just talk to me" : "💬 Conversation on — say 'stop' to end") : `Ask about your ${biz.toLowerCase()}`}
           </p>
         </div>
         <button onClick={() => { audioRef.current?.pause(); setConvoMode(false); setOpen(false); navigate("/assistant"); }}

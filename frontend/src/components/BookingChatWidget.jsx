@@ -61,6 +61,28 @@ function renderText(text) {
   );
 }
 
+const VEG_DOT = { veg: "bg-emerald-500", "non-veg": "bg-rose-500" };
+
+function DishCards({ dishes }) {
+  return (
+    <div className="mt-2 grid grid-cols-1 gap-2" data-testid="mira-dish-cards">
+      {dishes.map(d => (
+        <div key={d.name} className="flex items-center gap-2.5 rounded-xl border border-gold/30 bg-black/30 p-1.5 pr-3" data-testid="mira-dish-card">
+          <img src={d.image_url?.startsWith("/") ? `${BACKEND_URL}${d.image_url}` : d.image_url} alt={d.name}
+            className="w-14 h-14 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              {d.veg && <span className={`w-2 h-2 rounded-full flex-shrink-0 ${VEG_DOT[d.veg] || "bg-white/30"}`} />}
+              <span className="text-[12px] font-semibold text-white truncate">{d.name}</span>
+            </div>
+            {d.price != null && <div className="text-[11px] text-gold font-semibold mt-0.5">₹{Math.round(d.price)}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Bubble({ m, restaurant = false }) {
   const mine = m.role === "user" || m.sender === "customer";
   return (
@@ -68,6 +90,7 @@ function Bubble({ m, restaurant = false }) {
       <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap ${
         mine ? "bg-gold text-bg-base rounded-br-sm" : "bg-white/10 text-white/90 rounded-bl-sm"}`}>
         {renderText(m.text)}
+        {m.dishes?.length > 0 && <DishCards dishes={m.dishes} />}
         {m.booking && <BookingCard booking={m.booking} restaurant={restaurant} />}
         {m.handoff && <HandoffCard handoff={m.handoff} restaurant={restaurant} />}
       </div>
@@ -185,7 +208,7 @@ function AiTab({ slug, restaurant = false }) {
     setBusy(true);
     try {
       const { data } = await axios.post(`${BACKEND_URL}/api/public/ai-chat/${slug}`, { message: text, session_id: sidRef.current }, { timeout: 90000 });
-      setMsgs(m => [...m, mkMsg({ role: "ai", text: data.reply, booking: data.booking, handoff: data.handoff })]);
+      setMsgs(m => [...m, mkMsg({ role: "ai", text: data.reply, booking: data.booking, handoff: data.handoff, dishes: data.dishes })]);
     } catch (e) {
       setMsgs(m => [...m, mkMsg({ role: "ai", text: e.response?.data?.detail || "Sorry, I hit a snag — please try again." })]);
     } finally { setBusy(false); }
@@ -232,7 +255,7 @@ function AiTab({ slug, restaurant = false }) {
       }
       setMsgs(m => {
         const next = m.filter(x => !x.pending);
-        return [...next, mkMsg({ role: "user", text: `🎙️ ${data.transcript}` }), mkMsg({ role: "ai", text: data.reply, booking: data.booking, handoff: data.handoff, spoken: !!data.audio_b64 })];
+        return [...next, mkMsg({ role: "user", text: `🎙️ ${data.transcript}` }), mkMsg({ role: "ai", text: data.reply, booking: data.booking, handoff: data.handoff, dishes: data.dishes, spoken: !!data.audio_b64 })];
       });
       // In hands-free mode, resume listening once Mira finishes speaking.
       if (data.audio_b64) playAudio(data.audio_b64, resume);

@@ -190,25 +190,31 @@ async def _instant_faq_reply(t, message: str) -> Optional[str]:
     if not intent:
         return None
     sym = {"INR": "₹", "USD": "$", "GBP": "£", "EUR": "€", "AED": "AED "}.get(t.get("currency") or "INR", "₹")
-    name = t.get("name") or "our salon"
+    name = t.get("name") or ("our restaurant" if t.get("business_type") == "restaurant" else "our salon")
+    is_resto = t.get("business_type") == "restaurant"
     if intent == "menu":
         services = await db.services.find({"active": True}, {"_id": 0, "name": 1, "price": 1, "duration_min": 1}).to_list(60)
         if not services:
             return None
+        if t.get("business_type") == "restaurant":
+            lines = "\n".join(f"• **{s['name']}** — {sym}{s['price']:g}" for s in services[:18])
+            more = f"\n…and {len(services) - 18} more — just ask me about any dish 🍽️" if len(services) > 18 else ""
+            return f"Here's our live menu at {name} 🍽️\n\n{lines}{more}\n\nShall I reserve a table for you?"
         lines = "\n".join(f"• **{s['name']}** — {sym}{s['price']:g} · {s['duration_min']} min" for s in services[:18])
         more = f"\n…and {len(services) - 18} more — just ask me about any treatment ✨" if len(services) > 18 else ""
         return f"Here's our live service menu at {name} 💖\n\n{lines}{more}\n\nShall I book one for you?"
     if intent == "timing":
         return (f"Here are our working hours 🕐\n\n{_hours_table(t)}\n\n"
-                "I can book you a slot so there's zero waiting — shall I?")
+                + ("I can reserve your table so it's ready when you arrive — shall I?" if is_resto
+                   else "I can book you a slot so there's zero waiting — shall I?"))
     if intent == "location":
         if not t.get("location"):
             return None
-        return f"You'll find us at **{t['location']}** 📍 Would you like me to book your visit?"
+        return f"You'll find us at **{t['location']}** 📍 Would you like me to {'reserve your table' if is_resto else 'book your visit'}?"
     if intent == "contact":
         if not t.get("phone"):
             return None
-        return f"You can reach {name} at **{t['phone']}** 📞 Or just tell me what you need — I can book you right here ✨"
+        return f"You can reach {name} at **{t['phone']}** 📞 Or just tell me what you need — I can {'reserve a table for you' if is_resto else 'book you'} right here ✨"
     return None
 
 
@@ -624,6 +630,21 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
     ])
     return reply, booking, booking_error, handoff
 
+async def _dishes_in_reply(t: dict, reply: str) -> list:
+    """Restaurant only: dish photo cards for menu items Mira mentioned in her reply."""
+    if t.get("business_type") != "restaurant" or not reply:
+        return []
+    low = reply.lower()
+    svcs = await _raw_db.services.find(
+        {"tenant_id": t["id"], "active": {"$ne": False}, "image_url": {"$nin": [None, ""]}},
+        {"_id": 0, "name": 1, "price": 1, "image_url": 1, "veg": 1}).to_list(300)
+    found = [s for s in svcs if len(s["name"]) >= 4
+             and re.search(rf"\b{re.escape(s['name'].lower())}\b", low)]
+    found.sort(key=lambda s: low.index(s["name"].lower()))
+    return [{"name": s["name"], "price": s.get("price"), "image_url": s["image_url"],
+             "veg": s.get("veg")} for s in found[:3]]
+
+
 @router.post("/public/ai-chat/{slug}")
 async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
     t = await resolve_tenant_from_slug(slug)
@@ -640,7 +661,8 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
         ])
         return {"reply": fast, "booking": None, "booking_error": None, "instant": True}
     reply, booking, booking_error, handoff = await _public_ai_reply(t, body.session_id, body.message, request=request)
-    return {"reply": reply, "booking": booking, "booking_error": booking_error, "handoff": handoff}
+    return {"reply": reply, "booking": booking, "booking_error": booking_error, "handoff": handoff,
+            "dishes": await _dishes_in_reply(t, reply)}
 
 async def _sorry_no_hear_response() -> dict:
     """Spoken 'couldn't hear you' fallback so hands-free voice chat continues gracefully."""
@@ -718,7 +740,8 @@ async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(
     except Exception as e:
         logging.getLogger("public_ai").error(f"tts error: {e}")
     return {"transcript": transcript, "reply": reply, "booking": booking,
-            "booking_error": booking_error, "audio_b64": audio_b64, "handoff": handoff}
+            "booking_error": booking_error, "audio_b64": audio_b64, "handoff": handoff,
+            "dishes": await _dishes_in_reply(t, reply)}
 
 # ---------------- Customer ↔ Salon Owner Chat ----------------
 class ChatStartIn(BaseModel):

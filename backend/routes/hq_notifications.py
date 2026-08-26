@@ -209,8 +209,10 @@ async def public_salon_page(slug: str):
     ratings = [float(r["rating"]) for r in reviews if r.get("rating")]
     return {
         "name": t.get("name"), "slug": slug, "location": t.get("location") or "",
+        "business_type": t.get("business_type") or "salon",
         "phone": t.get("phone") or "", "about": t.get("about") or "",
         "gallery": [p["url"] for p in (t.get("gallery") or [])][:6],
+        "logo_url": t.get("logo_url") or "",
         "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
         "reviews_count": len(ratings),
         "services": services,

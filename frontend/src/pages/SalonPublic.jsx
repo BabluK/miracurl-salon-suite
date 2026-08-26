@@ -3,7 +3,6 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
 import { Star, MapPin, Phone, CalendarCheck, ShieldCheck, Scissors, MessageSquareQuote, Sparkles } from "lucide-react";
-import BrandMark from "@/components/BrandMark";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import BookingChatWidget from "@/components/BookingChatWidget";
 
@@ -87,13 +86,23 @@ export default function SalonPublic() {
   return (
     <div className="min-h-screen bg-[#080809] text-white overflow-x-hidden" data-testid="salon-public-page">
 
-      {/* Glassy header */}
+      {/* Glassy header — every tenant wears their OWN brand here */}
       <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-black/50 border-b border-white/5">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <BrandMark variant="dark" size="xs" />
+          {s.logo_url ? (
+            <div className="flex items-center gap-2.5 min-w-0" data-testid="salon-header-tenant-brand">
+              <img src={s.logo_url} alt={s.name}
+                className="w-10 h-10 rounded-lg object-contain bg-[#14141a] border border-gold/30 flex-shrink-0" />
+              <span className="font-playfair text-sm sm:text-base gold-shine-text truncate">{s.name}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 min-w-0" data-testid="salon-header-tenant-brand">
+              <span className="font-playfair text-sm sm:text-base gold-shine-text truncate">{s.name}</span>
+            </div>
+          )}
           <Link to={s.book_url} data-testid="salon-header-book-btn"
-            className="px-5 py-2 rounded-full bg-gradient-to-r from-gold to-blush text-bg-base text-xs font-bold hover:opacity-90 transition-opacity">
-            Book now ✦
+            className="px-5 py-2 rounded-full bg-gradient-to-r from-gold to-blush text-bg-base text-xs font-bold hover:opacity-90 transition-opacity flex-shrink-0">
+            {s.business_type === "restaurant" ? "Reserve a Table ✦" : "Book now ✦"}
           </Link>
         </div>
       </header>
@@ -118,7 +127,7 @@ export default function SalonPublic() {
 
           <motion.div {...fadeUp(0)}>
             <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.3em] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-4 py-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" /> Verified partner salon
+              <ShieldCheck className="w-3.5 h-3.5" /> Verified partner {s?.business_type === "restaurant" ? "restaurant" : "salon"}
             </span>
           </motion.div>
 
@@ -145,7 +154,7 @@ export default function SalonPublic() {
               className="inline-flex items-center gap-1.5 bg-gradient-to-r from-fuchsia-500/20 to-violet-500/20 border border-fuchsia-300/40 rounded-full px-4 py-1.5 text-fuchsia-200 font-semibold hover:border-fuchsia-300 transition-colors">
               🎙️ Talk to Mira
             </button>
-            {s.show_products !== false && (
+            {s.show_products !== false && s.business_type !== "restaurant" && (
               <a href="/products" data-testid="salon-our-products-btn"
                 className="inline-flex items-center gap-1.5 bg-gold/10 border border-gold/40 rounded-full px-4 py-1.5 text-gold font-semibold hover:bg-gold/20 hover:border-gold transition-colors">
                 🧴 Our Products
@@ -158,7 +167,7 @@ export default function SalonPublic() {
               <span aria-hidden className="salon-halo" />
               <Link to={s.book_url} data-testid="salon-book-now-btn"
                 className="group relative inline-flex items-center gap-2 px-10 py-4 rounded-full bg-gradient-to-r from-gold to-blush text-bg-base font-bold text-sm shadow-gold-glow hover:scale-[1.03] transition-transform">
-                <CalendarCheck className="w-5 h-5" /> Book an appointment
+                <CalendarCheck className="w-5 h-5" /> {s.business_type === "restaurant" ? "Reserve a Table" : "Book an appointment"}
                 <span aria-hidden className="absolute -top-1.5 -right-1 text-blush" style={{ animation: "sparkle-twinkle 2.2s ease-in-out infinite" }}>✦</span>
               </Link>
             </span>
@@ -184,7 +193,7 @@ export default function SalonPublic() {
             <span className={`w-11 h-11 rounded-full border ${GLOWS[0].ring} flex items-center justify-center font-playfair ${GLOWS[0].text}`}>1</span>
             <span className={`w-11 h-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center ${GLOWS[0].text}`}><Scissors className="w-5 h-5" /></span>
             <div>
-              <h2 className={`text-sm sm:text-base font-bold tracking-[0.2em] uppercase ${GLOWS[0].text}`}>Services & Pricing</h2>
+              <h2 className={`text-sm sm:text-base font-bold tracking-[0.2em] uppercase ${GLOWS[0].text}`}>{s.business_type === "restaurant" ? "Menu & Pricing" : "Services & Pricing"}</h2>
               <p className="text-xs text-white/40 mt-0.5">Transparent prices — what you see is what you pay</p>
             </div>
           </div>
@@ -198,7 +207,7 @@ export default function SalonPublic() {
                       className="group relative flex items-stretch overflow-hidden bg-white/[0.03] border border-white/10 rounded-2xl text-sm hover:border-cyan-400/40 hover:bg-white/[0.06] hover:-translate-y-0.5 transition-all duration-300">
                       <div className="flex-1 min-w-0 px-4 py-3.5 flex flex-col justify-center gap-1">
                         <span className="font-medium truncate">{sv.name}</span>
-                        <span className="text-white/35 text-xs">{sv.duration_min ? `${sv.duration_min} min · ` : ""}<span className="text-gold font-semibold text-sm">₹{Math.round(sv.price)}</span></span>
+                        <span className="text-white/35 text-xs">{sv.duration_min && s.business_type !== "restaurant" ? `${sv.duration_min} min · ` : ""}<span className="text-gold font-semibold text-sm">₹{Math.round(sv.price)}</span></span>
                       </div>
                       <div className="w-24 sm:w-28 relative shrink-0">
                         <img src={sv.image_url || "https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400"} alt="" loading="lazy"
@@ -292,11 +301,11 @@ export default function SalonPublic() {
         </Tilt3D>
         </motion.div>
 
-        <p className="text-center text-[10px] text-white/25 pt-2">Powered by <a href="/" className="underline hover:text-gold">Miracurl Salon Suite</a></p>
+        <p className="text-center text-[10px] text-white/25 pt-2">Powered by <a href="/" className="underline hover:text-gold">Miracurl {s?.business_type === "restaurant" ? "Restaurant" : "Salon"} Suite</a></p>
       </main>
 
       <InstallAppPrompt variant="customer" />
-      <BookingChatWidget slug={slug} />
+      <BookingChatWidget slug={slug} restaurant={s?.business_type === "restaurant"} />
     </div>
   );
 }

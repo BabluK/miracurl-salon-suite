@@ -25,6 +25,12 @@ def _tod_greeting() -> str:
     return "Good morning" if h < 12 else ("Good afternoon" if h < 17 else "Good evening")
 
 
+async def _biz_word(user: dict) -> str:
+    from database import _raw_db
+    t = await _raw_db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "business_type": 1})
+    return "restaurant" if (t or {}).get("business_type") == "restaurant" else "salon"
+
+
 async def _salon_snapshot() -> dict:
     today = datetime.now(timezone.utc).date().isoformat()
     week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
@@ -102,7 +108,7 @@ async def tenant_mira_briefing(user=Depends(require_tenant_admin)):
         bits.append(f"{_names(snap['staff_week_off_today'])} {'is' if len(snap['staff_week_off_today']) == 1 else 'are'} on week-off today")
     if snap.get("new_customers_this_week"):
         bits.append(f"{_n(snap['new_customers_this_week'], 'new customer', 'new customers')} this week")
-    text = (f"Hey! {_tod_greeting()}! Here's your salon right now — {'; '.join(bits)}. "
+    text = (f"Hey! {_tod_greeting()}! Here's your {await _biz_word(user)} right now — {'; '.join(bits)}. "
             "How may I help you today — what would you like to know?")
     return {"text": text, "data": snap}
 
@@ -181,14 +187,19 @@ async def tenant_mira_ask(body: TenantMiraAskIn, user=Depends(require_tenant_adm
     revenue_report = await _revenue_report()
     from security import ai_daily_quota
     await ai_daily_quota(user.get("tenant_id") or "", "tenant_mira_ask", 300)
+    biz = await _biz_word(user)
+    menu_word = "menu (dishes)" if biz == "restaurant" else "service menu"
+    promo_line = ("if orders are low suggest a Today's Special or happy-hours promo; "
+                  if biz == "restaurant" else
+                  "if bookings are low suggest a promo or win-back campaign; ")
     chat = LlmChat(api_key=key, session_id=f"tenant-mira-{user.get('tenant_id', '')[:12]}",
                    system_message=(
-                       "You are Mira, this salon's dedicated AI manager inside the Miracurl Suite dashboard. "
-                       "You know THIS salon's full service menu and staff team (provided below) — answer questions "
-                       "about services, prices, durations and staff precisely from it; never invent items. "
-                       "Answer the salon owner's question in ONE or TWO short spoken-style sentences using the "
-                       "live salon snapshot provided. Be a proactive consultant: if bookings are low suggest a "
-                       "promo or win-back campaign; if reviews are unread suggest replying; celebrate good revenue. "
+                       f"You are Mira, this {biz}'s dedicated AI manager inside the Miracurl Suite dashboard. "
+                       f"You know THIS {biz}'s full {menu_word} and staff team (provided below) — answer questions "
+                       "about items, prices and staff precisely from it; never invent items. "
+                       f"Answer the {biz} owner's question in ONE or TWO short spoken-style sentences using the "
+                       f"live {biz} snapshot provided. Be a proactive consultant: {promo_line}"
+                       "if reviews are unread suggest replying; celebrate good revenue. "
                        f"If a dashboard page is clearly relevant include it. Valid tabs: {', '.join(MIRA_TABS)}. "
                        "The 'Current time' line gives the exact local time — use the matching greeting "
                        "(Good morning before 12 PM, Good afternoon 12–5 PM, Good evening after 5 PM); never guess. "
@@ -205,7 +216,7 @@ async def tenant_mira_ask(body: TenantMiraAskIn, user=Depends(require_tenant_adm
                    )).with_model("openai", "gpt-4o-mini")
     prev = f'Previous Mira message: "{body.last_mira.strip()[:200]}"\n' if body.last_mira.strip() else ""
     msg = (f"Current time: {datetime.now(_IST).strftime('%A %d %B, %I:%M %p')} IST ({_tod_greeting()}).\n"
-           f"Live salon snapshot (today only): {json.dumps(snap)}\n"
+           f"Live {biz} snapshot (today only): {json.dumps(snap)}\n"
            f"REVENUE REPORT (accurate period figures — use these for any period question): {json.dumps(revenue_report)}\n"
            f"{prev}\nOwner says: {body.question.strip()[:400]}")
     try:
