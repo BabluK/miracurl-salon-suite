@@ -273,19 +273,37 @@ const MAX_SERVICE_ROWS = 5;
 function MiraOfferDesigner({ setF, setRows, onDesigned }) {
   const [busy, setBusy] = useState("");
   const [pct, setPct] = useState("");
+  const [special, setSpecial] = useState(null);
+
+  useEffect(() => {
+    api.get("/mira-offers/daily-special").then(r => setSpecial(r.data.special)).catch(() => {});
+  }, []);
+
+  const loadOffer = (o, kind) => {
+    setF(prev => ({
+      ...prev, offerTitle: o.headline, offerDetails: o.details,
+      ...(kind === "todays_special"
+        ? { validity: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" }) } : {}),
+    }));
+    setRows(o.dishes.map(d => ({ service_id: d.service_id || d.name, name: d.name, actual: d.actual, offer: d.offer })));
+    onDesigned?.();
+  };
+
+  const actSpecial = async (action) => {
+    if (!special) return;
+    if (action === "use") {
+      loadOffer(special, "todays_special");
+      toast.success("🌅 Today's Special loaded — poster is ready, download & share");
+    }
+    api.post(`/mira-offers/daily-special/${special.id}/${action}`).catch(() => {});
+    setSpecial(null);
+  };
 
   const design = async (kind) => {
     setBusy(kind);
     try {
       const { data } = await api.post("/mira-offers/suggest", { kind, ...(pct ? { discount_pct: Number(pct) } : {}) });
-      const o = data.offer;
-      setF(prev => ({
-        ...prev, offerTitle: o.headline, offerDetails: o.details,
-        ...(kind === "todays_special"
-          ? { validity: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" }) } : {}),
-      }));
-      setRows(o.dishes.map(d => ({ service_id: d.service_id || d.name, name: d.name, actual: d.actual, offer: d.offer })));
-      onDesigned?.();
+      loadOffer(data.offer, kind);
       toast.success("✨ Mira designed your offer — poster is ready, tweak & download");
     } catch (e) {
       toast.error(e.response?.data?.detail || "Mira couldn't design that — try again");
@@ -310,6 +328,21 @@ function MiraOfferDesigner({ setF, setRows, onDesigned }) {
           {[10, 15, 20, 25, 30, 35, 40, 50].map(p => <option key={p} value={p}>{p}% off</option>)}
         </select>
       </div>
+      {special && (
+        <div className="mt-4 flex items-center gap-3 flex-wrap bg-amber-300/10 border border-amber-300/40 rounded-xl px-4 py-3" data-testid="daily-special-banner">
+          <div className="flex-1 min-w-[220px]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-amber-200/70">🌅 Fresh from Mira&apos;s kitchen — today</div>
+            <div className="font-playfair text-base text-amber-100 mt-0.5">{special.headline}</div>
+            <div className="text-xs text-white/60 mt-0.5">{special.dishes.map(d => d.name).join(" · ")}</div>
+          </div>
+          <button onClick={() => actSpecial("use")} data-testid="daily-special-approve-btn"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-amber-300 to-yellow-200 text-[#17141c] text-sm font-semibold hover:opacity-90">
+            ✓ Approve &amp; load
+          </button>
+          <button onClick={() => actSpecial("dismiss")} data-testid="daily-special-dismiss-btn"
+            className="text-white/40 hover:text-white/70 text-sm px-2" title="Dismiss for today">✕</button>
+        </div>
+      )}
       <div className="mt-4 flex flex-wrap gap-2">
         <button onClick={() => design("todays_special")} disabled={!!busy} data-testid="mira-offer-todays-special-btn"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-amber-300/40 text-sm font-semibold hover:bg-amber-300/10 disabled:opacity-50">

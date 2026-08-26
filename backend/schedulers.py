@@ -296,6 +296,30 @@ async def _weekly_package_scheduler() -> None:
         await asyncio.sleep(1800)
 
 
+async def _daily_special_scheduler() -> None:
+    """Daily (after 08:00 IST) Mira drafts a fresh Today's Special for every active restaurant —
+    owner approves & shares from the Offer Maker. Idempotent via system_flags."""
+    from routes.packages import run_daily_special_suggestions
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.hour >= 8:
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "daily_special_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await run_daily_special_suggestions()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "daily_special_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "suggested": out.get("suggested", 0), "failed": out.get("failed", 0)}},
+                        upsert=True)
+                    if out.get("suggested") or out.get("failed"):
+                        logging.info(f"Mira daily specials {period}: {out}")
+        except Exception as e:
+            logging.error(f"daily special scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 async def _gift_card_scheduler() -> None:
     """Hourly: deliver scheduled gift cards, expire stale ones, expiry nudges, occasion campaigns."""
     from routes.gift_cards import (deliver_scheduled_gift_cards, send_expiry_reminders,

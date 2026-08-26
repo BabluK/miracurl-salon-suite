@@ -3,18 +3,19 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
-import { Store, Scissors, Users, Clock, ReceiptIndianRupee, Check, ChevronRight, ChevronLeft, Sparkles, Upload, Loader2 } from "lucide-react";
+import { Store, Scissors, Users, Clock, ReceiptIndianRupee, Check, ChevronRight, ChevronLeft, Sparkles, Upload, Loader2, UtensilsCrossed } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const STEPS = [
-  { key: "profile", label: "Salon Profile", icon: Store },
-  { key: "services", label: "Services", icon: Scissors },
+const stepsFor = (isResto) => [
+  { key: "profile", label: isResto ? "Restaurant Profile" : "Salon Profile", icon: Store },
+  { key: "services", label: isResto ? "Menu" : "Services", icon: isResto ? UtensilsCrossed : Scissors },
   { key: "staff", label: "Staff", icon: Users },
   { key: "hours", label: "Hours", icon: Clock },
   { key: "payment", label: "Tax & Finish", icon: ReceiptIndianRupee },
 ];
 
-function StepProfile({ onNext }) {
+function StepProfile({ onNext, isResto }) {
   const [form, setForm] = useState({ phone: "", location: "", whatsapp_number: "" });
   const [logo, setLogo] = useState("");
   const [busy, setBusy] = useState("");
@@ -80,7 +81,7 @@ function StepProfile({ onNext }) {
         </div>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="Salon phone (e.g. +91 98…)"
+        <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder={isResto ? "Restaurant phone (e.g. +91 98…)" : "Salon phone (e.g. +91 98…)"}
           className="border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm w-full" data-testid="setup-phone-input" />
         <input value={form.whatsapp_number} onChange={e => setForm({ ...form, whatsapp_number: e.target.value })} placeholder="WhatsApp number"
           className="border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm w-full" data-testid="setup-whatsapp-input" />
@@ -95,10 +96,13 @@ function StepProfile({ onNext }) {
   );
 }
 
-function StepServices({ onNext }) {
+function StepServices({ onNext, isResto }) {
   const [count, setCount] = useState(0);
   const [busy, setBusy] = useState("");
-  const [row, setRow] = useState({ name: "", category: "Women Hair", price: "", duration_min: "30" });
+  const [row, setRow] = useState({ name: "", category: isResto ? "Chicken Starters" : "Women Hair", price: "", duration_min: "30" });
+  const categories = isResto
+    ? ["Chicken Starters", "Mutton Starters", "Fish Starters", "Prawns Starters", "BBQ & Grill", "Main Course", "Biryani", "Beverages", "Desserts"]
+    : ["Women Hair", "Men Hair", "Skin", "Manicure", "Pedicure", "Makeup", "Spa"];
 
   const refresh = () => api.get("/services").then(r => setCount(r.data.filter(s => s.active !== false).length)).catch(() => {});
   useEffect(() => { refresh(); }, []);
@@ -107,14 +111,14 @@ function StepServices({ onNext }) {
     setBusy("preset");
     try {
       const { data } = await api.post("/services/import-preset");
-      toast.success(`${data.added} services added from the salon catalog 🎉`);
+      toast.success(isResto ? `${data.added} dishes added from the starters menu 🎉` : `${data.added} services added from the salon catalog 🎉`);
       refresh();
     } catch (err) { toast.error(err.response?.data?.detail || "Import failed"); }
     finally { setBusy(""); }
   };
 
   const addOne = async () => {
-    if (!row.name.trim() || !row.price) { toast.error("Service name and price required"); return; }
+    if (!row.name.trim() || !row.price) { toast.error(isResto ? "Dish name and price required" : "Service name and price required"); return; }
     setBusy("add");
     try {
       await api.post("/services", { name: row.name.trim(), category: row.category, price: Number(row.price), duration_min: Number(row.duration_min) || 30 });
@@ -129,27 +133,27 @@ function StepServices({ onNext }) {
     <div className="space-y-4">
       <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <p className="text-sm font-semibold text-slate-800">Quick start: import our ready-made salon menu</p>
-          <p className="text-xs text-slate-500 mt-0.5">25+ popular services (hair, skin, mani-pedi) with typical prices — edit anytime later.</p>
+          <p className="text-sm font-semibold text-slate-800">{isResto ? "Quick start: import our ready-made starters menu" : "Quick start: import our ready-made salon menu"}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{isResto ? "60+ popular dishes (chicken, mutton, fish, prawns, BBQ, mains) with typical prices — edit anytime later." : "25+ popular services (hair, skin, mani-pedi) with typical prices — edit anytime later."}</p>
         </div>
         <button onClick={importPreset} disabled={!!busy} data-testid="setup-import-preset-btn"
           className="text-xs px-4 py-2.5 rounded-xl bg-fuchsia-600 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
-          {busy === "preset" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Import preset services
+          {busy === "preset" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} {isResto ? "Import preset menu" : "Import preset services"}
         </button>
       </div>
       <div className="grid sm:grid-cols-4 gap-2">
-        <input value={row.name} onChange={e => setRow({ ...row, name: e.target.value })} placeholder="Service name"
+        <input value={row.name} onChange={e => setRow({ ...row, name: e.target.value })} placeholder={isResto ? "Dish name" : "Service name"}
           className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm" data-testid="setup-service-name" />
         <select value={row.category} onChange={e => setRow({ ...row, category: e.target.value })}
           className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm" data-testid="setup-service-category">
-          {["Women Hair", "Men Hair", "Skin", "Manicure", "Pedicure", "Makeup", "Spa"].map(c => <option key={c}>{c}</option>)}
+          {categories.map(c => <option key={c}>{c}</option>)}
         </select>
         <input value={row.price} onChange={e => setRow({ ...row, price: e.target.value })} placeholder="Price ₹" type="number"
           className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm" data-testid="setup-service-price" />
         <button onClick={addOne} disabled={!!busy} data-testid="setup-service-add-btn"
           className="px-3 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold disabled:opacity-50">+ Add</button>
       </div>
-      <p className="text-xs text-slate-500" data-testid="setup-services-count">{count} services in your menu</p>
+      <p className="text-xs text-slate-500" data-testid="setup-services-count">{count} {isResto ? "dishes" : "services"} in your menu</p>
       <button onClick={onNext} data-testid="setup-services-next"
         className="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold inline-flex items-center gap-1.5">
         Continue <ChevronRight className="w-4 h-4" />
@@ -158,10 +162,11 @@ function StepServices({ onNext }) {
   );
 }
 
-function StepStaff({ onNext }) {
+function StepStaff({ onNext, isResto }) {
   const [count, setCount] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [row, setRow] = useState({ name: "", role: "Stylist", phone: "" });
+  const [row, setRow] = useState({ name: "", role: isResto ? "Chef" : "Stylist", phone: "" });
+  const roles = isResto ? ["Chef", "Waiter", "Manager", "Cashier", "Helper"] : ["Stylist", "Beautician", "Manager", "Receptionist", "Helper"];
 
   const refresh = () => api.get("/staff").then(r => setCount((r.data || []).filter(s => s.active !== false).length)).catch(() => {});
   useEffect(() => { refresh(); }, []);
@@ -185,7 +190,7 @@ function StepStaff({ onNext }) {
           className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm" data-testid="setup-staff-name" />
         <select value={row.role} onChange={e => setRow({ ...row, role: e.target.value })}
           className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm" data-testid="setup-staff-role">
-          {["Stylist", "Beautician", "Manager", "Receptionist", "Helper"].map(r => <option key={r}>{r}</option>)}
+          {roles.map(r => <option key={r}>{r}</option>)}
         </select>
         <input value={row.phone} onChange={e => setRow({ ...row, phone: e.target.value })} placeholder="Phone"
           className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm" data-testid="setup-staff-phone" />
@@ -232,7 +237,7 @@ function StepHours({ onNext }) {
   );
 }
 
-function StepPayment({ onFinish }) {
+function StepPayment({ onFinish, isResto }) {
   const [tax, setTax] = useState({ tax_enabled: false, gst_number: "", gst_legal_name: "", tax_pct: 18 });
   const [busy, setBusy] = useState(false);
   useEffect(() => { api.get("/settings/tax").then(r => setTax(t => ({ ...t, ...r.data, tax_pct: r.data.tax_pct || 18 }))).catch(() => {}); }, []);
@@ -269,7 +274,7 @@ function StepPayment({ onFinish }) {
       )}
       <button onClick={finish} disabled={busy} data-testid="setup-finish-btn"
         className="px-6 py-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white text-sm font-bold inline-flex items-center gap-2 disabled:opacity-50">
-        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Finish setup — my salon is live!
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Finish setup — my {isResto ? "restaurant" : "salon"} is live!
       </button>
     </div>
   );
@@ -278,17 +283,20 @@ function StepPayment({ onFinish }) {
 export default function SetupWizard() {
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
+  const { tenant } = useAuth();
+  const isResto = tenant?.business_type === "restaurant";
+  const STEPS = stepsFor(isResto);
   const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1));
   const finish = () => {
-    toast.success("🎉 Your salon is fully set up!");
+    toast.success(isResto ? "🎉 Your restaurant is fully set up!" : "🎉 Your salon is fully set up!");
     navigate("/");
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6" data-testid="setup-wizard-page">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">New Salon Setup</h1>
-        <p className="text-slate-500 text-sm mt-1">5 quick steps and your salon is ready to take bookings.</p>
+        <h1 className="text-2xl font-bold text-slate-900">{isResto ? "New Restaurant Setup" : "New Salon Setup"}</h1>
+        <p className="text-slate-500 text-sm mt-1">{isResto ? "5 quick steps and your restaurant is ready to take orders." : "5 quick steps and your salon is ready to take bookings."}</p>
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
@@ -306,11 +314,11 @@ export default function SetupWizard() {
 
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <h2 className="text-base font-semibold text-slate-800 mb-4">Step {step + 1}: {STEPS[step].label}</h2>
-        {step === 0 && <StepProfile onNext={next} />}
-        {step === 1 && <StepServices onNext={next} />}
-        {step === 2 && <StepStaff onNext={next} />}
+        {step === 0 && <StepProfile onNext={next} isResto={isResto} />}
+        {step === 1 && <StepServices onNext={next} isResto={isResto} />}
+        {step === 2 && <StepStaff onNext={next} isResto={isResto} />}
         {step === 3 && <StepHours onNext={next} />}
-        {step === 4 && <StepPayment onFinish={finish} />}
+        {step === 4 && <StepPayment onFinish={finish} isResto={isResto} />}
       </div>
 
       <div className="flex items-center justify-between">

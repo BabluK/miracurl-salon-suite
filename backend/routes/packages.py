@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from database import _raw_db
+from database import _raw_db, _current_tenant_id
 from security import require_tenant_admin, current_tenant, require_super_admin
 
 router = APIRouter()
@@ -181,21 +181,18 @@ class MiraOfferIn(BaseModel):
     discount_pct: int | None = None
 
 
-@router.post("/mira-offers/suggest")
-async def suggest_restaurant_offer(body: MiraOfferIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Restaurant-only: Mira designs a poster-ready offer (headline + details + dish prices)."""
-    from security import ai_daily_quota
+async def _design_restaurant_offer(t: dict, kind: str, pct: int | None = None) -> dict:
+    """Core Mira restaurant-offer design — used by the suggest endpoint AND the morning auto-scheduler."""
     from routes.mira_studio import _ask_json
     from routes.day_offers import _catalog_context
-    await ai_daily_quota(t["id"], "admin_ai_suggest", 80)
     ctx = await _catalog_context(t)
     pool = ctx["services"]
     catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in pool[:40])
-    pct = max(5, min(60, int(body.discount_pct))) if body.discount_pct else None
+    pct = max(5, min(60, int(pct))) if pct else None
     pct_line = (f"Discount is FIXED at exactly {pct}% off each dish's real price."
                 if pct else "Choose a tempting discount (15-30% off) per dish.")
     focus = ("This is TODAY'S SPECIAL — pick 3-5 crave-worthy dishes the kitchen can push hard today; headline must contain TODAY'S SPECIAL."
-             if body.kind == "todays_special" else
+             if kind == "todays_special" else
              "Invent ONE irresistible restaurant offer (happy hours, weekday deal, family feast, chef's picks — you decide) using 3-5 dishes.")
     data = await _ask_json(
         "You are Mira, an expert restaurant revenue strategist for Indian restaurants. You design offers diners can't resist.",
@@ -219,8 +216,61 @@ async def suggest_restaurant_offer(body: MiraOfferIn, user=Depends(require_tenan
         dishes.append({"service_id": m.get("id"), "name": m["name"], "actual": actual, "offer": offer})
     if not data.get("headline") or len(dishes) < 2:
         raise HTTPException(400, "Mira couldn't design that offer — try again")
-    return {"offer": {"headline": str(data["headline"])[:40].upper(),
-                      "details": str(data.get("details") or "")[:160], "dishes": dishes}}
+    return {"headline": str(data["headline"])[:40].upper(),
+            "details": str(data.get("details") or "")[:160], "dishes": dishes}
+
+
+@router.post("/mira-offers/suggest")
+async def suggest_restaurant_offer(body: MiraOfferIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Restaurant-only: Mira designs a poster-ready offer (headline + details + dish prices)."""
+    from security import ai_daily_quota
+    await ai_daily_quota(t["id"], "admin_ai_suggest", 80)
+    return {"offer": await _design_restaurant_offer(t, body.kind, body.discount_pct)}
+
+
+def _ist_today() -> str:
+    return (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+
+
+async def run_daily_special_suggestions() -> dict:
+    """Morning auto-run: draft ONE Today's Special per active restaurant, ready to approve & share."""
+    today = _ist_today()
+    suggested = failed = 0
+    tenants = await _raw_db.tenants.find(
+        {"business_type": "restaurant", "status": {"$in": ["active", "trial"]}},
+        {"_id": 0}).to_list(200)
+    for t in tenants:
+        if await _raw_db.mira_daily_specials.find_one({"tenant_id": t["id"], "date": today}):
+            continue
+        token = _current_tenant_id.set(t["id"])
+        try:
+            offer = await _design_restaurant_offer(t, "todays_special")
+            await _raw_db.mira_daily_specials.insert_one({
+                "id": str(uuid.uuid4()), "tenant_id": t["id"], "date": today, **offer,
+                "status": "suggested", "created_at": datetime.now(timezone.utc).isoformat()})
+            suggested += 1
+        except Exception as e:
+            log.warning(f"daily special failed for {t.get('slug')}: {e}")
+            failed += 1
+        finally:
+            _current_tenant_id.reset(token)
+    return {"suggested": suggested, "failed": failed}
+
+
+@router.get("/mira-offers/daily-special")
+async def get_daily_special(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    doc = await _raw_db.mira_daily_specials.find_one(
+        {"tenant_id": t["id"], "date": _ist_today(), "status": "suggested"}, {"_id": 0})
+    return {"special": doc}
+
+
+@router.post("/mira-offers/daily-special/{sid}/{action}")
+async def act_daily_special(sid: str, action: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    if action not in ("use", "dismiss"):
+        raise HTTPException(400, "action must be use or dismiss")
+    await _raw_db.mira_daily_specials.update_one(
+        {"id": sid, "tenant_id": t["id"]}, {"$set": {"status": "used" if action == "use" else "dismissed"}})
+    return {"ok": True}
 
 
 class PublishIn(BaseModel):

@@ -58,14 +58,14 @@ export const TrialReminder = () => {
                 please renew soon or contact the Miracurl team, otherwise access will be paused 💜</>
             )
           ) : info.days > 7 ? (
-            <>Your salon is all set! You're on a <b>free trial</b> until <b className="text-slate-800">{info.endDate}</b> ({info.days} days).
-              Explore everything — bookings, POS, reports & more. Subscribe anytime to keep it running without interruption 💜</>
+            <>Your {tenant?.business_type === "restaurant" ? "restaurant" : "salon"} is all set! You&apos;re on a <b>free trial</b> until <b className="text-slate-800">{info.endDate}</b> ({info.days} days).
+              Explore everything — {tenant?.business_type === "restaurant" ? "QR ordering, kitchen, POS, reports" : "bookings, POS, reports"} &amp; more. Subscribe anytime to keep it running without interruption 💜</>
           ) : info.days >= 0 ? (
             <>Your free trial ends on <b className="text-slate-800">{info.endDate}</b>{info.days > 0 ? <> — just <b>{info.days} day{info.days === 1 ? "" : "s"}</b> to go</> : <> — <b>today</b></>}.
-              We'd love to keep serving your salon! Kindly choose a subscription before then so everything continues without interruption 💜</>
+              We&apos;d love to keep serving your {tenant?.business_type === "restaurant" ? "restaurant" : "salon"}! Kindly choose a subscription before then so everything continues without interruption 💜</>
           ) : (
-            <>Your free trial ended on <b className="text-slate-800">{info.endDate}</b>. We'd love to have you continue with us —
-              kindly choose a subscription to keep your salon running smoothly 💜</>
+            <>Your free trial ended on <b className="text-slate-800">{info.endDate}</b>. We&apos;d love to have you continue with us —
+              kindly choose a subscription to keep your {tenant?.business_type === "restaurant" ? "restaurant" : "salon"} running smoothly 💜</>
           )}
         </p>
         <div className="flex gap-3 mt-6">
