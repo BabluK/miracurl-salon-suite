@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Store, Star, Instagram, MessageCircle, Save } from "lucide-react";
+import { BookingPreview } from "./BookingPreview";
 
 const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "", reception_phone: "", manager_phone: "", salon_email: "", book_bg: "" };
 
@@ -68,12 +69,16 @@ export function BrandingCard() {
   const [branding, setBranding] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [isResto, setIsResto] = useState(false);
+  const [tenantMeta, setTenantMeta] = useState({ name: "", logo_url: "" });
 
   useEffect(() => {
     api.get("/settings/branding").then(r => {
       if (r.data) setBranding(Object.fromEntries(Object.keys(EMPTY).map(k => [k, r.data[k] || ""])));
     }).catch(() => {});
-    api.get("/tenants/current").then(r => setIsResto(r.data?.business_type === "restaurant")).catch(() => {});
+    api.get("/tenants/current").then(r => {
+      setIsResto(r.data?.business_type === "restaurant");
+      setTenantMeta({ name: r.data?.name || "", logo_url: r.data?.logo_url || "" });
+    }).catch(() => {});
   }, []);
 
   async function save() {
@@ -189,31 +194,38 @@ export function BrandingCard() {
           </div>
           <input data-testid="settings-hero-image" placeholder="https://images.unsplash.com/photo-..." {...field("hero_image")} />
           <p className="text-[11px] text-slate-400 mt-1">Pick a decent preset above, or paste your own image URL. Shows at the top of your public booking page.</p>
-          <label className="text-xs text-slate-500 font-medium block mt-4">Booking page colour tone</label>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {BOOK_BG_TONES.map(tn => (
-              <button key={tn.label} type="button" data-testid={`book-bg-${tn.label.replace(/\s/g, "-").toLowerCase()}`}
-                onClick={() => setBranding(b => ({ ...b, book_bg: tn.v }))}
-                className={`flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border text-xs transition ${branding.book_bg === tn.v ? "border-fuchsia-500 ring-2 ring-fuchsia-200 text-slate-800 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-400"}`}>
-                <span className="w-5 h-5 rounded-full border border-white shadow-inner" style={{ background: tn.v || "#141414" }} />
-                {tn.label}
-              </button>
-            ))}
+          <div className="flex flex-col lg:flex-row gap-6 mt-4">
+            <div className="flex-1 min-w-0">
+              <label className="text-xs text-slate-500 font-medium block">Booking page colour tone</label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {BOOK_BG_TONES.map(tn => (
+                  <button key={tn.label} type="button" data-testid={`book-bg-${tn.label.replace(/\s/g, "-").toLowerCase()}`}
+                    onClick={() => setBranding(b => ({ ...b, book_bg: tn.v }))}
+                    className={`flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full border text-xs transition ${branding.book_bg === tn.v ? "border-fuchsia-500 ring-2 ring-fuchsia-200 text-slate-800 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-400"}`}>
+                    <span className="w-5 h-5 rounded-full border border-white shadow-inner" style={{ background: tn.v || "#141414" }} />
+                    {tn.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">All tones keep crisp contrast so customers can read &amp; book easily.</p>
+              <label className="text-xs text-slate-500 font-medium block mt-4">Or a signature Miracurl backdrop</label>
+              <div className="grid grid-cols-3 gap-2 mt-2 max-w-xl">
+                {(isResto ? BOOK_BG_IMAGES_RESTO : BOOK_BG_IMAGES_SALON).map(img => (
+                  <button key={img.v} type="button" data-testid={`book-bg-${img.v.replace("img:", "image-")}`}
+                    onClick={() => setBranding(b => ({ ...b, book_bg: b.book_bg === img.v ? "" : img.v }))}
+                    className={`relative h-20 rounded-lg overflow-hidden border-2 transition ${branding.book_bg === img.v ? "border-fuchsia-500 ring-2 ring-fuchsia-200" : "border-slate-200 hover:border-slate-400"}`}>
+                    <img src={img.src} alt={img.label} className="w-full h-full object-cover" loading="lazy" />
+                    <span className="absolute bottom-1 left-1.5 text-[10px] font-semibold text-slate-700 bg-white/80 backdrop-blur px-1.5 py-0.5 rounded-full">{img.label}</span>
+                    {branding.book_bg === img.v && <span className="absolute top-1 right-1 bg-fuchsia-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">✓</span>}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Elegant Miracurl gradient art — applied with a soft dark veil so text stays perfectly readable. Tap again to unselect.</p>
+            </div>
+            <div className="lg:w-60 shrink-0 lg:pt-1">
+              <BookingPreview bg={branding.book_bg} heroImage={branding.hero_image} name={tenantMeta.name} logoUrl={tenantMeta.logo_url} restaurant={isResto} />
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">All tones keep crisp contrast so customers can read &amp; book easily.</p>
-          <label className="text-xs text-slate-500 font-medium block mt-4">Or a signature Miracurl backdrop</label>
-          <div className="grid grid-cols-3 gap-2 mt-2 max-w-xl">
-            {(isResto ? BOOK_BG_IMAGES_RESTO : BOOK_BG_IMAGES_SALON).map(img => (
-              <button key={img.v} type="button" data-testid={`book-bg-${img.v.replace("img:", "image-")}`}
-                onClick={() => setBranding(b => ({ ...b, book_bg: b.book_bg === img.v ? "" : img.v }))}
-                className={`relative h-20 rounded-lg overflow-hidden border-2 transition ${branding.book_bg === img.v ? "border-fuchsia-500 ring-2 ring-fuchsia-200" : "border-slate-200 hover:border-slate-400"}`}>
-                <img src={img.src} alt={img.label} className="w-full h-full object-cover" loading="lazy" />
-                <span className="absolute bottom-1 left-1.5 text-[10px] font-semibold text-slate-700 bg-white/80 backdrop-blur px-1.5 py-0.5 rounded-full">{img.label}</span>
-                {branding.book_bg === img.v && <span className="absolute top-1 right-1 bg-fuchsia-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">✓</span>}
-              </button>
-            ))}
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">Elegant Miracurl gradient art — applied with a soft dark veil so text stays perfectly readable. Tap again to unselect.</p>
         </div>
       </div>
 

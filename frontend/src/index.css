@@ -497,16 +497,21 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 }
 .tenant-logo-glow {
   position: relative;
-  animation: tenant-logo-pulse 3.6s ease-in-out infinite;
+  animation: tenant-logo-pulse 3.6s ease-in-out infinite, tenant-logo-float 5.5s ease-in-out infinite;
 }
 @keyframes tenant-logo-pulse {
-  0%, 100% { box-shadow: 0 0 6px rgba(212, 175, 55, 0.25); }
-  50% { box-shadow: 0 0 16px rgba(212, 175, 55, 0.65), 0 0 30px rgba(212, 175, 55, 0.18); }
+  0%, 100% { box-shadow: 0 0 8px rgba(212, 175, 55, 0.3); }
+  50% { box-shadow: 0 0 22px rgba(212, 175, 55, 0.75), 0 0 44px rgba(212, 175, 55, 0.25); }
+}
+@keyframes tenant-logo-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  30% { transform: translateY(-3px) rotate(-1.5deg); }
+  70% { transform: translateY(2px) rotate(1.5deg); }
 }
 .tenant-sparkle {
   position: absolute;
   color: #f6e27a;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1;
   pointer-events: none;
   opacity: 0;

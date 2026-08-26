@@ -294,24 +294,25 @@ export default function BookPublic() {
       <div className="fixed top-0 inset-x-0 z-50 bg-[#FDFBF4]/95 backdrop-blur-xl border-b border-[#e8dcc0] shadow-[0_2px_20px_rgba(180,140,50,0.08)]" data-testid="book-top-bar">
         <div className="max-w-5xl mx-auto px-4 h-20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3.5 min-w-0 relative" data-testid="book-header-brand">
-            <span className="tenant-sparkle" style={{ top: "-2px", left: "50px", color: "#b08d3f" }}>✦</span>
-            <span className="tenant-sparkle" style={{ top: "44px", left: "-6px", color: "#b08d3f", animationDelay: "0.9s" }}>✦</span>
-            <span className="tenant-sparkle" style={{ top: "8px", left: "-10px", color: "#d4af37", animationDelay: "1.7s" }}>✦</span>
+            <span className="tenant-sparkle" style={{ top: "-4px", left: "78px", color: "#b08d3f" }}>✦</span>
+            <span className="tenant-sparkle" style={{ top: "68px", left: "-8px", color: "#b08d3f", animationDelay: "0.9s" }}>✦</span>
+            <span className="tenant-sparkle" style={{ top: "6px", left: "-12px", color: "#d4af37", animationDelay: "1.7s" }}>✦</span>
+            <span className="tenant-sparkle" style={{ top: "76px", left: "72px", color: "#d4af37", animationDelay: "2.3s" }}>✦</span>
             {salon.logo_url ? (
-              <span className="tenant-logo-glow w-14 h-14 rounded-full p-[2.5px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_14px_rgba(180,140,50,0.45)]">
+              <span className="tenant-logo-glow w-20 h-20 sm:w-[5.5rem] sm:h-[5.5rem] -my-2 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
                 <span className="w-full h-full rounded-full overflow-hidden bg-[#17141c] block">
                   <img src={salon.logo_url} alt={salon.name} className="w-full h-full object-cover scale-[1.45]" />
                 </span>
               </span>
             ) : (
-              <span className="tenant-logo-glow w-14 h-14 rounded-full p-[2.5px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_14px_rgba(180,140,50,0.45)]">
-                <span className="w-full h-full rounded-full bg-[#17141c] text-[#e8c37f] flex items-center justify-center font-playfair text-xl font-bold">
+              <span className="tenant-logo-glow w-20 h-20 sm:w-[5.5rem] sm:h-[5.5rem] -my-2 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
+                <span className="w-full h-full rounded-full bg-[#17141c] text-[#e8c37f] flex items-center justify-center font-playfair text-3xl font-bold">
                   {(salon.name || "M").charAt(0)}
                 </span>
               </span>
             )}
             <div className="min-w-0 leading-tight">
-              <div className="font-playfair text-base sm:text-xl tracking-[0.06em] text-[#8a6d1f] font-semibold truncate">{salon.name}</div>
+              <div className="font-playfair text-sm sm:text-base tracking-[0.06em] text-[#8a6d1f] font-semibold truncate">{salon.name}</div>
               <div className="text-[8px] sm:text-[10px] uppercase tracking-[0.32em] text-[#a5926a] truncate mt-0.5">
                 {salon.business_type === "restaurant" ? "Fine Dining · Powered by Mira AI" : "Luxury Salon · Powered by Mira AI"}
               </div>
