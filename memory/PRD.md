@@ -2259,3 +2259,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## Session 2026-06 (fork) — Booking scroll-to-services
 - "Book Appointment" header CTA (BookPublic.jsx goToServices: setStep(0) + 120ms scroll) and hero CTA (BookPublicExtras.jsx) now scroll to #choose-services (ServicesStep section in BookPublic.steps.jsx, scroll-mt-24 clears fixed header) with #booking-wizard fallback. Screenshot-verified: heading lands exactly under the golden top bar with the services grid visible.
+
+## Session 2026-06 (fork) — Premium bright-gold logo rebuild
+- User: transparent logo looked dull on dark plaques. Regenerated glossy 3D gold version (image edit from user's bright reference h2bov1zl) and rebuilt ENTIRE /app/frontend/public/brand-kit/ in place (same filenames → tenant logo_url auto-updated). Key fix: alpha extraction now clip((1-min)*2.6) so gold interiors are FULLY OPAQUE (old ×1.15 left gold semi-transparent → darkened on dark bgs). Dashboard screenshot verified: bright vivid gold on plaque.
