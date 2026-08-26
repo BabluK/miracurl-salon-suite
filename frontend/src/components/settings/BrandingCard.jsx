@@ -9,6 +9,8 @@ const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:0
 // Header bar colours — light tones keep the gold-brown header text readable
 const HEADER_BG_TONES = [
   { v: "", label: "Classic Ivory", swatch: "#FDFBF4" },
+  { v: "grad:pearl", label: "Pearl Gold ✦", swatch: "linear-gradient(135deg,#ffffff,#f3e7c9)" },
+  { v: "grad:gold", label: "Golden Silk ✦", swatch: "linear-gradient(135deg,#fdfbf4,#eed9a4)" },
   { v: "#F3E5BF", label: "Light Golden", swatch: "#F3E5BF" },
   { v: "#F7EDD8", label: "Champagne", swatch: "#F7EDD8" },
   { v: "#FFFFFF", label: "Pure White", swatch: "#FFFFFF" },
@@ -212,7 +214,7 @@ export function BrandingCard() {
             <div className="flex-1 min-w-0">
               <label className="text-xs text-slate-500 font-medium block">Logo display shape</label>
               <div className="flex gap-2 mt-2">
-                {[{ v: "", label: "✨ Auto (fit any logo)" }, { v: "circle", label: "⬤ Circle badge" }, { v: "square", label: "▢ Wide plaque" }].map(s => (
+                {[{ v: "", label: "✨ Auto (fit any logo)" }, { v: "blend", label: "◇ Blended (no box)" }, { v: "circle", label: "⬤ Circle badge" }, { v: "square", label: "▢ Wide plaque" }].map(s => (
                   <button key={s.v || "auto"} type="button" data-testid={`logo-shape-${s.v || "auto"}`}
                     onClick={() => setBranding(b => ({ ...b, logo_shape: s.v }))}
                     className={`px-4 py-2 rounded-full border text-xs transition ${(branding.logo_shape || "") === s.v ? "border-fuchsia-500 ring-2 ring-fuchsia-200 text-slate-800 font-semibold" : "border-slate-200 text-slate-500 hover:border-slate-400"}`}>

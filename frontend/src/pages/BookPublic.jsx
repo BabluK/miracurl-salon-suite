@@ -34,6 +34,12 @@ const BOOK_BG_IMAGES = {
   "img:royal-gold": { src: "/booking-bg/royal-gold.jpg", veil: 0.3 },
 };
 
+// Premium header gradients (token → CSS) — used when header_bg is a grad: token
+const HEADER_GRADS = {
+  "grad:pearl": "linear-gradient(135deg, #ffffff 0%, #faf3e3 55%, #f3e7c9 100%)",
+  "grad:gold": "linear-gradient(135deg, #fdfbf4 0%, #f5e8c4 60%, #eeD9a4 100%)",
+};
+
 function Stepper({ step, labels = STEP_LABELS }) {
   return (
     <div className="flex items-center gap-2 sm:gap-3 mb-10 overflow-x-auto pb-2">
@@ -304,7 +310,7 @@ export default function BookPublic() {
 
       {/* Premium tenant-branded top bar — logo, name & colour from the tenant's dashboard */}
       <div className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl border-b border-[#e8dcc0] shadow-[0_2px_20px_rgba(180,140,50,0.08)]"
-        style={{ background: salon.header_bg || "rgba(253,251,244,0.95)" }} data-testid="book-top-bar">
+        style={{ background: HEADER_GRADS[salon.header_bg] || salon.header_bg || "rgba(253,251,244,0.95)" }} data-testid="book-top-bar">
         <div className="max-w-5xl mx-auto px-4 h-20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3.5 min-w-0 relative" data-testid="book-header-brand">
             <span className="tenant-sparkle" style={{ top: "-4px", left: "78px", color: "#b08d3f" }}>✦</span>
@@ -312,7 +318,10 @@ export default function BookPublic() {
             <span className="tenant-sparkle" style={{ top: "6px", left: "-12px", color: "#d4af37", animationDelay: "1.7s" }}>✦</span>
             <span className="tenant-sparkle" style={{ top: "76px", left: "72px", color: "#d4af37", animationDelay: "2.3s" }}>✦</span>
             {salon.logo_url ? (
-              effLogoShape === "square" ? (
+              effLogoShape === "blend" ? (
+                <img src={salon.logo_url} alt={salon.name} onLoad={onLogoLoad}
+                  className="h-14 sm:h-16 w-auto max-w-[200px] object-contain flex-shrink-0 z-10 drop-shadow-[0_2px_8px_rgba(160,120,40,0.35)]" />
+              ) : effLogoShape === "square" ? (
                 <span className="tenant-logo-glow h-16 sm:h-[4.5rem] rounded-2xl p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
                   <span className="h-full rounded-[13px] overflow-hidden bg-[#17141c] flex items-center justify-center px-2.5">
                     <img src={salon.logo_url} alt={salon.name} onLoad={onLogoLoad} className="h-[85%] w-auto max-w-[150px] object-contain" />

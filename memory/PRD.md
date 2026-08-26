@@ -2266,3 +2266,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## Session 2026-06 (fork) — Logo auto-fit on upload + HD fabric logo
 - HD fabric-bg logo generated (2528x1696) at /brand-kit/miracurl-logo-fabric-hd.jpg, added to kit zip.
 - Logo "not fitting" (prod screenshot showed white box w/ margins): uploads.py _fit_logo() — when kind=logo and corners are light+uniform, white bg unblended to transparency (alpha ×2.6), tight bbox crop, max 1200px, saved PNG. kind regex += logo; LogoStudio.jsx uploads with kind=logo. Curl-verified: 3230x2298 white-padded → 1200x806 transparent RGBA. AI-generate route untouched (dark bg logos pass through unchanged).
+
+## Session 2026-06 (fork) — Blended header (premium merge)
+- New logo_shape "blend": logo rendered directly on the header with NO box (h-14/16 object-contain, warm drop-shadow) — matches user's Miracurl Suite reference. Backend pattern ^(circle|square|blend)?$.
+- New header gradient tokens (header_bg): grad:pearl (white→ivory→soft gold) + grad:gold (ivory→light gold), resolved via HEADER_GRADS in BookPublic + PV_GRADS in BookingPreview; swatches "Pearl Gold ✦"/"Golden Silk ✦" in settings (8 header tones total).
+- Demo tenant set: logo_shape=blend, header_bg=grad:pearl. Screenshot verified: seamless premium header.

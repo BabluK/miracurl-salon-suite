@@ -536,7 +536,7 @@ class BrandingIn(BaseModel):
     manager_phone: Optional[str] = Field(None, max_length=40)
     salon_email: Optional[str] = Field(None, max_length=120)
     book_bg: Optional[str] = Field(None, max_length=40)
-    logo_shape: Optional[str] = Field(None, pattern=r"^(circle|square)?$")
+    logo_shape: Optional[str] = Field(None, pattern=r"^(circle|square|blend)?$")
     header_bg: Optional[str] = Field(None, max_length=20)
 
     @field_validator("maps_url")

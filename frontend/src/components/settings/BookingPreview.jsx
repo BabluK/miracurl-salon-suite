@@ -14,6 +14,11 @@ const BG_IMAGES = {
   "img:royal-gold": { src: "/booking-bg/royal-gold.jpg", veil: 0.3 },
 };
 
+const PV_GRADS = {
+  "grad:pearl": "linear-gradient(135deg, #ffffff 0%, #faf3e3 55%, #f3e7c9 100%)",
+  "grad:gold": "linear-gradient(135deg, #fdfbf4 0%, #f5e8c4 60%, #eed9a4 100%)",
+};
+
 export function BookingPreview({ bg, heroImage, name, logoUrl, restaurant, headerBg, logoShape }) {
   const img = BG_IMAGES[bg];
   const pageStyle = img
@@ -25,9 +30,11 @@ export function BookingPreview({ bg, heroImage, name, logoUrl, restaurant, heade
       <div className="rounded-[18px] border-4 border-slate-800 shadow-xl overflow-hidden bg-slate-800">
         <div className="rounded-[14px] overflow-hidden" style={pageStyle}>
           {/* top bar */}
-          <div className="border-b border-[#e8dcc0] px-2.5 py-1.5 flex items-center gap-1.5" style={{ background: headerBg || "rgba(253,251,244,0.95)" }}>
+          <div className="border-b border-[#e8dcc0] px-2.5 py-1.5 flex items-center gap-1.5" style={{ background: PV_GRADS[headerBg] || headerBg || "rgba(253,251,244,0.95)" }}>
             {logoUrl ? (
-              logoShape === "square" ? (
+              logoShape === "blend" ? (
+                <img src={logoUrl} alt="" className="h-4 w-auto max-w-[40px] object-contain" />
+              ) : logoShape === "square" ? (
                 <span className="h-4 px-1 rounded-sm bg-[#17141c] flex items-center justify-center">
                   <img src={logoUrl} alt="" className="h-3 w-auto max-w-[34px] object-contain" />
                 </span>
