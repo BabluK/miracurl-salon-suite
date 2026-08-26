@@ -317,21 +317,21 @@ export default function Services() {
           <button data-testid="export-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all services as CSV (Excel compatible)">
             <Download className="w-4 h-4" /> Export CSV
           </button>
-          {!isResto && (
           <button
             data-testid="import-preset-btn"
             onClick={async () => {
               try {
                 const { data } = await api.post("/services/import-preset");
-                toast.success(`${data.added} services imported${data.updated ? ` · ${data.updated} updated` : ""}`);
+                toast.success(isResto
+                  ? `🍗 ${data.added} starters added${data.skipped ? ` (${data.skipped} already on your menu)` : ""} — tap Mira Photos & Mira Descriptions next!`
+                  : `${data.added} services imported${data.updated ? ` · ${data.updated} updated` : ""}`);
                 load();
               } catch { toast.error("Import failed"); }
             }}
             className="btn-slate flex items-center gap-2"
           >
-            <Sparkles className="w-4 h-4" /> Import Makeup & Nails menu
+            <Sparkles className="w-4 h-4" /> {isResto ? "Import Starters Menu 🍗" : "Import Makeup & Nails menu"}
           </button>
-          )}
           <button
             data-testid="generate-missing-images-btn"
             disabled={!!imgBatch}

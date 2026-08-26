@@ -129,9 +129,40 @@ CATEGORY_REMAP = {
     "Pedicure Spa": "Pedicure",
 }
 
+RESTO_PRESET = [
+    ("Chicken Starters", [("Chicken 65", 249, 3), ("Chicken Manchurian", 259, 2), ("Chilli Chicken", 249, 3),
+        ("Chicken Lollipop", 269, 2), ("Chicken Wings", 259, 2), ("Chicken Pepper Fry", 279, 3),
+        ("Chicken Reshmi Kebab", 289, 1), ("Crispy Chicken", 259, 2), ("Chicken Pakoda", 229, 2),
+        ("Chicken Majestic", 279, 2)]),
+    ("Mutton Starters", [("Mutton Seekh Kebab", 349, 2), ("Mutton Shami Kebab", 339, 2), ("Mutton Pepper Fry", 369, 3),
+        ("Mutton Chilli", 349, 3), ("Mutton Sukka", 359, 3), ("Mutton Kebab", 339, 2), ("Mutton Tawa Fry", 359, 2)]),
+    ("Fish Starters", [("Fish Finger", 289, 1), ("Chilli Fish", 299, 3), ("Fish 65", 289, 3), ("Fish Fry", 279, 2),
+        ("Amritsari Fish", 319, 2), ("Fish Tawa Fry", 299, 2), ("Pepper Fish", 309, 3), ("Fish Manchurian", 299, 2)]),
+    ("Prawns Starters", [("Chilli Prawns", 329, 3), ("Prawn 65", 319, 3), ("Prawn Fry", 309, 2), ("Crispy Prawns", 329, 2),
+        ("Pepper Prawns", 339, 3), ("Garlic Prawns", 339, 1), ("Prawn Manchurian", 329, 2)]),
+    ("BBQ & Grill", [("Chicken Tandoori", 299, 2), ("Chicken Tikka", 289, 2), ("Malai Chicken Tikka", 299, 1),
+        ("Tangdi Kebab", 299, 2), ("Chicken Seekh Kebab", 289, 2), ("BBQ Chicken Wings", 289, 2),
+        ("Grilled Chicken", 329, 2), ("Peri Peri Chicken", 319, 3)]),
+]
+
+
 @router.post("/services/import-preset")
 async def import_preset_services(user=Depends(require_admin)):
     added, updated = 0, 0
+    if await _tenant_is_restaurant(_current_tenant_id.get()):
+        existing = {(s.get("name") or "").strip().lower() for s in await db.services.find({}, {"name": 1}).to_list(500)}
+        for cat, items in RESTO_PRESET:
+            for name, price, spice in items:
+                if name.lower() in existing:
+                    updated += 1
+                    continue
+                await db.services.insert_one({
+                    "id": str(uuid.uuid4()), "name": name, "category": cat, "price": float(price),
+                    "duration_min": 20, "description": "", "image_url": None, "trending": False,
+                    "active": True, "bookable_online": True, "gender": "unisex",
+                    "veg": "non-veg", "spice": spice})
+                added += 1
+        return {"added": added, "updated": 0, "skipped": updated}
     for p in PRESET_SERVICES:
         existing = await db.services.find_one({"name": p["name"]})
         if existing:

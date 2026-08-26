@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.118"
+BUILD = "2026-08-25.119"
 BUILD_TIME = "25 Aug 2026, 11:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-25 (Restaurant fixes pack 🍗)",
+        "changes": [
+            "🍗 One-tap Starters import — restaurants now see 'Import Starters Menu' on the Menu page: loads all Chicken/Mutton/Fish/Prawns Starters + BBQ & Grill dishes with veg tags & spice levels (then tap Mira Photos & Descriptions)",
+            "🟢🔴 POS filter fixed — restaurants see 'All dishes · Veg · Non-Veg' instead of Men/Women",
+            "🏅 Table QR cards restyled — dark-gold table cards now show your logo and restaurant name above every QR",
+            "🛠️ Category Specials dropdown cleaned up (no more blank entries)",
+        ],
+    },
     {
         "date": "2026-08-25 (Cleaner nav & gold restaurant header ✨)",
         "changes": [

@@ -5,13 +5,16 @@ function panelTitle(categories, category, mode) {
   return "All items";
 }
 
-export function CatalogPanel({ mode, categories, category, setCategory, filtered, onAdd, gender = "all", setGender, q = "" }) {
+export function CatalogPanel({ mode, categories, category, setCategory, filtered, onAdd, gender = "all", setGender, q = "", resto = false }) {
   const searching = q.trim().length > 0;
+  const filterChips = resto
+    ? [{ k: "all", l: "All dishes" }, { k: "veg", l: "🟢 Veg" }, { k: "non-veg", l: "🔴 Non-Veg" }]
+    : [{ k: "all", l: "All guests" }, { k: "male", l: "👨 Men" }, { k: "female", l: "👩 Women" }];
   return (
     <div className="lg:col-span-5 xl:col-span-4 space-y-4">
       {!searching && mode === "services" && setGender && (
         <div className="flex gap-2" data-testid="pos-gender-filter">
-          {[{ k: "all", l: "All guests" }, { k: "male", l: "👨 Men" }, { k: "female", l: "👩 Women" }].map(g => (
+          {filterChips.map(g => (
             <button key={g.k} data-testid={`pos-gender-${g.k}`} onClick={() => setGender(g.k)}
               className={`flex-1 rounded-full py-2 text-xs font-semibold border transition ${
                 gender === g.k

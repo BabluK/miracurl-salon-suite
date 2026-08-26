@@ -200,11 +200,17 @@ export default function Kitchen() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
             {Array.from({ length: tableCount }, (_, i) => i + 1).map(n => (
-              <div key={n} className="border border-slate-200 rounded-xl p-3 text-center" data-testid={`table-qr-${n}`}>
-                <img src={`${BACKEND_URL}/api/public/products-qr?url=${encodeURIComponent(orderUrl(n))}`}
-                  alt={`Table ${n}`} className="w-full aspect-square object-contain" />
-                <p className="text-xs font-extrabold text-slate-700 mt-1">TABLE {n}</p>
-                <p className="text-[9px] text-slate-400">Scan to order 🍽️</p>
+              <div key={n} className="rounded-2xl p-3 text-center bg-[#141210] border-2 border-[#C89B52]/50" data-testid={`table-qr-${n}`}>
+                {tenant?.logo_url && (
+                  <img src={tenant.logo_url} alt={tenant?.name} className="h-9 mx-auto object-contain mb-1.5 bg-white rounded-lg px-1.5 py-0.5" />
+                )}
+                <p className="text-[10px] font-bold text-[#DFB78C] tracking-wide truncate">{tenant?.name}</p>
+                <div className="bg-white rounded-xl p-1.5 mt-1.5">
+                  <img src={`${BACKEND_URL}/api/public/products-qr?url=${encodeURIComponent(orderUrl(n))}`}
+                    alt={`Table ${n}`} className="w-full aspect-square object-contain" />
+                </div>
+                <p className="text-sm font-extrabold text-white mt-1.5">TABLE {n}</p>
+                <p className="text-[9px] text-[#DFB78C]/80">Scan · Browse the menu · Order 🍽️</p>
               </div>
             ))}
           </div>

@@ -30,6 +30,7 @@ const ITEM_TYPE_BY_MODE = { services: "service", products: "product", package: "
 
 export default function POS() {
   const { tenant, user } = useAuth();
+  const isResto = tenant?.business_type === "restaurant";
   const [mode, setMode] = useState("services"); // services | products | package | membership
   const [services, setServices] = useState([]);
   const [products, setProducts] = useState([]);
@@ -262,7 +263,9 @@ export default function POS() {
     return catalog.filter(i =>
       (!categories.length || !category || (i.category || "Other") === category) &&
       (mode !== "services" || genderFilter === "all" ||
-        (i.gender || "unisex") === genderFilter || (i.gender || "unisex") === "unisex"),
+        (isResto
+          ? (i.veg || "non-veg") === genderFilter
+          : ((i.gender || "unisex") === genderFilter || (i.gender || "unisex") === "unisex"))),
     );
   }, [catalog, categories, category, q, mode, genderFilter]);
 
@@ -618,7 +621,7 @@ export default function POS() {
         <CatalogPanel
           mode={mode} categories={categories} category={category}
           setCategory={setCategory} filtered={filtered} onAdd={addToCart}
-          gender={genderFilter} setGender={setGenderFilter} q={q}
+          gender={genderFilter} setGender={setGenderFilter} q={q} resto={isResto}
         />
         )}
 
