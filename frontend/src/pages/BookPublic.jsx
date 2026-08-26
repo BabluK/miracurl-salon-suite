@@ -272,40 +272,44 @@ export default function BookPublic() {
       <Toaster theme="dark" position="top-center" toastOptions={TOASTER_OPTIONS} />
 
       {/* Premium tenant-branded top bar — logo & name from the tenant's dashboard */}
-      <div className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/55 border-b border-gold/20" data-testid="book-top-bar">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0" data-testid="book-header-brand">
+      <div className="fixed top-0 inset-x-0 z-50 bg-[#FDFBF4]/95 backdrop-blur-xl border-b border-[#e8dcc0] shadow-[0_2px_20px_rgba(180,140,50,0.08)]" data-testid="book-top-bar">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0" data-testid="book-header-brand">
             {salon.logo_url ? (
-              <img src={salon.logo_url} alt={salon.name}
-                className="w-10 h-10 rounded-full object-contain bg-[#14141a] border border-gold/40 flex-shrink-0" />
+              <span className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_10px_rgba(180,140,50,0.35)]">
+                <img src={salon.logo_url} alt={salon.name}
+                  className="w-full h-full rounded-full object-cover bg-[#17141c]" />
+              </span>
             ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold to-blush text-bg-base flex items-center justify-center font-playfair text-base font-bold flex-shrink-0">
-                {(salon.name || "M").charAt(0)}
-              </div>
+              <span className="w-11 h-11 rounded-full p-[2px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_2px_10px_rgba(180,140,50,0.35)]">
+                <span className="w-full h-full rounded-full bg-[#17141c] text-[#e8c37f] flex items-center justify-center font-playfair text-lg font-bold">
+                  {(salon.name || "M").charAt(0)}
+                </span>
+              </span>
             )}
             <div className="min-w-0 leading-tight">
-              <div className="font-playfair text-sm sm:text-base gold-shine-text truncate">{salon.name}</div>
-              <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.3em] text-white/45 truncate">
+              <div className="font-playfair text-sm sm:text-lg tracking-[0.06em] text-[#8a6d1f] font-semibold truncate">{salon.name}</div>
+              <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.32em] text-[#a5926a] truncate">
                 {salon.business_type === "restaurant" ? "Fine Dining · Powered by Mira AI" : "Luxury Salon · Powered by Mira AI"}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Link to="/book" data-testid="find-salon-link"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/15 text-[11px] text-white/70 hover:text-white hover:border-gold/50 transition-colors">
-              <Star className="w-3 h-3 text-gold" /> {salon.business_type === "restaurant" ? "Explore Miracurl" : "Find a salon"}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#dcc98f] text-[11px] text-[#8a6d1f] hover:bg-[#f6eeda] transition-colors">
+              <Star className="w-3 h-3 text-[#b08d3f]" /> {salon.business_type === "restaurant" ? "Explore Miracurl" : "Find a salon"}
             </Link>
             <button
               data-testid="book-header-cta"
               onClick={() => document.getElementById("booking-wizard")?.scrollIntoView({ behavior: "smooth" })}
-              className="px-4 py-2 rounded-full bg-gradient-to-r from-gold to-blush text-bg-base text-xs font-bold hover:opacity-90 transition-opacity">
+              className="px-4 py-2 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
               {salon.business_type === "restaurant" ? "Reserve a Table ✦" : "Book Appointment ✦"}
             </button>
           </div>
         </div>
       </div>
 
-      <header className="relative h-80 sm:h-96 overflow-hidden mt-14">
+      <header className="relative h-80 sm:h-96 overflow-hidden mt-16">
         <img src={salon.hero_image} className="absolute inset-0 w-full h-full object-cover" alt="" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-bg-base" />
         {/* Animated Mira AI orb */}
@@ -372,14 +376,14 @@ export default function BookPublic() {
             </Link>
           ) : (<>
           <Link to={`/gift/${slug}`} data-testid="hero-gift-card-btn"
-            className="mt-3 inline-flex items-center gap-2 w-fit px-5 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-600/30 to-amber-500/30 backdrop-blur-md border border-gold/40 text-sm font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
+            className="mt-3 inline-flex items-center gap-1.5 w-fit px-3.5 py-1.5 rounded-full bg-gradient-to-r from-fuchsia-600/30 to-amber-500/30 backdrop-blur-md border border-gold/40 text-xs font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
             🎁 Gift Card for a Loved One
-            <span className="text-[9px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
+            <span className="text-[8px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
           </Link>
           <Link to={`/membership/${slug}`} data-testid="hero-membership-btn"
-            className="mt-2 inline-flex items-center gap-2 w-fit px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-600/30 to-yellow-500/20 backdrop-blur-md border border-gold/40 text-sm font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
+            className="mt-2 inline-flex items-center gap-1.5 w-fit px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-600/30 to-yellow-500/20 backdrop-blur-md border border-gold/40 text-xs font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
             💳 Premium Membership — earn cashback every visit
-            <span className="text-[9px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
+            <span className="text-[8px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
           </Link>
           </>)}
         </div>

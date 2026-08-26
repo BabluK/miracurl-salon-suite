@@ -22,9 +22,9 @@ const QUICK_PROMPTS = [
 
 const RESTO_PROMPTS = [
   "What's today's special? 🍽️",
+  "Where's my food? 🍳",
   "Suggest a veg starter 🟢",
   "Book a table for 2 tonight 🪑",
-  "Chef's favourite dishes? 👨‍🍳",
   "Best combo for a family 👨‍👩‍👧",
 ];
 
@@ -185,6 +185,10 @@ function AiTab({ slug, restaurant = false }) {
   const audioRef = useRef(null);
   const handsFreeRef = useRef(false);
   const greetedRef = useRef(false);
+  const lastOrderRef = useRef(null);
+  useEffect(() => {
+    try { lastOrderRef.current = localStorage.getItem(`mira_last_order_${slug}`); } catch { /* noop */ }
+  }, [slug]);
   const [cart, setCart] = useState([]);
   const addDish = (d) => {
     setCart(prev => {
@@ -195,6 +199,8 @@ function AiTab({ slug, restaurant = false }) {
     toast.success(`${d.name} added to your order 🛒`);
   };
   const onPlaced = (order) => {
+    lastOrderRef.current = order.id;
+    try { localStorage.setItem(`mira_last_order_${slug}`, order.id); } catch { /* noop */ }
     setMsgs(m => [...m, mkMsg({ role: "ai", text:
       `🎉 Order placed for Table ${order.table_no}! (#${order.id})\n\n` +
       order.items.map(i => `• ${i.name} ×${i.qty}`).join("\n") +
@@ -269,7 +275,8 @@ function AiTab({ slug, restaurant = false }) {
     setMsgs(m => [...m, mkMsg({ role: "user", text })]);
     setBusy(true);
     try {
-      const { data } = await axios.post(`${BACKEND_URL}/api/public/ai-chat/${slug}`, { message: text, session_id: sidRef.current }, { timeout: 90000 });
+      const { data } = await axios.post(`${BACKEND_URL}/api/public/ai-chat/${slug}`,
+        { message: text, session_id: sidRef.current, ...(lastOrderRef.current ? { order_id: lastOrderRef.current } : {}) }, { timeout: 90000 });
       setMsgs(m => [...m, mkMsg({ role: "ai", text: data.reply, booking: data.booking, handoff: data.handoff, dishes: data.dishes })]);
     } catch (e) {
       setMsgs(m => [...m, mkMsg({ role: "ai", text: e.response?.data?.detail || "Sorry, I hit a snag — please try again." })]);

@@ -94,6 +94,35 @@ def _msg_lang(text: str) -> str:
 class PublicAIChatIn(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000)
     session_id: str = Field(..., min_length=8, max_length=64)
+    order_id: Optional[str] = Field(None, max_length=16)
+
+
+_ORDER_STATUS_RE = re.compile(
+    r"where.?s? (is )?my (food|order)|order status|track (my )?(order|food)|my food (ready|coming)|"
+    r"how long.*(food|order)|food.*(ready|coming|status)|status of my order", re.I)
+
+_ORDER_STATUS_TEXT = {
+    "new": "the kitchen has just received it and will start right away 🍳",
+    "preparing": "it's being freshly cooked right now — almost there! 🔥",
+    "served": "it's been served — enjoy your meal! 🍽️✨",
+    "billed": "it's already billed — hope you loved every bite! 💛",
+}
+
+
+async def _order_status_reply(t: dict, message: str, order_id: str | None) -> str | None:
+    """Instant fast-path: live table-order status when a diner asks 'where's my food?'."""
+    if t.get("business_type") != "restaurant" or not _ORDER_STATUS_RE.search(message or ""):
+        return None
+    order = None
+    if order_id:
+        order = await _raw_db.table_orders.find_one({"id": order_id, "tenant_id": t["id"]}, {"_id": 0})
+    if not order:
+        return ("I couldn't find a recent order from this chat 🙈 If you ordered via the table QR, "
+                "you can see the live status right on that page — or tell me your dishes and I'll place a fresh order for you!")
+    status = _ORDER_STATUS_TEXT.get(order.get("status"), "it's with the kitchen 🍳")
+    items = " · ".join(f"{i['name']} ×{i['qty']}" for i in order.get("items", [])[:5])
+    return (f"Here's your live update for Table {order.get('table_no')} (#{order['id']}) 👩‍🍳\n\n"
+            f"🧾 {items}\n📍 Status: **{(order.get('status') or 'new').title()}** — {status}")
 
 async def _booking_catalog(t) -> str:
     from zoneinfo import ZoneInfo
@@ -651,6 +680,9 @@ async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
     public_rate_limit(request, key_suffix=f"aichat:{slug}", limit=40, window_sec=600)
     await durable_rate_limit(request, f"aichat:{slug}", limit=40, window_sec=600)
     await ai_daily_quota(t["id"], "public_ai_chat", 400)
+    track = await _order_status_reply(t, body.message, body.order_id)
+    if track:
+        return {"reply": track, "booking": None, "booking_error": None, "instant": True}
     fast = await _instant_faq_reply(t, body.message)
     if fast:
         sid = f"pub-{t['id']}-{body.session_id}"
