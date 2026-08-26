@@ -441,6 +441,49 @@ async def generate_logo(body: LogoGenIn, user=Depends(require_tenant_admin), t=D
     })
     return {"ok": True, "url": f"/api/files/{file_id}"}
 
+@router.post("/branding/logo/blend")
+async def blend_logo(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Mira magic: merge the current logo with the background — removes any solid
+    light box behind it (true transparency), tight-crops, applies + sets blend display."""
+    url = (t.get("logo_url") or "").split("?")[0]
+    if not url:
+        raise HTTPException(400, "Upload or generate a logo first")
+    data = None
+    if url.startswith("/api/files/"):
+        rec = await _raw_db.uploads.find_one({"id": url.rsplit("/", 1)[-1], "is_deleted": False})
+        if rec:
+            data, _ = _get_object(rec["storage_path"])
+    elif url.startswith("http"):
+        r = requests.get(url, timeout=12)
+        r.raise_for_status()
+        data = r.content
+    else:  # local public asset e.g. /brand-kit/...
+        p = os.path.join("/app/frontend/public", url.lstrip("/"))
+        if os.path.isfile(p):
+            with open(p, "rb") as f:
+                data = f.read()
+    if not data:
+        raise HTTPException(400, "Couldn't read the current logo file")
+    from routes.uploads import _fit_logo
+    try:
+        blended = _fit_logo(data)
+    except Exception as e:
+        raise HTTPException(400, f"Couldn't process the logo: {e}") from e
+    file_id = str(uuid.uuid4())
+    storage_path = f"{APP_NAME}/tenants/{t['id']}/logo/{file_id}.png"
+    result = _put_object(storage_path, blended, "image/png")
+    await _raw_db.uploads.insert_one({
+        "id": file_id, "tenant_id": t["id"], "kind": "logo",
+        "storage_path": result.get("path", storage_path),
+        "original_filename": f"{file_id}.png", "content_type": "image/png",
+        "size": len(blended), "uploaded_by": user["id"], "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    new_url = f"/api/files/{file_id}"
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"logo_url": new_url, "logo_shape": "blend"}})
+    return {"ok": True, "logo_url": new_url, "logo_shape": "blend"}
+
+
 class LogoApplyIn(BaseModel):
     url: str = Field("", max_length=500)
 

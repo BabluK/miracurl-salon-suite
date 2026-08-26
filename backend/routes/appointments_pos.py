@@ -330,7 +330,7 @@ async def _resolve_billing_context(body: InvoiceIn, cust: dict) -> dict:
 async def _apply_post_invoice_effects(cust: dict, totals: dict, loyalty_rules: dict, needed: dict) -> int:
     """Customer stats + loyalty points + deferred referral reward + stock decrement. Returns points earned."""
     points_earned = int(int(totals["total"] // 100) * float(loyalty_rules.get("earn_per_100") or 0))
-    cust_inc = {"total_spent": totals["total"], "visits": 1,
+    cust_inc = {"total_spent": totals["total"], "visits": 1, "stamps": 1,
                 "loyalty_points": points_earned - totals["points_used"]}
     if totals["referral_credit_used"] > 0:
         cust_inc["referral_credit"] = -totals["referral_credit_used"]

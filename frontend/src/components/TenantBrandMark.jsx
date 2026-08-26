@@ -20,11 +20,22 @@ export default function TenantBrandMark({ tenant }) {
       <span className="tenant-sparkle" style={{ top: "58px", left: "-4px", animationDelay: "0.9s" }}>✦</span>
       <span className="tenant-sparkle" style={{ top: "-2px", left: "-8px", animationDelay: "1.7s" }}>✦</span>
       {logo ? (
-        <div className="tenant-logo-glow w-full rounded-2xl p-[2px] bg-gradient-to-br from-[#d4af37]/80 via-[#f3e3ae]/40 to-[#b08d3f]/80" data-testid="tenant-logo-plaque">
-          <div className="rounded-[14px] bg-gradient-to-b from-[#1c1722] to-[#131017] px-3 py-3.5 flex items-center justify-center">
-            <img src={logo} alt={name || "Logo"} data-testid="tenant-logo-img" className="max-h-20 w-auto max-w-full object-contain drop-shadow-[0_2px_10px_rgba(212,175,55,0.35)]" />
+        (tenant?.logo_shape || "") === "circle" ? (
+          <span className="tenant-logo-glow w-20 h-20 rounded-full p-[2.5px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] mx-auto" data-testid="tenant-logo-circle">
+            <span className="w-full h-full rounded-full overflow-hidden bg-[#17141c] block">
+              <img src={logo} alt={name || "Logo"} data-testid="tenant-logo-img" className="w-full h-full object-cover scale-[1.3]" />
+            </span>
+          </span>
+        ) : (tenant?.logo_shape || "") === "blend" ? (
+          <img src={logo} alt={name || "Logo"} data-testid="tenant-logo-img"
+            className="max-h-24 w-auto max-w-full object-contain mx-auto drop-shadow-[0_2px_14px_rgba(212,175,55,0.5)]" data-shape="blend" />
+        ) : (
+          <div className="tenant-logo-glow w-full rounded-2xl p-[2px] bg-gradient-to-br from-[#d4af37]/80 via-[#f3e3ae]/40 to-[#b08d3f]/80" data-testid="tenant-logo-plaque">
+            <div className="rounded-[14px] bg-gradient-to-b from-[#1c1722] to-[#131017] px-3 py-3.5 flex items-center justify-center">
+              <img src={logo} alt={name || "Logo"} data-testid="tenant-logo-img" className="max-h-20 w-auto max-w-full object-contain drop-shadow-[0_2px_10px_rgba(212,175,55,0.35)]" />
+            </div>
           </div>
-        </div>
+        )
       ) : (
         <div className="brand-pill tenant-logo-glow w-12 h-12 rounded-xl flex items-center justify-center relative overflow-hidden flex-shrink-0">
           <Scissors className="w-5 h-5 text-white brand-scissors relative z-10" />

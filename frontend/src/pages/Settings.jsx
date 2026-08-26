@@ -26,6 +26,7 @@ import { UpdatedBillsCard } from "@/components/settings/UpdatedBillsCard";
 import { RateMiracurlCard } from "@/components/settings/RateMiracurlCard";
 import { SocialConnectionsCard } from "@/components/settings/SocialConnectionsCard";
 import { MiracurlProductsCard } from "@/components/settings/MiracurlProductsCard";
+import { LoyaltyStampsCard } from "@/components/settings/LoyaltyStampsCard";
 
 export default function Settings() {
   return (
@@ -70,6 +71,7 @@ export default function Settings() {
 
         <SocialConnectionsCard />
 
+        <LoyaltyStampsCard />
         <MiracurlProductsCard />
 
         <SmsPacksCard />

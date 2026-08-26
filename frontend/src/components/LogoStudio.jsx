@@ -15,6 +15,7 @@ export const LogoStudio = () => {
   const [preview, setPreview] = useState("");
   const [generating, setGenerating] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [blending, setBlending] = useState(false);
   const fileRef = useRef(null);
   const currentLogo = tenant?.logo_url || "";
 
@@ -52,6 +53,18 @@ export const LogoStudio = () => {
     } catch { toast.error("Couldn't apply logo"); setApplying(false); }
   }
 
+  async function mirablend() {
+    setBlending(true);
+    try {
+      await api.post("/branding/logo/blend");
+      toast.success("✨ Mira merged your logo with the background — refreshing…");
+      setTimeout(() => window.location.reload(), 900);
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't blend the logo");
+      setBlending(false);
+    }
+  }
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-[#1b1533] via-[#241a45] to-[#141126] p-6 text-white" data-testid="logo-studio">
       {/* sparkle field */}
@@ -84,6 +97,13 @@ export const LogoStudio = () => {
               <Upload className="w-4 h-4" /> Upload own
             </button>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={upload} />
+            {currentLogo && (
+              <button data-testid="logo-blend-btn" onClick={mirablend} disabled={blending}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500/30 to-amber-400/30 border border-amber-300/40 text-sm hover:brightness-125 transition disabled:opacity-60">
+                {blending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-300" />}
+                {blending ? "Mira is blending…" : "✨ Mira: Merge with background"}
+              </button>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-5 shrink-0">

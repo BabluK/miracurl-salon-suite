@@ -24,6 +24,7 @@ import { InvoiceHeader } from "@/components/pos/InvoiceHeader";
 import { CartTable } from "@/components/pos/CartTable";
 import { TipSection } from "@/components/pos/TipSection";
 import { PaymentSection } from "@/components/pos/PaymentSection";
+import { StampCard } from "@/components/pos/StampCard";
 import { curSym } from "@/lib/currency";
 
 const ITEM_TYPE_BY_MODE = { services: "service", products: "product", package: "package", membership: "membership" };
@@ -665,6 +666,7 @@ export default function POS() {
             redeemPoints={redeemPoints} setRedeemPoints={setRedeemPoints}
             loyaltyRules={loyaltyRules} onRedeemPackage={redeemPackage}
           />
+          {!isResto && customer?.phone && <StampCard phone={customer.phone} />}
 
           <CartTable
             cart={cart} staff={staff} taxEnabled={taxEnabled} taxPct={taxPct} sym={sym}

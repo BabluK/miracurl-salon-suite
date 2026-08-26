@@ -72,6 +72,7 @@ from routes.promo_image import router as promo_image_router  # noqa: E402
 from routes.offer_flyer import router as offer_flyer_router  # noqa: E402
 from routes.packages import router as packages_router  # noqa: E402
 from routes.wallet import router as wallet_router  # noqa: E402
+from routes.loyalty_stamps import router as loyalty_stamps_router  # noqa: E402
 from routes.id_cards import router as id_cards_router  # noqa: E402
 from routes.releases import router as releases_router  # noqa: E402
 from routes.testimonials import router as testimonials_router  # noqa: E402
@@ -121,7 +122,7 @@ for _r in (
     premium_membership_router,
     mira_studio_router, social_connect_router, mira_calendar_router, mira_autopilot_router,
     promo_video_router, platform_tools_router, promo_image_router, offer_flyer_router, veo_studio_router,
-    packages_router, wallet_router, id_cards_router, releases_router,
+    packages_router, wallet_router, id_cards_router, releases_router, loyalty_stamps_router,
     testimonials_router, diagnostics_router, subscriptions_router, day_offers_router,
     cctv_router, hiring_router, hq_notifications_router, winback_router, payments_intl_router,
     employee_portal_router, hq_documents_router, mira_builder_router, manager_access_router,

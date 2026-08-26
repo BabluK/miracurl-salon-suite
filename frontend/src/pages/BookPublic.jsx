@@ -73,26 +73,66 @@ function WalletCheck({ slug }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const { data } = await axios.post(`${BACKEND_URL}/api/public/wallet-balance/${slug}`, { phone });
-      setResult(data);
+      const [w, l] = await Promise.allSettled([
+        axios.post(`${BACKEND_URL}/api/public/wallet-balance/${slug}`, { phone }),
+        axios.get(`${BACKEND_URL}/api/public/loyalty/${slug}`, { params: { phone } }),
+      ]);
+      const wallet = w.status === "fulfilled" ? w.value.data : { found: false };
+      const stamps = l.status === "fulfilled" && l.value.data?.enabled ? l.value.data : null;
+      if (w.status === "rejected" && l.status === "rejected") {
+        toast.error(w.reason?.response?.data?.detail || "Try again in a few minutes");
+      } else {
+        setResult({ ...wallet, loyalty: stamps });
+      }
     } catch (err) {
       toast.error(err.response?.data?.detail || "Try again in a few minutes");
     } finally { setBusy(false); }
   };
 
+  const lo = result?.loyalty;
   return (
     <div className="mb-8 rounded-2xl border border-emerald-400/25 bg-emerald-400/5 p-4" data-testid="wallet-check-widget">
-      {result?.found ? (
-        <div className="flex items-center justify-between flex-wrap gap-2" data-testid="wallet-check-result">
-          <div>
-            <div className="text-sm text-emerald-300 font-semibold">You have <span className="text-gold font-bold">₹{Math.round(result.balance).toLocaleString("en-IN")}</span> salon credit 💸</div>
-            <div className="text-[11px] text-white/40 mt-0.5">Book below — your wallet applies when you pay at the salon ✦</div>
+      {(result?.found || lo?.found) ? (
+        <div className="space-y-3" data-testid="wallet-check-result">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              {result?.found ? (
+                <div className="text-sm text-emerald-300 font-semibold">You have <span className="text-gold font-bold">₹{Math.round(result.balance).toLocaleString("en-IN")}</span> salon credit 💸</div>
+              ) : (
+                <div className="text-sm text-emerald-300 font-semibold">Your Signature Loyalty Card ✦</div>
+              )}
+              <div className="text-[11px] text-white/40 mt-0.5">Book below — your rewards apply when you pay at the salon ✦</div>
+            </div>
+            <button onClick={() => setResult(null)} className="text-[11px] text-white/40 underline">check another</button>
           </div>
-          <button onClick={() => setResult(null)} className="text-[11px] text-white/40 underline">check another</button>
+          {lo?.found && (
+            <div className="rounded-xl border border-gold/30 bg-gradient-to-r from-[#2a2118] to-[#1c1712] p-3" data-testid="public-stamp-card">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-[11px] tracking-[0.25em] uppercase text-gold font-bold">✦ Gold Stamp Card</div>
+                {lo.rewards_available > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gold text-[#17141c]" data-testid="public-stamp-reward-ready">
+                    🎁 {lo.reward_label} — ready! Ask at the desk
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                {Array.from({ length: lo.needed }).map((_, i) => (
+                  <span key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 ${i < lo.stamps ? "bg-gradient-to-br from-[#d4af37] to-[#b08d3f] border-[#f3e3ae] text-[#17141c] shadow-[0_0_10px_rgba(212,175,55,0.5)]" : "border-white/15 text-white/20"}`}>
+                    {i < lo.stamps ? "✦" : "·"}
+                  </span>
+                ))}
+              </div>
+              <div className="text-[11px] text-white/50 mt-2">
+                {lo.rewards_available > 0
+                  ? "Your card is full — enjoy your treat on this visit! ✦"
+                  : `${lo.needed - lo.stamps} more visit${lo.needed - lo.stamps === 1 ? "" : "s"} to unlock: ${lo.reward_label}`}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <form onSubmit={check} className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-white/60 font-medium shrink-0">💳 Have a wallet with us?</span>
+          <span className="text-xs text-white/60 font-medium shrink-0">💳 Wallet or stamp card with us?</span>
           <input value={phone} onChange={e => setPhone(e.target.value)} type="tel" required minLength={8}
             placeholder="Your phone number" data-testid="wallet-check-phone-input"
             className="flex-1 min-w-[160px] bg-white/5 border border-white/15 rounded-full px-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-300/50" />
