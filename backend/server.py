@@ -450,7 +450,21 @@ async def _csrf_guard(request: Request, call_next):
         return await call_next(request)
     cookie_val = request.cookies.get("csrf_token") or ""
     header_val = request.headers.get("x-csrf-token") or ""
-    if not cookie_val or not header_val or not _hmac.compare_digest(cookie_val, header_val):
+    if not cookie_val or not header_val:
+        # Rollout bridge: stale PWA bundles / pre-CSRF sessions don't send the token
+        # yet. Browsers always attach Origin (and same-origin Referer) on POSTs and
+        # cannot forge them cross-site, so a same-origin Origin/Referer is a safe
+        # OWASP-approved secondary check. Requests with neither are rejected.
+        from urllib.parse import urlparse as _urlparse
+        own_hosts = {request.headers.get("host", "").lower(),
+                     (request.headers.get("x-forwarded-host") or "").lower()}
+        own_hosts |= {_urlparse(o).netloc.lower() for o in _cors_origins if o != "*"}
+        for src_hdr in ("origin", "referer"):
+            v = request.headers.get(src_hdr)
+            if v and _urlparse(v).netloc.lower() in own_hosts:
+                return await call_next(request)
+        return _JSONResponse({"detail": "CSRF token required"}, status_code=403)
+    if not _hmac.compare_digest(cookie_val, header_val):
         return _JSONResponse({"detail": "CSRF token required"}, status_code=403)
     anchor = None
     try:

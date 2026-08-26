@@ -2241,3 +2241,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Built full logo package from user's gold "MiraCurl Unisex Salon" logo (asset 9m3cetr0_image.png). White bg analytically un-blended to true transparency (numpy), 2x LANCZOS upscale.
 - Files at /app/frontend/public/brand-kit/ (downloadable at {PREVIEW_URL}/brand-kit/...): transparent PNG + WEBP, white/dark/black JPGs, square 1024 (transparent/white/dark), circle avatar w/ gold ring, white-mono watermark PNG, favicons 16–512 + favicon.ico, original, and miracurl-logo-kit.zip bundling all.
 - NOTE: earlier multi-part request (booking scroll-to-services, admin logo shape circle/square, header colour setting, more backgrounds + light golden tone, bigger dashboard logo) was superseded by this logo ask — still PENDING in backlog.
+
+## Session 2026-06 (fork) — CSRF rollout bridge (prod billing 403 fix)
+- User hit "CSRF token required" completing billing on PRODUCTION. Root cause: backend deployed with CSRF middleware while the PWA service worker still served the OLD frontend bundle (no X-CSRF-Token interceptor) → 403 on state-changing calls.
+- Fix in server.py _csrf_guard: when token header/cookie is MISSING (stale bundle / pre-rollout session), fall back to browser Origin/Referer verification against own host + allowlist (OWASP secondary check — unforgeable cross-site). Foreign or absent Origin/Referer still 403. Token mismatch (forged pair) still 403. Verified 5/5 via curl.
+- Note: a deploy was initiated BEFORE this fix landed — user must redeploy to push the bridge to production.
