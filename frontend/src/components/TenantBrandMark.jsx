@@ -16,10 +16,15 @@ export default function TenantBrandMark({ tenant }) {
 
   return (
     <div className="flex flex-col items-start gap-2 select-none relative w-full min-w-0" data-testid="tenant-brand-mark">
-      <span className="tenant-sparkle" style={{ top: "-4px", left: "58px" }}>✦</span>
-      <span className="tenant-sparkle" style={{ top: "34px", left: "-4px", animationDelay: "0.9s" }}>✦</span>
+      <span className="tenant-sparkle" style={{ top: "-6px", right: "6px" }}>✦</span>
+      <span className="tenant-sparkle" style={{ top: "58px", left: "-4px", animationDelay: "0.9s" }}>✦</span>
+      <span className="tenant-sparkle" style={{ top: "-2px", left: "-8px", animationDelay: "1.7s" }}>✦</span>
       {logo ? (
-        <img src={logo} alt={name || "Logo"} data-testid="tenant-logo-img" className="tenant-logo-glow w-12 h-12 rounded-xl object-cover bg-[#14141a] flex-shrink-0 border border-white/15" />
+        <div className="tenant-logo-glow w-full rounded-2xl p-[2px] bg-gradient-to-br from-[#d4af37]/80 via-[#f3e3ae]/40 to-[#b08d3f]/80" data-testid="tenant-logo-plaque">
+          <div className="rounded-[14px] bg-gradient-to-b from-[#1c1722] to-[#131017] px-3 py-3.5 flex items-center justify-center">
+            <img src={logo} alt={name || "Logo"} data-testid="tenant-logo-img" className="max-h-20 w-auto max-w-full object-contain drop-shadow-[0_2px_10px_rgba(212,175,55,0.35)]" />
+          </div>
+        </div>
       ) : (
         <div className="brand-pill tenant-logo-glow w-12 h-12 rounded-xl flex items-center justify-center relative overflow-hidden flex-shrink-0">
           <Scissors className="w-5 h-5 text-white brand-scissors relative z-10" />
