@@ -34,11 +34,17 @@ export function RazorpayCard() {
     api.get("/tenants/current").then(r => setTenant(r.data)).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (tenant?.business_type === "restaurant") setSelected("resto_quarter");
+  }, [tenant]);
+
   if (!cfg) return null;
   if (!cfg.enabled) return null;
   if (tenant && (tenant.currency || "INR") !== "INR") return null; // intl salons pay in USD via Stripe
 
-  const visiblePlans = (cfg.plans || []).filter(p => !p.key.startsWith("intl_"))
+  const isResto = tenant?.business_type === "restaurant";
+  const visiblePlans = (cfg.plans || []).filter(p => !p.key.includes("intl"))
+    .filter(p => (isResto ? p.key.startsWith("resto_") : !p.key.startsWith("resto_")))
     .filter(p => (p.branches || 1) === 1 || ownedCount >= (p.branches || 1));
   const chosen = visiblePlans.find(p => p.key === selected) || visiblePlans[0];
   const needBranches = (chosen?.branches || 1) > 1;
@@ -85,7 +91,7 @@ export function RazorpayCard() {
         key: order.key_id,
         amount: order.amount,
         currency: order.currency,
-        name: "Miracurl ✦ Salon Suite",
+        name: isResto ? "Miracurl ✦ Restaurant Suite" : "Miracurl ✦ Salon Suite",
         description: `${order.plan_label} renewal`,
         order_id: order.order_id,
         theme: { color: "#ec4899" },

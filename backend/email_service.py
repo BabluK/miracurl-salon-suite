@@ -33,14 +33,15 @@ def marketing_email_html(salon: str, body_text: str, cta_url: str, cta_label: st
     </div>"""
 
 
-def _brand_footer(book_url: str | None = None, book_label: str = "Book Now ✦") -> str:
+def _brand_footer(book_url: str | None = None, book_label: str = "Book Now ✦",
+                  suite_label: str = "Salon Management Suite") -> str:
     """Branded footer appended to every outgoing email (Powered by Miracurl + CTA)."""
     url = book_url or "https://miracurl-suite.com"
     return f"""
     <div style="max-width:560px;margin:18px auto 0;text-align:center;font-family:Georgia,serif">
       <a href="{url}" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:11px 28px;border-radius:999px;font-size:13px;letter-spacing:0.6px">{book_label}</a>
       <p style="font-size:11px;color:#9a9aa2;margin:12px 0 0;letter-spacing:0.4px">
-        Powered by <a href="https://miracurl-suite.com" style="color:#b08d3f;text-decoration:none;font-weight:bold">Miracurl</a> · Salon Management Suite</p>
+        Powered by <a href="https://miracurl-suite.com" style="color:#b08d3f;text-decoration:none;font-weight:bold">Miracurl</a> · {suite_label}</p>
     </div>"""
 
 
@@ -56,7 +57,8 @@ def _resend_params(to: list, subject: str, html: str, opts: dict) -> dict:
     params = {
         "from": f"{opts['from_name']} <{os.environ['SENDER_EMAIL']}>",
         "to": to, "subject": subject,
-        "html": html + _brand_footer(opts["book_url"], opts["book_label"]),
+        "html": html + _brand_footer(opts["book_url"], opts["book_label"],
+                                     opts.get("suite_label") or "Salon Management Suite"),
     }
     if opts["headers"]:
         params["headers"] = opts["headers"]
@@ -69,7 +71,7 @@ def _resend_params(to: list, subject: str, html: str, opts: dict) -> dict:
 
 
 _EMAIL_OPTION_KEYS = frozenset(
-    {"attachments", "reply_to", "book_url", "book_label", "headers", "from_name"})
+    {"attachments", "reply_to", "book_url", "book_label", "headers", "from_name", "suite_label"})
 
 
 async def _send_email(to: list, subject: str, html: str, **options) -> dict:
@@ -84,13 +86,52 @@ async def _send_email(to: list, subject: str, html: str, **options) -> dict:
     params = _resend_params(to, subject, html, {
         "attachments": options.get("attachments"), "reply_to": options.get("reply_to"),
         "book_url": options.get("book_url"), "book_label": options.get("book_label", "Book Now ✦"),
-        "headers": options.get("headers"), "from_name": options.get("from_name", "Miracurl")})
+        "headers": options.get("headers"), "from_name": options.get("from_name", "Miracurl"),
+        "suite_label": options.get("suite_label")})
     try:
         r = await asyncio.to_thread(resend.Emails.send, params)
         return {"sent": True, "id": (r or {}).get("id")}
     except Exception as e:
         logging.getLogger("email").error(f"resend send failed: {e}")
         return {"sent": False, "error": str(e)[:300]}
+
+
+def restaurant_welcome_email_html(restaurant_name: str, owner_name: str, owner_email: str,
+                                  password: str, trial_end: str) -> str:
+    """Warm onboarding email with login credentials — restaurant vertical only."""
+    restaurant_name, owner_name, owner_email, password = (
+        html_lib.escape(restaurant_name or "your restaurant"), html_lib.escape(owner_name or "there"),
+        html_lib.escape(owner_email or ""), html_lib.escape(password or ""))
+    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px">
+        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Restaurant Suite</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Welcome aboard — your restaurant is live</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        <p>Namaste <b>{owner_name}</b> 🎉</p>
+        <p style="line-height:1.7">A very warm welcome to the Miracurl family! <b>{restaurant_name}</b> is now set up with
+          QR table ordering, live kitchen tickets, POS billing and Mira AI — everything you need to run a busy floor with ease.</p>
+        <p style="line-height:1.7">Your <b>first month is on us</b> — free trial until <b>{html_lib.escape(trial_end or "")}</b>. Here are your login details:</p>
+        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:15px">
+          👤 <b>Login email:</b> {owner_email}<br/><br/>
+          🔑 <b>Password:</b> <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:3px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{password}</span>
+        </div>
+        <p style="text-align:center;margin:24px 0">
+          <a href="{login_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:13px 38px;border-radius:999px;font-weight:bold">🍽️ &nbsp;Open your dashboard&nbsp; →</a>
+        </p>
+        <div style="background:#f4f8f4;border:1px solid #d4e6d4;border-radius:12px;padding:16px 20px;font-size:13px;font-family:Arial,sans-serif;line-height:2">
+          <b style="font-size:14px">🚀 Get serving in 4 quick steps</b><br/>
+          1️⃣ &nbsp;<b>Menu</b> — add your dishes, or one-tap import our Starters menu<br/>
+          2️⃣ &nbsp;<b>Table QR codes</b> — print table tents from Kitchen → Table QR codes<br/>
+          3️⃣ &nbsp;<b>Kitchen</b> — diners scan &amp; order, tickets appear live with a chime<br/>
+          4️⃣ &nbsp;<b>POS / Orders</b> — merge table orders into one bill and collect payment
+        </div>
+        <p style="font-size:12px;color:#888;margin-top:20px">Keep this email safe — it contains your login details. Need a hand getting set up? Just reply to this email or write to {hq_email}. We're thrilled to have you! 🥂</p>
+      </div>
+    </div>"""
 
 
 def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> str:

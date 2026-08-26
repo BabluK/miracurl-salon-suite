@@ -116,7 +116,7 @@ export default function Reports() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="font-playfair text-3xl">Sales Reports</h1>
-          <p className="text-slate-500 text-sm mt-1">Insights into salon performance and revenue.</p>
+          <p className="text-slate-500 text-sm mt-1">Insights into {tenant?.business_type === "restaurant" ? "restaurant" : "salon"} performance and revenue.</p>
         </div>
         <div className="flex items-center gap-3">
           <div>
@@ -128,14 +128,14 @@ export default function Reports() {
             <input data-testid="report-end" type="date" className="input-light" value={end} onChange={e => setEnd(e.target.value)} />
           </div>
           <div>
-            <label className="label-light block mb-1">Salon / Branch</label>
+            <label className="label-light block mb-1">{tenant?.business_type === "restaurant" ? "Restaurant / Branch" : "Salon / Branch"}</label>
             {user?.role === "manager" ? (
               <div className="input-light text-slate-600 bg-slate-50 cursor-not-allowed" data-testid="report-branch-locked">
-                🔒 {user?.branch === "__main__" ? mainSalonLabel(tenant) : (user?.branch || "Your salon")}
+                🔒 {user?.branch === "__main__" ? mainSalonLabel(tenant) : (user?.branch || (tenant?.business_type === "restaurant" ? "Your restaurant" : "Your salon"))}
               </div>
             ) : (
               <select data-testid="report-branch-filter" className="input-light text-slate-800" value={repBranch} onChange={e => setRepBranch(e.target.value)}>
-                <option value="">🌐 All salons</option>
+                <option value="">{tenant?.business_type === "restaurant" ? "🌐 All restaurants" : "🌐 All salons"}</option>
                 <option value="__main__">🏠 {mainSalonLabel(tenant)} (Main)</option>
                 {(tenant?.branches || []).map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
               </select>
