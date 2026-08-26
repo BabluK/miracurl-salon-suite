@@ -601,7 +601,17 @@ class ProductOrderIn(BaseModel):
     address: str = Field(..., min_length=8, max_length=400)
     pincode: str = Field(..., pattern=r"^\d{6}$")
     items: List[Dict] = Field(..., min_length=1, max_length=10)
-    total: float = Field(..., ge=1)
+    total: Optional[float] = None  # SEC-001: ignored — totals are always computed server-side
+
+
+# SEC-001: trusted server-side price list — client-sent prices/totals are never used
+_PRODUCT_CATALOG = {
+    "shampoo": {"name": "Long & Healthy Shampoo (250ml)", "price": 400},
+    "conditioner": {"name": "Nourish & Shine Conditioner (250ml)", "price": 380},
+    "botox-500": {"name": "Hair Botox Treatment — 500ml", "price": 4500},
+    "botox-1000": {"name": "Hair Botox Treatment — 1000ml", "price": 8000},
+    "botox-shampoo": {"name": "Keratin Botox Shampoo (250ml)", "price": 2500},
+}
 
 
 def _order_receipt_html(order: dict, pay_link: str = "") -> str:
@@ -632,12 +642,26 @@ async def create_product_order(body: ProductOrderIn, request: Request):
     cfg = await _raw_db.platform_settings.find_one({"key": "products"}, {"_id": 0}) or {}
     if not cfg.get("available"):
         raise HTTPException(400, "Products are not available for ordering yet")
+    # SEC-001: recompute every line from the trusted catalog; reject unknown SKUs
+    items, total = [], 0
+    for it in body.items[:10]:
+        pid = str(it.get("id") or "")
+        cat = _PRODUCT_CATALOG.get(pid)
+        if not cat:
+            raise HTTPException(400, f"Unknown product: {pid[:40]}")
+        q = it.get("qty")
+        if not isinstance(q, int) or isinstance(q, bool) or not (1 <= q <= 20):
+            raise HTTPException(400, "Quantity must be a whole number between 1 and 20")
+        items.append({"id": pid, "name": cat["name"], "qty": q, "price": cat["price"]})
+        total += cat["price"] * q
+    if total < 1:
+        raise HTTPException(400, "Order is empty")
     order = {
         "id": str(uuid.uuid4()),
         "name": body.name.strip(), "phone": re.sub(r"\D", "", body.phone)[-12:],
         "email": body.email.strip().lower(),
         "address": body.address.strip(), "pincode": body.pincode,
-        "items": body.items[:10], "total": round(body.total, 2),
+        "items": items, "total": round(float(total), 2),
         "status": "pending_payment", "created_at": datetime.now(timezone.utc).isoformat(),
     }
     razorpay_link = (cfg.get("razorpay_link") or "").strip()

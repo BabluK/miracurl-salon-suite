@@ -567,6 +567,8 @@ async def refresh_token(request: Request, response: Response):
         if payload.get("type") != "refresh":
             raise HTTPException(401, "Invalid type")
         await _reject_if_revoked(payload)
+        from security import _check_session
+        await _check_session(payload)  # P3: refresh also honours remote sign-out
         user = await db.users.find_one({"id": payload["sub"]})
         if not user:
             raise HTTPException(401, "User not found")
