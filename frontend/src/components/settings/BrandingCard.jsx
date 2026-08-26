@@ -15,6 +15,23 @@ const BOOK_BG_TONES = [
   { v: "#2b1218", label: "Vintage Wine" },
 ];
 
+const BOOK_BG_IMAGES_SALON = [
+  { v: "img:aurora", label: "Aurora", src: "/booking-bg/aurora.jpg" },
+  { v: "img:sunrise", label: "Sunrise", src: "/booking-bg/sunrise.jpg" },
+  { v: "img:salon-craft", label: "Artisan Cream", src: "/booking-bg/salon-craft.jpg" },
+  { v: "img:salon-blush", label: "Blush Studio", src: "/booking-bg/salon-blush.jpg" },
+  { v: "img:salon-emerald", label: "Emerald Luxe", src: "/booking-bg/salon-emerald.jpg" },
+  { v: "img:salon-noir", label: "Noir & Gold", src: "/booking-bg/salon-noir.jpg" },
+];
+const BOOK_BG_IMAGES_RESTO = [
+  { v: "img:aurora", label: "Aurora", src: "/booking-bg/aurora.jpg" },
+  { v: "img:sunrise", label: "Sunrise", src: "/booking-bg/sunrise.jpg" },
+  { v: "img:dining-fine", label: "Fine Dining", src: "/booking-bg/dining-fine.jpg" },
+  { v: "img:dining-emerald", label: "Emerald Table", src: "/booking-bg/dining-emerald.jpg" },
+  { v: "img:dining-noir", label: "Midnight Grill", src: "/booking-bg/dining-noir.jpg" },
+  { v: "img:dining-harvest", label: "Rustic Harvest", src: "/booking-bg/dining-harvest.jpg" },
+];
+
 const SALON_BG_PRESETS = [
   "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80",
   "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?q=80",
@@ -184,6 +201,19 @@ export function BrandingCard() {
             ))}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">All tones keep crisp contrast so customers can read &amp; book easily.</p>
+          <label className="text-xs text-slate-500 font-medium block mt-4">Or a signature Miracurl backdrop</label>
+          <div className="grid grid-cols-3 gap-2 mt-2 max-w-xl">
+            {(isResto ? BOOK_BG_IMAGES_RESTO : BOOK_BG_IMAGES_SALON).map(img => (
+              <button key={img.v} type="button" data-testid={`book-bg-${img.v.replace("img:", "image-")}`}
+                onClick={() => setBranding(b => ({ ...b, book_bg: b.book_bg === img.v ? "" : img.v }))}
+                className={`relative h-20 rounded-lg overflow-hidden border-2 transition ${branding.book_bg === img.v ? "border-fuchsia-500 ring-2 ring-fuchsia-200" : "border-slate-200 hover:border-slate-400"}`}>
+                <img src={img.src} alt={img.label} className="w-full h-full object-cover" loading="lazy" />
+                <span className="absolute bottom-1 left-1.5 text-[10px] font-semibold text-slate-700 bg-white/80 backdrop-blur px-1.5 py-0.5 rounded-full">{img.label}</span>
+                {branding.book_bg === img.v && <span className="absolute top-1 right-1 bg-fuchsia-500 text-white text-[9px] px-1.5 py-0.5 rounded-full">✓</span>}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">Elegant Miracurl gradient art — applied with a soft dark veil so text stays perfectly readable. Tap again to unselect.</p>
         </div>
       </div>
 

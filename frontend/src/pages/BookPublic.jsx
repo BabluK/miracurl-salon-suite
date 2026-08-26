@@ -18,6 +18,20 @@ const RESTO_LABELS = ["Menu (optional)", "Host", "Date & Time", "Your Details", 
 const INITIAL_FORM = { name: "", phone: "", email: "", notes: "", referral_code: "", coupon_code: "", gender: "Female" };
 const localToday = () => new Date().toLocaleDateString("en-CA");
 
+// Signature booking-page backdrops. `veil` = dark overlay strength so white text stays readable.
+const BOOK_BG_IMAGES = {
+  "img:aurora": { src: "/booking-bg/aurora.jpg", veil: 0.78 },
+  "img:sunrise": { src: "/booking-bg/sunrise.jpg", veil: 0.78 },
+  "img:salon-craft": { src: "/booking-bg/salon-craft.jpg", veil: 0.76 },
+  "img:salon-blush": { src: "/booking-bg/salon-blush.jpg", veil: 0.76 },
+  "img:salon-emerald": { src: "/booking-bg/salon-emerald.jpg", veil: 0.35 },
+  "img:salon-noir": { src: "/booking-bg/salon-noir.jpg", veil: 0.3 },
+  "img:dining-fine": { src: "/booking-bg/dining-fine.jpg", veil: 0.76 },
+  "img:dining-emerald": { src: "/booking-bg/dining-emerald.jpg", veil: 0.35 },
+  "img:dining-noir": { src: "/booking-bg/dining-noir.jpg", veil: 0.3 },
+  "img:dining-harvest": { src: "/booking-bg/dining-harvest.jpg", veil: 0.62 },
+};
+
 function Stepper({ step, labels = STEP_LABELS }) {
   return (
     <div className="flex items-center gap-2 sm:gap-3 mb-10 overflow-x-auto pb-2">
@@ -267,9 +281,12 @@ export default function BookPublic() {
     </div>
   );
 
+  const bgImage = BOOK_BG_IMAGES[salon.book_bg];
   return (
     <div className={salon.book_bg ? "min-h-screen text-ink-primary" : "min-h-screen mesh-dark text-ink-primary"}
-      style={salon.book_bg ? { background: salon.book_bg } : undefined}
+      style={salon.book_bg ? (bgImage
+        ? { background: `linear-gradient(rgba(24,16,27,${bgImage.veil}), rgba(24,16,27,${bgImage.veil})), url(${bgImage.src}) center / cover no-repeat fixed` }
+        : { background: salon.book_bg }) : undefined}
       data-testid="public-book-page">
       <Toaster theme="dark" position="top-center" toastOptions={TOASTER_OPTIONS} />
 
