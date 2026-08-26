@@ -619,6 +619,25 @@ export default function Services() {
               <div className="w-full h-32 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center text-3xl mb-3">🍽️</div>
             )}
             <ImageUploader kind="category" value={catUrl} onChange={setCatUrl} fallback={isResto ? "" : catImage(catModal, {})} />
+            <button type="button" data-testid="cat-banner-generate-btn" disabled={genImg}
+              onClick={async () => {
+                setGenImg(true);
+                try {
+                  const { data } = await api.post("/services/generate-banner-preview", { category: catModal });
+                  let done = false;
+                  for (let i = 0; i < 60; i++) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    const { data: j } = await api.get(`/services/image-jobs/${data.job_id}`);
+                    if (j.status === "done") { setCatUrl(j.image_url); toast.success("✨ Mira painted your banner — hit Save banner"); done = true; break; }
+                    if (j.status === "failed") { toast.error(j.error || "Generation failed — try again"); done = true; break; }
+                  }
+                  if (!done) toast.error("Still painting… try again in a minute");
+                } catch (err) { toast.error(err.response?.data?.detail || "Generation failed — try again"); }
+                finally { setGenImg(false); }
+              }}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-600 font-semibold hover:text-amber-700 disabled:opacity-50">
+              {genImg ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is painting… (~30s)</> : <>✨ Generate with Mira</>}
+            </button>
             <div className="flex gap-3 pt-4">
               {catUrl && (
                 <button type="button" data-testid="cat-image-use-default" onClick={() => setCatUrl("")} className="btn-slate flex-1">Use default</button>

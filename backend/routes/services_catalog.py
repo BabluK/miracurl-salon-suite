@@ -132,8 +132,9 @@ CATEGORY_REMAP = {
 RESTO_PRESET = [
     ("Chicken Starters", [("Chicken 65", 249, 3), ("Chicken Manchurian", 259, 2), ("Chilli Chicken", 249, 3),
         ("Chicken Lollipop", 269, 2), ("Chicken Wings", 259, 2), ("Chicken Pepper Fry", 279, 3),
-        ("Chicken Reshmi Kebab", 289, 1), ("Crispy Chicken", 259, 2), ("Chicken Pakoda", 229, 2),
-        ("Chicken Majestic", 279, 2)]),
+        ("Chicken Tikka", 289, 2), ("Chicken Malai Tikka", 299, 1), ("Chicken Seekh Kebab", 289, 2),
+        ("Tandoori Chicken", 299, 2), ("Chicken Reshmi Kebab", 289, 1), ("Chicken Tangdi Kebab", 299, 2),
+        ("Crispy Chicken", 259, 2), ("Chicken Pakoda", 229, 2), ("Chicken Majestic", 279, 2)]),
     ("Mutton Starters", [("Mutton Seekh Kebab", 349, 2), ("Mutton Shami Kebab", 339, 2), ("Mutton Pepper Fry", 369, 3),
         ("Mutton Chilli", 349, 3), ("Mutton Sukka", 359, 3), ("Mutton Kebab", 339, 2), ("Mutton Tawa Fry", 359, 2)]),
     ("Fish Starters", [("Fish Finger", 289, 1), ("Chilli Fish", 299, 3), ("Fish 65", 289, 3), ("Fish Fry", 279, 2),
@@ -143,6 +144,11 @@ RESTO_PRESET = [
     ("BBQ & Grill", [("Chicken Tandoori", 299, 2), ("Chicken Tikka", 289, 2), ("Malai Chicken Tikka", 299, 1),
         ("Tangdi Kebab", 299, 2), ("Chicken Seekh Kebab", 289, 2), ("BBQ Chicken Wings", 289, 2),
         ("Grilled Chicken", 329, 2), ("Peri Peri Chicken", 319, 3)]),
+    ("Main Course", [("Butter Chicken", 349, 1), ("Chicken Curry", 329, 2), ("Kadai Chicken", 339, 2),
+        ("Chicken Tikka Masala", 349, 2), ("Mutton Rogan Josh", 399, 2), ("Mutton Curry", 389, 2),
+        ("Fish Curry", 349, 2), ("Prawn Masala", 369, 2), ("Paneer Butter Masala", 299, 1),
+        ("Dal Makhani", 279, 1), ("Veg Kolhapuri", 289, 3), ("Chicken Biryani", 299, 2),
+        ("Mutton Biryani", 369, 2), ("Veg Biryani", 249, 1)]),
 ]
 
 
@@ -156,11 +162,13 @@ async def import_preset_services(user=Depends(require_admin)):
                 if name.lower() in existing:
                     updated += 1
                     continue
+                veg_flag = "veg" if any(k in name.lower() for k in ("paneer", "dal", "veg")) else "non-veg"
                 await db.services.insert_one({
                     "id": str(uuid.uuid4()), "name": name, "category": cat, "price": float(price),
                     "duration_min": 20, "description": "", "image_url": None, "trending": False,
                     "active": True, "bookable_online": True, "gender": "unisex",
-                    "veg": "non-veg", "spice": spice})
+                    "veg": veg_flag, "spice": spice})
+                existing.add(name.lower())
                 added += 1
         return {"added": added, "updated": 0, "skipped": updated}
     for p in PRESET_SERVICES:
@@ -338,9 +346,10 @@ async def _generate_service_image_bytes(name: str, category: str, restaurant: bo
         raise HTTPException(500, "AI key not configured")
     gen = OpenAIImageGeneration(api_key=key)
     if restaurant:
-        prompt = (f"Professional food photograph of the dish '{name}' ({category} cuisine). "
-                  "Appetizing restaurant plating, overhead or 45-degree angle, warm natural lighting, "
-                  "garnished, steam rising, rustic table setting, photorealistic, shallow depth of field. "
+        prompt = (f"Premium gourmet food photograph of the dish '{name}' ({category} cuisine). "
+                  "Michelin-star restaurant plating on elegant dark ceramic, dramatic warm side lighting, "
+                  "artful garnish, glistening textures, gentle steam rising, luxury fine-dining ambience, "
+                  "85mm lens, shallow depth of field, high-end food magazine editorial quality, photorealistic. "
                   "Absolutely NO text, NO letters, NO watermarks, NO logos, NO people.")
     else:
         prompt = (f"Professional beauty-salon photograph for the service '{name}' in the category '{category}'. "
@@ -503,6 +512,53 @@ async def _run_image_job(jid: str, tenant_id: str, name: str, category: str, sid
         logging.error(f"mira image job {jid} failed: {e}")
         await _raw_db.mira_image_jobs.update_one(
             {"id": jid}, {"$set": {"status": "failed", "error": str(e)[:200]}})
+
+
+async def _generate_category_banner_bytes(category: str, restaurant: bool) -> bytes:
+    from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise HTTPException(500, "AI key not configured")
+    gen = OpenAIImageGeneration(api_key=key)
+    if restaurant:
+        prompt = (f"Wide premium banner photograph of a lavish spread of {category} dishes from an Indian restaurant. "
+                  "Multiple gourmet plates artfully arranged on a dark rustic wood table, dramatic warm lighting, "
+                  "fresh garnishes, subtle smoke wisps, luxury fine-dining editorial style, photorealistic. "
+                  "Absolutely NO text, NO letters, NO watermarks, NO logos, NO people.")
+    else:
+        prompt = (f"Wide premium banner photograph for the beauty-salon category '{category}'. "
+                  "Elegant luxury salon scene, soft warm lighting, rose-gold and cream tones, marble textures, "
+                  "photorealistic editorial quality. Absolutely NO text, NO letters, NO watermarks, NO logos.")
+    imgs = await asyncio.wait_for(
+        gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+    if not imgs:
+        raise RuntimeError("empty generation")
+    return imgs[0]
+
+
+async def _run_banner_job(jid: str, tenant_id: str, category: str):
+    try:
+        resto = await _tenant_is_restaurant(tenant_id)
+        img = await _generate_category_banner_bytes(category, resto)
+        url = await _store_service_image(tenant_id, img, f"banner-{category[:24]}")
+        await _raw_db.mira_image_jobs.update_one({"id": jid}, {"$set": {"status": "done", "image_url": url}})
+    except Exception as e:
+        logging.error(f"mira banner job {jid} failed: {e}")
+        await _raw_db.mira_image_jobs.update_one(
+            {"id": jid}, {"$set": {"status": "failed", "error": str(e)[:200]}})
+
+
+class BannerPreviewIn(BaseModel):
+    category: str = Field(..., min_length=1, max_length=60)
+
+
+@router.post("/services/generate-banner-preview")
+async def generate_category_banner(body: BannerPreviewIn, user=Depends(require_admin)):
+    """Mira paints a category banner in the background — poll /services/image-jobs/{id}."""
+    tenant_id = _current_tenant_id.get()
+    jid = await _new_image_job(tenant_id)
+    asyncio.get_event_loop().create_task(_run_banner_job(jid, tenant_id, body.category.strip()))
+    return {"ok": True, "job_id": jid}
 
 
 @router.get("/services/image-jobs/{jid}")
