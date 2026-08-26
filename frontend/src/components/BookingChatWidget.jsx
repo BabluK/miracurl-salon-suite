@@ -19,16 +19,24 @@ const QUICK_PROMPTS = [
   "Suggest a facial for my skin 💆‍♀️",
 ];
 
-function BookingCard({ booking }) {
+const RESTO_PROMPTS = [
+  "What's today's special? 🍽️",
+  "Suggest a veg starter 🟢",
+  "Book a table for 2 tonight 🪑",
+  "Chef's favourite dishes? 👨‍🍳",
+  "Best combo for a family 👨‍👩‍👧",
+];
+
+function BookingCard({ booking, restaurant = false }) {
   const when = new Date(booking.scheduled_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
   const waText = encodeURIComponent(
-    `✨ My appointment at ${booking.salon_name || "the salon"}\n` +
-    `💇 ${booking.service_names.join(", ")}\n` +
+    `✨ My ${restaurant ? "reservation" : "appointment"} at ${booking.salon_name || (restaurant ? "the restaurant" : "the salon")}\n` +
+    `${restaurant ? "🍽️" : "💇"} ${booking.service_names.join(", ")}\n` +
     `📅 ${when}\n👤 With ${booking.staff_name}\n💰 ₹${booking.total} · ${booking.duration_min} min`
   );
   return (
     <div className="mt-2 rounded-xl border border-gold/40 bg-gold/10 p-3 text-xs space-y-1" data-testid="ai-booking-card">
-      <div className="flex items-center gap-1.5 text-gold font-semibold"><Check className="w-3.5 h-3.5" /> Appointment Booked</div>
+      <div className="flex items-center gap-1.5 text-gold font-semibold"><Check className="w-3.5 h-3.5" /> {restaurant ? "Table Reserved" : "Appointment Booked"}</div>
       <div className="text-white/80">{booking.service_names.join(", ")}</div>
       <div className="text-white/60">{when} · with {booking.staff_name}</div>
       <div className="text-gold font-semibold">₹{booking.total} · {booking.duration_min} min</div>
@@ -53,21 +61,21 @@ function renderText(text) {
   );
 }
 
-function Bubble({ m }) {
+function Bubble({ m, restaurant = false }) {
   const mine = m.role === "user" || m.sender === "customer";
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap ${
         mine ? "bg-gold text-bg-base rounded-br-sm" : "bg-white/10 text-white/90 rounded-bl-sm"}`}>
         {renderText(m.text)}
-        {m.booking && <BookingCard booking={m.booking} />}
-        {m.handoff && <HandoffCard handoff={m.handoff} />}
+        {m.booking && <BookingCard booking={m.booking} restaurant={restaurant} />}
+        {m.handoff && <HandoffCard handoff={m.handoff} restaurant={restaurant} />}
       </div>
     </div>
   );
 }
 
-function HandoffCard({ handoff }) {
+function HandoffCard({ handoff, restaurant = false }) {
   const num = (handoff.reception_phone || handoff.salon_phone || "").replace(/[^\d+]/g, "");
   return (
     <div className="mt-2 rounded-xl border border-gold/40 bg-gold/10 p-3 space-y-2" data-testid="mira-handoff-card">
@@ -89,14 +97,16 @@ function HandoffCard({ handoff }) {
       <button type="button" data-testid="handoff-continue-mira-btn"
         onClick={() => window.dispatchEvent(new CustomEvent("miracurl:mira-continue"))}
         className="w-full px-3 py-2 rounded-lg border border-white/20 text-white/80 text-xs font-semibold hover:bg-white/10 transition">
-        🌸 Continue with Mira — AI beauty advisor
+        🌸 Continue with Mira — {restaurant ? "AI dining concierge" : "AI beauty advisor"}
       </button>
     </div>
   );
 }
 
-function AiTab({ slug }) {
-  const [msgs, setMsgs] = useState([mkMsg({ role: "ai", text: "Hi! I'm Mira ✨ your personal beauty advisor.\n\nI can book appointments for you, or suggest the right service for your hair & skin. May I know your name, please? 💖" })]);
+function AiTab({ slug, restaurant = false }) {
+  const [msgs, setMsgs] = useState([mkMsg({ role: "ai", text: restaurant
+    ? "Hi! I'm Mira 🍽️ your dining concierge.\n\nI can reserve a table for you, or suggest the perfect dishes from our menu. May I know your name, please? ✨"
+    : "Hi! I'm Mira ✨ your personal beauty advisor.\n\nI can book appointments for you, or suggest the right service for your hair & skin. May I know your name, please? 💖" })]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [handsFree, setHandsFree] = useState(false);
@@ -132,7 +142,9 @@ function AiTab({ slug }) {
   }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
   useEffect(() => {
-    const h = () => send("Yes Mira, let's continue — please guide me as my beauty advisor 💖");
+    const h = () => send(restaurant
+      ? "Yes Mira, let's continue — please guide me as my dining concierge 🍽️"
+      : "Yes Mira, let's continue — please guide me as my beauty advisor 💖");
     window.addEventListener("miracurl:mira-continue", h);
     return () => window.removeEventListener("miracurl:mira-continue", h);
   }); // re-registered each render so send() sees fresh state
@@ -236,14 +248,14 @@ function AiTab({ slug }) {
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5" data-testid="ai-chat-messages">
         {msgs.map((m, i) => (
           <div key={m.id || i}>
-            <Bubble m={m} />
+            <Bubble m={m} restaurant={restaurant} />
             {m.spoken && <div className="flex justify-start mt-0.5"><span className="text-[9px] text-white/30 flex items-center gap-1 px-1"><Volume2 className="w-2.5 h-2.5" /> spoken</span></div>}
           </div>
         ))}
         {busy && <div className="flex items-center gap-2 text-white/50 text-xs px-1"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is {recording ? "listening" : "typing"}…</div>}
         {msgs.length <= 2 && !busy && (
           <div className="flex flex-wrap gap-1.5 pt-1" data-testid="ai-quick-prompts">
-            {QUICK_PROMPTS.map(p => (
+            {(restaurant ? RESTO_PROMPTS : QUICK_PROMPTS).map(p => (
               <button key={p} data-testid="ai-quick-prompt" onClick={() => send(p)}
                 className="text-[11px] px-2.5 py-1.5 rounded-full bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-colors">
                 {p}
@@ -295,7 +307,8 @@ function AiTab({ slug }) {
   );
 }
 
-function OwnerTab({ slug }) {
+function OwnerTab({ slug, restaurant = false }) {
+  const biz = restaurant ? "restaurant" : "salon";
   const storeKey = `salon_chat_${slug}`;
   const [identity, setIdentity] = useState(() => {
     try { return JSON.parse(localStorage.getItem(storeKey)) || null; } catch { return null; }
@@ -361,7 +374,7 @@ function OwnerTab({ slug }) {
       <div className="flex-1 p-5 flex flex-col justify-center gap-3" data-testid="owner-chat-identity-form">
         <div className="text-center mb-2">
           <User className="w-8 h-8 text-gold mx-auto mb-2" />
-          <div className="text-sm text-white/90 font-medium">Chat with the salon</div>
+          <div className="text-sm text-white/90 font-medium">Chat with the {biz}</div>
           <p className="text-xs text-white/50 mt-1">Tell us who you are — the owner will reply here.</p>
         </div>
         <input data-testid="owner-chat-name-input" value={name} onChange={e => setName(e.target.value)} placeholder="Your name"
@@ -379,7 +392,7 @@ function OwnerTab({ slug }) {
   return (
     <>
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5" data-testid="owner-chat-messages">
-        {msgs.length === 0 && <p className="text-center text-xs text-white/40 mt-8">Say hello 👋 — the salon owner will reply here.</p>}
+        {msgs.length === 0 && <p className="text-center text-xs text-white/40 mt-8">Say hello 👋 — the {biz} owner will reply here.</p>}
         {msgs.map(m => <Bubble key={m.id} m={m} />)}
         <div ref={endRef} />
       </div>
@@ -389,7 +402,7 @@ function OwnerTab({ slug }) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()}
-          placeholder="Message the salon owner…"
+          placeholder={`Message the ${biz} owner…`}
           className="flex-1 bg-white/5 border border-white/15 rounded-full px-4 py-2 text-[13px] text-white placeholder:text-white/30 focus:outline-none focus:border-gold/60"
         />
         <button data-testid="owner-chat-send-btn" onClick={send} disabled={busy} className="w-9 h-9 rounded-full bg-gold text-bg-base flex items-center justify-center disabled:opacity-50 flex-shrink-0">
@@ -400,7 +413,7 @@ function OwnerTab({ slug }) {
   );
 }
 
-export const BookingChatWidget = ({ slug }) => {
+export const BookingChatWidget = ({ slug, restaurant = false }) => {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("ai");
 
@@ -425,7 +438,7 @@ export const BookingChatWidget = ({ slug }) => {
           <img src="/mira-bot.png" alt="Mira" className="w-10 h-10 rounded-full object-cover border-2 border-bg-base/20" />
           <span className="text-left leading-tight">
             Ask Mira AI
-            <span className="block text-[9px] font-medium opacity-80 tracking-wide">Skin, Hair &amp; Beauty Expert</span>
+            <span className="block text-[9px] font-medium opacity-80 tracking-wide">{restaurant ? "Menu, Specials & Table Booking" : "Skin, Hair & Beauty Expert"}</span>
           </span>
         </button>
       )}
@@ -438,8 +451,8 @@ export const BookingChatWidget = ({ slug }) => {
             <div className="flex items-center gap-2">
               <img src="/mira-bot.png" alt="Mira" className="w-9 h-9 rounded-full object-cover border border-gold/50" />
               <div>
-                <div className="text-sm font-semibold text-white">{tab === "ai" ? "Mira — Skin, Hair & Beauty Expert" : "Chat with Salon"}</div>
-                <div className="text-[10px] text-gold uppercase tracking-widest">{tab === "ai" ? "AI Advice · Booking" : "Owner replies here"}</div>
+                <div className="text-sm font-semibold text-white">{tab === "ai" ? (restaurant ? "Mira — Dining Concierge" : "Mira — Skin, Hair & Beauty Expert") : (restaurant ? "Chat with Restaurant" : "Chat with Salon")}</div>
+                <div className="text-[10px] text-gold uppercase tracking-widest">{tab === "ai" ? (restaurant ? "AI Menu Help · Reservations" : "AI Advice · Booking") : "Owner replies here"}</div>
               </div>
             </div>
             <button data-testid="booking-chat-close-btn" onClick={() => setOpen(false)} className="p-1.5 text-white/50 hover:text-white rounded-md hover:bg-white/5">
@@ -453,10 +466,10 @@ export const BookingChatWidget = ({ slug }) => {
             </button>
             <button data-testid="chat-tab-owner" onClick={() => setTab("owner")}
               className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${tab === "owner" ? "text-gold border-b-2 border-gold bg-gold/5" : "text-white/50 hover:text-white"}`}>
-              <MessageCircle className="w-3.5 h-3.5" /> Message Salon
+              <MessageCircle className="w-3.5 h-3.5" /> {restaurant ? "Message Restaurant" : "Message Salon"}
             </button>
           </div>
-          {tab === "ai" ? <AiTab slug={slug} /> : <OwnerTab slug={slug} />}
+          {tab === "ai" ? <AiTab slug={slug} restaurant={restaurant} /> : <OwnerTab slug={slug} restaurant={restaurant} />}
         </div>
       )}
     </>

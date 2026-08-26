@@ -661,9 +661,14 @@ async def public_ai_greeting(slug: str, request: Request):
     """Spoken greeting for the voice-first Mira widget — TTS is content-cached, so repeats are free."""
     t = await resolve_tenant_from_slug(slug)
     public_rate_limit(request, key_suffix=f"aigreet:{slug}", limit=30, window_sec=600)
-    text = (f"Hi! I'm Mira, your personal beauty advisor at {t.get('name', 'our salon')}. "
-            "I can book your appointment or suggest the right treatment for your hair and skin. "
-            "May I know your name, please?")
+    if t.get("business_type") == "restaurant":
+        text = (f"Hi! I'm Mira, your dining concierge at {t.get('name', 'our restaurant')}. "
+                "I can reserve your table or suggest the perfect dishes from our menu. "
+                "May I know your name, please?")
+    else:
+        text = (f"Hi! I'm Mira, your personal beauty advisor at {t.get('name', 'our salon')}. "
+                "I can book your appointment or suggest the right treatment for your hair and skin. "
+                "May I know your name, please?")
     audio_b64 = None
     try:
         audio_b64 = await _tts_cached_speech(text, voice="shimmer", speed=1.0)

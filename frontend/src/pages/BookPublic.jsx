@@ -509,8 +509,8 @@ export default function BookPublic() {
           <>
             <OffersShowcase items={gallery.filter(g => g.source === "offer")} />
             <GalleryShowcase items={gallery.filter(g => g.source !== "offer")} />
-            <VerifiedTeam staff={staff} />
-            {salon.show_products !== false && <MiracurlProductsStrip compact />}
+            <VerifiedTeam staff={staff} restaurant={salon.business_type === "restaurant"} />
+            {salon.business_type !== "restaurant" && salon.show_products !== false && <MiracurlProductsStrip compact />}
             <ReferEarnBanner salonName={salon.name} reward={salon.referral_reward} />
             <AITrustStrip />
           </>
@@ -574,7 +574,7 @@ export default function BookPublic() {
         </div>
       </footer>
       <InstallAppPrompt />
-      <BookingChatWidget slug={slug} />
+      <BookingChatWidget slug={slug} restaurant={salon.business_type === "restaurant"} />
     </div>
   );
 }

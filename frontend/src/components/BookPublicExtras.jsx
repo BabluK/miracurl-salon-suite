@@ -101,7 +101,7 @@ export const GalleryShowcase = ({ items }) => {
 };
 
 /* ---- Verified team strip (links to public Staff Registry) ---- */
-export const VerifiedTeam = ({ staff }) => {
+export const VerifiedTeam = ({ staff, restaurant = false }) => {
   if (!staff?.length) return null;
   return (
     <section className="mt-16" data-testid="verified-team-section">
@@ -119,15 +119,17 @@ export const VerifiedTeam = ({ staff }) => {
           </div>
         ))}
       </div>
-      <a
-        href="/staff-registry"
-        target="_blank"
-        rel="noreferrer"
-        data-testid="verify-staff-registry-link"
-        className="inline-flex items-center gap-2 mt-4 text-xs text-gold hover:text-gold-hover"
-      >
-        <ShieldCheck className="w-3.5 h-3.5" /> Verify any stylist's employment history on the Staff Registry <ArrowRight className="w-3 h-3" />
-      </a>
+      {!restaurant && (
+        <a
+          href="/staff-registry"
+          target="_blank"
+          rel="noreferrer"
+          data-testid="verify-staff-registry-link"
+          className="inline-flex items-center gap-2 mt-4 text-xs text-gold hover:text-gold-hover"
+        >
+          <ShieldCheck className="w-3.5 h-3.5" /> Verify any stylist's employment history on the Staff Registry <ArrowRight className="w-3 h-3" />
+        </a>
+      )}
     </section>
   );
 };
