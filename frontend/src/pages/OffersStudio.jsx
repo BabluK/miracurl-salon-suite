@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Download, Palette, Sparkles, Plus, X } from "lucide-react";
+import { Download, Palette, Sparkles, Plus, X, Loader2 } from "lucide-react";
 import { AIFlyerStudio } from "@/components/AIFlyerStudio";
 import { MiraPackagesCard } from "@/components/MiraPackagesCard";
 
@@ -12,6 +12,7 @@ const MIRA_DETAILS_RESTO = "Chat with Mira AI, our 24/7 dining concierge. Ask ab
 
 // One-tap restaurant offer presets — fills the poster headline & details instantly
 const RESTO_QUICK_OFFERS = [
+  { icon: "🍽️", label: "Today's Special", title: "TODAY'S SPECIAL", details: "Chef's hand-picked dishes of the day — fresh, hot & at a special price" },
   { icon: "🎉", label: "New Customer", title: "20% OFF FIRST ORDER", details: "Welcome treat for first-time guests — dine-in, takeaway or delivery" },
   { icon: "🍕", label: "Flat ₹100 OFF", title: "FLAT ₹100 OFF", details: "On all orders above ₹499" },
   { icon: "💳", label: "Premium Member", title: "PREMIUM MEMBERSHIP ₹499/yr", details: "Cashback on every visit · birthday reward · member-only offers · exclusive weekend deals" },
@@ -268,6 +269,62 @@ function wrapText(ctx, text, x, y, maxW, lineH) {
 
 const MAX_SERVICE_ROWS = 5;
 
+// Restaurant-only: Mira designs the whole poster offer (headline + details + dish prices)
+function MiraOfferDesigner({ setF, setRows, onDesigned }) {
+  const [busy, setBusy] = useState("");
+  const [pct, setPct] = useState("");
+
+  const design = async (kind) => {
+    setBusy(kind);
+    try {
+      const { data } = await api.post("/mira-offers/suggest", { kind, ...(pct ? { discount_pct: Number(pct) } : {}) });
+      const o = data.offer;
+      setF(prev => ({
+        ...prev, offerTitle: o.headline, offerDetails: o.details,
+        ...(kind === "todays_special"
+          ? { validity: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" }) } : {}),
+      }));
+      setRows(o.dishes.map(d => ({ service_id: d.service_id || d.name, name: d.name, actual: d.actual, offer: d.offer })));
+      onDesigned?.();
+      toast.success("✨ Mira designed your offer — poster is ready, tweak & download");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Mira couldn't design that — try again");
+    } finally { setBusy(""); }
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-[#17141c] to-[#26202b] rounded-2xl border border-amber-300/30 p-5 text-white" data-testid="mira-offer-designer">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-amber-300/15 border border-amber-300/40 flex items-center justify-center">
+            <Sparkles className="w-4.5 h-4.5 text-amber-300" />
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">Mira · Offer Designer</div>
+            <div className="font-playfair text-lg leading-tight">Let Mira design today&apos;s offer ✦</div>
+          </div>
+        </div>
+        <select value={pct} onChange={e => setPct(e.target.value)} data-testid="mira-offer-pct-select"
+          className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
+          <option value="">Mira decides %</option>
+          {[10, 15, 20, 25, 30, 35, 40, 50].map(p => <option key={p} value={p}>{p}% off</option>)}
+        </select>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button onClick={() => design("todays_special")} disabled={!!busy} data-testid="mira-offer-todays-special-btn"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-amber-300/40 text-sm font-semibold hover:bg-amber-300/10 disabled:opacity-50">
+          {busy === "todays_special" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-300" />} Today&apos;s Special 🍽️
+        </button>
+        <button onClick={() => design("surprise")} disabled={!!busy} data-testid="mira-offer-surprise-btn"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-amber-300/40 text-sm font-semibold hover:bg-amber-300/10 disabled:opacity-50">
+          {busy === "surprise" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-300" />} Surprise me — Mira decides ✨
+        </button>
+      </div>
+      <p className="text-[11px] text-white/45 mt-3">Mira picks real dishes from your menu with offer prices and fills the poster below — or make your own with the one-tap offers 👇</p>
+    </div>
+  );
+}
+
 function ServiceOfferRows({ services, rows, setRows, isResto }) {
   const [selId, setSelId] = useState("");
   const noun = isResto ? "dish" : "service";
@@ -414,7 +471,10 @@ export default function OffersStudio() {
         <p className="text-slate-500 text-sm mt-1">120 seasonal templates — your logo, location & number auto-placed. Download ready-to-post images for Instagram, Facebook & WhatsApp status.</p>
       </div>
 
-      <MiraPackagesCard isResto={isResto} />
+      {isResto ? (
+        <MiraOfferDesigner setF={setF} setRows={setRows}
+          onDesigned={() => setTheme(prev => (prev.id === "mira" ? THEMES[6] : prev))} />
+      ) : <MiraPackagesCard />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Controls */}

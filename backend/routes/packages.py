@@ -176,6 +176,53 @@ async def suggest_package(body: SuggestIn, user=Depends(require_tenant_admin), t
     return {"package": doc}
 
 
+class MiraOfferIn(BaseModel):
+    kind: str = "surprise"  # surprise | todays_special
+    discount_pct: int | None = None
+
+
+@router.post("/mira-offers/suggest")
+async def suggest_restaurant_offer(body: MiraOfferIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Restaurant-only: Mira designs a poster-ready offer (headline + details + dish prices)."""
+    from security import ai_daily_quota
+    from routes.mira_studio import _ask_json
+    from routes.day_offers import _catalog_context
+    await ai_daily_quota(t["id"], "admin_ai_suggest", 80)
+    ctx = await _catalog_context(t)
+    pool = ctx["services"]
+    catalog = "\n".join(f"- {s['name']} · ₹{s['price']:.0f} ({s.get('category') or 'General'})" for s in pool[:40])
+    pct = max(5, min(60, int(body.discount_pct))) if body.discount_pct else None
+    pct_line = (f"Discount is FIXED at exactly {pct}% off each dish's real price."
+                if pct else "Choose a tempting discount (15-30% off) per dish.")
+    focus = ("This is TODAY'S SPECIAL — pick 3-5 crave-worthy dishes the kitchen can push hard today; headline must contain TODAY'S SPECIAL."
+             if body.kind == "todays_special" else
+             "Invent ONE irresistible restaurant offer (happy hours, weekday deal, family feast, chef's picks — you decide) using 3-5 dishes.")
+    data = await _ask_json(
+        "You are Mira, an expert restaurant revenue strategist for Indian restaurants. You design offers diners can't resist.",
+        f"Restaurant: {t.get('name')}. {focus}\n"
+        f"MENU (real prices — copy dish names EXACTLY, never invent):\n{catalog}\n{pct_line}\n"
+        'Return JSON: {"headline":"<punchy poster headline, MAX 38 chars, ALL CAPS>",'
+        '"details":"<one enticing line under 120 chars>",'
+        '"dishes":[{"name":"<exact menu name>","offer_price":<discounted num>}]}')
+    real = {s["name"].lower().strip(): s for s in pool}
+    dishes = []
+    for d in (data.get("dishes") or [])[:5]:
+        m = real.get(str(d.get("name", "")).lower().strip())
+        if not m:
+            continue
+        actual = float(m["price"])
+        offer = float(d.get("offer_price") or 0)
+        if pct:
+            offer = round(actual * (1 - pct / 100))
+        if not (0 < offer < actual):
+            offer = round(actual * 0.8)
+        dishes.append({"service_id": m.get("id"), "name": m["name"], "actual": actual, "offer": offer})
+    if not data.get("headline") or len(dishes) < 2:
+        raise HTTPException(400, "Mira couldn't design that offer — try again")
+    return {"offer": {"headline": str(data["headline"])[:40].upper(),
+                      "details": str(data.get("details") or "")[:160], "dishes": dishes}}
+
+
 class PublishIn(BaseModel):
     package_id: str
     template: str = "dark_glam"
