@@ -2301,3 +2301,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - login() refactored (complexity 19→~6): extracted _reject_if_locked(), _register_failed_login(), _issue_session(). CAREFUL: decorator @router.post("/auth/login") must sit on login(), not helpers (was briefly misplaced during edit, fixed). Verified: login 200, bad pw 401, re-login OK, CSRF pytest suite 8 passed.
 - FALSE POSITIVES documented: security.py:149 "hardcoded secret" is the "csrf-v1:" domain-separation prefix (real key from JWT_SECRET env); "67 undefined variables" — pyflakes reports 0; utils.py:8 `is` comparison — actually `in` tuple, and no `is "lit"` patterns exist in production code.
 - Declined as churn: mass type-hint coverage push + refactors of hq_documents/hq_notifications templates (working, low-risk code).
+
+## Session 2026-06 (fork) — Prod bug fixes (double toast, resto staff wording)
+- Double "Booking confirmed!" toasts: TWO <Toaster> mounted on /book/* (global App.js top-right + BookPublic top-center). Fix: App.js GlobalToaster component returns null on paths starting /book/. 
+- Restaurant staff step de-salonified: StaffStep now takes `restaurant` prop — heading "Who should take care of your table?", sub "Pick a favourite host or chef — or let us seat you with our best.", "Anyone's Great"/"First available team member". Screenshot-verified, zero "stylist" text on resto page.
+- Share & earn ₹100 status (user asked): NOT removed — gated to bookings ≥₹1000 for ALL tenants/both verticals (shipped in prior deploy).

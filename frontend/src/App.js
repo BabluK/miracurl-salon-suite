@@ -6,6 +6,14 @@ function ScrollToTop() {
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return null;
 }
+
+// BookPublic mounts its own top-center Toaster — rendering the global one there
+// too would show every toast twice (prod bug: double "Booking confirmed!").
+function GlobalToaster() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith("/book/")) return null;
+  return <Toaster theme="dark" position="top-right" toastOptions={TOAST_OPTIONS} />;
+}
 import { Toaster, toast } from "sonner";
 
 function VersionWatcher() {
@@ -201,7 +209,7 @@ export default function App() {
           <VersionWatcher />
           <ManifestSwitcher />
           <MicroInteractions />
-          <Toaster theme="dark" position="top-right" toastOptions={TOAST_OPTIONS} />
+          <GlobalToaster />
           <ConfirmHost />
           <ErrorBoundary>
           <PlayerProvider>

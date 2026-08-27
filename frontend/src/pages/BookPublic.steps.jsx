@@ -202,14 +202,14 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
   );
 }
 
-export function StaffStep({ staff, staffId, onPick, date }) {
+export function StaffStep({ staff, staffId, onPick, date, restaurant }) {
   const day = date || new Date().toISOString().slice(0, 10);
   const weekday = new Date(day + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
   return (
     <section className="space-y-6 animate-fade-up">
       <div>
-        <h2 className="font-playfair text-3xl">Choose your stylist</h2>
-        <p className="text-ink-secondary text-sm mt-1">Have a favourite? Pick them. Or let us assign the best fit.</p>
+        <h2 className="font-playfair text-3xl">{restaurant ? "Who should take care of your table?" : "Choose your stylist"}</h2>
+        <p className="text-ink-secondary text-sm mt-1">{restaurant ? "Pick a favourite host or chef — or let us seat you with our best." : "Have a favourite? Pick them. Or let us assign the best fit."}</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <button
@@ -220,9 +220,9 @@ export function StaffStep({ staff, staffId, onPick, date }) {
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold/30 to-blush/20 mx-auto flex items-center justify-center border-2 border-gold/40">
             <Sparkles className="w-8 h-8 text-gold" />
           </div>
-          <div className="font-playfair text-xl mt-3">Any Stylist</div>
+          <div className="font-playfair text-xl mt-3">{restaurant ? "Anyone's Great" : "Any Stylist"}</div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-gold mt-1">We choose</p>
-          <p className="text-xs text-ink-secondary mt-2">First available expert</p>
+          <p className="text-xs text-ink-secondary mt-2">{restaurant ? "First available team member" : "First available expert"}</p>
         </button>
         {staff.map(s => {
           const onLeave = (s.leaves || []).some(l => l.from <= day && day <= l.to);

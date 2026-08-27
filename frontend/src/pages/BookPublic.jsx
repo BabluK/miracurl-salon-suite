@@ -570,7 +570,7 @@ export default function BookPublic() {
         {step < 5 && <Stepper step={step} labels={salon.business_type === "restaurant" ? RESTO_LABELS : STEP_LABELS} />}
 
         {step === 0 && <ServicesStep byCategory={byCategory} picked={picked} onToggle={toggleService} catImages={catImages} catOrder={catOrder} restaurant={salon.business_type === "restaurant"} />}
-        {step === 1 && <StaffStep staff={staff} staffId={staffId} onPick={setStaffId} date={date} />}
+        {step === 1 && <StaffStep staff={staff} staffId={staffId} onPick={setStaffId} date={date} restaurant={salon.business_type === "restaurant"} />}
         {step === 2 && (
           <>
             {salon.business_type === "restaurant" && (
