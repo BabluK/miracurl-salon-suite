@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-25.119"
-BUILD_TIME = "25 Aug 2026, 11:30 PM IST"
+BUILD = "2026-08-27.120"
+BUILD_TIME = "27 Aug 2026, 11:30 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-27 (Festival-smart Mira & two-app install 🪔)",
+        "changes": [
+            "🪔 Mira now knows every Indian festival (2026-27) — your Dashboard greets you with today's or tomorrow's festival (e.g. 'Raksha Bandhan tomorrow — get them festival-ready ✦') and Mira themes the Offer of the Day around it",
+            "🎨 Festival poster designs — Diwali offers get diya-and-rangoli flyers, Holi gets colour-splash, Ganesh Chaturthi gets Ganesha blessings… picked automatically, or choose from the new 'Festival specials' group in the poster style menu",
+            "✨ Booking page glow-up — today's offer banner and Signature Package cards now show gorgeous service photos (facial, hair, spa, men's grooming, dining) with a gold % OFF badge",
+            "📱 Install BOTH apps on one phone — 'Miracurl Partner' (your dashboard) and 'Miracurl Book' (customer booking) are now separate installs that no longer overwrite each other on Android/iOS",
+        ],
+    },
     {
         "date": "2026-08-25 (Restaurant fixes pack 🍗)",
         "changes": [

@@ -296,18 +296,16 @@ def _offer_flyer_in(doc: dict, template: str):
 @router.post("/day-offers/regenerate-flyer")
 async def regenerate_flyer(body: ReflyerIn = ReflyerIn(), user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Fresh poster design for today's accepted offer — the offer itself doesn't change."""
-    import secrets as _secrets
     today = _today_ist().date().isoformat()
     doc = await _raw_db.day_offers.find_one(
         {"tenant_id": t["id"], "date": today, "status": "accepted", "kind": {"$ne": "flash"}}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "No accepted offer today")
-    from routes.offer_flyer import create_flyer, TEMPLATES
+    from routes.offer_flyer import create_flyer, TEMPLATES, auto_template
     if body.template and body.template in TEMPLATES:
         template = body.template
     else:
-        choices = [k for k in TEMPLATES if k != doc.get("flyer_template")] or list(TEMPLATES)
-        template = _secrets.choice(choices)
+        template = auto_template(exclude=doc.get("flyer_template"))
     flyer = await create_flyer(_offer_flyer_in(doc, template), user=user, t=t)
     patch = {"flyer_id": flyer["id"], "flyer_url": flyer["url"], "flyer_template": template}
     await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
@@ -316,7 +314,7 @@ async def regenerate_flyer(body: ReflyerIn = ReflyerIn(), user=Depends(require_t
 
 class AcceptIn(BaseModel):
     offer_id: str
-    template: str = "dark_glam"
+    template: str | None = None  # None → Mira auto-picks (festival design when a festival is near)
     discount_pct: int | None = None  # owner-adjusted % — prices recalculated server-side
     service_names: list[str] | None = None  # owner-tuned service list (swap/remove/add before locking in)
 
@@ -399,11 +397,16 @@ async def accept_offer(body: AcceptIn, request: Request, user=Depends(require_te
         pct_patch.update({"discount_pct": doc["discount_pct"], "services": doc["services"],
                           "title": doc["title"], "offer_text": doc["offer_text"],
                           "whatsapp_caption": doc.get("whatsapp_caption", "")})
-    flyer_id, flyer_url = await _accept_flyer(doc, body.template, user, t)
+    flyer_template = body.template
+    if not flyer_template:
+        from routes.offer_flyer import auto_template
+        flyer_template = auto_template()
+    flyer_id, flyer_url = await _accept_flyer(doc, flyer_template, user, t)
     google_post, meta_post = await _auto_post_socials(request, t, doc, flyer_url)
     patch = {**pct_patch,
              "status": "accepted", "accepted_at": datetime.now(timezone.utc).isoformat(),
-             "flyer_id": flyer_id, "flyer_url": flyer_url, "google_post": google_post, "meta_post": meta_post}
+             "flyer_id": flyer_id, "flyer_url": flyer_url, "flyer_template": flyer_template,
+             "google_post": google_post, "meta_post": meta_post}
     await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": patch})
     if doc.get("kind") == "flash":
         await _raw_db.flash_alerts.update_one(

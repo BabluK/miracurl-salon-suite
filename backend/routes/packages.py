@@ -275,7 +275,7 @@ async def act_daily_special(sid: str, action: str, user=Depends(require_tenant_a
 
 class PublishIn(BaseModel):
     package_id: str
-    template: str = "dark_glam"
+    template: str | None = None  # None → Mira auto-picks (festival design when a festival is near)
     discount_pct: int | None = None  # owner-adjusted % — price recalculated server-side
 
 
@@ -378,7 +378,11 @@ async def publish_package(body: PublishIn, request: Request, user=Depends(requir
         pct_patch = {"package_price": doc["package_price"], "discount_pct": doc["discount_pct"], "caption": doc["caption"]}
     valid_days = doc.get("valid_days")
     expires_at = (datetime.now(timezone.utc) + timedelta(days=valid_days)).isoformat() if valid_days else None
-    flyer_id, flyer_url = await _render_package_flyer(doc, body.template, user, t)
+    flyer_template = body.template
+    if not flyer_template:
+        from routes.offer_flyer import auto_template
+        flyer_template = auto_template()
+    flyer_id, flyer_url = await _render_package_flyer(doc, flyer_template, user, t)
     google_post, meta_post = await _post_package_social(t, doc, flyer_url, request)
     patch = {**pct_patch,
              "status": "published", "published_at": datetime.now(timezone.utc).isoformat(),

@@ -84,6 +84,30 @@ def festival_info(d: date) -> dict:
     return {"today": festival_today(d), "upcoming": next_festival(d)}
 
 
+_TEMPLATE_MAP = [
+    (("diwali", "dhanteras", "bhai dooj", "karwa", "chhath"), "diwali_lights"),
+    (("holi",), "holi_splash"),
+    (("ganesh",), "ganesh_blessings"),
+    (("raksha",), "rakhi_bond"),
+    (("navratri", "dussehra"), "navratri_dandiya"),
+    (("christmas", "new year"), "christmas_glow"),
+    (("eid",), "eid_elegance"),
+    (("valentine",), "valentine_rose"),
+]
+
+
+def festival_template(d: date) -> str | None:
+    """Poster template key for today's (or an upcoming ≤7 days) festival, if any."""
+    f = festival_today(d) or next_festival(d, window=7)
+    if not f:
+        return None
+    n = f["name"].lower()
+    for keys, tpl in _TEMPLATE_MAP:
+        if any(k in n for k in keys):
+            return tpl
+    return "festive_sparkle"
+
+
 def festival_prompt_line(d: date) -> str:
     """Prompt injection so Mira themes offers around today's / upcoming festivals."""
     ft = festival_today(d)

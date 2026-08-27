@@ -11,5 +11,16 @@ export const POSTER_STYLES = [
   { key: "navy_classic", label: "🌊 Navy Classic" },
 ];
 
+export const FESTIVAL_STYLES = [
+  { key: "diwali_lights", label: "🪔 Diwali Diyas & Rangoli" },
+  { key: "holi_splash", label: "🎨 Holi Colour Splash" },
+  { key: "ganesh_blessings", label: "🐘 Ganesh Chaturthi" },
+  { key: "rakhi_bond", label: "🪢 Raksha Bandhan" },
+  { key: "navratri_dandiya", label: "💃 Navratri Dandiya" },
+  { key: "christmas_glow", label: "🎄 Christmas Glow" },
+  { key: "eid_elegance", label: "🌙 Eid Elegance" },
+  { key: "valentine_rose", label: "❤️ Valentine Rose" },
+];
+
 export const randomPosterStyle = () =>
   POSTER_STYLES[Math.floor(Math.random() * POSTER_STYLES.length)].key;

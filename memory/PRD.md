@@ -178,6 +178,14 @@ Frontend:
 - Public endpoints now expose flyer_url (day-offer + packages) for future use.
 - Verified: festival helpers unit-tested for 5 dates, /day-offers/today curl (cookie auth), Dashboard + booking page screenshots.
 
+## 2026-08-27 — Festival poster styles + deployment ritual
+- offer_flyer.py: 8 new festival poster TEMPLATES (diwali_lights, holi_splash, ganesh_blessings, rakhi_bond, navratri_dandiya, christmas_glow, eid_elegance, valentine_rose) + FESTIVAL_TEMPLATE_KEYS + `auto_template(exclude)` (festival design first when festival today/≤7 days, else random regular style — festival styles excluded from random rotation).
+- festivals.py: `festival_template(d)` keyword map (Dhanteras/Bhai Dooj/Karwa/Chhath→diwali_lights, Dussehra→navratri_dandiya, unmapped festivals→festive_sparkle).
+- Auto-pick wired: day-offer accept + regenerate-flyer + package publish now take template=None → server auto-picks (AcceptIn/ReflyerIn/PublishIn templates now Optional). Frontend sends `style || null` instead of random. Accept now stores flyer_template on the offer doc.
+- posterStyles.js: FESTIVAL_STYLES export; "✦ Festival specials" optgroup in MiraDayOffer + MiraPackagesCard style selects.
+- E2E verified: real accept on preview auto-picked rakhi_bond (Raksha Bandhan tomorrow) and produced an on-theme festive flyer.
+- ⚠️ DEPLOYMENT RITUAL (user-mandated): before EVERY deploy, prepend a RELEASES entry + bump BUILD in /app/backend/release_notes.py so the What's New popup shows on all tenant dashboards. See /app/memory/DEPLOYMENT_RITUAL.md. Bumped now to 2026-08-27.120 (popup verified on Dashboard).
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).

@@ -78,7 +78,76 @@ TEMPLATES = {
         "prompt": "serene model receiving a spa hair treatment, soft rose-pink and cream background with "
                   "gentle wave shapes, calming premium salon advertisement, airy beauty photography",
     },
+    # ---- Festival specials (auto-picked around Indian festivals) ----
+    "diwali_lights": {
+        "label": "Diwali Diyas & Rangoli", "accent": (255, 198, 70), "text": (255, 255, 255),
+        "prompt": "radiant Indian woman in an elegant silk saree with glamorous festive makeup and jhumka "
+                  "earrings holding a glowing brass diya lamp, background filled with rows of lit diyas, an "
+                  "intricate colourful rangoli pattern and warm golden fairy-light bokeh, deep maroon and "
+                  "gold Diwali celebration salon advertisement, festive luxury photography",
+    },
+    "holi_splash": {
+        "label": "Holi Colour Splash", "accent": (255, 230, 90), "text": (255, 255, 255),
+        "prompt": "joyful Indian woman laughing with vibrant gulal colour powder on her cheeks and flowing "
+                  "hair, bursts of pink, yellow, turquoise and purple Holi powder exploding around her against "
+                  "a deep indigo background, energetic Holi festival salon advertisement, vivid celebration photography",
+    },
+    "ganesh_blessings": {
+        "label": "Ganesh Chaturthi", "accent": (255, 190, 70), "text": (255, 255, 255),
+        "prompt": "graceful Indian woman with an elegant festive hairstyle, traditional gold jewelry and soft "
+                  "glam makeup, beside a beautifully decorated Lord Ganesha idol with fresh marigold garlands "
+                  "and glowing oil lamps, warm saffron orange and gold festive background with temple bokeh "
+                  "lights, Ganesh Chaturthi celebration salon advertisement, devotional festive photography",
+    },
+    "rakhi_bond": {
+        "label": "Raksha Bandhan", "accent": (255, 200, 90), "text": (255, 255, 255),
+        "prompt": "elegant Indian woman with festive glam makeup and styled hair tying an ornate golden rakhi "
+                  "thread, warm background of marigold flowers, decorative rakhi threads, sweets thali and soft "
+                  "golden bokeh, amber and rose Raksha Bandhan celebration salon advertisement, warm festive photography",
+    },
+    "navratri_dandiya": {
+        "label": "Navratri Dandiya", "accent": (255, 214, 90), "text": (255, 255, 255),
+        "prompt": "stunning Indian woman in a vibrant mirror-work chaniya choli with festive makeup and flowing "
+                  "styled hair holding decorated dandiya sticks mid-dance, night garba celebration background with "
+                  "colourful hanging lanterns and sparkling lights, energetic Navratri festival salon advertisement, "
+                  "dynamic celebration photography",
+    },
+    "christmas_glow": {
+        "label": "Christmas Glow", "accent": (255, 210, 110), "text": (255, 255, 255),
+        "prompt": "glamorous model with soft bouncy curls and sparkling party makeup in a deep red outfit, "
+                  "background of a golden-lit Christmas tree, warm string lights, snowflake sparkle bokeh, "
+                  "festive red green and gold salon advertisement, cozy holiday beauty photography",
+    },
+    "eid_elegance": {
+        "label": "Eid Elegance", "accent": (240, 205, 110), "text": (255, 255, 255),
+        "prompt": "elegant woman in an embellished emerald outfit with graceful hijab-friendly styling, delicate "
+                  "henna mehndi on her hands, background of glowing golden fanoos lanterns, crescent moon and "
+                  "stars over a deep emerald night sky, luxurious Eid celebration salon advertisement, serene "
+                  "festive photography",
+    },
+    "valentine_rose": {
+        "label": "Valentine Rose", "accent": (255, 190, 190), "text": (255, 255, 255),
+        "prompt": "romantic model with soft blush makeup, glossy lips and gorgeous styled waves holding a deep "
+                  "red rose, dreamy background of red roses, floating heart bokeh and silk ribbons in crimson and "
+                  "blush pink, Valentine's Day romance salon advertisement, soft romantic beauty photography",
+    },
 }
+
+FESTIVAL_TEMPLATE_KEYS = {"diwali_lights", "holi_splash", "ganesh_blessings", "rakhi_bond",
+                          "navratri_dandiya", "christmas_glow", "eid_elegance", "valentine_rose"}
+
+
+def auto_template(exclude: str | None = None) -> str:
+    """Festival-aware template pick: today's/upcoming festival design first, else a random regular style."""
+    import secrets as _secrets
+    from datetime import timedelta as _td
+    from festivals import festival_template
+    ist_today = (datetime.now(timezone.utc) + _td(hours=5, minutes=30)).date()
+    tpl = festival_template(ist_today)
+    if tpl and tpl in TEMPLATES and tpl != exclude:
+        return tpl
+    choices = [k for k in TEMPLATES if k not in FESTIVAL_TEMPLATE_KEYS and k != exclude]
+    return _secrets.choice(choices)
 
 
 class FlyerIn(BaseModel):

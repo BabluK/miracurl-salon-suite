@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Zap } from "lucide-react";
-import { POSTER_STYLES, randomPosterStyle } from "@/lib/posterStyles";
+import { POSTER_STYLES, FESTIVAL_STYLES } from "@/lib/posterStyles";
 import { shareWithPoster } from "@/lib/sharePoster";
 import { confirmAsync } from "@/components/ConfirmDialog";
 
@@ -197,7 +197,7 @@ export function MiraDayOffer() {
       if (action === "accept") {
         const target = isFlash ? flash.offer : offer;
         const { data } = await api.post("/day-offers/accept", {
-          offer_id: target.id, template: style || randomPosterStyle(),
+          offer_id: target.id, template: style || null,
           ...(pctOverride ? { discount_pct: pctOverride } : {}),
           ...(serviceNames ? { service_names: serviceNames } : {}),
         });
@@ -274,9 +274,12 @@ export function MiraDayOffer() {
         <div className="flex items-center gap-2 flex-wrap">
           <select value={style} onChange={(e) => setStyle(e.target.value)} data-testid="day-offer-style-select"
             title="Poster design style"
-            className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
+            className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&_option]:bg-[#17141c] [&_optgroup]:bg-[#17141c]">
             <option value="">🎨 Poster style — surprise me</option>
             {POSTER_STYLES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            <optgroup label="✦ Festival specials">
+              {FESTIVAL_STYLES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </optgroup>
           </select>
           {(!offer || offer.status !== "accepted") && (
             <>
