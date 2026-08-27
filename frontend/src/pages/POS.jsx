@@ -297,6 +297,16 @@ export default function POS() {
     if (!apptId) return;
     apptPreloadRef.current = true;
     api.get(`/appointments/${apptId}`).then(({ data }) => {
+      // Booking always opens as its OWN bill tab — any in-progress bill stays
+      // saved as a parallel tab (no blocking "Pending bill" modal).
+      const drafts = _readDrafts();
+      if (drafts[sidRef.current]?.cart?.length || cart.length) {
+        const sid = _newSid();
+        sidRef.current = sid;
+        sessionStorage.setItem("pos_sid", sid);
+      }
+      setPendingBill(null);
+      setOrderNotes(""); setPayment(p => ({ ...p }));
       const cust = customers.find(c => c.id === data.customer_id);
       if (cust) selectGuest(cust);
       else if (data.customer_id) { setCustomerId(data.customer_id); setGuestQuery(data.customer_name || ""); }
@@ -304,9 +314,9 @@ export default function POS() {
       const items = (data.service_ids || [])
         .map(sid => services.find(s => s.id === sid)).filter(Boolean)
         .map(s => ({ type: "service", ref_id: s.id, name: s.name, qty: 1, price: s.price, disc_pct: 0, staff_id: data.staff_id || "", staff_name: data.staff_name || "" }));
-      setCart(prev => (prev.length ? prev : items));
+      setCart(items);
       window.history.replaceState({}, "", "/pos");
-      toast.success(`Booking loaded ✦ ${data.customer_name || "Guest"} — bill is ready to charge`, { duration: 6000 });
+      toast.success(`New bill tab ✦ ${data.customer_name || "Guest"} — ready to charge`, { duration: 6000 });
     }).catch(() => toast.error("Couldn't load that booking — pick the guest manually"));
   }, [services, customers]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -382,16 +392,20 @@ export default function POS() {
   // One-tap "Bill Table" from Kitchen — merges every open order of that table into the cart
   const kitchenOrderIdsRef = useRef([]);
   useEffect(() => {
-    if (staff.length === 0) return;
+    if (staff.length === 0 || !tenant) return;
     let kb = null;
     try { kb = JSON.parse(localStorage.getItem("kitchen_bill") || "null"); } catch { /* ignore */ }
     if (!kb?.items?.length) return;
     localStorage.removeItem("kitchen_bill");
-    const host = staff[0];
+    // Table-wise chef: tips & line attribution default to the chef assigned to this table
+    const chefId = tenant?.table_chefs?.[String(kb.table_no)];
+    const host = staff.find(s => s.id === chefId) || staff[0];
     setCart(kb.items.map(i => ({
       type: "service", ref_id: i.id, name: i.name, qty: i.qty, price: i.price,
       disc_pct: Number(i.disc_pct ?? kb.discount_pct) || 0, staff_id: host.id, staff_name: host.name,
     })));
+    setStaffId(host.id);
+    setTipStaffId(host.id);
     const ids = kb.order_ids || (kb.order_id ? [kb.order_id] : []);
     kitchenOrderIdsRef.current = ids;
     setOrderNotes(`Table ${kb.table_no} — QR order${kb.customer_name ? ` for ${kb.customer_name}` : ""}`);
@@ -400,7 +414,7 @@ export default function POS() {
       setCustomerId(data.id);
     }).catch(() => {});
     toast.success(`🧾 Table ${kb.table_no}${kb.customer_name ? ` (${kb.customer_name})` : ""} — ${ids.length} order${ids.length > 1 ? "s" : ""} merged into one bill. Guest auto-set, just pick payment.`);
-  }, [staff]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [staff, tenant]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateLine(i, patch) { setCart(cart.map((c, idx) => idx === i ? { ...c, ...patch } : c)); }
   function setLineStaff(i, sid) {

@@ -484,6 +484,23 @@ async def blend_logo(user=Depends(require_tenant_admin), t=Depends(current_tenan
     return {"ok": True, "logo_url": new_url, "logo_shape": "blend"}
 
 
+class TableChefsIn(BaseModel):
+    table_chefs: Dict[str, str] = Field(default_factory=dict)
+
+
+@router.get("/settings/table-chefs")
+async def get_table_chefs(user=Depends(get_current_user), t=Depends(current_tenant)):
+    return {"table_chefs": t.get("table_chefs") or {}}
+
+
+@router.put("/settings/table-chefs")
+async def put_table_chefs(body: TableChefsIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Assign a chef/host per table — QR-table bills & tips default to them."""
+    clean = {str(k)[:10]: str(v)[:64] for k, v in list(body.table_chefs.items())[:100] if v}
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"table_chefs": clean}})
+    return {"ok": True, "table_chefs": clean}
+
+
 class LogoApplyIn(BaseModel):
     url: str = Field("", max_length=500)
 

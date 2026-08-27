@@ -77,6 +77,11 @@ function goToBilling(id) {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+// Module-level guards shared across ALL notifier instances: prevents the double
+// "New booking" toast when two polls race or the layout remounts.
+const _notifiedIds = new Set();
+let _pollLock = false;
+
 function showOsNotification(b) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
@@ -121,7 +126,8 @@ export function useNewBookingNotifier({ enabled }) {
   useEffect(() => { writeItems(items); itemsRef.current = items; }, [items]);
 
   const poll = useCallback(async () => {
-    if (document.visibilityState !== "visible") return;
+    if (document.visibilityState !== "visible" || _pollLock) return;
+    _pollLock = true;
     try {
       const { data } = await api.get("/notifications/new-bookings", { params: { since: lastSeenRef.current } });
       lastSeenRef.current = data.server_time || new Date().toISOString();
@@ -129,11 +135,14 @@ export function useNewBookingNotifier({ enabled }) {
       if (firstRunRef.current) { firstRunRef.current = false; return; }
       if (data.count > 0) {
         const now = new Date().toISOString();
-        const fresh = [
+        let fresh = [
           ...(data.bookings || []).map(b => ({ ...b, kind: "booking", received_at: b.created_at || now })),
           ...(data.gift_cards || []).map(g => ({ ...g, kind: "gift", received_at: g.issued_at || now })),
           ...(data.memberships || []).map(m => ({ ...m, kind: "membership", received_at: m.purchased_at || now })),
         ];
+        fresh = fresh.filter(f => !_notifiedIds.has(f.id));
+        fresh.forEach(f => _notifiedIds.add(f.id));
+        if (!fresh.length) return;
         setItems(prev => {
           const seen = new Set(prev.map(i => i.id));
           return [...fresh.filter(f => !seen.has(f.id)), ...prev].slice(0, 30);
@@ -165,7 +174,7 @@ export function useNewBookingNotifier({ enabled }) {
             duration: 9000,
           });
         }
-        for (const b of (data.bookings || [])) showOsNotification(b);
+        for (const b of fresh.filter(f => f.kind === "booking")) showOsNotification(b);
       }
       // A booking stays in the bell until its bill is raised — then it clears itself
       const bookingIds = itemsRef.current.filter(i => i.kind === "booking").map(i => i.id);
@@ -178,6 +187,8 @@ export function useNewBookingNotifier({ enabled }) {
       }
     } catch (e) {
       log.debug("[NewBookingNotifier] poll error:", e?.response?.status);
+    } finally {
+      _pollLock = false;
     }
   }, []);
 
