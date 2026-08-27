@@ -540,7 +540,7 @@ export function SuccessStep({ confirmation, onBookAnother }) {
         </div>
       </div>
 
-      {Number(confirmation.summary.total || 0) >= 1000 && (
+      {code && (
       <div className="card-luxe mt-6 bg-gradient-to-br from-gold/10 via-bg-surface to-blush/5 border-gold/30 text-left">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">

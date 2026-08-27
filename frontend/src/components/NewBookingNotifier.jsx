@@ -36,18 +36,27 @@ const LAST_SEEN_KEY = "miracurl_notif_last_seen";
 const ITEMS_KEY = "miracurl_notif_items";
 const POLL_MS = 20_000;
 
+// Storage keys are scoped per tenant — switching between a salon and a
+// restaurant in the same browser must never leak the other tenant's
+// notifications (prod bug: restaurant pending-bill shown on salon dashboard).
+function tenantKey(base) {
+  try { return `${base}:${localStorage.getItem("miracurl_tenant") || "default"}`; } catch { return base; }
+}
+// One-time purge of the legacy unscoped keys (may hold another tenant's items).
+try { localStorage.removeItem(LAST_SEEN_KEY); localStorage.removeItem(ITEMS_KEY); } catch { /* noop */ }
+
 function readLastSeen() {
-  try { return localStorage.getItem(LAST_SEEN_KEY) || new Date().toISOString(); }
+  try { return localStorage.getItem(tenantKey(LAST_SEEN_KEY)) || new Date().toISOString(); }
   catch { return new Date().toISOString(); }
 }
 function writeLastSeen(iso) {
-  try { localStorage.setItem(LAST_SEEN_KEY, iso); } catch { /* noop */ }
+  try { localStorage.setItem(tenantKey(LAST_SEEN_KEY), iso); } catch { /* noop */ }
 }
 function readItems() {
-  try { return JSON.parse(localStorage.getItem(ITEMS_KEY) || "[]"); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(tenantKey(ITEMS_KEY)) || "[]"); } catch { return []; }
 }
 function writeItems(items) {
-  try { localStorage.setItem(ITEMS_KEY, JSON.stringify(items.slice(0, 30))); } catch { /* noop */ }
+  try { localStorage.setItem(tenantKey(ITEMS_KEY), JSON.stringify(items.slice(0, 30))); } catch { /* noop */ }
 }
 
 function playChime() {

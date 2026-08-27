@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-27.120"
-BUILD_TIME = "27 Aug 2026, 11:30 AM IST"
+BUILD = "2026-08-27.122"
+BUILD_TIME = "27 Aug 2026, 01:15 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-27 (Festival-smart Mira & two-app install 🪔)",
         "changes": [
+            "🎁 'Share & earn ₹100' is back for every guest — the referral card now appears after EVERY booking (any amount, new or returning guest); the ₹1000 minimum applies only when the friend redeems",
+            "🔔 Fixed: notifications now stay with their own business — switching between your salon and restaurant on the same device no longer shows the other outlet's pending bills",
             "🪔 Mira now knows every Indian festival (2026-27) — your Dashboard greets you with today's or tomorrow's festival (e.g. 'Raksha Bandhan tomorrow — get them festival-ready ✦') and Mira themes the Offer of the Day around it",
             "🎨 Festival poster designs — Diwali offers get diya-and-rangoli flyers, Holi gets colour-splash, Ganesh Chaturthi gets Ganesha blessings… picked automatically, or choose from the new 'Festival specials' group in the poster style menu",
             "✨ Booking page glow-up — today's offer banner and Signature Package cards now show gorgeous service photos (facial, hair, spa, men's grooming, dining) with a gold % OFF badge",

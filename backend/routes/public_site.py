@@ -488,7 +488,7 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
         "appointment": appt,
         "summary": {
             "customer_name": cust["name"],
-            "customer_referral_code": cust.get("referral_code") if is_new_customer else None,
+            "customer_referral_code": cust.get("referral_code"),
             "referral_credit": cust.get("referral_credit", 0) if is_new_customer else None,
             "staff_name": staff["name"],
             "service_names": [s["name"] for s in services],

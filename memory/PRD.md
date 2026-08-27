@@ -186,6 +186,11 @@ Frontend:
 - E2E verified: real accept on preview auto-picked rakhi_bond (Raksha Bandhan tomorrow) and produced an on-theme festive flyer.
 - ⚠️ DEPLOYMENT RITUAL (user-mandated): before EVERY deploy, prepend a RELEASES entry + bump BUILD in /app/backend/release_notes.py so the What's New popup shows on all tenant dashboards. See /app/memory/DEPLOYMENT_RITUAL.md. Bumped now to 2026-08-27.120 (popup verified on Dashboard).
 
+## 2026-08-27 — Prod bug fixes (cross-tenant notification leak + referral card hidden)
+- LEAK FIX: NewBookingNotifier persisted bell items in GLOBAL localStorage keys → restaurant pending-bill showed on salon dashboard after tenant switch on same browser. Keys now tenant-scoped (`miracurl_notif_items:<slug>` via `miracurl_tenant`), legacy unscoped keys purged on load. Verified: seeded stale legacy item, logged in → purged + not rendered.
+- REFERRAL CARD FIX: "Share & earn ₹100" success-screen card was gated by `total >= 1000` (frontend) AND `is_new_customer` (backend public_site.py) → invisible for small/returning bookings. Both gates removed; card shows for every booking (₹1000 min still enforced at redemption). Verified with a live ₹500 booking (code PMBXQQ shown).
+- BUILD bumped to 2026-08-27.122 with release notes for both fixes. Production needs redeploy to pick these up.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).
