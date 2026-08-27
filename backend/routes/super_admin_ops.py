@@ -48,7 +48,7 @@ from schemas import TenantIn, TenantUpdateIn
 router = APIRouter()
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
-from routes.auth import AFFILIATE_REWARD_INR
+from constants import AFFILIATE_REWARD_INR
 from routes.staff_admin import _generate_temp_password
 
 @router.get("/super-admin/affiliates/leaderboard")

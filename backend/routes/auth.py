@@ -278,7 +278,7 @@ class SalonSignupIn(BaseModel):
     business_type: Optional[str] = Field("salon", pattern="^(salon|restaurant)$")
 
 
-AFFILIATE_REWARD_INR = 1000.0  # ₹ credited to the referrer for each verified signup
+from constants import AFFILIATE_REWARD_INR  # noqa: F401  (re-exported for back-compat)
 
 
 async def _resolve_unique_slug(body: SalonSignupIn) -> str:
@@ -469,6 +469,62 @@ async def _attach_salons(user: dict) -> dict:
     return user
 
 
+async def _reject_if_locked(rec: dict | None, arec: dict | None, now: datetime):
+    """Layer 1: per-IP lock (5 fails / 15m). Layer 2: per-account lock (IP-rotation proof)."""
+    if rec and rec.get("count", 0) >= 5:
+        locked_until = rec.get("locked_until")
+        if locked_until and datetime.fromisoformat(locked_until) > now:
+            raise HTTPException(423, "Too many attempts. Try again later.")
+    if arec and arec.get("locked_until") and datetime.fromisoformat(arec["locked_until"]) > now:
+        raise HTTPException(423, "This account is temporarily locked after too many failed attempts. "
+                                 "Try again later or use Forgot Password.")
+
+
+async def _register_failed_login(request: Request, email: str, ident: str, acct_ident: str,
+                                 arec: dict | None, now: datetime):
+    """Record a failed attempt on both counters. Account-global counter: 1h sliding
+    window, ceiling of 10 fails, escalating lock 15m -> 30m -> 1h -> 2h -> 4h (capped)
+    so an attacker can't permanently DoS the real owner, while IP rotation no longer
+    resets the clock."""
+    from security import _log_sec_event
+    await db.login_attempts.update_one(
+        {"identifier": ident},
+        {"$inc": {"count": 1},
+         "$set": {"last_attempt": now.isoformat(),
+                  "locked_until": (now + timedelta(minutes=15)).isoformat()}},
+        upsert=True,
+    )
+    try:
+        stale = bool(arec) and (now - datetime.fromisoformat(arec.get("last_attempt", now.isoformat()))).total_seconds() > 3600
+    except (ValueError, TypeError):
+        stale = True
+    acount = 1 if (not arec or stale) else arec.get("count", 0) + 1
+    strikes = 0 if (not arec or stale) else arec.get("strikes", 0)
+    aupd = {"count": acount, "last_attempt": now.isoformat()}
+    if acount >= 10 and acount % 10 == 0:
+        strikes += 1
+        lock_min = min(15 * (2 ** (strikes - 1)), 240)
+        aupd["strikes"] = strikes
+        aupd["locked_until"] = (now + timedelta(minutes=lock_min)).isoformat()
+        _log_sec_event("account_locked", tenant_id=request.headers.get("X-Tenant-Slug", ""),
+                       ip=client_ip(request), detail=f"{email} locked {lock_min}m after {acount} fails")
+    await db.login_attempts.update_one({"identifier": acct_ident}, {"$set": aupd}, upsert=True)
+    _log_sec_event("failed_login", tenant_id=request.headers.get("X-Tenant-Slug", ""),
+                   ip=client_ip(request), detail=email)
+
+
+async def _issue_session(user: dict, email: str, request: Request, response: Response, remember: bool) -> dict:
+    await _subscription_gate(user)
+    sid = await start_session(user["id"], email, user.get("tenant_id"), request)
+    access = make_access(user["id"], email, sid)
+    refresh = make_refresh(user["id"], sid)
+    set_auth_cookies(response, access, refresh, persistent=remember)
+    user.pop("password_hash", None)
+    user.pop("_id", None)
+    await _attach_salons(user)
+    return {"user": user}
+
+
 @router.post("/auth/login")
 async def login(body: LoginIn, request: Request, response: Response):
     email = body.email.lower()
@@ -477,58 +533,17 @@ async def login(body: LoginIn, request: Request, response: Response):
     rec = await db.login_attempts.find_one({"identifier": ident})
     arec = await db.login_attempts.find_one({"identifier": acct_ident})
     now = datetime.now(timezone.utc)
-    if rec and rec.get("count", 0) >= 5:
-        locked_until = rec.get("locked_until")
-        if locked_until and datetime.fromisoformat(locked_until) > now:
-            raise HTTPException(423, "Too many attempts. Try again later.")
-    if arec and arec.get("locked_until") and datetime.fromisoformat(arec["locked_until"]) > now:
-        raise HTTPException(423, "This account is temporarily locked after too many failed attempts. "
-                                 "Try again later or use Forgot Password.")
+    await _reject_if_locked(rec, arec, now)
     user = await db.users.find_one({"email": email})
     if not user or not verify_pw(body.password, user["password_hash"]):
-        await db.login_attempts.update_one(
-            {"identifier": ident},
-            {"$inc": {"count": 1},
-             "$set": {"last_attempt": now.isoformat(),
-                      "locked_until": (now + timedelta(minutes=15)).isoformat()}},
-            upsert=True,
-        )
-        from security import _log_sec_event
-        # Account-global counter: 1h sliding window, ceiling of 10 fails, escalating
-        # lock 15m -> 30m -> 1h -> 2h -> 4h (capped) so an attacker can't permanently
-        # DoS the real owner, while IP rotation no longer resets the clock.
-        try:
-            stale = bool(arec) and (now - datetime.fromisoformat(arec.get("last_attempt", now.isoformat()))).total_seconds() > 3600
-        except (ValueError, TypeError):
-            stale = True
-        acount = 1 if (not arec or stale) else arec.get("count", 0) + 1
-        strikes = 0 if (not arec or stale) else arec.get("strikes", 0)
-        aupd = {"count": acount, "last_attempt": now.isoformat()}
-        if acount >= 10 and acount % 10 == 0:
-            strikes += 1
-            lock_min = min(15 * (2 ** (strikes - 1)), 240)
-            aupd["strikes"] = strikes
-            aupd["locked_until"] = (now + timedelta(minutes=lock_min)).isoformat()
-            _log_sec_event("account_locked", tenant_id=request.headers.get("X-Tenant-Slug", ""),
-                           ip=client_ip(request), detail=f"{email} locked {lock_min}m after {acount} fails")
-        await db.login_attempts.update_one({"identifier": acct_ident}, {"$set": aupd}, upsert=True)
-        _log_sec_event("failed_login", tenant_id=request.headers.get("X-Tenant-Slug", ""),
-                       ip=client_ip(request), detail=email)
+        await _register_failed_login(request, email, ident, acct_ident, arec, now)
         raise HTTPException(401, "Invalid email or password")
     # SEC / access control: admin can disable a staff account without deleting it.
     # A disabled user MUST NOT get a token, even if the password is correct.
     if user.get("disabled"):
         raise HTTPException(403, "Your account has been disabled by the salon admin. Please contact them.")
     await db.login_attempts.delete_many({"identifier": {"$in": [ident, acct_ident]}})
-    await _subscription_gate(user)
-    sid = await start_session(user["id"], email, user.get("tenant_id"), request)
-    access = make_access(user["id"], email, sid)
-    refresh = make_refresh(user["id"], sid)
-    set_auth_cookies(response, access, refresh, persistent=body.remember)
-    user.pop("password_hash", None)
-    user.pop("_id", None)
-    await _attach_salons(user)
-    return {"user": user}
+    return await _issue_session(user, email, request, response, body.remember)
 
 @router.post("/auth/logout")
 async def logout(request: Request, response: Response):

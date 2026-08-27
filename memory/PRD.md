@@ -2295,3 +2295,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Removed salon-only restriction: loyalty_stamps.py PUT no longer 400s for restaurants; public endpoint no longer blocks restaurant tenants. LoyaltyStampsCard shown in restaurant settings (placeholder "Free Dessert or 20% off the table"); POS StampCard + auto-apply discount mounted for both verticals. Auto-stamp on invoice already vertical-agnostic.
 - Verified via curl as infinity.admin@miracurl.com: settings saved (Free Dessert Platter, 10%), stamp added for Demo Diner (9812345670), public lookup on restaurant booking page works.
 - NOTE: user deployed earlier build minutes ago — this restaurant extension needs the NEXT deploy.
+
+## Session 2026-06 (fork) — Code review fixes
+- Circular import RESOLVED: AFFILIATE_REWARD_INR moved to new /app/backend/constants.py; auth.py re-exports for back-compat; super_admin_ops.py imports from constants. (auth→super_admin_ops poster import remains lazy inside function — no cycle.)
+- login() refactored (complexity 19→~6): extracted _reject_if_locked(), _register_failed_login(), _issue_session(). CAREFUL: decorator @router.post("/auth/login") must sit on login(), not helpers (was briefly misplaced during edit, fixed). Verified: login 200, bad pw 401, re-login OK, CSRF pytest suite 8 passed.
+- FALSE POSITIVES documented: security.py:149 "hardcoded secret" is the "csrf-v1:" domain-separation prefix (real key from JWT_SECRET env); "67 undefined variables" — pyflakes reports 0; utils.py:8 `is` comparison — actually `in` tuple, and no `is "lit"` patterns exist in production code.
+- Declined as churn: mass type-hint coverage push + refactors of hq_documents/hq_notifications templates (working, low-risk code).
