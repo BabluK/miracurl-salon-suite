@@ -171,11 +171,13 @@ export function MiraDayOffer() {
   const [tier, setTier] = useState("");
   const [style, setStyle] = useState("");
   const [svcCatalog, setSvcCatalog] = useState([]);
+  const [fest, setFest] = useState(null);
   const autoAsked = useRef(false);
 
   useEffect(() => {
     api.get("/day-offers/today").then(r => {
       setOffer(r.data.offer);
+      setFest(r.data.festival || null);
       if (!r.data.offer && !autoAsked.current) {
         autoAsked.current = true;
         setBusy("suggest");
@@ -225,6 +227,7 @@ export function MiraDayOffer() {
   };
 
   const dayName = new Date().toLocaleDateString("en-IN", { weekday: "long" });
+  const festToday = fest?.today, festNext = fest?.upcoming;
   const showFlash = flash.alert && (flash.offer || flash.alert.status !== "accepted");
 
   return (
@@ -257,7 +260,15 @@ export function MiraDayOffer() {
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">Mira · Offer of the day</div>
-            <div className="font-playfair text-lg leading-tight">It's {dayName} — {["Friday", "Saturday", "Sunday"].includes(dayName) ? "busy day, let's upsell ✦" : "let's fill those chairs ✦"}</div>
+            <div className="font-playfair text-lg leading-tight" data-testid="day-offer-heading">
+              {festToday ? (
+                <>It's {dayName} · <span className="text-amber-300">{festToday.emoji} {festToday.name}{festToday.span > 1 ? ` (day ${festToday.day})` : ""}</span> — let's fill those chairs ✦</>
+              ) : festNext ? (
+                <>It's {dayName} — <span className="text-amber-300">{festNext.emoji} {festNext.name} {festNext.days_away === 1 ? "tomorrow" : `in ${festNext.days_away} days`}</span>, get them festival-ready ✦</>
+              ) : (
+                <>It's {dayName} — {["Friday", "Saturday", "Sunday"].includes(dayName) ? "busy day, let's upsell ✦" : "let's fill those chairs ✦"}</>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

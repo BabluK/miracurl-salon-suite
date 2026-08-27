@@ -147,6 +147,23 @@ function WalletCheck({ slug }) {
   );
 }
 
+const OFFER_IMGS = {
+  facial: "/assets/offers/facial.jpg",
+  hair: "/assets/offers/hair.jpg",
+  spa: "/assets/offers/spa.jpg",
+  men: "/assets/offers/men.jpg",
+  dining: "/assets/offers/dining.jpg",
+};
+function serviceImage(text, isRestaurant) {
+  if (isRestaurant) return OFFER_IMGS.dining;
+  const s = (text || "").toLowerCase();
+  if (/\bmen|beard|shave|groom/.test(s)) return OFFER_IMGS.men;
+  if (/facial|face|glow|skin|clean.?up|d.?tan|mask/.test(s)) return OFFER_IMGS.facial;
+  if (/hair|cut|colou?r|keratin|botox|smooth|blow|style/.test(s)) return OFFER_IMGS.hair;
+  if (/spa|massage|relax|body|pedi|mani|wax|leg/.test(s)) return OFFER_IMGS.spa;
+  return OFFER_IMGS.facial;
+}
+
 function OfferCountdown({ endsAt }) {
   const [left, setLeft] = useState(() => new Date(endsAt) - Date.now());
   useEffect(() => {
@@ -494,32 +511,43 @@ export default function BookPublic() {
 
       <main id="booking-wizard" className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {step === 0 && dayOffer && (
-          <div className="relative overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-r from-gold/15 via-blush/10 to-transparent p-5 mb-8" data-testid="day-offer-banner">
-            <span aria-hidden className="absolute -top-1 right-6 text-gold" style={{ animation: "sparkle-twinkle 2.4s ease-in-out infinite" }}>✦</span>
-            <span aria-hidden className="absolute bottom-2 right-24 text-blush text-xs" style={{ animation: "sparkle-twinkle 2.4s ease-in-out 1s infinite" }}>✦</span>
-            <div className="flex items-start gap-3 flex-wrap">
-              <span className="px-3 py-1 rounded-full bg-gold text-bg-base text-[10px] font-bold uppercase tracking-widest shrink-0">
-                {dayOffer.kind === "flash" ? "⚡ Flash offer" : `✨ ${dayOffer.day_name || "Today"}'s offer`}
-              </span>
-              {dayOffer.ends_at && <OfferCountdown endsAt={dayOffer.ends_at} />}
-              <div className="min-w-0">
-                <h3 className="font-playfair text-lg text-gold leading-snug">{dayOffer.title}</h3>
-                <p className="text-xs text-white/60 mt-1">{dayOffer.offer_text}</p>
-                {dayOffer.services?.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {dayOffer.services.map((sv, i) => (
-                      <span key={i} className="text-[11px] bg-white/5 border border-gold/25 rounded-full px-2.5 py-1">
-                        {sv.name} <s className="text-white/35">₹{Math.round(sv.price)}</s> <b className="text-gold">₹{Math.round(sv.offer_price)}</b>
-                      </span>
-                    ))}
+          <div className="relative overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-r from-gold/15 via-blush/10 to-transparent mb-8" data-testid="day-offer-banner">
+            <div className="flex flex-col sm:flex-row">
+              <div className="relative h-44 sm:h-auto sm:w-60 shrink-0 order-first sm:order-last">
+                <img
+                  src={serviceImage(`${dayOffer.title} ${(dayOffer.services || []).map(sv => sv.name).join(" ")}`, salon.business_type === "restaurant")}
+                  alt={dayOffer.title} loading="lazy" data-testid="day-offer-image"
+                  className="absolute inset-0 w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent sm:bg-gradient-to-r sm:from-black/85 sm:via-black/20 sm:to-transparent" />
+                <span aria-hidden className="absolute top-2 right-3 text-gold" style={{ animation: "sparkle-twinkle 2.4s ease-in-out infinite" }}>✦</span>
+              </div>
+              <div className="relative flex-1 p-5">
+                <span aria-hidden className="absolute bottom-2 right-6 text-blush text-xs" style={{ animation: "sparkle-twinkle 2.4s ease-in-out 1s infinite" }}>✦</span>
+                <div className="flex items-start gap-3 flex-wrap">
+                  <span className="px-3 py-1 rounded-full bg-gold text-bg-base text-[10px] font-bold uppercase tracking-widest shrink-0">
+                    {dayOffer.kind === "flash" ? "⚡ Flash offer" : `✨ ${dayOffer.day_name || "Today"}'s offer`}
+                  </span>
+                  {dayOffer.ends_at && <OfferCountdown endsAt={dayOffer.ends_at} />}
+                  <div className="min-w-0 w-full">
+                    <h3 className="font-playfair text-lg text-gold leading-snug">{dayOffer.title}</h3>
+                    <p className="text-xs text-white/60 mt-1">{dayOffer.offer_text}</p>
+                    {dayOffer.services?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {dayOffer.services.map((sv, i) => (
+                          <span key={i} className="text-[11px] bg-white/5 border border-gold/25 rounded-full px-2.5 py-1">
+                            {sv.name} <s className="text-white/35">₹{Math.round(sv.price)}</s> <b className="text-gold">₹{Math.round(sv.offer_price)}</b>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-white/35 mt-2">Today only — mention this offer at the salon or book below.</p>
+                    <button data-testid="day-offer-book-btn"
+                      onClick={() => pickByNames((dayOffer.services || []).map(sv => sv.name), "Today's offer")}
+                      className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gold text-bg-base text-xs font-bold hover:opacity-90">
+                      Book this offer →
+                    </button>
                   </div>
-                )}
-                <p className="text-[10px] text-white/35 mt-2">Today only — mention this offer at the salon or book below.</p>
-                <button data-testid="day-offer-book-btn"
-                  onClick={() => pickByNames((dayOffer.services || []).map(sv => sv.name), "Today's offer")}
-                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gold text-bg-base text-xs font-bold hover:opacity-90">
-                  Book this offer →
-                </button>
+                </div>
               </div>
             </div>
           </div>
@@ -530,24 +558,36 @@ export default function BookPublic() {
             <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-3">✦ Signature packages</div>
             <div className="grid sm:grid-cols-2 gap-4">
               {packages.map(p => (
-                <div key={p.id} className="relative overflow-hidden rounded-2xl border border-blush/30 bg-gradient-to-br from-blush/10 to-transparent p-5" data-testid="package-public-card">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/5 border border-white/15 text-white/50">
+                <div key={p.id} className="relative overflow-hidden rounded-2xl border border-blush/30 bg-gradient-to-br from-blush/10 to-transparent" data-testid="package-public-card">
+                  <div className="relative h-32">
+                    <img
+                      src={serviceImage(`${p.audience === "men" ? "men grooming " : ""}${p.name} ${(p.services || []).map(sv => sv.name).join(" ")}`, salon.business_type === "restaurant")}
+                      alt={p.name} loading="lazy" data-testid="package-image"
+                      className="absolute inset-0 w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#171117] via-black/30 to-black/10" />
+                    <div className="absolute bottom-2 left-4 flex items-center gap-1.5">
+                      <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-black/45 backdrop-blur-sm border border-white/20 text-white/80">
                         {p.audience === "men" ? "For Men" : p.audience === "women" ? "For Women" : "Family"}
                       </span>
                       {p.expires_at && (
-                        <span className="ml-1.5 text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-red-500/10 border border-red-400/30 text-red-300">
+                        <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-red-500/25 backdrop-blur-sm border border-red-400/40 text-red-200">
                           ⏳ Till {new Date(p.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                         </span>
                       )}
-                      <h3 className="font-playfair text-lg text-blush leading-snug mt-1.5">{p.name}</h3>
+                    </div>
+                    {p.discount_pct > 0 && (
+                      <span className="absolute top-2 right-3 px-2.5 py-1 rounded-full bg-gold text-bg-base text-[10px] font-bold shadow-lg">{p.discount_pct}% OFF</span>
+                    )}
+                  </div>
+                  <div className="p-5 pt-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-playfair text-lg text-blush leading-snug">{p.name}</h3>
                       <p className="text-xs text-white/55 mt-0.5">{p.tagline}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-[11px] text-white/35 line-through">₹{Math.round(p.total_value)}</div>
                       <div className="text-xl font-bold text-gold">₹{Math.round(p.package_price)}</div>
-                      {p.discount_pct > 0 && <div className="text-[10px] text-emerald-300">{p.discount_pct}% off</div>}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-3">
@@ -561,6 +601,7 @@ export default function BookPublic() {
                     Book this package →
                   </button>
                   <p className="text-[10px] text-white/30 mt-2">Package price honoured at the salon ✦</p>
+                  </div>
                 </div>
               ))}
             </div>

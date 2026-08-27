@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from database import db, _raw_db
+from festivals import festival_info, festival_prompt_line
 from security import require_tenant_admin, current_tenant
 
 router = APIRouter()
@@ -160,6 +161,7 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, opts: OfferOpts) -> s
     return (
         f"Salon: {t.get('name')}. Today is {now.strftime('%A, %d %B %Y')}, time {now.strftime('%I:%M %p')} IST.\n"
         f"Day strategy: {strategy}\n"
+        f"{festival_prompt_line(now.date())}"
         f"{_tier_line(opts)}"
         f"Last-60-days bills per weekday (Mon..Sun): {ctx['weekday_invoices']}\n"
         f"Best sellers: {tops}\nSlow-moving services: {slows}\n"
@@ -226,14 +228,16 @@ async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily",
 
 @router.get("/day-offers/today")
 async def today_offer(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    today = _today_ist().date().isoformat()
+    today_dt = _today_ist().date()
+    today = today_dt.isoformat()
+    fest = festival_info(today_dt)
     accepted = await _raw_db.day_offers.find_one(
         {"tenant_id": t["id"], "date": today, "status": "accepted", "kind": {"$ne": "flash"}}, {"_id": 0})
     if accepted:
-        return {"offer": accepted}
+        return {"offer": accepted, "festival": fest}
     suggested = await _raw_db.day_offers.find_one(
         {"tenant_id": t["id"], "date": today, "status": "suggested", "kind": {"$ne": "flash"}}, {"_id": 0})
-    return {"offer": suggested}
+    return {"offer": suggested, "festival": fest}
 
 
 class SuggestIn(BaseModel):
@@ -453,7 +457,7 @@ async def public_day_offer(slug: str):
     return {"offer": {
         "title": doc.get("title"), "offer_text": doc.get("offer_text"),
         "day_name": doc.get("day_name"), "kind": doc.get("kind", "day"),
-        "ends_at": ends_at,
+        "ends_at": ends_at, "flyer_url": doc.get("flyer_url"),
         "services": [{"name": s.get("name"), "price": s.get("original_price"),
                       "offer_price": s.get("offer_price")} for s in (doc.get("services") or [])],
     }}

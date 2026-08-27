@@ -471,5 +471,6 @@ async def public_packages(slug: str):
         {"tenant_id": t["id"], "status": "published",
          "$or": [{"expires_at": None}, {"expires_at": {"$gte": datetime.now(timezone.utc).isoformat()}}]},
         {"_id": 0, "id": 1, "name": 1, "tagline": 1, "audience": 1, "services": 1,
-         "total_value": 1, "package_price": 1, "discount_pct": 1, "expires_at": 1}).sort("published_at", -1).to_list(4)
+         "total_value": 1, "package_price": 1, "discount_pct": 1, "expires_at": 1,
+         "flyer_url": 1}).sort("published_at", -1).to_list(4)
     return {"packages": docs}

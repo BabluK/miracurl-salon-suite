@@ -171,6 +171,13 @@ Frontend:
 - Verified: /partner/login → login → /partner/dashboard (stays in scope), correct manifest+app-name per route, /partners renders.
 - NOTE: handoff had stale admin password; real creds live in /app/memory/test_credentials.md (admin@miracurl.com / q6QY@tn3p#9DtL).
 
+## 2026-08-27 — Offer/Package box polish + Mira festival awareness
+- Public booking page: day-offer banner redesigned with an AI service image panel (right side desktop, top on mobile, gradient fade); Signature Package cards got image headers with floating "% OFF" gold badge and overlaid audience/validity chips. 5 curated AI images in /frontend/public/assets/offers/ (facial, hair, spa, men, dining) picked by keyword match via `serviceImage()` in BookPublic.jsx (restaurant tenants → dining image).
+- NEW `/app/backend/festivals.py` — Indian festival calendar 2026-2027 (span-aware: Ganesh Chaturthi 10 days, Navratri 9, Diwali 2). Helpers: festival_today, next_festival, festival_info, festival_prompt_line.
+- Mira Day Offer is now festival-aware: `_build_offer_prompt` injects FESTIVAL ALERT (today) / FESTIVAL AHEAD (≤7 days) lines so offers are festival-themed; `GET /day-offers/today` returns `festival` object; Dashboard MiraDayOffer heading shows e.g. "It's Thursday — 🪢 Raksha Bandhan tomorrow, get them festival-ready ✦" (data-testid day-offer-heading).
+- Public endpoints now expose flyer_url (day-offer + packages) for future use.
+- Verified: festival helpers unit-tested for 5 dates, /day-offers/today curl (cookie auth), Dashboard + booking page screenshots.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).
