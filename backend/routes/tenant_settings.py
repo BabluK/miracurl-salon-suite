@@ -598,6 +598,19 @@ class BrandingIn(BaseModel):
     book_bg: Optional[str] = Field(None, max_length=40)
     logo_shape: Optional[str] = Field(None, pattern=r"^(circle|square|blend)?$")
     header_bg: Optional[str] = Field(None, max_length=20)
+    timezone: Optional[str] = Field(None, max_length=50)
+    country_code: Optional[str] = Field(None, pattern=r"^[A-Za-z]{2}$")
+
+    @field_validator("timezone")
+    @classmethod
+    def _tz_valid(cls, v):
+        if v:
+            from zoneinfo import ZoneInfo
+            try:
+                ZoneInfo(v)
+            except Exception as e:
+                raise ValueError("Unknown timezone") from e
+        return v
 
     @field_validator("maps_url")
     @classmethod
@@ -659,6 +672,8 @@ async def get_branding(user=Depends(require_admin), t=Depends(current_tenant)):
         "book_bg": t.get("book_bg") or "",
         "logo_shape": t.get("logo_shape") or "",
         "header_bg": t.get("header_bg") or "",
+        "timezone": t.get("timezone") or "Asia/Kolkata",
+        "country_code": (t.get("country_code") or "IN").upper(),
     }
 
 

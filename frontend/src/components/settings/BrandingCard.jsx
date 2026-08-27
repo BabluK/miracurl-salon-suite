@@ -4,7 +4,34 @@ import { toast } from "sonner";
 import { Store, Star, Instagram, MessageCircle, Save } from "lucide-react";
 import { BookingPreview } from "./BookingPreview";
 
-const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "", reception_phone: "", manager_phone: "", salon_email: "", book_bg: "", logo_shape: "", header_bg: "" };
+const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "", reception_phone: "", manager_phone: "", salon_email: "", book_bg: "", logo_shape: "", header_bg: "", timezone: "Asia/Kolkata", country_code: "IN" };
+
+// Common markets — value is the IANA timezone, cc drives currency/formats later
+const TIMEZONES = [
+  { cc: "IN", label: "India — Asia/Kolkata (GMT+5:30)", tz: "Asia/Kolkata" },
+  { cc: "AE", label: "UAE — Asia/Dubai (GMT+4)", tz: "Asia/Dubai" },
+  { cc: "SA", label: "Saudi Arabia — Asia/Riyadh (GMT+3)", tz: "Asia/Riyadh" },
+  { cc: "QA", label: "Qatar — Asia/Qatar (GMT+3)", tz: "Asia/Qatar" },
+  { cc: "SG", label: "Singapore — Asia/Singapore (GMT+8)", tz: "Asia/Singapore" },
+  { cc: "MY", label: "Malaysia — Asia/Kuala_Lumpur (GMT+8)", tz: "Asia/Kuala_Lumpur" },
+  { cc: "ID", label: "Indonesia — Asia/Jakarta (GMT+7)", tz: "Asia/Jakarta" },
+  { cc: "PH", label: "Philippines — Asia/Manila (GMT+8)", tz: "Asia/Manila" },
+  { cc: "BD", label: "Bangladesh — Asia/Dhaka (GMT+6)", tz: "Asia/Dhaka" },
+  { cc: "LK", label: "Sri Lanka — Asia/Colombo (GMT+5:30)", tz: "Asia/Colombo" },
+  { cc: "NP", label: "Nepal — Asia/Kathmandu (GMT+5:45)", tz: "Asia/Kathmandu" },
+  { cc: "GB", label: "UK — Europe/London", tz: "Europe/London" },
+  { cc: "DE", label: "Germany — Europe/Berlin", tz: "Europe/Berlin" },
+  { cc: "FR", label: "France — Europe/Paris", tz: "Europe/Paris" },
+  { cc: "US", label: "USA East — America/New_York", tz: "America/New_York" },
+  { cc: "US", label: "USA Central — America/Chicago", tz: "America/Chicago" },
+  { cc: "US", label: "USA Pacific — America/Los_Angeles", tz: "America/Los_Angeles" },
+  { cc: "CA", label: "Canada — America/Toronto", tz: "America/Toronto" },
+  { cc: "AU", label: "Australia — Australia/Sydney", tz: "Australia/Sydney" },
+  { cc: "NZ", label: "New Zealand — Pacific/Auckland", tz: "Pacific/Auckland" },
+  { cc: "ZA", label: "South Africa — Africa/Johannesburg", tz: "Africa/Johannesburg" },
+  { cc: "NG", label: "Nigeria — Africa/Lagos", tz: "Africa/Lagos" },
+  { cc: "KE", label: "Kenya — Africa/Nairobi", tz: "Africa/Nairobi" },
+];
 
 // Header bar colours — light tones keep the gold-brown header text readable
 const HEADER_BG_TONES = [
@@ -234,6 +261,30 @@ export function BrandingCard() {
                   </button>
                 ))}
               </div>
+              <label className="text-xs text-slate-500 font-medium block mt-4">Business country &amp; timezone</label>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <select value={branding.timezone || "Asia/Kolkata"} data-testid="branding-timezone-select"
+                  onChange={e => {
+                    const opt = TIMEZONES.find(z => z.tz === e.target.value);
+                    setBranding(b => ({ ...b, timezone: e.target.value, country_code: opt?.cc || b.country_code }));
+                  }}
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white max-w-xs">
+                  {TIMEZONES.map((z, i) => <option key={i} value={z.tz}>{z.label}</option>)}
+                  {!TIMEZONES.some(z => z.tz === (branding.timezone || "Asia/Kolkata")) && (
+                    <option value={branding.timezone}>{branding.timezone}</option>
+                  )}
+                </select>
+                <button type="button" data-testid="branding-tz-autodetect"
+                  onClick={() => {
+                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    const opt = TIMEZONES.find(z => z.tz === tz);
+                    setBranding(b => ({ ...b, timezone: tz, country_code: opt?.cc || b.country_code }));
+                  }}
+                  className="px-3 py-1.5 rounded-full border border-slate-200 text-xs text-slate-500 hover:border-slate-400">
+                  📍 Auto-detect
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Daily totals, reports &amp; "today" all follow this timezone — set it once per outlet.</p>
               <label className="text-xs text-slate-500 font-medium block mt-4">Booking page colour tone</label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {BOOK_BG_TONES.map(tn => (

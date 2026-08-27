@@ -60,12 +60,15 @@ async def _dashboard_review_stats() -> dict:
     return {"avg_rating": avg, "review_count": count, "pending_reviews": pending}
 
 
-async def _dashboard_revenue_trend(days: int = 7) -> list:
+async def _dashboard_revenue_trend(days: int = 7, tz=None) -> list:
     trend = []
+    tz = tz or ZoneInfo("Asia/Kolkata")
+    now_local = datetime.now(tz)
     for offset in range(days - 1, -1, -1):
-        d = (datetime.now(timezone.utc) - timedelta(days=offset)).date().isoformat()
+        d = (now_local - timedelta(days=offset)).date().isoformat()
+        _, w_start, w_end = _local_day_window(tz, d)
         rows = await db.invoices.find(
-            {"created_at": {"$regex": f"^{d}"}, "status": {"$nin": ["voided", "open"]}},
+            {"created_at": {"$gte": w_start, "$lte": w_end}, "status": {"$nin": ["voided", "open"]}},
             {"_id": 0, "total": 1}).to_list(500)
         trend.append({"date": d, "revenue": round(sum(r["total"] for r in rows), 2)})
     return trend
@@ -161,11 +164,16 @@ def _branch_query(branch, tenant=None):
 @router.get("/reports/dashboard")
 async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t=Depends(current_tenant)):
     branch = branch_lock(user, branch)
-    today = datetime.now(timezone.utc).date().isoformat()
-    month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
+    # Anchored to the business's OWN timezone (tenant.timezone, default India) —
+    # UTC dates put early-morning bills on "yesterday" (user-reported wrong records)
+    tz = _tenant_tz(t)
+    now_local = datetime.now(tz)
+    today = now_local.date().isoformat()
+    _, day_start, day_end = _local_day_window(tz, today)
+    month_start_utc = datetime(now_local.year, now_local.month, 1, tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
     branch_flt = {**_branch_query(branch, t), "status": {"$nin": ["voided", "open"]}}
-    invoices_today = await db.invoices.find({"created_at": {"$regex": f"^{today}"}, **branch_flt}, {"_id": 0}).to_list(500)
-    invoices_month = await db.invoices.find({"created_at": {"$regex": f"^{month_prefix}"}, **branch_flt}, {"_id": 0}).to_list(2000)
+    invoices_today = await db.invoices.find({"created_at": {"$gte": day_start, "$lte": day_end}, **branch_flt}, {"_id": 0}).to_list(500)
+    invoices_month = await db.invoices.find({"created_at": {"$gte": month_start_utc}, **branch_flt}, {"_id": 0}).to_list(2000)
     appts_today = await db.appointments.find({"scheduled_at": {"$regex": f"^{today}"}}, {"_id": 0}).to_list(500)
     low_stock = await db.products.find({"$expr": {"$lte": ["$stock", "$low_stock_threshold"]}}, {"_id": 0}).to_list(50)
     review_stats = await _dashboard_review_stats()
@@ -179,32 +187,43 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
         "low_stock_count": len(low_stock),
         "low_stock_items": low_stock[:10],
         "top_services": await _dashboard_top_services(),
-        "revenue_trend": await _dashboard_revenue_trend(),
+        "revenue_trend": await _dashboard_revenue_trend(tz=tz),
         "upcoming_appointments": appts_today[:5],
         **review_stats,
     }
 
-# India Standard Time offset — reports are anchored to the salon's local day, not UTC.
-IST_OFFSET = timedelta(hours=5, minutes=30)
+# Each business reports on ITS OWN local calendar day (sellable worldwide).
+IST_OFFSET = timedelta(hours=5, minutes=30)  # legacy default offset (India)
+from zoneinfo import ZoneInfo  # noqa: E402
 
 
-def _ist_day_window(date_str: Optional[str] = None) -> tuple[str, str, str]:
-    """Return (date_yyyy_mm_dd, utc_start_iso, utc_end_iso) for an IST calendar day.
-    Default: yesterday in IST. Used by the daily report so a 10 PM IST invoice
-    counts on the correct business day."""
-    now_ist = datetime.now(timezone.utc) + IST_OFFSET
+def _tenant_tz(t: Optional[dict]):
+    try:
+        return ZoneInfo(((t or {}).get("timezone")) or "Asia/Kolkata")
+    except Exception:
+        return ZoneInfo("Asia/Kolkata")
+
+
+def _local_day_window(tz, date_str: Optional[str] = None, default_yesterday: bool = True) -> tuple[str, str, str]:
+    """(date, utc_start_iso, utc_end_iso) for one calendar day in the tenant's timezone."""
+    now_local = datetime.now(tz)
     if date_str:
         try:
             day = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError as e:
             raise HTTPException(400, "Invalid date, must be YYYY-MM-DD") from e
     else:
-        day = (now_ist - timedelta(days=1)).date()
-    ist_start = datetime(day.year, day.month, day.day, 0, 0, 0)
-    ist_end = datetime(day.year, day.month, day.day, 23, 59, 59)
-    utc_start = (ist_start - IST_OFFSET).isoformat() + "Z"
-    utc_end = (ist_end - IST_OFFSET).isoformat() + "Z"
+        day = (now_local - timedelta(days=1)).date() if default_yesterday else now_local.date()
+    start_local = datetime(day.year, day.month, day.day, tzinfo=tz)
+    end_local = datetime(day.year, day.month, day.day, 23, 59, 59, tzinfo=tz)
+    utc_start = start_local.astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
+    utc_end = end_local.astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
     return day.isoformat(), utc_start, utc_end
+
+
+def _ist_day_window(date_str: Optional[str] = None) -> tuple[str, str, str]:
+    """Legacy wrapper — India default. New code should use _local_day_window(tz)."""
+    return _local_day_window(ZoneInfo("Asia/Kolkata"), date_str)
 
 
 def _payment_mode_buckets(invs: list) -> tuple:
@@ -240,7 +259,7 @@ def _daily_staff_agg(invs: list) -> dict:
 
 
 @router.get("/reports/daily")
-async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_admin)):
+async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """One-day revenue summary anchored to IST. Powers the 'Yesterday's Report'
     notification that greets the salon owner on login.
 
@@ -250,7 +269,7 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
     Returns totals split by payment mode (card / upi / cash / wallet / other),
     invoice count, new-guest count, and per-staff gross revenue.
     """
-    day, utc_start, utc_end = _ist_day_window(date)
+    day, utc_start, utc_end = _local_day_window(_tenant_tz(t), date)
     flt = {"created_at": {"$gte": utc_start, "$lte": utc_end}, "status": {"$nin": ["voided", "open"]}}
     invs = await db.invoices.find(flt, {"_id": 0}).to_list(2000)
 
@@ -373,6 +392,38 @@ def _commission_agg(invs: list) -> tuple:
             row["items"] += qty
             row[kind] += qty
     return agg, unassigned
+
+
+@router.get("/reports/tips")
+async def tips_report(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    user=Depends(require_admin),
+):
+    """Chef/stylist tip payout report: per-staff totals + per-day breakdown for
+    invoices in [start, end] (defaults: last 7 days)."""
+    now = datetime.now(timezone.utc)
+    if not (start and end):
+        end = now.strftime("%Y-%m-%d")
+        start = (now - timedelta(days=6)).strftime("%Y-%m-%d")
+    flt = {"status": {"$nin": ["voided", "open"]}, "tip": {"$gt": 0},
+           "created_at": {"$gte": start, "$lte": end + "T23:59:59Z"}}
+    invs = await db.invoices.find(
+        flt, {"_id": 0, "tip": 1, "tip_staff_id": 1, "tip_staff_name": 1, "created_at": 1}).to_list(5000)
+    by_staff: dict = {}
+    for inv in invs:
+        sid = inv.get("tip_staff_id") or "unassigned"
+        row = by_staff.setdefault(sid, {"staff_id": sid, "staff_name": inv.get("tip_staff_name") or "Unassigned",
+                                        "total": 0.0, "count": 0, "days": {}})
+        amt = float(inv.get("tip") or 0)
+        day = (inv.get("created_at") or "")[:10]
+        row["total"] = round(row["total"] + amt, 2)
+        row["count"] += 1
+        row["days"][day] = round(row["days"].get(day, 0) + amt, 2)
+    rows = sorted(by_staff.values(), key=lambda r: -r["total"])
+    return {"start": start, "end": end, "rows": rows,
+            "grand_total": round(sum(r["total"] for r in rows), 2)}
+
 
 
 @router.get("/reports/staff-commission")
