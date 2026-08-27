@@ -6,12 +6,15 @@ import { Sparkles, Upload, Check, RefreshCw, Trash2 } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const STYLES = ["Luxury Gold Minimal", "Modern Geometric", "Elegant Floral", "Classic Barber", "Chic Monogram"];
+const RESTO_STYLES = ["Luxury Gold Minimal", "Modern Geometric", "Rustic Kitchen", "Royal Crest", "Chic Monogram"];
 
 const fullUrl = (u) => (u?.startsWith("/api/") ? `${BACKEND_URL}${u}` : u);
 
 export const LogoStudio = () => {
   const { tenant } = useAuth();
-  const [style, setStyle] = useState(STYLES[0]);
+  const resto = tenant?.business_type === "restaurant";
+  const styleList = resto ? RESTO_STYLES : STYLES;
+  const [style, setStyle] = useState(styleList[0]);
   const [preview, setPreview] = useState("");
   const [generating, setGenerating] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -76,10 +79,10 @@ export const LogoStudio = () => {
           <div className="text-[10px] uppercase tracking-[0.3em] text-amber-300 flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5" /> AI Brand Studio
           </div>
-          <h2 className="font-playfair text-2xl mt-1">Create your salon logo</h2>
+          <h2 className="font-playfair text-2xl mt-1">Create your {resto ? "restaurant" : "salon"} logo</h2>
           <p className="text-sm text-white/60 mt-1 max-w-md">Generate a signature logo with AI or upload your own — it appears in your dashboard header and on your public booking page.</p>
           <div className="flex flex-wrap gap-2 mt-4">
-            {STYLES.map(s => (
+            {styleList.map(s => (
               <button key={s} data-testid={`logo-style-${s.split(" ")[0].toLowerCase()}`} onClick={() => setStyle(s)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${style === s ? "bg-amber-300 text-slate-900 border-amber-300" : "bg-white/5 border-white/20 text-white/70 hover:border-amber-300/60"}`}>
                 {s}

@@ -67,36 +67,52 @@ def build_brochure_pdf(vertical: str = "salon") -> bytes:
     hq_phone = os.environ.get("HQ_PHONE", "")
     site = os.environ.get("APP_PUBLIC_URL", "")
 
-    logo_path = os.path.join(ASSETS, "brand_logo.png")
+    logo_path = os.path.join(ASSETS, "brand_ms_emblem.png")
     logo = ImageReader(logo_path) if os.path.exists(logo_path) else None
+    wm_path = os.path.join(ASSETS, "brand_wordmark_gold.png")
+    wordmark = ImageReader(wm_path) if os.path.exists(wm_path) else None
 
     def _logo_header(size=30, x=40, y=None):
         if logo:
-            c.drawImage(logo, x, (y if y is not None else h - 46), size, size, mask="auto")
+            c.drawImage(logo, x, (y if y is not None else h - 46), size, size,
+                        preserveAspectRatio=True, anchor="c", mask="auto")
 
     # ── Cover ──
     c.setFillColorRGB(*DARK)
     c.rect(0, 0, w, h, fill=1, stroke=0)
+    cover_bg = os.path.join(ASSETS, "brochure", f"cover_{vertical if vertical == 'restaurant' else 'salon'}.jpg")
+    if os.path.exists(cover_bg):
+        bg = ImageReader(cover_bg)
+        bw_, bh_ = bg.getSize()
+        scale = max(w / bw_, h / bh_)
+        c.drawImage(bg, (w - bw_ * scale) / 2, (h - bh_ * scale) / 2, bw_ * scale, bh_ * scale)
+    y0 = h - 118
     if logo:
-        c.drawImage(logo, w / 2 - 34, h - 52, 68, 68, mask="auto")
-    mira = os.path.join(ASSETS, "mira_intro.png")
-    if os.path.exists(mira):
-        img = ImageReader(mira)
-        iw, ih = img.getSize()
-        dw = w * 0.52
-        dh = dw * ih / iw
-        c.drawImage(img, (w - dw) / 2, h - dh - 150, dw, dh, mask="auto")
+        c.drawImage(logo, w / 2 - 41, y0, 82, 84, preserveAspectRatio=True, anchor="c", mask="auto")
+    if wordmark:
+        ww, wh = wordmark.getSize()
+        dw = 300.0
+        dh = dw * wh / ww
+        c.drawImage(wordmark, (w - dw) / 2, y0 - dh - 18, dw, dh, mask="auto")
+        y0 = y0 - dh - 18
+    edition = "RESTAURANT EDITION" if vertical == "restaurant" else "SALON EDITION"
     c.setFillColorRGB(*GOLD)
-    c.setFont("Helvetica-Bold", 30)
-    c.drawCentredString(w / 2, h - 90, copy["title"])
-    c.setFont("Helvetica", 13)
-    c.setFillColorRGB(0.85, 0.85, 0.88)
-    c.drawCentredString(w / 2, h - 113, copy["tag"])
+    c.setFont("Helvetica-Bold", 12)
+    ew = c.stringWidth(edition, "Helvetica-Bold", 12)
+    c.setStrokeColorRGB(*GOLD)
+    c.setLineWidth(0.8)
+    ey = y0 - 26
+    c.line(w / 2 - ew / 2 - 44, ey + 4, w / 2 - ew / 2 - 12, ey + 4)
+    c.line(w / 2 + ew / 2 + 12, ey + 4, w / 2 + ew / 2 + 44, ey + 4)
+    c.drawCentredString(w / 2, ey, edition)
+    c.setFont("Helvetica", 12)
+    c.setFillColorRGB(0.92, 0.9, 0.85)
+    c.drawCentredString(w / 2, ey - 24, copy["tag"])
     c.setFont("Helvetica-Bold", 15)
     c.setFillColorRGB(*GOLD)
     c.drawCentredString(w / 2, 105, "Thank you for reaching out!")
     c.setFont("Helvetica", 11)
-    c.setFillColorRGB(0.8, 0.8, 0.85)
+    c.setFillColorRGB(0.88, 0.87, 0.84)
     c.drawCentredString(w / 2, 84, copy["tour"])
     c.showPage()
 
@@ -149,7 +165,7 @@ def build_brochure_pdf(vertical: str = "salon") -> bytes:
     c.setFillColorRGB(*DARK)
     c.roundRect(40, 60, w - 80, 110, 14, fill=1, stroke=0)
     if logo:
-        c.drawImage(logo, w - 130, 92, 56, 56, mask="auto")
+        c.drawImage(logo, w - 130, 92, 56, 56, preserveAspectRatio=True, anchor="c", mask="auto")
     c.setFillColorRGB(*GOLD)
     c.setFont("Helvetica-Bold", 14)
     c.drawString(60, 138, copy["contact"])

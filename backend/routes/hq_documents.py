@@ -442,13 +442,32 @@ def _usd_pricing_rows(plans: list) -> str:
     return rows
 
 
+def _usd_resto_rows(plans: list) -> str:
+    usd = {p["key"]: p for p in plans if p.get("currency") == "USD"}
+    labels = (("3 Months", "resto_intl_quarter", ""), ("6 Months", "resto_intl_half", "Most popular"),
+              ("1 Year", "resto_intl_annual", "First month FREE"))
+    rows = ""
+    for label, key, note in labels:
+        price = (usd.get(key) or {}).get("price")
+        if not price:
+            continue
+        rows += f"""
+        <tr>
+          <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>{label}</b>
+            <div style="font-size:11px;color:#9a948a">{note}</div></td>
+          <td align="right" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:15px;color:#1d1d24"><b>${round(price):,}</b></td>
+        </tr>"""
+    return rows
+
+
 def _demo_pricing_block(plans: list | None, currency: str = "INR", vertical: str = "salon") -> str:
     plans = [p for p in (plans or []) if (p.get("vertical") or "salon") == vertical]
     if not plans:
         return ""
     if currency == "USD":
-        rows = _usd_pricing_rows(plans)
-        tail = "All features included. Prices in USD for international salons — billed via secure payment link."
+        rows = _usd_resto_rows(plans) if vertical == "restaurant" else _usd_pricing_rows(plans)
+        noun = "restaurants" if vertical == "restaurant" else "salons"
+        tail = f"All features included. Prices in USD for international {noun} — billed via secure payment link."
     else:
         show = [p for p in plans if (p.get("branches") or 1) == 1 and p.get("currency", "INR") == "INR"] or plans[:2]
         rows = "".join(_demo_pricing_row(p) for p in show)
@@ -761,6 +780,10 @@ async def run_demo_followups() -> dict:
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
     attachment = await asyncio.to_thread(suite_overview_attachment)
+    from services.brochure import build_brochure_pdf
+    resto_pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
+    resto_attachment = {"filename": "miracurl-restaurant-suite.pdf",
+                        "content": base64.b64encode(resto_pdf).decode()}
     sent = failed = skipped = 0
     async for inv in _raw_db.demo_invites.find(
             {"responded": False, "reminder_sent_at": None, "first_sent_at": {"$lte": cutoff}}, {"_id": 0}):
@@ -774,7 +797,9 @@ async def run_demo_followups() -> dict:
                                     invite_id=inv["id"])
         status = await _send_email([inv["email"]],
                                    "A gentle reminder — your Miracurl demo seat is still open ✦",
-                                   html, attachments=[attachment], reply_to=hq_email)
+                                   html,
+                                   attachments=[resto_attachment if inv.get("vertical") == "restaurant" else attachment],
+                                   reply_to=hq_email)
         if status.get("sent"):
             sent += 1
             await _raw_db.demo_invites.update_one(

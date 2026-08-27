@@ -3,8 +3,10 @@ import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Briefcase, Plus, X, Users, CalendarClock, Phone, Trash2 } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
+import { useAuth } from "@/context/AuthContext";
 
-const ROLES = ["Hair Stylist", "Beautician", "Nail Artist", "Makeup Artist", "Massage Therapist", "Barber", "Receptionist", "Salon Manager", "Other"];
+const SALON_ROLES = ["Hair Stylist", "Beautician", "Nail Artist", "Makeup Artist", "Massage Therapist", "Barber", "Receptionist", "Salon Manager", "Other"];
+const RESTO_ROLES = ["Chef", "Cook / Commis", "Tandoor Chef", "Waiter / Steward", "Kitchen Helper", "Cashier / Biller", "Restaurant Manager", "Delivery Staff", "Housekeeping", "Other"];
 const URGENCY = [
   { key: "immediate", label: "Immediately", chip: "bg-rose-50 text-rose-600 border-rose-200" },
   { key: "two_weeks", label: "Within 2 weeks", chip: "bg-amber-50 text-amber-600 border-amber-200" },
@@ -18,13 +20,17 @@ const STATUS_CHIP = {
 };
 
 export default function HireStaff() {
+  const { tenant } = useAuth();
+  const resto = tenant?.business_type === "restaurant";
+  const ROLES = resto ? RESTO_ROLES : SALON_ROLES;
   const [requests, setRequests] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ role: "Hair Stylist", experience_years: 1, salary_min: 15000, salary_max: 25000, urgency: "two_weeks", notes: "" });
+  const [form, setForm] = useState({ role: resto ? "Chef" : "Hair Stylist", experience_years: 1, salary_min: 15000, salary_max: 25000, urgency: "two_weeks", notes: "" });
 
   const load = () => api.get("/hiring/requests").then(r => setRequests(r.data.requests)).catch(() => {});
   useEffect(() => { load(); }, []);
+  useEffect(() => { setForm(f => ({ ...f, role: resto ? "Chef" : "Hair Stylist" })); }, [resto]);
 
   const submit = async () => {
     setSaving(true);

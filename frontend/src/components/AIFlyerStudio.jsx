@@ -18,7 +18,7 @@ const TEMPLATES = [
 ];
 
 export const AIFlyerStudio = ({ isResto = false }) => {
-  const [template, setTemplate] = useState("pink_glam");
+  const [template, setTemplate] = useState(isResto ? "royal_gold" : "pink_glam");
   const [headline, setHeadline] = useState("Festive Special Offer");
   const [offerText, setOfferText] = useState("Get 30% OFF on all services");
   const [services, setServices] = useState("Haircut ₹299, Hair Spa ₹599, Facial ₹499");
@@ -81,11 +81,13 @@ export const AIFlyerStudio = ({ isResto = false }) => {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4" data-testid="ai-flyer-studio">
       <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2"><Wand2 className="w-5 h-5 text-fuchsia-500" /> AI Flyer Studio</h2>
-        <p className="text-xs text-slate-500 mt-0.5">Pick a professional template — Mira generates a {isResto ? "restaurant" : "salon"} flyer with your name, offer, {isResto ? "dishes" : "services"} and {isResto ? "ordering" : "booking"} link.</p>
+        <h2 className="text-lg font-semibold flex items-center gap-2"><Wand2 className="w-5 h-5 text-fuchsia-500" /> {isResto ? "Shop-Front Poster Studio" : "AI Flyer Studio"}</h2>
+        <p className="text-xs text-slate-500 mt-0.5">{isResto
+          ? "Mira designs a printable A4 poster with appetizing dishes, your logo, your story and ordering details."
+          : "Pick a professional template — Mira generates a salon flyer with your name, offer, services and booking link."}</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {!isResto && <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {TEMPLATES.map(([id, label, bg, txt]) => (
           <button key={id} data-testid={`flyer-template-${id}`} onClick={() => setTemplate(id)}
             className={`rounded-xl p-3 h-20 flex flex-col justify-between text-left border-2 transition ${bg} ${template === id ? "border-fuchsia-400 ring-2 ring-fuchsia-200" : "border-transparent opacity-80 hover:opacity-100"}`}>
@@ -93,9 +95,9 @@ export const AIFlyerStudio = ({ isResto = false }) => {
             <span className={`text-xs font-semibold ${txt}`}>{label}</span>
           </button>
         ))}
-      </div>
+      </div>}
 
-      <div className="grid sm:grid-cols-2 gap-3">
+      {!isResto && <div className="grid sm:grid-cols-2 gap-3">
         <input value={headline} onChange={e => setHeadline(e.target.value)} placeholder="Headline" data-testid="flyer-headline-input"
           className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
         <input value={offerText} onChange={e => setOfferText(e.target.value)} placeholder="Offer (e.g. 30% OFF)" data-testid="flyer-offer-input"
@@ -104,18 +106,20 @@ export const AIFlyerStudio = ({ isResto = false }) => {
           className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
         <input value={validUntil} onChange={e => setValidUntil(e.target.value)} placeholder="Valid until (e.g. 31 July)" data-testid="flyer-valid-input"
           className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-400" />
-      </div>
+      </div>}
 
-      <button onClick={generate} disabled={busy || aboutBusy} data-testid="flyer-generate-btn"
+      {!isResto && <button onClick={generate} disabled={busy || aboutBusy} data-testid="flyer-generate-btn"
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white text-sm font-semibold disabled:opacity-50">
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
         {busy ? "Mira is designing… (~30–60s)" : "Generate flyer"}
-      </button>
+      </button>}
 
       <div className="border-t border-slate-100 pt-4 space-y-3" data-testid="about-poster-section">
         <div>
           <h3 className="text-sm font-semibold flex items-center gap-2"><Store className="w-4 h-4 text-fuchsia-500" /> About-Us Poster · A4 shop-front print</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Hero model + your logo + About Us story + 3 circular photos (from your gallery, or Mira creates them) + booking details. Uses the template selected above.</p>
+          <p className="text-xs text-slate-500 mt-0.5">{isResto
+            ? "Appetizing dish hero + your logo + About Us story + 3 circular dish photos (from your gallery, or Mira creates them) + ordering details."
+            : "Hero model + your logo + About Us story + 3 circular photos (from your gallery, or Mira creates them) + booking details. Uses the template selected above."}</p>
         </div>
         <textarea value={aboutText} onChange={e => setAboutText(e.target.value)} rows={2} maxLength={400} data-testid="about-poster-text-input"
           placeholder={isResto ? "Your restaurant story (leave empty and Mira writes a classy default)" : "Your salon story (leave empty and Mira writes a classy default)"}

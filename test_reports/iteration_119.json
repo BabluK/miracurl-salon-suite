@@ -1,0 +1,37 @@
+{
+  "summary": "Verified all 6 salon-vs-restaurant leak fixes end-to-end. Backend QR-poster endpoint returns 200 PNG for both tenants (server forces bistro design for restaurants, blush for salons). Frontend fixes for Offer Maker (Shop-Front Poster Studio), Hire Staff roles (Chef-first restaurant list), AI Assistant greeting/subtitle/chips, Gallery placeholder and Settings QR poster (single Warm Bistro chip + working preview) all work correctly on the RESTAURANT tenant. Salon regression is clean: AI Flyer Studio + templates + Generate flyer button restored; salon-assistant greeting; Hair Stylist default with salon roles; 4-design QR poster grid (Blush & Gold / Rose Gold Silk / Lavender Glam / Boho Ivory). Note: review request used /offer-maker and /hire-staff paths but the actual routes are /offers-studio and /hire (AppLayout.jsx line 41, App.js line 285). All checks pass on the real routes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Restaurant Dashboard", "issues": [
+        "Progress banner says 'Finish setting up your salon' on restaurant tenant (salon copy leak)",
+        "Mira card says 'your salon hasn't posted on Google / social media yet' on restaurant tenant",
+        "Sidebar section header still reads 'Salon music' with salon playlists (Morning Bhakti, Bollywood, etc.) on the restaurant dashboard",
+        "MiraDayOffer 'Poster style' <select> on restaurant dashboard still contains salon options 'Pink Glam' and 'Royal Gold' (data-testid=day-offer-style-select, MiraDayOffer.jsx L275)",
+        "Miracurl Circle card copy: 'every time a salon joins Miracurl through your booking page' on restaurant tenant"
+      ]},
+      {"screen": "Restaurant Settings", "issues": ["Page title still reads 'Salon Settings' with subtitle unchanged for restaurant tenant"]},
+      {"screen": "Global", "issues": ["React hydration warning: '<span> cannot be a child of <option>' logged from AppLayout render (native <option> containing spans)"]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_119.json"],
+  "action_items": [
+    "(optional/out of review scope) Fix remaining salon-copy leaks on restaurant Dashboard: MiraDayOffer poster-style select options, 'Finish setting up your salon' banner, 'your salon hasn't posted' Mira card, 'Salon music' sidebar section, Miracurl Circle blurb, and Settings page title 'Salon Settings'",
+    "(minor) Fix hydration error in AppLayout where <span> is rendered inside a native <option> element"
+  ],
+  "critical_code_review_comments": [
+    "HireStaff.jsx L29 sets initial form.role from `resto` at first render, but tenant loads asynchronously via useAuth; when tenant is momentarily null the default is 'Hair Stylist'. It happens to be overwritten by the select's default option render, but consider syncing form.role via useEffect when tenant.business_type resolves for safety.",
+    "Restaurant tenant paths differ from review-request spec — /offer-maker and /hire-staff do not exist and silently fall back to /dashboard (route not defined). Confirmed real routes are /offers-studio and /hire (AppLayout.jsx sidebar links use these). No redirect/404 shown to users — they land on Dashboard, which is confusing.",
+    "Salon leaks are still pervasive on shared components (Dashboard, Settings, sidebar). Consider a central i18n/business_type helper (e.g., `useBusinessCopy()`) so every 'salon' string is derived from tenant.business_type instead of scattered ternaries."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (2/2 curl endpoints)", "frontend": "100% (10/10 in-scope assertions across both tenants)"},
+  "test_credentials": "Restaurant admin: infinity.admin@miracurl.com / Infinity@2026; Salon admin: admin@miracurl.com / q6QY@tn3p#9DtL (Owner PIN 4321 required to view salon Settings)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Review-request paths /offer-maker and /hire-staff are wrong — use /offers-studio and /hire. Restaurant tenant login shows a 'Welcome to Miracurl ✦' modal on first navigation whose button is 'OK' (not 'Got it'); dismiss it before clicking sidebar nav or subsequent clicks will be intercepted. Restaurant Hire Staff request modal opens only after clicking [data-testid=hire-new-request-btn]; roles are inside a native <select>, not a shadcn combobox. Salon Settings is PIN-locked (4321).",
+  "rca of the issue": "N/A — all 6 tenant-flavor fixes verified working. Only observation: extra salon-copy leaks remain outside the 6 areas covered in this review (Dashboard progress banner, Mira post-nudge card, sidebar 'Salon music' section, MiraDayOffer poster-style options, Miracurl Circle blurb, Settings page heading)."
+}

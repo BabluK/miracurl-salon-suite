@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Image as ImageIcon, Upload, Sparkles, Trash2, Copy, ExternalLink, Loader2, Video, Send } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
+import { useAuth } from "@/context/AuthContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -75,6 +76,8 @@ function ShareRow({ m }) {
 }
 
 export default function Gallery() {
+  const { tenant } = useAuth();
+  const resto = tenant?.business_type === "restaurant";
   const [list, setList] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -154,7 +157,7 @@ export default function Gallery() {
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
             onKeyDown={e => e.key === "Enter" && generate()}
-            placeholder='e.g. "Monsoon offer — 20% off all pedicures this week"'
+            placeholder={resto ? 'e.g. "Weekend feast — 20% off all family combos"' : 'e.g. "Monsoon offer — 20% off all pedicures this week"'}
             className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
           />
           <button data-testid="promo-generate-btn" onClick={generate} disabled={generating} className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">

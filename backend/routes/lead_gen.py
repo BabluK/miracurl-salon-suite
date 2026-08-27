@@ -981,11 +981,10 @@ async def lead_send_slot_picker(lid: str, request: Request, user=Depends(require
 
 @router.get("/public/brochure.pdf")
 async def public_brochure():
-    from routes.hq_documents import suite_overview_attachment
-    import base64
-    att = await asyncio.to_thread(suite_overview_attachment)
-    return Response(content=base64.b64decode(att["content"]), media_type="application/pdf",
-                    headers={"Content-Disposition": 'inline; filename="miracurl-suite-overview.pdf"'})
+    from services.brochure import build_brochure_pdf
+    pdf = await asyncio.to_thread(build_brochure_pdf, "salon")
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="miracurl-salon-suite.pdf"'})
 
 
 @router.get("/public/brochure-restaurant.pdf")
@@ -1007,10 +1006,14 @@ async def _wa_message(lead: dict) -> str:
     plans = await _live_plans()
     resto = (lead.get("vertical") or "salon") == "restaurant"
     noun = "restaurant" if resto else "salon"
+    intl = _lead_intl(lead.get("city"))
+    sym = "$" if intl else "Rs."
     if resto:
-        half, annual = int(plans["resto_half"]["price"]), int(plans["resto_annual"]["price"])
+        half = int(plans[("resto_intl_half" if intl else "resto_half")]["price"])
+        annual = int(plans[("resto_intl_annual" if intl else "resto_annual")]["price"])
     else:
-        half, annual = int(plans["half_year"]["price"]), int(plans["annual"]["price"])
+        half = int(plans[("intl_pro_half" if intl else "half_year")]["price"])
+        annual = int(plans[("intl_pro_annual" if intl else "annual")]["price"])
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     intro = f"Hi {lead.get('owner_name') or lead['name'] + ' team'}! 👋\n"
     if lead.get("rating"):
@@ -1026,7 +1029,7 @@ async def _wa_message(lead: dict) -> str:
              "I'm Mira from *Miracurl Suite* — the all-in-one salon platform: online booking, "
              "WhatsApp marketing & automation, staff attendance & payroll, memberships and GST billing.\n\n")
     return (intro + pitch +
-            f"💰 Plans start at Rs.{half:,} for 6 months — *best value: Annual at Rs.{annual:,}* "
+            f"💰 Plans start at {sym}{half:,} for 6 months — *best value: Annual at {sym}{annual:,}* "
             + ("(first month FREE!)\n\n" if resto else "(multi-branch discounts available!)\n\n")
             + video_line +
             f"▶️ Our YouTube channel: youtube.com/@miracurl_unisex_saloon7423\n"
@@ -1225,14 +1228,28 @@ FOLLOWUP_AFTER_DAYS = 5
 
 
 def _followup_email(lead: dict, plans: dict) -> tuple:
-    half = int(plans["half_year"]["price"])
-    annual = int(plans["annual"]["price"])
+    resto = (lead.get("vertical") or "salon") == "restaurant"
+    intl = _lead_intl(lead.get("city"))
+    sym = "$" if intl else "Rs."
+    if resto:
+        half = int((plans.get("resto_intl_half" if intl else "resto_half") or {}).get("price") or 0)
+        annual = int((plans.get("resto_intl_annual" if intl else "resto_annual") or {}).get("price") or 0)
+        pitch = ("Restaurant owners like you use it for QR table ordering, live kitchen tickets, "
+                 "table-wise billing and reservations")
+    else:
+        half = int((plans.get("intl_pro_half" if intl else "half_year") or {}).get("price") or 0)
+        annual = int((plans.get("intl_pro_annual" if intl else "annual") or {}).get("price") or 0)
+        pitch = ("Salon owners like you use it to automate online bookings, WhatsApp "
+                 "marketing, staff attendance and memberships")
+    if half and annual:
+        price_line = (f" from just {sym}{half:,} for 6 months (best value: {sym}{annual:,}/year"
+                      + ("" if intl else ", multi-branch discounts available") + ")")
+    else:
+        price_line = ""
     subject = f"Re: {lead.get('email_subject') or 'Miracurl Suite — free demo'}"
     body = (f"Hi {lead.get('owner_name') or lead['name'] + ' team'},\n\n"
             f"Just a gentle follow-up — did you get a chance to see my earlier email about "
-            f"Miracurl Suite? Salon owners like you use it to automate online bookings, WhatsApp "
-            f"marketing, staff attendance and memberships from just Rs.{half:,} for 6 months "
-            f"(best value: Rs.{annual:,}/year, multi-branch discounts available).\n\n"
+            f"Miracurl Suite? {pitch}{price_line}.\n\n"
             f"If you'd like, I can set up a quick 15-minute live demo this week — just reply to this "
             f"email or pick a slot at https://miracurl-suite.com/demo.\n\n"
             f"Warm regards,\nTeam Miracurl")

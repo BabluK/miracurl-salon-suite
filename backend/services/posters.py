@@ -13,6 +13,7 @@ POSTER_DESIGNS = {
     "rosegold": {"bg": "rosegold.png", "name": (128, 66, 74), "accent": (186, 110, 96), "sub": (146, 100, 100), "band": (255, 250, 246, 205)},
     "lavender": {"bg": "lavender.png", "name": (84, 56, 122), "accent": (146, 104, 190), "sub": (110, 88, 140), "band": (252, 250, 255, 200)},
     "ivory": {"bg": "ivory.png", "name": (122, 70, 42), "accent": (192, 100, 62), "sub": (140, 100, 74), "band": (255, 251, 244, 205)},
+    "bistro": {"bg": "bistro.png", "name": (92, 58, 36), "accent": (176, 92, 52), "sub": (122, 96, 72), "band": (255, 252, 245, 205)},
 }
 
 
@@ -87,12 +88,14 @@ def _build_qr_poster(tenant: dict, url: str, design: str = "blush", kind: str = 
     # ---- header band: salon name + location + tagline
     img = band(430, 800)
     d = ImageDraw.Draw(img)
-    name = tenant.get("name") or "Your Salon"
+    resto = tenant.get("business_type") == "restaurant"
+    name = tenant.get("name") or ("Your Restaurant" if resto else "Your Salon")
     center(name, 470, fit_font(name, "FreeSerifBold.ttf", 110, W - 320), cfg["name"])
     loc = (tenant.get("location") or "").strip()
     if loc:
         center(loc[:60], 620, _load_font("FreeSansBold.ttf", 42), cfg["sub"])
-    center("S C A N  ·  R A T E  ·  S H I N E" if kind == "review" else "S C A N  ·  B O O K  ·  G L O W",
+    center("S C A N  ·  R A T E  ·  S H I N E" if kind == "review"
+           else ("S C A N  ·  B O O K  ·  F E A S T" if resto else "S C A N  ·  B O O K  ·  G L O W"),
            705, _load_font("FreeSansBold.ttf", 40), cfg["accent"])
 
     # ---- QR panel with white rounded card
@@ -208,12 +211,13 @@ def _build_tent_card(tenant: dict, url: str, design: str = "blush", kind: str = 
     def rtext(text, y, font, fill):
         bbox = d.textbbox((0, 0), text, font=font)
         d.text((rx + (rw - (bbox[2] - bbox[0])) / 2, y), text, font=font, fill=fill)
-    name = tenant.get("name") or "Your Salon"
+    name = tenant.get("name") or ("Your Restaurant" if tenant.get("business_type") == "restaurant" else "Your Salon")
     rtext(name, 240, fit_font(name, "FreeSerifBold.ttf", 82, rw), cfg["name"])
     loc = (tenant.get("location") or "").strip()
     if loc:
         rtext(loc[:50], 360, _load_font("FreeSansBold.ttf", 34), cfg["sub"])
-    rtext("S C A N · R A T E · S H I N E" if kind == "review" else "S C A N · B O O K · G L O W",
+    rtext("S C A N · R A T E · S H I N E" if kind == "review"
+          else ("S C A N · B O O K · F E A S T" if tenant.get("business_type") == "restaurant" else "S C A N · B O O K · G L O W"),
           445, _load_font("FreeSansBold.ttf", 34), cfg["accent"])
     if kind == "review":
         rtext("Loved your visit?", 590, _load_font("FreeSerifBold.ttf", 66), cfg["name"])

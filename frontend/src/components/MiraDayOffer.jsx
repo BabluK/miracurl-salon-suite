@@ -3,6 +3,7 @@ import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Zap } from "lucide-react";
 import { POSTER_STYLES, FESTIVAL_STYLES } from "@/lib/posterStyles";
+import { useAuth } from "@/context/AuthContext";
 import { shareWithPoster } from "@/lib/sharePoster";
 import { confirmAsync } from "@/components/ConfirmDialog";
 
@@ -164,6 +165,10 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, tes
 }
 
 export function MiraDayOffer() {
+  const isResto = useAuth().tenant?.business_type === "restaurant";
+  const styleOptions = isResto
+    ? POSTER_STYLES.filter(s => !["pink_glam", "bridal_blush", "mens_edge", "rose_wave"].includes(s.key))
+    : POSTER_STYLES;
   const [offer, setOffer] = useState(null);
   const [flash, setFlash] = useState({ alert: null, offer: null });
   const [busy, setBusy] = useState("");
@@ -276,7 +281,7 @@ export function MiraDayOffer() {
             title="Poster design style"
             className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&_option]:bg-[#17141c] [&_optgroup]:bg-[#17141c]">
             <option value="">🎨 Poster style — surprise me</option>
-            {POSTER_STYLES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            {styleOptions.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             <optgroup label="✦ Festival specials">
               {FESTIVAL_STYLES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </optgroup>

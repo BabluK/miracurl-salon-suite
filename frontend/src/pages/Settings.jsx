@@ -1,4 +1,5 @@
 import { ShieldCheck } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { BranchesSection } from "@/components/BranchesSection";
 import { ChangePasswordSection } from "@/components/ChangePasswordSection";
 import { ContactHQSection } from "@/components/ContactHQSection";
@@ -29,10 +30,12 @@ import { MiracurlProductsCard } from "@/components/settings/MiracurlProductsCard
 import { LoyaltyStampsCard } from "@/components/settings/LoyaltyStampsCard";
 
 export default function Settings() {
+  const { tenant } = useAuth();
+  const resto = tenant?.business_type === "restaurant";
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)]" data-testid="settings-page">
       <div className="max-w-3xl">
-        <h1 className="text-2xl font-semibold text-slate-800">Salon Settings</h1>
+        <h1 className="text-2xl font-semibold text-slate-800">{resto ? "Restaurant Settings" : "Salon Settings"}</h1>
         <p className="text-sm text-slate-500 mt-1">Configure how billing, tax and your business identity behave on invoices.</p>
 
         <ProfileCompletenessCard />

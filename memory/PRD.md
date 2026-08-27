@@ -191,6 +191,16 @@ Frontend:
 - REFERRAL CARD FIX: "Share & earn ₹100" success-screen card was gated by `total >= 1000` (frontend) AND `is_new_customer` (backend public_site.py) → invisible for small/returning bookings. Both gates removed; card shows for every booking (₹1000 min still enforced at redemption). Verified with a live ₹500 booking (code PMBXQQ shown).
 - BUILD bumped to 2026-08-27.122 with release notes for both fixes. Production needs redeploy to pick these up.
 
+## 2026-08-27 — Restaurant vertical sweep (user: "don't miss any changes for restaurant")
+- About-Us poster (offer_flyer.py): resto hero prompt = gourmet dishes; _gen_gallery_insets resto triptych (tandoori/curry/dessert); default about copy resto variant.
+- AIFlyerStudio.jsx: for restaurants the flyer template studio (grid+inputs+generate) is HIDDEN; card renamed "Shop-Front Poster Studio", About-Us poster kept; default template royal_gold.
+- HireStaff.jsx: RESTO_ROLES (Chef, Cook/Commis, Tandoor Chef, Waiter/Steward, Kitchen Helper, Cashier/Biller, Restaurant Manager, Delivery, Housekeeping), default Chef, syncs via useEffect.
+- Gallery promo (gallery.py): resto prompt parses dishes + dish-photography image prompt; Gallery.jsx placeholder "Weekend feast — 20% off family combos".
+- Assistant.jsx: "your restaurant assistant" greeting + RESTO_SUGGESTION_GROUPS; subtitle business-aware. Backend assistant persona was already resto-aware.
+- Booking QR poster: new "bistro" design (assets/posters/bistro.png, AI-generated), backend forces design=bistro for restaurants (services_catalog.py), tagline "SCAN · BOOK · FEAST", tent card too (posters.py). QrPosterCard.jsx shows single "Warm Bistro" chip for resto.
+- Extra leaks fixed after testing agent sweep: SetupBanner "Finish setting up your restaurant", Mira social nudge (mira_studio.py), QuickMusicBar "Restaurant music", Settings title "Restaurant Settings", CircleBonusCard "a business joins", MiraDayOffer style select hides salon-only styles for resto, LogoStudio "Create your restaurant logo" + resto styles + resto logo AI prompt (tenant_settings.py).
+- Testing: iteration_119.json — all 6 restaurant fixes PASS, salon regression PASS, QR poster backend PASS both verticals. BUILD 2026-08-27.124.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).

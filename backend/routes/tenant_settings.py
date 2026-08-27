@@ -416,10 +416,16 @@ async def generate_logo(body: LogoGenIn, user=Depends(require_tenant_admin), t=D
     if not key:
         raise HTTPException(500, "AI key not configured")
     gen = OpenAIImageGeneration(api_key=key)
-    prompt = (f"A premium circular logo emblem for a beauty salon named '{t.get('name', 'the salon')}'. "
-              f"Style: {body.style}. Flat vector emblem, centered composition, elegant typography featuring the salon name, "
-              f"scissors or beauty motif, solid deep charcoal background, gold accent palette, "
-              f"high contrast, crisp edges, logo design only — no photo, no watermark, no mockup.")
+    if t.get("business_type") == "restaurant":
+        prompt = (f"A premium circular logo emblem for a restaurant named '{t.get('name', 'the restaurant')}'. "
+                  f"Style: {body.style}. Flat vector emblem, centered composition, elegant typography featuring the restaurant name, "
+                  f"chef hat, fork or flame motif, solid deep charcoal background, gold accent palette, "
+                  f"high contrast, crisp edges, logo design only — no photo, no watermark, no mockup.")
+    else:
+        prompt = (f"A premium circular logo emblem for a beauty salon named '{t.get('name', 'the salon')}'. "
+                  f"Style: {body.style}. Flat vector emblem, centered composition, elegant typography featuring the salon name, "
+                  f"scissors or beauty motif, solid deep charcoal background, gold accent palette, "
+                  f"high contrast, crisp edges, logo design only — no photo, no watermark, no mockup.")
     try:
         images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
     except Exception as e:

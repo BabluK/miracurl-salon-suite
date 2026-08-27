@@ -154,8 +154,9 @@ async def social_context(admin=Depends(require_tenant_admin), t=Depends(current_
     ctx = await _social_context(t["id"])
     days = ctx["days_since_last_post"]
     nudge = None
+    biz = "restaurant" if t.get("business_type") == "restaurant" else "salon"
     if days is None:
-        nudge = ("Hey Admin team — your salon hasn't posted on Google / social media yet. "
+        nudge = (f"Hey Admin team — your {biz} hasn't posted on Google / social media yet. "
                  "Would you like me to suggest an offer, a package, or something specific to post?")
     elif days >= 3:
         nudge = (f"Hey Admin team — no activity found on your Google / social media in the past {days} days. "

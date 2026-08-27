@@ -2,8 +2,37 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Bot, Send, MessageSquarePlus, Bug, Lightbulb, Trash2, Loader2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const RESTO_SUGGESTION_GROUPS = [
+  {
+    label: "📊 Today & reports",
+    items: [
+      "How is my restaurant doing today?",
+      "How much business did we do last week and who was the top performer?",
+      "Compare this month's revenue with last month",
+      "Which dishes sell the most?",
+    ],
+  },
+  {
+    label: "📣 Marketing & growth",
+    items: [
+      "Give me 3 ideas to fill more tables this month",
+      "Draft a WhatsApp message for a weekend combo offer",
+      "How do I win back diners who haven't visited in 60 days?",
+    ],
+  },
+  {
+    label: "🛠 How do I…",
+    items: [
+      "How does QR table ordering reach my kitchen?",
+      "How do I mark a dish sold-out?",
+      "How do I publish an offer to my ordering page?",
+      "How do I approve a staff week-off change?",
+    ],
+  },
+];
 const SUGGESTION_GROUPS = [
   {
     label: "📊 Today & reports",
@@ -45,6 +74,8 @@ const STATUS_STYLES = {
 
 export default function Assistant() {
   const [tab, setTab] = useState("chat");
+  const { tenant } = useAuth();
+  const resto = tenant?.business_type === "restaurant";
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -52,7 +83,7 @@ export default function Assistant() {
           <h1 className="text-2xl font-semibold text-slate-800 flex items-center gap-2">
             <Bot className="w-6 h-6 text-violet-600" /> AI Assistant
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Ask Mira anything about your salon — or log ideas &amp; issues on the board.</p>
+          <p className="text-sm text-slate-500 mt-1">Ask Mira anything about your {resto ? "restaurant" : "salon"} — or log ideas &amp; issues on the board.</p>
         </div>
         <div className="flex bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
           <button data-testid="assistant-tab-chat" onClick={() => setTab("chat")} className={`px-4 py-1.5 text-xs rounded-md font-semibold transition ${tab === "chat" ? "bg-violet-600 text-white" : "text-slate-500 hover:text-slate-800"}`}>Chat with Mira</button>
@@ -65,6 +96,9 @@ export default function Assistant() {
 }
 
 function ChatPanel() {
+  const { tenant } = useAuth();
+  const resto = tenant?.business_type === "restaurant";
+  const groups = resto ? RESTO_SUGGESTION_GROUPS : SUGGESTION_GROUPS;
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -121,7 +155,7 @@ function ChatPanel() {
               <img src="/mira-bot.png" alt="Mira" className="relative w-20 h-20 rounded-full object-cover border-2 border-violet-300 shadow-lg" />
               <span className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-400 border-2 border-white" />
             </div>
-            <p className="text-sm text-slate-600 font-medium">Hi, I&apos;m Mira ✦ your salon assistant</p>
+            <p className="text-sm text-slate-600 font-medium">Hi, I&apos;m Mira ✦ your {resto ? "restaurant" : "salon"} assistant</p>
             <p className="text-xs text-slate-400 mt-1 mb-4">I know your live stats and every app feature.</p>
             {snap && (
               <div className="flex flex-wrap justify-center gap-2 mb-5" data-testid="assistant-live-chips">
@@ -137,7 +171,7 @@ function ChatPanel() {
               </div>
             )}
             <div className="max-w-2xl mx-auto space-y-4 text-left">
-              {SUGGESTION_GROUPS.map(g => (
+              {groups.map(g => (
                 <div key={g.label}>
                   <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-semibold mb-2 text-center sm:text-left">{g.label}</p>
                   <div className="flex flex-wrap gap-2 justify-center sm:justify-start">

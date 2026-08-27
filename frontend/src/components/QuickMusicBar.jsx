@@ -2,16 +2,18 @@ import { Link } from "react-router-dom";
 import { usePlayer } from "@/context/PlayerContext";
 import { orderedChannels, playPayload, isBhaktiTime } from "@/constants/musicChannels";
 import { Music, ArrowRight, Sunrise } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 // One-tap salon music from the Dashboard — plays in the floating mini-player.
 export function QuickMusicBar() {
   const player = usePlayer();
+  const resto = useAuth().tenant?.business_type === "restaurant";
   const nowId = player?.track?.id;
   const bhaktiNow = isBhaktiTime();
   return (
     <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 flex flex-wrap items-center gap-2 shadow-sm" data-testid="quick-music-bar">
       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 mr-1">
-        <Music className="w-4 h-4 text-amber-500" /> Salon music
+        <Music className="w-4 h-4 text-amber-500" /> {resto ? "Restaurant music" : "Salon music"}
       </span>
       {bhaktiNow && (
         <span data-testid="bhakti-time-badge" className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-300">

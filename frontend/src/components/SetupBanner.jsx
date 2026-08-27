@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { Rocket, X } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 export function SetupBanner() {
+  const { tenant } = useAuth();
+  const resto = tenant?.business_type === "restaurant";
   const [status, setStatus] = useState(null);
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem("setup_banner_dismissed") === "1");
   const navigate = useNavigate();
@@ -19,7 +22,7 @@ export function SetupBanner() {
     <div data-testid="setup-banner" className="bg-slate-900 rounded-2xl p-4 text-white flex items-center gap-3 flex-wrap shadow-md">
       <Rocket className="w-5 h-5 text-fuchsia-400 shrink-0" />
       <div className="flex-1 min-w-[200px]">
-        <p className="text-sm font-semibold">Finish setting up your salon</p>
+        <p className="text-sm font-semibold">Finish setting up your {resto ? "restaurant" : "salon"}</p>
         <div className="flex items-center gap-2 mt-1.5">
           <div className="h-1.5 w-40 bg-white/15 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-fuchsia-500 to-pink-500 rounded-full transition-all" style={{ width: `${(doneSteps / 5) * 100}%` }} />

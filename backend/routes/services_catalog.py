@@ -208,6 +208,8 @@ async def download_qr_poster(origin: str = "", design: str = "blush", kind: str 
     tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0})
     if not tenant:
         raise HTTPException(404, "Tenant not found")
+    if tenant.get("business_type") == "restaurant":
+        design = "bistro"
     base = origin.rstrip("/")
     url = f"{base}/book/{tenant['slug']}" if kind == "booking" else f"{base}/api/public/review-go/{tenant['slug']}"
     builder = _build_tent_card if fmt == "tent" else _build_qr_poster

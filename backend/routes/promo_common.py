@@ -14,7 +14,7 @@ _FONT_CANDIDATES = [
 ]
 FONT_PATH = next((p for p in _FONT_CANDIDATES if os.path.exists(p)), _FONT_CANDIDATES[0])
 
-BRAND_LOGO = os.path.join(_ASSETS, "brand_logo.png")
+BRAND_LOGO = os.path.join(_ASSETS, "brand_ms_emblem.png")
 BROCHURE_DIR = os.path.join(_ASSETS, "brochure")
 
 _logo_cache: list = []

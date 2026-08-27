@@ -472,9 +472,14 @@ async def _gen_gallery_insets(gen, t: dict) -> list[bytes]:
         if data:
             insets.append(data)
     if len(insets) < 3:
-        trip_prompt = ("Three separate premium salon scenes side by side in one image, equal thirds: "
-                       "1) relaxing facial spa treatment, 2) hairstylist styling glossy hair, 3) elegant manicured hands. "
-                       "Consistent warm luxury lighting. Absolutely NO text, NO letters, NO logos.")
+        if t.get("business_type") == "restaurant":
+            trip_prompt = ("Three separate appetizing restaurant dishes side by side in one image, equal thirds: "
+                           "1) sizzling tandoori platter, 2) rich creamy curry with fresh naan, 3) decadent plated dessert. "
+                           "Consistent warm candlelit food photography. Absolutely NO text, NO letters, NO logos.")
+        else:
+            trip_prompt = ("Three separate premium salon scenes side by side in one image, equal thirds: "
+                           "1) relaxing facial spa treatment, 2) hairstylist styling glossy hair, 3) elegant manicured hands. "
+                           "Consistent warm luxury lighting. Absolutely NO text, NO letters, NO logos.")
         try:
             trips = await asyncio.wait_for(gen.generate_images(prompt=trip_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
             if trips:
@@ -517,8 +522,15 @@ async def create_about_poster(body: AboutPosterIn, user=Depends(require_tenant_a
     tpl = TEMPLATES[body.template]
     gen = OpenAIImageGeneration(api_key=_key())
 
-    hero_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
-                   "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
+    resto = t.get("business_type") == "restaurant"
+    if resto:
+        hero_prompt = ("Lavish spread of gourmet restaurant dishes on a dark elegant table — sizzling tandoori platter, "
+                       "rich curries, biryani and fresh naan with garnishes, warm candlelight, appetizing editorial food "
+                       "photography. Vertical poster composition with generous empty space on the left half for text overlay. "
+                       "Absolutely NO text, NO letters, NO logos, NO watermarks.")
+    else:
+        hero_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
+                       "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
     imgs = await asyncio.wait_for(gen.generate_images(prompt=hero_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
     if not imgs:
         raise HTTPException(502, "Image generation failed — try again")
@@ -607,8 +619,11 @@ def _draw_about_section(img: Image.Image, d: ImageDraw.ImageDraw, body: AboutPos
     d.text((m, y), "About Us!", font=_font(SCRIPT, 84), fill=(*accent, 255))
     y += 122
     about = (body.about_text.strip() or
-             f"At {salon}, beauty is an experience. Our seasoned stylists blend premium products "
-             "with warm, personal care — so every visit leaves you glowing.")[:400]
+             (f"At {salon}, every meal is a celebration. Our chefs craft each dish with the freshest "
+              "ingredients and generous love — so every visit ends with happy plates and full hearts."
+              if t.get("business_type") == "restaurant" else
+              f"At {salon}, beauty is an experience. Our seasoned stylists blend premium products "
+              "with warm, personal care — so every visit leaves you glowing."))[:400]
     f_about = _font(FONT_PATH, 31)
     for ln in _wrap_lines(d, about, f_about, W - 2 * m)[:5]:
         d.text((m, y), ln, font=f_about, fill=(*panel_txt, 245))

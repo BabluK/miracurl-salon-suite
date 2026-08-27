@@ -48,7 +48,7 @@ export function CircleBonusCard({ slug }) {
       </div>
       {!wallet ? (
         <p className="text-xs text-amber-800/70 mt-2">
-          Earn <b>₹1,000</b> every time a salon joins Miracurl through your booking page. Balance is PIN-protected.
+          Earn <b>₹1,000</b> every time a business joins Miracurl through your booking page. Balance is PIN-protected.
         </p>
       ) : (
         <div className="mt-3">

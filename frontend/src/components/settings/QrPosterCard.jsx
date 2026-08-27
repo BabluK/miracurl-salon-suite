@@ -2,6 +2,7 @@ import { useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { QrCode, Download, Loader2, Eye } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const DESIGNS = [
   { key: "blush", label: "Blush & Gold" },
@@ -9,9 +10,13 @@ const DESIGNS = [
   { key: "lavender", label: "Lavender Glam" },
   { key: "ivory", label: "Boho Ivory" },
 ];
+const RESTO_DESIGNS = [{ key: "bistro", label: "Warm Bistro" }];
 
 export function QrPosterCard() {
-  const [design, setDesign] = useState("blush");
+  const { tenant } = useAuth();
+  const resto = tenant?.business_type === "restaurant";
+  const designs = resto ? RESTO_DESIGNS : DESIGNS;
+  const [design, setDesign] = useState(resto ? "bistro" : "blush");
   const [kind, setKind] = useState("booking");
   const [fmt, setFmt] = useState("poster");
   const [busy, setBusy] = useState("");
@@ -49,7 +54,7 @@ export function QrPosterCard() {
         <div>
           <h2 className="text-lg font-semibold text-slate-800">Booking QR Poster (HD)</h2>
           <p className="text-xs text-slate-500 mt-1">
-            Print-ready designer poster for your salon entrance — your name, Mon–Sun timings (from this Settings page), phone, Mira AI and a scan-to-book QR. Pick a design:
+            Print-ready designer poster for your {resto ? "restaurant" : "salon"} entrance — your name, Mon–Sun timings (from this Settings page), phone, Mira AI and a scan-to-book QR. {resto ? "Warm bistro design with hand-painted dishes:" : "Pick a design:"}
           </p>
         </div>
       </div>
@@ -70,7 +75,7 @@ export function QrPosterCard() {
       )}
 
       <div className="grid grid-cols-4 gap-3 mt-3">
-        {DESIGNS.map(d => (
+        {designs.map(d => (
           <button key={d.key} onClick={() => { setDesign(d.key); setPreview(null); }}
             data-testid={`poster-design-${d.key}`}
             className={`rounded-xl overflow-hidden border-2 transition-colors ${design === d.key ? "border-rose-400 shadow-md" : "border-slate-200 hover:border-slate-300"}`}>

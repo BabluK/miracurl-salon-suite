@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-27.122"
-BUILD_TIME = "27 Aug 2026, 01:15 PM IST"
+BUILD = "2026-08-27.124"
+BUILD_TIME = "27 Aug 2026, 05:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-27 (Festival-smart Mira & two-app install 🪔)",
         "changes": [
+            "🍽️ Restaurant edition polish — About-Us posters & AI promo images now use appetizing dish photography (no more salon models), Hire Staff lists restaurant roles (Chef, Waiter, Kitchen Helper…), Mira introduces herself as your restaurant assistant, and the Booking QR poster gets a warm bistro design",
+            "📄 Demo brochures redesigned — correct MIRACURL SUITE gold logo, cinematic AI cover backgrounds (salon interior / fine-dining), and a dedicated Restaurant Edition PDF for restaurant demo invites",
+            "🌍 International-safe pricing — demo invites, follow-ups and WhatsApp pitches to leads outside India now show USD plans instead of ₹",
             "🎁 'Share & earn ₹100' is back for every guest — the referral card now appears after EVERY booking (any amount, new or returning guest); the ₹1000 minimum applies only when the friend redeems",
             "🔔 Fixed: notifications now stay with their own business — switching between your salon and restaurant on the same device no longer shows the other outlet's pending bills",
             "🪔 Mira now knows every Indian festival (2026-27) — your Dashboard greets you with today's or tomorrow's festival (e.g. 'Raksha Bandhan tomorrow — get them festival-ready ✦') and Mira themes the Offer of the Day around it",

@@ -177,20 +177,38 @@ async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin),
     from routes.offer_flyer import TEMPLATES, FlyerIn, _compose_flyer, _load_logo
     from routes.mira_common import _ask_json, _gen_image_bytes
     tpl_keys = ", ".join(TEMPLATES.keys())
-    plan = await _ask_json(
-        f"You design salon promo flyers for '{t.get('name', 'the salon')}', a premium Indian salon. "
-        "Parse the owner's offer request into flyer fields.",
-        f"Offer request: {body.prompt}\nPick the best template from: {tpl_keys} "
-        "(bridal→bridal_blush, men→mens_edge, festive→festive_sparkle, otherwise royal_gold/dark_glam/navy_classic).\n"
-        'Return JSON: {"template":"<key>","headline":"<2-4 word offer headline>",'
-        '"offer_text":"<one punchy line with the discount % or price>",'
-        '"services":["<service — price>", "...max 3, ONLY if distinct services beyond the main offer are mentioned, else []"],'
-        '"valid_until":"<validity text or empty>",'
-        '"post_caption":"<ready-to-post social caption: hook line, offer details, validity, book-now CTA, 5-8 hashtags>"}')
+    resto = t.get("business_type") == "restaurant"
+    if resto:
+        plan = await _ask_json(
+            f"You design restaurant promo flyers for '{t.get('name', 'the restaurant')}', a premium Indian restaurant. "
+            "Parse the owner's offer request into flyer fields.",
+            f"Offer request: {body.prompt}\nPick the best template from: dark_glam, royal_gold, emerald_luxe, festive_sparkle, navy_classic.\n"
+            'Return JSON: {"template":"<key>","headline":"<2-4 word offer headline>",'
+            '"offer_text":"<one punchy line with the discount % or price>",'
+            '"services":["<dish — price>", "...max 3, ONLY if distinct dishes beyond the main offer are mentioned, else []"],'
+            '"valid_until":"<validity text or empty>",'
+            '"post_caption":"<ready-to-post social caption: hook line, offer details, validity, order-now CTA, 5-8 hashtags>"}')
+    else:
+        plan = await _ask_json(
+            f"You design salon promo flyers for '{t.get('name', 'the salon')}', a premium Indian salon. "
+            "Parse the owner's offer request into flyer fields.",
+            f"Offer request: {body.prompt}\nPick the best template from: {tpl_keys} "
+            "(bridal→bridal_blush, men→mens_edge, festive→festive_sparkle, otherwise royal_gold/dark_glam/navy_classic).\n"
+            'Return JSON: {"template":"<key>","headline":"<2-4 word offer headline>",'
+            '"offer_text":"<one punchy line with the discount % or price>",'
+            '"services":["<service — price>", "...max 3, ONLY if distinct services beyond the main offer are mentioned, else []"],'
+            '"valid_until":"<validity text or empty>",'
+            '"post_caption":"<ready-to-post social caption: hook line, offer details, validity, book-now CTA, 5-8 hashtags>"}')
     template = plan.get("template") if plan.get("template") in TEMPLATES else "royal_gold"
     tpl = TEMPLATES[template]
-    img_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
-                  "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
+    if resto:
+        img_prompt = ("Appetizing spread of gourmet restaurant dishes with rich garnishes on a dark elegant table, "
+                      "warm candlelight and golden bokeh, premium editorial food photography. "
+                      "Vertical poster composition with generous empty space on the left half "
+                      "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
+    else:
+        img_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
+                      "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
     bg = await _gen_image_bytes(img_prompt)
     if not bg:
         raise HTTPException(400, "Image generation failed — try again")
