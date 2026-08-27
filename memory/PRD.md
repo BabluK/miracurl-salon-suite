@@ -163,6 +163,14 @@ Frontend:
 - `/app/memory/PRD.md`, `/app/memory/test_credentials.md`, `/app/auth_testing.md`.
 
 
+## 2026-08-27 — Dual-PWA split finalized (Miracurl Partner + Miracurl Book)
+- Two separate installable PWAs on the same Android/iOS device: `/manifest.json` (id `miracurl-booking`, scope `/book/`, "Miracurl Book") vs `/manifest-admin.json` (id `miracurl-admin`, scope `/partner/`, start `/partner/login`, "Miracurl Partner"). Distinct any+maskable icon sets (`icon-*` vs `icon-admin-*`).
+- index.html injects the correct manifest at parse time; public-route list expanded to /order /rate /feedback /gift /membership /member /pay so diners/consumers never get the Partner manifest.
+- Fixed admin manifest shortcuts (were out-of-scope /dashboard → now /partner/dashboard, /partner/appointments).
+- Fixed basename bug: `startsWith("/partner")` also captured `/partners` (public Partners page broke) and `/partner` (PartnerLanding). Now only `/partner/` triggers the basename, in App.js and the api.js 401 redirect.
+- Verified: /partner/login → login → /partner/dashboard (stays in scope), correct manifest+app-name per route, /partners renders.
+- NOTE: handoff had stale admin password; real creds live in /app/memory/test_credentials.md (admin@miracurl.com / q6QY@tn3p#9DtL).
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).

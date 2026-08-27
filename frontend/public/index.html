@@ -17,7 +17,8 @@
         <script>
           (function () {
             var p = window.location.pathname;
-            var b = p.indexOf("/book") === 0 || p.indexOf("/salon") === 0 || p.indexOf("/demo-slot") === 0 || p.indexOf("/review") === 0;
+            var pub = ["/book", "/salon", "/demo-slot", "/review", "/order", "/rate", "/feedback", "/gift", "/membership", "/member", "/pay"];
+            var b = pub.some(function (r) { return p === r || p.indexOf(r + "/") === 0; });
             document.write(
               '<link rel="manifest" href="' + (b ? "/manifest.json" : "/manifest-admin.json") + '">' +
               '<link rel="apple-touch-icon" href="' + (b ? "/icon-192.png?v=4" : "/icon-admin-192.png?v=4") + '">' +

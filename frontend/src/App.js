@@ -203,7 +203,7 @@ export default function App() {
   return (
     <div className="App">
       <AuthProvider>
-        <BrowserRouter basename={window.location.pathname.startsWith("/partner") ? "/partner" : ""}>
+        <BrowserRouter basename={window.location.pathname.startsWith("/partner/") ? "/partner" : ""}>
           <ScrollToTop />
           <ContentGuard />
           <VersionWatcher />
