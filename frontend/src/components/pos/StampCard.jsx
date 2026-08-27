@@ -3,7 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 
 // Gold stamp card shown in POS when a guest with a phone is selected (salons only)
-export function StampCard({ phone }) {
+export function StampCard({ phone, onRewardRedeemed }) {
   const [card, setCard] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -38,7 +38,12 @@ export function StampCard({ phone }) {
           </button>
           {card.found && card.rewards_available > 0 && (
             <button disabled={busy} data-testid="pos-stamp-redeem-btn"
-              onClick={() => act("redeem", d => `🎁 Redeemed: ${d.reward_label} — apply ${d.reward_discount_pct}% off in the discount field`)}
+              onClick={() => act("redeem", d => {
+                onRewardRedeemed?.(d);
+                return d.reward_discount_pct > 0
+                  ? `🎁 Redeemed: ${d.reward_label} — ${d.reward_discount_pct}% off applied to this bill`
+                  : `🎁 Redeemed: ${d.reward_label}`;
+              })}
               className="px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-[11px] font-bold shadow hover:brightness-105 disabled:opacity-50">
               🎁 Redeem {card.reward_label}
             </button>

@@ -13,7 +13,7 @@ export function LoyaltyStampsCard() {
     api.get("/tenants/current").then(r => setIsResto(r.data?.business_type === "restaurant")).catch(() => {});
   }, []);
 
-  if (isResto || !cfg) return null;
+  if (!cfg) return null;
 
   const save = async () => {
     setSaving(true);
@@ -50,7 +50,7 @@ export function LoyaltyStampsCard() {
           <label className="text-xs text-slate-500 font-medium">Reward (shown to guests)</label>
           <input value={cfg.reward_label} maxLength={80} data-testid="loyalty-stamps-reward-input"
             onChange={e => setCfg({ ...cfg, reward_label: e.target.value })}
-            placeholder="e.g. Free Hair Spa or 20% off next visit"
+            placeholder={isResto ? "e.g. Free Dessert or 20% off the table" : "e.g. Free Hair Spa or 20% off next visit"}
             className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>

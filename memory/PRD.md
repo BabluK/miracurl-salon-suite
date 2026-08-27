@@ -2287,3 +2287,11 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Share & earn ₹100 (both verticals, shared SuccessStep): card shown only when booking total >= 1000 (BookPublic.steps.jsx), copy says "on bills of ₹1000+".
 - Server-side enforcement: public_site.py — referred guest's instant ₹100 credit only when booking services total >= 1000; appointments_pos.py _apply_post_invoice_effects — referrer's ₹100 released only when the referred bill total >= 1000 (smaller bills keep referral_pending for a later qualifying visit).
 - Notification polish (NewBookingNotifier.jsx): multi-booking toast lists up to 3 guest names; bell header chip "🧾 N to bill" (testid notif-pending-bills); booking rows redesigned — initial avatar, PENDING BILL badge, services line, time, gold "Bill now →" pill; gift/membership rows unchanged. Screenshot-verified with 2 bookings + 1 gift.
+
+## Session 2026-06 (fork) — Auto-apply stamp reward
+- StampCard onRewardRedeemed callback → POS sets overallDiscMode="pct" + overallDisc=reward_discount_pct on redeem; toast says "% off applied to this bill". E2E screenshot-verified (OVERALL DISC auto-filled). Demo reward reset to 20%.
+
+## Session 2026-06 (fork) — Loyalty stamps extended to restaurants
+- Removed salon-only restriction: loyalty_stamps.py PUT no longer 400s for restaurants; public endpoint no longer blocks restaurant tenants. LoyaltyStampsCard shown in restaurant settings (placeholder "Free Dessert or 20% off the table"); POS StampCard + auto-apply discount mounted for both verticals. Auto-stamp on invoice already vertical-agnostic.
+- Verified via curl as infinity.admin@miracurl.com: settings saved (Free Dessert Platter, 10%), stamp added for Demo Diner (9812345670), public lookup on restaurant booking page works.
+- NOTE: user deployed earlier build minutes ago — this restaurant extension needs the NEXT deploy.

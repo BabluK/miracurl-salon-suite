@@ -688,7 +688,11 @@ export default function POS() {
             redeemPoints={redeemPoints} setRedeemPoints={setRedeemPoints}
             loyaltyRules={loyaltyRules} onRedeemPackage={redeemPackage}
           />
-          {!isResto && customer?.phone && <StampCard phone={customer.phone} />}
+          {customer?.phone && (
+            <StampCard phone={customer.phone} onRewardRedeemed={(d) => {
+              if (d.reward_discount_pct > 0) { setOverallDiscMode("pct"); setOverallDisc(d.reward_discount_pct); }
+            }} />
+          )}
 
           <CartTable
             cart={cart} staff={staff} taxEnabled={taxEnabled} taxPct={taxPct} sym={sym}

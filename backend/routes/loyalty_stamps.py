@@ -33,8 +33,6 @@ async def get_stamp_settings(user=Depends(get_current_user), t=Depends(current_t
 
 @router.put("/settings/loyalty-stamps")
 async def put_stamp_settings(body: StampSettingsIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    if (t.get("business_type") or "salon") == "restaurant":
-        raise HTTPException(400, "Loyalty stamp cards are available for salons only")
     await db.tenants.update_one({"id": t["id"]}, {"$set": {"loyalty_stamps": body.model_dump()}})
     return {"ok": True, **body.model_dump()}
 
@@ -111,7 +109,7 @@ async def public_view_card(slug: str, phone: str, request: Request):
     if not t:
         raise HTTPException(404, "Salon not found")
     cfg = _cfg(t)
-    if not cfg["enabled"] or (t.get("business_type") or "salon") == "restaurant":
+    if not cfg["enabled"]:
         return {"enabled": False}
     digits = re.sub(r"[^0-9]", "", phone)[-10:]
     if not re.fullmatch(r"[6-9]\d{9}", digits):
