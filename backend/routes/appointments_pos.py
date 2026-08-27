@@ -133,6 +133,26 @@ async def _send_cancellation_sms(user: dict, appt: dict, phone: str) -> None:
                "cancellation")
 
 
+@router.get("/appointments/billing-status")
+async def appointments_billing_status(ids: str, user=Depends(get_current_user)):
+    """Which of these bookings already have a bill? Drives the notification bell:
+    a booking notification stays until its bill is raised."""
+    idlist = [i.strip() for i in ids.split(",") if i.strip()][:50]
+    if not idlist:
+        return {"billed": []}
+    cur = db.invoices.find({"appointment_id": {"$in": idlist}}, {"_id": 0, "appointment_id": 1})
+    billed = sorted({d["appointment_id"] async for d in cur if d.get("appointment_id")})
+    return {"billed": billed}
+
+
+@router.get("/appointments/{aid}")
+async def get_appointment_by_id(aid: str, user=Depends(get_current_user)):
+    a = await db.appointments.find_one({"id": aid}, {"_id": 0})
+    if not a:
+        raise HTTPException(404, "Appointment not found")
+    return a
+
+
 @router.post("/appointments")
 async def create_appointment(body: AppointmentIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
@@ -340,7 +360,9 @@ async def _apply_post_invoice_effects(cust: dict, totals: dict, loyalty_rules: d
          "$set": {"last_visited": datetime.now(timezone.utc).isoformat(), "crm_status": "active"}})
 
     # SEC-001: release the referrer's reward only after the referred guest actually pays.
-    if cust.get("referral_pending") and cust.get("referred_by"):
+    # Business rule: reward unlocks only on bills of ₹1000+ — smaller bills keep it pending
+    # so it can still trigger on a later qualifying visit.
+    if cust.get("referral_pending") and cust.get("referred_by") and totals["total"] >= 1000:
         await db.customers.update_one({"id": cust["id"]}, {"$unset": {"referral_pending": ""}})
         referrer = await db.customers.find_one(
             {"id": cust["referred_by"]}, {"_id": 0, "id": 1, "referral_credit": 1})

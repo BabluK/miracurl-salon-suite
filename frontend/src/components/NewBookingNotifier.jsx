@@ -72,6 +72,11 @@ function playChime() {
   } catch (e) { log.warn("[NewBookingNotifier] chime failed:", e); }
 }
 
+function goToBilling(id) {
+  window.history.pushState({}, "", `/pos?appointment=${id}`);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 function showOsNotification(b) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
@@ -86,8 +91,7 @@ function showOsNotification(b) {
     });
     n.onclick = () => {
       window.focus();
-      window.history.pushState({}, "", "/appointments");
-      window.dispatchEvent(new PopStateEvent("popstate"));
+      goToBilling(b.id);
       n.close();
     };
   } catch (e) { log.warn("[NewBookingNotifier] OS notification failed:", e); }
@@ -112,8 +116,9 @@ export function useNewBookingNotifier({ enabled }) {
   );
   const lastSeenRef = useRef(readLastSeen());
   const firstRunRef = useRef(true);
+  const itemsRef = useRef(items);
 
-  useEffect(() => { writeItems(items); }, [items]);
+  useEffect(() => { writeItems(items); itemsRef.current = items; }, [items]);
 
   const poll = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
@@ -147,15 +152,29 @@ export function useNewBookingNotifier({ enabled }) {
             });
           } else {
             toast.success(`New booking ✦ ${one.customer_name}`, {
-              description: `${(one.service_names || []).join(", ") || "Service"} with ${one.staff_name}`, duration: 6000,
+              description: `${(one.service_names || []).join(", ") || "Service"} with ${one.staff_name}`, duration: 10000,
+              action: { label: "Bill now →", onClick: () => goToBilling(one.id) },
             });
           }
         } else {
-          toast.success(`${data.count} new updates ✦`, {
-            description: "Tap the bell to view them one by one", duration: 6000,
+          const names = fresh.filter(f => f.kind === "booking").map(b => b.customer_name).filter(Boolean);
+          toast.success(`${data.count} new bookings ✦`, {
+            description: names.length
+              ? `${names.slice(0, 3).join(" · ")}${names.length > 3 ? ` +${names.length - 3} more` : ""} — tap the bell to bill each one`
+              : "Tap the bell to view them one by one",
+            duration: 9000,
           });
         }
         for (const b of (data.bookings || [])) showOsNotification(b);
+      }
+      // A booking stays in the bell until its bill is raised — then it clears itself
+      const bookingIds = itemsRef.current.filter(i => i.kind === "booking").map(i => i.id);
+      if (bookingIds.length) {
+        try {
+          const { data: bs } = await api.get("/appointments/billing-status", { params: { ids: bookingIds.join(",") } });
+          const billed = new Set(bs.billed || []);
+          if (billed.size) setItems(prev => prev.filter(i => i.kind !== "booking" || !billed.has(i.id)));
+        } catch { /* next poll retries */ }
       }
     } catch (e) {
       log.debug("[NewBookingNotifier] poll error:", e?.response?.status);
@@ -215,8 +234,14 @@ export function NotifBell({ items = [], permission, requestPermission, dismiss, 
   }, [open]);
 
   function readItem(it) {
-    dismiss(it.id);
     setOpen(false);
+    if (it.kind === "booking") {
+      // Booking rows go straight to Billing with the order pre-filled and STAY
+      // in the bell until the bill is actually raised.
+      onNavigate?.(`/pos?appointment=${it.id}`);
+      return;
+    }
+    dismiss(it.id);
     onNavigate?.((KIND[it.kind] || KIND.booking).to);
   }
 
@@ -246,6 +271,11 @@ export function NotifBell({ items = [], permission, requestPermission, dismiss, 
             <div className="text-sm font-semibold text-white flex items-center gap-2">
               <Bell className="w-3.5 h-3.5 text-gold" /> Notifications
               {unread > 0 && <span className="text-[10px] text-gold bg-gold/10 border border-gold/30 rounded-full px-1.5 py-0.5 font-bold">{unread}</span>}
+              {items.some(i => i.kind === "booking") && (
+                <span className="text-[9px] font-bold uppercase tracking-wide text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-full px-1.5 py-0.5" data-testid="notif-pending-bills">
+                  🧾 {items.filter(i => i.kind === "booking").length} to bill
+                </span>
+              )}
             </div>
             {unread > 0 && (
               <button onClick={clearAll} data-testid="notif-clear-all"
@@ -262,6 +292,31 @@ export function NotifBell({ items = [], permission, requestPermission, dismiss, 
               const k = KIND[it.kind] || KIND.booking;
               const KIcon = k.Icon;
               const tx = notifText(it);
+              if (it.kind === "booking") {
+                return (
+                  <div key={it.id} className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] cursor-pointer group" data-testid={`notif-item-${it.id}`}
+                    onClick={() => readItem(it)}>
+                    <div className="w-8 h-8 rounded-full bg-gold/15 border border-gold/40 text-gold flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                      {(it.customer_name || "G").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[13px] font-semibold text-white truncate">{it.customer_name}</span>
+                        <span className="text-[8.5px] font-bold tracking-wide uppercase text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-full px-1.5 py-0.5 shrink-0">Pending bill</span>
+                      </div>
+                      <div className="text-[11px] text-white/55 truncate">{tx.sub}</div>
+                      <div className="flex items-center justify-between gap-2 mt-1">
+                        <span className="text-[10px] text-white/35 truncate">{tx.meta} · {relTime(it.received_at)}</span>
+                        <span className="text-[10px] font-bold text-bg-base bg-gold rounded-full px-2 py-0.5 shrink-0 group-hover:brightness-110">Bill now →</span>
+                      </div>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); dismiss(it.id); }} data-testid={`notif-dismiss-${it.id}`}
+                      className="opacity-0 group-hover:opacity-100 text-white/35 hover:text-white transition p-1" title="Dismiss">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              }
               return (
                 <div key={it.id} className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] cursor-pointer group" data-testid={`notif-item-${it.id}`}
                   onClick={() => readItem(it)}>
@@ -285,7 +340,7 @@ export function NotifBell({ items = [], permission, requestPermission, dismiss, 
           </div>
           {items.length > 0 && (
             <div className="px-4 py-2 text-[10px] text-white/30 border-t border-white/10 text-center">
-              Tap a notification to open it — it clears automatically once read
+              Tap a booking to open Billing pre-filled — it clears once the bill is raised ✦
             </div>
           )}
         </div>

@@ -458,7 +458,10 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
     staff = await _resolve_staff(body.staff_id, body.scheduled_at, sum(s["duration_min"] for s in services) or 30)
     coupon = await _validate_coupon(body.coupon_code)
     cust, is_new_customer = await _resolve_or_create_customer(body)
-    referral_applied = await _apply_referral_credit(cust, body.referral_code) if is_new_customer else None
+    booking_total_est = sum(float(s.get("price") or 0) for s in services)
+    # Referral perk applies only on bookings worth ₹1000+ (same rule both verticals)
+    referral_applied = (await _apply_referral_credit(cust, body.referral_code)
+                        if is_new_customer and booking_total_est >= 1000 else None)
     appt, total, duration = await _create_public_appointment(cust, staff, services, body)
 
     coupon_discount = 0.0

@@ -288,6 +288,28 @@ export default function POS() {
     setGuestQuery(`${c.name} · ${c.phone}`);
     setGuestOpen(false);
   }
+
+  // Booking → Billing handoff: /pos?appointment=<id> pre-fills guest, staff & booked items
+  const apptPreloadRef = useRef(false);
+  useEffect(() => {
+    if (apptPreloadRef.current || !services.length) return;
+    const apptId = new URLSearchParams(window.location.search).get("appointment");
+    if (!apptId) return;
+    apptPreloadRef.current = true;
+    api.get(`/appointments/${apptId}`).then(({ data }) => {
+      const cust = customers.find(c => c.id === data.customer_id);
+      if (cust) selectGuest(cust);
+      else if (data.customer_id) { setCustomerId(data.customer_id); setGuestQuery(data.customer_name || ""); }
+      if (data.staff_id) setStaffId(data.staff_id);
+      const items = (data.service_ids || [])
+        .map(sid => services.find(s => s.id === sid)).filter(Boolean)
+        .map(s => ({ type: "service", ref_id: s.id, name: s.name, qty: 1, price: s.price, disc_pct: 0, staff_id: data.staff_id || "", staff_name: data.staff_name || "" }));
+      setCart(prev => (prev.length ? prev : items));
+      window.history.replaceState({}, "", "/pos");
+      toast.success(`Booking loaded ✦ ${data.customer_name || "Guest"} — bill is ready to charge`, { duration: 6000 });
+    }).catch(() => toast.error("Couldn't load that booking — pick the guest manually"));
+  }, [services, customers]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function clearGuest() {
     setCustomerId("");
     setGuestQuery("");

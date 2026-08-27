@@ -540,6 +540,7 @@ export function SuccessStep({ confirmation, onBookAnother }) {
         </div>
       </div>
 
+      {Number(confirmation.summary.total || 0) >= 1000 && (
       <div className="card-luxe mt-6 bg-gradient-to-br from-gold/10 via-bg-surface to-blush/5 border-gold/30 text-left">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
@@ -547,7 +548,7 @@ export function SuccessStep({ confirmation, onBookAnother }) {
           </div>
           <div>
             <h3 className="font-playfair text-xl">Share & earn ₹100</h3>
-            <p className="text-xs text-ink-secondary">Refer a friend — both of you get ₹100 off your next visit.</p>
+            <p className="text-xs text-ink-secondary">Refer a friend — both of you get ₹100 off your next visit (on bills of ₹1000+).</p>
           </div>
         </div>
         <div className="bg-bg-base/60 border border-white/10 rounded-md p-3 flex items-center gap-3">
@@ -578,6 +579,7 @@ export function SuccessStep({ confirmation, onBookAnother }) {
           ><Share2 className="w-3 h-3" /> Share</a>
         </div>
       </div>
+      )}
 
       <button onClick={onBookAnother} className="btn-ghost mt-8" data-testid="book-another-btn">
         Book another visit
