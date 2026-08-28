@@ -12,6 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 import { mainSalonLabel } from "@/lib/branch";
 import { curSym } from "@/lib/currency";
 import { TipsReportCard } from "@/components/reports/TipsReportCard";
+import { LoyaltyGiftsReportCard } from "@/components/reports/LoyaltyGiftsReportCard";
 
 const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
 const PIE_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", color: "#0f172a" };
@@ -146,6 +147,7 @@ export default function Reports() {
       </div>
 
       <TipsReportCard restaurant={tenant?.business_type === "restaurant"} />
+      <LoyaltyGiftsReportCard />
 
       {!data ? <div className="text-slate-500">Loading...</div> : (
         <>

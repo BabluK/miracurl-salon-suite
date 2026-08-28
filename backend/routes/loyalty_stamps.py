@@ -75,6 +75,7 @@ async def staff_view_card(phone: str, user=Depends(get_current_user), t=Depends(
 
 class StampIn(BaseModel):
     phone: str = Field(..., max_length=20)
+    gift: str | None = Field(None, max_length=80)
 
 
 @router.post("/loyalty/stamps/add")
@@ -103,9 +104,27 @@ async def redeem_reward(body: StampIn, user=Depends(get_current_user), t=Depends
         raise HTTPException(400, "Card is not full yet — no reward to redeem")
     await db.customers.update_one({"id": cust["id"]}, {"$inc": {"stamp_rewards_redeemed": 1}})
     cust["stamp_rewards_redeemed"] = int(cust.get("stamp_rewards_redeemed") or 0) + 1
+    gift = (body.gift or "").strip()[:80] or cfg["reward_label"]
+    import uuid as _uuid
+    await _raw_db.loyalty_gift_log.insert_one({
+        "id": str(_uuid.uuid4()), "tenant_id": t["id"], "customer_id": cust["id"],
+        "customer_name": cust.get("name"), "phone": re.sub(r"[^0-9]", "", body.phone)[-10:],
+        "gift": gift, "is_surprise": bool(body.gift),
+        "redeemed_by": user.get("name") or user.get("email") or "staff",
+        "created_at": datetime.now(timezone.utc).isoformat()})
     out = _card(cust, cfg)
     out["redeemed"] = True
+    out["gift"] = gift
     return out
+
+
+@router.get("/reports/loyalty-gifts")
+async def loyalty_gift_report(start: str, end: str, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Gifts handed out on stamp-card redemptions within [start, end] (YYYY-MM-DD)."""
+    rows = await _raw_db.loyalty_gift_log.find(
+        {"tenant_id": t["id"], "created_at": {"$gte": start, "$lte": end + "T23:59:59.999Z"}},
+        {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"total": len(rows), "rows": rows}
 
 
 @router.get("/public/loyalty/{slug}")
@@ -155,7 +174,7 @@ async def public_loyalty_join(slug: str, body: LoyaltyJoinIn, request: Request):
     """Walk-in guest scans the Loyalty Club QR and joins with name/phone/email."""
     public_rate_limit(request, key_suffix="loyalty-join", limit=6, window_sec=600)
     await durable_rate_limit(request, "loyalty-join", limit=6, window_sec=600)
-    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "loyalty_stamps": 1})
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "location": 1, "loyalty_stamps": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
     cfg = _cfg(t)
@@ -192,19 +211,25 @@ async def public_loyalty_join(slug: str, body: LoyaltyJoinIn, request: Request):
             import os as _os
             from sms_service import send_tenant_sms
             base = (request.headers.get("origin") or _os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
-            sms_body = (f"Welcome to the {t.get('name')} Loyalty Club, {(cust.get('name') or body.name).split(' ')[0]}! "
+            club = f"{t.get('name')} {t.get('location')}".strip() if t.get("location") else t.get("name")
+            sms_body = (f"Welcome to the {club} Loyalty Club, {(cust.get('name') or body.name).split(' ')[0]}! "
                         f"You earn a gold stamp every visit - complete {cfg['stamps_needed']} and a surprise gift is yours. "
                         f"Your card: {base}/loyalty/{slug}")
             _asyncio.create_task(send_tenant_sms(t["id"], digits, sms_body, kind="loyalty_welcome"))
         except Exception:
             pass
-    return {"ok": True, "is_new": is_new, "salon_name": t.get("name"),
+    return {"ok": True, "is_new": is_new, "salon_name": t.get("name"), "location": t.get("location") or "",
             "first_name": (cust.get("name") or body.name).split(" ")[0],
             "stamps": card["stamps"], "needed": card["needed"], "reward_label": cfg["reward_label"]}
 
 
+LOYALTY_BGS = {"deco": "loyalty_qr_bg.jpg", "dining": "table_qr_bg.jpg",
+               "emerald": "loyalty_bg_emerald.jpg", "burgundy": "loyalty_bg_burgundy.jpg",
+               "midnight": "loyalty_bg_midnight.jpg"}
+
+
 @router.get("/settings/loyalty-qr-poster.png")
-async def loyalty_qr_poster(origin: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def loyalty_qr_poster(origin: str = "", design: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Polished Loyalty Club QR poster — guests scan to join and start collecting stamps."""
     import asyncio
     import io
@@ -221,7 +246,8 @@ async def loyalty_qr_poster(origin: str = "", user=Depends(require_tenant_admin)
         W, H = 720, 1080
         assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
         resto = t.get("business_type") == "restaurant"
-        bg_path = os.path.join(assets_dir, "posters", "table_qr_bg.jpg" if resto else "loyalty_qr_bg.jpg")
+        bg_file = LOYALTY_BGS.get(design) or LOYALTY_BGS["dining" if resto else "deco"]
+        bg_path = os.path.join(assets_dir, "posters", bg_file)
         if os.path.exists(bg_path):
             bg = Image.open(bg_path).convert("RGB")
             scale = max(W / bg.width, H / bg.height)
@@ -258,7 +284,13 @@ async def loyalty_qr_poster(origin: str = "", user=Depends(require_tenant_admin)
             size -= 3
             f = _font("PlayfairDisplay-Bold.ttf", size)
         center(name, y, f, GOLD)
-        y += size + 14
+        y += size + 8
+        loc = (t.get("location") or "").strip()
+        if loc:
+            center(loc[:48].upper(), y, _font("FreeSansBold.ttf", 19), LIGHT)
+            y += 30
+        else:
+            y += 6
         lbl_f = _font("FreeSansBold.ttf", 28)
         lbl = "L O Y A L T Y   C L U B"
         lw = d.textlength(lbl, font=lbl_f)

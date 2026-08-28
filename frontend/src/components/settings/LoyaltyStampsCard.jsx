@@ -6,12 +6,21 @@ import { Stamp, Download, Loader2, X } from "lucide-react";
 const GIFT_PRESETS = ["Free Hair Spa", "Free Hair Cut", "Free D-Tan", "10% off any service",
   "Pay ₹1000 → get ₹1500 services", "Pay ₹2000 → get ₹2500 services"];
 
+const QR_BGS = [
+  { key: "deco", label: "Gold Deco" },
+  { key: "dining", label: "Fine Dining" },
+  { key: "emerald", label: "Royal Emerald" },
+  { key: "burgundy", label: "Burgundy Rose" },
+  { key: "midnight", label: "Midnight Stars" },
+];
+
 export function LoyaltyStampsCard() {
   const [cfg, setCfg] = useState(null);
   const [isResto, setIsResto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dl, setDl] = useState(false);
   const [giftInput, setGiftInput] = useState("");
+  const [qrBg, setQrBg] = useState("");
 
   const gifts = cfg?.surprise_gifts || [];
   const addGift = (g) => {
@@ -25,7 +34,7 @@ export function LoyaltyStampsCard() {
     setDl(true);
     try {
       const { data } = await api.get("/settings/loyalty-qr-poster.png", {
-        params: { origin: window.location.origin }, responseType: "blob",
+        params: { origin: window.location.origin, design: qrBg || undefined }, responseType: "blob",
       });
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
@@ -136,6 +145,21 @@ export function LoyaltyStampsCard() {
           {dl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {dl ? "Preparing…" : "Download Loyalty Club QR"}
         </button>
+      </div>
+      <div className="mt-3">
+        <p className="text-[11px] font-bold text-slate-500">Poster background</p>
+        <div className="grid grid-cols-5 gap-2 mt-1.5 max-w-md">
+          {QR_BGS.map(b => {
+            const active = qrBg === b.key || (!qrBg && b.key === (isResto ? "dining" : "deco"));
+            return (
+              <button key={b.key} onClick={() => setQrBg(b.key)} data-testid={`loyalty-bg-${b.key}`}
+                className={`rounded-lg overflow-hidden border-2 text-center ${active ? "border-amber-500 ring-2 ring-amber-200" : "border-slate-200 hover:border-amber-300"}`}>
+                <img src={`/assets/loyalty-bgs/${b.key}.jpg`} alt={b.label} className="w-full h-16 object-cover" />
+                <span className="block text-[9px] font-semibold text-slate-600 py-0.5">{b.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

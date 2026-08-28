@@ -231,6 +231,16 @@ Frontend:
 - Poster v2 (_render in loyalty_qr_poster): vertical-aware bg (restaurant→table_qr_bg, salon→loyalty_qr_bg), circular logo, stamp-journey dot trail ending in mini gift box, glowing gold gift-box art (assets/posters/gift_box_gold.png — generated on black, alpha from luminance since gemini can't emit real transparency) + "A SURPRISE GIFT awaits at your Nth visit" block. `_ordinal()` helper. Verified both verticals visually.
 - BUILD 2026-08-28.129.
 
+## 2026-08-28 (later 5) — Gift log, loyalty poster backgrounds, bistro chip fix
+- Gift Given Log: StampIn.gift optional; redeem writes `loyalty_gift_log` {id, tenant_id, customer, phone, gift, is_surprise, redeemed_by, created_at}; `GET /reports/loyalty-gifts?start&end`. POS StampCard: surprise-gift chips are now BUTTONS that redeem+log with that gift ("Give a surprise gift instead"). Reports page: LoyaltyGiftsReportCard (7/30/90-day ranges). Verified E2E (curl redeem w/ gift + Reports UI screenshot).
+- Loyalty poster backgrounds: 5 options via `?design=` (LOYALTY_BGS map: deco, dining, emerald, burgundy, midnight — new AI bgs in backend assets/posters/loyalty_bg_*.jpg); LoyaltyStampsCard picker with thumbnails at /assets/loyalty-bgs/*.jpg (frontend public). Defaults: salon→deco, resto→dining. All 3 new designs render-verified.
+- Booking QR poster chip fix: QrPosterCard chips load /assets/posters/{key}.png from FRONTEND public — bistro.png existed only in backend; copied a thumbnail to /app/frontend/public/assets/posters/bistro.png.
+- BUILD 2026-08-28.130.
+
+## 2026-08-28 (later 6) — Loyalty branch labelling
+- Poster shows tenant.location (uppercase, under name); join response returns `location` (shown on success view, data-testid loyalty-join-branch); welcome SMS club name = "{name} {location}". Verified: poster render, join API, sms_log preview.
+- BUILD 2026-08-28.131.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).

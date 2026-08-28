@@ -15,16 +15,24 @@ export function StampCard({ phone, onRewardRedeemed }) {
 
   if (!phone || !card?.enabled) return null;
 
-  const act = async (path, okMsg) => {
+  const act = async (path, okMsg, extra = {}) => {
     setBusy(true);
     try {
-      const { data } = await api.post(`/loyalty/stamps/${path}`, { phone });
+      const { data } = await api.post(`/loyalty/stamps/${path}`, { phone, ...extra });
       setCard(data);
       toast.success(okMsg(data));
     } catch (e) {
       toast.error(e.response?.data?.detail || "Failed");
     } finally { setBusy(false); }
   };
+
+  const redeem = (gift) => act("redeem", d => {
+    onRewardRedeemed?.(d);
+    const label = gift || d.reward_label;
+    return d.reward_discount_pct > 0 && !gift
+      ? `🎁 Redeemed: ${label} — ${d.reward_discount_pct}% off applied to this bill`
+      : `🎁 Gift given: ${label} (logged in Reports)`;
+  }, gift ? { gift } : {});
 
   return (
     <div className="mt-3 rounded-xl border border-amber-300/60 bg-gradient-to-r from-amber-50 to-yellow-50 p-3" data-testid="pos-stamp-card">
@@ -40,12 +48,7 @@ export function StampCard({ phone, onRewardRedeemed }) {
           </button>
           {card.found && card.rewards_available > 0 && (
             <button disabled={busy} data-testid="pos-stamp-redeem-btn"
-              onClick={() => act("redeem", d => {
-                onRewardRedeemed?.(d);
-                return d.reward_discount_pct > 0
-                  ? `🎁 Redeemed: ${d.reward_label} — ${d.reward_discount_pct}% off applied to this bill`
-                  : `🎁 Redeemed: ${d.reward_label}`;
-              })}
+              onClick={() => redeem(null)}
               className="px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-[11px] font-bold shadow hover:brightness-105 disabled:opacity-50">
               🎁 Redeem {card.reward_label}
             </button>
@@ -67,10 +70,13 @@ export function StampCard({ phone, onRewardRedeemed }) {
           </div>
           {card.rewards_available > 0 && (card.surprise_gifts || []).length > 0 && (
             <div className="mt-2 rounded-lg bg-white/70 border border-amber-200 p-2" data-testid="surprise-gift-ideas">
-              <p className="text-[10px] font-bold text-amber-700">🎁 Surprise gift options (guest can't see this) — pick one:</p>
+              <p className="text-[10px] font-bold text-amber-700">🎁 Give a surprise gift instead (guest can't see this) — tap to hand out &amp; log it:</p>
               <div className="flex flex-wrap gap-1 mt-1">
                 {card.surprise_gifts.map(g => (
-                  <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800">{g}</span>
+                  <button key={g} disabled={busy} onClick={() => redeem(g)} data-testid="surprise-gift-give-btn"
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 disabled:opacity-50">
+                    🎁 {g}
+                  </button>
                 ))}
               </div>
             </div>

@@ -54,6 +54,7 @@ export default function LoyaltyClubJoin() {
         ) : (
           <div className="text-center" data-testid="loyalty-join-success">
             <h1 className="font-playfair text-2xl mt-2 text-amber-100">Welcome, {done.first_name} ✦</h1>
+            <p className="text-[11px] text-amber-300/70 mt-1" data-testid="loyalty-join-branch">{done.salon_name}{done.location ? ` · ${done.location}` : ""}</p>
             <p className="text-xs text-white/55 mt-2">
               {done.is_new ? "You're in the club!" : "You're already a member — great to see you again!"}
             </p>
