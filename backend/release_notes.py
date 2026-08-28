@@ -9,7 +9,7 @@ RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
-            "🎨 Designer Visiting Card makeover — the card is now a premium cream design with curvy colour ribbons (magenta for salons, terracotta for restaurants), a script tagline, contact icons, a flower watermark and a framed scan-to-book QR; the back gets a SERVICES/OUR MENU price list with a BOOK NOW pill and your logo riding the colour wave",
+            "🎨 Designer Visiting Card makeover — premium cream design with curvy colour ribbons (magenta for salons, terracotta for restaurants), script tagline, contact icons and flower watermark; the back carries a big 'Scan to Book Your Slot' QR with your phone, email, Instagram handle and address — and a new editor in Settings lets you type all these details (tagline, phone, email, Instagram, address) and regenerate the card instantly",
             "💳 Luxury Visiting Card — every business can now generate a print-ready gold-framed visiting card (logo, name, branch, phone + scan-to-book/order QR) right from Settings, with live preview and one-tap download",
             "📲 Gift Reminder Nudge — one tap in Settings texts every member who is 1-2 stamps from their surprise gift ('You're just 1 visit away…' with your booking link); each guest is nudged at most once per 14 days",
             "📍 Branch name everywhere on the Loyalty Club — the poster shows your branch under the salon name, the join page confirms which branch the guest joined, and the welcome SMS mentions it too (no more mix-ups between branches)",

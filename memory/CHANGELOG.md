@@ -1460,3 +1460,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Back: SERVICES/OUR MENU header + dot-bullet price list with dotted leaders, logo circle riding a right-side colour wave with name beneath, BOOK NOW/ORDER NOW pill + URL + socials.
 - Palette branches by business_type: salon = magenta (206,32,115), restaurant = terracotta (186,70,26).
 - Helpers added: `_vc_flower`, `_vc_icon`. Frontend unchanged. Verified locally (both tenants, both sides, no-logo fallback) + e2e 200 via /api/settings/visiting-card.png. release_notes.py bumped to BUILD 2026-08-28.134.
+
+## 2026-06 (fork, follow-up) — Editable Visiting Card details + new back side
+- Back side reworked: services list removed; now "BOOK YOUR SLOT"/"ORDER & RESERVE" header, big framed QR with "SCAN TO BOOK YOUR SLOT" caption, contact rows (phone/email/@instagram/address with new mail+insta icons), logo circle on the colour wave.
+- New endpoints: GET/PUT /api/settings/visiting-card-details (stores tenant.visiting_card {tagline,phone,email,instagram,location}; GET prefills from tenant phone/location/instagram_url). Renderer merges vc overrides on both sides; front also shows @instagram row.
+- Frontend VisitingCardCard.jsx: editable form (5 fields, data-testids visiting-card-{field}-input, visiting-card-save-btn) + Save & Regenerate refreshes previews via cache-bust param. Note: PUT requires X-CSRF-Token header (cookie csrf_token) in curl tests.
+- Verified: e2e curl (login+CSRF, save, render 200 both sides) + Settings UI screenshot (owner PIN 4321 gate, What's New popup dismiss needed in automation).

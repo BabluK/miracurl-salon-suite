@@ -850,6 +850,14 @@ def _vc_icon(kind, size, acc):
         dd.ellipse([S * 0.30, S * 0.18, S * 0.70, S * 0.58], fill=WHT)
         dd.polygon([(S * 0.33, S * 0.48), (S * 0.67, S * 0.48), (S * 0.50, S * 0.84)], fill=WHT)
         dd.ellipse([S * 0.42, S * 0.30, S * 0.58, S * 0.46], fill=acc)
+    elif kind == "insta":
+        dd.rounded_rectangle([S * 0.22, S * 0.22, S * 0.78, S * 0.78], radius=int(S * 0.16), outline=WHT, width=w)
+        dd.ellipse([S * 0.36, S * 0.36, S * 0.64, S * 0.64], outline=WHT, width=w)
+        dd.ellipse([S * 0.63, S * 0.27, S * 0.71, S * 0.35], fill=WHT)
+    elif kind == "mail":
+        dd.rectangle([S * 0.20, S * 0.30, S * 0.80, S * 0.70], outline=WHT, width=w)
+        dd.line([S * 0.20, S * 0.31, S * 0.50, S * 0.54], fill=WHT, width=w)
+        dd.line([S * 0.80, S * 0.31, S * 0.50, S * 0.54], fill=WHT, width=w)
     else:  # globe
         dd.ellipse([S * 0.20, S * 0.20, S * 0.80, S * 0.80], outline=WHT, width=w)
         dd.ellipse([S * 0.38, S * 0.20, S * 0.62, S * 0.80], outline=WHT, width=w)
@@ -906,6 +914,13 @@ def _render_visiting_card(t: dict, base: str, logo_bytes: bytes | None, side: st
     kind = "order" if resto else "book"
     url_txt = f"{base.replace('https://', '')}/{kind}/{t.get('slug') or ''}"
     name = t.get("name") or ("Our Restaurant" if resto else "Our Salon")
+    vc = t.get("visiting_card") or {}
+    phone = (vc.get("phone") or t.get("phone") or "").strip()
+    email = (vc.get("email") or "").strip()
+    loc = (vc.get("location") or t.get("location") or "").strip()
+    insta = (vc.get("instagram") or "").strip().lstrip("@")
+    if not insta and (t.get("instagram_url") or "").strip():
+        insta = t["instagram_url"].rstrip("/").split("/")[-1]
 
     def _logo_circle(size):
         if logo_bytes:
@@ -938,46 +953,47 @@ def _render_visiting_card(t: dict, base: str, logo_bytes: bytes | None, side: st
             nf = _font("PlayfairDisplay-Bold.ttf", ns)
         d.text((W - 158 - d.textlength(name, font=nf) / 2, 116 + lc.height + 16), name, font=nf, fill=(255, 255, 255))
         # header
-        hdr = "OUR MENU" if resto else "SERVICES"
-        hx, hy = 84, 74
-        d.text((hx, hy), hdr, font=_font("PlayfairDisplay-Bold.ttf", 46), fill=ACC)
-        d.text((hx + d.textlength(hdr, font=_font("PlayfairDisplay-Bold.ttf", 46)) + 8, hy + 8), "...",
-               font=_font("PlayfairDisplay-Bold.ttf", 46), fill=SOFT)
+        hdr = "ORDER & RESERVE" if resto else "BOOK YOUR SLOT"
+        hx, hy = 84, 64
+        hf = _font("PlayfairDisplay-Bold.ttf", 46)
+        d.text((hx, hy), hdr, font=hf, fill=ACC)
+        d.text((hx + d.textlength(hdr, font=hf) + 8, hy + 8), "...", font=hf, fill=SOFT)
         d.line([hx + 2, hy + 62, hx + 172, hy + 62], fill=ACC, width=4)
-        y = hy + 92
-        items = (highlights or [])[:5]
+        # big scan-to-book QR
+        qr = qrcode.make(f"{base}/{kind}/{t.get('slug') or ''}", box_size=8, border=1).convert("RGB").resize((210, 210))
+        pad = 15
+        box = Image.new("RGB", (210 + pad * 2, 210 + pad * 2), (255, 255, 255))
+        box.paste(qr, (pad, pad))
+        m = Image.new("L", box.size, 0)
+        ImageDraw.Draw(m).rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=22, fill=255)
+        qx, qy = hx, 178
+        fr = Image.new("RGBA", bg.size, (0, 0, 0, 0))
+        ImageDraw.Draw(fr).rounded_rectangle([qx - 5, qy - 5, qx + box.width + 5, qy + box.height + 5],
+                                             radius=24, outline=ACC + (255,), width=3)
+        bg.paste(fr, (0, 0), fr)
+        bg.paste(box, (qx, qy), m)
+        cap = "SCAN TO ORDER YOUR TABLE" if resto else "SCAN TO BOOK YOUR SLOT"
+        cf = _font("FreeSansBold.ttf", 20)
+        cw = d.textlength(cap, font=cf)
+        d.text((qx + (box.width - cw) / 2 if cw <= box.width else qx, qy + box.height + 18), cap, font=cf, fill=ACCD)
+        # contact rows beside the QR
+        rows = []
+        if phone:
+            rows.append(("phone", phone[:30]))
+        if email:
+            rows.append(("mail", email[:34]))
+        if insta:
+            rows.append(("insta", f"@{insta}"[:32]))
+        if loc:
+            rows.append(("pin", loc[:34]))
         rf = _font("FreeSansBold.ttf", 24)
-        col_w = 540
-        d.line([hx + 5, y + 8, hx + 5, y + 8 + max(0, len(items) - 1) * 46 + 14], fill=SOFT, width=3)
-        for it in items:
-            d.ellipse([hx, y + 10, hx + 11, y + 21], fill=ACC)
-            nm = it["name"][:34]
-            price = f"Rs.{round(it['price']):,}" if it.get("price") else ""
-            pw = d.textlength(price, font=rf)
-            d.text((hx + 26, y), nm, font=rf, fill=INK)
-            if price:
-                d.text((hx + 26 + col_w - pw, y), price, font=rf, fill=ACC)
-                dx = hx + 26 + d.textlength(nm, font=rf) + 14
-                while dx < hx + 26 + col_w - pw - 16:
-                    d.ellipse([dx, y + 16, dx + 3, y + 19], fill=SOFT)
-                    dx += 13
-            y += 46
-        # pill CTA + url
-        cta = "ORDER NOW" if resto else "BOOK NOW"
-        cf = _font("FreeSansBold.ttf", 22)
-        cw = d.textlength(cta, font=cf)
-        py = H - 118
-        d.rounded_rectangle([hx, py, hx + cw + 56, py + 46], radius=23, fill=ACC)
-        d.text((hx + 28, py + 10), cta, font=cf, fill=(255, 255, 255))
-        uf = _font("FreeSansBold.ttf", 19)
-        d.text((hx + cw + 76, py + 13), url_txt[:52], font=uf, fill=(150, 130, 140))
-        socials = []
-        for key, label in (("instagram_url", "Instagram"), ("facebook_url", "Facebook"), ("youtube_url", "YouTube")):
-            v = (t.get(key) or "").strip()
-            if v:
-                socials.append(f"{label}: @{v.rstrip('/').split('/')[-1]}")
-        if socials:
-            d.text((hx, H - 52), "  ·  ".join(socials)[:80], font=_font("FreeSansBold.ttf", 19), fill=ACCD)
+        ry = 190 if len(rows) >= 4 else 214
+        for kind_i, txt in rows:
+            ic = _vc_icon(kind_i, 40, ACC + (255,))
+            bg.paste(ic, (qx + box.width + 56, ry), ic)
+            d.text((qx + box.width + 112, ry + 7), txt, font=rf, fill=INK)
+            ry += 58
+        d.text((hx, H - 56), url_txt[:60], font=_font("FreeSansBold.ttf", 20), fill=(150, 130, 140))
         out = io.BytesIO()
         bg.save(out, format="JPEG", quality=92, dpi=(300, 300))
         return out.getvalue()
@@ -997,16 +1013,18 @@ def _render_visiting_card(t: dict, base: str, logo_bytes: bytes | None, side: st
     d.rounded_rectangle([px0, py0, px0 + nw + 56, py0 + ns + 30], radius=(ns + 30) // 2,
                         fill=(255, 255, 255), outline=ACC, width=3)
     d.text((px0 + 28, py0 + 13), name, font=nf, fill=INK)
-    tagline = (t.get("tagline") or "").strip() or ("Great Food · Good Vibes" if resto else "Beauty & Care Experts")
+    tagline = (vc.get("tagline") or "").strip() or ("Great Food · Good Vibes" if resto else "Beauty & Care Experts")
     d.text((px0 + 30, py0 + ns + 46), tagline, font=_font("GreatVibes-Regular.ttf", 46), fill=(255, 255, 255))
     # contact rows
-    y = 330
     rows = []
-    if (t.get("phone") or "").strip():
-        rows.append(("phone", t["phone"].strip()))
-    if (t.get("location") or "").strip():
-        rows.append(("pin", t["location"].strip()[:38]))
+    if phone:
+        rows.append(("phone", phone[:30]))
+    if loc:
+        rows.append(("pin", loc[:38]))
+    if insta:
+        rows.append(("insta", f"@{insta}"[:34]))
     rows.append(("globe", url_txt[:46]))
+    y = 348 - len(rows) * 9
     rf = _font("FreeSansBold.ttf", 25)
     for kind_i, txt in rows:
         ic = _vc_icon(kind_i, 40, ACC + (255,))
@@ -1035,6 +1053,38 @@ def _render_visiting_card(t: dict, base: str, logo_bytes: bytes | None, side: st
     return out.getvalue()
 
 
+class VisitingCardDetails(BaseModel):
+    tagline: str = Field("", max_length=60)
+    phone: str = Field("", max_length=30)
+    email: str = Field("", max_length=60)
+    instagram: str = Field("", max_length=40)
+    location: str = Field("", max_length=60)
+
+
+@router.get("/settings/visiting-card-details")
+async def get_visiting_card_details(user=Depends(require_admin)):
+    t = await _raw_db.tenants.find_one({"id": _current_tenant_id.get()}, {"_id": 0})
+    vc = t.get("visiting_card") or {}
+    insta = (vc.get("instagram") or "").strip()
+    if not insta and (t.get("instagram_url") or "").strip():
+        insta = t["instagram_url"].rstrip("/").split("/")[-1]
+    return {
+        "tagline": vc.get("tagline") or "",
+        "phone": vc.get("phone") or t.get("phone") or "",
+        "email": vc.get("email") or "",
+        "instagram": insta.lstrip("@"),
+        "location": vc.get("location") or t.get("location") or "",
+    }
+
+
+@router.put("/settings/visiting-card-details")
+async def save_visiting_card_details(body: VisitingCardDetails, user=Depends(require_admin)):
+    await _raw_db.tenants.update_one(
+        {"id": _current_tenant_id.get()},
+        {"$set": {"visiting_card": {k: v.strip() for k, v in body.dict().items()}}})
+    return {"ok": True}
+
+
 @router.get("/settings/visiting-card.png")
 async def visiting_card(origin: str = "", side: str = "front", user=Depends(require_admin)):
     tenant_id = _current_tenant_id.get()
@@ -1042,13 +1092,8 @@ async def visiting_card(origin: str = "", side: str = "front", user=Depends(requ
     base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
     logo_bytes = await _tenant_logo_bytes(t, base)
     side = "back" if side == "back" else "front"
-    highlights = None
-    if side == "back":
-        highlights = await _raw_db.services.find(
-            {"tenant_id": tenant_id, "active": {"$ne": False}},
-            {"_id": 0, "name": 1, "price": 1}).sort("price", -1).to_list(5)
-    img = await asyncio.to_thread(_render_visiting_card, t, base, logo_bytes, side, highlights)
-    return Response(content=img, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
+    img = await asyncio.to_thread(_render_visiting_card, t, base, logo_bytes, side)
+    return Response(content=img, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=60"})
 
 
 @router.get("/settings/table-qr-posters.pdf")
