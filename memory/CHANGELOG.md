@@ -1510,3 +1510,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Cleanup: leaked salon invoices INV-202608-0242/0243 (Dine-in Guest, restaurant items) voided with reason; orphan "Dine-in Guest" customer deleted from salon CRM.
 - One-tap points redeem (InvoiceHeader.jsx BenefitsPanel): free-text input replaced with "Redeem X pts (−₹X)" button (only when loyalty_points>0 AND min-bill met; locked message otherwise; nothing when 0 pts). Applied state = green "✓ redeemed · ✕" to un-apply. pointsUsed still clamps to payable. UI-verified (₹200 applied to bill).
 - release_notes BUILD .139 includes: split-by-staff, month-locked edits, GST column, leak fix, one-tap redeem.
+
+## 2026-06 (fork) — Edit Audit Viewer upgrade
+- invoice_edits.py: before-snapshot now includes customer_name (so guest renames are auditable).
+- UpdatedBillsCard.jsx rewritten diff renderer: VOID badge + reason, guest rename before→after, mode/total/discount diffs, per-item price & qty diffs (+added/−removed items), safe for old void records (no .items crash), shows edited_by_account. BillLookup caption points owners to the audit trail.
+- Verified: API edit → audit record with name change captured; Settings UI screenshot shows 3 records with full diffs behind Owner PIN.

@@ -9,6 +9,7 @@ RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "🕵️ Edit Audit Viewer upgraded — Settings → Updated Bills now shows exactly who changed what and when on every bill: guest renames, payment-mode switches, per-item price/qty changes, discount changes and voids with reasons (Owner-PIN protected)",
             "🚧 Cross-business cart leak fixed — POS parallel-bill drafts and kitchen→POS handoffs are now saved per business, so a restaurant table's cart can never appear inside a salon's POS on a shared browser (the two leaked 'Dine-in Guest' bills in the salon were voided and removed from CRM)",
             "🪙 One-tap points redeem — POS shows a 'Redeem' button only when the guest actually has eligible points; one tap applies the maximum allowed for this visit",
             "🤝 Split bill by staff (salons) — when two stylists do one service together, tap 'Split by staff' on the POS cart line, pick both stylists and their shares (50/50 or custom, e.g. ₹4,000 → ₹2,000 each); each stylist gets credited their exact share in reports & commissions",

@@ -64,21 +64,51 @@ export const UpdatedBillsCard = () => {
               className="text-[11px] font-bold text-rose-400 rounded-lg px-3 py-1.5 hover:bg-rose-50">Delete all</button>
           </div>
           {edits.length === 0 && <p className="text-xs text-slate-400 py-4 text-center" data-testid="updated-bills-empty">No bill edits recorded yet.</p>}
-          {edits.map(e => (
-            <div key={e.id} className="border border-slate-100 rounded-xl px-4 py-3 text-xs" data-testid={`updated-bill-${e.id}`}>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 items-center">
-                <b className="font-mono">{e.invoice_no}</b>
-                <span className="text-slate-500">{e.customer_name}</span>
-                <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-semibold">✎ {e.editor_name}</span>
-                <span className="text-slate-400 ml-auto">{new Date(e.edited_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+          {edits.map(e => {
+            const b = e.before || {}, a = e.after || {};
+            const isVoid = e.action === "void";
+            const itemDiffs = [];
+            if (!isVoid && Array.isArray(b.items) && Array.isArray(a.items)) {
+              a.items.forEach((ai, i) => {
+                const bi = b.items[i];
+                if (!bi) itemDiffs.push(`+ ${ai.name} (${inr(ai.price)})`);
+                else if (Number(bi.price) !== Number(ai.price)) itemDiffs.push(`${ai.name}: ${inr(bi.price)} → ${inr(ai.price)}`);
+                else if (Number(bi.qty || 1) !== Number(ai.qty || 1)) itemDiffs.push(`${ai.name}: ×${bi.qty || 1} → ×${ai.qty || 1}`);
+              });
+              if (b.items.length > a.items.length) b.items.slice(a.items.length).forEach(bi => itemDiffs.push(`− ${bi.name}`));
+            }
+            return (
+              <div key={e.id} className="border border-slate-100 rounded-xl px-4 py-3 text-xs" data-testid={`updated-bill-${e.id}`}>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 items-center">
+                  <b className="font-mono">{e.invoice_no}</b>
+                  <span className="text-slate-500">{e.customer_name}</span>
+                  {isVoid
+                    ? <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full font-semibold" data-testid={`updated-bill-void-${e.id}`}>⛔ VOIDED by {e.editor_name}</span>
+                    : <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-semibold">✎ {e.editor_name}</span>}
+                  {e.edited_by_account && <span className="text-slate-300">({e.edited_by_account})</span>}
+                  <span className="text-slate-400 ml-auto">{new Date(e.edited_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+                </div>
+                <div className="text-slate-500 mt-1.5 space-y-0.5">
+                  {isVoid ? (
+                    <span>Bill of <b className="text-slate-700">{inr(b.total)}</b> voided{a.reason ? <> — “{a.reason}”</> : ""}</span>
+                  ) : (
+                    <>
+                      {b.total !== a.total && <span className="mr-3">Total: <s>{inr(b.total)}</s> → <b className="text-slate-700">{inr(a.total)}</b></span>}
+                      {b.payment_mode !== a.payment_mode && <span className="mr-3">Mode: <s className="uppercase">{b.payment_mode}</s> → <b className="text-slate-700 uppercase">{a.payment_mode}</b></span>}
+                      {a.customer_name && b.customer_name !== undefined && b.customer_name !== a.customer_name && (
+                        <span className="mr-3">Guest: <s>{b.customer_name || "—"}</s> → <b className="text-slate-700">{a.customer_name}</b></span>
+                      )}
+                      {Number(b.discount || 0) !== Number(a.discount || 0) && <span className="mr-3">Discount: <s>{inr(b.discount)}</s> → <b className="text-slate-700">{inr(a.discount)}</b></span>}
+                      {itemDiffs.length > 0 && <div className="text-slate-600">{itemDiffs.map((d, i) => <span key={i} className="mr-3">• {d}</span>)}</div>}
+                      {b.total === a.total && b.payment_mode === a.payment_mode && itemDiffs.length === 0 && (!a.customer_name || b.customer_name === a.customer_name) && Number(b.discount || 0) === Number(a.discount || 0) && (
+                        <span className="text-slate-400">Details updated (no amount change)</span>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="text-slate-500 mt-1.5">
-                {e.before.total !== e.after.total && <span className="mr-3">Total: <s>{inr(e.before.total)}</s> → <b className="text-slate-700">{inr(e.after.total)}</b></span>}
-                {e.before.payment_mode !== e.after.payment_mode && <span className="mr-3">Mode: <s>{e.before.payment_mode}</s> → <b className="text-slate-700 uppercase">{e.after.payment_mode}</b></span>}
-                {JSON.stringify(e.before.items) !== JSON.stringify(e.after.items) && <span>Items changed ({e.before.items.length} → {e.after.items.length})</span>}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

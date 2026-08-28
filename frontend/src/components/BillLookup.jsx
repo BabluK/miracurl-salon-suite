@@ -48,7 +48,7 @@ export function BillLookup() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="font-playfair text-xl">Recent Invoices — Find & Edit a Bill</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Search by Booking / Invoice ID (e.g. INV-202608-0244), customer name or phone number — then edit customer & billing details. Current month only — past months are locked.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Search by Booking / Invoice ID (e.g. INV-202608-0244), customer name or phone number — then edit customer & billing details. Current month only — past months are locked. Every edit is recorded in Settings → Updated Bills (audit trail).</p>
         </div>
         <div className="flex items-center gap-2">
           {chip("📅 Today", localDay(0), "bill-lookup-today")}

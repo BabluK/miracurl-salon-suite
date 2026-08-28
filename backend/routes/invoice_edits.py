@@ -90,7 +90,8 @@ async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_ad
 
     before = {"payment_mode": inv["payment_mode"], "items": inv["items"],
               "subtotal": inv["subtotal"], "discount": inv["discount"],
-              "tax": inv["tax"], "total": inv["total"]}
+              "tax": inv["tax"], "total": inv["total"],
+              "customer_name": inv.get("customer_name", "")}
     after = _recompute_totals(inv, body, t)
     updates = {**after,
                "last_edited_by": body.editor_name.strip(),
