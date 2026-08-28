@@ -1479,3 +1479,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - loyalty_stamps.py: nudge core extracted to `run_loyalty_nudges(t, base)`; endpoint is a thin wrapper. New `_loyalty_nudge_scheduler` in schedulers.py (Monday ≥09:00 IST, idempotent per ISO week via system_flags key `loyalty_nudge_auto`, queries tenants with loyalty_stamps.enabled=True), registered in server.py.
 - Settings LoyaltyStampsCard: confirm dialog + caption note "Auto-runs every Monday 9 AM".
 - Verified: disabled-tenant no-op, both enabled tenants sweep, seeded near-gift member got mocked SMS + loyalty_nudged_at set (cleaned up), salon landing carousel screenshot OK. BUILD .136.
+
+## 2026-06 (fork) — Vertical-correct outreach email banner + pricing verification
+- New AI-generated banner /assets/mira-outreach-hero-restaurant.png ("Mira — your AI restaurant partner", cloche/chef-hat/QR icons); _outreach_email_html in lead_common.py now picks the banner by lead vertical.
+- Verified NO pricing mix: _plans_for filters by plan vertical — salon emails show salon plans (₹12k/20k + branch tiers), restaurant emails show Restaurant 3/6/12-month (₹3k/6k/12k). Mira's email_body generation (lead_gen.py:296) is also vertical-filtered.
+- Email previews screenshot-verified (serve temp HTML from frontend/public — file:// blocks remote images in sandboxed chromium).

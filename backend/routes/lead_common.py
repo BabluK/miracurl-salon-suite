@@ -60,10 +60,12 @@ def _outreach_email_html(lead: dict, plans: dict) -> str:
              'width="1" height="1" style="display:block;width:1px;height:1px" alt="" />') if lead.get("id") else ""
     paras = "".join(f'<p style="font-size:14px;color:#3a3a40;line-height:1.8;margin:0 0 15px">{_html.escape(p)}</p>'
                     for p in (lead.get("email_body") or "").split("\n") if p.strip())
+    vert = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
+    hero = "mira-outreach-hero-restaurant.png" if vert == "restaurant" else "mira-outreach-hero.png"
     return f"""
     <div style="background:#efe9dc;padding:28px 12px;font-family:Georgia,serif">
       <div style="max-width:600px;margin:0 auto;background:#fdfbf7;border:1px solid #e6ddc8;border-radius:18px;overflow:hidden;box-shadow:0 10px 34px rgba(28,28,34,.14)">
-        <img src="{base}/assets/mira-outreach-hero.png" alt="Miracurl Suite — Mira, your AI salon partner" width="600" style="width:100%;display:block" />
+        <img src="{base}/assets/{hero}" alt="Miracurl Suite — Mira, your AI {vert} partner" width="600" style="width:100%;display:block" />
         <div style="height:3px;background:linear-gradient(90deg,#b08d3f,#e8c37f,#b08d3f)"></div>
         <div style="padding:30px 34px 4px">{paras}</div>
         <div style="padding:0 34px">{_pricing_table_html(_plans_for(plans, _lead_intl(lead.get("city")), lead.get("vertical") or "salon"))}</div>
