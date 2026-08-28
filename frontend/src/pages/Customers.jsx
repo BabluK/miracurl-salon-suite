@@ -7,6 +7,7 @@ import { WalletDialog } from "@/components/WalletDialog";
 import { CustomerHistoryModal } from "@/components/crm/CustomerHistoryModal";
 import { MergeDuplicatesModal } from "@/components/crm/MergeDuplicatesModal";
 import { COUNTRY_CODES, phoneDisplay } from "@/lib/countryCodes";
+import { RecentInvoices } from "@/components/crm/RecentInvoices";
 
 export default function Customers() {
   const [list, setList] = useState([]);
@@ -180,6 +181,7 @@ export default function Customers() {
                   <div className="flex items-center gap-2 text-sm"><Phone className="w-3 h-3 text-sky-600" /> {phoneDisplay(c).flag} {phoneDisplay(c).code} {phoneDisplay(c).number} <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-500">{phoneDisplay(c).iso}</span></div>
                   {c.email && <div className="flex items-center gap-2 text-xs text-slate-500 mt-1"><Mail className="w-3 h-3" /> {c.email}</div>}
                 </td>
+                <td className="text-sm text-slate-600 whitespace-nowrap">{addedLabel(c.created_at)}</td>
                 <td className="text-sm">{c.gender}</td>
                 <td className="text-sm">{c.visits}</td>
                 <td className="text-sm">₹{(c.total_spent || 0).toLocaleString("en-IN")}</td>
@@ -209,6 +211,8 @@ export default function Customers() {
           </tbody>
         </table>
       </div>
+
+      <RecentInvoices />
 
       {walletFor && <WalletDialog customer={walletFor} onClose={() => setWalletFor(null)} onChanged={load} />}
       {historyFor && <CustomerHistoryModal customer={historyFor} onClose={() => setHistoryFor(null)} />}

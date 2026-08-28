@@ -2,13 +2,17 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-28.137"
+BUILD = "2026-08-28.138"
 BUILD_TIME = "28 Aug 2026, 01:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "🛠️ CRM table fix — 'Added' now shows when the guest was added; Gender/Visits/Spent are back in the right columns (they were shifted one place)",
+            "🧾 Find & edit any bill — Reports now has 'Recent Invoices — Find & Edit' with Today/Yesterday filters and search by Booking ID, customer name or phone; CRM gets a Recent Invoices section too, and bill edits can now also update the customer's name & phone (lifetime spend stays in sync)",
+            "✅ WhatsApp Approvals: new 'Approve all' and 'Reject all' buttons — approve everything in one tap, then send each message with a single tap per guest",
+            "⚡ Dashboard loads much faster — its data is now fetched in one parallel sweep instead of 15 back-to-back queries",
             "⏰ Auto loyalty nudges — every Monday 9 AM the suite now automatically texts loyalty members who are 1-2 stamps away from their surprise gift (same 14-day per-guest guard, runs once per week; the manual button in Settings still works anytime)",
             "🖼️ Salon home page 'peek inside' carousel refreshed with the latest live screenshots — public booking page, dashboard, POS, appointments and Mira Offers Studio",
             "📕 Prospect emails now carry TWO polished PDFs — a visual App Tour (latest screenshots incl. the public booking page) and an Onboarding & Policies handbook (onboarding, hiring policy, T&C, refund policy, contact directory) — each matched to the lead's business type",

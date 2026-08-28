@@ -267,9 +267,24 @@ async def del_appointment(aid: str, user=Depends(get_current_user)):
 
 # ---------------- Invoices / POS ----------------
 @router.get("/invoices")
-async def list_invoices(status: Optional[str] = None, user=Depends(get_current_user)):
-    flt = {"status": status} if status else {}
-    return await db.invoices.find(flt, {"_id": 0}).sort("created_at", -1).to_list(500)
+async def list_invoices(status: Optional[str] = None, q: Optional[str] = None, date: Optional[str] = None,
+                        limit: int = 500, user=Depends(get_current_user), t=Depends(current_tenant)):
+    flt: dict = {"status": status} if status else {}
+    if date:
+        from routes.reports import _tenant_tz, _local_day_window
+        _, day_start, day_end = _local_day_window(_tenant_tz(t), date)
+        flt["created_at"] = {"$gte": day_start, "$lte": day_end}
+    if q and q.strip():
+        qq = q.strip()
+        rx = {"$regex": re.escape(qq), "$options": "i"}
+        ors = [{"invoice_no": rx}, {"id": rx}, {"customer_name": rx}]
+        digits = re.sub(r"[^0-9]", "", qq)
+        if len(digits) >= 4:
+            cust = await db.customers.find({"phone": {"$regex": digits}}, {"_id": 0, "id": 1}).to_list(50)
+            if cust:
+                ors.append({"customer_id": {"$in": [c["id"] for c in cust]}})
+        flt["$or"] = ors
+    return await db.invoices.find(flt, {"_id": 0}).sort("created_at", -1).to_list(min(max(limit, 1), 500))
 
 
 class LoyaltySettingsIn(BaseModel):

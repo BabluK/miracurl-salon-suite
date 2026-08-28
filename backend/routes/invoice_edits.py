@@ -25,6 +25,8 @@ class InvoiceEditIn(BaseModel):
     payment_mode: Optional[str] = None
     items: Optional[List[InvoiceItem]] = None
     manual_discount: Optional[float] = Field(None, ge=0)
+    customer_name: Optional[str] = Field(None, max_length=80)
+    customer_phone: Optional[str] = Field(None, max_length=20)
 
 
 def _fixed_credits(inv: dict) -> float:
@@ -81,7 +83,26 @@ async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_ad
     updates = {**after,
                "last_edited_by": body.editor_name.strip(),
                "last_edited_at": datetime.now(timezone.utc).isoformat()}
+    if body.customer_name is not None and body.customer_name.strip():
+        updates["customer_name"] = body.customer_name.strip()
+        after["customer_name"] = updates["customer_name"]
     await db.invoices.update_one({"id": inv_id}, {"$set": updates, "$inc": {"edit_count": 1}})
+    # keep the linked CRM customer in sync (name/phone + lifetime spend delta)
+    if inv.get("customer_id"):
+        import re as _re
+        cust_set = {}
+        if body.customer_name is not None and body.customer_name.strip():
+            cust_set["name"] = body.customer_name.strip()
+        if body.customer_phone is not None and body.customer_phone.strip():
+            cust_set["phone"] = _re.sub(r"[^0-9+]", "", body.customer_phone.strip())
+        ops = {}
+        if cust_set:
+            ops["$set"] = cust_set
+        delta = round(float(after["total"]) - float(before["total"]), 2)
+        if abs(delta) > 0.009 and inv.get("status") not in ("voided", "open"):
+            ops["$inc"] = {"total_spent": delta}
+        if ops:
+            await db.customers.update_one({"id": inv["customer_id"]}, ops)
     updates["edit_count"] = int(inv.get("edit_count") or 0) + 1
     await db.invoice_edits.insert_one({
         "id": str(uuid.uuid4()), "invoice_id": inv_id, "invoice_no": inv["invoice_no"],

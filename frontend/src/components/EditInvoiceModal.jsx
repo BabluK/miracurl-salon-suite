@@ -15,6 +15,8 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
     api.get("/staff").then(r => setStaffList(r.data.filter(s => !s.away).map(s => ({ id: s.id, name: s.name })))).catch(() => setStaffList([]));
   }, []);
   const [mode, setMode] = useState(MODES.includes(invoice.payment_mode) ? invoice.payment_mode : "cash");
+  const [custName, setCustName] = useState(invoice.customer_name || "");
+  const [custPhone, setCustPhone] = useState("");
   const fixed = (invoice.membership_discount || 0) + (invoice.coupon_discount || 0) + (invoice.points_used || 0);
   const [discount, setDiscount] = useState(Math.max(0, (invoice.discount || 0) - fixed));
   const [items, setItems] = useState(invoice.items.map(i => ({ ...i })));
@@ -35,6 +37,7 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
     try {
       await api.put(`/invoices/${invoice.id}`, {
         editor_name: editor.trim(), payment_mode: mode, items, manual_discount: Number(discount || 0),
+        customer_name: custName.trim() || null, customer_phone: custPhone.trim() || null,
       });
       toast.success(`Bill ${invoice.invoice_no} updated ✦ (audited under "${editor.trim()}")`);
       onSaved();
@@ -95,6 +98,21 @@ export const EditInvoiceModal = ({ invoice, onClose, onSaved }) => {
                   className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1" />
               )}
               <p className="text-[10px] text-slate-400 mt-1">Recorded in the audit trail — the owner can review every edit in Settings.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-semibold text-slate-500">Customer name</label>
+                <input value={custName} onChange={e => setCustName(e.target.value)} maxLength={80}
+                  data-testid="edit-invoice-customer-name"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500">Customer phone</label>
+                <input value={custPhone} onChange={e => setCustPhone(e.target.value)} maxLength={20} placeholder="update phone…"
+                  data-testid="edit-invoice-customer-phone"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1" />
+              </div>
             </div>
 
             <div>

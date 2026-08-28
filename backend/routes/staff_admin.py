@@ -994,6 +994,42 @@ async def whatsapp_pending_count(admin=Depends(require_admin)):
     await _prune_wa_requests()
     return {"count": await db.whatsapp_requests.count_documents({"status": "pending"})}
 
+@router.post("/whatsapp-requests/approve-all")
+async def approve_all_whatsapp_requests(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Approve every pending request in one tap — returns per-message WhatsApp links to send."""
+    rows = await db.whatsapp_requests.find({"status": "pending"}, {"_id": 0}).to_list(200)
+    if rows:
+        await db.whatsapp_requests.update_many(
+            {"id": {"$in": [r["id"] for r in rows]}, "status": "pending"},
+            {"$set": {"status": "approved", "approved_by": admin["id"],
+                      "approved_at": datetime.now(timezone.utc).isoformat()}})
+    from urllib.parse import quote as _quote
+    biz = (t.get("whatsapp_number") or "").strip()
+    items = []
+    for r in rows:
+        phone = r.get("client_phone") or ""
+        msg = _quote(r["message"])
+        wa_url = (f"https://wa.me/{phone}?text=" if phone else "https://wa.me/?text=") + msg
+        item = {"id": r["id"], "client_name": r.get("client_name") or "Guest",
+                "kind": r.get("kind"), "wa_url": wa_url}
+        if phone and biz:
+            item["wa_business_url"] = (
+                f"intent://send?phone={phone}&text={msg}"
+                f"#Intent;scheme=whatsapp;package=com.whatsapp.w4b;"
+                f"S.browser_fallback_url={_quote(wa_url)};end")
+        items.append(item)
+    return {"approved": len(items), "items": items}
+
+
+@router.post("/whatsapp-requests/reject-all")
+async def reject_all_whatsapp_requests(admin=Depends(require_tenant_admin)):
+    res = await db.whatsapp_requests.update_many(
+        {"status": "pending"},
+        {"$set": {"status": "rejected", "approved_by": admin["id"],
+                  "approved_at": datetime.now(timezone.utc).isoformat()}})
+    return {"rejected": res.modified_count}
+
+
 @router.post("/whatsapp-requests/{rid}/approve")
 async def approve_whatsapp_request(rid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     r = await db.whatsapp_requests.find_one({"id": rid}, {"_id": 0})

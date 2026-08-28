@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { IndianRupee, DollarSign, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2, Pencil, Heart } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { EditInvoiceModal } from "@/components/EditInvoiceModal";
+import { BillLookup } from "@/components/BillLookup";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UnbilledPanel } from "@/components/reports/UnbilledPanel";
 import { MembershipReportCard } from "@/components/reports/MembershipReportCard";
@@ -145,6 +146,8 @@ export default function Reports() {
           </div>
         </div>
       </div>
+
+      <BillLookup />
 
       <TipsReportCard restaurant={tenant?.business_type === "restaurant"} />
       <LoyaltyGiftsReportCard />

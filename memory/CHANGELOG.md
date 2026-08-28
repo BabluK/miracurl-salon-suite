@@ -1489,3 +1489,13 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - brochure.py: `_build_pdf(vertical, part)` with lru-cached wrappers `build_tour_pdf` (cover + tour incl. booking image + features + demo CTA, 5pp) and `build_policies_pdf` (handbook cover + onboarding + hiring + T&C + refund + contacts, 6pp); `build_brochure_pdf` (full 10pp) kept for public /api/public/brochure*.pdf links.
 - ALL email attachment sites now use `_all_doc_attachments(vertical)` → 2 files: miracurl-{vert}-app-tour.pdf + miracurl-{vert}-onboarding-policies.pdf (demo campaign, invite resend, followups, lead resend-pdf, mira_calls outreach, tenant welcome).
 - Verified: page counts/sizes, attachment filenames per vertical, page-by-page visual sheet, public endpoint 200 post-restart. BUILD .137.
+
+## 2026-06 (fork) — Big batch: CRM fixes, bill edit everywhere, WA bulk, dashboard perf, PWA icons
+- CRM Customers.jsx: missing "Added" <td> caused column shift (Added showed gender etc) — fixed with addedLabel(c.created_at).
+- Reports: new BillLookup.jsx "Recent Invoices — Find & Edit" (Today/Yesterday chips, search by invoice_no/customer/phone). CRM: RecentInvoices.jsx section. Both open existing EditInvoiceModal (extended with customer name/phone fields).
+- Backend: GET /invoices gains q (invoice_no/id/customer_name/phone-via-customers) + date (tenant-tz day) + limit params. PUT /invoices/{id} (invoice_edits.py) now accepts customer_name/customer_phone → syncs linked customer doc + adjusts total_spent by total delta. (NOTE: do NOT add a second PUT /invoices route in appointments_pos.py — invoice_edits.py owns it with audit trail.)
+- WhatsApp Approvals: POST /whatsapp-requests/approve-all (returns wa_url items → frontend "tap to send" queue) & /reject-all; frontend WhatsAppApprovals.jsx has Approve all/Reject all buttons (confirm dialogs) + send queue UI.
+- /reports/dashboard parallelized via asyncio.gather (was ~15 sequential queries incl. 7-query trend loop) → ~0.25s; trend computed from one query.
+- Today's Collection validated: sum of non-void/non-open invoice totals for tenant-tz day; CRM Spent syncs on edits. (User's prod "mismatch" is conceptual: CRM Today = customers added/visited today, collection = bills.)
+- PWA icons: maskable icons had BLACK bg + white circle → Android circle/black icon. Regenerated icon-maskable-*.png + icon-admin-maskable-*.png as full-bleed white squares (same gold emblem both apps, 82% safe zone), apple-touch-icon white bg; manifests bumped ?v=6; sw.js CACHE bumped v37.
+- Testing: iteration_120.json — 8/8 backend pytest PASS, frontend flows all PASS. Leftover TEST_ invoice INV-202608-0245 in preview.

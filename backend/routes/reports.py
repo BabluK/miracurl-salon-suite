@@ -172,22 +172,45 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
     _, day_start, day_end = _local_day_window(tz, today)
     month_start_utc = datetime(now_local.year, now_local.month, 1, tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
     branch_flt = {**_branch_query(branch, t), "status": {"$nin": ["voided", "open"]}}
-    invoices_today = await db.invoices.find({"created_at": {"$gte": day_start, "$lte": day_end}, **branch_flt}, {"_id": 0}).to_list(500)
-    invoices_month = await db.invoices.find({"created_at": {"$gte": month_start_utc}, **branch_flt}, {"_id": 0}).to_list(2000)
-    appts_today = await db.appointments.find({"scheduled_at": {"$regex": f"^{today}"}}, {"_id": 0}).to_list(500)
-    low_stock = await db.products.find({"$expr": {"$lte": ["$stock", "$low_stock_threshold"]}}, {"_id": 0}).to_list(50)
-    review_stats = await _dashboard_review_stats()
+    _, trend_start, _ = _local_day_window(tz, (now_local - timedelta(days=6)).date().isoformat())
+    # all independent queries fired in PARALLEL (was ~15 sequential round trips — slow on prod)
+    (invoices_today, invoices_month, appts_today, low_stock, review_stats,
+     top_services, trend_rows, total_customers, active_staff) = await asyncio.gather(
+        db.invoices.find({"created_at": {"$gte": day_start, "$lte": day_end}, **branch_flt}, {"_id": 0}).to_list(500),
+        db.invoices.find({"created_at": {"$gte": month_start_utc}, **branch_flt}, {"_id": 0}).to_list(2000),
+        db.appointments.find({"scheduled_at": {"$regex": f"^{today}"}}, {"_id": 0}).to_list(500),
+        db.products.find({"$expr": {"$lte": ["$stock", "$low_stock_threshold"]}}, {"_id": 0}).to_list(50),
+        _dashboard_review_stats(),
+        _dashboard_top_services(),
+        db.invoices.find({"created_at": {"$gte": trend_start}, "status": {"$nin": ["voided", "open"]}},
+                         {"_id": 0, "total": 1, "created_at": 1}).to_list(5000),
+        db.customers.count_documents({"crm_status": {"$ne": "pending"}}),
+        db.staff.count_documents({"active": True}),
+    )
+    by_day: dict = {}
+    for r in trend_rows:
+        try:
+            dt = datetime.fromisoformat(str(r.get("created_at") or "").replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            d = dt.astimezone(tz).date().isoformat()
+        except ValueError:
+            continue
+        by_day[d] = by_day.get(d, 0.0) + float(r.get("total") or 0)
+    trend = [{"date": (now_local - timedelta(days=o)).date().isoformat(),
+              "revenue": round(by_day.get((now_local - timedelta(days=o)).date().isoformat(), 0.0), 2)}
+             for o in range(6, -1, -1)]
     return {
         "today_revenue": round(sum(float(inv.get("total") or 0) for inv in invoices_today), 2),
         "today_bookings": len(appts_today),
         "today_invoices": len(invoices_today),
         "month_revenue": round(sum(float(inv.get("total") or 0) for inv in invoices_month), 2),
-        "total_customers": await db.customers.count_documents({"crm_status": {"$ne": "pending"}}),
-        "active_staff": await db.staff.count_documents({"active": True}),
+        "total_customers": total_customers,
+        "active_staff": active_staff,
         "low_stock_count": len(low_stock),
         "low_stock_items": low_stock[:10],
-        "top_services": await _dashboard_top_services(),
-        "revenue_trend": await _dashboard_revenue_trend(tz=tz),
+        "top_services": top_services,
+        "revenue_trend": trend,
         "upcoming_appointments": appts_today[:5],
         **review_stats,
     }
