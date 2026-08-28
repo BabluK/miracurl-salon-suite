@@ -218,6 +218,14 @@ Frontend:
 - Mira Day Offer price integrity: `_offer_doc` now reconciles every suggested service against the real catalog (normalized name match, apostrophe-safe), original_price forced to catalog price, offer_price recomputed from discount_pct; catalog context raised 40→300 services. Unit-tested + live suggest verified (Keratin 4500→4050 etc. matching DB).
 - BUILD 2026-08-28.127.
 
+## 2026-08-28 (later 3) — Loyalty Club QR + surprise gifts + POS member badge
+- loyalty_stamps.py: `surprise_gifts: list[str]` on StampSettingsIn (admin/staff only — never in public payloads); `POST /public/loyalty-join/{slug}` (rate-limited, creates customer crm_status="active" source="loyalty_qr", validates 10-digit phone + email, backfills email); `GET /settings/loyalty-qr-poster.png` polished Pillow poster (assets/posters/loyalty_qr_bg.jpg AI art-deco salon bg, circular gold-ring logo via services_catalog helpers, drawn gold diamonds — FreeSans lacks ✦ glyph, QR → /loyalty/{slug}).
+- New public page /loyalty/:slug (LoyaltyClubJoin.jsx) — join form + stamp-progress success view ("surprise gift awaits", gift NEVER revealed). Added /loyalty to index.html public-manifest routes.
+- LoyaltyStampsCard.jsx: surprise-gift chip editor with 6 presets (user's examples incl. Pay ₹1000 → ₹1500) + "Download Loyalty Club QR" button (disabled until enabled).
+- StampCard.jsx (POS): "✦ LOYALTY CLUB MEMBER" badge + "N scans remaining to their surprise 🎁 (x/y done)" + staff-only gift-options panel when reward ready.
+- GOTCHA: POS guest search excludes crm_status "pending" — loyalty joiners are created "active" so staff can find them immediately.
+- E2E verified: settings PUT, poster render, public join (new+returning), POS badge + remaining line, settings editor UI (Owner PIN 4321 unlocks Settings). Test customers cleaned. BUILD 2026-08-28.128.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).

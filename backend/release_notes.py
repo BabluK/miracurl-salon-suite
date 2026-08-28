@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-28.127"
-BUILD_TIME = "28 Aug 2026, 03:00 PM IST"
+BUILD = "2026-08-28.128"
+BUILD_TIME = "28 Aug 2026, 11:30 AM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "⭐ Loyalty Club QR — download a polished gold poster from Settings; walk-in guests scan it, join with name/phone/email in 10 seconds and start collecting stamps toward a SURPRISE gift",
+            "🎁 Surprise gift options — save your own gift list (Free Hair Spa, Pay ₹1000 → ₹1500 services…) that guests never see; POS shows the options to staff when a card is full",
+            "🧑‍💼 POS knows your club — selecting a guest instantly shows the LOYALTY CLUB MEMBER badge with scans done and scans remaining",
             "💰 Mira's offer prices are now always REAL — every suggested offer pulls the original price straight from your Services list (no more invented ₹ values), and the discount is computed on the true price",
             "🎨 Fixed white-on-white dropdowns across the app — Chef per table, Category Specials, attendance branch picker, campaign audience and feedback priority are all readable again",
             "✨ Kitchen table QRs are now the polished designer cards on screen too — gold art-deco frame, circular logo and TABLE number, with a per-table 'Download poster' button (print-ready A4 PDF)",

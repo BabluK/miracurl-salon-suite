@@ -63,6 +63,7 @@ import Reports from "@/pages/Reports";
 import Reviews from "@/pages/Reviews";
 import OffersStudio from "@/pages/OffersStudio";
 import BookPublic from "@/pages/BookPublic";
+import LoyaltyClubJoin from "@/pages/LoyaltyClubJoin";
 import OrderPublic from "@/pages/OrderPublic";
 import Kitchen from "@/pages/Kitchen";
 import PartnerLanding from "@/pages/PartnerLanding";
@@ -243,6 +244,7 @@ export default function App() {
             <Route path="/refund-policy" element={<Refund />} />
             <Route path="/book" element={<SalonFinder />} />
             <Route path="/review/:token" element={<ReviewPublic />} />
+            <Route path="/loyalty/:slug" element={<LoyaltyClubJoin />} />
             <Route path="/rate/:slug" element={<RatePublic />} />
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup-salon" element={<PublicOnly><SignupSalon /></PublicOnly>} />
