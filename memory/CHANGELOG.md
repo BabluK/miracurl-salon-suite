@@ -1484,3 +1484,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - New AI-generated banner /assets/mira-outreach-hero-restaurant.png ("Mira — your AI restaurant partner", cloche/chef-hat/QR icons); _outreach_email_html in lead_common.py now picks the banner by lead vertical.
 - Verified NO pricing mix: _plans_for filters by plan vertical — salon emails show salon plans (₹12k/20k + branch tiers), restaurant emails show Restaurant 3/6/12-month (₹3k/6k/12k). Mira's email_body generation (lead_gen.py:296) is also vertical-filtered.
 - Email previews screenshot-verified (serve temp HTML from frontend/public — file:// blocks remote images in sandboxed chromium).
+
+## 2026-06 (fork) — Two-PDF attachment split (user choice b)
+- brochure.py: `_build_pdf(vertical, part)` with lru-cached wrappers `build_tour_pdf` (cover + tour incl. booking image + features + demo CTA, 5pp) and `build_policies_pdf` (handbook cover + onboarding + hiring + T&C + refund + contacts, 6pp); `build_brochure_pdf` (full 10pp) kept for public /api/public/brochure*.pdf links.
+- ALL email attachment sites now use `_all_doc_attachments(vertical)` → 2 files: miracurl-{vert}-app-tour.pdf + miracurl-{vert}-onboarding-policies.pdf (demo campaign, invite resend, followups, lead resend-pdf, mira_calls outreach, tenant welcome).
+- Verified: page counts/sizes, attachment filenames per vertical, page-by-page visual sheet, public endpoint 200 post-restart. BUILD .137.

@@ -1,6 +1,8 @@
-"""Miracurl Suite brochure — ONE polished PDF per vertical.
-Cover → app tour (latest screenshots incl. booking tour) → features →
-onboarding → hiring policy → terms & refund policy → contact directory."""
+"""Miracurl Suite PDFs — per vertical:
+- build_tour_pdf():     visual App Tour (cover + latest screenshots incl. booking page + features)
+- build_policies_pdf(): Onboarding & Policies handbook (onboarding, hiring, T&C, refund, contacts)
+- build_brochure_pdf(): full combined brochure (served at the public /api/public/brochure*.pdf links)
+"""
 import os
 from functools import lru_cache
 
@@ -179,20 +181,19 @@ def _first_existing(names):
     return None
 
 
-@lru_cache(maxsize=2)
-def build_brochure_pdf(vertical: str = "salon") -> bytes:
+def _build_pdf(vertical: str = "salon", part: str = "full") -> bytes:
     import io
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.utils import ImageReader, simpleSplit
     from reportlab.pdfgen import canvas as _canvas
 
     copy = _COPY.get(vertical) or _COPY["salon"]
-    shots = RESTO_SHOTS if vertical == "restaurant" else SHOTS
-    features = RESTO_FEATURES if vertical == "restaurant" else FEATURES
+    resto = vertical == "restaurant"
+    shots = RESTO_SHOTS if resto else SHOTS
+    features = RESTO_FEATURES if resto else FEATURES
     buf = io.BytesIO()
     c = _canvas.Canvas(buf, pagesize=A4)
     w, h = A4
-    hq_email = os.environ.get("HQ_EMAIL", "")
     hq_phone = os.environ.get("HQ_PHONE", "")
     site = os.environ.get("APP_PUBLIC_URL", "")
 
@@ -216,7 +217,6 @@ def build_brochure_pdf(vertical: str = "salon") -> bytes:
         c.setFillColorRGB(0.6, 0.58, 0.52)
         c.setFont("Helvetica", 8.5)
         c.drawRightString(w - 40, h - 34, copy["title"].upper())
-        # footer
         c.setFillColorRGB(0.62, 0.6, 0.55)
         c.setFont("Helvetica", 8)
         c.drawString(40, 28, "miracurl-suite.com")
@@ -265,136 +265,162 @@ def build_brochure_pdf(vertical: str = "salon") -> bytes:
             y -= 12
         c.showPage()
 
-    # ── Cover ──
-    c.setFillColorRGB(*DARK)
-    c.rect(0, 0, w, h, fill=1, stroke=0)
-    cover_bg = os.path.join(ASSETS, "brochure", f"cover_{vertical if vertical == 'restaurant' else 'salon'}.jpg")
-    if os.path.exists(cover_bg):
-        bg = ImageReader(cover_bg)
-        bw_, bh_ = bg.getSize()
-        scale = max(w / bw_, h / bh_)
-        c.drawImage(bg, (w - bw_ * scale) / 2, (h - bh_ * scale) / 2, bw_ * scale, bh_ * scale)
-    y0 = h - 118
-    if logo:
-        c.drawImage(logo, w / 2 - 41, y0, 82, 84, preserveAspectRatio=True, anchor="c", mask="auto")
-    if wordmark:
-        ww, wh = wordmark.getSize()
-        dw = 300.0
-        dh = dw * wh / ww
-        c.drawImage(wordmark, (w - dw) / 2, y0 - dh - 18, dw, dh, mask="auto")
-        y0 = y0 - dh - 18
-    edition = "RESTAURANT EDITION" if vertical == "restaurant" else "SALON EDITION"
-    c.setFillColorRGB(*GOLD)
-    c.setFont("Helvetica-Bold", 12)
-    ew = c.stringWidth(edition, "Helvetica-Bold", 12)
-    c.setStrokeColorRGB(*GOLD)
-    c.setLineWidth(0.8)
-    ey = y0 - 26
-    c.line(w / 2 - ew / 2 - 44, ey + 4, w / 2 - ew / 2 - 12, ey + 4)
-    c.line(w / 2 + ew / 2 + 12, ey + 4, w / 2 + ew / 2 + 44, ey + 4)
-    c.drawCentredString(w / 2, ey, edition)
-    c.setFont("Helvetica", 12)
-    c.setFillColorRGB(0.92, 0.9, 0.85)
-    c.drawCentredString(w / 2, ey - 24, copy["tag"])
-    c.setFont("Helvetica-Bold", 15)
-    c.setFillColorRGB(*GOLD)
-    c.drawCentredString(w / 2, 105, "Thank you for reaching out!")
-    c.setFont("Helvetica", 11)
-    c.setFillColorRGB(0.88, 0.87, 0.84)
-    c.drawCentredString(w / 2, 84, copy["tour"])
-    c.showPage()
-
-    # ── App tour (2 screenshots per page, framed) ──
-    existing = [(p, cap) for names, cap in shots if (p := _first_existing(names))]
-    for page_start in range(0, len(existing), 2):
-        _page_head("Inside the app — a quick tour")
-        y = h - 82
-        for path, caption in existing[page_start:page_start + 2]:
-            img = ImageReader(path)
-            iw, ih = img.getSize()
-            dw = w - 110
-            dh = dw * ih / iw
-            if dh > 300:
-                dh = 300
-                dw = dh * iw / ih
-            x0 = (w - dw) / 2
-            c.setFillColorRGB(0.93, 0.91, 0.86)
-            c.roundRect(x0 - 8, y - dh - 8, dw + 16, dh + 16, 10, fill=1, stroke=0)
-            c.drawImage(img, x0, y - dh, dw, dh)
-            c.setFillColorRGB(*GOLD_D)
-            c.circle(x0 + 4, y - dh - 24, 2.4, fill=1, stroke=0)
-            c.setFillColorRGB(*INK)
-            c.setFont("Helvetica-Bold", 11)
-            c.drawString(x0 + 14, y - dh - 28, caption)
-            y = y - dh - 58
+    def _cover(edition: str, tag_text: str, foot_head: str, foot_sub: str):
+        c.setFillColorRGB(*DARK)
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+        cover_bg = os.path.join(ASSETS, "brochure", f"cover_{'restaurant' if resto else 'salon'}.jpg")
+        if os.path.exists(cover_bg):
+            bg = ImageReader(cover_bg)
+            bw_, bh_ = bg.getSize()
+            scale = max(w / bw_, h / bh_)
+            c.drawImage(bg, (w - bw_ * scale) / 2, (h - bh_ * scale) / 2, bw_ * scale, bh_ * scale)
+        y0 = h - 118
+        if logo:
+            c.drawImage(logo, w / 2 - 41, y0, 82, 84, preserveAspectRatio=True, anchor="c", mask="auto")
+        if wordmark:
+            ww, wh = wordmark.getSize()
+            dw = 300.0
+            dh = dw * wh / ww
+            c.drawImage(wordmark, (w - dw) / 2, y0 - dh - 18, dw, dh, mask="auto")
+            y0 = y0 - dh - 18
+        c.setFillColorRGB(*GOLD)
+        c.setFont("Helvetica-Bold", 12)
+        ew = c.stringWidth(edition, "Helvetica-Bold", 12)
+        c.setStrokeColorRGB(*GOLD)
+        c.setLineWidth(0.8)
+        ey = y0 - 26
+        c.line(w / 2 - ew / 2 - 44, ey + 4, w / 2 - ew / 2 - 12, ey + 4)
+        c.line(w / 2 + ew / 2 + 12, ey + 4, w / 2 + ew / 2 + 44, ey + 4)
+        c.drawCentredString(w / 2, ey, edition)
+        c.setFont("Helvetica", 12)
+        c.setFillColorRGB(0.92, 0.9, 0.85)
+        c.drawCentredString(w / 2, ey - 24, tag_text)
+        c.setFont("Helvetica-Bold", 15)
+        c.setFillColorRGB(*GOLD)
+        c.drawCentredString(w / 2, 105, foot_head)
+        c.setFont("Helvetica", 11)
+        c.setFillColorRGB(0.88, 0.87, 0.84)
+        c.drawCentredString(w / 2, 84, foot_sub)
         c.showPage()
 
-    # ── Features ──
-    _page_head(copy["feat_head"])
-    y = h - 100
-    for title, desc in features:
-        c.setFillColorRGB(0.985, 0.975, 0.955)
-        c.roundRect(42, y - 26, w - 84, 52, 9, fill=1, stroke=0)
-        c.setFillColorRGB(*GOLD_D)
-        c.circle(60, y, 3.2, fill=1, stroke=0)
-        c.setFillColorRGB(*INK)
-        c.setFont("Helvetica-Bold", 12.5)
-        c.drawString(76, y + 3, title)
-        c.setFont("Helvetica", 10.5)
-        c.setFillColorRGB(0.35, 0.35, 0.4)
-        c.drawString(76, y - 14, desc)
-        y -= 66
-    c.setFillColorRGB(*GREY)
-    c.setFont("Helvetica-Oblique", 10)
-    c.drawCentredString(w / 2, y - 4, "…plus loyalty clubs, gift cards, memberships, attendance & payroll, and much more.")
-    c.showPage()
+    vert_name = "RESTAURANT" if resto else "SALON"
+    if part in ("tour", "full"):
+        _cover(f"{vert_name} EDITION — APP TOUR" if part == "tour" else f"{vert_name} EDITION",
+               copy["tag"], "Thank you for reaching out!", copy["tour"])
+        # app tour — 2 framed screenshots per page (booking page always included)
+        existing = [(p, cap) for names, cap in shots if (p := _first_existing(names))]
+        for page_start in range(0, len(existing), 2):
+            _page_head("Inside the app — a quick tour")
+            y = h - 82
+            for path, caption in existing[page_start:page_start + 2]:
+                img = ImageReader(path)
+                iw, ih = img.getSize()
+                dw = w - 110
+                dh = dw * ih / iw
+                if dh > 300:
+                    dh = 300
+                    dw = dh * iw / ih
+                x0 = (w - dw) / 2
+                c.setFillColorRGB(0.93, 0.91, 0.86)
+                c.roundRect(x0 - 8, y - dh - 8, dw + 16, dh + 16, 10, fill=1, stroke=0)
+                c.drawImage(img, x0, y - dh, dw, dh)
+                c.setFillColorRGB(*GOLD_D)
+                c.circle(x0 + 4, y - dh - 24, 2.4, fill=1, stroke=0)
+                c.setFillColorRGB(*INK)
+                c.setFont("Helvetica-Bold", 11)
+                c.drawString(x0 + 14, y - dh - 28, caption)
+                y = y - dh - 58
+            c.showPage()
+        # features
+        _page_head(copy["feat_head"])
+        y = h - 100
+        for title, desc in features:
+            c.setFillColorRGB(0.985, 0.975, 0.955)
+            c.roundRect(42, y - 26, w - 84, 52, 9, fill=1, stroke=0)
+            c.setFillColorRGB(*GOLD_D)
+            c.circle(60, y, 3.2, fill=1, stroke=0)
+            c.setFillColorRGB(*INK)
+            c.setFont("Helvetica-Bold", 12.5)
+            c.drawString(76, y + 3, title)
+            c.setFont("Helvetica", 10.5)
+            c.setFillColorRGB(0.35, 0.35, 0.4)
+            c.drawString(76, y - 14, desc)
+            y -= 66
+        c.setFillColorRGB(*GREY)
+        c.setFont("Helvetica-Oblique", 10)
+        c.drawCentredString(w / 2, y - 4, "…plus loyalty clubs, gift cards, memberships, attendance & payroll, and much more.")
+        if part == "tour":
+            c.setFillColorRGB(*GOLD_D)
+            c.setFont("Helvetica-Bold", 11)
+            c.drawCentredString(w / 2, y - 34, "Book a free live demo — booking@miracurl-suite.com · miracurl-suite.com/demo")
+        c.showPage()
 
-    # ── Policies ──
-    _policy_pages("Tenant & Employee Onboarding",
-                  "How a new business and its team come onboard Miracurl Suite — simple, guided and verified.",
-                  _onboarding_sections(vertical))
-    _policy_pages("Employee Hiring Policy",
-                  "Rules of the Miracurl Staff Hiring Marketplace — eligibility, verification, trials, fees and conduct.",
-                  HIRING_SECTIONS)
-    _policy_pages("Terms & Conditions",
-                  "The terms every tenant accepts when subscribing to Miracurl Suite. Full text: miracurl-suite.com/terms-of-service",
-                  TERMS_SECTIONS)
-    _policy_pages("Refund Policy",
-                  "Refunds, cancellations and billing disputes. Full text: miracurl-suite.com/refund-policy",
-                  REFUND_SECTIONS)
-
-    # ── Contact directory ──
-    _page_head("Miracurl Contact Details")
-    c.setFillColorRGB(*DARK)
-    c.roundRect(40, h - 420, w - 80, 330, 16, fill=1, stroke=0)
-    if logo:
-        c.drawImage(logo, w / 2 - 26, h - 158, 52, 52, preserveAspectRatio=True, anchor="c", mask="auto")
-    c.setFillColorRGB(*GOLD)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(w / 2, h - 186, copy["contact"])
-    c.setStrokeColorRGB(*GOLD)
-    c.setLineWidth(0.7)
-    c.line(w / 2 - 90, h - 196, w / 2 + 90, h - 196)
-    ty = h - 226
-    for label, email in CONTACT_EMAILS:
-        c.setFillColorRGB(0.8, 0.78, 0.72)
-        c.setFont("Helvetica", 10.5)
-        c.drawRightString(w / 2 - 12, ty, label)
+    if part in ("policies", "full"):
+        if part == "policies":
+            _cover(f"{vert_name} EDITION — HANDBOOK",
+                   "Onboarding · Hiring Policy · Terms & Conditions · Refund Policy · Contacts",
+                   "The fine print, made simple",
+                   "Everything about joining, hiring, billing and support — in one place.")
+        _policy_pages("Tenant & Employee Onboarding",
+                      "How a new business and its team come onboard Miracurl Suite — simple, guided and verified.",
+                      _onboarding_sections(vertical))
+        _policy_pages("Employee Hiring Policy",
+                      "Rules of the Miracurl Staff Hiring Marketplace — eligibility, verification, trials, fees and conduct.",
+                      HIRING_SECTIONS)
+        _policy_pages("Terms & Conditions",
+                      "The terms every tenant accepts when subscribing to Miracurl Suite. Full text: miracurl-suite.com/terms-of-service",
+                      TERMS_SECTIONS)
+        _policy_pages("Refund Policy",
+                      "Refunds, cancellations and billing disputes. Full text: miracurl-suite.com/refund-policy",
+                      REFUND_SECTIONS)
+        # contact directory
+        _page_head("Miracurl Contact Details")
+        c.setFillColorRGB(*DARK)
+        c.roundRect(40, h - 420, w - 80, 330, 16, fill=1, stroke=0)
+        if logo:
+            c.drawImage(logo, w / 2 - 26, h - 158, 52, 52, preserveAspectRatio=True, anchor="c", mask="auto")
         c.setFillColorRGB(*GOLD)
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(w / 2 + 12, ty, email)
-        ty -= 26
-    extra = [x for x in (f"Phone / WhatsApp: {hq_phone}" if hq_phone else "",
-                         f"Website: {site or 'https://miracurl-suite.com'}") if x]
-    ty -= 6
-    c.setFillColorRGB(0.88, 0.87, 0.84)
-    c.setFont("Helvetica", 10.5)
-    for ln in extra:
-        c.drawCentredString(w / 2, ty, ln)
-        ty -= 20
-    c.setFillColorRGB(*GREY)
-    c.setFont("Helvetica-Oblique", 10)
-    c.drawCentredString(w / 2, h - 470, "Bengaluru, Karnataka, India · We reply within one business day.")
-    c.showPage()
+        c.setFont("Helvetica-Bold", 16)
+        c.drawCentredString(w / 2, h - 186, copy["contact"])
+        c.setStrokeColorRGB(*GOLD)
+        c.setLineWidth(0.7)
+        c.line(w / 2 - 90, h - 196, w / 2 + 90, h - 196)
+        ty = h - 226
+        for label, email in CONTACT_EMAILS:
+            c.setFillColorRGB(0.8, 0.78, 0.72)
+            c.setFont("Helvetica", 10.5)
+            c.drawRightString(w / 2 - 12, ty, label)
+            c.setFillColorRGB(*GOLD)
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(w / 2 + 12, ty, email)
+            ty -= 26
+        extra = [x for x in (f"Phone / WhatsApp: {hq_phone}" if hq_phone else "",
+                             f"Website: {site or 'https://miracurl-suite.com'}") if x]
+        ty -= 6
+        c.setFillColorRGB(0.88, 0.87, 0.84)
+        c.setFont("Helvetica", 10.5)
+        for ln in extra:
+            c.drawCentredString(w / 2, ty, ln)
+            ty -= 20
+        c.setFillColorRGB(*GREY)
+        c.setFont("Helvetica-Oblique", 10)
+        c.drawCentredString(w / 2, h - 470, "Bengaluru, Karnataka, India · We reply within one business day.")
+        c.showPage()
+
     c.save()
     return buf.getvalue()
+
+
+@lru_cache(maxsize=2)
+def build_tour_pdf(vertical: str = "salon") -> bytes:
+    return _build_pdf(vertical, "tour")
+
+
+@lru_cache(maxsize=2)
+def build_policies_pdf(vertical: str = "salon") -> bytes:
+    return _build_pdf(vertical, "policies")
+
+
+@lru_cache(maxsize=2)
+def build_brochure_pdf(vertical: str = "salon") -> bytes:
+    return _build_pdf(vertical, "full")

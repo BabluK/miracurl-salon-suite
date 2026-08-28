@@ -293,11 +293,15 @@ def suite_overview_attachment() -> dict:
 
 
 def _all_doc_attachments(vertical: str = "salon") -> list:
-    """ONE polished brochure PDF — tour, onboarding, hiring policy, T&C, refund policy & contacts."""
-    from services.brochure import build_brochure_pdf
+    """TWO polished PDFs: the visual App Tour + the Onboarding & Policies handbook."""
+    from services.brochure import build_tour_pdf, build_policies_pdf
     vert = "restaurant" if vertical == "restaurant" else "salon"
-    return [{"filename": f"miracurl-{vert}-suite.pdf",
-             "content": base64.b64encode(build_brochure_pdf(vert)).decode()}]
+    return [
+        {"filename": f"miracurl-{vert}-app-tour.pdf",
+         "content": base64.b64encode(build_tour_pdf(vert)).decode()},
+        {"filename": f"miracurl-{vert}-onboarding-policies.pdf",
+         "content": base64.b64encode(build_policies_pdf(vert)).decode()},
+    ]
 
 
 async def _live_plans() -> list:
@@ -671,10 +675,7 @@ async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depend
         "Your Restaurant's FREE First Month of Miracurl Suite 🍽️" if resto
         else "Your Salon's 7-Day Free Trial of Miracurl Suite ✦")
     if resto:
-        from services.brochure import build_brochure_pdf
-        import base64 as _b64
-        pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
-        attachments = [{"filename": "miracurl-restaurant-suite.pdf", "content": _b64.b64encode(pdf).decode()}]
+        attachments = await asyncio.to_thread(_all_doc_attachments, "restaurant")
     else:
         attachments = await asyncio.to_thread(_all_doc_attachments)
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
@@ -768,12 +769,8 @@ async def run_demo_followups() -> dict:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
-    from services.brochure import build_brochure_pdf
-    salon_pdf = await asyncio.to_thread(build_brochure_pdf, "salon")
-    attachment = {"filename": "miracurl-salon-suite.pdf", "content": base64.b64encode(salon_pdf).decode()}
-    resto_pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
-    resto_attachment = {"filename": "miracurl-restaurant-suite.pdf",
-                        "content": base64.b64encode(resto_pdf).decode()}
+    salon_attachments = await asyncio.to_thread(_all_doc_attachments, "salon")
+    resto_attachments = await asyncio.to_thread(_all_doc_attachments, "restaurant")
     sent = failed = skipped = 0
     async for inv in _raw_db.demo_invites.find(
             {"responded": False, "reminder_sent_at": None, "first_sent_at": {"$lte": cutoff}}, {"_id": 0}):
@@ -788,7 +785,7 @@ async def run_demo_followups() -> dict:
         status = await _send_email([inv["email"]],
                                    "A gentle reminder — your Miracurl demo seat is still open ✦",
                                    html,
-                                   attachments=[resto_attachment if inv.get("vertical") == "restaurant" else attachment],
+                                   attachments=resto_attachments if inv.get("vertical") == "restaurant" else salon_attachments,
                                    reply_to=hq_email)
         if status.get("sent"):
             sent += 1
@@ -979,13 +976,7 @@ async def demo_invite_resend(iid: str, request: Request, user=Depends(require_su
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     plans = await _live_plans()
     inv_vert = inv.get("vertical") or "salon"
-    if inv_vert == "restaurant":
-        from services.brochure import build_brochure_pdf
-        import base64 as _b64
-        pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
-        attachments = [{"filename": "miracurl-restaurant-suite.pdf", "content": _b64.b64encode(pdf).decode()}]
-    else:
-        attachments = await asyncio.to_thread(_all_doc_attachments)
+    attachments = await asyncio.to_thread(_all_doc_attachments, inv_vert)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     track_base = f"https://{host}" if host else (inv.get("track_base") or "")
     html = _demo_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", hq_email,

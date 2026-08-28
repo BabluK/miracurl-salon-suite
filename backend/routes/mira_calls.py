@@ -492,12 +492,10 @@ async def _fulfil_interest(lead_id: str) -> None:
         if lead.get("email") and lead.get("status") != "sent":
             from email_service import _send_email
             from routes.lead_common import _outreach_email_html, _live_plans, _lead_reply_to
-            from services.brochure import build_brochure_pdf
-            import base64 as _b64
+            from routes.hq_documents import _all_doc_attachments
             html = _outreach_email_html(lead, await _live_plans())
             _vert = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
-            _pdf = await asyncio.to_thread(build_brochure_pdf, _vert)
-            attachments = [{"filename": f"miracurl-{_vert}-suite.pdf", "content": _b64.b64encode(_pdf).decode()}]
+            attachments = await asyncio.to_thread(_all_doc_attachments, _vert)
             res = await _send_email([lead["email"]],
                                     lead.get("email_subject") or "Miracurl Suite — your free demo & 7-day trial",
                                     html, attachments=attachments,
