@@ -207,6 +207,12 @@ Frontend:
 - POS kitchen_bill handoff (POS.jsx ~line 393): now opens as its OWN parallel bill session (new sid, preserves current draft, clears PendingBill modal) mirroring the booking-notification flow; guestQuery set to "Table N — Name · dine-in" so the bill tab is labeled. Kitchen.jsx Live Tables show guest name + button "Bill Table N — Name · ₹total".
 - Verified E2E via playwright: existing walk-in draft + kitchen bill → two parallel tabs, no pending modal. Table QR PDF rendered & visually checked. BUILD 2026-08-28.125.
 
+## 2026-08-28 (later) — Kitchen QR polish & cleanup
+- Per-table QR download: `/settings/table-qr-posters.pdf?table=N` renders a single-table A4 PDF (only_table param in _render_table_posters); Kitchen grid has "Download poster" per card (data-testid download-table-qr-N). Verified via playwright download (table-1-qr.pdf).
+- Polished on-screen QR cards: NEW `GET /settings/table-qr-card.png?table=N&origin=` (services_catalog.py `_render_table_card_png`, Pillow: art-deco bg + `_circle_logo_pil` gold-ring logo + Playfair name + TABLE N + rounded QR box). Kitchen grid now renders these images instead of plain white QRs. Logo fetch refactored into `_tenant_logo_bytes` (object storage first, HTTP fallback).
+- Kitchen "Recently closed" now excludes status "billed" — paid bills disappear (POS already marks orders billed via /table-orders/mark-billed after checkout).
+- BUILD 2026-08-28.126.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).

@@ -626,7 +626,25 @@ async def rename_service_category(body: CategoryRenameIn, user=Depends(require_a
     return {"ok": True, "services_moved": r.modified_count}
 
 
-def _render_table_posters(t: dict, tables: int, base: str, logo_bytes: bytes | None) -> bytes:
+def _circle_logo_pil(logo_bytes: bytes, size: int = 420):
+    """Circular-crop a logo with a gold ring; returns RGBA PIL image or None."""
+    try:
+        from PIL import Image as _PILImage, ImageDraw as _PILDraw, ImageOps as _PILOps
+        im = _PILImage.open(io.BytesIO(logo_bytes)).convert("RGBA")
+        side = min(im.size)
+        im = _PILOps.fit(im, (side, side), centering=(0.5, 0.5)).resize((size, size))
+        mask = _PILImage.new("L", (size, size), 0)
+        _PILDraw.Draw(mask).ellipse([size * 0.014, size * 0.014, size * 0.986, size * 0.986], fill=255)
+        circ = _PILImage.new("RGBA", (size, size), (0, 0, 0, 0))
+        circ.paste(im, (0, 0), mask)
+        _PILDraw.Draw(circ).ellipse([size * 0.007, size * 0.007, size * 0.993, size * 0.993],
+                                    outline=(184, 140, 64, 255), width=max(4, size // 60))
+        return circ
+    except Exception:
+        return None
+
+
+def _render_table_posters(t: dict, tables: int, base: str, logo_bytes: bytes | None, only_table: int = 0) -> bytes:
     """A4 table-tent poster per table: logo, restaurant name, TABLE N, order QR."""
     import qrcode
     from reportlab.lib.pagesizes import A4
@@ -644,27 +662,18 @@ def _render_table_posters(t: dict, tables: int, base: str, logo_bytes: bytes | N
     bg_img = ImageReader(bg_path) if os.path.exists(bg_path) else None
     logo_img = None
     if logo_bytes:
-        try:
-            from PIL import Image as _PILImage, ImageDraw as _PILDraw, ImageOps as _PILOps
-            im = _PILImage.open(io.BytesIO(logo_bytes)).convert("RGBA")
-            side = min(im.size)
-            im = _PILOps.fit(im, (side, side), centering=(0.5, 0.5)).resize((420, 420))
-            mask = _PILImage.new("L", (420, 420), 0)
-            _PILDraw.Draw(mask).ellipse([6, 6, 414, 414], fill=255)
-            circ = _PILImage.new("RGBA", (420, 420), (0, 0, 0, 0))
-            circ.paste(im, (0, 0), mask)
-            ring = _PILDraw.Draw(circ)
-            ring.ellipse([3, 3, 417, 417], outline=(184, 140, 64, 255), width=7)
+        circ = _circle_logo_pil(logo_bytes, 420)
+        if circ is not None:
             lb = io.BytesIO()
             circ.save(lb, format="PNG")
             lb.seek(0)
             logo_img = ImageReader(lb)
-        except Exception:
+        else:
             try:
                 logo_img = ImageReader(io.BytesIO(logo_bytes))
             except Exception:
                 logo_img = None
-    for n in range(1, tables + 1):
+    for n in ([only_table] if only_table else range(1, tables + 1)):
         c.setFillColorRGB(*INK)
         c.rect(0, 0, w, h, fill=1, stroke=0)
         if bg_img:
@@ -713,16 +722,7 @@ def _render_table_posters(t: dict, tables: int, base: str, logo_bytes: bytes | N
     return buf.getvalue()
 
 
-@router.get("/settings/table-qr-posters.pdf")
-async def table_qr_posters(tables: int = 8, origin: str = "", user=Depends(require_admin)):
-    """Printable table-tent posters (logo + table number + order QR), one A4 page per table."""
-    tenant_id = _current_tenant_id.get()
-    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0})
-    if (t.get("business_type") or "salon") != "restaurant":
-        raise HTTPException(400, "Table QR posters are only available for restaurants")
-    tables = max(1, min(int(tables), 60))
-    await _raw_db.tenants.update_one({"id": tenant_id}, {"$set": {"table_count": tables}})
-    base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
+async def _tenant_logo_bytes(t: dict, base: str) -> bytes | None:
     logo_bytes = None
     logo_url = t.get("logo_url") or ""
     if logo_url.startswith("/api/files/"):
@@ -741,6 +741,101 @@ async def table_qr_posters(tables: int = 8, origin: str = "", user=Depends(requi
                 logo_bytes = r.content
         except Exception:
             pass
-    pdf = await asyncio.to_thread(_render_table_posters, t, tables, base, logo_bytes)
+    return logo_bytes
+
+
+def _render_table_card_png(t: dict, table: int, base: str, logo_bytes: bytes | None) -> bytes:
+    """Polished on-screen table QR card (JPEG) — same design language as the printable poster."""
+    import qrcode
+    from PIL import Image, ImageDraw, ImageFont
+    W, H = 720, 1080
+    assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+    bg_path = os.path.join(assets_dir, "posters", "table_qr_bg.jpg")
+    if os.path.exists(bg_path):
+        bg = Image.open(bg_path).convert("RGB")
+        scale = max(W / bg.width, H / bg.height)
+        bg = bg.resize((round(bg.width * scale), round(bg.height * scale)))
+        lx, ty = (bg.width - W) // 2, (bg.height - H) // 2
+        bg = bg.crop((lx, ty, lx + W, ty + H))
+    else:
+        bg = Image.new("RGB", (W, H), (18, 16, 13))
+    d = ImageDraw.Draw(bg)
+    GOLD = (206, 165, 94)
+    LIGHT = (232, 224, 210)
+
+    def _font(name, size):
+        try:
+            return ImageFont.truetype(os.path.join(assets_dir, "fonts", name), size)
+        except Exception:
+            return ImageFont.load_default()
+
+    def center(text, y, f, fill):
+        d.text(((W - d.textlength(text, font=f)) / 2, y), text, font=f, fill=fill)
+
+    y = 58
+    if logo_bytes:
+        circ = _circle_logo_pil(logo_bytes, 190)
+        if circ is not None:
+            bg.paste(circ, ((W - 190) // 2, y), circ)
+            y += 204
+    name = t.get("name") or "Our Restaurant"
+    size = 52
+    f = _font("PlayfairDisplay-Bold.ttf", size)
+    while d.textlength(name, font=f) > W - 140 and size > 26:
+        size -= 3
+        f = _font("PlayfairDisplay-Bold.ttf", size)
+    center(name, y, f, GOLD)
+    y += size + 18
+    center("Scan · Browse the menu · Order to your table", y, _font("FreeSansBold.ttf", 22), LIGHT)
+    y += 54
+    center(f"TABLE {table}", y, _font("FreeSansBold.ttf", 90), GOLD)
+    y += 120
+    qr = qrcode.make(f"{base}/order/{t.get('slug') or ''}?table={table}", box_size=10, border=1).convert("RGB")
+    qs = 380
+    qr = qr.resize((qs, qs))
+    pad = 20
+    box = Image.new("RGB", (qs + pad * 2, qs + pad * 2), (255, 255, 255))
+    box.paste(qr, (pad, pad))
+    m = Image.new("L", box.size, 0)
+    ImageDraw.Draw(m).rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=28, fill=255)
+    bg.paste(box, ((W - box.width) // 2, y), m)
+    y += box.height + 30
+    center("Point your camera at the QR", y, _font("FreeSansBold.ttf", 24), (255, 255, 255))
+    y += 38
+    center(f"{base.replace('https://', '')}/order/{t.get('slug') or ''}", y, _font("FreeSansBold.ttf", 18), (160, 148, 128))
+    out = io.BytesIO()
+    bg.save(out, format="JPEG", quality=82)
+    return out.getvalue()
+
+
+@router.get("/settings/table-qr-card.png")
+async def table_qr_card(table: int = 1, origin: str = "", user=Depends(require_admin)):
+    """Polished single-table QR card image for the Kitchen screen grid."""
+    tenant_id = _current_tenant_id.get()
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if (t.get("business_type") or "salon") != "restaurant":
+        raise HTTPException(400, "Table QR cards are only available for restaurants")
+    table = max(1, min(int(table), 60))
+    base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
+    logo_bytes = await _tenant_logo_bytes(t, base)
+    img = await asyncio.to_thread(_render_table_card_png, t, table, base, logo_bytes)
+    return Response(content=img, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
+
+
+@router.get("/settings/table-qr-posters.pdf")
+async def table_qr_posters(tables: int = 8, table: int = 0, origin: str = "", user=Depends(require_admin)):
+    """Printable table-tent posters (logo + table number + order QR). `table` > 0 → single-table PDF."""
+    tenant_id = _current_tenant_id.get()
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if (t.get("business_type") or "salon") != "restaurant":
+        raise HTTPException(400, "Table QR posters are only available for restaurants")
+    tables = max(1, min(int(tables), 60))
+    table = max(0, min(int(table), 60))
+    if not table:
+        await _raw_db.tenants.update_one({"id": tenant_id}, {"$set": {"table_count": tables}})
+    base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
+    logo_bytes = await _tenant_logo_bytes(t, base)
+    pdf = await asyncio.to_thread(_render_table_posters, t, tables, base, logo_bytes, table)
+    fname = f"table-{table}-qr.pdf" if table else f'table-qr-posters-{t.get("slug") or "tables"}.pdf'
     return Response(content=pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="table-qr-posters-{t.get("slug") or "tables"}.pdf"'})
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})

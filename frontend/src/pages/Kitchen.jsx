@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { ChefHat, QrCode, Printer, CheckCircle2, Flame, XCircle } from "lucide-react";
+import { ChefHat, QrCode, Printer, CheckCircle2, Flame, XCircle, Download, Loader2 } from "lucide-react";
 import { CategorySpecials } from "@/components/CategorySpecials";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -30,6 +30,25 @@ export default function Kitchen() {
   const [insights, setInsights] = useState(null);
   const [tableCount, setTableCount] = useState(8);
   const [showQrs, setShowQrs] = useState(false);
+  const [dlTable, setDlTable] = useState(0);
+
+  async function downloadTableQr(n) {
+    setDlTable(n);
+    try {
+      const { data } = await api.get("/settings/table-qr-posters.pdf", {
+        params: { table: n, origin: window.location.origin }, responseType: "blob",
+      });
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `table-${n}-qr.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Couldn't download this table's poster");
+    }
+    setDlTable(0);
+  }
   const seenIds = useRef(null);
   const seenCallIds = useRef(null);
 
@@ -125,8 +144,7 @@ export default function Kitchen() {
   }
 
   const open = orders.filter(o => ["new", "preparing"].includes(o.status));
-  const closed = orders.filter(o => !["new", "preparing"].includes(o.status)).slice(0, 20);
-  const orderUrl = (n) => `${window.location.origin}/order/${tenant?.slug}?table=${n}`;
+  const closed = orders.filter(o => !["new", "preparing", "billed"].includes(o.status)).slice(0, 20);
 
   const Ticket = ({ o }) => (
     <div data-testid={`kitchen-ticket-${o.id}`} className={`rounded-2xl border-2 p-4 ${STATUS_STYLE[o.status]}`}>
@@ -200,17 +218,14 @@ export default function Kitchen() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
             {Array.from({ length: tableCount }, (_, i) => i + 1).map(n => (
-              <div key={n} className="rounded-2xl p-3 text-center bg-[#141210] border-2 border-[#C89B52]/50" data-testid={`table-qr-${n}`}>
-                {tenant?.logo_url && (
-                  <img src={tenant.logo_url} alt={tenant?.name} className="h-9 mx-auto object-contain mb-1.5 bg-white rounded-lg px-1.5 py-0.5" />
-                )}
-                <p className="text-[10px] font-bold text-[#DFB78C] tracking-wide truncate">{tenant?.name}</p>
-                <div className="bg-white rounded-xl p-1.5 mt-1.5">
-                  <img src={`${BACKEND_URL}/api/public/products-qr?url=${encodeURIComponent(orderUrl(n))}`}
-                    alt={`Table ${n}`} className="w-full aspect-square object-contain" />
-                </div>
-                <p className="text-sm font-extrabold text-white mt-1.5">TABLE {n}</p>
-                <p className="text-[9px] text-[#DFB78C]/80">Scan · Browse the menu · Order 🍽️</p>
+              <div key={n} className="rounded-2xl overflow-hidden border-2 border-[#C89B52]/50 bg-[#141210]" data-testid={`table-qr-${n}`}>
+                <img src={`${BACKEND_URL}/api/settings/table-qr-card.png?table=${n}&origin=${encodeURIComponent(window.location.origin)}`}
+                  alt={`Table ${n} QR`} className="w-full" loading="lazy" />
+                <button onClick={() => downloadTableQr(n)} disabled={dlTable === n} data-testid={`download-table-qr-${n}`}
+                  className="print:hidden w-[calc(100%-1.5rem)] mx-3 my-2.5 flex items-center justify-center gap-1.5 text-[10px] font-bold px-2 py-1.5 rounded-lg border border-[#C89B52]/60 text-[#DFB78C] hover:bg-[#C89B52]/15 disabled:opacity-60">
+                  {dlTable === n ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                  {dlTable === n ? "Preparing…" : "Download poster"}
+                </button>
               </div>
             ))}
           </div>
