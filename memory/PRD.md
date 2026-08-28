@@ -226,6 +226,11 @@ Frontend:
 - GOTCHA: POS guest search excludes crm_status "pending" — loyalty joiners are created "active" so staff can find them immediately.
 - E2E verified: settings PUT, poster render, public join (new+returning), POS badge + remaining line, settings editor UI (Owner PIN 4321 unlocks Settings). Test customers cleaned. BUILD 2026-08-28.128.
 
+## 2026-08-28 (later 4) — Loyalty welcome SMS + polished poster v2
+- Welcome SMS on join (loyalty_stamps.py public_loyalty_join): fire-and-forget send_tenant_sms(kind="loyalty_welcome") for NEW members with stamp-card link; verified SENT via sms_log collection (note: collection is `sms_log`, not sms_logs; SMS provider IS configured on preview and points are deducted).
+- Poster v2 (_render in loyalty_qr_poster): vertical-aware bg (restaurant→table_qr_bg, salon→loyalty_qr_bg), circular logo, stamp-journey dot trail ending in mini gift box, glowing gold gift-box art (assets/posters/gift_box_gold.png — generated on black, alpha from luminance since gemini can't emit real transparency) + "A SURPRISE GIFT awaits at your Nth visit" block. `_ordinal()` helper. Verified both verticals visually.
+- BUILD 2026-08-28.129.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).
