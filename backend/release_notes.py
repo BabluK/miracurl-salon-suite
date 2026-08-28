@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-27.124"
-BUILD_TIME = "27 Aug 2026, 05:00 PM IST"
+BUILD = "2026-08-28.125"
+BUILD_TIME = "28 Aug 2026, 09:30 AM IST"
 
 RELEASES = [
+    {
+        "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
+        "changes": [
+            "🧾 Bill any table into its OWN bill tab — billing Table 1 from the Kitchen no longer touches a bill you're already making; every table queues as a parallel bill in POS (with table + guest name on the tab)",
+            "👤 Guest names on kitchen billing — Live Tables now show who's dining and the bill button reads 'Bill Table 1 — Arun · ₹500'",
+            "🖼️ Table QR posters redesigned — elegant gold art-deco frame background and your logo in a polished gold-ring circle (no more white box)",
+            "🎨 Fixed the white-on-white category dropdown in Offers & Plans → Category Specials",
+        ],
+    },
     {
         "date": "2026-08-27 (Festival-smart Mira & two-app install 🪔)",
         "changes": [

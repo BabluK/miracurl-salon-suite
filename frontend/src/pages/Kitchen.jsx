@@ -249,6 +249,7 @@ export default function Kitchen() {
               .map(([tableNo, list]) => {
                 const running = list.reduce((s, o) => s + o.total, 0);
                 const allServed = list.every(o => o.status === "served");
+                const guestName = list.find(o => o.customer_name)?.customer_name || "";
                 return (
                   <div key={tableNo} data-testid={`live-table-${tableNo}`}
                     className={`rounded-2xl border-2 p-3.5 ${allServed ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}>
@@ -258,11 +259,12 @@ export default function Kitchen() {
                         {list.length} order{list.length > 1 ? "s" : ""}
                       </span>
                     </div>
+                    {guestName && <p className="text-[11px] font-semibold text-slate-600 mt-0.5" data-testid={`live-table-guest-${tableNo}`}>👤 {guestName}</p>}
                     <p className="text-lg font-extrabold text-slate-900 mt-1">₹{Math.round(running).toLocaleString("en-IN")}</p>
                     <p className="text-[10px] text-slate-500">{allServed ? "All served — ready to bill" : "Still cooking…"}</p>
                     <button onClick={() => billTable(Number(tableNo))} data-testid={`bill-table-${tableNo}`}
                       className="w-full mt-2 text-[11px] font-bold px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-700">
-                      🧾 Bill Table {tableNo}
+                      🧾 Bill Table {tableNo}{guestName ? ` — ${guestName}` : ""} · ₹{Math.round(running).toLocaleString("en-IN")}
                     </button>
                   </div>
                 );

@@ -397,6 +397,14 @@ export default function POS() {
     try { kb = JSON.parse(localStorage.getItem("kitchen_bill") || "null"); } catch { /* ignore */ }
     if (!kb?.items?.length) return;
     localStorage.removeItem("kitchen_bill");
+    // Each table opens as its OWN bill tab — any in-progress bill stays saved as a parallel tab
+    const drafts = _readDrafts();
+    if (drafts[sidRef.current]?.cart?.length || cart.length) {
+      const sid = _newSid();
+      sidRef.current = sid;
+      sessionStorage.setItem("pos_sid", sid);
+    }
+    setPendingBill(null);
     // Table-wise chef: tips & line attribution default to the chef assigned to this table
     const chefId = tenant?.table_chefs?.[String(kb.table_no)];
     const host = staff.find(s => s.id === chefId) || staff[0];
@@ -406,6 +414,7 @@ export default function POS() {
     })));
     setStaffId(host.id);
     setTipStaffId(host.id);
+    setGuestQuery(`Table ${kb.table_no}${kb.customer_name ? ` — ${kb.customer_name}` : ""} · dine-in`);
     const ids = kb.order_ids || (kb.order_id ? [kb.order_id] : []);
     kitchenOrderIdsRef.current = ids;
     setOrderNotes(`Table ${kb.table_no} — QR order${kb.customer_name ? ` for ${kb.customer_name}` : ""}`);
@@ -413,7 +422,7 @@ export default function POS() {
       setCustomers(prev => (prev.some(c => c.id === data.id) ? prev : [data, ...prev]));
       setCustomerId(data.id);
     }).catch(() => {});
-    toast.success(`🧾 Table ${kb.table_no}${kb.customer_name ? ` (${kb.customer_name})` : ""} — ${ids.length} order${ids.length > 1 ? "s" : ""} merged into one bill. Guest auto-set, just pick payment.`);
+    toast.success(`🧾 New bill tab ✦ Table ${kb.table_no}${kb.customer_name ? ` (${kb.customer_name})` : ""} — ${ids.length} order${ids.length > 1 ? "s" : ""} merged. Guest auto-set, just pick payment.`);
   }, [staff, tenant]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateLine(i, patch) { setCart(cart.map((c, idx) => idx === i ? { ...c, ...patch } : c)); }

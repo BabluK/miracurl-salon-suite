@@ -201,6 +201,12 @@ Frontend:
 - Extra leaks fixed after testing agent sweep: SetupBanner "Finish setting up your restaurant", Mira social nudge (mira_studio.py), QuickMusicBar "Restaurant music", Settings title "Restaurant Settings", CircleBonusCard "a business joins", MiraDayOffer style select hides salon-only styles for resto, LogoStudio "Create your restaurant logo" + resto styles + resto logo AI prompt (tenant_settings.py).
 - Testing: iteration_119.json — all 6 restaurant fixes PASS, salon regression PASS, QR poster backend PASS both verticals. BUILD 2026-08-27.124.
 
+## 2026-08-28 — Restaurant POS/QR fixes
+- CategorySpecials.jsx select: added text-slate-800 + option bg/text classes (was white-on-white on dark page).
+- Table QR posters (services_catalog.py `_render_table_posters`): full-bleed art-deco gold-frame AI bg (assets/posters/table_qr_bg.jpg), logo now circular w/ gold ring (PIL ImageOps.fit + ellipse mask). Logo bytes now read directly from object storage via uploads record (`_get_object`) with HTTP fallback — previously fetched base+logo_url which broke cross-env.
+- POS kitchen_bill handoff (POS.jsx ~line 393): now opens as its OWN parallel bill session (new sid, preserves current draft, clears PendingBill modal) mirroring the booking-notification flow; guestQuery set to "Table N — Name · dine-in" so the bill tab is labeled. Kitchen.jsx Live Tables show guest name + button "Bill Table N — Name · ₹total".
+- Verified E2E via playwright: existing walk-in draft + kitchen bill → two parallel tabs, no pending modal. Table QR PDF rendered & visually checked. BUILD 2026-08-28.125.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).

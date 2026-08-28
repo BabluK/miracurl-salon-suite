@@ -640,25 +640,46 @@ def _render_table_posters(t: dict, tables: int, base: str, logo_bytes: bytes | N
     w, h = A4
     name = t.get("name") or "Our Restaurant"
     slug = t.get("slug") or ""
+    bg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "posters", "table_qr_bg.jpg")
+    bg_img = ImageReader(bg_path) if os.path.exists(bg_path) else None
     logo_img = None
     if logo_bytes:
         try:
-            logo_img = ImageReader(io.BytesIO(logo_bytes))
+            from PIL import Image as _PILImage, ImageDraw as _PILDraw, ImageOps as _PILOps
+            im = _PILImage.open(io.BytesIO(logo_bytes)).convert("RGBA")
+            side = min(im.size)
+            im = _PILOps.fit(im, (side, side), centering=(0.5, 0.5)).resize((420, 420))
+            mask = _PILImage.new("L", (420, 420), 0)
+            _PILDraw.Draw(mask).ellipse([6, 6, 414, 414], fill=255)
+            circ = _PILImage.new("RGBA", (420, 420), (0, 0, 0, 0))
+            circ.paste(im, (0, 0), mask)
+            ring = _PILDraw.Draw(circ)
+            ring.ellipse([3, 3, 417, 417], outline=(184, 140, 64, 255), width=7)
+            lb = io.BytesIO()
+            circ.save(lb, format="PNG")
+            lb.seek(0)
+            logo_img = ImageReader(lb)
         except Exception:
-            logo_img = None
+            try:
+                logo_img = ImageReader(io.BytesIO(logo_bytes))
+            except Exception:
+                logo_img = None
     for n in range(1, tables + 1):
         c.setFillColorRGB(*INK)
         c.rect(0, 0, w, h, fill=1, stroke=0)
-        c.setStrokeColorRGB(*GOLD)
-        c.setLineWidth(1.2)
-        c.rect(24, 24, w - 48, h - 48, fill=0, stroke=1)
-        y = h - 78
+        if bg_img:
+            bw_, bh_ = bg_img.getSize()
+            scale = max(w / bw_, h / bh_)
+            c.drawImage(bg_img, (w - bw_ * scale) / 2, (h - bh_ * scale) / 2, bw_ * scale, bh_ * scale)
+        else:
+            c.setStrokeColorRGB(*GOLD)
+            c.setLineWidth(1.2)
+            c.rect(24, 24, w - 48, h - 48, fill=0, stroke=1)
+        y = h - 92
         if logo_img:
-            lw, lh = 150, 84
-            c.setFillColorRGB(1, 1, 1)
-            c.roundRect((w - lw - 16) / 2, y - lh, lw + 16, lh + 12, 10, fill=1, stroke=0)
-            c.drawImage(logo_img, (w - lw) / 2, y - lh + 6, lw, lh, preserveAspectRatio=True, mask="auto")
-            y -= lh + 40
+            ls = 96
+            c.drawImage(logo_img, (w - ls) / 2, y - ls, ls, ls, preserveAspectRatio=True, mask="auto")
+            y -= ls + 34
         c.setFillColorRGB(*GOLD)
         c.setFont("Helvetica-Bold", 26)
         c.drawCentredString(w / 2, y, name)
@@ -704,7 +725,15 @@ async def table_qr_posters(tables: int = 8, origin: str = "", user=Depends(requi
     base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
     logo_bytes = None
     logo_url = t.get("logo_url") or ""
-    if logo_url:
+    if logo_url.startswith("/api/files/"):
+        fid = logo_url.rsplit("/", 1)[-1].split("?")[0]
+        up = await _raw_db.uploads.find_one({"id": fid, "is_deleted": {"$ne": True}})
+        if up and up.get("storage_path"):
+            try:
+                logo_bytes, _ct = await asyncio.to_thread(_get_object, up["storage_path"])
+            except Exception:
+                logo_bytes = None
+    if logo_bytes is None and logo_url:
         try:
             full = logo_url if logo_url.startswith("http") else base + logo_url
             r = await asyncio.to_thread(requests.get, full, timeout=8)

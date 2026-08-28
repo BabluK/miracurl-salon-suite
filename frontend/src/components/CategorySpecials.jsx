@@ -50,7 +50,7 @@ export const CategorySpecials = () => {
         <div>
           <label className="text-[10px] font-bold uppercase text-slate-400">Category</label>
           <select value={cat} onChange={e => setCat(e.target.value)} data-testid="special-category-select"
-            className="block mt-1 px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white min-w-[160px]">
+            className="block mt-1 px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white text-slate-800 min-w-[160px] [&_option]:bg-white [&_option]:text-slate-800">
             {cats.filter(c => (c || "").trim()).length === 0 && <option value="">No categories yet</option>}
             {cats.filter(c => (c || "").trim()).map(c => <option key={c}>{c}</option>)}
           </select>
