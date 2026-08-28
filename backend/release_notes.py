@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-28.133"
-BUILD_TIME = "28 Aug 2026, 07:30 PM IST"
+BUILD = "2026-08-28.134"
+BUILD_TIME = "28 Aug 2026, 08:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "🎨 Designer Visiting Card makeover — the card is now a premium cream design with curvy colour ribbons (magenta for salons, terracotta for restaurants), a script tagline, contact icons, a flower watermark and a framed scan-to-book QR; the back gets a SERVICES/OUR MENU price list with a BOOK NOW pill and your logo riding the colour wave",
             "💳 Luxury Visiting Card — every business can now generate a print-ready gold-framed visiting card (logo, name, branch, phone + scan-to-book/order QR) right from Settings, with live preview and one-tap download",
             "📲 Gift Reminder Nudge — one tap in Settings texts every member who is 1-2 stamps from their surprise gift ('You're just 1 visit away…' with your booking link); each guest is nudged at most once per 14 days",
             "📍 Branch name everywhere on the Loyalty Club — the poster shows your branch under the salon name, the join page confirms which branch the guest joined, and the welcome SMS mentions it too (no more mix-ups between branches)",

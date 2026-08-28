@@ -11,17 +11,18 @@ export function VisitingCardCard() {
   const resto = tenant?.business_type === "restaurant";
   const [dl, setDl] = useState(false);
   const src = `${BACKEND_URL}/api/settings/visiting-card.png?origin=${encodeURIComponent(window.location.origin)}`;
+  const srcBack = `${src}&side=back`;
 
-  const download = async () => {
+  const download = async (side) => {
     setDl(true);
     try {
       const { data } = await api.get("/settings/visiting-card.png", {
-        params: { origin: window.location.origin }, responseType: "blob",
+        params: { origin: window.location.origin, side }, responseType: "blob",
       });
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "visiting-card.jpg";
+      a.download = `visiting-card-${side}.jpg`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -38,13 +39,24 @@ export function VisitingCardCard() {
       <p className="text-xs text-slate-500 mt-1">
         Print-ready luxury card (3.5"×2", 300 DPI) — your logo, {resto ? "restaurant" : "salon"} name, branch, phone and a scan-to-{resto ? "order" : "book"} QR.
       </p>
-      <img src={src} alt="Visiting card preview" data-testid="visiting-card-preview"
-        className="mt-3 w-full max-w-md rounded-xl border border-slate-200 shadow" loading="lazy" />
-      <button onClick={download} disabled={dl} data-testid="visiting-card-download-btn"
-        className="mt-3 inline-flex items-center gap-1.5 px-5 py-2 rounded-full border-2 border-amber-400 text-amber-700 text-sm font-semibold hover:bg-amber-50 disabled:opacity-50">
-        {dl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-        {dl ? "Preparing…" : "Download visiting card"}
-      </button>
+      <div className="grid sm:grid-cols-2 gap-3 mt-3">
+        <div>
+          <img src={src} alt="Visiting card front" data-testid="visiting-card-preview"
+            className="w-full rounded-xl border border-slate-200 shadow" loading="lazy" />
+          <button onClick={() => download("front")} disabled={dl} data-testid="visiting-card-download-btn"
+            className="mt-2 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border-2 border-amber-400 text-amber-700 text-xs font-semibold hover:bg-amber-50 disabled:opacity-50">
+            {dl ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Front
+          </button>
+        </div>
+        <div>
+          <img src={srcBack} alt="Visiting card back" data-testid="visiting-card-back-preview"
+            className="w-full rounded-xl border border-slate-200 shadow" loading="lazy" />
+          <button onClick={() => download("back")} disabled={dl} data-testid="visiting-card-back-download-btn"
+            className="mt-2 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border-2 border-amber-400 text-amber-700 text-xs font-semibold hover:bg-amber-50 disabled:opacity-50">
+            {dl ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Back
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

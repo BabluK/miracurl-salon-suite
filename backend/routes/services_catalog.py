@@ -822,29 +822,55 @@ async def table_qr_card(table: int = 1, origin: str = "", user=Depends(require_a
     return Response(content=img, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
 
 
-def _render_visiting_card(t: dict, base: str, logo_bytes: bytes | None) -> bytes:
-    """Print-ready 3.5x2in luxury visiting card (JPEG @300dpi)."""
+def _vc_flower(layer, cx, cy, R, color):
+    """Faint 12-petal flower watermark on an RGBA layer."""
+    from PIL import Image, ImageDraw
+    petal = Image.new("RGBA", (R * 2, R * 2), (0, 0, 0, 0))
+    pd = ImageDraw.Draw(petal)
+    pd.ellipse([R - R * 0.17, R * 0.04, R + R * 0.17, R], fill=color)
+    for ang in range(0, 360, 30):
+        rp = petal.rotate(ang, resample=Image.BICUBIC, center=(R, R))
+        layer.alpha_composite(rp, (int(cx - R), int(cy - R)))
+
+
+def _vc_icon(kind, size, acc):
+    """Tiny supersampled contact icon: accent circle + white glyph."""
+    from PIL import Image, ImageDraw
+    S = size * 4
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    dd = ImageDraw.Draw(im)
+    dd.ellipse([0, 0, S - 1, S - 1], fill=acc)
+    w = max(6, S // 14)
+    WHT = (255, 255, 255, 255)
+    if kind == "phone":
+        dd.arc([S * 0.24, S * 0.24, S * 0.76, S * 0.76], 115, 335, fill=WHT, width=w)
+        dd.ellipse([S * 0.20, S * 0.42, S * 0.34, S * 0.56], fill=WHT)
+        dd.ellipse([S * 0.52, S * 0.68, S * 0.66, S * 0.82], fill=WHT)
+    elif kind == "pin":
+        dd.ellipse([S * 0.30, S * 0.18, S * 0.70, S * 0.58], fill=WHT)
+        dd.polygon([(S * 0.33, S * 0.48), (S * 0.67, S * 0.48), (S * 0.50, S * 0.84)], fill=WHT)
+        dd.ellipse([S * 0.42, S * 0.30, S * 0.58, S * 0.46], fill=acc)
+    else:  # globe
+        dd.ellipse([S * 0.20, S * 0.20, S * 0.80, S * 0.80], outline=WHT, width=w)
+        dd.ellipse([S * 0.38, S * 0.20, S * 0.62, S * 0.80], outline=WHT, width=w)
+        dd.line([S * 0.20, S * 0.50, S * 0.80, S * 0.50], fill=WHT, width=w)
+    return im.resize((size, size), Image.LANCZOS)
+
+
+def _render_visiting_card(t: dict, base: str, logo_bytes: bytes | None, side: str = "front", highlights: list | None = None) -> bytes:
+    """Print-ready 3.5x2in designer visiting card (JPEG @300dpi) — cream base with curvy accent swoosh."""
     import qrcode
     from PIL import Image, ImageDraw, ImageFont
     W, H = 1050, 600
     assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
     resto = t.get("business_type") == "restaurant"
-    # subtle texture from the poster art's empty center, darkened
-    tex_path = os.path.join(assets_dir, "posters", "loyalty_qr_bg.jpg")
-    if os.path.exists(tex_path):
-        tex = Image.open(tex_path).convert("RGB")
-        tex = tex.crop((int(tex.width * 0.16), int(tex.height * 0.34), int(tex.width * 0.84), int(tex.height * 0.62)))
-        bg = tex.resize((W, H))
-        bg = Image.eval(bg, lambda v: int(v * 0.9))
+    if resto:
+        ACC, ACCD, SOFT, INK = (186, 70, 26), (126, 44, 14), (243, 210, 190), (52, 42, 38)
+        CREAM = (253, 249, 243)
     else:
-        bg = Image.new("RGB", (W, H), (20, 17, 13))
-    d = ImageDraw.Draw(bg)
-    GOLD = (206, 165, 94)
-    LIGHT = (232, 224, 210)
-    d.rounded_rectangle([16, 16, W - 17, H - 17], radius=22, outline=GOLD, width=3)
-    d.rounded_rectangle([28, 28, W - 29, H - 29], radius=16, outline=(140, 110, 62), width=1)
-    for cx, cy in ((W / 2, 22), (W / 2, H - 23)):
-        d.polygon([(cx, cy - 7), (cx + 6, cy), (cx, cy + 7), (cx - 6, cy)], fill=GOLD)
+        ACC, ACCD, SOFT, INK = (206, 32, 115), (146, 16, 80), (248, 208, 227), (54, 42, 50)
+        CREAM = (253, 248, 246)
+    bg = Image.new("RGB", (W, H), CREAM)
 
     def _font(name, size):
         try:
@@ -852,64 +878,176 @@ def _render_visiting_card(t: dict, base: str, logo_bytes: bytes | None) -> bytes
         except Exception:
             return ImageFont.load_default()
 
-    lx = 70
-    if logo_bytes:
-        circ = _circle_logo_pil(logo_bytes, 190)
-        if circ is not None:
-            bg.paste(circ, (lx, (H - 190) // 2 - 20), circ)
-            lx = 300
-    tx = lx if lx > 100 else 80
-    name = t.get("name") or ("Our Restaurant" if resto else "Our Salon")
-    size = 52
-    f = _font("PlayfairDisplay-Bold.ttf", size)
-    while d.textlength(name, font=f) > 730 - tx and size > 24:
-        size -= 3
-        f = _font("PlayfairDisplay-Bold.ttf", size)
-    y = 140
-    d.text((tx, y), name, font=f, fill=GOLD)
-    y += size + 14
-    loc = (t.get("location") or "").strip()
-    if loc:
-        d.text((tx, y), loc.upper(), font=_font("FreeSansBold.ttf", 24), fill=LIGHT)
-        y += 40
-    d.line([tx, y + 4, tx + 250, y + 4], fill=(140, 110, 62), width=2)
-    y += 24
-    phone = (t.get("phone") or "").strip()
-    if phone:
-        d.text((tx, y), f"Call: {phone}", font=_font("FreeSansBold.ttf", 26), fill=(255, 255, 255))
-        y += 42
+    # ---- curvy swoosh shapes on a 2x supersampled layer ----
+    S = Image.new("RGBA", (W * 2, H * 2), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(S)
+    if side == "front":
+        _vc_flower(S, 620, 260, 480, ACC + (16,))
+        # top ribbon: accent band curving across, thicker on the left
+        sd.ellipse([-900, -1520, 2960, 470], fill=ACC + (255,))
+        sd.ellipse([-960, -1660, 3040, 330], fill=CREAM + (255,))
+        sd.ellipse([-900, -1490, 2960, 560], outline=SOFT + (255,), width=10)
+        # solid top-left corner blob above the ribbon
+        sd.ellipse([-560, -760, 760, 240], fill=ACCD + (255,))
+        # bottom-right wave
+        sd.ellipse([1480, 1010, 3400, 2600], fill=ACC + (255,))
+        sd.ellipse([1400, 940, 3320, 2530], outline=SOFT + (255,), width=10)
+    else:
+        _vc_flower(S, 330, 640, 460, ACC + (14,))
+        # right-side vertical band with curved edge
+        sd.ellipse([1560, -560, 3560, 1780], fill=ACC + (255,))
+        sd.ellipse([1470, -640, 3470, 1860], outline=SOFT + (255,), width=10)
+        # small top-left corner wave
+        sd.ellipse([-760, -820, 560, 250], fill=ACCD + (255,))
+        sd.ellipse([-700, -760, 640, 330], outline=SOFT + (255,), width=10)
+    bg.paste(Image.alpha_composite(Image.new("RGBA", S.size, CREAM + (255,)), S)
+             .convert("RGB").resize((W, H), Image.LANCZOS), (0, 0))
+    d = ImageDraw.Draw(bg)
     kind = "order" if resto else "book"
     url_txt = f"{base.replace('https://', '')}/{kind}/{t.get('slug') or ''}"
-    qx_limit = W - 168 - 12 * 2 - 62 - 24
-    us = 21
-    uf = _font("FreeSansBold.ttf", us)
-    while d.textlength(url_txt, font=uf) > qx_limit - tx and us > 14:
-        us -= 1
-        uf = _font("FreeSansBold.ttf", us)
-    d.text((tx, y), url_txt, font=uf, fill=(170, 158, 138))
-    qr = qrcode.make(f"{base}/{kind}/{t.get('slug') or ''}", box_size=8, border=1).convert("RGB").resize((168, 168))
-    pad = 12
-    box = Image.new("RGB", (168 + pad * 2, 168 + pad * 2), (255, 255, 255))
+    name = t.get("name") or ("Our Restaurant" if resto else "Our Salon")
+
+    def _logo_circle(size):
+        if logo_bytes:
+            circ = _circle_logo_pil(logo_bytes, size)
+            if circ is not None:
+                ring = Image.new("RGBA", (size + 28, size + 28), (0, 0, 0, 0))
+                rd = ImageDraw.Draw(ring)
+                rd.ellipse([0, 0, size + 27, size + 27], fill=(255, 255, 255, 255))
+                rd.ellipse([4, 4, size + 23, size + 23], outline=ACC + (255,), width=5)
+                ring.paste(circ, (14, 14), circ)
+                rd.ellipse([13, 13, size + 14, size + 14], outline=(255, 255, 255, 255), width=max(5, size // 55))
+                return ring
+        size += 28
+        ring = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        rd = ImageDraw.Draw(ring)
+        rd.ellipse([0, 0, size - 1, size - 1], fill=(255, 255, 255, 255))
+        rd.ellipse([5, 5, size - 6, size - 6], outline=ACC + (255,), width=6)
+        lf = _font("PlayfairDisplay-Bold.ttf", int(size * 0.42))
+        ini = (name.strip()[:1] or "M").upper()
+        rd.text(((size - rd.textlength(ini, font=lf)) / 2, size * 0.26), ini, font=lf, fill=ACC + (255,))
+        return ring
+
+    if side == "back":
+        # big logo circle riding the right band
+        lc = _logo_circle(216)
+        bg.paste(lc, (W - 175 - lc.width // 2, 116), lc)
+        nf, ns = _font("PlayfairDisplay-Bold.ttf", 26), 26
+        while d.textlength(name, font=nf) > 190 and ns > 13:
+            ns -= 2
+            nf = _font("PlayfairDisplay-Bold.ttf", ns)
+        d.text((W - 158 - d.textlength(name, font=nf) / 2, 116 + lc.height + 16), name, font=nf, fill=(255, 255, 255))
+        # header
+        hdr = "OUR MENU" if resto else "SERVICES"
+        hx, hy = 84, 74
+        d.text((hx, hy), hdr, font=_font("PlayfairDisplay-Bold.ttf", 46), fill=ACC)
+        d.text((hx + d.textlength(hdr, font=_font("PlayfairDisplay-Bold.ttf", 46)) + 8, hy + 8), "...",
+               font=_font("PlayfairDisplay-Bold.ttf", 46), fill=SOFT)
+        d.line([hx + 2, hy + 62, hx + 172, hy + 62], fill=ACC, width=4)
+        y = hy + 92
+        items = (highlights or [])[:5]
+        rf = _font("FreeSansBold.ttf", 24)
+        col_w = 540
+        d.line([hx + 5, y + 8, hx + 5, y + 8 + max(0, len(items) - 1) * 46 + 14], fill=SOFT, width=3)
+        for it in items:
+            d.ellipse([hx, y + 10, hx + 11, y + 21], fill=ACC)
+            nm = it["name"][:34]
+            price = f"Rs.{round(it['price']):,}" if it.get("price") else ""
+            pw = d.textlength(price, font=rf)
+            d.text((hx + 26, y), nm, font=rf, fill=INK)
+            if price:
+                d.text((hx + 26 + col_w - pw, y), price, font=rf, fill=ACC)
+                dx = hx + 26 + d.textlength(nm, font=rf) + 14
+                while dx < hx + 26 + col_w - pw - 16:
+                    d.ellipse([dx, y + 16, dx + 3, y + 19], fill=SOFT)
+                    dx += 13
+            y += 46
+        # pill CTA + url
+        cta = "ORDER NOW" if resto else "BOOK NOW"
+        cf = _font("FreeSansBold.ttf", 22)
+        cw = d.textlength(cta, font=cf)
+        py = H - 118
+        d.rounded_rectangle([hx, py, hx + cw + 56, py + 46], radius=23, fill=ACC)
+        d.text((hx + 28, py + 10), cta, font=cf, fill=(255, 255, 255))
+        uf = _font("FreeSansBold.ttf", 19)
+        d.text((hx + cw + 76, py + 13), url_txt[:52], font=uf, fill=(150, 130, 140))
+        socials = []
+        for key, label in (("instagram_url", "Instagram"), ("facebook_url", "Facebook"), ("youtube_url", "YouTube")):
+            v = (t.get(key) or "").strip()
+            if v:
+                socials.append(f"{label}: @{v.rstrip('/').split('/')[-1]}")
+        if socials:
+            d.text((hx, H - 52), "  ·  ".join(socials)[:80], font=_font("FreeSansBold.ttf", 19), fill=ACCD)
+        out = io.BytesIO()
+        bg.save(out, format="JPEG", quality=92, dpi=(300, 300))
+        return out.getvalue()
+
+    # ---- front ----
+    lc = _logo_circle(196)
+    bg.paste(lc, (66, 52), lc)
+    tx = 66 + lc.width + 44
+    ns = 46
+    nf = _font("PlayfairDisplay-Bold.ttf", ns)
+    while d.textlength(name, font=nf) > W - tx - 210 and ns > 22:
+        ns -= 2
+        nf = _font("PlayfairDisplay-Bold.ttf", ns)
+    nw = d.textlength(name, font=nf)
+    # name pill
+    px0, py0 = tx, 92
+    d.rounded_rectangle([px0, py0, px0 + nw + 56, py0 + ns + 30], radius=(ns + 30) // 2,
+                        fill=(255, 255, 255), outline=ACC, width=3)
+    d.text((px0 + 28, py0 + 13), name, font=nf, fill=INK)
+    tagline = (t.get("tagline") or "").strip() or ("Great Food · Good Vibes" if resto else "Beauty & Care Experts")
+    d.text((px0 + 30, py0 + ns + 46), tagline, font=_font("GreatVibes-Regular.ttf", 46), fill=(255, 255, 255))
+    # contact rows
+    y = 330
+    rows = []
+    if (t.get("phone") or "").strip():
+        rows.append(("phone", t["phone"].strip()))
+    if (t.get("location") or "").strip():
+        rows.append(("pin", t["location"].strip()[:38]))
+    rows.append(("globe", url_txt[:46]))
+    rf = _font("FreeSansBold.ttf", 25)
+    for kind_i, txt in rows:
+        ic = _vc_icon(kind_i, 40, ACC + (255,))
+        bg.paste(ic, (88, y), ic)
+        d.text((146, y + 6), txt, font=rf, fill=INK)
+        y += 60
+    # QR bottom-right on white rounded box
+    qr = qrcode.make(f"{base}/{kind}/{t.get('slug') or ''}", box_size=8, border=1).convert("RGB").resize((160, 160))
+    pad = 13
+    box = Image.new("RGB", (160 + pad * 2, 160 + pad * 2), (255, 255, 255))
     box.paste(qr, (pad, pad))
     m = Image.new("L", box.size, 0)
-    ImageDraw.Draw(m).rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=18, fill=255)
-    qx, qy = W - box.width - 62, (H - box.height) // 2 - 26
+    mdd = ImageDraw.Draw(m)
+    mdd.rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=20, fill=255)
+    qx, qy = W - box.width - 70, 300
+    sh = Image.new("RGBA", bg.size, (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle([qx - 4, qy - 4, qx + box.width + 4, qy + box.height + 4],
+                                         radius=22, outline=ACC + (255,), width=3)
+    bg.paste(sh, (0, 0), sh)
     bg.paste(box, (qx, qy), m)
     cap = "SCAN TO ORDER" if resto else "SCAN TO BOOK"
-    cf = _font("FreeSansBold.ttf", 20)
-    d.text((qx + (box.width - d.textlength(cap, font=cf)) / 2, qy + box.height + 12), cap, font=cf, fill=GOLD)
+    cf = _font("FreeSansBold.ttf", 19)
+    d.text((qx + (box.width - d.textlength(cap, font=cf)) / 2, qy + box.height + 14), cap, font=cf, fill=ACCD)
     out = io.BytesIO()
-    bg.save(out, format="JPEG", quality=90, dpi=(300, 300))
+    bg.save(out, format="JPEG", quality=92, dpi=(300, 300))
     return out.getvalue()
 
 
 @router.get("/settings/visiting-card.png")
-async def visiting_card(origin: str = "", user=Depends(require_admin)):
+async def visiting_card(origin: str = "", side: str = "front", user=Depends(require_admin)):
     tenant_id = _current_tenant_id.get()
     t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0})
     base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
     logo_bytes = await _tenant_logo_bytes(t, base)
-    img = await asyncio.to_thread(_render_visiting_card, t, base, logo_bytes)
+    side = "back" if side == "back" else "front"
+    highlights = None
+    if side == "back":
+        highlights = await _raw_db.services.find(
+            {"tenant_id": tenant_id, "active": {"$ne": False}},
+            {"_id": 0, "name": 1, "price": 1}).sort("price", -1).to_list(5)
+    img = await asyncio.to_thread(_render_visiting_card, t, base, logo_bytes, side, highlights)
     return Response(content=img, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
 
 

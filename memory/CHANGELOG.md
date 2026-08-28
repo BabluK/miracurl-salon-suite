@@ -1454,3 +1454,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Patched absolute redirects to respect prefix: Login.jsx, SalonSwitcher.jsx, ForceChangePassword.jsx, api.js 401 handler.
 - Verified: /partner/login renders w/ manifest-admin.json, login → /partner/dashboard (in scope), dashboard fully functional. Root URLs (/login etc.) untouched (basename ""). Existing installed apps unaffected.
 - ALSO answered: hot-lead email WA button opens chat WITH the lead; sender account is device-side (pair WhatsApp Web with the new 9180261256 device).
+
+## 2026-06 (fork) — Designer Visiting Card redesign
+- Rewrote `_render_visiting_card` in `/app/backend/routes/services_catalog.py` to match freepik-style reference: cream base, 2x-supersampled curvy accent swoosh ribbons + corner blobs, faint 12-petal flower watermark, circular logo with white+accent ring (initial-letter fallback), name pill (Playfair), white GreatVibes script tagline on ribbon, contact rows with supersampled vector icons (phone/pin/globe), accent-framed QR.
+- Back: SERVICES/OUR MENU header + dot-bullet price list with dotted leaders, logo circle riding a right-side colour wave with name beneath, BOOK NOW/ORDER NOW pill + URL + socials.
+- Palette branches by business_type: salon = magenta (206,32,115), restaurant = terracotta (186,70,26).
+- Helpers added: `_vc_flower`, `_vc_icon`. Frontend unchanged. Verified locally (both tenants, both sides, no-logo fallback) + e2e 200 via /api/settings/visiting-card.png. release_notes.py bumped to BUILD 2026-08-28.134.
