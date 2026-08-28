@@ -142,14 +142,20 @@ function BenefitsPanel({ benefits, canRedeem, redeemCap, redeemPoints, setRedeem
       </span>
       {benefits.loyalty_points > 0 && (
         canRedeem ? (
-          <span className="inline-flex items-center gap-1 text-xs text-slate-600">
-            Redeem
-            <input type="number" min="0" max={Math.min(benefits.loyalty_points, redeemCap)} value={redeemPoints || ""}
-              data-testid="pos-redeem-points-input"
-              onChange={e => setRedeemPoints(Math.min(Math.min(benefits.loyalty_points, redeemCap), Math.max(0, parseInt(e.target.value || 0))))}
-              className="w-20 px-2 py-1 rounded border border-slate-200 bg-white text-xs" placeholder="0" /> pts
-            {Number.isFinite(redeemCap) && <span className="text-[10px] text-slate-400">(max {redeemCap}/visit)</span>}
-          </span>
+          redeemPoints > 0 ? (
+            <button type="button" data-testid="pos-redeem-applied-btn"
+              onClick={() => setRedeemPoints(0)}
+              title="Tap to remove the redeemed points"
+              className="text-xs px-2.5 py-1 rounded-full bg-emerald-500 text-white font-semibold hover:bg-emerald-600">
+              ✓ {redeemPoints} pts redeemed (−₹{redeemPoints}) · ✕
+            </button>
+          ) : (
+            <button type="button" data-testid="pos-redeem-btn"
+              onClick={() => setRedeemPoints(Math.min(benefits.loyalty_points, redeemCap))}
+              className="text-xs px-2.5 py-1 rounded-full bg-amber-500 text-white font-semibold hover:bg-amber-600 shadow-sm">
+              Redeem {Math.min(benefits.loyalty_points, redeemCap)} pts (−₹{Math.min(benefits.loyalty_points, redeemCap)})
+            </button>
+          )
         ) : (
           <span className="text-[10px] text-slate-400" data-testid="pos-redeem-locked">
             🔒 Points redeemable on bills of ₹{Number(loyaltyRules.min_bill_to_redeem || 0).toLocaleString("en-IN")}+

@@ -268,12 +268,20 @@ async def del_appointment(aid: str, user=Depends(get_current_user)):
 # ---------------- Invoices / POS ----------------
 @router.get("/invoices")
 async def list_invoices(status: Optional[str] = None, q: Optional[str] = None, date: Optional[str] = None,
-                        limit: int = 500, user=Depends(get_current_user), t=Depends(current_tenant)):
+                        month: Optional[int] = None, limit: int = 500,
+                        user=Depends(get_current_user), t=Depends(current_tenant)):
     flt: dict = {"status": status} if status else {}
+    from routes.reports import _tenant_tz, _local_day_window
     if date:
-        from routes.reports import _tenant_tz, _local_day_window
         _, day_start, day_end = _local_day_window(_tenant_tz(t), date)
         flt["created_at"] = {"$gte": day_start, "$lte": day_end}
+    if month:
+        tz = _tenant_tz(t)
+        nl = datetime.now(tz)
+        m_start = datetime(nl.year, nl.month, 1, tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
+        cur = dict(flt.get("created_at") or {})
+        cur["$gte"] = max(str(cur.get("$gte") or ""), m_start)
+        flt["created_at"] = cur
     if q and q.strip():
         qq = q.strip()
         rx = {"$regex": re.escape(qq), "$options": "i"}

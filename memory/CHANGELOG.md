@@ -1499,3 +1499,14 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Today's Collection validated: sum of non-void/non-open invoice totals for tenant-tz day; CRM Spent syncs on edits. (User's prod "mismatch" is conceptual: CRM Today = customers added/visited today, collection = bills.)
 - PWA icons: maskable icons had BLACK bg + white circle → Android circle/black icon. Regenerated icon-maskable-*.png + icon-admin-maskable-*.png as full-bleed white squares (same gold emblem both apps, 82% safe zone), apple-touch-icon white bg; manifests bumped ?v=6; sw.js CACHE bumped v37.
 - Testing: iteration_120.json — 8/8 backend pytest PASS, frontend flows all PASS. Leftover TEST_ invoice INV-202608-0245 in preview.
+
+## 2026-06 (fork) — Split bill by staff + month-locked bill edits + GST column
+- POS (salon only): SplitStaffModal.jsx — "Split by staff" on service cart lines splits into per-staff share lines (qty 1, price=share, own staff_id) so all reports/commissions work unchanged. splitLine() in POS.jsx; CartTable gains isSalon/splitLine props; row keys now include index. UI-tested (modal, 50/50, custom, 2 lines result).
+- GET /invoices: new month=1 param (created_at >= tenant-tz month start). PUT /invoices (invoice_edits.py) rejects past-month bills (400 "locked"). BillLookup + CRM RecentInvoices request month:1; GST (inv.tax) column added to both tables.
+- Screenshots verified: CRM Recent Invoices (booking IDs, GST, edit) + Reports "Recent Invoices — Find & Edit a Bill" (Today chip working). BUILD .139, sw CACHE v37 (PWA icon fix earlier).
+
+## 2026-06 (fork) — Cross-tenant POS cart leak fix + one-tap points redeem
+- ROOT CAUSE of "restaurant bill in salon POS": pos_drafts_v2 / pos_sid / kitchen_bill localStorage keys were GLOBAL per browser — switching tenants leaked parallel-bill carts. Now all scoped: pos_drafts_v2:{tenant.id}, pos_sid:{tenant.id} (sessionStorage), kitchen_bill:{tenant.id}; legacy unscoped keys dropped on POS mount. Verified: draft persists after reload under scoped key.
+- Cleanup: leaked salon invoices INV-202608-0242/0243 (Dine-in Guest, restaurant items) voided with reason; orphan "Dine-in Guest" customer deleted from salon CRM.
+- One-tap points redeem (InvoiceHeader.jsx BenefitsPanel): free-text input replaced with "Redeem X pts (−₹X)" button (only when loyalty_points>0 AND min-bill met; locked message otherwise; nothing when 0 pts). Applied state = green "✓ redeemed · ✕" to un-apply. pointsUsed still clamps to payable. UI-verified (₹200 applied to bill).
+- release_notes BUILD .139 includes: split-by-staff, month-locked edits, GST column, leak fix, one-tap redeem.

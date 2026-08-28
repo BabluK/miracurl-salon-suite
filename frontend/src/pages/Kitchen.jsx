@@ -120,7 +120,7 @@ export default function Kitchen() {
       if (same) same.qty += i.qty;
       else merged.push({ id: i.id, name: i.name, price: i.price, qty: i.qty, disc_pct: dp });
     }));
-    localStorage.setItem("kitchen_bill", JSON.stringify({
+    localStorage.setItem(`kitchen_bill:${tenant?.id}`, JSON.stringify({
       order_ids: tableOrders.map(o => o.id), table_no: tableNo,
       customer_name: tableOrders.find(o => o.customer_name)?.customer_name || "",
       items: merged,

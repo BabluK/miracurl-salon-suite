@@ -2,13 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-28.138"
+BUILD = "2026-08-28.139"
 BUILD_TIME = "28 Aug 2026, 01:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "🚧 Cross-business cart leak fixed — POS parallel-bill drafts and kitchen→POS handoffs are now saved per business, so a restaurant table's cart can never appear inside a salon's POS on a shared browser (the two leaked 'Dine-in Guest' bills in the salon were voided and removed from CRM)",
+            "🪙 One-tap points redeem — POS shows a 'Redeem' button only when the guest actually has eligible points; one tap applies the maximum allowed for this visit",
+            "🤝 Split bill by staff (salons) — when two stylists do one service together, tap 'Split by staff' on the POS cart line, pick both stylists and their shares (50/50 or custom, e.g. ₹4,000 → ₹2,000 each); each stylist gets credited their exact share in reports & commissions",
+            "🔒 Bill edits are month-scoped — Recent Invoices in Reports & CRM show only the current month, and bills from past months are locked from editing",
+            "🧾 GST column — Recent Invoices in Reports & CRM now show the GST amount on every bill (when GST billing is enabled)",
             "🛠️ CRM table fix — 'Added' now shows when the guest was added; Gender/Visits/Spent are back in the right columns (they were shifted one place)",
             "🧾 Find & edit any bill — Reports now has 'Recent Invoices — Find & Edit' with Today/Yesterday filters and search by Booking ID, customer name or phone; CRM gets a Recent Invoices section too, and bill edits can now also update the customer's name & phone (lifetime spend stays in sync)",
             "✅ WhatsApp Approvals: new 'Approve all' and 'Reject all' buttons — approve everything in one tap, then send each message with a single tap per guest",

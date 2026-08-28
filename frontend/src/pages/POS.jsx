@@ -88,9 +88,11 @@ export default function POS() {
   }
 
   // ---- Parallel bill sessions: each browser tab (and each "+ New bill") is its own draft ----
+  // Drafts are scoped PER TENANT — a shared browser must never leak one business's cart into another
   const sidRef = useRef("");
   const [billSessions, setBillSessions] = useState([]);
-  const _readDrafts = () => { try { return JSON.parse(localStorage.getItem("pos_drafts_v2") || "{}"); } catch { return {}; } };
+  const draftsKey = tenant?.id ? `pos_drafts_v2:${tenant.id}` : null;
+  const _readDrafts = () => { try { return JSON.parse(localStorage.getItem(draftsKey) || "{}"); } catch { return {}; } };
   const _summarize = (drafts) => Object.entries(drafts).map(([sid, d]) => ({
     sid,
     label: (d.guestQuery || "").split("·")[0].trim(),
@@ -100,14 +102,14 @@ export default function POS() {
   const _newSid = () => "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   // Draft persistence: refresh/new tab must not lose an in-progress bill
+  const draftsLoadedRef = useRef(false);
   useEffect(() => {
+    if (!draftsKey || draftsLoadedRef.current) return;
+    draftsLoadedRef.current = true;
+    // drop legacy UNSCOPED keys — they caused restaurant carts to appear in salon POS on shared browsers
+    try { localStorage.removeItem("pos_drafts_v2"); localStorage.removeItem("pos_draft"); } catch { /* ignore */ }
     const drafts = _readDrafts();
-    try {
-      const legacy = JSON.parse(localStorage.getItem("pos_draft") || "null");
-      if (legacy?.cart?.length) drafts[_newSid()] = legacy;
-      localStorage.removeItem("pos_draft");
-    } catch { /* fresh start */ }
-    let sid = sessionStorage.getItem("pos_sid");
+    let sid = sessionStorage.getItem(`pos_sid:${tenant.id}`);
     if (sid && drafts[sid]?.cart?.length) {
       const d = drafts[sid];
       setCart(d.cart); setCustomerId(d.customerId || ""); setGuestQuery(d.guestQuery || "");
@@ -119,21 +121,21 @@ export default function POS() {
     } else {
       sid = _newSid();
     }
-    sessionStorage.setItem("pos_sid", sid);
+    sessionStorage.setItem(`pos_sid:${tenant.id}`, sid);
     sidRef.current = sid;
-    localStorage.setItem("pos_drafts_v2", JSON.stringify(drafts));
+    localStorage.setItem(draftsKey, JSON.stringify(drafts));
     setBillSessions(_summarize(drafts));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [draftsKey]);
   useEffect(() => {
-    if (!sidRef.current) return;
+    if (!sidRef.current || !draftsKey) return;
     const drafts = _readDrafts();
     if (cart.length) {
       drafts[sidRef.current] = { cart, customerId, guestQuery, orderNotes, payment };
     } else {
       delete drafts[sidRef.current];
     }
-    localStorage.setItem("pos_drafts_v2", JSON.stringify(drafts));
+    localStorage.setItem(draftsKey, JSON.stringify(drafts));
     setBillSessions(_summarize(drafts));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, customerId, guestQuery, orderNotes, payment]);
@@ -303,7 +305,7 @@ export default function POS() {
       if (drafts[sidRef.current]?.cart?.length || cart.length) {
         const sid = _newSid();
         sidRef.current = sid;
-        sessionStorage.setItem("pos_sid", sid);
+        sessionStorage.setItem(`pos_sid:${tenant.id}`, sid);
       }
       setPendingBill(null);
       setOrderNotes(""); setPayment(p => ({ ...p }));
@@ -394,15 +396,16 @@ export default function POS() {
   useEffect(() => {
     if (staff.length === 0 || !tenant) return;
     let kb = null;
-    try { kb = JSON.parse(localStorage.getItem("kitchen_bill") || "null"); } catch { /* ignore */ }
+    try { kb = JSON.parse(localStorage.getItem(`kitchen_bill:${tenant.id}`) || "null"); } catch { /* ignore */ }
+    try { localStorage.removeItem("kitchen_bill"); } catch { /* legacy unscoped key */ }
     if (!kb?.items?.length) return;
-    localStorage.removeItem("kitchen_bill");
+    localStorage.removeItem(`kitchen_bill:${tenant.id}`);
     // Each table opens as its OWN bill tab — any in-progress bill stays saved as a parallel tab
     const drafts = _readDrafts();
     if (drafts[sidRef.current]?.cart?.length || cart.length) {
       const sid = _newSid();
       sidRef.current = sid;
-      sessionStorage.setItem("pos_sid", sid);
+      sessionStorage.setItem(`pos_sid:${tenant.id}`, sid);
     }
     setPendingBill(null);
     // Table-wise chef: tips & line attribution default to the chef assigned to this table
@@ -431,6 +434,18 @@ export default function POS() {
     updateLine(i, { staff_id: sid, staff_name: s?.name || "" });
   }
   function removeLine(i) { setCart(cart.filter((_, idx) => idx !== i)); }
+  function splitLine(i, shares) {
+    setCart(prev => {
+      const c = prev[i];
+      if (!c) return prev;
+      const parts = shares.map(s => ({
+        ...c, qty: 1, price: s.amount, staff_id: s.staff_id, staff_name: s.staff_name,
+        split: true, name: `${c.name} — ${(s.staff_name || "").split(" ")[0]}`,
+      }));
+      return [...prev.slice(0, i), ...parts, ...prev.slice(i + 1)];
+    });
+    toast.success(`Split between ${shares.map(s => (s.staff_name || "").split(" ")[0]).join(" & ")} ✦`);
+  }
 
   const subtotal = useMemo(() => cart.reduce((s, c) => s + c.qty * c.price, 0), [cart]);
   const lineDiscount = useMemo(() =>
@@ -506,7 +521,7 @@ export default function POS() {
     if (sid === sidRef.current) return;
     const d = _readDrafts()[sid] || {};
     sidRef.current = sid;
-    sessionStorage.setItem("pos_sid", sid);
+    sessionStorage.setItem(`pos_sid:${tenant.id}`, sid);
     clearAll();
     setCart(d.cart || []); setCustomerId(d.customerId || ""); setGuestQuery(d.guestQuery || "");
     setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment);
@@ -514,7 +529,7 @@ export default function POS() {
   function newBillSession() {
     const sid = _newSid();
     sidRef.current = sid;
-    sessionStorage.setItem("pos_sid", sid);
+    sessionStorage.setItem(`pos_sid:${tenant.id}`, sid);
     clearAll();
     setBillSessions(_summarize(_readDrafts()));
   }
@@ -522,7 +537,7 @@ export default function POS() {
     const doClose = () => {
       const drafts = _readDrafts();
       delete drafts[s.sid];
-      localStorage.setItem("pos_drafts_v2", JSON.stringify(drafts));
+      localStorage.setItem(draftsKey, JSON.stringify(drafts));
       setBillSessions(_summarize(drafts));
       if (s.sid === sidRef.current) clearAll();
     };
@@ -720,6 +735,7 @@ export default function POS() {
           <CartTable
             cart={cart} staff={staff} taxEnabled={taxEnabled} taxPct={taxPct} sym={sym}
             updateLine={updateLine} setLineStaff={setLineStaff} removeLine={removeLine}
+            isSalon={tenant?.business_type !== "restaurant"} splitLine={splitLine}
             couponCode={couponCode} setCouponCode={setCouponCode} setCouponInfo={setCouponInfo}
             checkCoupon={checkCoupon} couponInfo={couponInfo}
             offerApplied={offerApplied} offerDiscount={offerDiscount}

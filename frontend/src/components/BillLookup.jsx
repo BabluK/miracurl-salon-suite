@@ -23,7 +23,7 @@ export function BillLookup() {
     setBusy(true);
     try {
       const { data } = await api.get("/invoices", {
-        params: { limit: 25, ...(query.trim() ? { q: query.trim() } : {}), ...(date ? { date } : {}) },
+        params: { limit: 25, month: 1, ...(query.trim() ? { q: query.trim() } : {}), ...(date ? { date } : {}) },
       });
       setRows(data);
       if (!data.length) toast.info("No bill matches that search");
@@ -48,7 +48,7 @@ export function BillLookup() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="font-playfair text-xl">Recent Invoices — Find & Edit a Bill</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Search by Booking / Invoice ID (e.g. INV-202608-0244), customer name or phone number — then edit customer & billing details.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Search by Booking / Invoice ID (e.g. INV-202608-0244), customer name or phone number — then edit customer & billing details. Current month only — past months are locked.</p>
         </div>
         <div className="flex items-center gap-2">
           {chip("📅 Today", localDay(0), "bill-lookup-today")}
@@ -68,7 +68,7 @@ export function BillLookup() {
       {rows && rows.length > 0 && (
         <div className="overflow-x-auto mt-4">
           <table className="luxe-table-light min-w-[680px]">
-            <thead><tr><th>Booking ID</th><th>Customer</th><th>Date</th><th>Mode</th><th>Total</th><th></th></tr></thead>
+            <thead><tr><th>Booking ID</th><th>Customer</th><th>Date</th><th>Mode</th><th>GST</th><th>Total</th><th></th></tr></thead>
             <tbody>
               {rows.map(inv => (
                 <tr key={inv.id} data-testid={`bill-lookup-row-${inv.id}`}>
@@ -76,6 +76,7 @@ export function BillLookup() {
                   <td className="text-sm">{inv.customer_name || "Walk-in"}</td>
                   <td className="text-sm text-slate-500 whitespace-nowrap">{new Date(inv.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</td>
                   <td className="text-xs uppercase text-slate-500">{inv.payment_mode || "—"}{inv.status === "voided" && <span className="ml-1 text-red-500">VOID</span>}</td>
+                  <td className="text-xs text-slate-500">{(inv.tax || 0) > 0 ? inr(inv.tax) : "—"}</td>
                   <td className="text-sm font-semibold">{inr(inv.total)}</td>
                   <td>
                     <button data-testid={`bill-lookup-edit-${inv.id}`} onClick={() => setEditing(inv)}

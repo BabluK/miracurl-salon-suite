@@ -2403,3 +2403,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Chef/stylist Tip Report: GET /api/reports/tips?start&end (reports.py ~line 378, per-staff totals + per-day map, excludes voided/open). UI components/reports/TipsReportCard.jsx mounted top of Reports.jsx (Today / 7d / 30d ranges, testids tips-report-card, tips-range-*). Screenshot-verified (empty state).
 - "Today/yesterday bill records wrong" ROOT CAUSE: dashboard + revenue trend used UTC dates (early-morning IST bills counted on previous day). FIXED: reports.py now tz-aware — _tenant_tz(t) (tenant.timezone, default Asia/Kolkata) + _local_day_window(tz,...); dashboard, daily_report, _dashboard_revenue_trend all use tenant tz. _ist_day_window kept as legacy wrapper.
 - INTERNATIONAL: tenants.timezone (IANA, ZoneInfo-validated 422 on bad) + country_code (2-letter) via BrandingIn; get_branding returns them. BrandingCard: 23-market country/timezone select + 📍 Auto-detect (Intl API). Verified via curl: NY tz save 200, invalid 422, restored Asia/Kolkata. NO dummy data written to production (all testing in preview only); CRM invoices persist — reports only exclude voided/open.
+
+
+## 2026-06 fork session additions (see CHANGELOG.md for detail)
+- Designer visiting cards (editable details), two-PDF prospect attachments (App Tour + Policies), restaurant landing carousel, vertical-correct email banners/pricing
+- Auto Monday loyalty nudges, dashboard parallelized, WA approve/reject all, bill find&edit (month-locked, GST col) in Reports+CRM, CRM Added column fix
+- POS: split bill by staff (salon), one-tap points redeem, tenant-scoped draft storage (cross-tenant leak fixed), PWA maskable icons fixed

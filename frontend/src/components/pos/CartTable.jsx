@@ -1,4 +1,6 @@
-import { X } from "lucide-react";
+import { useState } from "react";
+import { X, Users } from "lucide-react";
+import { SplitStaffModal } from "@/components/pos/SplitStaffModal";
 
 export function CartTable({
   cart, staff, taxEnabled, taxPct, updateLine, setLineStaff, removeLine,
@@ -7,7 +9,9 @@ export function CartTable({
   offerApplied, offerDiscount = 0,
   overallDisc, setOverallDisc, overallDiscount = 0,
   overallDiscMode = "amt", setOverallDiscMode,
+  isSalon = false, splitLine,
 }) {
+  const [splitFor, setSplitFor] = useState(null);
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -32,8 +36,8 @@ export function CartTable({
               const lineTaxable = sub - disc;
               const lineTax = lineTaxable * taxPct / 100;
               return (
-                <tr key={`${c.type}:${c.ref_id}`} className="border-t border-slate-100" data-testid={`cart-line-${i}`}>
-                  <td className="px-4 py-3 text-slate-800">{c.name}</td>
+                <tr key={`${c.type}:${c.ref_id}:${i}`} className="border-t border-slate-100" data-testid={`cart-line-${i}`}>
+                  <td className="px-4 py-3 text-slate-800">{c.name}{c.split && <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wide bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full">split</span>}</td>
                   <td className="px-3 py-3">
                     <select
                       data-testid={`cart-line-staff-${i}`}
@@ -44,6 +48,13 @@ export function CartTable({
                       <option value="">— Stylist —</option>
                       {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
+                    {isSalon && c.type === "service" && !c.split && c.qty * c.price > 0 && (
+                      <button onClick={() => setSplitFor(i)} data-testid={`cart-line-split-${i}`}
+                        title="Two stylists did this together? Split the amount between them"
+                        className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-amber-600 hover:text-amber-800">
+                        <Users className="w-3 h-3" /> Split by staff
+                      </button>
+                    )}
                   </td>
                   <td className="px-3 py-3">
                     <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-md">
@@ -147,6 +158,10 @@ export function CartTable({
           </span>
         </div>
       </div>
+      {splitFor !== null && cart[splitFor] && (
+        <SplitStaffModal line={cart[splitFor]} staff={staff} sym={sym}
+          onApply={(shares) => splitLine(splitFor, shares)} onClose={() => setSplitFor(null)} />
+      )}
     </div>
   );
 }

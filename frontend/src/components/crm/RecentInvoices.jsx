@@ -10,7 +10,7 @@ export function RecentInvoices() {
   const [editing, setEditing] = useState(null);
 
   const load = useCallback(() => {
-    api.get("/invoices", { params: { limit: 15, ...(q.trim() ? { q: q.trim() } : {}) } })
+    api.get("/invoices", { params: { limit: 15, month: 1, ...(q.trim() ? { q: q.trim() } : {}) } })
       .then(r => setRows(r.data)).catch(() => {});
   }, [q]);
   useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t); }, [load]);
@@ -18,7 +18,7 @@ export function RecentInvoices() {
   return (
     <div className="card-light p-5 mt-6" data-testid="crm-recent-invoices">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
-        <h2 className="font-playfair text-xl flex items-center gap-2"><Receipt className="w-5 h-5 text-amber-500" /> Recent Invoices</h2>
+        <h2 className="font-playfair text-xl flex items-center gap-2"><Receipt className="w-5 h-5 text-amber-500" /> Recent Invoices <span className="text-[10px] font-sans font-semibold text-slate-400 uppercase tracking-wide mt-1">this month</span></h2>
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input data-testid="crm-invoice-search" className="input-light pl-9 w-64" placeholder="Booking ID or customer…"
@@ -27,7 +27,7 @@ export function RecentInvoices() {
       </div>
       <div className="overflow-x-auto">
         <table className="luxe-table-light min-w-[680px]">
-          <thead><tr><th>Booking ID</th><th>Customer</th><th>Date</th><th>Mode</th><th>Total</th><th></th></tr></thead>
+          <thead><tr><th>Booking ID</th><th>Customer</th><th>Date</th><th>Mode</th><th>GST</th><th>Total</th><th></th></tr></thead>
           <tbody>
             {rows.map(inv => (
               <tr key={inv.id} data-testid={`crm-invoice-row-${inv.id}`}>
@@ -35,6 +35,7 @@ export function RecentInvoices() {
                 <td className="text-sm">{inv.customer_name || "Walk-in"}</td>
                 <td className="text-sm text-slate-500 whitespace-nowrap">{new Date(inv.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</td>
                 <td className="text-xs uppercase text-slate-500">{inv.payment_mode || "—"}{inv.status === "voided" && <span className="ml-1 text-red-500">VOID</span>}{inv.status === "open" && <span className="ml-1 text-amber-600">OPEN</span>}</td>
+                <td className="text-xs text-slate-500">{(inv.tax || 0) > 0 ? inr(inv.tax) : "—"}</td>
                 <td className="text-sm font-semibold">{inr(inv.total)}</td>
                 <td>
                   <button data-testid={`crm-invoice-edit-${inv.id}`} onClick={() => setEditing(inv)}
@@ -42,7 +43,7 @@ export function RecentInvoices() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan="6" className="text-center text-slate-400 py-8 text-sm">No invoices found.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan="7" className="text-center text-slate-400 py-8 text-sm">No invoices found.</td></tr>}
           </tbody>
         </table>
       </div>

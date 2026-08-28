@@ -74,6 +74,18 @@ async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_ad
     inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invoice not found")
+    # month lock: only current-month bills are editable
+    from routes.reports import _tenant_tz
+    _tz = _tenant_tz(t)
+    _nl = datetime.now(_tz)
+    try:
+        _cdt = datetime.fromisoformat(str(inv.get("created_at") or "").replace("Z", "+00:00"))
+        if _cdt.tzinfo is None:
+            _cdt = _cdt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        _cdt = None
+    if _cdt and _cdt < datetime(_nl.year, _nl.month, 1, tzinfo=_tz):
+        raise HTTPException(400, "Bills from previous months are locked and can't be edited")
     _validate_edit(inv, body)
 
     before = {"payment_mode": inv["payment_mode"], "items": inv["items"],
