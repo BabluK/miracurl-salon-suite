@@ -822,6 +822,97 @@ async def table_qr_card(table: int = 1, origin: str = "", user=Depends(require_a
     return Response(content=img, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
 
 
+def _render_visiting_card(t: dict, base: str, logo_bytes: bytes | None) -> bytes:
+    """Print-ready 3.5x2in luxury visiting card (JPEG @300dpi)."""
+    import qrcode
+    from PIL import Image, ImageDraw, ImageFont
+    W, H = 1050, 600
+    assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+    resto = t.get("business_type") == "restaurant"
+    # subtle texture from the poster art's empty center, darkened
+    tex_path = os.path.join(assets_dir, "posters", "loyalty_qr_bg.jpg")
+    if os.path.exists(tex_path):
+        tex = Image.open(tex_path).convert("RGB")
+        tex = tex.crop((int(tex.width * 0.16), int(tex.height * 0.34), int(tex.width * 0.84), int(tex.height * 0.62)))
+        bg = tex.resize((W, H))
+        bg = Image.eval(bg, lambda v: int(v * 0.9))
+    else:
+        bg = Image.new("RGB", (W, H), (20, 17, 13))
+    d = ImageDraw.Draw(bg)
+    GOLD = (206, 165, 94)
+    LIGHT = (232, 224, 210)
+    d.rounded_rectangle([16, 16, W - 17, H - 17], radius=22, outline=GOLD, width=3)
+    d.rounded_rectangle([28, 28, W - 29, H - 29], radius=16, outline=(140, 110, 62), width=1)
+    for cx, cy in ((W / 2, 22), (W / 2, H - 23)):
+        d.polygon([(cx, cy - 7), (cx + 6, cy), (cx, cy + 7), (cx - 6, cy)], fill=GOLD)
+
+    def _font(name, size):
+        try:
+            return ImageFont.truetype(os.path.join(assets_dir, "fonts", name), size)
+        except Exception:
+            return ImageFont.load_default()
+
+    lx = 70
+    if logo_bytes:
+        circ = _circle_logo_pil(logo_bytes, 190)
+        if circ is not None:
+            bg.paste(circ, (lx, (H - 190) // 2 - 20), circ)
+            lx = 300
+    tx = lx if lx > 100 else 80
+    name = t.get("name") or ("Our Restaurant" if resto else "Our Salon")
+    size = 52
+    f = _font("PlayfairDisplay-Bold.ttf", size)
+    while d.textlength(name, font=f) > 730 - tx and size > 24:
+        size -= 3
+        f = _font("PlayfairDisplay-Bold.ttf", size)
+    y = 140
+    d.text((tx, y), name, font=f, fill=GOLD)
+    y += size + 14
+    loc = (t.get("location") or "").strip()
+    if loc:
+        d.text((tx, y), loc.upper(), font=_font("FreeSansBold.ttf", 24), fill=LIGHT)
+        y += 40
+    d.line([tx, y + 4, tx + 250, y + 4], fill=(140, 110, 62), width=2)
+    y += 24
+    phone = (t.get("phone") or "").strip()
+    if phone:
+        d.text((tx, y), f"Call: {phone}", font=_font("FreeSansBold.ttf", 26), fill=(255, 255, 255))
+        y += 42
+    kind = "order" if resto else "book"
+    url_txt = f"{base.replace('https://', '')}/{kind}/{t.get('slug') or ''}"
+    qx_limit = W - 168 - 12 * 2 - 62 - 24
+    us = 21
+    uf = _font("FreeSansBold.ttf", us)
+    while d.textlength(url_txt, font=uf) > qx_limit - tx and us > 14:
+        us -= 1
+        uf = _font("FreeSansBold.ttf", us)
+    d.text((tx, y), url_txt, font=uf, fill=(170, 158, 138))
+    qr = qrcode.make(f"{base}/{kind}/{t.get('slug') or ''}", box_size=8, border=1).convert("RGB").resize((168, 168))
+    pad = 12
+    box = Image.new("RGB", (168 + pad * 2, 168 + pad * 2), (255, 255, 255))
+    box.paste(qr, (pad, pad))
+    m = Image.new("L", box.size, 0)
+    ImageDraw.Draw(m).rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=18, fill=255)
+    qx, qy = W - box.width - 62, (H - box.height) // 2 - 26
+    bg.paste(box, (qx, qy), m)
+    cap = "SCAN TO ORDER" if resto else "SCAN TO BOOK"
+    cf = _font("FreeSansBold.ttf", 20)
+    d.text((qx + (box.width - d.textlength(cap, font=cf)) / 2, qy + box.height + 12), cap, font=cf, fill=GOLD)
+    out = io.BytesIO()
+    bg.save(out, format="JPEG", quality=90, dpi=(300, 300))
+    return out.getvalue()
+
+
+@router.get("/settings/visiting-card.png")
+async def visiting_card(origin: str = "", user=Depends(require_admin)):
+    tenant_id = _current_tenant_id.get()
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
+    logo_bytes = await _tenant_logo_bytes(t, base)
+    img = await asyncio.to_thread(_render_visiting_card, t, base, logo_bytes)
+    return Response(content=img, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
+
+
 @router.get("/settings/table-qr-posters.pdf")
 async def table_qr_posters(tables: int = 8, table: int = 0, origin: str = "", user=Depends(require_admin)):
     """Printable table-tent posters (logo + table number + order QR). `table` > 0 → single-table PDF."""

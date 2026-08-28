@@ -4,6 +4,7 @@ import { BranchesSection } from "@/components/BranchesSection";
 import { ChangePasswordSection } from "@/components/ChangePasswordSection";
 import { ContactHQSection } from "@/components/ContactHQSection";
 import { QrPosterCard } from "@/components/settings/QrPosterCard";
+import { VisitingCardCard } from "@/components/settings/VisitingCardCard";
 import { TableQrPostersCard } from "@/components/settings/TableQrPostersCard";
 import { AuditLogCard } from "@/components/settings/AuditLogCard";
 import { DevicesCard } from "@/components/settings/DevicesCard";
@@ -41,6 +42,7 @@ export default function Settings() {
         <ProfileCompletenessCard />
 
         <QrPosterCard />
+        <VisitingCardCard />
 
         <TableQrPostersCard />
 
