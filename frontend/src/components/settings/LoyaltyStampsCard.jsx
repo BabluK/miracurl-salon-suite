@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Stamp, Download, Loader2, X } from "lucide-react";
+import { Stamp, Download, Loader2, X, Send } from "lucide-react";
 
 const GIFT_PRESETS = ["Free Hair Spa", "Free Hair Cut", "Free D-Tan", "10% off any service",
   "Pay ₹1000 → get ₹1500 services", "Pay ₹2000 → get ₹2500 services"];
@@ -21,6 +21,19 @@ export function LoyaltyStampsCard() {
   const [dl, setDl] = useState(false);
   const [giftInput, setGiftInput] = useState("");
   const [qrBg, setQrBg] = useState("");
+  const [nudging, setNudging] = useState(false);
+
+  const sendNudges = async () => {
+    if (!window.confirm("Text every member who is 1-2 stamps from their gift? (1 SMS point each, max once per guest per 14 days)")) return;
+    setNudging(true);
+    try {
+      const { data } = await api.post("/loyalty/stamps/send-nudges", {});
+      toast.success(`📲 Nudged ${data.sent} guest${data.sent === 1 ? "" : "s"}${data.skipped ? ` · ${data.skipped} skipped (recently nudged / no points)` : ""}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't send nudges");
+    }
+    setNudging(false);
+  };
 
   const gifts = cfg?.surprise_gifts || [];
   const addGift = (g) => {
@@ -144,6 +157,12 @@ export function LoyaltyStampsCard() {
           className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full border-2 border-amber-400 text-amber-700 text-sm font-semibold hover:bg-amber-50 disabled:opacity-50">
           {dl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {dl ? "Preparing…" : "Download Loyalty Club QR"}
+        </button>
+        <button onClick={sendNudges} disabled={nudging || !cfg.enabled} data-testid="loyalty-nudge-btn"
+          title="SMS members who are 1-2 stamps from their surprise gift"
+          className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full border-2 border-emerald-400 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 disabled:opacity-50">
+          {nudging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          {nudging ? "Sending…" : "Nudge guests near their gift"}
         </button>
       </div>
       <div className="mt-3">

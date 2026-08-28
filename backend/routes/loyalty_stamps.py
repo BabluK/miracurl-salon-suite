@@ -342,3 +342,49 @@ async def loyalty_qr_poster(origin: str = "", design: str = "", user=Depends(req
     img = await asyncio.to_thread(_render)
     return Response(content=img, media_type="image/jpeg",
                     headers={"Content-Disposition": 'attachment; filename="loyalty-club-qr.jpg"'})
+
+
+@router.post("/loyalty/stamps/send-nudges")
+async def send_gift_nudges(request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """SMS every member who is 1-2 stamps from their surprise gift (max once per 14 days each)."""
+    import asyncio as _asyncio
+    import os as _os
+    from sms_service import send_tenant_sms
+    cfg = _cfg(t)
+    if not cfg["enabled"]:
+        raise HTTPException(400, "Enable the loyalty card first")
+    needed = int(cfg["stamps_needed"])
+    base = (request.headers.get("origin") or _os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+    cands = await _raw_db.customers.find(
+        {"tenant_id": t["id"], "stamps": {"$gt": 0}, "phone": {"$regex": r"\d{10}$"}},
+        {"_id": 0, "id": 1, "name": 1, "phone": 1, "stamps": 1, "stamp_rewards_redeemed": 1,
+         "loyalty_nudged_at": 1}).to_list(2000)
+    club = f"{t.get('name')} {t.get('location')}".strip() if t.get("location") else t.get("name")
+    sent = skipped = 0
+    for c in cands:
+        card = _card(c, cfg)
+        away = needed - card["stamps"]
+        if card["rewards_available"] > 0 or away > 2 or card["stamps"] == 0:
+            continue
+        if (c.get("loyalty_nudged_at") or "") > cutoff:
+            skipped += 1
+            continue
+        if sent >= 50:
+            break
+        first = (c.get("name") or "there").split(" ")[0]
+        digits = re.sub(r"[^0-9]", "", c["phone"])[-10:]
+        body_txt = (f"Hi {first}! You're just {away} visit{'s' if away > 1 else ''} away from your "
+                    f"surprise gift at {club}. Book your next visit: {base}/book/{t.get('slug') or ''}")
+        res = await send_tenant_sms(t["id"], digits, body_txt, kind="loyalty_nudge")
+        if res.get("sent"):
+            sent += 1
+            await _raw_db.customers.update_one(
+                {"tenant_id": t["id"], "id": c["id"]},
+                {"$set": {"loyalty_nudged_at": datetime.now(timezone.utc).isoformat()}})
+        else:
+            skipped += 1
+            if "points" in str(res.get("error") or "").lower():
+                break
+        await _asyncio.sleep(0.15)
+    return {"ok": True, "sent": sent, "skipped": skipped}

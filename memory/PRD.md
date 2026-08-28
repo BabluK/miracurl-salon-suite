@@ -241,6 +241,10 @@ Frontend:
 - Poster shows tenant.location (uppercase, under name); join response returns `location` (shown on success view, data-testid loyalty-join-branch); welcome SMS club name = "{name} {location}". Verified: poster render, join API, sms_log preview.
 - BUILD 2026-08-28.131.
 
+## 2026-08-28 (later 7) — Gift Reminder Nudge
+- `POST /loyalty/stamps/send-nudges` (admin+CSRF): SMS members 1-2 stamps from reward (skips reward-ready/zero-stamp, `loyalty_nudged_at` 14-day dedupe on customer, 50/run cap, stops on out-of-points, kind="loyalty_nudge"). Booking link uses request origin. Button "Nudge guests near their gift" (loyalty-nudge-btn) in LoyaltyStampsCard with confirm + sent/skipped toast.
+- E2E verified: seeded 11/12 + 3/12 members → sent=1 (correct guest, correct SMS text with branch), second run skipped via dedupe. Test data cleaned. BUILD 2026-08-28.132.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).

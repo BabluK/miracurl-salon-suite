@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-28.131"
-BUILD_TIME = "28 Aug 2026, 05:30 PM IST"
+BUILD = "2026-08-28.132"
+BUILD_TIME = "28 Aug 2026, 06:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "📲 Gift Reminder Nudge — one tap in Settings texts every member who is 1-2 stamps from their surprise gift ('You're just 1 visit away…' with your booking link); each guest is nudged at most once per 14 days",
             "📍 Branch name everywhere on the Loyalty Club — the poster shows your branch under the salon name, the join page confirms which branch the guest joined, and the welcome SMS mentions it too (no more mix-ups between branches)",
             "📒 Gift Given Log — tap a surprise gift in POS to hand it out; every gift is logged and a new 'Loyalty gifts given' card in Reports shows who got what, when and by whom",
             "🖼️ 5 poster backgrounds for the Loyalty Club QR — Gold Deco, Fine Dining, Royal Emerald, Burgundy Rose and Midnight Stars; pick one in Settings before downloading",
