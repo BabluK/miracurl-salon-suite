@@ -213,6 +213,11 @@ Frontend:
 - Kitchen "Recently closed" now excludes status "billed" — paid bills disappear (POS already marks orders billed via /table-orders/mark-billed after checkout).
 - BUILD 2026-08-28.126.
 
+## 2026-08-28 (later 2) — Offer price integrity + select styling root cause
+- ROOT CAUSE of white dropdowns: index.css global `input, select, textarea { background:#0A0A0A; color:#fff }` — light-themed selects with bg-white inherited white text. Fixed by adding `text-slate-800 [&_option]:bg-white [&_option]:text-slate-800` to: TableQrPostersCard (chef per table), CategorySpecials, Attendance geo-target, MiraStudio campaign audience, Assistant feedback priority, superadmin HiringPanel role filter. (Do NOT add a global option color — dark selects style options via [&_option]:bg-[#17141c].)
+- Mira Day Offer price integrity: `_offer_doc` now reconciles every suggested service against the real catalog (normalized name match, apostrophe-safe), original_price forced to catalog price, offer_price recomputed from discount_pct; catalog context raised 40→300 services. Unit-tested + live suggest verified (Keratin 4500→4050 etc. matching DB).
+- BUILD 2026-08-28.127.
+
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
 Latest session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).

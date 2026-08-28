@@ -243,7 +243,7 @@ function FeedbackBoard() {
         </div>
         <input data-testid="feedback-title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Short title…" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-violet-300" />
         <textarea data-testid="feedback-details" value={form.details} onChange={e => setForm({ ...form, details: e.target.value })} placeholder="Describe what you want or what went wrong…" rows={4} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-violet-300" />
-        <select data-testid="feedback-priority" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm mb-4 bg-white">
+        <select data-testid="feedback-priority" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm mb-4 bg-white text-slate-800 [&_option]:bg-white [&_option]:text-slate-800">
           <option value="low">Low priority</option>
           <option value="medium">Medium priority</option>
           <option value="high">High priority</option>

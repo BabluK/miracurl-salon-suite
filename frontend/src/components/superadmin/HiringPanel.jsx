@@ -182,7 +182,7 @@ function ProposeBox({ requestId, onDone }) {
             className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-2 text-sm" data-testid="hiring-candidate-search" />
         </div>
         <select value={role} onChange={e => setRole(e.target.value)}
-          className="bg-white border border-slate-200 rounded-md px-2 py-2 text-xs" data-testid="hiring-role-filter">
+          className="bg-white text-slate-800 [&_option]:bg-white [&_option]:text-slate-800 border border-slate-200 rounded-md px-2 py-2 text-xs" data-testid="hiring-role-filter">
           <option value="">All roles</option>
           {roles.map(r => <option key={r} value={r}>{r}</option>)}
         </select>

@@ -1,5 +1,6 @@
 """Mira Day-Smart Offers — weekday-aware AI offer suggestions with one-tap flyer download."""
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
@@ -77,7 +78,7 @@ def _engagement_scores(posts: list, services: list) -> dict:
 
 async def _catalog_context(t: dict) -> dict:
     services = await db.services.find(
-        {"active": {"$ne": False}}, {"_id": 0, "name": 1, "price": 1, "category": 1}).sort("price", -1).to_list(40)
+        {"active": {"$ne": False}}, {"_id": 0, "name": 1, "price": 1, "category": 1}).sort("price", -1).to_list(300)
     since = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
     invoices = await db.invoices.find(
         {"created_at": {"$gte": since}}, {"_id": 0, "items": 1, "created_at": 1}).to_list(3000)
@@ -178,18 +179,38 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, opts: OfferOpts) -> s
         "never call it a 'Spa' deal (or any other category) unless that exact type of service is in the list.")
 
 
-def _offer_doc(t: dict, data: dict, now: datetime, kind: str) -> dict:
+def _offer_doc(t: dict, data: dict, now: datetime, kind: str, catalog: list | None = None) -> dict:
     if not data.get("title") or not isinstance(data.get("services"), list):
         raise HTTPException(400, "Mira returned an unexpected offer format — try again")
+    # Prices always come from the REAL service catalog — never trust LLM numbers.
+    def _norm(x):
+        return re.sub(r"[^a-z0-9]", "", str(x).lower())
+    real = {_norm(s["name"]): (str(s["name"])[:60], float(s.get("price") or 0)) for s in (catalog or [])}
+    pct = int(data.get("discount_pct") or 0)
+    services = []
+    for s in data["services"][:3]:
+        name = str(s.get("name", ""))[:60]
+        key = _norm(name)
+        hit = real.get(key)
+        if hit is None and real and key:
+            match = next((k for k in real if k in key or key in k), None)
+            hit = real.get(match)
+        if hit:
+            name, orig = hit
+        else:
+            orig = float(s.get("original_price") or 0)
+        offer = float(s.get("offer_price") or 0)
+        if pct:
+            offer = float(max(0, round(orig * (1 - pct / 100))))
+        elif offer <= 0 or offer > orig > 0:
+            offer = orig
+        services.append({"name": name, "original_price": orig, "offer_price": offer})
     return {
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "date": now.date().isoformat(),
         "day_name": now.strftime("%A"), "kind": kind,
         "title": str(data["title"])[:80], "offer_text": str(data.get("offer_text") or "")[:140],
-        "discount_pct": int(data.get("discount_pct") or 0),
-        "services": [{"name": str(s.get("name", ""))[:60],
-                      "original_price": float(s.get("original_price") or 0),
-                      "offer_price": float(s.get("offer_price") or 0)}
-                     for s in data["services"][:3]],
+        "discount_pct": pct,
+        "services": services,
         "reasoning": str(data.get("reasoning") or "")[:500],
         "whatsapp_caption": str(data.get("whatsapp_caption") or "")[:600],
         "status": "suggested", "created_at": datetime.now(timezone.utc).isoformat(),
@@ -217,7 +238,7 @@ async def _suggest_offer(t: dict, retry_hint: str = "", kind: str = "daily",
     data = await _ask_json(system, _build_offer_prompt(t, ctx, now, opts))
     if forced_pct:
         data["discount_pct"] = forced_pct
-    doc = _offer_doc(t, data, now, kind)
+    doc = _offer_doc(t, data, now, kind, catalog=ctx.get("services"))
     if tier:
         doc["tier"] = tier
         doc["tier_auto"] = bool(auto_reason)

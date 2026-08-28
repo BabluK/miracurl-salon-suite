@@ -37,7 +37,7 @@ function TableChefAssignments({ tables }) {
             <span className="w-9 shrink-0 text-slate-500 font-semibold">T{tno}</span>
             <select value={map[tno] || ""} data-testid={`table-chef-select-${tno}`}
               onChange={e => setMap(m => ({ ...m, [tno]: e.target.value }))}
-              className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white">
+              className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white text-slate-800 [&_option]:bg-white [&_option]:text-slate-800">
               <option value="">— any —</option>
               {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>

@@ -489,7 +489,7 @@ function EmailCampaignPanel({ result }) {
       )}
       <div className="flex flex-wrap items-center gap-2 mt-3 bg-slate-50 rounded-xl p-3 border border-slate-200">
         <select value={audience} onChange={e => setAudience(e.target.value)} data-testid="campaign-audience-select"
-          className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white">
+          className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-800 [&_option]:bg-white [&_option]:text-slate-800">
           <option value="all">All customers with email</option>
           <option value="winback">Lapsed guests (45+ days)</option>
         </select>

@@ -451,7 +451,7 @@ function GeoFenceCard() {
               GPS check-in fence
               {branches.length > 0 && (
                 <select data-testid="geo-target-select" value={target} onChange={e => setTarget(e.target.value)}
-                  className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white max-w-[220px]">
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-800 [&_option]:bg-white [&_option]:text-slate-800 max-w-[220px]">
                   <option value="">🏠 {mainSalonLabel(tenant)} (Main)</option>
                   {branches.map(b => <option key={b.id || b.name} value={b.name}>{b.name}{b.latitude != null ? " ✓" : ""}</option>)}
                 </select>
