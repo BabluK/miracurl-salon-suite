@@ -1473,3 +1473,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Single-attachment fix: _all_doc_attachments() now returns just the brochure; lead_gen resend, mira_calls outreach (vertical-aware), demo followups, tenant welcome (super_admin_ops) all attach ONE vertical-correct brochure; /api/public/brochure.pdf now serves the new salon brochure (was old plain overview).
 - Frontend: new RestoDemoCarousel ("See it in action / A quick peek inside") added to /restaurant page.
 - Verified: both PDFs rendered & inspected page-by-page (10 pages each), public endpoints 200 (1.4MB each), carousel screenshot OK. release_notes BUILD .135.
+
+## 2026-06 (fork) — Salon carousel refresh + Monday auto-nudges
+- DemoCarousel.jsx slides now use fresh /demo/salon_*.jpeg shots (booking page, dashboard, POS, appointments, Mira studio — 5 slides).
+- loyalty_stamps.py: nudge core extracted to `run_loyalty_nudges(t, base)`; endpoint is a thin wrapper. New `_loyalty_nudge_scheduler` in schedulers.py (Monday ≥09:00 IST, idempotent per ISO week via system_flags key `loyalty_nudge_auto`, queries tenants with loyalty_stamps.enabled=True), registered in server.py.
+- Settings LoyaltyStampsCard: confirm dialog + caption note "Auto-runs every Monday 9 AM".
+- Verified: disabled-tenant no-op, both enabled tenants sweep, seeded near-gift member got mocked SMS + loyalty_nudged_at set (cleaned up), salon landing carousel screenshot OK. BUILD .136.

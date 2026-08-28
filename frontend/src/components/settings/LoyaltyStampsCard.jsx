@@ -24,7 +24,7 @@ export function LoyaltyStampsCard() {
   const [nudging, setNudging] = useState(false);
 
   const sendNudges = async () => {
-    if (!window.confirm("Text every member who is 1-2 stamps from their gift? (1 SMS point each, max once per guest per 14 days)")) return;
+    if (!window.confirm("Text every member who is 1-2 stamps from their gift? (1 SMS point each, max once per guest per 14 days)\n\nNote: this also runs automatically every Monday at 9 AM.")) return;
     setNudging(true);
     try {
       const { data } = await api.post("/loyalty/stamps/send-nudges", {});
@@ -164,6 +164,7 @@ export function LoyaltyStampsCard() {
           {nudging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           {nudging ? "Sending…" : "Nudge guests near their gift"}
         </button>
+        <span className="text-[11px] text-slate-400" data-testid="loyalty-auto-nudge-note">⏰ Auto-runs every Monday 9 AM</span>
       </div>
       <div className="mt-3">
         <p className="text-[11px] font-bold text-slate-500">Poster background</p>

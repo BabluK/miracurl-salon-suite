@@ -509,6 +509,34 @@ async def _weekly_win_scheduler() -> None:
         await asyncio.sleep(1800)
 
 
+async def _loyalty_nudge_scheduler() -> None:
+    """Monday ≥ 09:00 IST: auto-SMS loyalty members 1-2 stamps from their gift. Idempotent per ISO week."""
+    from routes.loyalty_stamps import run_loyalty_nudges
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.weekday() == 0 and ist_now.hour >= 9:
+                iso = ist_now.isocalendar()
+                period = f"{iso.year}-W{iso.week:02d}"
+                flag = await _raw_db.system_flags.find_one({"key": "loyalty_nudge_auto"})
+                if not flag or flag.get("value") != period:
+                    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
+                    total_sent = total_skipped = 0
+                    async for t in _raw_db.tenants.find({"loyalty_stamps.enabled": True}, {"_id": 0}):
+                        out = await run_loyalty_nudges(t, base)
+                        total_sent += out.get("sent", 0)
+                        total_skipped += out.get("skipped", 0)
+                    await _raw_db.system_flags.update_one(
+                        {"key": "loyalty_nudge_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": total_sent, "skipped": total_skipped}},
+                        upsert=True)
+                    logging.info(f"Auto loyalty nudges {period}: sent={total_sent} skipped={total_skipped}")
+        except Exception as e:
+            logging.error(f"loyalty nudge scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 async def _open_bill_alert_scheduler() -> None:
     """Daily (after 20:00 IST) email owners any bills still OPEN/unpaid. Idempotent via system_flags."""
     from routes.eod_digests import _run_open_bill_alerts

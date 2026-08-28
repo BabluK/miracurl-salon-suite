@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 
 const SLIDES = [
-  { src: "/demo/mira.jpeg", label: "Your public booking page — Mira AI, gift cards & memberships", tag: "AI Booking" },
-  { src: "/demo/dashboard.jpeg", label: "Owner dashboard — revenue, bookings & AI Brand Studio", tag: "Dashboard" },
-  { src: "/demo/pos.jpeg", label: "POS & Billing — invoices, gift cards & memberships in seconds", tag: "POS" },
-  { src: "/demo/appointments.jpeg", label: "Appointments with WhatsApp confirmations", tag: "Appointments" },
+  { src: "/demo/salon_booking.jpeg", label: "Your public booking page — guests book themselves 24x7", tag: "Online Booking" },
+  { src: "/demo/salon_dashboard.jpeg", label: "Owner dashboard — revenue, bookings & Mira's briefing", tag: "Dashboard" },
+  { src: "/demo/salon_pos.jpeg", label: "POS & Billing — invoices, gift cards & memberships in seconds", tag: "POS" },
+  { src: "/demo/salon_appointments.jpeg", label: "Appointments with WhatsApp confirmations", tag: "Appointments" },
+  { src: "/demo/salon_mira.jpeg", label: "Mira Offers Studio — your AI marketing team", tag: "Mira AI" },
 ];
 
 export const DemoCarousel = () => {

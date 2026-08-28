@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-28.135"
-BUILD_TIME = "28 Aug 2026, 01:15 PM IST"
+BUILD = "2026-08-28.136"
+BUILD_TIME = "28 Aug 2026, 01:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "⏰ Auto loyalty nudges — every Monday 9 AM the suite now automatically texts loyalty members who are 1-2 stamps away from their surprise gift (same 14-day per-guest guard, runs once per week; the manual button in Settings still works anytime)",
+            "🖼️ Salon home page 'peek inside' carousel refreshed with the latest live screenshots — public booking page, dashboard, POS, appointments and Mira Offers Studio",
             "📕 ONE polished suite brochure per business type — restaurant leads now get a true RESTAURANT PDF (live Kitchen, QR ordering, menu manager, table billing + booking tour screenshots) and salons get fresh salon screenshots incl. the public booking page; every brochure now also covers Tenant & Employee Onboarding, the Hiring Policy, Terms & Conditions, the Refund Policy and the full Miracurl contact directory (support@/info@/admin@/contact@/booking@miracurl-suite.com) — and emails attach exactly ONE PDF (no more 6-attachment bundles, no Super-Admin screens)",
             "🍽️ 'See it in action — a quick peek inside' — the public /restaurant page now shows a live screenshot carousel of the real product (QR ordering, Kitchen, dashboard, menu manager, reservations)",
             "🎨 Designer Visiting Card makeover — premium cream design with curvy colour ribbons (magenta for salons, terracotta for restaurants), script tagline, contact icons and flower watermark; the back carries a big 'Scan to Book Your Slot' QR with your phone, email, Instagram handle and address — and a new editor in Settings lets you type all these details (tagline, phone, email, Instagram, address) and regenerate the card instantly",
