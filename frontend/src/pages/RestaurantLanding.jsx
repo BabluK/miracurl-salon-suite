@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { SiteHeader } from "@/components/SiteHeader";
+import { RestoDemoCarousel } from "@/components/RestoDemoCarousel";
 import { UtensilsCrossed, QrCode, ChefHat, Receipt, CalendarCheck, Sparkles, Bell, TrendingUp, Printer, MessageCircle, ArrowRight, Check } from "lucide-react";
 
 const HERO_IMG = "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/ad3e4226d2d8cc2e72aaed1a5d03aec5a372f32668c561f2ec3f11a02fb237c7.jpeg";
@@ -136,6 +137,9 @@ export default function RestaurantLanding() {
           ))}
         </div>
       </section>
+
+      {/* See it in action */}
+      <RestoDemoCarousel />
 
       {/* Features */}
       <section id="features" className="bg-white/70 border-y border-amber-100 relative">

@@ -276,12 +276,13 @@ async def platform_earnings(user=Depends(require_super_admin)):
 
 @router.get("/public/brochure.pdf")
 async def public_brochure_pdf(request: Request):
-    """Public Suite Overview brochure — linked from outreach emails instead of attaching PDFs."""
+    """Public Suite brochure — linked from outreach emails instead of attaching PDFs."""
     from security import public_rate_limit
     public_rate_limit(request, "public-brochure", limit=30, window_sec=600)
-    pdf = await asyncio.to_thread(_doc_pdf, DOCS["suite_overview"])
+    from services.brochure import build_brochure_pdf
+    pdf = await asyncio.to_thread(build_brochure_pdf, "salon")
     return Response(content=pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": 'inline; filename="miracurl-suite-overview.pdf"'})
+                    headers={"Content-Disposition": 'inline; filename="miracurl-salon-suite.pdf"'})
 
 
 def suite_overview_attachment() -> dict:
@@ -291,24 +292,12 @@ def suite_overview_attachment() -> dict:
             "content": base64.b64encode(pdf).decode()}
 
 
-def _all_doc_attachments() -> list:
+def _all_doc_attachments(vertical: str = "salon") -> list:
+    """ONE polished brochure PDF — tour, onboarding, hiring policy, T&C, refund policy & contacts."""
     from services.brochure import build_brochure_pdf
-    items = [{"filename": f"miracurl-{k.replace('_', '-')}.pdf",
-              "content": base64.b64encode(_doc_pdf(d)).decode()}
-             for k, d in DOCS.items()]
-    try:
-        items.append({"filename": "miracurl-salon-brochure.pdf",
-                      "content": base64.b64encode(build_brochure_pdf()).decode()})
-    except Exception:
-        pass
-    try:
-        from services.pdf import screens_tour_attachment
-        tour = screens_tour_attachment()
-        if tour:
-            items.append(tour)
-    except Exception:
-        pass
-    return items
+    vert = "restaurant" if vertical == "restaurant" else "salon"
+    return [{"filename": f"miracurl-{vert}-suite.pdf",
+             "content": base64.b64encode(build_brochure_pdf(vert)).decode()}]
 
 
 async def _live_plans() -> list:
@@ -779,8 +768,9 @@ async def run_demo_followups() -> dict:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
-    attachment = await asyncio.to_thread(suite_overview_attachment)
     from services.brochure import build_brochure_pdf
+    salon_pdf = await asyncio.to_thread(build_brochure_pdf, "salon")
+    attachment = {"filename": "miracurl-salon-suite.pdf", "content": base64.b64encode(salon_pdf).decode()}
     resto_pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
     resto_attachment = {"filename": "miracurl-restaurant-suite.pdf",
                         "content": base64.b64encode(resto_pdf).decode()}

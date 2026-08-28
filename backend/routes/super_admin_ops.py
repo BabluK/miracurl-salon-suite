@@ -479,11 +479,14 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
         recipients.append(t["salon_email"])
     # Every onboarded salon gets its own unique AI-generated welcome poster.
     poster_url = await _generate_onboarding_poster(t)
-    from routes.hq_documents import suite_overview_attachment
+    from services.brochure import build_brochure_pdf
     try:
-        welcome_attachments = [await asyncio.to_thread(suite_overview_attachment)]
+        _bt = "restaurant" if t.get("business_type") == "restaurant" else "salon"
+        _pdf = await asyncio.to_thread(build_brochure_pdf, _bt)
+        welcome_attachments = [{"filename": f"miracurl-{_bt}-suite.pdf",
+                                "content": base64.b64encode(_pdf).decode()}]
     except Exception as e:
-        logging.warning(f"suite overview attachment failed: {e}")
+        logging.warning(f"brochure attachment failed: {e}")
         welcome_attachments = None
     email_status = await _send_email(
         recipients,

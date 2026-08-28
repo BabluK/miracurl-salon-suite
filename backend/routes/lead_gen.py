@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from security import require_super_admin
-from services.pdf import screens_tour_attachment
+from services.pdf import screens_tour_attachment  # noqa: F401
 
 router = APIRouter()
 log = logging.getLogger("mira_leads")
@@ -1339,22 +1339,16 @@ async def lead_remind(lid: str, user=Depends(require_super_admin)):
 
 @router.post("/super-admin/mira-leads/{lid}/resend")
 async def lead_resend_pitch(lid: str, user=Depends(require_super_admin)):
-    """Re-send the original pitch email with the brochure + screens-tour PDFs."""
+    """Re-send the original pitch email with the latest suite brochure PDF."""
     from email_service import _send_email
-    from routes.hq_documents import suite_overview_attachment
     lead = await _lead_with_email(lid)
     _rate_guard(lead, "pdf_resent_at", "PDF")
     html = _outreach_email_html(lead, await _live_plans())
-    if (lead.get("vertical") or "salon") == "restaurant":
-        from services.brochure import build_brochure_pdf
-        import base64 as _b64
-        pdf = await asyncio.to_thread(build_brochure_pdf, "restaurant")
-        attachments = [{"filename": "miracurl-restaurant-suite.pdf", "content": _b64.b64encode(pdf).decode()}]
-    else:
-        attachments = [await asyncio.to_thread(suite_overview_attachment)]
-        tour = screens_tour_attachment()
-        if tour:
-            attachments.append(tour)
+    from services.brochure import build_brochure_pdf
+    import base64 as _b64
+    vert = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
+    pdf = await asyncio.to_thread(build_brochure_pdf, vert)
+    attachments = [{"filename": f"miracurl-{vert}-suite.pdf", "content": _b64.b64encode(pdf).decode()}]
     result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
                                html, attachments=attachments, book_url="https://miracurl-suite.com/demo")
     if not result.get("sent"):

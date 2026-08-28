@@ -1466,3 +1466,10 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - New endpoints: GET/PUT /api/settings/visiting-card-details (stores tenant.visiting_card {tagline,phone,email,instagram,location}; GET prefills from tenant phone/location/instagram_url). Renderer merges vc overrides on both sides; front also shows @instagram row.
 - Frontend VisitingCardCard.jsx: editable form (5 fields, data-testids visiting-card-{field}-input, visiting-card-save-btn) + Save & Regenerate refreshes previews via cache-bust param. Note: PUT requires X-CSRF-Token header (cookie csrf_token) in curl tests.
 - Verified: e2e curl (login+CSRF, save, render 200 both sides) + Settings UI screenshot (owner PIN 4321 gate, What's New popup dismiss needed in automation).
+
+## 2026-06 (fork) — Single polished brochure PDF + restaurant page carousel
+- `/app/backend/services/brochure.py` rewritten: ONE PDF per vertical = cover (AI art) + app tour (latest screenshots incl. booking tour) + features + Tenant & Employee Onboarding + Hiring Policy + Terms & Conditions + Refund Policy + contact directory (support@/info@/admin@/contact@/booking@miracurl-suite.com). No super-admin content. Policy text sourced from DOCS + Refund.jsx (genuine).
+- Fresh screenshots captured via headless Playwright (script pattern in /tmp/capture_shots.py; needed `python3 -m playwright install chromium`; dismiss "Got it" What's New popup after login; use domcontentloaded fallback for image-heavy pages) → /app/backend/assets/brochure/{salon,resto}_*.jpeg + copies in /app/frontend/public/demo/resto_*.jpeg.
+- Single-attachment fix: _all_doc_attachments() now returns just the brochure; lead_gen resend, mira_calls outreach (vertical-aware), demo followups, tenant welcome (super_admin_ops) all attach ONE vertical-correct brochure; /api/public/brochure.pdf now serves the new salon brochure (was old plain overview).
+- Frontend: new RestoDemoCarousel ("See it in action / A quick peek inside") added to /restaurant page.
+- Verified: both PDFs rendered & inspected page-by-page (10 pages each), public endpoints 200 (1.4MB each), carousel screenshot OK. release_notes BUILD .135.
