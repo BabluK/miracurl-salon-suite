@@ -474,7 +474,7 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
         total = total - coupon_discount
 
     # SMS confirmation for every salon (fire-and-forget, burns 1 sms_point)
-    t_doc = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "currency": 1})
+    t_doc = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "currency": 1, "gift_cards": 1})
     if t_doc:
         from sms_service import send_tenant_sms, sms_configured
         if sms_configured():
@@ -483,6 +483,16 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
                 t_doc["id"], body.customer_phone,
                 f"{t_doc.get('name') or 'Your salon'}: booking confirmed! {', '.join(s['name'] for s in services)} on {when} with {staff['name']}. See you there!",
                 kind="booking"))
+            # UPI prepay link when the diner chose "Pay by UPI" at reservation
+            upi_vpa = ((t_doc.get("gift_cards") or {}).get("upi_id") or "").strip()
+            if upi_vpa and "Pay by UPI" in (appt.get("notes") or "") and total and total > 0:
+                from urllib.parse import quote as _q
+                upi_link = (f"upi://pay?pa={_q(upi_vpa)}&pn={_q((t_doc.get('name') or 'Restaurant')[:38])}"
+                            f"&am={round(float(total), 2)}&cu=INR&tn={_q('Table reservation')}")
+                asyncio.create_task(send_tenant_sms(
+                    t_doc["id"], body.customer_phone,
+                    f"{t_doc.get('name') or 'Restaurant'}: pay Rs.{round(float(total))} for your reservation via UPI — tap {upi_link} or pay to {upi_vpa}. Show the receipt on arrival.",
+                    kind="booking"))
 
     return {
         "appointment": appt,
@@ -762,8 +772,9 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
         if m.get("sold_out_date") == today_ist:
             continue
         qty = max(1, min(20, int(i.get("qty") or 1)))
+        spice = i.get("spice") if i.get("spice") in ("not_spicy", "normal", "spicy") else "normal"
         cat = m.get("category") or ""
-        items.append({"id": m["id"], "name": m["name"], "price": m["price"], "qty": qty,
+        items.append({"id": m["id"], "name": m["name"], "price": m["price"], "qty": qty, "spice": spice,
                       "category": cat, "disc_pct": max(cat_specials.get(cat, 0.0), disc_pct)})
     if not items:
         raise HTTPException(400, "No valid menu items in the order")

@@ -6,6 +6,8 @@ import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { shareText as shareTextLib } from "@/lib/share";
 import { catImage } from "@/lib/categoryImages";
+import { DishPhotoLightbox } from "@/components/DishPhotoLightbox";
+import { thumbUrl } from "@/lib/api";
 
 const CATEGORY_ORDER = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup", "Nails"];
 
@@ -96,6 +98,7 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [byCategory, gender, catOrder]);
   const [active, setActive] = useState("All");
+  const [photoDish, setPhotoDish] = useState(null);
   const shown = active === "All" ? cats : cats.filter((c) => c === active);
 
   return (
@@ -177,6 +180,18 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
                     onClick={() => onToggle(s.id)}
                     className={`w-full text-left flex items-center gap-3 px-4 sm:px-5 py-3.5 transition-colors ${on ? "bg-gold/10" : "hover:bg-white/[0.04]"}`}
                   >
+                    {s.image_url && (
+                      <span
+                        role="button" tabIndex={0}
+                        data-testid={`dish-photo-thumb-${s.id}`}
+                        onClick={(e) => { e.stopPropagation(); setPhotoDish(s); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setPhotoDish(s); } }}
+                        className="shrink-0 cursor-zoom-in active:scale-95 transition-transform"
+                      >
+                        <img src={thumbUrl(s.image_url, 160)} alt={s.name} loading="lazy"
+                          className="w-12 h-12 rounded-xl object-cover ring-1 ring-white/15" />
+                      </span>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-[15px]">{s.name}</span>
@@ -198,6 +213,7 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
           </div>
         );
       })}
+      <DishPhotoLightbox dish={photoDish} onClose={() => setPhotoDish(null)} />
     </section>
   );
 }

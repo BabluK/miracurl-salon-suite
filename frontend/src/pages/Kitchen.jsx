@@ -156,7 +156,11 @@ export default function Kitchen() {
       <ul className="mt-2 space-y-1">
         {o.items.map((i, idx) => (
           <li key={idx} className="flex justify-between text-sm text-slate-700">
-            <span><b className="text-slate-900">{i.qty}×</b> {i.name}</span>
+            <span>
+              <b className="text-slate-900">{i.qty}×</b> {i.name}
+              {i.spice === "spicy" && <span className="ml-1.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-100 text-red-600 border border-red-200" data-testid={`kot-spice-${idx}`}>🌶 spicy</span>}
+              {i.spice === "not_spicy" && <span className="ml-1.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-sky-100 text-sky-600 border border-sky-200" data-testid={`kot-spice-${idx}`}>🥛 not spicy</span>}
+            </span>
             <span className="text-slate-400">₹{Math.round(i.price * i.qty)}</span>
           </li>
         ))}

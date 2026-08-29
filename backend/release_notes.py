@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-29.143"
-BUILD_TIME = "28 Aug 2026, 01:45 PM IST"
+BUILD = "2026-08-29.144"
+BUILD_TIME = "29 Aug 2026, 02:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "📸 Dish photos on your menus — appetizing photos now appear next to every dish on the QR table-order page AND the public booking page; guests tap any photo to see it full-size with the dish name & price (Mira paints missing photos automatically from Services → 'Generate missing images', and you can replace any with your own real photo anytime)",
             "🌶 Spice preference on table reservations — while booking, diners set Not spicy / Normal / Spicy for every dish they pre-pick, and choose 💵 Pay on Counter or 📱 Pay by UPI; both arrive with the booking notes for your team",
             "⏱ 'Always on time' staff — owners/admins can flag trusted staff on the Staff page; they're automatically marked checked-in at shift start and checked-out at shift end every day, and attendance reports show a green '⏱ auto' badge so you spot them at a glance",
             "🎨 Loyalty poster logo styles — choose Circle, Square or Blend-with-background for your logo on the Loyalty Club poster (logos now fit perfectly, no more cropping), alongside the background picker",

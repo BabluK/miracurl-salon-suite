@@ -3,6 +3,8 @@ import { useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { Loader2, Minus, Plus, UtensilsCrossed, CheckCircle2 } from "lucide-react";
+import { DishPhotoLightbox } from "../components/DishPhotoLightbox";
+import { thumbUrl } from "@/lib/api";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -15,11 +17,13 @@ export default function OrderPublic() {
   const [specials, setSpecials] = useState({});
   const [stats, setStats] = useState({ counts: {}, best_sellers: [] });
   const [qty, setQty] = useState({});
+  const [spice, setSpice] = useState({});
   const [table, setTable] = useState(params.get("table") || "");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
   const [liveStatus, setLiveStatus] = useState("new");
+  const [photoDish, setPhotoDish] = useState(null);
 
   useEffect(() => {
     if (!done) return;
@@ -73,7 +77,7 @@ export default function OrderPublic() {
     try {
       const { data } = await axios.post(`${BACKEND_URL}/api/public/table-order/${slug}`, {
         table_no: Number(table), customer_name: name.trim() || null,
-        items: cart.map(m => ({ id: m.id, qty: qty[m.id] })),
+        items: cart.map(m => ({ id: m.id, qty: qty[m.id], spice: spice[m.id] || "normal" })),
       });
       setDone(data.order);
     } catch (e) {
@@ -175,8 +179,10 @@ export default function OrderPublic() {
                   className={`flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 ${m.sold_out ? "opacity-50" : ""}`}>
                   <div className="flex items-center gap-3 min-w-0">
                     {m.image_url ? (
-                      <img src={m.image_url} alt={m.name} loading="lazy"
-                        className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/15 shrink-0" />
+                      <img src={thumbUrl(m.image_url, 160)} alt={m.name} loading="lazy"
+                        data-testid={`dish-photo-thumb-${m.id}`}
+                        onClick={() => setPhotoDish(m)}
+                        className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/15 shrink-0 cursor-pointer active:scale-95 transition-transform" />
                     ) : (
                       <div className="w-14 h-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">🍽️</div>
                     )}
@@ -201,10 +207,21 @@ export default function OrderPublic() {
                   {m.sold_out ? (
                     <span data-testid={`sold-out-${m.id}`} className="shrink-0 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/40 text-rose-300 text-[10px] font-bold uppercase tracking-wider">Sold out</span>
                   ) : qty[m.id] > 0 ? (
-                    <div className="flex items-center gap-3 shrink-0">
-                      <button onClick={() => bump(m.id, -1)} data-testid={`menu-minus-${m.id}`} className="w-8 h-8 rounded-full border border-gold/50 text-gold flex items-center justify-center"><Minus className="w-3.5 h-3.5" /></button>
-                      <span className="font-bold w-4 text-center">{qty[m.id]}</span>
-                      <button onClick={() => bump(m.id, 1)} data-testid={`menu-plus-${m.id}`} className="w-8 h-8 rounded-full bg-gold text-bg-base flex items-center justify-center"><Plus className="w-3.5 h-3.5" /></button>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => bump(m.id, -1)} data-testid={`menu-minus-${m.id}`} className="w-8 h-8 rounded-full border border-gold/50 text-gold flex items-center justify-center"><Minus className="w-3.5 h-3.5" /></button>
+                        <span className="font-bold w-4 text-center">{qty[m.id]}</span>
+                        <button onClick={() => bump(m.id, 1)} data-testid={`menu-plus-${m.id}`} className="w-8 h-8 rounded-full bg-gold text-bg-base flex items-center justify-center"><Plus className="w-3.5 h-3.5" /></button>
+                      </div>
+                      <div className="flex gap-1">
+                        {[["not_spicy", "🥛 mild"], ["normal", "🙂 normal"], ["spicy", "🌶 spicy"]].map(([v, l]) => (
+                          <button key={v} data-testid={`spice-${m.id}-${v}`}
+                            onClick={() => setSpice(sp => ({ ...sp, [m.id]: v }))}
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold border transition-colors ${(spice[m.id] || "normal") === v ? "bg-gold text-bg-base border-gold" : "border-white/20 text-white/60 hover:border-gold/50"}`}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   ) : (
                     <button onClick={() => bump(m.id, 1)} data-testid={`menu-add-${m.id}`}
@@ -229,6 +246,7 @@ export default function OrderPublic() {
           </button>
         </div>
       )}
+      <DishPhotoLightbox dish={photoDish} onClose={() => setPhotoDish(null)} />
     </div>
   );
 }

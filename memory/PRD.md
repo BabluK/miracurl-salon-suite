@@ -2409,3 +2409,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Designer visiting cards (editable details), two-PDF prospect attachments (App Tour + Policies), restaurant landing carousel, vertical-correct email banners/pricing
 - Auto Monday loyalty nudges, dashboard parallelized, WA approve/reject all, bill find&edit (month-locked, GST col) in Reports+CRM, CRM Added column fix
 - POS: split bill by staff (salon), one-tap points redeem, tenant-scoped draft storage (cross-tenant leak fixed), PWA maskable icons fixed
+
+## Session 2026-06 (fork) — Dish photos on public menus
+- QR order page (OrderPublic.jsx): thumbnails already existed; now tap-to-enlarge via shared components/DishPhotoLightbox.jsx (data-testids dish-photo-thumb-{id}, dish-photo-lightbox, dish-photo-large, dish-photo-close). Thumbs use thumbUrl(url,160), lightbox thumbUrl(url,800).
+- Booking page (BookPublic.steps.jsx ServicesStep): NEW per-dish/service thumbnails (span role=button with stopPropagation so Select toggle unaffected) + same lightbox.
+- Perf note: /api/files/{id}?w= resize is slow on first hit (~10-35s cold, ~0.3s cached in object storage). Pre-warmed all 78 preview images via /tmp/warm_thumbs.log script. Production caches warm on first view per dish.
+- Owner-side (upload real photo + Mira AI generate single/batch) already existed in Services.jsx — no changes needed.
+- release_notes.py bumped to 2026-08-29.144.
