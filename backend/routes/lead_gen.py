@@ -117,25 +117,38 @@ def _collect_places(pairs, seen, out, first_err):
     return first_err
 
 
-async def _places_area_phase(client, key, city, areas, seen, out, cats=None) -> str:
+from dataclasses import dataclass
+
+
+@dataclass
+class _PlacesRun:
+    """Shared state for one multi-phase Places search."""
+    client: httpx.AsyncClient
+    key: str
+    city: str
+    seen: set
+    out: list
+    cats: list
+
+
+async def _places_area_phase(run: _PlacesRun, areas: list) -> str:
     """Each category searched per rotating locality, in parallel."""
     tasks, cat_names = [], []
-    for cat, q in (cats or _SEARCH_CATEGORIES):
+    for cat, q in run.cats:
         for a in areas:
-            tasks.append(_places_query(client, key, q.format(city=f"{a}, {city}"), 20))
+            tasks.append(_places_query(run.client, run.key, q.format(city=f"{a}, {run.city}"), 20))
             cat_names.append(cat)
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    return _collect_places(zip(cat_names, results), seen, out, "")
+    return _collect_places(zip(cat_names, results), run.seen, run.out, "")
 
 
-async def _places_citywide_phase(client, key, city, n, seen, out, first_err, cats=None) -> str:
+async def _places_citywide_phase(run: _PlacesRun, n: int, first_err: str) -> str:
     """City-wide deep search (initial run, small towns, or thin localities)."""
-    cats = cats or _SEARCH_CATEGORIES
-    per_cat = min(60, max(12, (n // len(cats)) + 10))
+    per_cat = min(60, max(12, (n // len(run.cats)) + 10))
     results = await asyncio.gather(
-        *[_places_query(client, key, q.format(city=city), per_cat) for _, q in cats],
+        *[_places_query(run.client, run.key, q.format(city=run.city), per_cat) for _, q in run.cats],
         return_exceptions=True)
-    return _collect_places(zip([c for c, _ in cats], results), seen, out, first_err)
+    return _collect_places(zip([c for c, _ in run.cats], results), run.seen, run.out, first_err)
 
 
 async def _places_search(client: httpx.AsyncClient, city: str, n: int, areas: list | None = None,
@@ -147,10 +160,11 @@ async def _places_search(client: httpx.AsyncClient, city: str, n: int, areas: li
         return [], "no_key"
     cats = _SEARCH_CATEGORIES_BY_VERTICAL.get(vertical) or _SEARCH_CATEGORIES
     seen, out, first_err = set(), [], ""
+    run = _PlacesRun(client=client, key=key, city=city, seen=seen, out=out, cats=cats)
     if areas:
-        first_err = await _places_area_phase(client, key, city, areas, seen, out, cats)
+        first_err = await _places_area_phase(run, areas)
     if len(out) < n:
-        first_err = await _places_citywide_phase(client, key, city, n, seen, out, first_err, cats)
+        first_err = await _places_citywide_phase(run, n, first_err)
     if not out:
         return [], first_err or "no results"
     out.sort(key=lambda p: (p.get("reviews") or 0, p.get("rating") or 0), reverse=True)

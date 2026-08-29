@@ -2416,3 +2416,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Perf note: /api/files/{id}?w= resize is slow on first hit (~10-35s cold, ~0.3s cached in object storage). Pre-warmed all 78 preview images via /tmp/warm_thumbs.log script. Production caches warm on first view per dish.
 - Owner-side (upload real photo + Mira AI generate single/batch) already existed in Services.jsx — no changes needed.
 - release_notes.py bumped to 2026-08-29.144.
+
+## Session 2026-06 (fork) — Code review remediation
+- Circular import auth.py<->super_admin_ops.py BROKEN: _SAMPLE_MENU + _seed_restaurant_defaults moved to NEW services/tenant_seed.py; both modules import from there (auth.py re-exports at module level).
+- Refactors (behavior-preserving, all unit+regression tested): day_offers._offer_doc split into _norm_svc/_resolve_offer_line/_sanitize_offer_services; invoice_edits.edit_invoice split out _ensure_editable_month + _sync_linked_customer; hq_documents._demo_email_html now takes DemoEmailOpts dataclass (2 call sites updated) + _demo_email_copy + _demo_pricing_rows_tail helpers; lead_gen places phases now share _PlacesRun dataclass.
+- Removed unused var in tests/test_iter120.
+- FALSE POSITIVES documented: security.py:149 "hardcoded secret" is a comment/domain-separation label (CSRF key derives from env JWT_SECRET); utils.py:8 uses `is None` (correct); pyflakes found 0 undefined names in backend.
+- KNOWN pre-existing: older test files (test_invoice_edits.py, test_iter113/114, test_billing_and_mira_services.py) fail with "CSRF token required" — stale harnesses missing X-CSRF-Token header, NOT app bugs (iter120 suite handles CSRF and passes 8/8).

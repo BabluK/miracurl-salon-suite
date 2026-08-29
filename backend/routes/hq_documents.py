@@ -453,19 +453,22 @@ def _usd_resto_rows(plans: list) -> str:
     return rows
 
 
+def _demo_pricing_rows_tail(plans: list, currency: str, vertical: str) -> tuple[str, str]:
+    if currency == "USD":
+        rows = _usd_resto_rows(plans) if vertical == "restaurant" else _usd_pricing_rows(plans)
+        noun = "restaurants" if vertical == "restaurant" else "salons"
+        return rows, f"All features included. Prices in USD for international {noun} — billed via secure payment link."
+    show = [p for p in plans if (p.get("branches") or 1) == 1 and p.get("currency", "INR") == "INR"] or plans[:2]
+    return "".join(_demo_pricing_row(p) for p in show), (
+        "All features included in every plan — POS, bookings, CRM and the full 12-agent AI team. "
+        "Multi-branch plans also available — ask us in the demo.")
+
+
 def _demo_pricing_block(plans: list | None, currency: str = "INR", vertical: str = "salon") -> str:
     plans = [p for p in (plans or []) if (p.get("vertical") or "salon") == vertical]
     if not plans:
         return ""
-    if currency == "USD":
-        rows = _usd_resto_rows(plans) if vertical == "restaurant" else _usd_pricing_rows(plans)
-        noun = "restaurants" if vertical == "restaurant" else "salons"
-        tail = f"All features included. Prices in USD for international {noun} — billed via secure payment link."
-    else:
-        show = [p for p in plans if (p.get("branches") or 1) == 1 and p.get("currency", "INR") == "INR"] or plans[:2]
-        rows = "".join(_demo_pricing_row(p) for p in show)
-        tail = ("All features included in every plan — POS, bookings, CRM and the full 12-agent AI team. "
-                "Multi-branch plans also available — ask us in the demo.")
+    rows, tail = _demo_pricing_rows_tail(plans, currency, vertical)
     return f"""
   <tr><td style="padding:14px 36px 4px">
     <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold">SIMPLE, HONEST PRICING</div>
@@ -527,32 +530,50 @@ def _demo_email_links(hq_email: str, tracking: tuple) -> tuple:
     return cta_href, "https://miracurl-suite.com/signup-salon", pixel
 
 
-def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str, *,
-                     plans: list | None = None, tracking: tuple[str, str] = ("", ""),
-                     currency: str = "INR", vertical: str = "salon") -> str:
-    resto = vertical == "restaurant"
+def _demo_email_copy(resto: bool) -> tuple[str, str, str, str, str]:
+    """(sub_brand, hero, intro, trial_line, cta_label) — vertical-specific wording."""
+    if resto:
+        return (
+            "THE ALL-IN-ONE RESTAURANT SUITE",
+            'Your restaurant&rsquo;s <span style="color:#d4af37">FREE first month</span><br>of Miracurl Suite.',
+            "We'd love for you to experience the <b>Miracurl Restaurant Suite</b> — QR table ordering straight "
+            "to the kitchen, live kitchen tickets, one-tap table-wise billing, reservations and Mira, your AI "
+            "teammate that paints dish photos and runs your marketing.",
+            "<b>Start your FREE first month today</b> — set up your restaurant yourself in under 5 minutes, "
+            "no credit card needed, and take table orders tonight.",
+            "Start my FREE first month ✦",
+        )
+    return (
+        "THE ALL-IN-ONE SALON SUITE",
+        'Your salon&rsquo;s <span style="color:#d4af37">7-day free trial</span><br>of Miracurl Suite.',
+        "We'd love for you to experience the <b>Miracurl Salon Suite</b> — the all-in-one platform trusted by "
+        "growing salons to manage bookings, billing, staff and marketing from a single elegant dashboard.",
+        "<b>Start your own 7-day free trial today</b> — set up your salon yourself in under 5 minutes, "
+        "no credit card needed, and explore everything at your own pace.",
+        "Start my 7-day free trial ✦",
+    )
+
+
+@dataclass
+class DemoEmailOpts:
+    plans: list | None = None
+    tracking: tuple = ("", "")
+    currency: str = "INR"
+    vertical: str = "salon"
+
+
+def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: str,
+                     opts: DemoEmailOpts | None = None) -> str:
+    opts = opts or DemoEmailOpts()
+    resto = opts.vertical == "restaurant"
     name = html_lib.escape(recipient_name or "").strip()
     salon = html_lib.escape(salon_name or "").strip()
     greeting = f"Dear {name}," if name else ("Dear Restaurant Owner," if resto else "Dear Salon Owner,")
     salon_line = f" at <b>{salon}</b>" if salon else ""
-    cta_href, signup_href, pixel = _demo_email_links(hq_email, tracking)
+    cta_href, signup_href, pixel = _demo_email_links(hq_email, opts.tracking)
     if resto:
         signup_href = signup_href.replace("signup-salon", "signup-restaurant")
-    sub_brand = "THE ALL-IN-ONE RESTAURANT SUITE" if resto else "THE ALL-IN-ONE SALON SUITE"
-    hero = ('Your restaurant&rsquo;s <span style="color:#d4af37">FREE first month</span><br>of Miracurl Suite.'
-            if resto else 'Your salon&rsquo;s <span style="color:#d4af37">7-day free trial</span><br>of Miracurl Suite.')
-    intro = ("We'd love for you to experience the <b>Miracurl Restaurant Suite</b> — QR table ordering straight "
-             "to the kitchen, live kitchen tickets, one-tap table-wise billing, reservations and Mira, your AI "
-             "teammate that paints dish photos and runs your marketing."
-             if resto else
-             "We'd love for you to experience the <b>Miracurl Salon Suite</b> — the all-in-one platform trusted by "
-             "growing salons to manage bookings, billing, staff and marketing from a single elegant dashboard.")
-    trial_line = ("<b>Start your FREE first month today</b> — set up your restaurant yourself in under 5 minutes, "
-                  "no credit card needed, and take table orders tonight."
-                  if resto else
-                  "<b>Start your own 7-day free trial today</b> — set up your salon yourself in under 5 minutes, "
-                  "no credit card needed, and explore everything at your own pace.")
-    cta_label = "Start my FREE first month ✦" if resto else "Start my 7-day free trial ✦"
+    sub_brand, hero, intro, trial_line, cta_label = _demo_email_copy(resto)
 
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px">
@@ -576,7 +597,7 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
   {_demo_note_block(note)}
   {"" if resto else _demo_modules_block()}
   {"" if resto else _demo_agents_block()}
-  {_demo_pricing_block(plans, currency, vertical)}
+  {_demo_pricing_block(opts.plans, opts.currency, opts.vertical)}
   <tr><td align="center" style="padding:26px 36px 8px">
     <a href="{signup_href}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
        text-decoration:none;padding:15px 42px;border-radius:999px;letter-spacing:.4px">{cta_label}</a>
@@ -649,9 +670,9 @@ async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -
     iid = existing["id"] if existing else str(uuid.uuid4())
     mode = getattr(ctx.body, "currency", "auto") or "auto"
     currency = mode if mode in ("INR", "USD") else ("USD" if _is_intl_email(em) else "INR")
-    html = _demo_email_html(name, salon, ctx.body.note, ctx.hq_email, plans=ctx.plans,
-                            tracking=(ctx.track_base, iid), currency=currency,
-                            vertical=getattr(ctx.body, "vertical", "salon"))
+    html = _demo_email_html(name, salon, ctx.body.note, ctx.hq_email,
+                            DemoEmailOpts(plans=ctx.plans, tracking=(ctx.track_base, iid), currency=currency,
+                                          vertical=getattr(ctx.body, "vertical", "salon")))
     status = await _send_email([em], ctx.subject, html, attachments=ctx.attachments, reply_to=ctx.hq_email)
     if status.get("sent"):
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -980,9 +1001,9 @@ async def demo_invite_resend(iid: str, request: Request, user=Depends(require_su
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     track_base = f"https://{host}" if host else (inv.get("track_base") or "")
     html = _demo_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", hq_email,
-                            plans=plans, tracking=(track_base, iid),
-                            currency="USD" if _is_intl_email(inv["email"]) else "INR",
-                            vertical=inv_vert)
+                            DemoEmailOpts(plans=plans, tracking=(track_base, iid),
+                                          currency="USD" if _is_intl_email(inv["email"]) else "INR",
+                                          vertical=inv_vert))
     status = await _send_email([inv["email"]],
                                ("Your Restaurant's FREE First Month of Miracurl Suite 🍽️"
                                 if inv_vert == "restaurant"

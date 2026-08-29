@@ -179,32 +179,40 @@ def _build_offer_prompt(t: dict, ctx: dict, now: datetime, opts: OfferOpts) -> s
         "never call it a 'Spa' deal (or any other category) unless that exact type of service is in the list.")
 
 
+def _norm_svc(x) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(x).lower())
+
+
+def _resolve_offer_line(s: dict, real: dict, pct: int) -> dict:
+    """One offer line with name & prices taken from the REAL catalog — never trust LLM numbers."""
+    name = str(s.get("name", ""))[:60]
+    key = _norm_svc(name)
+    hit = real.get(key)
+    if hit is None and real and key:
+        match = next((k for k in real if k in key or key in k), None)
+        hit = real.get(match)
+    if hit:
+        name, orig = hit
+    else:
+        orig = float(s.get("original_price") or 0)
+    offer = float(s.get("offer_price") or 0)
+    if pct:
+        offer = float(max(0, round(orig * (1 - pct / 100))))
+    elif offer <= 0 or offer > orig > 0:
+        offer = orig
+    return {"name": name, "original_price": orig, "offer_price": offer}
+
+
+def _sanitize_offer_services(raw: list, catalog: list | None, pct: int) -> list:
+    real = {_norm_svc(s["name"]): (str(s["name"])[:60], float(s.get("price") or 0)) for s in (catalog or [])}
+    return [_resolve_offer_line(s, real, pct) for s in raw[:3]]
+
+
 def _offer_doc(t: dict, data: dict, now: datetime, kind: str, catalog: list | None = None) -> dict:
     if not data.get("title") or not isinstance(data.get("services"), list):
         raise HTTPException(400, "Mira returned an unexpected offer format — try again")
-    # Prices always come from the REAL service catalog — never trust LLM numbers.
-    def _norm(x):
-        return re.sub(r"[^a-z0-9]", "", str(x).lower())
-    real = {_norm(s["name"]): (str(s["name"])[:60], float(s.get("price") or 0)) for s in (catalog or [])}
     pct = int(data.get("discount_pct") or 0)
-    services = []
-    for s in data["services"][:3]:
-        name = str(s.get("name", ""))[:60]
-        key = _norm(name)
-        hit = real.get(key)
-        if hit is None and real and key:
-            match = next((k for k in real if k in key or key in k), None)
-            hit = real.get(match)
-        if hit:
-            name, orig = hit
-        else:
-            orig = float(s.get("original_price") or 0)
-        offer = float(s.get("offer_price") or 0)
-        if pct:
-            offer = float(max(0, round(orig * (1 - pct / 100))))
-        elif offer <= 0 or offer > orig > 0:
-            offer = orig
-        services.append({"name": name, "original_price": orig, "offer_price": offer})
+    services = _sanitize_offer_services(data["services"], catalog, pct)
     return {
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "date": now.date().isoformat(),
         "day_name": now.strftime("%A"), "kind": kind,

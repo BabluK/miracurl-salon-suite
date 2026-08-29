@@ -171,8 +171,6 @@ class TestInvoicesAndCollection:
         assert inv["payment_mode"] == "upi"
         assert inv["customer_name"] == new_name
         assert inv["last_edited_by"] == "Tester"
-        new_total = float(inv["total"])
-
         # customer synced
         cust_after = sess.get(f"{BASE}/api/customers/{bag['customer_id']}").json()
         assert cust_after["name"] == new_name

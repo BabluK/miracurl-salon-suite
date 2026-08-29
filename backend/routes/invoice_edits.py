@@ -66,6 +66,38 @@ def _recompute_totals(inv: dict, body: InvoiceEditIn, tenant_doc: dict) -> dict:
             "total": round(taxable + tax, 2)}
 
 
+def _ensure_editable_month(inv: dict, t: dict) -> None:
+    """Month lock: only current-month bills (tenant timezone) are editable."""
+    from routes.reports import _tenant_tz
+    tz = _tenant_tz(t)
+    now_local = datetime.now(tz)
+    try:
+        cdt = datetime.fromisoformat(str(inv.get("created_at") or "").replace("Z", "+00:00"))
+        if cdt.tzinfo is None:
+            cdt = cdt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return
+    if cdt < datetime(now_local.year, now_local.month, 1, tzinfo=tz):
+        raise HTTPException(400, "Bills from previous months are locked and can't be edited")
+
+
+async def _sync_linked_customer(inv: dict, body: InvoiceEditIn, delta: float) -> None:
+    """Keep the linked CRM customer in sync (name/phone + lifetime spend delta)."""
+    import re as _re
+    cust_set = {}
+    if body.customer_name is not None and body.customer_name.strip():
+        cust_set["name"] = body.customer_name.strip()
+    if body.customer_phone is not None and body.customer_phone.strip():
+        cust_set["phone"] = _re.sub(r"[^0-9+]", "", body.customer_phone.strip())
+    ops = {}
+    if cust_set:
+        ops["$set"] = cust_set
+    if abs(delta) > 0.009 and inv.get("status") not in ("voided", "open"):
+        ops["$inc"] = {"total_spent": delta}
+    if ops:
+        await db.customers.update_one({"id": inv["customer_id"]}, ops)
+
+
 @router.put("/invoices/{inv_id}")
 async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_admin),
                        t=Depends(current_tenant)):
@@ -74,18 +106,7 @@ async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_ad
     inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invoice not found")
-    # month lock: only current-month bills are editable
-    from routes.reports import _tenant_tz
-    _tz = _tenant_tz(t)
-    _nl = datetime.now(_tz)
-    try:
-        _cdt = datetime.fromisoformat(str(inv.get("created_at") or "").replace("Z", "+00:00"))
-        if _cdt.tzinfo is None:
-            _cdt = _cdt.replace(tzinfo=timezone.utc)
-    except ValueError:
-        _cdt = None
-    if _cdt and _cdt < datetime(_nl.year, _nl.month, 1, tzinfo=_tz):
-        raise HTTPException(400, "Bills from previous months are locked and can't be edited")
+    _ensure_editable_month(inv, t)
     _validate_edit(inv, body)
 
     before = {"payment_mode": inv["payment_mode"], "items": inv["items"],
@@ -100,22 +121,8 @@ async def edit_invoice(inv_id: str, body: InvoiceEditIn, user=Depends(require_ad
         updates["customer_name"] = body.customer_name.strip()
         after["customer_name"] = updates["customer_name"]
     await db.invoices.update_one({"id": inv_id}, {"$set": updates, "$inc": {"edit_count": 1}})
-    # keep the linked CRM customer in sync (name/phone + lifetime spend delta)
     if inv.get("customer_id"):
-        import re as _re
-        cust_set = {}
-        if body.customer_name is not None and body.customer_name.strip():
-            cust_set["name"] = body.customer_name.strip()
-        if body.customer_phone is not None and body.customer_phone.strip():
-            cust_set["phone"] = _re.sub(r"[^0-9+]", "", body.customer_phone.strip())
-        ops = {}
-        if cust_set:
-            ops["$set"] = cust_set
-        delta = round(float(after["total"]) - float(before["total"]), 2)
-        if abs(delta) > 0.009 and inv.get("status") not in ("voided", "open"):
-            ops["$inc"] = {"total_spent": delta}
-        if ops:
-            await db.customers.update_one({"id": inv["customer_id"]}, ops)
+        await _sync_linked_customer(inv, body, round(float(after["total"]) - float(before["total"]), 2))
     updates["edit_count"] = int(inv.get("edit_count") or 0) + 1
     await db.invoice_edits.insert_one({
         "id": str(uuid.uuid4()), "invoice_id": inv_id, "invoice_no": inv["invoice_no"],

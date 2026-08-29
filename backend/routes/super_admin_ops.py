@@ -429,7 +429,7 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     await db.tenants.insert_one(t)
     t.pop("_id", None)
     if t["business_type"] == "restaurant":
-        from routes.auth import _seed_restaurant_defaults
+        from services.tenant_seed import _seed_restaurant_defaults
         await _seed_restaurant_defaults(t["id"])
 
     if existing_owner:
