@@ -1572,3 +1572,208 @@ async def run_phone_backfill() -> dict:
                 fixed += 1
             await asyncio.sleep(0.3)
     return {"checked": len(todo), "fixed": fixed}
+
+
+# ---------------- WhatsApp quote posters + rapid-fire blast ----------------
+
+_WA_QUOTES = [
+    {"id": "q1", "vertical": "salon", "headline": "Hey Salon Owner!",
+     "lines": ["Stop juggling 10 softwares", "for 10 branches."],
+     "punch": ["ONE dashboard runs them all —", "at a fraction of the cost."],
+     "bg": ("Luxurious modern salon interior, elegant styling chairs and gold-framed mirrors, warm cinematic "
+            "lighting, rich dark moody tones with rose-gold accents, soft bokeh, premium editorial photography. "
+            "Absolutely NO text, NO words, NO letters, NO people.")},
+    {"id": "q2", "vertical": "salon", "headline": "While you make clients beautiful,",
+     "lines": ["Mira fills your calendar."],
+     "punch": ["24/7 online booking +", "AI marketing on autopilot."],
+     "bg": ("Elegant salon reception desk with fresh flowers and soft golden evening light, dark moody premium "
+            "atmosphere, marble and brass details, shallow depth of field, editorial photography. "
+            "Absolutely NO text, NO words, NO letters, NO people.")},
+    {"id": "q3", "vertical": "salon", "headline": "One login. Every branch.",
+     "lines": ["Bookings · Billing · Payroll", "WhatsApp Marketing"],
+     "punch": ["Everything your salon needs,", "in one place."],
+     "bg": ("Premium dark flat-lay of salon tools — golden scissors, brushes, rose petals on dark marble, "
+            "dramatic warm side lighting, luxury editorial style. Absolutely NO text, NO words, NO letters, NO people.")},
+    {"id": "q4", "vertical": "restaurant", "headline": "From QR scan to kitchen",
+     "lines": ["in 3 seconds."],
+     "punch": ["No waiters running.", "No orders lost."],
+     "bg": ("Moody fine-dining restaurant table with candle light, elegant plated gourmet dish, dark rich "
+            "atmosphere with warm golden highlights, premium editorial food photography. "
+            "Absolutely NO text, NO words, NO letters, NO people.")},
+]
+
+_GOLD = (212, 175, 55)
+
+
+def _compose_quote_poster(bg_bytes: bytes, q: dict) -> bytes:
+    """Exact-text quote overlay on a Mira AI background (spelling guaranteed by Pillow)."""
+    import io
+    from pathlib import Path
+    from PIL import Image, ImageDraw, ImageFont
+    fonts = Path(__file__).parent.parent / "assets" / "fonts"
+
+    def F(name, size):
+        return ImageFont.truetype(str(fonts / name), size)
+
+    W = H = 1080
+    im = Image.open(io.BytesIO(bg_bytes)).convert("RGB").resize((W, H))
+    im = Image.blend(im, Image.new("RGB", (W, H), (12, 10, 8)), 0.55)
+    d = ImageDraw.Draw(im)
+
+    def center(text, y, font, fill):
+        b = d.textbbox((0, 0), text, font=font)
+        d.text(((W - (b[2] - b[0])) / 2 - b[0], y), text, font=font, fill=fill)
+        return b[3] - b[1]
+
+    center("M I R A C U R L   S U I T E", 96, F("FreeSansBold.ttf", 34), _GOLD)
+    d.rectangle([(W - 90) / 2, 160, (W + 90) / 2, 163], fill=_GOLD)
+    y = 260
+    center(q["headline"], y, F("GreatVibes-Regular.ttf", 96), _GOLD)
+    y += 170
+    for line in q["lines"]:
+        center(line, y, F("PlayfairDisplay-Bold.ttf", 64), (255, 253, 246))
+        y += 92
+    y += 30
+    d.rectangle([(W - 420) / 2, y, (W + 420) / 2, y + 2], fill=(255, 255, 255, 60))
+    y += 40
+    for line in q["punch"]:
+        center(line, y, F("FreeSansBold.ttf", 42), _GOLD)
+        y += 64
+    center("miracurl-suite.com  ·  Powered by Mira AI", 975, F("FreeSansBold.ttf", 28), (200, 195, 180))
+    out = io.BytesIO()
+    im.save(out, "PNG")
+    return out.getvalue()
+
+
+async def _run_wa_poster_job():
+    from routes.mira_common import _gen_image_bytes
+    from services.storage import _put_object, APP_NAME
+    try:
+        for q in _WA_QUOTES:
+            if await _raw_db.wa_quote_posters.find_one({"quote_id": q["id"]}):
+                continue
+            bg = await _gen_image_bytes(q["bg"])
+            if not bg:
+                log.error(f"wa poster bg failed for {q['id']}")
+                continue
+            png = await asyncio.to_thread(_compose_quote_poster, bg, q)
+            fid = str(uuid.uuid4())
+            path = f"{APP_NAME}/hq/wa-posters/{fid}.png"
+            result = await asyncio.to_thread(_put_object, path, png, "image/png")
+            await _raw_db.uploads.insert_one({
+                "id": fid, "tenant_id": "hq", "kind": "wa_quote_poster",
+                "storage_path": result.get("path", path), "original_filename": f"wa-quote-{q['id']}.png",
+                "content_type": "image/png", "size": len(png), "uploaded_by": "mira-hq",
+                "is_deleted": False, "created_at": _now()})
+            await _raw_db.wa_quote_posters.update_one(
+                {"quote_id": q["id"]},
+                {"$set": {"quote_id": q["id"], "url": f"/api/files/{fid}", "created_at": _now()}}, upsert=True)
+    except Exception as e:
+        log.error(f"wa poster job failed: {e}")
+    finally:
+        await _raw_db.system_flags.update_one(
+            {"key": "wa_posters_job"}, {"$set": {"value": "done"}}, upsert=True)
+
+
+def _quote_text(q: dict) -> str:
+    return f"{q['headline']} {' '.join(q['lines'])} {' '.join(q['punch'])}"
+
+
+@router.get("/super-admin/wa-posters")
+async def list_wa_posters(user=Depends(require_super_admin)):
+    docs = {d["quote_id"]: d for d in await _raw_db.wa_quote_posters.find({}, {"_id": 0}).to_list(20)}
+    flag = await _raw_db.system_flags.find_one({"key": "wa_posters_job"})
+    return {"generating": bool(flag and flag.get("value") == "running"),
+            "posters": [{"id": q["id"], "vertical": q["vertical"], "quote": _quote_text(q),
+                         "url": (docs.get(q["id"]) or {}).get("url", "")} for q in _WA_QUOTES]}
+
+
+@router.post("/super-admin/wa-posters/generate")
+async def generate_wa_posters(user=Depends(require_super_admin)):
+    flag = await _raw_db.system_flags.find_one({"key": "wa_posters_job"})
+    if flag and flag.get("value") == "running":
+        raise HTTPException(409, "Mira is already painting the posters — give her a minute")
+    missing = [q for q in _WA_QUOTES
+               if not await _raw_db.wa_quote_posters.find_one({"quote_id": q["id"]})]
+    if not missing:
+        return {"queued": 0}
+    await _raw_db.system_flags.update_one(
+        {"key": "wa_posters_job"}, {"$set": {"value": "running"}}, upsert=True)
+    asyncio.get_event_loop().create_task(_run_wa_poster_job())
+    return {"queued": len(missing)}
+
+
+class WaBlastPrepareIn(BaseModel):
+    vertical: str = Field("", pattern="^(salon|restaurant)?$")
+    run_id: str = ""
+    limit: int = Field(20, ge=1, le=30)
+
+
+_WA_BLAST_SYS = (
+    "You are Mira, the friendly AI sales rep for Miracurl Suite (all-in-one platform for Indian salons "
+    "and restaurants). For EACH lead write a short WhatsApp outreach message (max 70 words):\n"
+    "- Warm, personal opening using their business name/city; praise their rating/reviews when given.\n"
+    "- 2-3 punchy lines pitching Miracurl for their business type. Salon: online booking, billing, staff "
+    "payroll, WhatsApp marketing, multi-branch in one dashboard. Restaurant: QR table ordering straight "
+    "to kitchen, live kitchen tickets, table-wise billing, reservations.\n"
+    "- VARY the wording and angle between leads so messages never look copy-pasted.\n"
+    "- WhatsApp style: *bold* for emphasis, 1-2 tasteful emojis, short lines.\n"
+    "- Do NOT include any links or prices — the app appends those.\n"
+    "Also pick the best quote poster id for each lead from the list given.\n"
+    "Reply ONLY with a JSON object mapping each lead id to {\"message\": \"...\", \"quote\": \"<poster id>\"}.")
+
+
+@router.post("/super-admin/wa-blast/prepare")
+async def wa_blast_prepare(body: WaBlastPrepareIn, request: Request, user=Depends(require_super_admin)):
+    """Mira composes a personalized WhatsApp message for every uncontacted lead with a phone."""
+    from routes.mira_common import _ask_json
+    q: dict = {"phone": {"$nin": [None, ""]}, "status": {"$in": ["researched", "drafted", "no_email"]}}
+    if body.vertical == "restaurant":
+        q["vertical"] = "restaurant"
+    elif body.vertical == "salon":
+        q["vertical"] = {"$ne": "restaurant"}
+    if body.run_id:
+        q["run_id"] = body.run_id
+    leads = await _raw_db.mira_leads.find(q, {"_id": 0}).sort("score", -1).to_list(body.limit)
+    leads = [l for l in leads if len(_wa_phone(l.get("phone", ""))) >= 10]
+    if not leads:
+        return {"queue": []}
+
+    posters = {d["quote_id"]: d["url"] for d in await _raw_db.wa_quote_posters.find({}, {"_id": 0}).to_list(20)}
+    poster_list = "\n".join(f"{x['id']} ({x['vertical']}): {_quote_text(x)}" for x in _WA_QUOTES if x["id"] in posters)
+    listing = "\n".join(
+        f"{l['id']}|{l['name']}|{l.get('city', '')}|{l.get('vertical') or 'salon'}|"
+        f"rating {l.get('rating') or '?'}|{l.get('reviews') or 0} reviews" for l in leads)
+    data = await _ask_json(_WA_BLAST_SYS,
+                           f"Quote posters available:\n{poster_list or 'none'}\n\n"
+                           f"Leads (id|name|city|type|rating|reviews):\n{listing}")
+
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    poster_base = f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    queue = []
+    for l in leads:
+        c = data.get(l["id"]) or {}
+        body_txt = str(c.get("message") or "").strip()
+        if not body_txt:
+            continue
+        resto = (l.get("vertical") or "salon") == "restaurant"
+        want_v = "restaurant" if resto else "salon"
+        pick = str(c.get("quote") or "")
+        pick_ok = any(x["id"] == pick and x["vertical"] == want_v for x in _WA_QUOTES)
+        poster_url = posters.get(pick) if pick_ok else None
+        if not poster_url:  # fallback: first poster matching the vertical
+            fallback = next((x["id"] for x in _WA_QUOTES
+                             if x["vertical"] == want_v and x["id"] in posters), None)
+            poster_url = posters.get(fallback)
+        tail = (f"\n\n🖼️ {poster_base}{poster_url}" if poster_url else "") + (
+            f"\n🎬 Live demo: {base}/demo"
+            f"\n🏪 Start free: {base}/{'signup-restaurant' if resto else 'signup-salon'}"
+            "\n\nReply here for a *free 15-min demo* ✨")
+        msg = body_txt + tail
+        await _raw_db.mira_leads.update_one(
+            {"id": l["id"]}, {"$set": {"wa_draft": msg, "wa_draft_at": _now()}})
+        queue.append({"id": l["id"], "name": l["name"], "city": l.get("city", ""),
+                      "vertical": l.get("vertical") or "salon",
+                      "phone": _wa_phone(l.get("phone", "")), "message": msg})
+    return {"queue": queue}

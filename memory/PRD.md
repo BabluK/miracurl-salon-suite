@@ -2436,3 +2436,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## Session 2026-06 (fork) — WA invite → lead card tracking
 - POST /api/super-admin/wa-invite now also creates/updates a mira_leads card via _track_manual_wa_lead (lead_gen.py): dedupes by last-10 phone digits, new leads get status "sent"/sent_via whatsapp/source "manual_wa", never downgrades demo/customer/replied. Returns lead_id + lead_new.
 - WaQuickInvite.jsx: onLead prop (MiraLeadAgent passes refresh) + toast mentions lead card. Verified via curl: create, dedupe (+91 format variants), stage→demo, no-downgrade on re-invite, delete cleanup. release_notes bumped to .147.
+
+## Session 2026-06 (fork) — WhatsApp Blast + AI quote posters
+- 4 branded quote posters (user's "Hey Salon Owner! Stop juggling 10 softwares…" + 3 agent quotes, q4=restaurant): AI bg via _gen_image_bytes + exact-text Pillow overlay (_compose_quote_poster in lead_gen.py, fonts from assets/fonts). Endpoints: GET/POST /api/super-admin/wa-posters(/generate) — background job, state in wa_quote_posters + system_flags key wa_posters_job. Posters generated & verified (preview).
+- POST /api/super-admin/wa-blast/prepare {vertical, run_id, limit<=30}: picks uncontacted leads with phones (researched/drafted/no_email), ONE batch LLM call composes personalized varied WhatsApp msgs (mentions rating/city), appends vertical-matched poster link (request-host base) + demo/signup links (APP_PUBLIC_URL), saves wa_draft, returns queue.
+- UI: WaBlastModal.jsx (setup→composing→queue→done rapid-fire, editable message, Open WhatsApp & mark sent / Skip) + emerald "WhatsApp Blast" button in MiraLeadAgent (wa-blast-open-btn). Verified e2e via screenshot: posters grid, compose 6 leads, queue advance + whatsapp-sent marking. Test data cleaned. release_notes → .148.
+- NOTE: production needs deploy + one click of "Mira, paint the posters" there (posters live per-environment DB).

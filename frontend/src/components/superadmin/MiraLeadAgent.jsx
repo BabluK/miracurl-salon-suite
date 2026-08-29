@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Trash2, MessageCircle, Video, Phone, BellRing, FileText, Target, BadgeCheck, Mail, CalendarCheck, Trophy, Sparkles } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { WaQuickInvite } from "@/components/superadmin/WaQuickInvite";
+import { WaBlastModal } from "@/components/superadmin/WaBlastModal";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -654,6 +655,7 @@ export function MiraLeadAgent() {
   const [roi, setRoi] = useState(null);
   const [starting, setStarting] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [blastOpen, setBlastOpen] = useState(false);
   const pollRef = useRef(null);
 
   const refresh = useCallback(async () => {
@@ -785,6 +787,11 @@ export function MiraLeadAgent() {
           📞 Mira Call Hot Leads
         </button>
         <AutoCallToggle />
+        <button data-testid="wa-blast-open-btn" onClick={() => setBlastOpen(true)}
+          className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold inline-flex items-center gap-2 hover:bg-emerald-700"
+          title="Mira composes a personalized WhatsApp message for every uncontacted lead — you tap through and send">
+          <MessageCircle className="w-4 h-4" /> WhatsApp Blast
+        </button>
         <button data-testid="lead-hunt-all-btn"
           disabled={starting || !!activeRun}
           onClick={async () => {
@@ -839,6 +846,7 @@ export function MiraLeadAgent() {
         {leads.length > 0 && shownLeads.length === 0 && <p className="text-sm text-slate-400 text-center py-8" data-testid="lead-filter-empty">No leads in this bucket.</p>}
         {shownLeads.map(l => <LeadRow key={l.id} lead={l} onRefresh={() => refresh().catch(() => {})} />)}
       </div>
+      {blastOpen && <WaBlastModal vertical={vertical} runId={runs[0]?.id} onClose={() => setBlastOpen(false)} onRefresh={() => refresh().catch(() => {})} />}
     </div>
   );
 }
