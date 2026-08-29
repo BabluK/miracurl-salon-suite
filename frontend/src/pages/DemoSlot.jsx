@@ -39,9 +39,13 @@ export default function DemoSlot() {
   const pretty = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
 
   return (
-    <div className="min-h-screen bg-[#15151b] text-[#f4f1e8] flex items-center justify-center px-4 py-10" data-testid="demo-slot-page">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen bg-[#15151b] text-[#f4f1e8] flex items-center justify-center px-4 py-10 relative overflow-hidden" data-testid="demo-slot-page">
+      <img src="/assets/mira-outreach-hero.png" alt="" aria-hidden="true"
+        className="fixed inset-0 w-full h-full object-cover opacity-[0.16] pointer-events-none" />
+      <div className="fixed inset-0 bg-gradient-to-b from-[#15151b]/60 via-[#15151b]/80 to-[#15151b] pointer-events-none" />
+      <div className="w-full max-w-lg relative z-10">
         <div className="text-center mb-8">
+          <img src="/assets/ms-logo-gold.png" alt="Miracurl Suite" className="h-16 w-auto mx-auto mb-4 drop-shadow-[0_0_18px_rgba(212,175,55,0.35)]" data-testid="demo-slot-logo" />
           <div className="font-serif text-3xl tracking-[.3em] text-[#d4af37]">MIRACURL</div>
           <div className="text-[11px] tracking-[.25em] text-[#8f8798] mt-1">THE ALL-IN-ONE SALON SUITE</div>
         </div>

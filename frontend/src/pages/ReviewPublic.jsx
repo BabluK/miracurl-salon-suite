@@ -127,14 +127,27 @@ export default function ReviewPublic() {
   );
 
   return (
-    <div className="min-h-screen bg-bg-base text-ink-primary flex flex-col" data-testid="review-page">
+    <div className="min-h-screen bg-bg-base text-ink-primary flex flex-col relative" data-testid="review-page">
       <Toaster theme="dark" position="top-center" toastOptions={TOAST_OPTIONS} />
+      {(() => { const bgImg = info?.hero_image || "/assets/loyalty-bgs/deco.jpg"; return (
+        <>
+          <img src={bgImg} alt="" aria-hidden="true"
+            className="fixed inset-0 w-full h-full object-cover opacity-25 pointer-events-none" />
+          <div className="fixed inset-0 bg-gradient-to-b from-bg-base/70 via-bg-base/85 to-bg-base pointer-events-none" />
+        </>
+      ); })()}
 
-      <header className="border-b border-white/5 py-4">
+      <header className="border-b border-white/5 py-4 relative z-10 backdrop-blur-sm">
         <div className="max-w-2xl mx-auto px-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
-            <Scissors className="w-5 h-5 text-bg-base" />
-          </div>
+          {info?.logo_url ? (
+            <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-gold/70 shadow-gold-glow bg-bg-base" data-testid="review-salon-logo">
+              <img src={info.logo_url} alt={brandName} className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
+              <Scissors className="w-5 h-5 text-bg-base" />
+            </div>
+          )}
           <div>
             <div className="font-playfair text-xl" data-testid="review-brand">{brandName}</div>
             <div className="text-[10px] tracking-[0.25em] uppercase text-gold">Rate Your Visit</div>
@@ -142,7 +155,7 @@ export default function ReviewPublic() {
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-6">
+      <main className="flex-1 flex items-center justify-center p-6 relative z-10">
         {!submitted ? (
           <div className="card-luxe max-w-xl w-full">
             <div className="text-center">

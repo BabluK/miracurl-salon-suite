@@ -1515,3 +1515,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - invoice_edits.py: before-snapshot now includes customer_name (so guest renames are auditable).
 - UpdatedBillsCard.jsx rewritten diff renderer: VOID badge + reason, guest rename before→after, mode/total/discount diffs, per-item price & qty diffs (+added/−removed items), safe for old void records (no .items crash), shows edited_by_account. BillLookup caption points owners to the audit trail.
 - Verified: API edit → audit record with name change captured; Settings UI screenshot shows 3 records with full diffs behind Owner PIN.
+
+## 2026-06 (fork) — Branded review + demo-slot pages
+- reviews.py public_review_info now returns logo_url + hero_image. ReviewPublic.jsx: tenant logo (gold-ring circle) in header, fixed dimmed background (tenant hero_image, fallback /assets/loyalty-bgs/deco.jpg), content z-10.
+- DemoSlot.jsx: /assets/ms-logo-gold.png emblem above wordmark + /assets/mira-outreach-hero.png as 16%-opacity fixed backdrop with gradient overlay.
+- Screenshot-verified both. BUILD 2026-08-29.140.

@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-28.139"
+BUILD = "2026-08-29.140"
 BUILD_TIME = "28 Aug 2026, 01:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "💛 Branded review & demo pages — every salon's review link now carries the salon's own logo in the header with an elegant background (uses your booking hero image when set), and the demo-slot page got the Miracurl emblem with a golden backdrop",
             "🕵️ Edit Audit Viewer upgraded — Settings → Updated Bills now shows exactly who changed what and when on every bill: guest renames, payment-mode switches, per-item price/qty changes, discount changes and voids with reasons (Owner-PIN protected)",
             "🚧 Cross-business cart leak fixed — POS parallel-bill drafts and kitchen→POS handoffs are now saved per business, so a restaurant table's cart can never appear inside a salon's POS on a shared browser (the two leaked 'Dine-in Guest' bills in the salon were voided and removed from CRM)",
             "🪙 One-tap points redeem — POS shows a 'Redeem' button only when the guest actually has eligible points; one tap applies the maximum allowed for this visit",

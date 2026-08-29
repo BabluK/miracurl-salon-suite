@@ -173,12 +173,16 @@ async def public_review_info(token: str, request: Request):
     salon_name = None
     salon_location = None
     g_url = ""
+    logo_url = ""
+    hero_image = ""
     if appt.get("tenant_id"):
-        t = await _raw_db.tenants.find_one({"id": appt["tenant_id"]}, {"_id": 0, "name": 1, "location": 1, "google_review_url": 1})
+        t = await _raw_db.tenants.find_one({"id": appt["tenant_id"]}, {"_id": 0, "name": 1, "location": 1, "google_review_url": 1, "logo_url": 1, "hero_image": 1})
         if t:
             salon_name = t.get("name")
             salon_location = t.get("location")
             g_url = (t.get("google_review_url") or "").strip()
+            logo_url = t.get("logo_url") or ""
+            hero_image = t.get("hero_image") or ""
     return {
         "customer_name": appt["customer_name"],
         "staff_name": appt.get("staff_name"),
@@ -188,6 +192,8 @@ async def public_review_info(token: str, request: Request):
         "existing_rating": existing.get("rating") if existing else None,
         "salon_name": salon_name,
         "salon_location": salon_location,
+        "logo_url": logo_url,
+        "hero_image": hero_image,
         "google_review_url": g_url if g_url.startswith("http") else "",
     }
 
