@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Trash2, MessageCircle, Video, Phone, BellRing, FileText, Target, BadgeCheck, Mail, CalendarCheck, Trophy, Sparkles } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
+import { WaQuickInvite } from "@/components/superadmin/WaQuickInvite";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -727,6 +728,8 @@ export function MiraLeadAgent() {
       <RoiPanel roi={roi} />
 
       <ReplyInbox />
+
+      <WaQuickInvite />
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-3">
         <div>

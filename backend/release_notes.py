@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-29.144"
-BUILD_TIME = "29 Aug 2026, 02:30 PM IST"
+BUILD = "2026-08-29.146"
+BUILD_TIME = "29 Aug 2026, 04:15 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "💬 WhatsApp Invite quick-send — new section in Super Admin → Mira Lead Agent: paste any phone number you found on Google Maps (e.g. 09148054415), pick Salon or Restaurant, and Mira opens WhatsApp with the full Miracurl pitch (pricing, demo video, brochure links) ready to send; recent invites are listed so you never message the same number twice",
+            "🧹 Data Cleanup now removes TEST STAFF too — Super Admin → Clean test data finds staff whose name starts with TEST/DUMMY (leftovers from test runs that were polluting the 'Late arrivals today' owner emails), shows exactly who'll be removed, and deletes them along with their attendance & late-alert records in one click",
             "📸 Dish photos on your menus — appetizing photos now appear next to every dish on the QR table-order page AND the public booking page; guests tap any photo to see it full-size with the dish name & price (Mira paints missing photos automatically from Services → 'Generate missing images', and you can replace any with your own real photo anytime)",
             "🌶 Spice preference on table reservations — while booking, diners set Not spicy / Normal / Spicy for every dish they pre-pick, and choose 💵 Pay on Counter or 📱 Pay by UPI; both arrive with the booking notes for your team",
             "⏱ 'Always on time' staff — owners/admins can flag trusted staff on the Staff page; they're automatically marked checked-in at shift start and checked-out at shift end every day, and attendance reports show a green '⏱ auto' badge so you spot them at a glance",

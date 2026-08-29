@@ -2427,3 +2427,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## Session 2026-06 (fork) — TEST staff cleanup (preview)
 - Deleted leftover test staff (TEST MarkLeft, TEST Staff, TEST_Stylist) + 51 attendance + 93 late_alerts records from PREVIEW DB (they were polluting the "Late arrivals today" owner digest email).
 - USER SAID the email came from PRODUCTION — production likely has its own TEST staff records. Cannot edit prod data directly; pending option: extend routes/data_cleanup.py (super-admin Data Cleanup tool) to scan/purge dummy-named STAFF too, then deploy so user can purge prod with one click. User declined this for now — offer again.
+
+## Session 2026-06 (fork) — Prod staff purge + WhatsApp quick invite
+- Data Cleanup tool (routes/data_cleanup.py + DummyCleanupModal.jsx) now also scans/purges TEST STAFF (name starts TEST/DUMMY, regex _TEST_STAFF_NAME) + their attendance & late_alerts. Verified e2e (seeded TEST PurgeMe → scan=1 → purge → rescan=0) + UI modal shows "Test staff" tile & samples. NEEDS DEPLOY for user to purge production.
+- WhatsApp Invite quick-send: POST /api/super-admin/wa-invite {phone, vertical, name?, city?} → normalizes phone (_wa_phone: 09148054415→919148054415), builds vertical-specific pitch via existing _wa_message, logs to manual_wa_invites, returns wa.me URL. GET /api/super-admin/wa-invite/recent (last 10). UI: components/superadmin/WaQuickInvite.jsx mounted in MiraLeadAgent panel (testids wa-quick-*). _wa_message tweaked: city omitted gracefully when empty.
+- release_notes.py bumped to 2026-08-29.146.

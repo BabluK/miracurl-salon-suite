@@ -1030,11 +1030,12 @@ async def _wa_message(lead: dict) -> str:
         annual = int(plans[("intl_pro_annual" if intl else "annual")]["price"])
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     intro = f"Hi {lead.get('owner_name') or lead['name'] + ' team'}! 👋\n"
+    loc = f" in {lead['city']}" if lead.get("city") else ""
     if lead.get("rating"):
         reviews = f" with {lead['reviews']} reviews" if lead.get("reviews") else ""
-        intro += f"Came across your {noun} in {lead.get('city', '')} — {lead['rating']}⭐{reviews} is truly impressive!\n\n"
+        intro += f"Came across your {noun}{loc} — {lead['rating']}⭐{reviews} is truly impressive!\n\n"
     else:
-        intro += f"Came across your {noun} in {lead.get('city', '')} and had to reach out!\n\n"
+        intro += f"Came across your {noun}{loc} and had to reach out!\n\n"
     video = os.environ.get("DEMO_VIDEO_URL") or f"{base}/miracurl-demo-60s.mp4"
     video_line = f"🎥 60-sec walkthrough video: {video}\n"
     pitch = ("I'm Mira from *Miracurl Suite* — the all-in-one restaurant platform: QR table ordering straight "
@@ -1067,6 +1068,37 @@ async def whatsapp_link(lid: str, user=Depends(require_super_admin)):
         raise HTTPException(400, "No phone number on this lead.")
     msg = await _wa_message(lead)
     return {"wa_url": f"https://wa.me/{phone}?text={quote(msg)}", "phone": phone, "message": msg}
+
+
+class ManualWaInviteIn(BaseModel):
+    phone: str = Field(..., min_length=8, max_length=24)
+    vertical: str = Field("salon", pattern="^(salon|restaurant)$")
+    name: str = Field("", max_length=100)
+    city: str = Field("", max_length=60)
+
+
+@router.post("/super-admin/wa-invite")
+async def manual_wa_invite(body: ManualWaInviteIn, user=Depends(require_super_admin)):
+    """WhatsApp invite for a number found manually (e.g. on Google Maps)."""
+    from urllib.parse import quote
+    phone = _wa_phone(body.phone)
+    if len(phone) < 10:
+        raise HTTPException(400, "That doesn't look like a valid phone number")
+    name = body.name.strip()
+    lead = {"name": name, "owner_name": "" if name else "there",
+            "vertical": body.vertical, "city": body.city.strip()}
+    msg = await _wa_message(lead)
+    await _raw_db.manual_wa_invites.insert_one({
+        "id": str(uuid.uuid4()), "phone": phone, "vertical": body.vertical,
+        "name": name, "city": body.city.strip(), "by": user.get("email", ""),
+        "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"wa_url": f"https://wa.me/{phone}?text={quote(msg)}", "phone": phone, "message": msg}
+
+
+@router.get("/super-admin/wa-invite/recent")
+async def recent_manual_wa_invites(user=Depends(require_super_admin)):
+    rows = await _raw_db.manual_wa_invites.find({}, {"_id": 0}).sort("created_at", -1).to_list(10)
+    return {"items": rows}
 
 
 async def run_lead_auto_nudge() -> dict:
