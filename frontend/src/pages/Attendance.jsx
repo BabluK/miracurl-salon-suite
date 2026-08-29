@@ -266,6 +266,10 @@ export default function Attendance() {
                     {r.check_in_method === "qr" && (
                       <span className="ml-1.5 text-[9px] uppercase text-sky-500 font-semibold" title="Checked in via desk QR">qr</span>
                     )}
+                    {r.check_in_method === "auto_always_on_time" && (
+                      <span data-testid={`auto-ontime-badge-${r.staff_id}`} title="Auto-marked — flagged 'Always on time' by owner/admin"
+                        className="ml-1.5 inline-flex items-center text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">⏱ auto</span>
+                    )}
                     {r.week_off_override && (
                       <span data-testid={`week-off-worked-${r.staff_id}`} title="Worked on their week-off day — confirmed owner approval at check-in"
                         className="ml-1.5 inline-flex items-center text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 border border-teal-200">week-off ⚠</span>
@@ -276,6 +280,10 @@ export default function Attendance() {
                     {r.check_out_method === "manual_admin" && (
                       <span title={r.marked_by ? `Marked by ${r.marked_by}` : "Marked by owner"}
                         className="ml-1.5 inline-flex items-center text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">by owner</span>
+                    )}
+                    {r.check_out_method === "auto_always_on_time" && (
+                      <span title="Auto-marked — flagged 'Always on time' by owner/admin"
+                        className="ml-1.5 inline-flex items-center text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">⏱ auto</span>
                     )}
                     {r.check_out_at && r.record_id && (
                       <button data-testid={`undo-checkout-${r.staff_id}`}

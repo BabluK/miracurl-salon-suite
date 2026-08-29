@@ -2,14 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-29.141"
+BUILD = "2026-08-29.142"
 BUILD_TIME = "28 Aug 2026, 01:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
-            "⏱ 'Always on time' staff — owners/admins can flag trusted staff on the Staff page; they're automatically marked checked-in at shift start and checked-out at shift end every day",
+            "⏱ 'Always on time' staff — owners/admins can flag trusted staff on the Staff page; they're automatically marked checked-in at shift start and checked-out at shift end every day, and attendance reports show a green '⏱ auto' badge so you spot them at a glance",
             "🎨 Loyalty poster logo styles — choose Circle, Square or Blend-with-background for your logo on the Loyalty Club poster (logos now fit perfectly, no more cropping), alongside the background picker",
             "🌟 Review page glow-up — a luxurious golden salon backdrop now sits behind every rate-your-visit page (your own booking hero image is used when set)",
             "💛 Branded review & demo pages — every review link now opens with the same elegant cream header as your public booking page (your logo in a gold ring + 'Powered by Mira AI'), and the demo-slot page now matches the Miracurl Suite login look (MS emblem, white canvas with rose-gold glow)",

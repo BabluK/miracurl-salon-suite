@@ -72,22 +72,22 @@ export default function DemoSlot() {
         )}
 
         {info && !done && !err && (
-          <div className="bg-[#1d1d24] border border-white/5 rounded-2xl p-7 space-y-6">
+          <div className="bg-white/90 backdrop-blur-xl border border-[#eadfc6] rounded-3xl p-7 space-y-6 shadow-[0_24px_60px_rgba(180,140,50,0.18)]">
             <div>
-              <h1 className="font-serif text-2xl leading-snug">
+              <h1 className="font-serif text-2xl leading-snug bg-gradient-to-r from-[#8a6d1f] via-[#c99a2e] to-[#8a6d1f] bg-clip-text text-transparent font-semibold">
                 {info.name ? `${info.name}, pick` : "Pick"} a time that suits you ✦
               </h1>
-              <p className="text-xs text-[#8f8798] mt-2 leading-relaxed">
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
                 A relaxed 20-minute walkthrough of the Miracurl Suite — bookings, POS, staff and your 12-agent AI team. No obligation, ever.
               </p>
             </div>
 
             <div>
-              <p className="text-[11px] tracking-widest text-[#9a8f6d] font-semibold mb-2 flex items-center gap-1.5"><CalendarCheck className="w-3.5 h-3.5" /> CHOOSE A DAY</p>
+              <p className="text-[11px] tracking-widest text-[#a5926a] font-bold mb-2 flex items-center gap-1.5"><CalendarCheck className="w-3.5 h-3.5" /> CHOOSE A DAY</p>
               <div className="grid grid-cols-4 gap-2">
                 {info.dates.map(d => (
                   <button key={d} onClick={() => setDate(d)} data-testid={`demo-slot-date-${d}`}
-                    className={`px-2 py-2.5 rounded-xl text-xs font-medium transition-colors ${date === d ? "bg-[#d4af37] text-[#15151b]" : "bg-white/5 text-[#c9c2b4] hover:bg-white/10"}`}>
+                    className={`px-2 py-2.5 rounded-xl text-xs font-semibold transition-all ${date === d ? "bg-gradient-to-r from-[#d4af37] to-[#b08d3f] text-white shadow-md scale-[1.03]" : "bg-[#faf6ec] text-slate-600 border border-[#eadfc6] hover:border-[#d4af37]"}`}>
                     {pretty(d)}
                   </button>
                 ))}
@@ -95,11 +95,11 @@ export default function DemoSlot() {
             </div>
 
             <div>
-              <p className="text-[11px] tracking-widest text-[#9a8f6d] font-semibold mb-2 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> CHOOSE A TIME (IST)</p>
+              <p className="text-[11px] tracking-widest text-[#a5926a] font-bold mb-2 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> CHOOSE A TIME (IST)</p>
               <div className="grid grid-cols-4 gap-2">
                 {info.times.map(t => (
                   <button key={t} onClick={() => setTime(t)} data-testid={`demo-slot-time-${t}`}
-                    className={`px-2 py-2.5 rounded-xl text-xs font-medium transition-colors ${time === t ? "bg-[#d4af37] text-[#15151b]" : "bg-white/5 text-[#c9c2b4] hover:bg-white/10"}`}>
+                    className={`px-2 py-2.5 rounded-xl text-xs font-semibold transition-all ${time === t ? "bg-gradient-to-r from-[#d4af37] to-[#b08d3f] text-white shadow-md scale-[1.03]" : "bg-[#faf6ec] text-slate-600 border border-[#eadfc6] hover:border-[#d4af37]"}`}>
                     {t}
                   </button>
                 ))}
@@ -107,22 +107,22 @@ export default function DemoSlot() {
             </div>
 
             <div>
-              <p className="text-[11px] tracking-widest text-[#9a8f6d] font-semibold mb-2 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> PHONE (OPTIONAL)</p>
+              <p className="text-[11px] tracking-widest text-[#a5926a] font-bold mb-2 flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> PHONE (OPTIONAL)</p>
               <input value={phone} onChange={e => setPhone(e.target.value)} maxLength={20} data-testid="demo-slot-phone-input"
                 placeholder="So we can call you at the chosen time"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-[#f4f1e8] placeholder:text-[#6d675c] focus:outline-none focus:border-[#d4af37]/60" />
+                className="w-full bg-[#faf6ec] border border-[#eadfc6] rounded-xl px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#d4af37]" />
             </div>
 
             <button onClick={book} disabled={!date || !time || busy} data-testid="demo-slot-confirm-btn"
-              className="w-full bg-[#d4af37] text-[#15151b] font-bold text-sm py-4 rounded-full disabled:opacity-30 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+              className="w-full bg-gradient-to-r from-[#d4af37] via-[#c99a2e] to-[#b08d3f] text-white font-bold text-sm py-4 rounded-full disabled:opacity-40 hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-[0_10px_28px_rgba(180,140,50,0.4)]">
               <Sparkles className="w-4 h-4" /> {busy ? "Booking…" : "Confirm my demo slot"}
             </button>
-            {err && <p className="text-xs text-rose-300 text-center">{err}</p>}
+            {err && <p className="text-xs text-rose-500 text-center">{err}</p>}
           </div>
         )}
 
-        {!info && !err && <div className="text-center text-sm text-[#8f8798]">Loading…</div>}
-        <p className="text-center text-[10px] text-[#6d675c] mt-6">© Miracurl Suite · miracurl-suite.com</p>
+        {!info && !err && <div className="text-center text-sm text-slate-400">Loading…</div>}
+        <p className="text-center text-[10px] text-slate-400 mt-6">© Miracurl Suite · miracurl-suite.com</p>
       </div>
     </div>
   );

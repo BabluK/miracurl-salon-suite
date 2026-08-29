@@ -1532,3 +1532,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Loyalty poster: _shaped_logo() in loyalty_stamps.py — circle (contain-fit 66%, fixes cropping), square (rounded white card), blend (logo alpha straight onto bg). logo_shape query param on /settings/loyalty-qr-poster.png + persisted option in StampSettingsIn (validated set). LoyaltyStampsCard: "Logo style on poster" chooser (loyalty-logo-shape-{k} testids).
 - Review page: AI-generated luxe salon bg saved at /assets/review-bg.jpg (fallback when tenant hero_image absent), opacity 0.6 + gradient. Screenshot verified.
 - Tested: toggle endpoint true/false via curl; posters 200 for all 3 shapes and visually verified. BUILD .141.
+
+## 2026-06 (fork) — On-time badge + demo-slot polish
+- Attendance.jsx: emerald "⏱ auto" badge on check-in AND check-out cells when method == auto_always_on_time (testid auto-ontime-badge-{staff_id}). Verified via seeded record (cleaned up after).
+- DemoSlot.jsx card restyled to light luxe: white/90 blur card, gold-gradient heading, cream chips w/ gold-gradient selected state, gold gradient CTA — matches login design. Screenshot verified.
+- BUILD .142.
