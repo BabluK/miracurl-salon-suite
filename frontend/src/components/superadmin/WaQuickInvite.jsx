@@ -3,7 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { MessageCircle, Loader2 } from "lucide-react";
 
-export function WaQuickInvite() {
+export function WaQuickInvite({ onLead }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
@@ -23,8 +23,11 @@ export function WaQuickInvite() {
         { phone: phone.trim(), vertical, name: name.trim(), city: city.trim() });
       window.open(data.wa_url, "_blank");
       setPreview(data.message);
-      toast.success(`WhatsApp opened for +${data.phone} 💬`);
+      toast.success(data.lead_new
+        ? `WhatsApp opened for +${data.phone} 💬 — lead card created, replies & demos will be tracked 📇`
+        : `WhatsApp opened for +${data.phone} 💬 — existing lead card updated 📇`);
       loadRecent();
+      onLead?.();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't build the invite"); }
     finally { setBusy(false); }
   };
@@ -35,7 +38,7 @@ export function WaQuickInvite() {
         <MessageCircle className="w-4 h-4 text-emerald-500" /> WhatsApp Invite — quick send
       </h3>
       <p className="text-xs text-slate-500 mt-0.5 mb-3">
-        Found a number on Google Maps? Paste it here — Mira writes the full Miracurl pitch (pricing, demo video, brochure links) and opens WhatsApp ready to send.
+        Found a number on Google Maps? Paste it here — Mira writes the full Miracurl pitch (pricing, demo video, brochure links) and opens WhatsApp ready to send. Every invite becomes a lead card below, so replies & demos get tracked.
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200" data-testid="wa-quick-vertical-toggle">

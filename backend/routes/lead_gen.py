@@ -1077,6 +1077,32 @@ class ManualWaInviteIn(BaseModel):
     city: str = Field("", max_length=60)
 
 
+async def _track_manual_wa_lead(phone: str, body, editor_email: str) -> dict:
+    """Turn a quick WhatsApp invite into a lead card (dedupe by last-10 phone digits)."""
+    last10 = phone[-10:]
+    existing = None
+    async for l in _raw_db.mira_leads.find({"phone": {"$nin": [None, ""]}}, {"_id": 0, "id": 1, "phone": 1, "status": 1}):
+        digits = "".join(ch for ch in l["phone"] if ch.isdigit())
+        if digits[-10:] == last10:
+            existing = l
+            break
+    if existing:
+        if existing.get("status") not in ("demo", "customer", "replied"):
+            await _raw_db.mira_leads.update_one(
+                {"id": existing["id"]},
+                {"$set": {"status": "sent", "sent_via": "whatsapp", "sent_at": _now(),
+                          "approved_by": editor_email}})
+        return {"lead_id": existing["id"], "lead_new": False}
+    lead = {"id": str(uuid.uuid4()), "name": body.name.strip() or f"WhatsApp lead +{phone}",
+            "city": body.city.strip(), "vertical": body.vertical, "phone": f"+{phone}",
+            "email": "", "website": "", "rating": None, "reviews": 0,
+            "score": 0, "score_breakdown": [], "crm": False, "source": "manual_wa",
+            "status": "sent", "sent_via": "whatsapp", "sent_at": _now(),
+            "approved_by": editor_email, "created_at": _now()}
+    await _raw_db.mira_leads.insert_one(lead)
+    return {"lead_id": lead["id"], "lead_new": True}
+
+
 @router.post("/super-admin/wa-invite")
 async def manual_wa_invite(body: ManualWaInviteIn, user=Depends(require_super_admin)):
     """WhatsApp invite for a number found manually (e.g. on Google Maps)."""
@@ -1092,7 +1118,9 @@ async def manual_wa_invite(body: ManualWaInviteIn, user=Depends(require_super_ad
         "id": str(uuid.uuid4()), "phone": phone, "vertical": body.vertical,
         "name": name, "city": body.city.strip(), "by": user.get("email", ""),
         "created_at": datetime.now(timezone.utc).isoformat()})
-    return {"wa_url": f"https://wa.me/{phone}?text={quote(msg)}", "phone": phone, "message": msg}
+    tracked = await _track_manual_wa_lead(phone, body, user.get("email", ""))
+    return {"wa_url": f"https://wa.me/{phone}?text={quote(msg)}", "phone": phone,
+            "message": msg, **tracked}
 
 
 @router.get("/super-admin/wa-invite/recent")

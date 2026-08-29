@@ -2432,3 +2432,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Data Cleanup tool (routes/data_cleanup.py + DummyCleanupModal.jsx) now also scans/purges TEST STAFF (name starts TEST/DUMMY, regex _TEST_STAFF_NAME) + their attendance & late_alerts. Verified e2e (seeded TEST PurgeMe → scan=1 → purge → rescan=0) + UI modal shows "Test staff" tile & samples. NEEDS DEPLOY for user to purge production.
 - WhatsApp Invite quick-send: POST /api/super-admin/wa-invite {phone, vertical, name?, city?} → normalizes phone (_wa_phone: 09148054415→919148054415), builds vertical-specific pitch via existing _wa_message, logs to manual_wa_invites, returns wa.me URL. GET /api/super-admin/wa-invite/recent (last 10). UI: components/superadmin/WaQuickInvite.jsx mounted in MiraLeadAgent panel (testids wa-quick-*). _wa_message tweaked: city omitted gracefully when empty.
 - release_notes.py bumped to 2026-08-29.146.
+
+## Session 2026-06 (fork) — WA invite → lead card tracking
+- POST /api/super-admin/wa-invite now also creates/updates a mira_leads card via _track_manual_wa_lead (lead_gen.py): dedupes by last-10 phone digits, new leads get status "sent"/sent_via whatsapp/source "manual_wa", never downgrades demo/customer/replied. Returns lead_id + lead_new.
+- WaQuickInvite.jsx: onLead prop (MiraLeadAgent passes refresh) + toast mentions lead card. Verified via curl: create, dedupe (+91 format variants), stage→demo, no-downgrade on re-invite, delete cleanup. release_notes bumped to .147.

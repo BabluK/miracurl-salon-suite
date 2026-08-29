@@ -729,7 +729,7 @@ export function MiraLeadAgent() {
 
       <ReplyInbox />
 
-      <WaQuickInvite />
+      <WaQuickInvite onLead={refresh} />
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-3">
         <div>
