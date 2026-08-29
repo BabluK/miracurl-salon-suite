@@ -1537,3 +1537,8 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - Attendance.jsx: emerald "⏱ auto" badge on check-in AND check-out cells when method == auto_always_on_time (testid auto-ontime-badge-{staff_id}). Verified via seeded record (cleaned up after).
 - DemoSlot.jsx card restyled to light luxe: white/90 blur card, gold-gradient heading, cream chips w/ gold-gradient selected state, gold gradient CTA — matches login design. Screenshot verified.
 - BUILD .142.
+
+## 2026-06 (fork) — Restaurant reservation: spice prefs + payment choice
+- BookPublic.jsx (restaurant, step 2 extras): per-picked-dish spice chips (Not spicy/Normal/Spicy, default Normal; testids spice-{serviceId}-{v}) + payment choice chips paypref-counter/paypref-upi (default counter).
+- On submit, appended into booking notes: "Spice — Dish: Pref; ..." + "Payment: Pay by UPI/Pay on Counter" (no backend change; visible wherever booking notes show — admin bookings & kitchen).
+- UI verified via screenshot (dish chips + upi click). BUILD .143.

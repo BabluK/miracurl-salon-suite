@@ -219,6 +219,8 @@ export default function BookPublic() {
   const [staffId, setStaffId] = useState("");
   const [partySize, setPartySize] = useState(2);
   const [seating, setSeating] = useState("any");
+  const [spiceMap, setSpiceMap] = useState({});
+  const [payPref, setPayPref] = useState("counter");
   const [date, setDate] = useState(localToday);
   const [time, setTime] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
@@ -317,6 +319,16 @@ export default function BookPublic() {
     setBusy(true);
     try {
       const scheduled = `${date}T${time}:00+05:30`;
+      const isResto2 = salon?.business_type === "restaurant";
+      let notesOut = form.notes || "";
+      if (isResto2) {
+        const SPICE_LBL = { not_spicy: "Not spicy", normal: "Normal", spicy: "Spicy 🌶" };
+        const spiceLines = pickedServices.map(s => `${s.name}: ${SPICE_LBL[spiceMap[s.id] || "normal"]}`);
+        const extras = [];
+        if (spiceLines.length) extras.push(`Spice — ${spiceLines.join("; ")}`);
+        extras.push(`Payment: ${payPref === "upi" ? "Pay by UPI" : "Pay on Counter"}`);
+        notesOut = [notesOut, ...extras].filter(Boolean).join("\n");
+      }
       const { data } = await PUBLIC.post(`/book/${slug}`, {
         customer_name: form.name.trim(),
         customer_phone: form.phone.trim(),
@@ -325,7 +337,7 @@ export default function BookPublic() {
         service_ids: picked,
         staff_id: staffId || null,
         scheduled_at: scheduled,
-        notes: form.notes || null,
+        notes: notesOut || null,
         referral_code: form.referral_code.trim().toUpperCase() || null,
         coupon_code: couponCheck?.valid ? form.coupon_code.trim().toUpperCase() : null,
         party_size: salon?.business_type === "restaurant" ? partySize : null,
@@ -633,6 +645,38 @@ export default function BookPublic() {
                     {[["any", "✨ Any"], ["indoor", "🏠 Indoor"], ["outdoor", "🌿 Outdoor"]].map(([v, l]) => (
                       <button key={v} data-testid={`seating-${v}`} onClick={() => setSeating(v)}
                         className={`px-4 py-2.5 rounded-full border text-xs font-bold transition-colors ${seating === v ? "bg-gold text-bg-base border-gold" : "border-white/15 text-white/70 hover:border-gold/50"}`}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {pickedServices.length > 0 && (
+                  <div className="sm:col-span-2" data-testid="spice-prefs-block">
+                    <div className="text-[10px] tracking-[0.25em] uppercase text-gold mb-2">Spice preference — per dish</div>
+                    <div className="space-y-2">
+                      {pickedServices.map(s => (
+                        <div key={s.id} className="flex items-center justify-between gap-3 flex-wrap bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                          <span className="text-xs text-white/85 font-medium">{s.name}</span>
+                          <div className="flex gap-1.5">
+                            {[["not_spicy", "🥛 Not spicy"], ["normal", "🙂 Normal"], ["spicy", "🌶 Spicy"]].map(([v, l]) => (
+                              <button key={v} data-testid={`spice-${s.id}-${v}`}
+                                onClick={() => setSpiceMap(m => ({ ...m, [s.id]: v }))}
+                                className={`px-2.5 py-1.5 rounded-full border text-[11px] font-bold transition-colors ${(spiceMap[s.id] || "normal") === v ? "bg-gold text-bg-base border-gold" : "border-white/15 text-white/70 hover:border-gold/50"}`}>
+                                {l}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="sm:col-span-2">
+                  <div className="text-[10px] tracking-[0.25em] uppercase text-gold mb-2">How would you like to pay?</div>
+                  <div className="flex gap-2">
+                    {[["counter", "💵 Pay on Counter"], ["upi", "📱 Pay by UPI"]].map(([v, l]) => (
+                      <button key={v} data-testid={`paypref-${v}`} onClick={() => setPayPref(v)}
+                        className={`px-4 py-2.5 rounded-full border text-xs font-bold transition-colors ${payPref === v ? "bg-gold text-bg-base border-gold" : "border-white/15 text-white/70 hover:border-gold/50"}`}>
                         {l}
                       </button>
                     ))}
