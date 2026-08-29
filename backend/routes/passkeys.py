@@ -159,7 +159,7 @@ async def pk_login_verify(body: CredIn, request: Request, response: Response):
             expected_challenge=base64url_to_bytes(row["challenge"]),
             expected_rp_id=rp, expected_origin=_origins(rp),
             credential_public_key=base64url_to_bytes(key["public_key"]),
-            credential_current_sign_count=0,
+            credential_current_sign_count=int(key.get("sign_count") or 0),
             require_user_verification=True)
     except Exception as e:
         logging.warning(f"passkey login verify failed: {e}")

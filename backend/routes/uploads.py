@@ -207,7 +207,9 @@ async def img_thumb_proxy(src: str = Query(..., max_length=1000), w: int = Query
     except Exception:
         pass
     def _fetch():
-        r = requests.get(src, timeout=12, stream=True)
+        r = requests.get(src, timeout=12, stream=True, allow_redirects=False)
+        if r.status_code in (301, 302, 303, 307, 308):
+            raise ValueError("Redirects not allowed from image CDN")
         r.raise_for_status()
         chunks, total = [], 0
         for chunk in r.iter_content(65536):

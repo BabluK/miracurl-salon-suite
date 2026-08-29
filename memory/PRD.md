@@ -2442,3 +2442,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - POST /api/super-admin/wa-blast/prepare {vertical, run_id, limit<=30}: picks uncontacted leads with phones (researched/drafted/no_email), ONE batch LLM call composes personalized varied WhatsApp msgs (mentions rating/city), appends vertical-matched poster link (request-host base) + demo/signup links (APP_PUBLIC_URL), saves wa_draft, returns queue.
 - UI: WaBlastModal.jsx (setup→composing→queue→done rapid-fire, editable message, Open WhatsApp & mark sent / Skip) + emerald "WhatsApp Blast" button in MiraLeadAgent (wa-blast-open-btn). Verified e2e via screenshot: posters grid, compose 6 leads, queue advance + whatsapp-sent marking. Test data cleaned. release_notes → .148.
 - NOTE: production needs deploy + one click of "Mira, paint the posters" there (posters live per-environment DB).
+
+## Session 2026-06 (fork) — Security audit + fixes
+- Audit verdict: CONDITIONAL PASS. Fixed all actionable findings:
+  - SEC-001 (MEDIUM SSRF): tenant_settings.py geo/from-link — _is_maps_host exact-host regex (google TLDs + goo.gl/maps.app.goo.gl/g.co), parsed.hostname (defeats userinfo@ bypass), https-only; _expand_short_link now hop-by-hop (max 4), allow_redirects=False, is_safe_public_url + maps-host check per hop. Verified: legit/regional URLs 200, all bypass vectors 400.
+  - P3: /api/img proxy allow_redirects=False (uploads.py). P3: passkeys.py login uses stored sign_count for clone detection.
+- ACCEPTED-AS-DESIGN (reported to user): /api/files/{id} unauthenticated capability-URLs (incl. UPI payment proofs) — consider signed expiring links later; _apply_tenant_context self-heal noted.
+- release_notes → .149. NEEDS DEPLOY to apply on production.

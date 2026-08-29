@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-29.148"
-BUILD_TIME = "29 Aug 2026, 06:00 PM IST"
+BUILD = "2026-08-29.149"
+BUILD_TIME = "29 Aug 2026, 07:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "🔒 Security hardening (audit follow-up) — the Google-Maps link resolver in Settings now accepts only genuine Google/Maps hosts and validates every redirect hop (closes a server-side request forgery vector); the image CDN proxy no longer follows redirects; fingerprint/passkey logins now verify the authenticator's signature counter to detect cloned devices",
             "💬🎨 WhatsApp Blast with quote posters — new 'WhatsApp Blast' button in Mira Lead Agent: Mira paints 4 branded quote posters ('Hey Salon Owner! Stop juggling 10 softwares for 10 branches — ONE dashboard runs them all' + 3 more, exact text guaranteed), then composes a fresh personalized WhatsApp message for every uncontacted lead (mentions their rating & city, varies wording, links the best-fitting poster + live demo + signup); you tap through the queue — each tap opens WhatsApp pre-filled, marks the lead sent and jumps to the next (~2 sec per lead)",
             "📇 Quick WhatsApp invites now become lead cards — every number you invite via the quick-send box turns into a tracked lead in the Mira Lead Agent pipeline (status 'sent via WhatsApp 💬'); mark replies, book demos and convert to customer just like any other lead, and inviting the same number twice simply updates the existing card (no duplicates)",
             "💬 WhatsApp Invite quick-send — new section in Super Admin → Mira Lead Agent: paste any phone number you found on Google Maps (e.g. 09148054415), pick Salon or Restaurant, and Mira opens WhatsApp with the full Miracurl pitch (pricing, demo video, brochure links) ready to send; recent invites are listed so you never message the same number twice",

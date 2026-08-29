@@ -151,11 +151,38 @@ def _parse_maps_coords(url: str):
     return None
 
 
+_MAPS_HOST_RE = re.compile(r"^(www\.|maps\.)?google\.[a-z]{2,3}(\.[a-z]{2})?$")
+_MAPS_SHORT_HOSTS = {"goo.gl", "maps.app.goo.gl", "g.co"}
+
+
+def _is_maps_host(host: str) -> bool:
+    host = (host or "").lower().strip(".")
+    return host in _MAPS_SHORT_HOSTS or bool(_MAPS_HOST_RE.match(host))
+
+
 def _expand_short_link(url: str) -> str:
+    """Follow short-link redirects one hop at a time — every hop must stay on a
+    real Google/Maps host and pass the public-URL guard (SSRF, SEC-001)."""
+    from routes.registry import is_safe_public_url
     try:
-        r = requests.get(url, allow_redirects=True, timeout=10,
-                         headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        return r.url or url
+        for _ in range(4):
+            parsed = urlparse(url)
+            if parsed.scheme != "https" or not _is_maps_host(parsed.hostname or ""):
+                return url
+            if not is_safe_public_url(url):
+                return url
+            r = requests.get(url, allow_redirects=False, timeout=10,
+                             headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            loc = r.headers.get("location")
+            if r.status_code in (301, 302, 303, 307, 308) and loc:
+                from urllib.parse import urljoin
+                nxt = urljoin(url, loc)
+                if not _is_maps_host(urlparse(nxt).hostname or ""):
+                    return url
+                url = nxt
+                continue
+            return url
+        return url
     except requests.RequestException:
         return url
 
@@ -214,8 +241,7 @@ async def _resolve_maps_input(text: str):
         return None
     parsed = urlparse(raw)
     if parsed.scheme in ("http", "https"):
-        host = (parsed.netloc or "").lower()
-        if not any(h in host for h in ("google.", "goo.gl", "maps.app")):
+        if parsed.scheme != "https" or not _is_maps_host(parsed.hostname or ""):
             raise HTTPException(400, "That doesn't look like a Google Maps link")
         coords = _parse_maps_coords(raw)
         work_url = raw
