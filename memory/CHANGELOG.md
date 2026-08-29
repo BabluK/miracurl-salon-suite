@@ -1526,3 +1526,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - DemoSlot.jsx → login design: white bg, rose-gold radial blobs, BrandMark variant=light (MS emblem + MIRACURL SUITE) top-left.
 - Screenshot-verified both.
 - PENDING BACKLOG from user (not yet built): (1) staff 'always on time' auto check-in/out flag decided by owner/admin; (2) loyalty QR poster logo shape options (circle/square/merge) + owner-chosen background + fix logo fit in circle + lighter bg option; (3) review-page hero upload from Settings (superseded partly by booking-design reuse but custom upload still wanted).
+
+## 2026-06 (fork) — Always-on-time staff + loyalty poster styles + AI review bg
+- POST /staff/{sid}/toggle-always-on-time (staff.always_on_time). _always_on_time_scheduler in schedulers.py (every 20 min, IST): auto check-in at shift_start (late 0, method auto_always_on_time) + auto check-out at shift_end (hours_worked); only auto-closes records it created. Staff.jsx: ⏱ toggle chip in ID-card roster rows.
+- Loyalty poster: _shaped_logo() in loyalty_stamps.py — circle (contain-fit 66%, fixes cropping), square (rounded white card), blend (logo alpha straight onto bg). logo_shape query param on /settings/loyalty-qr-poster.png + persisted option in StampSettingsIn (validated set). LoyaltyStampsCard: "Logo style on poster" chooser (loyalty-logo-shape-{k} testids).
+- Review page: AI-generated luxe salon bg saved at /assets/review-bg.jpg (fallback when tenant hero_image absent), opacity 0.6 + gradient. Screenshot verified.
+- Tested: toggle endpoint true/false via curl; posters 200 for all 3 shapes and visually verified. BUILD .141.

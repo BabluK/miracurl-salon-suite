@@ -110,7 +110,7 @@ from schedulers import (  # noqa: E402
     _feedback_reminder_scheduler, _salon_digest_scheduler, _db_health_scheduler,
     _temp_transfer_scheduler, _open_bill_alert_scheduler, _manager_access_report_scheduler,
     _late_digest_scheduler, _google_review_alert_scheduler, _daily_special_scheduler, _lead_nudge_scheduler,
-    _loyalty_nudge_scheduler,
+    _loyalty_nudge_scheduler, _always_on_time_scheduler,
 )
 
 for _r in (
@@ -138,6 +138,7 @@ for _r in (
 async def on_startup():
     asyncio.get_event_loop().create_task(_weekly_package_scheduler())
     asyncio.get_event_loop().create_task(_loyalty_nudge_scheduler())
+    asyncio.get_event_loop().create_task(_always_on_time_scheduler())
     asyncio.get_event_loop().create_task(_late_alert_scheduler())
     asyncio.get_event_loop().create_task(_renewal_reminder_scheduler())
     asyncio.get_event_loop().create_task(_demo_followup_scheduler())

@@ -21,6 +21,7 @@ export function LoyaltyStampsCard() {
   const [dl, setDl] = useState(false);
   const [giftInput, setGiftInput] = useState("");
   const [qrBg, setQrBg] = useState("");
+  const [logoShape, setLogoShape] = useState("circle");
   const [nudging, setNudging] = useState(false);
 
   const sendNudges = async () => {
@@ -47,7 +48,7 @@ export function LoyaltyStampsCard() {
     setDl(true);
     try {
       const { data } = await api.get("/settings/loyalty-qr-poster.png", {
-        params: { origin: window.location.origin, design: qrBg || undefined }, responseType: "blob",
+        params: { origin: window.location.origin, design: qrBg || undefined, logo_shape: logoShape }, responseType: "blob",
       });
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
@@ -179,6 +180,19 @@ export function LoyaltyStampsCard() {
               </button>
             );
           })}
+        </div>
+      </div>
+      <div className="mt-3">
+        <p className="text-[11px] font-bold text-slate-500">Logo style on poster</p>
+        <div className="flex gap-2 mt-1.5">
+          {[["circle", "◯ Circle"], ["square", "▢ Square"], ["blend", "✦ Blend with background"]].map(([k, label]) => (
+            <button key={k} onClick={() => setLogoShape(k)} data-testid={`loyalty-logo-shape-${k}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${logoShape === k
+                ? "bg-slate-900 text-amber-200 border-slate-900"
+                : "bg-white text-slate-600 border-slate-200 hover:border-amber-400"}`}>
+              {label}
+            </button>
+          ))}
         </div>
       </div>
     </div>

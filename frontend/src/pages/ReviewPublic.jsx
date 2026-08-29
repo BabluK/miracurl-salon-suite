@@ -129,11 +129,11 @@ export default function ReviewPublic() {
   return (
     <div className="min-h-screen bg-bg-base text-ink-primary flex flex-col relative" data-testid="review-page">
       <Toaster theme="dark" position="top-center" toastOptions={TOAST_OPTIONS} />
-      {(() => { const bgImg = info?.hero_image || "/assets/loyalty-bgs/deco.jpg"; return (
+      {(() => { const bgImg = info?.hero_image || "/assets/review-bg.jpg"; return (
         <>
           <img src={bgImg} alt="" aria-hidden="true"
-            className="fixed inset-0 w-full h-full object-cover opacity-25 pointer-events-none" />
-          <div className="fixed inset-0 bg-gradient-to-b from-bg-base/70 via-bg-base/85 to-bg-base pointer-events-none" />
+            className="fixed inset-0 w-full h-full object-cover opacity-60 pointer-events-none" />
+          <div className="fixed inset-0 bg-gradient-to-b from-bg-base/55 via-bg-base/70 to-bg-base/90 pointer-events-none" />
         </>
       ); })()}
 

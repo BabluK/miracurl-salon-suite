@@ -1065,6 +1065,17 @@ async def reject_whatsapp_request(rid: str, admin=Depends(require_tenant_admin))
 
 
 
+@router.post("/staff/{sid}/toggle-always-on-time")
+async def toggle_always_on_time(sid: str, admin=Depends(require_admin)):
+    """Owner/admin flags trusted staff — they're auto-marked checked-in & out on time daily."""
+    s = await db.staff.find_one({"id": sid}, {"_id": 0})
+    if not s:
+        raise HTTPException(404, "Staff member not found")
+    val = not bool(s.get("always_on_time"))
+    await db.staff.update_one({"id": sid}, {"$set": {"always_on_time": val}})
+    return {"always_on_time": val}
+
+
 @router.post("/staff/{sid}/toggle-active")
 async def toggle_staff_active(sid: str, admin=Depends(require_admin)):
     """Enable/disable a staff record + their login (if any). Disabled staff

@@ -26,10 +26,13 @@ class StampSettingsIn(BaseModel):
     reward_label: str = Field("20% off your next visit", max_length=80)
     reward_discount_pct: int = Field(20, ge=0, le=100)
     surprise_gifts: list[str] = Field(default_factory=list)
+    logo_shape: str = Field("circle", max_length=10)
 
     def clean(self) -> dict:
         d = self.model_dump()
         d["surprise_gifts"] = [str(g).strip()[:80] for g in d["surprise_gifts"] if str(g).strip()][:12]
+        if d.get("logo_shape") not in ("circle", "square", "blend"):
+            d["logo_shape"] = "circle"
         return d
 
 
@@ -223,13 +226,40 @@ async def public_loyalty_join(slug: str, body: LoyaltyJoinIn, request: Request):
             "stamps": card["stamps"], "needed": card["needed"], "reward_label": cfg["reward_label"]}
 
 
+def _shaped_logo(logo_bytes: bytes, size: int, shape: str):
+    """Contain-fit tenant logo: white circle disc, rounded square, or blended (no disc)."""
+    import io as _io
+    from PIL import Image, ImageDraw
+    try:
+        logo = Image.open(_io.BytesIO(logo_bytes)).convert("RGBA")
+    except Exception:
+        return None
+    GOLD = (206, 165, 94, 255)
+    if shape == "blend":
+        s = size + 24
+        logo.thumbnail((s, s), Image.LANCZOS)
+        return logo
+    inner = int(size * 0.66) if shape != "square" else size - 26
+    logo.thumbnail((inner, inner), Image.LANCZOS)
+    base = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(base)
+    if shape == "square":
+        d.rounded_rectangle([0, 0, size - 1, size - 1], radius=size // 6, fill=(255, 255, 255, 255))
+        d.rounded_rectangle([2, 2, size - 3, size - 3], radius=size // 6, outline=GOLD, width=4)
+    else:
+        d.ellipse([0, 0, size - 1, size - 1], fill=(255, 255, 255, 255))
+        d.ellipse([2, 2, size - 3, size - 3], outline=GOLD, width=4)
+    base.alpha_composite(logo, ((size - logo.width) // 2, (size - logo.height) // 2))
+    return base
+
+
 LOYALTY_BGS = {"deco": "loyalty_qr_bg.jpg", "dining": "table_qr_bg.jpg",
                "emerald": "loyalty_bg_emerald.jpg", "burgundy": "loyalty_bg_burgundy.jpg",
                "midnight": "loyalty_bg_midnight.jpg"}
 
 
 @router.get("/settings/loyalty-qr-poster.png")
-async def loyalty_qr_poster(origin: str = "", design: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def loyalty_qr_poster(origin: str = "", design: str = "", logo_shape: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Polished Loyalty Club QR poster — guests scan to join and start collecting stamps."""
     import asyncio
     import io
@@ -273,10 +303,11 @@ async def loyalty_qr_poster(origin: str = "", design: str = "", user=Depends(req
 
         y = 44
         if logo_bytes:
-            circ = _circle_logo_pil(logo_bytes, 150)
-            if circ is not None:
-                bg.paste(circ, ((W - 150) // 2, y), circ)
-                y += 162
+            shape = logo_shape if logo_shape in ("circle", "square", "blend") else (cfg.get("logo_shape") or "circle")
+            lg = _shaped_logo(logo_bytes, 150, shape)
+            if lg is not None:
+                bg.paste(lg, ((W - lg.width) // 2, y), lg)
+                y += lg.height + 12
         name = t.get("name") or ("Our Restaurant" if resto else "Our Salon")
         size = 46
         f = _font("PlayfairDisplay-Bold.ttf", size)

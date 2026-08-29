@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-29.140"
+BUILD = "2026-08-29.141"
 BUILD_TIME = "28 Aug 2026, 01:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "⏱ 'Always on time' staff — owners/admins can flag trusted staff on the Staff page; they're automatically marked checked-in at shift start and checked-out at shift end every day",
+            "🎨 Loyalty poster logo styles — choose Circle, Square or Blend-with-background for your logo on the Loyalty Club poster (logos now fit perfectly, no more cropping), alongside the background picker",
+            "🌟 Review page glow-up — a luxurious golden salon backdrop now sits behind every rate-your-visit page (your own booking hero image is used when set)",
             "💛 Branded review & demo pages — every review link now opens with the same elegant cream header as your public booking page (your logo in a gold ring + 'Powered by Mira AI'), and the demo-slot page now matches the Miracurl Suite login look (MS emblem, white canvas with rose-gold glow)",
             "🕵️ Edit Audit Viewer upgraded — Settings → Updated Bills now shows exactly who changed what and when on every bill: guest renames, payment-mode switches, per-item price/qty changes, discount changes and voids with reasons (Owner-PIN protected)",
             "🚧 Cross-business cart leak fixed — POS parallel-bill drafts and kitchen→POS handoffs are now saved per business, so a restaurant table's cart can never appear inside a salon's POS on a shared browser (the two leaked 'Dine-in Guest' bills in the salon were voided and removed from CRM)",

@@ -245,6 +245,21 @@ export default function Staff() {
                   <div className="text-sm font-medium truncate">{s.name}</div>
                   <div className="text-[11px] text-slate-500 truncate">{s.role}{s.blood_group ? ` · ${s.blood_group}` : ""}</div>
                 </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data } = await api.post(`/staff/${s.id}/toggle-always-on-time`);
+                      toast.success(data.always_on_time ? `${s.name} will be auto-marked on time daily ⏱` : `Auto on-time removed for ${s.name}`);
+                      load();
+                    } catch { toast.error("Couldn't update"); }
+                  }}
+                  data-testid={`always-on-time-toggle-${s.id}`}
+                  title="Auto check-in at shift start & check-out at shift end, every day"
+                  className={`text-xs py-1.5 px-3 rounded-md border inline-flex items-center gap-1 shrink-0 ${s.always_on_time
+                    ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                    : "bg-slate-50 border-slate-200 text-slate-500 hover:border-emerald-300"}`}>
+                  ⏱ {s.always_on_time ? "Always on time ✓" : "Always on time"}
+                </button>
                 <a href={`${API}/id-cards/staff/${s.id}/pdf`} target="_blank" rel="noreferrer" data-testid={`id-card-download-${s.id}`}
                   className="text-xs py-1.5 px-3 rounded-md bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 inline-flex items-center gap-1 shrink-0">
                   <FileDown className="w-3 h-3" /> ID Card

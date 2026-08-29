@@ -509,6 +509,57 @@ async def _weekly_win_scheduler() -> None:
         await asyncio.sleep(1800)
 
 
+async def _always_on_time_scheduler() -> None:
+    """Auto check-in/out staff flagged always_on_time at their shift times (IST). Every 20 min."""
+    import uuid as _uuid
+    ist = timezone(timedelta(hours=5, minutes=30))
+    while True:
+        try:
+            now_i = datetime.now(ist)
+            today = now_i.date().isoformat()
+
+            def _hm(v, d):
+                try:
+                    h, m = map(int, str(v or d).split(":"))
+                    return h, m
+                except Exception:
+                    return tuple(map(int, d.split(":")))
+
+            async for s in _raw_db.staff.find({"always_on_time": True, "active": {"$ne": False}}, {"_id": 0}):
+                sh, sm = _hm(s.get("shift_start"), "10:00")
+                eh, em = _hm(s.get("shift_end"), "21:00")
+                start_i = now_i.replace(hour=sh, minute=sm, second=0, microsecond=0)
+                end_i = now_i.replace(hour=eh, minute=em, second=0, microsecond=0)
+                rec = await _raw_db.attendance.find_one({"staff_id": s["id"], "date": today})
+                if now_i >= start_i and not (rec and rec.get("check_in_at")):
+                    fields = {"check_in_at": start_i.astimezone(timezone.utc).isoformat(), "late_minutes": 0,
+                              "late_penalty": 0.0, "half_day": False, "half_day_deduction": 0.0, "no_show": False,
+                              "check_in_method": "auto_always_on_time", "check_in_lat": None, "check_in_lng": None,
+                              "check_in_distance_m": None}
+                    if rec:
+                        await _raw_db.attendance.update_one({"staff_id": s["id"], "date": today}, {"$set": fields})
+                    else:
+                        await _raw_db.attendance.insert_one({
+                            "id": str(_uuid.uuid4()), "tenant_id": s.get("tenant_id"),
+                            "staff_id": s["id"], "staff_name": s.get("name"), "date": today, **fields,
+                            "check_out_at": None, "created_at": datetime.now(timezone.utc).isoformat()})
+                    rec = await _raw_db.attendance.find_one({"staff_id": s["id"], "date": today})
+                if now_i >= end_i and rec and rec.get("check_in_at") and not rec.get("check_out_at") \
+                        and rec.get("check_in_method") == "auto_always_on_time":
+                    ci = datetime.fromisoformat(rec["check_in_at"])
+                    co = end_i.astimezone(timezone.utc)
+                    if co > ci:
+                        await _raw_db.attendance.update_one(
+                            {"staff_id": s["id"], "date": today},
+                            {"$set": {"check_out_at": co.isoformat(),
+                                      "hours_worked": round((co - ci).total_seconds() / 3600, 2),
+                                      "overtime_hours": 0, "overtime_pay": 0.0,
+                                      "check_out_method": "auto_always_on_time"}})
+        except Exception as e:
+            logging.error(f"always-on-time scheduler error: {e}")
+        await asyncio.sleep(1200)
+
+
 async def _loyalty_nudge_scheduler() -> None:
     """Monday ≥ 09:00 IST: auto-SMS loyalty members 1-2 stamps from their gift. Idempotent per ISO week."""
     from routes.loyalty_stamps import run_loyalty_nudges
