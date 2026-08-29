@@ -137,20 +137,25 @@ export default function ReviewPublic() {
         </>
       ); })()}
 
-      <header className="border-b border-white/5 py-4 relative z-10 backdrop-blur-sm">
-        <div className="max-w-2xl mx-auto px-6 flex items-center gap-3">
+      <header className="relative z-10 bg-[#f7f2e5]/95 backdrop-blur border-b border-[#e6d9b8] py-3" data-testid="review-header">
+        <div className="max-w-2xl mx-auto px-6 flex items-center gap-4">
           {info?.logo_url ? (
-            <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-gold/70 shadow-gold-glow bg-bg-base" data-testid="review-salon-logo">
-              <img src={info.logo_url} alt={brandName} className="w-full h-full object-cover" />
-            </div>
+            <span className="w-16 h-16 sm:w-20 sm:h-20 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)]" data-testid="review-salon-logo">
+              <img src={info.logo_url} alt={brandName} className="w-full h-full rounded-full object-cover bg-white" />
+            </span>
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center shadow-gold-glow">
-              <Scissors className="w-5 h-5 text-bg-base" />
-            </div>
+            <span className="w-14 h-14 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)]">
+              <span className="w-full h-full rounded-full bg-[#17141c] text-[#e8c37f] flex items-center justify-center font-playfair text-2xl font-bold">
+                {(brandName || "M").charAt(0)}
+              </span>
+            </span>
           )}
-          <div>
-            <div className="font-playfair text-xl" data-testid="review-brand">{brandName}</div>
-            <div className="text-[10px] tracking-[0.25em] uppercase text-gold">Rate Your Visit</div>
+          <div className="min-w-0 leading-tight">
+            <div className="font-playfair text-base sm:text-xl tracking-[0.06em] text-[#8a6d1f] font-semibold truncate" data-testid="review-brand">{brandName}</div>
+            <div className="text-[8px] sm:text-[10px] uppercase tracking-[0.32em] text-[#a5926a] truncate mt-0.5">
+              {info?.business_type === "restaurant" ? "Fine Dining · Powered by Mira AI" : "Luxury Salon · Powered by Mira AI"}
+            </div>
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.25em] text-[#b08d3f] mt-0.5">Rate Your Visit ✦</div>
           </div>
         </div>
       </header>

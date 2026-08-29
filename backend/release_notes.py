@@ -9,7 +9,7 @@ RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
-            "💛 Branded review & demo pages — every salon's review link now carries the salon's own logo in the header with an elegant background (uses your booking hero image when set), and the demo-slot page got the Miracurl emblem with a golden backdrop",
+            "💛 Branded review & demo pages — every review link now opens with the same elegant cream header as your public booking page (your logo in a gold ring + 'Powered by Mira AI'), and the demo-slot page now matches the Miracurl Suite login look (MS emblem, white canvas with rose-gold glow)",
             "🕵️ Edit Audit Viewer upgraded — Settings → Updated Bills now shows exactly who changed what and when on every bill: guest renames, payment-mode switches, per-item price/qty changes, discount changes and voids with reasons (Owner-PIN protected)",
             "🚧 Cross-business cart leak fixed — POS parallel-bill drafts and kitchen→POS handoffs are now saved per business, so a restaurant table's cart can never appear inside a salon's POS on a shared browser (the two leaked 'Dine-in Guest' bills in the salon were voided and removed from CRM)",
             "🪙 One-tap points redeem — POS shows a 'Redeem' button only when the guest actually has eligible points; one tap applies the maximum allowed for this visit",

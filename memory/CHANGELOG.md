@@ -1520,3 +1520,9 @@ Tested: create throwaway tenant + customer → wrong-slug 400 → correct delete
 - reviews.py public_review_info now returns logo_url + hero_image. ReviewPublic.jsx: tenant logo (gold-ring circle) in header, fixed dimmed background (tenant hero_image, fallback /assets/loyalty-bgs/deco.jpg), content z-10.
 - DemoSlot.jsx: /assets/ms-logo-gold.png emblem above wordmark + /assets/mira-outreach-hero.png as 16%-opacity fixed backdrop with gradient overlay.
 - Screenshot-verified both. BUILD 2026-08-29.140.
+
+## 2026-06 (fork) — Review/demo pages restyled to match booking & login designs (user pivot)
+- ReviewPublic.jsx header → cream booking-page style (#f7f2e5, gold-gradient ring logo, 'Luxury Salon/Fine Dining · Powered by Mira AI' + 'Rate Your Visit ✦'); dark body + bg image kept. reviews.py review-info now also returns business_type.
+- DemoSlot.jsx → login design: white bg, rose-gold radial blobs, BrandMark variant=light (MS emblem + MIRACURL SUITE) top-left.
+- Screenshot-verified both.
+- PENDING BACKLOG from user (not yet built): (1) staff 'always on time' auto check-in/out flag decided by owner/admin; (2) loyalty QR poster logo shape options (circle/square/merge) + owner-chosen background + fix logo fit in circle + lighter bg option; (3) review-page hero upload from Settings (superseded partly by booking-design reuse but custom upload still wanted).
