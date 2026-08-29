@@ -2423,3 +2423,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Removed unused var in tests/test_iter120.
 - FALSE POSITIVES documented: security.py:149 "hardcoded secret" is a comment/domain-separation label (CSRF key derives from env JWT_SECRET); utils.py:8 uses `is None` (correct); pyflakes found 0 undefined names in backend.
 - KNOWN pre-existing: older test files (test_invoice_edits.py, test_iter113/114, test_billing_and_mira_services.py) fail with "CSRF token required" — stale harnesses missing X-CSRF-Token header, NOT app bugs (iter120 suite handles CSRF and passes 8/8).
+
+## Session 2026-06 (fork) — TEST staff cleanup (preview)
+- Deleted leftover test staff (TEST MarkLeft, TEST Staff, TEST_Stylist) + 51 attendance + 93 late_alerts records from PREVIEW DB (they were polluting the "Late arrivals today" owner digest email).
+- USER SAID the email came from PRODUCTION — production likely has its own TEST staff records. Cannot edit prod data directly; pending option: extend routes/data_cleanup.py (super-admin Data Cleanup tool) to scan/purge dummy-named STAFF too, then deploy so user can purge prod with one click. User declined this for now — offer again.
