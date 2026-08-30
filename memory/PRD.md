@@ -2449,3 +2449,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
   - P3: /api/img proxy allow_redirects=False (uploads.py). P3: passkeys.py login uses stored sign_count for clone detection.
 - ACCEPTED-AS-DESIGN (reported to user): /api/files/{id} unauthenticated capability-URLs (incl. UPI payment proofs) — consider signed expiring links later; _apply_tenant_context self-heal noted.
 - release_notes → .149. NEEDS DEPLOY to apply on production.
+
+## Session 2026-06 (fork) — On-time toggle on staff cards + loyalty PDF/light-gold
+- "Always on time" was ALREADY implemented (both verticals) but hidden in the ID Cards section; now ALSO a chip on every StaffCard (staff/StaffCard.jsx, testid always-on-time-chip-{id}, self-contained api call). Verified: 7 chips rendering + toggle on/off for restaurant tenant via curl.
+- Loyalty poster: new "lightgold" background (assets/posters/loyalty_bg_lightgold.jpg + frontend/public/assets/loyalty-bgs/lightgold.jpg, dark bronze text palette + QR outline when light) and NEW GET /api/settings/loyalty-qr-poster.pdf (Pillow JPEG→PDF). UI: Light Gold swatch + PDF button in LoyaltyStampsCard.jsx. Verified: PNG/PDF 200 for salon + restaurant, poster visually checked. release_notes → 2026-08-30.150.
+- NOTED: preview Staff page shows many pending sign-ups from old test runs (test_user_*@test.com) — offer cleanup later.

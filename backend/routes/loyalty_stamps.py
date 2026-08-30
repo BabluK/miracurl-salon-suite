@@ -255,11 +255,10 @@ def _shaped_logo(logo_bytes: bytes, size: int, shape: str):
 
 LOYALTY_BGS = {"deco": "loyalty_qr_bg.jpg", "dining": "table_qr_bg.jpg",
                "emerald": "loyalty_bg_emerald.jpg", "burgundy": "loyalty_bg_burgundy.jpg",
-               "midnight": "loyalty_bg_midnight.jpg"}
+               "midnight": "loyalty_bg_midnight.jpg", "lightgold": "loyalty_bg_lightgold.jpg"}
 
 
-@router.get("/settings/loyalty-qr-poster.png")
-async def loyalty_qr_poster(origin: str = "", design: str = "", logo_shape: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def _loyalty_poster_jpeg(t: dict, origin: str, design: str, logo_shape: str) -> bytes:
     """Polished Loyalty Club QR poster — guests scan to join and start collecting stamps."""
     import asyncio
     import io
@@ -287,8 +286,11 @@ async def loyalty_qr_poster(origin: str = "", design: str = "", logo_shape: str 
         else:
             bg = Image.new("RGB", (W, H), (18, 16, 13))
         d = ImageDraw.Draw(bg)
-        GOLD = (206, 165, 94)
-        LIGHT = (232, 224, 210)
+        light = design == "lightgold"
+        GOLD = (146, 106, 38) if light else (206, 165, 94)
+        LIGHT = (96, 84, 62) if light else (232, 224, 210)
+        INK = (70, 58, 38) if light else (255, 255, 255)
+        FOOT = (120, 106, 80) if light else (160, 148, 128)
         gift_path = os.path.join(assets_dir, "posters", "gift_box_gold.png")
         gift = Image.open(gift_path).convert("RGBA") if os.path.exists(gift_path) else None
 
@@ -355,6 +357,10 @@ async def loyalty_qr_poster(origin: str = "", design: str = "", logo_shape: str 
         m = Image.new("L", box.size, 0)
         ImageDraw.Draw(m).rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=26, fill=255)
         bg.paste(box, ((W - box.width) // 2, y), m)
+        if light:
+            bx, by = (W - box.width) // 2, y
+            d.rounded_rectangle([bx, by, bx + box.width - 1, by + box.height - 1],
+                                radius=26, outline=GOLD, width=3)
         y += box.height + 16
         # Surprise gift block: glowing gift box + copy
         if gift is not None:
@@ -363,16 +369,44 @@ async def loyalty_qr_poster(origin: str = "", design: str = "", logo_shape: str 
         tx = 292
         d.text((tx, y + 28), "A SURPRISE GIFT", font=_font("FreeSansBold.ttf", 32), fill=GOLD)
         d.text((tx, y + 70), f"awaits at your {_ordinal(n)} visit", font=_font("FreeSansBold.ttf", 22), fill=LIGHT)
-        d.text((tx, y + 104), "Scan · Join in 10 seconds", font=_font("FreeSansBold.ttf", 20), fill=(255, 255, 255))
-        d.text((tx, y + 132), "Earn a gold stamp every visit", font=_font("FreeSansBold.ttf", 20), fill=(255, 255, 255))
-        center(f"{base.replace('https://', '')}/loyalty/{t.get('slug') or ''}", H - 56, _font("FreeSansBold.ttf", 17), (160, 148, 128))
+        d.text((tx, y + 104), "Scan · Join in 10 seconds", font=_font("FreeSansBold.ttf", 20), fill=INK)
+        d.text((tx, y + 132), "Earn a gold stamp every visit", font=_font("FreeSansBold.ttf", 20), fill=INK)
+        center(f"{base.replace('https://', '')}/loyalty/{t.get('slug') or ''}", H - 56, _font("FreeSansBold.ttf", 17), FOOT)
         out = io.BytesIO()
         bg.save(out, format="JPEG", quality=85)
         return out.getvalue()
 
-    img = await asyncio.to_thread(_render)
+    return await asyncio.to_thread(_render)
+
+
+@router.get("/settings/loyalty-qr-poster.png")
+async def loyalty_qr_poster(origin: str = "", design: str = "", logo_shape: str = "",
+                            user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from fastapi import Response
+    img = await _loyalty_poster_jpeg(t, origin, design, logo_shape)
     return Response(content=img, media_type="image/jpeg",
                     headers={"Content-Disposition": 'attachment; filename="loyalty-club-qr.jpg"'})
+
+
+@router.get("/settings/loyalty-qr-poster.pdf")
+async def loyalty_qr_poster_pdf(origin: str = "", design: str = "", logo_shape: str = "",
+                                user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Same poster as a print-ready PDF page."""
+    import io
+    import asyncio
+    from fastapi import Response
+    from PIL import Image
+    img = await _loyalty_poster_jpeg(t, origin, design, logo_shape)
+
+    def _to_pdf() -> bytes:
+        im = Image.open(io.BytesIO(img)).convert("RGB")
+        out = io.BytesIO()
+        im.save(out, "PDF", resolution=120)
+        return out.getvalue()
+
+    pdf = await asyncio.to_thread(_to_pdf)
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="loyalty-club-qr.pdf"'})
 
 
 async def run_loyalty_nudges(t: dict, base: str) -> dict:

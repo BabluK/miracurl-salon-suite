@@ -12,6 +12,7 @@ const QR_BGS = [
   { key: "emerald", label: "Royal Emerald" },
   { key: "burgundy", label: "Burgundy Rose" },
   { key: "midnight", label: "Midnight Stars" },
+  { key: "lightgold", label: "Light Gold" },
 ];
 
 export function LoyaltyStampsCard() {
@@ -44,16 +45,16 @@ export function LoyaltyStampsCard() {
     setGiftInput("");
   };
 
-  const downloadQr = async () => {
+  const downloadQr = async (fmt = "png") => {
     setDl(true);
     try {
-      const { data } = await api.get("/settings/loyalty-qr-poster.png", {
+      const { data } = await api.get(`/settings/loyalty-qr-poster.${fmt}`, {
         params: { origin: window.location.origin, design: qrBg || undefined, logo_shape: logoShape }, responseType: "blob",
       });
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "loyalty-club-qr.jpg";
+      a.download = fmt === "pdf" ? "loyalty-club-qr.pdf" : "loyalty-club-qr.jpg";
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -153,11 +154,16 @@ export function LoyaltyStampsCard() {
           className="px-5 py-2 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-sm font-semibold shadow hover:brightness-105 disabled:opacity-50">
           {saving ? "Saving…" : "Save loyalty card"}
         </button>
-        <button onClick={downloadQr} disabled={dl || !cfg.enabled} data-testid="loyalty-qr-download-btn"
+        <button onClick={() => downloadQr("png")} disabled={dl || !cfg.enabled} data-testid="loyalty-qr-download-btn"
           title={cfg.enabled ? "Polished poster — guests scan to join with name, phone & email" : "Enable the card first"}
           className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full border-2 border-amber-400 text-amber-700 text-sm font-semibold hover:bg-amber-50 disabled:opacity-50">
           {dl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           {dl ? "Preparing…" : "Download Loyalty Club QR"}
+        </button>
+        <button onClick={() => downloadQr("pdf")} disabled={dl || !cfg.enabled} data-testid="loyalty-qr-download-pdf-btn"
+          title={cfg.enabled ? "Print-ready PDF of the same poster" : "Enable the card first"}
+          className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full border-2 border-rose-400 text-rose-700 text-sm font-semibold hover:bg-rose-50 disabled:opacity-50">
+          <Download className="w-4 h-4" /> PDF
         </button>
         <button onClick={sendNudges} disabled={nudging || !cfg.enabled} data-testid="loyalty-nudge-btn"
           title="SMS members who are 1-2 stamps from their surprise gift"
@@ -169,7 +175,7 @@ export function LoyaltyStampsCard() {
       </div>
       <div className="mt-3">
         <p className="text-[11px] font-bold text-slate-500">Poster background</p>
-        <div className="grid grid-cols-5 gap-2 mt-1.5 max-w-md">
+        <div className="grid grid-cols-6 gap-2 mt-1.5 max-w-lg">
           {QR_BGS.map(b => {
             const active = qrBg === b.key || (!qrBg && b.key === (isResto ? "dining" : "deco"));
             return (

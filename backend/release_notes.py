@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-29.149"
-BUILD_TIME = "29 Aug 2026, 07:00 PM IST"
+BUILD = "2026-08-30.150"
+BUILD_TIME = "30 Aug 2026, 11:00 AM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "⏱ 'Always on time' now on every staff card — owners/admins (salons AND restaurants) can toggle auto check-in/check-out right on the staff card in the main grid (it was previously tucked away in the ID-cards section)",
+            "🎁 Loyalty poster upgrades — new 'Light Gold' background (elegant champagne look with dark text for easy reading) and a new PDF download button next to the image download, print-ready for framing at the counter",
             "🔒 Security hardening (audit follow-up) — the Google-Maps link resolver in Settings now accepts only genuine Google/Maps hosts and validates every redirect hop (closes a server-side request forgery vector); the image CDN proxy no longer follows redirects; fingerprint/passkey logins now verify the authenticator's signature counter to detect cloned devices",
             "💬🎨 WhatsApp Blast with quote posters — new 'WhatsApp Blast' button in Mira Lead Agent: Mira paints 4 branded quote posters ('Hey Salon Owner! Stop juggling 10 softwares for 10 branches — ONE dashboard runs them all' + 3 more, exact text guaranteed), then composes a fresh personalized WhatsApp message for every uncontacted lead (mentions their rating & city, varies wording, links the best-fitting poster + live demo + signup); you tap through the queue — each tap opens WhatsApp pre-filled, marks the lead sent and jumps to the next (~2 sec per lead)",
             "📇 Quick WhatsApp invites now become lead cards — every number you invite via the quick-send box turns into a tracked lead in the Mira Lead Agent pipeline (status 'sent via WhatsApp 💬'); mark replies, book demos and convert to customer just like any other lead, and inviting the same number twice simply updates the existing card (no duplicates)",

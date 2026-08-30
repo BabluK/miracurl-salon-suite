@@ -1,7 +1,17 @@
 import { Edit3, Trash2, Phone, Mail, Percent, IndianRupee, KeyRound, Power, Clock, ShieldCheck, FileDown } from "lucide-react";
-import { API } from "@/lib/api";
+import { useState } from "react";
+import { toast } from "sonner";
+import api, { API } from "@/lib/api";
 
 export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete, isManager = false, onPromote, onCancelTemp, mainLabel = "Main salon" }) {
+  const [onTime, setOnTime] = useState(!!s.always_on_time);
+  const toggleOnTime = async () => {
+    try {
+      const { data } = await api.post(`/staff/${s.id}/toggle-always-on-time`);
+      setOnTime(data.always_on_time);
+      toast.success(data.always_on_time ? `${s.name} will be auto-marked on time daily ⏱` : `Auto on-time removed for ${s.name}`);
+    } catch { toast.error("Couldn't update"); }
+  };
   const tt = s.temp_transfer;
   const away = !!s.away;                                   // home view: working elsewhere right now
   const guest = tt && tt.status === "active" && !away;      // target view: temporarily here
@@ -30,6 +40,15 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
         </div>
         <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-medium max-w-full truncate" data-testid={`branch-tag-${s.id}`} title={s.branch || mainLabel}>
           📍 {s.branch || mainLabel}
+        </div>
+        <div>
+          <button onClick={toggleOnTime} data-testid={`always-on-time-chip-${s.id}`}
+            title="Owner/Admin: auto check-in at shift start & check-out at shift end, every day"
+            className={`inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full border font-semibold transition-colors ${onTime
+              ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+              : "bg-slate-50 border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-emerald-600"}`}>
+            ⏱ {onTime ? "Always on time ✓" : "Mark always on time"}
+          </button>
         </div>
         {away && (
           <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-sky-50 border border-sky-300 text-sky-700 font-semibold" data-testid={`away-badge-${s.id}`}>
