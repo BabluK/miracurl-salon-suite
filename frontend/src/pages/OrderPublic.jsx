@@ -20,6 +20,7 @@ export default function OrderPublic() {
   const [spice, setSpice] = useState({});
   const [table, setTable] = useState(params.get("table") || "");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
   const [liveStatus, setLiveStatus] = useState("new");
@@ -77,6 +78,7 @@ export default function OrderPublic() {
     try {
       const { data } = await axios.post(`${BACKEND_URL}/api/public/table-order/${slug}`, {
         table_no: Number(table), customer_name: name.trim() || null,
+        customer_phone: phone.trim() || null,
         items: cart.map(m => ({ id: m.id, qty: qty[m.id], spice: spice[m.id] || "normal" })),
       });
       setDone(data.order);
@@ -146,7 +148,12 @@ export default function OrderPublic() {
             className="w-24 px-3 py-2.5 rounded-xl bg-white/5 border border-gold/40 text-center font-bold text-gold placeholder:text-white/30 focus:outline-none focus:border-gold" />
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name (optional)"
             data-testid="order-name-input"
-            className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/15 text-sm placeholder:text-white/30 focus:outline-none focus:border-gold/60" />
+            className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/15 text-sm placeholder:text-white/30 focus:outline-none focus:border-gold/60" />
+        </div>
+        <div className="mt-2">
+          <input value={phone} onChange={e => setPhone(e.target.value.replace(/[^\d+ ]/g, ""))} inputMode="tel"
+            data-testid="order-phone-input" placeholder="📱 Mobile number — earn loyalty points on this visit"
+            className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/15 text-sm placeholder:text-white/30 focus:outline-none focus:border-gold/60" />
         </div>
         <div className="flex gap-2 mt-3">
           <button onClick={() => callStaff("waiter")} data-testid="call-waiter-btn"

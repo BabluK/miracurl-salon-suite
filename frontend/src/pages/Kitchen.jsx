@@ -123,6 +123,7 @@ export default function Kitchen() {
     localStorage.setItem(`kitchen_bill:${tenant?.id}`, JSON.stringify({
       order_ids: tableOrders.map(o => o.id), table_no: tableNo,
       customer_name: tableOrders.find(o => o.customer_name)?.customer_name || "",
+      customer_phone: tableOrders.find(o => o.customer_phone)?.customer_phone || "",
       items: merged,
     }));
     nav("/pos");

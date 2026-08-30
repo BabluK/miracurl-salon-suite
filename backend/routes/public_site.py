@@ -742,7 +742,18 @@ async def qr_scan_stats(user=Depends(require_super_admin)):
 class TableOrderIn(BaseModel):
     table_no: int = Field(..., ge=1, le=200)
     customer_name: Optional[str] = Field(None, max_length=80)
+    customer_phone: Optional[str] = Field(None, max_length=20)
     items: List[dict] = Field(..., min_length=1, max_length=40)
+
+
+def _norm_in_phone(v: str) -> str:
+    """Normalize an Indian mobile number to 10 digits; '' when invalid."""
+    cleaned = "".join(c for c in (v or "") if c.isdigit())
+    if len(cleaned) == 12 and cleaned.startswith("91"):
+        cleaned = cleaned[2:]
+    elif len(cleaned) == 11 and cleaned.startswith("0"):
+        cleaned = cleaned[1:]
+    return cleaned if re.fullmatch(r"[6-9]\d{9}", cleaned) else ""
 
 
 @router.post("/public/table-order/{slug}")
@@ -780,8 +791,19 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
         raise HTTPException(400, "No valid menu items in the order")
     subtotal = round(sum(i["price"] * i["qty"] for i in items), 2)
     disc_amt = round(sum(i["price"] * i["qty"] * i["disc_pct"] / 100 for i in items), 2)
+    # Phone given → find or create the CRM customer so repeat visits are tracked
+    phone_digits = _norm_in_phone(body.customer_phone or "")
+    customer_id = ""
+    if phone_digits:
+        cust = await db.customers.find_one({"phone": phone_digits}, {"_id": 0, "id": 1})
+        if not cust:
+            cust = Customer(name=(body.customer_name or "").strip()[:80] or "Dine-in Guest",
+                            phone=phone_digits, crm_status="pending").model_dump()
+            await db.customers.insert_one(cust)
+        customer_id = cust["id"]
     order = {"id": uuid.uuid4().hex[:8], "tenant_id": t["id"], "table_no": body.table_no,
              "customer_name": (body.customer_name or "").strip()[:80],
+             "customer_phone": phone_digits, "customer_id": customer_id,
              "items": items, "subtotal": subtotal,
              "discount_pct": disc_pct, "discount_amt": disc_amt,
              "offer_title": (off or {}).get("title") or "",

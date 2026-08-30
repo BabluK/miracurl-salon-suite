@@ -421,7 +421,7 @@ export default function POS() {
     const ids = kb.order_ids || (kb.order_id ? [kb.order_id] : []);
     kitchenOrderIdsRef.current = ids;
     setOrderNotes(`Table ${kb.table_no} — QR order${kb.customer_name ? ` for ${kb.customer_name}` : ""}`);
-    api.post("/customers/dinein-guest").then(({ data }) => {
+    api.post("/customers/dinein-guest", { phone: kb.customer_phone || "", name: kb.customer_name || "" }).then(({ data }) => {
       setCustomers(prev => (prev.some(c => c.id === data.id) ? prev : [data, ...prev]));
       setCustomerId(data.id);
     }).catch(() => {});

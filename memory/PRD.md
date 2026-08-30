@@ -2458,3 +2458,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## Session 2026-06 (fork) — Pending sign-up junk purge (preview)
 - Deleted 9 leftover test pending sign-ups (test_user_/test_staff_/staff_rev_*@test.com, users with tenant_id=None + status=pending) from PREVIEW DB. Super-admin account untouched. 0 pending remain.
 - Production likely unaffected (tests never ran there) — if user sees junk pending sign-ups on prod Staff page, add a purge to the cleanup tool.
+
+## Session 2026-06 (fork) — Dine-in guest phone capture
+- OrderPublic.jsx: new optional phone input (order-phone-input, "earn loyalty points" placeholder); payload sends customer_phone.
+- public_site.py TableOrderIn + _norm_in_phone (Indian 10-digit normalize; invalid → ignored, order never blocked). Valid phone → find-or-create CRM customer (tenant-scoped db), order stores customer_phone + customer_id.
+- customers.py /customers/dinein-guest now accepts optional {phone, name}: real customer when phone valid (find-or-create), else legacy 0000000000 placeholder (backward compatible).
+- Kitchen.jsx billTable passes customer_phone into kitchen_bill localStorage; POS.jsx sends it to dinein-guest → bill attaches to REAL customer instead of placeholder.
+- Verified via curl (create/dedupe/no-phone/bad-phone/POS guest/CRM lookup) + UI screenshot. Test data cleaned. release_notes → .151.

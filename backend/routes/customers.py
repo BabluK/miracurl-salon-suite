@@ -93,9 +93,24 @@ async def create_customer(body: CustomerIn, user=Depends(get_current_user)):
     return _clean(c)
 
 
+class DineinGuestIn(BaseModel):
+    phone: Optional[str] = Field(None, max_length=20)
+    name: Optional[str] = Field(None, max_length=80)
+
+
 @router.post("/customers/dinein-guest")
-async def dinein_guest(user=Depends(get_current_user)):
-    """Reusable walk-in guest for QR table bills — created once, then reused."""
+async def dinein_guest(body: Optional[DineinGuestIn] = None, user=Depends(get_current_user)):
+    """Walk-in guest for QR table bills — real customer when the diner shared a
+    phone number (repeat-visit tracking), otherwise the reusable placeholder."""
+    digits = re.sub(r"\D", "", (body.phone if body else None) or "")
+    if len(digits) >= 10:
+        existing = await _find_by_phone(digits)
+        if existing:
+            return _clean(existing)
+        c = Customer(name=((body.name or "").strip()[:80] if body else "") or "Dine-in Guest",
+                     phone=digits).model_dump()
+        await db.customers.insert_one(c)
+        return _clean(c)
     existing = await _find_by_phone("0000000000")
     if existing:
         return _clean(existing)
