@@ -25,6 +25,22 @@ export default function OrderPublic() {
   const [done, setDone] = useState(null);
   const [liveStatus, setLiveStatus] = useState("new");
   const [photoDish, setPhotoDish] = useState(null);
+  const [guest, setGuest] = useState(null);
+
+  useEffect(() => {
+    let d = phone.replace(/\D/g, "");
+    if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
+    if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+    if (!/^[6-9]\d{9}$/.test(d)) { setGuest(null); return; }
+    const t = setTimeout(() => {
+      axios.get(`${BACKEND_URL}/api/public/guest-lookup/${slug}?phone=${d}`)
+        .then(r => {
+          setGuest(r.data.found ? r.data : null);
+          if (r.data.found) setName(n => n || r.data.name);
+        }).catch(() => setGuest(null));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [phone, slug]);
 
   useEffect(() => {
     if (!done) return;
@@ -154,6 +170,12 @@ export default function OrderPublic() {
           <input value={phone} onChange={e => setPhone(e.target.value.replace(/[^\d+ ]/g, ""))} inputMode="tel"
             data-testid="order-phone-input" placeholder="📱 Mobile number — earn loyalty points on this visit"
             className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/15 text-sm placeholder:text-white/30 focus:outline-none focus:border-gold/60" />
+          {guest && (
+            <div data-testid="returning-guest-greeting"
+              className="mt-2 px-3 py-2 rounded-xl bg-gold/10 border border-gold/40 text-gold text-sm font-semibold">
+              👋 Welcome back, {guest.name}! Visit #{(guest.visits || 0) + 1} — loyalty points on this one ✨
+            </div>
+          )}
         </div>
         <div className="flex gap-2 mt-3">
           <button onClick={() => callStaff("waiter")} data-testid="call-waiter-btn"

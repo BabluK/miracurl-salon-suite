@@ -756,6 +756,23 @@ def _norm_in_phone(v: str) -> str:
     return cleaned if re.fullmatch(r"[6-9]\d{9}", cleaned) else ""
 
 
+@router.get("/public/guest-lookup/{slug}")
+async def public_guest_lookup(slug: str, request: Request, phone: str = ""):
+    """Returning-guest greeting on the QR menu — first name + visit count only."""
+    t = await resolve_tenant_from_slug(slug)
+    public_rate_limit(request, key_suffix=f"guestlookup:{slug}", limit=30, window_sec=600)
+    digits = _norm_in_phone(phone)
+    if not digits:
+        return {"found": False}
+    c = await db.customers.find_one({"phone": digits}, {"_id": 0, "name": 1, "visits": 1})
+    if not c:
+        return {"found": False}
+    first = (c.get("name") or "").strip().split(" ")[0][:30]
+    if not first or first.lower() in ("dine-in", "guest"):
+        return {"found": False}
+    return {"found": True, "name": first, "visits": int(c.get("visits") or 0)}
+
+
 @router.post("/public/table-order/{slug}")
 async def create_table_order(slug: str, body: TableOrderIn, request: Request):
     """QR-at-table food ordering — diners scan a table QR and order into the kitchen."""

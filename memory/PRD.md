@@ -2465,3 +2465,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - customers.py /customers/dinein-guest now accepts optional {phone, name}: real customer when phone valid (find-or-create), else legacy 0000000000 placeholder (backward compatible).
 - Kitchen.jsx billTable passes customer_phone into kitchen_bill localStorage; POS.jsx sends it to dinein-guest → bill attaches to REAL customer instead of placeholder.
 - Verified via curl (create/dedupe/no-phone/bad-phone/POS guest/CRM lookup) + UI screenshot. Test data cleaned. release_notes → .151.
+
+## Session 2026-06 (fork) — Returning guest greeting
+- GET /api/public/guest-lookup/{slug}?phone= (public_site.py): rate-limited 30/10min, _norm_in_phone validation (NoSQL-injection safe), returns first name + visits only; excludes "Dine-in Guest" placeholder.
+- OrderPublic.jsx: debounced (500ms) lookup on valid 10-digit entry → gold banner "👋 Welcome back, {name}! Visit #{visits+1}" (testid returning-guest-greeting) + name autofill. Verified via curl (found/not-found/injection) + screenshot. release_notes → .152.

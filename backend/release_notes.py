@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-30.151"
-BUILD_TIME = "30 Aug 2026, 12:30 PM IST"
+BUILD = "2026-08-30.152"
+BUILD_TIME = "30 Aug 2026, 01:15 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "👋 Returning-guest greeting — when a known mobile number is typed on the QR menu, the diner instantly sees 'Welcome back, Bablu! Visit #4' with their name auto-filled, making regulars feel remembered",
             "📱 Dine-in guests now share their number — the QR table-order page asks for the diner's mobile (optional, 'earn loyalty points on this visit'); when given, the guest is saved to your CRM automatically and the POS bill attaches to their real profile instead of the generic Dine-in Guest, so next-time visits, loyalty and history all track",
             "⏱ 'Always on time' now on every staff card — owners/admins (salons AND restaurants) can toggle auto check-in/check-out right on the staff card in the main grid (it was previously tucked away in the ID-cards section)",
             "🎁 Loyalty poster upgrades — new 'Light Gold' background (elegant champagne look with dark text for easy reading) and a new PDF download button next to the image download, print-ready for framing at the counter",
