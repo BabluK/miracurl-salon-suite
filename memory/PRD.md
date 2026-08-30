@@ -2454,3 +2454,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - "Always on time" was ALREADY implemented (both verticals) but hidden in the ID Cards section; now ALSO a chip on every StaffCard (staff/StaffCard.jsx, testid always-on-time-chip-{id}, self-contained api call). Verified: 7 chips rendering + toggle on/off for restaurant tenant via curl.
 - Loyalty poster: new "lightgold" background (assets/posters/loyalty_bg_lightgold.jpg + frontend/public/assets/loyalty-bgs/lightgold.jpg, dark bronze text palette + QR outline when light) and NEW GET /api/settings/loyalty-qr-poster.pdf (Pillow JPEG→PDF). UI: Light Gold swatch + PDF button in LoyaltyStampsCard.jsx. Verified: PNG/PDF 200 for salon + restaurant, poster visually checked. release_notes → 2026-08-30.150.
 - NOTED: preview Staff page shows many pending sign-ups from old test runs (test_user_*@test.com) — offer cleanup later.
+
+## Session 2026-06 (fork) — Pending sign-up junk purge (preview)
+- Deleted 9 leftover test pending sign-ups (test_user_/test_staff_/staff_rev_*@test.com, users with tenant_id=None + status=pending) from PREVIEW DB. Super-admin account untouched. 0 pending remain.
+- Production likely unaffected (tests never ran there) — if user sees junk pending sign-ups on prod Staff page, add a purge to the cleanup tool.
