@@ -2491,3 +2491,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Verified with real tools: bandit = 0 HIGH severity (2 benign Medium: /tmp in ffmpeg helper, urlopen in offline build script w/ constant URL); pyflakes = 0 undefined variables (scanner's "67" is noise, same as round 1).
 - Refactored the one genuine new E-grade hotspot: wa_blast_prepare → _blast_pick_leads/_blast_compose/_blast_poster_url/_blast_message (now < D grade). Re-verified e2e (compose incl. poster+demo links, phone normalize).
 - DECLINED with rationale: 380 blanket complexity refactors (mostly C/D routine handlers; PDF/Pillow renderers are linear drawing code — refactor risk > value on a production app), type-hint coverage push, and splitting assistant/briefings/crm route files (import count ≠ defect).
+
+## Session 2026-06 (fork) — Deployment tag not creating
+- ROOT CAUSE: /super/releases derives tag from RELEASES[0]['date']; all 13 recent build bumps appended lines to the SAME 2026-08-28 entry, so no new tag was ever inserted.
+- FIX: split this session's 15 change lines into a NEW entry "2026-08-31 (Guest tracking, WhatsApp growth & brand polish 💎)". Verified: latest_tag = MIRA-DEPLOYED-2026-08-31..., new tag at top of /super/releases, 2026-08-28 entry auto-synced back to 40 changes.
+- RULE FOR FUTURE AGENTS: when bumping release_notes.py after a deploy has already shipped the current top entry, CREATE A NEW dated entry (don't keep appending to the old date) or the Deployments tag list won't grow.

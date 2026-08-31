@@ -7,7 +7,7 @@ BUILD_TIME = "31 Aug 2026, 06:00 PM IST"
 
 RELEASES = [
     {
-        "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
+        "date": "2026-08-31 (Guest tracking, WhatsApp growth & brand polish 💎)",
         "changes": [
             "✨ Branded app splash — the plain 'Miracurl' loading screen on the mobile app is now the full gold MS emblem with the MIRACURL SUITE wordmark, soft glow and a gold loading bar (same elegant dark background)",
             "📊 Truthful HQ digest — the weekly Platform Health email now ignores test tenants, and the 'late arrivals' owner email skips any test-named staff, so the numbers you see always reflect real salons and restaurants",
@@ -24,6 +24,11 @@ RELEASES = [
             "💬 WhatsApp Invite quick-send — new section in Super Admin → Mira Lead Agent: paste any phone number you found on Google Maps (e.g. 09148054415), pick Salon or Restaurant, and Mira opens WhatsApp with the full Miracurl pitch (pricing, demo video, brochure links) ready to send; recent invites are listed so you never message the same number twice",
             "🧹 Data Cleanup now removes TEST STAFF too — Super Admin → Clean test data finds staff whose name starts with TEST/DUMMY (leftovers from test runs that were polluting the 'Late arrivals today' owner emails), shows exactly who'll be removed, and deletes them along with their attendance & late-alert records in one click",
             "📸 Dish photos on your menus — appetizing photos now appear next to every dish on the QR table-order page AND the public booking page; guests tap any photo to see it full-size with the dish name & price (Mira paints missing photos automatically from Services → 'Generate missing images', and you can replace any with your own real photo anytime)",
+        ],
+    },
+    {
+        "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
+        "changes": [
             "🌶 Spice preference on table reservations — while booking, diners set Not spicy / Normal / Spicy for every dish they pre-pick, and choose 💵 Pay on Counter or 📱 Pay by UPI; both arrive with the booking notes for your team",
             "⏱ 'Always on time' staff — owners/admins can flag trusted staff on the Staff page; they're automatically marked checked-in at shift start and checked-out at shift end every day, and attendance reports show a green '⏱ auto' badge so you spot them at a glance",
             "🎨 Loyalty poster logo styles — choose Circle, Square or Blend-with-background for your logo on the Loyalty Club poster (logos now fit perfectly, no more cropping), alongside the background picker",
