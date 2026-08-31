@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-31.155"
-BUILD_TIME = "31 Aug 2026, 05:00 PM IST"
+BUILD = "2026-08-31.156"
+BUILD_TIME = "31 Aug 2026, 06:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-08-28 (Restaurant POS & Table QR upgrade 🧾)",
         "changes": [
+            "✨ Branded app splash — the plain 'Miracurl' loading screen on the mobile app is now the full gold MS emblem with the MIRACURL SUITE wordmark, soft glow and a gold loading bar (same elegant dark background)",
             "📊 Truthful HQ digest — the weekly Platform Health email now ignores test tenants, and the 'late arrivals' owner email skips any test-named staff, so the numbers you see always reflect real salons and restaurants",
             "🗣️ Mira speaks again — browsers silently mute auto-played speech until you interact with the page; Mira now queues her 'Welcome back, Boss!' greeting and says it the moment you tap or type, and flipping 'Greet on' makes her speak instantly so you know the voice works (she also picks a natural female English voice when available)",
             "🤝 Partners page polish — miracurl-suite.com/partners now matches the cream-and-gold site header with a bright elegant background, gold partner cards, and test tenants are filtered off the public list",

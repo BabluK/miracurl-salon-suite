@@ -2483,3 +2483,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Hardened code (applies to prod after deploy): _run_platform_digest excludes \btest\b tenants (super_admin_ops.py); _run_late_alerts skips \btest\b staff (staff_portal.py); data_cleanup _TEST_STAFF_NAME regex broadened to word-boundary test/dummy anywhere.
 - OPEN QUESTION for user: preview also emails HQ digests → duplicate/conflicting emails vs production. Offer to silence preview scheduler emails.
 - release_notes → 2026-08-31.155.
+
+## Session 2026-06 (fork) — Branded app splash
+- New components/BrandSplash.jsx (glowing MS emblem + MIRACURL SUITE gold-shine wordmark + subtitle + gold pulse bar, bg-bg-base dark). Replaces plain "Miracurl" text splash in App.js Protected loading state AND BookPublic.jsx !salon state. Verified via delayed-auth screenshot (420px mobile). release_notes → .156.

@@ -122,15 +122,12 @@ import DemoSlot from "@/pages/DemoSlot";
 import PublicDemo from "@/pages/PublicDemo";
 import { PlayerProvider } from "@/context/PlayerContext";
 import Entertainment from "@/pages/Entertainment";
+import { BrandSplash } from "@/components/BrandSplash";
 
 function Protected({ children }) {
   const { user, loading, refresh } = useAuth();
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-base">
-        <div className="text-gold font-playfair text-2xl animate-pulse">Miracurl</div>
-      </div>
-    );
+    return <BrandSplash />;
   }
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "super_admin" && !getActAsSalon()) return <Navigate to="/super-admin" replace />;

@@ -8,6 +8,7 @@ import InstallAppPrompt from "@/components/InstallAppPrompt";
 import BookingChatWidget from "@/components/BookingChatWidget";
 import { HeroCTAs, GalleryShowcase, OffersShowcase, VerifiedTeam, ReferEarnBanner, AITrustStrip, LocationsSection, openMira } from "@/components/BookPublicExtras";
 import { MiracurlProductsStrip } from "@/components/MiracurlProductsStrip";
+import { BrandSplash } from "@/components/BrandSplash";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const DEFAULT_SLUG = "miracurl-marathahalli";
@@ -357,7 +358,7 @@ export default function BookPublic() {
     setConfirmation(null);
   }
 
-  if (!salon) return <div className="min-h-screen flex items-center justify-center bg-bg-base text-gold font-playfair text-2xl animate-pulse">Miracurl</div>;
+  if (!salon) return <BrandSplash />;
   if (salon.error) return (
     <div className="min-h-screen flex items-center justify-center bg-bg-base p-6">
       <div className="card-luxe max-w-md text-center" data-testid="book-tenant-not-found">
