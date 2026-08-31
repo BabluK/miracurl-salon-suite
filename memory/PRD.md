@@ -2472,3 +2472,14 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## Session 2026-06 (fork) — Blog page branding polish
 - Blog.jsx + BlogPost.jsx: sticky branded header (reuses LogoLockup exported from Landing.jsx) with Home / Restaurants (/restaurant route) / Start free trial links; gold-shine "salon" in H1, gold divider + article-count badge, branded emblem footer. Verified via screenshot (list + article pages). release_notes → 2026-08-31.153.
+
+## Session 2026-06 (fork) — Partners page light theme + Mira voice greeting fix
+- Partners.jsx restyled to cream/gold light theme matching SiteHeader variant=light; PartnerGrid.jsx now takes `light` prop (Landing keeps dark). public_partners endpoint filters tenants with \btest\b in name (super_admin_ops.py:786).
+- Mira not speaking ROOT CAUSE: browsers block speechSynthesis.speak() without user activation; MiraHome.jsx speak() now checks navigator.userActivation and queues _pendingSpeech for first pointerdown/keydown; picks female en-IN/GB/US voice; toggleGreet ON speaks "Welcome, Boss!..." instantly (gesture-backed) + clears mira_welcomed session flag; greeting always addresses "Boss". Verified via instrumented Playwright (both utterances captured). release_notes → 2026-08-31.154. NEEDS DEPLOY (user saw issue on production).
+
+## Session 2026-06 (fork) — Wrong digest numbers + test staff in late-arrival email
+- ROOT CAUSE: these emails came from PREVIEW scheduler (numbers matched preview DB exactly: 2 active + 7 trial incl. 5 junk test tenants; "Portal Test Staff" survived earlier ^TEST purge).
+- Fixed data: deleted "Portal Test Staff" (+11 attendance, +28 late_alerts); set 5 test trial tenants (Spice Garden Test, 4x TEST Resto/Salon) to cancelled. TRUE counts now: ACTIVE 2 (Marathahalli, Whitefield), TRIAL 2 (Elegance, Infinity).
+- Hardened code (applies to prod after deploy): _run_platform_digest excludes \btest\b tenants (super_admin_ops.py); _run_late_alerts skips \btest\b staff (staff_portal.py); data_cleanup _TEST_STAFF_NAME regex broadened to word-boundary test/dummy anywhere.
+- OPEN QUESTION for user: preview also emails HQ digests → duplicate/conflicting emails vs production. Offer to silence preview scheduler emails.
+- release_notes → 2026-08-31.155.

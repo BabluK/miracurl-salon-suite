@@ -7,15 +7,38 @@ import { promptAsync } from "@/components/ConfirmDialog";
 
 const KIND_ICON = { search: "🔍", result: "🎯", ask: "💬", call: "📞", email: "✉️", memory: "🧠" };
 
-function speak(text) {
+let _pendingSpeech = "";
+
+function _doSpeak(text) {
   try {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    synth.cancel();
+    synth.resume();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-IN";
     u.rate = 1.0;
-    window.speechSynthesis.speak(u);
+    const voices = synth.getVoices() || [];
+    const v = voices.find(x => /en[-_](IN|GB|US)/i.test(x.lang) && /female|zira|veena|heera|samantha|google uk english female/i.test(x.name))
+      || voices.find(x => /^en[-_]IN/i.test(x.lang)) || voices.find(x => /^en/i.test(x.lang));
+    if (v) u.voice = v;
+    synth.speak(u);
   } catch { /* unsupported */ }
+}
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  // Browsers mute speech before the first tap/keypress — queue it for the first gesture.
+  const active = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+  if (active) { _doSpeak(text); return; }
+  _pendingSpeech = text;
+  const fire = () => {
+    window.removeEventListener("pointerdown", fire);
+    window.removeEventListener("keydown", fire);
+    if (_pendingSpeech) { const t = _pendingSpeech; _pendingSpeech = ""; _doSpeak(t); }
+  };
+  window.addEventListener("pointerdown", fire, { once: true });
+  window.addEventListener("keydown", fire, { once: true });
 }
 
 async function captureFrame(videoEl) {
@@ -194,6 +217,14 @@ export function MiraHome({ onGoTab, user }) {
     const v = !greetOn;
     setGreetOn(v);
     localStorage.setItem("mira_greet_login", v ? "1" : "0");
+    if (v) {
+      sessionStorage.removeItem("mira_welcomed");
+      const hour = new Date().getHours();
+      const part = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+      speak(`Welcome, Boss! Good ${part}. Mira is online and at your service.`);
+    } else {
+      try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
+    }
     toast.success(v ? "Mira will greet you at every login 🔔" : "Login greeting turned off 🔕");
   };
   const lastMira = useRef("");
@@ -204,7 +235,7 @@ export function MiraHome({ onGoTab, user }) {
     sessionStorage.setItem("mira_welcomed", "1");
     const hour = new Date().getHours();
     const part = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-    const name = (user?.name || "Boss").split(" ")[0];
+    const name = "Boss";
     if (localStorage.getItem("mira_greet_login") !== "0") {
       speak(`${viaFace.current ? "Face verified. " : ""}Welcome back, ${name}! Good ${part}. Mira is online and ready for you.`);
     }

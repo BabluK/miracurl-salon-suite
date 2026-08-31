@@ -1522,6 +1522,8 @@ async def _run_late_alerts() -> dict:
              "image_url": 1, "week_off_day": 1}).to_list(300)
         weekday_now = ist.strftime("%A").lower()
         for s in staff_list:
+            if re.search(r"\btest\b", s.get("name") or "", re.I):
+                continue  # test-run leftovers never trigger alerts or owner digests
             if (s.get("week_off_day") or "").lower() == weekday_now:
                 continue  # weekly off — never flag as late
             h, m = _parse_hhmm(s.get("shift_start"), "10:00")

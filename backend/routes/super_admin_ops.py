@@ -784,7 +784,8 @@ async def public_partners(request: Request):
          "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1, "partner_review": 1},
     ).to_list(300)
     out = [_tenant_partner_card(t, by_tid.get(t["id"]))
-           for t in tenants if t.get("partner_visible") is not False]
+           for t in tenants if t.get("partner_visible") is not False
+           and not re.search(r"\btest\b", t.get("name") or "", re.I)]
     manual = await _raw_db.partners.find({}, {"_id": 0}).to_list(100)
     out += [{**p, "source": "manual", "reviews_count": p.get("reviews_count", 0)} for p in manual]
     out.sort(key=lambda p: (not p.get("featured"), -(p.get("rating") or 0)))
@@ -1100,6 +1101,7 @@ async def _run_platform_digest() -> dict:
     week_ago = (now - timedelta(days=7)).isoformat()
     week_ahead = (now + timedelta(days=7)).isoformat()
     tenants = await _raw_db.tenants.find({}, {"_id": 0, "name": 1, "status": 1, "trial_ends_at": 1}).to_list(500)
+    tenants = [t for t in tenants if not re.search(r"\btest\b", t.get("name") or "", re.I)]
     expiring = [{"name": t["name"], "ends": str(t.get("trial_ends_at", ""))[:10]}
                 for t in tenants if t.get("status") == "trial" and week_ago < str(t.get("trial_ends_at", "")) < week_ahead]
     leads = await _raw_db.tenant_inquiries.find(

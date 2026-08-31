@@ -43,7 +43,7 @@ async def _ghost_customers(tenant_id: str, custs: list, dummy_ids: set, active_c
     return out
 
 
-_TEST_STAFF_NAME = re.compile(r"^\s*(test|dummy)[\s_-]", re.I)
+_TEST_STAFF_NAME = re.compile(r"(^|[\s_-])(test|dummy)([\s_-]|$)", re.I)
 
 
 async def _test_staff(tenant_id: str) -> list:
