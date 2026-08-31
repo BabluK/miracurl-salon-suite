@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import { ArrowLeft } from "lucide-react";
+import { LogoLockup } from "./Landing";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -57,9 +58,21 @@ export default function BlogPost() {
   const blocks = post.content.split("\n\n");
   return (
     <div className="min-h-screen bg-[#0B0B0C] text-white">
-      <article className="max-w-3xl mx-auto px-6 sm:px-10 py-14" data-testid="blog-article">
-        <Link to="/blog" className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors" data-testid="blogpost-back">
-          <ArrowLeft className="w-4 h-4" /> All articles
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0B0B0C]/85 backdrop-blur-md" data-testid="blogpost-header">
+        <div className="max-w-3xl mx-auto px-6 sm:px-10 py-3 flex items-center justify-between gap-4">
+          <LogoLockup />
+          <nav className="flex items-center gap-3 sm:gap-5 text-xs">
+            <Link to="/blog" className="hidden sm:inline text-white/60 hover:text-white uppercase tracking-widest transition-colors" data-testid="blogpost-nav-blog">All articles</Link>
+            <Link to="/signup-salon" data-testid="blogpost-nav-trial"
+              className="px-4 sm:px-5 py-2 rounded-full bg-[#DFB78C] text-black font-bold hover:bg-[#e8c79f] transition-colors whitespace-nowrap">
+              Start free trial ✦
+            </Link>
+          </nav>
+        </div>
+      </header>
+      <article className="max-w-3xl mx-auto px-6 sm:px-10 py-12" data-testid="blog-article">
+        <Link to="/blog" className="inline-flex items-center gap-2 text-xs text-white/40 hover:text-white transition-colors" data-testid="blogpost-back">
+          <ArrowLeft className="w-3.5 h-3.5" /> All articles
         </Link>
         <div className="flex flex-wrap gap-1.5 mt-8">
           {(post.tags || []).map(t => (

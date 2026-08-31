@@ -2469,3 +2469,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## Session 2026-06 (fork) — Returning guest greeting
 - GET /api/public/guest-lookup/{slug}?phone= (public_site.py): rate-limited 30/10min, _norm_in_phone validation (NoSQL-injection safe), returns first name + visits only; excludes "Dine-in Guest" placeholder.
 - OrderPublic.jsx: debounced (500ms) lookup on valid 10-digit entry → gold banner "👋 Welcome back, {name}! Visit #{visits+1}" (testid returning-guest-greeting) + name autofill. Verified via curl (found/not-found/injection) + screenshot. release_notes → .152.
+
+## Session 2026-06 (fork) — Blog page branding polish
+- Blog.jsx + BlogPost.jsx: sticky branded header (reuses LogoLockup exported from Landing.jsx) with Home / Restaurants (/restaurant route) / Start free trial links; gold-shine "salon" in H1, gold divider + article-count badge, branded emblem footer. Verified via screenshot (list + article pages). release_notes → 2026-08-31.153.
