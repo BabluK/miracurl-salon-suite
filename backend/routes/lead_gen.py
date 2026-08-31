@@ -1723,10 +1723,7 @@ _WA_BLAST_SYS = (
     "Reply ONLY with a JSON object mapping each lead id to {\"message\": \"...\", \"quote\": \"<poster id>\"}.")
 
 
-@router.post("/super-admin/wa-blast/prepare")
-async def wa_blast_prepare(body: WaBlastPrepareIn, request: Request, user=Depends(require_super_admin)):
-    """Mira composes a personalized WhatsApp message for every uncontacted lead with a phone."""
-    from routes.mira_common import _ask_json
+async def _blast_pick_leads(body: WaBlastPrepareIn) -> list:
     q: dict = {"phone": {"$nin": [None, ""]}, "status": {"$in": ["researched", "drafted", "no_email"]}}
     if body.vertical == "restaurant":
         q["vertical"] = "restaurant"
@@ -1735,19 +1732,47 @@ async def wa_blast_prepare(body: WaBlastPrepareIn, request: Request, user=Depend
     if body.run_id:
         q["run_id"] = body.run_id
     leads = await _raw_db.mira_leads.find(q, {"_id": 0}).sort("score", -1).to_list(body.limit)
-    leads = [l for l in leads if len(_wa_phone(l.get("phone", ""))) >= 10]
-    if not leads:
-        return {"queue": []}
+    return [l for l in leads if len(_wa_phone(l.get("phone", ""))) >= 10]
 
-    posters = {d["quote_id"]: d["url"] for d in await _raw_db.wa_quote_posters.find({}, {"_id": 0}).to_list(20)}
+
+async def _blast_compose(leads: list, posters: dict) -> dict:
+    """One batched LLM call → {lead_id: {message, quote}}."""
+    from routes.mira_common import _ask_json
     poster_list = "\n".join(f"{x['id']} ({x['vertical']}): {_quote_text(x)}" for x in _WA_QUOTES if x["id"] in posters)
     listing = "\n".join(
         f"{l['id']}|{l['name']}|{l.get('city', '')}|{l.get('vertical') or 'salon'}|"
         f"rating {l.get('rating') or '?'}|{l.get('reviews') or 0} reviews" for l in leads)
-    data = await _ask_json(_WA_BLAST_SYS,
+    return await _ask_json(_WA_BLAST_SYS,
                            f"Quote posters available:\n{poster_list or 'none'}\n\n"
                            f"Leads (id|name|city|type|rating|reviews):\n{listing}")
 
+
+def _blast_poster_url(lead: dict, composed: dict, posters: dict) -> str:
+    """LLM's poster pick if it matches the lead's vertical, else first vertical match."""
+    want_v = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
+    pick = str(composed.get("quote") or "")
+    if any(x["id"] == pick and x["vertical"] == want_v for x in _WA_QUOTES) and posters.get(pick):
+        return posters[pick]
+    fallback = next((x["id"] for x in _WA_QUOTES if x["vertical"] == want_v and x["id"] in posters), None)
+    return posters.get(fallback) or ""
+
+
+def _blast_message(lead: dict, body_txt: str, poster_url: str, poster_base: str, base: str) -> str:
+    resto = (lead.get("vertical") or "salon") == "restaurant"
+    return body_txt + (f"\n\n🖼️ {poster_base}{poster_url}" if poster_url else "") + (
+        f"\n🎬 Live demo: {base}/demo"
+        f"\n🏪 Start free: {base}/{'signup-restaurant' if resto else 'signup-salon'}"
+        "\n\nReply here for a *free 15-min demo* ✨")
+
+
+@router.post("/super-admin/wa-blast/prepare")
+async def wa_blast_prepare(body: WaBlastPrepareIn, request: Request, user=Depends(require_super_admin)):
+    """Mira composes a personalized WhatsApp message for every uncontacted lead with a phone."""
+    leads = await _blast_pick_leads(body)
+    if not leads:
+        return {"queue": []}
+    posters = {d["quote_id"]: d["url"] for d in await _raw_db.wa_quote_posters.find({}, {"_id": 0}).to_list(20)}
+    data = await _blast_compose(leads, posters)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     poster_base = f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
@@ -1757,20 +1782,7 @@ async def wa_blast_prepare(body: WaBlastPrepareIn, request: Request, user=Depend
         body_txt = str(c.get("message") or "").strip()
         if not body_txt:
             continue
-        resto = (l.get("vertical") or "salon") == "restaurant"
-        want_v = "restaurant" if resto else "salon"
-        pick = str(c.get("quote") or "")
-        pick_ok = any(x["id"] == pick and x["vertical"] == want_v for x in _WA_QUOTES)
-        poster_url = posters.get(pick) if pick_ok else None
-        if not poster_url:  # fallback: first poster matching the vertical
-            fallback = next((x["id"] for x in _WA_QUOTES
-                             if x["vertical"] == want_v and x["id"] in posters), None)
-            poster_url = posters.get(fallback)
-        tail = (f"\n\n🖼️ {poster_base}{poster_url}" if poster_url else "") + (
-            f"\n🎬 Live demo: {base}/demo"
-            f"\n🏪 Start free: {base}/{'signup-restaurant' if resto else 'signup-salon'}"
-            "\n\nReply here for a *free 15-min demo* ✨")
-        msg = body_txt + tail
+        msg = _blast_message(l, body_txt, _blast_poster_url(l, c, posters), poster_base, base)
         await _raw_db.mira_leads.update_one(
             {"id": l["id"]}, {"$set": {"wa_draft": msg, "wa_draft_at": _now()}})
         queue.append({"id": l["id"], "name": l["name"], "city": l.get("city", ""),

@@ -2486,3 +2486,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 
 ## Session 2026-06 (fork) — Branded app splash
 - New components/BrandSplash.jsx (glowing MS emblem + MIRACURL SUITE gold-shine wordmark + subtitle + gold pulse bar, bg-bg-base dark). Replaces plain "Miracurl" text splash in App.js Protected loading state AND BookPublic.jsx !salon state. Verified via delayed-auth screenshot (420px mobile). release_notes → .156.
+
+## Session 2026-06 (fork) — Code review round 2
+- Verified with real tools: bandit = 0 HIGH severity (2 benign Medium: /tmp in ffmpeg helper, urlopen in offline build script w/ constant URL); pyflakes = 0 undefined variables (scanner's "67" is noise, same as round 1).
+- Refactored the one genuine new E-grade hotspot: wa_blast_prepare → _blast_pick_leads/_blast_compose/_blast_poster_url/_blast_message (now < D grade). Re-verified e2e (compose incl. poster+demo links, phone normalize).
+- DECLINED with rationale: 380 blanket complexity refactors (mostly C/D routine handlers; PDF/Pillow renderers are linear drawing code — refactor risk > value on a production app), type-hint coverage push, and splitting assistant/briefings/crm route files (import count ≠ defect).
