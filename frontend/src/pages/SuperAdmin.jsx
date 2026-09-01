@@ -78,6 +78,10 @@ export default function SuperAdmin() {
   const nav = useNavigate();
   const [overview, setOverview] = useState(null);
   const [tenants, setTenants] = useState([]);
+  const [offerStats, setOfferStats] = useState(null);
+  useEffect(() => {
+    api.get("/super-admin/newbiz-offer-stats").then(r => setOfferStats(r.data)).catch(() => {});
+  }, []);
   const [hqUnread, setHqUnread] = useState(0);
   const [inquiryNew, setInquiryNew] = useState(0);
   const [hiringNew, setHiringNew] = useState(0);
@@ -504,6 +508,12 @@ export default function SuperAdmin() {
             >
               <Send className="w-4 h-4" /> {sendingReports ? "Sending…" : "Email monthly reports"}
             </button>
+            {offerStats && (
+              <span data-testid="newbiz-offer-stats" title="90-day invite link performance — opens, signups via the link, and 'onboard me' help requests"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
+                👀 {offerStats.opens} opens · 🌱 {offerStats.signups} signups · 🙋 {offerStats.assist_requests} assist
+              </span>
+            )}
             <button
               data-testid="copy-newbiz-link-btn"
               onClick={async () => {

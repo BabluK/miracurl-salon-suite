@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.171"
-BUILD_TIME = "02 Sep 2026, 1:15 PM IST"
+BUILD = "2026-09-01.172"
+BUILD_TIME = "02 Sep 2026, 2:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [
+            "📈 Invite Link Tracker — HQ → Tenants now shows live performance of your 90-day invite link: 👀 how many opened it, 🌱 how many signed up through it, and 🙋 how many asked for onboarding help",
+            "🙋 'Onboard me' assisted signup — the newly-opened popup now offers a choice: claim the offer and set up yourself, OR leave your email and the Miracurl team onboards you — every request instantly emails HQ with the business details; the popup also collects salon name and booking URL upfront, and the booking-URL field's dark background is fixed",
             "📩 New-Biz Plan Email — the moment a newly-opened business claims the 90-day offer at signup, they automatically receive a beautiful gold plan-sheet email: their FREE 90-day setup end date, opening date on record, and the live 6-month & annual plan prices (region-aware ₹/$) with a 'no payment needed today' note and a one-tap dashboard button",
             "⏳ Trial period is now YOURS to set — new '⏳ Free trial period' control in HQ → Billing → Plan Catalog lets the super admin choose the free-trial length (default now 30 days, was 7); the signup page badge and stats update everywhere automatically",
             "🎊 'Is your salon newly opened?' on the signup page — new businesses can self-identify with a beautiful gold congratulations popup, pick their opening date (past or upcoming both qualify), and instantly claim the FREE 90-day setup; the opening date is stored and shown on their 🌱 New-Biz badge in HQ → Tenants",

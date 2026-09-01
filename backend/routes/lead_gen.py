@@ -15,7 +15,7 @@ import httpx
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 
 from database import _raw_db
 from security import require_super_admin
@@ -1165,7 +1165,67 @@ async def delete_manual_wa_invite(iid: str, user=Depends(require_super_admin)):
     return {"ok": True}
 
 
-# ---------------- Auto City Watch ----------------
+# ---------------- 90-day invite link tracker + assisted onboarding ----------------
+@router.post("/public/newbiz-offer-visit")
+async def newbiz_offer_visit(request: Request):
+    """Counts opens of the ?offer=newbiz invite link (one ping per browser session)."""
+    from security import public_rate_limit
+    await public_rate_limit(request, "offer-visit", limit=20, window_sec=600)
+    await _raw_db.offer_link_stats.update_one(
+        {"_id": "newbiz"}, {"$inc": {"opens": 1},
+                            "$set": {"last_open_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    return {"ok": True}
+
+
+class AssistIn(BaseModel):
+    email: EmailStr
+    phone: str = Field("", max_length=20)
+    business_name: str = Field("", max_length=80)
+    business_type: str = Field("salon", pattern="^(salon|restaurant)$")
+    opening_date: str = Field("", max_length=10)
+
+
+@router.post("/public/newbiz-assist")
+async def newbiz_assist(body: AssistIn, request: Request):
+    """'Let the Miracurl team onboard me' — stores the request and alerts HQ instantly."""
+    from security import public_rate_limit
+    await public_rate_limit(request, "newbiz-assist", limit=5, window_sec=900)
+    doc = {"id": str(uuid.uuid4()), "email": body.email.lower(), "phone": body.phone.strip(),
+           "business_name": body.business_name.strip(), "business_type": body.business_type,
+           "opening_date": body.opening_date.strip(), "status": "new",
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.assist_requests.insert_one({**doc})
+    admins = await _raw_db.users.find({"role": "super_admin"}, {"_id": 0, "email": 1}).to_list(10)
+    emails = [a["email"] for a in admins if a.get("email")]
+    if emails:
+        try:
+            from email_service import _send_email
+            biz = html_lib.escape(doc["business_name"] or "a new business")
+            await _send_email(
+                emails, f"🙋 Onboarding help requested — {doc['business_name'] or doc['email']}",
+                (f"<h2 style='font-family:Georgia,serif'>🙋 A newly-opened {doc['business_type']} wants YOU to set them up</h2>"
+                 f"<p style='font-size:14px;color:#555;line-height:1.8'><b>{biz}</b><br>"
+                 f"📧 {html_lib.escape(doc['email'])}<br>"
+                 + (f"📱 {html_lib.escape(doc['phone'])}<br>" if doc["phone"] else "")
+                 + (f"📅 Opening: {html_lib.escape(doc['opening_date'])}<br>" if doc["opening_date"] else "")
+                 + "</p><p style='font-size:13px;color:#777'>They chose assisted onboarding on the signup page "
+                   "(90-day new-business offer). Reach out, create their tenant, and send credentials.</p>"))
+        except Exception:
+            log.exception("assist alert email failed")
+    return {"ok": True, "message": "Got it! The Miracurl team will reach out shortly to set everything up for you."}
+
+
+@router.get("/super-admin/newbiz-offer-stats")
+async def newbiz_offer_stats(user=Depends(require_super_admin)):
+    stats = await _raw_db.offer_link_stats.find_one({"_id": "newbiz"}) or {}
+    signups = await _raw_db.tenants.count_documents({"signup_offer": "newbiz"})
+    assists = await _raw_db.assist_requests.count_documents({})
+    recent = await _raw_db.assist_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(10)
+    return {"opens": int(stats.get("opens") or 0), "signups": signups,
+            "assist_requests": assists, "recent_assists": recent}
+
+
+
 class CityWatchIn(BaseModel):
     city: str = Field(..., min_length=2, max_length=60)
     vertical: str = Field("salon", pattern="^(salon|restaurant)$")

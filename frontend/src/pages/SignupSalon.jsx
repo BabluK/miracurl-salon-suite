@@ -80,6 +80,10 @@ export default function SignupSalon() {
       const offer = (params.get("offer") || "").trim().toLowerCase();
       if (/^[a-z0-9]{2,20}$/.test(offer)) {
         localStorage.setItem("miracurl_offer", offer);
+        if (offer === "newbiz" && !sessionStorage.getItem("miracurl_offer_visit")) {
+          sessionStorage.setItem("miracurl_offer_visit", "1");
+          axios.post(`${BACKEND_URL}/api/public/newbiz-offer-visit`).catch(() => {});
+        }
       }
       if (offer === "newbiz" || localStorage.getItem("miracurl_offer") === "newbiz") setNewbiz(true);
     } catch (err) {
@@ -336,6 +340,9 @@ function Field({ label, icon: Icon, testid, type = "text", value, onChange, plac
 
 function SalonStep({ form, update }) {
   const [showNewbizModal, setShowNewbizModal] = useState(false);
+  const [assistEmail, setAssistEmail] = useState("");
+  const [assistBusy, setAssistBusy] = useState(false);
+  const [assistSent, setAssistSent] = useState(false);
   const isResto = form.business_type === "restaurant";
   return (
     <div className="space-y-5 animate-fade-up">
@@ -386,7 +393,7 @@ function SalonStep({ form, update }) {
               </div>
               <h3 className="font-playfair text-xl text-slate-900 mt-3">Congratulations on your new {isResto ? "restaurant" : "salon"}! 🎊</h3>
             </div>
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
               <p className="text-sm text-slate-600 leading-relaxed">
                 Starting fresh is the perfect time to get your systems right. As a welcome gift, you get a
                 <b className="text-amber-600"> FREE 90-day setup</b> — bookings, billing, staff, WhatsApp marketing
@@ -399,12 +406,71 @@ function SalonStep({ form, update }) {
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white" />
                 <p className="text-[10px] text-slate-400 mt-1">Past or upcoming date — both qualify.</p>
               </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1.5">{isResto ? "Restaurant" : "Salon"} name *</label>
+                <input data-testid="newbiz-salon-name-input" value={form.salon_name}
+                  onChange={e => update({ salon_name: e.target.value })}
+                  placeholder={isResto ? "e.g. Spice Villa, Koramangala" : "e.g. Glow Salon, Indiranagar"}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1.5">Your booking URL *</label>
+                <div className="flex items-center rounded-xl border border-slate-200 overflow-hidden" style={{ background: "#ffffff" }}>
+                  <span className="pl-3 pr-1 text-xs text-slate-400 font-mono shrink-0">/book/</span>
+                  <input data-testid="newbiz-slug-input" value={form.slug}
+                    onChange={e => update({ slug: slugify(e.target.value), slug_touched: true })}
+                    placeholder="your-business-name"
+                    style={{ background: "#ffffff", color: "#1e293b", WebkitTextFillColor: "#1e293b", boxShadow: "0 0 0 30px #ffffff inset" }}
+                    className="flex-1 min-w-0 px-1 py-2.5 text-sm placeholder:text-slate-300 outline-none border-0" />
+                </div>
+                {form.slug && (
+                  <p className="text-[10px] text-slate-400 mt-1 truncate">
+                    Customers will visit <span className="text-sky-600 font-mono">{window.location.origin}/book/{form.slug}</span>
+                  </p>
+                )}
+              </div>
               <button type="button" data-testid="claim-newbiz-btn"
-                disabled={!form.opening_date}
+                disabled={!form.opening_date || form.salon_name.trim().length < 2 || !form.slug}
                 onClick={() => { update({ newly_opened: true }); setShowNewbizModal(false); }}
                 className="w-full py-3 rounded-full text-sm font-bold text-slate-900 bg-gradient-to-r from-amber-400 to-yellow-300 hover:brightness-105 disabled:opacity-50 inline-flex items-center justify-center gap-2">
                 <Gift className="w-4 h-4" /> Claim my FREE 90-day setup
               </button>
+              <div className="flex items-center gap-3">
+                <span className="flex-1 h-px bg-slate-200" /><span className="text-[10px] uppercase tracking-widest text-slate-400">or</span><span className="flex-1 h-px bg-slate-200" />
+              </div>
+              {assistSent ? (
+                <p className="text-xs text-emerald-600 text-center font-semibold" data-testid="assist-thanks">
+                  ✅ Got it! The Miracurl team will reach out shortly to set everything up for you.
+                </p>
+              ) : (
+                <div>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Prefer we do it for you? Share your email and the <b>Miracurl team will onboard your {isResto ? "restaurant" : "salon"}</b> — free of charge.
+                  </p>
+                  <div className="flex gap-2">
+                    <input type="email" data-testid="assist-email-input" value={assistEmail}
+                      onChange={e => setAssistEmail(e.target.value)} placeholder="your@email.com"
+                      style={{ background: "#ffffff", color: "#1e293b" }}
+                      className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-slate-200 text-sm placeholder:text-slate-300" />
+                    <button type="button" data-testid="assist-submit-btn"
+                      disabled={assistBusy || !/^\S+@\S+\.\S+$/.test(assistEmail)}
+                      onClick={async () => {
+                        setAssistBusy(true);
+                        try {
+                          await axios.post(`${BACKEND_URL}/api/public/newbiz-assist`, {
+                            email: assistEmail.trim(), business_name: form.salon_name.trim(),
+                            business_type: form.business_type, opening_date: form.opening_date, phone: form.phone || "",
+                          });
+                          setAssistSent(true);
+                        } catch { toast.error("Couldn't send — please try again"); }
+                        finally { setAssistBusy(false); }
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-slate-800 text-white text-xs font-bold hover:bg-slate-700 disabled:opacity-40 shrink-0">
+                      {assistBusy ? "Sending…" : "Onboard me"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

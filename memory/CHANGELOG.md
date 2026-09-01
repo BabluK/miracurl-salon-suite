@@ -93,3 +93,11 @@
 - email_service.py: newbiz_plan_email_html(tenant, trial_end, plans) — gold gradient header, 90-day gift block w/ opening date, live plan table (₹/$ by plan currency).
 - auth.py: _send_newbiz_plan_email(tenant, owner_email, trial_end) — pulls live PLAN_CATALOG (region/vertical keys same as _followup_email), fired via create_task in signup when is_newbiz.
 - Tested: direct send to delivered@resend.dev succeeded (no warnings). release_notes → .171.
+
+## Session 2026-06 (fork) — Invite tracker + assisted onboarding + modal fields
+- Newbiz modal (SignupSalon.jsx) now collects: opening date + salon/restaurant name + booking URL slug (synced to main form; slug auto-suggests from name). Slug + assist inputs use inline white bg (global CSS painted inputs dark — inline style beats it; user reported black background twice).
+- lead_gen.py: POST /public/newbiz-offer-visit (opens counter in offer_link_stats _id=newbiz, 1/session via sessionStorage), POST /public/newbiz-assist (assist_requests collection + instant HQ email to super admins, rate-limited 5/15min), GET /super-admin/newbiz-offer-stats (opens/signups=tenants signup_offer=newbiz/assists + recent list).
+- SuperAdmin.jsx: emerald stats chip (newbiz-offer-stats testid) next to the 🎁 copy button.
+- BUG CAUGHT: SignupSalon has NO `api` import (uses raw axios + BACKEND_URL) — my first attempt threw ReferenceError inside the ref/offer capture try-block. Fixed with axios. LESSON: check the file's http client before adding calls.
+- Verified E2E in browser: open ping counts, assist submits + thanks message + HQ email, stats endpoint accurate. Test records cleaned, opens reset to 0.
+- release_notes → .172.
