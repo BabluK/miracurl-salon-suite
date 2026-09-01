@@ -1128,3 +1128,17 @@ async def send_platform_digest(user=Depends(require_super_admin)):
     return await _run_platform_digest()
 
 
+
+
+@router.get("/super-admin/referrals")
+async def super_admin_referrals(user=Depends(require_super_admin)):
+    """Refer & Earn overview: every referral edge + rewards granted."""
+    refs = await _raw_db.affiliate_referrals.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
+    names = {t["id"]: t.get("name", "") async for t in _raw_db.tenants.find({}, {"_id": 0, "id": 1, "name": 1})}
+    rows = [{"referrer": names.get(r.get("referrer_tenant_id"), r.get("referrer_slug", "?")),
+             "referred": names.get(r.get("referred_tenant_id"), "?"),
+             "signed_up": str(r.get("created_at", ""))[:10],
+             "qualified_at": str(r.get("qualified_at", ""))[:10],
+             "status": r.get("status", "pending")} for r in refs]
+    rewards = await _raw_db.referral_rewards.find({}, {"_id": 0}).sort("granted_at", -1).to_list(100)
+    return {"referrals": rows, "rewards": rewards}

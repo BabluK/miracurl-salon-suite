@@ -2,10 +2,18 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-08-31.156"
-BUILD_TIME = "31 Aug 2026, 06:00 PM IST"
+BUILD = "2026-09-01.157"
+BUILD_TIME = "01 Sep 2026, 12:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-09-01 (Refer & Earn 🎁)",
+        "changes": [
+            "🎁 Refer & Earn is live — every owner gets a personal referral link in Settings with WhatsApp & Email share buttons; when a referred business signs up AND genuinely activates (adds services + staff + 5 real bills in 14 days) it counts as QUALIFIED, and your plan extends automatically: 1 qualified → +7 days, 3 → +1 month, 5 → +3 months free, with a live progress bar and referral status list",
+            "Super Admin: new Refer & Earn panel in Tenants shows every referral edge (pending / qualified / paid) and every reward granted",
+            "🧹 The 'Clean test data' button in Tenants is now an obvious broom (🧹) with a clearer tooltip",
+        ],
+    },
     {
         "date": "2026-08-31 (Guest tracking, WhatsApp growth & brand polish 💎)",
         "changes": [

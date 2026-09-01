@@ -35,6 +35,7 @@ import { DemoCalendar } from "@/components/superadmin/DemoCalendar";
 import { VeoAdStudio } from "@/components/superadmin/VeoAdStudio";
 import { MiraStudioPanel } from "@/components/superadmin/MiraStudioPanel";
 import { MiraLeadAgent } from "@/components/superadmin/MiraLeadAgent";
+import { ReferralsPanel } from "@/components/superadmin/ReferralsPanel";
 import { MiraHome } from "@/components/superadmin/MiraHome";
 import { FollowUpPipeline } from "@/components/superadmin/FollowUpPipeline";
 import { PlatformOverview } from "@/components/superadmin/PlatformOverview";
@@ -472,6 +473,7 @@ export default function SuperAdmin() {
           <div>
             <h1 className="font-playfair text-3xl">Tenants</h1>
             <p className="text-slate-500 text-sm mt-1">Manage every salon on the Miracurl platform.</p>
+            <ReferralsPanel />
           </div>
           <div className="flex items-center gap-3">
             <button

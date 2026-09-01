@@ -2496,3 +2496,12 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - ROOT CAUSE: /super/releases derives tag from RELEASES[0]['date']; all 13 recent build bumps appended lines to the SAME 2026-08-28 entry, so no new tag was ever inserted.
 - FIX: split this session's 15 change lines into a NEW entry "2026-08-31 (Guest tracking, WhatsApp growth & brand polish 💎)". Verified: latest_tag = MIRA-DEPLOYED-2026-08-31..., new tag at top of /super/releases, 2026-08-28 entry auto-synced back to 40 changes.
 - RULE FOR FUTURE AGENTS: when bumping release_notes.py after a deploy has already shipped the current top entry, CREATE A NEW dated entry (don't keep appending to the old date) or the Deployments tag list won't grow.
+
+## Session 2026-06 (fork) — Refer & Earn (Phase 1)
+- Advice given: no 1-year-for-5-leads (negative economics); qualified = auto-verified activation. User approved.
+- Backend (tenant_settings.py): GET /api/referrals/summary — lazily qualifies referrals (_ref_activated: services + staff + >=5 invoices within 14d of signup), grants milestone rewards via referral_rewards collection (_REF_MILESTONES 1→7d, 3→30d, 5→90d), extends subscription_end_date (active) or trial_ends_at (trial) via _extend_access; idempotent (milestone set). Uses existing affiliate_referrals + ?ref={slug} signup plumbing; paid conversions already marked status=converted by subscriptions.py.
+- Super admin: GET /api/super-admin/referrals + ReferralsPanel.jsx (collapsible, in Tenants tab).
+- Owner UI: settings/ReferEarnCard.jsx in Settings (PIN-gated page): link + copy + WhatsApp/Email share, milestone chips, progress bar, referral status list (⏳/✓/💎), new-reward toasts.
+- Also: Tenants clean button now shows 🧹 emoji (user couldn't find the eraser icon).
+- Tested via seeded scenarios: qualification transition, +7d grant (2027-02-24→2027-03-03), idempotency, idle stays pending, SA rows/rewards; all cleaned up + sub date restored. UI screenshot verified. release_notes → NEW entry 2026-09-01 (Refer & Earn 🎁) build .157.
+- Phase 2 backlog: Partner Program (20% recurring commission ledger); conversion-based big rewards (3 paid → 1yr).

@@ -813,3 +813,95 @@ async def set_wa_direct(body: WADirectIn, user=Depends(require_admin), t=Depends
     """Admin toggle: allow managers/staff to send WhatsApp confirmations directly (no approval)."""
     await db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_direct_send": body.enabled}})
     return {"enabled": body.enabled}
+
+
+# ---------------- Refer & Earn: qualified referrals auto-extend access ----------------
+
+_REF_MILESTONES = [(1, 7), (3, 30), (5, 90)]  # qualified count -> bonus days
+
+
+async def _ref_activated(tid: str, rt: dict) -> bool:
+    """Qualified = referred business actually USES Miracurl: has services + staff
+    and 5 real bills within 14 days of signup (gaming-proof, auto-verified)."""
+    from datetime import timedelta
+    try:
+        created = datetime.fromisoformat(str(rt.get("created_at", "")).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    cutoff = (created + timedelta(days=14)).isoformat()
+    if not await _raw_db.services.find_one({"tenant_id": tid}):
+        return False
+    if not await _raw_db.staff.find_one({"tenant_id": tid}):
+        return False
+    bills = await _raw_db.invoices.count_documents({"tenant_id": tid, "created_at": {"$lte": cutoff}})
+    return bills >= 5
+
+
+async def _extend_access(t: dict, days: int) -> None:
+    from datetime import timedelta, date
+    now = datetime.now(timezone.utc)
+    if t.get("subscription_end_date"):
+        cur = max(date.fromisoformat(t["subscription_end_date"]), now.date())
+        new_end = (cur + timedelta(days=days)).isoformat()
+        await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"subscription_end_date": new_end}})
+        t["subscription_end_date"] = new_end
+    else:
+        try:
+            cur_dt = datetime.fromisoformat(str(t.get("trial_ends_at", "")).replace("Z", "+00:00"))
+        except ValueError:
+            cur_dt = now
+        new_dt = (max(cur_dt, now) + timedelta(days=days)).isoformat()
+        await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"trial_ends_at": new_dt}})
+        t["trial_ends_at"] = new_dt
+
+
+async def _grant_ref_rewards(t: dict, qualified: int) -> tuple[list, list]:
+    rewards = await _raw_db.referral_rewards.find(
+        {"referrer_tenant_id": t["id"]}, {"_id": 0}).to_list(20)
+    have = {r["milestone"] for r in rewards}
+    new = []
+    for m, days in _REF_MILESTONES:
+        if qualified >= m and m not in have:
+            await _extend_access(t, days)
+            doc = {"id": str(uuid.uuid4()), "referrer_tenant_id": t["id"], "referrer_name": t.get("name", ""),
+                   "milestone": m, "days": days, "granted_at": datetime.now(timezone.utc).isoformat()}
+            await _raw_db.referral_rewards.insert_one({**doc})
+            rewards.append(doc)
+            new.append(doc)
+    return rewards, new
+
+
+@router.get("/referrals/summary")
+async def referrals_summary(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    refs = await _raw_db.affiliate_referrals.find(
+        {"referrer_tenant_id": t["id"]}, {"_id": 0}).to_list(200)
+    items, qualified = [], 0
+    for r in refs:
+        rt = await _raw_db.tenants.find_one(
+            {"id": r["referred_tenant_id"]},
+            {"_id": 0, "name": 1, "business_type": 1, "created_at": 1, "status": 1})
+        if not rt:
+            continue
+        if not r.get("qualified_at") and await _ref_activated(r["referred_tenant_id"], rt):
+            r["qualified_at"] = datetime.now(timezone.utc).isoformat()
+            await _raw_db.affiliate_referrals.update_one(
+                {"referred_tenant_id": r["referred_tenant_id"], "referrer_tenant_id": t["id"]},
+                {"$set": {"qualified_at": r["qualified_at"]}})
+        if r.get("qualified_at"):
+            qualified += 1
+        items.append({"name": rt.get("name", ""), "business_type": rt.get("business_type") or "salon",
+                      "signed_up": str(rt.get("created_at", ""))[:10], "tenant_status": rt.get("status", ""),
+                      "qualified": bool(r.get("qualified_at")), "subscribed": r.get("status") == "converted"})
+    rewards, new_rewards = await _grant_ref_rewards(t, qualified)
+    next_m = next(((m, d) for m, d in _REF_MILESTONES if qualified < m), None)
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    return {
+        "code": t.get("slug", ""),
+        "link_salon": f"{base}/signup-salon?ref={t.get('slug', '')}",
+        "link_restaurant": f"{base}/signup-restaurant?ref={t.get('slug', '')}",
+        "referrals": items, "qualified": qualified,
+        "milestones": [{"count": m, "days": d} for m, d in _REF_MILESTONES],
+        "next_milestone": {"count": next_m[0], "days": next_m[1]} if next_m else None,
+        "rewards": rewards, "new_rewards": new_rewards,
+        "access_until": t.get("subscription_end_date") or str(t.get("trial_ends_at", ""))[:10],
+    }

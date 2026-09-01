@@ -29,6 +29,7 @@ import { RateMiracurlCard } from "@/components/settings/RateMiracurlCard";
 import { SocialConnectionsCard } from "@/components/settings/SocialConnectionsCard";
 import { MiracurlProductsCard } from "@/components/settings/MiracurlProductsCard";
 import { LoyaltyStampsCard } from "@/components/settings/LoyaltyStampsCard";
+import { ReferEarnCard } from "@/components/settings/ReferEarnCard";
 
 export default function Settings() {
   const { tenant } = useAuth();
@@ -75,6 +76,8 @@ export default function Settings() {
         <UpdatedBillsCard />
 
         <SocialConnectionsCard />
+
+        <ReferEarnCard />
 
         <LoyaltyStampsCard />
         <MiracurlProductsCard />
