@@ -8,7 +8,7 @@ import {
 import { PlannedLeaveCard } from "@/components/staff/PlannedLeaveCard";
 import { QrScanCheckIn } from "@/components/QrScanCheckIn";
 import { playCheckinGreeting, playCheckoutGreeting } from "@/lib/checkinSound";
-import { confirmAsync } from "@/components/ConfirmDialog";
+
 
 function monthOptions(count = 6) {
   const now = new Date();
@@ -112,27 +112,18 @@ export default function StaffPortal() {
     return () => { cancelled = true; };
   }, [month, profile]);
 
-  async function checkIn(scannedToken, weekOffConfirmed = false) {
+  async function checkIn(scannedToken) {
     setBusy(true);
     try {
       const qrToken = scannedToken || new URLSearchParams(window.location.search).get("qr") || "";
       const pos = qrToken ? null : await getPosition();
-      await api.post("/staff/me/check-in", { ...(pos || {}), ...(qrToken ? { qr_token: qrToken } : {}), ...(weekOffConfirmed ? { week_off_confirmed: true } : {}) });
+      await api.post("/staff/me/check-in", { ...(pos || {}), ...(qrToken ? { qr_token: qrToken } : {}) });
       toast.success(qrToken ? "✅ Checked in via desk QR — instant, no GPS needed ✦" : "Checked in ✦ Have a great shift");
       playCheckinGreeting(profile?.name);
       load();
     } catch (e) {
-      const detail = String(e.response?.data?.detail || "");
-      if (e.response?.status === 409 && detail.includes("WEEK_OFF")) {
-        setBusy(false);
-        if (await confirmAsync("🌴 Today is your week-off day.\n\nHave you got confirmation from your owner to work today?")) {
-          return checkIn(scannedToken, true);
-        }
-        toast.info("No problem — enjoy your week off! Check-in cancelled.");
-        return;
-      }
       toast.error(formatApiError(e.response?.data?.detail) || "Check-in failed");
-      if (!scannedToken && e.response?.status === 403) {
+      if (!scannedToken && e.response?.status === 403 && !String(e.response?.data?.detail || "").includes("week-off")) {
         toast.info("Tip: tap 'Scan desk QR' below to check in instantly without GPS.", { duration: 8000 });
       }
     } finally { setBusy(false); }
@@ -214,15 +205,26 @@ export default function StaffPortal() {
   const checkedOut = !!today?.check_out_at;
   const canCheckOut = checkedIn && !checkedOut;
   const salaryHidden = profile.salary_visible === false;
+  const isWeekOffToday = (profile.week_off_day || "").toLowerCase()
+    === new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
 
   return (
     <div className="space-y-6" data-testid="staff-portal">
-      {lateInfo?.late && !checkedIn && (
+      {lateInfo?.late && !checkedIn && !isWeekOffToday && (
         <div className="rounded-2xl bg-red-500/15 border border-red-400/40 px-4 py-3 flex items-center gap-3 animate-pulse" data-testid="staff-late-banner">
           <span className="text-xl">⏰</span>
           <div>
             <div className="text-sm font-semibold text-red-300">You're running late — please check in!</div>
             <div className="text-xs text-red-200/70">Your shift started at {lateInfo.shift_start} · {lateInfo.minutes_late} min ago. Check in below as soon as you arrive.</div>
+          </div>
+        </div>
+      )}
+      {isWeekOffToday && !checkedIn && (
+        <div className="rounded-2xl bg-teal-500/10 border border-teal-400/30 px-4 py-3 flex items-center gap-3" data-testid="staff-weekoff-banner">
+          <span className="text-xl">🌴</span>
+          <div>
+            <div className="text-sm font-semibold text-teal-300">Today is your week-off — enjoy!</div>
+            <div className="text-xs text-teal-200/70">Check-in is disabled on your week-off day. Needed at work? Ask your owner to change your week-off day in the Staff section.</div>
           </div>
         </div>
       )}
@@ -298,14 +300,15 @@ export default function StaffPortal() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             onClick={() => checkIn()}
-            disabled={busy || checkedIn}
+            disabled={busy || checkedIn || isWeekOffToday}
             data-testid="check-in-btn"
+            title={isWeekOffToday ? "Check-in is disabled on your week-off day" : undefined}
             className={`inline-flex items-center justify-center gap-2 px-4 py-3 font-medium rounded-md text-sm transition ${
-              checkedIn ? "bg-white/5 text-white/40 cursor-not-allowed" : "bg-gradient-to-r from-gold to-blush text-bg-base hover:opacity-90"
+              checkedIn || isWeekOffToday ? "bg-white/5 text-white/40 cursor-not-allowed" : "bg-gradient-to-r from-gold to-blush text-bg-base hover:opacity-90"
             }`}
           >
             {checkedIn ? <CheckCircle2 className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
-            {checkedIn ? "Checked in" : "Check in"}
+            {checkedIn ? "Checked in" : isWeekOffToday ? "Week off 🌴" : "Check in"}
           </button>
           <button
             onClick={() => setConfirmOut(true)}

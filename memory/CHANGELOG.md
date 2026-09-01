@@ -61,3 +61,15 @@
 - super_admin_ops.py: _demo_staff_names() — monthly + weekly report by_staff excludes seed staff names (user's Aug report showed Priya/Rahul as stars; NOTE that email was my PREVIEW test send).
 - Verified: helper unit checks, month stats exclude demo staff, staff portal screenshot (card shows late fine/half-day/advance + total, late toast still works). Test seeds cleaned.
 - release_notes → .166. NOTE: deploy queued earlier was .165 — user must deploy again for these.
+
+## Session 2026-06 (fork) — Week-off check-in block
+- staff_portal.py check-in: hard 403 on week-off day (removed week_off_confirmed self-approval path; GeoIn field retained but ignored). /staff/me/late-status returns week_off:true and late:false on week-off day.
+- StaffPortal.jsx: removed confirm flow + unused confirmAsync import; isWeekOffToday computed from profile.week_off_day; teal staff-weekoff-banner; check-in-btn disabled with 'Week off 🌴' label; late banner suppressed on week-off.
+- Week-off day source = Staff section (StaffFormModal staff-week-off-select — already existed; StaffCard shows off:day badge). Staff can still request a change via week-off request flow (admin approves).
+- Tested: API 403 with friendly message, late-status week_off:true, screenshot of banner + disabled button; Priya's week_off restored to monday.
+- release_notes → .167.
+
+## Session 2026-06 (fork) — Credentials email routing (final @miracurl.com sweep)
+- Swept ALL _send_email call sites: only staff-facing sends remaining were _send_staff_welcome (give-login + reset-login) which emailed the @miracurl.com login itself. Now: personal_email preferred, @miracurl.com never emailed; if no personal email → {'sent': False, error: 'share credentials on screen / add personal email'} (creds are always shown in-app). Manager flows use owner-typed real emails (guard still applies).
+- Verified: placeholder-only → blocked with friendly error. release_notes → .168.
+- POLICY RECAP (user): @miracurl.com = system login IDs only, NEVER email them. Personal email = forgot-password, one-time credentials, relieving letter (relieving only with notice_served confirmation). Routine staff notices = staff dashboard only.

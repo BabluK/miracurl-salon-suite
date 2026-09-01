@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.166"
-BUILD_TIME = "02 Sep 2026, 1:00 AM IST"
+BUILD = "2026-09-01.168"
+BUILD_TIME = "02 Sep 2026, 2:15 AM IST"
 
 RELEASES = [
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [
+            "🔑 One-time staff credentials now go to the personal inbox — when you give a staff member their login (or reset it), the temp password email is sent to their personal email, never to the system-generated @miracurl.com ID; if no personal email is on file, the credentials simply show on screen with a note to add one",
+            "🌴 Week-off check-in fully blocked — staff can no longer check in on their week-off day (previously a self-confirm allowed it); the portal shows a friendly 'Today is your week-off — enjoy!' banner, the Check-in button becomes 'Week off 🌴', and no late banner or late fine can ever trigger that day. The week-off day comes from the Staff section (owner-controlled) — if a staff member is needed at work, the owner simply changes it there first",
             "📵 Staff email policy cleaned up — @miracurl.com staff work IDs are login placeholders, not inboxes, so routine emails to staff (late-arrival nags, weekly late digests) are OFF; instead staff now see everything on their portal dashboard: the late banner plus a new red 'Deductions' card listing every late fine, half-day cut and salary advance for the month with the total. Personal email (Gmail) is reserved strictly for password resets, first-time credentials and relieving letters",
             "📄 Relieving letter now requires notice served — an Excellent/Standard relieving letter can only be issued after the owner confirms the staff member fully served their notice period (new checkbox); termination/absconded letters are unaffected",
             "📊 Owner reports show only real staff — demo staff (Priya Sharma & co) are excluded from 'Star team members' in monthly and weekly reports, even for old bills recorded under their names",

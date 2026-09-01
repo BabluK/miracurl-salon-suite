@@ -605,7 +605,8 @@ async def create_staff_login(
     }
     await db.users.insert_one(new_user)
     await db.staff.update_one({"id": sid}, {"$set": {"user_id": new_user["id"], "email": email}})
-    mail = await _send_staff_welcome(s.get("name"), t.get("name"), email, temp_pw)
+    mail = await _send_staff_welcome(s.get("name"), t.get("name"), email, temp_pw,
+                                     personal_email=s.get("personal_email") or "")
     return {
         "ok": True,
         "email": email,
@@ -617,11 +618,21 @@ async def create_staff_login(
 
 
 async def _send_staff_welcome(staff_name: str, salon_name: str, email: str, temp_pw: str,
-                              role_label: str = "staff") -> dict:
+                              role_label: str = "staff", personal_email: str = "") -> dict:
+    """One-time credentials go to the staff's PERSONAL inbox — @miracurl.com login IDs
+    are system-generated and not real mailboxes (never email them)."""
     from email_service import staff_welcome_email_html
+    to = ""
+    for cand in (personal_email, email):
+        if cand and not cand.lower().strip().endswith("@miracurl.com"):
+            to = cand.strip()
+            break
+    if not to:
+        return {"sent": False, "error": "No personal email on file — share the credentials shown on screen, "
+                                        "or add a personal email to the staff profile first."}
     try:
         return await _send_email(
-            [email], f"Your {salon_name or 'Miracurl'} {role_label} login is ready ✦",
+            [to], f"Your {salon_name or 'Miracurl'} {role_label} login is ready ✦",
             staff_welcome_email_html(staff_name, salon_name, email, temp_pw, role_label))
     except Exception as e:  # noqa: BLE001 — credentials shown in-app either way
         logging.warning(f"staff welcome email failed: {e}")
@@ -648,7 +659,8 @@ async def reset_staff_login(sid: str, admin=Depends(require_admin), t=Depends(cu
     # Keep the staff record's email in sync with the actual login email so the
     # owner always shares the correct address (root cause of "invalid password").
     await db.staff.update_one({"id": sid}, {"$set": {"email": login_user["email"]}})
-    mail = await _send_staff_welcome(s.get("name"), t.get("name"), login_user["email"], temp_pw)
+    mail = await _send_staff_welcome(s.get("name"), t.get("name"), login_user["email"], temp_pw,
+                                     personal_email=s.get("personal_email") or "")
     return {"ok": True, "email": login_user["email"], "temp_password": temp_pw, "must_change_password": True,
             "welcome_email_sent": mail.get("sent", False), "welcome_email_error": mail.get("error")}
 

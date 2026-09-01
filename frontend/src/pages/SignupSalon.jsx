@@ -250,7 +250,7 @@ export default function SignupSalon() {
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
           {(form.business_type === "restaurant" ? (isIntl ? [
             { v: "$0", l: "First month" },
-            { v: "30 days", l: "Free trial" },
+            { v: newbiz ? "90 days" : "30 days", l: "Free trial" },
             { v: catalog?.resto_intl_half?.price ? `${fmtUSD(catalog.resto_intl_half.price)}` : "—", l: "6-month plan" },
             { v: catalog?.resto_intl_annual?.price ? `${fmtUSD(catalog.resto_intl_annual.price)}` : "—", l: "Annual plan" },
           ] : [
@@ -260,12 +260,12 @@ export default function SignupSalon() {
             { v: catalog?.resto_annual?.price ? kFmt(catalog.resto_annual.price) : "—", l: "Annual plan" },
           ]) : isIntl ? [
             { v: "$0", l: "Trial cost" },
-            { v: "7 days", l: "Free trial" },
+            { v: newbiz ? "90 days" : "7 days", l: "Free trial" },
             { v: catalog?.intl_pro_monthly?.price ? `${fmtUSD(catalog.intl_pro_monthly.price)}/mo` : "—", l: "Professional plan" },
             { v: catalog?.intl_pro_annual?.price ? `${fmtUSD(catalog.intl_pro_annual.price)}/yr` : "—", l: "Pro annual" },
           ] : [
             { v: "₹0", l: "Trial cost" },
-            { v: "7 days", l: "Free trial" },
+            { v: newbiz ? "90 days" : "7 days", l: "Free trial" },
             { v: catalog?.half_year?.price ? kFmt(catalog.half_year.price) : "—", l: "6-month plan" },
             { v: catalog?.annual?.price ? kFmt(catalog.annual.price) : "—", l: "Annual plan" },
           ]).map(c => (

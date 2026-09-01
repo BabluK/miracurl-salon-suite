@@ -605,8 +605,9 @@ async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff)
     if existing and existing.get("check_in_at"):
         return existing
     is_week_off_today = (s.get("week_off_day") or "").lower() == datetime.now(IST_TZ).strftime("%A").lower()
-    if is_week_off_today and not geo.week_off_confirmed:
-        raise HTTPException(409, "WEEK_OFF_CONFIRM — Today is your week-off day. Please confirm you have your owner's approval to work today.")
+    if is_week_off_today:
+        raise HTTPException(403, "🌴 Today is your week-off day — check-in is disabled. If you're needed at work "
+                                 "today, ask your owner to change your week-off day in the Staff section first.")
     distance_m = None
     qr_ok = bool(geo.qr_token) and geo.qr_token == (t.get("attendance_qr_token") or "\x00")
     f_lat, f_lng, f_label = _fence_for(s, t)
@@ -1531,6 +1532,8 @@ async def staff_late_status(s=Depends(_current_staff), t=Depends(current_tenant)
     if att and att.get("check_in_at"):
         return {"late": False, "minutes_late": 0}
     ist = datetime.now(IST_TZ)
+    if (s.get("week_off_day") or "").lower() == ist.strftime("%A").lower():
+        return {"late": False, "minutes_late": 0, "week_off": True}
     h, m = _parse_hhmm(s.get("shift_start"), "10:00")
     start = ist.replace(hour=h, minute=m, second=0, microsecond=0)
     mins = int((ist - start).total_seconds() // 60)
