@@ -2535,3 +2535,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - SignupSalon.jsx: useEffect locks body scroll (overflow:hidden + touch-action:none) while newbiz modal open, restores on close/unmount — fixes background page scrolling behind popup on mobile & web.
 - Root-cause bonus fix: modal was trapped in ancestor stacking context (animate-fade-up transform), so fixed header (z-40) sat ABOVE modal and blocked the X close button clicks. Moved modal to document.body via createPortal — modal now renders above header, X clickable.
 - TESTED (self, e2e screenshot): modal open → wheel scroll locked (scrollY unchanged), X click closes, overflow restored, page scrolls again. All PASS.
+
+## 2026-09-01 — 📬 HQ alert emails → real @miracurl-suite.com aliases (user request)
+- Root cause: internal alerts (New-Salon Alert, Onboarding-help requested) emailed the super_admin LOGIN id super@miracurl.com — fake domain, Resend suppressed all of them.
+- email_service.py: NEW hq_notify_emails(kind) helper + _HQ_ALIASES map (admin/support/sales/billing/info/contact/booking/careers/payments/refunds/legal/privacy @miracurl-suite.com). Env override per alias: HQ_{KIND}_EMAIL.
+- Routing: New-Salon Alert → sales@ (lead_gen.py), newbiz-assist "Onboard me" → support@ (lead_gen.py), Mira daily digest + weekly win → HQ_DIGEST_EMAIL else admin@ (mira_calls.py — removed super_admin login-email fallback).
+- super@miracurl.com stays login-only. TESTED: live Resend send to support@miracurl-suite.com returned sent:True (not suppressed); newbiz-assist endpoint OK. release_notes.py bumped to .175.

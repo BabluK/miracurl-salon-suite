@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.174"
+BUILD = "2026-09-01.175"
 BUILD_TIME = "02 Sep 2026, 4:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [
+            "📬 HQ alert emails now land in real inboxes — internal alerts previously went to the super@miracurl.com login ID (a placeholder, so Resend suppressed them); New-Salon Alerts now go to sales@miracurl-suite.com, onboarding-help requests to support@miracurl-suite.com, and Mira digests to admin@miracurl-suite.com — all overridable via HQ_SALES_EMAIL / HQ_SUPPORT_EMAIL / HQ_ADMIN_EMAIL env vars",
+            "🔒 Signup popup polish — the page behind the 'Newly Opened' congratulations popup no longer scrolls (mobile & web), and the ✕ close button is always clickable (was hidden under the page header on some screens)",
             "🙋 Onboard-me request queue — HQ → Tenants now has a live panel of every 'set it up for me' request from the signup page: business name, email, phone and opening date, with one-tap 📞 Call and 💬 WhatsApp buttons (auto-marks 'contacted'), a Done button when finished, and a completed-history toggle",
             "💌 Day-60 New-Biz check-in — Mira automatically emails every 90-day new-business trial at the 60-day mark: a warm 'how's it going?', an offer of a free 15-minute walkthrough (just reply), and a gentle nudge that subscribing early never cuts their free days short — sent once per business, daily at 11 AM IST",
             "📈 Invite Link Tracker — HQ → Tenants now shows live performance of your 90-day invite link: 👀 how many opened it, 🌱 how many signed up through it, and 🙋 how many asked for onboarding help",

@@ -616,11 +616,8 @@ async def _alert_new_salon_discoveries(run_id: str, city: str, noun: str) -> Non
         {"run_id": run_id, "new_business": True}, {"_id": 0}).sort("score", -1).to_list(50)
     if not fresh:
         return
-    admins = await _raw_db.users.find({"role": "super_admin"}, {"_id": 0, "email": 1}).to_list(10)
-    emails = [a["email"] for a in admins if a.get("email")]
-    if not emails:
-        return
-    from email_service import _send_email
+    from email_service import _send_email, hq_notify_emails
+    emails = hq_notify_emails("sales")
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     n = len(fresh)
     plural = "s" if n != 1 else ""
@@ -1195,11 +1192,10 @@ async def newbiz_assist(body: AssistIn, request: Request):
            "opening_date": body.opening_date.strip(), "status": "new",
            "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.assist_requests.insert_one({**doc})
-    admins = await _raw_db.users.find({"role": "super_admin"}, {"_id": 0, "email": 1}).to_list(10)
-    emails = [a["email"] for a in admins if a.get("email")]
+    from email_service import _send_email, hq_notify_emails
+    emails = hq_notify_emails("support")
     if emails:
         try:
-            from email_service import _send_email
             biz = html_lib.escape(doc["business_name"] or "a new business")
             await _send_email(
                 emails, f"🙋 Onboarding help requested — {doc['business_name'] or doc['email']}",

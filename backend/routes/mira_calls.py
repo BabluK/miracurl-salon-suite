@@ -1184,7 +1184,7 @@ DIGEST_HOUR_IST = 19
 
 async def send_daily_digest(force: bool = False) -> bool:
     """Evening email to super admins: leads found, calls made, who pressed 1."""
-    from email_service import _send_email
+    from email_service import _send_email, hq_notify_emails
     ist_now = datetime.now(_IST)
     today_ist = ist_now.date().isoformat()
     if not force:
@@ -1238,9 +1238,8 @@ async def send_daily_digest(force: bool = False) -> bool:
           just tell me <i>"call the hot leads"</i> tomorrow and I'll get dialing.</p>
       </div>
     </div>"""
-    admins = await _raw_db.users.find({"role": "super_admin"}, {"_id": 0, "email": 1}).to_list(10)
     to = ([os.environ["HQ_DIGEST_EMAIL"]] if os.environ.get("HQ_DIGEST_EMAIL")
-          else [a["email"] for a in admins if a.get("email")])
+          else hq_notify_emails("admin"))
     if not to:
         return False
     res = await _send_email(
@@ -1255,7 +1254,7 @@ async def send_daily_digest(force: bool = False) -> bool:
 
 async def send_weekly_win_report(force: bool = False) -> bool:
     """Monday-morning email: Mira's last-7-day wins — calls, demos, callbacks kept, leads, heat risers."""
-    from email_service import _send_email
+    from email_service import _send_email, hq_notify_emails
     import html as html_lib
     ist_now = datetime.now(_IST)
     week_key = ist_now.strftime("%G-W%V")
@@ -1326,9 +1325,8 @@ async def send_weekly_win_report(force: bool = False) -> bool:
           Have a great week! Say <i>"call the hot leads"</i> any time and I'll get dialing. — Mira 💫</p>
       </div>
     </div>"""
-    admins = await _raw_db.users.find({"role": "super_admin"}, {"_id": 0, "email": 1}).to_list(10)
     to = ([os.environ["HQ_DIGEST_EMAIL"]] if os.environ.get("HQ_DIGEST_EMAIL")
-          else [a["email"] for a in admins if a.get("email")])
+          else hq_notify_emails("admin"))
     if not to:
         return False
     res = await _send_email(

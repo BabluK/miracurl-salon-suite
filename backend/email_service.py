@@ -45,6 +45,22 @@ def _brand_footer(book_url: str | None = None, book_label: str = "Book Now ✦",
     </div>"""
 
 
+_HQ_ALIASES = {
+    "admin": "admin@miracurl-suite.com", "support": "support@miracurl-suite.com",
+    "sales": "sales@miracurl-suite.com", "billing": "billing@miracurl-suite.com",
+    "info": "info@miracurl-suite.com", "contact": "contact@miracurl-suite.com",
+    "booking": "booking@miracurl-suite.com", "careers": "careers@miracurl-suite.com",
+    "payments": "payments@miracurl-suite.com", "refunds": "refunds@miracurl-suite.com",
+    "legal": "legal@miracurl-suite.com", "privacy": "privacy@miracurl-suite.com",
+}
+
+
+def hq_notify_emails(kind: str = "admin") -> list:
+    """Real HQ inbox for internal alerts — NEVER login IDs like super@miracurl.com."""
+    override = os.environ.get(f"HQ_{kind.upper()}_EMAIL")
+    return [override or _HQ_ALIASES.get(kind) or _HQ_ALIASES["admin"]]
+
+
 def _resend_config_error() -> dict | None:
     if not os.environ.get("RESEND_API_KEY"):
         return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
