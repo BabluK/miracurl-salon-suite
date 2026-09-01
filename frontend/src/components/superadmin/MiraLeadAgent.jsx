@@ -709,6 +709,7 @@ export function MiraLeadAgent() {
     { key: "resto", label: "🍽️ Restaurants", test: l => l.vertical === "restaurant" },
     { key: "recent", label: "🕐 Recent search", test: l => runs[0] && l.run_id === runs[0].id },
     { key: "hot", label: "🔥 Hot leads", test: l => isHot(l) },
+    { key: "newbiz", label: "🆕 Newly opened", test: l => !!l.new_business },
     { key: "ready", label: "✉️ Ready to send", test: l => ["drafted", "researched"].includes(l.status) && !!l.email },
     { key: "opened", label: "👀 Opened", test: l => !!l.opened_at },
     { key: "nudged", label: "📧 Nudged", test: l => !!l.nudge_sent_at },

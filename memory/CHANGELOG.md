@@ -21,3 +21,9 @@
 - FALSE POSITIVES (verified, no change): security.py:149 "hardcoded secret" is the CSRF domain-separation prefix ("csrf-v1:" + jwt_secret() from env); "67 undefined vars" and "283 `is` literal comparisons" — ruff F821/F632 report ZERO (matches were the English word "is" in AI prompt strings).
 - APPLIED: refactored routes/lead_gen.py `_score` (complexity 16 → rule table _SCORE_RULES + _apply_signal) and `_followup_email` (complexity 21 → _FOLLOWUP_PLAN_KEYS/_FOLLOWUP_PITCH lookups + _followup_price_line). Equivalence-tested: byte-identical outputs vs old logic across 6 score profiles and 5 followup leads (incl. empty plans + intl/domestic + both verticals).
 - DECLINED with rationale (production stability; blanket refactors previously declined per PRD): remaining complexity-12/13 functions, long-function splits, test-file type hints, import-count reduction — behavior-neutral churn on a live app.
+
+## Session 2026-06 (fork) — Newly-opened lead visibility
+- User's 300 production leads had no 🆕 tags (researched before new_business detection existed).
+- MiraLeadAgent.jsx: added filter chip { key: "newbiz", label: "🆕 Newly opened" } (card tag already existed via lead.signal).
+- server.py: one-time startup migration "lead-newbiz-backfill" (marker in app_migrations _id=mira-leads-newbiz-backfill) rescores ALL mira_leads via _score → sets new_business/signal/score/breakdown. Idempotent; will run on production automatically at next deploy.
+- Verified: preview backfill flagged 6/11 leads; chip filters correctly (screenshot). release_notes → .161.

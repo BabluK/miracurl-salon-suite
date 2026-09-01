@@ -301,13 +301,35 @@ async def on_startup():
         if fixed:
             logging.info("backfilled last_visited for %s customers", fixed)
 
+    async def _backfill_lead_newbiz():
+        # One-time: rescore mira_leads stored before 'newly opened' detection existed.
+        raw = client[os.environ["DB_NAME"]]
+        if await raw.app_migrations.find_one({"_id": "mira-leads-newbiz-backfill"}):
+            return
+        from routes.lead_gen import _score
+        leads = await raw.mira_leads.find({}, {"_id": 0}).to_list(2000)
+        flagged = 0
+        for ld in leads:
+            score, breakdown = _score(ld)
+            upd = {"score": score, "score_breakdown": breakdown}
+            if ld.get("new_business"):
+                upd["new_business"] = True
+                flagged += 1
+            if ld.get("signal"):
+                upd["signal"] = ld["signal"]
+            await raw.mira_leads.update_one({"id": ld["id"]}, {"$set": upd})
+        await raw.app_migrations.insert_one({"_id": "mira-leads-newbiz-backfill",
+                                             "done_at": datetime.now(timezone.utc).isoformat()})
+        logging.info("rescored %s mira leads — %s flagged newly-opened", len(leads), flagged)
+
     async def _db_prep():
         # Runs in the BACKGROUND so the pod passes its readiness probe immediately.
         # Any single failure (e.g. index option conflicts / duplicate keys on the
         # production Atlas data) is logged and skipped instead of crash-looping the pod.
         for name, step in (("indexes", _ensure_indexes), ("migrations", _run_migrations),
                            ("seeds", _run_seeds), ("stuck-runs", _recover_stuck_runs),
-                           ("last-visited-backfill", _backfill_last_visited)):
+                           ("last-visited-backfill", _backfill_last_visited),
+                           ("lead-newbiz-backfill", _backfill_lead_newbiz)):
             try:
                 await step()
                 logging.info("startup db-prep step '%s' done", name)
