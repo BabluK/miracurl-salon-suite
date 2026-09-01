@@ -2509,3 +2509,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 ## Session 2026-06 (fork) — Mid-trial referral nudge
 - _run_referral_nudges() in tenant_settings.py: trial tenants 40-85% through trial, once each (referral_nudge_sent flag), skips \btest\b names, emails owner (users role=admin) branded gold HTML with live qualified count + next milestone + referral link. _referral_nudge_scheduler in schedulers.py (daily ≥11:00 IST, system_flags key referral_nudge_auto), registered in server.py.
 - Tested: run sent 2 (synthetic 50%-trial tenant + 1 real trial tenant), 2nd run 0 (idempotent). Synthetic data cleaned. release_notes updated (build .157 entry 2026-09-01).
+
+## Session 2026-06 (fork) — Simplified WA copy + Partner Program (20% commission)
+- _wa_message (lead_gen.py) rewritten to user's short copy ("Are you happy with your current salon software?…") + only 2 links (signup-{vertical} + site); _blast_message tail simplified too. Also fixed old bug: restaurants got signup-salon link.
+- Partner Program: _record_partner_commission() in subscriptions.py, called from BOTH payment paths (manual record + Razorpay success) — 20% of payment into partner_commissions (_raw_db) if referral edge exists & within 365d of referral. Owner sees earnings in ReferEarnCard (pending/paid, per-payment rows); SA: commissions in /super-admin/referrals + POST .../commissions/{cid}/mark-paid + Mark paid buttons in ReferralsPanel.jsx.
+- Tested e2e: ₹16,000 payment → ₹3,200 pending → owner summary → SA mark-paid → paid. New WA copy verified via wa-invite. Test data cleaned. release_notes updated (2026-09-01 entry).

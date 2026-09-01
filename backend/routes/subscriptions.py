@@ -288,6 +288,7 @@ async def create_subscription(body: SubscriptionIn, user=Depends(require_super_a
         notes=body.notes,
     ).model_dump()
     await db.subscription_payments.insert_one(pay)
+    await _record_partner_commission(tenant, pay)
 
     pay.pop("_id", None)
     return {"subscription": sub, "subscriptions": subs, "payment": pay, "branches": len(target_tids)}
@@ -574,6 +575,7 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
         notes=f"Order {body.razorpay_order_id}",
     ).model_dump()
     await db.subscription_payments.insert_one(pay)
+    await _record_partner_commission(t, pay)
 
     if pending_doc.get("credits_applied", 0) > 0:
         await db.tenants.update_one(
@@ -1219,3 +1221,24 @@ async def sms_credit_history(user=Depends(require_super_admin)):
     for r in rows:
         r["tenant_name"] = names.get(r.get("tenant_id"), "—")
     return rows
+
+
+async def _record_partner_commission(t: dict, pay: dict) -> None:
+    """Partner Program: 20% recurring commission to the referrer for the tenant's first 12 months."""
+    from database import _raw_db as _rdb
+    ref_edge = await _rdb.affiliate_referrals.find_one({"referred_tenant_id": t["id"]})
+    if not (ref_edge and ref_edge.get("referrer_tenant_id")):
+        return
+    try:
+        ref_start = datetime.fromisoformat(str(ref_edge.get("created_at", "")).replace("Z", "+00:00"))
+        within = (datetime.now(timezone.utc) - ref_start).days <= 365
+    except ValueError:
+        within = False
+    amt = float(pay.get("amount") or 0)
+    if within and amt > 0:
+        await _rdb.partner_commissions.insert_one({
+            "id": str(uuid.uuid4()), "referrer_tenant_id": ref_edge["referrer_tenant_id"],
+            "referred_tenant_id": t["id"], "referred_name": t.get("name", ""),
+            "payment_id": pay.get("id"), "payment_amount": amt,
+            "commission": round(amt * 0.20, 2), "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat()})

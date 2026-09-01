@@ -39,6 +39,22 @@ export function ReferralsPanel() {
                 <div key={i} className="text-slate-600">🎁 <b>{rw.referrer_name}</b> — milestone {rw.milestone} → +{rw.days} days <span className="text-slate-400">· {String(rw.granted_at).slice(0, 10)}</span></div>
               ))}
             </div>
+            <div className="text-[11px] uppercase tracking-wide text-fuchsia-500 mt-3 mb-1.5">💎 Partner commissions ({(data.commissions || []).length})</div>
+            {(data.commissions || []).length === 0 && <p className="text-slate-400">No commissions yet.</p>}
+            <div className="space-y-1 max-h-56 overflow-y-auto">
+              {(data.commissions || []).map(c => (
+                <div key={c.id} className="flex items-center justify-between gap-2">
+                  <span className="text-slate-600 truncate">₹{c.commission} to <b>{c.referrer}</b> <span className="text-slate-400">(20% of ₹{c.payment_amount} from {c.referred_name})</span></span>
+                  {c.status === "paid" ? (
+                    <span className="text-emerald-600 font-semibold shrink-0">✅ Paid</span>
+                  ) : (
+                    <button data-testid={`mark-comm-paid-${c.id}`}
+                      onClick={async () => { try { await api.post(`/super-admin/referrals/commissions/${c.id}/mark-paid`); setData(null); } catch { /* noop */ } }}
+                      className="px-2 py-0.5 rounded-full bg-fuchsia-600 text-white text-[10px] font-bold shrink-0">Mark paid</button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

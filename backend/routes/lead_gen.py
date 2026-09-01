@@ -1017,17 +1017,8 @@ def _wa_phone(raw: str) -> str:
 
 
 async def _wa_message(lead: dict) -> str:
-    plans = await _live_plans()
     resto = (lead.get("vertical") or "salon") == "restaurant"
     noun = "restaurant" if resto else "salon"
-    intl = _lead_intl(lead.get("city"))
-    sym = "$" if intl else "Rs."
-    if resto:
-        half = int(plans[("resto_intl_half" if intl else "resto_half")]["price"])
-        annual = int(plans[("resto_intl_annual" if intl else "resto_annual")]["price"])
-    else:
-        half = int(plans[("intl_pro_half" if intl else "half_year")]["price"])
-        annual = int(plans[("intl_pro_annual" if intl else "annual")]["price"])
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     intro = f"Hi {lead.get('owner_name') or lead['name'] + ' team'}! 👋\n"
     loc = f" in {lead['city']}" if lead.get("city") else ""
@@ -1036,24 +1027,12 @@ async def _wa_message(lead: dict) -> str:
         intro += f"Came across your {noun}{loc} — {lead['rating']}⭐{reviews} is truly impressive!\n\n"
     else:
         intro += f"Came across your {noun}{loc} and had to reach out!\n\n"
-    video = os.environ.get("DEMO_VIDEO_URL") or f"{base}/miracurl-demo-60s.mp4"
-    video_line = f"🎥 60-sec walkthrough video: {video}\n"
-    pitch = ("I'm Mira from *Miracurl Suite* — the all-in-one restaurant platform: QR table ordering straight "
-             "to the kitchen, live kitchen tickets, table-wise billing, reservations, AI menu photos and "
-             "WhatsApp marketing.\n\n" if resto else
-             "I'm Mira from *Miracurl Suite* — the all-in-one salon platform: online booking, "
-             "WhatsApp marketing & automation, staff attendance & payroll, memberships and GST billing.\n\n")
+    pitch = (f"Are you happy with your current {noun} software? *Miracurl Suite* offers AI-powered "
+             "automation, CRM, marketing and complete business management in one platform. "
+             "We can help you migrate and try it *free*.\n\n")
     return (intro + pitch +
-            f"💰 Plans start at {sym}{half:,} for 6 months — *best value: Annual at {sym}{annual:,}* "
-            + ("(first month FREE!)\n\n" if resto else "(multi-branch discounts available!)\n\n")
-            + video_line +
-            f"▶️ Our YouTube channel: youtube.com/@miracurl_unisex_saloon7423\n"
-            f"🎬 *Live demo* (try it right now): {base}/demo\n"
-            f"🏪 Register your {noun}: {base}/signup-salon\n"
-            + ("" if resto else f"🪪 Staff register & verify: {base}/staff-registry\n") +
-            f"📱 App screens tour (PDF): {base}/miracurl-screens-tour.pdf\n"
-            f"📎 Full brochure: {base}/api/public/{'brochure-restaurant' if resto else 'brochure'}.pdf\n"
-            f"🌐 {base}\n\n"
+            f"🏪 Register your {noun}: {base}/signup-{'restaurant' if resto else 'salon'}\n"
+            f"🌐 Or explore: {base}\n\n"
             "Reply here for a *free 15-minute live demo* — I'd love to show you around! ✨")
 
 
@@ -1759,9 +1738,10 @@ def _blast_poster_url(lead: dict, composed: dict, posters: dict) -> str:
 
 def _blast_message(lead: dict, body_txt: str, poster_url: str, poster_base: str, base: str) -> str:
     resto = (lead.get("vertical") or "salon") == "restaurant"
+    noun = "restaurant" if resto else "salon"
     return body_txt + (f"\n\n🖼️ {poster_base}{poster_url}" if poster_url else "") + (
-        f"\n🎬 Live demo: {base}/demo"
-        f"\n🏪 Start free: {base}/{'signup-restaurant' if resto else 'signup-salon'}"
+        f"\n🏪 Register your {noun}: {base}/{'signup-restaurant' if resto else 'signup-salon'}"
+        f"\n🌐 Or explore: {base}"
         "\n\nReply here for a *free 15-min demo* ✨")
 
 

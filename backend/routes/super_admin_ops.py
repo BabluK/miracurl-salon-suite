@@ -1141,4 +1141,17 @@ async def super_admin_referrals(user=Depends(require_super_admin)):
              "qualified_at": str(r.get("qualified_at", ""))[:10],
              "status": r.get("status", "pending")} for r in refs]
     rewards = await _raw_db.referral_rewards.find({}, {"_id": 0}).sort("granted_at", -1).to_list(100)
-    return {"referrals": rows, "rewards": rewards}
+    comms = await _raw_db.partner_commissions.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    for c in comms:
+        c["referrer"] = names.get(c.get("referrer_tenant_id"), "?")
+    return {"referrals": rows, "rewards": rewards, "commissions": comms}
+
+
+@router.post("/super-admin/referrals/commissions/{cid}/mark-paid")
+async def mark_commission_paid(cid: str, user=Depends(require_super_admin)):
+    r = await _raw_db.partner_commissions.update_one(
+        {"id": cid, "status": "pending"},
+        {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}})
+    if not r.modified_count:
+        raise HTTPException(404, "Commission not found or already paid")
+    return {"ok": True}

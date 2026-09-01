@@ -73,6 +73,25 @@ export function ReferEarnCard() {
           </div>
         </div>
       )}
+      <div className="mt-4 rounded-xl border border-fuchsia-200 bg-fuchsia-50/40 p-3" data-testid="partner-earnings">
+        <div className="text-[11px] uppercase tracking-wide text-fuchsia-600 font-semibold">💎 Partner Program — 20% recurring commission</div>
+        <p className="text-[11px] text-slate-500 mt-1">When a business you referred <b>subscribes</b>, you earn 20% of every payment they make in their first 12 months — real money, not just free days.</p>
+        {(data.commissions || []).length > 0 ? (
+          <div className="mt-2">
+            <div className="flex gap-4 text-xs font-bold">
+              <span className="text-amber-700" data-testid="commission-pending">Pending payout: ₹{data.commission_pending}</span>
+              <span className="text-emerald-700" data-testid="commission-paid">Paid out: ₹{data.commission_paid}</span>
+            </div>
+            <div className="mt-1.5 space-y-1">
+              {data.commissions.slice(0, 5).map((c, i) => (
+                <div key={i} className="text-[11px] text-slate-600">💰 ₹{c.commission} from {c.referred_name} <span className="text-slate-400">(20% of ₹{c.payment_amount} · {String(c.created_at).slice(0, 10)})</span> {c.status === "paid" ? "✅" : "⏳"}</div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-[11px] text-slate-400 mt-1.5">No commissions yet — they appear here the moment a referral subscribes.</p>
+        )}
+      </div>
     </div>
   );
 }

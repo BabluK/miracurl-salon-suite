@@ -893,6 +893,8 @@ async def referrals_summary(user=Depends(require_tenant_admin), t=Depends(curren
                       "signed_up": str(rt.get("created_at", ""))[:10], "tenant_status": rt.get("status", ""),
                       "qualified": bool(r.get("qualified_at")), "subscribed": r.get("status") == "converted"})
     rewards, new_rewards = await _grant_ref_rewards(t, qualified)
+    comms = await _raw_db.partner_commissions.find(
+        {"referrer_tenant_id": t["id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
     next_m = next(((m, d) for m, d in _REF_MILESTONES if qualified < m), None)
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     return {
@@ -903,6 +905,9 @@ async def referrals_summary(user=Depends(require_tenant_admin), t=Depends(curren
         "milestones": [{"count": m, "days": d} for m, d in _REF_MILESTONES],
         "next_milestone": {"count": next_m[0], "days": next_m[1]} if next_m else None,
         "rewards": rewards, "new_rewards": new_rewards,
+        "commissions": comms,
+        "commission_pending": round(sum(c.get("commission", 0) for c in comms if c.get("status") == "pending"), 2),
+        "commission_paid": round(sum(c.get("commission", 0) for c in comms if c.get("status") == "paid"), 2),
         "access_until": t.get("subscription_end_date") or str(t.get("trial_ends_at", ""))[:10],
     }
 
