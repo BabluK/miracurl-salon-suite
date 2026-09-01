@@ -268,46 +268,42 @@ async def _pick_deliverable(emails: list) -> list:
     return alive + emails[3:] if alive else []
 
 
+_SCORE_RULES = [
+    (lambda ld: bool(ld.get("website")), 25, "Has website +25"),
+    (lambda ld: not ld.get("website"), 15, "No website — needs one +15"),
+    (lambda ld: bool(ld.get("has_online_booking")), 20, "Online booking +20"),
+    (lambda ld: not ld.get("has_online_booking"), 15, "No online booking — opportunity +15"),
+    (lambda ld: bool(ld.get("competitor")), 25, lambda ld: f"🔥 Uses {ld['competitor']} (migration lead) +25"),
+    (lambda ld: (ld.get("instagram_followers") or 0) >= 5000, 10, "Instagram 5k+ +10"),
+    (lambda ld: (ld.get("reviews") or 0) >= 100, 10, "100+ reviews +10"),
+    (lambda ld: (ld.get("branches") or 1) >= 2, 10, "Multi-location +10"),
+]
+
+
+def _apply_signal(lead: dict, score: int, breakdown: list) -> int:
+    """Newly opened = hottest prospects (no committed system yet)."""
+    if (lead.get("reviews") or 0) <= 15 and not lead.get("competitor"):
+        lead["new_business"] = True
+        lead["signal"] = "🆕 Recently opened"
+        breakdown.append("🆕 Recently opened — no system committed yet +25")
+        return score + 25
+    if lead.get("competitor"):
+        lead["signal"] = f"Uses {lead['competitor']} — migration lead"
+    elif (lead.get("reviews") or 0) >= 100:
+        lead["signal"] = "Established & busy"
+    return score
+
+
 def _score(lead: dict) -> tuple:
     """Balanced scoring across ALL salons. Migration leads (already on Fresha/Vagaro etc.) score
     highest since they convert best, but growth-stage salons (no website/booking) also score well
     as prospects who need software. Every salon is a valid target."""
-    breakdown = []
-    score = 0
-    if lead.get("website"):
-        score += 25
-        breakdown.append("Has website +25")
-    else:
-        score += 15
-        breakdown.append("No website — needs one +15")
-    if lead.get("has_online_booking"):
-        score += 20
-        breakdown.append("Online booking +20")
-    else:
-        score += 15
-        breakdown.append("No online booking — opportunity +15")
-    if lead.get("competitor"):
-        score += 25
-        breakdown.append(f"🔥 Uses {lead['competitor']} (migration lead) +25")
-    if (lead.get("instagram_followers") or 0) >= 5000:
-        score += 10
-        breakdown.append("Instagram 5k+ +10")
-    if (lead.get("reviews") or 0) >= 100:
-        score += 10
-        breakdown.append("100+ reviews +10")
-    if (lead.get("branches") or 1) >= 2:
-        score += 10
-        breakdown.append("Multi-location +10")
-    # Newly opened = hottest prospects (no committed system yet)
-    if (lead.get("reviews") or 0) <= 15 and not lead.get("competitor"):
-        lead["new_business"] = True
-        lead["signal"] = "🆕 Recently opened"
-        score += 25
-        breakdown.append("🆕 Recently opened — no system committed yet +25")
-    elif lead.get("competitor"):
-        lead["signal"] = f"Uses {lead['competitor']} — migration lead"
-    elif (lead.get("reviews") or 0) >= 100:
-        lead["signal"] = "Established & busy"
+    breakdown, score = [], 0
+    for pred, pts, label in _SCORE_RULES:
+        if pred(lead):
+            score += pts
+            breakdown.append(label(lead) if callable(label) else label)
+    score = _apply_signal(lead, score, breakdown)
     return min(score, 100), breakdown
 
 
@@ -1296,29 +1292,40 @@ async def delete_lead(lid: str, user=Depends(require_super_admin)):
 FOLLOWUP_AFTER_DAYS = 5
 
 
-def _followup_email(lead: dict, plans: dict) -> tuple:
-    resto = (lead.get("vertical") or "salon") == "restaurant"
-    intl = _lead_intl(lead.get("city"))
+# (vertical, is_international) → (half-year plan key, annual plan key)
+_FOLLOWUP_PLAN_KEYS = {
+    ("restaurant", True): ("resto_intl_half", "resto_intl_annual"),
+    ("restaurant", False): ("resto_half", "resto_annual"),
+    ("salon", True): ("intl_pro_half", "intl_pro_annual"),
+    ("salon", False): ("half_year", "annual"),
+}
+_FOLLOWUP_PITCH = {
+    "restaurant": ("Restaurant owners like you use it for QR table ordering, live kitchen tickets, "
+                   "table-wise billing and reservations"),
+    "salon": ("Salon owners like you use it to automate online bookings, WhatsApp "
+              "marketing, staff attendance and memberships"),
+}
+
+
+def _followup_price_line(plans: dict, half_key: str, annual_key: str, intl: bool) -> str:
+    half = int((plans.get(half_key) or {}).get("price") or 0)
+    annual = int((plans.get(annual_key) or {}).get("price") or 0)
+    if not (half and annual):
+        return ""
     sym = "$" if intl else "Rs."
-    if resto:
-        half = int((plans.get("resto_intl_half" if intl else "resto_half") or {}).get("price") or 0)
-        annual = int((plans.get("resto_intl_annual" if intl else "resto_annual") or {}).get("price") or 0)
-        pitch = ("Restaurant owners like you use it for QR table ordering, live kitchen tickets, "
-                 "table-wise billing and reservations")
-    else:
-        half = int((plans.get("intl_pro_half" if intl else "half_year") or {}).get("price") or 0)
-        annual = int((plans.get("intl_pro_annual" if intl else "annual") or {}).get("price") or 0)
-        pitch = ("Salon owners like you use it to automate online bookings, WhatsApp "
-                 "marketing, staff attendance and memberships")
-    if half and annual:
-        price_line = (f" from just {sym}{half:,} for 6 months (best value: {sym}{annual:,}/year"
-                      + ("" if intl else ", multi-branch discounts available") + ")")
-    else:
-        price_line = ""
+    return (f" from just {sym}{half:,} for 6 months (best value: {sym}{annual:,}/year"
+            + ("" if intl else ", multi-branch discounts available") + ")")
+
+
+def _followup_email(lead: dict, plans: dict) -> tuple:
+    vertical = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
+    intl = bool(_lead_intl(lead.get("city")))
+    half_key, annual_key = _FOLLOWUP_PLAN_KEYS[(vertical, intl)]
+    price_line = _followup_price_line(plans, half_key, annual_key, intl)
     subject = f"Re: {lead.get('email_subject') or 'Miracurl Suite — free demo'}"
     body = (f"Hi {lead.get('owner_name') or lead['name'] + ' team'},\n\n"
             f"Just a gentle follow-up — did you get a chance to see my earlier email about "
-            f"Miracurl Suite? {pitch}{price_line}.\n\n"
+            f"Miracurl Suite? {_FOLLOWUP_PITCH[vertical]}{price_line}.\n\n"
             f"If you'd like, I can set up a quick 15-minute live demo this week — just reply to this "
             f"email or pick a slot at https://miracurl-suite.com/demo.\n\n"
             f"Warm regards,\nTeam Miracurl")

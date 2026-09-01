@@ -16,3 +16,8 @@
   4. subscriptions.py _record_partner_commission: skips self-referral (referrer==referred) and same-owner-email pairs.
 - TESTED: 5x signup → 429 on 5th; restart → still 429 (durable). Global counter increments. Same-owner commission blocked / diff-owner earns (synthetic, cleaned). Public endpoints regression: brochure.pdf 200, feedback 404, plans 200.
 - release_notes BUILD → 2026-09-01.160.
+
+## Session 2026-06 (fork) — Code review response
+- FALSE POSITIVES (verified, no change): security.py:149 "hardcoded secret" is the CSRF domain-separation prefix ("csrf-v1:" + jwt_secret() from env); "67 undefined vars" and "283 `is` literal comparisons" — ruff F821/F632 report ZERO (matches were the English word "is" in AI prompt strings).
+- APPLIED: refactored routes/lead_gen.py `_score` (complexity 16 → rule table _SCORE_RULES + _apply_signal) and `_followup_email` (complexity 21 → _FOLLOWUP_PLAN_KEYS/_FOLLOWUP_PITCH lookups + _followup_price_line). Equivalence-tested: byte-identical outputs vs old logic across 6 score profiles and 5 followup leads (incl. empty plans + intl/domestic + both verticals).
+- DECLINED with rationale (production stability; blanket refactors previously declined per PRD): remaining complexity-12/13 functions, long-function splits, test-file type hints, import-count reduction — behavior-neutral churn on a live app.
