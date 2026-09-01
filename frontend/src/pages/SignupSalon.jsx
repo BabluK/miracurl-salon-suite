@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import log from "@/lib/log";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
@@ -344,6 +345,17 @@ function SalonStep({ form, update }) {
   const [assistBusy, setAssistBusy] = useState(false);
   const [assistSent, setAssistSent] = useState(false);
   const isResto = form.business_type === "restaurant";
+  useEffect(() => {
+    if (!showNewbizModal) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouch = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouch;
+    };
+  }, [showNewbizModal]);
   return (
     <div className="space-y-5 animate-fade-up">
       <div>
@@ -380,11 +392,14 @@ function SalonStep({ form, update }) {
           </button>
         </div>
       </div>
-      {showNewbizModal && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" data-testid="newbiz-offer-modal">
-          <div className="relative w-full max-w-sm rounded-3xl overflow-hidden bg-white shadow-2xl animate-fade-up">
+      {showNewbizModal && createPortal(
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" data-testid="newbiz-offer-modal"
+          onClick={() => setShowNewbizModal(false)}>
+          <div className="relative w-full max-w-sm max-h-[90vh] flex flex-col rounded-3xl overflow-hidden bg-white shadow-2xl animate-fade-up"
+            onClick={e => e.stopPropagation()}>
             <button type="button" onClick={() => setShowNewbizModal(false)} data-testid="newbiz-modal-close"
-              className="absolute top-3 right-3 z-10 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+              aria-label="Close"
+              className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/25 text-white hover:bg-black/40 transition-colors">
               <X className="w-4 h-4" />
             </button>
             <div className="bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500 px-6 pt-7 pb-5 text-center">
@@ -393,7 +408,7 @@ function SalonStep({ form, update }) {
               </div>
               <h3 className="font-playfair text-xl text-slate-900 mt-3">Congratulations on your new {isResto ? "restaurant" : "salon"}! 🎊</h3>
             </div>
-            <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div className="px-6 py-5 space-y-4 overflow-y-auto">
               <p className="text-sm text-slate-600 leading-relaxed">
                 Starting fresh is the perfect time to get your systems right. As a welcome gift, you get a
                 <b className="text-amber-600"> FREE 90-day setup</b> — bookings, billing, staff, WhatsApp marketing
@@ -471,9 +486,15 @@ function SalonStep({ form, update }) {
                   </div>
                 </div>
               )}
+              <button type="button" data-testid="newbiz-maybe-later-btn"
+                onClick={() => { update({ newly_opened: false }); setShowNewbizModal(false); }}
+                className="w-full text-center text-[11px] text-slate-400 hover:text-slate-600 underline pt-1">
+                Maybe later — continue with the standard signup
+              </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       <Field
         label={`${isResto ? "Restaurant" : "Salon"} name *`}

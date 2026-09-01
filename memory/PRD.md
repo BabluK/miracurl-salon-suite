@@ -2530,3 +2530,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Tested: testing_agent iteration_121 (backend 100%, frontend pass); modal one-shot + no-stacking re-verified via screenshots after TrialReminder fix.
 - Cleanup: ALL test tenants purged from preview DB via /super-admin/tenants/{id}/permanent (needs X-CSRF-Token header from csrf_token cookie). Only 4 real tenants remain. Preview DB ≠ production DB — deploys push code only, never data.
 - release_notes.py → NEW entry "2026-09-01 (90-day trials & referral tracking 🌱)" build .158 (deployment tag will be created on deploy).
+
+## 2026-09-01 — 🔒 Newbiz popup scroll-lock + close-button fix (user bug)
+- SignupSalon.jsx: useEffect locks body scroll (overflow:hidden + touch-action:none) while newbiz modal open, restores on close/unmount — fixes background page scrolling behind popup on mobile & web.
+- Root-cause bonus fix: modal was trapped in ancestor stacking context (animate-fade-up transform), so fixed header (z-40) sat ABOVE modal and blocked the X close button clicks. Moved modal to document.body via createPortal — modal now renders above header, X clickable.
+- TESTED (self, e2e screenshot): modal open → wheel scroll locked (scrollY unchanged), X click closes, overflow restored, page scrolls again. All PASS.
