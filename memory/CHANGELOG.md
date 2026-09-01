@@ -32,3 +32,11 @@
 - lead_gen.py: _alert_new_salon_discoveries(run_id, city, noun) — after every _run_pipeline completes, emails all super_admin users a digest of new_business leads found in that run (name/address/rating/score table + HQ CTA). Wrapped in try/except so alert failure never fails the run.
 - Tested with synthetic run (2 fake leads) — real email delivered via Resend to super@miracurl.com; synthetic leads cleaned.
 - release_notes → .162.
+
+## Session 2026-06 (fork) — Test staff root cause + invite delete
+- ROOT CAUSE of "test staff still in Late arrivals email": seeds.py SEED_STAFF (Priya Sharma/Rahul Verma/Anjali Mehta/Karan Singh) seeded into the DEFAULT tenant (= user's REAL production salon miracurl-marathahalli) whenever staff count==0 at startup — purges could be undone by reseed, and the cleanup tool only matched names with test/dummy.
+- FIXES: (1) seeds.py seed_data() now guarded by permanent app_migrations marker "demo-seed-done" — demo data seeds only on a brand-new install, never again. (2) data_cleanup.py _test_staff now also matches seed staff by email/phone/exact name+role pair; purge also deletes linked user logins. (3) lead_gen.py DELETE /super-admin/wa-invite/{iid} + ✕ button on Recently-invited chips (WaQuickInvite.jsx).
+- Verified: scan flags exactly the 4 seed staff for Marathahalli (AECS Desk & Bablu untouched); marker present; wa-invite delete works via API + chips show ✕ (screenshot).
+- USER ACTION AFTER DEPLOY: Super Admin → Tenants → Marathahalli card → 🧹 cleanup → confirm purge (production).
+- PREVIEW CAUTION: do NOT purge preview Marathahalli staff — Priya Sharma's staff-portal login (priya.staff@miracurl.com) is a test credential.
+- release_notes → .163.

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { MessageCircle, Loader2 } from "lucide-react";
+import { MessageCircle, Loader2, X } from "lucide-react";
 
 export function WaQuickInvite({ onLead }) {
   const [phone, setPhone] = useState("");
@@ -30,6 +30,12 @@ export function WaQuickInvite({ onLead }) {
       onLead?.();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't build the invite"); }
     finally { setBusy(false); }
+  };
+
+  const removeInvite = async (id) => {
+    setRecent(rs => rs.filter(r => r.id !== id));
+    try { await api.delete(`/super-admin/wa-invite/${id}`); toast.success("Invite removed"); }
+    catch { toast.error("Couldn't remove"); loadRecent(); }
   };
 
   return (
@@ -74,8 +80,13 @@ export function WaQuickInvite({ onLead }) {
           <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Recently invited</div>
           <div className="flex flex-wrap gap-1.5">
             {recent.map(r => (
-              <span key={r.id} className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600">
+              <span key={r.id} className="inline-flex items-center gap-1 text-[11px] pl-2.5 pr-1.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600">
                 {r.vertical === "restaurant" ? "🍽️" : "💇"} +{r.phone}{r.name ? ` · ${r.name}` : ""} · {(r.created_at || "").slice(0, 10)}
+                <button onClick={() => removeInvite(r.id)} data-testid={`wa-invite-delete-${r.id}`}
+                  title="Remove from recently invited"
+                  className="p-0.5 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors">
+                  <X className="w-3 h-3" />
+                </button>
               </span>
             ))}
           </div>

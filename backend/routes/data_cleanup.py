@@ -46,11 +46,26 @@ async def _ghost_customers(tenant_id: str, custs: list, dummy_ids: set, active_c
 _TEST_STAFF_NAME = re.compile(r"(^|[\s_-])(test|dummy)([\s_-]|$)", re.I)
 
 
+def _seed_staff_identities() -> tuple:
+    from seeds import SEED_STAFF
+    emails = {(s.get("email") or "").lower() for s in SEED_STAFF if s.get("email")}
+    phones = {s.get("phone") for s in SEED_STAFF if s.get("phone")}
+    name_roles = {((s.get("name") or "").lower(), (s.get("role") or "").lower()) for s in SEED_STAFF}
+    return emails, phones, name_roles
+
+
 async def _test_staff(tenant_id: str) -> list:
-    """Staff whose name starts with TEST/DUMMY — leftovers from automated test runs."""
+    """Staff whose name starts with TEST/DUMMY, plus the original demo seed staff
+    (Priya Sharma & co — matched by seed email/phone or exact name+role pair)."""
+    emails, phones, name_roles = _seed_staff_identities()
     rows = await _raw_db.staff.find(
-        {"tenant_id": tenant_id}, {"_id": 0, "id": 1, "name": 1, "role": 1}).to_list(2000)
-    return [s for s in rows if _TEST_STAFF_NAME.search(s.get("name") or "")]
+        {"tenant_id": tenant_id},
+        {"_id": 0, "id": 1, "name": 1, "role": 1, "email": 1, "phone": 1, "user_id": 1}).to_list(2000)
+    return [s for s in rows
+            if _TEST_STAFF_NAME.search(s.get("name") or "")
+            or (s.get("email") or "").lower() in emails
+            or (s.get("phone") and s["phone"] in phones)
+            or ((s.get("name") or "").lower(), (s.get("role") or "").lower()) in name_roles]
 
 
 async def _scan(tenant_id: str) -> dict:
@@ -108,6 +123,9 @@ async def purge_dummy_data(tenant_id: str, user=Depends(require_super_admin)):
     r4 = await _raw_db.staff.delete_many({"tenant_id": tenant_id, "id": {"$in": staff_ids}})
     r5 = await _raw_db.attendance.delete_many({"staff_id": {"$in": staff_ids}})
     r6 = await _raw_db.late_alerts.delete_many({"staff_id": {"$in": staff_ids}})
+    user_ids = [s["user_id"] for s in found["staff"] if s.get("user_id")]
+    if user_ids:
+        await _raw_db.users.delete_many({"id": {"$in": user_ids}})
     return {"removed": {"appointments": r1.deleted_count, "customers": r2.deleted_count,
                         "reviews": r3.deleted_count, "staff": r4.deleted_count,
                         "attendance": r5.deleted_count, "late_alerts": r6.deleted_count}}

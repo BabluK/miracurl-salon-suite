@@ -160,6 +160,11 @@ async def seed_admin():
     logging.info("Seeded admin user — MUST rotate password on first login")
 
 async def seed_data():
+    # Demo data seeds ONLY on a brand-new install — a permanent marker stops re-seeding
+    # after the owner deletes demo staff/customers in production.
+    from database import _raw_db
+    if await _raw_db.app_migrations.find_one({"_id": "demo-seed-done"}):
+        return
     # All seed inserts run with the default tenant context so tenant_id auto-injects
     if await db.services.count_documents({}) == 0:
         await db.services.insert_many([Service(**s).model_dump() for s in SEED_SERVICES])
@@ -169,4 +174,5 @@ async def seed_data():
         await db.products.insert_many([Product(**p).model_dump() for p in SEED_PRODUCTS])
     if await db.customers.count_documents({}) == 0:
         await db.customers.insert_many([Customer(**c).model_dump() for c in SEED_CUSTOMERS])
+    await _raw_db.app_migrations.insert_one({"_id": "demo-seed-done"})
 

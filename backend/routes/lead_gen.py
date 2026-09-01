@@ -1157,6 +1157,14 @@ async def recent_manual_wa_invites(user=Depends(require_super_admin)):
     return {"items": rows}
 
 
+@router.delete("/super-admin/wa-invite/{iid}")
+async def delete_manual_wa_invite(iid: str, user=Depends(require_super_admin)):
+    r = await _raw_db.manual_wa_invites.delete_one({"id": iid})
+    if not r.deleted_count:
+        raise HTTPException(404, "Invite not found")
+    return {"ok": True}
+
+
 async def run_lead_auto_nudge() -> dict:
     """Mira emails WhatsApp-contacted leads a trial invite when nobody replied within a day."""
     from email_service import _send_email
