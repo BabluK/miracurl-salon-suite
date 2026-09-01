@@ -2541,3 +2541,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - email_service.py: NEW hq_notify_emails(kind) helper + _HQ_ALIASES map (admin/support/sales/billing/info/contact/booking/careers/payments/refunds/legal/privacy @miracurl-suite.com). Env override per alias: HQ_{KIND}_EMAIL.
 - Routing: New-Salon Alert → sales@ (lead_gen.py), newbiz-assist "Onboard me" → support@ (lead_gen.py), Mira daily digest + weekly win → HQ_DIGEST_EMAIL else admin@ (mira_calls.py — removed super_admin login-email fallback).
 - super@miracurl.com stays login-only. TESTED: live Resend send to support@miracurl-suite.com returned sent:True (not suppressed); newbiz-assist endpoint OK. release_notes.py bumped to .175.
+
+## 2026-09-01 — 🎫 Alias Auto-Routing: inbound mail → HQ tickets (user request)
+- lead_gen.py: _BUSINESS_INBOXES extended with refunds/legal/privacy (now all 12 aliases). _route_business_inbox now stamps docs as tickets: kind:"ticket", ticket_no (sequential via counters collection key=hq_ticket, ReturnDocument.AFTER), status:"open".
+- super_admin_ops.py: NEW PATCH /api/super-admin/hq-messages/{mid}/status {status: open|resolved} — resolved also sets read:true + resolved_at/resolved_by; 404 if not found; pattern-validated.
+- SuperAdminExtras.jsx HqInbox: ticket badge (🎫 #N · alias@), Open/Resolved chip, ✓ Mark resolved / ↺ Reopen buttons (testids hq-ticket-resolve-{id}/hq-ticket-reopen-{id}), ✉️ Reply mailto with ticket # in subject, resolved timestamp.
+- TESTED e2e: webhook POSTs to booking@/billing@/refunds@ created tickets #1-3; resolve/reopen via API + UI click both PASS (status validation rejects bogus). Test tickets cleaned, counter reset. Build → .176.

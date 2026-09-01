@@ -1387,22 +1387,32 @@ async def set_stage(lid: str, body: StageIn, user=Depends(require_super_admin)):
 
 
 _BUSINESS_INBOXES = {"support", "billing", "payments", "sales", "booking",
-                     "careers", "info", "contact", "admin"}
+                     "careers", "info", "contact", "admin", "refunds", "legal", "privacy"}
+
+
+async def _next_ticket_no() -> int:
+    from pymongo import ReturnDocument
+    doc = await _raw_db.counters.find_one_and_update(
+        {"key": "hq_ticket"}, {"$inc": {"seq": 1}}, upsert=True,
+        return_document=ReturnDocument.AFTER)
+    return int(doc["seq"])
 
 
 async def _route_business_inbox(data: dict, sender: str) -> str:
-    """If the mail was sent to a business inbox (support@, billing@, …), file it into HQ Inbox."""
+    """If the mail was sent to a business inbox (support@, billing@, …), file it as an HQ ticket."""
     inbox = _match_business_inbox(data.get("to") or [])
     if inbox:
         body_text = (str(data.get("text") or "") or re.sub(r"<[^>]+>", " ", str(data.get("html") or ""))).strip()[:2000]
+        ticket_no = await _next_ticket_no()
         await _raw_db.hq_messages.insert_one({
             "id": str(uuid.uuid4()), "tenant_id": "", "inbox": inbox,
+            "kind": "ticket", "ticket_no": ticket_no, "status": "open",
             "tenant_name": f"📮 {inbox}@miracurl-suite.com",
             "salon_name": f"📮 {inbox}@miracurl-suite.com",
             "from_email": sender, "subject": str(data.get("subject") or "(no subject)")[:200],
             "message": body_text or "(empty message)", "read": False,
             "created_at": _now()})
-        log.info("inbound business email routed to HQ inbox: %s ← %s", inbox, sender)
+        log.info("inbound business email → ticket #%s (%s@) ← %s", ticket_no, inbox, sender)
     return inbox
 
 

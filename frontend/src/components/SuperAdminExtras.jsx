@@ -73,6 +73,14 @@ export function HqInbox({ onUnreadChange }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send the feedback link"); }
   }
 
+  async function setTicketStatus(m, status) {
+    try {
+      await api.patch(`/super-admin/hq-messages/${m.id}/status`, { status });
+      toast.success(status === "resolved" ? `Ticket #${m.ticket_no} resolved ✅` : `Ticket #${m.ticket_no} reopened`);
+      await load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update the ticket"); }
+  }
+
   if (!items) return <div className="text-slate-500 p-4">Loading inbox…</div>;
   return (
     <div className="card-light" data-testid="hq-inbox">
@@ -89,6 +97,17 @@ export function HqInbox({ onUnreadChange }) {
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-slate-800 flex items-center gap-2 flex-wrap">
                   {!m.read && <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />}
+                  {m.kind === "ticket" && (
+                    <span data-testid={`hq-ticket-badge-${m.id}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 border border-sky-200">
+                      🎫 #{m.ticket_no} · {m.inbox}@
+                    </span>
+                  )}
+                  {m.kind === "ticket" && (
+                    <span data-testid={`hq-ticket-status-${m.id}`} className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${m.status === "resolved"
+                      ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                      {m.status === "resolved" ? "✓ Resolved" : "● Open"}
+                    </span>
+                  )}
                   {m.subject}
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5">
@@ -103,6 +122,28 @@ export function HqInbox({ onUnreadChange }) {
               )}
             </div>
             <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">{m.message}</p>
+            {m.kind === "ticket" && (
+              <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                {m.status !== "resolved" ? (
+                  <button data-testid={`hq-ticket-resolve-${m.id}`} onClick={() => setTicketStatus(m, "resolved")}
+                    className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition">
+                    ✓ Mark resolved
+                  </button>
+                ) : (
+                  <button data-testid={`hq-ticket-reopen-${m.id}`} onClick={() => setTicketStatus(m, "open")}
+                    className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 transition">
+                    ↺ Reopen
+                  </button>
+                )}
+                <a data-testid={`hq-ticket-reply-${m.id}`} href={`mailto:${m.from_email}?subject=${encodeURIComponent(`Re: ${m.subject || ""} [Ticket #${m.ticket_no}]`)}`}
+                  className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition">
+                  ✉️ Reply
+                </a>
+                {m.status === "resolved" && m.resolved_at && (
+                  <span className="text-[10px] text-slate-400">resolved {new Date(m.resolved_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                )}
+              </div>
+            )}
             {m.tenant_id && m.tenant_id !== "superadmin" && (
               <button data-testid={`hq-send-feedback-${m.id}`} onClick={() => sendFeedback(m)} disabled={fbSent[m.id]}
                 className={`mt-2.5 text-[11px] font-bold px-3 py-1.5 rounded-full border transition ${fbSent[m.id]

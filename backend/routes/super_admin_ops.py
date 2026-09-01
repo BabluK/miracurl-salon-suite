@@ -105,6 +105,22 @@ async def hq_message_read(mid: str, user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+class TicketStatusIn(BaseModel):
+    status: str = Field(..., pattern=r"^(open|resolved)$")
+
+
+@router.patch("/super-admin/hq-messages/{mid}/status")
+async def hq_ticket_status(mid: str, body: TicketStatusIn, user=Depends(require_super_admin)):
+    sets = {"status": body.status}
+    if body.status == "resolved":
+        sets.update({"read": True, "resolved_at": datetime.now(timezone.utc).isoformat(),
+                     "resolved_by": user.get("email")})
+    res = await _raw_db.hq_messages.update_one({"id": mid}, {"$set": sets})
+    if not res.matched_count:
+        raise HTTPException(404, "Message not found")
+    return {"ok": True, "status": body.status}
+
+
 def _demo_staff_names() -> set:
     """Demo/seed staff never appear in owner reports — even for old invoices billed under them."""
     from seeds import SEED_STAFF
