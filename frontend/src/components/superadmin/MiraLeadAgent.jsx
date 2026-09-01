@@ -466,6 +466,7 @@ function LeadRow({ lead, onRefresh }) {
           <p className="text-sm font-semibold text-slate-800 truncate">
             {lead.name} <span className="text-slate-400 font-normal">· {lead.city}</span>
             {lead.vertical === "restaurant" && <span className="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-orange-600 align-middle">🍽️ Restaurant</span>}
+            {lead.signal && <span data-testid={`lead-signal-${lead.id}`} className={`ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full border align-middle ${lead.new_business ? "bg-emerald-50 border-emerald-300 text-emerald-700" : "bg-sky-50 border-sky-200 text-sky-700"}`}>{lead.signal}</span>}
             <span data-testid={`lead-region-${lead.id}`} className="ml-1.5 text-[10px] align-middle" title={((lead.phone || "").replace(/[\s()-]/g, "").startsWith("+") && !(lead.phone || "").replace(/[\s()-]/g, "").startsWith("+91")) ? "Foreign lead" : "Indian lead"}>
               {((lead.phone || "").replace(/[\s()-]/g, "").startsWith("+") && !(lead.phone || "").replace(/[\s()-]/g, "").startsWith("+91")) ? "🌍" : "🇮🇳"}
             </span>

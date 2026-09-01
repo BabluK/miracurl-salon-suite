@@ -2514,3 +2514,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - _wa_message (lead_gen.py) rewritten to user's short copy ("Are you happy with your current salon software?…") + only 2 links (signup-{vertical} + site); _blast_message tail simplified too. Also fixed old bug: restaurants got signup-salon link.
 - Partner Program: _record_partner_commission() in subscriptions.py, called from BOTH payment paths (manual record + Razorpay success) — 20% of payment into partner_commissions (_raw_db) if referral edge exists & within 365d of referral. Owner sees earnings in ReferEarnCard (pending/paid, per-payment rows); SA: commissions in /super-admin/referrals + POST .../commissions/{cid}/mark-paid + Mark paid buttons in ReferralsPanel.jsx.
 - Tested e2e: ₹16,000 payment → ₹3,200 pending → owner summary → SA mark-paid → paid. New WA copy verified via wa-invite. Test data cleaned. release_notes updated (2026-09-01 entry).
+
+## Session 2026-06 (fork) — New-business lead targeting
+- _score() in lead_gen.py: reviews<=15 & no competitor → lead.new_business=True, signal "🆕 Recently opened", +25 score; competitor → migration signal; 100+ reviews → "Established & busy". (Google Places has no opened-date; low review count is the proxy — advised user.)
+- _wa_message: new_business leads get the "Congratulations! FREE 90-day Miracurl setup" pitch; _blast_compose listing flags NEWLY OPENED + _WA_BLAST_SYS instructs LLM to lead with the 90-day offer.
+- LeadRow shows signal badge (lead-signal-{id}, emerald for new). NOTE: badges appear on NEW search runs only (old leads lack the field).
+- Unit-tested all 3 scoring paths + pitch. release_notes updated (2026-09-01 entry).

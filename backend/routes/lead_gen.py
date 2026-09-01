@@ -298,6 +298,16 @@ def _score(lead: dict) -> tuple:
     if (lead.get("branches") or 1) >= 2:
         score += 10
         breakdown.append("Multi-location +10")
+    # Newly opened = hottest prospects (no committed system yet)
+    if (lead.get("reviews") or 0) <= 15 and not lead.get("competitor"):
+        lead["new_business"] = True
+        lead["signal"] = "🆕 Recently opened"
+        score += 25
+        breakdown.append("🆕 Recently opened — no system committed yet +25")
+    elif lead.get("competitor"):
+        lead["signal"] = f"Uses {lead['competitor']} — migration lead"
+    elif (lead.get("reviews") or 0) >= 100:
+        lead["signal"] = "Established & busy"
     return min(score, 100), breakdown
 
 
@@ -1030,6 +1040,10 @@ async def _wa_message(lead: dict) -> str:
     pitch = (f"Are you happy with your current {noun} software? *Miracurl Suite* offers AI-powered "
              "automation, CRM, marketing and complete business management in one platform. "
              "We can help you migrate and try it *free*.\n\n")
+    if lead.get("new_business"):
+        pitch = (f"Congratulations on your new {noun}! 🎊 Starting fresh is the PERFECT time to get your "
+                 "systems right — *Miracurl Suite* is giving new businesses a *FREE 90-day setup*: bookings, "
+                 "billing, CRM, WhatsApp marketing and AI tools, all configured for you from day one.\n\n")
     return (intro + pitch +
             f"🏪 Register your {noun}: {base}/signup-{'restaurant' if resto else 'salon'}\n"
             f"🌐 Or explore: {base}\n\n"
@@ -1696,6 +1710,8 @@ _WA_BLAST_SYS = (
     "payroll, WhatsApp marketing, multi-branch in one dashboard. Restaurant: QR table ordering straight "
     "to kitchen, live kitchen tickets, table-wise billing, reservations.\n"
     "- VARY the wording and angle between leads so messages never look copy-pasted.\n"
+    "- Leads marked NEWLY OPENED: congratulate them on opening and lead with our strongest offer — "
+    "a FREE 90-day Miracurl setup for new businesses (bookings, billing, CRM, marketing configured from day one).\n"
     "- WhatsApp style: *bold* for emphasis, 1-2 tasteful emojis, short lines.\n"
     "- Do NOT include any links or prices — the app appends those.\n"
     "Also pick the best quote poster id for each lead from the list given.\n"
@@ -1720,7 +1736,8 @@ async def _blast_compose(leads: list, posters: dict) -> dict:
     poster_list = "\n".join(f"{x['id']} ({x['vertical']}): {_quote_text(x)}" for x in _WA_QUOTES if x["id"] in posters)
     listing = "\n".join(
         f"{l['id']}|{l['name']}|{l.get('city', '')}|{l.get('vertical') or 'salon'}|"
-        f"rating {l.get('rating') or '?'}|{l.get('reviews') or 0} reviews" for l in leads)
+        f"rating {l.get('rating') or '?'}|{l.get('reviews') or 0} reviews"
+        + ("|NEWLY OPENED" if l.get("new_business") else "") for l in leads)
     return await _ask_json(_WA_BLAST_SYS,
                            f"Quote posters available:\n{poster_list or 'none'}\n\n"
                            f"Leads (id|name|city|type|rating|reviews):\n{listing}")

@@ -9,6 +9,7 @@ RELEASES = [
     {
         "date": "2026-09-01 (Refer & Earn 🎁)",
         "changes": [
+            "🆕 Mira now hunts newly-opened salons & restaurants — leads with very few Google reviews and no existing software get a '🆕 Recently opened' badge, a +25 intent boost (they haven't committed to any system yet!), and Mira's strongest pitch: 'Congratulations on your new salon! FREE 90-day Miracurl setup for new businesses' — in both the one-tap WhatsApp invite and the WhatsApp Blast",
             "💎 Partner Program is live — when a business you referred SUBSCRIBES, you earn a 20% commission on every payment they make in their first 12 months; your earnings (pending & paid) show in Settings → Refer & Earn, and Super Admin can mark payouts done in the Refer & Earn panel",
             "✂️ Cleaner WhatsApp outreach — Mira's invite message is now short and sharp ('Are you happy with your current salon software?…') with just two links: Register + Explore, instead of the old link jungle",
             "💌 Mid-trial referral nudge — halfway through every trial, Mira emails the owner a personalized 'X more referrals = your free month!' reminder with their live progress and share link (sent once, never spams, skips test tenants)",
