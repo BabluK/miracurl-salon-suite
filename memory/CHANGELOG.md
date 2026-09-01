@@ -73,3 +73,9 @@
 - Swept ALL _send_email call sites: only staff-facing sends remaining were _send_staff_welcome (give-login + reset-login) which emailed the @miracurl.com login itself. Now: personal_email preferred, @miracurl.com never emailed; if no personal email → {'sent': False, error: 'share credentials on screen / add personal email'} (creds are always shown in-app). Manager flows use owner-typed real emails (guard still applies).
 - Verified: placeholder-only → blocked with friendly error. release_notes → .168.
 - POLICY RECAP (user): @miracurl.com = system login IDs only, NEVER email them. Personal email = forgot-password, one-time credentials, relieving letter (relieving only with notice_served confirmation). Routine staff notices = staff dashboard only.
+
+## Session 2026-06 (fork) — Filter empty-state + 90-day invite copier
+- User's "No all salons." = filter INTERSECTION (Salons + 30-day trial both active; only trial30 tenant is a restaurant). Not a bug — UX fixed: SuperAdmin.jsx empty state (tenants-empty-state) now names the stacked filters + 'Clear all filters' button (clear-tenant-filters-btn).
+- 🎁 copy-newbiz-link-btn in Tenants header copies `${origin}/signup-salon?offer=newbiz` — clipboard.writeText wrapped in try/catch with execCommand textarea fallback (NotAllowedError crashed dev overlay in permission-denied contexts).
+- SignupSalon.jsx bottom stats strip shows "90 days" when newbiz (3 variants).
+- Verified via screenshots: copy toast w/o error overlay, empty state + clear restores 4 rows. release_notes → .169.

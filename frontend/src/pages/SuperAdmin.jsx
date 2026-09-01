@@ -504,6 +504,26 @@ export default function SuperAdmin() {
             >
               <Send className="w-4 h-4" /> {sendingReports ? "Sending…" : "Email monthly reports"}
             </button>
+            <button
+              data-testid="copy-newbiz-link-btn"
+              onClick={async () => {
+                const link = `${window.location.origin}/signup-salon?offer=newbiz`;
+                try { await navigator.clipboard.writeText(link); }
+                catch {
+                  const ta = document.createElement("textarea");
+                  ta.value = link;
+                  document.body.appendChild(ta);
+                  ta.select();
+                  try { document.execCommand("copy"); } catch { /* last resort below */ }
+                  document.body.removeChild(ta);
+                }
+                toast.success("90-day invite link copied 🎁 — anyone signing up with it gets a FREE 90-day setup");
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100"
+              title="Copy the special signup link that grants a 90-day free trial — share it with any new business"
+            >
+              🎁 Copy 90-day invite link
+            </button>
             <button data-testid="super-new-tenant-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
               <Plus className="w-4 h-4" /> New Tenant
             </button>
@@ -653,7 +673,19 @@ export default function SuperAdmin() {
             </div>
           ))}
           {tenants.length === 0 && <div className="card-light text-center text-slate-500 py-12">No tenants yet. Add your first salon!</div>}
-          {tenants.length > 0 && filteredTenants.length === 0 && <div className="card-light text-center text-slate-400 py-10">No {statusFilter} salons.</div>}
+          {tenants.length > 0 && filteredTenants.length === 0 && (
+            <div className="card-light text-center text-slate-500 py-10" data-testid="tenants-empty-state">
+              <p className="font-medium">No tenants match the selected filters</p>
+              <p className="text-xs text-slate-400 mt-1">
+                You have {statusFilter !== "all" && `status “${statusFilter}”`} {vertFilter !== "all" && ` + type “${vertFilter}s”`} {trialFilter !== "all" && ` + plan “${trialFilter}”`} combined — no single tenant matches all of them.
+              </p>
+              <button data-testid="clear-tenant-filters-btn"
+                onClick={() => { setStatusFilter("all"); setVertFilter("all"); setTrialFilter("all"); }}
+                className="mt-4 px-5 py-2 rounded-full bg-slate-800 text-white text-xs font-semibold hover:bg-slate-700">
+                Clear all filters
+              </button>
+            </div>
+          )}
         </div>
 
         <SmsCreditLog />
