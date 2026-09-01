@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.161"
-BUILD_TIME = "01 Sep 2026, 9:00 PM IST"
+BUILD = "2026-09-01.162"
+BUILD_TIME = "01 Sep 2026, 9:45 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [
+            "📬 New-Salon Alert — every time a Mira lead search discovers newly opened salons/restaurants, HQ instantly receives an email digest listing each one (name, address, rating, lead score) with a one-tap 'Review & send in HQ' button, so you can pounce on the hottest prospects the moment they're found",
             "🆕 'Newly opened' lead filter — the Mira Lead Agent now has a one-tap filter chip that shows only newly-opened salons/restaurants, and ALL previously researched leads are automatically re-scored on this update so older leads get their 🆕 Recently opened tag too (they were researched before the detection existed)",
             "🔒 Security audit hardening — all public endpoints (signup, forgot-password, gift cards, feedback, demo booking…) now use a durable database-backed rate limiter that survives restarts and is shared across workers; a platform-wide cap of 50 new signups/day stops bot armies from mass-creating salons; the AI welcome poster is now painted only when the owner actually logs in for the first time (bots can no longer burn AI budget); and partner commissions refuse self-referrals or same-owner referral pairs",
             "🎉 'They came back!' tracking on the Win-back card — a green banner now celebrates every guest who returned AFTER you nudged them (name, return date, amount spent) plus total revenue recovered in the last 90 days, so you can see your nudges paying off",

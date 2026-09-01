@@ -27,3 +27,8 @@
 - MiraLeadAgent.jsx: added filter chip { key: "newbiz", label: "🆕 Newly opened" } (card tag already existed via lead.signal).
 - server.py: one-time startup migration "lead-newbiz-backfill" (marker in app_migrations _id=mira-leads-newbiz-backfill) rescores ALL mira_leads via _score → sets new_business/signal/score/breakdown. Idempotent; will run on production automatically at next deploy.
 - Verified: preview backfill flagged 6/11 leads; chip filters correctly (screenshot). release_notes → .161.
+
+## Session 2026-06 (fork) — New-Salon Alert
+- lead_gen.py: _alert_new_salon_discoveries(run_id, city, noun) — after every _run_pipeline completes, emails all super_admin users a digest of new_business leads found in that run (name/address/rating/score table + HQ CTA). Wrapped in try/except so alert failure never fails the run.
+- Tested with synthetic run (2 fake leads) — real email delivered via Resend to super@miracurl.com; synthetic leads cleaned.
+- release_notes → .162.

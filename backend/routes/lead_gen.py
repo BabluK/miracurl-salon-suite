@@ -610,6 +610,40 @@ async def _research_candidates(client: httpx.AsyncClient, cands: list, city: str
     return done
 
 
+async def _alert_new_salon_discoveries(run_id: str, city: str, noun: str) -> None:
+    """New-Salon Alert: email HQ when a search run discovers newly opened businesses."""
+    fresh = await _raw_db.mira_leads.find(
+        {"run_id": run_id, "new_business": True}, {"_id": 0}).sort("score", -1).to_list(50)
+    if not fresh:
+        return
+    admins = await _raw_db.users.find({"role": "super_admin"}, {"_id": 0, "email": 1}).to_list(10)
+    emails = [a["email"] for a in admins if a.get("email")]
+    if not emails:
+        return
+    from email_service import _send_email
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    n = len(fresh)
+    plural = "s" if n != 1 else ""
+    rows = "".join(
+        f"<tr><td style='padding:8px 12px;border-bottom:1px solid #eee'>"
+        f"<b>{html_lib.escape(ld.get('name') or '')}</b><br>"
+        f"<span style='color:#888;font-size:12px'>{html_lib.escape(ld.get('address') or ld.get('city') or '')}</span></td>"
+        f"<td style='padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;white-space:nowrap'>"
+        f"{ld.get('rating') or '—'}⭐ · {ld.get('reviews') or 0} reviews</td>"
+        f"<td style='padding:8px 12px;border-bottom:1px solid #eee;font-size:13px'>score {ld.get('score')}</td></tr>"
+        for ld in fresh)
+    body = (f"<h2 style='font-family:Georgia,serif;margin:0 0 8px'>🆕 {n} newly opened {noun}{plural} "
+            f"discovered in {html_lib.escape(city)}</h2>"
+            "<p style='color:#555'>No committed software yet — the hottest prospects. Mira has pre-drafted the "
+            "congratulations pitch with the <b>FREE 90-day setup</b> offer for each of them.</p>"
+            f"<table style='border-collapse:collapse;width:100%'>{rows}</table>"
+            f"<p style='margin-top:18px'><a href='{base}/super-admin' "
+            "style='background:#d4af37;color:#17171f;padding:10px 20px;border-radius:99px;"
+            "text-decoration:none;font-weight:bold'>Review &amp; send in HQ →</a></p>")
+    await _send_email(emails, f"🆕 Mira found {n} newly opened {noun}{plural} in {city}",
+                      body, from_name="Mira at Miracurl")
+
+
 async def _run_pipeline(run_id: str, city: str, target: int, vertical: str = "salon"):
     noun = "restaurant" if vertical == "restaurant" else "salon"
     async def _log(msg, **sets):
@@ -632,6 +666,10 @@ async def _run_pipeline(run_id: str, city: str, target: int, vertical: str = "sa
             await _log(f"🎉 Run complete — {done} leads ready for your review.", status="done", stage="done")
             from routes.lead_common import log_mira_event
             await log_mira_event("result", f"{done} prospects researched and qualified — ready for Boss's review.")
+            try:
+                await _alert_new_salon_discoveries(run_id, city, noun)
+            except Exception:
+                log.exception("new-salon alert email failed")
     except Exception as e:
         log.exception("lead run failed")
         await _log(f"❌ Run failed: {str(e)[:120]}", status="failed", stage="failed")
