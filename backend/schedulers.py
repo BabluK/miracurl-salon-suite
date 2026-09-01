@@ -669,3 +669,26 @@ async def _google_review_alert_scheduler() -> None:
         except Exception as e:
             logging.error(f"google review alert scheduler error: {e}")
         await asyncio.sleep(21600)
+
+
+async def _referral_nudge_scheduler() -> None:
+    """Once a day (11:00+ IST): Mira nudges mid-trial owners about Refer & Earn."""
+    from routes.tenant_settings import _run_referral_nudges
+    await asyncio.sleep(180)
+    while True:
+        try:
+            now_ist = datetime.now(IST_TZ)
+            if now_ist.hour >= 11:
+                key = now_ist.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "referral_nudge_auto"})
+                if not flag or flag.get("value") != key:
+                    out = await _run_referral_nudges()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "referral_nudge_auto"},
+                        {"$set": {"value": key, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0)}}, upsert=True)
+                    if out.get("sent"):
+                        logging.info(f"referral nudges sent: {out}")
+        except Exception as e:
+            logging.error(f"referral nudge scheduler error: {e}")
+        await asyncio.sleep(3600)

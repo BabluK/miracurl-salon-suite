@@ -905,3 +905,70 @@ async def referrals_summary(user=Depends(require_tenant_admin), t=Depends(curren
         "rewards": rewards, "new_rewards": new_rewards,
         "access_until": t.get("subscription_end_date") or str(t.get("trial_ends_at", ""))[:10],
     }
+
+
+def _referral_nudge_html(t: dict, need: int, reward: str, link: str, qualified: int) -> str:
+    name = t.get("name", "there")
+    return f"""
+<div style="background:#0B0B0C;padding:32px 16px;font-family:Georgia,serif;color:#f5efe2">
+  <div style="max-width:520px;margin:0 auto;background:#141210;border:1px solid #3a2f1d;border-radius:16px;padding:28px">
+    <div style="color:#d4af37;font-size:12px;letter-spacing:3px;text-transform:uppercase">Mira · Miracurl Suite</div>
+    <h2 style="color:#fffdf6;margin:14px 0 6px;font-weight:600">🎁 {need} more referral{"s" if need > 1 else ""} = {reward}</h2>
+    <p style="color:#c9bfa8;font-size:14px;line-height:1.7">
+      Hi {name} team! You're mid-way through your trial — here's a tip from Mira:
+      invite other businesses with your personal link, and when they sign up and start using Miracurl
+      (services + staff + 5 bills in their first 14 days), your own plan extends <b style="color:#d4af37">automatically</b>.
+    </p>
+    <p style="color:#c9bfa8;font-size:13px;line-height:1.7">
+      1 qualified referral → <b style="color:#d4af37">+7 days</b> · 3 → <b style="color:#d4af37">+1 month</b> · 5 → <b style="color:#d4af37">+3 months FREE</b><br>
+      Your progress so far: <b style="color:#7fd7a4">{qualified} qualified</b> — just {need} more to unlock {reward}!
+    </p>
+    <a href="{link}" style="display:inline-block;margin-top:12px;background:linear-gradient(180deg,#F0D9A5,#C89B52);color:#211a0e;
+       padding:12px 26px;border-radius:999px;font-weight:bold;font-size:14px;text-decoration:none">Share my referral link ✦</a>
+    <p style="color:#8a7f68;font-size:11px;margin-top:18px">Find your link + WhatsApp share anytime in <b>Settings → Refer &amp; Earn</b>.</p>
+  </div>
+</div>"""
+
+
+async def _run_referral_nudges() -> dict:
+    """Mid-trial 'Refer & Earn' email — once per tenant, when 40-85% of trial has elapsed."""
+    from email_service import _send_email
+    now = datetime.now(timezone.utc)
+    sent = 0
+    async for t in _raw_db.tenants.find(
+            {"status": "trial", "referral_nudge_sent": {"$ne": True}},
+            {"_id": 0, "id": 1, "name": 1, "slug": 1, "created_at": 1, "trial_ends_at": 1, "business_type": 1}):
+        if re.search(r"\btest\b", t.get("name") or "", re.I):
+            continue
+        try:
+            start = datetime.fromisoformat(str(t.get("created_at", "")).replace("Z", "+00:00"))
+            end = datetime.fromisoformat(str(t.get("trial_ends_at", "")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        total = (end - start).total_seconds()
+        if total <= 0:
+            continue
+        frac = (now - start).total_seconds() / total
+        if not (0.4 <= frac <= 0.85):
+            continue
+        owner = await _raw_db.users.find_one({"tenant_id": t["id"], "role": "admin"}, {"_id": 0, "email": 1})
+        if not owner or not owner.get("email"):
+            continue
+        qualified = await _raw_db.affiliate_referrals.count_documents(
+            {"referrer_tenant_id": t["id"], "qualified_at": {"$nin": [None, ""]}})
+        next_m = next(((m, d) for m, d in _REF_MILESTONES if qualified < m), None)
+        if not next_m:
+            continue
+        need = next_m[0] - qualified
+        days = next_m[1]
+        reward = f"{days // 30} free month{'s' if days > 30 else ''}" if days >= 30 else f"{days} free days"
+        base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+        vert = "restaurant" if (t.get("business_type") or "salon") == "restaurant" else "salon"
+        link = f"{base}/signup-{vert}?ref={t.get('slug', '')}"
+        r = await _send_email([owner["email"]],
+                              f"🎁 {need} more referral{'s' if need > 1 else ''} = {reward} of Miracurl",
+                              _referral_nudge_html(t, need, reward, link, qualified))
+        if r.get("sent"):
+            sent += 1
+            await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"referral_nudge_sent": True}})
+    return {"sent": sent}

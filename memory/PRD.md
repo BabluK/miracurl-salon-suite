@@ -2505,3 +2505,7 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Also: Tenants clean button now shows 🧹 emoji (user couldn't find the eraser icon).
 - Tested via seeded scenarios: qualification transition, +7d grant (2027-02-24→2027-03-03), idempotency, idle stays pending, SA rows/rewards; all cleaned up + sub date restored. UI screenshot verified. release_notes → NEW entry 2026-09-01 (Refer & Earn 🎁) build .157.
 - Phase 2 backlog: Partner Program (20% recurring commission ledger); conversion-based big rewards (3 paid → 1yr).
+
+## Session 2026-06 (fork) — Mid-trial referral nudge
+- _run_referral_nudges() in tenant_settings.py: trial tenants 40-85% through trial, once each (referral_nudge_sent flag), skips \btest\b names, emails owner (users role=admin) branded gold HTML with live qualified count + next milestone + referral link. _referral_nudge_scheduler in schedulers.py (daily ≥11:00 IST, system_flags key referral_nudge_auto), registered in server.py.
+- Tested: run sent 2 (synthetic 50%-trial tenant + 1 real trial tenant), 2nd run 0 (idempotent). Synthetic data cleaned. release_notes updated (build .157 entry 2026-09-01).

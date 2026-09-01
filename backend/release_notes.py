@@ -9,6 +9,7 @@ RELEASES = [
     {
         "date": "2026-09-01 (Refer & Earn 🎁)",
         "changes": [
+            "💌 Mid-trial referral nudge — halfway through every trial, Mira emails the owner a personalized 'X more referrals = your free month!' reminder with their live progress and share link (sent once, never spams, skips test tenants)",
             "🎁 Refer & Earn is live — every owner gets a personal referral link in Settings with WhatsApp & Email share buttons; when a referred business signs up AND genuinely activates (adds services + staff + 5 real bills in 14 days) it counts as QUALIFIED, and your plan extends automatically: 1 qualified → +7 days, 3 → +1 month, 5 → +3 months free, with a live progress bar and referral status list",
             "Super Admin: new Refer & Earn panel in Tenants shows every referral edge (pending / qualified / paid) and every reward granted",
             "🧹 The 'Clean test data' button in Tenants is now an obvious broom (🧹) with a clearer tooltip",
