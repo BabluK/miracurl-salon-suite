@@ -156,6 +156,7 @@ async def _super_platform_stats() -> str:
     today_iso = now.date().isoformat()
     month_start = now.strftime("%Y-%m") + "-01"
     tenants = await db.tenants.find({}, {"_id": 0}).to_list(500)
+    ref_names = {t["id"]: t["name"] for t in tenants}
     lines = [f"REPORT DATE: {today_iso} (all amounts in INR)", "", "=== SALONS (TENANTS) ==="]
     for t in tenants:
         agg = await _raw_db.invoices.aggregate([
@@ -192,10 +193,32 @@ async def _super_platform_stats() -> str:
             f"all-time: Rs {rev.get('all_time', 0):,.0f} ({rev.get('invoices', 0)} paid invoices) | "
             f"customers: {customers} | staff: {staff} | appointments today: {appts_today}"
         )
+        tags = []
+        if t.get("signup_offer") == "newbiz":
+            tags.append("NEW-BUSINESS INVITE tenant — signed up via Mira's new-business link, on a FREE 90-day setup trial")
+        trial_end_v = t.get("trial_end_date") or t.get("trial_ends_at")
+        if t.get("status") == "trial" and trial_end_v:
+            tags.append(f"trial ends {str(trial_end_v)[:10]}")
+        if t.get("referred_by_tenant_id"):
+            tags.append(
+                f"REFERRED BY '{_ai_safe(ref_names.get(t['referred_by_tenant_id'], 'another salon'))}' — "
+                "the referrer becomes eligible for referral rewards (free trial-extension days via Refer & Earn, "
+                "or 20% partner commission) once this tenant genuinely activates or pays")
+        if tags:
+            lines.append("  " + " | ".join(tags))
         if by_branch and (len(by_branch) > 1 or by_branch[0]["_id"] != "Main (untagged)"):
             lines.append("  collection by branch: " + " | ".join(
                 f"{b['_id']}: this month Rs {b['this_month']:,.0f}, all-time Rs {b['all_time']:,.0f}"
                 for b in sorted(by_branch, key=lambda x: -x["all_time"])))
+    referrals = await _raw_db.affiliate_referrals.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    if referrals:
+        lines.append("")
+        lines.append("=== REFERRAL PROGRAM (Refer & Earn / Partner) ===")
+        for r in referrals:
+            lines.append(
+                f"- '{_ai_safe(r.get('referrer_slug'))}' referred '{_ai_safe(r.get('referred_salon_name') or r.get('referred_slug'))}'"
+                f" | status: {r.get('status', 'pending')}"
+                " (referrer earns trial-extension days at 1/3/5 qualified referrals, or 20% commission if partner)")
     pays = await _raw_db.subscription_payments.aggregate([
         {"$match": {"$or": [{"kind": {"$exists": False}}, {"kind": {"$ne": "razorpay_pending"}}]}},
         {"$group": {"_id": None, "all_time": {"$sum": "$amount"},

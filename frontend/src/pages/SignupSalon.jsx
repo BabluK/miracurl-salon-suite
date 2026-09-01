@@ -51,6 +51,7 @@ export default function SignupSalon() {
     location: "",
     phone: "",
   });
+  const [newbiz, setNewbiz] = useState(false);
 
   // Keep the URL in sync with the picked business type (/signup-salon ↔ /signup-restaurant)
   useEffect(() => {
@@ -72,6 +73,11 @@ export default function SignupSalon() {
       if (ref && /^[a-z0-9-]{2,40}$/.test(ref)) {
         localStorage.setItem("miracurl_ref", ref);
       }
+      const offer = (params.get("offer") || "").trim().toLowerCase();
+      if (/^[a-z0-9]{2,20}$/.test(offer)) {
+        localStorage.setItem("miracurl_offer", offer);
+      }
+      if (offer === "newbiz" || localStorage.getItem("miracurl_offer") === "newbiz") setNewbiz(true);
     } catch (err) {
       log.warn("Referral param parse failed:", err);
     }
@@ -107,6 +113,7 @@ export default function SignupSalon() {
     setErr(""); setBusy(true);
     try {
       const ref = (localStorage.getItem("miracurl_ref") || "").trim().toLowerCase() || undefined;
+      const offer = (localStorage.getItem("miracurl_offer") || "").trim().toLowerCase() || undefined;
       const { data } = await axios.post(`${BACKEND_URL}/api/public/signup-salon`, {
         salon_name: form.salon_name.trim(),
         business_type: form.business_type,
@@ -117,12 +124,14 @@ export default function SignupSalon() {
         location: form.location.trim() || undefined,
         phone: form.phone.trim() || undefined,
         ref,
+        offer,
         region,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
       });
       setTenantSlug(data.tenant.slug);
       localStorage.setItem("miracurl_tenant", data.tenant.slug);
       localStorage.removeItem("miracurl_ref");  // consumed
+      localStorage.removeItem("miracurl_offer");
       toast.success(`Welcome ✦ Your ${data.trial_days}-day trial starts now`);
       // Hard reload to /dashboard so AuthContext re-bootstraps cleanly
       window.location.assign("/dashboard");
@@ -161,8 +170,8 @@ export default function SignupSalon() {
 
       <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-8 py-10 pb-24">
         <div className="text-center max-w-xl mx-auto mb-10">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 border border-sky-100 text-sky-600 text-[11px] uppercase tracking-[0.18em] font-semibold">
-            <Sparkles className="w-3 h-3" /> {form.business_type === "restaurant" ? "First Month Free · No credit card" : "7-Day Free Trial · No credit card"}
+          <span data-testid="signup-trial-badge" className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] uppercase tracking-[0.18em] font-semibold ${newbiz ? "bg-amber-50 border border-amber-200 text-amber-700" : "bg-sky-50 border border-sky-100 text-sky-600"}`}>
+            <Sparkles className="w-3 h-3" /> {newbiz ? "90-Day Free Setup · New Business Offer" : form.business_type === "restaurant" ? "First Month Free · No credit card" : "7-Day Free Trial · No credit card"}
           </span>
           <h1 className="font-playfair text-4xl sm:text-5xl tracking-tight text-slate-900 mt-4">Bring your {form.business_type === "restaurant" ? "restaurant" : "salon"} online ✦</h1>
           <p className="text-slate-600 mt-3 text-sm sm:text-base">

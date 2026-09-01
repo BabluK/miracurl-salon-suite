@@ -22,6 +22,7 @@ import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
 import { MiraSocialNudge } from "@/components/MiraSocialNudge";
 import { SetupBanner } from "@/components/SetupBanner";
 import { SmsPointsWidget } from "@/components/dashboard/SmsPointsWidget";
+import { WelcomeCongratsModal } from "@/components/WelcomeCongratsModal";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
 const CHART_TOOLTIP_STYLE = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' };
@@ -105,6 +106,7 @@ export default function Dashboard() {
   return (
     <div className="app-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
       <DashboardAurora />
+      {isOwner && <WelcomeCongratsModal />}
       <RenewalBanner sub={subStatus} />
       <ReferralNudgeBanner />
       {isOwner && <MySalonsOverview />}

@@ -29,6 +29,10 @@ export const TrialReminder = () => {
       setInfo({ days, paid, endDate: end.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) });
     };
     if (isTrial) {
+      const congratsPending = (tenant.signup_offer === "newbiz" || tenant.referred_by_tenant_id)
+        && !localStorage.getItem(`miracurl_congrats_seen_${tenant.id}`)
+        && tenant.created_at && Date.now() - new Date(tenant.created_at).getTime() < 45 * 86400000;
+      if (congratsPending) return; // the Welcome Congrats popup owns the first visit
       applyDays(tenant.trial_end_date || tenant.trial_ends_at, false);
     } else if (tenant.subscription_end_date) {
       applyDays(tenant.subscription_end_date, true);

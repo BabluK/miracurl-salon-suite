@@ -130,6 +130,7 @@ export default function SuperAdmin() {
   }, []);
   const [notifFeed, setNotifFeed] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [trialFilter, setTrialFilter] = useState("all");
   const [vertFilter, setVertFilter] = useState("all");
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
@@ -295,9 +296,18 @@ export default function SuperAdmin() {
     return `${window.location.origin}/book/${slug}`;
   }
 
+  const trialMatch = (t) =>
+    trialFilter === "all" ||
+    (trialFilter === "newbiz90" && t.trial_kind === "newbiz90") ||
+    (trialFilter === "trial7" && t.trial_kind === "trial7") ||
+    (trialFilter === "trial30" && t.trial_kind === "trial30") ||
+    (trialFilter === "paid" && t.status === "active") ||
+    (trialFilter === "referred" && !!t.referred_by_name);
+
   const filteredTenants = tenants.filter(t =>
     (statusFilter === "all" || t.status === statusFilter) &&
-    (vertFilter === "all" || (t.business_type || "salon") === vertFilter));
+    (vertFilter === "all" || (t.business_type || "salon") === vertFilter) &&
+    trialMatch(t));
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-sky-50/70 to-violet-100/60 text-slate-800" data-testid="super-admin-page">
@@ -546,6 +556,24 @@ export default function SuperAdmin() {
               {l} {v !== "all" && `(${tenants.filter(t => (t.business_type || "salon") === v).length})`}
             </button>
           ))}
+          <span className="mx-1 h-5 w-px bg-slate-200" />
+          {[["all", "All plans"],
+            ["newbiz90", "🌱 New-Biz 90d"],
+            ["trial7", "7-day trial"],
+            ["trial30", "30-day trial"],
+            ["paid", "💳 Paid"],
+            ["referred", "🤝 Referred"]].map(([v, l]) => (
+            <button key={v} data-testid={`trial-filter-${v}`} onClick={() => setTrialFilter(v)}
+              className={`text-xs px-3.5 py-1.5 rounded-full border transition ${
+                trialFilter === v
+                  ? "bg-emerald-700 text-white border-emerald-700 shadow"
+                  : "bg-white/70 border-slate-200 text-slate-500 hover:border-emerald-400"}`}>
+              {l} {v !== "all" && `(${tenants.filter(t =>
+                (v === "paid" && t.status === "active") ||
+                (v === "referred" && !!t.referred_by_name) ||
+                t.trial_kind === v).length})`}
+            </button>
+          ))}
         </div>
 
         {/* Tenant list — readable cards */}
@@ -563,6 +591,25 @@ export default function SuperAdmin() {
                     )}
                     {t.currency && t.currency !== "INR" && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200" title={`International salon — pays in ${t.currency} via Stripe`}>🌍 {t.currency}</span>
+                    )}
+                    {t.trial_kind === "newbiz90" && (
+                      <span data-testid={`trial-kind-${t.id}`} title="New-business invite — FREE 90-day setup trial" className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300">🌱 New-Biz 90d</span>
+                    )}
+                    {t.trial_kind === "trial7" && (
+                      <span data-testid={`trial-kind-${t.id}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-200">7-day trial</span>
+                    )}
+                    {t.trial_kind === "trial30" && (
+                      <span data-testid={`trial-kind-${t.id}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">30-day trial</span>
+                    )}
+                    {t.status === "trial" && Number.isFinite(t.trial_days_left) && (
+                      <span data-testid={`trial-days-left-${t.id}`} title={`Trial ends ${String(t.trial_end_date || t.trial_ends_at || "").slice(0, 10)}`}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${t.trial_days_left <= 5 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-slate-50 text-slate-500 border-slate-200"}`}>
+                        ⏳ {t.trial_days_left}d left
+                      </span>
+                    )}
+                    {t.referred_by_name && (
+                      <span data-testid={`referred-by-${t.id}`} title={`Referred by ${t.referred_by_name} — referrer becomes eligible for referral reward (trial extension / 20% commission) once this tenant activates or pays`}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-fuchsia-50 text-fuchsia-600 border border-fuchsia-200">🤝 via {t.referred_by_name}</span>
                     )}
                     <HealthBadge t={t} /><RenewalNudge t={t} />
                   </div>

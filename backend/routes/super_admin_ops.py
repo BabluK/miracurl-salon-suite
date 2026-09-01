@@ -12,7 +12,7 @@ import base64  # noqa: F401
 import secrets  # noqa: F401
 import logging  # noqa: F401
 import html as html_lib  # noqa: F401
-from datetime import datetime, timezone, timedelta  # noqa: F401
+from datetime import datetime, timezone, timedelta, date  # noqa: F401
 from typing import Dict, List, Optional  # noqa: F401
 from urllib.parse import quote, urlparse  # noqa: F401
 
@@ -310,8 +310,27 @@ async def list_tenants(user=Depends(require_super_admin)):
     for o in owners:
         ids = o.get("tenant_ids") or ([o["tenant_id"]] if o.get("tenant_id") else [])
         counts[o["email"]] = max(counts.get(o["email"], 0), len(set(ids)))
+    ref_names = {t["id"]: t["name"] for t in tenants}
+    today = datetime.now(timezone.utc).date()
     for t in tenants:
         t["owner_salon_count"] = counts.get(t.get("owner_email"), 1)
+        if t.get("referred_by_tenant_id"):
+            t["referred_by_name"] = ref_names.get(t["referred_by_tenant_id"])
+        trial_end = t.get("trial_end_date") or t.get("trial_ends_at")
+        if t.get("signup_offer") == "newbiz":
+            t["trial_kind"] = "newbiz90"
+        elif t.get("status") == "trial" and trial_end and t.get("created_at"):
+            try:
+                span = (date.fromisoformat(str(trial_end)[:10])
+                        - datetime.fromisoformat(str(t["created_at"]).replace("Z", "+00:00")).date()).days
+                t["trial_kind"] = "trial30" if span >= 25 else "trial7"
+            except (ValueError, TypeError):
+                pass
+        if t.get("status") == "trial" and trial_end:
+            try:
+                t["trial_days_left"] = (date.fromisoformat(str(trial_end)[:10]) - today).days
+            except (ValueError, TypeError):
+                pass
     return tenants
 
 

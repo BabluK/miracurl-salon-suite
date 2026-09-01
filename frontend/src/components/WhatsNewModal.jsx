@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { Sparkles, X, Send } from "lucide-react";
 
 const SEEN_KEY = "mira_whats_new_build";
@@ -7,8 +8,16 @@ const SEEN_KEY = "mira_whats_new_build";
 export default function WhatsNewModal() {
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
+  const { tenant } = useAuth();
+
+  // Give the one-time Welcome Congrats popup the stage — What's New waits for the next visit.
+  const congratsPending = !!(tenant?.id
+    && (tenant.signup_offer === "newbiz" || tenant.referred_by_tenant_id)
+    && !localStorage.getItem(`miracurl_congrats_seen_${tenant.id}`)
+    && tenant.created_at && Date.now() - new Date(tenant.created_at).getTime() < 45 * 86400000);
 
   useEffect(() => {
+    if (congratsPending) return;
     let cancelled = false;
     const show = ({ data }) => {
       if (cancelled || !data?.build || !data.highlights?.length) return;
@@ -21,7 +30,7 @@ export default function WhatsNewModal() {
       setTimeout(() => { if (!cancelled) api.get("/whats-new").then(show).catch(() => {}); }, 3000);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [congratsPending]);
 
   if (!open || !data) return null;
 

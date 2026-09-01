@@ -2520,3 +2520,13 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - _wa_message: new_business leads get the "Congratulations! FREE 90-day Miracurl setup" pitch; _blast_compose listing flags NEWLY OPENED + _WA_BLAST_SYS instructs LLM to lead with the 90-day offer.
 - LeadRow shows signal badge (lead-signal-{id}, emerald for new). NOTE: badges appear on NEW search runs only (old leads lack the field).
 - Unit-tested all 3 scoring paths + pitch. release_notes updated (2026-09-01 entry).
+
+## Session 2026-06 (fork) — 90-day trial verified + Super Admin trial tracking + congrats popup
+- NOTE: PRD.md exceeds 700 lines — new sessions should append to /app/memory/CHANGELOG.md (created this session).
+- 90-day newbiz trial: backend was correct; frontend bug fixed — SignupSalon.jsx read `offer` from localStorage but never sent it in the payload. Now sent + consumed. Signup badge (signup-trial-badge) turns amber "90-Day Free Setup · New Business Offer" when ?offer=newbiz. Mira's WA invite/blast/nudge-email links now append ?offer=newbiz for new_business leads (lead_gen.py x3).
+- Super Admin tenant tracking: list_tenants (super_admin_ops.py) returns trial_kind (newbiz90/trial7/trial30), trial_days_left, referred_by_name. SuperAdmin.jsx: badges on cards + trial-filter chips (trial-filter-*).
+- Mira HQ intel: _super_platform_stats (super_admin.py) adds per-tenant tags (NEW-BUSINESS INVITE / trial ends / REFERRED BY x with reward eligibility) + "=== REFERRAL PROGRAM ===" section from affiliate_referrals.
+- Congrats popup: components/WelcomeCongratsModal.jsx (owners, tenant <45d old, signup_offer=newbiz OR referred_by_tenant_id, one-shot via localStorage miracurl_congrats_seen_<tenantId>), mounted in Dashboard.jsx. POPUP PRECEDENCE RULE: TrialReminder.jsx trial-welcome + WhatsNewModal.jsx both DEFER when congrats is pending (same pending check) — Dashboard's `isolate` stacking context means z-index does NOT protect across AppLayout modals; always gate, don't rely on z.
+- Tested: testing_agent iteration_121 (backend 100%, frontend pass); modal one-shot + no-stacking re-verified via screenshots after TrialReminder fix.
+- Cleanup: ALL test tenants purged from preview DB via /super-admin/tenants/{id}/permanent (needs X-CSRF-Token header from csrf_token cookie). Only 4 real tenants remain. Preview DB ≠ production DB — deploys push code only, never data.
+- release_notes.py → NEW entry "2026-09-01 (90-day trials & referral tracking 🌱)" build .158 (deployment tag will be created on deploy).

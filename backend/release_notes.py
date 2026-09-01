@@ -2,10 +2,19 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.157"
-BUILD_TIME = "01 Sep 2026, 12:30 PM IST"
+BUILD = "2026-09-01.158"
+BUILD_TIME = "01 Sep 2026, 6:30 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
+        "changes": [
+            "🌱 Auto 90-day trial for new businesses — anyone who signs up via Mira's new-business invite link (?offer=newbiz) automatically gets a FREE 90-day setup trial instead of 7/30 days; the signup page shows a gold '90-Day Free Setup · New Business Offer' badge, and all of Mira's new-business WhatsApp invites, blasts and nudge emails now carry the offer link",
+            "📊 Trial-type badges in Super Admin → Tenants — every salon card now shows exactly what plan it's on: 🌱 New-Biz 90d / 7-day trial / 30-day trial, with a live ⏳ days-left pill (turns red under 5 days) and a 🤝 'via [Salon]' tag when the tenant was referred; new filter chips let you view each group in one tap",
+            "🧠 Mira knows referrals — ask Mira in HQ 'who referred whom?' and she'll tell you which tenant was referred by which salon, that the referrer is eligible for referral rewards (trial extension / 20% partner commission) once the referred tenant pays, and which tenants are on new-business 90-day trials",
+            "🎉 Congratulations popup for new owners — tenants who join via a referral or a new-business invite see a beautiful gold celebration popup on their first dashboard visit ('We're really happy to have you… Refer more & earn more!') with a one-tap button to their Refer & Earn page (shown once, never nags)",
+        ],
+    },
     {
         "date": "2026-09-01 (Refer & Earn 🎁)",
         "changes": [

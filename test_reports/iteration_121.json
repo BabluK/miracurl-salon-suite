@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 121 tested newbiz 90-day trial + Super Admin trial-kind enrichment + Welcome Congrats modal + signup badge. Backend enrichment (trial_kind newbiz90/trial7/trial30, trial_days_left, referred_by_name) verified via pytest (3/3 pass). Frontend: Super Admin Tenants tab shows all 6 trial-filter chips, badges (🌱 New-Biz 90d, 7-day trial, 30-day trial) with correct testids, ⏳ days-left pills, and newbiz filter correctly narrows list to only the newbiz tenant. Signup badge switches between '90-Day Free Setup · New Business Offer' (with ?offer=newbiz) and '7-Day Free Trial · No credit card' (fresh storage). Congrats modal appears on newbiz tenant dashboard login with correct 90-day copy, refer & close buttons — behavior fully rendered.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login page", "issues": ["Field label is 'Username' but placeholder is 'you@example.com' (input type=email). Cosmetic; consider renaming label to 'Email'."]},
+      {"screen": "Dashboard first-login", "issues": ["Two modals can stack: the platform 'What's New ✨' What's-new dialog opens on top of / alongside the WelcomeCongratsModal, which may confuse a new-biz owner. Consider gating the What's-New popup until after congrats is dismissed for first-time newbiz signups."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter121_trial_kind.py",
+    "/app/test_reports/pytest/iter121.xml"
+  ],
+  "action_items": [
+    "OPTIONAL/VERIFY: Confirm WelcomeCongratsModal one-shot persistence — during testing the modal appeared correctly on first dashboard load with correct 90-day copy + Refer/Close buttons, but one repro attempt appeared to have the modal still counted after a close click + reload; this could be because the 'What's New' modal overlay intercepted the close click. Manually verify: close congrats → reload dashboard → confirm modal does NOT reappear (localStorage key miracurl_congrats_seen_<tenantId> is set after dismiss). Login flakiness in the automation harness prevented a fully clean re-test.",
+    "OPTIONAL: Stagger What's-New and WelcomeCongrats modals so they don't co-mount for new-biz owners on first dashboard load."
+  ],
+  "critical_code_review_comments": [
+    "WelcomeCongratsModal.jsx line 25 uses `Date.now() - created > 30 * 86400000` to suppress modal for tenants older than 30 days — for newbiz90 tenants this cutoff is fine (they're brand-new), but if a newbiz owner delays first login past 30 days they'd never see the welcome message. Consider bumping to 45–60 days or gating solely by the localStorage-seen key.",
+    "super_admin_ops.py list_tenants uses date arithmetic on trial_end_date; wrapped in try/except (ValueError, TypeError) which is correct. Consider adding a log warning when parsing fails to catch corrupted tenant docs.",
+    "SignupSalon.jsx stores 'miracurl_offer' in localStorage indefinitely — could cause a stale 90-day badge to appear on a later visit without the query param (verified in test). Not incorrect (intentional 'sticky offer'), but consider TTL of ~7 days so old offers don't linger."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter121_trial_kind.py (new)"],
+  "success_rate": {"backend": "100%", "frontend": "~95%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 ; newbiz90test@example.com / TestPass@123 ; login button label is 'Login' (not 'Sign in')",
+  "seed_data_creation": "None. Used pre-existing tenants Test Newbiz Salon 90, Test Control Salon 7, Infinity Family Restaurant.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login inputs use data-testid login-email-input / login-password-input; submit button label is 'Login' (role=button, name='Login'). Super Admin lands on Mira Home tab → click role=button name='Tenants' to reach tenants tab. WelcomeCongratsModal shows only for tenants < 30 days old whose signup_offer=='newbiz' OR referred_by_tenant_id set. localStorage key: miracurl_congrats_seen_<tenantId>. What's-New modal ('Got it' button) may overlay congrats on first dashboard load — dismiss it first. Signup offer stickiness: localStorage.miracurl_offer set to 'newbiz' by ?offer=newbiz param — persists until signup consumed. For a clean 7-day badge test, clear localStorage before visiting /signup-salon. Backend list_tenants (/api/super-admin/tenants) returns full tenants array (no _id) with trial_kind, trial_days_left, referred_by_name enrichment.",
+  "rca of the issue": "N/A — no bugs blocking. Minor UX concern: What's-New and WelcomeCongrats modals both mount on first dashboard load; the What's-New modal's darker overlay may intercept the congrats close-btn click causing users to think the congrats didn't dismiss."
+}

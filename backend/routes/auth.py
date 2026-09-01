@@ -273,6 +273,7 @@ class SalonSignupIn(BaseModel):
     location: Optional[str] = None
     phone: Optional[str] = None
     ref: Optional[str] = None  # affiliate referrer slug (Refer-a-salon program)
+    offer: Optional[str] = Field(None, max_length=20)  # e.g. "newbiz" → 90-day trial
     region: Optional[str] = Field(None, pattern="^(in|intl)$")  # pricing region picked at signup
     timezone: Optional[str] = Field(None, max_length=64)  # browser timezone (stored for intl salons)
     business_type: Optional[str] = Field("salon", pattern="^(salon|restaurant)$")
@@ -404,10 +405,14 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     candidate = await _resolve_unique_slug(body)
     # Restaurants launch with FIRST MONTH FREE (30-day trial); salons keep the 7-day trial
     trial_days = 30 if body.business_type == "restaurant" else TRIAL_DAYS
+    if (body.offer or "").strip().lower() == "newbiz":
+        trial_days = 90  # new-business invite: FREE 90-day setup
     trial_end = (datetime.now(timezone.utc) + timedelta(days=trial_days)).date().isoformat()
     referrer = await _resolve_referrer(body.ref, candidate)
 
     tenant = _build_signup_tenant(body, candidate, referrer, trial_end)
+    if trial_days == 90:
+        tenant["signup_offer"] = "newbiz"
     await db.tenants.insert_one(tenant)
     if tenant.get("business_type") == "restaurant":
         await _seed_restaurant_defaults(tenant["id"])

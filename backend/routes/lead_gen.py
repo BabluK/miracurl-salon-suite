@@ -1044,8 +1044,9 @@ async def _wa_message(lead: dict) -> str:
         pitch = (f"Congratulations on your new {noun}! 🎊 Starting fresh is the PERFECT time to get your "
                  "systems right — *Miracurl Suite* is giving new businesses a *FREE 90-day setup*: bookings, "
                  "billing, CRM, WhatsApp marketing and AI tools, all configured for you from day one.\n\n")
+    offer_q = "?offer=newbiz" if lead.get("new_business") else ""
     return (intro + pitch +
-            f"🏪 Register your {noun}: {base}/signup-{'restaurant' if resto else 'salon'}\n"
+            f"🏪 Register your {noun}: {base}/signup-{'restaurant' if resto else 'salon'}{offer_q}\n"
             f"🌐 Or explore: {base}\n\n"
             "Reply here for a *free 15-minute live demo* — I'd love to show you around! ✨")
 
@@ -1136,7 +1137,8 @@ async def run_lead_auto_nudge() -> dict:
     for lead in leads:
         resto = (lead.get("vertical") or "") == "restaurant"
         noun = "restaurant" if resto else "salon"
-        signup = f"{base}/signup-restaurant" if resto else f"{base}/signup-salon"
+        signup = (f"{base}/signup-restaurant" if resto else f"{base}/signup-salon") + (
+            "?offer=newbiz" if lead.get("new_business") else "")
         biz = lead.get("name") or f"your {noun}"
         html = f"""
         <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
@@ -1756,8 +1758,9 @@ def _blast_poster_url(lead: dict, composed: dict, posters: dict) -> str:
 def _blast_message(lead: dict, body_txt: str, poster_url: str, poster_base: str, base: str) -> str:
     resto = (lead.get("vertical") or "salon") == "restaurant"
     noun = "restaurant" if resto else "salon"
+    offer_q = "?offer=newbiz" if lead.get("new_business") else ""
     return body_txt + (f"\n\n🖼️ {poster_base}{poster_url}" if poster_url else "") + (
-        f"\n🏪 Register your {noun}: {base}/{'signup-restaurant' if resto else 'signup-salon'}"
+        f"\n🏪 Register your {noun}: {base}/{'signup-restaurant' if resto else 'signup-salon'}{offer_q}"
         f"\n🌐 Or explore: {base}"
         "\n\nReply here for a *free 15-min demo* ✨")
 
