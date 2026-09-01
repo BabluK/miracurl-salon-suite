@@ -34,7 +34,7 @@ export function DummyCleanupModal({ tenant, onClose }) {
           <h2 className="text-lg font-semibold flex items-center gap-2"><Eraser className="w-5 h-5 text-rose-500" /> Clean test data — {tenant.name}</h2>
           <button onClick={onClose} data-testid="dummy-cleanup-close" className="p-1.5 rounded hover:bg-slate-100"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-xs text-slate-500 mt-1">Finds test/dummy NAMES, <b>ghost guests</b> (never completed a visit, no upcoming booking), <b>orphan bookings</b> (customer no longer exists) and <b>test staff</b> (name starts with TEST/DUMMY — incl. their attendance & late alerts). Customers with wallet money or invoices are never touched.</p>
+        <p className="text-xs text-slate-500 mt-1">Finds test/dummy NAMES, <b>ghost guests</b> (never completed a visit, no upcoming booking), <b>orphan bookings</b> (customer no longer exists) and <b>test staff</b> (names starting with TEST/DUMMY <b>plus the original demo staff — Priya Sharma, Rahul Verma, Anjali Mehta, Karan Singh</b> — incl. their attendance, late alerts &amp; logins). Once removed, demo staff never re-appear. Customers with wallet money or invoices are never touched.</p>
 
         {!preview ? (
           <div className="flex items-center gap-2 text-sm text-slate-500 py-10 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Scanning…</div>

@@ -692,3 +692,27 @@ async def _referral_nudge_scheduler() -> None:
         except Exception as e:
             logging.error(f"referral nudge scheduler error: {e}")
         await asyncio.sleep(3600)
+
+
+async def _city_watch_scheduler() -> None:
+    """Once a day (10:00+ IST): Auto City Watch — Mira re-searches one due watched city."""
+    from routes.lead_gen import run_due_city_watches
+    await asyncio.sleep(240)
+    while True:
+        try:
+            now_ist = datetime.now(IST_TZ)
+            if now_ist.hour >= 10:
+                key = now_ist.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "city_watch_auto"})
+                if not flag or flag.get("value") != key:
+                    out = await run_due_city_watches()
+                    if out.get("started") or not out.get("skipped"):
+                        await _raw_db.system_flags.update_one(
+                            {"key": "city_watch_auto"},
+                            {"$set": {"value": key, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                      "result": out}}, upsert=True)
+                    if out.get("started"):
+                        logging.info(f"city watch auto-run started: {out}")
+        except Exception as e:
+            logging.error(f"city watch scheduler error: {e}")
+        await asyncio.sleep(3600)

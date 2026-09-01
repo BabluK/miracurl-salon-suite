@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Trash2, MessageCircle, Video, Phone, BellRing, FileText, Target, BadgeCheck, Mail, CalendarCheck, Trophy, Sparkles } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { WaQuickInvite } from "@/components/superadmin/WaQuickInvite";
+import { CityWatchCard } from "@/components/superadmin/CityWatchCard";
 import { WaBlastModal } from "@/components/superadmin/WaBlastModal";
 
 const STATUS_STYLE = {
@@ -734,6 +735,7 @@ export function MiraLeadAgent() {
       <ReplyInbox />
 
       <WaQuickInvite onLead={refresh} />
+      <CityWatchCard />
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-3">
         <div>

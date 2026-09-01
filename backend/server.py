@@ -110,6 +110,7 @@ from schedulers import (  # noqa: E402
     _feedback_reminder_scheduler, _salon_digest_scheduler, _db_health_scheduler,
     _temp_transfer_scheduler, _open_bill_alert_scheduler, _manager_access_report_scheduler,
     _late_digest_scheduler, _google_review_alert_scheduler, _daily_special_scheduler, _lead_nudge_scheduler,
+    _city_watch_scheduler,
     _loyalty_nudge_scheduler, _always_on_time_scheduler, _referral_nudge_scheduler,
 )
 
@@ -145,6 +146,7 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_lead_followup_scheduler())
     asyncio.get_event_loop().create_task(_review_request_scheduler())
     asyncio.get_event_loop().create_task(_referral_nudge_scheduler())
+    asyncio.get_event_loop().create_task(_city_watch_scheduler())
 
     async def _weekly_blog_loop():
         # Mira drafts one SEO article every Monday (>=9 AM IST) for super-admin approval.

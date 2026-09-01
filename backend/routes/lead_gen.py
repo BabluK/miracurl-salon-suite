@@ -1165,6 +1165,74 @@ async def delete_manual_wa_invite(iid: str, user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+# ---------------- Auto City Watch ----------------
+class CityWatchIn(BaseModel):
+    city: str = Field(..., min_length=2, max_length=60)
+    vertical: str = Field("salon", pattern="^(salon|restaurant)$")
+    every_days: int = Field(7, ge=1, le=30)
+
+
+@router.get("/super-admin/city-watch")
+async def list_city_watches(user=Depends(require_super_admin)):
+    rows = await _raw_db.city_watches.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return {"items": rows}
+
+
+@router.post("/super-admin/city-watch")
+async def add_city_watch(body: CityWatchIn, user=Depends(require_super_admin)):
+    city = re.sub(r",\s*([A-Za-z]{2,3})$", lambda m: ", " + m.group(1).upper(), body.city.strip().title())
+    if await _raw_db.city_watches.find_one({"city": city, "vertical": body.vertical}):
+        raise HTTPException(409, f"{city} is already being watched")
+    if await _raw_db.city_watches.count_documents({}) >= 10:
+        raise HTTPException(400, "Max 10 watched cities — remove one first")
+    doc = {"id": str(uuid.uuid4()), "city": city, "vertical": body.vertical, "enabled": True,
+           "every_days": body.every_days, "last_run_at": "", "created_at": _now()}
+    await _raw_db.city_watches.insert_one({**doc})
+    doc.pop("_id", None)
+    return doc
+
+
+@router.put("/super-admin/city-watch/{wid}/toggle")
+async def toggle_city_watch(wid: str, user=Depends(require_super_admin)):
+    w = await _raw_db.city_watches.find_one({"id": wid}, {"_id": 0, "enabled": 1})
+    if not w:
+        raise HTTPException(404, "Watch not found")
+    await _raw_db.city_watches.update_one({"id": wid}, {"$set": {"enabled": not w.get("enabled")}})
+    return {"ok": True, "enabled": not w.get("enabled")}
+
+
+@router.delete("/super-admin/city-watch/{wid}")
+async def delete_city_watch(wid: str, user=Depends(require_super_admin)):
+    await _raw_db.city_watches.delete_one({"id": wid})
+    return {"ok": True}
+
+
+async def run_due_city_watches() -> dict:
+    """Budget-friendly: at most ONE automatic search per day — oldest due watch first."""
+    if await _raw_db.mira_lead_runs.find_one({"status": "running"}):
+        return {"skipped": "a lead run is already in progress"}
+    now = datetime.now(timezone.utc)
+    watches = await _raw_db.city_watches.find({"enabled": True}, {"_id": 0}).to_list(50)
+    due = []
+    for w in watches:
+        last = w.get("last_run_at")
+        if not last or (now - datetime.fromisoformat(last)).days >= int(w.get("every_days") or 7):
+            due.append(w)
+    if not due:
+        return {"due": 0}
+    due.sort(key=lambda w: w.get("last_run_at") or "")
+    w = due[0]
+    run = {"id": str(uuid.uuid4()), "city": w["city"], "target": 10, "vertical": w["vertical"],
+           "status": "running", "stage": "starting", "found": 0, "researched": 0,
+           "auto_watch": True, "log": [], "created_at": _now()}
+    await _raw_db.mira_lead_runs.insert_one({**run})
+    await _raw_db.city_watches.update_one({"id": w["id"]}, {"$set": {"last_run_at": now.isoformat()}})
+    from routes.lead_common import log_mira_event
+    await log_mira_event("search", f"🛰️ City Watch: Mira is automatically searching {w['vertical']}s in {w['city']}.")
+    asyncio.create_task(_run_pipeline(run["id"], run["city"], 10, w["vertical"]))
+    return {"started": w["city"], "due": len(due)}
+
+
 async def run_lead_auto_nudge() -> dict:
     """Mira emails WhatsApp-contacted leads a trial invite when nobody replied within a day."""
     from email_service import _send_email

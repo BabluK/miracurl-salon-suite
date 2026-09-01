@@ -40,3 +40,11 @@
 - USER ACTION AFTER DEPLOY: Super Admin → Tenants → Marathahalli card → 🧹 cleanup → confirm purge (production).
 - PREVIEW CAUTION: do NOT purge preview Marathahalli staff — Priya Sharma's staff-portal login (priya.staff@miracurl.com) is a test credential.
 - release_notes → .163.
+
+## Session 2026-06 (fork) — Auto City Watch
+- lead_gen.py: city_watches collection + routes GET/POST /super-admin/city-watch, PUT .../toggle, DELETE (max 10 watches, dupe check, city normalized like manual runs). run_due_city_watches(): max ONE auto-run/day, oldest-due first, skips if a run is active, target 10, marks run auto_watch=True, stamps last_run_at, fires _run_pipeline (which already sends New-Salon Alert emails).
+- schedulers.py: _city_watch_scheduler (daily ≥10:00 IST, system_flags key city_watch_auto) + registered in server.py import/create_task.
+- frontend: components/superadmin/CityWatchCard.jsx rendered in MiraLeadAgent below WaQuickInvite (add city/vertical/frequency, rows with next-run estimate, pause toggle, delete).
+- Tested: add + dupe-409 via curl; run_due_city_watches started a real run (stopped immediately to save budget); last_run_at stamped; UI card + row verified via screenshot. Bangalore/salon watch left active in preview.
+- Also: DummyCleanupModal helper text now names the demo staff. NOTE answered: user saw "0 test staff" on PRODUCTION (old build) — preview flags 4; needs deploy of ≥.163.
+- release_notes → .164.
