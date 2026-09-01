@@ -103,6 +103,54 @@ def _welcome_poster_row(poster_url: str) -> str:
             f'style="display:block;width:100%;border-radius:0"/>')
 
 
+def newbiz_plan_email_html(tenant: dict, trial_end: str, plans: list) -> str:
+    """Special plan sheet for newly-opened businesses — sent right after they claim the 90-day offer."""
+    name = html_lib.escape(tenant.get("name") or "your business")
+    opening = html_lib.escape(tenant.get("opening_date") or "")
+    resto = tenant.get("business_type") == "restaurant"
+    noun = "restaurant" if resto else "salon"
+    rows = ""
+    for p in plans:
+        sym = "$" if (p.get("currency") == "USD") else "₹"
+        months = int(round((p.get("duration_days") or 30) / 30))
+        rows += (f"<tr><td style='padding:10px 14px;border-bottom:1px solid #f0e9da;font-size:14px;color:#333'>"
+                 f"<b>{html_lib.escape(p.get('label') or '')}</b></td>"
+                 f"<td style='padding:10px 14px;border-bottom:1px solid #f0e9da;font-size:13px;color:#777'>{months} months</td>"
+                 f"<td style='padding:10px 14px;border-bottom:1px solid #f0e9da;font-size:15px;color:#1c1c22;font-weight:bold;white-space:nowrap'>"
+                 f"{sym}{int(p.get('price') or 0):,}</td></tr>")
+    feats = ("QR table ordering, kitchen tickets, table-wise billing, reservations"
+             if resto else "online bookings, POS billing, staff attendance, memberships")
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:linear-gradient(120deg,#b8860b,#d4af37,#e8c96a);padding:28px 30px;text-align:center">
+        <div style="font-size:26px">🎊</div>
+        <div style="color:#1c1c22;font-size:22px;font-weight:bold;margin-top:6px">Congratulations on your new {noun}!</div>
+        <div style="color:#4a3b12;font-size:13px;margin-top:4px">Your special New-Business plan sheet for <b>{name}</b></div>
+      </div>
+      <div style="padding:26px 30px">
+        <div style="background:#1c1c22;border-radius:12px;padding:16px 20px;text-align:center">
+          <div style="color:#e6c66e;font-size:11px;text-transform:uppercase;letter-spacing:3px">Your welcome gift</div>
+          <div style="color:#fff;font-size:19px;font-weight:bold;margin-top:6px">FREE 90-day setup — until {html_lib.escape(trial_end)}</div>
+          {f'<div style="color:#999;font-size:12px;margin-top:4px">Opening date on record: {opening}</div>' if opening else ''}
+        </div>
+        <p style="font-size:14px;color:#555;line-height:1.7;margin:18px 0 10px">
+          For the next 90 days everything is on us — {feats}, WhatsApp marketing and Mira AI.
+          When you're ready to continue, here's your plan sheet:
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #f0e9da;border-radius:12px;overflow:hidden">
+          <tr style="background:#f7f2e7">
+            <td style="padding:8px 14px;font-size:11px;color:#8a7a4d;text-transform:uppercase;letter-spacing:2px">Plan</td>
+            <td style="padding:8px 14px;font-size:11px;color:#8a7a4d;text-transform:uppercase;letter-spacing:2px">Duration</td>
+            <td style="padding:8px 14px;font-size:11px;color:#8a7a4d;text-transform:uppercase;letter-spacing:2px">Price</td>
+          </tr>
+          {rows}
+        </table>
+        <p style="font-size:12px;color:#999;margin-top:14px">No payment needed today — enjoy your free 90 days first.
+        You can subscribe anytime from your dashboard, and multi-branch discounts are available.</p>
+      </div>
+    </div>"""
+
+
 def salon_welcome_email_html(salon_name: str, owner_name: str, owner_email: str,
                              password: str, trial_end: str, poster_url: str = "") -> str:
     """Warm onboarding email with login credentials — salon vertical."""

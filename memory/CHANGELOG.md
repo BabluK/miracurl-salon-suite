@@ -88,3 +88,8 @@
 - BUGS FIXED (pre-existing, exposed by plan-less subscription docs): list_subscriptions s["plan"] KeyError, _mrr_and_plan_distribution s["plan"] KeyError, BillingPanel toLocaleString on undefined price/value (3 spots). Orphan subscriptions (tenant deleted) purged from preview DB.
 - Verified: PUT trial-days→public plans reflects; signup control=30d, newly_opened=90d+opening_date stored; signup UI modal flow screenshot; Billing panel renders w/ trial editor value 30. Probe tenants deleted.
 - release_notes → .170. Needs deploy (production currently ≤.169 pipeline).
+
+## Session 2026-06 (fork) — New-Biz Plan Email
+- email_service.py: newbiz_plan_email_html(tenant, trial_end, plans) — gold gradient header, 90-day gift block w/ opening date, live plan table (₹/$ by plan currency).
+- auth.py: _send_newbiz_plan_email(tenant, owner_email, trial_end) — pulls live PLAN_CATALOG (region/vertical keys same as _followup_email), fired via create_task in signup when is_newbiz.
+- Tested: direct send to delivered@resend.dev succeeded (no warnings). release_notes → .171.

@@ -371,6 +371,30 @@ def _build_signup_owner(body: SalonSignupIn, email: str, tenant_id: str) -> dict
     }
 
 
+async def _send_newbiz_plan_email(tenant: dict, owner_email: str, trial_end: str) -> None:
+    """New-Biz Plan Email: the special subscription plan sheet, sent right after claiming the offer."""
+    from email_service import _send_email, newbiz_plan_email_html
+    from routes.subscriptions import PLAN_CATALOG, load_plan_overrides
+    await load_plan_overrides()
+    resto = tenant.get("business_type") == "restaurant"
+    intl = tenant.get("currency") == "USD"
+    keys = {(False, False): ("half_year", "annual"),
+            (False, True): ("intl_pro_half", "intl_pro_annual"),
+            (True, False): ("resto_half", "resto_annual"),
+            (True, True): ("resto_intl_half", "resto_intl_annual")}[(resto, intl)]
+    plans = [PLAN_CATALOG[k] for k in keys if k in PLAN_CATALOG]
+    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
+    try:
+        status = await _send_email(
+            [owner_email], f"🎊 Your special New-Business plan — FREE 90-day setup for {tenant.get('name')}",
+            newbiz_plan_email_html(tenant, trial_end, plans),
+            book_url=login_url, book_label="Open my dashboard ✦")
+        if not status.get("sent"):
+            logging.warning(f"newbiz plan email failed: {status.get('error')}")
+    except Exception as e:
+        logging.warning(f"newbiz plan email failed: {e}")
+
+
 async def _send_signup_welcome(tenant: dict, body: SalonSignupIn, trial_end: str) -> None:
     from email_service import _send_email, restaurant_welcome_email_html, salon_welcome_email_html
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
@@ -427,6 +451,8 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     if tenant.get("business_type") == "restaurant":
         await _seed_restaurant_defaults(tenant["id"])
     asyncio.create_task(_send_signup_welcome(dict(tenant), body, trial_end))
+    if is_newbiz:
+        asyncio.create_task(_send_newbiz_plan_email(dict(tenant), body.owner_email.lower(), trial_end))
 
     owner = _build_signup_owner(body, email, tenant["id"])
     await db.users.insert_one(owner)
