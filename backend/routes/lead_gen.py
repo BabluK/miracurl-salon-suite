@@ -1413,7 +1413,35 @@ async def _route_business_inbox(data: dict, sender: str) -> str:
             "message": body_text or "(empty message)", "read": False,
             "created_at": _now()})
         log.info("inbound business email → ticket #%s (%s@) ← %s", ticket_no, inbox, sender)
+        await _send_ticket_ack(inbox, ticket_no, sender, str(data.get("subject") or ""))
     return inbox
+
+
+_ACK_SKIP = ("no-reply@", "noreply@", "donotreply@", "mailer-daemon@", "postmaster@", "bounce")
+
+
+async def _send_ticket_ack(inbox: str, ticket_no: int, sender: str, subject: str) -> None:
+    """Instant 'we got your email' acknowledgement — never to bots/our own domain (loop guard)."""
+    s = sender.lower()
+    if s.endswith("@miracurl-suite.com") or any(k in s for k in _ACK_SKIP):
+        return
+    try:
+        from email_service import _send_email
+        subj_line = html_lib.escape(subject.strip() or "your message")
+        await _send_email(
+            [sender], f"✅ We got your email — Ticket #{ticket_no} [Miracurl {inbox.title()}]",
+            (f"<h2 style='font-family:Georgia,serif;margin:0 0 10px'>Thanks for reaching out! 🙏</h2>"
+             f"<p style='font-size:14px;color:#555;line-height:1.8'>Your email to <b>{inbox}@miracurl-suite.com</b> "
+             f"regarding “{subj_line}” has been received and logged as <b>Ticket #{ticket_no}</b>.</p>"
+             "<p style='font-size:14px;color:#555;line-height:1.8'>Our team reviews every ticket personally and "
+             "will get back to you shortly — usually within a few business hours.</p>"
+             f"<p style='font-size:12px;color:#999'>Please keep <b>Ticket #{ticket_no}</b> in the subject when replying "
+             "so we can track your request faster.</p>"),
+            from_name="Miracurl Support",
+            headers={"Auto-Submitted": "auto-replied", "X-Auto-Response-Suppress": "All"})
+        log.info("ticket #%s ack sent to %s", ticket_no, sender)
+    except Exception:
+        log.exception("ticket ack email failed (#%s → %s)", ticket_no, sender)
 
 
 def _match_business_inbox(to_field) -> str:

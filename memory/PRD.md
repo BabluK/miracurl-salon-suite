@@ -2547,3 +2547,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - super_admin_ops.py: NEW PATCH /api/super-admin/hq-messages/{mid}/status {status: open|resolved} — resolved also sets read:true + resolved_at/resolved_by; 404 if not found; pattern-validated.
 - SuperAdminExtras.jsx HqInbox: ticket badge (🎫 #N · alias@), Open/Resolved chip, ✓ Mark resolved / ↺ Reopen buttons (testids hq-ticket-resolve-{id}/hq-ticket-reopen-{id}), ✉️ Reply mailto with ticket # in subject, resolved timestamp.
 - TESTED e2e: webhook POSTs to booking@/billing@/refunds@ created tickets #1-3; resolve/reopen via API + UI click both PASS (status validation rejects bogus). Test tickets cleaned, counter reset. Build → .176.
+
+## 2026-09-01 — ✅ Ticket Auto-Reply (user request)
+- lead_gen.py: _send_ticket_ack() called after every ticket creation in _route_business_inbox — sends "We got your email — Ticket #N [Miracurl {Inbox}]" ack to the sender with ticket # + reply instructions.
+- Loop guards: skips senders @miracurl-suite.com and _ACK_SKIP (noreply/no-reply/donotreply/mailer-daemon/postmaster/bounce). Headers Auto-Submitted:auto-replied + X-Auto-Response-Suppress:All to stop autoresponder loops. Failures logged, never break ticket creation.
+- TESTED e2e: webhook from delivered@resend.dev → ticket #1 + ack sent (Resend accepted); webhook from noreply@somebank.com → ticket #2 created, ack correctly skipped. Test tickets cleaned, counter reset. Build → .177.
