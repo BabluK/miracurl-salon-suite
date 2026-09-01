@@ -101,3 +101,7 @@
 - BUG CAUGHT: SignupSalon has NO `api` import (uses raw axios + BACKEND_URL) — my first attempt threw ReferenceError inside the ref/offer capture try-block. Fixed with axios. LESSON: check the file's http client before adding calls.
 - Verified E2E in browser: open ping counts, assist submits + thanks message + HQ email, stats endpoint accurate. Test records cleaned, opens reset to 0.
 - release_notes → .172.
+
+## Session 2026-06 (fork) — Day-60 New-Biz follow-up
+- schedulers.py: run_newbiz_followups() — tenants with signup_offer=newbiz, status=trial, ≥60 days since created_at, no newbiz_followup_sent_at → Mira check-in email (setup help + subscribe nudge, "subscribing early doesn't cut free days") to owner_email, stamps newbiz_followup_sent_at. _newbiz_followup_scheduler daily ≥11:00 IST (system_flags newbiz_followup_auto), registered in server.py.
+- Tested: synthetic 61-day tenant → sent=1, re-run sent=0 (idempotent), flag stamped, cleaned. release_notes → .173.

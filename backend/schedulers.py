@@ -716,3 +716,73 @@ async def _city_watch_scheduler() -> None:
         except Exception as e:
             logging.error(f"city watch scheduler error: {e}")
         await asyncio.sleep(3600)
+
+
+async def run_newbiz_followups() -> dict:
+    """Day-60 check-in for 90-day new-business trials: setup help + gentle subscribe nudge."""
+    from email_service import _send_email
+    import html as html_lib
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    now = datetime.now(timezone.utc)
+    tenants = await _raw_db.tenants.find(
+        {"signup_offer": "newbiz", "status": "trial", "newbiz_followup_sent_at": {"$exists": False}},
+        {"_id": 0, "id": 1, "name": 1, "owner_name": 1, "owner_email": 1,
+         "business_type": 1, "created_at": 1, "trial_end_date": 1, "trial_ends_at": 1}).to_list(200)
+    sent = 0
+    for t in tenants:
+        try:
+            created = datetime.fromisoformat(str(t.get("created_at")).replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            continue
+        if (now - created).days < 60 or not t.get("owner_email"):
+            continue
+        trial_end = str(t.get("trial_end_date") or t.get("trial_ends_at") or "")[:10]
+        resto = t.get("business_type") == "restaurant"
+        name = html_lib.escape(t.get("name") or "")
+        first = html_lib.escape((t.get("owner_name") or "there").split()[0])
+        feats = ("QR table ordering, kitchen tickets and table-wise billing"
+                 if resto else "online bookings, POS billing and WhatsApp marketing")
+        body = (
+            f"<h2 style='font-family:Georgia,serif'>Hi {first} — 60 days in, how's {name} doing? ✦</h2>"
+            f"<p style='font-size:14px;color:#555;line-height:1.8'>It's Mira 👋 You're two months into your "
+            f"<b>FREE 90-day setup</b>{f' (ends <b>{trial_end}</b>)' if trial_end else ''} and I wanted to check in.</p>"
+            f"<p style='font-size:14px;color:#555;line-height:1.8'>A quick pulse-check — are you getting the most out of {feats}? "
+            "If anything feels unclear or you'd like a free 15-minute walkthrough, just reply to this email and our team will set it up with you.</p>"
+            "<p style='font-size:14px;color:#555;line-height:1.8'>And when you're ready to continue after your free period, "
+            "you can subscribe in two taps from <b>Dashboard → Billing</b> — your special new-business pricing is already applied. "
+            "Subscribing early doesn't cut your free days short; your paid plan starts only when the trial ends.</p>"
+            "<p style='font-size:13px;color:#999'>— Mira, your growth partner at Miracurl</p>")
+        try:
+            status = await _send_email(
+                [t["owner_email"].lower()],
+                f"✦ 60 days in — how's {t.get('name')} doing? (setup help inside)",
+                body, book_url=f"{base}/login", book_label="Open my dashboard ✦")
+            if status.get("sent"):
+                sent += 1
+                await _raw_db.tenants.update_one(
+                    {"id": t["id"]}, {"$set": {"newbiz_followup_sent_at": now.isoformat()}})
+        except Exception as e:
+            logging.warning(f"newbiz follow-up failed for {t.get('name')}: {e}")
+    return {"checked": len(tenants), "sent": sent}
+
+
+async def _newbiz_followup_scheduler() -> None:
+    """Once a day (11:00+ IST): Mira checks in on day-60 new-business trials."""
+    await asyncio.sleep(300)
+    while True:
+        try:
+            now_ist = datetime.now(IST_TZ)
+            if now_ist.hour >= 11:
+                key = now_ist.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "newbiz_followup_auto"})
+                if not flag or flag.get("value") != key:
+                    out = await run_newbiz_followups()
+                    await _raw_db.system_flags.update_one(
+                        {"key": "newbiz_followup_auto"},
+                        {"$set": {"value": key, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "result": out}}, upsert=True)
+                    if out.get("sent"):
+                        logging.info(f"newbiz follow-ups sent: {out}")
+        except Exception as e:
+            logging.error(f"newbiz followup scheduler error: {e}")
+        await asyncio.sleep(3600)
