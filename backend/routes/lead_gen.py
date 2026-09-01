@@ -1215,6 +1215,26 @@ async def newbiz_assist(body: AssistIn, request: Request):
     return {"ok": True, "message": "Got it! The Miracurl team will reach out shortly to set everything up for you."}
 
 
+class AssistStatusIn(BaseModel):
+    status: str = Field(..., pattern="^(new|contacted|done)$")
+
+
+@router.get("/super-admin/assist-requests")
+async def list_assist_requests(user=Depends(require_super_admin)):
+    rows = await _raw_db.assist_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"items": rows}
+
+
+@router.put("/super-admin/assist-requests/{rid}/status")
+async def set_assist_status(rid: str, body: AssistStatusIn, user=Depends(require_super_admin)):
+    r = await _raw_db.assist_requests.update_one(
+        {"id": rid}, {"$set": {"status": body.status,
+                               "status_updated_at": datetime.now(timezone.utc).isoformat()}})
+    if not r.matched_count:
+        raise HTTPException(404, "Request not found")
+    return {"ok": True, "status": body.status}
+
+
 @router.get("/super-admin/newbiz-offer-stats")
 async def newbiz_offer_stats(user=Depends(require_super_admin)):
     stats = await _raw_db.offer_link_stats.find_one({"_id": "newbiz"}) or {}

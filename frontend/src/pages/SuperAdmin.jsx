@@ -56,6 +56,7 @@ import { MiraVoiceAssistant } from "@/components/superadmin/MiraVoiceAssistant";
 import { FileText } from "lucide-react";
 import { BellRing, Orbit, Star } from "lucide-react";
 import { FeedbackPanel } from "@/components/superadmin/FeedbackPanel";
+import { AssistQueueCard } from "@/components/superadmin/AssistQueueCard";
 import { BadgeCheck, Rocket } from "lucide-react";
 import { Briefcase } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
@@ -539,6 +540,8 @@ export default function SuperAdmin() {
             </button>
           </div>
         </div>
+
+        <AssistQueueCard />
 
         {/* KPIs */}
         {overview && (
