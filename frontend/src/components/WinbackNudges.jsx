@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { HeartHandshake, X, MessageCircle, Sparkles } from "lucide-react";
+import { HeartHandshake, X, MessageCircle, Sparkles, PartyPopper } from "lucide-react";
 
 export function WinbackNudges() {
+  const { tenant } = useAuth();
   const [data, setData] = useState(null);
   const [auto, setAuto] = useState(null);
 
@@ -13,7 +15,12 @@ export function WinbackNudges() {
     api.get("/winback/auto").then(r => setAuto(r.data.enabled)).catch(() => {});
   }, []);
 
-  if (!data || data.nudges.length === 0) return null;
+  if (!data || (data.nudges.length === 0 && !data.wins_count)) return null;
+
+  const fmt = (n) => {
+    try { return new Intl.NumberFormat("en-IN", { style: "currency", currency: tenant?.currency || "INR", maximumFractionDigits: 0 }).format(n); }
+    catch { return `₹${Math.round(n).toLocaleString("en-IN")}`; }
+  };
 
   const toggleAuto = async () => {
     const next = !auto;
@@ -41,23 +48,49 @@ export function WinbackNudges() {
 
   return (
     <div className="bg-white rounded-2xl border border-rose-200 p-5 shadow-sm" data-testid="winback-nudges-card">
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
         <div className="flex items-center gap-2">
           <span className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center"><HeartHandshake className="w-4 h-4 text-rose-500" /></span>
           <div>
             <h3 className="font-semibold text-slate-800 text-sm">Win them back 💌</h3>
-            <p className="text-[11px] text-slate-500">{data.total_lapsed} customer{data.total_lapsed === 1 ? "" : "s"} haven&apos;t visited in {data.winback_days}+ days</p>
+            <p className="text-[11px] text-slate-500">
+              {data.total_lapsed > 0
+                ? <>{data.total_lapsed} guest{data.total_lapsed === 1 ? "" : "s"} haven&apos;t visited in {data.winback_days}+ days</>
+                : "All your guests are visiting regularly ✨"}
+            </p>
           </div>
         </div>
         {auto !== null && (
           <button onClick={toggleAuto} data-testid="winback-auto-toggle"
-            title="Mira emails lapsed guests a personal comeback offer daily (max 15/day, 30-day cooldown per guest)"
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold border transition-colors ${
-              auto ? "bg-rose-500 border-rose-500 text-white" : "bg-white border-slate-200 text-slate-500 hover:border-rose-300"}`}>
-            <Sparkles className="w-3 h-3" /> Auto {auto ? "ON" : "OFF"}
+            className={`flex items-center gap-2 pl-2.5 pr-3 py-2 rounded-xl border text-left transition-colors ${
+              auto ? "bg-rose-500 border-rose-500 text-white shadow-sm shadow-rose-200" : "bg-rose-50/60 border-rose-200 text-slate-600 hover:border-rose-400"}`}>
+            <span className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors ${auto ? "bg-white/30" : "bg-slate-300"}`}>
+              <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${auto ? "left-3.5" : "left-0.5"}`} />
+            </span>
+            <span>
+              <span className="block text-[11px] font-bold leading-tight"><Sparkles className="w-3 h-3 inline -mt-0.5" /> Auto win-back {auto ? "ON" : "OFF"}</span>
+              <span className={`block text-[9.5px] leading-tight ${auto ? "text-rose-100" : "text-slate-400"}`}>Mira emails a comeback offer daily</span>
+            </span>
           </button>
         )}
       </div>
+
+      {data.wins_count > 0 && (
+        <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3" data-testid="winback-wins-banner">
+          <div className="flex items-center gap-2 text-emerald-800 text-sm font-semibold">
+            <PartyPopper className="w-4 h-4 text-emerald-600" />
+            {data.wins_count} guest{data.wins_count === 1 ? "" : "s"} came back after your nudges — {fmt(data.wins_revenue)} recovered 🎉
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+            {data.wins.map(w => (
+              <span key={w.customer_id} data-testid={`winback-win-${w.customer_id}`} className="text-[11px] text-emerald-700">
+                ✓ <b>{w.name}</b> returned {w.returned_at} · {fmt(w.spent)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="divide-y divide-slate-100 mt-2">
         {data.nudges.map(c => (
           <div key={c.id} className="py-2.5 flex items-center gap-3" data-testid={`winback-nudge-${c.id}`}>
@@ -66,6 +99,7 @@ export function WinbackNudges() {
               <p className="text-[11px] text-slate-500">Last visit {c.days_since} days ago{c.phone ? ` · ${c.phone}` : ""}</p>
             </div>
             <button onClick={() => nudge(c)} data-testid={`winback-whatsapp-btn-${c.id}`}
+              title="Opens WhatsApp with a personalized 15%-off comeback message + booking link"
               className="px-3 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors">
               <MessageCircle className="w-3.5 h-3.5" /> Nudge
             </button>

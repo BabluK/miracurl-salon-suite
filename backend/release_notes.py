@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.158"
-BUILD_TIME = "01 Sep 2026, 6:30 PM IST"
+BUILD = "2026-09-01.159"
+BUILD_TIME = "01 Sep 2026, 7:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [
+            "🎉 'They came back!' tracking on the Win-back card — a green banner now celebrates every guest who returned AFTER you nudged them (name, return date, amount spent) plus total revenue recovered in the last 90 days, so you can see your nudges paying off",
+            "💌 Warmer win-back message — the one-tap WhatsApp nudge now sends a personal note with the guest's name, exactly how long they've been away, a 15% welcome-back gift and your direct booking link (restaurants get their own food-flavoured version)",
+            "✨ Clearer Auto win-back switch — the tiny toggle is now a proper labelled switch ('Auto win-back ON/OFF · Mira emails a comeback offer daily') so owners actually discover the hands-free mode",
             "🌱 Auto 90-day trial for new businesses — anyone who signs up via Mira's new-business invite link (?offer=newbiz) automatically gets a FREE 90-day setup trial instead of 7/30 days; the signup page shows a gold '90-Day Free Setup · New Business Offer' badge, and all of Mira's new-business WhatsApp invites, blasts and nudge emails now carry the offer link",
             "📊 Trial-type badges in Super Admin → Tenants — every salon card now shows exactly what plan it's on: 🌱 New-Biz 90d / 7-day trial / 30-day trial, with a live ⏳ days-left pill (turns red under 5 days) and a 🤝 'via [Salon]' tag when the tenant was referred; new filter chips let you view each group in one tap",
             "🧠 Mira knows referrals — ask Mira in HQ 'who referred whom?' and she'll tell you which tenant was referred by which salon, that the referrer is eligible for referral rewards (trial extension / 20% partner commission) once the referred tenant pays, and which tenants are on new-business 90-day trials",
