@@ -146,6 +146,43 @@ class MonthlyReportIn(BaseModel):
     tenant_id: Optional[str] = None   # None = all active/trial tenants
 
 
+def _rule_based_month_tip(stats: dict) -> str:
+    rev, prev = float(stats.get("revenue") or 0), float(stats.get("prev_revenue") or 0)
+    if prev and rev < prev:
+        return ("Revenue dipped vs last month — send a 'We miss you' offer to guests silent for 45+ days; "
+                "the Win-back card on your dashboard does it in one tap.")
+    if stats.get("top_services"):
+        return (f"{stats['top_services'][0][0]} is your bestseller — bundle it with a quieter service "
+                "as a combo offer to lift your average bill.")
+    return "Share your online booking link on WhatsApp status weekly — steady reminders keep next month's calendar full."
+
+
+async def _monthly_tip(t: dict, stats: dict) -> str:
+    """One AI-written suggestion for the monthly email; rule-based fallback."""
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        return _rule_based_month_tip(stats)
+    weeks = ", ".join(f"W{i + 1} ₹{v:,.0f}" for i, v in enumerate(stats.get("weekly") or []))
+    top_svc = stats["top_services"][0][0] if stats.get("top_services") else "n/a"
+    top_stf = stats["top_staff"][0][0] if stats.get("top_staff") else "n/a"
+    try:
+        chat = LlmChat(
+            api_key=key, session_id=f"monthly-tip-{t['id']}-{uuid.uuid4().hex[:6]}",
+            system_message=("You write ONE actionable business suggestion (max 35 words, no emojis, no preamble) "
+                            "for an Indian salon/restaurant owner planning next month, based on last month's numbers. "
+                            "Be specific and practical."),
+        ).with_model("openai", "gpt-5.4-mini")
+        resp = await chat.send_message(UserMessage(text=(
+            f"Month revenue ₹{stats['revenue']:,.0f} (previous month ₹{stats.get('prev_revenue', 0):,.0f}), "
+            f"{stats['invoices']} bills, avg bill ₹{stats['avg_bill']:,.0f}, {stats['new_customers']} new guests, "
+            f"top service: {top_svc}, top staff: {top_stf}. Week-wise: {weeks}. Give one suggestion.")))
+        tip = (resp or "").strip().strip('"')
+        return tip if 10 < len(tip) < 280 else _rule_based_month_tip(stats)
+    except Exception as e:
+        logging.warning(f"monthly tip LLM failed, using fallback: {e}")
+        return _rule_based_month_tip(stats)
+
+
 async def _run_monthly_reports(tenant_id: Optional[str] = None) -> dict:
     """Email last month's business report. Used by the super-admin button AND the 1st-of-month auto-scheduler."""
     now = datetime.now(timezone.utc)
@@ -165,10 +202,11 @@ async def _run_monthly_reports(tenant_id: Optional[str] = None) -> dict:
             results.append({"tenant": t["name"], "sent": False, "error": "no email on file"})
             continue
         stats = await _tenant_month_stats(t["id"], start, last_month_end)
+        tip = await _monthly_tip(t, stats)
         status = await _send_email(
             recipients,
             f"✦ Your Miracurl monthly report — {month_label}",
-            _monthly_report_html(t, month_label, stats))
+            _monthly_report_html(t, month_label, stats, tip))
         results.append({"tenant": t["name"], "recipients": recipients,
                         "sent": status.get("sent", False), "error": status.get("error")})
     sent = sum(1 for r in results if r["sent"])

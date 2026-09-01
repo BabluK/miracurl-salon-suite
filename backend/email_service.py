@@ -509,7 +509,7 @@ def _attendance_month_html(t: dict, month_label: str, rows: list) -> str:
     </div>"""
 
 
-def _monthly_report_html(t: dict, month_label: str, stats: dict) -> str:
+def _monthly_report_html(t: dict, month_label: str, stats: dict, tip: str = "") -> str:
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     chip = _growth_chip(stats["revenue"], float(stats.get("prev_revenue") or 0), "previous month")
     chart = _bar_chart_block(stats.get("weekly") or [], ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"],
@@ -530,6 +530,7 @@ def _monthly_report_html(t: dict, month_label: str, stats: dict) -> str:
            + _ranked_section("🏆 Top services", _rank_rows(stats["top_services"]))
            + _ranked_section("⭐ Star team members", _rank_rows(stats["top_staff"]))
            + "</td></tr>")
+        + _weekly_tip_block(tip, "💡 Mira's suggestion for next month")
         + ('<tr><td style="padding:18px 36px 26px;text-align:center">'
            '<p style="margin:0;font-size:13px;color:#55555f;font-family:Arial,sans-serif;line-height:1.6">'
            "Keep shining! Mira crunched these numbers so you can plan next month with confidence ✦</p></td></tr>")
@@ -555,13 +556,13 @@ def _weekly_highlights_block(stats: dict) -> str:
             f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fdfbf5;border:1px solid #f1e8d8;border-radius:12px">{rows}</table></td></tr>')
 
 
-def _weekly_tip_block(tip: str) -> str:
+def _weekly_tip_block(tip: str, label: str = "💡 Mira's tip for this week") -> str:
     if not tip:
         return ""
     return (f'<tr><td style="padding:4px 36px 8px">'
             f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#17171f;border-radius:12px">'
             f'<tr><td style="padding:16px 22px">'
-            f'<div style="font-size:11px;color:#e6c66e;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">💡 Mira\'s tip for this week</div>'
+            f'<div style="font-size:11px;color:#e6c66e;text-transform:uppercase;letter-spacing:3px;font-family:Arial,sans-serif">{label}</div>'
             f'<div style="font-size:14px;color:#f0ead6;margin-top:8px;line-height:1.6;font-family:Georgia,serif">{html_lib.escape(tip)}</div>'
             f'</td></tr></table></td></tr>')
 

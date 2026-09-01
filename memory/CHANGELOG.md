@@ -48,3 +48,8 @@
 - Tested: add + dupe-409 via curl; run_due_city_watches started a real run (stopped immediately to save budget); last_run_at stamped; UI card + row verified via screenshot. Bangalore/salon watch left active in preview.
 - Also: DummyCleanupModal helper text now names the demo staff. NOTE answered: user saw "0 test staff" on PRODUCTION (old build) — preview flags 4; needs deploy of ≥.163.
 - release_notes → .164.
+
+## Session 2026-06 (fork) — Monthly report AI suggestion + late-arrival diagnosis
+- Monthly business report ALREADY existed (auto 1st @9AM IST via _monthly_report_scheduler + super-admin send button). Added the missing piece: _monthly_tip() in super_admin_ops.py (gpt-5.4-mini via Emergent key, _rule_based_month_tip fallback) + tip block in _monthly_report_html (email_service.py, _weekly_tip_block now takes a label param). Tested: send-monthly-report → sent to owner inboxes with suggestion.
+- Late-arrival "real staff missing" diagnosis: code includes ALL active staff (preview: Bablu real staff has late_alert). In production email the real staff are BELOW the seed dummies (insertion order). Resolution = deploy + user purges dummy staff via 🧹.
+- release_notes → .165. Deployment requested by user.
