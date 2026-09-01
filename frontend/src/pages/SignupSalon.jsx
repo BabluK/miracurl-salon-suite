@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import log from "@/lib/log";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
-import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff, PartyPopper, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import BrandMark from "@/components/BrandMark";
 import ChatButton from "@/components/ChatButton";
@@ -28,6 +28,8 @@ export default function SignupSalon() {
   const [err, setErr] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [catalog, setCatalog] = useState(null);
+  const trialDays = Number(catalog?.trial_days) || 30;
+  const effNewbiz = () => newbiz || form.newly_opened;
   const [region, setRegion] = useState(() => {
     try {
       const p = new URLSearchParams(window.location.search).get("region");
@@ -50,6 +52,8 @@ export default function SignupSalon() {
     password: "",
     location: "",
     phone: "",
+    newly_opened: false,
+    opening_date: "",
   });
   const [newbiz, setNewbiz] = useState(false);
 
@@ -125,6 +129,8 @@ export default function SignupSalon() {
         phone: form.phone.trim() || undefined,
         ref,
         offer,
+        newly_opened: form.newly_opened || undefined,
+        opening_date: form.newly_opened ? (form.opening_date || undefined) : undefined,
         region,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
       });
@@ -170,8 +176,8 @@ export default function SignupSalon() {
 
       <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-8 py-10 pb-24">
         <div className="text-center max-w-xl mx-auto mb-10">
-          <span data-testid="signup-trial-badge" className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] uppercase tracking-[0.18em] font-semibold ${newbiz ? "bg-amber-50 border border-amber-200 text-amber-700" : "bg-sky-50 border border-sky-100 text-sky-600"}`}>
-            <Sparkles className="w-3 h-3" /> {newbiz ? "90-Day Free Setup · New Business Offer" : form.business_type === "restaurant" ? "First Month Free · No credit card" : "7-Day Free Trial · No credit card"}
+          <span data-testid="signup-trial-badge" className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] uppercase tracking-[0.18em] font-semibold ${(newbiz || form.newly_opened) ? "bg-amber-50 border border-amber-200 text-amber-700" : "bg-sky-50 border border-sky-100 text-sky-600"}`}>
+            <Sparkles className="w-3 h-3" /> {(newbiz || form.newly_opened) ? "90-Day Free Setup · New Business Offer" : form.business_type === "restaurant" ? "First Month Free · No credit card" : `${trialDays}-Day Free Trial · No credit card`}
           </span>
           <h1 className="font-playfair text-4xl sm:text-5xl tracking-tight text-slate-900 mt-4">Bring your {form.business_type === "restaurant" ? "restaurant" : "salon"} online ✦</h1>
           <p className="text-slate-600 mt-3 text-sm sm:text-base">
@@ -250,7 +256,7 @@ export default function SignupSalon() {
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
           {(form.business_type === "restaurant" ? (isIntl ? [
             { v: "$0", l: "First month" },
-            { v: newbiz ? "90 days" : "30 days", l: "Free trial" },
+            { v: effNewbiz() ? "90 days" : `${trialDays} days`, l: "Free trial" },
             { v: catalog?.resto_intl_half?.price ? `${fmtUSD(catalog.resto_intl_half.price)}` : "—", l: "6-month plan" },
             { v: catalog?.resto_intl_annual?.price ? `${fmtUSD(catalog.resto_intl_annual.price)}` : "—", l: "Annual plan" },
           ] : [
@@ -260,12 +266,12 @@ export default function SignupSalon() {
             { v: catalog?.resto_annual?.price ? kFmt(catalog.resto_annual.price) : "—", l: "Annual plan" },
           ]) : isIntl ? [
             { v: "$0", l: "Trial cost" },
-            { v: newbiz ? "90 days" : "7 days", l: "Free trial" },
+            { v: effNewbiz() ? "90 days" : `${trialDays} days`, l: "Free trial" },
             { v: catalog?.intl_pro_monthly?.price ? `${fmtUSD(catalog.intl_pro_monthly.price)}/mo` : "—", l: "Professional plan" },
             { v: catalog?.intl_pro_annual?.price ? `${fmtUSD(catalog.intl_pro_annual.price)}/yr` : "—", l: "Pro annual" },
           ] : [
             { v: "₹0", l: "Trial cost" },
-            { v: newbiz ? "90 days" : "7 days", l: "Free trial" },
+            { v: effNewbiz() ? "90 days" : `${trialDays} days`, l: "Free trial" },
             { v: catalog?.half_year?.price ? kFmt(catalog.half_year.price) : "—", l: "6-month plan" },
             { v: catalog?.annual?.price ? kFmt(catalog.annual.price) : "—", l: "Annual plan" },
           ]).map(c => (
@@ -329,6 +335,7 @@ function Field({ label, icon: Icon, testid, type = "text", value, onChange, plac
 }
 
 function SalonStep({ form, update }) {
+  const [showNewbizModal, setShowNewbizModal] = useState(false);
   const isResto = form.business_type === "restaurant";
   return (
     <div className="space-y-5 animate-fade-up">
@@ -349,6 +356,59 @@ function SalonStep({ form, update }) {
           ))}
         </div>
       </div>
+      <div>
+        <p className="text-xs font-semibold text-slate-600 mb-2">Is your {isResto ? "restaurant" : "salon"} newly opened (or opening soon)? 🎊</p>
+        <div className="grid grid-cols-2 gap-3">
+          <button type="button" data-testid="newly-opened-yes-btn"
+            onClick={() => setShowNewbizModal(true)}
+            className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${form.newly_opened ? "border-amber-400 bg-amber-50 shadow-sm" : "border-slate-200 bg-white hover:border-amber-300"}`}>
+            <span className="block text-sm font-bold text-slate-800">🎉 Yes, we're new!</span>
+            <span className="block text-[11px] text-amber-600 mt-0.5 font-semibold">Special offer — FREE 90-day setup</span>
+          </button>
+          <button type="button" data-testid="newly-opened-no-btn"
+            onClick={() => update({ newly_opened: false, opening_date: "" })}
+            className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${!form.newly_opened ? "border-sky-400 bg-sky-50 shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
+            <span className="block text-sm font-bold text-slate-800">We're established</span>
+            <span className="block text-[11px] text-slate-400 mt-0.5">Standard free trial</span>
+          </button>
+        </div>
+      </div>
+      {showNewbizModal && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" data-testid="newbiz-offer-modal">
+          <div className="relative w-full max-w-sm rounded-3xl overflow-hidden bg-white shadow-2xl animate-fade-up">
+            <button type="button" onClick={() => setShowNewbizModal(false)} data-testid="newbiz-modal-close"
+              className="absolute top-3 right-3 z-10 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+              <X className="w-4 h-4" />
+            </button>
+            <div className="bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500 px-6 pt-7 pb-5 text-center">
+              <div className="mx-auto w-14 h-14 rounded-full bg-white flex items-center justify-center shadow-lg">
+                <PartyPopper className="w-7 h-7 text-amber-500" />
+              </div>
+              <h3 className="font-playfair text-xl text-slate-900 mt-3">Congratulations on your new {isResto ? "restaurant" : "salon"}! 🎊</h3>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Starting fresh is the perfect time to get your systems right. As a welcome gift, you get a
+                <b className="text-amber-600"> FREE 90-day setup</b> — bookings, billing, staff, WhatsApp marketing
+                and Mira AI. We&apos;ll also email your special subscription plan.
+              </p>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1.5">When did / will you open? *</label>
+                <input type="date" data-testid="opening-date-input" value={form.opening_date}
+                  onChange={e => update({ opening_date: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white" />
+                <p className="text-[10px] text-slate-400 mt-1">Past or upcoming date — both qualify.</p>
+              </div>
+              <button type="button" data-testid="claim-newbiz-btn"
+                disabled={!form.opening_date}
+                onClick={() => { update({ newly_opened: true }); setShowNewbizModal(false); }}
+                className="w-full py-3 rounded-full text-sm font-bold text-slate-900 bg-gradient-to-r from-amber-400 to-yellow-300 hover:brightness-105 disabled:opacity-50 inline-flex items-center justify-center gap-2">
+                <Gift className="w-4 h-4" /> Claim my FREE 90-day setup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <Field
         label={`${isResto ? "Restaurant" : "Salon"} name *`}
         icon={Building2}

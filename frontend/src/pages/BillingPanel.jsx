@@ -143,7 +143,7 @@ export default function BillingPanel({ tenants }) {
                     <div className="text-[10px] text-slate-400 font-mono">{s.tenant?.slug}</div>
                   </td>
                   <td>{s.plan_label}</td>
-                  <td className="text-slate-700">₹{s.price.toLocaleString("en-IN")}</td>
+                  <td className="text-slate-700">₹{(s.price || 0).toLocaleString("en-IN")}</td>
                   <td className="text-xs">{s.start_date}</td>
                   <td className="text-xs">
                     {s.end_date}
@@ -208,6 +208,29 @@ export default function BillingPanel({ tenants }) {
 function PlanCatalogEditor({ plans, onSaved }) {
   const [edits, setEdits] = useState({}); // key -> {price, label}
   const [savingKey, setSavingKey] = useState(null);
+  const [trialDays, setTrialDays] = useState("");
+  const [savedTrial, setSavedTrial] = useState(30);
+  const [savingTrial, setSavingTrial] = useState(false);
+
+  useEffect(() => {
+    api.get("/public/plans").then(r => {
+      const d = Number(r.data?.trial_days) || 30;
+      setTrialDays(String(d)); setSavedTrial(d);
+    }).catch(() => {});
+  }, []);
+
+  async function saveTrialDays() {
+    const days = parseInt(trialDays, 10);
+    if (!days || days < 1 || days > 120) { toast.error("Trial must be between 1 and 120 days"); return; }
+    if (!await confirmAsync(`Set the free trial to ${days} days?\n\nEvery NEW signup (salon & restaurant) will get a ${days}-day trial. Newly-opened businesses keep their special 90-day offer. Existing tenants are not affected.`)) return;
+    setSavingTrial(true);
+    try {
+      await api.put("/super-admin/trial-days", { days });
+      setSavedTrial(days);
+      toast.success(`Free trial is now ${days} days for all new signups ✦`);
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update"); }
+    finally { setSavingTrial(false); }
+  }
 
   const val = (p, field) => edits[p.key]?.[field] ?? (field === "price" ? p.price : p.label);
   const setVal = (key, field, v) => setEdits(e => ({ ...e, [key]: { ...e[key], [field]: v } }));
@@ -235,6 +258,23 @@ function PlanCatalogEditor({ plans, onSaved }) {
       <div className="px-5 py-4 border-b border-slate-200">
         <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2"><Pencil className="w-4 h-4 text-sky-600" /> Plan Catalog — Edit Prices</h3>
         <p className="text-xs text-slate-500 mt-0.5">Changes apply to all NEW subscriptions and renewals platform-wide (Razorpay checkout included). Running subscriptions keep their original price.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-amber-50/70 border border-amber-200 px-4 py-3" data-testid="trial-days-editor">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-800">⏳ Free trial period</p>
+            <p className="text-[11px] text-slate-500">Applies to every new signup on the signup page (newly-opened businesses always get 90 days)</p>
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <input type="number" min={1} max={120} value={trialDays} onChange={e => setTrialDays(e.target.value)}
+              data-testid="trial-days-input"
+              className="w-20 px-3 py-2 rounded-lg border border-amber-300 text-sm text-slate-800 bg-white text-center font-bold" />
+            <span className="text-xs text-slate-500">days</span>
+            <button onClick={saveTrialDays} disabled={savingTrial || parseInt(trialDays, 10) === savedTrial}
+              data-testid="trial-days-save-btn"
+              className="px-4 py-2 rounded-lg bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 disabled:opacity-40">
+              {savingTrial ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="luxe-table-light">
@@ -289,7 +329,7 @@ function RevenueKpi({ label, value, icon: Icon, color, testid }) {
       <div className="flex items-start justify-between">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">{label}</div>
-          <div className="text-3xl font-semibold text-slate-800 mt-2">₹{value.toLocaleString("en-IN")}</div>
+          <div className="text-3xl font-semibold text-slate-800 mt-2">₹{(value || 0).toLocaleString("en-IN")}</div>
         </div>
         <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${c.tile}`}>
           <Icon className={`w-5 h-5 ${c.icon}`} />
@@ -377,7 +417,7 @@ function NewSubscriptionModal({ tenants, plans, onClose, onCreated }) {
                 }`}
               >
                 <div className="text-xs uppercase tracking-wider text-slate-500">{p.label}</div>
-                <div className="text-lg font-semibold text-slate-800 mt-1">₹{p.price.toLocaleString("en-IN")}</div>
+                <div className="text-lg font-semibold text-slate-800 mt-1">₹{(p.price || 0).toLocaleString("en-IN")}</div>
                 <div className="text-[10px] text-slate-400 mt-0.5">{p.duration_days} days{(p.branches || 1) > 1 ? ` · ${p.branches}${p.branches >= 5 ? "+" : ""} branches` : ""}</div>
               </button>
             ))}

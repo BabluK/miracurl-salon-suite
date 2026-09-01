@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.169"
-BUILD_TIME = "02 Sep 2026, 11:00 AM IST"
+BUILD = "2026-09-01.170"
+BUILD_TIME = "02 Sep 2026, 12:30 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [
+            "⏳ Trial period is now YOURS to set — new '⏳ Free trial period' control in HQ → Billing → Plan Catalog lets the super admin choose the free-trial length (default now 30 days, was 7); the signup page badge and stats update everywhere automatically",
+            "🎊 'Is your salon newly opened?' on the signup page — new businesses can self-identify with a beautiful gold congratulations popup, pick their opening date (past or upcoming both qualify), and instantly claim the FREE 90-day setup; the opening date is stored and shown on their 🌱 New-Biz badge in HQ → Tenants",
+            "🛠️ Billing panel hardening — fixed a crash when a subscription record had no plan attached (deleted/test tenants), and orphan subscription rows are cleaned up",
             "🎁 'Copy 90-day invite link' button — one tap in HQ → Tenants copies the special signup link that grants any new business a FREE 90-day setup trial; share it on WhatsApp or anywhere",
             "🔍 Clearer tenant filters — when combined filters match nothing (e.g. Salons + 30-day trial), the page now explains exactly which filters are stacked and offers a one-tap 'Clear all filters' button instead of a confusing empty message; signup page bottom strip also now shows '90 days' when opened via the invite link",
             "🔑 One-time staff credentials now go to the personal inbox — when you give a staff member their login (or reset it), the temp password email is sent to their personal email, never to the system-generated @miracurl.com ID; if no personal email is on file, the credentials simply show on screen with a note to add one",

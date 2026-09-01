@@ -79,3 +79,12 @@
 - 🎁 copy-newbiz-link-btn in Tenants header copies `${origin}/signup-salon?offer=newbiz` — clipboard.writeText wrapped in try/catch with execCommand textarea fallback (NotAllowedError crashed dev overlay in permission-denied contexts).
 - SignupSalon.jsx bottom stats strip shows "90 days" when newbiz (3 variants).
 - Verified via screenshots: copy toast w/o error overlay, empty state + clear restores 4 rows. release_notes → .169.
+
+## Session 2026-06 (fork) — Configurable trial + newly-opened self-serve + billing crash fixes
+- subscriptions.py: get_trial_days() (platform_settings key trial_days, default 30, clamp 1-120) + PUT /super-admin/trial-days; /public/plans now includes trial_days int key.
+- auth.py: signup trial = get_trial_days() for BOTH verticals; newly_opened bool + opening_date (ISO, past/future) in SalonSignupIn → is_newbiz (offer=newbiz OR newly_opened) → 90 days + tenant.signup_offer/new_business/opening_date. TRIAL_DAYS const now legacy.
+- SignupSalon.jsx: trialDays from catalog; "Is your salon newly opened?" Yes/No cards in step 1; gold PartyPopper modal (newbiz-offer-modal) w/ opening-date-input + claim-newbiz-btn → 90-day badge/strips flip; payload sends newly_opened/opening_date.
+- BillingPanel.jsx: trial-days-editor card in Plan Catalog (input+save w/ confirm). SuperAdmin.jsx 🌱 badge shows 📅 opening date.
+- BUGS FIXED (pre-existing, exposed by plan-less subscription docs): list_subscriptions s["plan"] KeyError, _mrr_and_plan_distribution s["plan"] KeyError, BillingPanel toLocaleString on undefined price/value (3 spots). Orphan subscriptions (tenant deleted) purged from preview DB.
+- Verified: PUT trial-days→public plans reflects; signup control=30d, newly_opened=90d+opening_date stored; signup UI modal flow screenshot; Billing panel renders w/ trial editor value 30. Probe tenants deleted.
+- release_notes → .170. Needs deploy (production currently ≤.169 pipeline).

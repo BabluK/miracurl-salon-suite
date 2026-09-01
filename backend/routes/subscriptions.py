@@ -174,14 +174,39 @@ async def _apply_subscription_to_tenants(tenant_ids: list, plan_key: str, plan_i
     return subs
 
 
+DEFAULT_TRIAL_DAYS = 30
+
+
+async def get_trial_days() -> int:
+    """Free-trial length (days) — super-admin configurable in Plan Catalog, default 30."""
+    doc = await _raw_db.platform_settings.find_one({"key": "trial_days"}, {"_id": 0, "value": 1})
+    try:
+        return max(1, min(120, int(doc["value"]))) if doc else DEFAULT_TRIAL_DAYS
+    except (KeyError, ValueError, TypeError):
+        return DEFAULT_TRIAL_DAYS
+
+
+class TrialDaysIn(BaseModel):
+    days: int = Field(..., ge=1, le=120)
+
+
+@router.put("/super-admin/trial-days")
+async def set_trial_days(body: TrialDaysIn, user=Depends(require_super_admin)):
+    await _raw_db.platform_settings.update_one(
+        {"key": "trial_days"}, {"$set": {"value": int(body.days)}}, upsert=True)
+    return {"ok": True, "trial_days": int(body.days)}
+
+
 @router.get("/public/plans")
 async def public_plans():
     """Live plan catalog for the public pricing page — reflects super-admin price edits.
     Overrides re-read from DB on every call so edits show instantly on ALL workers."""
     await load_plan_overrides()
-    return {k: {"label": v["label"], "price": v["price"], "duration_days": v["duration_days"],
-                "branches": v["branches"], "currency": v.get("currency", "INR"),
-                "tier": v.get("tier"), "vertical": v.get("vertical", "salon")} for k, v in PLAN_CATALOG.items()}
+    out = {k: {"label": v["label"], "price": v["price"], "duration_days": v["duration_days"],
+               "branches": v["branches"], "currency": v.get("currency", "INR"),
+               "tier": v.get("tier"), "vertical": v.get("vertical", "salon")} for k, v in PLAN_CATALOG.items()}
+    out["trial_days"] = await get_trial_days()
+    return out
 
 
 @router.get("/super-admin/plans")
@@ -237,7 +262,7 @@ async def list_subscriptions(user=Depends(require_super_admin)):
     out = []
     for s in subs:
         s["tenant"] = tmap.get(s["tenant_id"], {"name": "(deleted tenant)", "slug": "—"})
-        s["plan_label"] = PLAN_CATALOG.get(s["plan"], {}).get("label", s["plan"])
+        s["plan_label"] = PLAN_CATALOG.get(s.get("plan"), {}).get("label", s.get("plan") or "—")
         out.append(s)
     return out
 
@@ -1039,10 +1064,11 @@ def _mrr_and_plan_distribution(subs: list) -> tuple[float, list]:
     plan_counts: dict = {}
     mrr = 0.0
     for s in subs:
-        plan_counts[s["plan"]] = plan_counts.get(s["plan"], 0) + 1
+        plan_key = s.get("plan") or "custom"
+        plan_counts[plan_key] = plan_counts.get(plan_key, 0) + 1
         # Normalise each active plan into a monthly-recurring number
-        plan_days = PLAN_CATALOG.get(s["plan"], {}).get("duration_days", 30) or 30
-        plan_price = float(s.get("price") or PLAN_CATALOG.get(s["plan"], {}).get("price") or 0)
+        plan_days = PLAN_CATALOG.get(plan_key, {}).get("duration_days", 30) or 30
+        plan_price = float(s.get("price") or PLAN_CATALOG.get(plan_key, {}).get("price") or 0)
         mrr += plan_price * (30.0 / plan_days)
     plan_dist = [{"plan": k, "label": PLAN_CATALOG.get(k, {}).get("label", k), "count": v}
                  for k, v in plan_counts.items()]
@@ -1164,7 +1190,7 @@ async def tenant_billing_history(tid: str, user=Depends(require_super_admin)):
     subs = await db.subscriptions.find({"tenant_id": tid}, {"_id": 0}).sort("created_at", -1).to_list(50)
     pays = await db.subscription_payments.find({"tenant_id": tid}, {"_id": 0}).sort("paid_at", -1).to_list(200)
     for s in subs:
-        s["plan_label"] = PLAN_CATALOG.get(s["plan"], {}).get("label", s["plan"])
+        s["plan_label"] = PLAN_CATALOG.get(s.get("plan"), {}).get("label", s.get("plan") or "—")
     return {"subscriptions": subs, "payments": pays}
 
 

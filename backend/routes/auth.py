@@ -255,7 +255,7 @@ async def list_pending_staff(_admin=Depends(require_tenant_admin), t=Depends(cur
 
 
 # ============== Public Salon Self-Signup (7-day trial) ==============
-TRIAL_DAYS = 7
+TRIAL_DAYS = 7  # legacy — live value comes from routes.subscriptions.get_trial_days()
 _SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$")
 
 
@@ -274,6 +274,8 @@ class SalonSignupIn(BaseModel):
     phone: Optional[str] = None
     ref: Optional[str] = None  # affiliate referrer slug (Refer-a-salon program)
     offer: Optional[str] = Field(None, max_length=20)  # e.g. "newbiz" → 90-day trial
+    newly_opened: Optional[bool] = False  # self-declared new business on the signup page
+    opening_date: Optional[str] = Field(None, max_length=10)  # ISO date, past or future
     region: Optional[str] = Field(None, pattern="^(in|intl)$")  # pricing region picked at signup
     timezone: Optional[str] = Field(None, max_length=64)  # browser timezone (stored for intl salons)
     business_type: Optional[str] = Field("salon", pattern="^(salon|restaurant)$")
@@ -405,17 +407,22 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
         raise HTTPException(400, "An account with this email already exists")
 
     candidate = await _resolve_unique_slug(body)
-    # Restaurants launch with FIRST MONTH FREE (30-day trial); salons keep the 7-day trial
-    trial_days = 30 if body.business_type == "restaurant" else TRIAL_DAYS
-    if (body.offer or "").strip().lower() == "newbiz":
-        trial_days = 90  # new-business invite: FREE 90-day setup
+    from routes.subscriptions import get_trial_days
+    trial_days = await get_trial_days()  # super-admin configurable (Plan Catalog), default 30
+    is_newbiz = (body.offer or "").strip().lower() == "newbiz" or bool(body.newly_opened)
+    if is_newbiz:
+        trial_days = 90  # new / newly-opened business: FREE 90-day setup
     trial_end = (datetime.now(timezone.utc) + timedelta(days=trial_days)).date().isoformat()
     referrer = await _resolve_referrer(body.ref, candidate)
 
     tenant = _build_signup_tenant(body, candidate, referrer, trial_end)
     tenant["welcome_poster_pending"] = True  # SEC-001: paid AI poster deferred to first login
-    if trial_days == 90:
+    if is_newbiz:
         tenant["signup_offer"] = "newbiz"
+        tenant["new_business"] = True
+        od = (body.opening_date or "").strip()
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", od):
+            tenant["opening_date"] = od
     await db.tenants.insert_one(tenant)
     if tenant.get("business_type") == "restaurant":
         await _seed_restaurant_defaults(tenant["id"])

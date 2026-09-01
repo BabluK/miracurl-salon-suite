@@ -613,7 +613,7 @@ export default function SuperAdmin() {
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200" title={`International salon — pays in ${t.currency} via Stripe`}>🌍 {t.currency}</span>
                     )}
                     {t.trial_kind === "newbiz90" && (
-                      <span data-testid={`trial-kind-${t.id}`} title="New-business invite — FREE 90-day setup trial" className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300">🌱 New-Biz 90d</span>
+                      <span data-testid={`trial-kind-${t.id}`} title={`New-business — FREE 90-day setup trial${t.opening_date ? ` · opened/opening ${t.opening_date}` : ""}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300">🌱 New-Biz 90d{t.opening_date ? ` · 📅 ${t.opening_date}` : ""}</span>
                     )}
                     {t.trial_kind === "trial7" && (
                       <span data-testid={`trial-kind-${t.id}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-200">7-day trial</span>
