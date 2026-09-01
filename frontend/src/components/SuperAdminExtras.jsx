@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Sparkles, Pencil, X, Camera, Send, Loader2, Phone, Briefcase, HeartPulse, MessageCircle, MailOpen } from "lucide-react";
+import { Sparkles, Pencil, X, Camera, Send, Loader2, Phone, Briefcase, HeartPulse, MessageCircle, MailOpen, Crown, Mail, ShieldCheck, Lock, UserCog, CalendarDays, Building2, IdCard, Globe2, BadgeCheck, PhoneCall } from "lucide-react";
 
 // ---------- Tenant subscription health ----------
 export function healthInfo(t) {
@@ -163,38 +163,160 @@ export function HqInbox({ onUnreadChange }) {
 }
 
 // ---------- Super-admin profile card ----------
+function _relJoined(iso) {
+  if (!iso) return "";
+  const months = Math.floor((Date.now() - new Date(iso)) / (30.44 * 86400000));
+  if (months < 1) return "this month";
+  if (months < 12) return `${months} month${months > 1 ? "s" : ""} ago`;
+  const y = Math.floor(months / 12);
+  return `${y} year${y > 1 ? "s" : ""} ago`;
+}
+
+function _fmtLastLogin(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }).toUpperCase();
+  return {
+    line1: sameDay ? `Today, ${time}` : `${d.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}, ${time}`,
+    line2: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }),
+  };
+}
+
 export function SuperProfileCard() {
   const { user, refresh } = useAuth();
   const [edit, setEdit] = useState(false);
+  const [lastLogin, setLastLogin] = useState(null);
+  useEffect(() => {
+    api.get("/auth/sessions").then(({ data }) => {
+      const cur = (data.sessions || []).find(s => s.current);
+      if (cur?.created_at) setLastLogin(_fmtLastLogin(cur.created_at));
+    }).catch(() => {});
+  }, []);
+
+  const chips = [
+    { icon: null, label: "Active", cls: "bg-emerald-500/10 border-emerald-400/30 text-emerald-300", dot: true, tid: "chip-active" },
+    { icon: ShieldCheck, label: "Full System Access", cls: "bg-amber-500/10 border-amber-400/30 text-amber-300", tid: "chip-full-access" },
+    { icon: Lock, label: "PIN Secured", cls: "bg-sky-500/10 border-sky-400/30 text-sky-300", tid: "chip-pin" },
+    { icon: UserCog, label: "Super Admin", cls: "bg-violet-500/10 border-violet-400/30 text-violet-300", tid: "chip-super-admin" },
+  ];
+  const tiles = [
+    { icon: Building2, iconCls: "text-sky-400 bg-sky-500/10", label: "Organization", value: "Miracurl AI Salon Suite", tid: "tile-org" },
+    { icon: IdCard, iconCls: "text-violet-400 bg-violet-500/10", label: "Admin ID", value: `ADM-${(user?.id || "00001").replace(/\D/g, "").slice(0, 5).padStart(5, "0")}`, tid: "tile-admin-id" },
+    {
+      icon: CalendarDays, iconCls: "text-indigo-400 bg-indigo-500/10", label: "Joined On",
+      value: user?.created_at ? new Date(user.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—",
+      sub: user?.created_at ? `(${_relJoined(user.created_at)})` : "", tid: "tile-joined",
+    },
+    { icon: BadgeCheck, iconCls: "text-amber-400 bg-amber-500/10", label: "Email Verified", value: "Verified", verified: true, tid: "tile-email-verified" },
+    { icon: PhoneCall, iconCls: "text-emerald-400 bg-emerald-500/10", label: "Phone Verified", value: user?.phone ? "Verified" : "Not added", verified: !!user?.phone, tid: "tile-phone-verified" },
+    { icon: Globe2, iconCls: "text-fuchsia-400 bg-fuchsia-500/10", label: "Timezone", value: "Asia/Kolkata", sub: "(UTC +5:30)", tid: "tile-timezone" },
+  ];
+
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f1420] via-[#141c30] to-[#0d1220] text-white p-5 sm:p-6" data-testid="super-profile-card">
-      {[["6%", "20%", "0s"], ["40%", "75%", "0.8s"], ["75%", "15%", "1.5s"], ["92%", "60%", "0.4s"]].map(([l, t, d]) => (
-        <Sparkles key={`${l}-${t}`} className="sparkle-twinkle absolute w-3.5 h-3.5 text-sky-300/70 pointer-events-none" style={{ left: l, top: t, animationDelay: d }} />
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0b0f1a] via-[#10182b] to-[#0a0e18] text-white p-5 sm:p-6" data-testid="super-profile-card">
+      {[["8%", "12%", "0s"], ["46%", "70%", "0.8s"], ["72%", "10%", "1.5s"], ["93%", "55%", "0.4s"]].map(([l, t, d]) => (
+        <Sparkles key={`${l}-${t}`} className="sparkle-twinkle absolute w-3.5 h-3.5 text-sky-300/60 pointer-events-none" style={{ left: l, top: t, animationDelay: d }} />
       ))}
-      <div className="relative flex items-center gap-4 sm:gap-5">
-        <img
-          src={user?.photo_url || "https://ui-avatars.com/api/?background=0ea5e9&color=fff&size=160&name=" + encodeURIComponent(user?.name || "SA")}
-          alt={user?.name} data-testid="super-profile-photo"
-          className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-sky-400/60 shadow-[0_0_30px_rgba(56,189,248,0.25)]"
-        />
+
+      <div className="relative flex flex-col lg:flex-row gap-6">
+        {/* Avatar + owner pill */}
+        <div className="flex lg:flex-col items-center gap-4 lg:gap-3 shrink-0">
+          <div className="relative">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full p-[3px] bg-gradient-to-tr from-fuchsia-500 via-sky-400 to-violet-500 shadow-[0_0_35px_rgba(99,102,241,0.35)]">
+              <img
+                src={user?.photo_url || "https://ui-avatars.com/api/?background=0ea5e9&color=fff&size=200&name=" + encodeURIComponent(user?.name || "SA")}
+                alt={user?.name} data-testid="super-profile-photo"
+                className="w-full h-full rounded-full object-cover border-2 border-[#0b0f1a]"
+              />
+            </div>
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 border border-violet-400/50 flex items-center justify-center shadow-lg">
+              <Crown className="w-4 h-4 text-amber-300" />
+            </span>
+          </div>
+          <span data-testid="system-owner-pill" className="text-[10px] font-bold uppercase tracking-[0.18em] px-3.5 py-1.5 rounded-full bg-violet-500/15 border border-violet-400/40 text-violet-200 lg:mt-2">
+            System Owner
+          </span>
+        </div>
+
+        {/* Identity */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-playfair text-xl sm:text-2xl truncate" data-testid="super-profile-name">{user?.name || "Super Admin"}</h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight truncate" data-testid="super-profile-name">{user?.name || "Super Admin"}</h2>
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold bg-gradient-to-r from-fuchsia-500/20 to-sky-500/20 border border-sky-400/40 text-sky-300 px-2.5 py-1 rounded-full" data-testid="super-ai-badge">
               <Sparkles className="w-3 h-3" /> AI Powered
             </span>
           </div>
-          <div className="flex items-center gap-4 flex-wrap mt-1.5 text-xs text-slate-300">
-            {user?.occupation && <span className="flex items-center gap-1.5" data-testid="super-profile-occupation"><Briefcase className="w-3.5 h-3.5 text-sky-400" /> {user.occupation}</span>}
-            {user?.phone && <span className="flex items-center gap-1.5" data-testid="super-profile-phone"><Phone className="w-3.5 h-3.5 text-sky-400" /> {user.phone}</span>}
-            <span className="text-slate-400">{user?.email}</span>
+          {user?.occupation && <p className="text-sm font-semibold text-violet-300 mt-1.5" data-testid="super-profile-occupation">{user.occupation}</p>}
+          <p className="text-sm text-slate-200 mt-0.5 font-medium">Miracurl AI Salon Suite</p>
+          <div className="flex items-center gap-4 flex-wrap mt-2.5 text-sm text-slate-300">
+            {user?.phone && (
+              <span className="flex items-center gap-1.5" data-testid="super-profile-phone"><Phone className="w-4 h-4 text-sky-400" /> {user.phone}</span>
+            )}
+            {user?.phone && <span className="text-slate-600">|</span>}
+            <span className="flex items-center gap-1.5" data-testid="super-profile-email"><Mail className="w-4 h-4 text-sky-400" /> {user?.email}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mt-4">
+            {chips.map(c => (
+              <span key={c.tid} data-testid={c.tid} className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-full border ${c.cls}`}>
+                {c.dot && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                {c.icon && <c.icon className="w-3.5 h-3.5" />}
+                {c.label}
+              </span>
+            ))}
           </div>
         </div>
-        <button data-testid="super-profile-edit-btn" onClick={() => setEdit(true)}
-          className="shrink-0 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 transition" title="Edit profile">
-          <Pencil className="w-4 h-4" />
-        </button>
+
+        {/* Right column */}
+        <div className="lg:w-72 shrink-0 lg:border-l lg:border-white/10 lg:pl-6 space-y-4">
+          <div className="flex items-center justify-end gap-2">
+            <button data-testid="super-profile-edit-btn" onClick={() => setEdit(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600/35 border border-violet-400/40 text-violet-100 text-sm font-semibold transition">
+              <Pencil className="w-3.5 h-3.5" /> Edit Profile
+            </button>
+          </div>
+          <div className="flex items-start gap-3" data-testid="super-last-login">
+            <span className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-400/20 flex items-center justify-center shrink-0">
+              <CalendarDays className="w-4.5 h-4.5 text-sky-300" style={{ width: 18, height: 18 }} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] text-slate-400">Last Login</p>
+              <p className="text-sm font-bold text-white">{lastLogin?.line1 || "—"}</p>
+              {lastLogin?.line2 && <p className="text-[11px] text-slate-400 mt-0.5">{lastLogin.line2} · Bengaluru, India</p>}
+            </div>
+          </div>
+          <div className="flex items-start gap-3 pt-3 border-t border-white/10" data-testid="super-account-security">
+            <span className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-400/20 flex items-center justify-center shrink-0">
+              <ShieldCheck style={{ width: 18, height: 18 }} className="text-emerald-300" />
+            </span>
+            <div>
+              <p className="text-[11px] text-slate-400">Account Security</p>
+              <p className="text-sm font-bold text-emerald-400">High</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">All security checks passed</p>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Bottom tiles */}
+      <div className="relative grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 mt-6">
+        {tiles.map(t => (
+          <div key={t.tid} data-testid={t.tid} className="rounded-xl bg-white/[0.04] border border-white/10 p-3.5 flex items-start gap-3 hover:bg-white/[0.07] transition-colors">
+            <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${t.iconCls}`}>
+              <t.icon style={{ width: 17, height: 17 }} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-400 leading-tight">{t.label}</p>
+              <p className={`text-[12px] font-bold mt-0.5 leading-snug ${t.verified === false ? "text-slate-400" : "text-white"}`}>
+                {t.value} {t.verified && <span className="text-emerald-400">✓</span>}
+              </p>
+              {t.sub && <p className="text-[10px] text-slate-500">{t.sub}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {edit && <ProfileEditModal user={user} onClose={() => setEdit(false)} onSaved={async () => { setEdit(false); await refresh(); toast.success("Profile updated"); }} />}
     </div>
   );

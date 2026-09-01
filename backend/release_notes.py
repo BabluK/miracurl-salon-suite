@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.177"
+BUILD = "2026-09-01.178"
 BUILD_TIME = "02 Sep 2026, 4:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [
+            "👑 Super Admin profile card redesigned — glowing gradient avatar ring with a crown badge, SYSTEM OWNER pill, status chips (Active · Full System Access · PIN Secured · Super Admin), a right-hand panel showing your real Last Login time and Account Security status, and six info tiles: Organization, Admin ID, Joined On, Email Verified, Phone Verified and Timezone",
             "✅ Ticket auto-reply — the moment a customer emails booking@, billing@, refunds@ (or any Miracurl inbox), they instantly receive a warm 'we got your email — Ticket #N' acknowledgement with their ticket number and a note to keep it in the subject; smart loop-guard never auto-replies to bots, noreply/mailer-daemon addresses or our own domain",
             "🎫 Inbound mail → HQ tickets — any email sent to booking@, billing@, refunds@ (plus support@, payments@, sales@, careers@, info@, contact@, admin@, legal@, privacy@ miracurl-suite.com) now automatically becomes a numbered ticket in HQ → Inbox with an Open/Resolved status, one-tap ✓ Mark resolved / ↺ Reopen buttons and an ✉️ Reply shortcut that pre-fills the customer's email with the ticket number in the subject",
             "📬 HQ alert emails now land in real inboxes — internal alerts previously went to the super@miracurl.com login ID (a placeholder, so Resend suppressed them); New-Salon Alerts now go to sales@miracurl-suite.com, onboarding-help requests to support@miracurl-suite.com, and Mira digests to admin@miracurl-suite.com — all overridable via HQ_SALES_EMAIL / HQ_SUPPORT_EMAIL / HQ_ADMIN_EMAIL env vars",

@@ -2552,3 +2552,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - lead_gen.py: _send_ticket_ack() called after every ticket creation in _route_business_inbox — sends "We got your email — Ticket #N [Miracurl {Inbox}]" ack to the sender with ticket # + reply instructions.
 - Loop guards: skips senders @miracurl-suite.com and _ACK_SKIP (noreply/no-reply/donotreply/mailer-daemon/postmaster/bounce). Headers Auto-Submitted:auto-replied + X-Auto-Response-Suppress:All to stop autoresponder loops. Failures logged, never break ticket creation.
 - TESTED e2e: webhook from delivered@resend.dev → ticket #1 + ack sent (Resend accepted); webhook from noreply@somebank.com → ticket #2 created, ack correctly skipped. Test tickets cleaned, counter reset. Build → .177.
+
+## 2026-09-01 — 👑 Super Admin profile card redesign (user mock)
+- SuperAdminExtras.jsx SuperProfileCard rebuilt to match user's mock: circular avatar with fuchsia→sky→violet gradient glow ring + crown badge, SYSTEM OWNER pill, name + AI Powered badge, occupation (violet) + org line, phone|email row, 4 status chips (Active/Full System Access/PIN Secured/Super Admin).
+- Right column: Edit Profile button, Last Login (real data — GET /auth/sessions current session created_at, IST formatted "Today, HH:MM") + Bengaluru India, Account Security: High.
+- Bottom: 6 tiles (Organization, Admin ID ADM-xxxxx from user.id digits, Joined On + relative, Email Verified ✓, Phone Verified ✓/Not added, Timezone Asia/Kolkata UTC+5:30). Responsive: stacks on mobile, 6-col xl.
+- Edit modal untouched (name/phone/occupation/photo upload). TESTED via screenshot — all sections render, last login shows live session time. Build → .178.
