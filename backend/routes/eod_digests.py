@@ -225,14 +225,17 @@ async def _send_owner_late_digest(t: dict, agg: dict, star: Optional[dict]) -> t
 async def _send_staff_late_digests(t: dict, agg: dict, month_start: str) -> tuple[int, int]:
     sent = failed = 0
     for sid, a in agg.items():
-        s = await _raw_db.staff.find_one({"id": sid}, {"_id": 0, "name": 1, "email": 1, "monthly_base_salary": 1})
-        if not s or not s.get("email"):
+        s = await _raw_db.staff.find_one({"id": sid}, {"_id": 0, "name": 1, "email": 1,
+                                                       "personal_email": 1, "monthly_base_salary": 1})
+        from routes.staff_portal import staff_notify_email
+        to = staff_notify_email(s or {})
+        if not s or not to:
             continue
         month_recs = await _raw_db.attendance.find(
             {"tenant_id": t["id"], "staff_id": sid, "date": {"$gte": month_start}, "late_penalty": {"$gt": 0}},
             {"_id": 0, "late_penalty": 1}).to_list(100)
         month_fine = sum(float(x.get("late_penalty") or 0) for x in month_recs)
-        status = await _send_email([s["email"]], f"⏰ Your late arrivals this week — ₹{a['fines']:,.0f} in fines",
+        status = await _send_email([to], f"⏰ Your late arrivals this week — ₹{a['fines']:,.0f} in fines",
                                    _staff_late_html(t, s, sorted(a["recs"], key=lambda x: x["date"]), a["fines"], month_fine))
         sent += 1 if status.get("sent") else 0
         failed += 0 if status.get("sent") else 1
@@ -253,9 +256,10 @@ async def _run_late_arrival_digests(tenant_id: Optional[str] = None) -> dict:
         agg = _aggregate_late(recs)
         star = await _find_punctuality_star(t["id"], since_date, agg)
         s1, f1 = await _send_owner_late_digest(t, agg, star)
-        s2, f2 = await _send_staff_late_digests(t, agg, month_start)
-        sent += s1 + s2
-        failed += f1 + f2
+        # Staff copies are dashboard-only by policy (placeholder @miracurl inboxes; personal
+        # email is reserved for credentials, password resets and relieving letters).
+        sent += s1
+        failed += f1
     return {"sent": sent, "failed": failed}
 
 

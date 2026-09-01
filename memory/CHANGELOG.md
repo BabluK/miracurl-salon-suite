@@ -53,3 +53,11 @@
 - Monthly business report ALREADY existed (auto 1st @9AM IST via _monthly_report_scheduler + super-admin send button). Added the missing piece: _monthly_tip() in super_admin_ops.py (gpt-5.4-mini via Emergent key, _rule_based_month_tip fallback) + tip block in _monthly_report_html (email_service.py, _weekly_tip_block now takes a label param). Tested: send-monthly-report → sent to owner inboxes with suggestion.
 - Late-arrival "real staff missing" diagnosis: code includes ALL active staff (preview: Bablu real staff has late_alert). In production email the real staff are BELOW the seed dummies (insertion order). Resolution = deploy + user purges dummy staff via 🧹.
 - release_notes → .165. Deployment requested by user.
+
+## Session 2026-06 (fork) — Staff email policy + deductions card + notice-period gate + report cleanup
+- POLICY (user-defined): staff @miracurl.com IDs are placeholders (Resend suppresses them). Personal email used ONLY for: forgot-password (already handled by _staff_reset_recipient), first-time credentials, relieving letter. Routine staff emails REMOVED: late-nag email in staff_portal._run_late_alerts (kept late_alerts insert + owner digest) and _send_staff_late_digests call in eod_digests (function retained, uncalled).
+- staff_portal.py: staff_notify_email(s) helper (personal first, rejects @miracurl.com) — used by relieving letter + transfer notice + fallback in staff_admin. NEW GET /staff/me/deductions (late fines from attendance.late_penalty, half-day from half_day_deduction, advances by month) → StaffPortal.jsx DeductionsCard (red card under salary, data-testid deductions-card/-total), respects month selector.
+- staff_admin.py: relieving letter gate — letter_type excellent/standard + notice_period_days>0 requires body.notice_served=True else 400. PreviousStaffCard.jsx: 'Notice period fully served' checkbox for those types.
+- super_admin_ops.py: _demo_staff_names() — monthly + weekly report by_staff excludes seed staff names (user's Aug report showed Priya/Rahul as stars; NOTE that email was my PREVIEW test send).
+- Verified: helper unit checks, month stats exclude demo staff, staff portal screenshot (card shows late fine/half-day/advance + total, late toast still works). Test seeds cleaned.
+- release_notes → .166. NOTE: deploy queued earlier was .165 — user must deploy again for these.

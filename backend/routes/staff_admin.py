@@ -123,6 +123,7 @@ class RelievingIn(BaseModel):
     letter_type: str = Field(..., pattern="^(excellent|standard|terminated|absconded)$")
     reason: str = Field("", max_length=200)
     email_to: Optional[EmailStr] = None
+    notice_served: bool = False
 
 
 async def _downgrade_registry_rating(s: dict, letter_type: str, reason: str):
@@ -150,11 +151,17 @@ async def send_relieving_letter(sid: str, body: RelievingIn,
     s = await db.staff.find_one({"id": sid, "former": True}, {"_id": 0})
     if not s:
         raise HTTPException(404, "Previous staff entry not found")
+    notice_days = int(float(s.get("notice_period_days") or 0))
+    if body.letter_type in ("excellent", "standard") and notice_days > 0 and not body.notice_served:
+        raise HTTPException(400, f"{s.get('name')} had a {notice_days}-day notice period. A relieving letter can "
+                                 "only be issued after the notice period is fully served — tick 'Notice period "
+                                 "served' to confirm, or issue a termination letter instead.")
     from_date = (s.get("joined_date") or s.get("created_at") or "")[:10]
     to_date = s.get("left_on") or s.get("last_working_day") or datetime.now(timezone.utc).date().isoformat()
     pdf = _render_relieving_letter_pdf(t, s, body.letter_type, from_date, to_date, body.reason)
     title = RELIEVING_TEMPLATES[body.letter_type][0]
-    to = body.email_to or s.get("personal_email") or s.get("email")
+    from routes.staff_portal import staff_notify_email
+    to = body.email_to or staff_notify_email(s)
     emailed = False
     if to:
         res = await _send_email(
@@ -481,7 +488,8 @@ async def _notify_temp_transfer(s: dict, tt: dict, phase: str) -> None:
     mgr_emails = sorted({m["email"] for m in mgrs if m.get("email") and m["id"] != s.get("user_id")})
     if mgr_emails:
         await _send_email(mgr_emails, f"{title.rstrip(' ✦')}: {s['name']} — {tt['target_name']}", _html(mgr_msg))
-    staff_email = s.get("personal_email") or s.get("email")
+    from routes.staff_portal import staff_notify_email
+    staff_email = staff_notify_email(s)
     if channel == "email" and staff_email:
         await _send_email([staff_email], f"{title.rstrip(' ✦')} — {tt['target_name']}", _html(staff_msg))
     elif channel == "sms" and s.get("phone"):

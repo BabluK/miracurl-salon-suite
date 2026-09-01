@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.165"
-BUILD_TIME = "02 Sep 2026, 12:00 AM IST"
+BUILD = "2026-09-01.166"
+BUILD_TIME = "02 Sep 2026, 1:00 AM IST"
 
 RELEASES = [
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [
+            "📵 Staff email policy cleaned up — @miracurl.com staff work IDs are login placeholders, not inboxes, so routine emails to staff (late-arrival nags, weekly late digests) are OFF; instead staff now see everything on their portal dashboard: the late banner plus a new red 'Deductions' card listing every late fine, half-day cut and salary advance for the month with the total. Personal email (Gmail) is reserved strictly for password resets, first-time credentials and relieving letters",
+            "📄 Relieving letter now requires notice served — an Excellent/Standard relieving letter can only be issued after the owner confirms the staff member fully served their notice period (new checkbox); termination/absconded letters are unaffected",
+            "📊 Owner reports show only real staff — demo staff (Priya Sharma & co) are excluded from 'Star team members' in monthly and weekly reports, even for old bills recorded under their names",
             "💡 Monthly report now ends with Mira's AI suggestion — every owner's 1st-of-month business report (revenue vs last month, weekly trend, top services, star team) now closes with ONE specific, practical suggestion for next month, written by Mira from that salon's own numbers",
             "🛰️ Auto City Watch — tell Mira your favourite cities once (Lead Agent → Auto City Watch) and she automatically re-searches each on your schedule (every 3/7/14/30 days, max one auto-search per day to protect budget); newly opened salons are flagged 🆕, scored, and the New-Salon Alert email lands in your inbox the moment they're found — pause or remove any city with one tap",
             "🧹 Demo staff now removable for good — the Super Admin salon cleanup tool (🧹 on the tenant card) now detects the original demo staff (Priya Sharma, Rahul Verma, Anjali Mehta, Karan Singh) and removes them together with their attendance, late-arrival alerts and logins; a permanent marker guarantees they are NEVER re-seeded after deletion, so 'Late arrivals today' emails only show your real team",

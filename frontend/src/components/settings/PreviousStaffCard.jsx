@@ -10,13 +10,14 @@ export const PreviousStaffCard = () => {
   const [letterFor, setLetterFor] = useState(null);
   const [letterType, setLetterType] = useState("excellent");
   const [letterReason, setLetterReason] = useState("");
+  const [noticeServed, setNoticeServed] = useState(false);
 
   const sendLetter = async () => {
     const s = letterFor;
     setBusyId(s.id);
     try {
       const { data } = await api.post(`/staff/previous/${s.id}/relieving-letter`,
-        { letter_type: letterType, reason: letterReason });
+        { letter_type: letterType, reason: letterReason, notice_served: noticeServed });
       toast.success(data.emailed
         ? `Letter emailed to ${data.sent_to} ✦${data.rating_downgraded ? " Public rating lowered." : ""}`
         : `Letter recorded${data.rating_downgraded ? " — public rating lowered" : ""} (no email on file)`);
@@ -124,6 +125,14 @@ export const PreviousStaffCard = () => {
             <input value={letterReason} onChange={e => setLetterReason(e.target.value)} maxLength={200}
               data-testid="letter-reason-input" placeholder="Reason on record (e.g. repeated misconduct, theft of salon property)"
               className="mt-3 w-full px-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-800 bg-white" />
+          )}
+          {(letterType === "excellent" || letterType === "standard") && (
+            <label className="mt-3 flex items-start gap-2 text-xs text-slate-700 cursor-pointer" data-testid="notice-served-label">
+              <input type="checkbox" checked={noticeServed} onChange={e => setNoticeServed(e.target.checked)}
+                data-testid="notice-served-checkbox" className="mt-0.5 accent-emerald-600" />
+              <span><b>Notice period fully served</b> — I confirm {letterFor.name} completed their notice period.
+                A relieving letter cannot be issued otherwise.</span>
+            </label>
           )}
           <div className="flex gap-2 mt-3">
             <button onClick={sendLetter} disabled={busyId === letterFor.id} data-testid="letter-send-btn"

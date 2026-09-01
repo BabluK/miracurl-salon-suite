@@ -1491,6 +1491,38 @@ def _late_digest_html(t: dict, rows_html: str, today_label: str) -> str:
 
 
 
+@router.get("/staff/me/deductions")
+async def staff_my_deductions(month: Optional[str] = None,
+                              s=Depends(_current_staff), t=Depends(current_tenant)):
+    """Everything deducted this month — late fines, half-day cuts and salary advances."""
+    y, m = _parse_month(month)
+    start = f"{y:04d}-{m:02d}-01"
+    end = f"{y + (m == 12):04d}-{(m % 12) + 1:02d}-01"
+    recs = await _raw_db.attendance.find(
+        {"tenant_id": t["id"], "staff_id": s["id"], "date": {"$gte": start, "$lt": end},
+         "$or": [{"late_penalty": {"$gt": 0}}, {"half_day_deduction": {"$gt": 0}}]},
+        {"_id": 0, "date": 1, "late_minutes": 1, "late_penalty": 1, "half_day_deduction": 1}).to_list(100)
+    items = []
+    for r in sorted(recs, key=lambda x: x.get("date") or ""):
+        if float(r.get("late_penalty") or 0) > 0:
+            items.append({"date": r.get("date"), "type": "late_fine",
+                          "label": f"Late fine — {int(r.get('late_minutes') or 0)} min late",
+                          "amount": float(r["late_penalty"])})
+        if float(r.get("half_day_deduction") or 0) > 0:
+            items.append({"date": r.get("date"), "type": "half_day",
+                          "label": "Half-day deduction (no check-in past shift)",
+                          "amount": float(r["half_day_deduction"])})
+    advances = await _raw_db.advances.find(
+        {"staff_id": s["id"], "month": f"{y:04d}-{m:02d}"},
+        {"_id": 0, "amount": 1, "note": 1, "created_at": 1}).to_list(5)
+    for a in advances:
+        items.append({"date": str(a.get("created_at") or "")[:10], "type": "advance",
+                      "label": "Salary advance" + (f" — {a['note']}" if a.get("note") else ""),
+                      "amount": float(a.get("amount") or 0)})
+    return {"month": f"{y:04d}-{m:02d}", "items": items,
+            "total": round(sum(i["amount"] for i in items), 2)}
+
+
 @router.get("/staff/me/late-status")
 async def staff_late_status(s=Depends(_current_staff), t=Depends(current_tenant)):
     """Portal banner check: is this staff member late (10+ min past shift start, not checked in)?"""
@@ -1504,6 +1536,15 @@ async def staff_late_status(s=Depends(_current_staff), t=Depends(current_tenant)
     mins = int((ist - start).total_seconds() // 60)
     return {"late": LATE_ALERT_GRACE_MIN <= mins <= 600, "minutes_late": max(mins, 0),
             "shift_start": s.get("shift_start") or "10:00"}
+
+
+def staff_notify_email(s: dict) -> str:
+    """Real inbox for staff notifications — auto-generated @miracurl.com work IDs are
+    login placeholders, not mailboxes; never email them."""
+    for e in (s.get("personal_email"), s.get("email")):
+        if e and not e.lower().strip().endswith("@miracurl.com"):
+            return e.strip()
+    return ""
 
 
 async def _run_late_alerts() -> dict:
@@ -1538,16 +1579,8 @@ async def _run_late_alerts() -> dict:
                 "id": str(uuid.uuid4()), "tenant_id": t["id"], "staff_id": s["id"],
                 "staff_name": s.get("name"), "date": today, "minutes_late": mins,
                 "at": datetime.now(timezone.utc).isoformat()})
-            if s.get("personal_email") or s.get("email"):
-                try:
-                    await _send_email(
-                        [s.get("personal_email") or s["email"]],
-                        f"⏰ You're running late — please check in at {t.get('name')}",
-                        _late_reminder_html(t, s, mins),
-                        book_url=f"{_PUBLIC_BASE}/staff-portal", book_label="Check in now ✦")
-                    emails_sent += 1
-                except Exception as e:
-                    logging.warning(f"late alert email failed for {s.get('name')}: {e}")
+            # No email nag by policy — staff see it on their portal dashboard (late banner +
+            # deductions card). Email is reserved for credentials, resets and relieving letters.
         if ist.hour >= 12:
             alerts = await _raw_db.late_alerts.find({"tenant_id": t["id"], "date": today}, {"_id": 0}).to_list(100)
             flag = await _raw_db.system_flags.find_one({"key": f"late_summary:{t['id']}"})

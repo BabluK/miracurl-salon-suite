@@ -458,6 +458,9 @@ export default function StaffPortal() {
         )}
       </div>
 
+      {/* Deductions this month */}
+      <DeductionsCard month={month} />
+
       {/* Attendance history */}
       <div className="rounded-2xl bg-[#0F0F0F] border border-white/5 p-5 sm:p-6">
         <div className="font-playfair text-lg mb-4 flex items-center gap-2">
@@ -493,6 +496,44 @@ export default function StaffPortal() {
           <SlipRow label="Joining date" value={profile.joining_date || "—"} />
           <SlipRow label="Status" value={profile.active ? "Active" : "Inactive"} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DeductionsCard({ month }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    api.get("/staff/me/deductions", { params: { month } })
+      .then(r => setData(r.data)).catch(() => setData(null));
+  }, [month]);
+  if (!data || data.items.length === 0) return null;
+  return (
+    <div className="rounded-2xl bg-[#0F0F0F] border border-rose-500/30 p-5 sm:p-6" data-testid="deductions-card">
+      <div className="font-playfair text-lg mb-1 flex items-center gap-2 text-rose-300">
+        ⚠️ Deductions — {new Date(data.month + "-01").toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+      </div>
+      <p className="text-[11px] text-white/40 mb-3">
+        These amounts reduce your net payable. Check in on time to avoid late fines.
+      </p>
+      <div className="divide-y divide-white/5" data-testid="deductions-list">
+        {data.items.map((d, i) => (
+          <div key={i} className="py-2.5 flex items-center justify-between text-sm" data-testid={`deduction-row-${i}`}>
+            <div>
+              <div className="text-white/80">
+                {d.type === "advance" ? "💸" : d.type === "half_day" ? "🌗" : "⏰"} {d.label}
+              </div>
+              <div className="text-[11px] text-white/40">
+                {d.date ? new Date(d.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) : ""}
+              </div>
+            </div>
+            <div className="text-rose-400 font-semibold tabular-nums">− ₹{(d.amount || 0).toLocaleString("en-IN")}</div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 rounded-lg bg-rose-500/10 border border-rose-500/30 px-4 py-2.5 flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-[0.2em] text-rose-200/70">Total deductions</span>
+        <span className="font-playfair text-xl text-rose-300" data-testid="deductions-total">− ₹{(data.total || 0).toLocaleString("en-IN")}</span>
       </div>
     </div>
   );

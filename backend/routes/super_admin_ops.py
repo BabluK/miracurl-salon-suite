@@ -105,16 +105,23 @@ async def hq_message_read(mid: str, user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+def _demo_staff_names() -> set:
+    """Demo/seed staff never appear in owner reports — even for old invoices billed under them."""
+    from seeds import SEED_STAFF
+    return {(s.get("name") or "").lower() for s in SEED_STAFF}
+
+
 async def _tenant_month_stats(tid: str, start: str, end: str) -> dict:
     invs = await _raw_db.invoices.find(
         {"tenant_id": tid, "paid": True, "created_at": {"$gte": start, "$lt": end}}, {"_id": 0}).to_list(3000)
     revenue = sum(i["total"] for i in invs)
     by_svc, by_staff = {}, {}
+    demo_names = _demo_staff_names()
     weekly = [0.0, 0.0, 0.0, 0.0, 0.0]  # days 1-7, 8-14, 15-21, 22-28, 29+
     for i in invs:
         for it in i.get("items", []):
             by_svc[it["name"]] = by_svc.get(it["name"], 0) + it["price"] * it.get("qty", 1)
-        if i.get("staff_name"):
+        if i.get("staff_name") and i["staff_name"].lower() not in demo_names:
             by_staff[i["staff_name"]] = by_staff.get(i["staff_name"], 0) + i["total"]
         try:
             day = int(str(i.get("created_at", ""))[8:10])
@@ -221,10 +228,11 @@ async def _tenant_week_stats(tid: str, start: str, end: str) -> dict:
     start_dt = datetime.strptime(start, "%Y-%m-%d")
     daily = [0.0] * 7
     by_svc, by_staff = {}, {}
+    demo_names = _demo_staff_names()
     for i in invs:
         for it in i.get("items", []):
             by_svc[it["name"]] = by_svc.get(it["name"], 0) + it["price"] * it.get("qty", 1)
-        if i.get("staff_name"):
+        if i.get("staff_name") and i["staff_name"].lower() not in demo_names:
             by_staff[i["staff_name"]] = by_staff.get(i["staff_name"], 0) + float(i.get("total") or 0)
         try:
             idx = (datetime.strptime(str(i.get("created_at", ""))[:10], "%Y-%m-%d") - start_dt).days
