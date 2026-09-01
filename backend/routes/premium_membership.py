@@ -107,7 +107,7 @@ class MemberOrderIn(BaseModel):
 
 @router.post("/public/membership/{slug}/order")
 async def membership_order(slug: str, body: MemberOrderIn, request: Request):
-    public_rate_limit(request, "member-order", limit=10, window_sec=600)
+    await public_rate_limit(request, "member-order", limit=10, window_sec=600)
     t = await _tenant_by_slug(slug)
     s = _gc_settings(t)
     key_id, key_secret = _pay_keys(t)
@@ -171,7 +171,7 @@ class RzpVerifyIn(BaseModel):
 
 @router.post("/public/membership/verify")
 async def membership_verify(body: RzpVerifyIn, request: Request):
-    public_rate_limit(request, "member-verify", limit=20, window_sec=600)
+    await public_rate_limit(request, "member-verify", limit=20, window_sec=600)
     o = await _raw_db.membership_orders.find_one({"razorpay_order_id": body.razorpay_order_id}, {"_id": 0})
     if not o:
         raise HTTPException(404, "Order not found")
@@ -194,7 +194,7 @@ class MemberUpiPaidIn(BaseModel):
 
 @router.post("/public/membership/{oid}/upi-paid")
 async def membership_upi_paid(oid: str, body: MemberUpiPaidIn, request: Request):
-    public_rate_limit(request, "member-upi-paid", limit=10, window_sec=600)
+    await public_rate_limit(request, "member-upi-paid", limit=10, window_sec=600)
     o = await _raw_db.membership_orders.find_one({"id": oid}, {"_id": 0})
     if not o:
         raise HTTPException(404, "Order not found")
@@ -457,7 +457,7 @@ async def send_membership_welcome_email(cm: dict, cust: dict, t: dict, renewed: 
 
 @router.get("/public/member/{member_id}")
 async def public_member(member_id: str, request: Request):
-    public_rate_limit(request, "member-view", limit=60, window_sec=600)
+    await public_rate_limit(request, "member-view", limit=60, window_sec=600)
     cm, cust, t = await _member_bundle(member_id)
     active = cm.get("expires_at", "") > _now()
     return {"member_id": cm["member_id"], "name": cust.get("name") or cm.get("customer_name"),
@@ -473,7 +473,7 @@ async def public_member(member_id: str, request: Request):
 
 @router.get("/public/member/{member_id}/card.pdf")
 async def public_member_card_pdf(member_id: str, request: Request):
-    public_rate_limit(request, "member-card-pdf", limit=20, window_sec=600)
+    await public_rate_limit(request, "member-card-pdf", limit=20, window_sec=600)
     cm, cust, t = await _member_bundle(member_id)
     pdf = _render_member_card_pdf(cm, cust, t, _member_qr_png(cm["member_id"]))
     return Response(content=pdf, media_type="application/pdf", headers={
@@ -483,7 +483,7 @@ async def public_member_card_pdf(member_id: str, request: Request):
 @router.post("/public/member/{member_id}/email-card")
 async def public_member_email_card(member_id: str, request: Request):
     """Member asks for their card by email (rate-limited; sends to the email on file only)."""
-    public_rate_limit(request, "member-email-card", limit=5, window_sec=600)
+    await public_rate_limit(request, "member-email-card", limit=5, window_sec=600)
     cm, cust, t = await _member_bundle(member_id)
     email = (cust.get("email") or "").strip()
     if not email:

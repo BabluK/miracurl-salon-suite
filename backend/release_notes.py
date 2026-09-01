@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.159"
-BUILD_TIME = "01 Sep 2026, 7:30 PM IST"
+BUILD = "2026-09-01.160"
+BUILD_TIME = "01 Sep 2026, 8:15 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [
+            "🔒 Security audit hardening — all public endpoints (signup, forgot-password, gift cards, feedback, demo booking…) now use a durable database-backed rate limiter that survives restarts and is shared across workers; a platform-wide cap of 50 new signups/day stops bot armies from mass-creating salons; the AI welcome poster is now painted only when the owner actually logs in for the first time (bots can no longer burn AI budget); and partner commissions refuse self-referrals or same-owner referral pairs",
             "🎉 'They came back!' tracking on the Win-back card — a green banner now celebrates every guest who returned AFTER you nudged them (name, return date, amount spent) plus total revenue recovered in the last 90 days, so you can see your nudges paying off",
             "💌 Warmer win-back message — the one-tap WhatsApp nudge now sends a personal note with the guest's name, exactly how long they've been away, a 15% welcome-back gift and your direct booking link (restaurants get their own food-flavoured version)",
             "✨ Clearer Auto win-back switch — the tiny toggle is now a proper labelled switch ('Auto win-back ON/OFF · Mira emails a comeback offer daily') so owners actually discover the hands-free mode",

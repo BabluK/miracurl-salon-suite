@@ -677,7 +677,7 @@ async def _dishes_in_reply(t: dict, reply: str) -> list:
 @router.post("/public/ai-chat/{slug}")
 async def public_ai_chat(slug: str, body: PublicAIChatIn, request: Request):
     t = await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"aichat:{slug}", limit=40, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"aichat:{slug}", limit=40, window_sec=600)
     await durable_rate_limit(request, f"aichat:{slug}", limit=40, window_sec=600)
     await ai_daily_quota(t["id"], "public_ai_chat", 400)
     track = await _order_status_reply(t, body.message, body.order_id)
@@ -714,7 +714,7 @@ async def _sorry_no_hear_response() -> dict:
 async def public_ai_greeting(slug: str, request: Request):
     """Spoken greeting for the voice-first Mira widget — TTS is content-cached, so repeats are free."""
     t = await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"aigreet:{slug}", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"aigreet:{slug}", limit=30, window_sec=600)
     if t.get("business_type") == "restaurant":
         text = (f"Hi! I'm Mira, your dining concierge at {t.get('name', 'our restaurant')}. "
                 "I can reserve your table or suggest the perfect dishes from our menu. "
@@ -735,7 +735,7 @@ async def public_ai_greeting(slug: str, request: Request):
 async def public_ai_voice(slug: str, request: Request, audio: UploadFile = File(...), session_id: str = Form(..., min_length=8, max_length=64)):
     from emergentintegrations.llm.openai import OpenAISpeechToText
     t = await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"aivoice:{slug}", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"aivoice:{slug}", limit=30, window_sec=600)
     await durable_rate_limit(request, f"aivoice:{slug}", limit=30, window_sec=600)
     await ai_daily_quota(t["id"], "public_ai_voice", 150)
     key = os.environ.get("EMERGENT_LLM_KEY")
@@ -814,7 +814,7 @@ async def _append_chat_message(thread_id: str, sender: str, text: str) -> dict:
 @router.post("/public/chat/{slug}/start")
 async def public_chat_start(slug: str, body: ChatStartIn, request: Request):
     await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"chatstart:{slug}", limit=10, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"chatstart:{slug}", limit=10, window_sec=600)
     # SEC-001: look up the thread by the caller's secret session_key, NOT by phone.
     # An attacker entering a victim's phone gets a fresh empty thread (their own key),
     # never the victim's history. The owner still sees every thread in the admin panel.
@@ -854,7 +854,7 @@ async def public_chat_poll(slug: str, thread_id: str, k: str = ""):
 @router.post("/public/chat/{slug}/{thread_id}/send")
 async def public_chat_send(slug: str, thread_id: str, body: ChatSendIn, request: Request, k: str = ""):
     await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"chatsend:{slug}", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"chatsend:{slug}", limit=30, window_sec=600)
     th = await db.chat_threads.find_one({"id": thread_id}, {"_id": 0})
     if th and th.get("session_key") and th["session_key"] != k:
         raise HTTPException(403, "This chat belongs to another device")

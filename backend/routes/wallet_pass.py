@@ -135,14 +135,14 @@ def build_gift_card_save_url(gc: dict, t: dict) -> str:
 
 @router.get("/public/member/{member_id}/google-wallet")
 async def member_google_wallet(member_id: str, request: Request):
-    public_rate_limit(request, "member-gwallet", limit=15, window_sec=600)
+    await public_rate_limit(request, "member-gwallet", limit=15, window_sec=600)
     cm, cust, t = await _member_bundle(member_id)
     return {"save_url": build_membership_save_url(cm, cust, t)}
 
 
 @router.get("/public/gift-card/{code}/google-wallet")
 async def gift_card_google_wallet(code: str, request: Request):
-    public_rate_limit(request, "gc-gwallet", limit=15, window_sec=600)
+    await public_rate_limit(request, "gc-gwallet", limit=15, window_sec=600)
     gc = await _raw_db.gift_cards.find_one(
         {"code": code.strip().upper(), "status": {"$in": ["active", "scheduled"]}}, {"_id": 0})
     if not gc:

@@ -137,7 +137,7 @@ class DemoRequestIn(BaseModel):
 
 @router.post("/public/demo-request")
 async def demo_request(body: DemoRequestIn, request: Request):
-    public_rate_limit(request, "demo-request", limit=5, window_sec=600)
+    await public_rate_limit(request, "demo-request", limit=5, window_sec=600)
     now = datetime.now(timezone.utc).isoformat()
     detail = " · ".join(x for x in [body.salon_name, body.city] if x)
     question = f"Requested a demo of Miracurl Salon Suite{f' ({detail})' if detail else ''}"
@@ -250,7 +250,7 @@ async def _send_lead_alert(inq: dict, question: str):
 
 @router.post("/public/sales-chat/start")
 async def sales_chat_start(body: SalesChatStartIn, request: Request):
-    public_rate_limit(request, "sales-start", limit=5, window_sec=600)
+    await public_rate_limit(request, "sales-start", limit=5, window_sec=600)
     now = datetime.now(timezone.utc).isoformat()
     first = body.name.strip().split()[0].title()
     greeting = (f"Lovely to meet you, {first} ✦ I'm Mira — I know everything about Miracurl Salon Suite. "
@@ -267,7 +267,7 @@ async def sales_chat_start(body: SalesChatStartIn, request: Request):
 
 @router.post("/public/sales-chat/message")
 async def sales_chat_message(body: SalesChatMsgIn, request: Request):
-    public_rate_limit(request, "sales-msg", limit=30, window_sec=600)
+    await public_rate_limit(request, "sales-msg", limit=30, window_sec=600)
     from security import ai_daily_quota
     await ai_daily_quota("platform", "sales_chat", 400)
     inq = await _raw_db.tenant_inquiries.find_one(
@@ -357,7 +357,7 @@ class PartnerInquiryIn(BaseModel):
 
 @router.post("/public/partner-inquiry")
 async def partner_inquiry(body: PartnerInquiryIn, request: Request):
-    public_rate_limit(request, "partner-inq", limit=5, window_sec=600)
+    await public_rate_limit(request, "partner-inq", limit=5, window_sec=600)
     now = datetime.now(timezone.utc).isoformat()
     doc = {
         "id": str(uuid.uuid4()), "name": body.name.strip(), "email": body.email,

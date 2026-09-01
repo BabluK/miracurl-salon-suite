@@ -125,7 +125,7 @@ class ResetRequestIn(BaseModel):
 
 @router.post("/employee/register")
 async def employee_register(body: RegisterIn, request: Request, response: Response):
-    public_rate_limit(request, key_suffix="emp-register", limit=5, window_sec=900)
+    await public_rate_limit(request, key_suffix="emp-register", limit=5, window_sec=900)
     emp = await _find_registry_emp_by_phone(body.phone)
     if not emp:
         raise HTTPException(404, NOT_REGISTERED_MSG)
@@ -179,7 +179,7 @@ def _mask_email(email: str) -> str:
 async def employee_reset_request(body: ResetRequestIn, request: Request):
     """Step 1 of reset: verify phone + Aadhaar, then email a one-time code.
     Aadhaar alone is NOT a reset secret — salons hold it too (SEC audit)."""
-    public_rate_limit(request, key_suffix="emp-reset-otp", limit=3, window_sec=900)
+    await public_rate_limit(request, key_suffix="emp-reset-otp", limit=3, window_sec=900)
     emp = await _find_registry_emp_by_phone(body.phone)
     if not emp:
         raise HTTPException(404, NOT_REGISTERED_MSG)
@@ -215,7 +215,7 @@ async def employee_reset_request(body: ResetRequestIn, request: Request):
 
 @router.post("/employee/reset-password")
 async def employee_reset_password(body: ResetIn, request: Request):
-    public_rate_limit(request, key_suffix="emp-reset", limit=5, window_sec=900)
+    await public_rate_limit(request, key_suffix="emp-reset", limit=5, window_sec=900)
     emp = await _find_registry_emp_by_phone(body.phone)
     if not emp:
         raise HTTPException(404, NOT_REGISTERED_MSG)

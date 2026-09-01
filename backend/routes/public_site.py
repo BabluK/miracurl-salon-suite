@@ -447,7 +447,7 @@ async def _create_public_appointment(cust: dict, staff: dict, services: list, bo
 @router.post("/public/book/{slug}")
 async def public_book(slug: str, body: PublicBookingIn, request: Request):
     t = await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"book:{slug}", limit=8, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"book:{slug}", limit=8, window_sec=600)
     _enforce_salon_hours(t, body.scheduled_at)
 
     services = (await db.services.find({"id": {"$in": body.service_ids}, "active": True}, {"_id": 0}).to_list(50)
@@ -519,7 +519,7 @@ async def public_book_default(body: PublicBookingIn, request: Request):
 @router.get("/public/coupon-check/{slug}/{code}")
 async def public_coupon_check(slug: str, code: str, request: Request):
     await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"coupon:{slug}", limit=20, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"coupon:{slug}", limit=20, window_sec=600)
     c = await _validate_coupon(code)
     return {"valid": True, "code": c["code"], "type": c["type"], "value": c["value"]}
 
@@ -653,7 +653,7 @@ def _order_receipt_html(order: dict, pay_link: str = "") -> str:
 
 @router.post("/public/product-orders")
 async def create_product_order(body: ProductOrderIn, request: Request):
-    public_rate_limit(request, key_suffix="product-order", limit=10, window_sec=600)
+    await public_rate_limit(request, key_suffix="product-order", limit=10, window_sec=600)
     cfg = await _raw_db.platform_settings.find_one({"key": "products"}, {"_id": 0}) or {}
     if not cfg.get("available"):
         raise HTTPException(400, "Products are not available for ordering yet")
@@ -760,7 +760,7 @@ def _norm_in_phone(v: str) -> str:
 async def public_guest_lookup(slug: str, request: Request, phone: str = ""):
     """Returning-guest greeting on the QR menu — first name + visit count only."""
     t = await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"guestlookup:{slug}", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"guestlookup:{slug}", limit=30, window_sec=600)
     digits = _norm_in_phone(phone)
     if not digits:
         return {"found": False}
@@ -779,7 +779,7 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
     t = await resolve_tenant_from_slug(slug)
     if (t.get("business_type") or "salon") != "restaurant":
         raise HTTPException(400, "Table ordering is only available for restaurants")
-    public_rate_limit(request, key_suffix=f"tableorder:{slug}", limit=15, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"tableorder:{slug}", limit=15, window_sec=600)
     ids = [str(i.get("id")) for i in body.items if i.get("id")]
     menu = {m["id"]: m for m in await db.services.find(
         {"id": {"$in": ids}, "active": True}, {"_id": 0}).to_list(60)}
@@ -835,7 +835,7 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
 async def public_table_order_status(slug: str, order_id: str, request: Request):
     """Diner-facing live status of their table order (new → preparing → served → billed)."""
     t = await resolve_tenant_from_slug(slug)
-    public_rate_limit(request, key_suffix=f"orderstatus:{slug}", limit=200, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"orderstatus:{slug}", limit=200, window_sec=600)
     o = await _raw_db.table_orders.find_one(
         {"tenant_id": t["id"], "id": order_id},
         {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "created_at": 1})
@@ -855,7 +855,7 @@ async def create_table_call(slug: str, body: TableCallIn, request: Request):
     t = await resolve_tenant_from_slug(slug)
     if (t.get("business_type") or "salon") != "restaurant":
         raise HTTPException(400, "Table calls are only available for restaurants")
-    public_rate_limit(request, key_suffix=f"tablecall:{slug}", limit=20, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"tablecall:{slug}", limit=20, window_sec=600)
     kind = body.kind if body.kind in ("waiter", "water", "bill") else "waiter"
     cutoff = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
     dup = await _raw_db.table_calls.find_one(

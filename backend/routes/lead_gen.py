@@ -916,7 +916,7 @@ async def _mark_unsubscribed(lid: str) -> None:
 @router.get("/public/lead-unsubscribe/{lid}")
 async def lead_unsubscribe(lid: str, request: Request):
     from security import public_rate_limit
-    public_rate_limit(request, "lead-unsub", limit=30, window_sec=600)
+    await public_rate_limit(request, "lead-unsub", limit=30, window_sec=600)
     await _mark_unsubscribed(lid)
     return Response(content=_UNSUB_HTML, media_type="text/html")
 
@@ -925,7 +925,7 @@ async def lead_unsubscribe(lid: str, request: Request):
 async def lead_unsubscribe_one_click(lid: str, request: Request):
     """RFC 8058 one-click unsubscribe (triggered by Gmail/Yahoo unsubscribe buttons)."""
     from security import public_rate_limit
-    public_rate_limit(request, "lead-unsub", limit=30, window_sec=600)
+    await public_rate_limit(request, "lead-unsub", limit=30, window_sec=600)
     await _mark_unsubscribed(lid)
     return {"ok": True}
 
@@ -934,7 +934,7 @@ async def lead_unsubscribe_one_click(lid: str, request: Request):
 async def lead_track_open(lid: str, request: Request):
     from security import public_rate_limit
     from routes.hq_documents import _PIXEL_PNG
-    public_rate_limit(request, "lead-open", limit=60, window_sec=600)
+    await public_rate_limit(request, "lead-open", limit=60, window_sec=600)
     await _raw_db.mira_leads.update_one(
         {"id": lid, "opened_at": None},
         {"$set": {"opened_at": _now()}})

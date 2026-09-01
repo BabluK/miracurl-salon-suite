@@ -128,7 +128,7 @@ async def feedback_follow_up(fid: str, user=Depends(require_super_admin)):
 
 @router.get("/public/feedback/{token}")
 async def feedback_page_info(token: str, request: Request):
-    public_rate_limit(request, "feedback-info", limit=30, window_sec=600)
+    await public_rate_limit(request, "feedback-info", limit=30, window_sec=600)
     fr = await _raw_db.feedback_requests.find_one({"id": token}, {"_id": 0})
     if not fr:
         raise HTTPException(404, "Feedback link not found or expired")
@@ -144,7 +144,7 @@ class FeedbackIn(BaseModel):
 
 @router.post("/public/feedback/{token}")
 async def submit_feedback(token: str, body: FeedbackIn, request: Request):
-    public_rate_limit(request, "feedback-submit", limit=10, window_sec=600)
+    await public_rate_limit(request, "feedback-submit", limit=10, window_sec=600)
     fr = await _raw_db.feedback_requests.find_one({"id": token}, {"_id": 0})
     if not fr:
         raise HTTPException(404, "Feedback link not found or expired")

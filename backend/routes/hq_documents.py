@@ -278,7 +278,7 @@ async def platform_earnings(user=Depends(require_super_admin)):
 async def public_brochure_pdf(request: Request):
     """Public Suite brochure — linked from outreach emails instead of attaching PDFs."""
     from security import public_rate_limit
-    public_rate_limit(request, "public-brochure", limit=30, window_sec=600)
+    await public_rate_limit(request, "public-brochure", limit=30, window_sec=600)
     from services.brochure import build_brochure_pdf
     pdf = await asyncio.to_thread(build_brochure_pdf, "salon")
     return Response(content=pdf, media_type="application/pdf",
@@ -858,7 +858,7 @@ _PIXEL_PNG = base64.b64decode(
 
 @router.get("/public/demo-track/{iid}/open.png")
 async def demo_track_open(iid: str, request: Request):
-    public_rate_limit(request, "demo-open", limit=60, window_sec=600)
+    await public_rate_limit(request, "demo-open", limit=60, window_sec=600)
     await _raw_db.demo_invites.update_one(
         {"id": iid, "opened_at": None},
         {"$set": {"opened_at": datetime.now(timezone.utc).isoformat(), "seen_by_hq_open": False}})
@@ -868,7 +868,7 @@ async def demo_track_open(iid: str, request: Request):
 
 @router.get("/public/demo-track/{iid}/click")
 async def demo_track_click(iid: str, request: Request):
-    public_rate_limit(request, "demo-click", limit=30, window_sec=600)
+    await public_rate_limit(request, "demo-click", limit=30, window_sec=600)
     now_iso = datetime.now(timezone.utc).isoformat()
     await _raw_db.demo_invites.update_one(
         {"id": iid, "opened_at": None}, {"$set": {"opened_at": now_iso, "seen_by_hq_open": False}})
@@ -1149,7 +1149,7 @@ def _slot_local_label(date_str: str, time_str: str, tz_name: str) -> str:
 
 @router.get("/public/demo-slot/{iid}")
 async def demo_slot_info(iid: str, request: Request):
-    public_rate_limit(request, "demo-slot-info", limit=30, window_sec=600)
+    await public_rate_limit(request, "demo-slot-info", limit=30, window_sec=600)
     inv = await _raw_db.demo_invites.find_one(
         {"id": iid}, {"_id": 0, "name": 1, "salon_name": 1, "preferred_slot": 1})
     if not inv:
@@ -1199,7 +1199,7 @@ async def _send_slot_confirmations(email: str, name: str, salon_name: str,
 
 @router.post("/public/demo-slot/{iid}")
 async def demo_slot_book(iid: str, body: DemoSlotIn, request: Request):
-    public_rate_limit(request, "demo-slot-book", limit=10, window_sec=600)
+    await public_rate_limit(request, "demo-slot-book", limit=10, window_sec=600)
     inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invite not found")
@@ -1238,7 +1238,7 @@ class PublicDemoIn(BaseModel):
 
 @router.get("/public/demo/slots")
 async def public_demo_slots(request: Request):
-    public_rate_limit(request, "demo-open-slots", limit=30, window_sec=600)
+    await public_rate_limit(request, "demo-open-slots", limit=30, window_sec=600)
     from datetime import timedelta
     today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
     return {"dates": [(today + timedelta(days=d)).isoformat() for d in range(1, 8)],
@@ -1308,7 +1308,7 @@ async def _book_open_demo(d: dict) -> dict:
 
 @router.post("/public/demo/book")
 async def public_demo_book(body: PublicDemoIn, request: Request):
-    public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
+    await public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
     return await _book_open_demo(body.model_dump())
 
 
@@ -1356,7 +1356,7 @@ async def _run_demo_chat_booking(reply: str, request: Request, tz: str) -> tuple
     try:
         data = _json.loads(payload.strip().strip("`").strip())
         # Same strict cap as the manual form — Mira gets no special treatment (anti-flood).
-        public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
+        await public_rate_limit(request, "demo-open-book", limit=5, window_sec=600)
         res = await _book_open_demo({**data, "tz": tz})
         booking = {**res["slot"], "gcal": res["gcal"], "email": str(data.get("email") or "").lower()}
         return _demo_booked_reply(reply, res), booking, None
@@ -1372,7 +1372,7 @@ async def _run_demo_chat_booking(reply: str, request: Request, tz: str) -> tuple
 async def public_demo_chat(body: DemoChatIn, request: Request):
     """Mira books the live demo on the visitor's behalf, conversationally."""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
-    public_rate_limit(request, "demo-chat", limit=25, window_sec=600)
+    await public_rate_limit(request, "demo-chat", limit=25, window_sec=600)
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         raise HTTPException(500, "AI key not configured")

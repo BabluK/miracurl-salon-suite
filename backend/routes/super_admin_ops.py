@@ -540,7 +540,7 @@ async def contact_hq(
     admin=Depends(require_tenant_admin), t=Depends(current_tenant),
 ):
     # Throttle per tenant: 5 messages / hour (audit P3 — email quota/storage abuse)
-    public_rate_limit(request, key_suffix=f"hq-{t['id']}", limit=5, window_sec=3600)
+    await public_rate_limit(request, key_suffix=f"hq-{t['id']}", limit=5, window_sec=3600)
     if len(files) > _HQ_MAX_FILES:
         raise HTTPException(400, f"Maximum {_HQ_MAX_FILES} attachments allowed")
     attachments, names, total = [], [], 0
@@ -795,7 +795,7 @@ async def save_partner_review(body: PartnerReviewIn, user=Depends(require_tenant
 @router.get("/public/partners")
 async def public_partners(request: Request):
     """Landing-page 'Trusted Partners': onboarded salons (auto) + manual partners."""
-    public_rate_limit(request, key_suffix="partners", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix="partners", limit=30, window_sec=600)
     by_tid = await _reviews_by_tenant()
     tenants = await _raw_db.tenants.find(
         {"status": {"$in": ["active", "trial"]}},

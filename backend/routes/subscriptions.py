@@ -1229,6 +1229,12 @@ async def _record_partner_commission(t: dict, pay: dict) -> None:
     ref_edge = await _rdb.affiliate_referrals.find_one({"referred_tenant_id": t["id"]})
     if not (ref_edge and ref_edge.get("referrer_tenant_id")):
         return
+    # SEC hardening: no self-referral or same-owner commission farming
+    if ref_edge["referrer_tenant_id"] == t["id"]:
+        return
+    ref_t = await _rdb.tenants.find_one({"id": ref_edge["referrer_tenant_id"]}, {"_id": 0, "owner_email": 1})
+    if ref_t and (ref_t.get("owner_email") or "").lower() == (t.get("owner_email") or "").lower() and ref_t.get("owner_email"):
+        return
     try:
         ref_start = datetime.fromisoformat(str(ref_edge.get("created_at", "")).replace("Z", "+00:00"))
         within = (datetime.now(timezone.utc) - ref_start).days <= 365

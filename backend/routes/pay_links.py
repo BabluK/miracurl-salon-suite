@@ -362,7 +362,7 @@ async def run_trial_nudges() -> int:
 
 @router.get("/public/pay-link/{token}")
 async def public_pay_link(token: str, request: Request):
-    public_rate_limit(request, key_suffix="pay-link", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix="pay-link", limit=30, window_sec=600)
     link = await _raw_db.subscription_pay_links.find_one({"token": token}, {"_id": 0})
     if not link:
         raise HTTPException(404, "This payment link doesn't exist — please ask Miracurl HQ for a fresh one")
@@ -382,7 +382,7 @@ async def public_pay_link(token: str, request: Request):
 
 @router.post("/public/pay-link/{token}/order")
 async def public_pay_link_order(token: str, request: Request):
-    public_rate_limit(request, key_suffix="pay-link-order", limit=10, window_sec=600)
+    await public_rate_limit(request, key_suffix="pay-link-order", limit=10, window_sec=600)
     link = await _raw_db.subscription_pay_links.find_one({"token": token}, {"_id": 0})
     if not link:
         raise HTTPException(404, "Payment link not found")
@@ -524,7 +524,7 @@ async def _finalize_paid_link(link: dict, method: str, payment_ref: str, now: da
 
 @router.post("/public/pay-link/{token}/verify")
 async def public_pay_link_verify(body: PayLinkVerifyIn, token: str, request: Request):
-    public_rate_limit(request, key_suffix="pay-link-verify", limit=10, window_sec=600)
+    await public_rate_limit(request, key_suffix="pay-link-verify", limit=10, window_sec=600)
     if not (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET):
         raise HTTPException(503, "Razorpay is not configured.")
     if not _verify_rzp_signature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature):
@@ -551,7 +551,7 @@ class StripeCheckoutIn(BaseModel):
 @router.post("/public/pay-link/{token}/stripe-checkout")
 async def pay_link_stripe_checkout(token: str, body: StripeCheckoutIn, request: Request):
     """International links: card payment via Stripe Checkout."""
-    public_rate_limit(request, key_suffix="pay-link-stripe", limit=10, window_sec=600)
+    await public_rate_limit(request, key_suffix="pay-link-stripe", limit=10, window_sec=600)
     if not os.environ.get("STRIPE_API_KEY"):
         raise HTTPException(503, "Stripe is not configured. Contact Miracurl HQ.")
     link = await _raw_db.subscription_pay_links.find_one({"token": token}, {"_id": 0})
@@ -597,7 +597,7 @@ async def settle_stripe_pay_link(session_id: str) -> bool:
 
 @router.get("/public/pay-link/{token}/stripe-status/{session_id}")
 async def pay_link_stripe_status(token: str, session_id: str, request: Request):
-    public_rate_limit(request, key_suffix="pay-link-stripe-status", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix="pay-link-stripe-status", limit=30, window_sec=600)
     link = await _raw_db.subscription_pay_links.find_one(
         {"token": token, "stripe_session_id": session_id}, {"_id": 0})
     if not link:

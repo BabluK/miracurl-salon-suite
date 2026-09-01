@@ -18,7 +18,7 @@ from models import Tenant
 from security import (
     JWT_ALG, jwt_secret, hash_pw, verify_pw, make_access, make_refresh,
     set_auth_cookies, get_current_user, require_tenant_admin, current_tenant,
-    public_rate_limit, revoke_token_jtis, _reject_if_revoked,
+    public_rate_limit, global_daily_cap, revoke_token_jtis, _reject_if_revoked,
     _reject_if_token_predates_password_change, client_ip,
     start_session, current_sid,
 )
@@ -371,9 +371,9 @@ def _build_signup_owner(body: SalonSignupIn, email: str, tenant_id: str) -> dict
 
 async def _send_signup_welcome(tenant: dict, body: SalonSignupIn, trial_end: str) -> None:
     from email_service import _send_email, restaurant_welcome_email_html, salon_welcome_email_html
-    from routes.super_admin_ops import _generate_onboarding_poster
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
-    poster_url = await _generate_onboarding_poster(tenant)
+    # SEC-001: poster (paid AI image) is generated on the owner's FIRST LOGIN, not at signup
+    poster_url = ""
     is_resto = tenant.get("business_type") == "restaurant"
     if is_resto:
         subject = f"Welcome to Miracurl — {tenant['name']} is ready to serve 🍽️✦"
@@ -396,7 +396,9 @@ async def _send_signup_welcome(tenant: dict, body: SalonSignupIn, trial_end: str
 
 @router.post("/public/signup-salon")
 async def public_signup_salon(body: SalonSignupIn, request: Request, response: Response):
-    public_rate_limit(request, key_suffix="signup", limit=4, window_sec=900)
+    await public_rate_limit(request, key_suffix="signup", limit=4, window_sec=900)
+    await global_daily_cap("signup", 50, "New signups are temporarily paused due to unusually high demand — "
+                                         "please try again tomorrow or contact us at miracurl-suite.com/contact-us.")
 
     email = body.owner_email.lower()
     if await db.users.find_one({"email": email}):
@@ -411,6 +413,7 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     referrer = await _resolve_referrer(body.ref, candidate)
 
     tenant = _build_signup_tenant(body, candidate, referrer, trial_end)
+    tenant["welcome_poster_pending"] = True  # SEC-001: paid AI poster deferred to first login
     if trial_days == 90:
         tenant["signup_offer"] = "newbiz"
     await db.tenants.insert_one(tenant)
@@ -510,6 +513,16 @@ async def _issue_session(user: dict, email: str, request: Request, response: Res
     return {"user": user}
 
 
+async def _deferred_welcome_poster(tid: str) -> None:
+    """SEC-001: generate the AI welcome poster only once a real owner logs in (bots never trigger it)."""
+    t = await db.tenants.find_one({"id": tid, "welcome_poster_pending": True}, {"_id": 0})
+    if not t:
+        return
+    await db.tenants.update_one({"id": tid}, {"$unset": {"welcome_poster_pending": ""}})
+    from routes.super_admin_ops import _generate_onboarding_poster
+    await _generate_onboarding_poster(t)
+
+
 @router.post("/auth/login")
 async def login(body: LoginIn, request: Request, response: Response):
     email = body.email.lower()
@@ -528,6 +541,8 @@ async def login(body: LoginIn, request: Request, response: Response):
     if user.get("disabled"):
         raise HTTPException(403, "Your account has been disabled by the salon admin. Please contact them.")
     await db.login_attempts.delete_many({"identifier": {"$in": [ident, acct_ident]}})
+    if user.get("role") == "admin" and user.get("tenant_id"):
+        asyncio.create_task(_deferred_welcome_poster(user["tenant_id"]))
     return await _issue_session(user, email, request, response, body.remember)
 
 @router.post("/auth/logout")
@@ -644,7 +659,7 @@ async def _send_reset_email(login_email: str, recipient: str, token: str):
 @router.post("/auth/forgot-password")
 async def forgot(body: ForgotIn, request: Request):
     from security import public_rate_limit
-    public_rate_limit(request, key_suffix="forgotpw", limit=5, window_sec=3600)
+    await public_rate_limit(request, key_suffix="forgotpw", limit=5, window_sec=3600)
     email = body.email.lower()
     user = await db.users.find_one({"email": email})
     reset_recipient = email

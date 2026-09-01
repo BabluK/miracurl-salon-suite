@@ -291,7 +291,7 @@ def _studio_session(u: dict) -> dict:
 
 @router.post("/public/mira-studio/register")
 async def studio_register(body: RegisterIn, request: Request):
-    public_rate_limit(request, "studio-register", limit=6, window_sec=3600)
+    await public_rate_limit(request, "studio-register", limit=6, window_sec=3600)
     email = body.email.lower().strip()
     if await _raw_db.studio_users.find_one({"email": email}, {"_id": 0, "id": 1}):
         raise HTTPException(400, "An account with this email already exists — log in instead")
@@ -311,7 +311,7 @@ async def studio_register(body: RegisterIn, request: Request):
 
 @router.post("/public/mira-studio/login")
 async def studio_login(body: LoginIn, request: Request):
-    public_rate_limit(request, "studio-login", limit=10, window_sec=600)
+    await public_rate_limit(request, "studio-login", limit=10, window_sec=600)
     u = await _raw_db.studio_users.find_one({"email": body.email.lower().strip()}, {"_id": 0})
     if not u or not verify_pw(body.password, u["password_hash"]):
         raise HTTPException(401, "Wrong email or password")
@@ -362,7 +362,7 @@ async def studio_plans():
 @router.post("/mira-studio/buy")
 async def studio_buy(body: BuyIn, request: Request, authorization: str = Header(default="")):
     u = await _studio_user(authorization)
-    public_rate_limit(request, "studio-buy", limit=10, window_sec=600)
+    await public_rate_limit(request, "studio-buy", limit=10, window_sec=600)
     plan = CREDIT_PLANS.get(body.plan)
     if not plan:
         raise HTTPException(400, "Unknown plan")
@@ -406,7 +406,7 @@ async def studio_buy_verify(body: BuyVerifyIn, authorization: str = Header(defau
 @router.post("/public/mira-builder/start")
 async def builder_start(body: StartIn, request: Request, authorization: str = Header(default="")):
     u = await _studio_user(authorization)
-    public_rate_limit(request, "mira-builder", limit=6, window_sec=3600)
+    await public_rate_limit(request, "mira-builder", limit=6, window_sec=3600)
     day_ago = datetime.now(timezone.utc).timestamp() - 86400
     recent = await _raw_db.builder_projects.count_documents(
         {"created_ts": {"$gte": day_ago}})
@@ -429,7 +429,7 @@ async def builder_start(body: StartIn, request: Request, authorization: str = He
 
 @router.get("/public/mira-builder/status/{pid}")
 async def builder_status(pid: str, request: Request):
-    public_rate_limit(request, "mira-builder-status", limit=240, window_sec=600)
+    await public_rate_limit(request, "mira-builder-status", limit=240, window_sec=600)
     doc = await _raw_db.builder_projects.find_one({"id": pid}, {"_id": 0, "html": 0, "gen_files": 0, "lead": 0})
     if not doc:
         raise HTTPException(404, "Project not found")
@@ -465,7 +465,7 @@ async def _run_refine(pid: str, owner_id: str, prompt: str, category: str, html_
 @router.post("/public/mira-builder/refine")
 async def builder_refine(body: RefineIn, request: Request, authorization: str = Header(default="")):
     u = await _studio_user(authorization)
-    public_rate_limit(request, "mira-builder-refine", limit=10, window_sec=3600)
+    await public_rate_limit(request, "mira-builder-refine", limit=10, window_sec=3600)
     doc = await _raw_db.builder_projects.find_one({"id": body.project_id, "owner_id": u["id"]}, {"_id": 0})
     if not doc or doc.get("kind") != "website" or not doc.get("html"):
         raise HTTPException(404, "Live website project not found")
@@ -496,7 +496,7 @@ async def serve_site(slug: str):
 
 @router.get("/public/mira-builder/download/{pid}")
 async def builder_download(pid: str, request: Request):
-    public_rate_limit(request, "mira-builder-dl", limit=10, window_sec=600)
+    await public_rate_limit(request, "mira-builder-dl", limit=10, window_sec=600)
     doc = await _raw_db.builder_projects.find_one({"id": pid}, {"_id": 0})
     if not doc or doc.get("status") not in ("live", "code_ready", "refining"):
         raise HTTPException(404, "Project not ready")
@@ -634,7 +634,7 @@ _GH_API = "https://api.github.com"
 @router.post("/public/mira-builder/upload-image")
 async def builder_upload_image(request: Request, file: UploadFile = File(...), authorization: str = Header(default="")):
     u = await _studio_user(authorization)
-    public_rate_limit(request, "mira-builder-upload", limit=20, window_sec=3600)
+    await public_rate_limit(request, "mira-builder-upload", limit=20, window_sec=3600)
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(400, "Only image files are allowed")
     data = await file.read()
@@ -665,7 +665,7 @@ class AnalyzeIn(BaseModel):
 @router.post("/public/mira-builder/analyze")
 async def builder_analyze(body: AnalyzeIn, request: Request, authorization: str = Header(default="")):
     u = await _studio_user(authorization)
-    public_rate_limit(request, "mira-builder-analyze", limit=10, window_sec=3600)
+    await public_rate_limit(request, "mira-builder-analyze", limit=10, window_sec=3600)
     doc = await _raw_db.builder_projects.find_one({"id": body.project_id, "owner_id": u["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Project not found")
@@ -727,7 +727,7 @@ def _project_export_files(doc: dict) -> list[dict]:
 @router.post("/public/mira-builder/github-export")
 async def builder_github_export(body: GithubExportIn, request: Request, authorization: str = Header(default="")):
     u = await _studio_user(authorization)
-    public_rate_limit(request, "mira-builder-github", limit=6, window_sec=3600)
+    await public_rate_limit(request, "mira-builder-github", limit=6, window_sec=3600)
     doc = await _raw_db.builder_projects.find_one({"id": body.project_id, "owner_id": u["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Project not found")

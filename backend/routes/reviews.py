@@ -157,7 +157,7 @@ async def delete_review(rid: str, user=Depends(require_admin)):
 @router.get("/public/review-info/{token}")
 async def public_review_info(token: str, request: Request):
     """Token = appointment_id. Returns appointment summary so the customer can confirm."""
-    public_rate_limit(request, key_suffix="review-info", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix="review-info", limit=30, window_sec=600)
     # No tenant context — resolve appointment or invoice globally, then set tenant
     appt = await _resolve_visit(token)
     if not appt:
@@ -202,7 +202,7 @@ async def public_review_info(token: str, request: Request):
 
 @router.post("/public/review/{token}")
 async def public_review(token: str, body: ReviewIn, request: Request):
-    public_rate_limit(request, key_suffix="review", limit=10, window_sec=600)
+    await public_rate_limit(request, key_suffix="review", limit=10, window_sec=600)
     appt = await _resolve_visit(token)
     if not appt:
         raise HTTPException(404, "Invalid review link")
@@ -279,7 +279,7 @@ class ReviewDraftIn(BaseModel):
 @router.post("/public/review-draft/{token}")
 async def public_review_draft(token: str, body: ReviewDraftIn, request: Request):
     """Mira writes a ready-to-paste Google review from the guest's actual visit (4-5★ only)."""
-    public_rate_limit(request, key_suffix="review-draft", limit=6, window_sec=600)
+    await public_rate_limit(request, key_suffix="review-draft", limit=6, window_sec=600)
     await durable_rate_limit(request, "review-draft", limit=6, window_sec=600)
     appt = await _resolve_visit(token)
     if not appt:
@@ -390,7 +390,7 @@ async def _qr_event(tenant_id: str, event: str, rating: int | None = None):
 
 @router.get("/public/rate-info/{slug}")
 async def public_rate_info(slug: str, request: Request):
-    public_rate_limit(request, key_suffix="rate-info", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix="rate-info", limit=30, window_sec=600)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "location": 1, "google_review_url": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
@@ -406,7 +406,7 @@ async def public_rate_info(slug: str, request: Request):
 @router.post("/public/rate-draft/{slug}")
 async def public_rate_draft(slug: str, body: RateDraftIn, request: Request):
     """Mira writes a Google review for a walk-up QR scan (4-5★ only)."""
-    public_rate_limit(request, key_suffix="rate-draft", limit=6, window_sec=600)
+    await public_rate_limit(request, key_suffix="rate-draft", limit=6, window_sec=600)
     await durable_rate_limit(request, "rate-draft", limit=6, window_sec=600)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "location": 1, "google_review_url": 1})
     if not t:
@@ -426,7 +426,7 @@ async def public_rate_draft(slug: str, body: RateDraftIn, request: Request):
 
 @router.post("/public/rate-submit/{slug}")
 async def public_rate_submit(slug: str, body: RateSubmitIn, request: Request):
-    public_rate_limit(request, key_suffix="rate-submit", limit=6, window_sec=600)
+    await public_rate_limit(request, key_suffix="rate-submit", limit=6, window_sec=600)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
@@ -452,7 +452,7 @@ async def public_rate_submit(slug: str, body: RateSubmitIn, request: Request):
 @router.post("/public/rate-track/{slug}")
 async def public_rate_track(slug: str, request: Request):
     """Beacon: guest was sent to the Google review box (review copied)."""
-    public_rate_limit(request, key_suffix="rate-track", limit=10, window_sec=600)
+    await public_rate_limit(request, key_suffix="rate-track", limit=10, window_sec=600)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
     if not t:
         raise HTTPException(404, "Salon not found")

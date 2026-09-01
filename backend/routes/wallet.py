@@ -93,7 +93,7 @@ class BalanceLookupIn(BaseModel):
 async def public_wallet_balance(slug: str, body: BalanceLookupIn, request: Request):
     """Guest checks their own wallet credit on the booking page. Exact 10-digit match only,
     heavily rate-limited per IP and per phone; no personal data beyond the balance."""
-    public_rate_limit(request, key_suffix="wallet-lookup", limit=3, window_sec=600)
+    await public_rate_limit(request, key_suffix="wallet-lookup", limit=3, window_sec=600)
     await durable_rate_limit(request, "wallet-lookup", limit=3, window_sec=600)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
     if not t:

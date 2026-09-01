@@ -133,7 +133,7 @@ async def loyalty_gift_report(start: str, end: str, user=Depends(get_current_use
 @router.get("/public/loyalty/{slug}")
 async def public_view_card(slug: str, phone: str, request: Request):
     """Guest checks their own stamp card on the booking page. Rate-limited like wallet lookup."""
-    public_rate_limit(request, key_suffix="stamp-lookup", limit=5, window_sec=600)
+    await public_rate_limit(request, key_suffix="stamp-lookup", limit=5, window_sec=600)
     await durable_rate_limit(request, "stamp-lookup", limit=5, window_sec=600)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "business_type": 1, "loyalty_stamps": 1})
     if not t:
@@ -175,7 +175,7 @@ class LoyaltyJoinIn(BaseModel):
 @router.post("/public/loyalty-join/{slug}")
 async def public_loyalty_join(slug: str, body: LoyaltyJoinIn, request: Request):
     """Walk-in guest scans the Loyalty Club QR and joins with name/phone/email."""
-    public_rate_limit(request, key_suffix="loyalty-join", limit=6, window_sec=600)
+    await public_rate_limit(request, key_suffix="loyalty-join", limit=6, window_sec=600)
     await durable_rate_limit(request, "loyalty-join", limit=6, window_sec=600)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "location": 1, "loyalty_stamps": 1})
     if not t:

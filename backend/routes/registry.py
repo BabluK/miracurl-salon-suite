@@ -538,7 +538,7 @@ _NAME_REQUIRED_MSG = ("To verify this staff member, also enter their name exactl
 
 @router.get("/public/registry/search")
 async def registry_public_search(q: str, request: Request, name: str = ""):
-    public_rate_limit(request, key_suffix="registry", limit=10, window_sec=600)
+    await public_rate_limit(request, key_suffix="registry", limit=10, window_sec=600)
     qs = (q or "").strip()
     if not qs:
         raise HTTPException(400, "Enter a Staff ID or phone number")
@@ -578,7 +578,7 @@ async def registry_public_search(q: str, request: Request, name: str = ""):
 
 @router.get("/public/registry/{staff_code}/pdf")
 async def registry_public_pdf(staff_code: str, request: Request, name: str = ""):
-    public_rate_limit(request, key_suffix="registry-pdf", limit=10, window_sec=600)
+    await public_rate_limit(request, key_suffix="registry-pdf", limit=10, window_sec=600)
     emp = await _raw_db.registry_employees.find_one({"staff_code": staff_code.upper()}, {"_id": 0})
     if not emp:
         raise HTTPException(404, "Staff not found")
@@ -747,7 +747,7 @@ async def _apply_owner_rating(req: dict, key: str):
 @router.get("/public/registry/owner-rate/{token}/{key}")
 async def owner_rate_click(token: str, key: str, request: Request):
     """One-click rating from the owner email. Records instantly; re-click to change."""
-    public_rate_limit(request, "owner-rate", limit=30, window_sec=600)
+    await public_rate_limit(request, "owner-rate", limit=30, window_sec=600)
     if key not in OWNER_RATINGS:
         raise HTTPException(400, "Unknown rating")
     req = await _req_by_token(token)
@@ -772,7 +772,7 @@ async def owner_rate_click(token: str, key: str, request: Request):
 @router.get("/public/registry/owner-relieving/{token}")
 async def owner_relieving_form(token: str, request: Request):
     """Owner requests a relieving letter for a departed staff member (public form)."""
-    public_rate_limit(request, "owner-relieving", limit=20, window_sec=600)
+    await public_rate_limit(request, "owner-relieving", limit=20, window_sec=600)
     req = await _req_by_token(token)
     staff = html_lib.escape(req.get("name") or "the staff member")
     rl = req.get("relieving_request") or {}
@@ -809,7 +809,7 @@ async def owner_relieving_form(token: str, request: Request):
 async def owner_relieving_submit(token: str, request: Request,
                                  letter_type: str = Form(...), last_date: str = Form(""),
                                  reason: str = Form("")):
-    public_rate_limit(request, "owner-relieving-post", limit=10, window_sec=600)
+    await public_rate_limit(request, "owner-relieving-post", limit=10, window_sec=600)
     if letter_type not in ("excellent", "standard", "terminated", "absconded"):
         raise HTTPException(400, "Unknown letter type")
     req = await _req_by_token(token)
@@ -832,7 +832,7 @@ async def owner_relieving_submit(token: str, request: Request,
 async def registry_dispute(request: Request, staff_code: str = Form(""), name: str = Form(...),
                            phone: str = Form(""), message: str = Form(...)):
     """Staff appeals a termination mark on their public profile → lands in HQ Inbox."""
-    public_rate_limit(request, "registry-dispute", limit=3, window_sec=3600)
+    await public_rate_limit(request, "registry-dispute", limit=3, window_sec=3600)
     if len(name.strip()) < 2 or len(message.strip()) < 10:
         raise HTTPException(400, "Please share your name and a short explanation (at least 10 characters)")
     await _raw_db.hq_messages.insert_one({
@@ -854,7 +854,7 @@ async def registry_get_verified(request: Request,
                                 joining: str = Form(""), experience: str = Form(""),
                                 photo: Optional[UploadFile] = File(None)):
     """External stylist asks for a verified badge — lands in HQ → Staff Verification."""
-    public_rate_limit(request, "get-verified", limit=5, window_sec=600)
+    await public_rate_limit(request, "get-verified", limit=5, window_sec=600)
     if len(name.strip()) < 2:
         raise HTTPException(400, "Enter your full name")
     digits = re.sub(r"\D", "", phone)

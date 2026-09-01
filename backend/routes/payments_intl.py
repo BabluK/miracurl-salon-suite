@@ -47,7 +47,7 @@ class DepositCheckoutIn(BaseModel):
 @router.post("/public/{slug}/deposit/checkout")
 async def deposit_checkout(slug: str, body: DepositCheckoutIn, request: Request):
     """Stripe Checkout for the salon's booking deposit (amount set server-side)."""
-    public_rate_limit(request, "deposit-checkout", limit=10, window_sec=600)
+    await public_rate_limit(request, "deposit-checkout", limit=10, window_sec=600)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "currency": 1, "deposit_amount": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
@@ -188,7 +188,7 @@ async def stripe_sub_status(session_id: str, request: Request,
 @router.get("/public/renew/{token}")
 async def public_renew_redirect(token: str, request: Request):
     """One-click renewal from the reminder email — redirects straight to Stripe Checkout."""
-    public_rate_limit(request, "renew-link", limit=10, window_sec=600)
+    await public_rate_limit(request, "renew-link", limit=10, window_sec=600)
     t = await _raw_db.tenants.find_one({"renewal_pay_token": token},
                                        {"_id": 0, "id": 1, "slug": 1, "plan": 1, "currency": 1})
     if not t or (t.get("currency") or "INR") == "INR":

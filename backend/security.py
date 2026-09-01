@@ -343,8 +343,7 @@ def _log_sec_event(kind: str, tenant_id: str = "", ip: str = "", detail: str = "
         pass
 
 
-def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, window_sec: int = 600):
-    """Allow `limit` requests per IP per `window_sec` seconds."""
+def _mem_rate_check(request: Request, key_suffix: str, limit: int, window_sec: int):
     ip = client_ip(request)
     key = f"{ip}:{key_suffix}"
     now = datetime.now(timezone.utc).timestamp()
@@ -354,6 +353,25 @@ def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, wi
         raise HTTPException(429, "Too many requests. Please wait a few minutes and try again.")
     bucket.append(now)
     _RATE_BUCKET[key] = bucket
+
+
+async def public_rate_limit(request: Request, key_suffix: str = "", limit: int = 8, window_sec: int = 600):
+    """Allow `limit` requests per IP per `window_sec` — in-memory fast path PLUS the durable
+    Mongo-backed window (survives restarts, shared across workers; SEC-001 audit fix)."""
+    _mem_rate_check(request, key_suffix, limit, window_sec)
+    await durable_rate_limit(request, key_suffix, limit, window_sec)
+
+
+async def global_daily_cap(kind: str, limit: int, message: str = ""):
+    """Platform-wide (not per-IP) daily cap for abuse-prone public flows — IP rotation can't evade it."""
+    now = datetime.now(timezone.utc)
+    doc = await _raw_db.rate_limits.find_one_and_update(
+        {"_id": f"global:{kind}:{now.strftime('%Y-%m-%d')}"},
+        {"$inc": {"n": 1}, "$setOnInsert": {"expire_at": now + timedelta(days=2)}},
+        upsert=True, return_document=ReturnDocument.AFTER)
+    if doc["n"] > limit:
+        _log_sec_event("global_cap", ip="-", detail=kind)
+        raise HTTPException(429, message or "We're experiencing unusually high traffic — please try again later.")
 
 
 _rl_index_ready = False

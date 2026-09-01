@@ -151,7 +151,7 @@ async def apply_job(rid: str, body: JobApplyIn, request: Request):
     """Only staff already in the HQ-verified registry can apply — verified by registered
     phone + matching name. SEC-002: rate-limited and always returns a generic response so
     registry membership can't be enumerated."""
-    public_rate_limit(request, key_suffix="jobapply", limit=6, window_sec=3600)
+    await public_rate_limit(request, key_suffix="jobapply", limit=6, window_sec=3600)
     req = await _raw_db.hiring_requests.find_one({"id": rid, "status": "open"}, {"_id": 0})
     if not req:
         raise HTTPException(404, "This position is no longer open")
@@ -540,7 +540,7 @@ async def public_candidate(token: str):
 
 @router.post("/public/candidate/{token}/confirm-trial")
 async def confirm_trial(token: str, request: Request):
-    public_rate_limit(request, key_suffix="candconfirm", limit=20, window_sec=3600)
+    await public_rate_limit(request, key_suffix="candconfirm", limit=20, window_sec=3600)
     app_doc = await _raw_db.job_applications.find_one({"share_token": token}, {"_id": 0})
     if not app_doc:
         raise HTTPException(404, "Profile link expired or invalid")

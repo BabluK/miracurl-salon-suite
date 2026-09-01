@@ -109,7 +109,7 @@ async def gift_card_preview_email(request: Request, slug: str, occasion: str = "
                                   amount: float = 1000, recipient_name: str = "", buyer_name: str = "",
                                   message: str = ""):
     """Exact e-card email HTML the recipient will receive — code masked until purchase."""
-    public_rate_limit(request, "gift-preview", limit=20, window_sec=600)
+    await public_rate_limit(request, "gift-preview", limit=20, window_sec=600)
     t = _absolute_logo(await _tenant_by_slug(slug), request)
     gc = _preview_gift_card(t, slug, occasion, amount, recipient_name, buyer_name, message)
     return {"html": _ecard_html(gc, t)}
@@ -188,7 +188,7 @@ def _gift_payment_init(gc: dict, t: dict, s: dict, key_id: str, key_secret: str)
 
 @router.post("/public/gift-cards/{slug}/order")
 async def gift_card_order(slug: str, body: GiftOrderIn, request: Request):
-    public_rate_limit(request, "gift-order", limit=10, window_sec=600)
+    await public_rate_limit(request, "gift-order", limit=10, window_sec=600)
     t = await _tenant_by_slug(slug)
     s = _gc_settings(t)
     key_id, key_secret = _validate_gift_order(body, t, s)
@@ -218,7 +218,7 @@ class RazorpayVerifyIn(BaseModel):
 @router.post("/public/gift-cards/verify")
 async def gift_card_verify(body: RazorpayVerifyIn, request: Request):
     """Razorpay checkout callback → verify signature → issue the card."""
-    public_rate_limit(request, "gift-verify", limit=20, window_sec=600)
+    await public_rate_limit(request, "gift-verify", limit=20, window_sec=600)
     gc = await _raw_db.gift_cards.find_one(
         {"razorpay_order_id": body.razorpay_order_id}, {"_id": 0})
     if not gc:
@@ -270,7 +270,7 @@ async def _store_payment_proof(gc: dict, proof_b64: str) -> str:
 
 @router.post("/public/gift-cards/{gcid}/upi-paid")
 async def gift_card_upi_paid(gcid: str, body: UpiPaidIn, request: Request):
-    public_rate_limit(request, "gift-upi-paid", limit=10, window_sec=600)
+    await public_rate_limit(request, "gift-upi-paid", limit=10, window_sec=600)
     gc = await _raw_db.gift_cards.find_one({"id": gcid}, {"_id": 0})
     if not gc:
         raise HTTPException(404, "Order not found")

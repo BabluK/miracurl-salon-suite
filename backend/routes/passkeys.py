@@ -124,7 +124,7 @@ async def pk_register_verify(body: CredIn, request: Request, user=Depends(get_cu
 
 @router.post("/passkeys/login/options")
 async def pk_login_options(body: LoginOptsIn, request: Request):
-    public_rate_limit(request, "pk-login", limit=20, window_sec=600)
+    await public_rate_limit(request, "pk-login", limit=20, window_sec=600)
     await _raw_db.webauthn_challenges.delete_many({"expires_at": {"$lt": _now().isoformat()}})
     rp_id, _ = _rp(request)
     creds = []
@@ -143,7 +143,7 @@ async def pk_login_options(body: LoginOptsIn, request: Request):
 
 @router.post("/passkeys/login/verify")
 async def pk_login_verify(body: CredIn, request: Request, response: Response):
-    public_rate_limit(request, "pk-login-verify", limit=20, window_sec=600)
+    await public_rate_limit(request, "pk-login-verify", limit=20, window_sec=600)
     ch = _challenge_from_credential(body.credential)
     row = await _raw_db.webauthn_challenges.find_one_and_delete(
         {"purpose": "auth", "challenge": ch, "expires_at": {"$gt": _now().isoformat()}})
