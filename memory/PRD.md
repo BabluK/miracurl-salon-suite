@@ -2599,3 +2599,6 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 1. Append/extend the newest entry in `/app/backend/release_notes.py` `RELEASES[0]` (owner-facing wording; prefix HQ-only items with "Super Admin:" so they're hidden from the owners' What's New popup),
 2. Bump `BUILD` (YYYY-MM-DD.N) and `BUILD_TIME` (IST).
 This drives Super Admin → Deployments history, the footer tag, the "What's New ✨" popup and the "New version available" toast. Done 2026-09-02 → BUILD 2026-09-02.179 with 14 entries covering this session.
+
+## 2026-09-02 — 🔔 HQ Alerts: seen/clear behaviour (user request)
+- `SuperNotifBell.jsx`: alert keys `${tenantId}:${pill}` / `inbox:${n}` stored in localStorage `hq_alerts_seen_v1` as "seen" (badge no longer counts it; opening the bell marks all seen) or "dismissed" (hidden via "Clear all"). Changed state (new days-left pill / new unread count) re-fires. Release note extended; BUILD stays 2026-09-02.179 (same deploy).
