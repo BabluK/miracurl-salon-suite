@@ -172,6 +172,6 @@ async def pk_login_verify(body: CredIn, request: Request, response: Response):
         raise HTTPException(401, "Account disabled")
     from routes.auth import _subscription_gate
     await _subscription_gate(user)
-    sid = await start_session(user["id"], user["email"], user.get("tenant_id"), request)
+    sid = await start_session(user["id"], user["email"], user.get("tenant_id"), request, method="passkey")
     set_auth_cookies(response, make_access(user["id"], user["email"], sid), make_refresh(user["id"], sid), persistent=True)
     return {"ok": True, "user": {k: user.get(k) for k in ("id", "email", "name", "role", "branch", "tenant_id")}}

@@ -2578,3 +2578,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - P3 hardening: per-account lockout re-engages every 5 failures after the first 10 (`routes/auth.py`), was every 10.
 - Verified with a simulated WebAuthn verify: sid present + session row created; suspended tenant → 403 `suspended`; revoked sid → 401.
 - Remaining P3 notes (not changed): Mira Studio bearer token in localStorage; CSRF Origin/Referer fallback; unauthenticated /api/files/{id} (public images only).
+
+## 2026-09-02 — 📱 Device Session Manager with location (user request)
+- `security.start_session` now records `method` (password/passkey) and geolocates the IP in a background task via ipwho.is (free, HTTPS, no key), cached 30d in `ip_geo`; private IPs → "Local network". `/auth/sessions` lazily backfills location for older sessions.
+- `components/settings/DevicesCard.jsx` redesigned: current device pinned, "Other devices" list with device/browser, flag + city/region/country, login method, last active, IP; "New location" badge + amber alert when a device's country differs from the current one; confirm dialogs; per-device Sign out and Sign out all others.
+- Verified: two logins with spoofed XFF (US/IN) geolocated correctly; DELETE /auth/sessions/{sid} → that device's next request 401.

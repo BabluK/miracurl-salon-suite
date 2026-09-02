@@ -600,8 +600,15 @@ async def list_sessions(request: Request, user=Depends(get_current_user)):
     rows = await _raw_db.sessions.find(
         {"user_id": user["id"], "revoked": False, "last_seen": {"$gte": active_since}},
         {"_id": 0}).sort("last_seen", -1).to_list(50)
+    from security import _geo_lookup
     for r in rows:
         r["current"] = r["sid"] == cur
+        if not r.get("location"):
+            geo = await _geo_lookup(r.get("ip", ""))
+            r.update({"location": geo.get("label", ""), "city": geo.get("city", ""),
+                      "country": geo.get("country", ""), "country_code": geo.get("country_code", "")})
+            await _raw_db.sessions.update_one({"sid": r["sid"]}, {"$set": {
+                "location": r["location"], "city": r["city"], "country": r["country"], "country_code": r["country_code"]}})
     return {"sessions": rows}
 
 

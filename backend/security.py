@@ -78,7 +78,47 @@ def _device_label(ua: str) -> str:
     return f"{br} on {dev}"
 
 
-async def start_session(user_id: str, email: str, tenant_id, request: Request) -> str:
+def _is_private_ip(ip: str) -> bool:
+    import ipaddress
+    try:
+        a = ipaddress.ip_address(ip)
+        return a.is_private or a.is_loopback or a.is_link_local or a.is_reserved
+    except ValueError:
+        return True
+
+
+async def _geo_lookup(ip: str) -> dict:
+    """City/region/country for an IP — cached 30 days in ip_geo, never blocks login."""
+    if not ip or _is_private_ip(ip):
+        return {"city": "", "region": "", "country": "", "country_code": "", "label": "Local network"}
+    cached = await _raw_db.ip_geo.find_one({"ip": ip}, {"_id": 0})
+    if cached and cached.get("fetched_at", "") > (datetime.now(timezone.utc) - timedelta(days=30)).isoformat():
+        return cached
+    geo = {"ip": ip, "city": "", "region": "", "country": "", "country_code": "", "label": ""}
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=3.5) as cl:
+            r = await cl.get(f"https://ipwho.is/{ip}", params={"fields": "success,city,region,country,country_code"})
+        d = r.json() if r.status_code == 200 else {}
+        if d.get("success"):
+            geo.update({"city": d.get("city") or "", "region": d.get("region") or "",
+                        "country": d.get("country") or "", "country_code": d.get("country_code") or ""})
+    except Exception:
+        pass
+    geo["label"] = ", ".join(x for x in (geo["city"], geo["region"] if geo["region"] != geo["city"] else "", geo["country"]) if x) or "Unknown location"
+    geo["fetched_at"] = datetime.now(timezone.utc).isoformat()
+    await _raw_db.ip_geo.update_one({"ip": ip}, {"$set": geo}, upsert=True)
+    return geo
+
+
+async def _tag_session_location(sid: str, ip: str):
+    geo = await _geo_lookup(ip)
+    await _raw_db.sessions.update_one({"sid": sid}, {"$set": {
+        "location": geo.get("label", ""), "city": geo.get("city", ""),
+        "country": geo.get("country", ""), "country_code": geo.get("country_code", "")}})
+
+
+async def start_session(user_id: str, email: str, tenant_id, request: Request, method: str = "password") -> str:
     """Register this device's login session; the returned sid is embedded in both tokens."""
     sid = uuid.uuid4().hex
     ua = (request.headers.get("user-agent") or "")[:300]
@@ -87,8 +127,9 @@ async def start_session(user_id: str, email: str, tenant_id, request: Request) -
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.sessions.insert_one({
         "sid": sid, "user_id": user_id, "email": email, "tenant_id": tenant_id,
-        "device": _device_label(ua), "ip": ip,
+        "device": _device_label(ua), "ip": ip, "method": method, "location": "",
         "created_at": now, "last_seen": now, "revoked": False})
+    asyncio.get_event_loop().create_task(_tag_session_location(sid, ip))
     return sid
 
 
