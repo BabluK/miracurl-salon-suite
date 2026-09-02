@@ -73,7 +73,17 @@ api.interceptors.response.use(
     // Never redirect on the bootstrap /auth/me probe or on the login endpoint itself —
     // AuthContext already handles those explicitly.
     const isAuthBootstrap = url.includes("/auth/me") || url.includes("/auth/login");
-    if (status === 401 && !isAuthBootstrap && typeof window !== "undefined") {
+    const isRefresh = url.includes("/auth/refresh");
+    // Access token expired (8h) but the refresh token (7d) may still be valid —
+    // silently renew once and replay the original request.
+    if (status === 401 && !isRefresh && !url.includes("/auth/login") && err.config && !err.config._authRetry) {
+      err.config._authRetry = true;
+      try {
+        await api.post("/auth/refresh");
+        return api(err.config);
+      } catch { /* refresh token gone/revoked — fall through to redirect */ }
+    }
+    if (status === 401 && !isAuthBootstrap && !isRefresh && typeof window !== "undefined") {
       const path = window.location.pathname;
       // Don't loop if we're already on /login or the public marketing/booking routes
       const isPublic = path === "/login" || path === "/" || path.startsWith("/book/") ||

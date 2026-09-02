@@ -177,8 +177,11 @@ function SuperAdminProtected({ children }) {
 
 function PublicOnly({ children }) {
   const { user, loading } = useAuth();
+  const { search } = useLocation();
   if (loading) return null;
   if (user) {
+    const next = new URLSearchParams(search).get("next") || "";
+    if (/^\/(?!\/)[^\s]*$/.test(next) && !next.startsWith("/login")) return <Navigate to={next} replace />;
     if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
     if (user.role === "staff") return <Navigate to="/staff-portal" replace />;
     return <Navigate to="/dashboard" replace />;

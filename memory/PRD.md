@@ -2583,3 +2583,9 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - `security.start_session` now records `method` (password/passkey) and geolocates the IP in a background task via ipwho.is (free, HTTPS, no key), cached 30d in `ip_geo`; private IPs → "Local network". `/auth/sessions` lazily backfills location for older sessions.
 - `components/settings/DevicesCard.jsx` redesigned: current device pinned, "Other devices" list with device/browser, flag + city/region/country, login method, last active, IP; "New location" badge + amber alert when a device's country differs from the current one; confirm dialogs; per-device Sign out and Sign out all others.
 - Verified: two logins with spoofed XFF (US/IN) geolocated correctly; DELETE /auth/sessions/{sid} → that device's next request 401.
+
+## 2026-09-02 — 🔁 Silent token refresh + honour ?next= after login (user question → fix)
+- Q: "/login?next=%2Fsettings — what does it mean, how long is login active?" → access 8h, refresh 7d, "Keep me signed in" = persistent cookies, else session-only.
+- Gap 1: frontend never used the 7-day refresh token → everyone bounced to /login after 8h. `lib/api.js` interceptor now, on 401, POSTs /auth/refresh once and replays the request (skips /auth/login & /auth/refresh itself). Effective session: up to 7 days of use with "Keep me signed in".
+- Gap 2: `next` was written but ignored. `Login.jsx` captures `next` at mount (PublicOnly replaces the URL before the passkey-enrol await finishes) and validates it as a same-origin path (`^/` not `//`, not /login); `App.js` PublicOnly also honours it.
+- Verified in browser: login with ?next=/settings → Settings; deleting access_token then loading /settings → auto refresh, stays on Settings, new access_token set.

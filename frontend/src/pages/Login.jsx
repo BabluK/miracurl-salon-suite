@@ -38,6 +38,14 @@ const SUBMIT_LABELS = { login: "Login", signup: "Create Account", forgot: "Send 
 export default function Login() {
   const { login, register, forgot, refresh } = useAuth();
   const nav = useNavigate();
+  // Captured once at mount — PublicOnly may replace the URL (dropping ?next=) before we redirect.
+  const [nextParam] = useState(() => new URLSearchParams(window.location.search).get("next") || "");
+  // Where to land after login: a safe same-origin `?next=` path, else the role's home.
+  const afterLogin = (role) => {
+    if (/^\/(?!\/)[^\s]*$/.test(nextParam) && !nextParam.startsWith("/login")) return nextParam;
+    if (window.location.pathname.startsWith("/partner")) return "/partner/dashboard";
+    return role === "super_admin" ? "/super-admin" : role === "staff" ? "/staff-portal" : "/dashboard";
+  };
   const [mode, setMode] = useState("login"); // login | signup | forgot
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -90,8 +98,7 @@ export default function Login() {
           toast.success("🔒 Fingerprint / Face ID login enabled on this device");
         } catch { localStorage.setItem("pk_declined", "1"); }
       }
-      const role = res.user?.role;
-      nav(role === "super_admin" ? "/super-admin" : role === "staff" ? "/staff-portal" : "/dashboard", { replace: true });
+      nav(afterLogin(res.user?.role), { replace: true });
     }
     else if (res.detail && typeof res.detail === "object" &&
              ["trial_expired", "subscription_expired", "suspended"].includes(res.detail.code)) setBlocked(res.detail);
@@ -274,9 +281,7 @@ export default function Login() {
                   const res = await loginWithPasskey(email);
                   await refresh?.();
                   toast.success(`Welcome back, ${res.user?.name || ""} ✦`);
-                  const role = res.user?.role;
-                  nav(window.location.pathname.startsWith("/partner") ? "/partner/dashboard"
-                    : role === "super_admin" ? "/super-admin" : role === "staff" ? "/staff-portal" : "/dashboard", { replace: true });
+                  nav(afterLogin(res.user?.role), { replace: true });
                 } catch (e2) {
                   setErr(e2?.response?.data?.detail || "Fingerprint login didn't work — use your password (it re-enables fingerprint for this device)");
                 }
