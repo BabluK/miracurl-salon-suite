@@ -337,7 +337,8 @@ export default function SuperAdmin() {
           </div>
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <div className="hidden md:block"><NetSpeedIndicator /></div>
-            <SuperNotifBell tenants={tenants} hqUnread={hqUnread} onGoInbox={() => setTab("inbox")} />
+            <SuperNotifBell tenants={tenants} hqUnread={hqUnread} onGoInbox={() => setTab("inbox")}
+              onGoTenant={(id) => { setTab("tenants"); setStatusFilter("all"); setVertFilter("all"); setTrialFilter("all"); setTimeout(() => document.querySelector(`[data-testid="tenant-row-${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150); }} />
             <MiraVoiceAssistant onGoTab={setTab} />
             <span className="text-xs text-white/50 hidden lg:inline">{user?.email}</span>
             <button data-testid="super-logout-btn" onClick={async () => { await logout(); nav("/login"); }} className="flex items-center gap-2 text-xs font-bold px-2.5 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-slate-900 hover:brightness-110 shadow-lg shadow-amber-500/25 transition">
@@ -484,37 +485,30 @@ export default function SuperAdmin() {
           return panels[tab];
         })() || (
           <>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4" data-testid="tenants-header">
+          <div className="min-w-0">
             <h1 className="font-playfair text-3xl">Tenants</h1>
-            <p className="text-slate-500 text-sm mt-1">Manage every salon on the Miracurl platform.</p>
-            <ReferralsPanel />
+            <p className="text-slate-500 text-sm mt-1">Manage every salon &amp; restaurant on the Miracurl platform.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap lg:justify-end" data-testid="tenants-toolbar">
             <button
               data-testid="super-weekly-report-btn"
               onClick={sendWeeklyReports}
               disabled={sendingWeekly}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-sky-300 bg-sky-50 text-sky-700 text-sm font-medium hover:bg-sky-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-slate-200 bg-white/80 text-slate-700 text-xs font-semibold hover:border-sky-400 hover:text-sky-700 disabled:opacity-50 transition-colors whitespace-nowrap"
               title="Email last week's business snapshot to every active salon owner"
             >
-              <Send className="w-4 h-4" /> {sendingWeekly ? "Sending…" : "Email weekly snapshots"}
+              <Send className="w-3.5 h-3.5 text-sky-500" /> {sendingWeekly ? "Sending…" : "Weekly snapshots"}
             </button>
             <button
               data-testid="super-monthly-report-btn"
               onClick={sendMonthlyReports}
               disabled={sendingReports}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-slate-200 bg-white/80 text-slate-700 text-xs font-semibold hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 transition-colors whitespace-nowrap"
               title="Email last month's business report to every active salon owner"
             >
-              <Send className="w-4 h-4" /> {sendingReports ? "Sending…" : "Email monthly reports"}
+              <Send className="w-3.5 h-3.5 text-emerald-500" /> {sendingReports ? "Sending…" : "Monthly reports"}
             </button>
-            {offerStats && (
-              <span data-testid="newbiz-offer-stats" title="90-day invite link performance — opens, signups via the link, and 'onboard me' help requests"
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
-                👀 {offerStats.opens} opens · 🌱 {offerStats.signups} signups · 🙋 {offerStats.assist_requests} assist
-              </span>
-            )}
             <button
               data-testid="copy-newbiz-link-btn"
               onClick={async () => {
@@ -530,16 +524,25 @@ export default function SuperAdmin() {
                 }
                 toast.success("90-day invite link copied 🎁 — anyone signing up with it gets a FREE 90-day setup");
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100"
-              title="Copy the special signup link that grants a 90-day free trial — share it with any new business"
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-amber-300 bg-amber-50 text-amber-800 text-xs font-semibold hover:bg-amber-100 transition-colors whitespace-nowrap"
+              title={offerStats ? `90-day invite link — ${offerStats.opens} opens · ${offerStats.signups} signups · ${offerStats.assist_requests} assist requests` : "Copy the special signup link that grants a 90-day free trial"}
             >
-              🎁 Copy 90-day invite link
+              <Gift className="w-3.5 h-3.5" /> 90-day invite link
+              {offerStats && (
+                <span data-testid="newbiz-offer-stats" className="ml-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-700/80 border-l border-amber-300 pl-2">
+                  {offerStats.opens}<span className="font-normal opacity-70">opens</span>
+                  <span className="opacity-40">·</span>{offerStats.signups}<span className="font-normal opacity-70">signups</span>
+                  {offerStats.assist_requests > 0 && <><span className="opacity-40">·</span>{offerStats.assist_requests}<span className="font-normal opacity-70">assist</span></>}
+                </span>
+              )}
             </button>
-            <button data-testid="super-new-tenant-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
-              <Plus className="w-4 h-4" /> New Tenant
+            <button data-testid="super-new-tenant-btn" onClick={startNew} className="btn-blue !h-9 !py-0 !px-4 !rounded-full text-xs inline-flex items-center gap-1.5 whitespace-nowrap">
+              <Plus className="w-3.5 h-3.5" /> New Tenant
             </button>
           </div>
         </div>
+
+        <ReferralsPanel />
 
         <AssistQueueCard />
 
@@ -565,48 +568,59 @@ export default function SuperAdmin() {
           </div>
         )}
 
-        {/* Status filter chips */}
-        <div className="flex items-center gap-2 flex-wrap" data-testid="tenant-status-filters">
-          {["all", "active", "trial", "cancelled", "suspended"].map(s => (
-            <button key={s} data-testid={`filter-${s}`} onClick={() => setStatusFilter(s)}
-              className={`text-xs px-3.5 py-1.5 rounded-full border capitalize transition ${
-                statusFilter === s
-                  ? "bg-slate-900 text-white border-slate-900 shadow"
-                  : "bg-white/70 border-slate-200 text-slate-500 hover:border-slate-400"}`}>
-              {s === "all" ? `All (${tenants.length})` : `${s} (${tenants.filter(t => t.status === s).length})`}
-            </button>
-          ))}
-          {statusFilter !== "all" && (
-            <span className="text-xs text-slate-400">showing {filteredTenants.length} salon(s)</span>
+        {/* Filters — grouped segments */}
+        <div className="card-light !p-3 flex flex-col md:flex-row md:items-center gap-3 md:gap-0 md:divide-x md:divide-slate-200" data-testid="tenant-filters">
+          <div className="flex items-center gap-1.5 flex-wrap md:pr-4" data-testid="tenant-status-filters">
+            <span className="label-light !text-[9px] mr-1">Status</span>
+            {["all", "active", "trial", "cancelled", "suspended"].map(s => (
+              <button key={s} data-testid={`filter-${s}`} onClick={() => setStatusFilter(s)}
+                className={`text-[11px] px-3 py-1 rounded-full border capitalize transition-colors ${
+                  statusFilter === s
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-400"}`}>
+                {s === "all" ? `All ${tenants.length}` : `${s} ${tenants.filter(t => t.status === s).length}`}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap md:px-4">
+            <span className="label-light !text-[9px] mr-1">Type</span>
+            {[["all", "All"], ["salon", "💇 Salons"], ["restaurant", "🍽️ Restaurants"]].map(([v, l]) => (
+              <button key={v} data-testid={`vertical-filter-${v}`} onClick={() => setVertFilter(v)}
+                className={`text-[11px] px-3 py-1 rounded-full border transition-colors ${
+                  vertFilter === v
+                    ? "bg-amber-600 text-white border-amber-600"
+                    : "bg-white border-slate-200 text-slate-500 hover:border-amber-400"}`}>
+                {l}{v !== "all" && ` ${tenants.filter(t => (t.business_type || "salon") === v).length}`}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap md:pl-4">
+            <span className="label-light !text-[9px] mr-1">Plan</span>
+            {[["all", "All"],
+              ["newbiz90", "🌱 New-Biz 90d"],
+              ["trial7", "7-day"],
+              ["trial30", "30-day"],
+              ["paid", "💳 Paid"],
+              ["referred", "🤝 Referred"]].map(([v, l]) => (
+              <button key={v} data-testid={`trial-filter-${v}`} onClick={() => setTrialFilter(v)}
+                className={`text-[11px] px-3 py-1 rounded-full border transition-colors ${
+                  trialFilter === v
+                    ? "bg-emerald-700 text-white border-emerald-700"
+                    : "bg-white border-slate-200 text-slate-500 hover:border-emerald-400"}`}>
+                {l}{v !== "all" && ` ${tenants.filter(t =>
+                  (v === "paid" && t.status === "active") ||
+                  (v === "referred" && !!t.referred_by_name) ||
+                  t.trial_kind === v).length}`}
+              </button>
+            ))}
+          </div>
+          {(statusFilter !== "all" || vertFilter !== "all" || trialFilter !== "all") && (
+            <div className="md:pl-4 md:ml-auto flex items-center gap-2 text-[11px] text-slate-400 whitespace-nowrap">
+              <span data-testid="tenant-filter-count">{filteredTenants.length} of {tenants.length}</span>
+              <button data-testid="tenant-filter-clear" onClick={() => { setStatusFilter("all"); setVertFilter("all"); setTrialFilter("all"); }}
+                className="text-slate-500 underline-offset-2 hover:underline">Clear</button>
+            </div>
           )}
-          <span className="mx-1 h-5 w-px bg-slate-200" />
-          {[["all", "All types"], ["salon", "💇 Salons"], ["restaurant", "🍽️ Restaurants"]].map(([v, l]) => (
-            <button key={v} data-testid={`vertical-filter-${v}`} onClick={() => setVertFilter(v)}
-              className={`text-xs px-3.5 py-1.5 rounded-full border transition ${
-                vertFilter === v
-                  ? "bg-amber-600 text-white border-amber-600 shadow"
-                  : "bg-white/70 border-slate-200 text-slate-500 hover:border-amber-400"}`}>
-              {l} {v !== "all" && `(${tenants.filter(t => (t.business_type || "salon") === v).length})`}
-            </button>
-          ))}
-          <span className="mx-1 h-5 w-px bg-slate-200" />
-          {[["all", "All plans"],
-            ["newbiz90", "🌱 New-Biz 90d"],
-            ["trial7", "7-day trial"],
-            ["trial30", "30-day trial"],
-            ["paid", "💳 Paid"],
-            ["referred", "🤝 Referred"]].map(([v, l]) => (
-            <button key={v} data-testid={`trial-filter-${v}`} onClick={() => setTrialFilter(v)}
-              className={`text-xs px-3.5 py-1.5 rounded-full border transition ${
-                trialFilter === v
-                  ? "bg-emerald-700 text-white border-emerald-700 shadow"
-                  : "bg-white/70 border-slate-200 text-slate-500 hover:border-emerald-400"}`}>
-              {l} {v !== "all" && `(${tenants.filter(t =>
-                (v === "paid" && t.status === "active") ||
-                (v === "referred" && !!t.referred_by_name) ||
-                t.trial_kind === v).length})`}
-            </button>
-          ))}
         </div>
 
         {/* Tenant list — readable cards */}

@@ -17,6 +17,12 @@ const queryClient = new QueryClient({
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
+// Canonical host: send www.* visitors to the apex domain (one cookie scope, one SEO origin).
+if (window.location.hostname.startsWith("www.")) {
+  const apex = window.location.hostname.slice(4);
+  window.location.replace(`${window.location.protocol}//${apex}${window.location.pathname}${window.location.search}${window.location.hash}`);
+}
+
 // Production: silence diagnostic console output (errors still surface).
 if (process.env.NODE_ENV === "production") {
   console.log = () => {};

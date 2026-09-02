@@ -399,10 +399,18 @@ app.include_router(api)
 
 _cors_env = os.environ.get(
     "CORS_ORIGINS",
-    "https://miracurl-suite.com,https://miracurl.com,https://miracurl-suite.com,https://hair-hub-system.preview.emergentagent.com",
+    "https://miracurl-suite.com,https://www.miracurl-suite.com,https://miracurl.com,https://www.miracurl.com,https://hair-hub-system.preview.emergentagent.com",
 ).strip()
 _cors_origins = (["*"] if _cors_env == "*" or not _cors_env
-                 else [o.strip() for o in _cors_env.split(",") if o.strip()])
+                 else list(dict.fromkeys(o.strip().rstrip("/") for o in _cors_env.split(",") if o.strip())))
+# Always accept the www. variant of any bare custom domain so both hostnames work
+if _cors_origins != ["*"]:
+    for _o in list(_cors_origins):
+        _host = _o.split("://", 1)[-1]
+        if not _host.startswith("www.") and not _host.endswith("emergentagent.com") and "localhost" not in _host:
+            _www = _o.replace("://", "://www.", 1)
+            if _www not in _cors_origins:
+                _cors_origins.append(_www)
 # SEC: never combine wildcard origins with credentials (cookie theft vector)
 _cors_credentials = _cors_origins != ["*"]
 app.add_middleware(

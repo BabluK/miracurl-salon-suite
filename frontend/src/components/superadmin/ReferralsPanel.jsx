@@ -9,11 +9,11 @@ export function ReferralsPanel() {
   useEffect(() => { if (open && !data) api.get("/super-admin/referrals").then(r => setData(r.data)).catch(() => {}); }, [open, data]);
 
   return (
-    <div className="mt-4 bg-white rounded-2xl border border-amber-200" data-testid="sa-referrals-panel">
+    <div className="bg-white/80 rounded-xl border border-amber-200/80" data-testid="sa-referrals-panel">
       <button onClick={() => setOpen(o => !o)} data-testid="sa-referrals-toggle"
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-700">
-        <span className="flex items-center gap-2"><Gift className="w-4 h-4 text-amber-500" /> Refer &amp; Earn — referrals &amp; rewards granted</span>
-        <span className="text-slate-400 text-xs">{open ? "▲ hide" : "▼ show"}</span>
+        className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-700">
+        <span className="flex items-center gap-2"><Gift className="w-3.5 h-3.5 text-amber-500" /> Refer &amp; Earn — referrals &amp; rewards granted</span>
+        <span className="text-slate-400 text-[11px]">{open ? "▲ hide" : "▼ show"}</span>
       </button>
       {open && data && (
         <div className="px-4 pb-4 grid md:grid-cols-2 gap-4 text-xs">

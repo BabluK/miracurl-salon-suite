@@ -20,12 +20,12 @@ export const NetSpeedIndicator = () => {
         if (alive) setState({ ms: null, level: "offline" });
       }
     };
-    ping();
+    const first = setTimeout(ping, 4000);
     const iv = setInterval(ping, 30000);
     const on = () => ping();
     window.addEventListener("online", on);
     window.addEventListener("offline", on);
-    return () => { alive = false; clearInterval(iv); window.removeEventListener("online", on); window.removeEventListener("offline", on); };
+    return () => { alive = false; clearTimeout(first); clearInterval(iv); window.removeEventListener("online", on); window.removeEventListener("offline", on); };
   }, []);
 
   const cfg = {

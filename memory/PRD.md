@@ -2558,3 +2558,11 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Right column: Edit Profile button, Last Login (real data — GET /auth/sessions current session created_at, IST formatted "Today, HH:MM") + Bengaluru India, Account Security: High.
 - Bottom: 6 tiles (Organization, Admin ID ADM-xxxxx from user.id digits, Joined On + relative, Email Verified ✓, Phone Verified ✓/Not added, Timezone Asia/Kolkata UTC+5:30). Responsive: stacks on mobile, 6-col xl.
 - Edit modal untouched (name/phone/occupation/photo upload). TESTED via screenshot — all sections render, last login shows live session time. Build → .178.
+
+## 2026-09-02 — 🌐 CORS www + FRONTEND_URL + Tenants/Alerts polish + API slowness fix (user request)
+- `CORS_ORIGINS` set to explicit list (apex + www for miracurl-suite.com / miracurl.com + preview). Code auto-adds `www.` variant of any bare custom domain; wildcard removed so cookie auth works cross-host.
+- `FRONTEND_URL` now set and accepted as alias of `APP_PUBLIC_URL`; password-reset link falls back to `https://miracurl-suite.com` (was empty string).
+- Frontend redirects `www.*` → apex (index.js) for a single canonical origin.
+- Tenants tab: compact pill toolbar (Weekly/Monthly/90-day link w/ inline stats/New Tenant), Referrals strip moved below header, filters grouped into Status/Type/Plan card with "N of M · Clear".
+- HQ Alerts bell: structured rows (icon · tenant · meta · days-left pill), inbox row, click → scroll to tenant, outside-click close, empty state.
+- API "slowness": backend endpoints <30 ms. Cause was client-side — Login navigated to /dashboard then redirected to /super-admin, mounting the page twice (57 requests, 6-connection queue). Login now routes by role; NetSpeedIndicator first ping delayed 4 s (was measuring the load burst). Result: 30 requests, 52 ms indicator.

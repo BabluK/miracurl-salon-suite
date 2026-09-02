@@ -674,7 +674,8 @@ async def _staff_reset_recipient(email: str, personal_email) -> str | None:
 
 async def _send_reset_email(login_email: str, recipient: str, token: str):
     from email_service import _send_email
-    reset_link = f"{os.environ.get('APP_PUBLIC_URL', '')}/reset-password?token={token}"
+    base = (os.environ.get("APP_PUBLIC_URL") or os.environ.get("FRONTEND_URL") or "https://miracurl-suite.com").rstrip("/")
+    reset_link = f"{base}/reset-password?token={token}"
     await _send_email(
         [recipient],
         "Reset your Miracurl password",

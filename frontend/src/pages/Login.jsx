@@ -90,7 +90,8 @@ export default function Login() {
           toast.success("🔒 Fingerprint / Face ID login enabled on this device");
         } catch { localStorage.setItem("pk_declined", "1"); }
       }
-      nav("/dashboard");
+      const role = res.user?.role;
+      nav(role === "super_admin" ? "/super-admin" : role === "staff" ? "/staff-portal" : "/dashboard", { replace: true });
     }
     else if (res.detail && typeof res.detail === "object" &&
              ["trial_expired", "subscription_expired", "suspended"].includes(res.detail.code)) setBlocked(res.detail);
@@ -273,7 +274,9 @@ export default function Login() {
                   const res = await loginWithPasskey(email);
                   await refresh?.();
                   toast.success(`Welcome back, ${res.user?.name || ""} ✦`);
-                  window.location.href = (window.location.pathname.startsWith("/partner") ? "/partner" : "") + "/dashboard";
+                  const role = res.user?.role;
+                  nav(window.location.pathname.startsWith("/partner") ? "/partner/dashboard"
+                    : role === "super_admin" ? "/super-admin" : role === "staff" ? "/staff-portal" : "/dashboard", { replace: true });
                 } catch (e2) {
                   setErr(e2?.response?.data?.detail || "Fingerprint login didn't work — use your password (it re-enables fingerprint for this device)");
                 }
