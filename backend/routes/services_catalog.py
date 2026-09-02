@@ -355,11 +355,26 @@ async def _generate_service_image_bytes(name: str, category: str, restaurant: bo
                   "Absolutely NO text, NO letters, NO watermarks, NO logos, NO people.")
     else:
         prompt = (f"Professional beauty-salon photograph for the service '{name}' in the category '{category}'. "
-                  "Elegant premium salon setting, close-up of the treatment being performed, soft warm lighting, "
-                  "rose-gold and cream tones, photorealistic, shallow depth of field. "
-                  "Absolutely NO text, NO letters, NO watermarks, NO logos.")
-    imgs = await asyncio.wait_for(
-        gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+                  "Elegant premium salon or spa setting, tasteful and modest — client fully draped in a spa robe or towel, "
+                  "focus on hands of the therapist, premium products, tools and textures. Soft warm lighting, "
+                  "rose-gold and cream tones, photorealistic, shallow depth of field, editorial quality. "
+                  "Absolutely NO text, NO letters, NO watermarks, NO logos, NO nudity.")
+    try:
+        imgs = await asyncio.wait_for(
+            gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+    except Exception as e:
+        if "safety" not in str(e).lower() and "rejected" not in str(e).lower():
+            raise
+        logging.warning(f"mira image safety fallback for '{name}': retrying product-only prompt")
+        safe_prompt = (
+            f"Premium gourmet food styling flat-lay inspired by '{name}' — ingredients, spices and plated dish on dark ceramic, "
+            "warm side lighting, editorial quality, photorealistic. Absolutely NO text, NO letters, NO watermarks, NO people."
+            if restaurant else
+            f"Luxury spa product flat-lay themed for the salon treatment '{name}' ({category}): premium jars, creams, scrubs, "
+            "oils, fresh botanicals, rolled cream towels and rose petals on a marble surface. Soft warm lighting, rose-gold "
+            "and cream tones, photorealistic editorial still-life. Absolutely NO text, NO letters, NO watermarks, NO logos, NO people.")
+        imgs = await asyncio.wait_for(
+            gen.generate_images(prompt=safe_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
     if not imgs:
         raise RuntimeError("empty generation")
     return imgs[0]
@@ -512,8 +527,18 @@ async def _run_image_job(jid: str, tenant_id: str, name: str, category: str, sid
         await _raw_db.mira_image_jobs.update_one({"id": jid}, {"$set": {"status": "done", "image_url": url}})
     except Exception as e:
         logging.error(f"mira image job {jid} failed: {e}")
+        msg = str(e)
+        low = msg.lower()
+        if "safety" in low or "rejected" in low:
+            msg = f"Mira couldn't paint “{name}” — the AI safety filter blocked this wording. Try a simpler name (e.g. add “treatment” or “spa”) or upload your own photo."
+        elif isinstance(e, asyncio.TimeoutError):
+            msg = "Mira took too long to paint — please try again in a moment."
+        elif "billing" in low or "budget" in low or "quota" in low:
+            msg = "AI image budget exhausted — please top up the AI key."
+        else:
+            msg = "Mira couldn't paint this one right now — please try again."
         await _raw_db.mira_image_jobs.update_one(
-            {"id": jid}, {"$set": {"status": "failed", "error": str(e)[:200]}})
+            {"id": jid}, {"$set": {"status": "failed", "error": msg[:220]}})
 
 
 async def _generate_category_banner_bytes(category: str, restaurant: bool) -> bytes:

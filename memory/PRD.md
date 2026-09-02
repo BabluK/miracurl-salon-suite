@@ -2566,3 +2566,8 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Tenants tab: compact pill toolbar (Weekly/Monthly/90-day link w/ inline stats/New Tenant), Referrals strip moved below header, filters grouped into Status/Type/Plan card with "N of M · Clear".
 - HQ Alerts bell: structured rows (icon · tenant · meta · days-left pill), inbox row, click → scroll to tenant, outside-click close, empty state.
 - API "slowness": backend endpoints <30 ms. Cause was client-side — Login navigated to /dashboard then redirected to /super-admin, mounting the page twice (57 requests, 6-connection queue). Login now routes by role; NetSpeedIndicator first ping delayed 4 s (was measuring the load burst). Result: 30 requests, 52 ms indicator.
+
+## 2026-09-02 — 🌱 Trial Countdown Ring + 🖼️ Service image safety fallback (user request + bug)
+- `components/dashboard/TrialCountdownRing.jsx` on owner Dashboard (only `status=trial` + `signup_offer=newbiz`): SVG progress ring, days-left, "day N of 90 · ends <date>", phase copy (emerald >30d, amber ≤30d, rose ≤7d/ended), Plans button → /settings.
+- Bug: Mira service image for "Body Polishing" rejected by OpenAI safety system. Fix in `routes/services_catalog.py`: salon prompt made modest (robe/towel, hands, products); on safety rejection auto-retry with product-only flat-lay prompt (restaurant: ingredient flat-lay); job errors now human-readable instead of raw litellm text. Verified: Body Polishing → fallback → image stored.
+- Test tenant created: newbiz-ring-salon (ring.owner@test.com / Ring@12345).
