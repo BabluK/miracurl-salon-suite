@@ -370,10 +370,28 @@ async def _resolve_billing_context(body: InvoiceIn, cust: dict) -> dict:
             "needed": needed, "loyalty_rules": loyalty_rules, "totals": totals}
 
 
-async def _apply_post_invoice_effects(cust: dict, totals: dict, loyalty_rules: dict, needed: dict) -> int:
+async def _appt_spend_offset(cust: dict, appointment_id: Optional[str]) -> tuple[float, int]:
+    """If this guest's completed appointment already pushed spend/visit into the CRM today,
+    return (amount, visits) to subtract so the POS bill doesn't count the same visit twice."""
+    q = {"customer_id": cust["id"], "status": "completed", "crm_counted": True, "spend_billed": {"$ne": True}}
+    if appointment_id:
+        q = {"id": appointment_id, "crm_counted": True, "spend_billed": {"$ne": True}}
+    else:
+        day = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+        q["scheduled_at"] = {"$regex": f"^{day}"}
+    appt = await db.appointments.find_one(q, {"_id": 0, "id": 1, "total": 1})
+    if not appt:
+        return 0.0, 0
+    await db.appointments.update_one({"id": appt["id"]}, {"$set": {"spend_billed": True}})
+    return float(appt.get("total") or 0), 1
+
+
+async def _apply_post_invoice_effects(cust: dict, totals: dict, loyalty_rules: dict, needed: dict,
+                                      appointment_id: Optional[str] = None) -> int:
     """Customer stats + loyalty points + deferred referral reward + stock decrement. Returns points earned."""
     points_earned = int(int(totals["total"] // 100) * float(loyalty_rules.get("earn_per_100") or 0))
-    cust_inc = {"total_spent": totals["total"], "visits": 1, "stamps": 1,
+    off_amt, off_visits = await _appt_spend_offset(cust, appointment_id)
+    cust_inc = {"total_spent": round(totals["total"] - off_amt, 2), "visits": 1 - off_visits, "stamps": 1,
                 "loyalty_points": points_earned - totals["points_used"]}
     if totals["referral_credit_used"] > 0:
         cust_inc["referral_credit"] = -totals["referral_credit_used"]
@@ -485,7 +503,8 @@ async def complete_open_invoice(iid: str, body: InvoiceCompleteIn,
     inv["status"], inv["payment_mode"] = "completed", body.payment_mode
     totals = {"total": float(inv.get("total") or 0), "points_used": 0, "referral_credit_used": 0}
     needed = {i["ref_id"]: int(i.get("qty") or 1) for i in inv.get("items", []) if i.get("type") == "product"}
-    inv["points_earned"] = await _apply_post_invoice_effects(cust, totals, _loyalty_rules(t), needed)
+    inv["points_earned"] = await _apply_post_invoice_effects(cust, totals, _loyalty_rules(t), needed, inv.get("appointment_id"))
+    await db.invoices.update_one({"id": iid}, {"$set": {"points_earned": inv["points_earned"]}})
     inv["membership_cashback"] = await _apply_membership_cashback(inv, cust)
     inv["gift_cards_issued"] = await _issue_pos_gift_cards(inv, cust, t)
     return _clean(inv)
@@ -608,11 +627,36 @@ async def _duplicate_bill_guard(body: InvoiceIn):
             f"was created {mins} minute{'s' if mins != 1 else ''} ago.")
 
 
+async def _acquire_billing_lock(cust_id: str) -> None:
+    """One bill per guest at a time — a double-tap / two devices racing both pass the
+    3-minute duplicate check, so the check alone can't stop a twin bill."""
+    now = datetime.now(timezone.utc)
+    got = await db.customers.find_one_and_update(
+        {"id": cust_id, "$or": [{"billing_lock_until": {"$exists": False}}, {"billing_lock_until": None},
+                                {"billing_lock_until": {"$lt": now.isoformat()}}]},
+        {"$set": {"billing_lock_until": (now + timedelta(seconds=20)).isoformat()}},
+        projection={"_id": 0, "id": 1})
+    if not got:
+        raise HTTPException(409, "A bill for this guest is already being processed — please wait a moment and check Reports before billing again.")
+
+
+async def _release_billing_lock(cust_id: str) -> None:
+    await db.customers.update_one({"id": cust_id}, {"$set": {"billing_lock_until": None}})
+
+
 @router.post("/invoices")
 async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     cust = await db.customers.find_one({"id": body.customer_id}, {"_id": 0})
     if not cust:
         raise HTTPException(400, "Invalid customer")
+    await _acquire_billing_lock(cust["id"])
+    try:
+        return await _create_invoice_locked(body, cust, user)
+    finally:
+        await _release_billing_lock(cust["id"])
+
+
+async def _create_invoice_locked(body: InvoiceIn, cust: dict, user: dict):
     await _duplicate_bill_guard(body)
     staff = await db.staff.find_one({"id": body.staff_id}, {"_id": 0}) if body.staff_id else None
 
@@ -642,7 +686,8 @@ async def create_invoice(body: InvoiceIn, user=Depends(get_current_user)):
     if wallet_apply:
         await _deduct_wallet_credit(cust, inv, wallet_apply, body.payment_mode)
 
-    points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"])
+    points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"], body.appointment_id)
+    await db.invoices.update_one({"id": inv["id"]}, {"$set": {"points_earned": points_earned}})
     memberships_issued = await _process_benefit_items(inv, cust)
     await _queue_review_request(inv, cust)
 

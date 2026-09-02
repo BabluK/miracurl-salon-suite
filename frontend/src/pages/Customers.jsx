@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "@/lib/api";
-import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload, Wallet, History, GitMerge } from "lucide-react";
+import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload, Wallet, History, GitMerge, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import { WalletDialog } from "@/components/WalletDialog";
@@ -58,6 +58,14 @@ export default function Customers() {
     if (d === yesterday) return `Yesterday · ${time}`;
     return new Date(iso).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
   };
+
+  async function resyncStats() {
+    try {
+      const { data } = await api.post("/customers/resync-stats");
+      toast.success(data.corrected ? `Spend & visits recalculated — ${data.corrected} guest${data.corrected === 1 ? "" : "s"} corrected` : "All guests already match their bills ✓");
+      load();
+    } catch (err) { toast.error(String(err.response?.data?.detail || "Recalculation failed")); }
+  }
 
   async function exportCsv() {
     try {
@@ -131,6 +139,9 @@ export default function Customers() {
           </button>
           <button data-testid="merge-duplicates-btn" onClick={() => setMergeOpen(true)} className="btn-slate flex items-center gap-2" title="Find & merge guests saved twice with the same number">
             <GitMerge className="w-4 h-4" /> Merge duplicates
+          </button>
+          <button data-testid="resync-stats-btn" onClick={resyncStats} className="btn-slate flex items-center gap-2" title="Recalculate every guest's Spent & Visits from actual bills — fixes any mismatch with Reports">
+            <RefreshCw className="w-4 h-4" /> Recalculate spend
           </button>
           <button data-testid="export-customers-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all customers as CSV">
             <Download className="w-4 h-4" /> Export CSV

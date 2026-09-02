@@ -2,10 +2,29 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-01.178"
-BUILD_TIME = "02 Sep 2026, 4:00 PM IST"
+BUILD = "2026-09-02.179"
+BUILD_TIME = "02 Sep 2026, 3:10 PM IST"
 
 RELEASES = [
+    {
+        "date": "2026-09-02 (Devices, Security & Billing accuracy 🔐)",
+        "changes": [
+            "📱 Signed-in Devices manager — Settings now lists every device logged into your account with its location (city, country flag), browser & device type, how it signed in (Password vs Fingerprint/Face ID), last-active time and IP; the current device is pinned, every other one has a one-tap 'Sign out' (access ends instantly) plus 'Sign out all other devices'. Devices from a different country than yours are flagged ⚠️ 'New location' with a nudge to change your password if it wasn't you",
+            "🔁 Stay signed in for 7 days — you were being logged out every 8 hours even with 'Keep me signed in' ticked; the app now silently renews your session in the background, so with 'Keep me signed in' you stay logged in for up to 7 days of use (without it: until the browser closes). Remote sign-out and password change still end a session instantly",
+            "↩️ Back to where you were — after a session expiry or re-login you now return to the exact page you were on (e.g. Settings) instead of being dropped on the Dashboard",
+            "🧾 No more twin bills — a double-tap on 'Charge' or two devices billing the same guest at the same moment could create two identical bills; a per-guest billing lock now guarantees only one goes through (the other sees 'already being processed — check Reports')",
+            "📉 Voided bills now reverse CRM stats — voiding a bill previously removed it from Reports but left the guest's Spent / Visits / points inflated; voiding now subtracts them so CRM always matches Reports",
+            "🧮 Appointment + POS bill counted once — completing an appointment and then billing it at POS used to add the guest's spend twice (e.g. ₹300 showing as ₹600); the POS bill now offsets what the appointment already counted",
+            "🔄 'Recalculate spend' in CRM — one tap recomputes every guest's Spent & Visits straight from their real (non-voided) bills, fixing any historical mismatch between CRM and Reports instantly",
+            "🌱 Trial countdown ring — new-business owners on the FREE 90-day setup see a progress ring on their dashboard with days left, 'day N of 90 · ends <date>' and friendly copy that turns amber at one month and rose in the final week, plus a Plans button",
+            "🖼️ Service photo generation fixed for 'Body Polishing' & similar names — the AI safety filter was rejecting these; Mira now uses a tasteful spa-styled prompt and, if the filter still objects, automatically paints a product-only flat-lay instead of failing. Error messages are now human-readable",
+            "🌐 www.miracurl-suite.com works — visitors on the www address are auto-redirected to miracurl-suite.com and the www origin is allowed for API calls, so nobody's login is blocked by the browser; password-reset links can no longer be generated with an empty domain",
+            "⚡ Faster console load — the dashboard was mounting twice after login (57 API calls instead of 30), making the header latency read 600+ ms; fixed, and the latency indicator now waits until the page settles before measuring",
+            "Super Admin: Tenants header redesigned — compact pill toolbar (Weekly snapshots · Monthly reports · 90-day invite link with live opens/signups · New Tenant), Refer & Earn strip moved below the title, and filters grouped into labelled Status / Type / Plan segments with 'N of M · Clear'",
+            "Super Admin: HQ Alerts bell redesigned — structured rows (icon · tenant · what's expiring · days-left pill), HQ Inbox unread row, click a row to jump to that tenant, closes on outside click, tidy empty state",
+            "Super Admin: Security audit passed (no Critical/High). Fixed the one Medium finding — fingerprint/Face-ID login now runs the same subscription/suspension gate as password login and creates a tracked device session, so suspended salons can't get in via passkey and 'sign out all devices' ends passkey sessions too; per-account lockout now re-engages every 5 failed attempts after the first 10",
+        ],
+    },
     {
         "date": "2026-09-01 (90-day trials & referral tracking 🌱)",
         "changes": [

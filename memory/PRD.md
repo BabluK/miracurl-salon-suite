@@ -2589,3 +2589,13 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - Gap 1: frontend never used the 7-day refresh token → everyone bounced to /login after 8h. `lib/api.js` interceptor now, on 401, POSTs /auth/refresh once and replays the request (skips /auth/login & /auth/refresh itself). Effective session: up to 7 days of use with "Keep me signed in".
 - Gap 2: `next` was written but ignored. `Login.jsx` captures `next` at mount (PublicOnly replaces the URL before the passkey-enrol await finishes) and validates it as a same-origin path (`^/` not `//`, not /login); `App.js` PublicOnly also honours it.
 - Verified in browser: login with ?next=/settings → Settings; deleting access_token then loading /settings → auto refresh, stays on Settings, new access_token set.
+
+## 2026-09-02 — 🧾 Twin-bill + CRM Spent/Reports mismatch fixes (user bug: omaga ₹600 vs ₹300)
+- Root causes found in code: (a) duplicate check was read-then-insert → two concurrent taps/devices both pass; (b) voiding a bill never reversed customer total_spent/visits/points → CRM drifts from Reports; (c) completing an appointment AND billing it at POS both added spend+visit → double count; (d) CRM "Spent" is lifetime, Dashboard "Today's Collection" is today's bills — different by design.
+- Fixes: `_acquire_billing_lock` (atomic find_one_and_update on customers.billing_lock_until, 20s, released in finally) → 2nd concurrent bill gets 409; `TenantCollection.find_one_and_update` added; void now decrements total_spent/visits/points_earned (floored at 0); `points_earned` persisted on invoices; `_appt_spend_offset` subtracts the appointment's already-counted spend/visit when the POS bill lands (marks appt `spend_billed`); `POST /customers/resync-stats[?customer_id]` recomputes Spent/Visits from real bills (+ counted appointments w/o same-day bill); CRM "Recalculate spend" button (`resync-stats-btn`).
+- Tested via httpx script: concurrent twin → [200,409], spent 300/visits 1; void → 0/0; appt+bill → 300/1; drift 600 → resync → 300/1.
+
+## ⚠️ STANDING RULE (user asked twice): every deploy-worthy change MUST also
+1. Append/extend the newest entry in `/app/backend/release_notes.py` `RELEASES[0]` (owner-facing wording; prefix HQ-only items with "Super Admin:" so they're hidden from the owners' What's New popup),
+2. Bump `BUILD` (YYYY-MM-DD.N) and `BUILD_TIME` (IST).
+This drives Super Admin → Deployments history, the footer tag, the "What's New ✨" popup and the "New version available" toast. Done 2026-09-02 → BUILD 2026-09-02.179 with 14 entries covering this session.

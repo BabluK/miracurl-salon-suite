@@ -50,6 +50,47 @@ router = APIRouter()
 # ---------------- Generic CRUD helpers ----------------
 
 # ---------------- Customers ----------------
+@router.post("/customers/resync-stats")
+async def resync_customer_stats(customer_id: Optional[str] = None, user=Depends(require_admin)):
+    """Recompute Spent / Visits from real bills (non-voided, completed) + completed appointments
+    without a same-day bill. One click fixes any CRM drift so it matches Reports."""
+    _IST = timezone(timedelta(hours=5, minutes=30))
+
+    def _day(iso: str) -> str:
+        try:
+            return datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone(_IST).date().isoformat()
+        except ValueError:
+            return str(iso)[:10]
+
+    flt = {"id": customer_id} if customer_id else {}
+    custs = await db.customers.find(flt, {"_id": 0, "id": 1, "total_spent": 1, "visits": 1}).to_list(20000)
+    spent: Dict[str, float] = {}
+    days: Dict[str, set] = {}
+    async for inv in db.invoices.find({"status": {"$nin": ["voided", "open"]}, **({"customer_id": customer_id} if customer_id else {})},
+                                      {"_id": 0, "customer_id": 1, "total": 1, "created_at": 1}):
+        cid = inv.get("customer_id")
+        if not cid:
+            continue
+        spent[cid] = spent.get(cid, 0.0) + float(inv.get("total") or 0)
+        days.setdefault(cid, set()).add(_day(inv.get("created_at", "")))
+    async for a in db.appointments.find({"status": "completed", "crm_counted": True, **({"customer_id": customer_id} if customer_id else {})},
+                                        {"_id": 0, "customer_id": 1, "scheduled_at": 1, "total": 1}):
+        cid = a.get("customer_id")
+        if not cid:
+            continue
+        d = _day(a.get("scheduled_at", ""))
+        if d not in days.get(cid, set()):
+            days.setdefault(cid, set()).add(d)
+            spent[cid] = spent.get(cid, 0.0) + float(a.get("total") or 0)
+    changed = 0
+    for c in custs:
+        new_spent, new_visits = round(spent.get(c["id"], 0.0), 2), len(days.get(c["id"], set()))
+        if abs(float(c.get("total_spent") or 0) - new_spent) > 0.009 or int(c.get("visits") or 0) != new_visits:
+            await db.customers.update_one({"id": c["id"]}, {"$set": {"total_spent": new_spent, "visits": new_visits}})
+            changed += 1
+    return {"ok": True, "checked": len(custs), "corrected": changed}
+
+
 @router.get("/customers")
 async def list_customers(q: Optional[str] = None, user=Depends(require_admin)):
     # CRM shows only customers who completed a service (or were added manually) —

@@ -151,6 +151,15 @@ async def void_invoice(inv_id: str, body: InvoiceVoidIn, user=Depends(require_ad
     await db.invoices.update_one({"id": inv_id}, {"$set": {
         "status": "voided", "voided_at": now,
         "voided_by": body.editor_name.strip(), "void_reason": body.reason.strip()}})
+    # Reverse what this bill pushed into the CRM so Spent/Visits match Reports again.
+    if inv.get("customer_id") and inv.get("status") != "open":
+        dec = {"total_spent": -float(inv.get("total") or 0), "visits": -1}
+        if inv.get("points_earned"):
+            dec["loyalty_points"] = -int(inv["points_earned"])
+        await db.customers.update_one({"id": inv["customer_id"]}, {"$inc": dec})
+        await db.customers.update_one({"id": inv["customer_id"], "visits": {"$lt": 0}}, {"$set": {"visits": 0}})
+        await db.customers.update_one({"id": inv["customer_id"], "total_spent": {"$lt": 0}}, {"$set": {"total_spent": 0}})
+        await db.customers.update_one({"id": inv["customer_id"], "loyalty_points": {"$lt": 0}}, {"$set": {"loyalty_points": 0}})
     await db.invoice_edits.insert_one({
         "id": str(uuid.uuid4()), "invoice_id": inv_id, "invoice_no": inv["invoice_no"],
         "customer_name": inv.get("customer_name", ""), "action": "void",

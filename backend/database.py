@@ -60,6 +60,7 @@ class TenantCollection:
                         d["tenant_id"] = tid
         return await self._coll.insert_many(docs, *a, **kw)
     async def update_one(self, q: dict, *a: Any, **kw: Any) -> Any: return await self._coll.update_one(self._scope(q), *a, **kw)
+    async def find_one_and_update(self, q: dict, *a: Any, **kw: Any) -> Optional[dict]: return await self._coll.find_one_and_update(self._scope(q), *a, **kw)
     async def update_many(self, q: dict, *a: Any, **kw: Any) -> Any: return await self._coll.update_many(self._scope(q), *a, **kw)
     async def delete_one(self, q: dict, *a: Any, **kw: Any) -> Any: return await self._coll.delete_one(self._scope(q), *a, **kw)
     async def delete_many(self, q: dict, *a: Any, **kw: Any) -> Any: return await self._coll.delete_many(self._scope(q), *a, **kw)
