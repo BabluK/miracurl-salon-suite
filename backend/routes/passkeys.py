@@ -20,7 +20,7 @@ from webauthn.helpers.structs import (
 )
 
 from database import _raw_db
-from security import get_current_user, make_access, make_refresh, set_auth_cookies, public_rate_limit
+from security import get_current_user, make_access, make_refresh, set_auth_cookies, public_rate_limit, start_session
 
 router = APIRouter()
 _TTL = timedelta(minutes=5)
@@ -170,5 +170,8 @@ async def pk_login_verify(body: CredIn, request: Request, response: Response):
     user = await _raw_db.users.find_one({"id": key["user_id"]}, {"_id": 0})
     if not user or user.get("disabled") or user.get("active") is False:
         raise HTTPException(401, "Account disabled")
-    set_auth_cookies(response, make_access(user["id"], user["email"]), make_refresh(user["id"]), persistent=True)
+    from routes.auth import _subscription_gate
+    await _subscription_gate(user)
+    sid = await start_session(user["id"], user["email"], user.get("tenant_id"), request)
+    set_auth_cookies(response, make_access(user["id"], user["email"], sid), make_refresh(user["id"], sid), persistent=True)
     return {"ok": True, "user": {k: user.get(k) for k in ("id", "email", "name", "role", "branch", "tenant_id")}}

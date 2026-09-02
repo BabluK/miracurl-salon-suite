@@ -2571,3 +2571,10 @@ SKIPPED (justified): _send_email/_build_invoice_doc 9-arg dataclass refactors (s
 - `components/dashboard/TrialCountdownRing.jsx` on owner Dashboard (only `status=trial` + `signup_offer=newbiz`): SVG progress ring, days-left, "day N of 90 · ends <date>", phase copy (emerald >30d, amber ≤30d, rose ≤7d/ended), Plans button → /settings.
 - Bug: Mira service image for "Body Polishing" rejected by OpenAI safety system. Fix in `routes/services_catalog.py`: salon prompt made modest (robe/towel, hands, products); on safety rejection auto-retry with product-only flat-lay prompt (restaurant: ingredient flat-lay); job errors now human-readable instead of raw litellm text. Verified: Body Polishing → fallback → image stored.
 - Test tenant created: newbiz-ring-salon (ring.owner@test.com / Ring@12345).
+
+## 2026-09-02 — 🔐 Security audit follow-up (SEC-001 passkey gate)
+- Audit verdict: CONDITIONAL PASS, no Critical/High. One Medium: passkey login skipped subscription gate + device-session tracking.
+- Fix in `routes/passkeys.py` `pk_login_verify`: now calls `_subscription_gate(user)` (blocks suspended/expired tenants) and `start_session(...)`, embedding `sid` in access+refresh tokens so passkey sessions appear in /auth/sessions and honour logout-all/remote revoke.
+- P3 hardening: per-account lockout re-engages every 5 failures after the first 10 (`routes/auth.py`), was every 10.
+- Verified with a simulated WebAuthn verify: sid present + session row created; suspended tenant → 403 `suspended`; revoked sid → 401.
+- Remaining P3 notes (not changed): Mira Studio bearer token in localStorage; CSRF Origin/Referer fallback; unauthenticated /api/files/{id} (public images only).

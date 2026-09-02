@@ -522,7 +522,7 @@ async def _register_failed_login(request: Request, email: str, ident: str, acct_
     acount = 1 if (not arec or stale) else arec.get("count", 0) + 1
     strikes = 0 if (not arec or stale) else arec.get("strikes", 0)
     aupd = {"count": acount, "last_attempt": now.isoformat()}
-    if acount >= 10 and acount % 10 == 0:
+    if acount >= 10 and acount % 5 == 0:
         strikes += 1
         lock_min = min(15 * (2 ** (strikes - 1)), 240)
         aupd["strikes"] = strikes
