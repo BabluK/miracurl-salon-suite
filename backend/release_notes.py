@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-03.185"
-BUILD_TIME = "03 Sep 2026, 6:20 PM IST"
+BUILD = "2026-09-03.186"
+BUILD_TIME = "03 Sep 2026, 8:20 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-03 (Devices, Security, Billing accuracy & Attendance mail 🔐)",
         "changes": [
+            "🛟 Painting can no longer get stuck — if a server update interrupts Mira mid-batch (e.g. 'Painting 8/60' frozen), the batch is now marked paused within 4 minutes, you're told exactly where it stopped, and tapping Mira Photos again resumes with only the missing items. Progress also shows failed items and a live time estimate",
             "⚡ Shrink heavy photos — if your menu still has the older 2 MB Mira photos, an amber '⚡ Shrink N heavy photos' button appears on the Services page; one tap compresses them in place (same links, ~96% lighter, thumbnails pre-warmed) so Services, booking pages and offers load instantly. Super Admin can run it for every salon at once",
             "🎨 Mira Photos & Banners — paint one category at a time: a new '🎨 Paint: …' dropdown on the Services page lets you pick a single category before tapping Mira Photos or Mira Banners, so a 5-service category finishes in about a minute instead of painting the whole menu. Painting now runs 8 images at a time (≈8× faster) and the button shows a live '≈ N min left' estimate, each button shows only its own progress (the Banners button no longer spins while Photos are painting), and new images are stored as light 80 KB JPEGs instead of 2 MB PNGs so menus and booking pages load instantly",
             "📊 Group Dashboard periods — multi-salon owners can now switch the combined view between Today · This week · This month · Last month · Last 3 months · Last 6 months with one tap; every branch card shows collection, bills, appointments and average bill for that period (voided/open bills excluded)",

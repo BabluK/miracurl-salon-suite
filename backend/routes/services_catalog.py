@@ -500,10 +500,10 @@ async def _run_shrink_batch(batch_id: str, tenant_ids: list[str] | None) -> None
             try:
                 gained = await _shrink_upload(rec)
                 saved += gained
-                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}, "$set": {"saved_bytes": saved}})
+                await _batch_tick(batch_id, {"done": 1}, {"saved_bytes": saved})
             except Exception as e:
                 logging.error(f"shrink failed for {rec.get('id')}: {e}")
-                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
+                await _batch_tick(batch_id, {"failed": 1}, {"last_error": str(e)[:160]})
 
     await asyncio.gather(*(_one(r) for r in recs))
     await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$set": {"status": "done", "saved_bytes": saved}})
@@ -513,7 +513,7 @@ async def _run_shrink_batch(batch_id: str, tenant_ids: list[str] | None) -> None
 async def shrink_service_images(user=Depends(require_admin)):
     """Compress this salon's heavy (old 2 MB PNG) service photos & banners in place — URLs unchanged."""
     tenant_id = _current_tenant_id.get()
-    if await _raw_db.mira_image_batches.find_one({"tenant_id": tenant_id, "status": "running"}):
+    if await _batch_running(tenant_id):
         raise HTTPException(409, "Mira is already working on images for this salon — wait for it to finish")
     heavy = await _raw_db.uploads.count_documents({"tenant_id": tenant_id, "kind": "service", "is_deleted": False, "size": {"$gte": 400_000}})
     if not heavy:
@@ -551,7 +551,7 @@ async def generate_missing_service_images(category: str | None = None, user=Depe
     if not todo:
         return {"queued": 0, "remaining": 0}
     tenant_id = _current_tenant_id.get()
-    if await _raw_db.mira_image_batches.find_one({"tenant_id": tenant_id, "status": "running"}):
+    if await _batch_running(tenant_id):
         raise HTTPException(409, "Mira is already painting a batch — check the progress chip")
     batch_id = uuid.uuid4().hex[:8]
     await _raw_db.mira_image_batches.insert_one({
@@ -569,10 +569,10 @@ async def generate_missing_service_images(category: str | None = None, user=Depe
                     url = await _store_service_image(tenant_id, img, s["name"])
                     await _raw_db.services.update_one(
                         {"id": s["id"], "tenant_id": tenant_id}, {"$set": {"image_url": url}})
-                    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}})
+                    await _batch_tick(batch_id, {"done": 1})
                 except Exception as e:
                     logging.error(f"mira service image failed for {s.get('name')}: {e}")
-                    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
+                    await _batch_tick(batch_id, {"failed": 1}, {"last_error": str(e)[:160]})
 
         await asyncio.gather(*(_one(s) for s in todo))
         await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$set": {"status": "done"}})
@@ -581,9 +581,36 @@ async def generate_missing_service_images(category: str | None = None, user=Depe
     return {"queued": len(todo), "remaining": max(0, len(svcs) - len(todo)), "batch_id": batch_id}
 
 
+
+_BATCH_STALE_SEC = 240  # no progress for 4 min → the server was restarted mid-batch; let the owner resume
+
+
+async def _batch_running(tenant_id: str) -> bool:
+    """True if a batch is genuinely running. A batch with no heartbeat for 4 min (server redeploy
+    killed the background task) is marked 'interrupted' so a fresh run can pick up the leftovers."""
+    b = await _raw_db.mira_image_batches.find_one({"tenant_id": tenant_id, "status": "running"}, {"_id": 0})
+    if not b:
+        return False
+    last = b.get("updated_at") or b.get("created_at") or ""
+    try:
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds()
+    except ValueError:
+        age = _BATCH_STALE_SEC + 1
+    if age > _BATCH_STALE_SEC:
+        await _raw_db.mira_image_batches.update_one({"id": b["id"]}, {"$set": {"status": "interrupted"}})
+        return False
+    return True
+
+
+async def _batch_tick(batch_id: str, inc: dict, extra: dict | None = None) -> None:
+    await _raw_db.mira_image_batches.update_one(
+        {"id": batch_id}, {"$inc": inc, "$set": {"updated_at": datetime.now(timezone.utc).isoformat(), **(extra or {})}})
+
+
 @router.get("/services/image-batch-status")
 async def image_batch_status(user=Depends(require_admin)):
     tenant_id = _current_tenant_id.get()
+    await _batch_running(tenant_id)  # flips a stalled batch to 'interrupted'
     b = await _raw_db.mira_image_batches.find_one(
         {"tenant_id": tenant_id}, {"_id": 0}, sort=[("created_at", -1)])
     return b or {"status": "none"}
@@ -715,7 +742,7 @@ async def generate_all_category_banners(category: str | None = None, user=Depend
     if not todo:
         return {"queued": 0}
     tenant_id = _current_tenant_id.get()
-    if await _raw_db.mira_image_batches.find_one({"tenant_id": tenant_id, "status": "running"}):
+    if await _batch_running(tenant_id):
         raise HTTPException(409, "Mira is already painting a batch — check the progress chip")
     batch_id = uuid.uuid4().hex[:8]
     await _raw_db.mira_image_batches.insert_one({
@@ -734,10 +761,10 @@ async def generate_all_category_banners(category: str | None = None, user=Depend
                     await _raw_db.service_categories.update_one(
                         {"tenant_id": tenant_id, "name": cat},
                         {"$set": {"tenant_id": tenant_id, "name": cat, "image_url": url}}, upsert=True)
-                    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}})
+                    await _batch_tick(batch_id, {"done": 1})
                 except Exception as e:
                     logging.error(f"mira banner batch failed for {cat}: {e}")
-                    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
+                    await _batch_tick(batch_id, {"failed": 1}, {"last_error": str(e)[:160]})
 
         await asyncio.gather(*(_one(c) for c in todo))
         await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$set": {"status": "done"}})

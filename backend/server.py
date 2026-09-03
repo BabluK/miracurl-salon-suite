@@ -137,6 +137,12 @@ for _r in (
 
 @app.on_event("startup")
 async def on_startup():
+    # Image batches run in-process: a redeploy kills them, so flag leftovers as interrupted (owner can resume).
+    try:
+        from database import _raw_db as _db0
+        await _db0.mira_image_batches.update_many({"status": "running"}, {"$set": {"status": "interrupted"}})
+    except Exception as e:
+        logging.warning(f"could not flag interrupted image batches: {e}")
     asyncio.get_event_loop().create_task(_weekly_package_scheduler())
     asyncio.get_event_loop().create_task(_loyalty_nudge_scheduler())
     asyncio.get_event_loop().create_task(_always_on_time_scheduler())

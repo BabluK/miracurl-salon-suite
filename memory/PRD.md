@@ -2636,3 +2636,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Fixed real lints: unused `month_start` (eod_digests), unused imports (loyalty_stamps), unused `t` (public_site). ruff --select F clean across prod code.
 - Refactored `resync_customer_stats` into `_spend_from_bills` / `_add_unbilled_appointments` / `_ist_day`. Other listed high-complexity functions left untouched intentionally (stable, tested payment/auth/email code — refactoring for a complexity score alone risks regressions).
 - 2026-09-03: user still saw "Painting 5/20" slow → concurrency 5→8, "≈N min left" estimate on buttons, tooltip clarifies only image_url is written (service data untouched). gpt-image-1 quality already "low" (fastest).
+
+## 2026-09-03 — 🛟 Stuck image batch fix (prod "Painting 8/60" frozen)
+- Cause: batches run in-process via create_task; production redeploy killed the task, doc stayed status=running → UI frozen + new batches refused (409).
+- Fix: `_batch_running()` marks batches with no heartbeat (`updated_at`) for 240s as "interrupted"; `_batch_tick()` heartbeats each progress; startup hook flips all running → interrupted; status endpoint applies the check; frontend toasts "paused at N/M — tap to resume", shows failed count, ETA. Restart re-queues only services still missing image_url. Concurrency 8. BUILD 2026-09-03.186.

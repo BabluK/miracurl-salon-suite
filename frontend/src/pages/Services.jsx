@@ -229,6 +229,11 @@ export default function Services() {
         batchTimer.current = setTimeout(poll, 8000);
       } else {
         setImgBatch(prev => {
+          if (prev && data.status === "interrupted") {
+            toast.warning(`⏸ Painting paused at ${data.done}/${data.total} (server update) — tap the button again to resume; only the missing ones get painted`, { duration: 9000 });
+            load();
+            return null;
+          }
           if (prev) {
             if (data.kind === "shrink") toast.success(`⚡ Done — ${data.done} photos shrunk, ${((data.saved_bytes || 0) / 1048576).toFixed(1)} MB saved. Same links, much faster pages.`);
             else toast.success(`🎨 Mira finished — ${data.done} ${data.kind === "banners" ? "category banners" : "photos"} painted${data.failed ? ` (${data.failed} failed)` : ""}`);
@@ -384,7 +389,7 @@ export default function Services() {
             title="Mira paints a photo for every item without one (8 at a time, ~35 s each). Only the photo is added — names, prices and categories are never touched. Pick a category on the left to keep it quick"
           >
             {imgBatch?.kind !== "banners" && imgBatch ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-amber-500" />}
-            {imgBatch && imgBatch.kind !== "banners" ? `Painting ${imgBatch.done}/${imgBatch.total} · ≈${Math.max(1, Math.ceil((imgBatch.total - imgBatch.done) / 8 * 0.6))} min left` : "Mira Photos"}
+            {imgBatch && imgBatch.kind !== "banners" ? `Painting ${imgBatch.done}/${imgBatch.total}${imgBatch.failed ? ` · ${imgBatch.failed} failed` : ""} · ≈${Math.max(1, Math.ceil((imgBatch.total - imgBatch.done - (imgBatch.failed || 0)) / 8 * 0.6))} min left` : "Mira Photos"}
           </button>
           <button
             data-testid="generate-all-banners-btn"
