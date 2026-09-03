@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Wallet, Plus, Trash2, Receipt, Send, ChevronLeft, ChevronRight, Banknote, AlertTriangle, Coffee } from "lucide-react";
+import { CashMonthlyReport } from "@/components/cash/CashMonthlyReport";
 
 const inr = (v) => `₹${Math.round(Number(v) || 0).toLocaleString("en-IN")}`;
 const todayIST = () => new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
@@ -27,6 +28,9 @@ export default function CashRegister() {
   const [day, setDay] = useState(null);
   const [form, setForm] = useState({ amount: "", purpose: "", category: "tea", has_bill: false, kind: "expense" });
   const [busy, setBusy] = useState(false);
+  const [target, setTarget] = useState(null);
+  const [tab, setTab] = useState("day");
+  useEffect(() => { if (isMgr) api.get("/cash/report-target").then(r => setTarget(r.data)).catch(() => {}); }, [isMgr]);
 
   const load = useCallback(async (d = date) => {
     try { const { data } = await api.get(`/cash/day?date=${d}`); setDay(data); }
@@ -68,17 +72,30 @@ export default function CashRegister() {
           <h1 className="font-playfair text-3xl flex items-center gap-2"><Wallet className="w-7 h-7 text-emerald-600" /> Cash Register</h1>
           <p className="text-slate-500 text-sm mt-1">Today's cash − expenses = cash in hand. Yesterday's closing carries forward automatically. Owner gets this by email every evening.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className={`flex items-center gap-2 ${tab === "month" ? "invisible" : ""}`}>
           <button data-testid="cash-prev-day" onClick={() => setDate(shift(date, -1))} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50"><ChevronLeft className="w-4 h-4" /></button>
           <input data-testid="cash-date" type="date" value={date} max={todayIST()} onChange={e => setDate(e.target.value)} className="input-light !w-auto" />
           <button data-testid="cash-next-day" onClick={() => setDate(shift(date, 1))} disabled={isToday} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40"><ChevronRight className="w-4 h-4" /></button>
           {isMgr && (
-            <button data-testid="cash-send-report" onClick={sendReport} disabled={busy} className="btn-slate flex items-center gap-2 disabled:opacity-50"><Send className="w-4 h-4" /> Email owner now</button>
+            <button data-testid="cash-send-report" onClick={sendReport} disabled={busy} className="btn-slate flex items-center gap-2 disabled:opacity-50"
+              title={target?.to?.length ? `Sends to ${target.to.join(", ")} (${target.source === "salon_email" ? "Salon email from Settings" : "login email — set a Salon email in Settings → Branding"})` : ""}>
+              <Send className="w-4 h-4" /> Email owner now{target?.to?.[0] && <span className="hidden xl:inline text-[11px] font-normal text-slate-400">→ {target.to[0]}</span>}
+            </button>
           )}
         </div>
       </div>
 
-      {day && (
+      {isMgr && (
+        <div className="flex gap-1 border-b border-slate-200" data-testid="cash-tabs">
+          {[["day", "Daily register"], ["month", "Monthly report"]].map(([k, l]) => (
+            <button key={k} data-testid={`cash-tab-${k}`} onClick={() => setTab(k)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === k ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}>{l}</button>
+          ))}
+        </div>
+      )}
+      {tab === "month" && isMgr && <CashMonthlyReport />}
+
+      {tab === "day" && day && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Stat testid="cash-opening" label="Opening cash" value={inr(day.opening)} tone="slate" sub={day.opening_from ? `carried from ${day.opening_from}` : "no earlier balance"} />

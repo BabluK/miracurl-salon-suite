@@ -127,6 +127,111 @@ async def delete_expense(eid: str, user=Depends(get_current_user), t=Depends(cur
     return {"ok": True}
 
 
+# ---------------- monthly report ----------------
+
+async def _month_data(tenant_id: str, month: str) -> dict:
+    """month = YYYY-MM → entries + by-category / by-staff / by-day rollups + cash collected."""
+    y, m = int(month[:4]), int(month[5:7])
+    first = f"{y:04d}-{m:02d}-01"
+    nxt = f"{y + (m == 12):04d}-{(m % 12) + 1:02d}-01"
+    entries = await _raw_db.cash_expenses.find(
+        {"tenant_id": tenant_id, "date": {"$gte": first, "$lt": nxt}}, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(5000)
+    by_cat: dict = {}
+    by_staff: dict = {}
+    by_day: dict = {}
+    total = handover = 0.0
+    for e in entries:
+        amt = float(e.get("amount") or 0)
+        if e.get("kind") == "handover":
+            handover += amt
+            by_day.setdefault(e["date"], {"expenses": 0.0, "handover": 0.0, "n": 0})["handover"] += amt
+            continue
+        total += amt
+        c = e.get("category") or "other"
+        by_cat[c] = by_cat.get(c, 0.0) + amt
+        st = by_staff.setdefault(e.get("added_by") or "—", {"amount": 0.0, "n": 0, "with_bill": 0})
+        st["amount"] += amt
+        st["n"] += 1
+        st["with_bill"] += 1 if e.get("has_bill") else 0
+        d = by_day.setdefault(e["date"], {"expenses": 0.0, "handover": 0.0, "n": 0})
+        d["expenses"] += amt
+        d["n"] += 1
+    lo, _ = _utc_bounds(first)
+    _, hi = _utc_bounds((datetime.fromisoformat(nxt) - timedelta(days=1)).date().isoformat())
+    row = await _raw_db.invoices.aggregate([
+        {"$match": {"tenant_id": tenant_id, "created_at": {"$gte": lo, "$lt": hi},
+                    "payment_mode": {"$regex": "^cash$", "$options": "i"}, "status": {"$nin": ["voided", "open"]}}},
+        {"$group": {"_id": None, "total": {"$sum": {"$toDouble": {"$ifNull": ["$total", 0]}}}}}]).to_list(1)
+    cash_in = round(row[0]["total"], 2) if row else 0.0
+    with_bill = sum(1 for e in entries if e.get("has_bill"))
+    exp_entries = [e for e in entries if e.get("kind") != "handover"]
+    return {
+        "month": month, "entries": entries, "cash_in": cash_in,
+        "total_expenses": round(total, 2), "total_handover": round(handover, 2),
+        "net_cash": round(cash_in - total - handover, 2),
+        "bills_kept": with_bill, "no_bill": len(exp_entries) - with_bill,
+        "by_category": sorted([{"category": k, "amount": round(v, 2), "pct": round(v / total * 100) if total else 0} for k, v in by_cat.items()], key=lambda x: -x["amount"]),
+        "by_staff": sorted([{"name": k, **v, "amount": round(v["amount"], 2)} for k, v in by_staff.items()], key=lambda x: -x["amount"]),
+        "by_day": [{"date": k, **{kk: round(vv, 2) if isinstance(vv, float) else vv for kk, vv in v.items()}} for k, v in sorted(by_day.items())],
+    }
+
+
+@router.get("/cash/month")
+async def cash_month(month: Optional[str] = None, user=Depends(get_current_user), t=Depends(current_tenant)):
+    if user.get("role") not in ("admin", "manager"):
+        raise HTTPException(403, "Manager or owner only")
+    month = month or _today()[:7]
+    if len(month) != 7:
+        raise HTTPException(400, "month must be YYYY-MM")
+    return await _month_data(t["id"], month)
+
+
+@router.get("/cash/month/export")
+async def cash_month_export(month: Optional[str] = None, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """CSV: one row per entry + summary rows (by category, by staff). Opens in Excel / Sheets."""
+    import csv
+    import io
+    from fastapi.responses import Response
+    if user.get("role") not in ("admin", "manager"):
+        raise HTTPException(403, "Manager or owner only")
+    month = month or _today()[:7]
+    d = await _month_data(t["id"], month)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow([f"Cash Register — {t.get('name', '')} — {month}"])
+    w.writerow(["Cash collected (POS, cash)", d["cash_in"]])
+    w.writerow(["Total expenses", d["total_expenses"]])
+    w.writerow(["Handed to owner / bank", d["total_handover"]])
+    w.writerow(["Net cash (collected − expenses − handed over)", d["net_cash"]])
+    w.writerow(["Entries with bill at counter", d["bills_kept"], "without bill", d["no_bill"]])
+    w.writerow([])
+    w.writerow(["Date", "Time (IST)", "Type", "Category", "Purpose / given to", "Amount", "Bill at counter", "Logged by", "Role"])
+    for e in d["entries"]:
+        try:
+            tm = datetime.fromisoformat(e["created_at"]).astimezone(IST).strftime("%H:%M")
+        except (ValueError, KeyError):
+            tm = ""
+        w.writerow([e["date"], tm, "Handover" if e.get("kind") == "handover" else "Expense",
+                    "" if e.get("kind") == "handover" else (e.get("category") or "other"),
+                    e.get("purpose", ""), e["amount"], "Yes" if e.get("has_bill") else "No",
+                    e.get("added_by", ""), e.get("added_by_role", "")])
+    w.writerow([])
+    w.writerow(["By category", "Amount", "% of expenses"])
+    for r in d["by_category"]:
+        w.writerow([r["category"], r["amount"], r["pct"]])
+    w.writerow([])
+    w.writerow(["By staff", "Amount", "Entries", "With bill"])
+    for r in d["by_staff"]:
+        w.writerow([r["name"], r["amount"], r["n"], r["with_bill"]])
+    w.writerow([])
+    w.writerow(["By day", "Expenses", "Handed over", "Entries"])
+    for r in d["by_day"]:
+        w.writerow([r["date"], r["expenses"], r["handover"], r["n"]])
+    fname = f"cash-register-{month}.csv"
+    return Response(content="\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
 # ---------------- owner EOD email ----------------
 
 def _inr(v: float) -> str:
@@ -175,6 +280,19 @@ def cash_report_html(t: dict, s: dict) -> str:
     </div>"""
 
 
+def _report_recipients(t: dict) -> list:
+    """Settings → Branding → 'Salon email' is where the owner wants reports; fall back to the login email."""
+    salon = (t.get("salon_email") or "").strip()
+    return [salon] if salon else [e for e in [(t.get("owner_email") or "").strip()] if e]
+
+
+@router.get("/cash/report-target")
+async def cash_report_target(user=Depends(get_current_user), t=Depends(current_tenant)):
+    tt = await _raw_db.tenants.find_one({"id": t["id"]}, {"_id": 0, "owner_email": 1, "salon_email": 1})
+    rcpt = _report_recipients(tt or {})
+    return {"to": rcpt, "source": "salon_email" if (tt or {}).get("salon_email") else "owner_email"}
+
+
 async def _run_cash_reports(tenant_id: Optional[str] = None, day: Optional[str] = None) -> dict:
     day = day or _today()
     flt = {"id": tenant_id} if tenant_id else {"status": {"$in": ["active", "trial"]}}
@@ -184,7 +302,7 @@ async def _run_cash_reports(tenant_id: Optional[str] = None, day: Optional[str] 
         if not s["entries"] and not s["cash_in"] and not tenant_id:
             skipped += 1  # nothing happened today — don't spam
             continue
-        rcpt = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
+        rcpt = _report_recipients(t)
         if not rcpt:
             continue
         subj = f"💵 Cash register {day} · {t.get('name')} — {_inr(s['closing'])} in hand" + (" ⚠️ SHORT" if s["short"] else "")

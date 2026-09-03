@@ -2644,3 +2644,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-03 — 💵 Daily Cash Register (user request)
 - `routes/cash_register.py`: collections `cash_expenses` {id,tenant_id,date(IST),amount,purpose,category,has_bill,kind expense|handover,added_by,added_by_role,added_by_id}, `cash_days` snapshot {date,opening,cash_in,expenses,handover,closing}. opening = latest earlier cash_days.closing; cash_in = non-voided invoices payment_mode=cash that IST day. Endpoints: GET /cash/day?date, GET /cash/history, POST/DELETE /cash/expenses (staff today-only; mgr/admin any day), POST /cash/send-report. Owner EOD email via `_cash_report_scheduler` (≥20:30 IST, flag cash_report_auto; skips tenants with no cash & no entries).
 - Frontend `pages/CashRegister.jsx` at /cash, nav "Cash Register" for admin/manager/staff. Tested: carry-forward, POS cash bill, expense w/ bill, handover, email sent, UI add. BUILD 2026-09-03.187.
+
+## 2026-09-03 — 📒 Monthly cash report + salon-email routing (user requests)
+- `GET /cash/month?month=YYYY-MM` (`_month_data`: by_category/by_staff/by_day, cash_in, net), `GET /cash/month/export` CSV (BOM, summary + entries + rollups), `GET /cash/report-target`. `_report_recipients`: Settings→Branding `salon_email` first, else owner_email (used by EOD + send-now).
+- `components/cash/CashMonthlyReport.jsx`; CashRegister.jsx tabs (Daily register / Monthly report, mgr+), send button shows target. Tested API + UI. BUILD 2026-09-03.188.

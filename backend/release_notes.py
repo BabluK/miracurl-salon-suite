@@ -2,13 +2,15 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-03.187"
-BUILD_TIME = "03 Sep 2026, 8:40 PM IST"
+BUILD = "2026-09-03.188"
+BUILD_TIME = "03 Sep 2026, 9:00 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-03 (Devices, Security, Billing accuracy & Attendance mail 🔐)",
         "changes": [
+            "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
+            "📬 Cash reports go to your Salon email — the evening Cash Register email and 'Email owner now' are sent to the Salon email you set in Settings → Branding (falling back to your login email if it's empty); the button shows exactly where it will go",
             "💵 Cash Register (new page for staff, managers & owners) — log every petty expense in seconds: amount, what for (tea, salon supplies, cleaning, travel, repair…), who logged it, and 'Bill available ✓ — kept at the counter'. Also record cash handed to the owner / bank. The page shows Opening cash (yesterday's closing carried forward automatically) + today's cash collection from POS − expenses = Cash in hand, and warns when cash is short. Owners receive a Daily Cash Register email every evening (8:30 PM) with the full list, who logged each item and which bills are waiting at the counter; managers can also 'Email owner now'. Staff can log today only; managers/owners can browse and correct past days",
             "🛟 Painting can no longer get stuck — if a server update interrupts Mira mid-batch (e.g. 'Painting 8/60' frozen), the batch is now marked paused within 4 minutes, you're told exactly where it stopped, and tapping Mira Photos again resumes with only the missing items. Progress also shows failed items and a live time estimate",
             "⚡ Shrink heavy photos — if your menu still has the older 2 MB Mira photos, an amber '⚡ Shrink N heavy photos' button appears on the Services page; one tap compresses them in place (same links, ~96% lighter, thumbnails pre-warmed) so Services, booking pages and offers load instantly. Super Admin can run it for every salon at once",
