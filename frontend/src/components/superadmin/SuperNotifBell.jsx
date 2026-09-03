@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, Sparkles, Pause, Play, RotateCcw, Clock, CreditCard, Inbox } from "lucide-react";
+import { toast } from "sonner";
+import { Bell, BellOff, Sparkles, Pause, Play, RotateCcw, Clock, CreditCard, Inbox } from "lucide-react";
 
 export function StatusActionButton({ t, setStatus, reactivateTenant }) {
   if (t.status === "active" || t.status === "trial") {
@@ -54,18 +55,32 @@ export function SuperNotifBell({ tenants, hqUnread, onGoInbox, onGoTenant }) {
   alerts.sort((a, b) => ({ red: 0, amber: 1, sky: 2 }[a.tone] - { red: 0, amber: 1, sky: 2 }[b.tone]));
   const inboxKey = hqUnread > 0 ? `inbox:${hqUnread}` : null;
   const keys = [...alerts.map(a => a.key), ...(inboxKey ? [inboxKey] : [])];
-  // "dismissed" rows are hidden entirely; "seen" rows stay listed but muted and don't count on the badge
-  const visibleAlerts = alerts.filter(a => seen[a.key] !== "dismissed");
-  const inboxVisible = inboxKey && seen[inboxKey] !== "dismissed";
-  const unseen = keys.filter(k => !seen[k]).length;
+  const isSnoozed = (k) => typeof seen[k] === "string" && seen[k].startsWith("snooze:") && new Date(seen[k].slice(7)) > now;
+  const hidden = (k) => seen[k] === "dismissed" || isSnoozed(k);
+  // "dismissed"/snoozed rows are hidden; "seen" rows stay listed but don't count on the badge
+  const visibleAlerts = alerts.filter(a => !hidden(a.key));
+  const inboxVisible = inboxKey && !hidden(inboxKey);
+  const snoozedCount = alerts.filter(a => isSnoozed(a.key)).length;
+  const unseen = keys.filter(k => !seen[k] || (seen[k].startsWith("snooze:") && !isSnoozed(k))).length;
   const total = visibleAlerts.length + (inboxVisible ? 1 : 0);
 
   const persist = (next) => { setSeen(next); try { localStorage.setItem(SEEN_KEY, JSON.stringify(next)); } catch { /* private mode */ } };
   const markSeen = () => {
     const next = { ...seen };
     let changed = false;
-    keys.forEach(k => { if (!next[k]) { next[k] = "seen"; changed = true; } });
+    keys.forEach(k => { if (!next[k] || (next[k].startsWith("snooze:") && !isSnoozed(k))) { next[k] = "seen"; changed = true; } });
     if (changed) persist(next);
+  };
+  const snooze = (e, a) => {
+    e.stopPropagation();
+    const until = new Date(now.getTime() + 3 * 86400000);
+    persist({ ...seen, [a.key]: `snooze:${until.toISOString()}` });
+    toast.success(`${a.name} snoozed until ${until.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} — it'll wake earlier if the status changes`);
+  };
+  const wakeSnoozed = () => {
+    const next = { ...seen };
+    alerts.forEach(a => { if (isSnoozed(a.key)) next[a.key] = "seen"; });
+    persist(next);
   };
   const clearAll = () => {
     const next = { ...seen };
@@ -112,28 +127,41 @@ export function SuperNotifBell({ tenants, hqUnread, onGoInbox, onGoTenant }) {
               </button>
             )}
             {visibleAlerts.map(a => (
-              <button key={a.id} data-testid={`super-notif-alert-${a.id}`} onClick={() => { setOpen(false); onGoTenant?.(a.id); }}
-                className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors">
+              <div key={a.id} data-testid={`super-notif-alert-${a.id}`} role="button" tabIndex={0}
+                onClick={() => { setOpen(false); onGoTenant?.(a.id); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { setOpen(false); onGoTenant?.(a.id); } }}
+                className="group w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
                 <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${TONE[a.tone].icon}`}><a.icon className="w-4 h-4" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-slate-800 truncate">{a.name}</span>
                   <span className="block text-xs text-slate-500">{a.meta}</span>
                 </span>
+                <button data-testid={`super-notif-snooze-${a.id}`} onClick={(e) => snooze(e, a)} title="Snooze for 3 days"
+                  className="shrink-0 inline-flex items-center gap-1 h-6 px-2 rounded-full border border-slate-200 text-[10px] font-semibold text-slate-500 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50 transition-all">
+                  <BellOff className="w-3 h-3" /> 3d
+                </button>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${TONE[a.tone].pill}`}>{a.pill}</span>
-              </button>
+              </div>
             ))}
             {total === 0 && (
               <div className="px-4 py-10 text-center">
                 <span className="mx-auto w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><Sparkles className="w-4 h-4" /></span>
                 <p className="mt-3 text-xs font-medium text-slate-600">All clear</p>
-                <p className="text-[11px] text-slate-400">No expiring trials or unread messages</p>
+                <p className="text-[11px] text-slate-400">{snoozedCount ? `${snoozedCount} alert${snoozedCount === 1 ? "" : "s"} snoozed` : "No expiring trials or unread messages"}</p>
               </div>
             )}
           </div>
-          {total > 0 && (
-            <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-              <span>Expiring within 7 days · click a row to open</span>
-              <button data-testid="super-notif-clear-all" onClick={clearAll} className="font-semibold text-slate-500 hover:text-red-600 transition-colors">Clear all</button>
+          {(total > 0 || snoozedCount > 0) && (
+            <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 text-[10px] text-slate-400">
+              <span className="truncate">{total > 0 ? "Hover a row to snooze · click to open" : "Snoozed alerts wake in 3 days or when their status changes"}</span>
+              <span className="flex items-center gap-3 shrink-0">
+                {snoozedCount > 0 && (
+                  <button data-testid="super-notif-wake-snoozed" onClick={wakeSnoozed} className="font-semibold text-indigo-500 hover:text-indigo-700 transition-colors">
+                    Show {snoozedCount} snoozed
+                  </button>
+                )}
+                {total > 0 && <button data-testid="super-notif-clear-all" onClick={clearAll} className="font-semibold text-slate-500 hover:text-red-600 transition-colors">Clear all</button>}
+              </span>
             </div>
           )}
         </div>

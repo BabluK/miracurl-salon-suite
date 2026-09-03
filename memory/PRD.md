@@ -2602,3 +2602,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-02 — 🔔 HQ Alerts: seen/clear behaviour (user request)
 - `SuperNotifBell.jsx`: alert keys `${tenantId}:${pill}` / `inbox:${n}` stored in localStorage `hq_alerts_seen_v1` as "seen" (badge no longer counts it; opening the bell marks all seen) or "dismissed" (hidden via "Clear all"). Changed state (new days-left pill / new unread count) re-fires. Release note extended; BUILD stays 2026-09-02.179 (same deploy).
+
+## 2026-09-03 — 😴 Snooze HQ alerts (user request)
+- `SuperNotifBell.jsx`: hover a row → "3d" snooze button; stores `snooze:<iso>` in `hq_alerts_seen_v1`; hidden + not counted until then; wakes early when the alert key changes (days-left pill / expired). Footer shows "Show N snoozed"; empty state mentions snoozed count. Release note extended (BUILD 2026-09-02.179).
