@@ -380,14 +380,30 @@ async def _generate_service_image_bytes(name: str, category: str, restaurant: bo
     return imgs[0]
 
 
+def _compress_for_web(img_bytes: bytes, max_px: int = 1024, quality: int = 82) -> tuple[bytes, str, str]:
+    """gpt-image PNGs are ~2 MB — shrink to a web-friendly JPEG so menus/booking pages load fast."""
+    try:
+        from PIL import Image
+        import io
+        im = Image.open(io.BytesIO(img_bytes))
+        im = im.convert("RGB")
+        im.thumbnail((max_px, max_px))
+        out = io.BytesIO()
+        im.save(out, format="JPEG", quality=quality, optimize=True, progressive=True)
+        return out.getvalue(), "image/jpeg", "jpg"
+    except Exception:
+        return img_bytes, "image/png", "png"
+
+
 async def _store_service_image(tenant_id: str, img_bytes: bytes, name: str) -> str:
     file_id = str(uuid.uuid4())
-    path = f"{APP_NAME}/tenants/{tenant_id}/service/{file_id}.png"
-    result = await asyncio.to_thread(_put_object, path, img_bytes, "image/png")
+    img_bytes, ctype, ext = await asyncio.to_thread(_compress_for_web, img_bytes)
+    path = f"{APP_NAME}/tenants/{tenant_id}/service/{file_id}.{ext}"
+    result = await asyncio.to_thread(_put_object, path, img_bytes, ctype)
     await _raw_db.uploads.insert_one({
         "id": file_id, "tenant_id": tenant_id, "kind": "service",
-        "storage_path": result.get("path", path), "original_filename": f"mira-{name[:30]}.png",
-        "content_type": "image/png", "size": len(img_bytes), "uploaded_by": "mira-ai",
+        "storage_path": result.get("path", path), "original_filename": f"mira-{name[:30]}.{ext}",
+        "content_type": ctype, "size": len(img_bytes), "uploaded_by": "mira-ai",
         "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
     return f"/api/files/{file_id}"
 
@@ -434,10 +450,12 @@ async def generate_dish_descriptions(user=Depends(require_admin)):
 
 
 @router.post("/services/generate-missing-images")
-async def generate_missing_service_images(user=Depends(require_admin)):
-    """Mira paints a photo for EVERY service/dish without one — full batch, background."""
-    svcs = await db.services.find(
-        {"$or": [{"image_url": ""}, {"image_url": None}]}, {"_id": 0}).to_list(200)
+async def generate_missing_service_images(category: str | None = None, user=Depends(require_admin)):
+    """Mira paints a photo for every service/dish without one — optionally only one category (faster)."""
+    q: dict = {"$or": [{"image_url": ""}, {"image_url": None}]}
+    if category and category.strip():
+        q["category"] = category.strip()
+    svcs = await db.services.find(q, {"_id": 0}).to_list(200)
     todo = svcs[:60]
     if not todo:
         return {"queued": 0, "remaining": 0}
@@ -446,22 +464,26 @@ async def generate_missing_service_images(user=Depends(require_admin)):
         raise HTTPException(409, "Mira is already painting a batch — check the progress chip")
     batch_id = uuid.uuid4().hex[:8]
     await _raw_db.mira_image_batches.insert_one({
-        "id": batch_id, "tenant_id": tenant_id, "total": len(todo), "done": 0, "failed": 0,
+        "id": batch_id, "tenant_id": tenant_id, "kind": "photos", "total": len(todo), "done": 0, "failed": 0,
         "status": "running", "created_at": datetime.now(timezone.utc).isoformat()})
 
     async def _runner():
         resto = await _tenant_is_restaurant(tenant_id)
-        for s in todo:
-            try:
-                img = await _generate_service_image_bytes(s["name"], s.get("category") or "Beauty", restaurant=resto)
-                url = await _store_service_image(tenant_id, img, s["name"])
-                await _raw_db.services.update_one(
-                    {"id": s["id"], "tenant_id": tenant_id}, {"$set": {"image_url": url}})
-                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}})
-            except Exception as e:
-                logging.error(f"mira service image failed for {s.get('name')}: {e}")
-                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
-            await asyncio.sleep(1)
+        sem = asyncio.Semaphore(5)  # 5 paintings in flight → ~5x faster than one-by-one
+
+        async def _one(s):
+            async with sem:
+                try:
+                    img = await _generate_service_image_bytes(s["name"], s.get("category") or "Beauty", restaurant=resto)
+                    url = await _store_service_image(tenant_id, img, s["name"])
+                    await _raw_db.services.update_one(
+                        {"id": s["id"], "tenant_id": tenant_id}, {"$set": {"image_url": url}})
+                    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}})
+                except Exception as e:
+                    logging.error(f"mira service image failed for {s.get('name')}: {e}")
+                    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
+
+        await asyncio.gather(*(_one(s) for s in todo))
         await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$set": {"status": "done"}})
 
     asyncio.get_event_loop().create_task(_runner())
@@ -589,12 +611,15 @@ async def generate_category_banner(body: BannerPreviewIn, user=Depends(require_a
 
 
 @router.post("/services/generate-all-banners")
-async def generate_all_category_banners(user=Depends(require_admin)):
-    """Mira paints a banner for EVERY category that has none — one tap, background batch."""
+async def generate_all_category_banners(category: str | None = None, user=Depends(require_admin)):
+    """Mira paints a banner for every category that has none — or just the one category picked."""
     cats_raw = await db.services.find({}, {"_id": 0, "category": 1}).to_list(500)
     cats = sorted({(c.get("category") or "").strip() for c in cats_raw} - {""})
     existing = await db.service_categories.find({}, {"_id": 0}).to_list(200)
     have = {c["name"] for c in existing if (c.get("image_url") or "").strip()}
+    if category and category.strip():
+        cats = [c for c in cats if c == category.strip()]
+        have = set()  # explicit pick → repaint even if a banner exists
     todo = [c for c in cats if c not in have][:40]
     if not todo:
         return {"queued": 0}
@@ -608,18 +633,22 @@ async def generate_all_category_banners(user=Depends(require_admin)):
 
     async def _runner():
         resto = await _tenant_is_restaurant(tenant_id)
-        for cat in todo:
-            try:
-                img = await _generate_category_banner_bytes(cat, resto)
-                url = await _store_service_image(tenant_id, img, f"banner-{cat[:24]}")
-                await _raw_db.service_categories.update_one(
-                    {"tenant_id": tenant_id, "name": cat},
-                    {"$set": {"tenant_id": tenant_id, "name": cat, "image_url": url}}, upsert=True)
-                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}})
-            except Exception as e:
-                logging.error(f"mira banner batch failed for {cat}: {e}")
-                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
-            await asyncio.sleep(1)
+        sem = asyncio.Semaphore(5)
+
+        async def _one(cat):
+            async with sem:
+                try:
+                    img = await _generate_category_banner_bytes(cat, resto)
+                    url = await _store_service_image(tenant_id, img, f"banner-{cat[:24]}")
+                    await _raw_db.service_categories.update_one(
+                        {"tenant_id": tenant_id, "name": cat},
+                        {"$set": {"tenant_id": tenant_id, "name": cat, "image_url": url}}, upsert=True)
+                    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}})
+                except Exception as e:
+                    logging.error(f"mira banner batch failed for {cat}: {e}")
+                    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
+
+        await asyncio.gather(*(_one(c) for c in todo))
         await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$set": {"status": "done"}})
 
     asyncio.get_event_loop().create_task(_runner())

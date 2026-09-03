@@ -214,6 +214,7 @@ export default function Services() {
   const [photoBusy, setPhotoBusy] = useState("");
   const [descBusy, setDescBusy] = useState(false);
   const [imgBatch, setImgBatch] = useState(null);
+  const [paintCat, setPaintCat] = useState("");
   const batchTimer = useRef(null);
   const pollBatch = useCallback(async function poll() {
     try {
@@ -222,7 +223,7 @@ export default function Services() {
         setImgBatch(data);
         load();
         api.get("/service-categories").then(r => setCatImages(r.data || {})).catch(() => {});
-        batchTimer.current = setTimeout(poll, 15000);
+        batchTimer.current = setTimeout(poll, 8000);
       } else {
         setImgBatch(prev => {
           if (prev) {
@@ -337,41 +338,49 @@ export default function Services() {
           >
             <Sparkles className="w-4 h-4" /> {isResto ? "Import Starters Menu 🍗" : "Import Makeup & Nails menu"}
           </button>
+          <select data-testid="paint-category-select" value={paintCat || (activeCat !== "All" ? activeCat : "")} onChange={e => setPaintCat(e.target.value)}
+            title="Choose one category to paint — much faster than the whole menu"
+            className="btn-slate !px-3 text-sm max-w-[200px] disabled:opacity-60" disabled={!!imgBatch}>
+            <option value="">🎨 Paint: all categories</option>
+            {allCats.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
           <button
             data-testid="generate-missing-images-btn"
             disabled={!!imgBatch}
             onClick={async () => {
+              const cat = paintCat || (activeCat !== "All" ? activeCat : "");
               try {
-                const { data } = await api.post("/services/generate-missing-images");
-                if (!data.queued) { toast.info(isResto ? "Every dish already has a photo ✦" : "Every service already has a photo ✦"); return; }
-                toast.success(`🎨 Mira is painting ALL ${data.queued} ${isResto ? "dish" : "service"} photos in one batch — photos appear as they finish (watch the progress chip)`);
-                setImgBatch({ done: 0, total: data.queued, status: "running" });
+                const { data } = await api.post(`/services/generate-missing-images${cat ? `?category=${encodeURIComponent(cat)}` : ""}`);
+                if (!data.queued) { toast.info(cat ? `Every ${cat} ${isResto ? "dish" : "service"} already has a photo ✦` : (isResto ? "Every dish already has a photo ✦" : "Every service already has a photo ✦")); return; }
+                toast.success(`🎨 Mira is painting ${data.queued} ${cat ? `${cat} ` : ""}${isResto ? "dish" : "service"} photos (5 at a time) — they appear as they finish`);
+                setImgBatch({ done: 0, total: data.queued, status: "running", kind: "photos" });
                 setTimeout(pollBatch, 5000);
               } catch (err) { toast.error(err.response?.data?.detail || "Couldn't start Mira's photo studio — try again"); }
             }}
             className="btn-slate flex items-center gap-2 disabled:opacity-60"
-            title="Mira paints an appetizing photo for every item that has none — full batch in the background"
+            title="Mira paints a photo for every item without one — pick a category on the left to keep it quick"
           >
-            {imgBatch ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-amber-500" />}
-            {imgBatch ? `Painting ${imgBatch.done}/${imgBatch.total}…` : "Mira Photos"}
+            {imgBatch?.kind !== "banners" && imgBatch ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-amber-500" />}
+            {imgBatch && imgBatch.kind !== "banners" ? `Painting ${imgBatch.done}/${imgBatch.total}…` : "Mira Photos"}
           </button>
           <button
             data-testid="generate-all-banners-btn"
             disabled={!!imgBatch}
             onClick={async () => {
+              const cat = paintCat || (activeCat !== "All" ? activeCat : "");
               try {
-                const { data } = await api.post("/services/generate-all-banners");
+                const { data } = await api.post(`/services/generate-all-banners${cat ? `?category=${encodeURIComponent(cat)}` : ""}`);
                 if (!data.queued) { toast.info("Every category already has a banner ✦"); return; }
-                toast.success(`🖼️ Mira is painting ${data.queued} category banners in one batch — they appear as they finish`);
-                setImgBatch({ done: 0, total: data.queued, status: "running" });
+                toast.success(cat ? `🖼️ Mira is painting the ${cat} banner — ready in about a minute` : `🖼️ Mira is painting ${data.queued} category banners (5 at a time) — they appear as they finish`);
+                setImgBatch({ done: 0, total: data.queued, status: "running", kind: "banners" });
                 setTimeout(pollBatch, 5000);
               } catch (err) { toast.error(err.response?.data?.detail || "Couldn't start Mira's banner studio — try again"); }
             }}
             className="btn-slate flex items-center gap-2 disabled:opacity-60"
-            title="Mira paints one elegant banner for every category that has none — full batch in the background"
+            title="Mira paints a banner for the picked category (or every category that has none)"
           >
-            {imgBatch ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-sky-500" />}
-            Mira Banners
+            {imgBatch?.kind === "banners" ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-sky-500" />}
+            {imgBatch?.kind === "banners" ? `Banners ${imgBatch.done}/${imgBatch.total}…` : "Mira Banners"}
           </button>
           {isResto && (
             <button
