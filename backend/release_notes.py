@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-02.179"
-BUILD_TIME = "02 Sep 2026, 3:10 PM IST"
+BUILD = "2026-09-03.180"
+BUILD_TIME = "03 Sep 2026, 1:35 PM IST"
 
 RELEASES = [
     {
-        "date": "2026-09-02 (Devices, Security & Billing accuracy 🔐)",
+        "date": "2026-09-03 (Devices, Security, Billing accuracy & Attendance mail 🔐)",
         "changes": [
+            "🌤️ Daily attendance email fixed & upgraded — demo staff (Priya Sharma, Rahul Verma, Anjali Mehta, Karan Singh) can no longer appear in the noon 'Late arrivals today' email, even if they still exist in a branch; and every branch with real staff now gets ONE email at noon every working day — either 'Late arrivals today' (late/missing staff first, then everyone who was on time with their check-in time) or '✅ All staff on time today' — so silence never leaves you guessing. The outdated 'they received a please-hurry email' footer is gone",
             "📱 Signed-in Devices manager — Settings now lists every device logged into your account with its location (city, country flag), browser & device type, how it signed in (Password vs Fingerprint/Face ID), last-active time and IP; the current device is pinned, every other one has a one-tap 'Sign out' (access ends instantly) plus 'Sign out all other devices'. Devices from a different country than yours are flagged ⚠️ 'New location' with a nudge to change your password if it wasn't you",
             "🔁 Stay signed in for 7 days — you were being logged out every 8 hours even with 'Keep me signed in' ticked; the app now silently renews your session in the background, so with 'Keep me signed in' you stay logged in for up to 7 days of use (without it: until the browser closes). Remote sign-out and password change still end a session instantly",
             "↩️ Back to where you were — after a session expiry or re-login you now return to the exact page you were on (e.g. Settings) instead of being dropped on the Dashboard",

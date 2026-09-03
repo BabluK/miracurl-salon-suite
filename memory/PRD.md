@@ -2605,3 +2605,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-03 — 😴 Snooze HQ alerts (user request)
 - `SuperNotifBell.jsx`: hover a row → "3d" snooze button; stores `snooze:<iso>` in `hq_alerts_seen_v1`; hidden + not counted until then; wakes early when the alert key changes (days-left pill / expired). Footer shows "Show N snoozed"; empty state mentions snoozed count. Release note extended (BUILD 2026-09-02.179).
+
+## 2026-09-03 — 🌤️ Noon attendance email: demo staff excluded + always sent (user bug)
+- User got a 2nd "Late arrivals today" mail listing demo staff (Priya Sharma & co) for another branch, and no mail for the AECS branch (all on time → old code sent nothing).
+- `routes/staff_portal.py`: `_is_demo_staff()` (seed email/phone/name+role or TEST/DUMMY) excluded from late alerts and digest; `_run_late_alerts` noon digest now sends for every tenant with ≥1 real staff working today — late/missing first, then "On time · in at HH:MM" rows; subject "✅ All staff on time today at X" when nobody late; footer text corrected. Still one mail per tenant per day (system_flags late_summary:{tid}).
+- Tested with patched _send_email: demo excluded, late flagged, on-time listed, dedupe OK. BUILD → 2026-09-03.180.

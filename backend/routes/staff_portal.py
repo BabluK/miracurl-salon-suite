@@ -1481,13 +1481,26 @@ def _late_digest_row(name, image_url, status_html: str) -> str:
       </tr>"""
 
 
-def _late_digest_html(t: dict, rows_html: str, today_label: str) -> str:
+def _late_digest_html(t: dict, late_rows: str, ontime_rows: str, late_count: int, total: int, today_label: str) -> str:
+    if late_count:
+        head = "Today's late arrivals"
+        sub = f"{late_count} of {total} staff late or not checked in by noon"
+    else:
+        head = "Everyone on time today 🎉"
+        sub = f"All {total} staff checked in before their shift start"
+    late_block = (f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px">{late_rows}</table>'
+                  if late_rows else "")
+    ontime_block = ""
+    if ontime_rows:
+        ontime_block = f"""
+      <p style="margin:{'22px' if late_rows else '14px'} 0 0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a94;font-weight:bold">On time</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:6px">{ontime_rows}</table>"""
     inner = f"""
-      <h2 style="margin:0;font-size:19px;color:#1c1c22">Today's late arrivals</h2>
-      <p style="margin:4px 0 0;color:#999;font-size:12px">{today_label}</p>
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px">{rows_html}</table>
+      <h2 style="margin:0;font-size:19px;color:#1c1c22">{head}</h2>
+      <p style="margin:4px 0 0;color:#999;font-size:12px">{today_label} · {sub}</p>
+      {late_block}{ontime_block}
       <p style="color:#999;font-size:12px;margin:18px 0 0;border-top:1px solid #f0ece2;padding-top:14px">
-        Each of them already received an automatic "please hurry" email 10 minutes after their shift start.</p>"""
+        Late staff see a reminder banner and any late fine on their portal dashboard. Staff on their weekly off are not listed.</p>"""
     return _attendance_email_shell(t, inner)
 
 
@@ -1550,8 +1563,27 @@ def staff_notify_email(s: dict) -> str:
     return ""
 
 
+def _is_demo_staff(s: dict) -> bool:
+    """Seed/demo staff (Priya Sharma & co) or TEST/DUMMY names — never alerted, never in owner digests."""
+    from routes.data_cleanup import _seed_staff_identities
+    emails, phones, name_roles = _seed_staff_identities()
+    name = (s.get("name") or "")
+    return bool(re.search(r"\b(test|dummy)\b", name, re.I)
+                or (s.get("email") or "").lower() in emails
+                or (s.get("phone") and s["phone"] in phones)
+                or (name.lower(), (s.get("role") or "").lower()) in name_roles)
+
+
+def _fmt_ist_time(iso: str) -> str:
+    try:
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone(IST_TZ).strftime("%-I:%M %p")
+    except (ValueError, TypeError):
+        return ""
+
+
 async def _run_late_alerts() -> dict:
-    """10 min after shift start with no check-in → email staff. After 12:00 IST → owner summary."""
+    """10 min after shift start with no check-in → late alert (portal banner). After 12:00 IST →
+    one owner attendance email per salon: late/missing staff first, then everyone on time."""
     ist = datetime.now(IST_TZ)
     today = datetime.now(timezone.utc).date().isoformat()
     emails_sent = summaries = 0
@@ -1559,17 +1591,15 @@ async def _run_late_alerts() -> dict:
         {"status": {"$in": ["active", "trial"]}},
         {"_id": 0, "id": 1, "name": 1, "owner_email": 1, "salon_email": 1, "logo_url": 1}).to_list(500)
     for t in tenants:
-        staff_list = await _raw_db.staff.find(
+        raw_staff = await _raw_db.staff.find(
             {"tenant_id": t["id"], "status": {"$nin": ["inactive", "archived"]},
              "former": {"$ne": True}, "active": {"$ne": False}, "disabled": {"$ne": True}},
-            {"_id": 0, "id": 1, "name": 1, "email": 1, "personal_email": 1, "shift_start": 1,
-             "image_url": 1, "week_off_day": 1}).to_list(300)
+            {"_id": 0, "id": 1, "name": 1, "role": 1, "email": 1, "phone": 1, "personal_email": 1,
+             "shift_start": 1, "image_url": 1, "week_off_day": 1}).to_list(300)
+        staff_list = [s for s in raw_staff if not _is_demo_staff(s)]
         weekday_now = ist.strftime("%A").lower()
-        for s in staff_list:
-            if re.search(r"\btest\b", s.get("name") or "", re.I):
-                continue  # test-run leftovers never trigger alerts or owner digests
-            if (s.get("week_off_day") or "").lower() == weekday_now:
-                continue  # weekly off — never flag as late
+        working_today = [s for s in staff_list if (s.get("week_off_day") or "").lower() != weekday_now]
+        for s in working_today:
             h, m = _parse_hhmm(s.get("shift_start"), "10:00")
             mins = int((ist - ist.replace(hour=h, minute=m, second=0, microsecond=0)).total_seconds() // 60)
             if not (LATE_ALERT_GRACE_MIN <= mins <= 240):
@@ -1584,35 +1614,50 @@ async def _run_late_alerts() -> dict:
                 "at": datetime.now(timezone.utc).isoformat()})
             # No email nag by policy — staff see it on their portal dashboard (late banner +
             # deductions card). Email is reserved for credentials, resets and relieving letters.
-        if ist.hour >= 12:
-            alerts = await _raw_db.late_alerts.find({"tenant_id": t["id"], "date": today}, {"_id": 0}).to_list(100)
+        if ist.hour >= 12 and working_today:
             flag = await _raw_db.system_flags.find_one({"key": f"late_summary:{t['id']}"})
-            if alerts and (not flag or flag.get("value") != today):
-                staff_imgs = {st["id"]: st.get("image_url") for st in staff_list}
-                rows = ""
-                for a in alerts:
-                    att = await _raw_db.attendance.find_one(
-                        {"staff_id": a["staff_id"], "date": today}, {"_id": 0, "check_in_at": 1, "late_minutes": 1})
-                    if att and att.get("check_in_at"):
-                        status = (f'<span style="display:inline-block;background:#fef6e2;color:#a8730a;border:1px solid #f3dfae;'
-                                  f'border-radius:999px;padding:3px 12px;font-size:11.5px;font-weight:bold">'
-                                  f'🕐 Checked in {att.get("late_minutes", 0)} min late</span>')
-                    else:
-                        status = ('<span style="display:inline-block;background:#fdeaea;color:#c0392b;border:1px solid #f5c6c6;'
-                                  'border-radius:999px;padding:3px 12px;font-size:11.5px;font-weight:bold">'
-                                  '⚠️ Not checked in yet</span>')
-                    rows += _late_digest_row(a.get("staff_name"), staff_imgs.get(a["staff_id"]), status)
-                recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
-                if recipients:
-                    try:
-                        await _send_email(
-                            recipients, f"🌤️ Late arrivals today at {t.get('name')}",
-                            _late_digest_html(t, rows, ist.strftime("%A, %d %B %Y")),
-                            book_url=f"{_PUBLIC_BASE}/attendance", book_label="View Attendance ✦")
-                        summaries += 1
-                    except Exception as e:
-                        logging.warning(f"late summary email failed for {t.get('name')}: {e}")
-                await _raw_db.system_flags.update_one(
-                    {"key": f"late_summary:{t['id']}"}, {"$set": {"value": today}}, upsert=True)
+            if flag and flag.get("value") == today:
+                continue
+            real_ids = {s["id"] for s in working_today}
+            alert_ids = {a["staff_id"] for a in await _raw_db.late_alerts.find(
+                {"tenant_id": t["id"], "date": today}, {"_id": 0, "staff_id": 1}).to_list(300)}
+            late_rows = ontime_rows = ""
+            late_count = 0
+            for s in sorted(working_today, key=lambda x: (x["id"] not in alert_ids, x.get("name") or "")):
+                att = await _raw_db.attendance.find_one(
+                    {"staff_id": s["id"], "date": today}, {"_id": 0, "check_in_at": 1, "late_minutes": 1})
+                checked_in = bool(att and att.get("check_in_at"))
+                late_min = int((att or {}).get("late_minutes") or 0)
+                if checked_in and late_min <= 0 and s["id"] not in alert_ids:
+                    status = (f'<span style="display:inline-block;background:#e8f7ee;color:#1f7a45;border:1px solid #bfe5cd;'
+                              f'border-radius:999px;padding:3px 12px;font-size:11.5px;font-weight:bold">'
+                              f'✅ On time · in at {_fmt_ist_time(att["check_in_at"])}</span>')
+                    ontime_rows += _late_digest_row(s.get("name"), s.get("image_url"), status)
+                    continue
+                late_count += 1
+                if checked_in:
+                    status = (f'<span style="display:inline-block;background:#fef6e2;color:#a8730a;border:1px solid #f3dfae;'
+                              f'border-radius:999px;padding:3px 12px;font-size:11.5px;font-weight:bold">'
+                              f'🕐 Checked in {late_min} min late · {_fmt_ist_time(att["check_in_at"])}</span>')
+                else:
+                    status = ('<span style="display:inline-block;background:#fdeaea;color:#c0392b;border:1px solid #f5c6c6;'
+                              'border-radius:999px;padding:3px 12px;font-size:11.5px;font-weight:bold">'
+                              '⚠️ Not checked in yet</span>')
+                late_rows += _late_digest_row(s.get("name"), s.get("image_url"), status)
+            recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
+            if recipients and real_ids:
+                subject = (f"🌤️ Late arrivals today at {t.get('name')}" if late_count
+                           else f"✅ All staff on time today at {t.get('name')}")
+                try:
+                    await _send_email(
+                        recipients, subject,
+                        _late_digest_html(t, late_rows, ontime_rows, late_count, len(working_today),
+                                          ist.strftime("%A, %d %B %Y")),
+                        book_url=f"{_PUBLIC_BASE}/attendance", book_label="View Attendance ✦")
+                    summaries += 1
+                except Exception as e:
+                    logging.warning(f"late summary email failed for {t.get('name')}: {e}")
+            await _raw_db.system_flags.update_one(
+                {"key": f"late_summary:{t['id']}"}, {"$set": {"value": today}}, upsert=True)
     return {"late_emails": emails_sent, "owner_summaries": summaries}
 
