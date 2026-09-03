@@ -7,6 +7,7 @@ import { WalletDialog } from "@/components/WalletDialog";
 import { CustomerHistoryModal } from "@/components/crm/CustomerHistoryModal";
 import { MergeDuplicatesModal } from "@/components/crm/MergeDuplicatesModal";
 import { COUNTRY_CODES, phoneDisplay } from "@/lib/countryCodes";
+import { ReachOutMenu } from "@/components/customers/ReachOutMenu";
 import { RecentInvoices } from "@/components/crm/RecentInvoices";
 
 export default function Customers() {
@@ -18,7 +19,7 @@ export default function Customers() {
   const [historyFor, setHistoryFor] = useState(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
-  const [form, setForm] = useState({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "", instagram: "", facebook: "", telegram: "" });
 
   const load = useCallback(async () => {
     const { data } = await api.get(`/customers${q ? `?q=${encodeURIComponent(q)}` : ""}`);
@@ -91,8 +92,8 @@ export default function Customers() {
     finally { e.target.value = ""; }
   }
 
-  function startNew() { setEditing(null); setForm({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "" }); setOpen(true); }
-  function startEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone, country_code: c.country_code || "+91", email: c.email || "", gender: c.gender || "Other", dob: c.dob || "", anniversary: c.anniversary || "", address: c.address || "", notes: c.notes || "" }); setOpen(true); }
+  function startNew() { setEditing(null); setForm({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "", instagram: "", facebook: "", telegram: "" }); setOpen(true); }
+  function startEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone, country_code: c.country_code || "+91", email: c.email || "", gender: c.gender || "Other", dob: c.dob || "", anniversary: c.anniversary || "", address: c.address || "", notes: c.notes || "", instagram: c.instagram || "", facebook: c.facebook || "", telegram: c.telegram || "" }); setOpen(true); }
 
   async function save(e) {
     e.preventDefault();
@@ -209,6 +210,7 @@ export default function Customers() {
                 </td>
                 <td>
                   <div className="flex items-center gap-2 justify-end">
+                    <ReachOutMenu customer={c} onAddHandles={startEdit} />
                     <button data-testid={`history-customer-${c.id}`} onClick={() => setHistoryFor(c)} title="Visit history" className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-violet-600 transition"><History className="w-4 h-4" /></button>
                     <button data-testid={`edit-customer-${c.id}`} onClick={() => startEdit(c)} className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-sky-600 transition"><Edit3 className="w-4 h-4" /></button>
                     <button data-testid={`delete-customer-${c.id}`} onClick={() => remove(c.id)} className="p-2 hover:bg-red-500/10 rounded text-slate-500 hover:text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
@@ -266,6 +268,14 @@ export default function Customers() {
                 <div><label className="label-light block mb-1">💞 Anniversary</label>
                   <input data-testid="customer-anniversary-input" type="date" className="input-light" value={form.anniversary} onChange={e => setForm({ ...form, anniversary: e.target.value })} />
                   <p className="text-[10px] text-slate-400 mt-1">POS reminds you on their anniversary week</p>
+                </div>
+              </div>
+              <div>
+                <label className="label-light block mb-1">Social handles <span className="normal-case tracking-normal text-slate-400">(for one-tap DMs)</span></label>
+                <div className="grid grid-cols-3 gap-2">
+                  <input data-testid="customer-instagram-input" className="input-light" placeholder="@instagram" value={form.instagram} onChange={e => setForm({ ...form, instagram: e.target.value })} />
+                  <input data-testid="customer-facebook-input" className="input-light" placeholder="facebook user" value={form.facebook} onChange={e => setForm({ ...form, facebook: e.target.value })} />
+                  <input data-testid="customer-telegram-input" className="input-light" placeholder="@telegram" value={form.telegram} onChange={e => setForm({ ...form, telegram: e.target.value })} />
                 </div>
               </div>
               <div><label className="label-light block mb-1">Notes</label><textarea rows="3" className="input-light" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>

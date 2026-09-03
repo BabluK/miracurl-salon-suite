@@ -56,6 +56,9 @@ class Customer(BaseModel):
     total_spent: float = 0.0
     visits: int = 0
     notes: Optional[str] = None
+    instagram: Optional[str] = None
+    facebook: Optional[str] = None
+    telegram: Optional[str] = None
     referral_code: str = Field(default_factory=lambda: secrets.token_urlsafe(4).upper().replace("_", "X").replace("-", "Y")[:6])
     referred_by: Optional[str] = None
     referral_credit: float = 0.0

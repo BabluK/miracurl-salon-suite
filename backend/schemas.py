@@ -77,6 +77,9 @@ class CustomerIn(BaseModel):
     anniversary: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
+    instagram: Optional[str] = None
+    facebook: Optional[str] = None
+    telegram: Optional[str] = None
 
 class Service(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

@@ -2610,3 +2610,11 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - User got a 2nd "Late arrivals today" mail listing demo staff (Priya Sharma & co) for another branch, and no mail for the AECS branch (all on time → old code sent nothing).
 - `routes/staff_portal.py`: `_is_demo_staff()` (seed email/phone/name+role or TEST/DUMMY) excluded from late alerts and digest; `_run_late_alerts` noon digest now sends for every tenant with ≥1 real staff working today — late/missing first, then "On time · in at HH:MM" rows; subject "✅ All staff on time today at X" when nobody late; footer text corrected. Still one mail per tenant per day (system_flags late_summary:{tid}).
 - Tested with patched _send_email: demo excluded, late flagged, on-time listed, dedupe OK. BUILD → 2026-09-03.180.
+
+## 2026-09-03 — 🏢 Combined multi-branch noon attendance email (user request)
+- `_run_late_alerts` now collects per-tenant sections (`pending`) then groups by normalized `owner_email`: one owner → one mail (`_late_multi_digest_html` with 📍 per-branch sections + badges) when ≥2 branches, else single-branch mail; each branch's distinct `salon_email` gets its own branch mail. Dedupe flags per tenant preserved. Tested: 2 branches → 1 combined owner mail + 1 branch mail; rerun → 0. BUILD 2026-09-03.181.
+
+## 2026-09-03 — 💬 Reach-out menu (US channels, Instagram DM) — user request
+- Context: MSG91 SMS blocked pending GST; user in US asked what else to use + Instagram integration.
+- Customer fields `instagram`, `facebook`, `telegram` (schemas.py CustomerIn, models.py Customer); form inputs in Customers.jsx.
+- `components/customers/ReachOutMenu.jsx` (portal, fixed-position): sms: (iOS `&body`, Android `?body`), wa.me, ig.me/m/<handle> (+ greeting copied to clipboard — Instagram has no prefill/API for cold DMs), m.me/<user>?text, t.me/<user>?text, mailto, tel. Not-ready channels open the edit form to add handles. BUILD 2026-09-03.182.

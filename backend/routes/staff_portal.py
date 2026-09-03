@@ -1504,6 +1504,45 @@ def _late_digest_html(t: dict, late_rows: str, ontime_rows: str, late_count: int
     return _attendance_email_shell(t, inner)
 
 
+def _late_multi_digest_html(sections: list, today_label: str) -> str:
+    """One email for an owner with several branches — a titled section per branch."""
+    total_staff = sum(s["total"] for s in sections)
+    total_late = sum(s["late_count"] for s in sections)
+    late_branches = sum(1 for s in sections if s["late_count"])
+    head = "Attendance across your branches" if total_late else "Everyone on time at every branch 🎉"
+    sub = (f"{total_late} of {total_staff} staff late or not checked in by noon · {late_branches} of {len(sections)} branches affected"
+           if total_late else f"All {total_staff} staff across {len(sections)} branches checked in before shift start")
+    blocks = ""
+    for i, s in enumerate(sections):
+        t = s["tenant"]
+        name = html_lib.escape(t.get("name") or "Branch")
+        badge = (f'<span style="display:inline-block;background:#fdeaea;color:#c0392b;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:bold">{s["late_count"]} late</span>'
+                 if s["late_count"] else
+                 '<span style="display:inline-block;background:#e8f7ee;color:#1f7a45;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:bold">all on time</span>')
+        rows = ""
+        if s["late_rows"]:
+            rows += f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:8px">{s["late_rows"]}</table>'
+        if s["ontime_rows"]:
+            rows += (f'<p style="margin:{"14px" if s["late_rows"] else "8px"} 0 0;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a94;font-weight:bold">On time</p>'
+                     f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:4px">{s["ontime_rows"]}</table>')
+        blocks += f"""
+      <div style="margin-top:{'26px' if i else '18px'};padding-top:{'18px' if i else '0'};border-top:{'1px solid #ece7db' if i else 'none'}">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+          <td style="font-family:Georgia,serif;font-size:16px;color:#1c1c22">📍 {name}</td>
+          <td align="right" style="font-size:11px;color:#999">{s["total"]} on duty &nbsp;{badge}</td>
+        </tr></table>
+        {rows}
+      </div>"""
+    inner = f"""
+      <h2 style="margin:0;font-size:19px;color:#1c1c22">{head}</h2>
+      <p style="margin:4px 0 0;color:#999;font-size:12px">{today_label} · {sub}</p>
+      {blocks}
+      <p style="color:#999;font-size:12px;margin:22px 0 0;border-top:1px solid #f0ece2;padding-top:14px">
+        Late staff see a reminder banner and any late fine on their portal dashboard. Staff on their weekly off are not listed.</p>"""
+    shell_tenant = {"name": f"{len(sections)} branches · {sections[0]['tenant'].get('name')}", "logo_url": sections[0]["tenant"].get("logo_url")}
+    return _attendance_email_shell(shell_tenant, inner)
+
+
 
 @router.get("/staff/me/deductions")
 async def staff_my_deductions(month: Optional[str] = None,
@@ -1587,6 +1626,7 @@ async def _run_late_alerts() -> dict:
     ist = datetime.now(IST_TZ)
     today = datetime.now(timezone.utc).date().isoformat()
     emails_sent = summaries = 0
+    pending: list = []
     tenants = await _raw_db.tenants.find(
         {"status": {"$in": ["active", "trial"]}},
         {"_id": 0, "id": 1, "name": 1, "owner_email": 1, "salon_email": 1, "logo_url": 1}).to_list(500)
@@ -1618,7 +1658,6 @@ async def _run_late_alerts() -> dict:
             flag = await _raw_db.system_flags.find_one({"key": f"late_summary:{t['id']}"})
             if flag and flag.get("value") == today:
                 continue
-            real_ids = {s["id"] for s in working_today}
             alert_ids = {a["staff_id"] for a in await _raw_db.late_alerts.find(
                 {"tenant_id": t["id"], "date": today}, {"_id": 0, "staff_id": 1}).to_list(300)}
             late_rows = ontime_rows = ""
@@ -1644,20 +1683,48 @@ async def _run_late_alerts() -> dict:
                               'border-radius:999px;padding:3px 12px;font-size:11.5px;font-weight:bold">'
                               '⚠️ Not checked in yet</span>')
                 late_rows += _late_digest_row(s.get("name"), s.get("image_url"), status)
-            recipients = [e for e in {t.get("owner_email"), t.get("salon_email")} if e]
-            if recipients and real_ids:
-                subject = (f"🌤️ Late arrivals today at {t.get('name')}" if late_count
-                           else f"✅ All staff on time today at {t.get('name')}")
+            pending.append({"tenant": t, "late_rows": late_rows, "ontime_rows": ontime_rows,
+                            "late_count": late_count, "total": len(working_today)})
+
+    # Deliver: owners with several branches get ONE combined mail (a section per branch);
+    # a branch's own salon_email (if different from the owner) gets just that branch.
+    day_label = ist.strftime("%A, %d %B %Y")
+    by_owner: dict = {}
+    for sec in pending:
+        owner = (sec["tenant"].get("owner_email") or "").strip().lower()
+        by_owner.setdefault(owner, []).append(sec)
+    for owner, secs in by_owner.items():
+        secs.sort(key=lambda s: (-s["late_count"], s["tenant"].get("name") or ""))
+        if owner:
+            total_late = sum(s["late_count"] for s in secs)
+            if len(secs) == 1:
+                t0 = secs[0]["tenant"]
+                subject = (f"🌤️ Late arrivals today at {t0.get('name')}" if total_late
+                           else f"✅ All staff on time today at {t0.get('name')}")
+                html = _late_digest_html(t0, secs[0]["late_rows"], secs[0]["ontime_rows"], secs[0]["late_count"], secs[0]["total"], day_label)
+            else:
+                subject = (f"🌤️ Attendance today · {len(secs)} branches · {total_late} late" if total_late
+                           else f"✅ All staff on time today · {len(secs)} branches")
+                html = _late_multi_digest_html(secs, day_label)
+            try:
+                await _send_email([owner], subject, html, book_url=f"{_PUBLIC_BASE}/attendance", book_label="View Attendance ✦")
+                summaries += 1
+            except Exception as e:
+                logging.warning(f"late summary email failed for owner {owner}: {e}")
+        for sec in secs:
+            t0 = sec["tenant"]
+            salon_mail = (t0.get("salon_email") or "").strip().lower()
+            if salon_mail and salon_mail != owner:
+                subject = (f"🌤️ Late arrivals today at {t0.get('name')}" if sec["late_count"]
+                           else f"✅ All staff on time today at {t0.get('name')}")
                 try:
-                    await _send_email(
-                        recipients, subject,
-                        _late_digest_html(t, late_rows, ontime_rows, late_count, len(working_today),
-                                          ist.strftime("%A, %d %B %Y")),
-                        book_url=f"{_PUBLIC_BASE}/attendance", book_label="View Attendance ✦")
+                    await _send_email([salon_mail], subject,
+                                      _late_digest_html(t0, sec["late_rows"], sec["ontime_rows"], sec["late_count"], sec["total"], day_label),
+                                      book_url=f"{_PUBLIC_BASE}/attendance", book_label="View Attendance ✦")
                     summaries += 1
                 except Exception as e:
-                    logging.warning(f"late summary email failed for {t.get('name')}: {e}")
+                    logging.warning(f"late summary email failed for {t0.get('name')}: {e}")
             await _raw_db.system_flags.update_one(
-                {"key": f"late_summary:{t['id']}"}, {"$set": {"value": today}}, upsert=True)
+                {"key": f"late_summary:{t0['id']}"}, {"$set": {"value": today}}, upsert=True)
     return {"late_emails": emails_sent, "owner_summaries": summaries}
 
