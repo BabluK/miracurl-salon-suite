@@ -205,6 +205,12 @@ def _period_window(now_ist: datetime, period: str) -> tuple[datetime, datetime, 
     if period == "last_month":
         start = (month0 - timedelta(days=1)).replace(day=1)
         return start, month0, f"Last month · {start.strftime('%B %Y')}"
+    if re.fullmatch(r"\d{4}-\d{2}", period or ""):
+        y, m = int(period[:4]), int(period[5:7])
+        start = day0.replace(year=y, month=m, day=1)
+        nxt = start.replace(year=y + (m == 12), month=(m % 12) + 1)
+        end = min(nxt, day0 + timedelta(days=1))
+        return start, end, f"{start.strftime('%B %Y')}"
     if period in ("3m", "6m"):
         n = 3 if period == "3m" else 6
         y, m = month0.year, month0.month - (n - 1)

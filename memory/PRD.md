@@ -2648,3 +2648,4 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-03 — 📒 Monthly cash report + salon-email routing (user requests)
 - `GET /cash/month?month=YYYY-MM` (`_month_data`: by_category/by_staff/by_day, cash_in, net), `GET /cash/month/export` CSV (BOM, summary + entries + rollups), `GET /cash/report-target`. `_report_recipients`: Settings→Branding `salon_email` first, else owner_email (used by EOD + send-now).
 - `components/cash/CashMonthlyReport.jsx`; CashRegister.jsx tabs (Daily register / Monthly report, mgr+), send button shows target. Tested API + UI. BUILD 2026-09-03.188.
+- 2026-09-03: Group Dashboard "Select month" picker (`period=YYYY-MM` in `_period_window`, `group-period-custom-month` input). BUILD 2026-09-03.189.

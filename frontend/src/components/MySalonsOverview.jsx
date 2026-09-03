@@ -104,13 +104,22 @@ export default function MySalonsOverview() {
       <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.25em] text-fuchsia-300 font-semibold flex items-center gap-1.5">
-            <Store className="w-3.5 h-3.5" /> Group Dashboard · {PERIODS.find(x => x.key === (data.period || "today"))?.label}
+            <Store className="w-3.5 h-3.5" /> Group Dashboard · {PERIODS.find(x => x.key === (data.period || "today"))?.label || data.period_label}
           </div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-3xl font-bold" data-testid="my-salons-total-today">{inr(data.total_today)}</span>
             <span className="text-xs text-white/60" data-testid="my-salons-period-label">combined collection · {data.period_label || data.date}</span>
           </div>
-          <div className="mt-3 flex flex-wrap gap-1.5" data-testid="group-period-chips">
+          <div className="mt-3 flex flex-wrap items-center gap-1.5" data-testid="group-period-chips">
+            <label className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border cursor-pointer transition-colors ${
+              /^\d{4}-\d{2}$/.test(data.period || "") ? "bg-fuchsia-500/30 border-fuchsia-400/60 text-white" : "bg-white/5 border-white/15 text-white/60 hover:text-white hover:border-white/40"}`}
+              title="Pick any month">
+              <span>Select month</span>
+              <input data-testid="group-period-custom-month" type="month" max={new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 7)}
+                value={/^\d{4}-\d{2}$/.test(data.period || "") ? data.period : ""}
+                onChange={e => e.target.value && unlock(null, e.target.value)} disabled={busy}
+                className="bg-transparent text-[11px] text-white/80 outline-none w-[7.5rem] [color-scheme:dark]" />
+            </label>
             {PERIODS.map(p => (
               <button key={p.key} data-testid={`group-period-${p.key}`} disabled={busy} onClick={() => unlock(null, p.key)}
                 className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
