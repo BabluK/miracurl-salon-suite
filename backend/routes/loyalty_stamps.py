@@ -263,8 +263,7 @@ async def _loyalty_poster_jpeg(t: dict, origin: str, design: str, logo_shape: st
     import asyncio
     import io
     import os
-    from fastapi import Response
-    from routes.services_catalog import _tenant_logo_bytes, _circle_logo_pil
+    from routes.services_catalog import _tenant_logo_bytes
     base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
     logo_bytes = await _tenant_logo_bytes(t, base)
     cfg = _cfg(t)

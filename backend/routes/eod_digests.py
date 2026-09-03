@@ -244,7 +244,6 @@ async def _send_staff_late_digests(t: dict, agg: dict, month_start: str) -> tupl
 
 async def _run_late_arrival_digests(tenant_id: Optional[str] = None) -> dict:
     since_date = (datetime.now(IST) - timedelta(days=7)).strftime("%Y-%m-%d")
-    month_start = datetime.now(IST).strftime("%Y-%m") + "-01"
     sent = failed = 0
     for t in await _target_tenants(tenant_id):
         recs = await _raw_db.attendance.find(

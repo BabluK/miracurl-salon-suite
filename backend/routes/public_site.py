@@ -759,7 +759,7 @@ def _norm_in_phone(v: str) -> str:
 @router.get("/public/guest-lookup/{slug}")
 async def public_guest_lookup(slug: str, request: Request, phone: str = ""):
     """Returning-guest greeting on the QR menu — first name + visit count only."""
-    t = await resolve_tenant_from_slug(slug)
+    await resolve_tenant_from_slug(slug)  # 404s unknown slugs + sets tenant scope
     await public_rate_limit(request, key_suffix=f"guestlookup:{slug}", limit=30, window_sec=600)
     digits = _norm_in_phone(phone)
     if not digits:

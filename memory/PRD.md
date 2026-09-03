@@ -2630,3 +2630,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-03 — ⚡ Shrink old service photos (user request)
 - `GET /services/image-weight`, `POST /services/shrink-images` (tenant), `POST /super-admin/shrink-images` (all tenants) → background batch kind "shrink": re-encodes uploads kind=service ≥400 KB to 1024px JPEG in place (same /api/files/{id}), records original_size/shrunk_at, pre-warms w160/w640 webp variants. Services.jsx shows amber "⚡ Shrink N heavy photos" button only when heavy>0 + progress + saved MB toast. Tested: 7 × 2 MB → ~70 KB each. BUILD 2026-09-03.185.
+
+## 2026-09-03 — Code review follow-up
+- security.py:190 "hardcoded secret" = FALSE POSITIVE (comment describing CSRF token format; key derived from JWT_SECRET env). "67 undefined variables" = false positive (ruff F821 clean). utils.py `is` anti-pattern = false positive.
+- Fixed real lints: unused `month_start` (eod_digests), unused imports (loyalty_stamps), unused `t` (public_site). ruff --select F clean across prod code.
+- Refactored `resync_customer_stats` into `_spend_from_bills` / `_add_unbilled_appointments` / `_ist_day`. Other listed high-complexity functions left untouched intentionally (stable, tested payment/auth/email code — refactoring for a complexity score alone risks regressions).
