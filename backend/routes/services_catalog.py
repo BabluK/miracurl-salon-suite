@@ -560,7 +560,7 @@ async def generate_missing_service_images(category: str | None = None, user=Depe
 
     async def _runner():
         resto = await _tenant_is_restaurant(tenant_id)
-        sem = asyncio.Semaphore(5)  # 5 paintings in flight → ~5x faster than one-by-one
+        sem = asyncio.Semaphore(8)  # 8 paintings in flight → ~8x faster than one-by-one
 
         async def _one(s):
             async with sem:
@@ -724,7 +724,7 @@ async def generate_all_category_banners(category: str | None = None, user=Depend
 
     async def _runner():
         resto = await _tenant_is_restaurant(tenant_id)
-        sem = asyncio.Semaphore(5)
+        sem = asyncio.Semaphore(8)
 
         async def _one(cat):
             async with sem:
