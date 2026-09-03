@@ -2618,3 +2618,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Context: MSG91 SMS blocked pending GST; user in US asked what else to use + Instagram integration.
 - Customer fields `instagram`, `facebook`, `telegram` (schemas.py CustomerIn, models.py Customer); form inputs in Customers.jsx.
 - `components/customers/ReachOutMenu.jsx` (portal, fixed-position): sms: (iOS `&body`, Android `?body`), wa.me, ig.me/m/<handle> (+ greeting copied to clipboard — Instagram has no prefill/API for cold DMs), m.me/<user>?text, t.me/<user>?text, mailto, tel. Not-ready channels open the edit form to add handles. BUILD 2026-09-03.182.
+
+## 2026-09-03 — 🎯 Offer/Package fixes + 📊 Group Dashboard periods (user requests)
+- Day offer: backend verified pushing to /public/day-offer/{slug} (works; user's issue likely wrong tenant's booking page). Added `POST /day-offers/update-services` (edit services on locked offer) + "Live on booking page" link (`/book/{slug}`) + add/remove services after lock-in in MiraDayOffer.jsx.
+- Packages: `_service_gender` now infers from name even when gender=="unisex" (catalog default); `_WOMEN_RE` extended (waxing/threading/mani-pedi/bikini/nail art); `_audience_pool` men → men-tagged only if ≥3; `GET /mira-packages/catalog?audience=`; `POST /mira-packages/{pid}/services`; MiraPackagesCard: chips ✕ + "Add service from menu" picker (audience-filtered), publish saves services first.
+- Group Dashboard: `GET /auth/my-salons/overview?period=today|week|month|last_month|3m|6m` (`_period_window`, excludes voided/open); MySalonsOverview.jsx period chips, PIN cached in memory while unlocked. BUILD 2026-09-03.183.

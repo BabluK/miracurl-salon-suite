@@ -30,8 +30,33 @@ export const MiraPackagesCard = ({ isResto = false }) => {
   const [validDays, setValidDays] = useState("7");
   const [style, setStyle] = useState("");
   const [live, setLive] = useState({ packages: [], max_live: 4 });
+  const [catalog, setCatalog] = useState([]);
+  const [svcTouched, setSvcTouched] = useState(false);
 
-  useEffect(() => setAdjPct(""), [pkg?.id, pkg?.status]);
+  useEffect(() => { setAdjPct(""); setSvcTouched(false); }, [pkg?.id, pkg?.status]);
+  useEffect(() => {
+    if (!pkg?.audience) return;
+    api.get(`/mira-packages/catalog?audience=${pkg.audience}`).then(r => setCatalog(r.data.services || [])).catch(() => setCatalog([]));
+  }, [pkg?.audience]);
+
+  const removeSvc = (i) => {
+    if (pkg.services.length <= 2) { toast.error("A package needs at least 2 services"); return; }
+    setPkg(p => ({ ...p, services: p.services.filter((_, j) => j !== i) }));
+    setSvcTouched(true);
+  };
+  const addSvc = (name) => {
+    const m = catalog.find(c => c.name === name);
+    if (!m || pkg.services.some(x => x.name === m.name) || pkg.services.length >= 6) return;
+    setPkg(p => ({ ...p, services: [...p.services, { name: m.name, price: m.price }] }));
+    setSvcTouched(true);
+  };
+  const saveServices = async () => {
+    const { data } = await api.post(`/mira-packages/${pkg.id}/services`, {
+      service_names: pkg.services.map(x => x.name), ...(adjPct ? { discount_pct: Number(adjPct) } : {}),
+    });
+    setPkg(data.package); setSvcTouched(false);
+    return data.package;
+  };
 
   const loadLive = () => api.get("/mira-packages/live").then(r => setLive(r.data)).catch(() => {});
 
@@ -70,6 +95,7 @@ export const MiraPackagesCard = ({ isResto = false }) => {
   const publish = async () => {
     setBusy("publish");
     try {
+      if (svcTouched) await saveServices();
       const { data } = await api.post("/mira-packages/publish", {
         package_id: pkg.id, template: style || null,
         ...(adjPct ? { discount_pct: Number(adjPct) } : {}),
@@ -89,8 +115,9 @@ export const MiraPackagesCard = ({ isResto = false }) => {
 
   const published = pkg?.status === "published";
   const effPct = pkg ? (adjPct ? Number(adjPct) : (pkg.discount_pct || 0)) : 0;
-  const effPrice = pkg ? (adjPct ? Math.round(pkg.total_value * (1 - Number(adjPct) / 100)) : Math.round(pkg.package_price)) : 0;
-  const savings = pkg ? Math.max(0, Math.round(pkg.total_value) - effPrice) : 0;
+  const totalValue = pkg ? (svcTouched ? pkg.services.reduce((a, x) => a + Number(x.price || 0), 0) : pkg.total_value) : 0;
+  const effPrice = pkg ? ((adjPct || svcTouched) ? Math.round(totalValue * (1 - effPct / 100)) : Math.round(pkg.package_price)) : 0;
+  const savings = pkg ? Math.max(0, Math.round(totalValue) - effPrice) : 0;
 
   return (
     <div className="bg-gradient-to-br from-[#17141c] to-[#26202b] rounded-2xl border border-fuchsia-300/30 p-5 text-white" data-testid="mira-packages-card">
@@ -154,7 +181,7 @@ export const MiraPackagesCard = ({ isResto = false }) => {
               )}
             </div>
             <div className="text-right">
-              <div className="text-xs text-white/45 line-through">Worth ₹{Math.round(pkg.total_value)}</div>
+              <div className="text-xs text-white/45 line-through">Worth ₹{Math.round(totalValue)}</div>
               <div className="text-2xl font-bold text-fuchsia-200" data-testid="package-eff-price">₹{effPrice}</div>
               {savings > 0 && <div className="text-[11px] text-emerald-300" data-testid="package-savings">You save ₹{savings} ({effPct}%)</div>}
               {!published && (
@@ -172,13 +199,30 @@ export const MiraPackagesCard = ({ isResto = false }) => {
               ✓ Package price updated to {adjPct}% off — hit Publish to lock it in
             </p>
           )}
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2 items-center">
             {pkg.services.map((s, i) => (
-              <div key={i} className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
-                {s.name} · <span className="text-white/60">₹{Math.round(s.price)}</span>
+              <div key={`${s.name}-${i}`} className="flex items-center gap-1.5 text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5" data-testid={`package-service-${i}`}>
+                <span>{s.name} · <span className="text-white/60">₹{Math.round(s.price)}</span></span>
+                {!published && (
+                  <button onClick={() => removeSvc(i)} data-testid={`package-service-remove-${i}`} title="Remove from package"
+                    className="text-white/35 hover:text-rose-300 -mr-1 leading-none text-sm">✕</button>
+                )}
               </div>
             ))}
+            {!published && catalog.length > 0 && pkg.services.length < 6 && (
+              <select value="" onChange={(e) => e.target.value && addSvc(e.target.value)} data-testid="package-service-add"
+                title={`Add any ${AUDIENCE_LABELS[pkg.audience] || ""} service from your menu`}
+                className="text-xs bg-white/5 border border-dashed border-fuchsia-300/40 text-fuchsia-200/80 rounded-lg px-2.5 py-1.5 focus:outline-none max-w-[220px] [&>option]:bg-[#17141c]">
+                <option value="">＋ Add service from menu ({catalog.filter(c => !pkg.services.some(x => x.name === c.name)).length})</option>
+                {catalog.filter(c => !pkg.services.some(x => x.name === c.name)).map(c => (
+                  <option key={c.id || c.name} value={c.name}>{c.name} · ₹{Math.round(c.price)}{c.category ? ` · ${c.category}` : ""}</option>
+                ))}
+              </select>
+            )}
           </div>
+          {!published && svcTouched && (
+            <p className="text-[11px] text-emerald-300/90 mt-2" data-testid="package-services-hint">✓ Services updated — price recalculated · hit Publish to lock it in</p>
+          )}
           <div className="mt-4 flex flex-wrap gap-2 items-center">
             {!published ? (
               <button onClick={publish} disabled={!!busy} data-testid="package-publish-btn"

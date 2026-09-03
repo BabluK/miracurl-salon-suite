@@ -8,23 +8,37 @@ const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigit
 
 // Group Dashboard — multi-salon owners see combined collections across all branches.
 // PIN-locked: unlocks with the Owner PIN and re-locks on refresh/navigation.
+const PERIODS = [
+  { key: "today", label: "Today" },
+  { key: "week", label: "This week" },
+  { key: "month", label: "This month" },
+  { key: "last_month", label: "Last month" },
+  { key: "3m", label: "Last 3 months" },
+  { key: "6m", label: "Last 6 months" },
+];
+
 export default function MySalonsOverview() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [pinOpen, setPinOpen] = useState(false);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
+  const [period, setPeriod] = useState("today");
+  const [pinCache, setPinCache] = useState("");
 
   const multi = (user?.salons || []).length > 1;
   const isOwner = user?.role === "admin" || user?.role === "super_admin";
   if (!multi || !isOwner) return null;
 
-  async function unlock(pinValue) {
+  async function unlock(pinValue, p = period) {
     setBusy(true);
     try {
-      const { data: d } = await api.get("/auth/my-salons/overview",
-        pinValue ? { headers: { "X-Owner-Pin": pinValue } } : {});
+      const usePin = pinValue || pinCache;
+      const { data: d } = await api.get(`/auth/my-salons/overview?period=${p}`,
+        usePin ? { headers: { "X-Owner-Pin": usePin } } : {});
+      if (usePin) setPinCache(usePin);
       setData(d);
+      setPeriod(p);
       setPinOpen(false);
       setPin("");
       toast.success("Group Dashboard unlocked ✦");
@@ -90,18 +104,27 @@ export default function MySalonsOverview() {
       <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.25em] text-fuchsia-300 font-semibold flex items-center gap-1.5">
-            <Store className="w-3.5 h-3.5" /> Group Dashboard · Today
+            <Store className="w-3.5 h-3.5" /> Group Dashboard · {PERIODS.find(x => x.key === (data.period || "today"))?.label}
           </div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-3xl font-bold" data-testid="my-salons-total-today">{inr(data.total_today)}</span>
-            <span className="text-xs text-white/60">combined collection · {data.date}</span>
+            <span className="text-xs text-white/60" data-testid="my-salons-period-label">combined collection · {data.period_label || data.date}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1.5" data-testid="group-period-chips">
+            {PERIODS.map(p => (
+              <button key={p.key} data-testid={`group-period-${p.key}`} disabled={busy} onClick={() => unlock(null, p.key)}
+                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                  (data.period || "today") === p.key ? "bg-fuchsia-500/30 border-fuchsia-400/60 text-white" : "bg-white/5 border-white/15 text-white/60 hover:text-white hover:border-white/40"}`}>
+                {p.label}
+              </button>
+            ))}
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right text-xs text-white/60">
             This month: <span className="text-white font-semibold" data-testid="my-salons-total-month">{inr(data.total_month)}</span>
           </div>
-          <button data-testid="group-dashboard-lock-btn" onClick={() => setData(null)}
+          <button data-testid="group-dashboard-lock-btn" onClick={() => { setData(null); setPinCache(""); }}
             title="Lock Group Dashboard"
             className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20">
             <EyeOff className="w-4 h-4" />
@@ -124,6 +147,7 @@ export default function MySalonsOverview() {
             <div className="mt-1 flex items-center gap-3 text-[11px] text-white/60">
               <span className="inline-flex items-center gap-1"><Receipt className="w-3 h-3" /> {s.invoices_today} bill{s.invoices_today === 1 ? "" : "s"}</span>
               <span>{s.appointments_today} appt{s.appointments_today === 1 ? "" : "s"}</span>
+              {(data.period || "today") !== "today" && s.invoices_today > 0 && <span className="text-white/40">avg {inr(Math.round(s.today / s.invoices_today))}/bill</span>}
             </div>
           </div>
         ))}

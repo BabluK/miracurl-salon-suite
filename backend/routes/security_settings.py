@@ -193,10 +193,33 @@ async def switch_salon(body: SalonSwitchIn, user=Depends(get_current_user), t=De
     return {"ok": True, "active_salon": target}
 
 
+def _period_window(now_ist: datetime, period: str) -> tuple[datetime, datetime, str]:
+    """IST window [start, end) + human label for the Group Dashboard period chips."""
+    day0 = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    month0 = day0.replace(day=1)
+    if period == "week":
+        start = day0 - timedelta(days=day0.weekday())
+        return start, day0 + timedelta(days=1), f"This week · from {start.strftime('%d %b')}"
+    if period == "month":
+        return month0, day0 + timedelta(days=1), f"This month · {month0.strftime('%B %Y')}"
+    if period == "last_month":
+        start = (month0 - timedelta(days=1)).replace(day=1)
+        return start, month0, f"Last month · {start.strftime('%B %Y')}"
+    if period in ("3m", "6m"):
+        n = 3 if period == "3m" else 6
+        y, m = month0.year, month0.month - (n - 1)
+        while m <= 0:
+            m += 12
+            y -= 1
+        start = month0.replace(year=y, month=m)
+        return start, day0 + timedelta(days=1), f"Last {n} months · {start.strftime('%b')} – {now_ist.strftime('%b %Y')}"
+    return day0, day0 + timedelta(days=1), f"Today · {day0.date().isoformat()}"
+
+
 @router.get("/auth/my-salons/overview")
-async def my_salons_overview(request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Group Dashboard (multi-salon owners): today's collections across all salons.
-    Locked behind the Owner PIN of the currently active salon (header X-Owner-Pin)."""
+async def my_salons_overview(request: Request, period: str = "today", user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Group Dashboard (multi-salon owners): collections across all salons for a period
+    (today / week / month / last_month / 3m / 6m). Locked behind the Owner PIN (header X-Owner-Pin)."""
     if user.get("role") not in ("admin", "super_admin"):
         raise HTTPException(403, "Only the owner/admin can view the Group Dashboard")
     ids = set(user.get("tenant_ids") or [])
@@ -216,26 +239,30 @@ async def my_salons_overview(request: Request, user=Depends(get_current_user), t
         await _pin_attempt_clear(t["id"])
     ist = timezone(timedelta(hours=5, minutes=30))
     now_ist = datetime.now(ist)
-    day_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
+    p_start, p_end, p_label = _period_window(now_ist, period)
+    period_start = p_start.astimezone(timezone.utc).isoformat()
+    period_end = p_end.astimezone(timezone.utc).isoformat()
     month_start = now_ist.replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
     today_ist = now_ist.date().isoformat()
+    appt_from, appt_to = p_start.date().isoformat(), (p_end - timedelta(seconds=1)).date().isoformat()
     salons = []
     for tid in ids:
         t = await _raw_db.tenants.find_one(
             {"id": tid}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "location": 1, "logo_url": 1})
         if not t:
             continue
-        async def _inv_sum(since: str) -> tuple[float, int]:
+        async def _inv_sum(since: str, until: str | None = None) -> tuple[float, int]:
+            rng = {"$gte": since, **({"$lt": until} if until else {})}
             row = await _raw_db.invoices.aggregate([
-                {"$match": {"tenant_id": tid, "created_at": {"$gte": since}}},
+                {"$match": {"tenant_id": tid, "created_at": rng, "status": {"$nin": ["voided", "open"]}}},
                 {"$group": {"_id": None, "total": {"$sum": {"$toDouble": {"$ifNull": ["$total", 0]}}},
                             "n": {"$sum": 1}}}]).to_list(1)
             return (round(row[0]["total"], 2), row[0]["n"]) if row else (0.0, 0)
 
-        today_total, today_count = await _inv_sum(day_start)
+        today_total, today_count = await _inv_sum(period_start, period_end)
         month_total, _ = await _inv_sum(month_start)
         appts_today = await _raw_db.appointments.count_documents(
-            {"tenant_id": tid, "scheduled_at": {"$regex": f"^{today_ist}"}, "status": {"$ne": "cancelled"}})
+            {"tenant_id": tid, "scheduled_at": {"$gte": appt_from, "$lte": appt_to + "T23:59:59"}, "status": {"$ne": "cancelled"}})
         salons.append({
             **t,
             "today": today_total,
@@ -247,6 +274,8 @@ async def my_salons_overview(request: Request, user=Depends(get_current_user), t
     salons.sort(key=lambda x: -x["today"])
     return {
         "date": today_ist,
+        "period": period, "period_label": p_label,
+        "period_from": p_start.date().isoformat(), "period_to": (p_end - timedelta(seconds=1)).date().isoformat(),
         "salons": salons,
         "total_today": round(sum(s["today"] for s in salons), 2),
         "total_month": round(sum(s["month"] for s in salons), 2),

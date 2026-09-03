@@ -408,6 +408,24 @@ async def _auto_post_socials(request: Request, t: dict, doc: dict, flyer_url) ->
     return google_post, meta_post
 
 
+class ServicesUpdateIn(BaseModel):
+    service_names: list[str]
+
+
+@router.post("/day-offers/update-services")
+async def update_offer_services(body: ServicesUpdateIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner hand-picks which menu services today's (locked) offer applies to — live on the booking page instantly."""
+    today = _today_ist().date().isoformat()
+    doc = await _raw_db.day_offers.find_one(
+        {"tenant_id": t["id"], "date": today, "status": {"$in": ["accepted", "suggested"]}, "kind": {"$ne": "flash"}},
+        {"_id": 0}, sort=[("accepted_at", -1)])
+    if not doc:
+        raise HTTPException(404, "No offer for today yet — ask Mira first")
+    await _apply_services(doc, body.service_names)
+    await _raw_db.day_offers.update_one({"id": doc["id"]}, {"$set": {"services": doc["services"]}})
+    return {"offer": doc}
+
+
 @router.post("/day-offers/accept")
 async def accept_offer(body: AcceptIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Owner said YES — lock the offer for today, generate a flyer and auto-post to Google Business."""

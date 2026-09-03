@@ -2,13 +2,16 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-03.182"
-BUILD_TIME = "03 Sep 2026, 2:15 PM IST"
+BUILD = "2026-09-03.183"
+BUILD_TIME = "03 Sep 2026, 5:35 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-03 (Devices, Security, Billing accuracy & Attendance mail 🔐)",
         "changes": [
+            "📊 Group Dashboard periods — multi-salon owners can now switch the combined view between Today · This week · This month · Last month · Last 3 months · Last 6 months with one tap; every branch card shows collection, bills, appointments and average bill for that period (voided/open bills excluded)",
+            "🎯 Offer of the Day — pick the exact services yourself: even after locking in, remove any service or add any service from your full menu and tap 'Save services → booking page' (live instantly; poster unchanged unless you ask for a new one). A new 'Live on booking page' link opens your public page so you can see the banner exactly as guests do",
+            "💈 Men's & Women's packages fixed — 'For Men' no longer pulls in women's services (bridal, waxing, threading, mani/pedi…) and 'For Women' never gets beard/shave items, even when services aren't gender-tagged on the Services page. Every package now has ✕ on each service and an '＋ Add service from menu' picker (filtered for the audience) so you choose the bundle, price recalculates instantly, then Publish",
             "💬 Message any guest on their favourite app — new 💬 button on every CRM row opens a one-tap menu: Text/iMessage (opens your phone's Messages app with the note pre-filled — works in the US with no SMS gateway), WhatsApp, Instagram DM (opens their chat; your greeting is copied to paste), Facebook Messenger, Telegram, Email and Call. Add a guest's @instagram / Facebook / @telegram handles in their profile to unlock those channels",
             "🏢 One noon email for all your branches — owners with several salons/restaurants now receive a single combined attendance email at noon with a 📍 section per branch (late/missing first, then on-time with check-in times, and a per-branch '1 late' / 'all on time' badge), subject like '🌤️ Attendance today · 2 branches · 1 late'. A branch's own salon email (if different from the owner's) still gets just its own branch",
             "🌤️ Daily attendance email fixed & upgraded — demo staff (Priya Sharma, Rahul Verma, Anjali Mehta, Karan Singh) can no longer appear in the noon 'Late arrivals today' email, even if they still exist in a branch; and every branch with real staff now gets ONE email at noon every working day — either 'Late arrivals today' (late/missing staff first, then everyone who was on time with their check-in time) or '✅ All staff on time today' — so silence never leaves you guessing. The outdated 'they received a please-hurry email' footer is gone",

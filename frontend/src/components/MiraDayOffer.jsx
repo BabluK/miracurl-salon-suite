@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Zap } from "lucide-react";
+import { Sparkles, Download, Send, RefreshCw, CheckCircle2, Zap, ExternalLink } from "lucide-react";
 import { POSTER_STYLES, FESTIVAL_STYLES } from "@/lib/posterStyles";
 import { useAuth } from "@/context/AuthContext";
 import { shareWithPoster } from "@/lib/sharePoster";
@@ -9,7 +9,7 @@ import { confirmAsync } from "@/components/ConfirmDialog";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
-function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, testPrefix, catalog = [] }) {
+function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, onSaveServices, bookingUrl, testPrefix, catalog = [] }) {
   const accepted = offer.status === "accepted";
   const [adjPct, setAdjPct] = useState("");
   const [svcList, setSvcList] = useState(offer.services || []);
@@ -69,23 +69,32 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, tes
                 {s.name} · <span className="line-through text-white/40">₹{Math.round(s.original_price)}</span>{" "}
                 <span className="text-amber-200 font-semibold">₹{priceFor(s)}</span>
               </span>
-              {!accepted && svcList.length > 1 && (
+              {svcList.length > 1 && (
                 <button onClick={() => removeSvc(i)} data-testid={`${testPrefix}-service-remove-${i}`}
                   title="Remove this service from the offer"
                   className="text-white/35 hover:text-rose-300 -mr-1 leading-none text-sm">✕</button>
               )}
             </div>
           ))}
-          {!accepted && catalog.length > 0 && (
+          {catalog.length > 0 && svcList.length < 6 && (
             <select value="" onChange={(e) => e.target.value && addSvc(e.target.value)} data-testid={`${testPrefix}-service-add`}
-              title="Swap in another service — remove one above, then add its replacement here"
-              className="text-xs bg-white/5 border border-dashed border-amber-300/40 text-amber-200/80 rounded-lg px-2.5 py-1.5 focus:outline-none max-w-[180px] [&>option]:bg-[#17141c]">
-              <option value="">＋ Add / swap service</option>
+              title="Pick any service from your menu to include in today's offer"
+              className="text-xs bg-white/5 border border-dashed border-amber-300/40 text-amber-200/80 rounded-lg px-2.5 py-1.5 focus:outline-none max-w-[220px] [&>option]:bg-[#17141c]">
+              <option value="">＋ Add service from menu ({catalog.filter(c => !svcList.some(s => s.name === c.name)).length})</option>
               {catalog.filter(c => !svcList.some(s => s.name === c.name)).map(c => (
                 <option key={c.id || c.name} value={c.name}>{c.name} · ₹{Math.round(c.price)}</option>
               ))}
             </select>
           )}
+        </div>
+      )}
+      {accepted && svcTouched && onSaveServices && (
+        <div className="mt-2 flex items-center gap-3">
+          <button onClick={() => onSaveServices(svcList.map(s => s.name))} disabled={!!busy} data-testid={`${testPrefix}-save-services-btn`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-400/15 border border-emerald-300/40 text-emerald-200 text-xs font-semibold hover:bg-emerald-400/25 disabled:opacity-50">
+            {busy === "services" ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} Save services → booking page
+          </button>
+          <span className="text-[11px] text-white/45">Poster stays as is — tap "New poster" if you want it redrawn</span>
         </div>
       )}
       {!accepted && (adjPct || svcTouched) && (
@@ -100,6 +109,12 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, tes
             <div className="inline-flex items-center gap-1.5 text-emerald-300 text-sm font-medium px-1">
               <CheckCircle2 className="w-4 h-4" /> Locked in
             </div>
+            {bookingUrl && (
+              <a href={bookingUrl} target="_blank" rel="noopener noreferrer" data-testid={`${testPrefix}-live-link`}
+                className="inline-flex items-center gap-1.5 text-sky-300 text-sm font-medium px-1 hover:underline" title="Open your public booking page — the offer banner shows at the top">
+                <ExternalLink className="w-4 h-4" /> Live on booking page
+              </a>
+            )}
             {offer.google_post?.ok && (
               <div className="inline-flex items-center gap-1.5 text-sky-300 text-sm font-medium px-1" data-testid={`${testPrefix}-google-posted`}>
                 <CheckCircle2 className="w-4 h-4" /> Posted on Google
@@ -165,7 +180,9 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, tes
 }
 
 export function MiraDayOffer() {
-  const isResto = useAuth().tenant?.business_type === "restaurant";
+  const { tenant } = useAuth();
+  const isResto = tenant?.business_type === "restaurant";
+  const bookingUrl = tenant?.slug ? `${window.location.origin}/book/${tenant.slug}` : null;
   const styleOptions = isResto
     ? POSTER_STYLES.filter(s => !["pink_glam", "bridal_blush", "mens_edge", "rose_wave"].includes(s.key))
     : POSTER_STYLES;
@@ -212,6 +229,10 @@ export function MiraDayOffer() {
       } else if (action === "flash-suggest") {
         const { data } = await api.post("/day-offers/flash-suggest");
         setFlash(f => ({ ...f, offer: data.offer }));
+      } else if (action === "services") {
+        const { data } = await api.post("/day-offers/update-services", { service_names: serviceNames });
+        setOffer(data.offer);
+        toast.success("Offer services updated — live on your booking page ✓");
       } else if (action === "reflyer") {
         const { data } = await api.post("/day-offers/regenerate-flyer", { template: style || null });
         setOffer(data.offer);
@@ -311,7 +332,7 @@ export function MiraDayOffer() {
         </div>
       </div>
 
-      {offer && <OfferBlock offer={offer} busy={busy} onAccept={(pct, names) => run("accept", false, pct, names)} onAnother={offer.status !== "accepted" ? () => run("another") : null} onUnlock={offer.status === "accepted" ? () => run("unlock") : null} onReflyer={offer.status === "accepted" ? () => run("reflyer") : null} catalog={svcCatalog} testPrefix="day-offer" />}
+      {offer && <OfferBlock offer={offer} busy={busy} onAccept={(pct, names) => run("accept", false, pct, names)} onAnother={offer.status !== "accepted" ? () => run("another") : null} onUnlock={offer.status === "accepted" ? () => run("unlock") : null} onReflyer={offer.status === "accepted" ? () => run("reflyer") : null} onSaveServices={(names) => run("services", false, null, names)} bookingUrl={bookingUrl} catalog={svcCatalog} testPrefix="day-offer" />}
     </div>
   );
 }

@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from database import _raw_db, _current_tenant_id
+from database import _raw_db, _current_tenant_id, db
 from security import require_tenant_admin, current_tenant, require_super_admin
 
 router = APIRouter()
@@ -26,7 +26,7 @@ RESTO_AUDIENCE_HINT = {
 }
 
 _MEN_RE = re.compile(r"\b(men|man|male|gents?|boys?|beard|moustache|mustache|shave)\b", re.I)
-_WOMEN_RE = re.compile(r"\b(women|woman|female|ladies|lady|girls?|bridal|bride|saree|sari|mehendi|mehndi|blouse)\b", re.I)
+_WOMEN_RE = re.compile(r"\b(women|woman|female|ladies|lady|girls?|bridal|bride|saree|sari|mehendi|mehndi|blouse|waxing|wax|threading|bikini|nail\s?art|manicure|pedicure)\b", re.I)
 
 
 def _service_gender(s: dict) -> str:
@@ -37,8 +37,8 @@ def _service_gender(s: dict) -> str:
         return "men"
     if g in ("female", "women"):
         return "women"
-    if g == "unisex":
-        return "unisex"
+    # "unisex" is the catalog default, so it's not a real owner choice — still infer from the name;
+    # an owner who explicitly wants a service for everyone just avoids gendered words in its name.
     text = f"{s.get('name', '')} {s.get('category', '')}"
     m, w = bool(_MEN_RE.search(text)), bool(_WOMEN_RE.search(text))
     if m and not w:
@@ -49,11 +49,52 @@ def _service_gender(s: dict) -> str:
 
 
 def _audience_pool(services: list, audience: str) -> list:
-    """Men get men's + unisex services, women get women's + unisex, family gets everything."""
+    """Men get men's (+ unisex only if needed), women get women's + unisex, family gets everything.
+    Owner-tagged genders (Services page) win; a men's pool never includes women-tagged services."""
     if audience not in ("men", "women"):
         return services
+    exact = [s for s in services if _service_gender(s) == audience]
+    if audience == "men" and len(exact) >= 3:
+        return exact
     pool = [s for s in services if _service_gender(s) in ("unisex", audience)]
     return pool if len(pool) >= 2 else services
+
+
+class ServicesIn(BaseModel):
+    service_names: list[str]
+    discount_pct: int | None = None
+
+
+@router.get("/mira-packages/catalog")
+async def package_catalog(audience: str = "family", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Services the owner may hand-pick for a package, filtered for the audience (never women's for men)."""
+    rows = await db.services.find({"active": {"$ne": False}}, {"_id": 0, "id": 1, "name": 1, "price": 1, "category": 1, "gender": 1}).to_list(400)
+    if audience in ("men", "women"):
+        rows = [s for s in rows if _service_gender(s) in ("unisex", audience)]
+    return {"services": sorted(rows, key=lambda s: (s.get("category") or "", s["name"]))}
+
+
+@router.post("/mira-packages/{pid}/services")
+async def set_package_services(pid: str, body: ServicesIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner hand-picks the services in a package (draft or live) — totals and price recomputed."""
+    doc = await _raw_db.mira_packages.find_one({"id": pid, "tenant_id": t["id"]}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Package not found")
+    catalog = await db.services.find({"active": {"$ne": False}}, {"_id": 0, "name": 1, "price": 1}).to_list(400)
+    real = {s["name"].lower().strip(): s for s in catalog}
+    picked = []
+    for n in body.service_names[:6]:
+        m = real.get(str(n).lower().strip())
+        if m and not any(p["name"] == m["name"] for p in picked):
+            picked.append({"name": m["name"], "price": float(m["price"])})
+    if len(picked) < 2:
+        raise HTTPException(400, "Pick at least 2 services from your menu")
+    total = sum(p["price"] for p in picked)
+    pct = max(5, min(60, int(body.discount_pct))) if body.discount_pct else int(doc.get("discount_pct") or 20)
+    price = float(round(total * (1 - pct / 100)))
+    patch = {"services": picked, "total_value": total, "package_price": price, "discount_pct": pct}
+    await _raw_db.mira_packages.update_one({"id": pid}, {"$set": patch})
+    return {"package": {**doc, **patch}}
 
 
 class SuggestIn(BaseModel):
