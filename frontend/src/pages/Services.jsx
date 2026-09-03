@@ -215,7 +215,10 @@ export default function Services() {
   const [descBusy, setDescBusy] = useState(false);
   const [imgBatch, setImgBatch] = useState(null);
   const [paintCat, setPaintCat] = useState("");
+  const [weight, setWeight] = useState(null);
   const batchTimer = useRef(null);
+  const loadWeight = useCallback(() => { api.get("/services/image-weight").then(r => setWeight(r.data)).catch(() => {}); }, []);
+  useEffect(() => { loadWeight(); }, [loadWeight]);
   const pollBatch = useCallback(async function poll() {
     try {
       const { data } = await api.get("/services/image-batch-status");
@@ -227,7 +230,9 @@ export default function Services() {
       } else {
         setImgBatch(prev => {
           if (prev) {
-            toast.success(`🎨 Mira finished — ${data.done} ${data.kind === "banners" ? "category banners" : "dish photos"} painted${data.failed ? ` (${data.failed} failed)` : ""}`);
+            if (data.kind === "shrink") toast.success(`⚡ Done — ${data.done} photos shrunk, ${((data.saved_bytes || 0) / 1048576).toFixed(1)} MB saved. Same links, much faster pages.`);
+            else toast.success(`🎨 Mira finished — ${data.done} ${data.kind === "banners" ? "category banners" : "photos"} painted${data.failed ? ` (${data.failed} failed)` : ""}`);
+            setWeight(null); setTimeout(() => api.get("/services/image-weight").then(r => setWeight(r.data)).catch(() => {}), 500);
             load();
             api.get("/service-categories").then(r => setCatImages(r.data || {})).catch(() => {});
           }
@@ -338,6 +343,24 @@ export default function Services() {
           >
             <Sparkles className="w-4 h-4" /> {isResto ? "Import Starters Menu 🍗" : "Import Makeup & Nails menu"}
           </button>
+          {weight?.heavy > 0 && !imgBatch && (
+            <button data-testid="shrink-images-btn" onClick={async () => {
+                try {
+                  const { data } = await api.post("/services/shrink-images");
+                  if (!data.queued) { toast.info("All photos are already light ✦"); setWeight({ heavy: 0 }); return; }
+                  setImgBatch({ done: 0, total: data.queued, status: "running", kind: "shrink" });
+                  toast.success(`⚡ Shrinking ${data.queued} heavy photos (${weight.mb} MB) — same links, ~95% lighter`);
+                  setTimeout(pollBatch, 4000);
+                } catch (err) { toast.error(err.response?.data?.detail || "Couldn't start shrinking"); }
+              }}
+              title={`${weight.heavy} photos weigh ${weight.mb} MB — compress them in place so menus load instantly`}
+              className="btn-slate flex items-center gap-2 !border-amber-300 !text-amber-800 !bg-amber-50">
+              ⚡ Shrink {weight.heavy} heavy photos
+            </button>
+          )}
+          {imgBatch?.kind === "shrink" && (
+            <span data-testid="shrink-progress" className="text-xs text-amber-700 inline-flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Shrinking {imgBatch.done}/{imgBatch.total}…</span>
+          )}
           <select data-testid="paint-category-select" value={paintCat || (activeCat !== "All" ? activeCat : "")} onChange={e => setPaintCat(e.target.value)}
             title="Choose one category to paint — much faster than the whole menu"
             className="btn-slate !px-3 text-sm max-w-[200px] disabled:opacity-60" disabled={!!imgBatch}>

@@ -2,13 +2,14 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-03.184"
-BUILD_TIME = "03 Sep 2026, 6:00 PM IST"
+BUILD = "2026-09-03.185"
+BUILD_TIME = "03 Sep 2026, 6:20 PM IST"
 
 RELEASES = [
     {
         "date": "2026-09-03 (Devices, Security, Billing accuracy & Attendance mail 🔐)",
         "changes": [
+            "⚡ Shrink heavy photos — if your menu still has the older 2 MB Mira photos, an amber '⚡ Shrink N heavy photos' button appears on the Services page; one tap compresses them in place (same links, ~96% lighter, thumbnails pre-warmed) so Services, booking pages and offers load instantly. Super Admin can run it for every salon at once",
             "🎨 Mira Photos & Banners — paint one category at a time: a new '🎨 Paint: …' dropdown on the Services page lets you pick a single category before tapping Mira Photos or Mira Banners, so a 5-service category finishes in about a minute instead of painting the whole menu. Painting now runs 5 images at a time (≈5× faster), each button shows only its own progress (the Banners button no longer spins while Photos are painting), and new images are stored as light 80 KB JPEGs instead of 2 MB PNGs so menus and booking pages load instantly",
             "📊 Group Dashboard periods — multi-salon owners can now switch the combined view between Today · This week · This month · Last month · Last 3 months · Last 6 months with one tap; every branch card shows collection, bills, appointments and average bill for that period (voided/open bills excluded)",
             "🎯 Offer of the Day — pick the exact services yourself: even after locking in, remove any service or add any service from your full menu and tap 'Save services → booking page' (live instantly; poster unchanged unless you ask for a new one). A new 'Live on booking page' link opens your public page so you can see the banner exactly as guests do",

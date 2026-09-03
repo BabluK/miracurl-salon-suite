@@ -449,6 +449,97 @@ async def generate_dish_descriptions(user=Depends(require_admin)):
     return {"updated": n, "remaining": max(0, len(svcs) - len(todo))}
 
 
+@router.get("/services/image-weight")
+async def service_image_weight(user=Depends(require_admin)):
+    """How many heavy (≥400 KB) Mira/uploaded service images this salon still has."""
+    tenant_id = _current_tenant_id.get()
+    rows = await _raw_db.uploads.find(
+        {"tenant_id": tenant_id, "kind": "service", "is_deleted": False, "size": {"$gte": 400_000}},
+        {"_id": 0, "size": 1}).to_list(2000)
+    job = await _raw_db.mira_image_batches.find_one({"tenant_id": tenant_id, "kind": "shrink", "status": "running"}, {"_id": 0})
+    return {"heavy": len(rows), "mb": round(sum(r["size"] for r in rows) / 1_048_576, 1), "running": job}
+
+
+async def _shrink_upload(rec: dict) -> int:
+    """Re-encode one stored image as a web JPEG in place (same /api/files/{id} URL). Returns bytes saved."""
+    from routes.uploads import _resize_webp, _THUMB_WIDTHS
+    original, _ = await asyncio.to_thread(_get_object, rec["storage_path"])
+    data, ctype, ext = await asyncio.to_thread(_compress_for_web, original)
+    if len(data) >= len(original) * 0.9:
+        return 0
+    new_path = re.sub(r"\.\w+$", "", rec["storage_path"]) + f".{ext}"
+    if new_path == rec["storage_path"]:
+        new_path = re.sub(r"\.\w+$", "", rec["storage_path"]) + f"-web.{ext}"
+    result = await asyncio.to_thread(_put_object, new_path, data, ctype)
+    await _raw_db.uploads.update_one({"id": rec["id"]}, {"$set": {
+        "storage_path": result.get("path", new_path), "content_type": ctype, "size": len(data),
+        "original_size": rec.get("size"), "shrunk_at": datetime.now(timezone.utc).isoformat()}})
+    # pre-warm the two thumbnail sizes the app uses so first paint is instant
+    for w in (160, 640):
+        if w in _THUMB_WIDTHS:
+            try:
+                thumb = await asyncio.to_thread(_resize_webp, data, w)
+                await asyncio.to_thread(_put_object, f"{result.get('path', new_path)}.w{w}.webp", thumb, "image/webp")
+            except Exception:
+                pass
+    return len(original) - len(data)
+
+
+async def _run_shrink_batch(batch_id: str, tenant_ids: list[str] | None) -> None:
+    q = {"kind": "service", "is_deleted": False, "size": {"$gte": 400_000}}
+    if tenant_ids:
+        q["tenant_id"] = {"$in": tenant_ids}
+    recs = await _raw_db.uploads.find(q, {"_id": 0}).to_list(5000)
+    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$set": {"total": len(recs)}})
+    sem = asyncio.Semaphore(4)
+    saved = 0
+
+    async def _one(rec):
+        nonlocal saved
+        async with sem:
+            try:
+                gained = await _shrink_upload(rec)
+                saved += gained
+                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"done": 1}, "$set": {"saved_bytes": saved}})
+            except Exception as e:
+                logging.error(f"shrink failed for {rec.get('id')}: {e}")
+                await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$inc": {"failed": 1}})
+
+    await asyncio.gather(*(_one(r) for r in recs))
+    await _raw_db.mira_image_batches.update_one({"id": batch_id}, {"$set": {"status": "done", "saved_bytes": saved}})
+
+
+@router.post("/services/shrink-images")
+async def shrink_service_images(user=Depends(require_admin)):
+    """Compress this salon's heavy (old 2 MB PNG) service photos & banners in place — URLs unchanged."""
+    tenant_id = _current_tenant_id.get()
+    if await _raw_db.mira_image_batches.find_one({"tenant_id": tenant_id, "status": "running"}):
+        raise HTTPException(409, "Mira is already working on images for this salon — wait for it to finish")
+    heavy = await _raw_db.uploads.count_documents({"tenant_id": tenant_id, "kind": "service", "is_deleted": False, "size": {"$gte": 400_000}})
+    if not heavy:
+        return {"queued": 0}
+    batch_id = str(uuid.uuid4())[:8]
+    await _raw_db.mira_image_batches.insert_one({
+        "id": batch_id, "tenant_id": tenant_id, "kind": "shrink", "total": heavy, "done": 0, "failed": 0,
+        "status": "running", "created_at": datetime.now(timezone.utc).isoformat()})
+    asyncio.get_event_loop().create_task(_run_shrink_batch(batch_id, [tenant_id]))
+    return {"queued": heavy, "batch_id": batch_id}
+
+
+@router.post("/super-admin/shrink-images")
+async def shrink_all_images(user=Depends(require_super_admin)):
+    """HQ: compress heavy service images across every tenant (one-off migration, background)."""
+    heavy = await _raw_db.uploads.count_documents({"kind": "service", "is_deleted": False, "size": {"$gte": 400_000}})
+    if not heavy:
+        return {"queued": 0}
+    batch_id = str(uuid.uuid4())[:8]
+    await _raw_db.mira_image_batches.insert_one({
+        "id": batch_id, "tenant_id": "__all__", "kind": "shrink", "total": heavy, "done": 0, "failed": 0,
+        "status": "running", "created_at": datetime.now(timezone.utc).isoformat()})
+    asyncio.get_event_loop().create_task(_run_shrink_batch(batch_id, None))
+    return {"queued": heavy, "batch_id": batch_id}
+
+
 @router.post("/services/generate-missing-images")
 async def generate_missing_service_images(category: str | None = None, user=Depends(require_admin)):
     """Mira paints a photo for every service/dish without one — optionally only one category (faster)."""

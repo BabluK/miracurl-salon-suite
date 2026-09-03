@@ -2627,3 +2627,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-03 — 🎨 Faster Mira painting, per-category (user complaint: too slow, banners "auto-started")
 - Cause: sequential batch (60 × ~40s) + shared `imgBatch` spinner made the Banners button look busy while Photos ran.
 - `services_catalog.py`: both batches use `asyncio.Semaphore(5)` + gather; `?category=` on generate-missing-images / generate-all-banners (explicit category repaints banner); photos batch tagged `kind: "photos"`; `_compress_for_web` → 1024px JPEG q82 (~80 KB). Services.jsx: `paint-category-select` dropdown (defaults to active tab filter), per-kind spinners/labels, poll 8s. BUILD 2026-09-03.184.
+
+## 2026-09-03 — ⚡ Shrink old service photos (user request)
+- `GET /services/image-weight`, `POST /services/shrink-images` (tenant), `POST /super-admin/shrink-images` (all tenants) → background batch kind "shrink": re-encodes uploads kind=service ≥400 KB to 1024px JPEG in place (same /api/files/{id}), records original_size/shrunk_at, pre-warms w160/w640 webp variants. Services.jsx shows amber "⚡ Shrink N heavy photos" button only when heavy>0 + progress + saved MB toast. Tested: 7 × 2 MB → ~70 KB each. BUILD 2026-09-03.185.
