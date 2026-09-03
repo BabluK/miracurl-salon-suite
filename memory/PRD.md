@@ -2640,3 +2640,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-03 — 🛟 Stuck image batch fix (prod "Painting 8/60" frozen)
 - Cause: batches run in-process via create_task; production redeploy killed the task, doc stayed status=running → UI frozen + new batches refused (409).
 - Fix: `_batch_running()` marks batches with no heartbeat (`updated_at`) for 240s as "interrupted"; `_batch_tick()` heartbeats each progress; startup hook flips all running → interrupted; status endpoint applies the check; frontend toasts "paused at N/M — tap to resume", shows failed count, ETA. Restart re-queues only services still missing image_url. Concurrency 8. BUILD 2026-09-03.186.
+
+## 2026-09-03 — 💵 Daily Cash Register (user request)
+- `routes/cash_register.py`: collections `cash_expenses` {id,tenant_id,date(IST),amount,purpose,category,has_bill,kind expense|handover,added_by,added_by_role,added_by_id}, `cash_days` snapshot {date,opening,cash_in,expenses,handover,closing}. opening = latest earlier cash_days.closing; cash_in = non-voided invoices payment_mode=cash that IST day. Endpoints: GET /cash/day?date, GET /cash/history, POST/DELETE /cash/expenses (staff today-only; mgr/admin any day), POST /cash/send-report. Owner EOD email via `_cash_report_scheduler` (≥20:30 IST, flag cash_report_auto; skips tenants with no cash & no entries).
+- Frontend `pages/CashRegister.jsx` at /cash, nav "Cash Register" for admin/manager/staff. Tested: carry-forward, POS cash bill, expense w/ bill, handover, email sent, UI add. BUILD 2026-09-03.187.

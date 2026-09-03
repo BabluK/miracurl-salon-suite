@@ -786,3 +786,23 @@ async def _newbiz_followup_scheduler() -> None:
         except Exception as e:
             logging.error(f"newbiz followup scheduler error: {e}")
         await asyncio.sleep(3600)
+
+
+async def _cash_report_scheduler() -> None:
+    """Daily (after 20:30 IST) email owners the Cash Register: opening, cash collected, expenses, closing."""
+    from routes.cash_register import _run_cash_reports
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.hour > 20 or (ist_now.hour == 20 and ist_now.minute >= 30):
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "cash_report_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await _run_cash_reports(None, period)
+                    await _raw_db.system_flags.update_one(
+                        {"key": "cash_report_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(), **out}}, upsert=True)
+                    logging.info(f"Cash register EOD reports {period}: {out}")
+        except Exception as e:
+            logging.error(f"cash report scheduler error: {e}")
+        await asyncio.sleep(900)

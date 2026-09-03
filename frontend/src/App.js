@@ -60,6 +60,7 @@ import Services from "@/pages/Services";
 import Inventory from "@/pages/Inventory";
 import POS from "@/pages/POS";
 import Reports from "@/pages/Reports";
+import CashRegister from "@/pages/CashRegister";
 import Reviews from "@/pages/Reviews";
 import OffersStudio from "@/pages/OffersStudio";
 import BookPublic from "@/pages/BookPublic";
@@ -276,6 +277,7 @@ export default function App() {
               <Route path="offers-studio" element={<AdminOnly><OffersStudio /></AdminOnly>} />
               <Route path="refer" element={<OwnerOnly><ReferEarn /></OwnerOnly>} />
               <Route path="reports" element={<OwnerOnly><Reports /></OwnerOnly>} />
+              <Route path="cash" element={<CashRegister />} />
               <Route path="assistant" element={<OwnerOnly><Assistant /></OwnerOnly>} />
               <Route path="mira-studio" element={<OwnerOnly><MiraStudio /></OwnerOnly>} />
               <Route path="setup" element={<OwnerOnly><SetupWizard /></OwnerOnly>} />

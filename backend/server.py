@@ -95,6 +95,7 @@ from routes.setup_wizard import router as setup_wizard_router  # noqa: E402
 from routes.lead_gen import router as lead_gen_router  # noqa: E402
 from routes.tenant_mira import router as tenant_mira_router  # noqa: E402
 from routes.eod_digests import router as eod_digests_router  # noqa: E402
+from routes.cash_register import router as cash_register_router  # noqa: E402
 from routes.wallet_pass import router as wallet_pass_router  # noqa: E402
 from routes.site_info import router as site_info_router  # noqa: E402
 from routes.blog import router as blog_router  # noqa: E402
@@ -108,7 +109,7 @@ from schedulers import (  # noqa: E402
     _gift_card_scheduler, _mira_auto_call_scheduler, _mira_digest_scheduler,
     _lead_heat_scheduler, _callback_redial_scheduler, _phone_backfill_task, _weekly_win_scheduler,
     _feedback_reminder_scheduler, _salon_digest_scheduler, _db_health_scheduler,
-    _temp_transfer_scheduler, _open_bill_alert_scheduler, _manager_access_report_scheduler,
+    _temp_transfer_scheduler, _open_bill_alert_scheduler, _manager_access_report_scheduler, _cash_report_scheduler,
     _late_digest_scheduler, _google_review_alert_scheduler, _daily_special_scheduler, _lead_nudge_scheduler,
     _city_watch_scheduler, _newbiz_followup_scheduler,
     _loyalty_nudge_scheduler, _always_on_time_scheduler, _referral_nudge_scheduler,
@@ -131,7 +132,7 @@ for _r in (
     setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router, salon_digest_router,
     pay_links_router,
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
-    blog_router,
+    blog_router, cash_register_router,
 ):
     api.include_router(_r)
 
@@ -144,6 +145,7 @@ async def on_startup():
     except Exception as e:
         logging.warning(f"could not flag interrupted image batches: {e}")
     asyncio.get_event_loop().create_task(_weekly_package_scheduler())
+    asyncio.get_event_loop().create_task(_cash_report_scheduler())
     asyncio.get_event_loop().create_task(_loyalty_nudge_scheduler())
     asyncio.get_event_loop().create_task(_always_on_time_scheduler())
     asyncio.get_event_loop().create_task(_late_alert_scheduler())
