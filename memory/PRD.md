@@ -2652,3 +2652,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-04 — 🎀 Booking-page offer banner: image removed, % OFF + occasion (user bug)
 - Public day-offer payload adds `discount_pct`, `occasion` (festival_today emoji+name else "<Weekday>'s offer"), `is_festival`. BookPublic.jsx banner rewritten: no image, occasion badge, title, service chips with struck price, big % OFF side panel. Tested by testing_agent (iteration_122: all pass, mobile stacks fine). BUILD 2026-09-04.190.
+
+## 2026-09-04 — ✨ Booking hero polish + 🎉 festival themes (user request)
+- BookPublic.jsx hero restructured into rows: chips (location, hours) → rating + Call + WhatsApp (h-11 aligned) → HeroCTAs → quiet secondary links (`hero-secondary-links`). `festTheme(occasion)` maps festival keywords → gradient; `hero-festival-ribbon` shown when dayOffer.is_festival; offer banner border/glow + discount panel tinted. Screenshot verified. BUILD 2026-09-04.191.

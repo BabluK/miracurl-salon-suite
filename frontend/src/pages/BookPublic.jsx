@@ -155,6 +155,23 @@ const OFFER_IMGS = {
   men: "/assets/offers/men.jpg",
   dining: "/assets/offers/dining.jpg",
 };
+/* Festival colour themes for the hero ribbon + offer panel (falls back to house gold) */
+export function festTheme(occasion = "") {
+  const o = occasion.toLowerCase();
+  if (/diwali|deepavali|dhanteras|lakshmi/.test(o)) return { from: "#f59e0b", to: "#b45309", glow: "rgba(245,158,11,.45)", name: "Diwali" };
+  if (/holi/.test(o)) return { from: "#ec4899", to: "#3b82f6", glow: "rgba(236,72,153,.45)", name: "Holi" };
+  if (/christmas|xmas/.test(o)) return { from: "#dc2626", to: "#166534", glow: "rgba(220,38,38,.45)", name: "Christmas" };
+  if (/janmashtami|krishna/.test(o)) return { from: "#0d9488", to: "#1e3a8a", glow: "rgba(13,148,136,.45)", name: "Janmashtami" };
+  if (/ganesh|vinayaka/.test(o)) return { from: "#f97316", to: "#dc2626", glow: "rgba(249,115,22,.45)", name: "Ganesh Chaturthi" };
+  if (/eid|ramzan|ramadan/.test(o)) return { from: "#059669", to: "#065f46", glow: "rgba(5,150,105,.45)", name: "Eid" };
+  if (/navratri|durga|dussehra|dasara/.test(o)) return { from: "#a21caf", to: "#f59e0b", glow: "rgba(162,28,175,.45)", name: "Navratri" };
+  if (/onam|pongal|sankranti|baisakhi|ugadi/.test(o)) return { from: "#ca8a04", to: "#15803d", glow: "rgba(202,138,4,.45)", name: "Harvest" };
+  if (/valentine/.test(o)) return { from: "#e11d48", to: "#be185d", glow: "rgba(225,29,72,.45)", name: "Valentine" };
+  if (/new year/.test(o)) return { from: "#6366f1", to: "#d4af37", glow: "rgba(99,102,241,.45)", name: "New Year" };
+  if (/women/.test(o)) return { from: "#db2777", to: "#7c3aed", glow: "rgba(219,39,119,.45)", name: "Women's Day" };
+  return null;
+}
+
 function serviceImage(text, isRestaurant) {
   if (isRestaurant) return OFFER_IMGS.dining;
   const s = (text || "").toLowerCase();
@@ -435,6 +452,14 @@ export default function BookPublic() {
 
       <header className="relative overflow-hidden mt-20">
         <img src={salon.hero_image} className="absolute inset-0 w-full h-full object-cover" alt="" />
+        {dayOffer?.is_festival && festTheme(dayOffer.occasion) && (() => { const th = festTheme(dayOffer.occasion); return (
+          <div data-testid="hero-festival-ribbon" className="absolute top-0 inset-x-0 z-20 flex items-center justify-center gap-2 py-1.5 text-[11px] font-semibold text-white tracking-wide"
+            style={{ background: `linear-gradient(90deg, ${th.from}, ${th.to})`, boxShadow: `0 6px 24px -6px ${th.glow}` }}>
+            <span>{dayOffer.occasion} special</span>
+            {dayOffer.discount_pct > 0 && <span className="px-2 py-0.5 rounded-full bg-white/20 border border-white/30">{dayOffer.discount_pct}% off today</span>}
+            <button onClick={() => document.getElementById("day-offer-banner")?.scrollIntoView({ behavior: "smooth", block: "center" })} className="underline underline-offset-2 opacity-90 hover:opacity-100">See offer</button>
+          </div>
+        ); })()}
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-bg-base" />
         {/* Animated Mira AI orb */}
         <button
@@ -454,77 +479,84 @@ export default function BookPublic() {
         <div className="relative z-10 max-w-5xl mx-auto flex flex-col justify-end p-6 sm:p-10 pt-14 sm:pt-20">
           <div className="text-[10px] tracking-[0.3em] uppercase text-gold mb-2">{salon.business_type === "restaurant" ? "Reserve Your Table" : "Book Your Visit"}</div>
           <h1 className="font-playfair text-3xl sm:text-5xl leading-tight max-w-2xl">{salon.tagline}.</h1>
+          {/* Row A — where & when (quiet glass chips) */}
           <div className="flex flex-wrap items-center gap-2 mt-4 text-xs">
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur border border-gold/25 text-white/85" data-testid="hero-location-chip">
-              <MapPin className="w-3 h-3 text-gold" /> {salon.name}, {salon.location}
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/35 backdrop-blur border border-white/10 text-white/80" data-testid="hero-location-chip">
+              <MapPin className="w-3 h-3 text-gold" /> {salon.location}
             </span>
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur border border-gold/25 text-white/85" data-testid="hero-hours-chip">
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/35 backdrop-blur border border-white/10 text-white/80" data-testid="hero-hours-chip">
               <Clock className="w-3 h-3 text-gold" /> {salon.hours}
             </span>
+          </div>
+
+          {/* Row B — trust + contact, one aligned line */}
+          <div className="flex flex-wrap items-center gap-3 mt-4">
+            {salon.rating?.avg >= 3.5 && (() => {
+              const onGoogle = salon.rating?.source === "google" || !!salon.google_review_url;
+              return (
+                <a href={salon.google_review_url || "#reviews"} target={salon.google_review_url ? "_blank" : undefined} rel="noreferrer"
+                  data-testid="salon-rating-badge"
+                  className="inline-flex items-center gap-2.5 h-11 bg-white rounded-full pl-1.5 pr-4 shadow-[0_8px_28px_-8px_rgba(0,0,0,0.45)] hover:-translate-y-0.5 transition-transform">
+                  <span className="w-8 h-8 rounded-full bg-[#1a73e8] text-white font-extrabold text-sm flex items-center justify-center">{salon.rating.avg}</span>
+                  <span className="leading-tight text-left">
+                    <span className="block text-[11px] font-extrabold text-slate-800 tracking-wide">
+                      {salon.rating.avg >= 4.7 ? "EXCELLENT" : salon.rating.avg >= 4.3 ? "GREAT" : "GOOD"}
+                      <span className="ml-1 text-amber-400" aria-hidden>{"★".repeat(Math.round(salon.rating.avg))}</span>
+                    </span>
+                    <span className="block text-[9.5px] text-slate-500">
+                      {Number(salon.rating.count).toLocaleString("en-IN")} reviews {onGoogle ? "on " : ""}
+                      {onGoogle && <b><span className="text-[#1a73e8]">G</span><span className="text-[#ea4335]">o</span><span className="text-[#fbbc05]">o</span><span className="text-[#1a73e8]">g</span><span className="text-[#34a853]">l</span><span className="text-[#ea4335]">e</span></b>}
+                    </span>
+                  </span>
+                </a>
+              );
+            })()}
             {salon.phone && (() => {
               const digits = salon.phone.replace(/\D/g, "");
               const wa = digits.length === 10 ? `91${digits}` : digits;
               return (
-                <>
+                <div className="flex items-center gap-2">
                   <a href={`tel:${salon.phone.replace(/\s/g, "")}`} data-testid="hero-call-now-btn"
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-gold to-[#e6c66e] text-bg-base font-bold shadow-[0_2px_12px_rgba(212,175,55,0.4)] hover:opacity-90 transition-opacity">
-                    <PhoneIcon className="w-3 h-3" /> Call now
+                    className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-semibold hover:bg-white/20 hover:border-gold/60 transition-colors">
+                    <PhoneIcon className="w-3.5 h-3.5 text-gold" /> Call
                   </a>
                   <a href={`https://wa.me/${wa}?text=${encodeURIComponent(`Hi ${salon.name}! I found you on Miracurl ✨`)}`}
                     target="_blank" rel="noreferrer" data-testid="hero-whatsapp-btn"
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#25D366] text-[#0b2b16] font-bold shadow-[0_2px_12px_rgba(37,211,102,0.4)] hover:opacity-90 transition-opacity">
+                    className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-[#25D366] text-[#0b2b16] text-xs font-bold shadow-[0_2px_12px_rgba(37,211,102,0.35)] hover:opacity-90 transition-opacity">
                     <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm5.4 14.2c-.2.6-1.2 1.2-1.7 1.2-.4.1-1 .1-1.6-.1a13 13 0 0 1-1.5-.5c-2.6-1.1-4.3-3.8-4.4-4-.1-.2-1.1-1.4-1.1-2.7 0-1.3.7-1.9.9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4-.1.6.5l.8 1.9c.1.1.1.3 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1.1 2.2 1.4 2.5 1.5.3.2.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l1.8.9c.3.1.5.2.6.3 0 .2 0 .7-.2 1.2z" /></svg>
                     WhatsApp
                   </a>
-                </>
+                </div>
               );
             })()}
           </div>
-          {salon.rating?.avg >= 3.5 && (() => {
-            const onGoogle = salon.rating?.source === "google" || !!salon.google_review_url;
-            return (
-            <a href={salon.google_review_url || "#reviews"} target={salon.google_review_url ? "_blank" : undefined} rel="noreferrer"
-              data-testid="salon-rating-badge"
-              className="mt-4 inline-flex items-center gap-3 w-fit bg-white rounded-2xl pl-2 pr-4 py-2 shadow-[0_8px_28px_-8px_rgba(0,0,0,0.45)] hover:-translate-y-0.5 transition-transform">
-              <span className="w-11 h-11 rounded-full bg-[#1a73e8] text-white font-extrabold text-base flex items-center justify-center shadow-inner">{salon.rating.avg}</span>
-              <span className="leading-tight text-left">
-                <span className="block text-[13px] font-extrabold text-slate-800 tracking-wide">
-                  {salon.rating.avg >= 4.7 ? "EXCELLENT" : salon.rating.avg >= 4.3 ? "GREAT" : "GOOD"}
-                  <span className="ml-1.5 text-amber-400" aria-hidden>{"★".repeat(Math.round(salon.rating.avg))}</span>
-                </span>
-                <span className="block text-[10px] text-slate-500">
-                  Rated by <b>{Number(salon.rating.count).toLocaleString("en-IN")}</b> customers {onGoogle ? "on " : ""}
-                  {onGoogle && <b className="text-[#1a73e8]">G</b>}{onGoogle && <b><span className="text-[#ea4335]">o</span><span className="text-[#fbbc05]">o</span><span className="text-[#1a73e8]">g</span><span className="text-[#34a853]">l</span><span className="text-[#ea4335]">e</span></b>}
-                </span>
-              </span>
-            </a>
-            );
-          })()}
+
+          {/* Row C — primary actions */}
           <HeroCTAs restaurant={salon.business_type === "restaurant"} />
-          {salon.business_type === "restaurant" ? (
-            <Link to={`/order/${slug}`} data-testid="hero-order-food-btn"
-              className="mt-3 inline-flex items-center gap-2 w-fit px-5 py-2.5 rounded-full bg-gradient-to-r from-amber-600/30 to-rose-500/30 backdrop-blur-md border border-gold/40 text-sm font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
-              🍽️ Order Food at Your Table
-              <span className="text-[9px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">Scan & Eat</span>
-            </Link>
-          ) : (<>
-          <Link to={`/gift/${slug}`} data-testid="hero-gift-card-btn"
-            className="mt-3 inline-flex items-center gap-1.5 w-fit px-3.5 py-1.5 rounded-full bg-gradient-to-r from-fuchsia-600/30 to-amber-500/30 backdrop-blur-md border border-gold/40 text-xs font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
-            🎁 Gift Card for a Loved One
-            <span className="text-[8px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
-          </Link>
-          <Link to={`/membership/${slug}`} data-testid="hero-membership-btn"
-            className="mt-2 inline-flex items-center gap-1.5 w-fit px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-600/30 to-yellow-500/20 backdrop-blur-md border border-gold/40 text-xs font-semibold text-white hover:border-gold hover:shadow-[0_0_24px_rgba(212,175,55,0.35)] transition-all">
-            💳 Premium Membership — earn cashback every visit
-            <span className="text-[8px] uppercase tracking-widest bg-gold/20 border border-gold/40 text-gold px-1.5 py-0.5 rounded-full">New</span>
-          </Link>
-          </>)}
+
+          {/* Row D — quiet secondary links, one line */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-xs" data-testid="hero-secondary-links">
+            {salon.business_type === "restaurant" ? (
+              <Link to={`/order/${slug}`} data-testid="hero-order-food-btn" className="inline-flex items-center gap-1.5 text-white/75 hover:text-gold transition-colors">
+                🍽️ Order food at your table <span className="text-[8px] uppercase tracking-widest text-gold/80 border border-gold/40 px-1.5 py-0.5 rounded-full">Scan & eat</span>
+              </Link>
+            ) : (<>
+              <Link to={`/gift/${slug}`} data-testid="hero-gift-card-btn" className="inline-flex items-center gap-1.5 text-white/75 hover:text-gold transition-colors">
+                🎁 Gift cards <span className="text-[8px] uppercase tracking-widest text-gold/80 border border-gold/40 px-1.5 py-0.5 rounded-full">New</span>
+              </Link>
+              <span className="hidden sm:inline text-white/20">·</span>
+              <Link to={`/membership/${slug}`} data-testid="hero-membership-btn" className="inline-flex items-center gap-1.5 text-white/75 hover:text-gold transition-colors">
+                💳 Premium membership · cashback every visit
+              </Link>
+            </>)}
+          </div>
         </div>
       </header>
 
       <main id="booking-wizard" className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {step === 0 && dayOffer && (
-          <div className="relative overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-br from-gold/15 via-blush/10 to-transparent mb-8" data-testid="day-offer-banner">
+          <div id="day-offer-banner" className="relative overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-br from-gold/15 via-blush/10 to-transparent mb-8" data-testid="day-offer-banner"
+            style={dayOffer.is_festival && festTheme(dayOffer.occasion) ? { borderColor: `${festTheme(dayOffer.occasion).from}66`, boxShadow: `0 12px 40px -18px ${festTheme(dayOffer.occasion).glow}` } : undefined}>
             <span aria-hidden className="absolute top-3 right-4 text-gold" style={{ animation: "sparkle-twinkle 2.4s ease-in-out infinite" }}>✦</span>
             <span aria-hidden className="absolute bottom-3 right-10 text-blush text-xs" style={{ animation: "sparkle-twinkle 2.4s ease-in-out 1s infinite" }}>✦</span>
             <div className="flex flex-col sm:flex-row sm:items-stretch">
@@ -557,7 +589,8 @@ export default function BookPublic() {
                 </button>
               </div>
               {dayOffer.discount_pct > 0 && (
-                <div data-testid="day-offer-discount" className="relative sm:w-48 shrink-0 flex flex-col items-center justify-center gap-1 px-5 py-6 sm:py-0 border-t sm:border-t-0 sm:border-l border-gold/25 bg-gradient-to-b from-gold/20 to-blush/10">
+                <div data-testid="day-offer-discount" className="relative sm:w-48 shrink-0 flex flex-col items-center justify-center gap-1 px-5 py-6 sm:py-0 border-t sm:border-t-0 sm:border-l border-gold/25 bg-gradient-to-b from-gold/20 to-blush/10"
+                  style={dayOffer.is_festival && festTheme(dayOffer.occasion) ? { background: `linear-gradient(180deg, ${festTheme(dayOffer.occasion).from}33, ${festTheme(dayOffer.occasion).to}33)` } : undefined}>
                   <span className="text-[10px] uppercase tracking-[0.3em] text-white/50">{dayOffer.is_festival ? "Festive special" : "Today only"}</span>
                   <span className="font-playfair text-5xl sm:text-6xl text-gold leading-none">{dayOffer.discount_pct}<span className="text-2xl align-top">%</span></span>
                   <span className="text-xs font-bold uppercase tracking-widest text-white/85">off</span>
