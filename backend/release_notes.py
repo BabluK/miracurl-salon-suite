@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-04.191"
-BUILD_TIME = "04 Sep 2026, 12:15 PM IST"
+BUILD = "2026-09-04.192"
+BUILD_TIME = "04 Sep 2026, 12:40 PM IST"
 
 RELEASES = [
     {
@@ -16,7 +16,7 @@ RELEASES = [
             "⚡ Shrink heavy photos — if your menu still has the older 2 MB Mira photos, an amber '⚡ Shrink N heavy photos' button appears on the Services page; one tap compresses them in place (same links, ~96% lighter, thumbnails pre-warmed) so Services, booking pages and offers load instantly. Super Admin can run it for every salon at once",
             "🎨 Mira Photos & Banners — paint one category at a time: a new '🎨 Paint: …' dropdown on the Services page lets you pick a single category before tapping Mira Photos or Mira Banners, so a 5-service category finishes in about a minute instead of painting the whole menu. Painting now runs 8 images at a time (≈8× faster) and the button shows a live '≈ N min left' estimate, each button shows only its own progress (the Banners button no longer spins while Photos are painting), and new images are stored as light 80 KB JPEGs instead of 2 MB PNGs so menus and booking pages load instantly",
             "📊 Group Dashboard periods — multi-salon owners can now switch the combined view between Today · This week · This month · Last month · Last 3 months · Last 6 months with one tap, or pick any specific month with the new 'Select month' picker (e.g. August 2026); every branch card shows collection, bills, appointments and average bill for that period (voided/open bills excluded)",
-            "✨ Booking page hero polished — the top of your public page is now tidy and tiered: location & hours as quiet chips, one aligned row for the Google rating + Call + WhatsApp, the two main buttons (Book Appointment · Let Mira AI book), and Gift cards / Premium membership as understated one-line links instead of three stacked rainbow pills",
+            "✨ Booking page hero polished — the top of your public page is now tidy and tiered: location & hours as quiet chips, one aligned row for the Google rating + Call + WhatsApp, the two main buttons (Book Appointment · Let Mira AI book), and Gift Card / Premium Membership as two matching glass cards with big gradient icons, title + one-line benefit and an arrow — aligned under the main buttons instead of three stacked rainbow pills",
             "🎉 Festival themes — on festival days the booking page automatically wears the occasion's colours: a slim ribbon across the hero ('🦚 Janmashtami special · 10% off today · See offer') and a matching tint on the offer's % OFF panel. Themes for Diwali (gold), Holi (pink→blue), Christmas (red→green), Janmashtami (peacock teal), Ganesh Chaturthi (saffron), Eid (green), Navratri (purple→gold), harvest festivals, Valentine's, New Year and Women's Day; normal days keep the house gold",
             "🎀 Offer banner on your booking page — the stock photo is gone (it could show the wrong gender for the offer). The banner is now a clean text card: an occasion badge (the festival name when there is one — e.g. 🦚 Janmashtami — otherwise 'Friday's offer', 'Monday's offer'…), your offer title, the services with struck-through vs offer prices, and a big 'X% OFF · Today only / Festive special' panel",
             "🎯 Offer of the Day — pick the exact services yourself: even after locking in, remove any service or add any service from your full menu and tap 'Save services → booking page' (live instantly; poster unchanged unless you ask for a new one). A new 'Live on booking page' link opens your public page so you can see the banner exactly as guests do",

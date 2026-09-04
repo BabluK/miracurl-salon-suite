@@ -2655,3 +2655,4 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-04 — ✨ Booking hero polish + 🎉 festival themes (user request)
 - BookPublic.jsx hero restructured into rows: chips (location, hours) → rating + Call + WhatsApp (h-11 aligned) → HeroCTAs → quiet secondary links (`hero-secondary-links`). `festTheme(occasion)` maps festival keywords → gradient; `hero-festival-ribbon` shown when dayOffer.is_festival; offer banner border/glow + discount panel tinted. Screenshot verified. BUILD 2026-09-04.191.
+- 2026-09-04: hero Row D → two matched glass feature cards (Gift Card / Premium Membership; restaurant: Order at table) with 44px gradient icons (lucide Gift/CreditCard/UtensilsCrossed), max-w-2xl grid. BUILD 2026-09-04.192.

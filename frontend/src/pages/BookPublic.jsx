@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
-import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle, Sparkles } from "lucide-react";
+import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle, Sparkles, Gift, CreditCard, UtensilsCrossed } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, ConfirmStep, SuccessStep } from "./BookPublic.steps";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
@@ -534,19 +534,36 @@ export default function BookPublic() {
           {/* Row C — primary actions */}
           <HeroCTAs restaurant={salon.business_type === "restaurant"} />
 
-          {/* Row D — quiet secondary links, one line */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-xs" data-testid="hero-secondary-links">
+          {/* Row D — Gift card & Membership: two matched glass feature cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 max-w-2xl" data-testid="hero-secondary-links">
             {salon.business_type === "restaurant" ? (
-              <Link to={`/order/${slug}`} data-testid="hero-order-food-btn" className="inline-flex items-center gap-1.5 text-white/75 hover:text-gold transition-colors">
-                🍽️ Order food at your table <span className="text-[8px] uppercase tracking-widest text-gold/80 border border-gold/40 px-1.5 py-0.5 rounded-full">Scan & eat</span>
+              <Link to={`/order/${slug}`} data-testid="hero-order-food-btn"
+                className="group flex items-center gap-3 p-3 pr-4 rounded-2xl bg-white/[0.07] backdrop-blur-md border border-white/15 hover:border-gold/60 hover:bg-white/[0.12] hover:shadow-[0_0_28px_rgba(212,175,55,0.25)] transition-all">
+                <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center shrink-0 shadow-lg text-white"><UtensilsCrossed className="w-5 h-5" /></span>
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block text-sm font-semibold text-white">Order food at your table</span>
+                  <span className="block text-[11px] text-white/60">Scan, order & eat — no waiting</span>
+                </span>
+                <ArrowRight className="w-4 h-4 text-gold opacity-70 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             ) : (<>
-              <Link to={`/gift/${slug}`} data-testid="hero-gift-card-btn" className="inline-flex items-center gap-1.5 text-white/75 hover:text-gold transition-colors">
-                🎁 Gift cards <span className="text-[8px] uppercase tracking-widest text-gold/80 border border-gold/40 px-1.5 py-0.5 rounded-full">New</span>
+              <Link to={`/gift/${slug}`} data-testid="hero-gift-card-btn"
+                className="group flex items-center gap-3 p-3 pr-4 rounded-2xl bg-white/[0.07] backdrop-blur-md border border-white/15 hover:border-gold/60 hover:bg-white/[0.12] hover:shadow-[0_0_28px_rgba(212,175,55,0.25)] transition-all">
+                <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-fuchsia-500 to-rose-400 flex items-center justify-center shrink-0 shadow-lg text-white"><Gift className="w-5 h-5" /></span>
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block text-sm font-semibold text-white">Gift Card</span>
+                  <span className="block text-[11px] text-white/60">Treat someone you love</span>
+                </span>
+                <ArrowRight className="w-4 h-4 text-gold opacity-70 group-hover:translate-x-0.5 transition-transform" />
               </Link>
-              <span className="hidden sm:inline text-white/20">·</span>
-              <Link to={`/membership/${slug}`} data-testid="hero-membership-btn" className="inline-flex items-center gap-1.5 text-white/75 hover:text-gold transition-colors">
-                💳 Premium membership · cashback every visit
+              <Link to={`/membership/${slug}`} data-testid="hero-membership-btn"
+                className="group flex items-center gap-3 p-3 pr-4 rounded-2xl bg-white/[0.07] backdrop-blur-md border border-white/15 hover:border-gold/60 hover:bg-white/[0.12] hover:shadow-[0_0_28px_rgba(212,175,55,0.25)] transition-all">
+                <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-gold to-amber-600 flex items-center justify-center shrink-0 shadow-lg text-bg-base"><CreditCard className="w-5 h-5" /></span>
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block text-sm font-semibold text-white">Premium Membership</span>
+                  <span className="block text-[11px] text-white/60">Earn cashback on every visit</span>
+                </span>
+                <ArrowRight className="w-4 h-4 text-gold opacity-70 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </>)}
           </div>
