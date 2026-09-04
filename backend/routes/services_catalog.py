@@ -343,6 +343,7 @@ async def set_category_image(name: str, body: CategoryImageIn, user=Depends(requ
 
 async def _generate_service_image_bytes(name: str, category: str, restaurant: bool = False) -> bytes:
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    from routes.mira_common import paint_offloop
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         raise HTTPException(500, "AI key not configured")
@@ -360,8 +361,7 @@ async def _generate_service_image_bytes(name: str, category: str, restaurant: bo
                   "rose-gold and cream tones, photorealistic, shallow depth of field, editorial quality. "
                   "Absolutely NO text, NO letters, NO watermarks, NO logos, NO nudity.")
     try:
-        imgs = await asyncio.wait_for(
-            gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+        imgs = await asyncio.wait_for(paint_offloop(gen, prompt=prompt), timeout=240)
     except Exception as e:
         if "safety" not in str(e).lower() and "rejected" not in str(e).lower():
             raise
@@ -373,8 +373,7 @@ async def _generate_service_image_bytes(name: str, category: str, restaurant: bo
             f"Luxury spa product flat-lay themed for the salon treatment '{name}' ({category}): premium jars, creams, scrubs, "
             "oils, fresh botanicals, rolled cream towels and rose petals on a marble surface. Soft warm lighting, rose-gold "
             "and cream tones, photorealistic editorial still-life. Absolutely NO text, NO letters, NO watermarks, NO logos, NO people.")
-        imgs = await asyncio.wait_for(
-            gen.generate_images(prompt=safe_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+        imgs = await asyncio.wait_for(paint_offloop(gen, prompt=safe_prompt), timeout=240)
     if not imgs:
         raise RuntimeError("empty generation")
     return imgs[0]
@@ -683,6 +682,7 @@ async def _run_image_job(jid: str, tenant_id: str, name: str, category: str, sid
 
 async def _generate_category_banner_bytes(category: str, restaurant: bool) -> bytes:
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+    from routes.mira_common import paint_offloop
     key = os.environ.get("EMERGENT_LLM_KEY")
     if not key:
         raise HTTPException(500, "AI key not configured")
@@ -696,8 +696,7 @@ async def _generate_category_banner_bytes(category: str, restaurant: bool) -> by
         prompt = (f"Wide premium banner photograph for the beauty-salon category '{category}'. "
                   "Elegant luxury salon scene, soft warm lighting, rose-gold and cream tones, marble textures, "
                   "photorealistic editorial quality. Absolutely NO text, NO letters, NO watermarks, NO logos.")
-    imgs = await asyncio.wait_for(
-        gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+    imgs = await asyncio.wait_for(paint_offloop(gen, prompt=prompt), timeout=240)
     if not imgs:
         raise RuntimeError("empty generation")
     return imgs[0]

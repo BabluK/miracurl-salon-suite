@@ -481,7 +481,8 @@ async def _gen_gallery_insets(gen, t: dict) -> list[bytes]:
                            "1) relaxing facial spa treatment, 2) hairstylist styling glossy hair, 3) elegant manicured hands. "
                            "Consistent warm luxury lighting. Absolutely NO text, NO letters, NO logos.")
         try:
-            trips = await asyncio.wait_for(gen.generate_images(prompt=trip_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+            from routes.mira_common import paint_offloop
+            trips = await asyncio.wait_for(paint_offloop(gen, prompt=trip_prompt), timeout=240)
             if trips:
                 trip = Image.open(io.BytesIO(trips[0])).convert("RGB")
                 w3 = trip.width // 3
@@ -531,7 +532,8 @@ async def create_about_poster(body: AboutPosterIn, user=Depends(require_tenant_a
     else:
         hero_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
                        "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
-    imgs = await asyncio.wait_for(gen.generate_images(prompt=hero_prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+    from routes.mira_common import paint_offloop
+    imgs = await asyncio.wait_for(paint_offloop(gen, prompt=hero_prompt), timeout=240)
     if not imgs:
         raise HTTPException(502, "Image generation failed — try again")
 

@@ -85,13 +85,20 @@ async def _gen_image_gemini(prompt: str) -> bytes | None:
     return None
 
 
+async def paint_offloop(gen, **kw) -> list[bytes]:
+    """generate_images() is sync inside (litellm) — run it in a worker thread so the event loop stays free
+    and several paintings can truly run in parallel."""
+    kw.setdefault("model", "gpt-image-1")
+    kw.setdefault("number_of_images", 1)
+    return await asyncio.to_thread(lambda: asyncio.run(gen.generate_images(**kw)))
+
+
 async def _gen_image_bytes(prompt: str) -> bytes | None:
     """Dual-engine image generation: GPT-Image-1 first, Gemini Nano Banana fallback."""
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     try:
         gen = OpenAIImageGeneration(api_key=_key())
-        images = await asyncio.wait_for(
-            gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1), timeout=240)
+        images = await asyncio.wait_for(paint_offloop(gen, prompt=prompt), timeout=240)
         if images:
             return images[0]
     except Exception as e:

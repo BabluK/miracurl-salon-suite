@@ -298,7 +298,8 @@ async def _ai_scenes(body: PromoIn, scenes: list) -> list[tuple[bytes, str]]:
         prompt = (f"{s.get('image_prompt', 'modern premium salon interior')}. Vertical 9:16 cinematic promo shot, "
                   "premium beauty-tech aesthetic, rich lighting. NO text, NO letters, NO logos, no distorted faces.")
         try:
-            out = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+            from routes.mira_common import paint_offloop
+            out = await paint_offloop(gen, prompt=prompt)
             return (out[0] if out else None, s.get("caption", ""))
         except Exception as e:
             log.error("scene image failed: %s", e)

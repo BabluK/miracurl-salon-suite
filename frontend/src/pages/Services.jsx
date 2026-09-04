@@ -226,7 +226,7 @@ export default function Services() {
         setImgBatch(data);
         load();
         api.get("/service-categories").then(r => setCatImages(r.data || {})).catch(() => {});
-        batchTimer.current = setTimeout(poll, 8000);
+        batchTimer.current = setTimeout(poll, 5000);
       } else {
         setImgBatch(prev => {
           if (prev && data.status === "interrupted") {
@@ -389,7 +389,7 @@ export default function Services() {
             title="Mira paints a photo for every item without one (8 at a time, ~35 s each). Only the photo is added — names, prices and categories are never touched. Pick a category on the left to keep it quick"
           >
             {imgBatch?.kind !== "banners" && imgBatch ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-amber-500" />}
-            {imgBatch && imgBatch.kind !== "banners" ? `Painting ${imgBatch.done}/${imgBatch.total}${imgBatch.failed ? ` · ${imgBatch.failed} failed` : ""} · ≈${Math.max(1, Math.ceil((imgBatch.total - imgBatch.done - (imgBatch.failed || 0)) / 8 * 0.6))} min left` : "Mira Photos"}
+            {imgBatch && imgBatch.kind !== "banners" ? `Painting ${imgBatch.done}/${imgBatch.total}${imgBatch.failed ? ` · ${imgBatch.failed} failed` : ""} · ${imgBatch.done === 0 ? "first photo in ~20 s" : `≈${Math.max(1, Math.ceil((imgBatch.total - imgBatch.done - (imgBatch.failed || 0)) / 8) * 0.5)} min left`}` : "Mira Photos"}
           </button>
           <button
             data-testid="generate-all-banners-btn"
@@ -408,7 +408,7 @@ export default function Services() {
             title="Mira paints a banner for the picked category (or every category that has none)"
           >
             {imgBatch?.kind === "banners" ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-sky-500" />}
-            {imgBatch?.kind === "banners" ? `Banners ${imgBatch.done}/${imgBatch.total} · ≈${Math.max(1, Math.ceil((imgBatch.total - imgBatch.done) / 8 * 0.6))} min left` : "Mira Banners"}
+            {imgBatch?.kind === "banners" ? `Banners ${imgBatch.done}/${imgBatch.total} · ${imgBatch.done === 0 ? "first in ~20 s" : `≈${Math.max(1, Math.ceil((imgBatch.total - imgBatch.done) / 8) * 0.5)} min left`}` : "Mira Banners"}
           </button>
           {isResto && (
             <button

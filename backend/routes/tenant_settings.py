@@ -452,8 +452,9 @@ async def generate_logo(body: LogoGenIn, user=Depends(require_tenant_admin), t=D
                   f"Style: {body.style}. Flat vector emblem, centered composition, elegant typography featuring the salon name, "
                   f"scissors or beauty motif, solid deep charcoal background, gold accent palette, "
                   f"high contrast, crisp edges, logo design only — no photo, no watermark, no mockup.")
+    from routes.mira_common import paint_offloop
     try:
-        images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+        images = await paint_offloop(gen, prompt=prompt)
     except Exception as e:
         raise HTTPException(400, f"Logo generation failed: {e}")
     if not images:

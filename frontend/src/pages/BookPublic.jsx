@@ -226,6 +226,7 @@ export default function BookPublic() {
   const [services, setServices] = useState([]);
   const [dayOffer, setDayOffer] = useState(null);
   const [memberPreview, setMemberPreview] = useState(null);
+  const [giftPreview, setGiftPreview] = useState(null);
   const [packages, setPackages] = useState([]);
   const [staff, setStaff] = useState([]);
   const [featured, setFeatured] = useState([]);
@@ -257,6 +258,10 @@ export default function BookPublic() {
 
   useEffect(() => {
     PUBLIC.get(`/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon({ error: true }));
+    PUBLIC.get(`/gift-cards/${slug}/config`).then(r => {
+      const amts = (r.data?.amounts || []).map(Number).filter(a => a > 0);
+      if (r.data?.enabled !== false && amts.length) setGiftPreview({ from: Math.min(...amts), validity: r.data?.validity_days || 0 });
+    }).catch(() => {});
     PUBLIC.get(`/membership/${slug}/config`).then(r => {
       const plans = (r.data?.plans || []).filter(p => !p.custom && Number(p.price) > 0);
       if (plans.length) setMemberPreview({
@@ -562,7 +567,12 @@ export default function BookPublic() {
                 <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-fuchsia-500 to-rose-400 flex items-center justify-center shrink-0 shadow-lg text-white hero-card-icon"><Gift className="w-5 h-5" /></span>
                 <span className="min-w-0 flex-1 text-left">
                   <span className="block text-sm font-semibold text-white whitespace-nowrap">Gift Card</span>
-                  <span className="block text-[11px] text-white/60">Treat someone you love</span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-white/60 whitespace-nowrap" data-testid="hero-gift-price">
+                    {giftPreview ? <>
+                      <span>from <b className="text-white/90">₹{giftPreview.from.toLocaleString("en-IN")}</b></span>
+                      <span data-testid="hero-gift-instant" className="text-[10px] font-bold px-1.5 py-px rounded-full bg-gradient-to-r from-fuchsia-400 to-rose-400 text-white">⚡ instant e-card</span>
+                    </> : "Treat someone you love"}
+                  </span>
                 </span>
                 <ArrowRight className="w-4 h-4 text-gold opacity-70 group-hover:translate-x-0.5 transition-transform" />
               </Link>

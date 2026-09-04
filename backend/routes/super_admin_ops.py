@@ -421,8 +421,9 @@ async def superadmin_onboarding_bg(body: OnboardImgIn, user=Depends(require_supe
               f"{vibes.get(body.vibe, vibes['luxury'])}. Cinematic soft-focus photography, dark vignette edges, "
               f"generous empty space in the center for overlay text. Absolutely NO text, NO letters, NO logos, NO people's faces.")
     gen = OpenAIImageGeneration(api_key=key)
+    from routes.mira_common import paint_offloop
     try:
-        images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+        images = await paint_offloop(gen, prompt=prompt)
     except Exception as e:
         raise HTTPException(400, f"Background generation failed: {e}")
     if not images:
@@ -472,7 +473,8 @@ async def _generate_onboarding_poster(t: dict) -> str:
                       f"Elegant gold serif text centered reading exactly: 'Welcome {t['name']}'. "
                       f"Sparkling light particles, cinematic lighting, premium beauty-brand aesthetic. No people's faces.")
         gen = OpenAIImageGeneration(api_key=key)
-        images = await gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1)
+        from routes.mira_common import paint_offloop
+        images = await paint_offloop(gen, prompt=prompt)
         if not images:
             return ""
         file_id = str(uuid.uuid4())

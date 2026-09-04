@@ -1,0 +1,25 @@
+{
+  "summary": "Verified Mira paint parallelism fix (paint_offloop). All 6 backend tests PASSED in 74s: (1) batch generate-missing-images painted 2 services in ~18s with poll latency <3s (parallelism confirmed), (2) single-service paint job completes with valid /api/files/ URL, (3) generate-all-banners on existing category returns 200 + finishes cleanly, (4) unrelated endpoints (/services, /dashboard/stats, /customers) stay <3s while a batch runs, (5) regression smoke on /services, /service-categories, /services/image-weight all 200, (6) concurrent batch POST correctly returns 409. Frontend Services page loads for salon admin; both 'Mira Photos' (generate-missing-images-btn) and 'Mira Banners' (generate-all-banners-btn) buttons render and are visible; no console errors originating from Services page (only pre-existing 401/429 background pings and an unrelated Dashboard hydration warning in MiraDayOffer).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (unrelated to this fix)", "issues": ["React hydration warning: <span> child inside <option> in MiraDayOffer.jsx line 55 — instrumentation-injected span breaks HTML validity"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_mira_paint_parallel.py", "/app/test_reports/pytest/iter123.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "paint_offloop pattern (asyncio.to_thread + asyncio.run wrapping generate_images) is the correct fix for the litellm sync blocking; batch of 2 finished in ~18s (single-image time) confirming true parallelism via Semaphore(8).",
+    "GET /api/services/{sid} does not exist (only PUT/DELETE at that path); test had to fetch the list. Minor API-shape suggestion: expose a single-service GET for consistency.",
+    "Unrelated: Dashboard MiraDayOffer has invalid HTML (<span> inside <option>) causing hydration warning."
+  ],
+  "updated_files": ["/app/backend/tests/test_mira_paint_parallel.py"],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (buttons render, no page errors)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL with X-Tenant-Slug: miracurl-marathahalli",
+  "seed_data_creation": "Each test creates its own temp services under a unique 'ZZ QA ...' category and deletes them in finally block. Total real images painted this run: 2 (batch) + 1 (single) + 1 (banner regen on existing category) + 2 (event-loop test) + 2 (409 test partially painted) ≈ ≤8 within budget.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Fix is validated. test_mira_paint_parallel.py can be reused as regression. Poll latency assertion (<3s) is the key event-loop-not-blocked signal. Note: /api/services returns a list (not wrapped)."
+}

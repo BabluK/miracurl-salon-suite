@@ -59,9 +59,8 @@ async def generate_poster_core(topic: str, size: str = "square", contact: str = 
               "Soft-focus ambient background for a software advertisement — dreamy premium salon atmosphere, "
               "bokeh, rich rose-gold and charcoal tones, NOT the main subject (a UI screenshot will be placed on top). "
               "Absolutely NO text, NO letters, NO watermarks, NO devices.")
-    imgs = await asyncio.wait_for(
-        gen.generate_images(prompt=prompt, model="gpt-image-1", number_of_images=1),
-        timeout=240)
+    from routes.mira_common import paint_offloop
+    imgs = await asyncio.wait_for(paint_offloop(gen, prompt=prompt), timeout=240)
     if not imgs:
         raise RuntimeError("Image generation returned nothing — try again")
 
