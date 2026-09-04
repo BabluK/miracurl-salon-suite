@@ -1,0 +1,16 @@
+{
+  "summary": "Verified 'Offer of the Day' banner fix on public booking page for tenant newbiz-ring-salon. Backend GET /api/public/day-offer/newbiz-ring-salon returns correct payload (discount_pct=10 int, occasion contains 'Janmashtami', is_festival=true, day_name='Friday', services with name/price/offer_price). 404 branch works for unknown slug. Frontend banner renders with no <img> inside, no [data-testid=day-offer-image] anywhere, correct occasion badge (🦚 Janmashtami — festival), '10% off' panel with 'Festive special' label, title 'Janmashtami Glam & Grooming Offer', service chips (Hair Spa ₹1200→₹1080, Bridal Makeup ₹8000→₹7200) with struck original and gold offer price. Mobile 390x844: banner stacks vertically (bbox 16,421 358x424), no overflow, discount panel below text. Book-this-offer button click triggers pickByNames without JS errors and preselects services (Continue button appears).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_book_public_flow.py"],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "N/A (public page)",
+  "seed_data_creation": "None; used the existing accepted offer for today (Janmashtami, IST 2026-09-04).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Banner is text-only now with a right-side gold '% OFF' panel. On mobile the layout stacks (flex-col sm:flex-row). Occasion badge is CSS-uppercased so text becomes 'JANMASHTAMI' in DOM inner_text; underlying value contains 'Janmashtami'.",
+  "rca of the issue": "N/A — verification only. Fix already applied: banner img removed, occasion badge (festival name or weekday) + 10% OFF panel added."
+}

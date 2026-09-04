@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from database import db, _raw_db
-from festivals import festival_info, festival_prompt_line
+from festivals import festival_info, festival_prompt_line, festival_today
 from security import require_tenant_admin, current_tenant
 
 router = APIRouter()
@@ -504,9 +504,13 @@ async def public_day_offer(slug: str):
     else:
         now_ist = _today_ist()
         ends_at = (now_ist.replace(hour=23, minute=59, second=59, microsecond=0) - IST).isoformat()
+    fest = festival_today(_today_ist().date())
+    occasion = f"{fest['emoji']} {fest['name']}" if fest else f"{doc.get('day_name') or _today_ist().strftime('%A')}'s offer"
     return {"offer": {
         "title": doc.get("title"), "offer_text": doc.get("offer_text"),
         "day_name": doc.get("day_name"), "kind": doc.get("kind", "day"),
+        "discount_pct": int(doc.get("discount_pct") or 0),
+        "occasion": occasion, "is_festival": bool(fest),
         "ends_at": ends_at, "flyer_url": doc.get("flyer_url"),
         "services": [{"name": s.get("name"), "price": s.get("original_price"),
                       "offer_price": s.get("offer_price")} for s in (doc.get("services") or [])],

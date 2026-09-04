@@ -2649,3 +2649,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `GET /cash/month?month=YYYY-MM` (`_month_data`: by_category/by_staff/by_day, cash_in, net), `GET /cash/month/export` CSV (BOM, summary + entries + rollups), `GET /cash/report-target`. `_report_recipients`: Settings→Branding `salon_email` first, else owner_email (used by EOD + send-now).
 - `components/cash/CashMonthlyReport.jsx`; CashRegister.jsx tabs (Daily register / Monthly report, mgr+), send button shows target. Tested API + UI. BUILD 2026-09-03.188.
 - 2026-09-03: Group Dashboard "Select month" picker (`period=YYYY-MM` in `_period_window`, `group-period-custom-month` input). BUILD 2026-09-03.189.
+
+## 2026-09-04 — 🎀 Booking-page offer banner: image removed, % OFF + occasion (user bug)
+- Public day-offer payload adds `discount_pct`, `occasion` (festival_today emoji+name else "<Weekday>'s offer"), `is_festival`. BookPublic.jsx banner rewritten: no image, occasion badge, title, service chips with struck price, big % OFF side panel. Tested by testing_agent (iteration_122: all pass, mobile stacks fine). BUILD 2026-09-04.190.

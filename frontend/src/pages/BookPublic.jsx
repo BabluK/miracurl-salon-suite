@@ -524,44 +524,46 @@ export default function BookPublic() {
 
       <main id="booking-wizard" className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {step === 0 && dayOffer && (
-          <div className="relative overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-r from-gold/15 via-blush/10 to-transparent mb-8" data-testid="day-offer-banner">
-            <div className="flex flex-col sm:flex-row">
-              <div className="relative h-44 sm:h-auto sm:w-60 shrink-0 order-first sm:order-last">
-                <img
-                  src={serviceImage(`${dayOffer.title} ${(dayOffer.services || []).map(sv => sv.name).join(" ")}`, salon.business_type === "restaurant")}
-                  alt={dayOffer.title} loading="lazy" data-testid="day-offer-image"
-                  className="absolute inset-0 w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent sm:bg-gradient-to-r sm:from-black/85 sm:via-black/20 sm:to-transparent" />
-                <span aria-hidden className="absolute top-2 right-3 text-gold" style={{ animation: "sparkle-twinkle 2.4s ease-in-out infinite" }}>✦</span>
-              </div>
-              <div className="relative flex-1 p-5">
-                <span aria-hidden className="absolute bottom-2 right-6 text-blush text-xs" style={{ animation: "sparkle-twinkle 2.4s ease-in-out 1s infinite" }}>✦</span>
-                <div className="flex items-start gap-3 flex-wrap">
-                  <span className="px-3 py-1 rounded-full bg-gold text-bg-base text-[10px] font-bold uppercase tracking-widest shrink-0">
-                    {dayOffer.kind === "flash" ? "⚡ Flash offer" : `✨ ${dayOffer.day_name || "Today"}'s offer`}
+          <div className="relative overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-br from-gold/15 via-blush/10 to-transparent mb-8" data-testid="day-offer-banner">
+            <span aria-hidden className="absolute top-3 right-4 text-gold" style={{ animation: "sparkle-twinkle 2.4s ease-in-out infinite" }}>✦</span>
+            <span aria-hidden className="absolute bottom-3 right-10 text-blush text-xs" style={{ animation: "sparkle-twinkle 2.4s ease-in-out 1s infinite" }}>✦</span>
+            <div className="flex flex-col sm:flex-row sm:items-stretch">
+              <div className="relative flex-1 p-5 sm:p-6">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span data-testid="day-offer-occasion" className="px-3 py-1 rounded-full bg-gold text-bg-base text-[10px] font-bold uppercase tracking-widest shrink-0">
+                    {dayOffer.kind === "flash" ? "⚡ Flash offer" : dayOffer.occasion || `✨ ${dayOffer.day_name || "Today"}'s offer`}
                   </span>
                   {dayOffer.ends_at && <OfferCountdown endsAt={dayOffer.ends_at} />}
-                  <div className="min-w-0 w-full">
-                    <h3 className="font-playfair text-lg text-gold leading-snug">{dayOffer.title}</h3>
-                    <p className="text-xs text-white/60 mt-1">{dayOffer.offer_text}</p>
-                    {dayOffer.services?.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {dayOffer.services.map((sv, i) => (
-                          <span key={i} className="text-[11px] bg-white/5 border border-gold/25 rounded-full px-2.5 py-1">
-                            {sv.name} <s className="text-white/35">₹{Math.round(sv.price)}</s> <b className="text-gold">₹{Math.round(sv.offer_price)}</b>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-[10px] text-white/35 mt-2">Today only — mention this offer at the salon or book below.</p>
-                    <button data-testid="day-offer-book-btn"
-                      onClick={() => pickByNames((dayOffer.services || []).map(sv => sv.name), "Today's offer")}
-                      className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gold text-bg-base text-xs font-bold hover:opacity-90">
-                      Book this offer →
-                    </button>
-                  </div>
                 </div>
+                <h3 className="font-playfair text-xl sm:text-2xl text-gold leading-snug mt-3">{dayOffer.title}</h3>
+                <p className="text-xs text-white/60 mt-1">{dayOffer.offer_text}</p>
+                {dayOffer.services?.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {dayOffer.services.map((sv, i) => (
+                      <span key={i} className="text-[11px] px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white/85" data-testid={`day-offer-service-${i}`}>
+                        {sv.name}
+                        {sv.price && sv.offer_price && sv.offer_price < sv.price && (
+                          <> <s className="opacity-50">₹{Math.round(sv.price)}</s> <b className="text-gold">₹{Math.round(sv.offer_price)}</b></>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-white/35 mt-3">Today only — mention this offer at the salon or book below.</p>
+                <button data-testid="day-offer-book-btn"
+                  onClick={() => pickByNames((dayOffer.services || []).map(sv => sv.name), "Today's offer")}
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gold text-bg-base text-xs font-bold hover:opacity-90">
+                  Book this offer →
+                </button>
               </div>
+              {dayOffer.discount_pct > 0 && (
+                <div data-testid="day-offer-discount" className="relative sm:w-48 shrink-0 flex flex-col items-center justify-center gap-1 px-5 py-6 sm:py-0 border-t sm:border-t-0 sm:border-l border-gold/25 bg-gradient-to-b from-gold/20 to-blush/10">
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-white/50">{dayOffer.is_festival ? "Festive special" : "Today only"}</span>
+                  <span className="font-playfair text-5xl sm:text-6xl text-gold leading-none">{dayOffer.discount_pct}<span className="text-2xl align-top">%</span></span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-white/85">off</span>
+                  <span className="text-[10px] text-white/45 mt-1">{dayOffer.day_name || "Today"}</span>
+                </div>
+              )}
             </div>
           </div>
         )}

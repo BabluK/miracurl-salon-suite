@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-03.189"
-BUILD_TIME = "03 Sep 2026, 9:20 PM IST"
+BUILD = "2026-09-04.190"
+BUILD_TIME = "04 Sep 2026, 11:30 AM IST"
 
 RELEASES = [
     {
@@ -16,6 +16,7 @@ RELEASES = [
             "⚡ Shrink heavy photos — if your menu still has the older 2 MB Mira photos, an amber '⚡ Shrink N heavy photos' button appears on the Services page; one tap compresses them in place (same links, ~96% lighter, thumbnails pre-warmed) so Services, booking pages and offers load instantly. Super Admin can run it for every salon at once",
             "🎨 Mira Photos & Banners — paint one category at a time: a new '🎨 Paint: …' dropdown on the Services page lets you pick a single category before tapping Mira Photos or Mira Banners, so a 5-service category finishes in about a minute instead of painting the whole menu. Painting now runs 8 images at a time (≈8× faster) and the button shows a live '≈ N min left' estimate, each button shows only its own progress (the Banners button no longer spins while Photos are painting), and new images are stored as light 80 KB JPEGs instead of 2 MB PNGs so menus and booking pages load instantly",
             "📊 Group Dashboard periods — multi-salon owners can now switch the combined view between Today · This week · This month · Last month · Last 3 months · Last 6 months with one tap, or pick any specific month with the new 'Select month' picker (e.g. August 2026); every branch card shows collection, bills, appointments and average bill for that period (voided/open bills excluded)",
+            "🎀 Offer banner on your booking page — the stock photo is gone (it could show the wrong gender for the offer). The banner is now a clean text card: an occasion badge (the festival name when there is one — e.g. 🦚 Janmashtami — otherwise 'Friday's offer', 'Monday's offer'…), your offer title, the services with struck-through vs offer prices, and a big 'X% OFF · Today only / Festive special' panel",
             "🎯 Offer of the Day — pick the exact services yourself: even after locking in, remove any service or add any service from your full menu and tap 'Save services → booking page' (live instantly; poster unchanged unless you ask for a new one). A new 'Live on booking page' link opens your public page so you can see the banner exactly as guests do",
             "💈 Men's & Women's packages fixed — 'For Men' no longer pulls in women's services (bridal, waxing, threading, mani/pedi…) and 'For Women' never gets beard/shave items, even when services aren't gender-tagged on the Services page. Every package now has ✕ on each service and an '＋ Add service from menu' picker (filtered for the audience) so you choose the bundle, price recalculates instantly, then Publish",
             "💬 Message any guest on their favourite app — new 💬 button on every CRM row opens a one-tap menu: Text/iMessage (opens your phone's Messages app with the note pre-filled — works in the US with no SMS gateway), WhatsApp, Instagram DM (opens their chat; your greeting is copied to paste), Facebook Messenger, Telegram, Email and Call. Add a guest's @instagram / Facebook / @telegram handles in their profile to unlock those channels",
