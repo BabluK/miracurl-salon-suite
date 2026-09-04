@@ -712,3 +712,22 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 /* Product detail modal entrance */
 @keyframes productPop { from { opacity: 0; transform: scale(0.92) translateY(16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 .product-pop { animation: productPop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Hero feature cards (Gift Card / Membership): tinted glass, float-in, icon wiggle, shimmer sweep */
+@keyframes hero-card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes hero-icon-wiggle { 0%, 88%, 100% { transform: rotate(0) scale(1); } 91% { transform: rotate(-8deg) scale(1.08); } 94% { transform: rotate(8deg) scale(1.08); } 97% { transform: rotate(-4deg) scale(1.04); } }
+@keyframes hero-card-shimmer { 0% { transform: translateX(-130%) skewX(-18deg); } 100% { transform: translateX(230%) skewX(-18deg); } }
+@keyframes hero-card-glow { 0%, 100% { box-shadow: 0 10px 34px -14px var(--card-glow); } 50% { box-shadow: 0 16px 44px -12px var(--card-glow); } }
+.hero-card { position: relative; overflow: hidden; animation: hero-card-in .6s cubic-bezier(.22,1,.36,1) both, hero-card-glow 4s ease-in-out infinite; transition: transform .25s ease, border-color .25s ease; }
+.hero-card:nth-child(2) { animation-delay: .12s, 1.2s; }
+.hero-card:hover { transform: translateY(-3px); }
+.hero-card::after { content: ""; position: absolute; inset: 0; width: 45%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent); transform: translateX(-130%) skewX(-18deg); pointer-events: none; }
+.hero-card:hover::after { animation: hero-card-shimmer .9s ease-out; }
+.hero-card-icon { animation: hero-icon-wiggle 5s ease-in-out infinite; transition: transform .25s ease; }
+.hero-card:hover .hero-card-icon { transform: scale(1.1) rotate(-6deg); animation: none; }
+.hero-card-gift { --card-glow: rgba(236,72,153,.45); background: linear-gradient(135deg, rgba(236,72,153,.22), rgba(168,85,247,.14) 55%, rgba(255,255,255,.04)); border-color: rgba(244,114,182,.35) !important; }
+.hero-card-gift:hover { border-color: rgba(244,114,182,.8) !important; }
+.hero-card-member { --card-glow: rgba(212,175,55,.5); background: linear-gradient(135deg, rgba(212,175,55,.26), rgba(180,83,9,.16) 55%, rgba(255,255,255,.04)); border-color: rgba(212,175,55,.4) !important; }
+.hero-card-member:hover { border-color: rgba(212,175,55,.9) !important; }
+.hero-card-food { --card-glow: rgba(249,115,22,.45); background: linear-gradient(135deg, rgba(249,115,22,.24), rgba(225,29,72,.14) 55%, rgba(255,255,255,.04)); border-color: rgba(251,146,60,.4) !important; }
+@media (prefers-reduced-motion: reduce) { .hero-card, .hero-card-icon, .hero-card:hover::after { animation: none !important; } }

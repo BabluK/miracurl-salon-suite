@@ -225,6 +225,7 @@ export default function BookPublic() {
   }, []);
   const [services, setServices] = useState([]);
   const [dayOffer, setDayOffer] = useState(null);
+  const [memberPreview, setMemberPreview] = useState(null);
   const [packages, setPackages] = useState([]);
   const [staff, setStaff] = useState([]);
   const [featured, setFeatured] = useState([]);
@@ -256,6 +257,15 @@ export default function BookPublic() {
 
   useEffect(() => {
     PUBLIC.get(`/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon({ error: true }));
+    PUBLIC.get(`/membership/${slug}/config`).then(r => {
+      const plans = (r.data?.plans || []).filter(p => !p.custom && Number(p.price) > 0);
+      if (plans.length) setMemberPreview({
+        from: Math.min(...plans.map(p => Number(p.price))),
+        cashback: Math.max(...plans.map(p => Number(p.cashback_pct) || 0)),
+        discount: Math.max(...plans.map(p => Number(p.discount_pct) || 0)),
+        tiers: plans.length,
+      });
+    }).catch(() => {});
     PUBLIC.get(`/services/${slug}`).then(r => setServices(r.data)).catch(() => setServices([]));
     PUBLIC.get(`/day-offer/${slug}`).then(r => setDayOffer(r.data.offer)).catch(() => {});
     PUBLIC.get(`/packages/${slug}`).then(r => setPackages(r.data.packages)).catch(() => {});
@@ -538,8 +548,8 @@ export default function BookPublic() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 max-w-2xl" data-testid="hero-secondary-links">
             {salon.business_type === "restaurant" ? (
               <Link to={`/order/${slug}`} data-testid="hero-order-food-btn"
-                className="group flex items-center gap-3 p-3 pr-4 rounded-2xl bg-white/[0.07] backdrop-blur-md border border-white/15 hover:border-gold/60 hover:bg-white/[0.12] hover:shadow-[0_0_28px_rgba(212,175,55,0.25)] transition-all">
-                <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center shrink-0 shadow-lg text-white"><UtensilsCrossed className="w-5 h-5" /></span>
+                className="hero-card hero-card-food group flex items-center gap-3 p-3 pr-4 rounded-2xl backdrop-blur-md border">
+                <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center shrink-0 shadow-lg text-white hero-card-icon"><UtensilsCrossed className="w-5 h-5" /></span>
                 <span className="min-w-0 flex-1 text-left">
                   <span className="block text-sm font-semibold text-white">Order food at your table</span>
                   <span className="block text-[11px] text-white/60">Scan, order & eat — no waiting</span>
@@ -548,20 +558,27 @@ export default function BookPublic() {
               </Link>
             ) : (<>
               <Link to={`/gift/${slug}`} data-testid="hero-gift-card-btn"
-                className="group flex items-center gap-3 p-3 pr-4 rounded-2xl bg-white/[0.07] backdrop-blur-md border border-white/15 hover:border-gold/60 hover:bg-white/[0.12] hover:shadow-[0_0_28px_rgba(212,175,55,0.25)] transition-all">
-                <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-fuchsia-500 to-rose-400 flex items-center justify-center shrink-0 shadow-lg text-white"><Gift className="w-5 h-5" /></span>
+                className="hero-card hero-card-gift group flex items-center gap-3 p-3 pr-4 rounded-2xl backdrop-blur-md border">
+                <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-fuchsia-500 to-rose-400 flex items-center justify-center shrink-0 shadow-lg text-white hero-card-icon"><Gift className="w-5 h-5" /></span>
                 <span className="min-w-0 flex-1 text-left">
-                  <span className="block text-sm font-semibold text-white">Gift Card</span>
+                  <span className="block text-sm font-semibold text-white whitespace-nowrap">Gift Card</span>
                   <span className="block text-[11px] text-white/60">Treat someone you love</span>
                 </span>
                 <ArrowRight className="w-4 h-4 text-gold opacity-70 group-hover:translate-x-0.5 transition-transform" />
               </Link>
               <Link to={`/membership/${slug}`} data-testid="hero-membership-btn"
-                className="group flex items-center gap-3 p-3 pr-4 rounded-2xl bg-white/[0.07] backdrop-blur-md border border-white/15 hover:border-gold/60 hover:bg-white/[0.12] hover:shadow-[0_0_28px_rgba(212,175,55,0.25)] transition-all">
-                <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-gold to-amber-600 flex items-center justify-center shrink-0 shadow-lg text-bg-base"><CreditCard className="w-5 h-5" /></span>
+                className="hero-card hero-card-member group flex items-center gap-3 p-3 pr-4 rounded-2xl backdrop-blur-md border">
+                <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-gold to-amber-600 flex items-center justify-center shrink-0 shadow-lg text-bg-base hero-card-icon"><CreditCard className="w-5 h-5" /></span>
                 <span className="min-w-0 flex-1 text-left">
-                  <span className="block text-sm font-semibold text-white">Premium Membership</span>
-                  <span className="block text-[11px] text-white/60">Earn cashback on every visit</span>
+                  <span className="block text-sm font-semibold text-white whitespace-nowrap">Premium Membership</span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-white/60 whitespace-nowrap" data-testid="hero-membership-price">
+                    {memberPreview ? <>
+                      <span>from <b className="text-white/90">₹{memberPreview.from.toLocaleString("en-IN")}</b>/yr</span>
+                      {memberPreview.cashback > 0 && (
+                        <span data-testid="hero-membership-cashback" className="text-[10px] font-bold px-1.5 py-px rounded-full bg-gold text-bg-base">{memberPreview.cashback}% cashback</span>
+                      )}
+                    </> : "Earn cashback on every visit"}
+                  </span>
                 </span>
                 <ArrowRight className="w-4 h-4 text-gold opacity-70 group-hover:translate-x-0.5 transition-transform" />
               </Link>
