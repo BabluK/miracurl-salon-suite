@@ -2722,3 +2722,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-05 — 🛡 Link health badge (HQ)
 - `GET /api/super/link-health` (routes/releases.py): checks APP_PUBLIC_URL set · https · not preview/localhost · equals FRONTEND_URL · host in ALLOWED_PUBLIC_HOSTS · live `GET {base}/api/public/build` answers (reports live vs this build). Returns `{ok, base, host, checks[]}`.
 - `LinkHealthBadge.jsx` in MiraHome toolbar (green "All links point to <host>" / red pulsing "Links broken · …"); click → checklist popover with re-check + fix hint. Toolbar now flex-wrap. Verified live: 6/6 checks OK. Cleaned 3 QA Mira-timeline rows. BUILD .205.
+
+## 2026-09-05 — 🚀 Deploy reminder (amber badge)
+- `/api/super/link-health` now returns `this_build`, `live_build` (from `{APP_PUBLIC_URL}/api/public/build`) and `deploy_pending` (`_build_key` compares `YYYY-MM-DD.N`). `LinkHealthBadge` states: green ok / amber "Deploy pending · live <build>" (Rocket icon, `data-state=deploy`) / red broken; popover shows this vs production build + hint. Verified live (prod .196 < this .206 → amber). BUILD .206.

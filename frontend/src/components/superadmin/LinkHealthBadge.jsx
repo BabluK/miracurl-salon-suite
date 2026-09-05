@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
-import { Link2, ShieldCheck, ShieldAlert, RefreshCw } from "lucide-react";
+import { Link2, ShieldCheck, ShieldAlert, RefreshCw, Rocket } from "lucide-react";
 
 export function LinkHealthBadge() {
   const [h, setH] = useState(null);
@@ -10,15 +10,21 @@ export function LinkHealthBadge() {
   useEffect(() => { load(); }, []);
   if (!h) return null;
   const host = h.host || "APP_PUBLIC_URL missing";
+  const state = !h.ok ? "bad" : h.deploy_pending ? "deploy" : "good";
+  const cls = {
+    good: "bg-emerald-500/15 border-emerald-400/40 text-emerald-200",
+    deploy: "bg-amber-500/20 border-amber-400/50 text-amber-100",
+    bad: "bg-rose-500/20 border-rose-400/50 text-rose-200 animate-pulse",
+  }[state];
+  const label = state === "bad" ? `Links broken · ${host}` : state === "deploy" ? `Deploy pending · live ${h.live_build}` : `All links point to ${host}`;
+  const Icon = state === "bad" ? ShieldAlert : state === "deploy" ? Rocket : ShieldCheck;
   return (
     <div className="relative">
-      <button onClick={() => setOpen(o => !o)} data-testid="link-health-badge"
-        title={h.ok ? "Every outgoing link (emails, QR codes, pay links) uses your official domain" : "Outgoing links may be wrong — click for details"}
-        className={`text-[10px] px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${h.ok
-          ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-200"
-          : "bg-rose-500/20 border-rose-400/50 text-rose-200 animate-pulse"}`}>
-        {h.ok ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
-        {h.ok ? `All links point to ${host}` : `Links broken · ${host}`}
+      <button onClick={() => setOpen(o => !o)} data-testid="link-health-badge" data-state={state}
+        title={state === "bad" ? "Outgoing links may be wrong — click for details" : state === "deploy" ? `Production runs ${h.live_build}; this build is ${h.this_build}. Press Deploy to ship it.` : "Every outgoing link (emails, QR codes, pay links) uses your official domain, and production is on the latest build"}
+        className={`text-[10px] px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${cls}`}>
+        <Icon className="w-3 h-3" />
+        {label}
       </button>
       {open && (
         <div className="absolute right-0 mt-2 w-80 z-30 rounded-2xl border border-white/10 bg-[#15151b] shadow-2xl p-3 text-left" data-testid="link-health-details">
@@ -34,6 +40,12 @@ export function LinkHealthBadge() {
               </li>
             ))}
           </ul>
+          {h.this_build && (
+            <div className={`mt-2 rounded-lg px-2.5 py-2 text-[10px] ${h.deploy_pending ? "bg-amber-500/15 text-amber-100" : "bg-white/5 text-slate-400"}`} data-testid="link-health-builds">
+              <div>This build <b className="text-slate-100">{h.this_build}</b> · production <b className="text-slate-100">{h.live_build || "unknown"}</b></div>
+              {h.deploy_pending && <div className="mt-0.5 text-amber-200 font-semibold">Production is behind — press Deploy to ship the latest build.</div>}
+            </div>
+          )}
           {!h.ok && <p className="mt-2 text-[10px] text-rose-200/80">Fix: set <code>APP_PUBLIC_URL=https://miracurl-suite.com</code> in the backend environment and redeploy.</p>}
         </div>
       )}

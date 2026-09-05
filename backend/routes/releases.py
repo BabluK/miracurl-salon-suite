@@ -49,17 +49,26 @@ async def link_health(user=Depends(require_super_admin)):
         {"label": "Listed in ALLOWED_PUBLIC_HOSTS", "ok": (not allowed) or host in allowed, "detail": ", ".join(allowed) or "not set"},
     ]
     reach = {"label": "Domain answers as this app", "ok": False, "detail": "skipped"}
+    live_build = None
     if base and host:
         try:
             async with httpx.AsyncClient(timeout=6, follow_redirects=True) as c:
                 r = await c.get(f"{base}/api/public/build")
-            remote = r.json().get("build") if r.status_code == 200 else None
-            reach = {"label": "Domain answers as this app", "ok": bool(remote),
-                     "detail": f"live build {remote}" + ("" if remote == BUILD else f" (this server: {BUILD})") if remote else f"HTTP {r.status_code}"}
+            live_build = r.json().get("build") if r.status_code == 200 else None
+            reach = {"label": "Domain answers as this app", "ok": bool(live_build),
+                     "detail": f"live build {live_build}" if live_build else f"HTTP {r.status_code}"}
         except Exception as e:  # noqa: BLE001
             reach = {"label": "Domain answers as this app", "ok": False, "detail": f"unreachable: {type(e).__name__}"}
     checks.append(reach)
-    return {"ok": all(c["ok"] for c in checks), "base": base, "host": host, "checks": checks}
+    # Build strings sort chronologically (YYYY-MM-DD.N) — production older than this server ⇒ deploy pending
+    deploy_pending = bool(live_build) and live_build != BUILD and _build_key(live_build) < _build_key(BUILD)
+    return {"ok": all(c["ok"] for c in checks), "base": base, "host": host, "checks": checks,
+            "this_build": BUILD, "live_build": live_build, "deploy_pending": deploy_pending}
+
+
+def _build_key(b: str) -> tuple:
+    date, _, n = (b or "").partition(".")
+    return (date, int(n) if n.isdigit() else 0)
 
 
 @router.get("/super/version")
