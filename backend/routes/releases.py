@@ -66,8 +66,32 @@ async def link_health(user=Depends(require_super_admin)):
     # Build strings sort chronologically (YYYY-MM-DD.N) — production older than this server ⇒ deploy pending
     deploy_pending = bool(live_build) and live_build != BUILD and _build_key(live_build) < _build_key(BUILD)
     pending = [e for e in BUILD_LOG if live_build and _build_key(e["build"]) > _build_key(live_build)] if deploy_pending else []
+    if live_build:
+        await _record_deploy(live_build)
     return {"ok": all(c["ok"] for c in checks), "base": base, "host": host, "checks": checks,
             "this_build": BUILD, "live_build": live_build, "deploy_pending": deploy_pending, "pending": pending}
+
+
+async def _record_deploy(live_build: str) -> None:
+    """Timeline of production deploys: one row each time the live build changes (with what shipped)."""
+    from database import _raw_db
+    last = await _raw_db.deploy_log.find_one({}, {"_id": 0, "build": 1}, sort=[("seen_at", -1)])
+    if last and last["build"] == live_build:
+        return
+    prev_key = _build_key(last["build"]) if last else None
+    shipped = [e["note"] for e in BUILD_LOG
+               if _build_key(e["build"]) <= _build_key(live_build) and (prev_key is None or _build_key(e["build"]) > prev_key)]
+    await _raw_db.deploy_log.insert_one({
+        "id": str(uuid.uuid4()), "build": live_build, "previous_build": (last or {}).get("build"),
+        "seen_at": datetime.now(timezone.utc).isoformat(), "shipped": shipped[:20],
+        "rollback": bool(prev_key and _build_key(live_build) < prev_key)})
+
+
+@router.get("/super/deploy-log")
+async def deploy_log(user=Depends(require_super_admin)):
+    from database import _raw_db
+    rows = await _raw_db.deploy_log.find({}, {"_id": 0}).sort("seen_at", -1).to_list(50)
+    return {"deploys": rows}
 
 
 def _build_key(b: str) -> tuple:

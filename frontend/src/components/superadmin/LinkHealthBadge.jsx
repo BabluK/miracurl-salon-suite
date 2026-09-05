@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { Link2, ShieldCheck, ShieldAlert, RefreshCw, Rocket } from "lucide-react";
+import { DeployHistory } from "./DeployHistory";
 
 export function LinkHealthBadge() {
   const [h, setH] = useState(null);
@@ -60,6 +61,7 @@ export function LinkHealthBadge() {
             </div>
           )}
           {!h.ok && <p className="mt-2 text-[10px] text-rose-200/80">Fix: set <code>APP_PUBLIC_URL=https://miracurl-suite.com</code> in the backend environment and redeploy.</p>}
+          <DeployHistory />
         </div>
       )}
     </div>

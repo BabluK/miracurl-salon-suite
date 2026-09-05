@@ -2738,3 +2738,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-05 — 🎉 Deploy confirmation cheer
 - MiraHome polls `/api/super/link-health` every 60 s. While behind → stores `localStorage.mira_deploy_pending {count, live, target}`. When `live_build == this_build` and a pending record exists → once: chat "✅ Deployed, Boss — all N builds are live on production (build). 🎉", toast, spoken via `/mira/speak` if Voice on; record cleared. Verified via mocked link-health response. BUILD .210.
+
+## 2026-09-05 — 🕘 Deploy history log
+- `deploy_log` collection: `_record_deploy(live_build)` (called from `/api/super/link-health`) inserts a row whenever production's live build changes — {build, previous_build, seen_at, shipped[] (BUILD_LOG notes in (prev, live]), rollback flag}. `GET /api/super/deploy-log` (last 50). UI `DeployHistory.jsx` collapsible section inside the LinkHealth popover (expand a row to see what shipped; rollback marked amber). Verified: seed .200 → live .208 recorded 8 changes; re-check idempotent. BUILD .211.
