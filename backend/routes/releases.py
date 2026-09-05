@@ -31,6 +31,37 @@ async def public_build():
     return {"build": BUILD}
 
 
+@router.get("/super/link-health")
+async def link_health(user=Depends(require_super_admin)):
+    """Is every outgoing link pinned to the official domain? Green badge in HQ; red if APP_PUBLIC_URL is missing/wrong."""
+    import os
+    from urllib.parse import urlparse
+    import httpx
+    base = os.environ.get("APP_PUBLIC_URL", "").strip().rstrip("/")
+    frontend = os.environ.get("FRONTEND_URL", "").strip().rstrip("/")
+    allowed = [h.strip().lower() for h in os.environ.get("ALLOWED_PUBLIC_HOSTS", "").split(",") if h.strip()]
+    host = urlparse(base).hostname or ""
+    checks = [
+        {"label": "APP_PUBLIC_URL is set", "ok": bool(base), "detail": base or "missing"},
+        {"label": "Uses https", "ok": base.startswith("https://"), "detail": urlparse(base).scheme or "—"},
+        {"label": "Official domain (not a preview host)", "ok": bool(host) and not host.endswith(".emergentagent.com") and host != "localhost", "detail": host or "—"},
+        {"label": "Matches FRONTEND_URL", "ok": (not frontend) or frontend == base, "detail": frontend or "not set"},
+        {"label": "Listed in ALLOWED_PUBLIC_HOSTS", "ok": (not allowed) or host in allowed, "detail": ", ".join(allowed) or "not set"},
+    ]
+    reach = {"label": "Domain answers as this app", "ok": False, "detail": "skipped"}
+    if base and host:
+        try:
+            async with httpx.AsyncClient(timeout=6, follow_redirects=True) as c:
+                r = await c.get(f"{base}/api/public/build")
+            remote = r.json().get("build") if r.status_code == 200 else None
+            reach = {"label": "Domain answers as this app", "ok": bool(remote),
+                     "detail": f"live build {remote}" + ("" if remote == BUILD else f" (this server: {BUILD})") if remote else f"HTTP {r.status_code}"}
+        except Exception as e:  # noqa: BLE001
+            reach = {"label": "Domain answers as this app", "ok": False, "detail": f"unreachable: {type(e).__name__}"}
+    checks.append(reach)
+    return {"ok": all(c["ok"] for c in checks), "base": base, "host": host, "checks": checks}
+
+
 @router.get("/super/version")
 async def server_version(admin=Depends(require_super_admin)):
     return {

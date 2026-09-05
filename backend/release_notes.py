@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.204"
-BUILD_TIME = "05 Sep 2026, 1:30 PM IST"
+BUILD = "2026-09-05.205"
+BUILD_TIME = "05 Sep 2026, 2:10 PM IST"
 
 RELEASES = [
     {
@@ -12,6 +12,7 @@ RELEASES = [
             "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
             "📬 Cash reports go to your Salon email — the evening Cash Register email and 'Email owner now' are sent to the Salon email you set in Settings → Branding (falling back to your login email if it's empty); the button shows exactly where it will go",
             "💵 Cash Register (new page for staff, managers & owners) — log every petty expense in seconds: amount, what for (tea, salon supplies, cleaning, travel, repair…), who logged it, and 'Bill available ✓ — kept at the counter'. Also record cash handed to the owner / bank. The page shows Opening cash (yesterday's closing carried forward automatically) + today's cash collection from POS − expenses = Cash in hand, and warns when cash is short. Owners receive a Daily Cash Register email every evening (8:30 PM) with the full list, who logged each item and which bills are waiting at the counter; managers can also 'Email owner now'. Staff can log today only; managers/owners can browse and correct past days",
+            "🛡 Link health badge — Mira Home now shows a green 'All links point to miracurl-suite.com' badge; it turns red (and pulses) if APP_PUBLIC_URL is missing, not https, a preview host, mismatched with FRONTEND_URL / allowed hosts, or the domain stops answering as this app. Click it for the full checklist and re-check",
             "🔗 Official-domain links everywhere — every outreach tracking pixel/click link, demo-slot redirect, pay link, gift-card logo URL, promo-video base and staff attendance QR is now built from your official domain (miracurl-suite.com) instead of whatever Host header a request carried; preview deployments keep working automatically",
             "🎖 Founding-member offer — 30 days before a founder-offer salon's 6 free months end, Bablu emails a thank-you with a 20% founding-member credit (₹ off the annual plan, already in the account, applied automatically at checkout). On login the owner sees a beautiful gold 'A thank-you from Bablu' popup with the credit and 'Continue with Miracurl' → Settings → subscription. Runs daily; 'Send expiry offers' button in HQ",
             "⏳ 'Pay before your trial ends' popup redesigned — big day countdown on a deep gradient header, once a day in the last 7 days of any free trial; Pay & Activate now lands directly on the subscription card",

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Sparkles, Flame, CalendarClock, Target, Megaphone, Lightbulb, Send, Brain, Clock, Loader2, X, Plus, Trash2, Pencil, ScanFace } from "lucide-react";
 import { MiraNeuralAvatar, MiraThinkingBeam } from "./MiraNeuralAvatar";
 import { promptAsync } from "@/components/ConfirmDialog";
+import { LinkHealthBadge } from "./LinkHealthBadge";
 
 const KIND_ICON = { search: "🔍", result: "🎯", ask: "💬", call: "📞", email: "✉️", memory: "🧠" };
 
@@ -531,7 +532,8 @@ export function MiraHome({ onGoTab, user }) {
               <div className="flex items-center gap-2 text-xs font-semibold text-white/70">
                 <Brain className="w-4 h-4 text-fuchsia-400" /> Current Task
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                <LinkHealthBadge />
                 <button onClick={toggleVoice} data-testid="toggle-mira-voice"
                   title={voiceOn ? "Mira reads every reply aloud — tap for text only" : "Replies are text only — tap so Mira speaks"}
                   className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${voiceOn ? "bg-fuchsia-500/20 border-fuchsia-400/30 text-fuchsia-200" : "bg-white/5 border-white/15 text-white/50 hover:text-white"}`}>
