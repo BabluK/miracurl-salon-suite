@@ -731,3 +731,6 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 .hero-card-member:hover { border-color: rgba(212,175,55,.9) !important; }
 .hero-card-food { --card-glow: rgba(249,115,22,.45); background: linear-gradient(135deg, rgba(249,115,22,.24), rgba(225,29,72,.14) 55%, rgba(255,255,255,.04)); border-color: rgba(251,146,60,.4) !important; }
 @media (prefers-reduced-motion: reduce) { .hero-card, .hero-card-icon, .hero-card:hover::after { animation: none !important; } }
+
+@keyframes trial-pop-in { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
+.trial-pop-in { animation: trial-pop-in .45s cubic-bezier(.2,.8,.2,1) both; }

@@ -103,6 +103,16 @@ export function FounderReplies() {
   const [data, setData] = useState(null);
   const [nudging, setNudging] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [offering, setOffering] = useState(false);
+  const runExpiry = async () => {
+    setOffering(true);
+    try {
+      const { data: d } = await api.post("/super-admin/founder-replies/expiry/run");
+      toast.success(`Founding-member offers: ${d.sent} sent${d.failed ? ` · ${d.failed} failed` : ""}`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send offers"); }
+    setOffering(false);
+  };
   const load = () => api.get("/super-admin/founder-replies").then(r => setData(r.data)).catch(() => setData({ count: 0, replies: [] }));
   useEffect(() => { load(); }, []);
   const runFeedback = async () => {
@@ -141,6 +151,11 @@ export function FounderReplies() {
           title="Founder-offer salons 30+ days old get Bablu's 'how is it going?' note with one-tap ★ rating (also runs daily)"
           className="px-3 py-1.5 rounded-full bg-white/5 border border-white/15 text-slate-300 text-[11px] font-semibold inline-flex items-center gap-1.5 hover:border-[#d4af37]/60 hover:text-[#d4af37] disabled:opacity-50">
           {asking ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>★</span>} {asking ? "Sending…" : "Send 30-day feedback asks"}
+        </button>
+        <button onClick={runExpiry} disabled={offering} data-testid="founder-expiry-run-btn"
+          title="Founder-offer salons whose 6 months end within 30 days get a 20% founding-member credit + Bablu's note (also runs daily)"
+          className="px-3 py-1.5 rounded-full bg-white/5 border border-white/15 text-slate-300 text-[11px] font-semibold inline-flex items-center gap-1.5 hover:border-[#d4af37]/60 hover:text-[#d4af37] disabled:opacity-50">
+          {offering ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>🎖</span>} {offering ? "Sending…" : "Send expiry offers"}
         </button>
         </div>
       </div>

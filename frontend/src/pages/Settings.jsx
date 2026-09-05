@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { BranchesSection } from "@/components/BranchesSection";
@@ -34,6 +35,15 @@ import { ReferEarnCard } from "@/components/settings/ReferEarnCard";
 export default function Settings() {
   const { tenant } = useAuth();
   const resto = tenant?.business_type === "restaurant";
+  useEffect(() => {
+    if (window.location.hash !== "#subscription") return;
+    let tries = 0;
+    const iv = setInterval(() => {
+      const el = document.getElementById("subscription") || document.getElementById("subscription-intl");
+      if (el || ++tries > 20) { clearInterval(iv); el?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    }, 300);
+    return () => clearInterval(iv);
+  }, []);
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)]" data-testid="settings-page">
       <div className="max-w-3xl">

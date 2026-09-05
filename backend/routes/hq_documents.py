@@ -859,6 +859,8 @@ async def demo_campaign_preview(template: str = "demo", vertical: str = "salon",
         return _founder_nudge_html(name, salon_name, "glow-studio", "owner@example.com")
     if template == "founder_feedback":
         return _founder_feedback_html(name, salon_name, os.environ.get("APP_PUBLIC_URL", FOUNDER["url"]).rstrip("/"), "preview-token")
+    if template == "founder_expiry":
+        return _founder_expiry_html(name, salon_name, "04 March 2027", 4000, 20000, "glow-studio")
     from routes.subscriptions import get_trial_days
     vert = "restaurant" if vertical == "restaurant" else "salon"
     return _demo_email_html(name, salon_name, note, os.environ.get("HQ_EMAIL", "admin@miracurl.com"),
@@ -1359,6 +1361,104 @@ async def founder_funnel(user=Depends(require_super_admin)):
 @router.post("/super-admin/founder-replies/feedback/run")
 async def founder_feedback_run(user=Depends(require_super_admin)):
     return await run_founder_feedback_asks()
+
+
+# ── Founder expiry offer: 30 days before the 6 months end, a founding-member discount to go paid ──
+FOUNDER_EXPIRY_DAYS_BEFORE = 30
+FOUNDING_MEMBER_DISCOUNT_PCT = 20
+
+
+async def _founding_member_credit(t: dict) -> tuple[float, float, str]:
+    """(credit ₹, annual price ₹, currency) — 20 % of the annual plan for this vertical."""
+    plans = {p["key"]: p for p in await _live_plans()}
+    key = "resto_annual" if t.get("business_type") == "restaurant" else "annual"
+    price = float((plans.get(key) or {}).get("price") or 0)
+    return round(price * FOUNDING_MEMBER_DISCOUNT_PCT / 100), price, (plans.get(key) or {}).get("currency", "INR")
+
+
+def _founder_expiry_html(owner_name: str, salon_name: str, end_date: str, credit: float, price: float, slug: str) -> str:
+    first = html_lib.escape((owner_name or "").strip().split(" ")[0]) if (owner_name or "").strip() else ""
+    greeting = f"Hi {first}," if first else "Hi there,"
+    salon = html_lib.escape(salon_name or "your salon")
+    pay = f"{FOUNDER['url']}/login?tenant={slug}&next=/settings%23subscription"
+    p = 'style="font-size:15px;color:#3a3a42;line-height:1.8;margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif"'
+    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#efece5">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efece5;padding:32px 12px">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fffdf9;border-radius:20px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 6px 30px rgba(20,18,12,.10)">
+  <tr><td style="background:#15151b;padding:22px 40px 20px">
+    <div style="font-family:Georgia,serif;font-size:20px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">FOUNDING MEMBER · A NOTE FROM BABLU</div>
+  </td></tr>
+  <tr><td style="padding:32px 40px 6px">
+    <p {p}>{greeting}</p>
+    <p {p}>Bablu here. Your 6 free months at Miracurl for <b>{salon}</b> come to an end on <b>{end_date}</b> — thank you for being
+      one of the first salons to trust us. Your feedback shaped what Miracurl is today.</p>
+    <p {p}>I’d love for you to stay, so I’ve added a <b>founding-member credit</b> to your account. It applies automatically at checkout —
+      nothing to type, no coupon codes.</p>
+  </td></tr>
+  <tr><td style="padding:4px 40px 10px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#15151b;border-radius:16px;overflow:hidden">
+      <tr><td style="padding:24px 28px;text-align:center">
+        <div style="font-size:11px;letter-spacing:3px;color:#b9b2a3">🎖 FOUNDING MEMBER · {FOUNDING_MEMBER_DISCOUNT_PCT}% OFF</div>
+        <div style="font-family:Georgia,serif;font-size:34px;color:#d4af37;margin-top:10px;line-height:1.1">₹{credit:,.0f} credit</div>
+        <div style="font-size:13px;color:#f4f1e8;margin-top:6px">Annual plan ₹{price:,.0f} → <b>₹{max(price - credit, 0):,.0f}</b> for your first paid year</div>
+        <div style="height:1px;width:72px;background:#d4af37;margin:14px auto"></div>
+        <div style="color:#e8e2d3;font-size:12px">Already in your account · applied automatically · valid till {end_date}</div>
+      </td></tr>
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding:16px 40px 8px">
+    <a href="{pay}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+       text-decoration:none;padding:14px 42px;border-radius:999px;letter-spacing:.4px">Continue with Miracurl ✦</a>
+    <div style="font-size:12.5px;color:#7d7668;margin-top:14px;line-height:1.6">Prefer to talk first? Just reply — I’ll call you personally.</div>
+  </td></tr>
+  <tr><td style="padding:18px 40px 30px">
+    <p {p} style="margin-bottom:4px">With gratitude,</p>
+    <div style="font-family:Georgia,serif;font-size:18px;color:#15151b;margin-top:6px">{FOUNDER["name"]}</div>
+    <div style="font-size:12px;letter-spacing:1.5px;color:#9a8f6d;margin-top:2px">{FOUNDER["title"].upper()}</div>
+    <div style="font-size:12.5px;color:#55555f;line-height:1.9;margin-top:8px">📧 {FOUNDER["email"]} &nbsp;·&nbsp; 📱 {FOUNDER["phone"]}</div>
+  </td></tr>
+  <tr><td style="background:#15151b;padding:14px 40px;text-align:center">
+    <div style="color:#6d675c;font-size:11px">© Miracurl Suite · Sent once, a month before your free period ends.</div>
+  </td></tr>
+</table>
+</td></tr></table></body></html>"""
+
+
+async def run_founder_expiry_offers() -> dict:
+    """Founder-offer salons whose free 6 months end within 30 days → founding-member credit + Bablu's note (once)."""
+    from datetime import timedelta
+    today = datetime.now(timezone.utc).date().isoformat()
+    horizon = (datetime.now(timezone.utc) + timedelta(days=FOUNDER_EXPIRY_DAYS_BEFORE)).date().isoformat()
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    sent = failed = 0
+    async for t in _raw_db.tenants.find(
+            {"signup_offer": "founder_6m", "status": "trial", "founder_expiry_offer_sent_at": {"$exists": False},
+             "trial_end_date": {"$gte": today, "$lte": horizon}}, {"_id": 0}):
+        owner_email = str(t.get("owner_email") or "").lower()
+        credit, price, _cur = await _founding_member_credit(t)
+        if not owner_email or credit <= 0:
+            continue
+        u = await _raw_db.users.find_one({"email": owner_email}, {"_id": 0, "name": 1})
+        end_label = datetime.fromisoformat(t["trial_end_date"]).strftime("%d %B %Y")
+        html = _founder_expiry_html((u or {}).get("name", ""), t.get("name", ""), end_label, credit, price, t.get("slug", ""))
+        status = await _send_email([owner_email], f"A founding-member thank-you before your 6 months end, {((u or {}).get('name') or 'friend').split(' ')[0]} ✦",
+                                   html, reply_to=hq_email, from_name=f"{FOUNDER['name']} · Miracurl")
+        if status.get("sent"):
+            sent += 1
+            await _raw_db.tenants.update_one({"id": t["id"]}, {
+                "$set": {"founder_expiry_offer_sent_at": datetime.now(timezone.utc).isoformat(),
+                         "founder_offer_credit": credit, "founder_discount_pct": FOUNDING_MEMBER_DISCOUNT_PCT},
+                "$inc": {"affiliate_credits": credit}})
+        else:
+            failed += 1
+    return {"sent": sent, "failed": failed}
+
+
+@router.post("/super-admin/founder-replies/expiry/run")
+async def founder_expiry_run(user=Depends(require_super_admin)):
+    return await run_founder_expiry_offers()
 
 
 def _feedback_page(title: str, body: str, form: str = "") -> str:

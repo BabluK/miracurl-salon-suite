@@ -77,7 +77,7 @@ export function StripeSubscriptionCard() {
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-stripe-card">
+    <div id="subscription-intl" className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm scroll-mt-24" data-testid="settings-stripe-card">
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center">
           <Globe className="w-5 h-5" />

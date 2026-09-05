@@ -130,7 +130,7 @@ export function RazorpayCard() {
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="settings-razorpay-card">
+    <div id="subscription" className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm scroll-mt-24" data-testid="settings-razorpay-card">
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
           <CreditCard className="w-5 h-5" />
