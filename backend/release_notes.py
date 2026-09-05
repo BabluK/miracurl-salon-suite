@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.208"
-BUILD_TIME = "05 Sep 2026, 2:55 PM IST"
+BUILD = "2026-09-05.209"
+BUILD_TIME = "05 Sep 2026, 3:10 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-05.209", "note": "Link health: FRONTEND_URL wildcard no longer flagged"},
     {"build": "2026-09-05.208", "note": "Mira nudges you to deploy in her greeting"},
     {"build": "2026-09-05.207", "note": "Deploy digest in the HQ badge popover"},
     {"build": "2026-09-05.206", "note": "Amber 'Deploy pending' badge when production is behind"},

@@ -38,14 +38,17 @@ async def link_health(user=Depends(require_super_admin)):
     from urllib.parse import urlparse
     import httpx
     base = os.environ.get("APP_PUBLIC_URL", "").strip().rstrip("/")
-    frontend = os.environ.get("FRONTEND_URL", "").strip().rstrip("/")
+    frontend_raw = os.environ.get("FRONTEND_URL", "").strip()
+    frontend_list = [f.strip().rstrip("/") for f in frontend_raw.split(",") if f.strip()]
+    frontend_ok = (not frontend_list) or "*" in frontend_list or base in frontend_list
     allowed = [h.strip().lower() for h in os.environ.get("ALLOWED_PUBLIC_HOSTS", "").split(",") if h.strip()]
     host = urlparse(base).hostname or ""
     checks = [
         {"label": "APP_PUBLIC_URL is set", "ok": bool(base), "detail": base or "missing"},
         {"label": "Uses https", "ok": base.startswith("https://"), "detail": urlparse(base).scheme or "—"},
         {"label": "Official domain (not a preview host)", "ok": bool(host) and not host.endswith(".emergentagent.com") and host != "localhost", "detail": host or "—"},
-        {"label": "Matches FRONTEND_URL", "ok": (not frontend) or frontend == base, "detail": frontend or "not set"},
+        {"label": "Allowed by FRONTEND_URL (CORS origins)", "ok": frontend_ok,
+         "detail": "any origin (*)" if "*" in frontend_list else (", ".join(frontend_list) or "not set")},
         {"label": "Listed in ALLOWED_PUBLIC_HOSTS", "ok": (not allowed) or host in allowed, "detail": ", ".join(allowed) or "not set"},
     ]
     reach = {"label": "Domain answers as this app", "ok": False, "detail": "skipped"}

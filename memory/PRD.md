@@ -2732,3 +2732,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-05 — 🗣 Mira deploy nudge
 - MiraHome prefetches `/api/super/link-health`; `finishWelcome` appends "Boss, N builds are waiting — shall we deploy?" to the spoken login greeting (respects Greet on/off) and posts a 🚀 chat line; if the check returns after the greeting, the chat line is still added. Verified live (speech text + chat). BUILD .208.
+
+## 2026-09-05 — 🩹 Link health false alarm on production
+- Production has `FRONTEND_URL=*` (CORS wildcard). Check renamed "Allowed by FRONTEND_URL (CORS origins)": passes for `*`, or if APP_PUBLIC_URL is in the comma-separated list. Production confirmed on .208 (user deployed). BUILD .209.
