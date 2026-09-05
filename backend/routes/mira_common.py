@@ -85,12 +85,16 @@ async def _gen_image_gemini(prompt: str) -> bytes | None:
     return None
 
 
+_PAINT_GLOBAL = asyncio.Semaphore(12)  # platform-wide cap so many tenants painting at once can't exhaust the thread pool
+
+
 async def paint_offloop(gen, **kw) -> list[bytes]:
     """generate_images() is sync inside (litellm) — run it in a worker thread so the event loop stays free
     and several paintings can truly run in parallel."""
     kw.setdefault("model", "gpt-image-1")
     kw.setdefault("number_of_images", 1)
-    return await asyncio.to_thread(lambda: asyncio.run(gen.generate_images(**kw)))
+    async with _PAINT_GLOBAL:
+        return await asyncio.to_thread(lambda: asyncio.run(gen.generate_images(**kw)))
 
 
 async def _gen_image_bytes(prompt: str) -> bytes | None:

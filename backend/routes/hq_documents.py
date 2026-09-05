@@ -1440,6 +1440,14 @@ async def run_founder_expiry_offers() -> dict:
         credit, price, _cur = await _founding_member_credit(t)
         if not owner_email or credit <= 0:
             continue
+        # Atomic claim first so a concurrent run (scheduler + HQ button) can never credit twice
+        claimed = await _raw_db.tenants.find_one_and_update(
+            {"id": t["id"], "founder_expiry_offer_sent_at": {"$exists": False}},
+            {"$set": {"founder_expiry_offer_sent_at": datetime.now(timezone.utc).isoformat(),
+                      "founder_offer_credit": credit, "founder_discount_pct": FOUNDING_MEMBER_DISCOUNT_PCT},
+             "$inc": {"affiliate_credits": credit}})
+        if not claimed:
+            continue
         u = await _raw_db.users.find_one({"email": owner_email}, {"_id": 0, "name": 1})
         end_label = datetime.fromisoformat(t["trial_end_date"]).strftime("%d %B %Y")
         html = _founder_expiry_html((u or {}).get("name", ""), t.get("name", ""), end_label, credit, price, t.get("slug", ""))
@@ -1447,12 +1455,11 @@ async def run_founder_expiry_offers() -> dict:
                                    html, reply_to=hq_email, from_name=f"{FOUNDER['name']} · Miracurl")
         if status.get("sent"):
             sent += 1
-            await _raw_db.tenants.update_one({"id": t["id"]}, {
-                "$set": {"founder_expiry_offer_sent_at": datetime.now(timezone.utc).isoformat(),
-                         "founder_offer_credit": credit, "founder_discount_pct": FOUNDING_MEMBER_DISCOUNT_PCT},
-                "$inc": {"affiliate_credits": credit}})
         else:
             failed += 1
+            await _raw_db.tenants.update_one({"id": t["id"]}, {  # roll back so tomorrow's run retries
+                "$unset": {"founder_expiry_offer_sent_at": "", "founder_offer_credit": "", "founder_discount_pct": ""},
+                "$inc": {"affiliate_credits": -credit}})
     return {"sent": sent, "failed": failed}
 
 
@@ -1474,20 +1481,18 @@ def _feedback_page(title: str, body: str, form: str = "") -> str:
 
 @router.get("/public/founder-feedback/{token}/{rating}", response_class=HTMLResponse)
 async def founder_feedback_rate(token: str, rating: int, request: Request):
+    """Landing page only — the rating is persisted by the confirm POST (a prefetching mail scanner can't rate)."""
     from security import public_rate_limit
     await public_rate_limit(request, "founder-feedback", limit=20, window_sec=600)
-    t = await _raw_db.tenants.find_one({"founder_feedback_token": token}, {"_id": 0, "id": 1, "name": 1, "founder_feedback": 1})
+    t = await _raw_db.tenants.find_one({"founder_feedback_token": token}, {"_id": 0, "id": 1, "name": 1})
     if not t or not 1 <= rating <= 5:
         return _feedback_page("This link isn’t valid", "The feedback link may have expired — just reply to Bablu’s email instead.")
-    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"founder_feedback": {
-        "rating": rating, "comment": (t.get("founder_feedback") or {}).get("comment", ""), "at": datetime.now(timezone.utc).isoformat()}}})
-    from routes.lead_common import log_mira_event
-    await log_mira_event("result", f"⭐ {t['name']} rated their first month {rating}/5 ({_STARS[rating]}) on Bablu's feedback ask.")
     form = (f'<form method="post" action="/api/public/founder-feedback/{token}" style="margin-top:18px">'
+            f'<input type="hidden" name="rating" value="{rating}">'
             f'<textarea name="comment" maxlength="600" rows="3" placeholder="Anything you’d like Bablu to know? (optional)" '
             f'style="width:100%;box-sizing:border-box;border:1px solid #ddd3b8;border-radius:12px;padding:12px;font-family:inherit;font-size:14px"></textarea>'
-            f'<button type="submit" style="margin-top:12px;background:#d4af37;border:0;border-radius:999px;padding:12px 32px;font-weight:bold;color:#15151b;cursor:pointer">Send to Bablu ✦</button></form>')
-    return _feedback_page(f"{'★' * rating} — thank you!", f"Your {rating}/5 (“{_STARS[rating]}”) for <b>{html_lib.escape(t['name'])}</b> reached me. It genuinely helps.", form)
+            f'<button type="submit" style="margin-top:12px;background:#d4af37;border:0;border-radius:999px;padding:12px 32px;font-weight:bold;color:#15151b;cursor:pointer">Confirm {"★" * rating} &amp; send to Bablu ✦</button></form>')
+    return _feedback_page(f"{'★' * rating} — “{_STARS[rating]}”", f"One more tap to confirm your {rating}/5 for <b>{html_lib.escape(t['name'])}</b>. Add a line if you like.", form)
 
 
 @router.post("/public/founder-feedback/{token}", response_class=HTMLResponse)
@@ -1496,15 +1501,20 @@ async def founder_feedback_comment(token: str, request: Request):
     await public_rate_limit(request, "founder-feedback-comment", limit=10, window_sec=600)
     form = await request.form()
     comment = str(form.get("comment") or "").strip()[:600]
+    try:
+        rating = int(form.get("rating") or 0)
+    except ValueError:
+        rating = 0
     t = await _raw_db.tenants.find_one({"founder_feedback_token": token}, {"_id": 0, "id": 1, "name": 1, "founder_feedback": 1})
-    if not t:
+    if not t or not 1 <= rating <= 5:
         return _feedback_page("This link isn’t valid", "Just reply to Bablu’s email instead.")
-    fb = {**(t.get("founder_feedback") or {}), "comment": comment, "at": datetime.now(timezone.utc).isoformat()}
+    fb = {"rating": rating, "comment": comment, "at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"founder_feedback": fb}})
+    from routes.lead_common import log_mira_event
+    await log_mira_event("result", f"⭐ {t['name']} rated their first month {rating}/5 ({_STARS[rating]}) on Bablu's feedback ask.")
     if comment:
-        from routes.lead_common import log_mira_event
         await log_mira_event("alert", f"💬 {t['name']} wrote to Bablu: “{comment[:140]}”")
-    return _feedback_page("Received — thank you", "Your note is on its way to Bablu. He reads every one personally.")
+    return _feedback_page(f"{'★' * rating} — thank you!", f"Your {rating}/5 (“{_STARS[rating]}”) for <b>{html_lib.escape(t['name'])}</b> reached Bablu. He reads every one personally.")
 
 
 @router.get("/super-admin/demo-campaign/invites")

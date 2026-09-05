@@ -166,9 +166,9 @@ async def db_docs(coll: str, skip: int = 0, limit: int = 20, q: str = "",
                        {"tenant_id": rx}, {"slug": rx}, {"status": rx}]}
     total = await _raw_db[coll].count_documents(flt, maxTimeMS=4000)
     docs = await _raw_db[coll].find(flt).sort("_id", -1).skip(skip).limit(limit).max_time_ms(4000).to_list(limit)
-    sensitive = ("password_hash", "password", "otp_hash", "token_hash", "secret", "api_key", "auth_token")
+    sensitive = ("password", "otp", "token", "secret", "api_key", "pin_hash", "key_secret", "private_key")
     def _redact(d):
-        return {k: ("•••redacted•••" if k.lower() in sensitive else v) for k, v in d.items()}
+        return {k: ("•••redacted•••" if any(s in k.lower() for s in sensitive) else v) for k, v in d.items()}
     return {"total": total, "docs": [_redact(_jsonable(d)) for d in docs]}
 
 
