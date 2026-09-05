@@ -14,11 +14,12 @@ import uuid
 import threading
 import requests
 import pytest
+from creds import password_for
 
 BASE_URL = [l.split("=", 1)[1].strip() for l in open("/app/frontend/.env") if l.startswith("REACT_APP_BACKEND_URL")][0].rstrip("/")
 TENANT = "miracurl-marathahalli"
 EMAIL = "admin@miracurl.com"
-PASSWORD = "q6QY@tn3p#9DtL"
+PASSWORD = password_for(EMAIL)
 
 
 @pytest.fixture(scope="module")

@@ -5,11 +5,12 @@ import time
 import random
 import pytest
 import requests
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASSWORD = "og9T@41Es#OQb6"
+SUPER_PASSWORD = password_for(SUPER_EMAIL)
 
 
 @pytest.fixture(scope="module")

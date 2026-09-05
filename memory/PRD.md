@@ -2708,3 +2708,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Fixed SEC-002 (LOW): `GET /api/public/founder-feedback/{token}/{rating}` is a landing/confirm page only (hidden `rating` field); rating persisted by `POST` (validates 1–5). Verified GET leaves `founder_feedback` unset.
 - Hardening: `platform_tools` DB-browser redaction now substring-matches (`razorpay_key_secret` etc.); `paint_offloop` gated by platform-wide `_PAINT_GLOBAL = Semaphore(12)`.
 - Deferred (P3): pin outreach tracking base URL to APP_PUBLIC_URL instead of host header.
+
+## 2026-09-05 — 🧹 Code-quality pass (from code review report)
+- **Secrets in tests**: 10 test files now resolve passwords via `tests/creds.py` `password_for(email)` (env `TEST_PASSWORD_<USER>` or /app/memory/test_credentials.md) — zero hardcoded passwords remain in `backend/tests`. `security.py:190` flag was a false positive (comment describing the CSRF scheme, no secret).
+- **Complexity refactors (behaviour-preserving, all verified live)**: `cash_register.py` → `_month_bounds`, `_rollup_entries`, `_month_cash_in`, `_entry_csv_row`, `_month_csv`, `_report_row_html`, `_report_summary_cards`, `_plural` (+ removed unused imports). `hq_documents.py` → `_annotate_invite`, `_send_invite_email`, shared `_first_name/_greeting/_tracking_bits/_founder_note_html` used by all five founder templates. `auth.py` → `_signup_offer`, `_apply_offer_fields`, `_create_signup_tenant`, `_raise_if_suspended`. ruff C901 (max 10): 0 violations in these files.
+- **Bug found & fixed during refactor**: an earlier edit had moved `new_business=True` / `opening_date` under the founder branch instead of newbiz; now newbiz signups set them again (verified: normal 30 d, newbiz 90 d + flags, founder 180 d).
+- Not done (deliberately): splitting `server.py` (93 imports) / `lead_gen.py` into modules and adding type hints across all tests — high-regression, low-value for this stage; revisit if the team grows.

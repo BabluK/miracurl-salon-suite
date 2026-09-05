@@ -12,6 +12,7 @@ Covers:
 """
 import os, uuid, time, datetime as dt
 import pytest, requests
+from creds import password_for
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 # Load from frontend .env if not set
@@ -22,7 +23,7 @@ if not BASE:
                 BASE = ln.split("=", 1)[1].strip().rstrip("/")
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = password_for("super@miracurl.com")
 
 SALON_SLUG = "miracurl-marathahalli"
 RESTO_SLUG = "spice-garden-test"

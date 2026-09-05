@@ -644,18 +644,40 @@ FOUNDER_INVITE_TRIAL_DAYS = 180
 FOUNDER_SUBJECT = "A personal invitation from Miracurl’s founder"
 
 
-def _founder_email_html(recipient_name: str, salon_name: str, note: str, tracking: tuple = ("", "")) -> str:
-    name = html_lib.escape((recipient_name or "").strip().split(" ")[0]) if (recipient_name or "").strip() else ""
-    salon = html_lib.escape((salon_name or "").strip())
-    greeting = f"Hi {name}," if name else "Hi there,"
-    came_across = f"I came across <b>{salon}</b>" if salon else "I came across your salon"
+def _first_name(name: str) -> str:
+    n = (name or "").strip()
+    return html_lib.escape(n.split(" ")[0]) if n else ""
+
+
+def _greeting(name: str) -> str:
+    first = _first_name(name)
+    return f"Hi {first}," if first else "Hi there,"
+
+
+def _tracking_bits(tracking: tuple) -> tuple[str, str]:
+    """(open pixel html, click url) — falls back to the public site when no tracking id is known."""
     track_base, invite_id = tracking
+    if not (track_base and invite_id):
+        return "", FOUNDER["url"]
     pixel = (f'<img src="{track_base}/api/public/demo-track/{invite_id}/open.png" width="1" height="1" '
-             f'style="display:block;width:1px;height:1px;border:0" alt="">') if (track_base and invite_id) else ""
-    explore = f"{track_base}/api/public/demo-track/{invite_id}/click" if (track_base and invite_id) else FOUNDER["url"]
-    note_html = (f'<tr><td style="padding:0 40px 18px"><div style="background:#fdf8ec;border-left:3px solid #d4af37;'
-                 f'border-radius:0 12px 12px 0;padding:14px 18px;font-size:14px;color:#5d5340;line-height:1.65;font-style:italic">'
-                 f'{html_lib.escape(note.strip())}</div></td></tr>') if note.strip() else ""
+             f'style="display:block;width:1px;height:1px;border:0" alt="">')
+    return pixel, f"{track_base}/api/public/demo-track/{invite_id}/click"
+
+
+def _founder_note_html(note: str) -> str:
+    if not (note or "").strip():
+        return ""
+    return (f'<tr><td style="padding:0 40px 18px"><div style="background:#fdf8ec;border-left:3px solid #d4af37;'
+            f'border-radius:0 12px 12px 0;padding:14px 18px;font-size:14px;color:#5d5340;line-height:1.65;font-style:italic">'
+            f'{html_lib.escape(note.strip())}</div></td></tr>')
+
+
+def _founder_email_html(recipient_name: str, salon_name: str, note: str, tracking: tuple = ("", "")) -> str:
+    salon = html_lib.escape((salon_name or "").strip())
+    greeting = _greeting(recipient_name)
+    came_across = f"I came across <b>{salon}</b>" if salon else "I came across your salon"
+    pixel, explore = _tracking_bits(tracking)
+    note_html = _founder_note_html(note)
     p = 'style="font-size:15px;color:#3a3a42;line-height:1.8;margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif"'
     tel = FOUNDER["phone"].replace(" ", "")
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#efece5">
@@ -925,14 +947,10 @@ FOUNDER_FOLLOWUP_AFTER_DAYS = 7
 
 def _founder_followup_html(recipient_name: str, salon_name: str, tracking: tuple = ("", "")) -> str:
     """7-day nudge in Bablu's voice for founder-letter recipients who opened but never replied."""
-    first = html_lib.escape((recipient_name or "").strip().split(" ")[0]) if (recipient_name or "").strip() else ""
-    greeting = f"Hi {first}," if first else "Hi there,"
+    greeting = _greeting(recipient_name)
     salon = html_lib.escape((salon_name or "").strip())
     salon_ref = f" for <b>{salon}</b>" if salon else ""
-    track_base, invite_id = tracking
-    pixel = (f'<img src="{track_base}/api/public/demo-track/{invite_id}/open.png" width="1" height="1" '
-             f'style="display:block;width:1px;height:1px;border:0" alt="">') if (track_base and invite_id) else ""
-    explore = f"{track_base}/api/public/demo-track/{invite_id}/click" if (track_base and invite_id) else FOUNDER["url"]
+    pixel, explore = _tracking_bits(tracking)
     p = 'style="font-size:15px;color:#3a3a42;line-height:1.8;margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif"'
     return f"""<!doctype html><html><body style="margin:0;padding:0;background:#efece5">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efece5;padding:32px 12px">
@@ -1172,8 +1190,7 @@ FOUNDER_NUDGE_AFTER_DAYS = 3
 
 
 def _founder_nudge_html(owner_name: str, salon_name: str, slug: str, email: str) -> str:
-    first = html_lib.escape((owner_name or "").strip().split(" ")[0]) if (owner_name or "").strip() else ""
-    greeting = f"Hi {first}," if first else "Hi there,"
+    greeting = _greeting(owner_name)
     salon = html_lib.escape(salon_name or "your salon")
     login = f"{FOUNDER['url']}/login?tenant={slug}"
     p = 'style="font-size:15px;color:#3a3a42;line-height:1.8;margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif"'
@@ -1260,8 +1277,7 @@ _STARS = {1: "Not for us", 2: "Needs work", 3: "It's okay", 4: "Good", 5: "Love 
 
 
 def _founder_feedback_html(owner_name: str, salon_name: str, base: str, token: str) -> str:
-    first = html_lib.escape((owner_name or "").strip().split(" ")[0]) if (owner_name or "").strip() else ""
-    greeting = f"Hi {first}," if first else "Hi there,"
+    greeting = _greeting(owner_name)
     salon = html_lib.escape(salon_name or "your salon")
     p = 'style="font-size:15px;color:#3a3a42;line-height:1.8;margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif"'
     stars = "".join(
@@ -1377,8 +1393,7 @@ async def _founding_member_credit(t: dict) -> tuple[float, float, str]:
 
 
 def _founder_expiry_html(owner_name: str, salon_name: str, end_date: str, credit: float, price: float, slug: str) -> str:
-    first = html_lib.escape((owner_name or "").strip().split(" ")[0]) if (owner_name or "").strip() else ""
-    greeting = f"Hi {first}," if first else "Hi there,"
+    greeting = _greeting(owner_name)
     salon = html_lib.escape(salon_name or "your salon")
     pay = f"{FOUNDER['url']}/login?tenant={slug}&next=/settings%23subscription"
     p = 'style="font-size:15px;color:#3a3a42;line-height:1.8;margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif"'
@@ -1517,31 +1532,36 @@ async def founder_feedback_comment(token: str, request: Request):
     return _feedback_page(f"{'★' * rating} — thank you!", f"Your {rating}/5 (“{_STARS[rating]}”) for <b>{html_lib.escape(t['name'])}</b> reached Bablu. He reads every one personally.")
 
 
+def _annotate_invite(i: dict, signups: dict, tenant_emails: set, stale_cutoff: str, purge_cutoff: str) -> None:
+    """Derive status / engagement flags for one invite row (in place)."""
+    i["status"] = _invite_status(i, tenant_emails)
+    su = signups.get(i["email"])
+    if su:
+        i["signup"] = {"salon": su.get("name"), "slug": su.get("slug"), "tenant_status": su.get("status"),
+                       "plan": su.get("plan"), "signed_up_at": su.get("created_at"),
+                       "trial_end_date": su.get("trial_end_date")}
+        if su.get("status") == "trial":
+            i["status"] = "trial_started"
+    i["opened"] = bool(i.get("opened_at"))
+    i["clicked"] = bool(i.get("clicked_at"))
+    waiting = i["status"] in ("awaiting", "reminded")
+    stale = (i.get("first_sent_at") or "") <= stale_cutoff
+    i["resend_suggested"] = waiting and not i["opened"] and stale
+    i["stale_no_reply"] = waiting and i["opened"] and stale
+    i["stale_unseen"] = (waiting and not i["opened"] and not i["clicked"] and not i.get("preferred_slot")
+                         and not su and (i.get("first_sent_at") or "") <= purge_cutoff)
+
+
 @router.get("/super-admin/demo-campaign/invites")
 async def demo_invites(user=Depends(require_super_admin)):
     from datetime import timedelta
     signups = await _signup_map()
-    tenant_emails = set(signups.keys())
     items = await _raw_db.demo_invites.find({}, {"_id": 0}).sort("first_sent_at", -1).to_list(200)
-    stale_cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
-    purge_cutoff = (datetime.now(timezone.utc) - timedelta(days=STALE_INVITE_DAYS)).isoformat()
+    now = datetime.now(timezone.utc)
+    stale_cutoff = (now - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
+    purge_cutoff = (now - timedelta(days=STALE_INVITE_DAYS)).isoformat()
     for i in items:
-        i["status"] = _invite_status(i, tenant_emails)
-        su = signups.get(i["email"])
-        if su:
-            i["signup"] = {"salon": su.get("name"), "slug": su.get("slug"), "tenant_status": su.get("status"),
-                           "plan": su.get("plan"), "signed_up_at": su.get("created_at"),
-                           "trial_end_date": su.get("trial_end_date")}
-            if su.get("status") == "trial":
-                i["status"] = "trial_started"
-        i["opened"] = bool(i.get("opened_at"))
-        i["clicked"] = bool(i.get("clicked_at"))
-        stale = (i.get("first_sent_at") or "") <= stale_cutoff
-        i["resend_suggested"] = (i["status"] in ("awaiting", "reminded") and not i["opened"] and stale)
-        i["stale_no_reply"] = (i["status"] in ("awaiting", "reminded") and i["opened"] and stale)
-        i["stale_unseen"] = (i["status"] in ("awaiting", "reminded") and not i["opened"] and not i["clicked"]
-                             and not i.get("preferred_slot") and not su
-                             and (i.get("first_sent_at") or "") <= purge_cutoff)
+        _annotate_invite(i, signups, set(signups.keys()), stale_cutoff, purge_cutoff)
     return {"invites": items, "followup_after_days": FOLLOWUP_AFTER_DAYS,
             "stale_unseen": sum(1 for i in items if i.get("stale_unseen"))}
 
@@ -1580,6 +1600,25 @@ async def demo_invite_delete(iid: str, user=Depends(require_super_admin)):
     return {"ok": True}
 
 
+async def _send_invite_email(inv: dict, track_base: str, hq_email: str) -> dict:
+    """Send the right template (founder letter vs demo invite) for an existing invite record."""
+    if inv.get("template") == "founder":
+        html = _founder_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", tracking=(track_base, inv["id"]))
+        return await _send_email([inv["email"]], FOUNDER_SUBJECT, html, reply_to=hq_email,
+                                 from_name=f"{FOUNDER['name']} · Miracurl")
+    from routes.subscriptions import get_trial_days
+    inv_vert = inv.get("vertical") or "salon"
+    trial_days = await get_trial_days()
+    plans = await _live_plans()
+    attachments = await asyncio.to_thread(_all_doc_attachments, inv_vert)
+    html = _demo_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", hq_email,
+                            DemoEmailOpts(plans=plans, tracking=(track_base, inv["id"]),
+                                          currency="USD" if _is_intl_email(inv["email"]) else "INR",
+                                          vertical=inv_vert, trial_days=trial_days))
+    return await _send_email([inv["email"]], _demo_subject(inv_vert == "restaurant", trial_days),
+                             html, attachments=attachments, reply_to=hq_email)
+
+
 @router.post("/super-admin/demo-campaign/invites/{iid}/resend")
 async def demo_invite_resend(iid: str, request: Request, user=Depends(require_super_admin)):
     inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0})
@@ -1588,24 +1627,9 @@ async def demo_invite_resend(iid: str, request: Request, user=Depends(require_su
     if inv["email"] in set(await _raw_db.tenants.distinct("owner_email")):
         raise HTTPException(400, "Already a Miracurl partner")
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
-    inv_vert = inv.get("vertical") or "salon"
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     track_base = f"https://{host}" if host else (inv.get("track_base") or "")
-    if inv.get("template") == "founder":
-        html = _founder_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", tracking=(track_base, iid))
-        status = await _send_email([inv["email"]], FOUNDER_SUBJECT, html, reply_to=hq_email,
-                                   from_name=f"{FOUNDER['name']} · Miracurl")
-    else:
-        from routes.subscriptions import get_trial_days
-        trial_days = await get_trial_days()
-        plans = await _live_plans()
-        attachments = await asyncio.to_thread(_all_doc_attachments, inv_vert)
-        html = _demo_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", hq_email,
-                                DemoEmailOpts(plans=plans, tracking=(track_base, iid),
-                                              currency="USD" if _is_intl_email(inv["email"]) else "INR",
-                                              vertical=inv_vert, trial_days=trial_days))
-        status = await _send_email([inv["email"]], _demo_subject(inv_vert == "restaurant", trial_days),
-                                   html, attachments=attachments, reply_to=hq_email)
+    status = await _send_invite_email(inv, track_base, hq_email)
     if not status.get("sent"):
         raise HTTPException(500, status.get("error") or "Send failed")
     now_iso = datetime.now(timezone.utc).isoformat()

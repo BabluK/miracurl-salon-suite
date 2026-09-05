@@ -11,11 +11,12 @@ import uuid
 import requests
 import pytest
 from PIL import Image
+from creds import password_for
 
 BASE_URL = (os.environ.get("REACT_APP_BACKEND_URL") or "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 TENANT = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PWD = "q6QY@tn3p#9DtL"
+ADMIN_PWD = password_for("admin@miracurl.com")
 PIN = "4321"
 
 

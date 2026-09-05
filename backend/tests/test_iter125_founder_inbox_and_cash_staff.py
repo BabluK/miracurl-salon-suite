@@ -15,6 +15,7 @@ import pytest
 import requests
 from motor.motor_asyncio import AsyncIOMotorClient
 import asyncio
+from creds import password_for
 
 def _load_backend_url():
     v = os.environ.get("REACT_APP_BACKEND_URL", "").strip()
@@ -39,9 +40,9 @@ except Exception:
     pass
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASSWORD = "og9T@41Es#OQb6"
+SUPER_PASSWORD = password_for(SUPER_EMAIL)
 SALON_EMAIL = "admin@miracurl.com"
-SALON_PASSWORD = "q6QY@tn3p#9DtL"
+SALON_PASSWORD = password_for(SALON_EMAIL)
 SALON_SLUG = "miracurl-marathahalli"
 
 RESEND_INBOUND_SECRET = os.environ.get("RESEND_INBOUND_SECRET")

@@ -88,10 +88,7 @@ async def _subscription_gate(user: dict) -> None:
          "trial_ends_at": 1, "grace_until": 1})
     if not t:
         return
-    if t.get("status") == "suspended":
-        raise HTTPException(403, {
-            "code": "suspended",
-            "message": "Your salon account is currently suspended. Please contact the Miracurl team to reactivate."})
+    _raise_if_suspended(t)
     sub_end = t.get("subscription_end_date")
     trial_end = t.get("trial_end_date") or t.get("trial_ends_at")
     if not sub_end and trial_end:
@@ -99,6 +96,13 @@ async def _subscription_gate(user: dict) -> None:
     limit = _subscription_deadline(t)
     if limit and date.today() > limit:
         _raise_subscription_expired(sub_end or trial_end)
+
+
+def _raise_if_suspended(t: dict) -> None:
+    if t.get("status") == "suspended":
+        raise HTTPException(403, {
+            "code": "suspended",
+            "message": "Your salon account is currently suspended. Please contact the Miracurl team to reactivate."})
 
 
 def _raise_subscription_expired(end) -> None:
@@ -420,67 +424,68 @@ async def _send_signup_welcome(tenant: dict, body: SalonSignupIn, trial_end: str
         logging.warning(f"signup welcome email failed: {e}")
 
 
+async def _signup_offer(body: SalonSignupIn, email: str) -> tuple[str | None, int]:
+    """(offer tag, trial days) — newbiz → 90 d, founder letter → 180 d, else Plan Catalog default."""
+    from routes.subscriptions import get_trial_days
+    trial_days = await get_trial_days()  # super-admin configurable (Plan Catalog), default 30
+    if (body.offer or "").strip().lower() == "newbiz" or bool(body.newly_opened):
+        return "newbiz", 90  # new / newly-opened business: FREE 90-day setup
+    if await _raw_db.demo_invites.find_one({"email": email, "template": "founder"}, {"_id": 0, "id": 1}):
+        from routes.hq_documents import FOUNDER_INVITE_TRIAL_DAYS
+        return "founder_6m", max(trial_days, FOUNDER_INVITE_TRIAL_DAYS)  # founder's letter promised 6 months free
+    return None, trial_days
+
+
+def _apply_offer_fields(tenant: dict, offer: str | None, body: SalonSignupIn) -> None:
+    if offer:
+        tenant["signup_offer"] = offer
+    if offer == "newbiz":
+        tenant["new_business"] = True
+        od = (body.opening_date or "").strip()
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", od):
+            tenant["opening_date"] = od
+
+
+async def _create_signup_tenant(body: SalonSignupIn, email: str) -> tuple[dict, dict | None, str, int]:
+    """Validate slug/offer, insert the tenant, kick off welcome emails. Returns (tenant, referrer, trial_end, trial_days)."""
+    candidate = await _resolve_unique_slug(body)
+    offer, trial_days = await _signup_offer(body, email)
+    trial_end = (datetime.now(timezone.utc) + timedelta(days=trial_days)).date().isoformat()
+    referrer = await _resolve_referrer(body.ref, candidate)
+    tenant = _build_signup_tenant(body, candidate, referrer, trial_end)
+    tenant["welcome_poster_pending"] = True  # SEC-001: paid AI poster deferred to first login
+    _apply_offer_fields(tenant, offer, body)
+    await db.tenants.insert_one(tenant)
+    if tenant.get("business_type") == "restaurant":
+        await _seed_restaurant_defaults(tenant["id"])
+    asyncio.create_task(_send_signup_welcome(dict(tenant), body, trial_end))
+    if offer == "newbiz":
+        asyncio.create_task(_send_newbiz_plan_email(dict(tenant), email, trial_end))
+    return tenant, referrer, trial_end, trial_days
+
+
 @router.post("/public/signup-salon")
 async def public_signup_salon(body: SalonSignupIn, request: Request, response: Response):
     await public_rate_limit(request, key_suffix="signup", limit=4, window_sec=900)
     await global_daily_cap("signup", 50, "New signups are temporarily paused due to unusually high demand — "
                                          "please try again tomorrow or contact us at miracurl-suite.com/contact-us.")
-
     email = body.owner_email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(400, "An account with this email already exists")
 
-    candidate = await _resolve_unique_slug(body)
-    from routes.subscriptions import get_trial_days
-    trial_days = await get_trial_days()  # super-admin configurable (Plan Catalog), default 30
-    is_newbiz = (body.offer or "").strip().lower() == "newbiz" or bool(body.newly_opened)
-    if is_newbiz:
-        trial_days = 90  # new / newly-opened business: FREE 90-day setup
-    founder_invite = await _raw_db.demo_invites.find_one({"email": email, "template": "founder"}, {"_id": 0, "id": 1})
-    if founder_invite:
-        from routes.hq_documents import FOUNDER_INVITE_TRIAL_DAYS
-        trial_days = max(trial_days, FOUNDER_INVITE_TRIAL_DAYS)  # founder's personal letter promised 6 months free
-    trial_end = (datetime.now(timezone.utc) + timedelta(days=trial_days)).date().isoformat()
-    referrer = await _resolve_referrer(body.ref, candidate)
-
-    tenant = _build_signup_tenant(body, candidate, referrer, trial_end)
-    tenant["welcome_poster_pending"] = True  # SEC-001: paid AI poster deferred to first login
-    if is_newbiz:
-        tenant["signup_offer"] = "newbiz"
-    elif founder_invite:
-        tenant["signup_offer"] = "founder_6m"
-        tenant["new_business"] = True
-        od = (body.opening_date or "").strip()
-        if re.match(r"^\d{4}-\d{2}-\d{2}$", od):
-            tenant["opening_date"] = od
-    await db.tenants.insert_one(tenant)
-    if tenant.get("business_type") == "restaurant":
-        await _seed_restaurant_defaults(tenant["id"])
-    asyncio.create_task(_send_signup_welcome(dict(tenant), body, trial_end))
-    if is_newbiz:
-        asyncio.create_task(_send_newbiz_plan_email(dict(tenant), body.owner_email.lower(), trial_end))
-
+    tenant, referrer, trial_end, trial_days = await _create_signup_tenant(body, email)
     owner = _build_signup_owner(body, email, tenant["id"])
     await db.users.insert_one(owner)
-
     if referrer:
         await _record_pending_referral(referrer, tenant)
-
     await _convert_lead_to_customer(email, tenant)
 
     sid = await start_session(owner["id"], email, tenant["id"], request)
-    access = make_access(owner["id"], email, sid)
-    refresh = make_refresh(owner["id"], sid)
-    set_auth_cookies(response, access, refresh)
+    set_auth_cookies(response, make_access(owner["id"], email, sid), make_refresh(owner["id"], sid))
     owner.pop("password_hash", None)
     tenant.pop("_id", None)
     owner.pop("_id", None)
-    return {
-        "user": owner,
-        "tenant": tenant,
-        "trial_end_date": trial_end,
-        "trial_days": trial_days,
-    }
+    return {"user": owner, "tenant": tenant, "trial_end_date": trial_end, "trial_days": trial_days}
 
 
 async def _attach_salons(user: dict) -> dict:

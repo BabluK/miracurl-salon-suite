@@ -13,11 +13,12 @@ import re
 import uuid
 import requests
 import pytest
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 SALON_SLUG = "miracurl-marathahalli"
 SALON_EMAIL = "admin@miracurl.com"
-SALON_PWD = "q6QY@tn3p#9DtL"
+SALON_PWD = password_for("admin@miracurl.com")
 OWNER_PIN = "4321"
 REST_SLUG = "infinity-family-restaurant"
 REST_EMAIL = "infinity.admin@miracurl.com"

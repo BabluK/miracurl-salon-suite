@@ -2,10 +2,11 @@
 import os
 import requests
 import pytest
+from creds import password_for
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 SA_EMAIL = "super@miracurl.com"
-SA_PASS = "og9T@41Es#OQb6"
+SA_PASS = password_for("super@miracurl.com")
 
 
 @pytest.fixture(scope="module")

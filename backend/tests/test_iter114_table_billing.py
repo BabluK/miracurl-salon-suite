@@ -2,6 +2,7 @@
 import os
 import pytest
 import requests
+from creds import password_for
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE:
@@ -17,7 +18,7 @@ RESTO_PASS = "Infinity@2026"
 
 SALON_SLUG = "miracurl-marathahalli"
 SALON_EMAIL = "admin@miracurl.com"
-SALON_PASS = "q6QY@tn3p#9DtL"
+SALON_PASS = password_for("admin@miracurl.com")
 
 
 def _login(email, password, slug):
