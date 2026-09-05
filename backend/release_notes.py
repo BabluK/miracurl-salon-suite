@@ -2,8 +2,24 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.206"
-BUILD_TIME = "05 Sep 2026, 2:20 PM IST"
+BUILD = "2026-09-05.207"
+BUILD_TIME = "05 Sep 2026, 2:40 PM IST"
+
+# One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
+BUILD_LOG = [
+    {"build": "2026-09-05.207", "note": "Deploy digest in the HQ badge popover"},
+    {"build": "2026-09-05.206", "note": "Amber 'Deploy pending' badge when production is behind"},
+    {"build": "2026-09-05.205", "note": "Link health badge + 6-point checklist"},
+    {"build": "2026-09-05.204", "note": "All outgoing links pinned to the official domain"},
+    {"build": "2026-09-05.203", "note": "Founding-member expiry offer (email + popup); trial popup redesign"},
+    {"build": "2026-09-05.202", "note": "Founder Offer Funnel strip"},
+    {"build": "2026-09-05.201", "note": "30-day founder feedback ask with one-tap rating"},
+    {"build": "2026-09-05.200", "note": "3-day founder login nudge"},
+    {"build": "2026-09-05.199", "note": "Founder Reply Inbox; cash 'Logged by' staff picker; Mira voice toggle"},
+    {"build": "2026-09-05.198", "note": "Orphan-records one-tap delete; founder 7-day follow-up"},
+    {"build": "2026-09-05.197", "note": "Founder's letter template; 30-day trial wording; invitee cleanup"},
+    {"build": "2026-09-04.196", "note": "Mira painting truly parallel"},
+]
 
 RELEASES = [
     {
@@ -12,24 +28,24 @@ RELEASES = [
             "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
             "📬 Cash reports go to your Salon email — the evening Cash Register email and 'Email owner now' are sent to the Salon email you set in Settings → Branding (falling back to your login email if it's empty); the button shows exactly where it will go",
             "💵 Cash Register (new page for staff, managers & owners) — log every petty expense in seconds: amount, what for (tea, salon supplies, cleaning, travel, repair…), who logged it, and 'Bill available ✓ — kept at the counter'. Also record cash handed to the owner / bank. The page shows Opening cash (yesterday's closing carried forward automatically) + today's cash collection from POS − expenses = Cash in hand, and warns when cash is short. Owners receive a Daily Cash Register email every evening (8:30 PM) with the full list, who logged each item and which bills are waiting at the counter; managers can also 'Email owner now'. Staff can log today only; managers/owners can browse and correct past days",
-            "🚀 Deploy reminder — the HQ link-health badge turns amber ('Deploy pending · live <build>') whenever production runs an older build than the one you're looking at, and back to green once you deploy",
-            "🛡 Link health badge — Mira Home now shows a green 'All links point to miracurl-suite.com' badge; it turns red (and pulses) if APP_PUBLIC_URL is missing, not https, a preview host, mismatched with FRONTEND_URL / allowed hosts, or the domain stops answering as this app. Click it for the full checklist and re-check",
-            "🔗 Official-domain links everywhere — every outreach tracking pixel/click link, demo-slot redirect, pay link, gift-card logo URL, promo-video base and staff attendance QR is now built from your official domain (miracurl-suite.com) instead of whatever Host header a request carried; preview deployments keep working automatically",
-            "🎖 Founding-member offer — 30 days before a founder-offer salon's 6 free months end, Bablu emails a thank-you with a 20% founding-member credit (₹ off the annual plan, already in the account, applied automatically at checkout). On login the owner sees a beautiful gold 'A thank-you from Bablu' popup with the credit and 'Continue with Miracurl' → Settings → subscription. Runs daily; 'Send expiry offers' button in HQ",
-            "⏳ 'Pay before your trial ends' popup redesigned — big day countdown on a deep gradient header, once a day in the last 7 days of any free trial; Pay & Activate now lands directly on the subscription card",
-            "📊 Founder Offer Funnel — one strip under the Demo Campaign: letters sent → replied → live (6 months set up) → logged in → rated, each with % of sent, average ★ rating and how many converted to paid; expand to see every founder-offer salon with login status, rating and trial end",
-            "⭐ Founder feedback ask — one month after a founder-offer salon joins, Bablu sends a short 'how is it going?' note with one-tap ★1–5 rating tiles; the thank-you page lets them add a line. Ratings & comments show on the Founder Reply Inbox card and in Mira's timeline. Runs daily; 'Send 30-day feedback asks' button for manual runs",
-            "✍️ Founder setup nudge — owners who received their 6 months free but haven't logged in for 3 days get one note from Bablu with their login link and booking page (runs daily; 'Send setup nudges now' in the Founder Reply Inbox). Cards show 'Logged in ✓' or 'Nudged <date>'",
-            "🔊 Mira speaks on Mira Home — new 'Voice on / off' toggle beside 'Greet on'. With voice on, every reply Mira gives on the home screen (e.g. after 'Hey Mira 👋') is read aloud in her premium voice; turn it off for text-only",
-            "🔥 Founder Reply Inbox — when a salon owner replies to Bablu's founder letter (Resend inbound, or you tick ✓ on the invitee), a hot-lead card appears under the Demo Campaign with their message, a Reply button and 'Set up their 6 months' — one tap creates the salon + owner login with the promised 180-day trial and emails the credentials",
-            "💵 Cash Register 'Logged by' — pick the active staff member who actually spent / brought the bill from a dropdown (defaults to you); the entry shows their name, and who recorded it is kept too",
-            "🧹 Orphan records: one tap to delete — the amber '⚠ N orphan records found' badge on the Database tab used to only re-run the audit; it now lists the affected tables and deletes them permanently after your confirmation (records of salons that no longer exist)",
-            "✍️ Founder letter follow-up — owners who opened Bablu's letter but never replied get one gentle 7-day follow-up in his voice ('Just checking in — Bablu from Miracurl'); never-opened ones are left alone. Runs with the existing daily follow-up sweep and 'Send due reminders now'",
-            "✍️ Founder's personal invitation — HQ → Demo Campaign now has a second template: a warm letter from Bablu Kumar offering salon owners anywhere in the world 6 months completely free (no payment, no card, no obligation) in exchange for honest feedback. Name and salon fill in automatically, 'Preview email' shows the exact design, and when an invited owner signs up with the same email their trial is set to 180 days automatically",
-            "📅 Trial length now honest everywhere — the demo-invite email (subject, hero, button, pricing box), landing page hero & plan card, signup review step and brochures now follow the Plan Catalog trial setting (30 days) instead of a hard-coded '7-day free trial'",
-            "🧹 Keep the invitee list lean — HQ can tick 'Show only not seen in 15+ days' to see invitees who never opened, clicked or replied, and delete them permanently in one tap (converted / signed-up owners are always kept). WhatsApp quick-invite 'Recently invited' is now a proper table (type, phone, business, city, date, by) with permanent per-row delete and 'Clear all'",
-            "🚀 Mira painting is now truly parallel — a hidden blocking call inside the image library meant photos were secretly painted one-by-one and the whole app paused while each one rendered (which is why progress looked frozen). Fixed: 8 images now really paint at the same time (a batch of 3 finishes in ~15 s instead of ~45 s), the progress counter updates live, and POS / bookings stay fast while Mira works",
-            "🛟 Painting can no longer get stuck — if a server update interrupts Mira mid-batch (e.g. 'Painting 8/60' frozen), the batch is now marked paused within 4 minutes, you're told exactly where it stopped, and tapping Mira Photos again resumes with only the missing items. Progress also shows failed items and an honest time estimate ('first photo in ~1 min' while the first batch of 8 is painting, then '≈N min left'); the page refreshes progress every 5 s",
+            "🚀 HQ badge turns amber when production is behind — press Deploy",
+            "🛡 Link health badge on Mira Home (green/red) with 6-point checklist",
+            "🔗 All outgoing links pinned to the official domain",
+            "🎖 Founding-member offer: 20% credit email + login popup 30 days before founder trial ends",
+            "⏳ 'Pay before your trial ends' popup redesigned (last 7 days)",
+            "📊 Founder Offer Funnel strip: sent → replied → live → logged in → rated",
+            "⭐ 30-day 'how is it going?' note from Bablu with one-tap rating",
+            "✍️ 3-day login nudge from Bablu for founder-offer salons",
+            "🔊 Voice on/off toggle — Mira reads home-screen replies aloud",
+            "🔥 Founder Reply Inbox with one-tap 'Set up their 6 months'",
+            "💵 Cash Register: pick which staff member logged an expense",
+            "🧹 Orphan-records badge now deletes with one tap",
+            "✍️ Founder letter 7-day follow-up (opened, no reply)",
+            "✍️ Founder's personal invitation template (6 months free) + email preview",
+            "📅 Trial length follows Plan Catalog everywhere (30 days, not 7)",
+            "🧹 Invitee cleanup: delete 'not seen in 15+ days' + WhatsApp invite table",
+            "🚀 Mira painting truly parallel — 8 images at once, app stays fast",
+            "🛟 Painting resumes automatically after a server update",
             "⚡ Shrink heavy photos — if your menu still has the older 2 MB Mira photos, an amber '⚡ Shrink N heavy photos' button appears on the Services page; one tap compresses them in place (same links, ~96% lighter, thumbnails pre-warmed) so Services, booking pages and offers load instantly. Super Admin can run it for every salon at once",
             "🎨 Mira Photos & Banners — paint one category at a time: a new '🎨 Paint: …' dropdown on the Services page lets you pick a single category before tapping Mira Photos or Mira Banners, so a 5-service category finishes in about a minute instead of painting the whole menu. Painting now runs 8 images at a time (≈8× faster) and the button shows a live '≈ N min left' estimate, each button shows only its own progress (the Banners button no longer spins while Photos are painting), and new images are stored as light 80 KB JPEGs instead of 2 MB PNGs so menus and booking pages load instantly",
             "📊 Group Dashboard periods — multi-salon owners can now switch the combined view between Today · This week · This month · Last month · Last 3 months · Last 6 months with one tap, or pick any specific month with the new 'Select month' picker (e.g. August 2026); every branch card shows collection, bills, appointments and average bill for that period (voided/open bills excluded)",

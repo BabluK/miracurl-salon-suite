@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from database import _raw_db
 from security import require_super_admin, get_current_user
-from release_notes import RELEASES, BUILD, BUILD_TIME
+from release_notes import RELEASES, BUILD, BUILD_TIME, BUILD_LOG
 
 router = APIRouter()
 
@@ -62,8 +62,9 @@ async def link_health(user=Depends(require_super_admin)):
     checks.append(reach)
     # Build strings sort chronologically (YYYY-MM-DD.N) — production older than this server ⇒ deploy pending
     deploy_pending = bool(live_build) and live_build != BUILD and _build_key(live_build) < _build_key(BUILD)
+    pending = [e for e in BUILD_LOG if live_build and _build_key(e["build"]) > _build_key(live_build)] if deploy_pending else []
     return {"ok": all(c["ok"] for c in checks), "base": base, "host": host, "checks": checks,
-            "this_build": BUILD, "live_build": live_build, "deploy_pending": deploy_pending}
+            "this_build": BUILD, "live_build": live_build, "deploy_pending": deploy_pending, "pending": pending}
 
 
 def _build_key(b: str) -> tuple:

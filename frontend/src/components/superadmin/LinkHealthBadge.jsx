@@ -44,6 +44,19 @@ export function LinkHealthBadge() {
             <div className={`mt-2 rounded-lg px-2.5 py-2 text-[10px] ${h.deploy_pending ? "bg-amber-500/15 text-amber-100" : "bg-white/5 text-slate-400"}`} data-testid="link-health-builds">
               <div>This build <b className="text-slate-100">{h.this_build}</b> · production <b className="text-slate-100">{h.live_build || "unknown"}</b></div>
               {h.deploy_pending && <div className="mt-0.5 text-amber-200 font-semibold">Production is behind — press Deploy to ship the latest build.</div>}
+              {h.deploy_pending && h.pending?.length > 0 && (
+                <div className="mt-2 border-t border-amber-400/20 pt-2" data-testid="deploy-digest">
+                  <div className="text-[9px] uppercase tracking-[0.2em] text-amber-300/80 font-semibold mb-1">Waiting to ship · {h.pending.length} build{h.pending.length === 1 ? "" : "s"}</div>
+                  <ul className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
+                    {h.pending.map(e => (
+                      <li key={e.build} className="flex gap-2 text-[10px]" data-testid={`deploy-digest-${e.build}`}>
+                        <span className="text-amber-400/70 font-mono shrink-0">.{e.build.split(".")[1]}</span>
+                        <span className="text-slate-200">{e.note}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
           {!h.ok && <p className="mt-2 text-[10px] text-rose-200/80">Fix: set <code>APP_PUBLIC_URL=https://miracurl-suite.com</code> in the backend environment and redeploy.</p>}
