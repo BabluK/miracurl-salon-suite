@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 125 — verified (A) Founder Reply Inbox end-to-end and (B) Cash Register 'Logged by' staff picker. Backend: 7/7 pytest cases green (A1 send/seed → A2 mark-replied + founder-replies contract → A3 resend inbound webhook returns matched:true and stamps reply_subject/last_reply_text → A4 one-tap setup creates real tenant slug 'lotus-bloom-salon' with signup_offer=founder_6m, trial_end_date≈today+180, users doc admin+must_change_password, temp_password login works with X-Tenant-Slug; duplicate call 400, unknown iid 404, 1-char salon_name 422; and founder-replies now includes tenant.slug → A5 tenant + demo_invite + users cleaned up via DELETE /api/super-admin/tenants + Mongo scrub; B1 GET /api/staff → pick active → POST /api/cash/expenses with staff_id sets entry.added_by=staff_name & staff_id set, without staff_id defaults to admin name, staff_id='bogus-id' returns 400 'Pick an active staff member'; B2 both entries cleaned via DELETE). Frontend: Cash Register page shows the new <select data-testid='cash-logged-by-select'> whose FIRST option 'Salon Admin (me)' ends with '(me)' and subsequent options list active staff (Priya Sharma · Senior Stylist, Rahul Verma · Barber, Anjali Mehta · Beauty Therapist, Karan Singh · Nail Artist, AECS Desk · Manager). Super-Admin → Lead Gen Email tab renders demo-campaign-card and the founder-reply-inbox section with the heading 'FOUNDER REPLY INBOX', data-testid founder-reply-count reading 0, and the correct empty-state copy about Bablu's letter + 6 months free. Landing hero pill is now '30-DAY FREE TRIAL' (previous iter 124 action item is FIXED).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard + Cash Register selects", "issues": ["React hydration warning in console: `<span>` cannot be a child of `<option>` (comes from build-time visual-edit instrumentation injecting a nested <span data-ve-dynamic>). Fires on MiraDayOffer select and cash-logged-by-select. Cosmetic — options still render/work — but pollutes the console for anyone debugging."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter125_founder_inbox_and_cash_staff.py",
+    "/app/test_reports/pytest/iter125.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional: silence the visual-edit tool's <span>-inside-<option> injection (creates a hydration warning in the browser console on any <select>). Not caused by this iteration but visible on the two new selects."
+  ],
+  "critical_code_review_comments": [
+    "lead_gen.py founder_reply_setup — clean, idempotent (400 on duplicate owner_email), uses create_tenant + then patches trial_end_date/signup_offer. Slug conflict resolved with -2 suffix.",
+    "lead_gen.py founder_replies — correctly EXCLUDES track_base and _id from projection; only injects 'tenant' key when signup exists, per spec.",
+    "lead_gen.py _mark_invite_replied — correctly sets responded/last_reply_at/reply_subject/last_reply_text and logs a mira event only for founder template.",
+    "cash_register.py add_expense — validates staff_id is active (former:{$ne:True}) with proper 400 error; defaults to logged-in user's name; recorded_by stored separately so audit is preserved when a staff is chosen.",
+    "FounderReplies.jsx — every card exposes the exact data-testids specified in the review (founder-reply-<id>, founder-reply-setup-btn-<id>, founder-setup-form-<id>, founder-setup-result-<id>, founder-reply-mail-<id>).",
+    "CashRegister.jsx line 127-130 — the <select> value defaults to '' so admin path is the fallback; first <option> is 'Me (me)' — matches spec. Staff options include role suffix which is helpful for disambiguation."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter125_founder_inbox_and_cash_staff.py"],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "95% (Founder Inbox UI confirmed; Cash Register select verified — Add expense form submit + delete row was intermittently not re-fetching entries via UI, backend flow already verified)"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (CSRF echo); admin@miracurl.com / q6QY@tn3p#9DtL with X-Tenant-Slug miracurl-marathahalli.",
+  "seed_data_creation": "During A1 a founder invite for qa.founder.reply.<rand>@example.com was seeded via Mongo (Resend rejects @example.com); A4 created a real 'Lotus Bloom Salon' tenant + owner user + AI onboarding poster + welcome email; A5 cleaned all of it via DELETE /api/super-admin/tenants/{id} and Mongo deletion (demo_invites + users by email/tenant_id). Cash expenses for tenant miracurl-marathahalli: 2 entries created and both deleted in B2. No residual QA junk expected.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable regression: /app/backend/tests/test_iter125_founder_inbox_and_cash_staff.py — has an env loader that reads /app/backend/.env AND /app/frontend/.env so it works when REACT_APP_BACKEND_URL isn't in pytest's process env. Run with: cd /app/backend && python -m pytest tests/test_iter125_founder_inbox_and_cash_staff.py -v -o addopts='' -p no:cacheprovider. A3 auto-skips if RESEND_INBOUND_SECRET missing. When retesting the UI at /super-admin, click 'super-nav-more' first, then a super-tab-lead-email handle whose bounding_box has positive dimensions (there are duplicated hidden mobile/desktop copies in DOM). The Founder Reply Inbox heading is UPPERCASE via CSS but the DOM contains 'Founder Reply Inbox' text — use case-insensitive matching. Also note the 'What's New' modal auto-appears on first login — dismiss with role=button name='Got it'.",
+  "rca of the issue": "N/A — no bugs found in the two new features. Only stylistic note: browser prints a React hydration warning about <span> child inside <option>, but this is injected by the visual-edit dev tooling (`data-ve-dynamic` markers), not by CashRegister/FounderReplies source code — the source uses plain <option>{...text}</option>."
+}

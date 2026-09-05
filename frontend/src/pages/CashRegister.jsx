@@ -26,7 +26,9 @@ export default function CashRegister() {
   const isMgr = ["admin", "manager"].includes(user?.role);
   const [date, setDate] = useState(todayIST());
   const [day, setDay] = useState(null);
-  const [form, setForm] = useState({ amount: "", purpose: "", category: "tea", has_bill: false, kind: "expense" });
+  const [form, setForm] = useState({ amount: "", purpose: "", category: "tea", has_bill: false, kind: "expense", staff_id: "" });
+  const [staff, setStaff] = useState([]);
+  useEffect(() => { api.get("/staff").then(r => setStaff((r.data || []).filter(s => !s.former && !s.away))).catch(() => {}); }, []);
   const [busy, setBusy] = useState(false);
   const [target, setTarget] = useState(null);
   const [tab, setTab] = useState("day");
@@ -47,9 +49,9 @@ export default function CashRegister() {
     if (form.purpose.trim().length < 2) return toast.error("What was it for?");
     setBusy(true);
     try {
-      await api.post("/cash/expenses", { ...form, amount: Number(form.amount), date });
+      await api.post("/cash/expenses", { ...form, amount: Number(form.amount), date, staff_id: form.staff_id || null });
       toast.success(form.kind === "handover" ? `${inr(form.amount)} handed over recorded` : `Expense ${inr(form.amount)} logged`);
-      setForm({ amount: "", purpose: "", category: form.category, has_bill: false, kind: "expense" });
+      setForm({ amount: "", purpose: "", category: form.category, has_bill: false, kind: "expense", staff_id: form.staff_id });
       load(date);
     } catch (err) { toast.error(err.response?.data?.detail || "Couldn't save"); }
     finally { setBusy(false); }
@@ -121,7 +123,12 @@ export default function CashRegister() {
               {!canLog && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Staff can log only today's entries — switch to today.</p>}
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label-light block mb-1">Amount (₹)</label><input data-testid="cash-amount" type="number" min="1" step="1" className="input-light" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} disabled={!canLog} /></div>
-                <div><label className="label-light block mb-1">Logged by</label><input className="input-light bg-slate-50" value={user?.name || user?.email || ""} readOnly /></div>
+                <div><label className="label-light block mb-1">Logged by</label>
+                  <select className="input-light" value={form.staff_id} onChange={e => setForm(f => ({ ...f, staff_id: e.target.value }))} data-testid="cash-logged-by-select">
+                    <option value="">{user?.name || user?.email || "Me"} (me)</option>
+                    {staff.map(s => <option key={s.id} value={s.id}>{s.name}{s.role ? ` · ${s.role}` : ""}</option>)}
+                  </select>
+                </div>
               </div>
               <div><label className="label-light block mb-1">{form.kind === "handover" ? "Given to" : "For what"}</label>
                 <input data-testid="cash-purpose" className="input-light" placeholder={form.kind === "handover" ? "e.g. Handed to owner / bank deposit" : "e.g. Tea for staff, hair spa cream, plumber"} value={form.purpose} onChange={e => setForm({ ...form, purpose: e.target.value })} disabled={!canLog} /></div>

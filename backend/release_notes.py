@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.198"
-BUILD_TIME = "05 Sep 2026, 11:40 AM IST"
+BUILD = "2026-09-05.199"
+BUILD_TIME = "05 Sep 2026, 12:00 PM IST"
 
 RELEASES = [
     {
@@ -12,6 +12,9 @@ RELEASES = [
             "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
             "📬 Cash reports go to your Salon email — the evening Cash Register email and 'Email owner now' are sent to the Salon email you set in Settings → Branding (falling back to your login email if it's empty); the button shows exactly where it will go",
             "💵 Cash Register (new page for staff, managers & owners) — log every petty expense in seconds: amount, what for (tea, salon supplies, cleaning, travel, repair…), who logged it, and 'Bill available ✓ — kept at the counter'. Also record cash handed to the owner / bank. The page shows Opening cash (yesterday's closing carried forward automatically) + today's cash collection from POS − expenses = Cash in hand, and warns when cash is short. Owners receive a Daily Cash Register email every evening (8:30 PM) with the full list, who logged each item and which bills are waiting at the counter; managers can also 'Email owner now'. Staff can log today only; managers/owners can browse and correct past days",
+            "🔊 Mira speaks on Mira Home — new 'Voice on / off' toggle beside 'Greet on'. With voice on, every reply Mira gives on the home screen (e.g. after 'Hey Mira 👋') is read aloud in her premium voice; turn it off for text-only",
+            "🔥 Founder Reply Inbox — when a salon owner replies to Bablu's founder letter (Resend inbound, or you tick ✓ on the invitee), a hot-lead card appears under the Demo Campaign with their message, a Reply button and 'Set up their 6 months' — one tap creates the salon + owner login with the promised 180-day trial and emails the credentials",
+            "💵 Cash Register 'Logged by' — pick the active staff member who actually spent / brought the bill from a dropdown (defaults to you); the entry shows their name, and who recorded it is kept too",
             "🧹 Orphan records: one tap to delete — the amber '⚠ N orphan records found' badge on the Database tab used to only re-run the audit; it now lists the affected tables and deletes them permanently after your confirmation (records of salons that no longer exist)",
             "✍️ Founder letter follow-up — owners who opened Bablu's letter but never replied get one gentle 7-day follow-up in his voice ('Just checking in — Bablu from Miracurl'); never-opened ones are left alone. Runs with the existing daily follow-up sweep and 'Send due reminders now'",
             "✍️ Founder's personal invitation — HQ → Demo Campaign now has a second template: a warm letter from Bablu Kumar offering salon owners anywhere in the world 6 months completely free (no payment, no card, no obligation) in exchange for honest feedback. Name and salon fill in automatically, 'Preview email' shows the exact design, and when an invited owner signs up with the same email their trial is set to 180 days automatically",

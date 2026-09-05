@@ -33,6 +33,7 @@ class ExpenseIn(BaseModel):
     has_bill: bool = False
     kind: str = "expense"  # expense | handover (cash given to owner / bank)
     date: Optional[str] = None
+    staff_id: Optional[str] = None  # who actually spent / brought the bill (defaults to the logged-in user)
 
 
 async def _cash_collected(tenant_id: str, day: str) -> tuple[float, int]:
@@ -102,12 +103,20 @@ async def add_expense(body: ExpenseIn, user=Depends(get_current_user), t=Depends
         raise HTTPException(403, "Staff can only log today's expenses")
     if body.kind not in ("expense", "handover"):
         raise HTTPException(400, "kind must be expense or handover")
+    added_by = user.get("name") or user.get("email", "").split("@")[0]
+    staff_id = None
+    if body.staff_id:
+        st = await _raw_db.staff.find_one({"id": body.staff_id, "tenant_id": t["id"], "former": {"$ne": True}}, {"_id": 0, "name": 1, "id": 1})
+        if not st:
+            raise HTTPException(400, "Pick an active staff member")
+        added_by, staff_id = st["name"], st["id"]
     doc = {
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "date": day, "amount": round(float(body.amount), 2),
         "purpose": body.purpose.strip(), "category": body.category if body.category in CATEGORIES else "other",
         "has_bill": bool(body.has_bill), "kind": body.kind,
-        "added_by": user.get("name") or user.get("email", "").split("@")[0], "added_by_role": user.get("role"),
-        "added_by_id": user.get("id"), "created_at": datetime.now(timezone.utc).isoformat(),
+        "added_by": added_by, "added_by_role": user.get("role"), "staff_id": staff_id,
+        "added_by_id": user.get("id"), "recorded_by": user.get("name") or user.get("email", ""),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await _raw_db.cash_expenses.insert_one(doc)
     doc.pop("_id", None)

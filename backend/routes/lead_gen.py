@@ -1496,14 +1496,93 @@ async def resend_inbound_webhook(request: Request):
     if not sender:
         return {"ok": True, "matched": False}
     inbox = await _route_business_inbox(data, sender)
+    invite_hit = await _mark_invite_replied(sender, data)
     lead = await _raw_db.mira_leads.find_one(
         {"$or": [{"email": sender}, {"all_emails": sender}]},
         {"_id": 0, "id": 1, "name": 1, "status": 1})
     if not lead:
-        return {"ok": True, "matched": False, "routed_inbox": inbox or None}
+        return {"ok": True, "matched": invite_hit, "routed_inbox": inbox or None}
     await _mark_lead_replied(lead, data)
     log.info("lead reply detected: %s (%s)", lead["name"], sender)
     return {"ok": True, "matched": True}
+
+
+async def _mark_invite_replied(sender: str, data: dict) -> bool:
+    """Demo / founder-letter invitee wrote back → flag replied and keep their message for the inbox."""
+    inv = await _raw_db.demo_invites.find_one({"email": sender}, {"_id": 0, "id": 1, "template": 1, "name": 1, "salon_name": 1})
+    if not inv:
+        return False
+    now = _now()
+    await _raw_db.demo_invites.update_one({"id": inv["id"], "replied_at": {"$exists": False}}, {"$set": {"replied_at": now}})
+    await _raw_db.demo_invites.update_one({"id": inv["id"]}, {"$set": {
+        "responded": True, "last_reply_at": now,
+        "reply_subject": str(data.get("subject") or "")[:200],
+        "last_reply_text": str(data.get("text") or data.get("html") or "")[:3000]}})
+    if inv.get("template") == "founder":
+        from routes.lead_common import log_mira_event
+        await log_mira_event("alert", f"🔥 {inv.get('name') or sender} ({inv.get('salon_name') or sender}) replied to Bablu's founder letter — set up their 6 months from the Founder Reply Inbox.")
+    return True
+
+
+@router.get("/super-admin/founder-replies")
+async def founder_replies(user=Depends(require_super_admin)):
+    """Founder-letter recipients who wrote back (or were marked replied) — hot leads, newest first."""
+    from routes.hq_documents import _signup_map
+    signups = await _signup_map()
+    rows = await _raw_db.demo_invites.find(
+        {"template": "founder", "$or": [{"responded": True}, {"replied_at": {"$exists": True}}]},
+        {"_id": 0, "track_base": 0}).sort([("last_reply_at", -1), ("first_sent_at", -1)]).to_list(200)
+    for r in rows:
+        su = signups.get(r["email"])
+        if su:
+            r["tenant"] = {"name": su.get("name"), "slug": su.get("slug"), "status": su.get("status"),
+                           "trial_end_date": su.get("trial_end_date")}
+        r["opened"] = bool(r.get("opened_at"))
+    return {"count": len(rows), "replies": rows}
+
+
+class FounderSetupIn(BaseModel):
+    salon_name: str = Field(..., min_length=2, max_length=120)
+    owner_name: str = Field(..., min_length=2, max_length=80)
+    city: str = Field(default="", max_length=120)
+    phone: str = Field(default="", max_length=20)
+    business_type: str = Field(default="salon", pattern="^(salon|restaurant)$")
+
+
+@router.post("/super-admin/founder-replies/{iid}/setup")
+async def founder_reply_setup(iid: str, body: FounderSetupIn, user=Depends(require_super_admin)):
+    """One tap: create the salon + owner login with the promised 6 months free and email the credentials."""
+    from routes.auth import slugify, _SLUG_RE
+    from routes.hq_documents import FOUNDER_INVITE_TRIAL_DAYS
+    from routes.super_admin_ops import create_tenant
+    from schemas import TenantIn
+    inv = await _raw_db.demo_invites.find_one({"id": iid, "template": "founder"}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Founder invite not found")
+    if await _raw_db.tenants.find_one({"owner_email": inv["email"]}, {"_id": 0, "id": 1}):
+        raise HTTPException(400, "This owner already has a Miracurl account")
+    base = slugify(body.salon_name) or "salon"
+    if not _SLUG_RE.match(base):
+        base = f"salon-{uuid.uuid4().hex[:6]}"
+    slug, n = base, 1
+    while await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1}):
+        n += 1
+        slug = f"{base}-{n}"
+    tin = TenantIn(slug=slug, name=body.salon_name.strip(), owner_email=inv["email"], owner_name=body.owner_name.strip(),
+                   location=body.city.strip() or None, phone=body.phone.strip() or None,
+                   owner_phone=body.phone.strip() or None, business_type=body.business_type)
+    created = await create_tenant(tin, user)
+    tenant = created["tenant"]
+    trial_end = (datetime.now(timezone.utc) + timedelta(days=FOUNDER_INVITE_TRIAL_DAYS))
+    await _raw_db.tenants.update_one({"id": tenant["id"]}, {"$set": {
+        "trial_end_date": trial_end.date().isoformat(), "trial_ends_at": trial_end.isoformat(),
+        "signup_offer": "founder_6m", "onboarded_by": user.get("email", "")}})
+    await _raw_db.demo_invites.update_one({"id": iid}, {"$set": {
+        "responded": True, "setup_tenant_id": tenant["id"], "setup_slug": slug, "setup_at": _now()}})
+    from routes.lead_common import log_mira_event
+    await log_mira_event("result", f"✦ Set up {body.salon_name.strip()} ({inv['email']}) with 6 months free after Bablu's letter.")
+    return {"ok": True, "slug": slug, "tenant_id": tenant["id"], "trial_end_date": trial_end.date().isoformat(),
+            "temp_password": created.get("temp_password"), "email_status": created.get("email_status")}
 
 
 @router.get("/super-admin/lead-replies")

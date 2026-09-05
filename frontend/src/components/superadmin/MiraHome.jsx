@@ -211,7 +211,33 @@ export function MiraHome({ onGoTab, user }) {
   const [faceBusy, setFaceBusy] = useState(false);
   const [recog, setRecog] = useState(() => (sessionStorage.getItem("mira_welcomed") ? "done" : "loading"));
   const [greetOn, setGreetOn] = useState(() => localStorage.getItem("mira_greet_login") !== "0");
+  const [voiceOn, setVoiceOn] = useState(() => localStorage.getItem("mira_home_voice") !== "0");
   const [liveTask, setLiveTask] = useState(null);
+  const audioRef = useRef(null);
+
+  const stopVoice = () => {
+    try { audioRef.current?.pause(); } catch { /* noop */ }
+    try { window.speechSynthesis?.cancel(); } catch { /* noop */ }
+  };
+  const sayReply = useCallback(async (text) => {
+    const clean = (text || "").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, "").replace(/\s{2,}/g, " ").trim();
+    if (!clean) return;
+    stopVoice();
+    try {
+      const { data } = await api.post("/super-admin/mira/speak", { text: clean.slice(0, 900) });
+      const audio = new Audio(`data:audio/mp3;base64,${data.audio_b64}`);
+      audioRef.current = audio;
+      await audio.play();
+    } catch { speak(clean); }
+  }, []);
+  const toggleVoice = () => {
+    const v = !voiceOn;
+    setVoiceOn(v);
+    localStorage.setItem("mira_home_voice", v ? "1" : "0");
+    if (v) sayReply("Voice is on, Boss. I'll read every reply aloud for you.");
+    else stopVoice();
+    toast.success(v ? "Mira will speak her replies 🔊" : "Mira replies in text only 🔇");
+  };
 
   const toggleGreet = () => {
     const v = !greetOn;
@@ -328,6 +354,7 @@ export function MiraHome({ onGoTab, user }) {
       const { data } = await api.post("/super-admin/mira/ask", { question, last_mira: lastMira.current });
       lastMira.current = data.answer || "";
       setChat(c => [...c.slice(-6), { role: "mira", text: data.answer || "…" }]);
+      if (voiceOn && data.answer) sayReply(data.answer);
       if (data.tab) {
         toast.info("Opening " + data.tab + " for you, Boss ✦");
         setTimeout(() => onGoTab?.(data.tab), 1200);
@@ -505,6 +532,11 @@ export function MiraHome({ onGoTab, user }) {
                 <Brain className="w-4 h-4 text-fuchsia-400" /> Current Task
               </div>
               <div className="flex items-center gap-1.5">
+                <button onClick={toggleVoice} data-testid="toggle-mira-voice"
+                  title={voiceOn ? "Mira reads every reply aloud — tap for text only" : "Replies are text only — tap so Mira speaks"}
+                  className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${voiceOn ? "bg-fuchsia-500/20 border-fuchsia-400/30 text-fuchsia-200" : "bg-white/5 border-white/15 text-white/50 hover:text-white"}`}>
+                  {voiceOn ? "🔊 Voice on" : "🔇 Voice off"}
+                </button>
                 <button onClick={toggleGreet} data-testid="toggle-greet-login"
                   title={greetOn ? "Mira greets you aloud at login — tap to turn off" : "Login greeting is off — tap to enable"}
                   className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${greetOn ? "bg-sky-500/20 border-sky-400/30 text-sky-200" : "bg-white/5 border-white/15 text-white/50 hover:text-white"}`}>

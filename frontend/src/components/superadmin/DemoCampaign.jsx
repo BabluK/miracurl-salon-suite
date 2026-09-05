@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Mail, Send, Plus, X, Sparkles, History, BellRing, CheckCircle2, Trash2, RotateCw, Eye } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
+import { FounderReplies } from "@/components/superadmin/FounderReplies";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -334,6 +335,8 @@ export function DemoCampaign() {
           )}
         </div>
       )}
+
+      <FounderReplies />
 
       {history.length > 0 && (
         <div className="border-t border-white/10 pt-3">
