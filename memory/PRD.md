@@ -2741,3 +2741,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-05 — 🕘 Deploy history log
 - `deploy_log` collection: `_record_deploy(live_build)` (called from `/api/super/link-health`) inserts a row whenever production's live build changes — {build, previous_build, seen_at, shipped[] (BUILD_LOG notes in (prev, live]), rollback flag}. `GET /api/super/deploy-log` (last 50). UI `DeployHistory.jsx` collapsible section inside the LinkHealth popover (expand a row to see what shipped; rollback marked amber). Verified: seed .200 → live .208 recorded 8 changes; re-check idempotent. BUILD .211.
+
+## 2026-09-05 — 🏷 Release tag fix (user caught it)
+- Today's 24 change lines had been appended under the 2026-09-03 release. Split into a new RELEASES entry "2026-09-05 (Founder outreach, Deploy tools & Mira voice ✍️)". **Rule**: each new working day / deploy batch gets its own short RELEASES tag (date + ≤6-word theme) — never append to a previous day's tag. BUILD .212.

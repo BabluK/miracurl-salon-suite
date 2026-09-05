@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.211"
-BUILD_TIME = "05 Sep 2026, 3:55 PM IST"
+BUILD = "2026-09-05.212"
+BUILD_TIME = "05 Sep 2026, 4:10 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-05.212", "note": "New release tag for today's work"},
     {"build": "2026-09-05.211", "note": "Deploy history timeline in the HQ badge popover"},
     {"build": "2026-09-05.210", "note": "Mira cheers once when production catches up"},
     {"build": "2026-09-05.209", "note": "Link health: FRONTEND_URL wildcard no longer flagged"},
@@ -27,7 +28,7 @@ BUILD_LOG = [
 
 RELEASES = [
     {
-        "date": "2026-09-03 (Devices, Security, Billing accuracy & Attendance mail 🔐)",
+        "date": "2026-09-05 (Founder outreach, Deploy tools & Mira voice ✍️)",
         "changes": [
             "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
             "📬 Cash reports go to your Salon email — the evening Cash Register email and 'Email owner now' are sent to the Salon email you set in Settings → Branding (falling back to your login email if it's empty); the button shows exactly where it will go",
@@ -53,6 +54,11 @@ RELEASES = [
             "🧹 Invitee cleanup: delete 'not seen in 15+ days' + WhatsApp invite table",
             "🚀 Mira painting truly parallel — 8 images at once, app stays fast",
             "🛟 Painting resumes automatically after a server update",
+        ],
+    },
+    {
+        "date": "2026-09-03 (Devices, Security, Billing accuracy & Attendance mail 🔐)",
+        "changes": [
             "⚡ Shrink heavy photos — if your menu still has the older 2 MB Mira photos, an amber '⚡ Shrink N heavy photos' button appears on the Services page; one tap compresses them in place (same links, ~96% lighter, thumbnails pre-warmed) so Services, booking pages and offers load instantly. Super Admin can run it for every salon at once",
             "🎨 Mira Photos & Banners — paint one category at a time: a new '🎨 Paint: …' dropdown on the Services page lets you pick a single category before tapping Mira Photos or Mira Banners, so a 5-service category finishes in about a minute instead of painting the whole menu. Painting now runs 8 images at a time (≈8× faster) and the button shows a live '≈ N min left' estimate, each button shows only its own progress (the Banners button no longer spins while Photos are painting), and new images are stored as light 80 KB JPEGs instead of 2 MB PNGs so menus and booking pages load instantly",
             "📊 Group Dashboard periods — multi-salon owners can now switch the combined view between Today · This week · This month · Last month · Last 3 months · Last 6 months with one tap, or pick any specific month with the new 'Select month' picker (e.g. August 2026); every branch card shows collection, bills, appointments and average bill for that period (voided/open bills excluded)",
