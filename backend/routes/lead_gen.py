@@ -1150,8 +1150,14 @@ async def manual_wa_invite(body: ManualWaInviteIn, user=Depends(require_super_ad
 
 @router.get("/super-admin/wa-invite/recent")
 async def recent_manual_wa_invites(user=Depends(require_super_admin)):
-    rows = await _raw_db.manual_wa_invites.find({}, {"_id": 0}).sort("created_at", -1).to_list(10)
+    rows = await _raw_db.manual_wa_invites.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return {"items": rows}
+
+
+@router.delete("/super-admin/wa-invite")
+async def clear_manual_wa_invites(user=Depends(require_super_admin)):
+    r = await _raw_db.manual_wa_invites.delete_many({})
+    return {"ok": True, "deleted": r.deleted_count}
 
 
 @router.delete("/super-admin/wa-invite/{iid}")

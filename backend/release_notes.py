@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-04.196"
-BUILD_TIME = "04 Sep 2026, 9:45 AM IST"
+BUILD = "2026-09-05.197"
+BUILD_TIME = "05 Sep 2026, 11:20 AM IST"
 
 RELEASES = [
     {
@@ -12,6 +12,9 @@ RELEASES = [
             "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
             "📬 Cash reports go to your Salon email — the evening Cash Register email and 'Email owner now' are sent to the Salon email you set in Settings → Branding (falling back to your login email if it's empty); the button shows exactly where it will go",
             "💵 Cash Register (new page for staff, managers & owners) — log every petty expense in seconds: amount, what for (tea, salon supplies, cleaning, travel, repair…), who logged it, and 'Bill available ✓ — kept at the counter'. Also record cash handed to the owner / bank. The page shows Opening cash (yesterday's closing carried forward automatically) + today's cash collection from POS − expenses = Cash in hand, and warns when cash is short. Owners receive a Daily Cash Register email every evening (8:30 PM) with the full list, who logged each item and which bills are waiting at the counter; managers can also 'Email owner now'. Staff can log today only; managers/owners can browse and correct past days",
+            "✍️ Founder's personal invitation — HQ → Demo Campaign now has a second template: a warm letter from Bablu Kumar offering salon owners anywhere in the world 6 months completely free (no payment, no card, no obligation) in exchange for honest feedback. Name and salon fill in automatically, 'Preview email' shows the exact design, and when an invited owner signs up with the same email their trial is set to 180 days automatically",
+            "📅 Trial length now honest everywhere — the demo-invite email (subject, hero, button, pricing box), landing page hero & plan card, signup review step and brochures now follow the Plan Catalog trial setting (30 days) instead of a hard-coded '7-day free trial'",
+            "🧹 Keep the invitee list lean — HQ can tick 'Show only not seen in 15+ days' to see invitees who never opened, clicked or replied, and delete them permanently in one tap (converted / signed-up owners are always kept). WhatsApp quick-invite 'Recently invited' is now a proper table (type, phone, business, city, date, by) with permanent per-row delete and 'Clear all'",
             "🚀 Mira painting is now truly parallel — a hidden blocking call inside the image library meant photos were secretly painted one-by-one and the whole app paused while each one rendered (which is why progress looked frozen). Fixed: 8 images now really paint at the same time (a batch of 3 finishes in ~15 s instead of ~45 s), the progress counter updates live, and POS / bookings stay fast while Mira works",
             "🛟 Painting can no longer get stuck — if a server update interrupts Mira mid-batch (e.g. 'Painting 8/60' frozen), the batch is now marked paused within 4 minutes, you're told exactly where it stopped, and tapping Mira Photos again resumes with only the missing items. Progress also shows failed items and an honest time estimate ('first photo in ~1 min' while the first batch of 8 is painting, then '≈N min left'); the page refreshes progress every 5 s",
             "⚡ Shrink heavy photos — if your menu still has the older 2 MB Mira photos, an amber '⚡ Shrink N heavy photos' button appears on the Services page; one tap compresses them in place (same links, ~96% lighter, thumbnails pre-warmed) so Services, booking pages and offers load instantly. Super Admin can run it for every salon at once",

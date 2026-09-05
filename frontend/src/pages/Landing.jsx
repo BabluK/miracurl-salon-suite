@@ -38,7 +38,7 @@ const SMALL_FEATURES = [
 ];
 
 const PLANS = [
-  { key: "trial", title: "Free Trial", price: "₹0", per: "7 days", cta: "Start trial", primary: false,
+  { key: "trial", title: "Free Trial", price: "₹0", per: "30 days", cta: "Start trial", primary: false,
     items: ["All features unlocked", "Up to 50 customers", "Email support", "Cancel anytime"] },
   { key: "half_year", title: "6-Month Plan", price: "₹12,000", per: "for 6 months", cta: "Get started", primary: false,
     items: ["Unlimited customers", "Unlimited bookings", "Per-stylist commission", "WhatsApp support", "All features"] },
@@ -81,6 +81,7 @@ function buildPlans(c) {
   const b2a = c.two_branch_annual?.price, b2h = c.two_branch_half?.price;
   const b3a = c.three_branch_annual?.price, b3h = c.three_branch_half?.price, b5a = c.multi_branch_annual?.price;
   return PLANS.map(p => {
+    if (p.key === "trial" && c.trial_days) return { ...p, per: `${c.trial_days} days` };
     if (p.key === "half_year" && hy) return { ...p, price: fmtINR(hy) };
     if (p.key === "annual" && an) return { ...p, price: fmtINR(an), per: hy && hy * 2 > an ? `for 1 year — save ${fmtINR(hy * 2 - an)}` : "for 1 year" };
     if (p.key === "multi_branch" && b2a) return {
@@ -427,7 +428,7 @@ export default function Landing({ scrollTo }) {
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 20%, rgba(5,5,5,0.25) 0%, rgba(5,5,5,0.92) 80%)" }} />
         <div className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pt-20 sm:pt-28 pb-44 sm:pb-56 text-center animate-fade-up">
           <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-black/50 border border-white/15 backdrop-blur text-[#DFB78C] text-[11px] uppercase tracking-[0.2em] font-semibold">
-            <Sparkles className="w-3 h-3" /> 7-Day Free Trial · No credit card
+            <Sparkles className="w-3 h-3" /> {Number(catalog?.trial_days) || 30}-Day Free Trial · No credit card
           </span>
           <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite" className="w-20 h-20 mx-auto mt-8 drop-shadow-[0_8px_30px_rgba(223,183,140,0.45)] animate-fade-up" />
           <h1 className="font-playfair text-5xl sm:text-6xl lg:text-7xl tracking-tight font-light mt-6 leading-[1.05]">

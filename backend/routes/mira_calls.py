@@ -235,7 +235,7 @@ _SALES_CONTEXT = (
     "Miracurl Suite is an AI-powered salon management platform: AI answers customer enquiries, books appointments, "
     "does follow-ups, POS billing, individual staff check-in/check-out attendance, payroll, inventory, memberships, "
     "review funnels, marketing, lead capture, Google/social enquiry replies, multi-branch dashboard. "
-    "Offer: FREE personalised demo + 7-day free trial with full setup help, no obligation. Website: miracurl-suite.com. "
+    "Offer: FREE personalised demo + free trial with full setup help, no obligation. Website: miracurl-suite.com. "
     "Objection handling — Busy: 'takes 20 seconds, may I email you the details?'. Already using other software: "
     "'many customers switched; Miracurl adds a virtual AI salon manager, not just bookings — open to a 20-minute comparison?'. "
     "Cost: 'flexible plans by salon size; we recommend the right plan in the free demo, and the 7-day trial is free.' "

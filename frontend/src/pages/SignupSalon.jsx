@@ -573,7 +573,7 @@ function ReviewStep({ form, previewUrl, catalog, isIntl }) {
     <div className="space-y-5 animate-fade-up">
       <div>
         <h2 className="text-2xl font-semibold text-slate-800">Review &amp; confirm</h2>
-        <p className="text-sm text-slate-500 mt-1">We&apos;ll start your {isResto ? "FREE first month" : "7-day free trial"} the moment you click below.</p>
+        <p className="text-sm text-slate-500 mt-1">We&apos;ll start your {isResto ? "FREE first month" : `${Number(catalog?.trial_days) || 30}-day free trial`} the moment you click below.</p>
       </div>
       <div className="bg-sky-50/50 border border-sky-100 rounded-xl divide-y divide-sky-100" data-testid="signup-review">
         {rows.map(r => (

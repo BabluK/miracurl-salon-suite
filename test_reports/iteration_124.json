@@ -1,0 +1,40 @@
+{
+  "summary": "Tested (a) Demo Invite template trial-days follow Plan Catalog (30 days, not 7), (b) new Founder's personal invitation template (super-admin can send, HTML preview, 6 MONTHS COMPLETELY FREE, contact details), (c) founder signup grants 180-day trial + signup_offer=founder_6m, (d) WhatsApp Invite Recently-invited table with per-row delete + Clear all. Backend: 11/11 passed. Frontend: DemoCampaign card toggles, previews, and WA invite table with headers Type/Phone/Business/City/Invited on/By, per-row delete + clear-all all confirmed. One landing-page regression: hero still says '7-Day Free Trial' instead of '30-Day'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/super-admin/demo-campaign/history", "issue": "Response key is 'campaigns' (not 'items') and stores campaign-level rows even when Resend refuses (sent_count=0). This is fine but should be documented so the UI 'Recent Campaigns' does not present failed sends as successes."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Landing.jsx (hero)", "issue": "Hero pill still hardcoded as '7-DAY FREE TRIAL · No credit card' and CTA subtext '2-minute signup, 7-day free trial' — inconsistent with Plan Catalog trial_days=30 and with the updated Demo Campaign email. User's original request #1 asks for trial-days to follow config everywhere.", "selector": "hero banner + Ready-to-bring-your-salon-online section", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_founder_and_wa_invite.py",
+    "/app/test_reports/pytest/iter124.xml"
+  ],
+  "action_items": [
+    "Landing.jsx: replace hardcoded '7-Day Free Trial' hero pill AND '2-minute signup, 7-day free trial' CTA subtext with the trial_days coming from /api/public/plans → trial_days (currently 30). Same fix as was applied to the Demo email templates.",
+    "(Optional) In demo-campaign history UI, distinguish sent_count=0 campaigns from successful ones."
+  ],
+  "critical_code_review_comments": [
+    "hq_documents.py — good: subject/hero/CTA/pricing all take trial_days from get_trial_days() (subscriptions module). Founder path correctly overrides subject + skips attachments (from_name='Bablu Kumar · Miracurl').",
+    "routes/auth.py public_signup_salon — correctly awards trial_days=180 and signup_offer='founder_6m' when a matching founder demo_invite exists (verified end-to-end).",
+    "lead_gen.py wa-invite endpoints — GET recent/POST create/DELETE {id}/DELETE all all present; 404 correctly returned for unknown id.",
+    "Landing.jsx uses buildPlans() but the hero-pill trial text and CTA subtext appear hardcoded (7-day). These are the only remaining places where trial days do not follow the plan catalog."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_founder_and_wa_invite.py"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "90% (10/11 checks; hero pill still 7-day)"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (cookie session; CSRF token cookie echoed as X-CSRF-Token on POST/DELETE).",
+  "seed_data_creation": "During tests we sent 2 x @example.com and 1 x delivered+<tag>@resend.dev demo campaigns (campaign rows kept in demo_campaigns; @example.com Resend-rejected so no demo_invites rows created). One founder invite for delivered+<tag>@resend.dev and one tenant were created and cleanup-deleted via /api/super-admin/tenants/{id}. One WA invite for +919999000111 'QA Test Salon' was created and deleted (also created a mira_leads lead card whose backend cleanup endpoint was best-effort; may need manual cleanup if backend has no leads delete-by-phone route).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend fully green. To retest after landing.jsx fix, just reload / and grep HTML for '7-day' / '7-Day' (should be 0) and '30-day' / '30 days' (should be >0). Test file location: /app/backend/tests/test_founder_and_wa_invite.py — reusable regression for founder flows and WA CRUD. Note: pytest.ini pins -n 2 --dist loadscope; the test uses REACT_APP_BACKEND_URL from env with the preview URL as fallback.",
+  "rca of the issue": "Landing.jsx hero pill and one CTA subtext still literal-string '7-Day Free Trial' / '7-day free trial'. All the Demo email / preview / subject copy correctly reads trial_days from GET /api/public/plans → trial_days (30). Fix: wire the hero pill and CTA subtext to plans.trial_days (same source Landing.jsx already fetches for buildPlans)."
+}

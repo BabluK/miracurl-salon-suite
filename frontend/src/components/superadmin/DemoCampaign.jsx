@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Mail, Send, Plus, X, Sparkles, History, BellRing, CheckCircle2, Trash2, RotateCw } from "lucide-react";
+import { Mail, Send, Plus, X, Sparkles, History, BellRing, CheckCircle2, Trash2, RotateCw, Eye } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -13,11 +13,14 @@ export function DemoCampaign() {
   const [note, setNote] = useState("");
   const [currency, setCurrency] = useState("auto");
   const [vertical, setVertical] = useState("salon");
+  const [template, setTemplate] = useState("demo");
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState([]);
   const [invites, setInvites] = useState([]);
   const [nudging, setNudging] = useState(false);
   const [showAllInvites, setShowAllInvites] = useState(false);
+  const [staleOnly, setStaleOnly] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   const loadHistory = () => api.get("/super-admin/demo-campaign/history").then(r => setHistory(r.data.campaigns)).catch(() => {});
   const loadInvites = () => api.get("/super-admin/demo-campaign/invites").then(r => setInvites(r.data.invites)).catch(() => {});
@@ -45,8 +48,8 @@ export function DemoCampaign() {
     if (!list.length) return toast.error("Select at least one recipient");
     setSending(true);
     try {
-      const r = await api.post("/super-admin/demo-campaign/send", { recipients: list, note, currency, vertical });
-      toast.success(`Demo invite sent to ${r.data.sent} owner${r.data.sent === 1 ? "" : "s"}${r.data.failed ? ` · ${r.data.failed} failed` : ""}`);
+      const r = await api.post("/super-admin/demo-campaign/send", { recipients: list, note, currency, vertical, template });
+      toast.success(`${template === "founder" ? "Founder's letter" : "Demo invite"} sent to ${r.data.sent} owner${r.data.sent === 1 ? "" : "s"}${r.data.failed ? ` · ${r.data.failed} failed` : ""}`);
       if (r.data.failed) {
         const bad = r.data.results.filter(x => !x.sent).map(x => `${x.email}${x.error ? ` — ${x.error}` : ""}`).join(", ");
         toast.error(bad);
@@ -85,6 +88,22 @@ export function DemoCampaign() {
     } catch { toast.error("Couldn't delete"); }
   };
 
+  const staleInvites = useMemo(() => invites.filter(i => i.stale_unseen), [invites]);
+  const visibleInvites = staleOnly ? staleInvites : invites;
+
+  const purgeStale = async () => {
+    if (!staleInvites.length) return;
+    if (!await confirmAsync(`Permanently delete ${staleInvites.length} invitee record${staleInvites.length === 1 ? "" : "s"} that were sent 15+ days ago and never opened, clicked or replied? Converted and signed-up owners are always kept. This cannot be undone.`)) return;
+    setPurging(true);
+    try {
+      const r = await api.delete("/super-admin/demo-campaign/invites-stale");
+      toast.success(`🧹 ${r.data.deleted} stale invitee record${r.data.deleted === 1 ? "" : "s"} deleted permanently`);
+      setStaleOnly(false);
+      loadInvites();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't clean up"); }
+    setPurging(false);
+  };
+
   const resendInvite = async (inv) => {
     try {
       await api.post(`/super-admin/demo-campaign/invites/${inv.id}/resend`);
@@ -99,6 +118,18 @@ export function DemoCampaign() {
       toast.success(`Time-picker sent to ${inv.email} — they'll choose a slot ✦`);
       loadInvites();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send"); }
+  };
+
+  const previewEmail = async () => {
+    try {
+      const first = list[0] || {};
+      const r = await api.get("/super-admin/demo-campaign/preview", {
+        params: { template, vertical, note, name: first.name || "Priya", salon_name: first.salon_name || "Glow Studio" },
+        responseType: "text",
+      });
+      const w = window.open("", "_blank");
+      if (w) { w.document.open(); w.document.write(r.data); w.document.close(); }
+    } catch { toast.error("Couldn't load preview"); }
   };
 
   const Group = ({ title, icon: I, rows, kind }) => (
@@ -121,11 +152,22 @@ export function DemoCampaign() {
   return (
     <div className="rounded-3xl p-6 space-y-5 bg-[#15151b] border border-[#d4af37]/25 shadow-[0_14px_44px_-14px_rgba(0,0,0,0.55)]" data-testid="demo-campaign-card">
       <div>
-        <h3 className="font-playfair text-xl text-[#d4af37] flex items-center gap-2 tracking-wide"><Mail className="w-4 h-4" /> Demo Invite Campaign</h3>
+        <h3 className="font-playfair text-xl text-[#d4af37] flex items-center gap-2 tracking-wide"><Mail className="w-4 h-4" /> {template === "founder" ? "Founder's Personal Invitation" : "Demo Invite Campaign"}</h3>
         <div className="h-px w-16 bg-gradient-to-r from-[#d4af37] to-transparent mt-2 mb-2" />
-        <p className="text-xs text-slate-400 leading-relaxed">{vertical === "restaurant"
+        <div className="flex gap-1 mb-3 p-1 rounded-xl bg-white/5 border border-white/10 w-fit" data-testid="demo-template-toggle">
+          {[["demo", "✦ Demo invite (free trial)"], ["founder", "✍️ Founder's letter · 6 months FREE"]].map(([k, l]) => (
+            <button key={k} onClick={() => setTemplate(k)} data-testid={`demo-template-${k}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${template === k ? "bg-[#d4af37] text-[#15151b]" : "text-slate-400 hover:text-slate-200"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">{template === "founder"
+          ? <>A warm, personal letter <b className="text-slate-200">from Bablu Kumar, founder</b> — sent worldwide to salon owners not yet on Miracurl. Offers <b className="text-[#d4af37]">6 months completely free</b> (no payment, no card, no obligation) in exchange for honest feedback. No attachments, plain and personal; each recipient's name and salon are filled in automatically. When they sign up with the same email, their trial is automatically set to 180 days.</>
+          : vertical === "restaurant"
           ? <>For restaurants <b className="text-slate-200">not yet on Miracurl</b> — a restaurant-flavoured invite (QR ordering, kitchen tickets, table billing, FREE first month) with restaurant pricing and the restaurant brochure attached. Existing partners are excluded automatically.</>
-          : <>For salons <b className="text-slate-200">not yet on Miracurl</b> — send a beautifully designed, polite invitation explaining the suite and your 12-agent AI team, all 4 policy PDFs attached. Existing partners are excluded automatically. Replies come straight to your HQ inbox.</>}</p>
+          : <>For salons <b className="text-slate-200">not yet on Miracurl</b> — send a beautifully designed, polite invitation explaining the suite and your 12-agent AI team, all 4 policy PDFs attached. The free-trial length follows your Plan Catalog setting. Existing partners are excluded automatically. Replies come straight to your HQ inbox.</>}</p>
+        {template === "demo" && (
         <div className="flex gap-1 mt-3 p-1 rounded-xl bg-white/5 border border-white/10 w-fit" data-testid="demo-vertical-toggle">
           {[["salon", "💇 Salons"], ["restaurant", "🍽️ Restaurants"]].map(([k, l]) => (
             <button key={k} onClick={() => setVertical(k)} data-testid={`demo-vertical-${k}`}
@@ -134,6 +176,7 @@ export function DemoCampaign() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
       <Group title="Prospects — Leads & Inquiries" icon={Sparkles} rows={pool.leads} kind="lead" />
@@ -157,12 +200,17 @@ export function DemoCampaign() {
       )}
 
       <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} maxLength={600}
-        placeholder="Optional personal note (appears in a highlighted box inside the email)…" data-testid="demo-note-input"
+        placeholder={template === "founder" ? "Optional personal line (shown as a handwritten-style note just before the 6-months-free gift)…" : "Optional personal note (appears in a highlighted box inside the email)…"} data-testid="demo-note-input"
         className="w-full border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4af37]/50 resize-none !bg-white/5 !text-slate-200 placeholder:text-slate-500" />
 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3 flex-wrap">
           <p className="text-xs text-slate-400">{list.length} recipient{list.length === 1 ? "" : "s"} selected</p>
+          <button onClick={previewEmail} data-testid="demo-preview-btn"
+            className="px-3 py-1 rounded-full border border-white/15 bg-white/5 text-slate-300 text-[11px] font-semibold flex items-center gap-1.5 hover:border-[#d4af37]/60 hover:text-[#d4af37] transition-colors">
+            <Eye className="w-3 h-3" /> Preview email
+          </button>
+          {template === "demo" && (
           <div className="flex items-center gap-1 text-[11px]" data-testid="demo-currency-toggle">
             <span className="text-slate-500 mr-1">Pricing shown:</span>
             {[["auto", "🌐 Auto"], ["INR", "🇮🇳 ₹"], ["USD", "🌍 $"]].map(([k, l]) => (
@@ -173,10 +221,11 @@ export function DemoCampaign() {
               </button>
             ))}
           </div>
+          )}
         </div>
         <button onClick={send} disabled={sending || !list.length} data-testid="demo-campaign-send-btn"
           className="px-6 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold flex items-center gap-2 hover:brightness-110 shadow-[0_8px_24px_-8px_rgba(212,175,55,0.6)] disabled:opacity-40 transition">
-          <Send className="w-3.5 h-3.5" /> {sending ? "Sending…" : "Send demo invites ✦"}
+          <Send className="w-3.5 h-3.5" /> {sending ? "Sending…" : template === "founder" ? "Send founder's letter ✦" : "Send demo invites ✦"}
         </button>
       </div>
 
@@ -204,8 +253,23 @@ export function DemoCampaign() {
             </button>
           </div>
           <p className="text-[11px] text-slate-500">One gentle reminder is sent automatically 5 days after the invite, unless you mark them as replied. Only ever one nudge per invitee.</p>
+          <div className="flex items-center justify-between flex-wrap gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2" data-testid="demo-stale-bar">
+            <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+              <input type="checkbox" checked={staleOnly} onChange={e => setStaleOnly(e.target.checked)} className="accent-[#d4af37]" data-testid="demo-stale-filter" />
+              Show only <b className="text-slate-100">not seen in 15+ days</b>
+              <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-semibold" data-testid="demo-stale-count">{staleInvites.length}</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-500 hidden sm:inline">Never opened · never clicked · no reply · not signed up</span>
+              <button onClick={purgeStale} disabled={purging || !staleInvites.length} data-testid="demo-purge-stale-btn"
+                className="px-3 py-1.5 rounded-full bg-rose-500/15 border border-rose-400/40 text-rose-300 text-[11px] font-semibold flex items-center gap-1.5 hover:bg-rose-500/25 disabled:opacity-40 transition-colors">
+                <Trash2 className="w-3 h-3" /> {purging ? "Deleting…" : `Delete ${staleInvites.length} permanently`}
+              </button>
+            </div>
+          </div>
           <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
-            {(showAllInvites ? invites : invites.slice(0, 10)).map(inv => {
+            {visibleInvites.length === 0 && <p className="text-xs text-slate-500 italic px-1 py-2">Nothing to show — every invitee here has been seen or is fresher than 15 days ✦</p>}
+            {(showAllInvites ? visibleInvites : visibleInvites.slice(0, 10)).map(inv => {
               const chip = {
                 awaiting: ["Awaiting reply", "bg-white/10 text-slate-300"],
                 reminded: ["Reminder sent", "bg-amber-400/15 text-amber-300"],
@@ -245,6 +309,7 @@ export function DemoCampaign() {
                     </button>
                   )}
                   {inv.stale_no_reply && <span className="shrink-0 text-[9px] text-slate-500 italic hidden md:inline">seen, no reply</span>}
+                  {inv.stale_unseen && <span className="shrink-0 text-[9px] text-rose-300/80 italic hidden md:inline" title="Sent 15+ days ago, never opened/clicked/replied">not seen · 15d+</span>}
                   {inv.status !== "converted" && (
                     <button onClick={() => markReplied(inv)} data-testid={`demo-invite-mark-replied-${inv.email}`}
                       title={inv.responded ? "Mark as not replied" : "Mark as replied (stops the nudge)"}
@@ -261,10 +326,10 @@ export function DemoCampaign() {
               );
             })}
           </div>
-          {invites.length > 10 && (
+          {visibleInvites.length > 10 && (
             <button onClick={() => setShowAllInvites(v => !v)} data-testid="demo-invites-show-all"
               className="text-[11px] text-slate-500 hover:text-[#d4af37] underline">
-              {showAllInvites ? "Show latest 10 only" : `Show all ${invites.length} invitees`}
+              {showAllInvites ? "Show latest 10 only" : `Show all ${visibleInvites.length} invitees`}
             </button>
           )}
         </div>

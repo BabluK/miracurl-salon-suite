@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Rocket, Scissors, Globe, Mic, Receipt, Wand2, BarChart3 } from "lucide-react";
 
 const STEPS = [
-  { n: 1, icon: Rocket, title: "CREATE YOUR SALON", desc: "2-minute signup, 7-day free trial", tag: "No card needed",
+  { n: 1, icon: Rocket, title: "CREATE YOUR SALON", desc: "2-minute signup, free trial included", tag: "No card needed",
     c: "#22d3ee", glow: "rgba(34,211,238,0.35)" },
   { n: 2, icon: Scissors, title: "ADD SERVICES & STAFF", desc: "Your price list, stylists & ID cards", tag: "Import from Excel",
     c: "#a78bfa", glow: "rgba(167,139,250,0.35)" },

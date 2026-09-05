@@ -70,7 +70,7 @@ CONTACT_EMAILS = [
 def _onboarding_sections(vertical: str):
     biz = "restaurant" if vertical == "restaurant" else "salon"
     signup = f"miracurl-suite.com/signup-{biz}"
-    trial = "first month FREE" if biz == "restaurant" else "7-day free trial"
+    trial = "first month FREE" if biz == "restaurant" else "free trial"
     catalog = "full menu with categories, dish photos and prices" if biz == "restaurant" \
         else "full service catalogue with categories and prices (Excel import supported)"
     live = ("the restaurant receives its public reservations page, QR table-ordering menu and live Kitchen screen"

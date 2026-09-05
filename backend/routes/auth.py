@@ -436,6 +436,10 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     is_newbiz = (body.offer or "").strip().lower() == "newbiz" or bool(body.newly_opened)
     if is_newbiz:
         trial_days = 90  # new / newly-opened business: FREE 90-day setup
+    founder_invite = await _raw_db.demo_invites.find_one({"email": email, "template": "founder"}, {"_id": 0, "id": 1})
+    if founder_invite:
+        from routes.hq_documents import FOUNDER_INVITE_TRIAL_DAYS
+        trial_days = max(trial_days, FOUNDER_INVITE_TRIAL_DAYS)  # founder's personal letter promised 6 months free
     trial_end = (datetime.now(timezone.utc) + timedelta(days=trial_days)).date().isoformat()
     referrer = await _resolve_referrer(body.ref, candidate)
 
@@ -443,6 +447,8 @@ async def public_signup_salon(body: SalonSignupIn, request: Request, response: R
     tenant["welcome_poster_pending"] = True  # SEC-001: paid AI poster deferred to first login
     if is_newbiz:
         tenant["signup_offer"] = "newbiz"
+    elif founder_invite:
+        tenant["signup_offer"] = "founder_6m"
         tenant["new_business"] = True
         od = (body.opening_date or "").strip()
         if re.match(r"^\d{4}-\d{2}-\d{2}$", od):
