@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from security import require_tenant_admin, current_tenant, public_rate_limit
+from security import require_tenant_admin, current_tenant, public_rate_limit, public_base_url
 
 router = APIRouter()
 
@@ -84,10 +84,9 @@ async def gift_card_config(slug: str):
 
 def _absolute_logo(t: dict, request: Request) -> dict:
     if (t.get("logo_url") or "").startswith("/"):
-        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
-        proto = request.headers.get("x-forwarded-proto") or "https"
-        if host:
-            return {**t, "logo_url": f"{proto}://{host}{t['logo_url']}"}
+        base = public_base_url(request)
+        if base:
+            return {**t, "logo_url": f"{base}{t['logo_url']}"}
     return t
 
 

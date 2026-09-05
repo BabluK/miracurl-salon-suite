@@ -536,3 +536,23 @@ async def log_audit(tenant_id: str, user: dict, action: str, detail: str) -> Non
             "at": datetime.now(timezone.utc).isoformat()})
     except Exception:  # noqa: BLE001
         pass
+
+
+# ---------------- Public base URL (tracking links, QR codes, pay links) ----------------
+# Always the official domain (APP_PUBLIC_URL). The request host is honoured ONLY for
+# Emergent preview deployments so links keep working while testing; an attacker-controlled
+# Host header can never end up inside an email, QR code or redirect.
+_PREVIEW_HOST_SUFFIXES = (".emergentagent.com", "localhost")
+
+
+def public_base_url(request: Request | None = None) -> str:
+    official = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    if request is None:
+        return official
+    raw = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    host = raw.split(",")[0].strip().lower()
+    bare = host.split(":")[0]
+    if host and any(bare == s.lstrip(".") or bare.endswith(s) for s in _PREVIEW_HOST_SUFFIXES):
+        proto = request.headers.get("x-forwarded-proto", "https").split(",")[0].strip() or "https"
+        return f"{proto}://{host}"
+    return official

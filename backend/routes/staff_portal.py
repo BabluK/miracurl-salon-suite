@@ -726,10 +726,9 @@ async def attendance_desk_qr(request: Request, style: str = "poster", branch: st
     if not token:
         token = secrets.token_urlsafe(12)
         await db.tenants.update_one({"id": t["id"]}, {"$set": {"attendance_qr_token": token}})
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
-    proto = request.headers.get("x-forwarded-proto") or "https"
+    from security import public_base_url
     qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H, border=1)
-    qr.add_data(f"{proto}://{host}/staff-portal?qr={token}")
+    qr.add_data(f"{public_base_url(request)}/staff-portal?qr={token}")
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="#111111", back_color="white").convert("RGB")
     bg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "qr_poster_bg.jpg")

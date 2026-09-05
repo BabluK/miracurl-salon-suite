@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from database import _raw_db, db
-from security import require_super_admin, public_rate_limit
+from security import require_super_admin, public_rate_limit, public_base_url
 from routes.payments_common import _checkout
 from routes.subscriptions import (
     _rzp_client, _verify_rzp_signature, _fresh_plan_or_400,
@@ -52,9 +52,7 @@ def _effective_status(link: dict) -> str:
 
 
 def _request_base(request: Request) -> str:
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
-    proto = request.headers.get("x-forwarded-proto") or "https"
-    return f"{proto}://{host}" if host else ""
+    return public_base_url(request)
 
 
 class PayLinkIn(BaseModel):

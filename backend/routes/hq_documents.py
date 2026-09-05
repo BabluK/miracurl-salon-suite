@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from email_service import _send_email
-from security import public_rate_limit, require_super_admin
+from security import public_base_url, public_rate_limit, require_super_admin
 
 router = APIRouter()
 
@@ -841,8 +841,7 @@ async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depend
         attachments = await asyncio.to_thread(_all_doc_attachments)
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
     plans = await _live_plans()
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    track_base = f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    track_base = public_base_url(request)
     ctx = _DemoSendCtx(body=body, hq_email=hq_email, subject=subject, attachments=attachments,
                        plans=plans, track_base=track_base, trial_days=trial_days)
 
@@ -1076,8 +1075,7 @@ async def send_slot_picker(iid: str, request: Request, user=Depends(require_supe
     inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invite not found")
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    base = inv.get("track_base") or (f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "").rstrip("/"))
+    base = inv.get("track_base") or public_base_url(request)
     return await _send_slot_picker_email(inv, base)
 
 
@@ -1106,10 +1104,7 @@ async def demo_track_click(iid: str, request: Request):
     await _raw_db.demo_invites.update_one(
         {"id": iid, "clicked_at": None}, {"$set": {"clicked_at": now_iso}})
     inv = await _raw_db.demo_invites.find_one({"id": iid}, {"_id": 0, "track_base": 1})
-    base = (inv or {}).get("track_base") or os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    if not base and host:
-        base = f"https://{host}"
+    base = (inv or {}).get("track_base") or public_base_url(request)
     return RedirectResponse(f"{base}/demo-slot/{iid}", status_code=302)
 
 
@@ -1627,8 +1622,7 @@ async def demo_invite_resend(iid: str, request: Request, user=Depends(require_su
     if inv["email"] in set(await _raw_db.tenants.distinct("owner_email")):
         raise HTTPException(400, "Already a Miracurl partner")
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    track_base = f"https://{host}" if host else (inv.get("track_base") or "")
+    track_base = public_base_url(request) or inv.get("track_base") or ""
     status = await _send_invite_email(inv, track_base, hq_email)
     if not status.get("sent"):
         raise HTTPException(500, status.get("error") or "Send failed")

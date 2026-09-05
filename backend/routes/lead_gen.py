@@ -18,7 +18,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field, EmailStr
 
 from database import _raw_db
-from security import require_super_admin
+from security import public_base_url, require_super_admin
 from services.pdf import screens_tour_attachment  # noqa: F401
 
 router = APIRouter()
@@ -1017,8 +1017,7 @@ async def lead_send_slot_picker(lid: str, request: Request, user=Depends(require
         raise HTTPException(400, "No email address on this lead — add one first.")
     from routes.hq_documents import _send_slot_picker_email
     em = lead["email"].strip().lower()
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    base = f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    base = public_base_url(request)
     inv = await _raw_db.demo_invites.find_one({"email": em}, {"_id": 0})
     if not inv:
         inv = {"id": str(uuid.uuid4()), "email": em, "name": lead.get("owner_name") or lead.get("name") or "",
@@ -2095,8 +2094,7 @@ async def wa_blast_prepare(body: WaBlastPrepareIn, request: Request, user=Depend
         return {"queue": []}
     posters = {d["quote_id"]: d["url"] for d in await _raw_db.wa_quote_posters.find({}, {"_id": 0}).to_list(20)}
     data = await _blast_compose(leads, posters)
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    poster_base = f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    poster_base = public_base_url(request)
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     queue = []
     for l in leads:

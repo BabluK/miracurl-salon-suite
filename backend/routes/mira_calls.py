@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from security import require_super_admin
+from security import public_base_url, require_super_admin
 
 router = APIRouter()
 log = logging.getLogger("mira_calls")
@@ -515,8 +515,7 @@ async def _fulfil_interest(lead_id: str) -> None:
 # ---------------- super admin: start calls + log ----------------
 
 def _webhook_base(request: Request) -> str:
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
-    return f"https://{host}" if host else os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    return public_base_url(request)
 
 
 async def _start_call(lead: dict, base: str) -> dict:
