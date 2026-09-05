@@ -855,6 +855,8 @@ async def demo_campaign_preview(template: str = "demo", vertical: str = "salon",
         return _founder_email_html(name, salon_name, note)
     if template == "founder_followup":
         return _founder_followup_html(name, salon_name)
+    if template == "founder_nudge":
+        return _founder_nudge_html(name, salon_name, "glow-studio", "owner@example.com")
     from routes.subscriptions import get_trial_days
     vert = "restaurant" if vertical == "restaurant" else "salon"
     return _demo_email_html(name, salon_name, note, os.environ.get("HQ_EMAIL", "admin@miracurl.com"),
@@ -1155,9 +1157,96 @@ async def _signup_map() -> dict:
     async for t in _raw_db.tenants.find(
             {"owner_email": {"$exists": True, "$ne": ""}},
             {"_id": 0, "owner_email": 1, "name": 1, "slug": 1, "status": 1, "plan": 1,
-             "created_at": 1, "trial_end_date": 1}):
+             "created_at": 1, "trial_end_date": 1, "founder_nudge_sent_at": 1, "founder_first_login_at": 1}):
         out[str(t["owner_email"]).lower()] = t
     return out
+
+
+# ── Founder setup nudge: 6-months-free owners who never logged in (3 days) get one note from Bablu ──
+FOUNDER_NUDGE_AFTER_DAYS = 3
+
+
+def _founder_nudge_html(owner_name: str, salon_name: str, slug: str, email: str) -> str:
+    first = html_lib.escape((owner_name or "").strip().split(" ")[0]) if (owner_name or "").strip() else ""
+    greeting = f"Hi {first}," if first else "Hi there,"
+    salon = html_lib.escape(salon_name or "your salon")
+    login = f"{FOUNDER['url']}/login?tenant={slug}"
+    p = 'style="font-size:15px;color:#3a3a42;line-height:1.8;margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif"'
+    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#efece5">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efece5;padding:32px 12px">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fffdf9;border-radius:20px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 6px 30px rgba(20,18,12,.10)">
+  <tr><td style="background:#15151b;padding:22px 40px 20px">
+    <div style="font-family:Georgia,serif;font-size:20px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">YOUR 6 MONTHS ARE READY · A NOTE FROM BABLU</div>
+  </td></tr>
+  <tr><td style="padding:32px 40px 6px">
+    <p {p}>{greeting}</p>
+    <p {p}>Bablu here. A few days ago I set up <b>{salon}</b> on Miracurl with your <b>6 months completely free</b> — and I noticed
+      you haven’t had a chance to log in yet. Totally understandable; salon days are long.</p>
+    <p {p}>Everything is waiting for you: your booking page, POS &amp; billing, staff, CRM and Mira’s AI tools. Your login is
+      <b>{html_lib.escape(email)}</b> and the one-time password was in the welcome email. Can’t find it? Just reply “password”
+      and I’ll reset it for you personally.</p>
+    <p {p} style="margin-bottom:8px">If you’d prefer, I’m happy to jump on a 15-minute call and set up your services and staff together.</p>
+  </td></tr>
+  <tr><td align="center" style="padding:10px 40px 8px">
+    <a href="{login}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+       text-decoration:none;padding:14px 42px;border-radius:999px;letter-spacing:.4px">Open my salon ✦</a>
+    <div style="font-size:12.5px;color:#7d7668;margin-top:14px;line-height:1.6">Your booking page: <a href="{FOUNDER['url']}/book/{slug}" style="color:#8a6d1a;text-decoration:none">{FOUNDER['site']}/book/{slug}</a></div>
+  </td></tr>
+  <tr><td style="padding:22px 40px 30px">
+    <p {p} style="margin-bottom:4px">Warm regards,</p>
+    <div style="font-family:Georgia,serif;font-size:18px;color:#15151b;margin-top:6px">{FOUNDER["name"]}</div>
+    <div style="font-size:12px;letter-spacing:1.5px;color:#9a8f6d;margin-top:2px">{FOUNDER["title"].upper()}</div>
+    <div style="font-size:12.5px;color:#55555f;line-height:1.9;margin-top:8px">📧 {FOUNDER["email"]} &nbsp;·&nbsp; 📱 {FOUNDER["phone"]}</div>
+  </td></tr>
+  <tr><td style="background:#15151b;padding:14px 40px;text-align:center">
+    <div style="color:#6d675c;font-size:11px">© Miracurl Suite · Sent once — you won’t be nagged.</div>
+  </td></tr>
+</table>
+</td></tr></table></body></html>"""
+
+
+async def _owner_has_logged_in(owner_email: str) -> bool:
+    u = await _raw_db.users.find_one({"email": owner_email}, {"_id": 0, "id": 1, "must_change_password": 1})
+    if not u:
+        return False
+    if await _raw_db.sessions.count_documents({"user_id": u["id"]}, limit=1):
+        return True
+    return not u.get("must_change_password", False)
+
+
+async def run_founder_setup_nudges() -> dict:
+    """Founder-offer salons created 3+ days ago whose owner never logged in → one nudge in Bablu's voice."""
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=FOUNDER_NUDGE_AFTER_DAYS)).isoformat()
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    sent = failed = logged_in = 0
+    async for t in _raw_db.tenants.find(
+            {"signup_offer": "founder_6m", "founder_nudge_sent_at": {"$exists": False},
+             "founder_first_login_at": {"$exists": False}, "created_at": {"$lte": cutoff}}, {"_id": 0}):
+        owner_email = str(t.get("owner_email") or "").lower()
+        if not owner_email:
+            continue
+        if await _owner_has_logged_in(owner_email):
+            await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"founder_first_login_at": datetime.now(timezone.utc).isoformat()}})
+            logged_in += 1
+            continue
+        u = await _raw_db.users.find_one({"email": owner_email}, {"_id": 0, "name": 1})
+        html = _founder_nudge_html((u or {}).get("name", ""), t.get("name", ""), t.get("slug", ""), owner_email)
+        status = await _send_email([owner_email], f"Your 6 months at Miracurl are waiting, {((u or {}).get('name') or 'friend').split(' ')[0]} ✦",
+                                   html, reply_to=hq_email, from_name=f"{FOUNDER['name']} · Miracurl")
+        if status.get("sent"):
+            sent += 1
+            await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"founder_nudge_sent_at": datetime.now(timezone.utc).isoformat()}})
+        else:
+            failed += 1
+    return {"sent": sent, "failed": failed, "already_logged_in": logged_in}
+
+
+@router.post("/super-admin/founder-replies/nudges/run")
+async def founder_nudges_run(user=Depends(require_super_admin)):
+    return await run_founder_setup_nudges()
 
 
 @router.get("/super-admin/demo-campaign/invites")

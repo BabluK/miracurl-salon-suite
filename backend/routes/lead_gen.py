@@ -1536,7 +1536,8 @@ async def founder_replies(user=Depends(require_super_admin)):
         su = signups.get(r["email"])
         if su:
             r["tenant"] = {"name": su.get("name"), "slug": su.get("slug"), "status": su.get("status"),
-                           "trial_end_date": su.get("trial_end_date")}
+                           "trial_end_date": su.get("trial_end_date"), "nudge_sent_at": su.get("founder_nudge_sent_at"),
+                           "first_login_at": su.get("founder_first_login_at")}
         r["opened"] = bool(r.get("opened_at"))
     return {"count": len(rows), "replies": rows}
 

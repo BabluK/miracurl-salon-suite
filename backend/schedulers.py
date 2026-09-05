@@ -220,6 +220,13 @@ async def _demo_followup_scheduler() -> None:
                 flag = await _raw_db.system_flags.find_one({"key": "demo_followup_auto"})
                 if not flag or flag.get("value") != period:
                     out = await run_demo_followups()
+                    try:
+                        from routes.hq_documents import run_founder_setup_nudges
+                        nudges = await run_founder_setup_nudges()
+                        if nudges.get("sent") or nudges.get("failed"):
+                            logging.info(f"Founder setup nudges {period}: {nudges}")
+                    except Exception as e:
+                        logging.error(f"founder nudge error: {e}")
                     await _raw_db.system_flags.update_one(
                         {"key": "demo_followup_auto"},
                         {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
