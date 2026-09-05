@@ -59,6 +59,8 @@ function ReplyCard({ r, onRefresh }) {
             {live && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold" data-testid={`founder-reply-live-${r.id}`}>✦ Live · 6 months free · {live.slug}</span>}
             {live?.first_login_at && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-semibold">Logged in ✓</span>}
             {live?.nudge_sent_at && !live?.first_login_at && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold" title={`Bablu's login nudge sent ${fmt(live.nudge_sent_at)}`}>Nudged {fmt(live.nudge_sent_at)}</span>}
+            {live?.feedback?.rating && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#d4af37]/20 text-[#d4af37] font-bold" title={live.feedback.comment || "No comment"} data-testid={`founder-reply-rating-${r.id}`}>{"★".repeat(live.feedback.rating)} {live.feedback.rating}/5{live.feedback.comment ? ` · “${live.feedback.comment.slice(0, 60)}${live.feedback.comment.length > 60 ? "…" : ""}”` : ""}</span>}
+            {live?.feedback_sent_at && !live?.feedback?.rating && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-slate-400 font-semibold" title="30-day feedback ask sent — awaiting their rating">Feedback asked {fmt(live.feedback_sent_at)}</span>}
           </div>
           <div className="text-xs text-slate-400 truncate mt-0.5">{r.email}{r.reply_subject ? ` · ${r.reply_subject}` : ""}</div>
           {r.last_reply_text && (
@@ -100,8 +102,18 @@ function ReplyCard({ r, onRefresh }) {
 export function FounderReplies() {
   const [data, setData] = useState(null);
   const [nudging, setNudging] = useState(false);
+  const [asking, setAsking] = useState(false);
   const load = () => api.get("/super-admin/founder-replies").then(r => setData(r.data)).catch(() => setData({ count: 0, replies: [] }));
   useEffect(() => { load(); }, []);
+  const runFeedback = async () => {
+    setAsking(true);
+    try {
+      const { data: d } = await api.post("/super-admin/founder-replies/feedback/run");
+      toast.success(`30-day feedback asks: ${d.sent} sent${d.failed ? ` · ${d.failed} failed` : ""}`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send feedback asks"); }
+    setAsking(false);
+  };
   const runNudges = async () => {
     setNudging(true);
     try {
@@ -119,13 +131,20 @@ export function FounderReplies() {
           <Flame className="w-3.5 h-3.5 text-orange-400" /> Founder Reply Inbox
           <span className={`px-1.5 py-0.5 rounded-full font-bold ${data.count ? "bg-orange-500/20 text-orange-300" : "bg-white/10 text-slate-400"}`} data-testid="founder-reply-count">{data.count}</span>
         </p>
+        <div className="flex items-center gap-1.5">
         <button onClick={runNudges} disabled={nudging} data-testid="founder-nudges-run-btn"
           title="Owners who got their 6 months but haven't logged in for 3 days get one note from Bablu (also runs daily)"
           className="px-3 py-1.5 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/40 text-[#d4af37] text-[11px] font-semibold inline-flex items-center gap-1.5 hover:bg-[#d4af37]/25 disabled:opacity-50">
           {nudging ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />} {nudging ? "Sending…" : "Send setup nudges now"}
         </button>
+        <button onClick={runFeedback} disabled={asking} data-testid="founder-feedback-run-btn"
+          title="Founder-offer salons 30+ days old get Bablu's 'how is it going?' note with one-tap ★ rating (also runs daily)"
+          className="px-3 py-1.5 rounded-full bg-white/5 border border-white/15 text-slate-300 text-[11px] font-semibold inline-flex items-center gap-1.5 hover:border-[#d4af37]/60 hover:text-[#d4af37] disabled:opacity-50">
+          {asking ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>★</span>} {asking ? "Sending…" : "Send 30-day feedback asks"}
+        </button>
+        </div>
       </div>
-      <p className="text-[10px] text-slate-500">Replies to Bablu's letter land here automatically (Resend inbound) — or tick ✓ on an invitee above. One tap sets up their salon with 6 months free; if they don't log in within 3 days, Bablu sends one gentle nudge automatically.</p>
+      <p className="text-[10px] text-slate-500">Replies to Bablu's letter land here automatically (Resend inbound) — or tick ✓ on an invitee above. One tap sets up their salon with 6 months free; if they don't log in within 3 days Bablu nudges once, and at 30 days he asks "how is it going?" with a one-tap ★ rating that shows on the card.</p>
       {data.replies.length === 0 && <p className="text-xs text-slate-500 italic px-1">No replies yet — when an owner writes back to the founder letter, their hot-lead card appears here ✦</p>}
       <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
         {data.replies.map(r => <ReplyCard key={r.id} r={r} onRefresh={load} />)}

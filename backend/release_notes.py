@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.200"
-BUILD_TIME = "05 Sep 2026, 12:15 PM IST"
+BUILD = "2026-09-05.201"
+BUILD_TIME = "05 Sep 2026, 12:30 PM IST"
 
 RELEASES = [
     {
@@ -12,6 +12,7 @@ RELEASES = [
             "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
             "📬 Cash reports go to your Salon email — the evening Cash Register email and 'Email owner now' are sent to the Salon email you set in Settings → Branding (falling back to your login email if it's empty); the button shows exactly where it will go",
             "💵 Cash Register (new page for staff, managers & owners) — log every petty expense in seconds: amount, what for (tea, salon supplies, cleaning, travel, repair…), who logged it, and 'Bill available ✓ — kept at the counter'. Also record cash handed to the owner / bank. The page shows Opening cash (yesterday's closing carried forward automatically) + today's cash collection from POS − expenses = Cash in hand, and warns when cash is short. Owners receive a Daily Cash Register email every evening (8:30 PM) with the full list, who logged each item and which bills are waiting at the counter; managers can also 'Email owner now'. Staff can log today only; managers/owners can browse and correct past days",
+            "⭐ Founder feedback ask — one month after a founder-offer salon joins, Bablu sends a short 'how is it going?' note with one-tap ★1–5 rating tiles; the thank-you page lets them add a line. Ratings & comments show on the Founder Reply Inbox card and in Mira's timeline. Runs daily; 'Send 30-day feedback asks' button for manual runs",
             "✍️ Founder setup nudge — owners who received their 6 months free but haven't logged in for 3 days get one note from Bablu with their login link and booking page (runs daily; 'Send setup nudges now' in the Founder Reply Inbox). Cards show 'Logged in ✓' or 'Nudged <date>'",
             "🔊 Mira speaks on Mira Home — new 'Voice on / off' toggle beside 'Greet on'. With voice on, every reply Mira gives on the home screen (e.g. after 'Hey Mira 👋') is read aloud in her premium voice; turn it off for text-only",
             "🔥 Founder Reply Inbox — when a salon owner replies to Bablu's founder letter (Resend inbound, or you tick ✓ on the invitee), a hot-lead card appears under the Demo Campaign with their message, a Reply button and 'Set up their 6 months' — one tap creates the salon + owner login with the promised 180-day trial and emails the credentials",

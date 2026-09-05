@@ -221,10 +221,13 @@ async def _demo_followup_scheduler() -> None:
                 if not flag or flag.get("value") != period:
                     out = await run_demo_followups()
                     try:
-                        from routes.hq_documents import run_founder_setup_nudges
+                        from routes.hq_documents import run_founder_setup_nudges, run_founder_feedback_asks
                         nudges = await run_founder_setup_nudges()
                         if nudges.get("sent") or nudges.get("failed"):
                             logging.info(f"Founder setup nudges {period}: {nudges}")
+                        fb = await run_founder_feedback_asks()
+                        if fb.get("sent") or fb.get("failed"):
+                            logging.info(f"Founder feedback asks {period}: {fb}")
                     except Exception as e:
                         logging.error(f"founder nudge error: {e}")
                     await _raw_db.system_flags.update_one(

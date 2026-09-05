@@ -857,6 +857,8 @@ async def demo_campaign_preview(template: str = "demo", vertical: str = "salon",
         return _founder_followup_html(name, salon_name)
     if template == "founder_nudge":
         return _founder_nudge_html(name, salon_name, "glow-studio", "owner@example.com")
+    if template == "founder_feedback":
+        return _founder_feedback_html(name, salon_name, os.environ.get("APP_PUBLIC_URL", FOUNDER["url"]).rstrip("/"), "preview-token")
     from routes.subscriptions import get_trial_days
     vert = "restaurant" if vertical == "restaurant" else "salon"
     return _demo_email_html(name, salon_name, note, os.environ.get("HQ_EMAIL", "admin@miracurl.com"),
@@ -1157,7 +1159,8 @@ async def _signup_map() -> dict:
     async for t in _raw_db.tenants.find(
             {"owner_email": {"$exists": True, "$ne": ""}},
             {"_id": 0, "owner_email": 1, "name": 1, "slug": 1, "status": 1, "plan": 1,
-             "created_at": 1, "trial_end_date": 1, "founder_nudge_sent_at": 1, "founder_first_login_at": 1}):
+             "created_at": 1, "trial_end_date": 1, "founder_nudge_sent_at": 1, "founder_first_login_at": 1,
+             "founder_feedback_sent_at": 1, "founder_feedback": 1}):
         out[str(t["owner_email"]).lower()] = t
     return out
 
@@ -1247,6 +1250,135 @@ async def run_founder_setup_nudges() -> dict:
 @router.post("/super-admin/founder-replies/nudges/run")
 async def founder_nudges_run(user=Depends(require_super_admin)):
     return await run_founder_setup_nudges()
+
+
+# ── Founder feedback ask: 30 days in, Bablu asks "how is it going?" with a one-tap 1–5 rating ──
+FOUNDER_FEEDBACK_AFTER_DAYS = 30
+_STARS = {1: "Not for us", 2: "Needs work", 3: "It's okay", 4: "Good", 5: "Love it"}
+
+
+def _founder_feedback_html(owner_name: str, salon_name: str, base: str, token: str) -> str:
+    first = html_lib.escape((owner_name or "").strip().split(" ")[0]) if (owner_name or "").strip() else ""
+    greeting = f"Hi {first}," if first else "Hi there,"
+    salon = html_lib.escape(salon_name or "your salon")
+    p = 'style="font-size:15px;color:#3a3a42;line-height:1.8;margin:0 0 16px;font-family:Georgia,\'Times New Roman\',serif"'
+    stars = "".join(
+        f'<td style="padding:0 4px"><a href="{base}/api/public/founder-feedback/{token}/{n}" '
+        f'style="display:block;width:78px;padding:12px 0;text-align:center;background:#15151b;border:1px solid #d4af37;border-radius:12px;text-decoration:none">'
+        f'<div style="font-size:22px;line-height:1;color:#d4af37">★<span style="font-size:15px;vertical-align:2px"> {n}</span></div>'
+        f'<div style="font-size:10px;color:#b9b2a3;margin-top:6px;letter-spacing:.3px;white-space:nowrap">{label}</div></a></td>'
+        for n, label in _STARS.items())
+    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#efece5">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efece5;padding:32px 12px">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fffdf9;border-radius:20px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 6px 30px rgba(20,18,12,.10)">
+  <tr><td style="background:#15151b;padding:22px 40px 20px">
+    <div style="font-family:Georgia,serif;font-size:20px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">ONE MONTH IN · A NOTE FROM BABLU</div>
+  </td></tr>
+  <tr><td style="padding:32px 40px 6px">
+    <p {p}>{greeting}</p>
+    <p {p}>Bablu here. It’s been about a month since <b>{salon}</b> joined Miracurl on the 6-months-free offer, and I promised
+      I’d come back to ask the only question that matters to me: <b>how is it going?</b></p>
+    <p {p} style="margin-bottom:10px">One tap is enough — pick the stars that feel honest. You can add a line afterwards if you like.</p>
+  </td></tr>
+  <tr><td align="center" style="padding:6px 24px 10px">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>{stars}</tr></table>
+  </td></tr>
+  <tr><td style="padding:14px 40px 6px">
+    <p {p}>Whatever you pick, thank you. If something is missing or annoying, tell me — that’s exactly what I’m building from.
+      And if it’s working for you, I’d love to hear which part your team uses most.</p>
+  </td></tr>
+  <tr><td style="padding:10px 40px 30px">
+    <p {p} style="margin-bottom:4px">Warm regards,</p>
+    <div style="font-family:Georgia,serif;font-size:18px;color:#15151b;margin-top:6px">{FOUNDER["name"]}</div>
+    <div style="font-size:12px;letter-spacing:1.5px;color:#9a8f6d;margin-top:2px">{FOUNDER["title"].upper()}</div>
+    <div style="font-size:12.5px;color:#55555f;line-height:1.9;margin-top:8px">📧 {FOUNDER["email"]} &nbsp;·&nbsp; 📱 {FOUNDER["phone"]}</div>
+  </td></tr>
+  <tr><td style="background:#15151b;padding:14px 40px;text-align:center">
+    <div style="color:#6d675c;font-size:11px">© Miracurl Suite · Sent once, one month in. Reply any time — it reaches me.</div>
+  </td></tr>
+</table>
+</td></tr></table></body></html>"""
+
+
+async def run_founder_feedback_asks() -> dict:
+    """Founder-offer salons 30+ days old → one 'how is it going?' note with one-tap rating links."""
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=FOUNDER_FEEDBACK_AFTER_DAYS)).isoformat()
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    base = os.environ.get("APP_PUBLIC_URL", FOUNDER["url"]).rstrip("/")
+    sent = failed = 0
+    async for t in _raw_db.tenants.find(
+            {"signup_offer": "founder_6m", "founder_feedback_sent_at": {"$exists": False},
+             "status": {"$nin": ["cancelled"]}, "created_at": {"$lte": cutoff}}, {"_id": 0}):
+        owner_email = str(t.get("owner_email") or "").lower()
+        if not owner_email:
+            continue
+        token = t.get("founder_feedback_token") or uuid.uuid4().hex
+        u = await _raw_db.users.find_one({"email": owner_email}, {"_id": 0, "name": 1})
+        first = ((u or {}).get("name") or "friend").split(" ")[0]
+        html = _founder_feedback_html((u or {}).get("name", ""), t.get("name", ""), base, token)
+        status = await _send_email([owner_email], f"One month in — how is it going, {first}?", html,
+                                   reply_to=hq_email, from_name=f"{FOUNDER['name']} · Miracurl")
+        if status.get("sent"):
+            sent += 1
+            await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {
+                "founder_feedback_token": token, "founder_feedback_sent_at": datetime.now(timezone.utc).isoformat()}})
+        else:
+            failed += 1
+    return {"sent": sent, "failed": failed}
+
+
+@router.post("/super-admin/founder-replies/feedback/run")
+async def founder_feedback_run(user=Depends(require_super_admin)):
+    return await run_founder_feedback_asks()
+
+
+def _feedback_page(title: str, body: str, form: str = "") -> str:
+    return f"""<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title></head>
+<body style="margin:0;background:#efece5;font-family:Georgia,serif;color:#1d1d24">
+<div style="max-width:520px;margin:48px auto;background:#fffdf9;border-radius:20px;padding:36px 32px;box-shadow:0 6px 30px rgba(20,18,12,.10);text-align:center">
+  <div style="font-size:18px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+  <h2 style="margin:18px 0 8px;font-weight:normal">{title}</h2>
+  <p style="font-size:15px;line-height:1.7;color:#3a3a42">{body}</p>{form}
+  <p style="font-size:12px;color:#9a948a;margin-top:22px">— {FOUNDER["name"]}, {FOUNDER["title"]}</p>
+</div></body></html>"""
+
+
+@router.get("/public/founder-feedback/{token}/{rating}", response_class=HTMLResponse)
+async def founder_feedback_rate(token: str, rating: int, request: Request):
+    from security import public_rate_limit
+    await public_rate_limit(request, "founder-feedback", limit=20, window_sec=600)
+    t = await _raw_db.tenants.find_one({"founder_feedback_token": token}, {"_id": 0, "id": 1, "name": 1, "founder_feedback": 1})
+    if not t or not 1 <= rating <= 5:
+        return _feedback_page("This link isn’t valid", "The feedback link may have expired — just reply to Bablu’s email instead.")
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"founder_feedback": {
+        "rating": rating, "comment": (t.get("founder_feedback") or {}).get("comment", ""), "at": datetime.now(timezone.utc).isoformat()}}})
+    from routes.lead_common import log_mira_event
+    await log_mira_event("result", f"⭐ {t['name']} rated their first month {rating}/5 ({_STARS[rating]}) on Bablu's feedback ask.")
+    form = (f'<form method="post" action="/api/public/founder-feedback/{token}" style="margin-top:18px">'
+            f'<textarea name="comment" maxlength="600" rows="3" placeholder="Anything you’d like Bablu to know? (optional)" '
+            f'style="width:100%;box-sizing:border-box;border:1px solid #ddd3b8;border-radius:12px;padding:12px;font-family:inherit;font-size:14px"></textarea>'
+            f'<button type="submit" style="margin-top:12px;background:#d4af37;border:0;border-radius:999px;padding:12px 32px;font-weight:bold;color:#15151b;cursor:pointer">Send to Bablu ✦</button></form>')
+    return _feedback_page(f"{'★' * rating} — thank you!", f"Your {rating}/5 (“{_STARS[rating]}”) for <b>{html_lib.escape(t['name'])}</b> reached me. It genuinely helps.", form)
+
+
+@router.post("/public/founder-feedback/{token}", response_class=HTMLResponse)
+async def founder_feedback_comment(token: str, request: Request):
+    from security import public_rate_limit
+    await public_rate_limit(request, "founder-feedback-comment", limit=10, window_sec=600)
+    form = await request.form()
+    comment = str(form.get("comment") or "").strip()[:600]
+    t = await _raw_db.tenants.find_one({"founder_feedback_token": token}, {"_id": 0, "id": 1, "name": 1, "founder_feedback": 1})
+    if not t:
+        return _feedback_page("This link isn’t valid", "Just reply to Bablu’s email instead.")
+    fb = {**(t.get("founder_feedback") or {}), "comment": comment, "at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"founder_feedback": fb}})
+    if comment:
+        from routes.lead_common import log_mira_event
+        await log_mira_event("alert", f"💬 {t['name']} wrote to Bablu: “{comment[:140]}”")
+    return _feedback_page("Received — thank you", "Your note is on its way to Bablu. He reads every one personally.")
 
 
 @router.get("/super-admin/demo-campaign/invites")
