@@ -256,15 +256,31 @@ export function MiraHome({ onGoTab, user }) {
   };
   const lastMira = useRef("");
   const viaFace = useRef(false);
+  const deployRef = useRef(null);
+  const welcomedRef = useRef(false);
+  useEffect(() => {
+    api.get("/super/link-health").then(r => {
+      deployRef.current = r.data;
+      const n = r.data?.deploy_pending ? (r.data.pending?.length || 0) : 0;
+      if (n && welcomedRef.current) {  // greeting already happened before the check returned — still surface the nudge
+        setChat(c => [...c.slice(-6), { role: "mira", text: `🚀 Boss, ${n} build${n === 1 ? " is" : "s are"} waiting to ship (production is on ${r.data.live_build}). Shall we deploy?` }]);
+      }
+    }).catch(() => {});
+  }, []);
 
   const finishWelcome = useCallback(() => {
     setRecog("done");
     sessionStorage.setItem("mira_welcomed", "1");
+    welcomedRef.current = true;
     const hour = new Date().getHours();
     const part = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
     const name = "Boss";
+    const lh = deployRef.current;
+    const n = lh?.deploy_pending ? (lh.pending?.length || 0) : 0;
+    const nudge = n ? ` ${name}, ${n} build${n === 1 ? " is" : "s are"} waiting — shall we deploy?` : "";
+    if (nudge) setChat(c => [...c.slice(-6), { role: "mira", text: `🚀 ${name}, ${n} build${n === 1 ? " is" : "s are"} waiting to ship (production is on ${lh.live_build}). Shall we deploy?` }]);
     if (localStorage.getItem("mira_greet_login") !== "0") {
-      speak(`${viaFace.current ? "Face verified. " : ""}Welcome back, ${name}! Good ${part}. Mira is online and ready for you.`);
+      speak(`${viaFace.current ? "Face verified. " : ""}Welcome back, ${name}! Good ${part}. Mira is online and ready for you.${nudge}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);

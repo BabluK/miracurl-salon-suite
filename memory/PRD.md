@@ -2729,3 +2729,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-05 — 📦 Deploy digest + short release notes (user rule)
 - `release_notes.BUILD_LOG` = one short line per build (newest first). `/api/super/link-health` returns `pending` = BUILD_LOG entries newer than the live build; popover shows "Waiting to ship · N builds" list. Verified live (11 pending).
 - **Rule from user**: deployment tags / release-note lines must be SHORT (one line, no long descriptions). Today's verbose lines were rewritten to one-liners. Every future build: bump BUILD, add a ≤12-word BUILD_LOG entry, and keep RELEASES change lines short. BUILD .207.
+
+## 2026-09-05 — 🗣 Mira deploy nudge
+- MiraHome prefetches `/api/super/link-health`; `finishWelcome` appends "Boss, N builds are waiting — shall we deploy?" to the spoken login greeting (respects Greet on/off) and posts a 🚀 chat line; if the check returns after the greeting, the chat line is still added. Verified live (speech text + chat). BUILD .208.
