@@ -24,6 +24,21 @@ export const DatabasePanel = () => {
       .finally(() => setAuditing(false));
   };
 
+  const healthClick = async () => {
+    if (!health || health.orphans === 0) return loadHealth(true);
+    const lines = Object.entries(health.per_collection || {}).sort((a, b) => b[1] - a[1])
+      .map(([c, n]) => `${c} (${n})`).join(" · ");
+    if (!await confirmAsync(`Permanently delete ${health.orphans} orphan records? They belong to salons that no longer exist — ${lines}. This cannot be undone.`, { title: "Clean up orphan records", confirmLabel: "Delete permanently", danger: true })) return;
+    setAuditing(true);
+    try {
+      const { data } = await api.post("/super/db/purge-orphans");
+      toast.success(`🧹 ${data.removed} orphan record${data.removed === 1 ? "" : "s"} deleted permanently — database healthy`);
+      loadColls();
+      if (sel) loadDocs(sel, 0);
+    } catch (e) { toast.error(e.response?.data?.detail || "Cleanup failed"); }
+    loadHealth(true);
+  };
+
   const loadColls = () => { api.get("/super/db/collections").then(r => setColls(r.data.collections)).catch(() => toast.error("Couldn't load collections")); };
   useEffect(() => { loadColls(); loadHealth(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -77,15 +92,16 @@ export const DatabasePanel = () => {
           <p className="text-slate-500 text-sm mt-1">Browse every table, inspect rows and clean up data. Deletions are permanent — use with care.</p>
         </div>
         {health && (
-          <button onClick={() => loadHealth(true)} disabled={auditing} title="Weekly auto-audit: docs pointing at deleted salons. Click to re-run now."
+          <button onClick={healthClick} disabled={auditing}
+            title={health.orphans === 0 ? "Weekly auto-audit: docs pointing at deleted salons. Click to re-run now." : "Click to delete these orphan records permanently"}
             data-testid="db-health-badge"
             className={`inline-flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-full border transition ${health.orphans === 0
               ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
               : "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"}`}>
-            {auditing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+            {auditing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : health.orphans === 0 ? <ShieldCheck className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
             {health.orphans === 0
               ? `Healthy · 0 orphan records · ${health.tenants} tenants`
-              : `⚠ ${health.orphans} orphan records found`}
+              : `⚠ ${health.orphans} orphan records found · tap to delete`}
             <span className="font-normal opacity-70">· audited {(health.checked_at || "").slice(0, 10)}</span>
           </button>
         )}

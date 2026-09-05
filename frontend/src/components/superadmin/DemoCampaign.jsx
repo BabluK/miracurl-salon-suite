@@ -252,7 +252,7 @@ export function DemoCampaign() {
               <BellRing className="w-3 h-3" /> {nudging ? "Sending…" : "Send due reminders now"}
             </button>
           </div>
-          <p className="text-[11px] text-slate-500">One gentle reminder is sent automatically 5 days after the invite, unless you mark them as replied. Only ever one nudge per invitee.</p>
+          <p className="text-[11px] text-slate-500">One gentle reminder is sent automatically 5 days after a demo invite, unless you mark them as replied. Founder-letter recipients who opened but never replied get one 7-day follow-up in Bablu's voice instead. Only ever one nudge per invitee.</p>
           <div className="flex items-center justify-between flex-wrap gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2" data-testid="demo-stale-bar">
             <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
               <input type="checkbox" checked={staleOnly} onChange={e => setStaleOnly(e.target.checked)} className="accent-[#d4af37]" data-testid="demo-stale-filter" />
