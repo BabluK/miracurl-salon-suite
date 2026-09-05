@@ -258,15 +258,35 @@ export function MiraHome({ onGoTab, user }) {
   const viaFace = useRef(false);
   const deployRef = useRef(null);
   const welcomedRef = useRef(false);
+  const handleLinkHealth = useCallback((d) => {
+    deployRef.current = d;
+    const n = d?.deploy_pending ? (d.pending?.length || 0) : 0;
+    if (n) {
+      localStorage.setItem("mira_deploy_pending", JSON.stringify({ count: n, live: d.live_build, target: d.this_build }));
+      return;
+    }
+    if (!d?.live_build || d.live_build !== d.this_build) return;
+    const was = JSON.parse(localStorage.getItem("mira_deploy_pending") || "null");
+    if (!was) return;
+    localStorage.removeItem("mira_deploy_pending");
+    const msg = `Deployed, Boss — all ${was.count} build${was.count === 1 ? " is" : "s are"} live on production (${d.live_build}). 🎉`;
+    setChat(c => [...c.slice(-6), { role: "mira", text: `✅ ${msg}` }]);
+    toast.success("🎉 Production is up to date");
+    if (localStorage.getItem("mira_home_voice") !== "0") sayReply(msg);
+  }, [sayReply]);
   useEffect(() => {
-    api.get("/super/link-health").then(r => {
-      deployRef.current = r.data;
+    const check = () => api.get("/super/link-health").then(r => {
+      const first = deployRef.current === null;
+      handleLinkHealth(r.data);
       const n = r.data?.deploy_pending ? (r.data.pending?.length || 0) : 0;
-      if (n && welcomedRef.current) {  // greeting already happened before the check returned — still surface the nudge
+      if (first && n && welcomedRef.current) {  // greeting already happened before the check returned — still surface the nudge
         setChat(c => [...c.slice(-6), { role: "mira", text: `🚀 Boss, ${n} build${n === 1 ? " is" : "s are"} waiting to ship (production is on ${r.data.live_build}). Shall we deploy?` }]);
       }
     }).catch(() => {});
-  }, []);
+    check();
+    const iv = setInterval(check, 60000);  // notice the moment production catches up
+    return () => clearInterval(iv);
+  }, [handleLinkHealth]);
 
   const finishWelcome = useCallback(() => {
     setRecog("done");

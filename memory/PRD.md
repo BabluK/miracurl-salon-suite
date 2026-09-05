@@ -2735,3 +2735,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-05 — 🩹 Link health false alarm on production
 - Production has `FRONTEND_URL=*` (CORS wildcard). Check renamed "Allowed by FRONTEND_URL (CORS origins)": passes for `*`, or if APP_PUBLIC_URL is in the comma-separated list. Production confirmed on .208 (user deployed). BUILD .209.
+
+## 2026-09-05 — 🎉 Deploy confirmation cheer
+- MiraHome polls `/api/super/link-health` every 60 s. While behind → stores `localStorage.mira_deploy_pending {count, live, target}`. When `live_build == this_build` and a pending record exists → once: chat "✅ Deployed, Boss — all N builds are live on production (build). 🎉", toast, spoken via `/mira/speak` if Voice on; record cleared. Verified via mocked link-health response. BUILD .210.

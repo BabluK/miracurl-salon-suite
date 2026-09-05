@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.209"
-BUILD_TIME = "05 Sep 2026, 3:10 PM IST"
+BUILD = "2026-09-05.210"
+BUILD_TIME = "05 Sep 2026, 3:40 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-05.210", "note": "Mira cheers once when production catches up"},
     {"build": "2026-09-05.209", "note": "Link health: FRONTEND_URL wildcard no longer flagged"},
     {"build": "2026-09-05.208", "note": "Mira nudges you to deploy in her greeting"},
     {"build": "2026-09-05.207", "note": "Deploy digest in the HQ badge popover"},
@@ -30,6 +31,7 @@ RELEASES = [
             "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
             "📬 Cash reports go to your Salon email — the evening Cash Register email and 'Email owner now' are sent to the Salon email you set in Settings → Branding (falling back to your login email if it's empty); the button shows exactly where it will go",
             "💵 Cash Register (new page for staff, managers & owners) — log every petty expense in seconds: amount, what for (tea, salon supplies, cleaning, travel, repair…), who logged it, and 'Bill available ✓ — kept at the counter'. Also record cash handed to the owner / bank. The page shows Opening cash (yesterday's closing carried forward automatically) + today's cash collection from POS − expenses = Cash in hand, and warns when cash is short. Owners receive a Daily Cash Register email every evening (8:30 PM) with the full list, who logged each item and which bills are waiting at the counter; managers can also 'Email owner now'. Staff can log today only; managers/owners can browse and correct past days",
+            "🎉 Mira announces 'Deployed, Boss' once production is up to date",
             "🗣 Mira's greeting says how many builds are waiting to deploy",
             "🚀 HQ badge turns amber when production is behind — press Deploy",
             "🛡 Link health badge on Mira Home (green/red) with 6-point checklist",
