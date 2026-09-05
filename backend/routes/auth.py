@@ -386,6 +386,8 @@ async def _send_newbiz_plan_email(tenant: dict, owner_email: str, trial_end: str
             (False, True): ("intl_pro_half", "intl_pro_annual"),
             (True, False): ("resto_half", "resto_annual"),
             (True, True): ("resto_intl_half", "resto_intl_annual")}[(resto, intl)]
+    from routes.subscriptions import load_plan_overrides
+    await load_plan_overrides()  # live super-admin prices, not the boot-time defaults
     plans = [PLAN_CATALOG[k] for k in keys if k in PLAN_CATALOG]
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     try:

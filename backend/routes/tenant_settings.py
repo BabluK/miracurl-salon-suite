@@ -978,3 +978,69 @@ async def _run_referral_nudges() -> dict:
             sent += 1
             await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"referral_nudge_sent": True}})
     return {"sent": sent}
+
+
+# ── HQ: Referral leaderboard + one-tap thank-you gift ──
+class ReferralGiftIn(BaseModel):
+    days: int = Field(default=30, ge=1, le=365)
+    note: str = Field(default="", max_length=300)
+
+
+@router.get("/super-admin/referral-leaderboard")
+async def referral_leaderboard(month: Optional[str] = None, user=Depends(require_super_admin)):
+    """Top referring salons for a month (YYYY-MM): signups brought, qualified, gifts already sent."""
+    month = (month or datetime.now(timezone.utc).strftime("%Y-%m"))[:7]
+    y, m = int(month[:4]), int(month[5:7])
+    lo, hi = f"{y:04d}-{m:02d}-01", f"{y + (m == 12):04d}-{(m % 12) + 1:02d}-01"
+    pipeline = [
+        {"$match": {"created_at": {"$gte": lo, "$lt": hi}}},
+        {"$group": {"_id": "$referrer_tenant_id", "signups": {"$sum": 1},
+                    "qualified": {"$sum": {"$cond": [{"$gt": ["$qualified_at", None]}, 1, 0]}}}},
+        {"$sort": {"qualified": -1, "signups": -1}}, {"$limit": 10}]
+    rows = await _raw_db.affiliate_referrals.aggregate(pipeline).to_list(10)
+    ids = [r["_id"] for r in rows if r["_id"]]
+    tenants = {t["id"]: t for t in await _raw_db.tenants.find(
+        {"id": {"$in": ids}}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "owner_email": 1, "location": 1, "business_type": 1}).to_list(10)}
+    gifts = {g["tenant_id"]: g for g in await _raw_db.referral_gifts.find(
+        {"tenant_id": {"$in": ids}, "month": month}, {"_id": 0}).to_list(10)}
+    out = []
+    for i, r in enumerate(rows):
+        t = tenants.get(r["_id"])
+        if not t:
+            continue
+        out.append({"rank": i + 1, "tenant_id": t["id"], "name": t["name"], "slug": t["slug"], "location": t.get("location", ""),
+                    "business_type": t.get("business_type", "salon"), "signups": r["signups"], "qualified": r["qualified"],
+                    "gift": gifts.get(t["id"])})
+    return {"month": month, "leaders": out}
+
+
+@router.post("/super-admin/referral-leaderboard/{tenant_id}/gift")
+async def referral_gift(tenant_id: str, body: ReferralGiftIn, month: Optional[str] = None, user=Depends(require_super_admin)):
+    """One tap: extend the salon's access by N days and email the owner a thank-you (once per salon per month)."""
+    month = (month or datetime.now(timezone.utc).strftime("%Y-%m"))[:7]
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    if await _raw_db.referral_gifts.find_one({"tenant_id": tenant_id, "month": month}):
+        raise HTTPException(400, "A thank-you gift was already sent to this salon this month")
+    await _extend_access(t, body.days)
+    gift = {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "tenant_name": t.get("name", ""), "month": month,
+            "days": body.days, "note": body.note.strip(), "by": user.get("email", ""),
+            "sent_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.referral_gifts.insert_one({**gift})
+    owner_email = str(t.get("owner_email") or "").lower()
+    email_status = {"sent": False}
+    if owner_email:
+        from email_service import _send_email
+        import html as _h
+        note_html = f'<p style="font-style:italic;color:#5d5340;background:#fdf8ec;border-left:3px solid #d4af37;padding:10px 14px;border-radius:0 10px 10px 0">{_h.escape(body.note.strip())}</p>' if body.note.strip() else ""
+        html = f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fffdf9;border-radius:18px;padding:30px 34px;color:#3a3a42;line-height:1.75">
+          <div style="font-size:18px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+          <h2 style="font-weight:normal;margin:14px 0 6px;color:#15151b">Thank you for spreading the word 🎁</h2>
+          <p>Your salon <b>{_h.escape(t.get('name', ''))}</b> was one of our top referrers this month — new salons joined Miracurl because you recommended us.</p>
+          <div style="background:#15151b;border-radius:14px;padding:18px;text-align:center;color:#d4af37;font-size:26px;margin:16px 0">+{body.days} days FREE<div style="font-size:12px;color:#b9b2a3;margin-top:4px">already added to your Miracurl access</div></div>
+          {note_html}
+          <p>Keep sharing your referral link from Settings → Refer &amp; Earn — every qualified salon earns you more free months.</p>
+          <p style="margin-top:18px">With gratitude,<br><b>Team Miracurl</b></p></div>"""
+        email_status = await _send_email([owner_email], f"A thank-you gift from Miracurl — +{body.days} days free 🎁", html)
+    return {"ok": True, "gift": gift, "email_sent": bool(email_status.get("sent"))}

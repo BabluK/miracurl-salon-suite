@@ -5,6 +5,7 @@ import { Mail, Send, Plus, X, Sparkles, History, BellRing, CheckCircle2, Trash2,
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { FounderReplies } from "@/components/superadmin/FounderReplies";
 import { FounderFunnel } from "@/components/superadmin/FounderFunnel";
+import { ReferralLeaderboard } from "@/components/superadmin/ReferralLeaderboard";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -338,6 +339,7 @@ export function DemoCampaign() {
       )}
 
       <FounderFunnel />
+      <ReferralLeaderboard />
       <FounderReplies />
 
       {history.length > 0 && (

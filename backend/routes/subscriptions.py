@@ -372,6 +372,7 @@ class RzpVerifyIn(BaseModel):
 @router.get("/billing/razorpay/config")
 async def rzp_config(user=Depends(require_tenant_admin)):
     """Public-ish config for the frontend checkout — only the key_id is safe to expose."""
+    await load_plan_overrides()  # always reflect super-admin Plan Catalog edits (same as /public/plans)
     return {
         "enabled": bool(RAZORPAY_KEY_ID),
         "key_id": RAZORPAY_KEY_ID,

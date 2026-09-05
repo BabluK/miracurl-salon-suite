@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.213"
-BUILD_TIME = "05 Sep 2026, 4:30 PM IST"
+BUILD = "2026-09-05.214"
+BUILD_TIME = "05 Sep 2026, 5:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-05.214", "note": "Referral leaderboard + thank-you gift; Settings plan prices always live"},
     {"build": "2026-09-05.213", "note": "Refer & Earn: 1→+1 mo, 3→+2 mo, 5→+3 mo; share hint"},
     {"build": "2026-09-05.212", "note": "New release tag for today's work"},
     {"build": "2026-09-05.211", "note": "Deploy history timeline in the HQ badge popover"},
@@ -31,6 +32,8 @@ RELEASES = [
     {
         "date": "2026-09-05 (Founder outreach, Deploy tools & Mira voice ✍️)",
         "changes": [
+            "🏆 HQ Referral Leaderboard by month with one-tap +30-day thank-you gift",
+            "🩹 Settings → Subscription now always shows the live Plan Catalog prices",
             "🎁 Refer & Earn rewards raised: 1 qualified → +1 month, 3 → +2 months, 5 → +3 months",
             "📨 Refer & Earn explains how WhatsApp / Email sharing works (uses your own apps, nothing to set up)",
             "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
