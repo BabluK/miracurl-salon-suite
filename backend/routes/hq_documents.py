@@ -1330,6 +1330,32 @@ async def run_founder_feedback_asks() -> dict:
     return {"sent": sent, "failed": failed}
 
 
+@router.get("/super-admin/founder-funnel")
+async def founder_funnel(user=Depends(require_super_admin)):
+    """Founder-offer funnel: letters sent → replied → live (6 months set up) → logged in → rated."""
+    sent = await _raw_db.demo_invites.count_documents({"template": "founder"})
+    opened = await _raw_db.demo_invites.count_documents({"template": "founder", "opened_at": {"$nin": [None, ""]}})
+    replied = await _raw_db.demo_invites.count_documents(
+        {"template": "founder", "$or": [{"responded": True}, {"replied_at": {"$exists": True}}]})
+    tenants = await _raw_db.tenants.find({"signup_offer": "founder_6m", "status": {"$ne": "cancelled"}},
+                                         {"_id": 0, "id": 1, "name": 1, "slug": 1, "owner_email": 1, "status": 1,
+                                          "founder_first_login_at": 1, "founder_feedback": 1, "trial_end_date": 1}).to_list(500)
+    logged_in = 0
+    for t in tenants:
+        if not t.get("founder_first_login_at") and await _owner_has_logged_in(str(t.get("owner_email") or "").lower()):
+            await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"founder_first_login_at": datetime.now(timezone.utc).isoformat()}})
+            t["founder_first_login_at"] = "now"
+        logged_in += bool(t.get("founder_first_login_at"))
+    ratings = [int(t["founder_feedback"]["rating"]) for t in tenants if (t.get("founder_feedback") or {}).get("rating")]
+    paid = sum(1 for t in tenants if t.get("status") == "active")
+    return {"sent": sent, "opened": opened, "replied": replied, "live": len(tenants), "logged_in": logged_in,
+            "rated": len(ratings), "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
+            "paid": paid,
+            "salons": [{"name": t["name"], "slug": t["slug"], "status": t.get("status"), "trial_end_date": t.get("trial_end_date"),
+                        "logged_in": bool(t.get("founder_first_login_at")),
+                        "rating": (t.get("founder_feedback") or {}).get("rating")} for t in tenants]}
+
+
 @router.post("/super-admin/founder-replies/feedback/run")
 async def founder_feedback_run(user=Depends(require_super_admin)):
     return await run_founder_feedback_asks()
