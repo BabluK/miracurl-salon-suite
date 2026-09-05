@@ -1,7 +1,7 @@
 import { useState } from "react";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
-import { Gift, Copy, Share2, Wallet, Lock, Loader2 } from "lucide-react";
+import { Gift, Copy, Wallet, Lock, Loader2, MessageCircle, Mail } from "lucide-react";
 
 function AffiliateLinkRow({ slug }) {
   const link = `${window.location.origin}/?ref=${slug}`;
@@ -13,35 +13,40 @@ function AffiliateLinkRow({ slug }) {
       toast.error("Couldn't copy. Long-press the link to copy manually.");
     }
   };
-  const share = async () => {
-    const text = `Move your salon online with Miracurl — 7-day free trial, no card needed. Sign up using my link: ${link}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "Miracurl Salon Suite", text, url: link });
-        return;
-      } catch {
-        // dismissed / unsupported — fall through to WhatsApp
-      }
-    }
+  const text = `Hi! I run my salon on Miracurl — bookings, billing, staff & marketing in one app. Start a free trial (no card needed) with my link: ${link}`;
+  const shareWhatsApp = () => {
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   };
+  const shareEmail = () => {
+    const subject = "Try Miracurl for your salon — my referral link";
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+  };
   return (
-    <div className="mt-1 flex items-center gap-2">
+    <div className="mt-1 flex items-center gap-2 flex-wrap">
       <input
         readOnly
         value={link}
         data-testid="settings-affiliate-link"
-        className="flex-1 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-sm font-mono"
+        className="flex-1 min-w-[220px] px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-sm font-mono"
         onFocus={e => e.target.select()}
       />
       <button type="button" onClick={copy} data-testid="settings-affiliate-copy"
         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50">
         <Copy className="w-4 h-4" /> Copy
       </button>
-      <button type="button" onClick={share} data-testid="settings-affiliate-share"
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white text-sm font-medium hover:from-rose-600 hover:to-fuchsia-700">
-        <Share2 className="w-4 h-4" /> Share
+      <button type="button" onClick={shareWhatsApp} data-testid="settings-affiliate-whatsapp"
+        title="Opens WhatsApp with the message ready — you choose whom to send it to"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700">
+        <MessageCircle className="w-4 h-4" /> WhatsApp
       </button>
+      <button type="button" onClick={shareEmail} data-testid="settings-affiliate-email"
+        title="Opens your own email app (Gmail, Outlook…) with the invite pre-written — sent from your address"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800">
+        <Mail className="w-4 h-4" /> Email
+      </button>
+      <p className="w-full text-[11px] text-slate-400" data-testid="settings-affiliate-share-hint">
+        Nothing to set up: <b>WhatsApp</b> opens your WhatsApp with the invite typed out — pick the salon owner to send it to. <b>Email</b> opens your own mail app (Gmail, Outlook…) so the invite goes from your address. Their signup carries your link automatically.
+      </p>
     </div>
   );
 }

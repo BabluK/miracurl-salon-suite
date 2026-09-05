@@ -2744,3 +2744,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-05 — 🏷 Release tag fix (user caught it)
 - Today's 24 change lines had been appended under the 2026-09-03 release. Split into a new RELEASES entry "2026-09-05 (Founder outreach, Deploy tools & Mira voice ✍️)". **Rule**: each new working day / deploy batch gets its own short RELEASES tag (date + ≤6-word theme) — never append to a previous day's tag. BUILD .212.
+
+## 2026-09-05 — 🎁 Refer & Earn tiers + share explanation
+- `_REF_MILESTONES = [(1,30),(3,60),(5,90)]` (was 7/30/90); nudge email copy updated. UI (ReferEarnCard) is data-driven → shows "1 qualified → +1 month · 3 → +2 months · 5 → +3 months". Added share hint (WhatsApp/Email use the owner's own apps — wa.me / mailto — nothing to configure). Older `AffiliateCard` now has explicit WhatsApp + Email buttons too. BUILD .213.

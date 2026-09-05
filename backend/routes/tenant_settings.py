@@ -818,7 +818,7 @@ async def set_wa_direct(body: WADirectIn, user=Depends(require_admin), t=Depends
 
 # ---------------- Refer & Earn: qualified referrals auto-extend access ----------------
 
-_REF_MILESTONES = [(1, 7), (3, 30), (5, 90)]  # qualified count -> bonus days
+_REF_MILESTONES = [(1, 30), (3, 60), (5, 90)]  # qualified count -> bonus days
 
 
 async def _ref_activated(tid: str, rt: dict) -> bool:
@@ -926,7 +926,7 @@ def _referral_nudge_html(t: dict, need: int, reward: str, link: str, qualified: 
       (services + staff + 5 bills in their first 14 days), your own plan extends <b style="color:#d4af37">automatically</b>.
     </p>
     <p style="color:#c9bfa8;font-size:13px;line-height:1.7">
-      1 qualified referral → <b style="color:#d4af37">+7 days</b> · 3 → <b style="color:#d4af37">+1 month</b> · 5 → <b style="color:#d4af37">+3 months FREE</b><br>
+      1 qualified referral → <b style="color:#d4af37">+1 month</b> · 3 → <b style="color:#d4af37">+2 months</b> · 5 → <b style="color:#d4af37">+3 months FREE</b><br>
       Your progress so far: <b style="color:#7fd7a4">{qualified} qualified</b> — just {need} more to unlock {reward}!
     </p>
     <a href="{link}" style="display:inline-block;margin-top:12px;background:linear-gradient(180deg,#F0D9A5,#C89B52);color:#211a0e;

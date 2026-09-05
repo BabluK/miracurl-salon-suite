@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.212"
-BUILD_TIME = "05 Sep 2026, 4:10 PM IST"
+BUILD = "2026-09-05.213"
+BUILD_TIME = "05 Sep 2026, 4:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-05.213", "note": "Refer & Earn: 1→+1 mo, 3→+2 mo, 5→+3 mo; share hint"},
     {"build": "2026-09-05.212", "note": "New release tag for today's work"},
     {"build": "2026-09-05.211", "note": "Deploy history timeline in the HQ badge popover"},
     {"build": "2026-09-05.210", "note": "Mira cheers once when production catches up"},
@@ -30,6 +31,8 @@ RELEASES = [
     {
         "date": "2026-09-05 (Founder outreach, Deploy tools & Mira voice ✍️)",
         "changes": [
+            "🎁 Refer & Earn rewards raised: 1 qualified → +1 month, 3 → +2 months, 5 → +3 months",
+            "📨 Refer & Earn explains how WhatsApp / Email sharing works (uses your own apps, nothing to set up)",
             "📒 Monthly Cash Report — Cash Register now has a 'Monthly report' tab (managers & owners): cash collected, total expenses, cash handed over and net cash for any month, broken down by category (with bars & %), by staff (entries, how many had bills, amount) and day by day — plus 'Download report (CSV)' that opens in Excel/Google Sheets with every entry and all the summaries",
             "📬 Cash reports go to your Salon email — the evening Cash Register email and 'Email owner now' are sent to the Salon email you set in Settings → Branding (falling back to your login email if it's empty); the button shows exactly where it will go",
             "💵 Cash Register (new page for staff, managers & owners) — log every petty expense in seconds: amount, what for (tea, salon supplies, cleaning, travel, repair…), who logged it, and 'Bill available ✓ — kept at the counter'. Also record cash handed to the owner / bank. The page shows Opening cash (yesterday's closing carried forward automatically) + today's cash collection from POS − expenses = Cash in hand, and warns when cash is short. Owners receive a Daily Cash Register email every evening (8:30 PM) with the full list, who logged each item and which bills are waiting at the counter; managers can also 'Email owner now'. Staff can log today only; managers/owners can browse and correct past days",

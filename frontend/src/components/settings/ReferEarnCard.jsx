@@ -58,6 +58,9 @@ export function ReferEarnCard() {
         <a href={`mailto:?subject=${encodeURIComponent("Try Miracurl Suite — free trial")}&body=${encodeURIComponent(shareMsg)}`} data-testid="refer-share-email"
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 text-white text-xs font-bold hover:bg-slate-700"><Mail className="w-3.5 h-3.5" /> Email</a>
       </div>
+      <p className="text-[11px] text-slate-400 mt-2" data-testid="refer-share-hint">
+        Nothing to set up — <b>WhatsApp</b> opens your own WhatsApp with the invite typed out (you pick the salon owner); <b>Email</b> opens your own mail app (Gmail, Outlook…) so it goes from your address. Their signup carries your link automatically.
+      </p>
       {data.referrals.length > 0 && (
         <div className="mt-4" data-testid="refer-list">
           <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Your referrals</div>
