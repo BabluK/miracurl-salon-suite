@@ -6,21 +6,33 @@ import os
 import re
 import secrets
 import uuid
-from datetime import datetime, timezone, timedelta, date
-from typing import Optional
+from datetime import date, datetime, timedelta, timezone
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr, Field
 
-from database import db, _raw_db
+from database import _raw_db, db
 from models import Tenant
 from security import (
-    JWT_ALG, jwt_secret, hash_pw, verify_pw, make_access, make_refresh,
-    set_auth_cookies, get_current_user, require_tenant_admin, current_tenant,
-    public_rate_limit, global_daily_cap, revoke_token_jtis, _reject_if_revoked,
-    _reject_if_token_predates_password_change, client_ip,
-    start_session, current_sid,
+    JWT_ALG,
+    _reject_if_revoked,
+    _reject_if_token_predates_password_change,
+    client_ip,
+    current_sid,
+    current_tenant,
+    get_current_user,
+    global_daily_cap,
+    hash_pw,
+    jwt_secret,
+    make_access,
+    make_refresh,
+    public_rate_limit,
+    require_tenant_admin,
+    revoke_token_jtis,
+    set_auth_cookies,
+    start_session,
+    verify_pw,
 )
 
 router = APIRouter()
@@ -40,7 +52,7 @@ class LoginIn(BaseModel):
 GRACE_DAYS = 60  # HQ courtesy window after expiry before login is blocked
 
 
-def _subscription_deadline(t: dict) -> Optional[date]:
+def _subscription_deadline(t: dict) -> date | None:
     """Last allowed login day: subscription/trial end + grace days (or explicit grace_until)."""
     end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
     if not end:
@@ -115,13 +127,13 @@ def _raise_subscription_expired(end) -> None:
 
 class ForgotIn(BaseModel):
     email: EmailStr
-    personal_email: Optional[EmailStr] = None
+    personal_email: EmailStr | None = None
 
 class ResetIn(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8, max_length=128)
 
-async def _match_unclaimed_staff(email: str) -> tuple[Optional[dict], Optional[dict]]:
+async def _match_unclaimed_staff(email: str) -> tuple[dict | None, dict | None]:
     """(staff, tenant) when the email exactly matches a staff profile no user has claimed yet."""
     m = await _raw_db.staff.find_one(
         {"email": {"$regex": f"^{re.escape(email)}$", "$options": "i"}},
@@ -184,7 +196,7 @@ class StaffAttachIn(BaseModel):
     role: str = Field("staff", pattern=r"^(staff|admin)$")
 
 
-async def _link_matched_staff(target: dict, tenant_id: str, user_id: str) -> Optional[str]:
+async def _link_matched_staff(target: dict, tenant_id: str, user_id: str) -> str | None:
     """After approval: link the user to their matched staff profile if it is still unclaimed."""
     if not target.get("matched_staff_id") or target.get("matched_tenant_id") != tenant_id:
         return None
@@ -270,19 +282,19 @@ def slugify(name: str) -> str:
 
 class SalonSignupIn(BaseModel):
     salon_name: str = Field(..., min_length=3, max_length=80)
-    slug: Optional[str] = None  # auto-generated if blank
+    slug: str | None = None  # auto-generated if blank
     owner_name: str = Field(..., min_length=2, max_length=80)
     owner_email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
-    location: Optional[str] = None
-    phone: Optional[str] = None
-    ref: Optional[str] = None  # affiliate referrer slug (Refer-a-salon program)
-    offer: Optional[str] = Field(None, max_length=20)  # e.g. "newbiz" → 90-day trial
-    newly_opened: Optional[bool] = False  # self-declared new business on the signup page
-    opening_date: Optional[str] = Field(None, max_length=10)  # ISO date, past or future
-    region: Optional[str] = Field(None, pattern="^(in|intl)$")  # pricing region picked at signup
-    timezone: Optional[str] = Field(None, max_length=64)  # browser timezone (stored for intl salons)
-    business_type: Optional[str] = Field("salon", pattern="^(salon|restaurant)$")
+    location: str | None = None
+    phone: str | None = None
+    ref: str | None = None  # affiliate referrer slug (Refer-a-salon program)
+    offer: str | None = Field(None, max_length=20)  # e.g. "newbiz" → 90-day trial
+    newly_opened: bool | None = False  # self-declared new business on the signup page
+    opening_date: str | None = Field(None, max_length=10)  # ISO date, past or future
+    region: str | None = Field(None, pattern="^(in|intl)$")  # pricing region picked at signup
+    timezone: str | None = Field(None, max_length=64)  # browser timezone (stored for intl salons)
+    business_type: str | None = Field("salon", pattern="^(salon|restaurant)$")
 
 
 from constants import AFFILIATE_REWARD_INR  # noqa: F401  (re-exported for back-compat)
@@ -302,7 +314,7 @@ async def _resolve_unique_slug(body: SalonSignupIn) -> str:
     return candidate
 
 
-async def _resolve_referrer(ref: Optional[str], candidate: str) -> Optional[dict]:
+async def _resolve_referrer(ref: str | None, candidate: str) -> dict | None:
     """Refer-a-salon program — silently ignore invalid/self-ref to keep signup smooth."""
     if not ref:
         return None
@@ -402,7 +414,11 @@ async def _send_newbiz_plan_email(tenant: dict, owner_email: str, trial_end: str
 
 
 async def _send_signup_welcome(tenant: dict, body: SalonSignupIn, trial_end: str) -> None:
-    from email_service import _send_email, restaurant_welcome_email_html, salon_welcome_email_html
+    from email_service import (
+        _send_email,
+        restaurant_welcome_email_html,
+        salon_welcome_email_html,
+    )
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     # SEC-001: poster (paid AI image) is generated on the owner's FIRST LOGIN, not at signup
     poster_url = ""
@@ -824,7 +840,7 @@ async def change_login_email(body: LoginEmailIn, request: Request, user=Depends(
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"id": user["id"]}, {"$set": {"email": new_email, "login_email_changed_at": now},
                                                    "$push": {"previous_emails": {"email": full["email"], "changed_at": now}}})
-    await db.login_attempts.delete_many({"identifier": {"$regex": f"{__import__('re').escape(full['email'])}$"}})
+    await db.login_attempts.delete_many({"identifier": {"$regex": f"{re.escape(full['email'])}$"}})
     logging.info("[Miracurl] super-admin login email changed %s -> %s", full["email"], new_email)
     return {"ok": True, "email": new_email, "previous_email": full["email"]}
 
@@ -836,20 +852,37 @@ class ProfileIn(BaseModel):
     phone: str = Field("", max_length=20)
 
 
-@router.put("/auth/me/profile")
-async def update_my_profile(body: ProfileIn, user=Depends(get_current_user)):
-    """Own profile: display name, real inbox (Gmail), Instagram handle, WhatsApp number."""
+def _validate_notify_email(raw: str) -> str | None:
     from email_service import _is_login_only
-    ne = body.notify_email.strip().lower()
-    if ne and ("@" not in ne or "." not in ne.rsplit("@", 1)[-1]):
+    ne = raw.strip().lower()
+    if not ne:
+        return None
+    if "@" not in ne or "." not in ne.rsplit("@", 1)[-1]:
         raise HTTPException(400, "Enter a valid email address")
-    if ne and _is_login_only(ne):
+    if _is_login_only(ne):
         raise HTTPException(400, "That domain is login-only — use a real inbox (Gmail, company mail, etc.)")
-    ig = body.instagram.strip().lstrip("@").split("/")[-1]
-    if ig and not __import__("re").fullmatch(r"[A-Za-z0-9._]{1,30}", ig):
+    return ne
+
+
+def _validate_instagram(raw: str) -> str | None:
+    ig = raw.strip().lstrip("@").rstrip("/").split("/")[-1]
+    if not ig:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9._]{1,30}", ig):
         raise HTTPException(400, "Instagram handle can only contain letters, numbers, dots and underscores")
-    ph = "".join(ch for ch in body.phone if ch.isdigit() or ch == "+")
-    upd = {"notify_email": ne or None, "instagram": ig or None, "phone": ph or None}
+    return ig
+
+
+def _normalize_phone(raw: str) -> str | None:
+    return "".join(ch for ch in raw if ch.isdigit() or ch == "+") or None
+
+
+@router.put("/auth/me/profile")
+async def update_my_profile(body: ProfileIn, user=Depends(get_current_user)) -> dict:
+    """Own profile: display name, real inbox (Gmail), Instagram handle, WhatsApp number."""
+    upd: dict = {"notify_email": _validate_notify_email(body.notify_email),
+                 "instagram": _validate_instagram(body.instagram),
+                 "phone": _normalize_phone(body.phone)}
     if body.name.strip():
         upd["name"] = body.name.strip()
     await db.users.update_one({"id": user["id"]}, {"$set": upd})

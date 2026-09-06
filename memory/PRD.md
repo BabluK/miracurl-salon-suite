@@ -2815,3 +2815,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-06 — 📱 Instagram Story winner card (1080×1920)
 - `fmt=story|square` query param on all three winner-card endpoints (`_winner_card_png(..., story=True)`): larger logo/hero/type, "Your style. Your story. Your moment." line, QR + footer kept above ~1650px (Instagram bottom UI safe-zone). Unknown fmt → square.
 - Story buttons: HQ participants (`rewards-card-story-{id}`), owner Settings winners (`rewards-winner-story-{id}`), public winner badge (`rewards-winner-card-story`). Download verified in browser (brand-model-ananya-rao-story.png). Code review: READY (LOW safe-zone note fixed).
+
+## 2026-09-06 — Code-quality report fixes
+- `security.py`: CSRF key derivation unchanged (JWT_SECRET from env); the flagged literal is a domain-separation label, now a named constant with explanation — no token invalidation for live users.
+- `routes/auth.py`: removed `__import__('re')` dynamic imports (module-level `re`); `update_my_profile` split into `_validate_notify_email / _validate_instagram / _normalize_phone`.
+- `email_service.py`: `_resolve_recipients` decomposed into `_real / _user_inbox / _staff_inbox / _tenant_inbox / _inboxes_for_login` (complexity 24 → ~5 each).
+- `routes/growth_advisory.py`: `_progress` split into `_tracker_window / _monthly_trend / _milestones`.
+- ruff --fix (imports, `X | None` annotations) on the touched files. Not done (deliberately, too broad/risky for a hot production codebase): server.py router-module split, service-layer extraction of lead_gen/hq_documents, global type-hint pass — tracked as backlog P2.

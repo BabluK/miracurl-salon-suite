@@ -97,11 +97,45 @@ def _is_login_only(addr: str) -> bool:
     return (addr or "").lower().rpartition("@")[2] in _LOGIN_ONLY_DOMAINS
 
 
-async def _resolve_recipients(to: list) -> list:
-    """Login-only addresses (@miracurl.com) are swapped for the account's real inbox:
-    users.notify_email → staff.personal_email → tenant notify_email/owner_email → HQ aliases for super-admin."""
+def _real(addr: str | None) -> str | None:
+    """Return addr only if it is a deliverable (non login-only) address."""
+    return addr if addr and not _is_login_only(addr) else None
+
+
+async def _user_inbox(user: dict | None) -> str | None:
+    return _real((user or {}).get("notify_email"))
+
+
+async def _staff_inbox(login: str) -> str | None:
     from database import _raw_db
-    out = []
+    staff = await _raw_db.staff.find_one({"email": login}, {"_id": 0, "personal_email": 1})
+    return _real((staff or {}).get("personal_email"))
+
+
+async def _tenant_inbox(user: dict | None) -> str | None:
+    from database import _raw_db
+    if not user or not user.get("tenant_id"):
+        return None
+    t = await _raw_db.tenants.find_one({"id": user["tenant_id"]}, {"_id": 0, "notify_email": 1, "owner_email": 1}) or {}
+    return _real(t.get("notify_email")) or _real(t.get("owner_email"))
+
+
+async def _inboxes_for_login(login: str) -> list[str]:
+    """Deliverable inboxes for a login-only address, first match wins:
+    users.notify_email → staff.personal_email → tenant notify/owner email → HQ aliases (super-admin)."""
+    from database import _raw_db
+    user = await _raw_db.users.find_one({"email": login}, {"_id": 0, "notify_email": 1, "role": 1, "tenant_id": 1})
+    for found in (await _user_inbox(user), await _staff_inbox(login), await _tenant_inbox(user)):
+        if found:
+            return [found]
+    if (user or {}).get("role") == "super_admin":
+        return hq_notify_emails("admin") + hq_notify_emails("support")
+    return []
+
+
+async def _resolve_recipients(to: list) -> list[str]:
+    """Swap login-only addresses (@miracurl.com) for real inboxes; keep everything else as-is."""
+    out: list[str] = []
     for addr in to or []:
         a = (addr or "").strip()
         if not a:
@@ -109,23 +143,7 @@ async def _resolve_recipients(to: list) -> list:
         if not _is_login_only(a):
             out.append(a)
             continue
-        low = a.lower()
-        real = []
-        user = await _raw_db.users.find_one({"email": low}, {"_id": 0, "notify_email": 1, "role": 1, "tenant_id": 1})
-        if user and user.get("notify_email") and not _is_login_only(user["notify_email"]):
-            real = [user["notify_email"]]
-        if not real:
-            staff = await _raw_db.staff.find_one({"email": low}, {"_id": 0, "personal_email": 1})
-            if staff and staff.get("personal_email") and not _is_login_only(staff["personal_email"]):
-                real = [staff["personal_email"]]
-        if not real and user and user.get("tenant_id"):
-            t = await _raw_db.tenants.find_one({"id": user["tenant_id"]}, {"_id": 0, "notify_email": 1, "owner_email": 1})
-            for k in ("notify_email", "owner_email"):
-                if t and t.get(k) and not _is_login_only(t[k]):
-                    real = [t[k]]
-                    break
-        if not real and (user or {}).get("role") == "super_admin":
-            real = hq_notify_emails("admin") + hq_notify_emails("support")
+        real = await _inboxes_for_login(a.lower())
         if real:
             out.extend(real)
         else:

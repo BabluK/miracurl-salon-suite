@@ -1,17 +1,18 @@
 """Auth & tenancy security: JWT, cookies, password hashing, role guards, rate limit."""
-import os
-import hmac
+import asyncio
 import hashlib
+import hmac
+import os
 import secrets
 import uuid
-import asyncio
-import jwt
+from datetime import datetime, timedelta, timezone
+
 import bcrypt
-from datetime import datetime, timezone, timedelta
-from typing import Optional
-from fastapi import HTTPException, Depends, Request, Response
+import jwt
+from fastapi import Depends, HTTPException, Request, Response
 from pymongo import ReturnDocument
-from database import db, _current_tenant_id, _super_admin_ok, _raw_db
+
+from database import _current_tenant_id, _raw_db, _super_admin_ok, db
 
 # ---------------- JWT helpers ----------------
 JWT_ALG = "HS256"
@@ -26,7 +27,7 @@ def verify_pw(p: str, h: str) -> bool:
     except Exception:
         return False
 
-def make_access(user_id: str, email: str, sid: Optional[str] = None) -> str:
+def make_access(user_id: str, email: str, sid: str | None = None) -> str:
     payload = {"sub": user_id, "email": email,
                "jti": uuid.uuid4().hex,
                "iat": int(datetime.now(timezone.utc).timestamp()),
@@ -36,7 +37,7 @@ def make_access(user_id: str, email: str, sid: Optional[str] = None) -> str:
         payload["sid"] = sid
     return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALG)
 
-def make_refresh(user_id: str, sid: Optional[str] = None) -> str:
+def make_refresh(user_id: str, sid: str | None = None) -> str:
     payload = {"sub": user_id,
                "jti": uuid.uuid4().hex,
                "iat": int(datetime.now(timezone.utc).timestamp()),
@@ -133,7 +134,7 @@ async def start_session(user_id: str, email: str, tenant_id, request: Request, m
     return sid
 
 
-def current_sid(request: Request) -> Optional[str]:
+def current_sid(request: Request) -> str | None:
     token = _extract_bearer_token(request)
     if not token:
         return None
@@ -193,8 +194,13 @@ def set_auth_cookies(resp: Response, access: str, refresh: str, persistent: bool
 # X-CSRF-Token header on every state-changing call. A cross-site attacker can
 # neither read the cookie nor forge a valid HMAC.
 
+# Domain-separation label (NOT a secret): keeps the CSRF HMAC key distinct from the
+# JWT signing key. The only secret material is JWT_SECRET, read from the environment.
+_CSRF_KEY_LABEL = "csrf-v1:"
+
+
 def _csrf_key() -> bytes:
-    return ("csrf-v1:" + jwt_secret()).encode()
+    return (_CSRF_KEY_LABEL + jwt_secret()).encode()
 
 
 def make_csrf_token(anchor: str) -> str:
@@ -203,7 +209,7 @@ def make_csrf_token(anchor: str) -> str:
     return f"{anchor}.{nonce}.{mac}"
 
 
-def csrf_token_valid(value: str, expected_anchor: Optional[str] = None) -> bool:
+def csrf_token_valid(value: str, expected_anchor: str | None = None) -> bool:
     try:
         anchor, nonce, mac = value.rsplit(".", 2)
         good = hmac.compare_digest(
@@ -226,7 +232,7 @@ def set_csrf_cookie(resp: Response, access_token: str, persistent: bool = True):
     resp.set_cookie("csrf_token", make_csrf_token(anchor), httponly=False, secure=_sec,
                     samesite="lax", max_age=604800 if persistent else None, path="/")
 
-def _extract_bearer_token(request: Request) -> Optional[str]:
+def _extract_bearer_token(request: Request) -> str | None:
     token = request.cookies.get("access_token")
     if token:
         return token

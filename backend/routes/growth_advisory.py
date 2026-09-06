@@ -5,12 +5,11 @@ import html as html_lib
 import os
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from database import db, _raw_db
+from database import _raw_db
 from security import current_tenant, require_super_admin, require_tenant_admin
 from services.billing import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, _rzp_client
 
@@ -190,48 +189,51 @@ def _add_months(d: date, n: int) -> date:
     return d.replace(year=d.year + m // 12, month=m % 12 + 1, day=1)
 
 
-async def _progress(b: dict) -> Optional[dict]:
-    if b.get("status") not in ("scheduled", "completed"):
-        return None
+def _tracker_window(b: dict) -> tuple[date, date, int]:
     tr = b.get("tracker") or {}
     start_s = tr.get("start_date") or ((b.get("session") or {}).get("slot_at") or b.get("paid_at") or b["created_at"])[:10]
-    target = int(tr.get("target_monthly") or 300000)
     start = date.fromisoformat(start_s)
-    today = datetime.now(timezone.utc).date()
-    end = start + timedelta(days=90)
-    tid = b["tenant_id"]
-    months = []
-    cur = _month_start(today)
+    return start, start + timedelta(days=90), int(tr.get("target_monthly") or 300000)
+
+
+async def _monthly_trend(tid: str, today: date) -> list[dict]:
+    """Revenue for the last 3 full months + current month."""
+    cur, out = _month_start(today), []
     for i in range(3, -1, -1):
         ms = _add_months(cur, -i)
-        me = _add_months(ms, 1)
-        rev = await _revenue_between(tid, ms.isoformat(), me.isoformat())
-        months.append({"label": ms.strftime("%b"), "month": ms.isoformat()[:7], "revenue": round(rev), "current": i == 0})
-    current_rev = months[-1]["revenue"]
-    base_start, base_end = _add_months(_month_start(start), -3), _month_start(start)
-    baseline = await _revenue_between(tid, base_start.isoformat(), base_end.isoformat()) / 3
-    milestones = []
+        rev = await _revenue_between(tid, ms.isoformat(), _add_months(ms, 1).isoformat())
+        out.append({"label": ms.strftime("%b"), "month": ms.isoformat()[:7], "revenue": round(rev), "current": i == 0})
+    return out
+
+
+async def _milestones(tid: str, start: date, today: date, target: int) -> list[dict]:
+    out = []
     for day in (30, 60, 90):
         md = start + timedelta(days=day)
         reached = today >= md
         rev = await _revenue_between(tid, (md - timedelta(days=30)).isoformat(), md.isoformat()) if reached else None
-        milestones.append({"day": day, "date": md.isoformat(), "reached": reached, "revenue": round(rev) if rev is not None else None,
-                           "hit_target": (rev >= target) if rev is not None else None})
+        out.append({"day": day, "date": md.isoformat(), "reached": reached,
+                    "revenue": round(rev) if rev is not None else None,
+                    "hit_target": (rev >= target) if rev is not None else None})
+    return out
+
+
+async def _progress(b: dict) -> dict | None:
+    if b.get("status") not in ("scheduled", "completed"):
+        return None
+    start, end, target = _tracker_window(b)
+    today = datetime.now(timezone.utc).date()
+    tid = b["tenant_id"]
+    months = await _monthly_trend(tid, today)
+    current_rev = months[-1]["revenue"]
+    base_end = _month_start(start)
+    baseline = await _revenue_between(tid, _add_months(base_end, -3).isoformat(), base_end.isoformat()) / 3
     return {"target_monthly": target, "start_date": start.isoformat(), "end_date": end.isoformat(),
             "day": max(0, min(90, (today - start).days)), "days_left": max(0, (end - today).days),
-            "current_month_revenue": current_rev, "pct_to_target": round(min(100.0, current_rev / target * 100), 1) if target else 0,
-            "baseline_monthly": round(baseline), "months": milestones and months, "milestones": milestones,
-            "custom": bool(tr)}
-
-
-@router.post("/super-admin/growth-advisory/bookings/{booking_id}/status")
-async def sa_status(booking_id: str, body: StatusIn, user=Depends(require_super_admin)):
-    r = await _raw_db.advisory_bookings.update_one(
-        {"id": booking_id, "status": {"$in": list(STATUSES)}},
-        {"$set": {"status": body.status, f"{body.status}_at": datetime.now(timezone.utc).isoformat(), "status_by": user.get("email")}})
-    if not r.matched_count:
-        raise HTTPException(404, "Booking not found")
-    return {"ok": True, "status": body.status}
+            "current_month_revenue": current_rev,
+            "pct_to_target": round(min(100.0, current_rev / target * 100), 1) if target else 0,
+            "baseline_monthly": round(baseline), "months": months,
+            "milestones": await _milestones(tid, start, today, target), "custom": bool(b.get("tracker"))}
 
 
 # ── Tenant owner ──
