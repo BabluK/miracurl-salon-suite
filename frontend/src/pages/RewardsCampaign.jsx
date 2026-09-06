@@ -352,7 +352,7 @@ export default function RewardsCampaign() {
             <div className="mt-5 flex items-center gap-4 flex-wrap text-xs text-white/55" data-testid="rewards-period">
               <span>{fmtDate(c.start_date)} → {fmtDate(c.end_date)}</span><span className="w-1 h-1 rounded-full bg-[#d4af37]" /><span>{d.participants} applicant{d.participants === 1 ? "" : "s"} so far</span><span className="w-1 h-1 rounded-full bg-[#d4af37]" /><span>{d.winners.length} of {c.winner_count} Brand Models chosen</span>
             </div>
-            {!d.eligible && <div className="mt-4 inline-block rounded-xl bg-amber-500/15 border border-amber-400/40 px-4 py-2 text-xs text-amber-200" data-testid="rewards-not-live">{d.live ? "This salon isn't part of the casting yet." : "Casting isn't open right now — check back soon."}</div>}
+            {!d.eligible && <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-amber-500/15 border border-amber-400/40 px-4 py-2 text-xs text-amber-200" data-testid="rewards-not-live"><CalendarDays className="w-3.5 h-3.5" />{!d.salon_on ? "This salon isn't part of the casting yet." : d.status === "upcoming" ? `Casting opens ${fmtDate(c.start_date)} — applications go live that day.` : d.status === "ended" ? `Casting closed on ${fmtDate(c.end_date)}. Watch this page for the Brand Model reveal.` : "Casting isn't open right now — check back soon."}</div>}
             <div className="mt-7 flex gap-3 flex-wrap">
               <a href="#apply" className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm shadow-[0_10px_30px_-10px_rgba(212,175,55,.8)]" data-testid="rewards-hero-apply">Apply now <Sparkles className="w-4 h-4" /></a>
               <a href="#models" className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/20 text-white text-sm hover:border-[#d4af37]/60" data-testid="rewards-hero-models">Meet the models</a>
@@ -421,7 +421,14 @@ export default function RewardsCampaign() {
               <div className="text-[10px] tracking-[0.3em] uppercase text-[#d4af37]">Casting call</div>
               <h3 className="font-playfair text-2xl mt-2">Apply to be our Brand Model</h3>
               <p className="text-[12.5px] text-white/60 mt-1 mb-4">Takes 20 seconds. We'll email you the casting details.</p>
-              {d.eligible ? <JoinForm slug={slug} refCode={sp.get("ref")} onJoined={joined} /> : <p className="text-xs text-white/50">Applications open when the casting is live.</p>}
+              {d.eligible ? <JoinForm slug={slug} refCode={sp.get("ref")} onJoined={joined} /> : (
+                <div className="rounded-2xl border border-dashed border-[#d4af37]/40 bg-black/30 p-4 text-center" data-testid="rewards-apply-closed">
+                  <CalendarDays className="w-6 h-6 mx-auto text-[#d4af37]" />
+                  <div className="font-playfair text-lg text-white mt-2">{!d.salon_on ? "Not open at this salon yet" : d.status === "upcoming" ? `Opens ${fmtDate(c.start_date)}` : d.status === "ended" ? "Casting closed" : "Casting paused"}</div>
+                  <p className="text-[12px] text-white/60 mt-1">{d.status === "upcoming" ? "Come back on opening day — or book your appointment now so your first eligible visit lands inside the casting window." : d.status === "ended" ? `Applications closed ${fmtDate(c.end_date)}. Brand Models are announced on this page.` : "Follow the salon to hear when applications open."}</p>
+                  <Link to={`/book/${slug}`} className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold" data-testid="rewards-apply-closed-book">Book an appointment <ArrowRight className="w-3.5 h-3.5" /></Link>
+                </div>
+              )}
             </div>
           )}
           {phone && <button onClick={() => { localStorage.removeItem(`rewards_phone_${slug}`); setPhone(""); }} className="text-[11px] text-white/40 hover:text-white/70" data-testid="rewards-switch">Not you? Apply with another number</button>}

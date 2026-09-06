@@ -138,6 +138,12 @@ export function RewardsCampaignCard() {
           </div>
         </div>
 
+        {c.enabled && !c.live && (
+          <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 flex items-center gap-3 flex-wrap" data-testid="rewards-scheduled-warning">
+            <span>⏳ <b>Scheduled, not live.</b> {c.start_date > new Date().toISOString().slice(0, 10) ? `Applications open on ${c.start_date} — the public page shows "Opens ${c.start_date}" until then.` : `The campaign ended on ${c.end_date}.`}</span>
+            <button onClick={() => save({ start_date: new Date().toISOString().slice(0, 10), ...(c.end_date < new Date().toISOString().slice(0, 10) ? { end_date: new Date(Date.now() + 60 * 864e5).toISOString().slice(0, 10) } : {}) })} disabled={saving} data-testid="rewards-go-live-now" className="ml-auto px-3 py-1.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold hover:brightness-110 disabled:opacity-50">Go live today</button>
+          </div>
+        )}
         <div className="flex gap-2.5 flex-wrap">
           <StatChip icon={Store} label="Salons ON" value={`${onCount} / ${tenants.length}`} testId="rewards-stat-salons" />
           <StatChip icon={Users} label="Enrolled" value={c.participants} testId="rewards-stat-enrolled" />

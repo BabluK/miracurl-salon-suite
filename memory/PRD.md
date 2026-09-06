@@ -2797,3 +2797,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - HQ → Security tab: `SuperAdminProfileCard` (display name, Gmail/notification inbox, Instagram ID, WhatsApp, + Login email change block). Tenant Settings keeps `NotifyEmailCard`.
 - `GET /super-admin/tenants` adds `inbox_ok` (any admin user of the tenant with a real notify/login email, or tenant notify_email/owner_email not login-only). Tenants list shows pulsing red **"No inbox"** badge (`inbox-health-{id}`) with guidance tooltip.
 - Test creds unchanged: super@miracurl.com (rename tested and reverted).
+
+## 2026-09-06 — ⏳ Scheduled-campaign clarity
+- User confusion: campaign "ON · scheduled" (start 2026-10-01) showed "Applications open when the casting is live" with no reason. Public API now returns `status` (live|upcoming|ended|off) + `salon_on`; page shows "Casting opens {date}" / "Casting closed" with a Book-appointment CTA (`rewards-apply-closed`). HQ card shows an amber "Scheduled, not live" strip with a one-click **Go live today** (`rewards-go-live-now`) that sets start_date = today (and extends end_date if past).

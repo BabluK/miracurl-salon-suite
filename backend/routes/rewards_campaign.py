@@ -5,7 +5,7 @@ import html as html_lib
 import os
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -345,8 +345,12 @@ async def public_campaign(slug: str):
     winners.sort(key=lambda w: order.get(w["winner_tier"], 99))
     pub = {k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "entry_rules", "terms")}
     pub["events"] = _campaign_events(c)
+    today = date.today().isoformat()
+    status = ("live" if _is_live(c) else "upcoming" if c.get("enabled") and c["start_date"] > today
+              else "ended" if c.get("enabled") and c["end_date"] < today else "off")
     return {"campaign": pub, "salon": {k: t.get(k) for k in ("name", "slug", "logo_url", "location", "phone", "business_type")},
-            "eligible": eligible, "live": _is_live(c), "participants": await _raw_db.rewards_participants.count_documents({}),
+            "eligible": eligible, "live": _is_live(c), "status": status, "salon_on": _tenant_eligible(c, t),
+            "participants": await _raw_db.rewards_participants.count_documents({}),
             "winners": winners}
 
 
