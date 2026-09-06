@@ -1,7 +1,7 @@
 """Miracurl Customer Rewards campaign — Super Admin configures, customers join from the salon's public page,
 entries are computed live from POS bills / referrals / reviews, Top-10 winners are showcased."""
-import html as html_lib
 import logging
+import html as html_lib
 import os
 import re
 import uuid
@@ -227,8 +227,9 @@ async def tenant_campaign(user=Depends(require_tenant_admin), t=Depends(current_
         p["entries"] = await _compute_entries(c, p)
     parts.sort(key=lambda p: (-p["entries"]["total"], p["joined_at"]))
     pub = {k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "eligible_plans")}
+    nudges = await _raw_db.rewards_nudges.find({"tenant_id": t["id"], "wa_done": False}, {"_id": 0}).sort("created_at", -1).to_list(50)
     return {"campaign": pub, "enabled": bool(c.get("enabled")), "live": _is_live(c), "eligible": _tenant_eligible(c, t) and _is_live(c),
-            "plan_ok": _tenant_eligible(c, t), "participants": parts, "slug": t.get("slug")}
+            "plan_ok": _tenant_eligible(c, t), "participants": parts, "slug": t.get("slug"), "nudges": nudges}
 
 
 async def _rewards_poster_jpeg(t: dict, c: dict, origin: str) -> bytes:
@@ -443,7 +444,7 @@ async def public_me(slug: str, phone: str, request: Request):
         raise HTTPException(404, "No entry for this phone number yet")
     entries = await _compute_entries(c, p)
     return {"id": p["id"], "name": p["name"], "ref_code": p["ref_code"], "entries": entries, "photo_url": p.get("photo_url"),
-            "story": p.get("story", ""), "winner_tier": p.get("winner_tier")}
+            "story": p.get("story", ""), "winner_tier": p.get("winner_tier"), "vote_milestones": p.get("vote_milestones") or []}
 
 
 @router.post("/public/rewards/{slug}/photo")
@@ -694,4 +695,69 @@ async def public_vote(slug: str, body: VoteIn, request: Request):
                                                "tenant_id": p["tenant_id"], "salon_slug": slug, "at": _now()})
         voted = True
     votes = await _raw_db.rewards_votes.count_documents({"participant_id": p["id"]})
-    return {"ok": True, "voted": voted, "votes": votes}
+    milestone = await _check_vote_milestones(p["id"], votes, slug) if voted else None
+    return {"ok": True, "voted": voted, "votes": votes, "milestone": milestone}
+
+
+# ── Vote milestone nudges (10 / 25 / 50) ──
+VOTE_MILESTONES = (10, 25, 50)
+
+
+def _milestone_text(name: str, salon: str, votes: int, m: int, link: str) -> str:
+    nxt = next((x for x in VOTE_MILESTONES if x > m), None)
+    push = f"Next stop: {nxt} votes = another casting entry." if nxt else "You're in the top tier — keep the momentum!"
+    return (f"🎉 {name.split(' ')[0]}, you just crossed {m} votes ({votes} now) in the {salon} Brand Model casting! "
+            f"Every 10 votes = +1 entry. {push} Share your look again: {link}")
+
+
+async def _check_vote_milestones(pid: str, votes: int, slug: str) -> Optional[int]:
+    p = await _raw_db.rewards_participants.find_one({"id": pid}, {"_id": 0})
+    if not p:
+        return None
+    done = set(p.get("vote_milestones") or [])
+    hit = [m for m in VOTE_MILESTONES if votes >= m and m not in done]
+    if not hit:
+        return None
+    m = max(hit)
+    await _raw_db.rewards_participants.update_one({"id": pid}, {"$addToSet": {"vote_milestones": {"$each": hit}}})
+    base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    link = f"{base}/rewards/{slug}?vote={pid}"
+    text = _milestone_text(p["name"], p.get("salon_name") or "the salon", votes, m, link)
+    sent_email = sent_sms = False
+    if p.get("email"):
+        try:
+            from email_service import _send_email
+            html = (f'<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">'
+                    f'<div style="background:#1c1c22;padding:26px 30px"><span style="color:#e8c37f;font-size:21px;letter-spacing:1.5px">{html_lib.escape(p.get("salon_name") or "")}</span>'
+                    f'<div style="color:#8a8a92;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:4px">Brand Model Casting</div></div>'
+                    f'<div style="padding:30px"><h2 style="margin:0 0 10px;color:#1c1c22">🎉 {m} votes — you\'re on a roll!</h2>'
+                    f'<p style="font-size:14px;color:#333;line-height:1.75">{html_lib.escape(text)}</p>'
+                    f'<a href="https://wa.me/?text={html_lib.escape(requests_quote(text))}" style="display:inline-block;margin-top:10px;background:#25D366;color:#fff;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:14px">Share on WhatsApp</a></div></div>')
+            await _send_email([p["email"]], f"🎉 You crossed {m} votes in the Brand Model casting!", html)
+            sent_email = True
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        from sms_service import send_sms
+        r = await send_sms(p["phone"], text[:300])
+        sent_sms = bool(r.get("sent"))
+    except Exception:  # noqa: BLE001
+        pass
+    await _raw_db.rewards_nudges.insert_one({
+        "id": str(uuid.uuid4()), "participant_id": pid, "participant_name": p["name"], "phone": p["phone"],
+        "tenant_id": p["tenant_id"], "salon_slug": slug, "milestone": m, "votes": votes, "text": text,
+        "sent_email": sent_email, "sent_sms": sent_sms, "wa_done": False, "created_at": _now()})
+    return m
+
+
+def requests_quote(s: str) -> str:
+    from urllib.parse import quote
+    return quote(s)
+
+
+@router.post("/settings/rewards-nudges/{nid}/done")
+async def tenant_nudge_done(nid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    r = await _raw_db.rewards_nudges.update_one({"id": nid, "tenant_id": t["id"]}, {"$set": {"wa_done": True, "wa_done_at": _now(), "wa_by": user.get("email")}})
+    if not r.matched_count:
+        raise HTTPException(404, "Nudge not found")
+    return {"ok": True}

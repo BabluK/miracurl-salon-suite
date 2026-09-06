@@ -90,6 +90,26 @@ _EMAIL_OPTION_KEYS = frozenset(
     {"attachments", "reply_to", "book_url", "book_label", "headers", "from_name", "suite_label"})
 
 
+_LOGIN_ONLY_DOMAINS = tuple(d.strip().lower() for d in os.environ.get("EMAIL_LOGIN_ONLY_DOMAINS", "miracurl.com").split(",") if d.strip())
+
+
+def _route_recipients(to: list) -> list:
+    """@miracurl.com addresses are login IDs, not inboxes (Resend suppresses them).
+    HQ/super-admin ones are rerouted to the real HQ inbox; every other one is dropped."""
+    out = []
+    for addr in to or []:
+        a = (addr or "").strip()
+        local, _, domain = a.lower().rpartition("@")
+        if domain in _LOGIN_ONLY_DOMAINS:
+            if local == "super":
+                out.extend(hq_notify_emails("admin"))
+            logging.getLogger("email").info(f"skipped login-only recipient {a}")
+            continue
+        if a:
+            out.append(a)
+    return list(dict.fromkeys(out))
+
+
 async def _send_email(to: list, subject: str, html: str, **options) -> dict:
     """Send via Resend. Options: attachments, reply_to, book_url, book_label, headers, from_name."""
     unknown = set(options) - _EMAIL_OPTION_KEYS
@@ -98,6 +118,9 @@ async def _send_email(to: list, subject: str, html: str, **options) -> dict:
     err = _resend_config_error()
     if err:
         return err
+    to = _route_recipients(to)
+    if not to:
+        return {"sent": False, "error": "no_real_recipient", "skipped": True}
     resend.api_key = os.environ["RESEND_API_KEY"]
     params = _resend_params(to, subject, html, {
         "attachments": options.get("attachments"), "reply_to": options.get("reply_to"),

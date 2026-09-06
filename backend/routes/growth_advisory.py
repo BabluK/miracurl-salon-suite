@@ -329,7 +329,7 @@ async def _email_owner(b: dict, subject: str, lead: str, meet_link: str = "", no
             f'<p style="font-size:14px;color:#333;line-height:1.75">{lead}</p>{extra}'
             f'<p style="font-size:12px;color:#777">Package: <b>{html_lib.escape(b["tier_name"])}</b> · ₹{b["amount"]:,} · Ref {b["id"][:8].upper()}</p>')
     try:
-        await _send_email([b["owner_email"]], subject, _wrap(subject.split("—")[0].strip(" 📅✅"), body), tag="growth-advisory")
+        await _send_email([b["owner_email"]], subject, _wrap(subject.split("—")[0].strip(" 📅✅"), body))
     except Exception:  # noqa: BLE001
         pass
 
@@ -348,6 +348,6 @@ async def _notify_paid(b: dict):
           f'<p><a href="{base}/super-admin?tab=growth-advisory" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:12px 26px;border-radius:10px;font-size:14px">Schedule the session ✦</a></p>')
     try:
         await _send_email(hq_notify_emails("sales"), f"💼 New Growth Advisory booking — {b.get('tenant_name')} · ₹{b['amount']:,}",
-                          _wrap("New advisory booking", hq), tag="growth-advisory-hq")
+                          _wrap("New advisory booking", hq))
     except Exception:  # noqa: BLE001
         pass

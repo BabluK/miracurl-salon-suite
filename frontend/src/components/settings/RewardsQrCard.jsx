@@ -60,6 +60,20 @@ export function RewardsQrCard() {
             </a>
           </div>
           <div className="text-xs text-slate-600" data-testid="rewards-qr-participants-count">{d.participants.length} customer{d.participants.length === 1 ? "" : "s"} enrolled from your salon</div>
+          {d.nudges?.length > 0 && (
+            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3" data-testid="rewards-nudges-section">
+              <div className="text-[10px] uppercase tracking-[2px] text-emerald-700 font-semibold">💬 Vote milestone nudges · tap to WhatsApp</div>
+              <div className="mt-2 space-y-2">
+                {d.nudges.map(n => (
+                  <div key={n.id} className="flex items-center gap-3 rounded-xl bg-white border border-emerald-100 px-3 py-2" data-testid={`rewards-nudge-${n.id}`}>
+                    <div className="min-w-0 flex-1"><div className="text-sm font-semibold text-slate-800 truncate">{n.participant_name} <span className="text-emerald-700 font-bold">· {n.milestone} votes 🎉</span></div><div className="text-[11px] text-slate-500 truncate">{n.votes} votes now · {n.sent_email ? "emailed" : "no email"}{n.sent_sms ? " · SMS sent" : ""} · {new Date(n.created_at).toLocaleDateString("en-IN")}</div></div>
+                    <a href={`https://wa.me/${n.phone.replace(/\D/g, "").replace(/^(\d{10})$/, "91$1")}?text=${encodeURIComponent(n.text)}`} target="_blank" rel="noreferrer" onClick={() => api.post(`/settings/rewards-nudges/${n.id}/done`).then(() => setD(s => ({ ...s, nudges: s.nudges.filter(x => x.id !== n.id) }))).catch(() => {})}
+                      className="h-8 px-3 rounded-full bg-emerald-500 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-emerald-600" data-testid={`rewards-nudge-wa-${n.id}`}><Share2 className="w-3.5 h-3.5" /> WhatsApp nudge</a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {winners.length > 0 && (
             <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-3" data-testid="rewards-winners-section">
               <div className="text-[10px] uppercase tracking-[2px] text-amber-700 font-semibold flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" /> Your Brand Models · share the win</div>

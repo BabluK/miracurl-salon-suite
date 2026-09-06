@@ -381,7 +381,13 @@ export default function Landing({ scrollTo }) {
   }, [scrollTo]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-outfit overflow-x-clip" data-testid="landing-page">
+    <div className="relative min-h-screen bg-[#050505] text-white font-outfit overflow-x-clip" data-testid="landing-page">
+      <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true" data-testid="landing-luxe-bg">
+        <img src="/brand-luxe-bg.jpg" alt="" className="w-full h-full object-cover opacity-55" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/55 via-[#0a0812]/70 to-[#050505]/95" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(223,183,140,.18),transparent_50%),radial-gradient(ellipse_at_85%_100%,rgba(122,45,78,.28),transparent_55%)]" />
+      </div>
+      <div className="relative z-10">
       {/* Referral banner — slim, elegant, top of everything */}
       {refSlug && (
         <div className="bg-[#DFB78C] text-black text-sm py-2 px-4 text-center font-medium" data-testid="landing-ref-banner">
@@ -850,6 +856,7 @@ export default function Landing({ scrollTo }) {
       </footer>
       <SalesChatWidget />
       <InstallAppPrompt variant="app" />
+      </div>
     </div>
   );
 }
