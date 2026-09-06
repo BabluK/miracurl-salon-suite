@@ -79,7 +79,7 @@ export function RewardsQrCard() {
             <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-xl" data-testid="rewards-qr-participants">
               {d.participants.map(p => (
                 <div key={p.id} className="flex items-center justify-between px-3 py-2 text-xs">
-                  <div className="min-w-0"><div className="font-medium text-slate-800 truncate">{p.name}{p.winner_tier ? <span className="ml-1 text-amber-600">🏆 {p.winner_tier}</span> : null}</div><div className="text-slate-400">{p.phone} · {p.entries.purchases} bill{p.entries.purchases === 1 ? "" : "s"} · {p.entries.referred} referred</div></div>
+                  <div className="min-w-0"><div className="font-medium text-slate-800 truncate">{p.name}{p.winner_tier ? <span className="ml-1 text-amber-600">🏆 {p.winner_tier}</span> : null}</div><div className="text-slate-400">{p.phone} · {p.entries.purchases} bill{p.entries.purchases === 1 ? "" : "s"} · {p.entries.referred} referred · ❤ {p.entries.vote_count || 0} votes</div></div>
                   <div className="font-bold text-amber-600 shrink-0">{p.entries.total} <span className="text-[10px] text-slate-400 font-normal">entries</span></div>
                 </div>
               ))}

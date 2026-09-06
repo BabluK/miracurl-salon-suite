@@ -1,0 +1,20 @@
+{
+  "summary": "Iteration 128 — Model Voting (public) + Brand Model Casting redesign. Backend 8/8 pytest PASS: GET /applicants returns abbreviated names, votes, voted, rank, winner_tier and total_votes>=2; ?voter=9811100001 shows voted:true; POST /vote toggles for fresh phone (n→n+1→n), 400 for self-vote (9700011299), 404 unknown participant, 400/422 for phone '123'; GET /me?phone=9700011299 returns id + entries.vote_count==applicant.votes; public campaign endpoint still returns 4 events + winners. Super-admin /participants row has entries.vote_count=2 for Ananya. Frontend PASS: /rewards/miracurl-marathahalli renders rewards-header/powered/apply, hero, rewards-top10 with rewards-model-0 (Ananya Platinum) + rewards-open-slot-2..4, rewards-vote-gallery with rewards-total-votes=2, rewards-applicant-<id>, rewards-vote-btn/count/share; clicking vote opens rewards-vote-phone-form-<id>, filling fresh phone + rewards-vote-confirm-<id> increments count 2→3 and turns button gold (bg-gradient F0D9A5→C89B52), toggle click decrements 3→2 ('Vote removed' toast). Deep link ?vote=<id> highlights card (ring-2 ring-[#d4af37]/50 shadow) and scrolls into view. Events section shows 4 rows. Footer signup/book links present. Backgrounds /brand-luxe-bg.jpg, /brand-models-group.jpg, /brand-model-hero.jpg all 200. Joined view (9700011299/Ananya Rao/delivered@resend.dev) shows rewards-my-entries + rewards-my-votes ('2 public votes · 0 bonus entries', rewards-get-votes-btn) + rewards-winner-badge. HQ super-admin: rewards-campaign-card → rewards-participants-btn shows row '9700011299 · … · ❤ 2 votes · 📝 story'; rewards-cfg-toggle opens config with rewards-cfg-events textarea containing exactly 2 event lines (photoshoot + Diwali Glam Night). Final vote count preserved at 2.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iter128_voting.py", "/app/test_reports/pytest/iter128.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Self-vote detection uses str.endswith on last 10 digits (routes/rewards_campaign.py:685). Works for the current 10-digit numbers but if any participant.phone is stored with country code the endswith comparison is still fine. Consider normalizing p['phone'] the same way (last 12 digits) for symmetry.",
+    "public_vote creates the unique index on every insert (line 692). Move create_index into a startup hook so it runs once — insert path is a slow hot loop otherwise.",
+    "public_applicants name abbreviation (line 661) uses split(' ')[-1][0] — participants with a single-word name would already be handled but names ending in a title/suffix ('Ananya Rao Jr') will produce 'Ananya J.' which may confuse. Non-blocking."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter128_voting.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (HQ), 9700011299 (Ananya Rao winner phone, self-vote guard)",
+  "seed_data_creation": "None. During toggle test, one fresh 981110xxxx phone was voted then toggled off leaving vote count at original 2. Ananya's 2 existing votes (9811100001, 9811100002) preserved.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Model Voting fully green E2E. Ananya applicant id: 8ddfcd22-3476-4d36-a1f1-07bca5a0e088; keep her 2 seed votes (9811100001, 9811100002). Rate limit is 40 votes/10min per IP — batch tests economically. Public page auth bootstrap remounts ~2-3s after load; always wait_for_timeout(4500) before interacting.",
+  "rca of the issue": "N/A — no bugs found."
+}

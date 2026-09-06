@@ -30,7 +30,8 @@ DEFAULT_CAMPAIGN = {
                     {"key": "referral3", "label": "Refer 3 friends", "entries": 3},
                     {"key": "review", "label": "Leave a genuine review", "entries": 1},
                     {"key": "profile", "label": "Complete profile on Miracurl", "entries": 1},
-                    {"key": "follow", "label": "Follow / engage with the campaign", "entries": 1}],
+                    {"key": "follow", "label": "Follow / engage with the campaign", "entries": 1},
+                    {"key": "votes", "label": "Every 10 public votes on your look (max 5)", "entries": 1}],
     "terms": "One entry per eligible transaction of ₹1,500 or more on salon services during the campaign period. "
              "Referral entries count when the referred friend completes an eligible purchase. Winners are selected by the "
              "Miracurl team from all valid entries based on entries earned and the quality of the shared salon experience; "
@@ -210,9 +211,11 @@ async def _compute_entries(c: dict, p: dict) -> dict:
         "profile": rules.get("profile", 1) if (p.get("name") and p.get("email") and p.get("photo_url")) else 0,
         "follow": rules.get("follow", 1) if p.get("followed_at") else 0,
     }
+    votes = await _raw_db.rewards_votes.count_documents({"participant_id": p["id"]})
+    breakdown["votes"] = min(5, votes // 10) * rules.get("votes", 1)
     if purchases and not p.get("first_purchase_at"):
         await _raw_db.rewards_participants.update_one({"id": p["id"]}, {"$set": {"first_purchase_at": _now()}})
-    return {**breakdown, "purchases": purchases, "referred": referred, "total": sum(breakdown.values())}
+    return {**breakdown, "purchases": purchases, "referred": referred, "vote_count": votes, "total": sum(breakdown.values())}
 
 
 # ── Tenant (salon owner): status + printable QR poster ──
@@ -439,7 +442,7 @@ async def public_me(slug: str, phone: str, request: Request):
     if not p:
         raise HTTPException(404, "No entry for this phone number yet")
     entries = await _compute_entries(c, p)
-    return {"name": p["name"], "ref_code": p["ref_code"], "entries": entries, "photo_url": p.get("photo_url"),
+    return {"id": p["id"], "name": p["name"], "ref_code": p["ref_code"], "entries": entries, "photo_url": p.get("photo_url"),
             "story": p.get("story", ""), "winner_tier": p.get("winner_tier")}
 
 
@@ -632,3 +635,63 @@ async def public_winner_card(slug: str, phone: str, request: Request, origin: st
     if not p:
         raise HTTPException(404, "No entry for this phone number yet")
     return await _card_response(p, origin)
+
+
+# ── Model voting (public) ──
+async def _vote_counts(pids: list) -> dict:
+    rows = await _raw_db.rewards_votes.aggregate([{"$match": {"participant_id": {"$in": pids}}},
+                                                  {"$group": {"_id": "$participant_id", "n": {"$sum": 1}}}]).to_list(1000)
+    return {r["_id"]: r["n"] for r in rows}
+
+
+@router.get("/public/rewards/{slug}/applicants")
+async def public_applicants(slug: str, request: Request, voter: str = ""):
+    """Applicants with a photo + consent, ranked by public votes."""
+    rows = await _raw_db.rewards_participants.find(
+        {"salon_slug": slug, "consent": True, "photo_url": {"$nin": [None, ""]}},
+        {"_id": 0, "id": 1, "name": 1, "photo_url": 1, "story": 1, "winner_tier": 1, "joined_at": 1}).to_list(300)
+    counts = await _vote_counts([r["id"] for r in rows])
+    vp = "".join(ch for ch in voter if ch.isdigit())[-12:]
+    mine = set()
+    if vp:
+        mine = {v["participant_id"] async for v in _raw_db.rewards_votes.find({"salon_slug": slug, "voter_phone": vp}, {"_id": 0, "participant_id": 1})}
+    for r in rows:
+        r["votes"] = counts.get(r["id"], 0)
+        r["voted"] = r["id"] in mine
+        r["name"] = r["name"].split(" ")[0] + (" " + r["name"].split(" ")[-1][0] + "." if " " in r["name"] else "")
+    rows.sort(key=lambda r: (-r["votes"], r["joined_at"]))
+    for i, r in enumerate(rows):
+        r["rank"] = i + 1
+    return {"applicants": rows, "total_votes": sum(counts.values())}
+
+
+class VoteIn(BaseModel):
+    participant_id: str = Field(min_length=8, max_length=64)
+    phone: str = Field(min_length=10, max_length=15)
+
+
+@router.post("/public/rewards/{slug}/vote")
+async def public_vote(slug: str, body: VoteIn, request: Request):
+    await public_rate_limit(request, "rewards-vote", limit=40, window_sec=600)
+    c = await get_campaign()
+    if not _is_live(c):
+        raise HTTPException(400, "Voting is closed")
+    vp = "".join(ch for ch in body.phone if ch.isdigit())[-12:]
+    if len(vp) < 10:
+        raise HTTPException(400, "Enter a valid mobile number")
+    p = await _raw_db.rewards_participants.find_one({"id": body.participant_id, "salon_slug": slug, "consent": True}, {"_id": 0, "id": 1, "phone": 1, "tenant_id": 1})
+    if not p:
+        raise HTTPException(404, "Applicant not found")
+    if p.get("phone", "").endswith(vp[-10:]):
+        raise HTTPException(400, "You can't vote for yourself — share your link with friends instead")
+    existing = await _raw_db.rewards_votes.find_one({"participant_id": p["id"], "voter_phone": vp}, {"_id": 1})
+    if existing:
+        await _raw_db.rewards_votes.delete_one({"_id": existing["_id"]})
+        voted = False
+    else:
+        await _raw_db.rewards_votes.create_index([("participant_id", 1), ("voter_phone", 1)], unique=True)
+        await _raw_db.rewards_votes.insert_one({"id": str(uuid.uuid4()), "participant_id": p["id"], "voter_phone": vp,
+                                               "tenant_id": p["tenant_id"], "salon_slug": slug, "at": _now()})
+        voted = True
+    votes = await _raw_db.rewards_votes.count_documents({"participant_id": p["id"]})
+    return {"ok": True, "voted": voted, "votes": votes}

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import { Sparkles, Trophy, Camera, Loader2, CheckCircle2, Download, Share2, Crown, Star, CalendarDays, MapPin, Phone, Quote, ArrowRight, Scissors, UtensilsCrossed } from "lucide-react";
+import { Sparkles, Trophy, Camera, Loader2, CheckCircle2, Download, Share2, Crown, Star, CalendarDays, MapPin, Phone, Quote, ArrowRight, Scissors, UtensilsCrossed, Heart, Vote } from "lucide-react";
 import { downloadBlob, shareWinnerCard, whatsappShareText } from "@/lib/winnerCard";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -96,7 +96,7 @@ function MyEntries({ slug, phone, salon }) {
   return (
     <div className="space-y-4">
       {me.winner_tier && <WinnerBadge slug={slug} phone={phone} me={me} salon={salon} />}
-      <div className="rounded-3xl border border-[#d4af37]/40 bg-white/5 p-6 space-y-4" data-testid="rewards-my-entries">
+      <div className="rounded-3xl border border-[#d4af37]/40 bg-[#15151b]/80 backdrop-blur-xl p-6 space-y-4" data-testid="rewards-my-entries">
         <div className="flex items-center justify-between">
           <div><div className="text-[10px] tracking-[0.3em] uppercase text-[#d4af37]">Your casting profile · {me.name.split(" ")[0]}</div><div className="font-playfair text-3xl text-white mt-1">{e.total} <span className="text-base text-white/50">entr{e.total === 1 ? "y" : "ies"}</span></div></div>
           <CheckCircle2 className="w-8 h-8 text-emerald-400" />
@@ -104,7 +104,12 @@ function MyEntries({ slug, phone, salon }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[12px] text-white/70">
           <div className="rounded-xl bg-black/30 p-2.5">Purchases <b className="text-white block">{e.purchases}</b></div>
           <div className="rounded-xl bg-black/30 p-2.5">Friends referred <b className="text-white block">{e.referred}</b></div>
-          <div className="rounded-xl bg-black/30 p-2.5">Bonus <b className="text-white block">{e.review + e.profile + e.follow + e.referral3}</b></div>
+          <div className="rounded-xl bg-black/30 p-2.5">Bonus <b className="text-white block">{e.review + e.profile + e.follow + e.referral3 + (e.votes || 0)}</b></div>
+        </div>
+        <div className="rounded-2xl border border-[#d4af37]/40 bg-[#d4af37]/10 p-3 flex items-center gap-3" data-testid="rewards-my-votes">
+          <Heart className="w-6 h-6 text-[#F0D9A5] fill-current shrink-0" />
+          <div className="min-w-0 flex-1"><div className="text-sm font-semibold text-white">{e.vote_count || 0} public vote{e.vote_count === 1 ? "" : "s"} · {e.votes || 0} bonus entr{e.votes === 1 ? "y" : "ies"}</div><div className="text-[11px] text-white/60">{me.photo_url ? "Every 10 votes = +1 entry. Ask friends to vote for your look!" : "Add your photo below to appear in the public vote."}</div></div>
+          {me.photo_url && <button onClick={() => { const url = `${window.location.origin}/rewards/${slug}?vote=${me.id}`; const text = `❤ Vote for me to become the Brand Model of ${salon}! ${url}`; if (navigator.share) navigator.share({ text, url }).catch(() => {}); else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener"); }} className="shrink-0 h-8 px-3 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold inline-flex items-center gap-1" data-testid="rewards-get-votes-btn"><Share2 className="w-3.5 h-3.5" /> Get votes</button>}
         </div>
         <div className="text-[12px] text-white/60">Your referral link: <code className="text-[#d4af37] break-all" data-testid="rewards-ref-link">{window.location.origin}/rewards/{slug}?ref={me.ref_code}</code></div>
         <div className="grid sm:grid-cols-[120px_1fr] gap-3 items-start">
@@ -123,22 +128,105 @@ function MyEntries({ slug, phone, salon }) {
 }
 
 
+function VoteGallery({ slug, phone, live, salon, highlight }) {
+  const [d, setD] = useState(null);
+  const [voter, setVoter] = useState(() => phone || localStorage.getItem(`rewards_voter_${slug}`) || "");
+  const [ask, setAsk] = useState(null);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState("");
+  const load = () => PUBLIC.get(`/rewards/${slug}/applicants`, { params: { voter } }).then(r => setD(r.data)).catch(() => {});
+  useEffect(() => { load(); }, [slug, voter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (highlight && d) setTimeout(() => document.getElementById(`applicant-${highlight}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 300); }, [highlight, d]);
+  const vote = async (a, ph) => {
+    setBusy(a.id);
+    try {
+      const { data } = await PUBLIC.post(`/rewards/${slug}/vote`, { participant_id: a.id, phone: ph });
+      toast.success(data.voted ? `❤ Voted for ${a.name}` : "Vote removed");
+      localStorage.setItem(`rewards_voter_${slug}`, ph); setVoter(ph); setAsk(null);
+      setD(s => ({ ...s, applicants: s.applicants.map(x => (x.id === a.id ? { ...x, votes: data.votes, voted: data.voted } : x)) }));
+    } catch (err) { toast.error(err.response?.data?.detail || "Couldn't vote"); }
+    setBusy("");
+  };
+  const onVote = (a) => (voter ? vote(a, voter) : setAsk(a.id));
+  const share = (a) => {
+    const url = `${window.location.origin}/rewards/${slug}?vote=${a.id}`;
+    const text = `❤ Vote for ${a.name} to become the Brand Model of ${salon}! Tap, enter your number and vote: ${url}`;
+    if (navigator.share) navigator.share({ text, url }).catch(() => {});
+    else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+  };
+  if (!d) return null;
+  return (
+    <section id="vote" className="max-w-6xl mx-auto px-5 pb-14" data-testid="rewards-vote-gallery">
+      <div className="rounded-[2rem] border border-[#d4af37]/30 bg-gradient-to-br from-[#d4af37]/[.08] via-transparent to-[#7a2d4e]/20 p-6 sm:p-8">
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div className="text-[10px] tracking-[0.35em] uppercase text-[#d4af37] inline-flex items-center gap-2"><Vote className="w-3.5 h-3.5" /> Public vote</div>
+            <h2 className="font-playfair text-3xl sm:text-4xl text-white mt-2">Vote for your favourite look</h2>
+            <p className="text-sm text-white/55 mt-1">Every 10 votes earns an applicant an extra casting entry. One vote per number per applicant — tap ❤ again to change your mind.</p>
+          </div>
+          <div className="text-right"><div className="font-playfair text-3xl text-[#F0D9A5]" data-testid="rewards-total-votes">{d.total_votes}</div><div className="text-[10px] uppercase tracking-wider text-white/50">votes cast</div></div>
+        </div>
+        {d.applicants.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-white/50" data-testid="rewards-no-applicants">No looks to vote on yet — be the first: apply and add your photo.</div>
+        ) : (
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {d.applicants.map(a => (
+              <div key={a.id} id={`applicant-${a.id}`} data-testid={`rewards-applicant-${a.id}`}
+                className={`group relative rounded-2xl overflow-hidden border transition-all duration-300 ${highlight === a.id ? "border-[#F0D9A5] ring-2 ring-[#d4af37]/50 shadow-[0_0_40px_-10px_rgba(212,175,55,.8)]" : "border-white/10 hover:border-[#d4af37]/60"}`}>
+                <div className="aspect-[3/4] relative">
+                  <img src={`${API}${a.photo_url}`} alt={a.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                  <span className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-full bg-black/60 backdrop-blur text-[#F0D9A5] border border-[#d4af37]/40">#{a.rank}{a.winner_tier ? ` · ${a.winner_tier}` : ""}</span>
+                  <div className="absolute inset-x-0 bottom-0 p-3">
+                    <div className="font-playfair text-lg text-white leading-tight">{a.name}</div>
+                    {a.story && <div className="text-[10.5px] text-white/60 line-clamp-2 italic mt-0.5">“{a.story}”</div>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 p-2 bg-[#15151b]">
+                  <button onClick={() => onVote(a)} disabled={!live || busy === a.id} data-testid={`rewards-vote-btn-${a.id}`}
+                    className={`flex-1 h-9 rounded-full text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 ${a.voted ? "bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b]" : "border border-[#d4af37]/50 text-[#F0D9A5] hover:bg-[#d4af37]/15"}`}>
+                    {busy === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Heart className={`w-3.5 h-3.5 ${a.voted ? "fill-current" : ""}`} />} <span data-testid={`rewards-vote-count-${a.id}`}>{a.votes}</span>
+                  </button>
+                  <button onClick={() => share(a)} title="Share & ask for votes" data-testid={`rewards-vote-share-${a.id}`} className="w-9 h-9 rounded-full border border-white/15 text-white/70 hover:text-white hover:border-white/40 flex items-center justify-center"><Share2 className="w-3.5 h-3.5" /></button>
+                </div>
+                {ask === a.id && (
+                  <form onSubmit={e => { e.preventDefault(); vote(a, draft); }} className="absolute inset-0 bg-[#0f0f14]/95 backdrop-blur p-3 flex flex-col justify-center gap-2" data-testid={`rewards-vote-phone-form-${a.id}`}>
+                    <div className="text-[11px] text-white/70">Your mobile number — one vote per number.</div>
+                    <input autoFocus value={draft} onChange={e => setDraft(e.target.value)} placeholder="Mobile number" className="w-full rounded-lg bg-white/10 border border-white/20 px-3 py-2 text-sm text-white" data-testid={`rewards-vote-phone-${a.id}`} />
+                    <div className="flex gap-1.5"><button className="flex-1 h-8 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold" data-testid={`rewards-vote-confirm-${a.id}`}>Vote ❤</button><button type="button" onClick={() => setAsk(null)} className="h-8 px-3 rounded-full border border-white/20 text-white/70 text-xs">Cancel</button></div>
+                  </form>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function SiteHeader({ salon, slug, platformLogo }) {
   const logo = salon.logo_url ? (salon.logo_url.startsWith("http") ? salon.logo_url : `${API}${salon.logo_url}`) : null;
-  const nav = [["#models", "Models"], ["#journey", "Journey"], ["#events", "Events"], ["#apply", "Apply"]];
+  const nav = [["#models", "Models"], ["#vote", "Vote"], ["#journey", "Journey"], ["#events", "Events"], ["#apply", "Apply"]];
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0f0f14]/80 backdrop-blur-xl" data-testid="rewards-header">
-      <div className="max-w-6xl mx-auto px-5 h-16 flex items-center gap-4">
-        <Link to={`/book/${slug}`} className="flex items-center gap-3 min-w-0" data-testid="rewards-header-salon">
-          {logo ? <img src={logo} alt="" className="w-10 h-10 rounded-full object-cover ring-2 ring-[#d4af37]/60" /> : <span className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-playfair text-lg flex items-center justify-center">{salon.name[0]}</span>}
-          <span className="min-w-0"><span className="block font-playfair text-base sm:text-lg text-white truncate leading-tight">{salon.name}</span><span className="block text-[9px] tracking-[0.3em] uppercase text-[#d4af37]/80 truncate">Brand Model Casting{salon.location ? ` · ${salon.location}` : ""}</span></span>
-        </Link>
-        <nav className="hidden md:flex items-center gap-6 ml-8 text-[12px] tracking-wide text-white/60">{nav.map(([h, l]) => <a key={h} href={h} className="hover:text-[#F0D9A5] transition-colors">{l}</a>)}</nav>
-        <div className="ml-auto flex items-center gap-3">
-          <a href="https://miracurl-suite.com" target="_blank" rel="noreferrer" className="hidden sm:flex items-center gap-2 text-[10px] tracking-wider uppercase text-white/50 hover:text-white/80" data-testid="rewards-header-powered">
-            <span>Powered by</span><img src={platformLogo || "/ms-logo.png"} alt="Miracurl" className="h-7 w-auto rounded-full bg-white/90 p-0.5" /><span className="text-[#F0D9A5] normal-case tracking-normal text-xs font-semibold">Miracurl</span>
-          </a>
-          <a href="#apply" className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold" data-testid="rewards-header-apply">Apply</a>
+    <header className="sticky top-0 z-40" data-testid="rewards-header">
+      <div className="h-[3px] bg-[linear-gradient(90deg,transparent,#C89B52_20%,#F0D9A5_50%,#C89B52_80%,transparent)]" />
+      <div className="border-b border-[#d4af37]/20 bg-[#0b0b10]/75 backdrop-blur-2xl shadow-[0_10px_40px_-20px_rgba(212,175,55,.5)]">
+        <div className="max-w-6xl mx-auto px-5 h-[72px] flex items-center gap-4">
+          <Link to={`/book/${slug}`} className="flex items-center gap-3 min-w-0 group" data-testid="rewards-header-salon">
+            <span className="relative shrink-0">
+              <span className="absolute -inset-1 rounded-full bg-[conic-gradient(from_0deg,#F0D9A5,#C89B52,#F0D9A5)] opacity-80 blur-[2px] group-hover:animate-spin [animation-duration:4s]" />
+              {logo ? <img src={logo} alt="" className="relative w-11 h-11 rounded-full object-cover ring-2 ring-[#0b0b10]" /> : <span className="relative w-11 h-11 rounded-full bg-[#15151b] ring-2 ring-[#0b0b10] text-[#F0D9A5] font-playfair text-lg flex items-center justify-center">{salon.name[0]}</span>}
+            </span>
+            <span className="min-w-0"><span className="block font-playfair text-lg sm:text-xl text-white truncate leading-tight">{salon.name}</span><span className="block text-[9px] tracking-[0.35em] uppercase text-[#d4af37] truncate">Brand Model Casting{salon.location ? ` · ${salon.location}` : ""}</span></span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-1 ml-6">{nav.map(([h, l]) => <a key={h} href={h} className="px-3 py-1.5 rounded-full text-[12px] tracking-wide text-white/65 hover:text-[#F0D9A5] hover:bg-white/5 transition-colors">{l}</a>)}</nav>
+          <div className="ml-auto flex items-center gap-3">
+            <a href="https://miracurl-suite.com" target="_blank" rel="noreferrer" className="hidden sm:flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-white/10 bg-white/[.04] hover:border-[#d4af37]/50 transition-colors" data-testid="rewards-header-powered">
+              <img src={platformLogo || "/ms-logo.png"} alt="Miracurl" className="h-7 w-7 rounded-full object-cover bg-white" /><span className="text-[9px] tracking-[0.25em] uppercase text-white/45 leading-none">Powered by<br /><span className="text-[#F0D9A5] normal-case tracking-normal text-[12px] font-semibold">Miracurl</span></span>
+            </a>
+            <a href="#apply" className="relative px-5 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold shadow-[0_8px_24px_-8px_rgba(212,175,55,.9)] hover:brightness-110 transition" data-testid="rewards-header-apply">Apply now</a>
+          </div>
         </div>
       </div>
     </header>
@@ -193,30 +281,35 @@ function Events({ events }) {
 
 function SiteFooter({ salon, slug, platformLogo }) {
   return (
-    <footer className="mt-10 border-t border-white/10" data-testid="rewards-footer">
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "radial-gradient(circle at 80% 20%, #d4af37 0, transparent 40%)" }} />
-        <div className="relative max-w-6xl mx-auto px-5 py-14 grid lg:grid-cols-[1.2fr_1fr] gap-10 items-center">
+    <footer className="relative mt-16 overflow-hidden" data-testid="rewards-footer">
+      <img src="/brand-models-group.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0b0b10] via-[#0b0b10]/55 to-[#0b0b10]/90" /><div className="absolute inset-0 bg-gradient-to-r from-[#0b0b10]/90 via-[#0b0b10]/40 to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_40%,rgba(212,175,55,.22),transparent_55%)]" />
+      <div className="relative max-w-6xl mx-auto px-5 pt-20 pb-12">
+        <div className="grid lg:grid-cols-[1.25fr_1fr] gap-10 items-end">
           <div>
-            <div className="flex items-center gap-3"><img src={platformLogo || "/ms-logo.png"} alt="Miracurl" className="h-12 w-12 rounded-full bg-white/90 p-1" /><div><div className="text-[10px] tracking-[0.35em] uppercase text-[#d4af37]">Powered by Miracurl</div><div className="font-playfair text-2xl text-white">Salon & Restaurant Management Suite</div></div></div>
-            <h3 className="font-playfair text-3xl sm:text-4xl text-white mt-6 leading-tight">Own a salon or restaurant?<br /><span className="text-[#F0D9A5]">Get onboard & grow your business.</span></h3>
-            <p className="text-sm text-white/65 mt-3 max-w-xl">Bookings, POS, memberships, Mira AI marketing and campaigns like this one — everything {salon.name} uses to grow, ready for you in minutes.</p>
-            <div className="mt-6 flex gap-3 flex-wrap">
-              <a href="/signup-salon" className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm hover:brightness-110" data-testid="rewards-footer-signup-salon"><Scissors className="w-4 h-4" /> Join Miracurl — Salons <ArrowRight className="w-4 h-4" /></a>
-              <a href="/signup-restaurant" className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-[#d4af37]/60 text-[#F0D9A5] font-semibold text-sm hover:bg-[#d4af37]/10" data-testid="rewards-footer-signup-restaurant"><UtensilsCrossed className="w-4 h-4" /> Restaurants</a>
+            <div className="inline-flex items-center gap-3 rounded-full border border-[#d4af37]/40 bg-black/40 backdrop-blur px-4 py-2"><img src={platformLogo || "/ms-logo.png"} alt="Miracurl" className="h-8 w-8 rounded-full object-cover bg-white" /><span className="text-[10px] tracking-[0.35em] uppercase text-[#F0D9A5]">Powered by Miracurl</span></div>
+            <h3 className="font-playfair text-4xl sm:text-5xl text-white mt-6 leading-[1.05]">Own a salon or restaurant?<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F0D9A5] via-[#d4af37] to-[#C89B52]">Get onboard & grow your business.</span></h3>
+            <p className="text-sm sm:text-base text-white/70 mt-4 max-w-xl">Bookings, POS, memberships, Mira AI marketing and campaigns like this one — everything {salon.name} uses to grow, ready for you in minutes.</p>
+            <div className="mt-7 flex gap-3 flex-wrap">
+              <a href="/signup-salon" className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm shadow-[0_14px_40px_-12px_rgba(212,175,55,.9)] hover:brightness-110 transition" data-testid="rewards-footer-signup-salon"><Scissors className="w-4 h-4" /> Join Miracurl — Salons <ArrowRight className="w-4 h-4" /></a>
+              <a href="/signup-restaurant" className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-[#d4af37]/60 bg-black/30 backdrop-blur text-[#F0D9A5] font-semibold text-sm hover:bg-[#d4af37]/10 transition" data-testid="rewards-footer-signup-restaurant"><UtensilsCrossed className="w-4 h-4" /> Restaurants</a>
             </div>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[.03] p-6">
-            <div className="text-[10px] tracking-[0.3em] uppercase text-[#d4af37]">The salon</div>
-            <div className="font-playfair text-2xl text-white mt-1">{salon.name}</div>
-            <div className="mt-3 space-y-2 text-sm text-white/65">
-              {salon.location && <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-[#d4af37]" /> {salon.location}</div>}
-              {salon.phone && <a href={`tel:${salon.phone}`} className="flex items-center gap-2 hover:text-white"><Phone className="w-4 h-4 text-[#d4af37]" /> {salon.phone}</a>}
+          <div className="rounded-[1.75rem] border border-[#d4af37]/30 bg-[#0b0b10]/70 backdrop-blur-xl p-7 shadow-[0_30px_80px_-30px_rgba(0,0,0,.9)]">
+            <div className="text-[10px] tracking-[0.35em] uppercase text-[#d4af37]">The salon</div>
+            <div className="font-playfair text-3xl text-white mt-1">{salon.name}</div>
+            <div className="mt-4 space-y-2.5 text-sm text-white/70">
+              {salon.location && <div className="flex items-center gap-2.5"><span className="w-8 h-8 rounded-full bg-[#d4af37]/15 flex items-center justify-center"><MapPin className="w-4 h-4 text-[#F0D9A5]" /></span> {salon.location}</div>}
+              {salon.phone && <a href={`tel:${salon.phone}`} className="flex items-center gap-2.5 hover:text-white"><span className="w-8 h-8 rounded-full bg-[#d4af37]/15 flex items-center justify-center"><Phone className="w-4 h-4 text-[#F0D9A5]" /></span> {salon.phone}</a>}
             </div>
-            <Link to={`/book/${slug}`} className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 border border-white/15 text-white text-xs font-semibold hover:bg-white/15" data-testid="rewards-footer-book">Book an appointment <ArrowRight className="w-3.5 h-3.5" /></Link>
+            <Link to={`/book/${slug}`} className="mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-white/10 border border-white/15 text-white text-sm font-semibold hover:bg-white/15 transition" data-testid="rewards-footer-book">Book an appointment <ArrowRight className="w-4 h-4" /></Link>
           </div>
         </div>
-        <div className="border-t border-white/10 py-4 text-center text-[11px] text-white/40">© {new Date().getFullYear()} {salon.name} · Campaign hosted on <a href="https://miracurl-suite.com" className="text-[#d4af37]/80 hover:text-[#F0D9A5]">Miracurl</a></div>
+        <div className="mt-14 pt-5 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap text-[11px] text-white/45">
+          <span>© {new Date().getFullYear()} {salon.name} · Brand Model Casting</span>
+          <span>Campaign hosted on <a href="https://miracurl-suite.com" className="text-[#d4af37] hover:text-[#F0D9A5]">Miracurl</a> · Salon & Restaurant Management Suite</span>
+        </div>
       </div>
     </footer>
   );
@@ -240,12 +333,17 @@ export default function RewardsCampaign() {
   const min = `₹${Number(c.min_transaction).toLocaleString("en-IN")}`;
   const openSlots = Math.max(0, Math.min(c.winner_count, 12) - d.winners.length);
   return (
-    <div className="min-h-screen bg-[#0f0f14] text-white selection:bg-[#d4af37]/40" data-testid="rewards-page">
+    <div className="relative min-h-screen bg-[#0b0b10] text-white selection:bg-[#d4af37]/40" data-testid="rewards-page">
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <img src="/brand-luxe-bg.jpg" alt="" className="w-full h-full object-cover opacity-60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0b0b10]/40 via-[#0b0b10]/75 to-[#0b0b10]" />
+      </div>
+      <div className="relative z-10">
       <SiteHeader salon={d.salon} slug={slug} platformLogo={platformLogo} />
 
       {/* HERO */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 opacity-50" style={{ backgroundImage: "radial-gradient(circle at 10% 10%, #d4af37 0, transparent 38%), radial-gradient(circle at 90% 90%, #7a2d4e 0, transparent 45%)" }} />
+        <div className="absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(circle at 10% 10%, rgba(212,175,55,.55) 0, transparent 38%), radial-gradient(circle at 90% 90%, rgba(122,45,78,.6) 0, transparent 45%)" }} />
         <div className="relative max-w-6xl mx-auto px-5 pt-12 pb-14 grid lg:grid-cols-[1.15fr_.85fr] gap-10 items-center">
           <div>
             <div className="inline-flex items-center gap-2 text-[10px] tracking-[0.35em] uppercase text-[#d4af37] border border-[#d4af37]/50 rounded-full px-3 py-1"><Star className="w-3 h-3" /> Casting open · {c.name}</div>
@@ -275,7 +373,8 @@ export default function RewardsCampaign() {
       </div>
 
       {/* MODELS */}
-      <section id="models" className="max-w-6xl mx-auto px-5 py-14" data-testid="rewards-top10">
+      <section id="models" className="relative max-w-6xl mx-auto px-5 py-16" data-testid="rewards-top10">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(212,175,55,.6),transparent)]" />
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <div className="text-[10px] tracking-[0.35em] uppercase text-[#d4af37]">The faces of {d.salon.name.split(" ")[0]}</div>
@@ -290,19 +389,21 @@ export default function RewardsCampaign() {
         </div>
       </section>
 
+      <VoteGallery slug={slug} phone={phone} live={d.eligible} salon={d.salon.name} highlight={sp.get("vote")} />
+
       <div className="max-w-6xl mx-auto px-5 pb-10 grid lg:grid-cols-[1.2fr_1fr] gap-8">
         <div className="space-y-12">
           <section>
             <h2 className="text-base md:text-lg font-semibold text-[#d4af37] tracking-wide">What our Brand Models win</h2>
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {c.rewards.map((r, i) => <div key={r.tier} className={`rounded-2xl border p-4 text-center ${i === 0 ? "border-[#d4af37]/60 bg-gradient-to-b from-[#d4af37]/15 to-transparent" : "bg-white/5 border-white/10"}`}><div className="text-2xl">{r.emoji}</div><div className="text-sm font-semibold mt-1">{r.tier}</div><div className="text-[11px] text-white/50">Membership · {r.winners} model{r.winners === 1 ? "" : "s"}</div></div>)}
+              {c.rewards.map((r, i) => <div key={r.tier} className={`rounded-2xl border p-4 text-center ${i === 0 ? "border-[#d4af37]/60 bg-gradient-to-b from-[#d4af37]/15 to-transparent" : "bg-[#15151b]/70 backdrop-blur border-white/10"}`}><div className="text-2xl">{r.emoji}</div><div className="text-sm font-semibold mt-1">{r.tier}</div><div className="text-[11px] text-white/50">Membership · {r.winners} model{r.winners === 1 ? "" : "s"}</div></div>)}
               <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center"><div className="text-2xl">📸</div><div className="text-sm font-semibold mt-1">Featured</div><div className="text-[11px] text-white/50">on the salon page & Miracurl</div></div>
             </div>
           </section>
           <section id="journey">
             <h2 className="text-base md:text-lg font-semibold text-[#d4af37] tracking-wide">The casting journey</h2>
             <ol className="mt-4 grid sm:grid-cols-2 gap-3">
-              {STEPS.map(([n, t, s]) => <li key={t} className="flex gap-3 rounded-2xl bg-white/[.03] border border-white/10 p-4"><span className="font-playfair text-2xl text-[#d4af37]/80 leading-none">{n}</span><div><div className="text-sm font-semibold">{t}</div><div className="text-[12.5px] text-white/60 mt-0.5">{t === "Spend the minimum" ? `Complete an eligible transaction of ${min} or more.` : s}</div></div></li>)}
+              {STEPS.map(([n, t, s]) => <li key={t} className="flex gap-3 rounded-2xl bg-[#15151b]/70 backdrop-blur border border-white/10 hover:border-[#d4af37]/40 transition-colors p-4"><span className="font-playfair text-2xl text-[#d4af37]/80 leading-none">{n}</span><div><div className="text-sm font-semibold">{t}</div><div className="text-[12.5px] text-white/60 mt-0.5">{t === "Spend the minimum" ? `Complete an eligible transaction of ${min} or more.` : s}</div></div></li>)}
             </ol>
           </section>
           <section>
@@ -316,7 +417,7 @@ export default function RewardsCampaign() {
         </div>
         <aside id="apply" className="lg:sticky lg:top-24 self-start space-y-4">
           {phone ? <MyEntries slug={slug} phone={phone} salon={d.salon.name} /> : (
-            <div className="rounded-3xl border border-[#d4af37]/40 bg-white/5 p-6">
+            <div className="rounded-3xl border border-[#d4af37]/40 bg-[#15151b]/80 backdrop-blur-xl p-6 shadow-[0_30px_80px_-30px_rgba(212,175,55,.35)]">
               <div className="text-[10px] tracking-[0.3em] uppercase text-[#d4af37]">Casting call</div>
               <h3 className="font-playfair text-2xl mt-2">Apply to be our Brand Model</h3>
               <p className="text-[12.5px] text-white/60 mt-1 mb-4">Takes 20 seconds. We'll email you the casting details.</p>
@@ -328,6 +429,7 @@ export default function RewardsCampaign() {
       </div>
 
       <SiteFooter salon={d.salon} slug={slug} platformLogo={platformLogo} />
+      </div>
     </div>
   );
 }
