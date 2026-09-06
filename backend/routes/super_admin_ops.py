@@ -374,6 +374,17 @@ async def list_tenants(user=Depends(require_super_admin)):
         counts[o["email"]] = max(counts.get(o["email"], 0), len(set(ids)))
     ref_names = {t["id"]: t["name"] for t in tenants}
     today = datetime.now(timezone.utc).date()
+    from email_service import _is_login_only
+    admins = await db.users.find({"role": "admin", "tenant_id": {"$in": [t["id"] for t in tenants]}},
+                                 {"_id": 0, "tenant_id": 1, "tenant_ids": 1, "notify_email": 1, "email": 1}).to_list(2000)
+    real_inbox = set()
+    for a in admins:
+        cands = [a.get("notify_email"), a.get("email")]
+        if any(c and not _is_login_only(c) for c in cands):
+            real_inbox.update((a.get("tenant_ids") or []) + ([a["tenant_id"]] if a.get("tenant_id") else []))
+    for t in tenants:
+        t["inbox_ok"] = (t["id"] in real_inbox) or any(
+            t.get(k) and not _is_login_only(t[k]) for k in ("notify_email", "owner_email"))
     for t in tenants:
         t["owner_salon_count"] = counts.get(t.get("owner_email"), 1)
         if t.get("referred_by_tenant_id"):

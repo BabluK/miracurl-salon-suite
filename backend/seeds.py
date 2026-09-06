@@ -90,11 +90,11 @@ async def backfill_tenant_ids(tenant_id: str):
 async def seed_super_admin():
     """Seed the super-admin ONCE from env. Never re-writes an existing hash so operators can rotate it."""
     email = os.environ.get("SUPER_ADMIN_EMAIL", "super@miracurl.com").lower()
-    existing = await db.users.find_one({"email": email})
+    existing = await db.users.find_one({"$or": [{"email": email}, {"role": "super_admin"}]})
     if existing:
-        # Never touch an existing super-admin — the operator may have rotated the password.
-        # Only auto-heal if the role got downgraded somehow.
-        if existing.get("role") != "super_admin":
+        # Never touch an existing super-admin (it may have been renamed, e.g. admin@miracurl-suite.com,
+        # or had its password rotated). Only auto-heal if the seeded email lost its role somehow.
+        if existing.get("email") == email and existing.get("role") != "super_admin":
             await db.users.update_one({"email": email}, {"$set": {"role": "super_admin"}})
         return
     seed_pw = os.environ.get("SUPER_ADMIN_SEED_PASSWORD")

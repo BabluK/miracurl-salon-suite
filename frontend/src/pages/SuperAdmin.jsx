@@ -49,7 +49,7 @@ import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel
 import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
 import { RewardsCampaignCard } from "@/components/superadmin/RewardsCampaignCard";
 import { GrowthAdvisoryPanel } from "@/components/superadmin/GrowthAdvisoryPanel";
-import { NotifyEmailCard } from "@/components/NotifyEmailCard";
+import { SuperAdminProfileCard } from "@/components/superadmin/SuperAdminProfileCard";
 import { WhatsAppLeadsCard } from "@/components/superadmin/WhatsAppLeadsCard";
 import { SiteInfoPanel } from "@/components/superadmin/SiteInfoPanel";
 import { Globe } from "lucide-react";
@@ -485,7 +485,7 @@ export default function SuperAdmin() {
             deployments: <DeploymentHistoryPanel />,
             load: <PlatformLoadPanel />,
             database: <DatabasePanel />,
-            security: <div className="space-y-6"><NotifyEmailCard /><SecurityCard /></div>,
+            security: <div className="space-y-6"><SuperAdminProfileCard /><SecurityCard /></div>,
           };
           return panels[tab];
         })() || (
@@ -636,6 +636,11 @@ export default function SuperAdmin() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-playfair font-semibold text-base truncate max-w-[340px]" title={t.name}>{t.name}</span>
+                    {t.inbox_ok === false && (
+                      <span data-testid={`inbox-health-${t.id}`} title="No real notification email on file — owner won't receive reports, reminders or password-reset links. Ask them to add one in Settings → Notification email." className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 cursor-help">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /> No inbox
+                      </span>
+                    )}
                     <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${PLAN_BADGE[t.plan] || ''}`}>{t.plan}</span>
                     <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded ${STATUS_BADGE[t.status] || ''}`}>{t.status}</span>
                     {t.business_type === "restaurant" && (

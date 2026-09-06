@@ -798,3 +798,59 @@ async def send_my_reset_link(request: Request, user=Depends(get_current_user)):
         await _send_reset_email(user["email"], r, token)
     masked = [r[:2] + "•••" + r[r.index("@"):] for r in recipients]
     return {"ok": True, "sent_to": masked}
+
+
+class LoginEmailIn(BaseModel):
+    new_email: EmailStr
+    current_password: str = Field(min_length=1, max_length=200)
+
+
+@router.put("/auth/me/login-email")
+async def change_login_email(body: LoginEmailIn, request: Request, user=Depends(get_current_user)):
+    """Super-admin only: rename the login ID (e.g. super@miracurl.com → admin@miracurl-suite.com).
+    Requires the current password; sessions stay valid (JWT sub = user id)."""
+    if user.get("role") != "super_admin":
+        raise HTTPException(403, "Only the super-admin can change their login email here")
+    from security import public_rate_limit
+    await public_rate_limit(request, key_suffix="loginemail", limit=5, window_sec=3600)
+    full = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 1, "email": 1})
+    if not full or not verify_pw(body.current_password, full["password_hash"]):
+        raise HTTPException(400, "Current password is incorrect")
+    new_email = body.new_email.lower().strip()
+    if new_email == full["email"]:
+        raise HTTPException(400, "That is already your login email")
+    if await db.users.find_one({"email": new_email}, {"_id": 1}):
+        raise HTTPException(400, "That email is already used by another account")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": user["id"]}, {"$set": {"email": new_email, "login_email_changed_at": now},
+                                                   "$push": {"previous_emails": {"email": full["email"], "changed_at": now}}})
+    await db.login_attempts.delete_many({"identifier": {"$regex": f"{__import__('re').escape(full['email'])}$"}})
+    logging.info("[Miracurl] super-admin login email changed %s -> %s", full["email"], new_email)
+    return {"ok": True, "email": new_email, "previous_email": full["email"]}
+
+
+class ProfileIn(BaseModel):
+    name: str = Field("", max_length=80)
+    notify_email: str = Field("", max_length=200)
+    instagram: str = Field("", max_length=60)
+    phone: str = Field("", max_length=20)
+
+
+@router.put("/auth/me/profile")
+async def update_my_profile(body: ProfileIn, user=Depends(get_current_user)):
+    """Own profile: display name, real inbox (Gmail), Instagram handle, WhatsApp number."""
+    from email_service import _is_login_only
+    ne = body.notify_email.strip().lower()
+    if ne and ("@" not in ne or "." not in ne.rsplit("@", 1)[-1]):
+        raise HTTPException(400, "Enter a valid email address")
+    if ne and _is_login_only(ne):
+        raise HTTPException(400, "That domain is login-only — use a real inbox (Gmail, company mail, etc.)")
+    ig = body.instagram.strip().lstrip("@").split("/")[-1]
+    if ig and not __import__("re").fullmatch(r"[A-Za-z0-9._]{1,30}", ig):
+        raise HTTPException(400, "Instagram handle can only contain letters, numbers, dots and underscores")
+    ph = "".join(ch for ch in body.phone if ch.isdigit() or ch == "+")
+    upd = {"notify_email": ne or None, "instagram": ig or None, "phone": ph or None}
+    if body.name.strip():
+        upd["name"] = body.name.strip()
+    await db.users.update_one({"id": user["id"]}, {"$set": upd})
+    return {"ok": True, **upd, "name": upd.get("name", user.get("name"))}

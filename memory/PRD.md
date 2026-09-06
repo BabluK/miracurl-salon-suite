@@ -2790,3 +2790,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `POST /auth/me/send-reset-link` (authenticated, 5/h) — used by the forced "set your own password" screen ("Email me a reset link" + "Back to sign in"). `/auth/forgot-password` also routes through the resolver.
 - UI: `NotifyEmailCard` in tenant Settings (top) and Super Admin → Security tab. Tenant-creation credentials popup already shows temp password on screen + WhatsApp share when email isn't delivered.
 - PRODUCTION NOTE for the super-admin lock screen: the "one-time password" = `SUPER_ADMIN_SEED_PASSWORD` from the prod env; or click "Email me a reset link" → arrives at admin@ / support@miracurl-suite.com.
+
+## 2026-09-06 — 🔑 Super-admin profile (login ID rename, Gmail, Instagram, WhatsApp) · 🔴 Inbox Health badge
+- `PUT /auth/me/login-email {new_email, current_password}` — super_admin only, password-confirmed, uniqueness check, stores `previous_emails`; sessions stay valid (JWT sub = user id). Seed hardened: `seed_super_admin` now checks `{"$or":[{email},{role:"super_admin"}]}` so a renamed super-admin is never re-created from `SUPER_ADMIN_SEED_PASSWORD`.
+- `PUT /auth/me/profile {name, notify_email, instagram, phone}` (any user; validates Gmail-style inbox not login-only, IG handle regex).
+- HQ → Security tab: `SuperAdminProfileCard` (display name, Gmail/notification inbox, Instagram ID, WhatsApp, + Login email change block). Tenant Settings keeps `NotifyEmailCard`.
+- `GET /super-admin/tenants` adds `inbox_ok` (any admin user of the tenant with a real notify/login email, or tenant notify_email/owner_email not login-only). Tenants list shows pulsing red **"No inbox"** badge (`inbox-health-{id}`) with guidance tooltip.
+- Test creds unchanged: super@miracurl.com (rename tested and reverted).
