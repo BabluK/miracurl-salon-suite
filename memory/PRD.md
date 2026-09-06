@@ -2783,3 +2783,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Fixed silent bug: `_send_email(..., tag=...)` raised TypeError (unknown option) → advisory + milestone mails were never sent. Removed `tag`.
 - **Vote milestone nudges** (10/25/50, `VOTE_MILESTONES`): on crossing, participant gets `vote_milestones`, an email (WhatsApp share CTA) + SMS (`sms_service.send_sms`, if provider configured), and a `rewards_nudges` row for the salon owner → Settings rewards card shows "Vote milestone nudges · tap to WhatsApp" (one-tap `wa.me/<phone>?text=` prefilled; `POST /settings/rewards-nudges/{id}/done`). Public casting profile shows a 🎉 milestone badge.
 - Landing page (`Landing.jsx`) now has the fixed silk/gold-bokeh background layer (`/brand-luxe-bg.jpg` + gradients) behind all sections.
+
+## 2026-09-06 — 📬 Notification email (real inbox) separate from login ID (iteration_129: 100%)
+- Login IDs (`super@miracurl.com`, `admin@miracurl.com`, all tenants/staff) are UNCHANGED — no migration, no forced resets, nothing touches production tenants' data or sessions.
+- `users.notify_email` (optional). `PUT /auth/me/notify-email` (rejects login-only domains). `email_service._resolve_recipients()` now runs inside `_send_email` for every mail: `@miracurl.com` → users.notify_email → staff.personal_email → tenant.notify_email/owner_email → super-admin: admin@ + support@miracurl-suite.com; else dropped (they were suppressed by Resend anyway).
+- `POST /auth/me/send-reset-link` (authenticated, 5/h) — used by the forced "set your own password" screen ("Email me a reset link" + "Back to sign in"). `/auth/forgot-password` also routes through the resolver.
+- UI: `NotifyEmailCard` in tenant Settings (top) and Super Admin → Security tab. Tenant-creation credentials popup already shows temp password on screen + WhatsApp share when email isn't delivered.
+- PRODUCTION NOTE for the super-admin lock screen: the "one-time password" = `SUPER_ADMIN_SEED_PASSWORD` from the prod env; or click "Email me a reset link" → arrives at admin@ / support@miracurl-suite.com.

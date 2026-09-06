@@ -722,6 +722,14 @@ async def forgot(body: ForgotIn, request: Request):
         reset_recipient = await _staff_reset_recipient(email, body.personal_email)
         if not reset_recipient:
             user = None
+    elif user:
+        # Login IDs like @miracurl.com aren't inboxes: route to the account's notification email
+        # (users.notify_email → tenant notify/owner email → HQ aliases for super-admin).
+        from email_service import _resolve_recipients
+        resolved = await _resolve_recipients([email])
+        reset_recipient = resolved[0] if resolved else None
+        if not reset_recipient:
+            user = None
     if user:
         token = secrets.token_urlsafe(32)
         await db.password_reset_tokens.insert_one({
@@ -754,3 +762,39 @@ async def reset(body: ResetIn):
         import re as _re
         await db.login_attempts.delete_many({"identifier": {"$regex": f"{_re.escape(user['email'])}$"}})
     return {"ok": True}
+
+
+class NotifyEmailIn(BaseModel):
+    notify_email: str = Field("", max_length=200)
+
+
+@router.put("/auth/me/notify-email")
+async def set_notify_email(body: NotifyEmailIn, user=Depends(get_current_user)):
+    """Real inbox for this login (login IDs like @miracurl.com can't receive mail)."""
+    from email_service import _is_login_only
+    val = body.notify_email.strip().lower()
+    if val and ("@" not in val or "." not in val.rsplit("@", 1)[-1]):
+        raise HTTPException(400, "Enter a valid email address")
+    if val and _is_login_only(val):
+        raise HTTPException(400, "That domain is login-only — use a real inbox (Gmail, company mail, etc.)")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"notify_email": val or None}})
+    return {"ok": True, "notify_email": val or None}
+
+
+@router.post("/auth/me/send-reset-link")
+async def send_my_reset_link(request: Request, user=Depends(get_current_user)):
+    """From the forced-password-change screen: email a reset link to the account's real inbox."""
+    from security import public_rate_limit
+    await public_rate_limit(request, key_suffix="myreset", limit=5, window_sec=3600)
+    from email_service import _resolve_recipients
+    recipients = await _resolve_recipients([user["email"]])
+    if not recipients:
+        raise HTTPException(400, "No notification email on file for this login — ask HQ to add one.")
+    token = secrets.token_urlsafe(32)
+    await db.password_reset_tokens.insert_one({
+        "token": token, "user_id": user["id"], "used": False,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()})
+    for r in recipients:
+        await _send_reset_email(user["email"], r, token)
+    masked = [r[:2] + "•••" + r[r.index("@"):] for r in recipients]
+    return {"ok": True, "sent_to": masked}

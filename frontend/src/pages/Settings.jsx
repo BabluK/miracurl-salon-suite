@@ -31,6 +31,7 @@ import { SocialConnectionsCard } from "@/components/settings/SocialConnectionsCa
 import { MiracurlProductsCard } from "@/components/settings/MiracurlProductsCard";
 import { LoyaltyStampsCard } from "@/components/settings/LoyaltyStampsCard";
 import { RewardsQrCard } from "@/components/settings/RewardsQrCard";
+import { NotifyEmailCard } from "@/components/NotifyEmailCard";
 import { GrowthAdvisoryCard } from "@/components/settings/GrowthAdvisoryCard";
 import { ReferEarnCard } from "@/components/settings/ReferEarnCard";
 
@@ -91,6 +92,7 @@ export default function Settings() {
 
         <ReferEarnCard />
 
+        <NotifyEmailCard />
         <LoyaltyStampsCard />
         <RewardsQrCard />
         <GrowthAdvisoryCard />

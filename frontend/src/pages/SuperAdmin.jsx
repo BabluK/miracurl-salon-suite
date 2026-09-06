@@ -49,6 +49,7 @@ import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel
 import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
 import { RewardsCampaignCard } from "@/components/superadmin/RewardsCampaignCard";
 import { GrowthAdvisoryPanel } from "@/components/superadmin/GrowthAdvisoryPanel";
+import { NotifyEmailCard } from "@/components/NotifyEmailCard";
 import { WhatsAppLeadsCard } from "@/components/superadmin/WhatsAppLeadsCard";
 import { SiteInfoPanel } from "@/components/superadmin/SiteInfoPanel";
 import { Globe } from "lucide-react";
@@ -484,7 +485,7 @@ export default function SuperAdmin() {
             deployments: <DeploymentHistoryPanel />,
             load: <PlatformLoadPanel />,
             database: <DatabasePanel />,
-            security: <SecurityCard />,
+            security: <div className="space-y-6"><NotifyEmailCard /><SecurityCard /></div>,
           };
           return panels[tab];
         })() || (

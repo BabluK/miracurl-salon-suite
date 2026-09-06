@@ -1,0 +1,29 @@
+{
+  "summary": "Verified new notify_email + send-reset-link + forgot-password routing features (iteration 129). All 10 backend pytest cases pass; frontend NotifyEmailCard renders correctly in tenant Settings (with warning + save flow) and in Super Admin → Security tab (dark variant, above SecurityCard).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notify_email.py",
+    "/app/test_reports/pytest/iter129_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "email_service._resolve_recipients elegantly de-dupes recipients and falls back through users.notify_email → staff.personal_email → tenant → HQ aliases. Good separation.",
+    "PUT /api/auth/me/notify-email validates '@' + TLD presence & rejects login-only domains — solid.",
+    "send-reset-link is properly rate-limited (5/hour per IP), requires auth (401 for unauth), and returns masked recipients.",
+    "Minor: send-reset-link masking assumes >=2 chars before '@' which is safe for the current test set but might expose too little on short addresses (e.g. 'a@x.com' → 'a•••@x.com'). Non-blocking.",
+    "NotifyEmailCard: no client-side email validation (backend catches it, toast shows detail). Acceptable."
+  ],
+  "updated_files": ["/app/backend/tests/test_notify_email.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (both cards render, save flow works)"},
+  "test_credentials": "Used credentials from /app/memory/test_credentials.md — admin@miracurl.com / super@miracurl.com. Owner PIN 4321.",
+  "seed_data_creation": "None. Cleaned up notify_email back to empty after tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live at /app/backend/tests/test_notify_email.py. Rate limit on POST /api/auth/me/send-reset-link is 5/hour per IP; tests only invoke it 2-3× per run. Force-password-change screen was NOT UI-tested (would require flipping must_change_password on a test user — skipped per request). All feature elements have data-testid: notify-email-card, notify-email-warning, notify-email-input, notify-email-save, notify-email-current, super-tab-security, super-nav-more.",
+  "rca of the issue": "N/A — no bugs found."
+}

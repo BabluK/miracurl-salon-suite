@@ -93,20 +93,43 @@ _EMAIL_OPTION_KEYS = frozenset(
 _LOGIN_ONLY_DOMAINS = tuple(d.strip().lower() for d in os.environ.get("EMAIL_LOGIN_ONLY_DOMAINS", "miracurl.com").split(",") if d.strip())
 
 
-def _route_recipients(to: list) -> list:
-    """@miracurl.com addresses are login IDs, not inboxes (Resend suppresses them).
-    HQ/super-admin ones are rerouted to the real HQ inbox; every other one is dropped."""
+def _is_login_only(addr: str) -> bool:
+    return (addr or "").lower().rpartition("@")[2] in _LOGIN_ONLY_DOMAINS
+
+
+async def _resolve_recipients(to: list) -> list:
+    """Login-only addresses (@miracurl.com) are swapped for the account's real inbox:
+    users.notify_email → staff.personal_email → tenant notify_email/owner_email → HQ aliases for super-admin."""
+    from database import _raw_db
     out = []
     for addr in to or []:
         a = (addr or "").strip()
-        local, _, domain = a.lower().rpartition("@")
-        if domain in _LOGIN_ONLY_DOMAINS:
-            if local == "super":
-                out.extend(hq_notify_emails("admin"))
-            logging.getLogger("email").info(f"skipped login-only recipient {a}")
+        if not a:
             continue
-        if a:
+        if not _is_login_only(a):
             out.append(a)
+            continue
+        low = a.lower()
+        real = []
+        user = await _raw_db.users.find_one({"email": low}, {"_id": 0, "notify_email": 1, "role": 1, "tenant_id": 1})
+        if user and user.get("notify_email") and not _is_login_only(user["notify_email"]):
+            real = [user["notify_email"]]
+        if not real:
+            staff = await _raw_db.staff.find_one({"email": low}, {"_id": 0, "personal_email": 1})
+            if staff and staff.get("personal_email") and not _is_login_only(staff["personal_email"]):
+                real = [staff["personal_email"]]
+        if not real and user and user.get("tenant_id"):
+            t = await _raw_db.tenants.find_one({"id": user["tenant_id"]}, {"_id": 0, "notify_email": 1, "owner_email": 1})
+            for k in ("notify_email", "owner_email"):
+                if t and t.get(k) and not _is_login_only(t[k]):
+                    real = [t[k]]
+                    break
+        if not real and (low.startswith("super@") or (user or {}).get("role") == "super_admin"):
+            real = hq_notify_emails("admin") + hq_notify_emails("support")
+        if real:
+            out.extend(real)
+        else:
+            logging.getLogger("email").info(f"skipped login-only recipient {a} (no notification email on file)")
     return list(dict.fromkeys(out))
 
 
@@ -118,7 +141,7 @@ async def _send_email(to: list, subject: str, html: str, **options) -> dict:
     err = _resend_config_error()
     if err:
         return err
-    to = _route_recipients(to)
+    to = await _resolve_recipients(to)
     if not to:
         return {"sent": False, "error": "no_real_recipient", "skipped": True}
     resend.api_key = os.environ["RESEND_API_KEY"]

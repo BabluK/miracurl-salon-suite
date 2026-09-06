@@ -24,6 +24,14 @@ export default function ForceChangePassword({ user }) {
     different: newPw && newPw !== currentPw,
   };
   const allOk = Object.values(rules).every(Boolean);
+  const [sending, setSending] = useState(false);
+  const [sentTo, setSentTo] = useState(null);
+  async function sendReset() {
+    setSending(true);
+    try { const { data } = await api.post("/auth/me/send-reset-link"); setSentTo(data.sent_to); toast.success("Reset link sent ✦"); }
+    catch (e2) { const d = e2?.response?.data?.detail; toast.error(typeof d === "string" ? d : "Couldn't send the reset link"); }
+    setSending(false);
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -127,6 +135,15 @@ export default function ForceChangePassword({ user }) {
             {busy ? "Setting password…" : "Set new password & continue"}
           </button>
         </form>
+        <div className="mt-4 pt-4 border-t border-slate-100 text-center space-y-2" data-testid="force-change-help">
+          <p className="text-[11px] text-slate-500">Don't have your one-time password? We'll email a reset link to your notification inbox{/@miracurl\.com$/i.test(user?.email || "") ? " (HQ: admin@ / support@miracurl-suite.com)" : ""}.</p>
+          <div className="flex items-center justify-center gap-3">
+            <button type="button" onClick={sendReset} disabled={sending} data-testid="force-change-send-reset" className="text-xs font-semibold text-fuchsia-700 hover:underline disabled:opacity-50">{sending ? "Sending…" : "Email me a reset link"}</button>
+            <span className="text-slate-300">·</span>
+            <button type="button" onClick={async () => { try { await api.post("/auth/logout"); } catch { /* ignore */ } window.location.href = "/login"; }} data-testid="force-change-back-login" className="text-xs text-slate-500 hover:underline">Back to sign in</button>
+          </div>
+          {sentTo && <div className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2" data-testid="force-change-reset-sent">Reset link sent to {sentTo.join(", ")} — valid for 1 hour.</div>}
+        </div>
       </div>
     </div>
   );
