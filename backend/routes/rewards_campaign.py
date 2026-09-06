@@ -1,0 +1,456 @@
+"""Miracurl Customer Rewards campaign — Super Admin configures, customers join from the salon's public page,
+entries are computed live from POS bills / referrals / reviews, Top-10 winners are showcased."""
+import html as html_lib
+import logging
+import os
+import re
+import uuid
+from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from pydantic import BaseModel, Field
+
+from database import _raw_db
+from email_service import _send_email
+from security import current_tenant, public_rate_limit, require_super_admin, require_tenant_admin
+from services.storage import _put_object, APP_NAME
+
+router = APIRouter()
+log = logging.getLogger("rewards")
+
+DEFAULT_CAMPAIGN = {
+    "id": "main", "name": "Miracurl Customer Rewards – 2026", "enabled": False,
+    "eligible_plans": ["annual"], "min_transaction": 1500, "budget": 8000,
+    "start_date": "2026-10-01", "end_date": "2026-12-31", "winner_count": 10,
+    "rewards": [{"tier": "Diamond", "emoji": "💎", "winners": 1}, {"tier": "Platinum", "emoji": "🪩", "winners": 2},
+                {"tier": "Gold", "emoji": "🥇", "winners": 7}],
+    "entry_rules": [{"key": "purchase", "label": "Eligible purchase ₹1,500+", "entries": 1},
+                    {"key": "referral", "label": "Refer a friend who completes an eligible purchase", "entries": 1},
+                    {"key": "referral3", "label": "Refer 3 friends", "entries": 3},
+                    {"key": "review", "label": "Leave a genuine review", "entries": 1},
+                    {"key": "profile", "label": "Complete profile on Miracurl", "entries": 1},
+                    {"key": "follow", "label": "Follow / engage with the campaign", "entries": 1}],
+    "terms": "One entry per eligible transaction of ₹1,500 or more on salon services during the campaign period. "
+             "Referral entries count when the referred friend completes an eligible purchase. Winners are selected by the "
+             "Miracurl team from all valid entries based on entries earned and the quality of the shared salon experience; "
+             "decisions are final. Photos and stories are featured only with the customer's consent. Memberships are "
+             "non-transferable and redeemable at the salon where the entry was earned.",
+}
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+async def get_campaign() -> dict:
+    c = await _raw_db.rewards_campaign.find_one({"id": "main"}, {"_id": 0})
+    return {**DEFAULT_CAMPAIGN, **(c or {})}
+
+
+def _is_live(c: dict) -> bool:
+    today = datetime.now(timezone.utc).date().isoformat()
+    return bool(c.get("enabled")) and c["start_date"] <= today <= c["end_date"]
+
+
+def _plan_matches(plan: str, eligible: list) -> bool:
+    return plan in eligible or any(plan.endswith("_" + e) for e in eligible)
+
+
+def _tenant_eligible(c: dict, t: dict) -> bool:
+    if t.get("status") not in ("active", "trial"):
+        return False
+    flag = (c.get("tenant_flags") or {}).get(t["id"])
+    if flag is not None:
+        return bool(flag)
+    return t.get("status") == "active" and _plan_matches(t.get("plan") or "", c.get("eligible_plans") or [])
+
+
+async def _count_eligible(c: dict) -> int:
+    ts = await _raw_db.tenants.find({"status": {"$in": ["active", "trial"]}}, {"_id": 0, "id": 1, "plan": 1, "status": 1}).to_list(1000)
+    return sum(1 for t in ts if _tenant_eligible(c, t))
+
+
+def _plan_query(eligible: list) -> dict:
+    return {"plan": {"$regex": "(^|_)(" + "|".join(re.escape(e) for e in eligible) + ")$"}} if eligible else {"plan": "__none__"}
+
+
+# ── Super Admin ──
+class CampaignIn(BaseModel):
+    name: str = Field(..., min_length=3, max_length=120)
+    enabled: bool = False
+    eligible_plans: list[str] = Field(default_factory=lambda: ["annual"])
+    min_transaction: float = Field(1500, ge=0)
+    budget: float = Field(8000, ge=0)
+    start_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    winner_count: int = Field(10, ge=1, le=100)
+    rewards: list[dict] = Field(default_factory=list)
+    entry_rules: list[dict] = Field(default_factory=list)
+    terms: str = Field("", max_length=3000)
+
+
+@router.get("/super-admin/rewards-campaign")
+async def sa_get_campaign(user=Depends(require_super_admin)):
+    c = await get_campaign()
+    c["live"] = _is_live(c)
+    c["participants"] = await _raw_db.rewards_participants.count_documents({})
+    c["eligible_tenants"] = await _count_eligible(c)
+    return c
+
+
+@router.get("/super-admin/rewards-campaign/tenants")
+async def sa_campaign_tenants(user=Depends(require_super_admin)):
+    c = await get_campaign()
+    flags = c.get("tenant_flags") or {}
+    ts = await _raw_db.tenants.find({"status": {"$ne": "deleted"}},
+                                    {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1, "location": 1, "logo_url": 1}).to_list(1000)
+    counts = {r["_id"]: r["n"] for r in await _raw_db.rewards_participants.aggregate(
+        [{"$group": {"_id": "$tenant_id", "n": {"$sum": 1}}}]).to_list(1000)}
+    out = []
+    for t in ts:
+        plan_ok = _plan_matches(t.get("plan") or "", c.get("eligible_plans") or [])
+        out.append({**t, "on": _tenant_eligible(c, t), "plan_ok": plan_ok,
+                    "manual": flags.get(t["id"]), "participants": counts.get(t["id"], 0)})
+    out.sort(key=lambda x: (not x["on"], -x["participants"], (x.get("name") or "").lower()))
+    return {"tenants": out, "on_count": sum(1 for x in out if x["on"]), "live": _is_live(c), "enabled": bool(c.get("enabled"))}
+
+
+class TenantFlagIn(BaseModel):
+    on: Optional[bool] = None  # None = follow plan rule
+
+
+@router.post("/super-admin/rewards-campaign/tenants/{tenant_id}/flag")
+async def sa_campaign_tenant_flag(tenant_id: str, body: TenantFlagIn, user=Depends(require_super_admin)):
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "id": 1, "plan": 1, "status": 1})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    op = {"$unset": {f"tenant_flags.{tenant_id}": ""}} if body.on is None else {"$set": {f"tenant_flags.{tenant_id}": body.on}}
+    await _raw_db.rewards_campaign.update_one({"id": "main"}, {**op, "$setOnInsert": {"id": "main"}}, upsert=True)
+    c = await get_campaign()
+    return {"ok": True, "on": _tenant_eligible(c, t), "manual": body.on, "on_count": await _count_eligible(c)}
+
+
+@router.put("/super-admin/rewards-campaign")
+async def sa_put_campaign(body: CampaignIn, user=Depends(require_super_admin)):
+    if body.end_date < body.start_date:
+        raise HTTPException(400, "End date must be after start date")
+    doc = {**body.model_dump(), "id": "main", "updated_at": _now(), "updated_by": user.get("email", "")}
+    if not doc["rewards"]:
+        doc["rewards"] = DEFAULT_CAMPAIGN["rewards"]
+    if not doc["entry_rules"]:
+        doc["entry_rules"] = DEFAULT_CAMPAIGN["entry_rules"]
+    await _raw_db.rewards_campaign.update_one({"id": "main"}, {"$set": doc}, upsert=True)
+    return await sa_get_campaign(user)
+
+
+@router.get("/super-admin/rewards-campaign/participants")
+async def sa_participants(user=Depends(require_super_admin)):
+    c = await get_campaign()
+    rows = await _raw_db.rewards_participants.find({}, {"_id": 0}).sort("joined_at", -1).to_list(500)
+    for p in rows:
+        p["entries"] = await _compute_entries(c, p)
+    rows.sort(key=lambda p: (-p["entries"]["total"], p["joined_at"]))
+    return {"participants": rows}
+
+
+class WinnerIn(BaseModel):
+    tier: Optional[str] = None  # Diamond | Platinum | Gold | None (clear)
+
+
+@router.post("/super-admin/rewards-campaign/participants/{pid}/winner")
+async def sa_set_winner(pid: str, body: WinnerIn, user=Depends(require_super_admin)):
+    c = await get_campaign()
+    tiers = {r["tier"] for r in c["rewards"]}
+    if body.tier and body.tier not in tiers:
+        raise HTTPException(400, "Unknown tier")
+    p = await _raw_db.rewards_participants.find_one({"id": pid}, {"_id": 0})
+    if not p:
+        raise HTTPException(404, "Participant not found")
+    if body.tier:
+        cap = next(r["winners"] for r in c["rewards"] if r["tier"] == body.tier)
+        taken = await _raw_db.rewards_participants.count_documents({"winner_tier": body.tier, "id": {"$ne": pid}})
+        if taken >= cap:
+            raise HTTPException(400, f"All {cap} {body.tier} winner slot(s) are already assigned")
+    await _raw_db.rewards_participants.update_one({"id": pid}, {"$set": {
+        "winner_tier": body.tier, "winner_rank": None, "won_at": _now() if body.tier else None}})
+    return {"ok": True}
+
+
+# ── Entries (computed live, nothing to sync) ──
+async def _compute_entries(c: dict, p: dict) -> dict:
+    rules = {r["key"]: r["entries"] for r in c["entry_rules"]}
+    phone = p.get("phone", "")
+    cust_ids = [x["id"] async for x in _raw_db.customers.find(
+        {"tenant_id": p["tenant_id"], "phone": {"$regex": phone[-10:] + "$"}}, {"_id": 0, "id": 1})] if phone else []
+    purchases = await _raw_db.invoices.count_documents({
+        "tenant_id": p["tenant_id"], "customer_id": {"$in": cust_ids}, "status": {"$nin": ["voided", "open"]},
+        "created_at": {"$gte": c["start_date"], "$lte": c["end_date"] + "T23:59:59"},
+        "total": {"$gte": float(c["min_transaction"])}}) if cust_ids else 0
+    referred = await _raw_db.rewards_participants.count_documents({"referred_by": p["id"], "first_purchase_at": {"$nin": [None, ""]}})
+    breakdown = {
+        "purchase": purchases * rules.get("purchase", 1),
+        "referral": referred * rules.get("referral", 1),
+        "referral3": (rules.get("referral3", 3) if referred >= 3 else 0),
+        "review": rules.get("review", 1) if p.get("review_at") else 0,
+        "profile": rules.get("profile", 1) if (p.get("name") and p.get("email") and p.get("photo_url")) else 0,
+        "follow": rules.get("follow", 1) if p.get("followed_at") else 0,
+    }
+    if purchases and not p.get("first_purchase_at"):
+        await _raw_db.rewards_participants.update_one({"id": p["id"]}, {"$set": {"first_purchase_at": _now()}})
+    return {**breakdown, "purchases": purchases, "referred": referred, "total": sum(breakdown.values())}
+
+
+# ── Tenant (salon owner): status + printable QR poster ──
+@router.get("/settings/rewards-campaign")
+async def tenant_campaign(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    c = await get_campaign()
+    parts = await _raw_db.rewards_participants.find({"tenant_id": t["id"]}, {"_id": 0}).to_list(500)
+    for p in parts:
+        p["entries"] = await _compute_entries(c, p)
+    parts.sort(key=lambda p: (-p["entries"]["total"], p["joined_at"]))
+    pub = {k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "eligible_plans")}
+    return {"campaign": pub, "enabled": bool(c.get("enabled")), "live": _is_live(c), "eligible": _tenant_eligible(c, t) and _is_live(c),
+            "plan_ok": _tenant_eligible(c, t), "participants": parts, "slug": t.get("slug")}
+
+
+async def _rewards_poster_jpeg(t: dict, c: dict, origin: str) -> bytes:
+    import asyncio
+    import io
+    from routes.services_catalog import _tenant_logo_bytes
+    from routes.loyalty_stamps import _shaped_logo
+    base = (origin or os.environ.get("APP_PUBLIC_URL", "")).rstrip("/")
+    logo_bytes = await _tenant_logo_bytes(t, base)
+    slug = t.get("slug") or ""
+
+    def _render() -> bytes:
+        import qrcode
+        from PIL import Image, ImageDraw, ImageFont
+        W, H = 720, 1080
+        assets = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+        bg_path = os.path.join(assets, "posters", "loyalty_bg_midnight.jpg")
+        if os.path.exists(bg_path):
+            bg = Image.open(bg_path).convert("RGB")
+            scale = max(W / bg.width, H / bg.height)
+            bg = bg.resize((round(bg.width * scale), round(bg.height * scale)))
+            lx, ty = (bg.width - W) // 2, (bg.height - H) // 2
+            bg = bg.crop((lx, ty, lx + W, ty + H))
+        else:
+            bg = Image.new("RGB", (W, H), (15, 15, 20))
+        d = ImageDraw.Draw(bg)
+        GOLD, LIGHT, INK, FOOT = (212, 175, 55), (232, 224, 210), (255, 255, 255), (160, 148, 128)
+
+        def _font(name, size):
+            try:
+                return ImageFont.truetype(os.path.join(assets, "fonts", name), size)
+            except Exception:  # noqa: BLE001
+                return ImageFont.load_default()
+
+        def center(text, y, f, fill):
+            d.text(((W - d.textlength(text, font=f)) / 2, y), text, font=f, fill=fill)
+
+        y = 40
+        if logo_bytes:
+            lg = _shaped_logo(logo_bytes, 130, "circle")
+            if lg is not None:
+                bg.paste(lg, ((W - lg.width) // 2, y), lg)
+                y += lg.height + 10
+        name, size = t.get("name") or "Our Salon", 44
+        f = _font("PlayfairDisplay-Bold.ttf", size)
+        while d.textlength(name, font=f) > W - 120 and size > 24:
+            size -= 3
+            f = _font("PlayfairDisplay-Bold.ttf", size)
+        center(name, y, f, GOLD)
+        y += size + 6
+        loc = (t.get("location") or "").strip()
+        if loc:
+            center(loc[:48].upper(), y, _font("FreeSansBold.ttf", 18), LIGHT)
+            y += 28
+        y += 8
+        lbl_f = _font("FreeSansBold.ttf", 24)
+        lbl = "C U S T O M E R   R E W A R D S"
+        lw = d.textlength(lbl, font=lbl_f)
+        center(lbl, y, lbl_f, LIGHT)
+        for dx in (-lw / 2 - 30, lw / 2 + 30):
+            cx, cy = W / 2 + dx, y + 14
+            d.polygon([(cx, cy - 8), (cx + 6, cy), (cx, cy + 8), (cx - 6, cy)], fill=GOLD)
+        y += 46
+        center("Spend · Refer · Participate · Win", y, _font("PlayfairDisplay-Bold.ttf", 34), INK)
+        y += 56
+        qr = qrcode.make(f"{base}/rewards/{slug}", box_size=10, border=1).convert("RGB").resize((320, 320))
+        pad = 18
+        box = Image.new("RGB", (320 + pad * 2, 320 + pad * 2), (255, 255, 255))
+        box.paste(qr, (pad, pad))
+        m = Image.new("L", box.size, 0)
+        ImageDraw.Draw(m).rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=26, fill=255)
+        bg.paste(box, ((W - box.width) // 2, y), m)
+        y += box.height + 22
+        center(f"Spend ₹{int(c['min_transaction']):,}+ in one bill & scan to enrol", y, _font("FreeSansBold.ttf", 22), LIGHT)
+        y += 36
+        tiers = "   ·   ".join(f"{r['tier']} ×{r['winners']}" for r in c["rewards"])
+        center("WIN A MEMBERSHIP", y, _font("FreeSansBold.ttf", 28), GOLD)
+        y += 40
+        center(tiers, y, _font("FreeSansBold.ttf", 20), INK)
+        y += 34
+        center("Refer friends for extra entries  ·  Top 10 featured on Miracurl", y, _font("FreeSansBold.ttf", 17), LIGHT)
+        center(f"{c['start_date']}  →  {c['end_date']}", H - 138, _font("FreeSansBold.ttf", 17), FOOT)
+        center(f"{base.replace('https://', '')}/rewards/{slug}", H - 110, _font("FreeSansBold.ttf", 15), FOOT)
+        out = io.BytesIO()
+        bg.save(out, format="JPEG", quality=88)
+        return out.getvalue()
+
+    return await asyncio.to_thread(_render)
+
+
+@router.get("/settings/rewards-qr-poster.png")
+async def rewards_qr_poster(origin: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from fastapi import Response
+    c = await get_campaign()
+    img = await _rewards_poster_jpeg(t, c, origin)
+    return Response(content=img, media_type="image/jpeg",
+                    headers={"Content-Disposition": 'attachment; filename="rewards-campaign-qr.jpg"'})
+
+
+# ── Public ──
+@router.get("/public/rewards/{slug}")
+async def public_campaign(slug: str):
+    c = await get_campaign()
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1,
+                                                       "logo_url": 1, "location": 1, "phone": 1, "business_type": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    eligible = _tenant_eligible(c, t) and _is_live(c)
+    winners = await _raw_db.rewards_participants.find(
+        {"winner_tier": {"$nin": [None, ""]}, "consent": True},
+        {"_id": 0, "name": 1, "photo_url": 1, "story": 1, "winner_tier": 1, "salon_name": 1}).to_list(20)
+    order = {r["tier"]: i for i, r in enumerate(c["rewards"])}
+    winners.sort(key=lambda w: order.get(w["winner_tier"], 99))
+    pub = {k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "entry_rules", "terms")}
+    return {"campaign": pub, "salon": {k: t.get(k) for k in ("name", "slug", "logo_url", "location", "phone", "business_type")},
+            "eligible": eligible, "live": _is_live(c), "participants": await _raw_db.rewards_participants.count_documents({}),
+            "winners": winners}
+
+
+class JoinIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    phone: str = Field(..., min_length=8, max_length=20)
+    email: str = Field(..., min_length=5, max_length=120)
+    ref: Optional[str] = Field(None, max_length=40)
+    consent: bool = False
+
+
+def _welcome_html(name: str, salon: str, c: dict, link: str) -> str:
+    steps = ["Visit the salon and enjoy your services", f"Spend ₹{int(c['min_transaction']):,}+ in one bill",
+             "Refer friends & family — every eligible friend earns you an entry", "Scan the campaign QR after your visit / keep this link",
+             "Get featured — 10 outstanding customers are showcased on the Miracurl website"]
+    steps_html = "".join(f'<tr><td style="width:28px;color:#d4af37;font-weight:bold;vertical-align:top;padding:6px 0">{i + 1}</td>'
+                         f'<td style="padding:6px 0;color:#3a3a42">{s}</td></tr>' for i, s in enumerate(steps))
+    rewards = " · ".join(f'{r["emoji"]} {r["tier"]} ×{r["winners"]}' for r in c["rewards"])
+    return f"""<div style="font-family:Georgia,serif;max-width:580px;margin:0 auto;background:#fffdf9;border-radius:20px;overflow:hidden;box-shadow:0 6px 30px rgba(20,18,12,.1)">
+  <div style="background:#15151b;padding:26px 36px;text-align:center"><div style="font-size:20px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    <div style="color:#f4f1e8;font-size:22px;margin-top:10px">🎉 Welcome to {html_lib.escape(c['name'])}</div>
+    <div style="color:#b9b2a3;font-size:12px;letter-spacing:2px;margin-top:6px">SPEND · REFER · PARTICIPATE · WIN</div></div>
+  <div style="padding:28px 36px;color:#3a3a42;line-height:1.7;font-size:15px">
+    <p>Hi {html_lib.escape(name.split(' ')[0])},</p>
+    <p>You're in! You've joined the rewards campaign at <b>{html_lib.escape(salon)}</b>. Here's how it works:</p>
+    <table cellpadding="0" cellspacing="0" style="width:100%;font-size:14px">{steps_html}</table>
+    <div style="background:#fdf8ec;border:1px solid #eee3c4;border-radius:14px;padding:14px 18px;margin:18px 0;font-size:14px">
+      <b>🎁 Chance to win:</b> {rewards} — plus special salon rewards.<br>
+      <span style="color:#7d7668;font-size:12.5px">Campaign period: {c['start_date']} → {c['end_date']}</span></div>
+    <p style="text-align:center"><a href="{link}" style="display:inline-block;background:#d4af37;color:#15151b;font-weight:bold;text-decoration:none;padding:13px 34px;border-radius:999px">View my campaign page ✦</a></p>
+    <p style="font-size:12px;color:#9a948a">Your entries are counted automatically from your bills at the salon (use this same phone number). Refer friends with your link above — they must complete an eligible purchase for your entry to count.</p>
+  </div></div>"""
+
+
+@router.post("/public/rewards/{slug}/join")
+async def public_join(slug: str, body: JoinIn, request: Request):
+    await public_rate_limit(request, "rewards-join", limit=6, window_sec=600)
+    c = await get_campaign()
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "plan": 1, "status": 1})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    if not (_tenant_eligible(c, t) and _is_live(c)):
+        raise HTTPException(400, "This salon is not part of the campaign right now")
+    phone = "".join(ch for ch in body.phone if ch.isdigit())[-12:]
+    email = body.email.lower().strip()
+    if "@" not in email:
+        raise HTTPException(400, "Please enter a valid email")
+    existing = await _raw_db.rewards_participants.find_one({"tenant_id": t["id"], "phone": phone}, {"_id": 0, "id": 1, "ref_code": 1})
+    if existing:
+        return {"ok": True, "already": True, "id": existing["id"], "ref_code": existing["ref_code"]}
+    referrer = await _raw_db.rewards_participants.find_one({"ref_code": body.ref}, {"_id": 0, "id": 1}) if body.ref else None
+    p = {"id": str(uuid.uuid4()), "tenant_id": t["id"], "salon_name": t["name"], "salon_slug": slug, "name": body.name.strip(),
+         "phone": phone, "email": email, "consent": bool(body.consent), "ref_code": uuid.uuid4().hex[:8],
+         "referred_by": (referrer or {}).get("id"), "joined_at": _now(), "photo_url": None, "story": "",
+         "review_at": None, "followed_at": None, "first_purchase_at": None, "winner_tier": None}
+    await _raw_db.rewards_participants.insert_one({**p})
+    base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    link = f"{base}/rewards/{slug}?ref={p['ref_code']}"
+    status = await _send_email([email], f"🎉 Welcome to {c['name']} — you're in!", _welcome_html(p["name"], t["name"], c, link))
+    return {"ok": True, "id": p["id"], "ref_code": p["ref_code"], "email_sent": bool(status.get("sent"))}
+
+
+class StoryIn(BaseModel):
+    phone: str = Field(..., min_length=8, max_length=20)
+    story: str = Field("", max_length=600)
+    photo_url: Optional[str] = Field(None, max_length=300)
+    consent: bool = True
+    followed: bool = False
+
+
+@router.post("/public/rewards/{slug}/story")
+async def public_story(slug: str, body: StoryIn, request: Request):
+    """Participant adds their photo (already uploaded via /api/upload) + salon story; identified by phone."""
+    await public_rate_limit(request, "rewards-story", limit=6, window_sec=600)
+    phone = "".join(ch for ch in body.phone if ch.isdigit())[-12:]
+    p = await _raw_db.rewards_participants.find_one({"salon_slug": slug, "phone": phone}, {"_id": 0, "id": 1})
+    if not p:
+        raise HTTPException(404, "We couldn't find your entry — join the campaign first with this phone number")
+    upd = {"story": body.story.strip(), "consent": bool(body.consent)}
+    if body.photo_url and body.photo_url.startswith("/api/files/"):
+        upd["photo_url"] = body.photo_url
+    if body.followed:
+        upd["followed_at"] = _now()
+    await _raw_db.rewards_participants.update_one({"id": p["id"]}, {"$set": upd})
+    return {"ok": True}
+
+
+@router.get("/public/rewards/{slug}/me")
+async def public_me(slug: str, phone: str, request: Request):
+    await public_rate_limit(request, "rewards-me", limit=20, window_sec=600)
+    c = await get_campaign()
+    ph = "".join(ch for ch in phone if ch.isdigit())[-12:]
+    p = await _raw_db.rewards_participants.find_one({"salon_slug": slug, "phone": ph}, {"_id": 0})
+    if not p:
+        raise HTTPException(404, "No entry for this phone number yet")
+    entries = await _compute_entries(c, p)
+    return {"name": p["name"], "ref_code": p["ref_code"], "entries": entries, "photo_url": p.get("photo_url"),
+            "story": p.get("story", ""), "winner_tier": p.get("winner_tier")}
+
+
+@router.post("/public/rewards/{slug}/photo")
+async def public_photo(slug: str, request: Request, phone: str = Form(...), file: UploadFile = File(...)):
+    """Participant photo for the Top-10 showcase (≤5 MB image). Identified by the phone used to join."""
+    await public_rate_limit(request, "rewards-photo", limit=6, window_sec=3600)
+    ph = "".join(ch for ch in phone if ch.isdigit())[-12:]
+    p = await _raw_db.rewards_participants.find_one({"salon_slug": slug, "phone": ph}, {"_id": 0, "id": 1, "tenant_id": 1})
+    if not p:
+        raise HTTPException(404, "Join the campaign first with this phone number")
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(400, "Only image files are allowed")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Image too large — max 5 MB")
+    fid = str(uuid.uuid4())
+    ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()[:5] or "jpg"
+    try:
+        result = _put_object(f"{APP_NAME}/rewards/{p['id']}/{fid}.{ext}", data, file.content_type)
+    except Exception as e:  # noqa: BLE001
+        log.error("rewards photo upload failed: %s", e)
+        raise HTTPException(502, "Upload failed — try again")
+    await _raw_db.uploads.insert_one({
+        "id": fid, "tenant_id": p["tenant_id"], "kind": "rewards_photo", "storage_path": result.get("path"),
+        "original_filename": file.filename or f"{fid}.{ext}", "content_type": file.content_type, "size": len(data),
+        "uploaded_by": f"rewards:{p['id']}", "is_deleted": False, "created_at": _now()})
+    await _raw_db.rewards_participants.update_one({"id": p["id"]}, {"$set": {"photo_url": f"/api/files/{fid}"}})
+    return {"ok": True, "url": f"/api/files/{fid}"}

@@ -2751,3 +2751,19 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-05 — 🩹 Plan prices (recurring user bug) · 🏆 Referral leaderboard
 - **Root cause (prices)**: `PLAN_CATALOG` is in-memory; super-admin edits are DB overrides loaded by `load_plan_overrides()`. `/public/plans` reloaded them, but `GET /billing/razorpay/config` (Settings card), signup welcome email (`auth.py`) and HQ pay-links (`pay_links.py`) read the stale in-memory dict → wrong prices on multi-worker/after restart. All three now call `load_plan_overrides()` first. **Rule**: any reader of `PLAN_CATALOG` must `await load_plan_overrides()` first.
 - **Leaderboard**: `GET /api/super-admin/referral-leaderboard?month=YYYY-MM` (aggregate `affiliate_referrals` by referrer, top 10, joins tenant, includes this month's gift) and `POST /api/super-admin/referral-leaderboard/{tenant_id}/gift {days, note}` → `_extend_access` + `referral_gifts` record (once per salon per month) + thank-you email. UI `ReferralLeaderboard.jsx` in HQ lead-email tab (month nav, medals, "Thank-you gift" button → "🎁 +30 d sent"). Verified via seeded referrals (+30 d, guard 400, board shows gift; reverted). BUILD .214.
+
+## 2026-09-06 — 🎁 Customer Rewards Campaign (Phase 1) · COMPLETE (iteration_126: 100% backend/frontend)
+- Backend `routes/rewards_campaign.py`: HQ config (GET/PUT), per-tenant ON/OFF flags (`GET /super-admin/rewards-campaign/tenants`, `POST .../tenants/{id}/flag {on:true|false|null}`; null = follow plan rule; forced-ON works for trial tenants), participants + winner caps, public `/public/rewards/{slug}` (join/me/story/photo), tenant `GET /settings/rewards-campaign` + printable poster `GET /settings/rewards-qr-poster.png` (720×1080 JPEG).
+- Plan eligibility matches suffix (`annual` covers `two_branch_annual` etc.).
+- HQ card moved to **Tenants tab** (`RewardsCampaignCard.jsx`): master gold switch, stats strip, per-salon switch tiles + "reset to auto", collapsible settings, participants/winners.
+- Owner Settings `RewardsQrCard.jsx` (poster preview/download, enrolled list). Public `RewardsCampaign.jsx` (fixed `ref` reserved-prop bug → `refCode`). `/rewards` added to consumer PWA routes.
+
+## 2026-09-06 — 📈 Growth Advisory (Phase 2) · COMPLETE (iteration_126)
+- User choices: delivered by Miracurl team (no advisor accounts); 3 editable tiers ₹4,999 / ₹14,999 / ₹29,999; salon owners only (Settings); after payment → owner email + HQ email + HQ schedule form.
+- Backend `routes/growth_advisory.py`: config in `hq_settings{key:'growth_advisory'}` (enabled, platform_cut_pct=10, opt_in_mode selected|all, opted_tenant_ids, tiers); `advisory_bookings` collection (created→paid→scheduled→completed|refunded) with integer `platform_cut`/`advisor_payout` split; Razorpay order/verify (HMAC, replay-safe, tenant-scoped); HQ schedule (slot_at, duration, meet_link, note → emails owner) and status.
+- HQ tab `growth-advisory` (`GrowthAdvisoryPanel.jsx`): master switch, opt-in mode, tenant switches, packages editor, payout ledger + slot picker. `/super-admin?tab=<id>` deep-link supported.
+- Owner `GrowthAdvisoryCard.jsx` in Settings (only when opted in): 3 tier cards → Razorpay checkout, goal input, "Your sessions" list.
+- Test scripts: `/tmp/test_rewards_campaign.py`, `/tmp/test_growth_advisory.py`. Test data cleaned after run.
+
+### Backlog (unchanged priority)
+- P1 Advance/deposit booking (₹100–200 UPI/Razorpay at booking) · P1 Guest bill split · P2 Mid-term plan upgrade · P2 Gift-card expiry.

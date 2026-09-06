@@ -47,6 +47,8 @@ import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
 import { DocsPanel } from "@/components/superadmin/DocsPanel";
 import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel";
 import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
+import { RewardsCampaignCard } from "@/components/superadmin/RewardsCampaignCard";
+import { GrowthAdvisoryPanel } from "@/components/superadmin/GrowthAdvisoryPanel";
 import { WhatsAppLeadsCard } from "@/components/superadmin/WhatsAppLeadsCard";
 import { SiteInfoPanel } from "@/components/superadmin/SiteInfoPanel";
 import { Globe } from "lucide-react";
@@ -127,7 +129,7 @@ export default function SuperAdmin() {
   const [payLinkFor, setPayLinkFor] = useState(null); // tenant getting a payment link
   const [smsLogFor, setSmsLogFor] = useState(null); // tenant whose SMS log is open
   const [cleanFor, setCleanFor] = useState(null); // tenant being cleaned of dummy data
-  const [tab, setTab] = useState("mira-home"); // tenants | billing
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "mira-home");
   const [navOpen, setNavOpen] = useState(false);
   const [platformLogo, setPlatformLogo] = useState("");
   useEffect(() => {
@@ -367,6 +369,7 @@ export default function SuperAdmin() {
               { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread, top: true },
               { id: "partners", label: "Partners", icon: Handshake },
               { id: "leaderboard", label: "Top Referrers", icon: Trophy },
+              { id: "growth-advisory", label: "Growth Advisory", icon: TrendingUp },
               { id: "docs", label: "Documents", icon: FileText },
               { id: "lead-email", label: "Lead Gen Email", icon: Mail, badge: demoHot, hot: demoHot > 0 },
               { id: "demo-calendar", label: "Demo Calendar", icon: Bell },
@@ -449,6 +452,7 @@ export default function SuperAdmin() {
             billing: <div className="space-y-6"><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,
+            "growth-advisory": <GrowthAdvisoryPanel />,
             revenue: <div className="space-y-6"><PlatformEarnings /><HiringEarningsReview /><RevenuePanel /></div>,
             docs: <DocsPanel />,
             "mira-leads": <MiraLeadAgent />,
@@ -715,6 +719,7 @@ export default function SuperAdmin() {
           )}
         </div>
 
+        <RewardsCampaignCard />
         <SmsCreditLog />
           </>
         )}

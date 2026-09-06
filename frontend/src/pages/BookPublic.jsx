@@ -256,8 +256,10 @@ export default function BookPublic() {
     PUBLIC.get(`/availability/${slug}?date=${date}${staffParam}`).then(r => setAvailability(r.data)).catch(() => setAvailability(null));
   }, [PUBLIC, slug, date, staffId]);
 
+  const [rewards, setRewards] = useState(null);
   useEffect(() => {
     PUBLIC.get(`/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon({ error: true }));
+    PUBLIC.get(`/rewards/${slug}`).then(r => setRewards(r.data?.eligible ? r.data : null)).catch(() => {});
     PUBLIC.get(`/gift-cards/${slug}/config`).then(r => {
       const amts = (r.data?.amounts || []).map(Number).filter(a => a > 0);
       if (r.data?.enabled !== false && amts.length) setGiftPreview({ from: Math.min(...amts), validity: r.data?.validity_days || 0 });
@@ -549,6 +551,17 @@ export default function BookPublic() {
           {/* Row C — primary actions */}
           <HeroCTAs restaurant={salon.business_type === "restaurant"} />
 
+          {rewards && (
+            <Link to={`/rewards/${slug}`} data-testid="hero-rewards-banner"
+              className="mt-5 max-w-2xl flex items-center gap-3 p-3 pr-4 rounded-2xl border border-[#d4af37]/50 bg-[#d4af37]/10 backdrop-blur-md hover:bg-[#d4af37]/20 transition-colors">
+              <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#F0D9A5] to-[#C89B52] flex items-center justify-center shrink-0 text-xl shadow-lg">🎉</span>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block text-sm font-semibold text-white">Join our Rewards Campaign</span>
+                <span className="block text-[11px] text-white/70">Spend ₹{Number(rewards.campaign.min_transaction).toLocaleString("en-IN")}+, refer friends & win Diamond · Platinum · Gold memberships</span>
+              </span>
+              <ArrowRight className="w-4 h-4 text-[#d4af37] shrink-0" />
+            </Link>
+          )}
           {/* Row D — Gift card & Membership: two matched glass feature cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 max-w-2xl" data-testid="hero-secondary-links">
             {salon.business_type === "restaurant" ? (

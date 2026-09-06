@@ -17,7 +17,7 @@
         <script>
           (function () {
             var p = window.location.pathname;
-            var pub = ["/book", "/salon", "/demo-slot", "/review", "/order", "/rate", "/feedback", "/gift", "/membership", "/member", "/pay", "/loyalty"];
+            var pub = ["/book", "/salon", "/demo-slot", "/review", "/order", "/rate", "/feedback", "/gift", "/membership", "/member", "/pay", "/loyalty", "/rewards"];
             var b = pub.some(function (r) { return p === r || p.indexOf(r + "/") === 0; });
             document.write(
               '<link rel="manifest" href="' + (b ? "/manifest.json" : "/manifest-admin.json") + '">' +

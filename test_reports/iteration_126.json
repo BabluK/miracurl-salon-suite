@@ -1,0 +1,33 @@
+{
+  "summary": "Backend + frontend regression testing for Miracurl Customer Rewards Campaign and Growth Advisory. All backend flows (super-admin CRUD, tenant flags/force-ON, public join/story/me, POS-invoice entry, participants, winner cap, tenant poster JPEG, advisory config/opt-in/order/verify/replay/HMAC-bad-sig, HQ schedule + owner sees session + complete) pass. All frontend testids and flows work: SA Tenants tab shows rewards-campaign-card with master switch + stats + per-tenant switches (elegance forced ON then reset to auto verified visually), participants button, growth-advisory tab (found directly, no super-nav-more collapse needed) with panel/enabled/mode-selected/mode-all/cfg-toggle/tenant switches/bookings ledger, /super-admin?tab=growth-advisory deep link works, owner Settings after PIN 4321 renders rewards-qr-preview/download/open-page + growth-advisory-card with all 3 tiers and buy buttons, and Razorpay checkout iframe opens on buy click. Public /rewards/miracurl-marathahalli renders with all form testids; /book/miracurl-marathahalli shows hero-rewards-banner. Final state left as required: master rewards ON, marathahalli ON, elegance auto/OFF, advisory ON in 'selected' mode with marathahalli opted-in.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AppLayout / Settings", "issues": ["React hydration warning in console: '<span> cannot be a child of <option>' inside AppLayout. Cosmetic, not blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/tmp/test_rewards_campaign.py",
+    "/tmp/test_growth_advisory.py",
+    "/tmp/test_rewards_flag.py",
+    "/tmp/final_state.py"
+  ],
+  "action_items": [
+    "Optional: fix React hydration warning (invalid <span> child of <option>) in AppLayout tenant/currency select to silence console noise."
+  ],
+  "critical_code_review_comments": [
+    "GrowthAdvisoryCard renders 'advisory-my-bookings' only when bookings.length>0 (line 113); documented behavior, expected. No fix needed.",
+    "RewardsQrCard testid 'rewards-qr-card' is on the outer wrapper and 'rewards-qr-preview' on the <img>; both present in source (RewardsQrCard.jsx L27, L38). Playwright's rewards-qr-card count showed 0 in one run (viewport/timing) while preview/download/open-page all present — suggests intermittent detection, not a code defect.",
+    "Test script /tmp/test_rewards_campaign.py cleanup uses raw env parsing that mangles MONGO_URL when it contains '='; MONGO_URL parsed with quotes fails pymongo. Non-blocking; use dotenv_values instead."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "See /app/memory/test_credentials.md (super@miracurl.com, admin@miracurl.com PIN 4321). All valid.",
+  "seed_data_creation": "Rewards participants 9700011223 and 9700011224 at miracurl-marathahalli (idempotent, already existed). Test invoice + advisory booking created and cleaned up by the two /tmp/ scripts.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Both features are fully wired and passing E2E. Public join is IP-rate-limited (6/10min); re-runs may 429. Razorpay checkout must NOT be completed in-browser — buy button opens the checkout iframe and that is sufficient verification. HQ growth-advisory tab appears as a top-level tab (no need to open 'super-nav-more' collapse in current UI). Elegance-koramangala is trial/plan_ok=false; force-ON works and resets cleanly with {on:null}.",
+  "rca of the issue": "N/A — no bugs found."
+}

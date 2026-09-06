@@ -64,6 +64,7 @@ import CashRegister from "@/pages/CashRegister";
 import Reviews from "@/pages/Reviews";
 import OffersStudio from "@/pages/OffersStudio";
 import BookPublic from "@/pages/BookPublic";
+import RewardsCampaign from "@/pages/RewardsCampaign";
 import LoyaltyClubJoin from "@/pages/LoyaltyClubJoin";
 import OrderPublic from "@/pages/OrderPublic";
 import Kitchen from "@/pages/Kitchen";
@@ -217,6 +218,7 @@ export default function App() {
           <PlayerProvider>
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
+            <Route path="/rewards/:slug" element={<RewardsCampaign />} />
             <Route path="/order/:slug" element={<OrderPublic />} />
             <Route path="/gift/:slug" element={<GiftCardPublic />} />
             <Route path="/membership/:slug" element={<MembershipPublic />} />

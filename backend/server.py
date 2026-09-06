@@ -96,6 +96,8 @@ from routes.lead_gen import router as lead_gen_router  # noqa: E402
 from routes.tenant_mira import router as tenant_mira_router  # noqa: E402
 from routes.eod_digests import router as eod_digests_router  # noqa: E402
 from routes.cash_register import router as cash_register_router  # noqa: E402
+from routes.rewards_campaign import router as rewards_campaign_router  # noqa: E402
+from routes.growth_advisory import router as growth_advisory_router  # noqa: E402
 from routes.wallet_pass import router as wallet_pass_router  # noqa: E402
 from routes.site_info import router as site_info_router  # noqa: E402
 from routes.blog import router as blog_router  # noqa: E402
@@ -132,7 +134,7 @@ for _r in (
     setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router, salon_digest_router,
     pay_links_router,
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
-    blog_router, cash_register_router,
+    blog_router, cash_register_router, rewards_campaign_router, growth_advisory_router,
 ):
     api.include_router(_r)
 
